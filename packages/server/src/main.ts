@@ -872,6 +872,57 @@ const buildNeutralExpandTiming = (capture: PendingCapture, sentAt: number): Neut
     resultSentAt: sentAt
   };
 };
+const buildFrontierResultTiming = (capture: PendingCapture, sentAt: number): NeutralExpandTiming | undefined => {
+  if (typeof capture.startedAt !== "number") return undefined;
+  return {
+    acceptedAt: capture.startedAt,
+    resolvesAt: capture.resolvesAt,
+    resultSentAt: sentAt
+  };
+};
+const buildPredictedFrontierResult = (input: {
+  actionType: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK";
+  actorId: string;
+  origin: { x: number; y: number };
+  target: { x: number; y: number };
+  precomputedCombat?: PrecomputedFrontierCombat;
+}): Record<string, unknown> | undefined => {
+  if (input.actionType === "EXPAND" && !input.precomputedCombat) {
+    return {
+      attackType: input.actionType,
+      attackerWon: true,
+      winnerId: input.actorId,
+      origin: input.origin,
+      target: input.target,
+      changes: [{ x: input.target.x, y: input.target.y, ownerId: input.actorId, ownershipState: "FRONTIER" as const }],
+      pointsDelta: 0,
+      manpowerDelta: 0,
+      pillagedGold: 0,
+      pillagedShare: 0,
+      pillagedStrategic: {},
+      levelDelta: 0
+    };
+  }
+  if (!input.precomputedCombat) return undefined;
+  return {
+    attackType: input.actionType,
+    attackerWon: input.precomputedCombat.attackerWon,
+    ...(input.precomputedCombat.winnerId ? { winnerId: input.precomputedCombat.winnerId } : {}),
+    ...(input.precomputedCombat.defenderOwnerId ? { defenderOwnerId: input.precomputedCombat.defenderOwnerId } : {}),
+    origin: input.origin,
+    target: input.target,
+    changes: input.precomputedCombat.changes,
+    pointsDelta: input.precomputedCombat.pointsDelta,
+    manpowerDelta: input.precomputedCombat.manpowerDelta,
+    pillagedGold: input.precomputedCombat.pillagedGold,
+    pillagedShare: input.precomputedCombat.pillagedShare,
+    pillagedStrategic: input.precomputedCombat.pillagedStrategic,
+    atkEff: input.precomputedCombat.atkEff,
+    defEff: input.precomputedCombat.defEff,
+    winChance: input.precomputedCombat.winChance,
+    levelDelta: 0
+  };
+};
 interface UpkeepBreakdown {
   need: number;
   fromYield: number;
@@ -2704,6 +2755,8 @@ const {
     settleAttackManpower(player, committedManpower, attackerWon, atkEff, defEff),
   applyTownWarShock: (tileKey) => applyTownWarShock(tileKey),
   settledTileCountForPlayer: (player) => settledTileCountForPlayer(player),
+  getOrInitStrategicStocks: (playerId) => getOrInitStrategicStocks(playerId),
+  strategicResourceKeys: STRATEGIC_RESOURCE_KEYS,
   seizeStoredYieldOnCapture: (attacker, tileKey) => seizeStoredYieldOnCapture(attacker, tileKey),
   pillageSettledTile: (attacker, defender, defenderTileCountBeforeCapture) =>
     pillageSettledTile(attacker, defender, defenderTileCountBeforeCapture),
@@ -9902,10 +9955,11 @@ registerServerHttpRoutes(app, {
         const atkEffWithSiege = combat.atkEff;
         const defEff = combat.defEff;
         const winChance = combat.winChance;
-        const win = combat.win;
-        const previewChanges = (() => {
-          if (win) return [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }];
-          const fortHeldOrigin = originTileHeldByActiveFort(actor.id, fk);
+        const attackerWon = combat.win;
+        const targetWasSettled = to.ownershipState === "SETTLED";
+        const fortHeldOrigin = originTileHeldByActiveFort(actor.id, fk);
+        const changes = (() => {
+          if (attackerWon) return [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }];
           if (defenderIsBarbarian) {
             return fortHeldOrigin
               ? [{ x: to.x, y: to.y }]
@@ -9919,20 +9973,60 @@ registerServerHttpRoutes(app, {
           }
           return [];
         })();
-        const previewWinnerId = win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId;
+        const winnerId = attackerWon ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId;
+        const manpowerDelta = -(
+          attackerWon
+            ? Math.max(10, manpowerCost * 0.16)
+            : manpowerCost * Math.min(1.25, 0.6 + (defEff / Math.max(1, atkEffWithSiege)) * 0.35)
+        );
+        const defenderTileCountBeforeCapture = defender ? Math.max(1, settledTileCountForPlayer(defender)) : 0;
+        const pillagedShare = attackerWon && defender && targetWasSettled ? 1 / defenderTileCountBeforeCapture : 0;
+        const pillagedGold = attackerWon && defender && targetWasSettled ? Math.max(0, defender.points * pillagedShare) : 0;
+        const defenderStrategicStocks = defender ? getOrInitStrategicStocks(defender.id) : undefined;
+        const pillagedStrategic = attackerWon && defender && targetWasSettled && defenderStrategicStocks
+          ? Object.fromEntries(
+              STRATEGIC_RESOURCE_KEYS
+                .map((resource) => [resource, Math.max(0, defenderStrategicStocks[resource] ?? 0) * pillagedShare] as const)
+                .filter((entry) => entry[1] > 0)
+            ) as Partial<Record<StrategicResource, number>>
+          : {};
+        const targetYieldBuffer = tileYieldByTile.get(tk);
+        const seizedStoredYieldGold = attackerWon && targetWasSettled && targetYieldBuffer ? Math.floor(targetYieldBuffer.gold * 100) / 100 : 0;
+        const attackGoldCost = msg.type === "ATTACK" ? FRONTIER_ACTION_GOLD_COST : 0;
+        const pointsDelta = (() => {
+          if (attackerWon && defenderIsBarbarian) return BARBARIAN_CLEAR_GOLD_REWARD;
+          if (attackerWon && defender) {
+            const attackerRating = ratingFromPointsLevel(actor.points - attackGoldCost + seizedStoredYieldGold + pillagedGold, actor.level);
+            const defenderRating = ratingFromPointsLevel(defender.points - pillagedGold, defender.level);
+            const pairKey = pairKeyFor(actor.id, defender.id);
+            const repeatEntries = pruneRepeatFightEntries(pairKey, now());
+            const repeatMult = Math.max(PVP_REPEAT_FLOOR, 0.5 ** repeatEntries.length);
+            return actor.allies.has(defender.id)
+              ? 0
+              : pvpPointsReward(baseTileValue(to.resource), attackerRating, defenderRating) * repeatMult * PVP_REWARD_MULT;
+          }
+          if (!attackerWon && defender) {
+            const attackerRating = ratingFromPointsLevel(defender.points, defender.level);
+            const defenderRating = ratingFromPointsLevel(actor.points - attackGoldCost, actor.level);
+            return actor.allies.has(defender.id)
+              ? 0
+              : pvpPointsReward(baseTileValue(from.resource), attackerRating, defenderRating) * PVP_REWARD_MULT;
+          }
+          return 0;
+        })();
         return {
           atkEff: atkEffWithSiege,
           defEff,
           winChance,
-          win,
-          previewChanges,
-          previewManpowerDelta: -(
-            win
-              ? Math.max(10, manpowerCost * 0.16)
-              : manpowerCost * Math.min(1.25, 0.6 + (defEff / Math.max(1, atkEffWithSiege)) * 0.35)
-          ),
+          attackerWon,
+          changes,
+          ...(winnerId ? { winnerId } : {}),
           ...(defenderIsBarbarian ? { defenderOwnerId: BARBARIAN_OWNER_ID } : defenderOwnerId ? { defenderOwnerId } : {}),
-          ...(previewWinnerId ? { previewWinnerId } : {})
+          pointsDelta,
+          manpowerDelta,
+          pillagedGold,
+          pillagedShare,
+          pillagedStrategic
         };
       });
     }
@@ -10018,18 +10112,18 @@ registerServerHttpRoutes(app, {
         return computed;
       });
     }
-    const predictedResult =
-      msg.type === "EXPAND" && !to.ownerId
-        ? {
-            attackType: msg.type,
-            attackerWon: true,
-            winnerId: actor.id,
-            origin: { x: from.x, y: from.y },
-            target: { x: to.x, y: to.y },
-            changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }],
-            manpowerDelta: 0
-          }
-        : undefined;
+    const predictedCombat =
+      pending.precomputedCombat ??
+      (pending.precomputedCombatPromise
+        ? await pending.precomputedCombatPromise
+        : undefined);
+    const predictedResult = buildPredictedFrontierResult({
+      actionType: msg.type,
+      actorId: actor.id,
+      origin: { x: from.x, y: from.y },
+      target: { x: to.x, y: to.y },
+      ...(predictedCombat ? { precomputedCombat: predictedCombat } : {})
+    });
     recordServerDebugEvent("info", "frontier_combat_start", {
       playerId: actor.id,
       actionType: msg.type,
@@ -10125,24 +10219,20 @@ registerServerHttpRoutes(app, {
             "neutral expand timing"
           );
         }
-        sendControlToSocket(
-          socket,
-          {
-            type: "COMBAT_RESULT",
-            attackType: msg.type,
-            attackerWon: true,
-            origin: { x: from.x, y: from.y },
-            target: { x: to.x, y: to.y },
-            winnerId: actor.id,
-            changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }],
-            pointsDelta: siteBonusGold,
-            levelDelta: 0,
-            ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
-            ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
-            ...(neutralExpandTiming ? { timing: neutralExpandTiming } : {})
-          },
-          { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
-        );
+        sendToPlayer(actor.id, {
+          type: "COMBAT_RESULT",
+          attackType: msg.type,
+          attackerWon: true,
+          origin: { x: from.x, y: from.y },
+          target: { x: to.x, y: to.y },
+          winnerId: actor.id,
+          changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }],
+          pointsDelta: siteBonusGold,
+          levelDelta: 0,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
+          ...(neutralExpandTiming ? { timing: neutralExpandTiming } : {})
+        });
         recordHotPathTimingEvent(
           "frontier_combat_result_timing",
           {
@@ -10168,10 +10258,7 @@ registerServerHttpRoutes(app, {
       }
 
       if (defender && defender.spawnShieldUntil > now()) {
-        sendHighPrioritySocketMessage(
-          socket,
-          JSON.stringify({ type: "ERROR", code: "SHIELDED", message: "target shielded" })
-        );
+        sendToPlayer(actor.id, { type: "ERROR", code: "SHIELDED", message: "target shielded" });
         return;
       }
 
@@ -10186,28 +10273,28 @@ registerServerHttpRoutes(app, {
       actor.stamina -= staminaCost;
 
       applyTownWarShock(tk);
-      const atkEffWithSiege = pending.precomputedCombat?.atkEff ?? 10;
-      const defEff = pending.precomputedCombat?.defEff ?? 10;
-      const p = pending.precomputedCombat?.winChance ?? 0.5;
-      const win = pending.precomputedCombat?.win ?? false;
+      const lockedCombat = pending.precomputedCombat;
+      const atkEffWithSiege = lockedCombat?.atkEff ?? 10;
+      const defEff = lockedCombat?.defEff ?? 10;
+      const p = lockedCombat?.winChance ?? 0.5;
+      const win = lockedCombat?.attackerWon ?? false;
 
-      let pointsDelta = 0;
-      let manpowerDelta = 0;
-      let pillagedGold = 0;
-      let pillagedShare = 0;
-      let pillagedStrategic: Partial<Record<StrategicResource, number>> = {};
+      let pointsDelta = lockedCombat?.pointsDelta ?? 0;
+      let manpowerDelta = lockedCombat?.manpowerDelta ?? 0;
+      let pillagedGold = lockedCombat?.pillagedGold ?? 0;
+      let pillagedShare = lockedCombat?.pillagedShare ?? 0;
+      let pillagedStrategic: Partial<Record<StrategicResource, number>> = lockedCombat?.pillagedStrategic ?? {};
       let resultChanges: Array<{
         x: number;
         y: number;
         ownerId?: string;
         ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
-      }> = [];
+      }> = lockedCombat?.changes ?? [];
       if (win) {
         const targetWasSettled = to.ownershipState === "SETTLED";
         const targetHadTown = townsByTile.has(tk);
         const defenderTileCountBeforeCapture = defender ? Math.max(1, settledTileCountForPlayer(defender)) : 0;
         updateOwnership(to.x, to.y, actor.id, "FRONTIER");
-        resultChanges = [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }];
         if (targetHadTown && !playerHasSettledFoodSources(actor.id)) {
           sendToPlayer(actor.id, {
             type: "ERROR",
@@ -10221,7 +10308,6 @@ registerServerHttpRoutes(app, {
           applyBreachShockAround(to.x, to.y, defender.id);
         }
         if (defenderIsBarbarian) {
-          pointsDelta = BARBARIAN_CLEAR_GOLD_REWARD;
           actor.points += pointsDelta;
           logBarbarianEvent(`cleared by ${actor.id} @ ${to.x},${to.y}`);
         } else {
@@ -10229,36 +10315,28 @@ registerServerHttpRoutes(app, {
         }
         if (defender && targetWasSettled) {
           seizeStoredYieldOnCapture(actor, tk);
-          const pillage = pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);
-          pillagedGold = pillage.gold;
-          pillagedShare = pillage.share;
-          pillagedStrategic = pillage.strategic;
+          pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);
         }
         actor.missionStats.combatWins += 1;
         if (defender) {
           incrementVendettaCount(actor.id, defender.id);
           maybeIssueVendettaMission(actor, defender.id);
-        }
-        maybeIssueResourceMission(actor, to.resource);
-        if (defender) {
-          const attackerRating = ratingFromPointsLevel(actor.points, actor.level);
-          const defenderRating = ratingFromPointsLevel(defender.points, defender.level);
           const pairKey = pairKeyFor(actor.id, defender.id);
-          const nowMs = now();
-          const entries = pruneRepeatFightEntries(pairKey, nowMs);
-          entries.push(nowMs);
+          const committedAt = now();
+          const entries = pruneRepeatFightEntries(pairKey, committedAt);
+          entries.push(committedAt);
           repeatFights.set(pairKey, entries);
-          const repeatMult = Math.max(PVP_REPEAT_FLOOR, 0.5 ** (entries.length - 1));
-          pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(to.resource), attackerRating, defenderRating) * repeatMult * PVP_REWARD_MULT;
           actor.points += pointsDelta;
         }
-        manpowerDelta = -settleAttackManpower(actor, manpowerCost, true, atkEffWithSiege, defEff);
+        settleAttackManpower(actor, manpowerCost, true, atkEffWithSiege, defEff);
+        maybeIssueResourceMission(actor, to.resource);
       } else {
-        manpowerDelta = -settleAttackManpower(actor, manpowerCost, false, atkEffWithSiege, defEff);
+        settleAttackManpower(actor, manpowerCost, false, atkEffWithSiege, defEff);
         if (defenderIsBarbarian) {
           const barbarianAgentId = barbarianAgentByTileKey.get(tk);
           const barbarianAgent = barbarianAgentId ? barbarianAgents.get(barbarianAgentId) : undefined;
           const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, undefined, true, from, to, fk, tk);
+          resultChanges = failedOutcome.resultChanges;
           if (barbarianAgent) {
             const progressBefore = barbarianAgent.progress;
             barbarianAgent.progress += getBarbarianProgressGain(from);
@@ -10272,12 +10350,8 @@ registerServerHttpRoutes(app, {
             barbarianAgent.lastActionAt = now();
             barbarianAgent.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
             upsertBarbarianAgent(barbarianAgent);
-            resultChanges = failedOutcome.resultChanges;
             logBarbarianEvent(`progress ${barbarianAgent.id} ${progressBefore} -> ${barbarianAgent.progress} on defense ${from.x},${from.y}`);
-          } else {
-            resultChanges = failedOutcome.resultChanges;
           }
-          pointsDelta = 0;
         } else if (defenderOwnerId) {
           const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, defenderOwnerId, false, from, to, fk, tk);
           resultChanges = failedOutcome.resultChanges;
@@ -10289,19 +10363,11 @@ registerServerHttpRoutes(app, {
             defender.missionStats.combatWins += 1;
             incrementVendettaCount(defender.id, actor.id);
             maybeIssueVendettaMission(defender, actor.id);
-            const attackerRating = ratingFromPointsLevel(defender.points, defender.level);
-            const defenderRating = ratingFromPointsLevel(actor.points, actor.level);
-            pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(from.resource), attackerRating, defenderRating) * PVP_REWARD_MULT;
             defender.points += pointsDelta;
           }
         }
       }
 
-      recalcPlayerDerived(actor);
-      if (defender) recalcPlayerDerived(defender);
-      if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
-      updateMissionState(actor);
-      if (defender) updateMissionState(defender);
       logExpandTrace("result_applied", pending, { neutralTarget: false, attackerWon: win, changes: resultChanges.length });
       logAttackTrace("result_applied", pending, {
         neutralTarget: false,
@@ -10311,34 +10377,44 @@ registerServerHttpRoutes(app, {
         defenderIsBarbarian
       });
 
-      resolveEliminationIfNeeded(actor, true);
-      if (defender) resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
-
-      sendControlToSocket(
-        socket,
-        {
-          type: "COMBAT_RESULT",
-          attackType: msg.type,
-          attackerWon: win,
-          winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId,
-          defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId,
-          origin: { x: from.x, y: from.y },
-          target: { x: to.x, y: to.y },
-          atkEff: atkEffWithSiege,
-          defEff,
-          winChance: p,
-          changes: resultChanges,
-          pointsDelta,
-          manpowerDelta,
-          pillagedGold,
-          pillagedShare,
-          pillagedStrategic,
-          levelDelta: 0,
-          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
-          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {})
-        },
-        { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
-      );
+      const resultSentAt = now();
+      const frontierResultTiming = buildFrontierResultTiming(pending, resultSentAt);
+      sendToPlayer(actor.id, {
+        type: "COMBAT_RESULT",
+        attackType: msg.type,
+        attackerWon: win,
+        winnerId: lockedCombat?.winnerId ?? (win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId),
+        defenderOwnerId: lockedCombat?.defenderOwnerId ?? (defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId),
+        origin: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        atkEff: atkEffWithSiege,
+        defEff,
+        winChance: p,
+        changes: resultChanges,
+        pointsDelta,
+        manpowerDelta,
+        pillagedGold,
+        pillagedShare,
+        pillagedStrategic,
+        levelDelta: 0,
+        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
+        ...(frontierResultTiming ? { timing: frontierResultTiming } : {})
+      });
+      if (frontierResultTiming) {
+        app.log.info(
+          {
+            playerId: actor.id,
+            actionType: msg.type,
+            origin: { x: from.x, y: from.y },
+            target: { x: to.x, y: to.y },
+            attackerWon: win,
+            ...frontierResultTiming,
+            timerDelayMs: frontierResultTiming.resultSentAt - frontierResultTiming.resolvesAt
+          },
+          "frontier combat timing"
+        );
+      }
       recordHotPathTimingEvent(
         "frontier_combat_result_timing",
         {
@@ -10355,7 +10431,7 @@ registerServerHttpRoutes(app, {
           ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
           traceId: pending.traceId
         },
-        now() - nowMs,
+        resultSentAt - nowMs,
         50
       );
       logExpandTrace("combat_result_sent", pending, {
@@ -10371,6 +10447,15 @@ registerServerHttpRoutes(app, {
         changes: resultChanges.length,
         socketReadyState: socket.readyState
       });
+
+      recalcPlayerDerived(actor);
+      if (defender) recalcPlayerDerived(defender);
+      if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
+      updateMissionState(actor);
+      if (defender) updateMissionState(defender);
+
+      resolveEliminationIfNeeded(actor, true);
+      if (defender) resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
       const changedCenters = resultChanges.map((change) => ({ x: change.x, y: change.y }));
       sendPostCombatFollowUps(actor.id, changedCenters, defender && !defenderIsBarbarian ? defender.id : undefined);
       logExpandTrace("vision_delta_sent", pending, { centers: changedCenters.length, targetPlayer: actor.id });
