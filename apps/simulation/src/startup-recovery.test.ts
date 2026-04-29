@@ -310,6 +310,61 @@ describe("loadSimulationStartupRecovery", () => {
     );
   });
 
+  it("replays tile delta batches from durable events into recovered startup state", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const playerId = "firebase-user-restart";
+
+    await eventStore.appendEvent(
+      {
+        eventType: "TILE_DELTA_BATCH",
+        commandId: "bootstrap-spawn:firebase-user-restart:1000",
+        playerId,
+        tileDeltas: [
+          {
+            x: 10,
+            y: 12,
+            terrain: "LAND",
+            resource: "IRON",
+            ownerId: playerId,
+            ownershipState: "SETTLED",
+            townJson: JSON.stringify({
+              name: "Settlement 10,12",
+              type: "FARMING",
+              populationTier: "SETTLEMENT"
+            }),
+            townType: "FARMING",
+            townName: "Settlement 10,12",
+            townPopulationTier: "SETTLEMENT"
+          }
+        ]
+      },
+      1_000
+    );
+
+    const startupRecovery = await loadSimulationStartupRecovery({
+      commandStore,
+      eventStore
+    });
+
+    expect(startupRecovery.recoveredEventCount).toBe(1);
+    expect(startupRecovery.initialState.tiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          x: 10,
+          y: 12,
+          ownerId: playerId,
+          ownershipState: "SETTLED",
+          town: expect.objectContaining({
+            name: "Settlement 10,12",
+            type: "FARMING",
+            populationTier: "SETTLEMENT"
+          })
+        })
+      ])
+    );
+  });
+
   it("loads snapshot follow-up events in batches instead of one giant query", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const snapshotStore = new InMemorySimulationSnapshotStore();
