@@ -19,9 +19,9 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.3",
+  version: "2026.04.29.4",
   title: "What's New",
-  summary: "Recent updates include a gateway health fix that stops rewrite/staging frontier commands from silently hanging when the simulation event stream drops, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include a gateway health fix that stops rewrite/staging frontier commands from silently hanging when the simulation event stream drops, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
     {
       introducedIn: "2026.04.29.3",
@@ -31,6 +31,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Gateway backend health now requires both a healthy simulation RPC path and a live simulation event stream before it accepts frontier commands.",
         "If the event stream drops, the gateway now rejects new actions immediately with the existing temporary-unavailable error instead of silently letting them hang in a stuck queued state.",
         "Added regression coverage around event-stream connect/disconnect transitions and command rejection while the stream is offline."
+      ]
+    },
+    {
+      introducedIn: "2026.04.29.4",
+      title: "Tile details now reuse leaderboard empire names when owner styles lag behind",
+      why: "Visible rewrite tiles could still show a raw owner id like `ai8` in the tile header even while the same empire already had a proper display name in the live leaderboard, because the tile menu only consulted the player-style name cache.",
+      changes: [
+        "Owner-name lookups now fall back to the current leaderboard snapshot when a tile owner has not populated the player-style name map yet.",
+        "Tile details, inspection cards, and other owner-name consumers that share that resolver stay aligned with the visible leaderboard instead of dropping to raw ids.",
+        "Added regression coverage so future bootstrap or sync ordering changes do not reintroduce mixed AI labels across client surfaces."
       ]
     },
     {

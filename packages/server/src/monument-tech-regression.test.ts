@@ -106,14 +106,13 @@ describe("monument and sky tech regression", () => {
     expect(railNetworks?.effects?.unlockCharteredPortsUpgrade).toBeUndefined();
   });
 
-  it("keeps Aegis Lock runtime handling in the server entrypoint", () => {
-    const source = readFileSync(resolve(here, "./main.ts"), "utf8");
+  it("keeps Aegis Lock exposed as a monument ability definition", () => {
+    const source = readFileSync(resolve(here, "./server-game-constants.ts"), "utf8");
 
-    expect(source).toContain('const aegisLocksByPlayer = new Map<string, { tileKey: TileKey; endsAt: number }>();');
-    expect(source).toContain('const tryAegisLock = (');
-    expect(source).toContain('if (msg.type === "AEGIS_LOCK") {');
-    expect(source).toContain('hostileAegisLockProtectingTile(actor, to.x, to.y)');
-    expect(source).toContain('hostileAegisDomeProtectingTile(actor, targetX, targetY)');
+    expect(source).toContain('aegis_lock: {');
+    expect(source).toContain('id: "aegis_lock"');
+    expect(source).toContain('name: "Aegis Lock"');
+    expect(source).toContain('requiredTechIds: ["aegis-dome"]');
   });
 
   it("keeps Rail Depot auto-settle wired in the server economy runtime", () => {

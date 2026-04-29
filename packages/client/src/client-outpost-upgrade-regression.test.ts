@@ -12,7 +12,8 @@ describe("starter fort and outpost regression guard", () => {
       readFileSync(resolve(here, "./client-tile-action-logic.ts"), "utf8");
 
     expect(source).toContain('label: "Build Wooden Fort"');
-    expect(source).toContain('label: hasWoodenFort ? "Upgrade to Fort" : "Build Fort"');
-    expect(source).toContain('label: hasLightOutpost ? "Upgrade to Siege Outpost" : "Build Siege Outpost"');
+    expect(source).toContain('label: tile.fort || hasWoodenFort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`');
+    expect(source).toContain('label: "Build Light Outpost"');
+    expect(source).toContain('label: tile.siegeOutpost || hasLightOutpost ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`');
   });
 });
