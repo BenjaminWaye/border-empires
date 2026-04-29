@@ -22,7 +22,8 @@ describe("client HUD dependency wiring", () => {
     expect(hudSource).toContain("state.domainDetailOpen");
     expect(hudSource).toContain("dom.techDetailOverlayEl.onclick = (event: MouseEvent) => {");
     expect(hudSource).toContain('const domainUnlockTrigger = target?.closest<HTMLButtonElement>("[data-domain-unlock]")');
-    expect(detailSource).toContain("showInlineClose: false");
+    expect(detailSource).toContain("return renderDomainDetailCardHtml({");
+    expect(detailSource).not.toContain("showInlineClose: false");
     expect(hudSource).toContain('dom.mobileCoreHelpEl.innerHTML = "";');
     expect(hudSource).toContain('dom.mobileCoreHelpEl.style.display = "none";');
   });
