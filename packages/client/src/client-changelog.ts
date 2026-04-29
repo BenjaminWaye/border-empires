@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.9",
+  version: "2026.04.29.10",
   title: "What's New",
-  summary: "Recent updates include a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include a legacy login hot-path fix that stops auth and full empire refreshes from rebuilding personalized leaderboard and season-victory payloads during connection, a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.29.10",
+      title: "Legacy login no longer rebuilds personalized global-status payloads during auth",
+      why: "Production legacy logins were spending tens of seconds inside the auth INIT and first full empire refresh because each connection rebuilt per-player leaderboard and season-victory views on the hot path before the session could finish opening.",
+      changes: [
+        "Legacy auth INIT now reuses the server's cached global leaderboard and season-victory snapshots instead of recomputing personalized variants before the world sync can start.",
+        "Full PLAYER_UPDATE payloads now use those same cached global-status snapshots, which removes a large synchronous login/update stall without touching saved player or map data.",
+        "Added regression coverage so future auth or player-update changes do not quietly put expensive personalized global-status work back onto the login hot path."
+      ]
+    },
     {
       introducedIn: "2026.04.29.9",
       title: "Rewrite staging now hard-fails on probe ghosts or orphaned human empires",
