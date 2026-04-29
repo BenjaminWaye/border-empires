@@ -224,7 +224,7 @@ export const tileAreaEffectModifiersForTile = (
     isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "GOVERNORS_OFFICE", GOVERNORS_OFFICE_RADIUS)
   ) {
     modifiers.push({
-      reason: "Governor's Office",
+      reason: "Ministry Hall",
       effect: "-20% upkeep",
       tone: "positive"
     });

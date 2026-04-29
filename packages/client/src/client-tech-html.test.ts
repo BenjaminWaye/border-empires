@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatTechBenefitSummary, renderTechDetailCardHtml } from "./client-tech-html.js";
+import { formatTechBenefitSummary } from "./client-tech-html.js";
 import type { TechInfo } from "./client-types.js";
 
 describe("tech benefit summaries", () => {
@@ -27,43 +27,193 @@ describe("tech benefit summaries", () => {
     expect(formatTechBenefitSummary(tech)).toBe("Unlocks Aether Bridge");
   });
 
-  it("falls back to gold and resource requirements when checklist labels are missing", () => {
-    const tech: TechInfo = {
-      id: "surveying",
+  it("surfaces Aether Lance and Waterworks as visible unlocks", () => {
+    const signalFires: TechInfo = {
+      id: "signal-fires",
       tier: 2,
-      name: "Surveying",
-      description: "Reveal empire stats.",
+      name: "Signal Fires",
+      description: "Unlocks Aether Lance.",
       mods: {},
       effects: {
-        unlockRevealEmpireStats: true,
+        unlockAetherLance: true,
+        visionRadiusBonus: 1
+      },
+      requirements: {
+        gold: 5000,
+        resources: {
+          CRYSTAL: 60
+        },
+        canResearch: true,
+        checklist: []
+      }
+    };
+    const irrigation: TechInfo = {
+      id: "irrigation",
+      tier: 2,
+      name: "Irrigation",
+      description: "Unlocks Waterworks.",
+      mods: {},
+      effects: {
+        unlockWaterworksUpgrade: true,
+        townFoodUpkeepMult: 0.95
+      },
+      requirements: {
+        gold: 4500,
+        resources: {
+          FOOD: 90
+        },
+        canResearch: true,
+        checklist: []
+      }
+    };
+
+    expect(formatTechBenefitSummary(signalFires)).toContain("Unlocks Aether Lance");
+    expect(formatTechBenefitSummary(irrigation)).toContain("Upgrades Farmstead to Waterworks");
+  });
+
+  it("surfaces Survey Sweep, Siphon, and Lockworks Port as visible unlocks", () => {
+    const surveying: TechInfo = {
+      id: "surveying",
+      tier: 3,
+      name: "Surveying",
+      description: "Unlocks Survey Sweep.",
+      mods: {},
+      effects: {
+        unlockSurveySweep: true,
         visionRadiusBonus: 1
       },
       requirements: {
         gold: 7000,
         resources: {
-          CRYSTAL: 60,
-          SUPPLY: 60
+          SUPPLY: 60,
+          CRYSTAL: 60
         },
-        canResearch: false,
+        canResearch: true,
+        checklist: []
+      }
+    };
+    const logistics: TechInfo = {
+      id: "logistics",
+      tier: 3,
+      name: "Logistics",
+      description: "Unlocks Siphon.",
+      mods: {},
+      effects: {
+        unlockSabotage: true,
+        settlementSpeedMult: 1.05
+      },
+      requirements: {
+        gold: 7000,
+        resources: {
+          SUPPLY: 80
+        },
+        canResearch: true,
+        checklist: []
+      }
+    };
+    const portInfrastructure: TechInfo = {
+      id: "port-infrastructure",
+      tier: 4,
+      name: "Port Infrastructure",
+      description: "Unlocks Lockworks Port.",
+      mods: {},
+      effects: {
+        unlockHarborLocksUpgrade: true,
+        dockGoldCapMult: 1.25
+      },
+      requirements: {
+        gold: 10000,
+        resources: {
+          SUPPLY: 120,
+          CRYSTAL: 100
+        },
+        canResearch: true,
         checklist: []
       }
     };
 
-    const html = renderTechDetailCardHtml({
-      tech,
-      statusText: undefined,
-      buttonLabel: "Locked",
-      buttonDisabled: true,
-      prereqs: ["cartography", "toolmaking"],
-      prereqText: "Cartography, Toolmaking",
-      unlocks: [],
-      relatedStructuresHtml: "",
-      relatedCrystalAbilitiesHtml: ""
-    });
+    expect(formatTechBenefitSummary(surveying)).toContain("Unlocks Survey Sweep");
+    expect(formatTechBenefitSummary(logistics)).toContain("Unlocks Siphon");
+    expect(formatTechBenefitSummary(portInfrastructure)).toContain("Upgrades Harbor Exchange to Lockworks Port");
+  });
 
-    expect(html).toContain("Gold 7,000");
-    expect(html).toContain("CRYSTAL 60");
-    expect(html).toContain("SUPPLY 60");
-    expect(html).not.toContain("<li>None</li>");
+  it("does not render dead tempo text for Organized Supply or Logistics", () => {
+    const organizedSupply: TechInfo = {
+      id: "organized-supply",
+      tier: 4,
+      name: "Organized Supply",
+      description: "Unlocks Garrison Halls.",
+      mods: {},
+      effects: {
+        unlockGarrisonHall: true,
+        outpostSupplyUpkeepMult: 0.8
+      },
+      requirements: {
+        gold: 9500,
+        resources: {
+          SUPPLY: 140
+        },
+        canResearch: true,
+        checklist: []
+      }
+    };
+    const logistics: TechInfo = {
+      id: "logistics",
+      tier: 3,
+      name: "Logistics",
+      description: "Unlocks Siphon.",
+      mods: {},
+      effects: {
+        unlockSabotage: true,
+        settlementSpeedMult: 1.05
+      },
+      requirements: {
+        gold: 7000,
+        resources: {
+          SUPPLY: 80
+        },
+        canResearch: true,
+        checklist: []
+      }
+    };
+
+    expect(formatTechBenefitSummary(organizedSupply)).toContain("Unlocks garrison halls");
+    expect(formatTechBenefitSummary(organizedSupply)).toContain("Outpost supply upkeep -20%");
+    expect(formatTechBenefitSummary(organizedSupply)).not.toContain("tempo");
+    expect(formatTechBenefitSummary(logistics)).toContain("Unlocks Siphon");
+    expect(formatTechBenefitSummary(logistics)).toContain("Settlement speed +5%");
+    expect(formatTechBenefitSummary(logistics)).not.toContain("tempo");
+  });
+
+  it("surfaces late-game monument and stormfront unlocks without removed strike abilities", () => {
+    const resonanceGrid: TechInfo = {
+      id: "radar",
+      tier: 6,
+      name: "Resonance Grid",
+      description: "Unlocks resonance grids and Stormfront.",
+      mods: {},
+      effects: {
+        unlockRadarSystem: true,
+        unlockStormfront: true,
+        visionRadiusBonus: 1
+      },
+      requirements: { gold: 24000, resources: { CRYSTAL: 280, SHARD: 2 }, checklist: [], canResearch: true }
+    };
+    const aegisDome: TechInfo = {
+      id: "aegis-dome",
+      tier: 6,
+      name: "Aegis Dome",
+      description: "Unlocks the Aegis Dome and Aegis Lock.",
+      mods: {},
+      effects: {
+        unlockAegisDome: true,
+        unlockAegisLock: true
+      },
+      requirements: { gold: 26000, resources: { CRYSTAL: 300, SHARD: 3 }, checklist: [], canResearch: true }
+    };
+
+    expect(formatTechBenefitSummary(resonanceGrid)).toContain("Unlocks Stormfront");
+    expect(formatTechBenefitSummary(aegisDome)).toContain("Unlocks Aegis Dome");
+    expect(formatTechBenefitSummary(aegisDome)).toContain("Unlocks Aegis Lock");
   });
 });

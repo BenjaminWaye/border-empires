@@ -128,11 +128,14 @@ export interface ServerPlayerEconomyRuntimeDeps {
   PASSIVE_INCOME_MULT: number;
   OBSERVATORY_UPKEEP_PER_MIN: number;
   REVEAL_EMPIRE_UPKEEP_PER_MIN: number;
-  AIRPORT_OIL_UPKEEP_PER_MIN: number;
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN: number;
   FARMSTEAD_GOLD_UPKEEP: number;
+  WATERWORKS_GOLD_UPKEEP: number;
   CAMP_GOLD_UPKEEP: number;
   MINE_GOLD_UPKEEP: number;
   GRANARY_GOLD_UPKEEP: number;
+  CENSUS_HALL_GOLD_UPKEEP: number;
+  CARAVANARY_GOLD_UPKEEP: number;
   MARKET_FOOD_UPKEEP: number;
   BANK_FOOD_UPKEEP: number;
   CARAVANARY_FOOD_UPKEEP: number;
@@ -142,11 +145,25 @@ export interface ServerPlayerEconomyRuntimeDeps {
   IRONWORKS_GOLD_UPKEEP: number;
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP: number;
   FUEL_PLANT_GOLD_UPKEEP: number;
+  AETHER_TOWER_GOLD_UPKEEP: number;
+  EXCHANGE_HOUSE_GOLD_UPKEEP: number;
   FOUNDRY_GOLD_UPKEEP: number;
   GARRISON_HALL_GOLD_UPKEEP: number;
   CUSTOMS_HOUSE_GOLD_UPKEEP: number;
+  LOCKWORKS_PORT_GOLD_UPKEEP: number;
+  CHARTERED_PORT_GOLD_UPKEEP: number;
+  RAIL_DEPOT_GOLD_UPKEEP: number;
+  CLEARING_HOUSE_GOLD_UPKEEP: number;
   GOVERNORS_OFFICE_GOLD_UPKEEP: number;
   RADAR_SYSTEM_GOLD_UPKEEP: number;
+  IMPERIAL_EXCHANGE_PART_GOLD_UPKEEP: number;
+  WORLD_ENGINE_PART_GOLD_UPKEEP: number;
+  AEGIS_DOME_PART_GOLD_UPKEEP: number;
+  ASTRAL_DOCK_PART_GOLD_UPKEEP: number;
+  IMPERIAL_EXCHANGE_GOLD_UPKEEP: number;
+  WORLD_ENGINE_GOLD_UPKEEP: number;
+  AEGIS_DOME_GOLD_UPKEEP: number;
+  ASTRAL_DOCK_GOLD_UPKEEP: number;
 }
 
 export interface ServerPlayerEconomyRuntime {
@@ -211,7 +228,7 @@ export interface ServerEconomicOperationsDeps {
   recordTileStructureHistory: (tileKey: TileKey, structureType: EconomicStructureType) => void;
   cancelEconomicStructureBuild: (tileKey: TileKey) => void;
   discoverOilFieldNearAirport: (ownerId: string, tileKey: TileKey) => void;
-  updateOwnership: (x: number, y: number, ownerId: string | undefined) => void;
+  updateOwnership: (x: number, y: number, ownerId: string | undefined, state?: OwnershipState) => void;
   emptyUpkeepDiagnostics: () => UpkeepDiagnostics;
   consumeYieldStrategicForPlayer: (player: Player, resource: StrategicResource, needed: number, touchedTileKeys: Set<TileKey>) => number;
   consumeYieldGoldForPlayer: (player: Player, needed: number, touchedTileKeys: Set<TileKey>) => number;
@@ -245,6 +262,7 @@ export interface ServerEconomicOperationsDeps {
   converterStructureOutputFor: (structureType: EconomicStructureType, ownerId: string | undefined) => Partial<Record<StrategicResource, number>> | undefined;
   activeAirportAt: (ownerId: string, tileKey: TileKey) => EconomicStructure | undefined;
   hostileRadarProtectingTile: (actor: Player, x: number, y: number) => TileKey | undefined;
+  tileHasPendingSettlement: (tileKey: TileKey) => boolean;
   economicStructureGoldUpkeepPerInterval: (structureType: EconomicStructureType) => number;
   economicStructureFoodUpkeepPerInterval: (structureType: EconomicStructureType, playerId: string) => number;
   economicStructureUpkeepDue: (structure: EconomicStructure) => boolean;
@@ -265,13 +283,27 @@ export interface ServerEconomicOperationsDeps {
   HARVEST_RESOURCE_RATE_MULT: number;
   SIPHON_SHARE: number;
   FARMSTEAD_BUILD_FOOD_COST: number;
+  WATERWORKS_BUILD_FOOD_COST: number;
   CAMP_BUILD_SUPPLY_COST: number;
   MINE_BUILD_RESOURCE_COST: number;
   GRANARY_BUILD_FOOD_COST: number;
+  CENSUS_HALL_BUILD_FOOD_COST: number;
+  BANK_BUILD_CRYSTAL_COST: number;
+  CLEARING_HOUSE_BUILD_CRYSTAL_COST: number;
+  CARAVANARY_BUILD_CRYSTAL_COST: number;
   GARRISON_HALL_BUILD_CRYSTAL_COST: number;
   CUSTOMS_HOUSE_BUILD_CRYSTAL_COST: number;
+  LOCKWORKS_PORT_BUILD_CRYSTAL_COST: number;
+  CHARTERED_PORT_BUILD_CRYSTAL_COST: number;
+  RAIL_DEPOT_BUILD_CRYSTAL_COST: number;
   RADAR_SYSTEM_BUILD_CRYSTAL_COST: number;
   AIRPORT_BUILD_CRYSTAL_COST: number;
+  AETHER_TOWER_BUILD_CRYSTAL_COST: number;
+  EXCHANGE_HOUSE_BUILD_CRYSTAL_COST: number;
+  IMPERIAL_EXCHANGE_PART_BUILD_CRYSTAL_COST: number;
+  WORLD_ENGINE_PART_BUILD_CRYSTAL_COST: number;
+  AEGIS_DOME_PART_BUILD_CRYSTAL_COST: number;
+  ASTRAL_DOCK_PART_BUILD_CRYSTAL_COST: number;
 }
 
 export interface ServerEconomicOperations {

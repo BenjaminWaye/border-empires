@@ -164,13 +164,6 @@ export const openBulkTileActionMenu = (
   }
   if (enemyCount > 0) {
     actions.push({ id: "launch_attack", label: `Launch Attack (${enemyCount})` });
-    if (deps.hasBreakthroughCapability()) {
-      actions.push({
-        id: "launch_breach_attack",
-        label: `Launch Breach Attack (${enemyCount})`,
-        cost: "2 gold + 1 IRON each"
-      });
-    }
   }
   if (ownedYieldCount > 0) {
     actions.push({ id: "collect_yield", label: `Collect Yield (${ownedYieldCount})` });

@@ -26,8 +26,18 @@ import type {
   TruceRequest,
   TileActionDef,
   TileMenuTab,
-  TileTimedProgress
+  TileTimedProgress,
+  OptimisticStructureKind
 } from "./client-types.js";
+
+type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
+type QueuedOptimisticKind = OptimisticStructureKind;
+type QueuedBuildPayload =
+  | { type: "BUILD_FORT"; x: number; y: number }
+  | { type: "BUILD_OBSERVATORY"; x: number; y: number }
+  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
+  | { type: "REMOVE_STRUCTURE"; x: number; y: number }
+  | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
 
 export const storageGet = (keyName: string): string | null => {
   try {
@@ -134,7 +144,28 @@ export const createInitialState = () => ({
   domainUiSelectedId: "" as string,
   revealCapacity: 1,
   activeRevealTargets: [] as string[],
-  abilityCooldowns: {} as Partial<Record<"aether_bridge" | "aether_wall" | "siphon" | "reveal_empire" | "reveal_empire_stats" | "create_mountain" | "remove_mountain", number>>,
+  abilityCooldowns: {} as Partial<
+    Record<
+      | "aether_bridge"
+      | "aether_wall"
+      | "aether_lance"
+      | "retort_recasting"
+      | "siphon"
+      | "reveal_empire"
+      | "reveal_empire_stats"
+      | "survey_sweep"
+      | "create_mountain"
+      | "remove_mountain"
+      | "imperial_exchange_levy"
+      | "world_engine_strike"
+      | "stormfront"
+      | "aegis_lock"
+      | "aether_emp"
+      | "city_overclock"
+      | "astral_dock_launch",
+      number
+    >
+  >,
   revealTargetId: "" as string,
   revealedEmpireStatsByPlayer: new Map<string, RevealEmpireStatsView>(),
   allies: [] as string[],
@@ -226,6 +257,7 @@ export const createInitialState = () => ({
   techChoicesSig: "" as string,
   techTreeScrollLeft: 0,
   techTreeScrollTop: 0,
+  techTreeZoom: 1,
   actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
   frontierLateAckUntilByTarget: new Map<string, number>(),
   developmentQueue: [] as Array<
@@ -236,65 +268,8 @@ export const createInitialState = () => ({
         y: number;
         tileKey: string;
         label: string;
-        payload:
-          | { type: "BUILD_FORT"; x: number; y: number }
-          | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-          | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
-          | { type: "REMOVE_STRUCTURE"; x: number; y: number }
-          | {
-              type: "BUILD_ECONOMIC_STRUCTURE";
-              x: number;
-              y: number;
-              structureType:
-                | "FARMSTEAD"
-                | "CAMP"
-                | "MINE"
-                | "MARKET"
-                | "GRANARY"
-                | "BANK"
-                | "AIRPORT"
-                | "WOODEN_FORT"
-                | "LIGHT_OUTPOST"
-                | "FUR_SYNTHESIZER"
-                | "ADVANCED_FUR_SYNTHESIZER"
-                | "IRONWORKS"
-                | "ADVANCED_IRONWORKS"
-                | "CRYSTAL_SYNTHESIZER"
-                | "ADVANCED_CRYSTAL_SYNTHESIZER"
-                | "FUEL_PLANT"
-                | "CARAVANARY"
-                | "FOUNDRY"
-                | "GARRISON_HALL"
-                | "CUSTOMS_HOUSE"
-                | "GOVERNORS_OFFICE"
-                | "RADAR_SYSTEM";
-            };
-        optimisticKind:
-          | "FORT"
-          | "OBSERVATORY"
-          | "SIEGE_OUTPOST"
-          | "FARMSTEAD"
-          | "CAMP"
-          | "MINE"
-          | "MARKET"
-          | "GRANARY"
-          | "BANK"
-          | "AIRPORT"
-          | "WOODEN_FORT"
-          | "LIGHT_OUTPOST"
-          | "FUR_SYNTHESIZER"
-          | "ADVANCED_FUR_SYNTHESIZER"
-          | "IRONWORKS"
-          | "ADVANCED_IRONWORKS"
-          | "CRYSTAL_SYNTHESIZER"
-          | "ADVANCED_CRYSTAL_SYNTHESIZER"
-          | "FUEL_PLANT"
-          | "CARAVANARY"
-          | "FOUNDRY"
-          | "GARRISON_HALL"
-          | "CUSTOMS_HOUSE"
-          | "GOVERNORS_OFFICE"
-          | "RADAR_SYSTEM";
+        payload: QueuedBuildPayload;
+        optimisticKind: QueuedOptimisticKind;
       }
   >,
   lastDevelopmentAttempt: undefined as
@@ -305,65 +280,8 @@ export const createInitialState = () => ({
         y: number;
         tileKey: string;
         label: string;
-        payload:
-          | { type: "BUILD_FORT"; x: number; y: number }
-          | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-          | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
-          | { type: "REMOVE_STRUCTURE"; x: number; y: number }
-          | {
-              type: "BUILD_ECONOMIC_STRUCTURE";
-              x: number;
-              y: number;
-              structureType:
-                | "FARMSTEAD"
-                | "CAMP"
-                | "MINE"
-                | "MARKET"
-                | "GRANARY"
-                | "BANK"
-                | "AIRPORT"
-                | "WOODEN_FORT"
-                | "LIGHT_OUTPOST"
-                | "FUR_SYNTHESIZER"
-                | "ADVANCED_FUR_SYNTHESIZER"
-                | "IRONWORKS"
-                | "ADVANCED_IRONWORKS"
-                | "CRYSTAL_SYNTHESIZER"
-                | "ADVANCED_CRYSTAL_SYNTHESIZER"
-                | "FUEL_PLANT"
-                | "CARAVANARY"
-                | "FOUNDRY"
-                | "GARRISON_HALL"
-                | "CUSTOMS_HOUSE"
-                | "GOVERNORS_OFFICE"
-                | "RADAR_SYSTEM";
-            };
-        optimisticKind:
-          | "FORT"
-          | "OBSERVATORY"
-          | "SIEGE_OUTPOST"
-          | "FARMSTEAD"
-          | "CAMP"
-          | "MINE"
-          | "MARKET"
-          | "GRANARY"
-          | "BANK"
-          | "AIRPORT"
-          | "WOODEN_FORT"
-          | "LIGHT_OUTPOST"
-          | "FUR_SYNTHESIZER"
-          | "ADVANCED_FUR_SYNTHESIZER"
-          | "IRONWORKS"
-          | "ADVANCED_IRONWORKS"
-          | "CRYSTAL_SYNTHESIZER"
-          | "ADVANCED_CRYSTAL_SYNTHESIZER"
-          | "FUEL_PLANT"
-          | "CARAVANARY"
-          | "FOUNDRY"
-          | "GARRISON_HALL"
-          | "CUSTOMS_HOUSE"
-          | "GOVERNORS_OFFICE"
-          | "RADAR_SYSTEM";
+        payload: QueuedBuildPayload;
+        optimisticKind: QueuedOptimisticKind;
       }
     | undefined,
   queuedDevelopmentDispatchPending: false,

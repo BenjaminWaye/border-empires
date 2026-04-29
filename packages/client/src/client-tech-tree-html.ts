@@ -1,4 +1,6 @@
-import { formatTechBenefitSummary } from "./client-tech-html.js";
+import { formatTechBenefitSummary, formatTechPassiveSummary } from "./client-tech-html.js";
+import { renderTechHighlightTagsHtml, techHighlightTags } from "./client-tech-payoffs.js";
+import { techBlockedReasonSummary, techMissingResourceSummary, techMissingResourceSummaryHtml } from "./client-tech-requirements.js";
 import type { TechInfo } from "./client-types.js";
 
 const TECH_TREE_NODE_W = 216;
@@ -10,6 +12,7 @@ const TECH_TREE_TIER_SPREAD = 248;
 const TECH_TREE_ZIP_RATIO = 0.54;
 const TECH_TREE_PADDING_X = 36;
 const TECH_TREE_PADDING_Y = 28;
+const TECH_TREE_HEADER_BAND_H = 104;
 
 type TechTreeNodeLayout = {
   tech: TechInfo;
@@ -39,6 +42,63 @@ type TechTreeArgs = {
   titleCaseFromId: (id: string) => string;
   viewportHeight: number;
   isMobile: boolean;
+  techTreeZoom?: number;
+};
+
+type TechAgeMeta = {
+  name: string;
+  blurb: string;
+  stageBlurb: string;
+};
+
+const TECH_AGE_BY_TIER: Record<number, TechAgeMeta> = {
+  1: {
+    name: "Founding Age",
+    blurb: "Food, trade, scouting, and warbands establish a viable frontier state.",
+    stageBlurb: "Settlement basics, first markets, first maps."
+  },
+  2: {
+    name: "Mechanical Age",
+    blurb: "Measured stonework, prospecting, docks, and field gear turn survival into systems.",
+    stageBlurb: "Machine craft, fortification, extraction."
+  },
+  3: {
+    name: "Industrial Age",
+    blurb: "Guild production, ledgers, convoy planning, and siege engines make expansion scalable.",
+    stageBlurb: "Scaled production, finance, and campaign logistics."
+  },
+  4: {
+    name: "Aether Age",
+    blurb: "Resonance networks, state accounting, and advanced extraction create aetherpunk empire play.",
+    stageBlurb: "Aether infrastructure, signal control, and heavy industry."
+  },
+  5: {
+    name: "Sky Age",
+    blurb: "Ministries, intelligence, long campaigns, and civic systems harden the imperial core.",
+    stageBlurb: "Administrative power, covert reach, and strategic mobility."
+  },
+  6: {
+    name: "Astral Age",
+    blurb: "Sky docks, resonance grids, and imperial circulation prepare the world for a future orbital leap.",
+    stageBlurb: "Air power, refined fuel, and world-scale coordination."
+  },
+  7: {
+    name: "Monument Age",
+    blurb: "Empire-scale monuments, shield domes, and global aether systems decide the season.",
+    stageBlurb: "Monuments, power grids, and world-shaping systems."
+  }
+};
+
+const techAgeMetaForTier = (tier: number): TechAgeMeta => TECH_AGE_BY_TIER[tier] ?? { name: `Tier ${tier}`, blurb: "Advanced empire technology.", stageBlurb: "Advanced unlocks." };
+
+const techCardStatusLine = (
+  tech: TechInfo,
+  prereqText: string,
+  formatTechCost: (tech: TechInfo) => string
+): { text: string; tone: "cost" | "missing" | "blocked" } => {
+  if (tech.requirements.canResearch) return { text: formatTechCost(tech), tone: "cost" };
+  const blocked = techBlockedReasonSummary(tech, prereqText);
+  return { text: blocked.label, tone: blocked.tone };
 };
 
 const techTierSlotWidth = (): number => TECH_TREE_NODE_W + TECH_TREE_TIER_SPREAD * 2;
@@ -51,12 +111,14 @@ const techTierNodeOffset = (index: number, count: number): number => {
 
 const estimateTechNodeHeight = (tech: TechInfo, args: Pick<TechTreeArgs, "techPrereqIds" | "techNameList" | "formatTechCost">): number => {
   const titleLines = Math.max(1, Math.ceil(tech.name.length / 14));
-  const summaryText = formatTechBenefitSummary(tech);
+  const highlightCount = techHighlightTags(tech).length;
+  const payoffRows = highlightCount > 0 ? Math.max(1, Math.ceil(Math.min(highlightCount, 3) / 2)) : 0;
+  const summaryText = formatTechPassiveSummary(tech) || formatTechBenefitSummary(tech);
   const summaryLines = Math.max(1, Math.ceil(summaryText.length / 30));
   const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry technology";
-  const costText = tech.requirements.canResearch ? args.formatTechCost(tech) : prereqText;
+  const costText = techCardStatusLine(tech, prereqText, args.formatTechCost).text;
   const costLines = Math.max(1, Math.ceil(costText.length / 30));
-  const estimate = 28 + titleLines * 24 + 18 + summaryLines * 20 + costLines * 20 + 26;
+  const estimate = 28 + titleLines * 24 + payoffRows * 26 + 12 + summaryLines * 20 + costLines * 20 + 26;
   return Math.max(TECH_TREE_NODE_MIN_H, estimate);
 };
 
@@ -111,6 +173,8 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
   const tiers = [...grouped.keys()].sort((a, b) => a - b);
   return tiers
     .map((tier) => {
+      const age = techAgeMetaForTier(tier);
+      const tierChoices = grouped.get(tier) ?? [];
       const cards = (grouped.get(tier) ?? [])
         .sort(
           (a, b) =>
@@ -126,22 +190,46 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
             researchingThis && typeof args.currentResearch?.completesAt === "number"
               ? Math.max(0, args.currentResearch.completesAt - Date.now())
               : 0;
+          const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry technology";
+          const blockedStatus = techCardStatusLine(tech, prereqText, args.formatTechCost);
+          const missingResources = techMissingResourceSummary(tech);
+          const missingResourcesHtml = techMissingResourceSummaryHtml(tech);
           const costLabel = researchingThis
             ? `Researching • ${args.formatCooldownShort(researchRemaining)}`
             : args.isPendingTechUnlock(tech.id)
               ? "Unlocking..."
-              : args.formatTechCost(tech);
-          return `<button class="tech-card${selected}${owned}${blocked}" data-tech-card="${tech.id}">
+              : blockedStatus.text;
+          const costToneClass =
+            researchingThis || args.isPendingTechUnlock(tech.id)
+              ? ""
+              : blockedStatus.tone === "missing"
+                ? " tech-card-cost-missing"
+                : blockedStatus.tone === "blocked"
+                  ? " tech-card-cost-blocked"
+                  : "";
+          const passiveSummary = formatTechPassiveSummary(tech);
+          return `<button class="tech-card${selected}${owned}${blocked}${missingResources ? " resource-blocked" : ""}" data-tech-card="${tech.id}">
             <div class="tech-card-top">
               <strong>${tech.name}</strong>
-              <span class="tech-root">Tier ${args.techTier(tech.id, byId, tierMemo)}</span>
+              <span class="tech-card-badge">T${args.techTier(tech.id, byId, tierMemo)}</span>
             </div>
-            <p>${formatTechBenefitSummary(tech)}</p>
-            <p class="tech-card-cost">${costLabel}</p>
+            ${renderTechHighlightTagsHtml(tech, 2)}
+            ${passiveSummary ? `<p>${passiveSummary}</p>` : ""}
+            <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
           </button>`;
         })
         .join("");
-      return `<div class="tech-tier-block"><h4>Tier ${tier}</h4><div class="tech-card-grid">${cards}</div></div>`;
+      return `<section class="tech-tier-block">
+        <div class="tech-tier-head">
+          <div class="tech-tier-copy">
+            <span class="tech-tier-kicker">Tier ${tier}</span>
+            <h4>${age.name}</h4>
+            <p>${age.blurb}</p>
+          </div>
+          <span class="tech-tier-badge">${tierChoices.length} ${tierChoices.length === 1 ? "option" : "options"}</span>
+        </div>
+        <div class="tech-card-grid">${cards}</div>
+      </section>`;
     })
     .join("");
 };
@@ -240,7 +328,8 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
   }
 
   const stageHeight = Math.max(420, args.viewportHeight - (args.isMobile ? 220 : 190));
-  const usableHeight = Math.max(220, stageHeight - TECH_TREE_PADDING_Y * 2);
+  const headerBandBottom = TECH_TREE_PADDING_Y + TECH_TREE_HEADER_BAND_H;
+  const usableHeight = Math.max(220, stageHeight - headerBandBottom - TECH_TREE_PADDING_Y);
   const techsByTier = new Map<number, TechInfo[]>();
   for (const tech of args.techCatalog) {
     const tier = args.techTier(tech.id, byId, tierMemo);
@@ -313,7 +402,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
       count === 0
         ? 0
         : tierHeights[0]! + zipperSteps.reduce((sum, step) => sum + step, 0) + Math.max(0, (tierHeights[count - 1]! - tierHeights[0]!) * 0.15);
-    const startY = TECH_TREE_PADDING_Y + Math.max(0, (usableHeight - stackHeight) / 2);
+    const startY = headerBandBottom + Math.max(0, (usableHeight - stackHeight) / 2);
     const tierBaseX = TECH_TREE_PADDING_X + (tier - 1) * (techTierSlotWidth() + TECH_TREE_COL_GAP);
     let currentY = startY;
     tierTechs.forEach((tech, index) => {
@@ -333,12 +422,22 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
 
   const maxTier = Math.max(...layouts.map((layout) => layout.tier));
   const stageWidth = TECH_TREE_PADDING_X * 2 + maxTier * techTierSlotWidth() + Math.max(0, maxTier - 1) * TECH_TREE_COL_GAP;
-  const contentHeight = Math.max(stageHeight, ...layouts.map((layout) => layout.y + layout.height + TECH_TREE_PADDING_Y));
+  const contentHeight = Math.max(stageHeight, headerBandBottom + TECH_TREE_PADDING_Y, ...layouts.map((layout) => layout.y + layout.height + TECH_TREE_PADDING_Y));
   const layoutById = new Map(layouts.map((layout) => [layout.tech.id, layout]));
+  const zoom = Math.max(0.7, Math.min(1.6, args.techTreeZoom || 1));
+  const scaledStageWidth = Math.round(stageWidth * zoom);
+  const scaledContentHeight = Math.round(contentHeight * zoom);
+  const scaledStageHeight = Math.round(stageHeight * zoom);
 
   const tierHeaders = Array.from({ length: maxTier }, (_, index) => {
+    const tier = index + 1;
+    const age = techAgeMetaForTier(tier);
     const left = TECH_TREE_PADDING_X + index * (techTierSlotWidth() + TECH_TREE_COL_GAP);
-    return `<div class="tech-tree-stage-tier" style="left:${left}px;width:${techTierSlotWidth()}px;">Tier ${index + 1}</div>`;
+    return `<div class="tech-tree-stage-tier" style="left:${left}px;width:${techTierSlotWidth()}px;">
+      <span class="tech-tree-stage-tier-kicker">Tier ${tier}</span>
+      <strong>${age.name}</strong>
+      <span class="tech-tree-stage-tier-copy">${age.stageBlurb}</span>
+    </div>`;
   }).join("");
 
   const lines = layouts
@@ -380,15 +479,21 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
           ? `Researching • ${args.formatCooldownShort(researchRemaining)}`
           : pending
             ? "Waiting for server confirmation..."
-            : tech.requirements.canResearch
-              ? args.formatTechCost(tech)
-              : prereqs.length > 0
-                ? `Requires ${args.techNameList(prereqs)}`
-                : "Entry technology";
-      const rootId = deriveRootId(tech.id, byId, args.techPrereqIds, rootMemo);
-      const rootName = byId.get(rootId)?.name ?? args.titleCaseFromId(rootId);
+            : techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry technology", args.formatTechCost).text;
+      const blockedStatus = techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry technology", args.formatTechCost);
+      const missingResources = techMissingResourceSummary(tech);
+      const missingResourcesHtml = techMissingResourceSummaryHtml(tech);
+      const costToneClass =
+        researchingThis || pending
+          ? ""
+          : blockedStatus.tone === "missing"
+            ? " tech-card-cost-missing"
+            : blockedStatus.tone === "blocked"
+              ? " tech-card-cost-blocked"
+              : "";
+      const passiveSummary = formatTechPassiveSummary(tech);
       return `<button
-        class="tech-card tech-tree-card tech-tree-graph-node${selected}${owned}${pending}${available}${choice}${blocked}"
+        class="tech-card tech-tree-card tech-tree-graph-node${selected}${owned}${pending}${available}${choice}${blocked}${missingResources ? " resource-blocked" : ""}"
         data-tech-card="${tech.id}"
         style="left:${layout.x}px;top:${layout.y}px;width:${TECH_TREE_NODE_W}px;min-height:${layout.height}px;"
       >
@@ -396,31 +501,42 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
           <strong>${tech.name}</strong>
           <span class="tech-tree-card-badge">${stateLabel}</span>
         </div>
-        <p class="tech-tree-card-branch">${rootName}</p>
-        <p class="tech-tree-card-meta">${formatTechBenefitSummary(tech)}</p>
-        <p class="tech-card-cost">${costLabel}</p>
+        ${renderTechHighlightTagsHtml(tech, 2)}
+        ${passiveSummary ? `<p class="tech-tree-card-meta">${passiveSummary}</p>` : ""}
+        <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
       </button>`;
     })
     .join("");
 
-  return `<article class="card tech-tree-shell expanded">
+  return `<article class="card tech-tree-shell expanded" data-tech-tree-shell>
     <div class="tech-tree-shell-head">
       <div>
         <div class="domain-summary-kicker">Research</div>
         <strong>Technology tree</strong>
-        <p>Drag horizontally from Tier 1 through Tier ${maxTier} to see how every unlock connects.</p>
+        <p>Drag across the six ages to see how frontier survival becomes machine empire, then sky power.</p>
       </div>
-      <div class="tech-tree-overview-metrics">
-        <span><strong>${ownedTechIds.length}</strong> unlocked</span>
-        <span><strong>${args.techCatalog.filter((tech) => tech.requirements.canResearch).length}</strong> ready</span>
-        <span><strong>${args.techCatalog.length}</strong> total</span>
+      <div class="tech-tree-shell-actions">
+        <div class="tech-tree-overview-metrics">
+          <span><strong>${ownedTechIds.length}</strong> unlocked</span>
+          <span><strong>${args.techCatalog.filter((tech) => tech.requirements.canResearch).length}</strong> ready</span>
+          <span><strong>${args.techCatalog.length}</strong> total</span>
+        </div>
+        <div class="tech-tree-zoom-controls" aria-label="Technology tree zoom controls">
+          <button class="panel-btn tech-tree-zoom-btn" type="button" data-tech-tree-zoom="out" aria-label="Zoom out">-</button>
+          <button class="panel-btn tech-tree-zoom-btn tech-tree-zoom-readout" type="button" data-tech-tree-zoom="reset" aria-label="Reset zoom">${Math.round(
+            zoom * 100
+          )}%</button>
+          <button class="panel-btn tech-tree-zoom-btn" type="button" data-tech-tree-zoom="in" aria-label="Zoom in">+</button>
+        </div>
       </div>
     </div>
     <div class="tech-tree-graph-scroll" data-tech-tree-scroll>
-      <div class="tech-tree-graph-stage" style="width:${stageWidth}px;height:${contentHeight}px;min-height:${stageHeight}px;">
-        ${tierHeaders}
-        <svg class="tech-tree-graph-lines" viewBox="0 0 ${stageWidth} ${contentHeight}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
-        ${nodes}
+      <div class="tech-tree-graph-stage" data-tech-tree-stage style="width:${scaledStageWidth}px;height:${scaledContentHeight}px;min-height:${scaledStageHeight}px;">
+        <div class="tech-tree-graph-canvas" style="width:${stageWidth}px;height:${contentHeight}px;transform:scale(${zoom});">
+          ${tierHeaders}
+          <svg class="tech-tree-graph-lines" viewBox="0 0 ${stageWidth} ${contentHeight}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
+          ${nodes}
+        </div>
       </div>
     </div>
   </article>`;

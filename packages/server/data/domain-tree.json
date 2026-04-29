@@ -117,8 +117,7 @@
       "cost": { "gold": 14000, "crystal": 180, "shard": 1 },
       "effects": {
         "revealUpkeepMult": 0.85,
-        "observatoryProtectionRadiusBonus": 3,
-        "observatoryCastRadiusBonus": 6
+        "observatoryRangeBonus": 6
       }
     },
     {
@@ -219,7 +218,7 @@
       "tier": 4,
       "name": "Siege State",
       "description": "Outposts are deployed to break empires, not merely harass them.",
-      "requiresTechId": "breach-doctrine",
+      "requiresTechId": "siegecraft",
       "cost": { "gold": 42000, "iron": 220, "supply": 520, "shard": 3 },
       "effects": {
         "outpostAttackMult": 1.2,

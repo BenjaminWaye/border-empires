@@ -1,4 +1,5 @@
 import type { DomainInfo, TechInfo } from "./client-types.js";
+import { isTechHighlightEffectKey } from "./client-tech-payoffs.js";
 
 type ModKey = "attack" | "defense" | "income" | "vision";
 type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
@@ -12,33 +13,63 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockObservatory" && value === true) return "Unlocks observatories";
   if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege outposts";
   if (key === "unlockGranary" && value === true) return "Unlocks granaries";
+  if (key === "unlockCensusHall" && value === true) return "Unlocks census halls";
   if (key === "unlockBank" && value === true) return "Unlocks banks";
+  if (key === "unlockClearingHouse" && value === true) return "Unlocks clearing houses";
   if (key === "unlockCaravanary" && value === true) return "Unlocks caravanaries";
+  if (key === "unlockTreasuryHouse" && value === true) return "Unlocks treasury houses";
   if (key === "unlockFurSynthesizer" && value === true) return "Unlocks fur synthesizers";
   if (key === "unlockIronworks" && value === true) return "Unlocks ironworks";
-  if (key === "unlockCrystalSynthesizer" && value === true) return "Unlocks crystal synthesizers";
-  if (key === "unlockSynthOverload" && value === true) return "Unlocks synthesizer overload";
-  if (key === "unlockAdvancedSynthesizers" && value === true) return "Unlocks advanced synthesizer upgrades";
-  if (key === "unlockFuelPlant" && value === true) return "Unlocks fuel plants";
-  if (key === "unlockFoundry" && value === true) return "Unlocks foundries";
-  if (key === "unlockCustomsHouse" && value === true) return "Unlocks customs houses";
-  if (key === "unlockGovernorsOffice" && value === true) return "Unlocks governor's offices";
+  if (key === "unlockCrystalSynthesizer" && value === true) return "Unlocks aether condensers";
+  if (key === "unlockSynthOverload" && value === true) return "Unlocks synth overload";
+  if (key === "unlockAdvancedSynthesizers" && value === true) return "Unlocks grand synthesis upgrades";
+  if (key === "unlockFuelPlant" && value === true) return "Unlocks refineries";
+  if (key === "unlockFoundry" && value === true) return "Unlocks sky foundries";
+  if (key === "unlockAetherTower" && value === true) return "Unlocks Aether Towers";
+  if (key === "unlockExchangeHouse" && value === true) return "Unlocks Exchange Houses";
+  if (key === "unlockCustomsHouse" && value === true) return "Unlocks harbor exchanges";
+  if (key === "unlockGovernorsOffice" && value === true) return "Unlocks ministry halls";
   if (key === "unlockGarrisonHall" && value === true) return "Unlocks garrison halls";
-  if (key === "unlockAirport" && value === true) return "Unlocks airports";
-  if (key === "unlockRadarSystem" && value === true) return "Unlocks radar systems";
-  if (key === "unlockRevealRegion" && value === true) return "Unlocks reveal region";
+  if (key === "unlockAirport" && value === true) return "Unlocks sky docks";
+  if (key === "unlockRadarSystem" && value === true) return "Unlocks resonance grids";
+  if (key === "unlockAstralDock" && value === true) return "Unlocks Astral Dock";
+  if (key === "unlockImperialExchange" && value === true) return "Unlocks Imperial Exchange";
+  if (key === "unlockWorldEngine" && value === true) return "Unlocks Worldbreaker Cannon";
+  if (key === "unlockAegisDome" && value === true) return "Unlocks Aegis Dome";
   if (key === "unlockRevealEmpire" && value === true) return "Unlocks empire reveal";
   if (key === "unlockRevealEmpireStats" && value === true) return "Unlocks Reveal Empire Stats";
   if (key === "unlockAetherWall" && value === true) return "Unlocks Aether Wall";
+  if (key === "unlockAetherLance" && value === true) return "Unlocks Aether Lance";
+  if (key === "unlockRetortRecasting" && value === true) return "Unlocks Retort Transmutation";
+  if (key === "unlockSurveySweep" && value === true) return "Unlocks Survey Sweep";
+  if (key === "unlockAetherEmp" && value === true) return "Unlocks Aether EMP";
+  if (key === "unlockCityOverclock" && value === true) return "Unlocks City Overclock";
+  if (key === "unlockAstralDockLaunch" && value === true) return "Unlocks Launch Satellite";
   if (key === "unlockDeepStrike" && value === true) return "Unlocks deep strike";
   if (key === "unlockNavalInfiltration" && value === true) return "Unlocks Aether Bridge";
-  if (key === "unlockSabotage" && value === true) return "Unlocks sabotage";
-  if (key === "unlockMountainPass" && value === true) return "Unlocks mountain pass";
-  if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain shaping";
-  if (key === "unlockBreachAttack" && value === true) return "Unlocks breach attack";
+  if (key === "unlockSabotage" && value === true) return "Unlocks Siphon";
+  if (key === "unlockImperialExchangeLevy" && value === true) return "Unlocks Exchange Levy";
+  if (key === "unlockWorldEngineStrike" && value === true) return "Unlocks Worldbreaker Shot";
+  if (key === "unlockStormfront" && value === true) return "Unlocks Stormfront";
+  if (key === "unlockAegisLock" && value === true) return "Unlocks Aegis Lock";
+  if (key === "unlockIronBastion" && value === true) return "Unlocks Iron Bastion";
+  if (key === "unlockSiegeTower" && value === true) return "Unlocks Siege Tower";
+  if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
+  if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
+  if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
+  if (key === "unlockBrokerageUpgrade" && value === true) return "Upgrades Market to Broker Market";
+  if (key === "unlockWaterworksUpgrade" && value === true) return "Upgrades Farmstead to Waterworks";
+  if (key === "unlockHarborLocksUpgrade" && value === true) return "Upgrades Harbor Exchange to Lockworks Port";
+  if (key === "unlockCharteredPortsUpgrade" && value === true) return "Upgrades Lockworks Port to Chartered Port";
+  if (key === "unlockSkyFoundryUpgrade" && value === true) return "Unlocks Advanced Foundry upgrade";
+  if (key === "unlockAdvancedFuelPlant" && value === true) return "Unlocks Catalytic Refiner upgrade";
+  if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
+  if (key === "unlockWeatherEngine" && value === true) return "Unlocks weather engines";
+  if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
   if (key === "dockGoldCapMult" && typeof value === "number") return `Dock cap +${Math.round((value - 1) * 100)}%`;
-  if (key === "dockConnectionBonusPerLink" && typeof value === "number") return `Dock route bonus ${Math.round(value * 100)}% per link`;
+  if (key === "dockConnectionBonusPerLink" && typeof value === "number") return `Connected dock income +${Math.round(value * 100)}% per link`;
+  if (key === "marketCrystalUpkeepMult" && typeof value === "number") return `Market crystal upkeep -${Math.round((1 - value) * 100)}%`;
   if (key === "dockRoutesVisible" && value === true) return "Shows dock routes";
   if (key === "supportEconomicFoodUpkeepMult" && typeof value === "number") return `Town support food upkeep -${Math.round((1 - value) * 100)}%`;
   if (key === "resourceOutputMult" && value && typeof value === "object") {
@@ -87,11 +118,14 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "granaryBonusMult" && typeof value === "number") return `Granary growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Granary growth +${Math.round(value * 100)} pts`;
   if (key === "populationGrowthMult" && typeof value === "number") return `Population growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "populationIncomeMult" && typeof value === "number") return `Population income ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "connectedTownStepBonusAdd" && typeof value === "number") return `Connected-city bonus +${Math.round(value * 100)} pts/step`;
+  if (key === "populationIncomeMult" && typeof value === "number") return `Town income from population ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "connectedTownStepBonusAdd" && typeof value === "number") {
+    const pointsPerLink = Math.round(value * 100);
+    const maxBonus = pointsPerLink * 3;
+    return `Connected-city income +${pointsPerLink} pts per linked city (max +${maxBonus} pts)`;
+  }
   if (key === "growthPauseDurationMult" && typeof value === "number") return `War growth pause ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "buildCapacityAdd" && typeof value === "number") return `Build capacity ${value >= 0 ? "+" : ""}${value}`;
-  if (key === "operationalTempoMult" && typeof value === "number") return `Operational tempo ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "harvestCapMult" && typeof value === "number") return `Harvest cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
@@ -104,7 +138,8 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealUpkeepMult" && typeof value === "number") return `Reveal upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
-  if (key === "visionRadiusBonus" && typeof value === "number") return `Vision radius +${value}`;
+  if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;
+  if (key === "observatoryRangeBonus" && typeof value === "number") return `Observatory range +${value}`;
   if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Observatory protection radius +${value}`;
   if (key === "observatoryCastRadiusBonus" && typeof value === "number") return `Observatory cast radius +${value}`;
   if (key === "frontierDefenseAdd" && typeof value === "number") return `Frontier defense +${value}`;
@@ -114,19 +149,76 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   return null;
 };
 
+const observatoryRangeSummaryLabel = (effects: TechInfo["effects"] | DomainInfo["effects"] | undefined): string | null => {
+  if (!effects) return null;
+  const unified = effects.observatoryRangeBonus;
+  if (typeof unified === "number") return `Observatory range +${unified}`;
+  const protection = effects.observatoryProtectionRadiusBonus;
+  const cast = effects.observatoryCastRadiusBonus;
+  if (typeof protection === "number" && typeof cast === "number" && protection === cast) {
+    return `Observatory range +${cast}`;
+  }
+  return null;
+};
+
+const formatEffectSummaryLines = (effects: TechInfo["effects"] | DomainInfo["effects"] | undefined): string[] => {
+  if (!effects) return [];
+  const lines: string[] = [];
+  const combinedObservatoryRange = observatoryRangeSummaryLabel(effects);
+  let observatoryRangeInserted = false;
+  for (const [key, value] of Object.entries(effects)) {
+    if (combinedObservatoryRange && (key === "observatoryRangeBonus" || key === "observatoryProtectionRadiusBonus") && !observatoryRangeInserted) {
+      lines.push(combinedObservatoryRange);
+      observatoryRangeInserted = true;
+      continue;
+    }
+    if (combinedObservatoryRange && key === "observatoryCastRadiusBonus") continue;
+    const label = effectSummaryLabel(key, value);
+    if (label) lines.push(label);
+  }
+  return lines;
+};
+
+const combatStrengthSummary = (attack: number | undefined, defense: number | undefined): string | null => {
+  if (typeof attack === "number" && typeof defense === "number" && attack === defense && attack !== 1) {
+    return `Combat strength ${attack > 1 ? "+" : ""}${((attack - 1) * 100).toFixed(0)}%`;
+  }
+  return null;
+};
+
 const formatTechModifiers = (mods: TechInfo["mods"]): string[] => {
   const lines: string[] = [];
-  if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
+  const combatStrength = combatStrengthSummary(mods.attack, mods.defense);
+  if (combatStrength) {
+    lines.push(combatStrength);
+  } else {
+    if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
+    if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
+  }
   if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
   if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
   return lines;
 };
 
+export const formatTechPassiveSummary = (tech: TechInfo): string => {
+  const lines = formatTechModifiers(tech.mods);
+  for (const label of formatEffectSummaryLines(tech.effects)) {
+    if (tech.effects && Object.entries(tech.effects).some(([key, value]) => isTechHighlightEffectKey(key) && effectSummaryLabel(key, value) === label)) continue;
+    lines.push(label);
+  }
+  if (tech.grantsPowerup) lines.push(`Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}`);
+  return lines.join(" | ");
+};
+
 const formatDomainModifiers = (mods: DomainInfo["mods"]): string[] => {
   const lines: string[] = [];
-  if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
+  const combatStrength = combatStrengthSummary(mods.attack, mods.defense);
+  if (combatStrength) {
+    lines.push(combatStrength);
+  } else {
+    if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
+    if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
+  }
   if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
   if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
   return lines;
@@ -134,24 +226,14 @@ const formatDomainModifiers = (mods: DomainInfo["mods"]): string[] => {
 
 export const formatTechBenefitSummary = (tech: TechInfo): string => {
   const lines = formatTechModifiers(tech.mods);
-  if (tech.effects) {
-    for (const [key, value] of Object.entries(tech.effects)) {
-      const label = effectSummaryLabel(key, value);
-      if (label) lines.push(label);
-    }
-  }
+  lines.push(...formatEffectSummaryLines(tech.effects));
   if (tech.grantsPowerup) lines.push(`Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}`);
   return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
 };
 
 export const formatDomainBenefitSummary = (domain: DomainInfo): string => {
   const lines = formatDomainModifiers(domain.mods);
-  if (domain.effects) {
-    for (const [key, value] of Object.entries(domain.effects)) {
-      const label = effectSummaryLabel(key, value);
-      if (label) lines.push(label);
-    }
-  }
+  lines.push(...formatEffectSummaryLines(domain.effects));
   return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
 };
 
@@ -409,29 +491,42 @@ export const renderTechDetailCardHtml = (args: {
   prereqs: string[];
   prereqText: string;
   unlocks: Array<{ name: string; tier: number }>;
+  payoffHtml?: string;
+  blockedSummary?: { label: string; tone: "missing" | "blocked" } | null;
   relatedStructuresHtml: string;
   relatedCrystalAbilitiesHtml: string;
 }): string => {
-  const { tech, statusText, buttonLabel, buttonDisabled, prereqs, prereqText, unlocks, relatedStructuresHtml, relatedCrystalAbilitiesHtml } = args;
+  const { tech, statusText, buttonLabel, buttonDisabled, prereqs, prereqText, unlocks, payoffHtml = "", blockedSummary, relatedStructuresHtml, relatedCrystalAbilitiesHtml } = args;
   if (!tech) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
   const checklist = effectiveRequirementChecklist(tech.requirements);
   return `<article class="card tech-detail-card">
     <div class="tech-detail-head">
       <div>
-        <strong>${tech.name}</strong>
+        <div class="tech-detail-title">${tech.name}</div>
         <p class="tech-detail-effect">${formatTechBenefitSummary(tech)}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
         ${statusText ? `<p class="muted">${statusText}</p>` : ""}
       </div>
     </div>
-    <p class="tech-detail-flavor">${tech.description}</p>
+    <div class="tech-detail-section-stack">
+      <p class="tech-detail-flavor">${tech.description}</p>
+      ${payoffHtml}
+      ${
+        blockedSummary
+          ? `<section class="tech-block-state tech-block-state-${blockedSummary.tone}">
+              <span class="structure-info-section-label">${blockedSummary.tone === "missing" ? "Missing to unlock" : "Locked by"}</span>
+              <strong>${blockedSummary.label}</strong>
+            </section>`
+          : ""
+      }
+    </div>
     ${relatedStructuresHtml}
     ${relatedCrystalAbilitiesHtml}
     ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${next.tier})`).join(", ")}</p>` : ""}
     <p><strong>Requirements:</strong></p>
     ${checklistHtml(checklist)}
     <div class="tech-detail-actions">
-      <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal" data-tech-unlock="${tech.id}" ${buttonDisabled ? "disabled" : ""}>${buttonLabel}</button>
+      <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal${blockedSummary ? ` tech-unlock-btn-${blockedSummary.tone}` : ""}" data-tech-unlock="${tech.id}" ${buttonDisabled ? "disabled" : ""}>${buttonLabel}</button>
     </div>
   </article>`;
 };
@@ -468,8 +563,7 @@ export const renderDomainChoiceGridHtml = (args: {
   const sections = tiers
     .map((tier) => {
       const status = domainTierStatus(tier, ownedByTier, currentTier);
-      const visibleDomains = status.tone === "chosen" ? [ownedByTier.get(tier)].filter((domain): domain is DomainInfo => Boolean(domain)) : (grouped.get(tier) ?? []);
-      const cards = visibleDomains
+      const cards = (grouped.get(tier) ?? [])
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((domain) => {
           const selected = domainUiSelectedId === domain.id ? " selected" : "";
@@ -521,10 +615,10 @@ export const renderDomainDetailCardHtml = (args: {
   chosenInTier: DomainInfo | undefined;
   currentTier: number | undefined;
   requiresTechName: string;
-  pendingDomainUnlockId: string;
+  pendingDomainUnlockId?: string;
   showInlineClose?: boolean;
 }): string => {
-  const { domain, domainIds, chosenInTier, currentTier, requiresTechName, pendingDomainUnlockId, showInlineClose = true } = args;
+  const { domain, domainIds, chosenInTier, currentTier, requiresTechName, pendingDomainUnlockId = "", showInlineClose = true } = args;
   if (!domain) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
   const checklist = effectiveRequirementChecklist(domain.requirements);
   const owned = domainIds.includes(domain.id);
