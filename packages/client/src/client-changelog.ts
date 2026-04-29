@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.6",
+  version: "2026.04.29.7",
   title: "What's New",
-  summary: "Recent updates include a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.29.7",
+      title: "Neutral frontier claims no longer misfire as manpower-gated attacks on rewrite staging",
+      why: "A claim against land that was still neutral on the authoritative server could arrive through the rewrite frontier path with stale attack intent, which made the server echo attack framing and, in the worst case, reject the move behind the attack manpower gate even though neutral expansion should not consume manpower.",
+      changes: [
+        "The rewrite frontier action runtime now treats authoritative neutral targets as `EXPAND` claims even if the incoming request was tagged like an attack.",
+        "Accepted rewrite frontier acks now echo the effective action type back to the client, so neutral captures no longer look like attacks in staging diagnostics and follow-up UI state.",
+        "Added server regression coverage to keep neutral claims on the manpower-free expand path."
+      ]
+    },
     {
       introducedIn: "2026.04.29.6",
       title: "Fixed login hang on fresh server boot",
