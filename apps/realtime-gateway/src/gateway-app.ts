@@ -235,6 +235,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     lastReadyAt: undefined as number | undefined,
     lastError: undefined as string | undefined
   };
+  let simulationRpcConnected = false;
+  let simulationEventStreamConnected = false;
   let simulationConsecutiveHealthFailures = 0;
   let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
@@ -339,13 +341,29 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       .sort((left, right) => right.lastAt - left.lastAt);
   };
   let simulationHealthTimer: ReturnType<typeof setInterval> | undefined;
+  const refreshCombinedSimulationHealth = (): void => {
+    simulationHealth.connected = simulationRpcConnected && simulationEventStreamConnected;
+    if (simulationHealth.connected) {
+      simulationHealth.lastReadyAt = Date.now();
+      simulationHealth.lastError = undefined;
+      simulationConsecutiveHealthFailures = 0;
+    }
+  };
   const markSimulationReady = (): void => {
-    simulationHealth.connected = true;
-    simulationHealth.lastReadyAt = Date.now();
-    simulationHealth.lastError = undefined;
-    simulationConsecutiveHealthFailures = 0;
+    simulationRpcConnected = true;
+    refreshCombinedSimulationHealth();
   };
   const markSimulationUnavailable = (error: unknown): void => {
+    simulationRpcConnected = false;
+    simulationHealth.connected = false;
+    simulationHealth.lastError = error instanceof Error ? error.message : String(error);
+  };
+  const markSimulationEventStreamConnected = (): void => {
+    simulationEventStreamConnected = true;
+    refreshCombinedSimulationHealth();
+  };
+  const markSimulationEventStreamDisconnected = (error: unknown): void => {
+    simulationEventStreamConnected = false;
     simulationHealth.connected = false;
     simulationHealth.lastError = error instanceof Error ? error.message : String(error);
   };
@@ -355,7 +373,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     // Test doubles and lightweight local adapters may omit ping; treat them as ready.
     try {
       if (typeof simulationClient.ping !== "function") {
-        markSimulationReady();
+        simulationRpcConnected = true;
+        refreshCombinedSimulationHealth();
         return;
       }
       await withTimeout(simulationClient.ping(), simulationPingTimeoutMs, "simulation ping");
@@ -781,8 +800,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     },
     {
+      onConnect() {
+        markSimulationEventStreamConnected();
+      },
       onDisconnect(error) {
-        markSimulationUnavailable(error ?? new Error("simulation event stream disconnected"));
+        markSimulationEventStreamDisconnected(error ?? new Error("simulation event stream disconnected"));
         recordGatewayEvent("warn", "simulation_event_stream_disconnected", {
           message: error instanceof Error ? error.message : String(error)
         });
