@@ -21,4 +21,10 @@ describe("server profile setup regression guard", () => {
     expect(source).toContain('socket.send(JSON.stringify({ type: "ERROR", code: "PROFILE_REQUIRED", message: "finish profile setup first" }));');
     expect(source).toContain("if (playerNeedsProfileSetup(authedPlayer)) discardIncompleteHumanPlayer(authedPlayer);");
   });
+
+  it("drops unfinished human profiles loaded from snapshot before runtime bootstrap continues", () => {
+    const source = serverMainSource();
+    expect(source).toContain("for (const player of [...players.values()]) {");
+    expect(source).toContain("if (playerNeedsProfileSetup(player)) discardIncompleteHumanPlayer(player);");
+  });
 });
