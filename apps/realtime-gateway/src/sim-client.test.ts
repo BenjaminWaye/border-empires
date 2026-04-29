@@ -128,6 +128,33 @@ describe("simulation event stream supervisor", () => {
     }
   });
 
+  it("reports stream connect and disconnect transitions", () => {
+    vi.useFakeTimers();
+    try {
+      const stream = new FakeStream();
+      const transitions: string[] = [];
+
+      startSimulationEventStream(
+        () => stream,
+        () => undefined,
+        {
+          onConnect() {
+            transitions.push("connect");
+          },
+          onDisconnect(error) {
+            transitions.push(error?.message ?? "disconnect");
+          }
+        }
+      );
+
+      stream.emit("error", new Error("stream dropped"));
+
+      expect(transitions).toEqual(["connect", "stream dropped"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("sends subscribe and unsubscribe requests through the rpc client", async () => {
     const rpcClient = {
       SubmitCommand: vi.fn(),
