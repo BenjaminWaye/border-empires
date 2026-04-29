@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { InMemoryGatewayCommandStore } from "./command-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
@@ -87,7 +87,10 @@ describe("gateway command submit timeout handling", () => {
         }),
         unsubscribePlayer: async () => undefined,
         ping: async () => undefined,
-        streamEvents: () => () => undefined
+        streamEvents: (_listener, options) => {
+          options?.onConnect?.();
+          return () => undefined;
+        }
       }
     });
     const started = await app.start();
@@ -120,6 +123,60 @@ describe("gateway command submit timeout handling", () => {
       commandId: "cmd-submit-timeout",
       code: "SIMULATION_UNAVAILABLE",
       message: "command could not be queued in simulation"
+    });
+
+    socket.close();
+  });
+
+  it("rejects frontier commands while the simulation event stream is disconnected even if ping still succeeds", async () => {
+    const streamState = { onDisconnect: undefined as ((error: Error | null) => void) | undefined };
+    const app = await createRealtimeGatewayApp({
+      logger: false,
+      port: 0,
+      commandStore: new InMemoryGatewayCommandStore(),
+      simulationClient: {
+        preparePlayer: async () => ({ playerId: "player-1", spawned: false }),
+        submitCommand: vi.fn(async () => undefined),
+        subscribePlayer: async () => ({
+          playerId: "player-1",
+          tiles: []
+        }),
+        unsubscribePlayer: async () => undefined,
+        ping: async () => undefined,
+        streamEvents: (_listener, options) => {
+          options?.onConnect?.();
+          streamState.onDisconnect = options?.onDisconnect;
+          return () => undefined;
+        }
+      }
+    });
+    const started = await app.start();
+    openApps.push(app);
+
+    const socket = await openSocket(started.wsUrl);
+    socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    await expect(waitForMessage(socket, "init", (message) => message.type === "INIT")).resolves.toMatchObject({
+      type: "INIT"
+    });
+
+    streamState.onDisconnect?.(new Error("stream offline"));
+
+    socket.send(
+      JSON.stringify({
+        type: "EXPAND",
+        fromX: 324,
+        fromY: 186,
+        toX: 325,
+        toY: 186,
+        commandId: "cmd-stream-offline",
+        clientSeq: 1
+      })
+    );
+
+    await expect(waitForMessage(socket, "stream offline error", (message) => message.type === "ERROR")).resolves.toMatchObject({
+      type: "ERROR",
+      code: "SERVER_STARTING",
+      message: "Realtime simulation is temporarily unavailable. Retry shortly."
     });
 
     socket.close();

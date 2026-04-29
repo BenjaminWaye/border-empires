@@ -522,7 +522,7 @@ const parseSubscriptionSnapshot = (
 export const startSimulationEventStream = (
   openStream: () => SimulationEventStream,
   listener: (event: SimulationClientEvent) => void,
-  options?: { onDisconnect?: (error: Error | null) => void }
+  options?: { onConnect?: () => void; onDisconnect?: (error: Error | null) => void }
 ): (() => void) => {
   let closed = false;
   let reconnectDelayMs = 250;
@@ -548,6 +548,7 @@ export const startSimulationEventStream = (
     const generation = streamGeneration;
     const stream = openStream();
     activeStream = stream;
+    options?.onConnect?.();
     stream.on("data", (event) => {
       reconnectDelayMs = 250;
       listener(fromProtoEvent(event as ProtoSimulationEvent));
@@ -578,7 +579,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
-    options?: { onDisconnect?: (error: Error | null) => void }
+    options?: { onConnect?: () => void; onDisconnect?: (error: Error | null) => void }
   ) => () => void;
 } => ({
   submitCommand(command) {
@@ -728,7 +729,7 @@ export const createSimulationClient = (address: string): {
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
-    options?: { onDisconnect?: (error: Error | null) => void }
+    options?: { onConnect?: () => void; onDisconnect?: (error: Error | null) => void }
   ) => () => void;
 } => {
   const client = new proto.border_empires.simulation.SimulationService(address, credentials.createInsecure());
