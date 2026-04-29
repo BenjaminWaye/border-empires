@@ -24,6 +24,34 @@ export const RESTART_PARITY_COMMAND_TYPES = RESTART_PARITY_COMMAND_TYPES_UNTYPED
 export const ACCEPTANCE_RESOLUTION_COMMAND_TYPES = ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 export const RECONNECT_COMMAND_TYPES = RECONNECT_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 
+export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
+export type FrontierCombatActionType = "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK";
+export type FrontierCombatResultChange = {
+  x: number;
+  y: number;
+  ownerId?: string;
+  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+};
+
+export type LockedFrontierCombatResult = {
+  attackType: FrontierCombatActionType;
+  attackerWon: boolean;
+  winnerId?: string;
+  defenderOwnerId?: string;
+  origin: { x: number; y: number };
+  target: { x: number; y: number };
+  changes: FrontierCombatResultChange[];
+  pointsDelta: number;
+  manpowerDelta: number;
+  pillagedGold: number;
+  pillagedShare: number;
+  pillagedStrategic: Partial<Record<StrategicResourceKey, number>>;
+  atkEff: number;
+  defEff: number;
+  winChance: number;
+  levelDelta: number;
+};
+
 export type LeaderboardOverallEntry = {
   id: string;
   name: string;
@@ -146,12 +174,13 @@ export type SimulationEvent =
       eventType: "COMMAND_ACCEPTED";
       commandId: string;
       playerId: string;
-      actionType: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK";
+      actionType: FrontierCombatActionType;
       originX: number;
       originY: number;
       targetX: number;
       targetY: number;
       resolvesAt: number;
+      combatResult?: LockedFrontierCombatResult;
     }
   | {
       eventType: "COMMAND_REJECTED";
@@ -170,7 +199,7 @@ export type SimulationEvent =
       eventType: "COMBAT_RESOLVED";
       commandId: string;
       playerId: string;
-      actionType: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK";
+      actionType: FrontierCombatActionType;
       originX: number;
       originY: number;
       targetX: number;
@@ -178,7 +207,8 @@ export type SimulationEvent =
       attackerWon: boolean;
       manpowerDelta?: number;
       pillagedGold?: number;
-      pillagedStrategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+      pillagedStrategic?: Partial<Record<StrategicResourceKey, number>>;
+      combatResult?: LockedFrontierCombatResult;
     }
   | {
       eventType: "COLLECT_RESULT";
@@ -189,7 +219,7 @@ export type SimulationEvent =
       y?: number;
       tiles: number;
       gold: number;
-      strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+      strategic: Partial<Record<StrategicResourceKey, number>>;
     }
   | {
       eventType: "TILE_DELTA_BATCH";
@@ -213,8 +243,8 @@ export type SimulationEvent =
         economicStructureJson?: string | undefined;
         sabotageJson?: string | undefined;
         shardSiteJson?: string | undefined;
-        yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
-        yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
+        yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
+        yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
       }>;
     }

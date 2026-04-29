@@ -253,6 +253,114 @@ describe("simulation runtime", () => {
     expect(seen[0]).toBe("COMMAND_ACCEPTED");
   });
 
+  it("freezes rewrite combat results on acceptance and reuses them at resolution", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const scheduled: Array<{ delayMs: number; task: () => void }> = [];
+      const seen: SimulationRuntimeEventShape[] = [];
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        scheduleAfter: (delayMs, task) => {
+          scheduled.push({ delayMs, task });
+        },
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 1_000,
+              manpower: 1_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "player-2",
+            {
+              id: "player-2",
+              isAi: false,
+              points: 200,
+              manpower: 1_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 11,
+              terrain: "LAND",
+              ownerId: "player-2",
+              ownershipState: "SETTLED",
+              town: { name: "Target", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+      runtime.onEvent((event) => {
+        seen.push(event);
+      });
+
+      runtime.submitCommand({
+        commandId: "locked-combat-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+
+      await Promise.resolve();
+
+      const accepted = seen.find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMMAND_ACCEPTED" }> => event.eventType === "COMMAND_ACCEPTED"
+      );
+      expect(accepted?.combatResult).toEqual(
+        expect.objectContaining({
+          attackType: "ATTACK",
+          origin: { x: 10, y: 10 },
+          target: { x: 10, y: 11 },
+          attackerWon: true,
+          manpowerDelta: expect.any(Number),
+          changes: [
+            {
+              x: 10,
+              y: 11,
+              ownerId: "player-1",
+              ownershipState: "FRONTIER"
+            }
+          ]
+        })
+      );
+      expect(scheduled).toHaveLength(1);
+      expect(scheduled[0]?.delayMs).toBe(3_000);
+
+      scheduled[0]?.task();
+
+      const resolved = seen.find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMBAT_RESOLVED" }> => event.eventType === "COMBAT_RESOLVED"
+      );
+      expect(resolved?.combatResult).toEqual(accepted?.combatResult);
+      expect(resolved?.manpowerDelta).toBe(accepted?.combatResult?.manpowerDelta);
+      expect(resolved?.pillagedGold).toBe(accepted?.combatResult?.pillagedGold);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
   it("accepts dock-crossing frontier expansion to linked islands", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

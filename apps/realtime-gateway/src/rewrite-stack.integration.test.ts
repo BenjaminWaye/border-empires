@@ -259,7 +259,15 @@ describe("rewrite stack integration", () => {
     expect(await nextNonBootstrapMessage(firstSocket, "combat start")).toEqual(
       expect.objectContaining({
         type: "COMBAT_START",
-        commandId: "cmd-1"
+        commandId: "cmd-1",
+        result: expect.objectContaining({
+          attackType: "ATTACK",
+          origin: { x: 10, y: 10 },
+          target: { x: 10, y: 11 },
+          attackerWon: expect.any(Boolean),
+          manpowerDelta: expect.any(Number),
+          changes: expect.any(Array)
+        })
       })
     );
 
@@ -291,37 +299,21 @@ describe("rewrite stack integration", () => {
 
     scheduledResolutions[0]?.task();
 
-    const resolutionMessages = [
-      await nextNonBootstrapMessage(secondSocket, "resolution first"),
-      await nextNonBootstrapMessage(secondSocket, "resolution second")
-    ];
-    const messageTypes = resolutionMessages.map((message) => message.type).sort();
-    expect(messageTypes).toEqual(["COMBAT_RESULT", "TILE_DELTA_BATCH"]);
-    expect(resolutionMessages).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "COMBAT_RESULT",
-          commandId: "cmd-1",
-          attackerWon: true,
-          manpowerDelta: expect.any(Number)
-        }),
-        expect.objectContaining({
-          type: "TILE_DELTA_BATCH",
-          commandId: "cmd-1",
-          tiles: expect.arrayContaining([
-            expect.objectContaining({
-              x: 10,
-              y: 11,
-              ownerId: "player-1",
-              ownershipState: "FRONTIER"
-            })
-          ])
-        })
-      ])
+    const resolutionMessage = await nextNonBootstrapMessage(secondSocket, "resolution");
+    expect(resolutionMessage).toEqual(
+      expect.objectContaining({
+        type: "TILE_DELTA_BATCH",
+        commandId: "cmd-1",
+        tiles: expect.arrayContaining([
+          expect.objectContaining({
+            x: 10,
+            y: 11,
+            ownerId: "player-1",
+            ownershipState: "FRONTIER"
+          })
+        ])
+      })
     );
-    const combatResultMessage = resolutionMessages.find((message) => message.type === "COMBAT_RESULT");
-    expect(typeof combatResultMessage?.manpowerDelta).toBe("number");
-    expect((combatResultMessage?.manpowerDelta as number) < -0.01).toBe(true);
   });
 
   it("persists profile setup state across gateway restarts", async () => {
