@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.1",
+  version: "2026.04.29.2",
   title: "What's New",
-  summary: "Recent updates include the steampunk tech-tree restructure with monument projects, stricter fort and siege upgrade ladders, bank and observatory-range cleanup, and the new Retort Transmutation crystal ability on Grand Synthesis; a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts instead of causing existing human empires to respawn at a new location; plus chunked rewrite 3D terrain, layered dirt roads, queue badge fixes, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black; the steampunk tech-tree restructure with monument projects, stricter fort and siege upgrade ladders, bank and observatory-range cleanup, and the new Retort Transmutation crystal ability on Grand Synthesis; a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts instead of causing existing human empires to respawn at a new location; and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.29.2",
+      title: "Rewrite staging has rolled back the chunked 3D terrain experiment",
+      why: "The chunked square terrain rewrite rendered as an unreadable black map on staging, so keeping it deployed would have blocked normal rewrite map play and review.",
+      changes: [
+        "Reverted the chunked terrain mesh path and restored the previous rewrite 3D terrain implementation that was already readable on staging.",
+        "Removed the layered road renderer and the shared 3D frontier queue badge helper changes that shipped together with the chunked terrain branch.",
+        "This rollback is intentionally conservative so staging returns to a known-good rewrite map baseline before any further terrain work resumes."
+      ]
+    },
     {
       introducedIn: "2026.04.29.1",
       title: "Steampunk tech tree restructure adds monument projects and Retort Transmutation",
@@ -41,36 +51,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Rewrite startup recovery now reapplies persisted tile-delta batches into recovered world state instead of rebuilding only accepted/resolved frontier commands.",
         "Bootstrap-spawned human settlements now survive cold restarts, so `preparePlayer()` no longer relocates an existing empire just because the process restarted before a later snapshot absorbed that tile.",
         "Added startup and cold-restart regressions covering tile-delta replay and bootstrap settlement persistence."
-      ]
-    },
-    {
-      introducedIn: "2026.04.28.11",
-      title: "Rewrite 3D mode now builds chunked square terrain instead of flat tile boxes",
-      why: "The earlier rewrite 3D terrain used one box-like ground instance per tile, which limited coastline shaping, elevation changes, and the overall terrain read needed for a more atmospheric strategy-map look.",
-      changes: [
-        "Visible terrain now builds from chunked square meshes with per-tile surface heights, lower coastal and water surfaces, and steeper mountain elevation under the existing 3D props.",
-        "Chunk meshes now generate cliff faces where neighboring terrain heights step sharply, giving coasts and mountain edges a more terrain-like silhouette without changing the gameplay grid.",
-        "Tile picking, hover, selection, ownership fills, and queue markers now anchor against the new terrain height model instead of fixed box tops."
-      ]
-    },
-    {
-      introducedIn: "2026.04.28.11",
-      title: "Rewrite map roads now render as layered dirt paths instead of flat brown lines",
-      why: "The rewrite road network was still drawing as a single thin line between towns, which made roads easy to miss against the new terrain and disconnected visually from the rest of the map style.",
-      changes: [
-        "Roads still follow the same network rules as before, including settlement endpoints, settled-land routing, and diagonal links between connected towns.",
-        "Road rendering now uses a wider layered dirt-path treatment with a darker edge, warm road bed, and center highlight so roads read more like carved paths on the terrain.",
-        "Extracted road rendering into a dedicated client module and added style regression coverage so future map changes do not silently revert roads back to a flat line."
-      ]
-    },
-    {
-      introducedIn: "2026.04.28.10",
-      title: "Frontier queue tiles in rewrite 3D mode show their queue number again",
-      why: "The earlier 3D queue badge fix restored development ordinals, but frontier expansion tiles were still using a separate 2D-only badge path, so queued attack and expand tiles kept their border without the numeric order in 3D.",
-      changes: [
-        "Queued frontier tiles now render their purple ordinal badge in rewrite 3D mode at the projected tile position.",
-        "Frontier, settlement, and build queues now share the same badge-layout helper so the 3D and 2D paths stay aligned.",
-        "Added client regression coverage so future queue-marker refactors do not silently drop frontier ordinals in the 3D renderer."
       ]
     },
     {
