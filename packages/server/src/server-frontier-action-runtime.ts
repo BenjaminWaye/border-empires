@@ -34,7 +34,7 @@ type TryQueueSuccess = {
   resolvesAt: number;
   origin: { x: number; y: number };
   target: { x: number; y: number };
-  predictedResult?: {
+  result?: {
     attackType: BasicFrontierActionType;
     attackerWon: boolean;
     winnerId?: string;
@@ -142,24 +142,7 @@ export interface CreateServerFrontierActionRuntimeDeps {
   sendLocalVisionDeltaForPlayer: (playerId: string, changedCenters: Array<{ x: number; y: number }>) => void;
   sendToPlayer: (
     playerId: string,
-    payload: {
-      type: "COMBAT_RESULT";
-      attackType: BasicFrontierActionType;
-      attackerWon: boolean;
-      winnerId?: string;
-      defenderOwnerId?: string;
-      origin: { x: number; y: number };
-      target: { x: number; y: number };
-      atkEff: number;
-      defEff: number;
-      winChance: number;
-      changes: CombatResultChange[];
-      pointsDelta: number;
-      manpowerDelta: number;
-      pillagedGold: number;
-      pillagedShare: number;
-      pillagedStrategic: Partial<Record<StrategicResource, number>>;
-    }
+    payload: Record<string, unknown>
   ) => void;
   sendPostCombatFollowUps: (actorId: string, changedCenters: Array<{ x: number; y: number }>, defenderId?: string) => void;
   claimFirstSpecialSiteCaptureBonus: (player: Player, x: number, y: number) => number;
@@ -450,27 +433,9 @@ export const createServerFrontierActionRuntime = (
       if (defender) deps.updateMissionState(defender);
       deps.resolveEliminationIfNeeded(actor, deps.socketsByPlayer.has(actor.id) || actor.isAi === true);
       if (defender) deps.resolveEliminationIfNeeded(defender, deps.socketsByPlayer.has(defender.id) || defender.isAi === true);
-      deps.sendToPlayer(actor.id, {
-        type: "COMBAT_RESULT",
-        attackType: effectiveActionType,
-        attackerWon: win,
-        ...(lockedCombat?.winnerId ? { winnerId: lockedCombat.winnerId } : win ? { winnerId: actor.id } : defenderIsBarbarian ? { winnerId: deps.BARBARIAN_OWNER_ID } : defenderOwnerId ? { winnerId: defenderOwnerId } : {}),
-        ...(lockedCombat?.defenderOwnerId ? { defenderOwnerId: lockedCombat.defenderOwnerId } : defenderIsBarbarian ? { defenderOwnerId: deps.BARBARIAN_OWNER_ID } : defenderOwnerId ? { defenderOwnerId } : {}),
-        origin: { x: from.x, y: from.y },
-        target: { x: to.x, y: to.y },
-        atkEff,
-        defEff,
-        winChance,
-        changes: resultChanges,
-        pointsDelta,
-        manpowerDelta,
-        pillagedGold,
-        pillagedShare,
-        pillagedStrategic
-      });
       deps.sendPostCombatFollowUps(actor.id, [{ x: from.x, y: from.y }, { x: to.x, y: to.y }], defender && !defenderIsBarbarian ? defender.id : undefined);
     }, resolvesAt - deps.now());
-    const predictedResult = precomputedCombat
+    const result = precomputedCombat
       ? {
           attackType: effectiveActionType,
           attackerWon: precomputedCombat.attackerWon,
@@ -491,8 +456,8 @@ export const createServerFrontierActionRuntime = (
         }
       : undefined;
     return defender && !defenderIsBarbarian && effectiveActionType === "ATTACK"
-      ? { ok: true, actionType: effectiveActionType, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(predictedResult ? { predictedResult } : {}), attackAlert: { defenderId: defender.id, attackerId: actor.id, attackerName: actor.name, x: to.x, y: to.y, fromX: from.x, fromY: from.y, resolvesAt } }
-      : { ok: true, actionType: effectiveActionType, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(predictedResult ? { predictedResult } : {}) };
+      ? { ok: true, actionType: effectiveActionType, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(result ? { result } : {}), attackAlert: { defenderId: defender.id, attackerId: actor.id, attackerName: actor.name, x: to.x, y: to.y, fromX: from.x, fromY: from.y, resolvesAt } }
+      : { ok: true, actionType: effectiveActionType, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(result ? { result } : {}) };
   };
 
   return {

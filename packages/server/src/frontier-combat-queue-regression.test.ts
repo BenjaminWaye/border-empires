@@ -79,7 +79,7 @@ describe("frontier combat queue regression guard", () => {
     expect(liveCombatStart).toBeGreaterThan(livePathStart);
     const livePath = source.slice(livePathStart, liveCombatStart);
     expect(livePath).toContain("await pending.precomputedCombatPromise");
-    expect(livePath).toContain("const predictedResult = buildPredictedFrontierResult({");
+    expect(livePath).toContain("const result = buildPredictedFrontierResult({");
     expect(source).toContain("pointsDelta: input.precomputedCombat.pointsDelta");
     expect(source).toContain("pillagedGold: input.precomputedCombat.pillagedGold");
     expect(source).toContain("pillagedStrategic: input.precomputedCombat.pillagedStrategic");
@@ -99,15 +99,14 @@ describe("frontier combat queue regression guard", () => {
     expect(livePath).not.toContain("await resolveCombatViaWorker");
   });
 
-  it("routes delayed live combat resolution payloads through the player id instead of the original request socket", () => {
+  it("does not send a delayed frontier COMBAT_RESULT after the lock expires", () => {
     const source = serverMainSource();
     const liveTimerStart = source.indexOf("pending.timeout = setTimeout(async () => {");
     const liveTimerEnd = source.indexOf("recordHotPathTimingEvent(", liveTimerStart);
     expect(liveTimerStart).toBeGreaterThan(-1);
     expect(liveTimerEnd).toBeGreaterThan(liveTimerStart);
     const liveTimerBody = source.slice(liveTimerStart, liveTimerEnd);
-    expect(liveTimerBody).toContain('sendToPlayer(actor.id, {');
-    expect(liveTimerBody).toContain('type: "COMBAT_RESULT"');
+    expect(liveTimerBody).not.toContain('type: "COMBAT_RESULT"');
     expect(liveTimerBody).not.toContain("sendControlToSocket(\n          socket,");
     expect(liveTimerBody).not.toContain("sendHighPrioritySocketMessage(\n          socket,");
 
@@ -116,7 +115,7 @@ describe("frontier combat queue regression guard", () => {
     expect(liveAttackResultStart).toBeGreaterThan(-1);
     expect(liveAttackResultEnd).toBeGreaterThan(liveAttackResultStart);
     const liveAttackResultBody = source.slice(liveAttackResultStart, liveAttackResultEnd);
-    expect(liveAttackResultBody.indexOf('sendToPlayer(actor.id, {')).toBeLessThan(liveAttackResultBody.indexOf("recalcPlayerDerived(actor);"));
+    expect(liveAttackResultBody).not.toContain('sendToPlayer(actor.id, {');
 
     const shieldedSliceStart = source.indexOf("if (defender && defender.spawnShieldUntil > now()) {", liveTimerStart);
     const shieldedSliceEnd = source.indexOf("if (!pending.precomputedCombat && pending.precomputedCombatPromise)", shieldedSliceStart);

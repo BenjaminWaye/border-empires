@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
 import {
   validateFrontierCommand,
   type DomainPlayer,
@@ -130,6 +130,12 @@ type LockRecord = {
   targetKey: string;
   originKey: string;
   resolvesAt: number;
+  combatResolution?: LockedCombatResolution;
+};
+
+type LockedCombatResolution = {
+  result: LockedFrontierCombatResult;
+  defenderGoldLoss: number;
 };
 
 type CrystalAbilityId =
@@ -1038,18 +1044,19 @@ export class SimulationRuntime {
           }))
           .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
         activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
-          .map((lock) => ({
-            commandId: lock.commandId,
-            playerId: lock.playerId,
-            actionType: lock.actionType,
-            originX: lock.originX,
-            originY: lock.originY,
-            targetX: lock.targetX,
-            targetY: lock.targetY,
-            originKey: lock.originKey,
-            targetKey: lock.targetKey,
-            resolvesAt: lock.resolvesAt
-          }))
+        .map((lock) => ({
+          commandId: lock.commandId,
+          playerId: lock.playerId,
+          actionType: lock.actionType,
+          originX: lock.originX,
+          originY: lock.originY,
+          targetX: lock.targetX,
+          targetY: lock.targetY,
+          originKey: lock.originKey,
+          targetKey: lock.targetKey,
+          resolvesAt: lock.resolvesAt,
+          ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
+        }))
           .sort((left, right) => left.commandId.localeCompare(right.commandId))
         ,
         players: [...this.players.values()]
@@ -1183,7 +1190,14 @@ export class SimulationRuntime {
       activeDevelopmentProcessCount?: number;
     }>;
     pendingSettlements: Array<PendingSettlementRecord>;
-    activeLocks: Array<{ commandId: string; playerId: string; originKey: string; targetKey: string; resolvesAt: number }>;
+    activeLocks: Array<{
+      commandId: string;
+      playerId: string;
+      originKey: string;
+      targetKey: string;
+      resolvesAt: number;
+      combatResolutionJson?: string;
+    }>;
     tileYieldCollectedAtByTile: Array<{ tileKey: string; collectedAt: number }>;
   } {
     return {
@@ -1243,7 +1257,8 @@ export class SimulationRuntime {
           playerId: lock.playerId,
           originKey: lock.originKey,
           targetKey: lock.targetKey,
-          resolvesAt: lock.resolvesAt
+          resolvesAt: lock.resolvesAt,
+          ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
         }))
         .sort((left, right) => left.commandId.localeCompare(right.commandId)),
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
@@ -1352,7 +1367,8 @@ export class SimulationRuntime {
           playerId: lock.playerId,
           originKey: lock.originKey,
           targetKey: lock.targetKey,
-          resolvesAt: lock.resolvesAt
+          resolvesAt: lock.resolvesAt,
+          ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
         }))
         .sort((left, right) => left.commandId.localeCompare(right.commandId)),
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
@@ -1626,7 +1642,7 @@ export class SimulationRuntime {
       this.emitPlayerStateUpdate(command);
     }
 
-    const lock: LockRecord = {
+    const baseLock: LockRecord = {
       commandId: command.commandId,
       playerId: command.playerId,
       actionType,
@@ -1638,6 +1654,11 @@ export class SimulationRuntime {
       originKey: simulationTileKey(validation.origin.x, validation.origin.y),
       targetKey: simulationTileKey(validation.target.x, validation.target.y),
       resolvesAt: validation.resolvesAt
+    };
+    const combatResolution = actionType === "EXPAND" ? undefined : this.buildLockedCombatResolution(baseLock);
+    const lock: LockRecord = {
+      ...baseLock,
+      ...(combatResolution ? { combatResolution } : {})
     };
     this.locksByTile.set(lock.originKey, lock);
     this.locksByTile.set(lock.targetKey, lock);
@@ -1659,7 +1680,8 @@ export class SimulationRuntime {
       originY: validation.origin.y,
       targetX: validation.target.x,
       targetY: validation.target.y,
-      resolvesAt: validation.resolvesAt
+      resolvesAt: validation.resolvesAt,
+      ...(combatResolution ? { combatResult: combatResolution.result } : {})
     });
     this.scheduleLockResolution(lock);
   }
@@ -4425,6 +4447,51 @@ export class SimulationRuntime {
     return [...deltas.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y));
   }
 
+  private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
+    const previousTarget = this.tiles.get(lock.targetKey);
+    const combat =
+      lock.actionType === "EXPAND"
+        ? {
+            ...rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType),
+            attackerWon: true
+          }
+        : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType);
+    const defenderOwnerId = previousTarget?.ownerId;
+    const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
+    const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
+    const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, this.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
+    const plunder =
+      combat.attackerWon && defender && targetWasSettled
+        ? this.previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
+        : undefined;
+    const manpowerDelta =
+      lock.actionType === "ATTACK" || lock.actionType === "BREAKTHROUGH_ATTACK"
+        ? -this.attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
+        : 0;
+    const result: LockedFrontierCombatResult = {
+      attackType: lock.actionType,
+      attackerWon: combat.attackerWon,
+      ...(combat.attackerWon ? { winnerId: lock.playerId } : defenderOwnerId ? { winnerId: defenderOwnerId } : {}),
+      ...(defenderOwnerId ? { defenderOwnerId } : {}),
+      origin: { x: lock.originX, y: lock.originY },
+      target: { x: lock.targetX, y: lock.targetY },
+      changes: combat.attackerWon ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: "FRONTIER" }] : [],
+      pointsDelta: 0,
+      manpowerDelta,
+      pillagedGold: plunder?.gold ?? 0,
+      pillagedShare: plunder?.share ?? 0,
+      pillagedStrategic: plunder?.strategic ?? {},
+      atkEff: combat.atkEff,
+      defEff: combat.defEff,
+      winChance: combat.winChance,
+      levelDelta: 0
+    };
+    return {
+      result,
+      defenderGoldLoss: plunder?.defenderGoldLoss ?? 0
+    };
+  }
+
   private resolveLock(lock: LockRecord): void {
     const originLock = this.locksByTile.get(lock.originKey);
     const targetLock = this.locksByTile.get(lock.targetKey);
@@ -4435,26 +4502,11 @@ export class SimulationRuntime {
     const previousTarget = this.tiles.get(lock.targetKey);
     const previousOwnerId = previousTarget?.ownerId;
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
-    const combat =
-      lock.actionType === "EXPAND"
-        ? {
-            ...rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType),
-            attackerWon: true
-          }
-        : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType);
-    const defenderTileCountBeforeCapture = previousOwnerId
-      ? Math.max(1, this.summaryForPlayer(previousOwnerId).settledTileCount)
-      : 0;
+    const combatResolution = lock.combatResolution ?? this.buildLockedCombatResolution(lock);
+    const combatResult = combatResolution?.result;
     const attacker = this.players.get(lock.playerId);
     const defender = previousOwnerId ? this.players.get(previousOwnerId) : undefined;
-    const manpowerDelta =
-      attacker && (lock.actionType === "ATTACK" || lock.actionType === "BREAKTHROUGH_ATTACK")
-        ? -this.settleAttackManpower(attacker, lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
-        : 0;
-    const pillage =
-      combat.attackerWon && attacker && defender && targetWasSettled
-        ? this.computeSettledCapturePlunder({ attacker, defender, defenderTileCountBeforeCapture, target: previousTarget })
-        : undefined;
+    const attackerWon = combatResult?.attackerWon ?? false;
     if (attacker && (lock.actionType === "EXPAND" || lock.actionType === "ATTACK")) {
       attacker.points = Math.max(0, attacker.points - FRONTIER_CLAIM_COST);
     }
@@ -4467,12 +4519,22 @@ export class SimulationRuntime {
       originY: lock.originY,
       targetX: lock.targetX,
       targetY: lock.targetY,
-      attackerWon: combat.attackerWon,
-      ...(manpowerDelta < -0.01 ? { manpowerDelta } : {}),
-      ...(typeof pillage?.gold === "number" && pillage.gold > 0.01 ? { pillagedGold: pillage.gold } : {}),
-      ...(pillage?.strategic && Object.keys(pillage.strategic).length > 0 ? { pillagedStrategic: pillage.strategic } : {})
+      attackerWon,
+      ...(typeof combatResult?.manpowerDelta === "number" && combatResult.manpowerDelta < -0.01 ? { manpowerDelta: combatResult.manpowerDelta } : {}),
+      ...(typeof combatResult?.pillagedGold === "number" && combatResult.pillagedGold > 0.01 ? { pillagedGold: combatResult.pillagedGold } : {}),
+      ...(combatResult?.pillagedStrategic && Object.keys(combatResult.pillagedStrategic).length > 0 ? { pillagedStrategic: combatResult.pillagedStrategic } : {}),
+      ...(combatResult ? { combatResult } : {})
     });
-    if (combat.attackerWon) {
+    if (attacker && typeof combatResult?.manpowerDelta === "number") this.applyLockedManpowerDelta(attacker, combatResult.manpowerDelta);
+    if (attackerWon && attacker && defender && targetWasSettled && combatResolution) {
+      this.applySettledCapturePlunder({
+        attacker,
+        defender,
+        gold: combatResolution.result.pillagedGold,
+        defenderGoldLoss: combatResolution.defenderGoldLoss
+      });
+    }
+    if (attackerWon) {
       const resolvedTarget: DomainTileState = {
         x: lock.targetX,
         y: lock.targetY,
@@ -4496,30 +4558,50 @@ export class SimulationRuntime {
       });
     }
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
-    if (combat.attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) this.respawnIfEliminated(previousOwnerId, lock.commandId);
+    if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) this.respawnIfEliminated(previousOwnerId, lock.commandId);
   }
 
-  private computeSettledCapturePlunder(input: {
-    attacker: DomainPlayer;
+  private previewSettledCapturePlunder(input: {
     defender: DomainPlayer;
     defenderTileCountBeforeCapture: number;
     target: DomainTileState;
-  }): { gold: number; strategic: Partial<Record<StrategicResourceKey, number>> } {
+  }): { gold: number; share: number; defenderGoldLoss: number; strategic: Partial<Record<StrategicResourceKey, number>> } {
     const share = 1 / Math.max(1, input.defenderTileCountBeforeCapture);
     const defenderGoldShare = Math.max(0, input.defender.points * share);
     const storedYieldGold = input.target.town ? 1 : 0;
     const gold = Math.round((defenderGoldShare + storedYieldGold) * 100) / 100;
-    if (gold > 0) {
-      input.defender.points = Math.max(0, input.defender.points - defenderGoldShare);
-      input.attacker.points += gold;
-    }
 
     const strategic: Partial<Record<StrategicResourceKey, number>> = {};
     const strategicResource = strategicResourceForTile(input.target.resource);
     if (strategicResource) {
       strategic[strategicResource] = 1;
     }
-    return { gold, strategic };
+    return { gold, share, defenderGoldLoss: defenderGoldShare, strategic };
+  }
+
+  private applySettledCapturePlunder(input: {
+    attacker: DomainPlayer;
+    defender: DomainPlayer;
+    gold: number;
+    defenderGoldLoss: number;
+  }): void {
+    if (input.gold <= 0) return;
+    input.defender.points = Math.max(0, input.defender.points - input.defenderGoldLoss);
+    input.attacker.points += input.gold;
+  }
+
+  private attackManpowerLoss(committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number {
+    if (committedManpower <= 0) return 0;
+    if (attackerWon) return Math.max(10, committedManpower * 0.16);
+    const combatRatio = defEff / Math.max(1, atkEff);
+    return committedManpower * Math.min(1.25, 0.6 + combatRatio * 0.35);
+  }
+
+  private applyLockedManpowerDelta(player: DomainPlayer, manpowerDelta: number): number {
+    if (manpowerDelta >= -0.01) return 0;
+    const loss = Math.abs(manpowerDelta);
+    player.manpower = Math.max(0, player.manpower - loss);
+    return loss;
   }
 
   private settleAttackManpower(
@@ -4529,14 +4611,7 @@ export class SimulationRuntime {
     atkEff: number,
     defEff: number
   ): number {
-    if (committedManpower <= 0) return 0;
-    if (attackerWon) {
-      const loss = Math.max(10, committedManpower * 0.16);
-      player.manpower = Math.max(0, player.manpower - loss);
-      return loss;
-    }
-    const combatRatio = defEff / Math.max(1, atkEff);
-    const loss = committedManpower * Math.min(1.25, 0.6 + combatRatio * 0.35);
+    const loss = this.attackManpowerLoss(committedManpower, attackerWon, atkEff, defEff);
     player.manpower = Math.max(0, player.manpower - loss);
     return loss;
   }
@@ -4816,11 +4891,32 @@ const createDocksFromInitialState = (
     ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
   }));
 
+const parseRecoveredCombatResolution = (combatResolutionJson?: string): LockedCombatResolution | undefined => {
+  if (!combatResolutionJson) return undefined;
+  try {
+    const parsed = JSON.parse(combatResolutionJson) as Partial<LockedCombatResolution> | undefined;
+    if (!parsed || typeof parsed !== "object") return undefined;
+    if (parsed.result && typeof parsed.defenderGoldLoss === "number") {
+      return parsed as LockedCombatResolution;
+    }
+    if (parsed.result && typeof parsed.defenderGoldLoss !== "number") {
+      return {
+        result: parsed.result,
+        defenderGoldLoss: 0
+      };
+    }
+    return parsed as LockedCombatResolution | undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const createLocksFromInitialState = (initialState?: RecoveredSimulationState): Map<string, LockRecord> => {
   const locksByTile = new Map<string, LockRecord>();
   if (!initialState) return locksByTile;
 
   for (const lock of initialState.activeLocks) {
+    const combatResolution = parseRecoveredCombatResolution(lock.combatResolutionJson);
     const hydratedLock: LockRecord = {
       commandId: lock.commandId,
       playerId: lock.playerId,
@@ -4832,7 +4928,8 @@ const createLocksFromInitialState = (initialState?: RecoveredSimulationState): M
       targetY: lock.targetY,
       originKey: lock.originKey,
       targetKey: lock.targetKey,
-      resolvesAt: lock.resolvesAt
+      resolvesAt: lock.resolvesAt,
+      ...(combatResolution ? { combatResolution } : {})
     };
     locksByTile.set(hydratedLock.originKey, hydratedLock);
     locksByTile.set(hydratedLock.targetKey, hydratedLock);

@@ -7,8 +7,10 @@ import {
   SIMULATION_PROTO_PATH,
   type CommandEnvelope,
   type CurrentSeasonSummary,
+  type LockedFrontierCombatResult,
   type PlayerSubscriptionSnapshot,
-  type SeasonArchiveRow
+  type SeasonArchiveRow,
+  type StrategicResourceKey
 } from "@border-empires/sim-protocol";
 
 type ProtoAck = { ok: boolean };
@@ -84,6 +86,8 @@ type ProtoSimulationEvent = {
   code: string;
   message: string;
   attacker_won: boolean;
+  combat_result_json?: string;
+  combatResultJson?: string;
   manpower_delta?: number;
   manpowerDelta?: number;
   pillaged_gold?: number;
@@ -166,6 +170,7 @@ export type SimulationClientEvent =
       targetX: number;
       targetY: number;
       resolvesAt: number;
+      combatResult?: LockedFrontierCombatResult;
     }
   | {
       eventType: "COMMAND_REJECTED";
@@ -192,7 +197,8 @@ export type SimulationClientEvent =
       attackerWon: boolean;
       manpowerDelta?: number;
       pillagedGold?: number;
-      pillagedStrategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+      pillagedStrategic?: Partial<Record<StrategicResourceKey, number>>;
+      combatResult?: LockedFrontierCombatResult;
     }
   | {
       eventType: "TILE_DELTA_BATCH";
@@ -216,8 +222,8 @@ export type SimulationClientEvent =
         economicStructureJson?: string | undefined;
         sabotageJson?: string | undefined;
         shardSiteJson?: string | undefined;
-        yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
-        yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
+        yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
+        yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
       }>;
     }
@@ -230,7 +236,7 @@ export type SimulationClientEvent =
       y?: number;
       tiles: number;
       gold: number;
-      strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+      strategic: Partial<Record<StrategicResourceKey, number>>;
     }
   | {
       eventType: "TECH_UPDATE";
@@ -313,8 +319,18 @@ const parseJsonTileDeltas = (json: string): Array<NonNullable<Extract<Simulation
     .map((tile) => normalizeProtoTile(tile));
 };
 
+const parseLockedCombatResult = (json: string | undefined): LockedFrontierCombatResult | undefined => {
+  if (!json) return undefined;
+  try {
+    return JSON.parse(json) as LockedFrontierCombatResult;
+  } catch {
+    return undefined;
+  }
+};
+
 const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent => {
   if (event.event_type === "COMMAND_ACCEPTED") {
+    const combatResult = parseLockedCombatResult(event.combat_result_json || event.combatResultJson);
     return {
       eventType: "COMMAND_ACCEPTED",
       commandId: event.command_id,
@@ -324,10 +340,12 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent => {
       originY: event.origin_y,
       targetX: event.target_x,
       targetY: event.target_y,
-      resolvesAt: event.resolves_at
+      resolvesAt: event.resolves_at,
+      ...(combatResult ? { combatResult } : {})
     };
   }
   if (event.event_type === "COMBAT_RESOLVED") {
+    const combatResult = parseLockedCombatResult(event.combat_result_json || event.combatResultJson);
     return {
       eventType: "COMBAT_RESOLVED",
       commandId: event.command_id,
@@ -346,11 +364,10 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent => {
       ...(typeof event.pillaged_gold === "number" && event.pillaged_gold > 0 ? { pillagedGold: event.pillaged_gold } : {}),
       ...(typeof event.pillaged_strategic_json === "string" && event.pillaged_strategic_json.length > 0
         ? {
-            pillagedStrategic: JSON.parse(event.pillaged_strategic_json) as Partial<
-              Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>
-            >
+            pillagedStrategic: JSON.parse(event.pillaged_strategic_json) as Partial<Record<StrategicResourceKey, number>>
           }
-        : {})
+        : {}),
+      ...(combatResult ? { combatResult } : {})
     };
   }
   if (event.event_type === "COMBAT_CANCELLED") {
@@ -374,7 +391,7 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent => {
     };
   }
   if (event.event_type === "COLLECT_RESULT") {
-    let strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
+    let strategic: Partial<Record<StrategicResourceKey, number>> = {};
     if (typeof event.strategic_json === "string" && event.strategic_json.length > 0) {
       try {
         strategic = JSON.parse(event.strategic_json) as typeof strategic;
