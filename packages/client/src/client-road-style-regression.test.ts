@@ -5,17 +5,15 @@ import { describe, expect, it } from "vitest";
 
 const renderSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./client-road-render.ts"), "utf8");
+  return readFileSync(resolve(here, "./client-map-render.ts"), "utf8");
 };
 
 describe("road style regression guard", () => {
-  it("draws roads as a layered dirt path with an edge and highlight", () => {
+  it("draws roads as a single stroke without a dark edge outline", () => {
     const source = renderSource();
 
-    expect(source).toContain('outer: "rgba(104, 72, 40, 0.82)"');
-    expect(source).toContain('fill: "rgba(190, 156, 99, 0.96)"');
-    expect(source).toContain('highlight: "rgba(226, 200, 139, 0.7)"');
-    expect(source).toContain("ctx.lineWidth = roadWidth * 1.34;");
-    expect(source).toContain('ctx.strokeStyle = colors.highlight;');
+    expect(source).toContain('ctx.strokeStyle = "rgba(210, 180, 120, 0.92)"');
+    expect(source).not.toContain('ctx.strokeStyle = "rgba(88, 62, 34, 0.42)"');
+    expect(source).not.toContain("const innerWidth = Math.max(1, roadWidth * 0.58);");
   });
 });
