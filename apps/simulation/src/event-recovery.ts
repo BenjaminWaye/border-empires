@@ -72,6 +72,8 @@ type RecoveredSimulationAccumulator = {
   collectVisibleCooldownByPlayer: NonNullable<RecoveredSimulationState["collectVisibleCooldownByPlayer"]>;
 };
 
+type TileDelta = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
+
 const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   x: tile.x,
   y: tile.y,
@@ -112,11 +114,96 @@ export const createRecoveredSimulationAccumulator = (
   };
 };
 
+const parseOptionalJson = <T>(value?: string): T | undefined => {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return undefined;
+  }
+};
+
+const recoverTownState = (
+  tileDelta: TileDelta,
+  existing?: RecoveredTileState
+): DomainTileState["town"] | undefined => {
+  const parsedTown = parseOptionalJson<DomainTileState["town"]>(tileDelta.townJson);
+  if (parsedTown) return parsedTown;
+  if (tileDelta.townName || tileDelta.townType || tileDelta.townPopulationTier) {
+    return {
+      name: tileDelta.townName ?? existing?.town?.name ?? `Settlement ${tileDelta.x},${tileDelta.y}`,
+      type: tileDelta.townType ?? existing?.town?.type ?? "FARMING",
+      populationTier: tileDelta.townPopulationTier ?? existing?.town?.populationTier ?? "SETTLEMENT"
+    };
+  }
+  return existing?.town;
+};
+
+const applyTileDeltaToRecoveredAccumulator = (
+  accumulator: RecoveredSimulationAccumulator,
+  tileDelta: TileDelta
+): void => {
+  const tileKey = simulationTileKey(tileDelta.x, tileDelta.y);
+  const existing = accumulator.tiles.get(tileKey);
+  const recoveredTown = recoverTownState(tileDelta, existing);
+  accumulator.tiles.set(tileKey, {
+    x: tileDelta.x,
+    y: tileDelta.y,
+    terrain: tileDelta.terrain ?? existing?.terrain ?? "LAND",
+    ...(tileDelta.resource ? { resource: tileDelta.resource as DomainTileState["resource"] } : existing?.resource ? { resource: existing.resource } : {}),
+    ...(tileDelta.dockId ? { dockId: tileDelta.dockId } : existing?.dockId ? { dockId: existing.dockId } : {}),
+    ...(tileDelta.shardSiteJson
+      ? { shardSite: parseOptionalJson<DomainTileState["shardSite"]>(tileDelta.shardSiteJson) }
+      : existing?.shardSite
+        ? { shardSite: existing.shardSite }
+        : {}),
+    ...(tileDelta.ownerId ? { ownerId: tileDelta.ownerId } : existing?.ownerId ? { ownerId: existing.ownerId } : {}),
+    ...(tileDelta.ownershipState
+      ? { ownershipState: tileDelta.ownershipState as DomainTileState["ownershipState"] }
+      : existing?.ownershipState
+        ? { ownershipState: existing.ownershipState }
+        : {}),
+    ...(recoveredTown ? { town: recoveredTown } : {}),
+    ...(tileDelta.fortJson
+      ? { fort: parseOptionalJson<DomainTileState["fort"]>(tileDelta.fortJson) }
+      : existing?.fort
+        ? { fort: existing.fort }
+        : {}),
+    ...(tileDelta.observatoryJson
+      ? { observatory: parseOptionalJson<DomainTileState["observatory"]>(tileDelta.observatoryJson) }
+      : existing?.observatory
+        ? { observatory: existing.observatory }
+        : {}),
+    ...(tileDelta.siegeOutpostJson
+      ? { siegeOutpost: parseOptionalJson<DomainTileState["siegeOutpost"]>(tileDelta.siegeOutpostJson) }
+      : existing?.siegeOutpost
+        ? { siegeOutpost: existing.siegeOutpost }
+        : {}),
+    ...(tileDelta.economicStructureJson
+      ? { economicStructure: parseOptionalJson<DomainTileState["economicStructure"]>(tileDelta.economicStructureJson) }
+      : existing?.economicStructure
+        ? { economicStructure: existing.economicStructure }
+        : {}),
+    ...(tileDelta.sabotageJson
+      ? { sabotage: parseOptionalJson<DomainTileState["sabotage"]>(tileDelta.sabotageJson) }
+      : existing?.sabotage
+        ? { sabotage: existing.sabotage }
+        : {})
+  });
+};
+
 export const applySimulationEventsToRecoveredAccumulator = (
   accumulator: RecoveredSimulationAccumulator,
   events: SimulationEvent[]
 ): void => {
   for (const event of events) {
+    if (event.eventType === "TILE_DELTA_BATCH") {
+      for (const tileDelta of event.tileDeltas) {
+        applyTileDeltaToRecoveredAccumulator(accumulator, tileDelta);
+      }
+      continue;
+    }
+
     if (event.eventType === "COMMAND_ACCEPTED") {
       accumulator.activeLocks.set(event.commandId, {
         commandId: event.commandId,
