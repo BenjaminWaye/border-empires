@@ -8055,11 +8055,12 @@ const bootstrapRuntimeState = async (): Promise<void> => {
       logRuntimeError("chunk read worker hydration failed", err);
     });
 
-  // Eagerly warm the Firebase JWKS cache in the background so that the first
-  // real auth attempt finds keys already cached. Without this, a fresh boot
-  // leaves the cache empty and the first jwtVerify call triggers a network
-  // fetch that can hang indefinitely, blocking all WebSocket auth handlers.
-  void warmFirebaseJwks();
+  // DO NOT eagerly warm Firebase JWKS cache at startup. The fire-and-forget
+  // warmFirebaseJwks() call creates zombie fetch operations that can hang the
+  // event loop indefinitely if the Google JWKS endpoint is stalled. The first
+  // real auth request will trigger the JWKS fetch with proper timeout handling
+  // in verifyFirebaseToken, which is sufficient protection.
+  // void warmFirebaseJwks();
 };
 const runtimeIntervals: NodeJS.Timeout[] = [];
 let intervalRegistrationCount = 0;
