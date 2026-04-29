@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.5",
+  version: "2026.04.29.6",
   title: "What's New",
-  summary: "Recent updates include locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include rewrite 3D queue ordinals returning for frontier expansion and attack queues, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.29.6",
+      title: "Rewrite 3D mode now shows queue numbers for frontier expansion and attack tiles",
+      why: "Queued frontier actions were still using a separate hard-coded overlay path, so 3D mode kept the border marker but dropped the ordinal number that tells you where an expand or attack sits in the queue.",
+      changes: [
+        "Frontier expansion and attack queue tiles now use the same shared corner-badge helper that settlement and build queues already use.",
+        "3D queue markers keep the projected outline while the ordinal number renders in the same top-corner position as the other queued actions.",
+        "Added client regression coverage so future queue rendering changes do not silently drop frontier ordinals again."
+      ]
+    },
     {
       introducedIn: "2026.04.29.5",
       title: "Frontier combat results now arrive before the reveal timer ends",
