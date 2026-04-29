@@ -7,6 +7,7 @@ import {
 } from "./client-dock-routes.js";
 import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap.js";
 import { resolveOwnerColor } from "./client-owner-colors.js";
+import { playerNameForOwnerFromState } from "./client-owner-name.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
@@ -121,12 +122,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const visualStyleForOwner = (ownerId: string): EmpireVisualStyle | undefined => state.playerVisualStyles.get(ownerId);
   const shieldUntilForOwner = (ownerId: string): number => state.playerShieldUntil.get(ownerId) ?? 0;
   const ownerSpawnShieldActive = (ownerId: string): boolean => shieldUntilForOwner(ownerId) > Date.now();
-
   const playerNameForOwner = (ownerId?: string | null): string | undefined => {
-    if (!ownerId) return undefined;
-    if (ownerId === state.me) return state.meName || "you";
-    if (ownerId === "barbarian") return "Barbarians";
-    return state.playerNames.get(ownerId);
+    return playerNameForOwnerFromState(state, ownerId);
   };
 
   const effectiveOverlayColor = (ownerId: string): string =>

@@ -11,7 +11,7 @@ describe("aether bridge tech regression", () => {
     const tech = techs.find((entry) => entry.id === "navigation");
 
     expect(tech?.name).toBe("Aether Bridge");
-    expect(tech?.description).toBe("Unlocks Aether Bridge.");
+    expect(tech?.description).toBe("The sea becomes considerably less final once the bridge crews stop fearing electricity.");
     expect(tech?.effects).toMatchObject({ unlockNavalInfiltration: true });
   });
 });

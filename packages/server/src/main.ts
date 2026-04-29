@@ -7743,6 +7743,9 @@ const {
 const bootstrapRuntimeState = async (): Promise<void> => {
   const loadStartedAt = Date.now();
   const loadedSnapshot = loadSnapshot();
+  for (const player of [...players.values()]) {
+    if (playerNeedsProfileSetup(player)) discardIncompleteHumanPlayer(player);
+  }
   logStartupPhase("load_snapshot", loadStartedAt, { players: players.size, ownershipTiles: ownership.size });
 
   const worldStartedAt = Date.now();
