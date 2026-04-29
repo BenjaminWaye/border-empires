@@ -19,18 +19,37 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.6",
+  version: "2026.04.29.8",
   title: "What's New",
-  summary: "Recent updates include rewrite 3D queue ordinals returning for frontier expansion and attack queues, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
     {
-      introducedIn: "2026.04.29.6",
+      introducedIn: "2026.04.29.8",
       title: "Rewrite 3D mode now shows queue numbers for frontier expansion and attack tiles",
       why: "Queued frontier actions were still using a separate hard-coded overlay path, so 3D mode kept the border marker but dropped the ordinal number that tells you where an expand or attack sits in the queue.",
       changes: [
         "Frontier expansion and attack queue tiles now use the same shared corner-badge helper that settlement and build queues already use.",
         "3D queue markers keep the projected outline while the ordinal number renders in the same top-corner position as the other queued actions.",
         "Added client regression coverage so future queue rendering changes do not silently drop frontier ordinals again."
+      ]
+    },
+    {
+      introducedIn: "2026.04.29.7",
+      title: "Neutral frontier claims no longer misfire as manpower-gated attacks on rewrite staging",
+      why: "A claim against land that was still neutral on the authoritative server could arrive through the rewrite frontier path with stale attack intent, which made the server echo attack framing and, in the worst case, reject the move behind the attack manpower gate even though neutral expansion should not consume manpower.",
+      changes: [
+        "The rewrite frontier action runtime now treats authoritative neutral targets as `EXPAND` claims even if the incoming request was tagged like an attack.",
+        "Accepted rewrite frontier acks now echo the effective action type back to the client, so neutral captures no longer look like attacks in staging diagnostics and follow-up UI state.",
+        "Added server regression coverage to keep neutral claims on the manpower-free expand path."
+      ]
+    },
+    {
+      introducedIn: "2026.04.29.6",
+      title: "Fixed login hang on fresh server boot",
+      why: "After a server restart, the connection would stall at wsReadyState 0 indefinitely. A background JWKS warmup call at startup created zombie network handles that saturated the event loop, preventing the server from accepting any new connections.",
+      changes: [
+        "Removed the fire-and-forget JWKS warmup call from server startup. The per-request hard timeout in the auth handler already provides the necessary protection.",
+        "Server now accepts connections immediately on boot rather than hanging until zombie fetch handles are cleared."
       ]
     },
     {
