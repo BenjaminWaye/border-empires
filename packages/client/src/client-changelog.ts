@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.2",
+  version: "2026.04.29.3",
   title: "What's New",
-  summary: "Recent updates include a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black; the steampunk tech-tree restructure with monument projects, stricter fort and siege upgrade ladders, bank and observatory-range cleanup, and the new Retort Transmutation crystal ability on Grand Synthesis; a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts instead of causing existing human empires to respawn at a new location; and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include a gateway health fix that stops rewrite/staging frontier commands from silently hanging when the simulation event stream drops, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.29.3",
+      title: "Rewrite gateway now blocks frontier actions when its simulation event stream is down",
+      why: "Staging could still pass simulation pings after the command event stream dropped, which let frontier expands and attacks submit but never deliver the accept/result events the client needs to finish the action.",
+      changes: [
+        "Gateway backend health now requires both a healthy simulation RPC path and a live simulation event stream before it accepts frontier commands.",
+        "If the event stream drops, the gateway now rejects new actions immediately with the existing temporary-unavailable error instead of silently letting them hang in a stuck queued state.",
+        "Added regression coverage around event-stream connect/disconnect transitions and command rejection while the stream is offline."
+      ]
+    },
     {
       introducedIn: "2026.04.29.2",
       title: "Rewrite staging has rolled back the chunked 3D terrain experiment",
