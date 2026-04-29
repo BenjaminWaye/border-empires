@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.5",
+  version: "2026.04.29.6",
   title: "What's New",
-  summary: "Recent updates include locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.29.6",
+      title: "Fixed login hang on fresh server boot",
+      why: "After a server restart, the connection would stall at wsReadyState 0 indefinitely. A background JWKS warmup call at startup created zombie network handles that saturated the event loop, preventing the server from accepting any new connections.",
+      changes: [
+        "Removed the fire-and-forget JWKS warmup call from server startup. The per-request hard timeout in the auth handler already provides the necessary protection.",
+        "Server now accepts connections immediately on boot rather than hanging until zombie fetch handles are cleared."
+      ]
+    },
     {
       introducedIn: "2026.04.29.5",
       title: "Frontier combat results now arrive before the reveal timer ends",
