@@ -30,6 +30,7 @@ import type {
 
 type TryQueueSuccess = {
   ok: true;
+  actionType: BasicFrontierActionType;
   resolvesAt: number;
   origin: { x: number; y: number };
   target: { x: number; y: number };
@@ -216,15 +217,17 @@ export const createServerFrontierActionRuntime = (
     actor.lastActiveAt = deps.now();
     let from = deps.playerTile(fromX, fromY);
     const to = deps.playerTile(toX, toY);
-    if (actionType === "EXPAND" && to.ownerId) return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
-    if (actionType === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) return { ok: false, code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" };
+    const targetIsNeutral = !to.ownerId;
+    const effectiveActionType: BasicFrontierActionType = targetIsNeutral ? "EXPAND" : actionType;
+    if (actionType === "EXPAND" && !targetIsNeutral) return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
+    if (actionType === "ATTACK" && to.ownerId === actor.id) return { ok: false, code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" };
     let fk = deps.key(from.x, from.y);
     const tk = deps.key(to.x, to.y);
     let fromDock = deps.docksByTile.get(fk);
     let adjacent = deps.isAdjacentTile(from.x, from.y, to.x, to.y);
-    const allowAdjacentToDock = actionType !== "EXPAND";
+    const allowAdjacentToDock = effectiveActionType !== "EXPAND";
     let dockCrossing = Boolean(fromDock && deps.validDockCrossingTarget(fromDock, to.x, to.y, allowAdjacentToDock));
-    if (!adjacent && !dockCrossing && actionType === "ATTACK") {
+    if (!adjacent && !dockCrossing && effectiveActionType === "ATTACK") {
       const altFrom = deps.findOwnedDockOriginForCrossing(actor, to.x, to.y, allowAdjacentToDock);
       if (altFrom) {
         from = altFrom;
@@ -241,10 +244,10 @@ export const createServerFrontierActionRuntime = (
     if (to.terrain !== "LAND") return { ok: false, code: "BARRIER", message: "target is barrier" };
     if (deps.combatLocks.has(fk)) return { ok: false, code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs: Math.max(0, (deps.combatLocks.get(fk)?.resolvesAt ?? deps.now()) - deps.now()) };
     if (deps.combatLocks.has(tk)) return { ok: false, code: "LOCKED", message: "tile locked in combat" };
-    if (actor.points < deps.FRONTIER_ACTION_GOLD_COST) return { ok: false, code: "INSUFFICIENT_GOLD", message: actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim" };
+    if (actor.points < deps.FRONTIER_ACTION_GOLD_COST) return { ok: false, code: "INSUFFICIENT_GOLD", message: effectiveActionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim" };
     deps.applyManpowerRegen(actor);
-    const manpowerMin = deps.manpowerMinForAction(actionType);
-    const manpowerCost = deps.manpowerCostForAction(actionType);
+    const manpowerMin = deps.manpowerMinForAction(effectiveActionType);
+    const manpowerCost = deps.manpowerCostForAction(effectiveActionType);
     if (!deps.hasEnoughManpower(actor, manpowerMin)) return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerMin.toFixed(0)} manpower to launch attack` };
     const defenderIsBarbarian = to.ownerId === deps.BARBARIAN_OWNER_ID;
     const defenderOwnerId = to.ownerId && !defenderIsBarbarian ? to.ownerId : undefined;
@@ -337,7 +340,7 @@ export const createServerFrontierActionRuntime = (
       };
     }
 
-    const resolvesAt = deps.now() + (actionType === "EXPAND" && !to.ownerId ? deps.frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
+    const resolvesAt = deps.now() + (effectiveActionType === "EXPAND" ? deps.frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
     const pending: PendingCapture = {
       resolvesAt,
       origin: fk,
@@ -345,6 +348,7 @@ export const createServerFrontierActionRuntime = (
       attackerId: actor.id,
       staminaCost: 0,
       manpowerCost,
+      actionType: effectiveActionType,
       cancelled: false,
       ...(precomputedCombat ? { precomputedCombat } : {})
     };
@@ -448,7 +452,7 @@ export const createServerFrontierActionRuntime = (
       if (defender) deps.resolveEliminationIfNeeded(defender, deps.socketsByPlayer.has(defender.id) || defender.isAi === true);
       deps.sendToPlayer(actor.id, {
         type: "COMBAT_RESULT",
-        attackType: actionType,
+        attackType: effectiveActionType,
         attackerWon: win,
         ...(lockedCombat?.winnerId ? { winnerId: lockedCombat.winnerId } : win ? { winnerId: actor.id } : defenderIsBarbarian ? { winnerId: deps.BARBARIAN_OWNER_ID } : defenderOwnerId ? { winnerId: defenderOwnerId } : {}),
         ...(lockedCombat?.defenderOwnerId ? { defenderOwnerId: lockedCombat.defenderOwnerId } : defenderIsBarbarian ? { defenderOwnerId: deps.BARBARIAN_OWNER_ID } : defenderOwnerId ? { defenderOwnerId } : {}),
@@ -466,10 +470,29 @@ export const createServerFrontierActionRuntime = (
       });
       deps.sendPostCombatFollowUps(actor.id, [{ x: from.x, y: from.y }, { x: to.x, y: to.y }], defender && !defenderIsBarbarian ? defender.id : undefined);
     }, resolvesAt - deps.now());
-    const predictedResult = precomputedCombat ? { attackType: actionType, attackerWon: precomputedCombat.attackerWon, ...(precomputedCombat.winnerId ? { winnerId: precomputedCombat.winnerId } : {}), ...(precomputedCombat.defenderOwnerId ? { defenderOwnerId: precomputedCombat.defenderOwnerId } : {}), origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, changes: precomputedCombat.changes, pointsDelta: precomputedCombat.pointsDelta, manpowerDelta: precomputedCombat.manpowerDelta, pillagedGold: precomputedCombat.pillagedGold, pillagedShare: precomputedCombat.pillagedShare, pillagedStrategic: precomputedCombat.pillagedStrategic, atkEff: precomputedCombat.atkEff, defEff: precomputedCombat.defEff, winChance: precomputedCombat.winChance, levelDelta: 0 } : undefined;
-    return defender && !defenderIsBarbarian && actionType === "ATTACK"
-      ? { ok: true, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(predictedResult ? { predictedResult } : {}), attackAlert: { defenderId: defender.id, attackerId: actor.id, attackerName: actor.name, x: to.x, y: to.y, fromX: from.x, fromY: from.y, resolvesAt } }
-      : { ok: true, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(predictedResult ? { predictedResult } : {}) };
+    const predictedResult = precomputedCombat
+      ? {
+          attackType: effectiveActionType,
+          attackerWon: precomputedCombat.attackerWon,
+          ...(precomputedCombat.winnerId ? { winnerId: precomputedCombat.winnerId } : {}),
+          ...(precomputedCombat.defenderOwnerId ? { defenderOwnerId: precomputedCombat.defenderOwnerId } : {}),
+          origin: { x: from.x, y: from.y },
+          target: { x: to.x, y: to.y },
+          changes: precomputedCombat.changes,
+          pointsDelta: precomputedCombat.pointsDelta,
+          manpowerDelta: precomputedCombat.manpowerDelta,
+          pillagedGold: precomputedCombat.pillagedGold,
+          pillagedShare: precomputedCombat.pillagedShare,
+          pillagedStrategic: precomputedCombat.pillagedStrategic,
+          atkEff: precomputedCombat.atkEff,
+          defEff: precomputedCombat.defEff,
+          winChance: precomputedCombat.winChance,
+          levelDelta: 0
+        }
+      : undefined;
+    return defender && !defenderIsBarbarian && effectiveActionType === "ATTACK"
+      ? { ok: true, actionType: effectiveActionType, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(predictedResult ? { predictedResult } : {}), attackAlert: { defenderId: defender.id, attackerId: actor.id, attackerName: actor.name, x: to.x, y: to.y, fromX: from.x, fromY: from.y, resolvesAt } }
+      : { ok: true, actionType: effectiveActionType, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(predictedResult ? { predictedResult } : {}) };
   };
 
   return {
