@@ -3067,7 +3067,7 @@ const executeUnifiedGameplayMessage = async (
       if (queuedExecution && actor.isAi) {
         latchQueuedAiIntent(
           actor,
-          msg.type === "EXPAND" ? "claim_neutral_border_tile" : "attack_enemy_border_tile",
+          result.actionType === "EXPAND" ? "claim_neutral_border_tile" : "attack_enemy_border_tile",
           "frontier",
           result.resolvesAt,
           key(result.target.x, result.target.y),
@@ -3078,7 +3078,7 @@ const executeUnifiedGameplayMessage = async (
         socket,
         JSON.stringify({
           type: "ACTION_ACCEPTED",
-          actionType: msg.type,
+          actionType: result.actionType,
           origin: result.origin,
           target: result.target,
           resolvesAt: result.resolvesAt,
