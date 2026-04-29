@@ -19,18 +19,48 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.28.11",
+  version: "2026.04.29.1",
   title: "What's New",
-  summary: "Recent updates include the steampunk tech-tree restructure with monument projects, stricter fort and siege upgrade ladders, bank and observatory-range cleanup, and the new Retort Transmutation crystal ability on Grand Synthesis; plus frontier action diagnostics, rewrite AI/autoboot fixes, seasonal lifecycle rollout, and the broader rewrite bootstrap and sync hardening already landed on main.",
+  summary: "Recent updates include the steampunk tech-tree restructure with monument projects, stricter fort and siege upgrade ladders, bank and observatory-range cleanup, and the new Retort Transmutation crystal ability on Grand Synthesis; plus chunked rewrite 3D terrain, layered dirt roads, queue badge fixes, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
     {
-      introducedIn: "2026.04.28.11",
+      introducedIn: "2026.04.29.1",
       title: "Steampunk tech tree restructure adds monument projects and Retort Transmutation",
       why: "The old tree had drifted away from the game’s steampunk direction, several techs felt like filler, fort and siege progression was too implicit, and late-game alchemy still lacked a real map-changing verb.",
       changes: [
         "The pre-space tech tree now uses the steampunk restructure branch with renamed ages, new structure unlocks, stricter Fort -> Iron Bastion -> Thunder Bastion and Siege Outpost -> Siege Tower -> Dread Tower upgrade ladders, and monument project progression for Imperial Exchange, Worldbreaker Cannon, Aegis Dome, and Astral Dock.",
         "Grand Synthesis now unlocks Retort Transmutation, a crystal ability that rewrites an exposed land resource tile into food, supply, iron, or crystal if it is within owned observatory range and not blocked by hostile crystal protection or structures.",
         "Bank is restored to a gold-only structure cost, and observatory progression now uses one unified observatory range bonus source instead of separate cast/protection tech data that could drift apart."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.11",
+      title: "Rewrite 3D mode now builds chunked square terrain instead of flat tile boxes",
+      why: "The earlier rewrite 3D terrain used one box-like ground instance per tile, which limited coastline shaping, elevation changes, and the overall terrain read needed for a more atmospheric strategy-map look.",
+      changes: [
+        "Visible terrain now builds from chunked square meshes with per-tile surface heights, lower coastal and water surfaces, and steeper mountain elevation under the existing 3D props.",
+        "Chunk meshes now generate cliff faces where neighboring terrain heights step sharply, giving coasts and mountain edges a more terrain-like silhouette without changing the gameplay grid.",
+        "Tile picking, hover, selection, ownership fills, and queue markers now anchor against the new terrain height model instead of fixed box tops."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.11",
+      title: "Rewrite map roads now render as layered dirt paths instead of flat brown lines",
+      why: "The rewrite road network was still drawing as a single thin line between towns, which made roads easy to miss against the new terrain and disconnected visually from the rest of the map style.",
+      changes: [
+        "Roads still follow the same network rules as before, including settlement endpoints, settled-land routing, and diagonal links between connected towns.",
+        "Road rendering now uses a wider layered dirt-path treatment with a darker edge, warm road bed, and center highlight so roads read more like carved paths on the terrain.",
+        "Extracted road rendering into a dedicated client module and added style regression coverage so future map changes do not silently revert roads back to a flat line."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.11",
+      title: "Frontier queue tiles in rewrite 3D mode show their queue number again",
+      why: "The earlier 3D queue badge fix restored development ordinals, but frontier expansion tiles were still using a separate 2D-only badge path, so queued attack and expand tiles kept their border without the numeric order in 3D.",
+      changes: [
+        "Queued frontier tiles now render their purple ordinal badge in rewrite 3D mode at the projected tile position.",
+        "Frontier, settlement, and build queues now share the same badge-layout helper so the 3D and 2D paths stay aligned.",
+        "Added client regression coverage so future queue-marker refactors do not silently drop frontier ordinals in the 3D renderer."
       ]
     },
     {
