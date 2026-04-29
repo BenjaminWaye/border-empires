@@ -1,4 +1,5 @@
 import type { OwnershipState, TileKey } from "@border-empires/shared";
+import type { StrategicResource } from "./server-shared-types.js";
 
 export type CombatResultChange = {
   x: number;
@@ -13,11 +14,15 @@ export type PrecomputedFrontierCombat = {
   atkEff: number;
   defEff: number;
   winChance: number;
-  win: boolean;
-  previewChanges: CombatResultChange[];
-  previewWinnerId?: string;
+  attackerWon: boolean;
+  changes: CombatResultChange[];
+  winnerId?: string;
   defenderOwnerId?: string;
-  previewManpowerDelta?: number;
+  pointsDelta: number;
+  manpowerDelta: number;
+  pillagedGold: number;
+  pillagedShare: number;
+  pillagedStrategic: Partial<Record<StrategicResource, number>>;
 };
 
 export interface PendingCapture {
