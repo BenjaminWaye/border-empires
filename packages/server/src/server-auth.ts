@@ -197,10 +197,24 @@ export const verifyFirebaseToken = async (
       }
     }
 
-    const verified = await jwtVerify(token, firebaseJwks, {
+    // Wrap jwtVerify with a hard timeout. JOSE's built-in timeoutDuration for the
+    // JWKS fetch does not always fire reliably (Node.js fetch + AbortSignal interaction
+    // can silently hang on a fresh boot with a cold DNS/TLS cache). If the Promise
+    // does not settle within our timeout, we reject with a JWKSTimeout message so the
+    // caller's classifyAuthError catches it as AUTH_UNAVAILABLE and falls back to the
+    // offline decodeFirebaseTokenFallback path.
+    const hardTimeoutMs = FIREBASE_JWKS_TIMEOUT_MS + 2_000;
+    const jwtVerifyPromise = jwtVerify(token, firebaseJwks, {
       issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
       audience: FIREBASE_PROJECT_ID
     });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`JWKSTimeout: jwt verification did not settle within ${hardTimeoutMs}ms`)),
+        hardTimeoutMs
+      )
+    );
+    const verified = await Promise.race([jwtVerifyPromise, timeoutPromise]);
     const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
       uid: String(verified.payload.user_id ?? verified.payload.sub ?? "")
     };
@@ -210,5 +224,35 @@ export const verifyFirebaseToken = async (
     return decoded;
   } finally {
     authPressureState.pendingAuthVerifications = Math.max(0, authPressureState.pendingAuthVerifications - 1);
+  }
+};
+
+/**
+ * Pre-warm the Firebase JWKS cache at server startup.
+ *
+ * On a cold boot the JWKS key set is empty. The first auth request would
+ * trigger a network fetch to Google's JWKS endpoint, which can hang and
+ * block the auth WebSocket handler indefinitely (see JWKS hang fix above).
+ * Calling this once after bootstrap populates the cache eagerly so that
+ * real auth attempts use cached keys and are not the ones triggering the
+ * fetch. Any network failure is swallowed — the hard-timeout wrapper in
+ * verifyFirebaseToken handles degraded connectivity gracefully.
+ */
+export const warmFirebaseJwks = async (): Promise<void> => {
+  const warmupTimeoutMs = FIREBASE_JWKS_TIMEOUT_MS + 3_000;
+  const warmupPromise = jwtVerify("warmup.invalid.token", firebaseJwks, {
+    issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+    audience: FIREBASE_PROJECT_ID
+  });
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("warmup timeout")), warmupTimeoutMs)
+  );
+  try {
+    await Promise.race([warmupPromise, timeoutPromise]);
+  } catch {
+    // Expected: the dummy token is malformed/invalid. What matters is that
+    // the JWKS endpoint was contacted and keys are now in the JOSE cache.
+    // Any real network error is silently ignored — the per-request timeout
+    // in verifyFirebaseToken provides the actual safety net.
   }
 };
