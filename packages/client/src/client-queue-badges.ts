@@ -1,4 +1,4 @@
-export type QueuedCornerBadgeKind = "SETTLEMENT" | "BUILD";
+export type QueuedCornerBadgeKind = "FRONTIER" | "SETTLEMENT" | "BUILD";
 
 export type QueuedCornerBadgeLayout = {
   border:
@@ -39,6 +39,11 @@ const QUEUED_CORNER_BADGE_STYLE: Record<
   QueuedCornerBadgeKind,
   { border: string; background: string; foreground: string }
 > = {
+  FRONTIER: {
+    border: "rgba(168, 139, 250, 0.95)",
+    background: "rgba(20, 16, 35, 0.85)",
+    foreground: "#c4b5fd"
+  },
   SETTLEMENT: {
     border: "rgba(251, 191, 36, 0.95)",
     background: "rgba(49, 31, 4, 0.92)",
@@ -87,4 +92,25 @@ export const queuedCornerBadgeLayout = ({
           }
         : undefined
   };
+};
+
+export const drawQueuedCornerBadge = (
+  ctx: CanvasRenderingContext2D,
+  layout: QueuedCornerBadgeLayout | undefined
+): void => {
+  if (layout?.border) {
+    ctx.strokeStyle = layout.border.strokeStyle;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(layout.border.x, layout.border.y, layout.border.width, layout.border.height);
+    ctx.lineWidth = 1;
+  }
+  if (!layout?.badge) return;
+  ctx.fillStyle = layout.badge.background;
+  ctx.fillRect(layout.badge.x, layout.badge.y, layout.badge.width, layout.badge.height);
+  ctx.fillStyle = layout.badge.foreground;
+  ctx.font = "10px monospace";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  ctx.fillText(layout.badge.text, layout.badge.textX, layout.badge.textY);
+  ctx.textAlign = "start";
 };
