@@ -146,9 +146,12 @@ describe("economy balance regression guard", () => {
     expect(source).toContain('const trySetConverterStructureEnabled = (actor: Player, x: number, y: number, enabled: boolean)');
   });
 
-  it("sends per-player leaderboard snapshots on init/update and includes self progress for every victory path", () => {
+  it("keeps cached global leaderboard snapshots on init/update and retains self progress helpers for victory views", () => {
     const source = serverSource();
-    expect(source).toContain("leaderboard: deps.leaderboardSnapshotForPlayer(player.id)");
+    expect(source).toContain("leaderboard: deps.currentLeaderboardSnapshot()");
+    expect(source).toContain("seasonVictory: deps.currentVictoryPressureObjectives()");
+    expect(source).toContain("leaderboard: currentLeaderboardSnapshot()");
+    expect(source).toContain("seasonVictory: currentVictoryPressureObjectives()");
     expect(source).toContain("if (objective.leaderPlayerId === playerId) return objective;");
     expect(source).toContain('if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;');
     expect(source).toContain('if (objectiveId === "SETTLED_TERRITORY") return `${metric.settledTiles}/${settledTarget} settled land`;');
