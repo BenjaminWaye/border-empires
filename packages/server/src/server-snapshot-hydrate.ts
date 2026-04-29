@@ -14,6 +14,7 @@ type SnapshotAuthIdentity = NonNullable<SnapshotState["authIdentities"]>[number]
 type SnapshotStrategicResourceStock = NonNullable<SnapshotState["strategicResources"]>[number][1];
 type SnapshotStrategicResourceBuffer = NonNullable<SnapshotState["strategicResourceBuffer"]>[number][1];
 type SnapshotTerrainShapeState = NonNullable<SnapshotState["terrainShapes"]>[number][1];
+type SnapshotResourceOverrideState = NonNullable<SnapshotState["resourceOverrides"]>[number][1];
 type SnapshotVictoryPressure = NonNullable<SnapshotState["seasonVictory"]>[number][1];
 type SnapshotTileYieldState = NonNullable<SnapshotState["tileYield"]>[number][1];
 type SnapshotDynamicMissions = NonNullable<SnapshotState["dynamicMissions"]>[number][1];
@@ -50,6 +51,7 @@ export interface CreateServerSnapshotHydrateDeps {
   strategicResourceBufferByPlayer: Map<string, SnapshotStrategicResourceBuffer>;
   tileHistoryByTile: Map<TileKey, TileHistoryState>;
   terrainShapesByTile: Map<TileKey, SnapshotTerrainShapeState>;
+  resourceOverridesByTile: Map<TileKey, SnapshotResourceOverrideState>;
   victoryPressureById: Map<string, SnapshotVictoryPressure>;
   frontierSettlementsByPlayer: Map<string, number[]>;
   tileYieldByTile: Map<TileKey, SnapshotTileYieldState>;
@@ -144,6 +146,7 @@ export const createServerSnapshotHydrateRuntime = (
     for (const [playerId, resources] of raw.strategicResourceBuffer ?? []) deps.strategicResourceBufferByPlayer.set(playerId, { ...resources });
     for (const [tileKey, history] of raw.tileHistory ?? []) deps.tileHistoryByTile.set(tileKey, { ...history, previousOwners: [...(history.previousOwners ?? [])].slice(-5), structureHistory: [...(history.structureHistory ?? [])].slice(-5) });
     for (const [tileKey, shape] of raw.terrainShapes ?? []) deps.terrainShapesByTile.set(tileKey, shape);
+    for (const [tileKey, override] of raw.resourceOverrides ?? []) deps.resourceOverridesByTile.set(tileKey, override);
     for (const [objectiveId, tracker] of raw.seasonVictory ?? []) deps.victoryPressureById.set(objectiveId, { ...tracker });
     for (const [playerId, timestamps] of raw.frontierSettlements ?? []) deps.frontierSettlementsByPlayer.set(playerId, [...timestamps]);
     for (const [tileKey, yieldState] of raw.tileYield ?? []) deps.tileYieldByTile.set(tileKey, yieldState);

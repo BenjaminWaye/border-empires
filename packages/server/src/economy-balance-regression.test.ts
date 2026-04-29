@@ -48,7 +48,7 @@ describe("economy balance regression guard", () => {
     const source = serverSource();
     expect(source).toContain('const dockCustomsHouseIncomeMultiplierAt = (dockKey: TileKey, ownerId: string | undefined): number => {');
     expect(source).toContain('const dockSummaryForOwner = (dock: Dock, ownerId: string | undefined): Tile["dock"] | undefined => {');
-    expect(source).toContain('pushModifier("Customs House"');
+    expect(source).toContain('pushModifier("Harbor Exchange"');
     expect(source).toContain('* dockCustomsHouseIncomeMultiplierAt(dock.tileKey, ownerId);');
     expect(source).toContain("if (dockSummary) tile.dock = dockSummary;");
   });
@@ -131,7 +131,7 @@ describe("economy balance regression guard", () => {
     expect(source).toContain('resourceKey: "GOLD"');
     expect(source).toContain('if (entry.label.includes("Fur Synthesizer")) mirrorGoldUpkeep("SUPPLY", entry);');
     expect(source).toContain('else if (entry.label.includes("Ironworks")) mirrorGoldUpkeep("IRON", entry);');
-    expect(source).toContain('else if (entry.label.includes("Crystal Synthesizer")) mirrorGoldUpkeep("CRYSTAL", entry);');
+    expect(source).toContain('else if (entry.label.includes("Aether Condenser") || entry.label.includes("Crystal Synthesizer")) mirrorGoldUpkeep("CRYSTAL", entry);');
   });
 
   it("labels foundry upkeep explicitly instead of falling back to radar system", () => {

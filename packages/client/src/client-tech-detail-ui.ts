@@ -2,6 +2,8 @@ import {
   crystalAbilityInfoButtonHtml,
   relatedCrystalAbilitiesForTech,
 } from "./client-crystal-ability-info.js";
+import { renderTechHighlightTagsHtml, techHighlightTags } from "./client-tech-payoffs.js";
+import { techBlockedReasonSummary, techMissingResourceSummary } from "./client-tech-requirements.js";
 import {
   currentDomainChoiceTier,
   ownedDomainByTier,
@@ -35,31 +37,145 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
   const out = new Set<StructureInfoKey>();
   const effects = tech.effects ?? {};
   for (const [key] of Object.entries(effects)) {
-    if (key === "unlockForts" || key.startsWith("fort")) out.add("FORT");
-    if (key === "unlockObservatory" || key.startsWith("observatory")) out.add("OBSERVATORY");
-    if (key === "unlockFarmstead") out.add("FARMSTEAD");
-    if (key === "unlockCamp") out.add("CAMP");
-    if (key === "unlockMine") out.add("MINE");
-    if (key === "unlockMarket" || key.startsWith("market")) out.add("MARKET");
-    if (key === "unlockGranary" || key.startsWith("granary")) out.add("GRANARY");
-    if (key === "unlockBank") out.add("BANK");
-    if (key === "unlockCaravanary") out.add("CARAVANARY");
-    if (key === "unlockFurSynthesizer") out.add("FUR_SYNTHESIZER");
-    if (key === "unlockIronworks") out.add("IRONWORKS");
-    if (key === "unlockCrystalSynthesizer") out.add("CRYSTAL_SYNTHESIZER");
-    if (key === "unlockAdvancedSynthesizers") {
-      out.add("ADVANCED_FUR_SYNTHESIZER");
-      out.add("ADVANCED_IRONWORKS");
-      out.add("ADVANCED_CRYSTAL_SYNTHESIZER");
+    switch (key) {
+      case "unlockForts":
+        out.add("FORT");
+        break;
+      case "unlockIronBastion":
+        out.add("IRON_BASTION");
+        break;
+      case "unlockThunderBastion":
+        out.add("THUNDER_BASTION");
+        break;
+      case "unlockObservatory":
+        out.add("OBSERVATORY");
+        break;
+      case "unlockFarmstead":
+        out.add("FARMSTEAD");
+        break;
+      case "unlockWaterworksUpgrade":
+        out.add("WATERWORKS");
+        break;
+      case "unlockCamp":
+        out.add("CAMP");
+        break;
+      case "unlockMine":
+        out.add("MINE");
+        break;
+      case "unlockMarket":
+        out.add("MARKET");
+        break;
+      case "unlockBrokerageUpgrade":
+        out.add("BROKER_MARKET");
+        break;
+      case "unlockGranary":
+        out.add("GRANARY");
+        break;
+      case "unlockSeedGranaryUpgrade":
+        out.add("SEED_GRANARY");
+        break;
+      case "unlockCensusHall":
+        out.add("CENSUS_HALL");
+        break;
+      case "unlockBank":
+        out.add("BANK");
+        break;
+      case "unlockClearingHouse":
+        out.add("CLEARING_HOUSE");
+        break;
+      case "unlockCaravanary":
+        out.add("CARAVANARY");
+        break;
+      case "unlockTreasuryHouse":
+        out.add("TREASURY_HOUSE");
+        break;
+      case "unlockFurSynthesizer":
+        out.add("FUR_SYNTHESIZER");
+        break;
+      case "unlockIronworks":
+        out.add("IRONWORKS");
+        break;
+      case "unlockCrystalSynthesizer":
+        out.add("CRYSTAL_SYNTHESIZER");
+        break;
+      case "unlockAdvancedSynthesizers":
+        out.add("ADVANCED_FUR_SYNTHESIZER");
+        out.add("ADVANCED_IRONWORKS");
+        out.add("ADVANCED_CRYSTAL_SYNTHESIZER");
+        break;
+      case "unlockFuelPlant":
+        out.add("FUEL_PLANT");
+        break;
+      case "unlockAdvancedFuelPlant":
+        out.add("ADVANCED_FUEL_PLANT");
+        break;
+      case "unlockFoundry":
+        out.add("FOUNDRY");
+        break;
+      case "unlockAetherTower":
+        out.add("AETHER_TOWER");
+        break;
+      case "unlockExchangeHouse":
+        out.add("EXCHANGE_HOUSE");
+        break;
+      case "unlockSkyFoundryUpgrade":
+        out.add("ADVANCED_FOUNDRY");
+        break;
+      case "unlockCustomsHouse":
+        out.add("CUSTOMS_HOUSE");
+        break;
+      case "unlockHarborLocksUpgrade":
+        out.add("LOCKWORKS_PORT");
+        break;
+      case "unlockCharteredPortsUpgrade":
+        out.add("CHARTERED_PORT");
+        break;
+      case "unlockGovernorsOffice":
+        out.add("GOVERNORS_OFFICE");
+        break;
+      case "unlockGarrisonHall":
+        out.add("GARRISON_HALL");
+        break;
+      case "unlockAirport":
+        out.add("AIRPORT");
+        break;
+      case "unlockAstralDock":
+        out.add("ASTRAL_DOCK_PART");
+        out.add("ASTRAL_DOCK");
+        break;
+      case "unlockRadarSystem":
+        out.add("RADAR_SYSTEM");
+        break;
+      case "unlockImperialExchange":
+        out.add("IMPERIAL_EXCHANGE_PART");
+        out.add("IMPERIAL_EXCHANGE");
+        break;
+      case "unlockWorldEngine":
+        out.add("WORLD_ENGINE_PART");
+        out.add("WORLD_ENGINE");
+        break;
+      case "unlockAegisDome":
+        out.add("AEGIS_DOME_PART");
+        out.add("AEGIS_DOME");
+        break;
+      case "unlockRailDepot":
+        out.add("RAIL_DEPOT");
+        break;
+      case "unlockWeatherEngine":
+        out.add("WEATHER_ENGINE");
+        break;
+      case "unlockSiegeOutposts":
+        out.add("SIEGE_OUTPOST");
+        break;
+      case "unlockSiegeTower":
+        out.add("SIEGE_TOWER");
+        break;
+      case "unlockDreadTower":
+        out.add("DREAD_TOWER");
+        break;
+      default:
+        break;
     }
-    if (key === "unlockFuelPlant") out.add("FUEL_PLANT");
-    if (key === "unlockFoundry") out.add("FOUNDRY");
-    if (key === "unlockCustomsHouse") out.add("CUSTOMS_HOUSE");
-    if (key === "unlockGovernorsOffice") out.add("GOVERNORS_OFFICE");
-    if (key === "unlockGarrisonHall") out.add("GARRISON_HALL");
-    if (key === "unlockAirport") out.add("AIRPORT");
-    if (key === "unlockRadarSystem") out.add("RADAR_SYSTEM");
-    if (key === "unlockSiegeOutposts" || key.startsWith("outpost")) out.add("SIEGE_OUTPOST");
   }
   return [...out];
 };
@@ -71,6 +187,7 @@ export const renderTechChoiceGrid = (deps: {
     techUiSelectedId: string;
     techRootId: string | undefined;
     currentResearch: { techId?: string; completesAt?: number } | null | undefined;
+    techTreeZoom: number;
   };
   effectiveOwnedTechIds: () => string[];
   effectiveTechChoices: () => string[];
@@ -101,7 +218,8 @@ export const renderTechChoiceGrid = (deps: {
         formatCooldownShort: deps.formatCooldownShort,
         titleCaseFromId: deps.titleCaseFromId,
         viewportHeight: deps.viewportHeight,
-        isMobile: deps.isMobile
+        isMobile: deps.isMobile,
+        techTreeZoom: deps.state.techTreeZoom
       })
     : renderCompactTechChoiceGridHtml({
         techCatalog: deps.state.techCatalog,
@@ -119,7 +237,8 @@ export const renderTechChoiceGrid = (deps: {
         formatCooldownShort: deps.formatCooldownShort,
         titleCaseFromId: deps.titleCaseFromId,
         viewportHeight: deps.viewportHeight,
-        isMobile: deps.isMobile
+        isMobile: deps.isMobile,
+        techTreeZoom: deps.state.techTreeZoom
       });
 
 export const selectedTechInfo = (deps: {
@@ -133,6 +252,19 @@ export const selectedTechInfo = (deps: {
 };
 
 export const renderTechDetailPrompt = (): string => "";
+
+const shouldRenderUnlockHighlights = (
+  tech: TechInfo,
+  relatedStructures: StructureInfoKey[],
+  relatedCrystalAbilities: ReturnType<typeof relatedCrystalAbilitiesForTech>
+): boolean => {
+  const highlights = techHighlightTags(tech);
+  if (highlights.length === 0) return false;
+  const allStructureHighlights = highlights.every((highlight) => highlight.tone === "structure");
+  if (allStructureHighlights && relatedStructures.length > 0 && relatedCrystalAbilities.length === 0) return false;
+  if (highlights.length === relatedStructures.length && relatedStructures.length > 0 && relatedCrystalAbilities.length === 0) return false;
+  return true;
+};
 
 export const renderTechDetailCard = (deps: {
   tech: TechInfo | undefined;
@@ -156,8 +288,10 @@ export const renderTechDetailCard = (deps: {
   const prereqText = prereqs.length > 0 ? deps.techNameList(prereqs) : "Entry tech";
   const pendingUnlock = deps.isPendingTechUnlock(deps.tech.id);
   const canUnlock = !owned && deps.tech.requirements.canResearch && !deps.pendingTechUnlockId;
+  const blockedSummary = !canUnlock && !pendingUnlock ? techBlockedReasonSummary(deps.tech, prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech") : null;
+  const missingResources = techMissingResourceSummary(deps.tech);
   const statusText = pendingUnlock ? "Unlocking now. Waiting for server confirmation..." : owned ? "Already unlocked." : undefined;
-  const buttonLabel = owned ? "Unlocked" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked";
+  const buttonLabel = owned ? "Unlocked" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : missingResources ? "Locked" : "Locked";
   const relatedStructures = relatedStructureTypesForTech(deps.tech);
   const relatedCrystalAbilities = relatedCrystalAbilitiesForTech(deps.tech);
   const relatedStructuresHtml =
@@ -166,18 +300,29 @@ export const renderTechDetailCard = (deps: {
       : "";
   const relatedCrystalAbilitiesHtml =
     relatedCrystalAbilities.length > 0
-      ? `<p class="muted"><strong>Crystal abilities:</strong> ${relatedCrystalAbilities.map((key) => crystalAbilityInfoButtonHtml(key)).join(", ")}</p>`
+      ? `<p class="muted"><strong>Abilities & actions:</strong> ${relatedCrystalAbilities.map((key) => crystalAbilityInfoButtonHtml(key)).join(", ")}</p>`
       : "";
+  const highlightHtml = shouldRenderUnlockHighlights(deps.tech, relatedStructures, relatedCrystalAbilities)
+    ? renderTechHighlightTagsHtml(deps.tech, 6)
+    : "";
+  const payoffHtml = highlightHtml
+    ? `<section class="structure-info-section">
+        <span class="structure-info-section-label">Unlock highlights</span>
+        ${highlightHtml}
+      </section>`
+    : "";
   const cardHtml = renderTechDetailCardHtml({
     tech: deps.tech,
     statusText,
     buttonLabel,
-    buttonDisabled: !canUnlock,
+    buttonDisabled: !(canUnlock || pendingUnlock),
     prereqs,
     prereqText,
     unlocks: unlocks.map((next) => ({ name: next.name, tier: deps.techTier(next.id, byId, tierMemo) })),
     relatedStructuresHtml,
-    relatedCrystalAbilitiesHtml
+    relatedCrystalAbilitiesHtml,
+    payoffHtml,
+    blockedSummary: blockedSummary?.tone === "blocked" ? blockedSummary : null
   });
   return `<article class="card tech-detail-card tech-detail-card-shell">
     <div class="tech-detail-inline-head">
@@ -195,17 +340,32 @@ export const renderStructureInfoOverlay = (
   structureInfoForKey: (type: StructureInfoKey) => {
     title: string;
     detail: string;
+    effects: string[];
     glyph: string;
     placement: string;
     image?: string;
     costBits: string[];
     buildTimeLabel: string;
+    upkeepBits?: string[];
   }
 ): string => {
   const type = structureInfoKey as StructureInfoKey | "";
   if (!type) return "";
   const info = structureInfoForKey(type);
-  const costHtml = info.costBits.map((bit) => `<div class="structure-info-meta-card"><span>Cost</span><strong>${bit}</strong></div>`).join("");
+  const costHtml = info.costBits.length
+    ? `<div class="structure-info-meta-card"><span>Cost</span><strong>${info.costBits.join(" · ")}</strong></div>`
+    : "";
+  const upkeepHtml = (info.upkeepBits ?? [])
+    .map((bit) => `<div class="structure-info-meta-card"><span>Upkeep</span><strong>${bit}</strong></div>`)
+    .join("");
+  const effectsHtml = info.effects.length
+    ? `<section class="structure-info-section">
+        <span class="structure-info-section-label">Effects</span>
+        <ul class="structure-info-effects-list">
+          ${info.effects.map((effect) => `<li>${effect}</li>`).join("")}
+        </ul>
+      </section>`
+    : "";
   const artHtml = info.image
     ? `<div class="structure-info-art has-image"><img class="structure-info-image" src="${info.image}" alt="${info.title}" /></div>`
     : `<div class="structure-info-art"><div class="structure-info-glyph" aria-hidden="true">${info.glyph}</div></div>`;
@@ -221,8 +381,10 @@ export const renderStructureInfoOverlay = (
             <p>${info.detail}</p>
           </div>
         </div>
+        ${effectsHtml}
         <div class="structure-info-meta">
           ${costHtml}
+          ${upkeepHtml}
           <div class="structure-info-meta-card"><span>Build time</span><strong>${info.buildTimeLabel}</strong></div>
           <div class="structure-info-meta-card"><span>Placement</span><strong>${info.placement}</strong></div>
         </div>
@@ -250,6 +412,8 @@ export const renderTechDetailModal = (deps: {
   const owned = deps.ownedTechIds.includes(deps.tech.id);
   const pendingUnlock = deps.isPendingTechUnlock(deps.tech.id);
   const canUnlock = !owned && deps.tech.requirements.canResearch && !deps.pendingTechUnlockId;
+  const blockedSummary = !canUnlock && !pendingUnlock ? techBlockedReasonSummary(deps.tech, prereqs.length > 0 ? `Requires ${deps.techNameList(prereqs)}` : "Entry tech") : null;
+  const missingResources = techMissingResourceSummary(deps.tech);
   const statusText = pendingUnlock
     ? "Unlocking now. Waiting for server confirmation..."
     : owned
@@ -259,10 +423,13 @@ export const renderTechDetailModal = (deps: {
       : prereqs.length > 0
         ? `Requires ${deps.techNameList(prereqs)}`
         : "Entry tech";
-  const buttonLabel = owned ? "Unlocked" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked";
+  const buttonLabel = owned ? "Unlocked" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : missingResources ? "Locked" : "Locked";
   const relatedStructures = relatedStructureTypesForTech(deps.tech);
   const relatedCrystalAbilities = relatedCrystalAbilitiesForTech(deps.tech);
   const requirements = deps.tech.requirements.checklist ?? [];
+  const highlightHtml = shouldRenderUnlockHighlights(deps.tech, relatedStructures, relatedCrystalAbilities)
+    ? renderTechHighlightTagsHtml(deps.tech, 6)
+    : "";
   const requirementsHtml =
     requirements.length > 0
       ? `<ul class="tech-req-list">${requirements
@@ -277,11 +444,21 @@ export const renderTechDetailModal = (deps: {
           <div>
             <div class="tech-detail-kicker">Technology</div>
             <h3>${deps.tech.name}</h3>
+            ${highlightHtml}
             <p class="tech-detail-effect">${deps.formatTechBenefitSummary(deps.tech)}</p>
             <p class="muted">${statusText}</p>
           </div>
         </div>
-        <p class="tech-detail-flavor">${deps.tech.description}</p>
+        <div class="tech-detail-section-stack">
+          <p class="tech-detail-flavor">${deps.tech.description}</p>
+          ${
+            blockedSummary && blockedSummary.tone === "blocked"
+              ? `<section class="tech-block-state tech-block-state-${blockedSummary.tone}">
+                  <span class="structure-info-section-label">Locked by</span>
+                  <strong>${blockedSummary.label}</strong>
+                </section>`
+              : ""
+          }
         ${
           relatedStructures.length > 0
             ? `<section class="structure-info-section">
@@ -293,7 +470,7 @@ export const renderTechDetailModal = (deps: {
         ${
           relatedCrystalAbilities.length > 0
             ? `<section class="structure-info-section">
-                <span class="structure-info-section-label">Crystal abilities</span>
+                <span class="structure-info-section-label">Abilities & actions</span>
                 <strong>${relatedCrystalAbilities.map((key) => crystalAbilityInfoButtonHtml(key)).join(", ")}</strong>
               </section>`
             : ""
@@ -310,9 +487,10 @@ export const renderTechDetailModal = (deps: {
           <span class="structure-info-section-label">Requirements</span>
           ${requirementsHtml}
         </section>
+        </div>
       </div>
       <div class="tech-detail-actions">
-        <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal" data-tech-unlock="${deps.tech.id}" ${canUnlock ? "" : "disabled"}>${buttonLabel}</button>
+        <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal${blockedSummary && blockedSummary.tone === "blocked" ? ` tech-unlock-btn-${blockedSummary.tone}` : ""}" data-tech-unlock="${deps.tech.id}" ${canUnlock || pendingUnlock ? "" : "disabled"}>${buttonLabel}</button>
       </div>
     </div>`;
 };
@@ -357,7 +535,6 @@ export const renderDomainDetailCard = (deps: {
   domainChoices: string[];
   pendingDomainUnlockId: string;
   techNameList: (ids: string[]) => string;
-  showInlineClose?: boolean;
 }): string => {
   const domain = deps.domainCatalog.find((item) => item.id === deps.domainUiSelectedId);
   const chosenByTier = ownedDomainByTier(deps.domainCatalog, deps.domainIds);
@@ -368,8 +545,7 @@ export const renderDomainDetailCard = (deps: {
     chosenInTier: domain ? chosenByTier.get(domain.tier) : undefined,
     currentTier,
     requiresTechName: domain ? deps.techNameList([domain.requiresTechId]) : "",
-    pendingDomainUnlockId: deps.pendingDomainUnlockId,
-    ...(deps.showInlineClose === undefined ? {} : { showInlineClose: deps.showInlineClose })
+    pendingDomainUnlockId: deps.pendingDomainUnlockId
   });
 };
 
@@ -393,8 +569,7 @@ export const renderDomainDetailOverlay = (deps: {
           domainIds: deps.domainIds,
           domainChoices: deps.domainChoices,
           pendingDomainUnlockId: deps.pendingDomainUnlockId,
-          techNameList: deps.techNameList,
-          showInlineClose: false
+          techNameList: deps.techNameList
         })}
       </div>
     </div>`;

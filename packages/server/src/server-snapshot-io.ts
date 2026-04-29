@@ -21,6 +21,7 @@ type SnapshotStrategicResourceBuffer = NonNullable<SnapshotState["strategicResou
 type SnapshotTileYieldState = NonNullable<SnapshotState["tileYield"]>[number][1];
 type SnapshotTileHistoryState = NonNullable<SnapshotState["tileHistory"]>[number][1];
 type SnapshotTerrainShapeState = NonNullable<SnapshotState["terrainShapes"]>[number][1];
+type SnapshotResourceOverrideState = NonNullable<SnapshotState["resourceOverrides"]>[number][1];
 type SnapshotVictoryPressure = NonNullable<SnapshotState["seasonVictory"]>[number][1];
 type SnapshotDynamicMissions = NonNullable<SnapshotState["dynamicMissions"]>[number][1];
 type SnapshotTemporaryIncomeBuff = NonNullable<SnapshotState["temporaryIncomeBuff"]>[number][1];
@@ -52,6 +53,7 @@ export interface CreateServerSnapshotIoDeps {
   tileYieldByTile: Map<TileKey, SnapshotTileYieldState>;
   tileHistoryByTile: Map<TileKey, SnapshotTileHistoryState>;
   terrainShapesByTile: Map<TileKey, SnapshotTerrainShapeState>;
+  resourceOverridesByTile: Map<TileKey, SnapshotResourceOverrideState>;
   victoryPressureById: Map<SeasonVictoryPathId, SnapshotVictoryPressure>;
   frontierSettlementsByPlayer: Map<string, number[]>;
   dynamicMissionsByPlayer: Map<string, SnapshotDynamicMissions>;
@@ -136,6 +138,7 @@ export const createServerSnapshotIoRuntime = (
       tileYield: [...deps.tileYieldByTile.entries()],
       tileHistory: [...deps.tileHistoryByTile.entries()],
       terrainShapes: [...deps.terrainShapesByTile.entries()],
+      resourceOverrides: [...deps.resourceOverridesByTile.entries()],
       seasonVictory: [...deps.victoryPressureById.entries()],
       frontierSettlements: [...deps.frontierSettlementsByPlayer.entries()],
       dynamicMissions: [...deps.dynamicMissionsByPlayer.entries()],
@@ -202,6 +205,7 @@ export const createServerSnapshotIoRuntime = (
       ...(snapshot.barbarianAgents ? { barbarianAgents: snapshot.barbarianAgents } : {}),
       ...(snapshot.tileHistory ? { tileHistory: snapshot.tileHistory } : {}),
       ...(snapshot.terrainShapes ? { terrainShapes: snapshot.terrainShapes } : {}),
+      ...(snapshot.resourceOverrides ? { resourceOverrides: snapshot.resourceOverrides } : {}),
       ...(snapshot.docks ? { docks: snapshot.docks } : {}),
       ...(snapshot.towns ? { towns: snapshot.towns } : {}),
       ...(snapshot.shardSites ? { shardSites: snapshot.shardSites } : {}),

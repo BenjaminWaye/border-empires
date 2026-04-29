@@ -11,7 +11,9 @@ export interface TechEffects {
   unlockMine?: boolean;
   unlockMarket?: boolean;
   unlockGranary?: boolean;
+  unlockCensusHall?: boolean;
   unlockBank?: boolean;
+  unlockClearingHouse?: boolean;
   unlockCaravanary?: boolean;
   unlockWoodenFort?: boolean;
   unlockLightOutpost?: boolean;
@@ -22,11 +24,23 @@ export interface TechEffects {
   unlockAdvancedSynthesizers?: boolean;
   unlockFuelPlant?: boolean;
   unlockFoundry?: boolean;
+  unlockAetherTower?: boolean;
+  unlockExchangeHouse?: boolean;
   unlockCustomsHouse?: boolean;
+  unlockHarborLocksUpgrade?: boolean;
+  unlockCharteredPortsUpgrade?: boolean;
+  unlockRailDepot?: boolean;
   unlockGovernorsOffice?: boolean;
   unlockGarrisonHall?: boolean;
   unlockAirport?: boolean;
   unlockRadarSystem?: boolean;
+  unlockImperialExchange?: boolean;
+  unlockWorldEngine?: boolean;
+  unlockAegisDome?: boolean;
+  unlockAegisLock?: boolean;
+  unlockAstralDock?: boolean;
+  unlockAstralDockLaunch?: boolean;
+  unlockStormfront?: boolean;
   unlockObservatory?: boolean;
   unlockForts?: boolean;
   unlockSiegeOutposts?: boolean;
@@ -37,9 +51,18 @@ export interface TechEffects {
   unlockNavalInfiltration?: boolean;
   unlockAetherWall?: boolean;
   unlockSabotage?: boolean;
-  unlockMountainPass?: boolean;
+  unlockSurveySweep?: boolean;
+  unlockAetherLance?: boolean;
+  unlockRetortRecasting?: boolean;
   unlockTerrainShaping?: boolean;
   unlockBreachAttack?: boolean;
+  unlockIronBastion?: boolean;
+  unlockSiegeTower?: boolean;
+  unlockThunderBastion?: boolean;
+  unlockDreadTower?: boolean;
+  unlockWaterworksUpgrade?: boolean;
+  unlockAetherEmp?: boolean;
+  unlockCityOverclock?: boolean;
   settlementSpeedMult?: number;
   operationalTempoMult?: number;
   researchTimeMult?: number;
@@ -72,6 +95,9 @@ export interface TechEffects {
   revealUpkeepMult?: number;
   revealCapacityBonus?: number;
   visionRadiusBonus?: number;
+  observatoryRangeBonus?: number;
+  observatoryProtectionRadiusBonus?: number;
+  observatoryCastRadiusBonus?: number;
   buildCapacityAdd?: number;
   developmentProcessCapacityAdd?: number;
   dockGoldOutputMult?: number;
@@ -125,7 +151,9 @@ const TechEffectsSchema = z
     unlockMine: z.boolean().optional(),
     unlockMarket: z.boolean().optional(),
     unlockGranary: z.boolean().optional(),
+    unlockCensusHall: z.boolean().optional(),
     unlockBank: z.boolean().optional(),
+    unlockClearingHouse: z.boolean().optional(),
     unlockCaravanary: z.boolean().optional(),
     unlockWoodenFort: z.boolean().optional(),
     unlockLightOutpost: z.boolean().optional(),
@@ -136,11 +164,23 @@ const TechEffectsSchema = z
     unlockAdvancedSynthesizers: z.boolean().optional(),
     unlockFuelPlant: z.boolean().optional(),
     unlockFoundry: z.boolean().optional(),
+    unlockAetherTower: z.boolean().optional(),
+    unlockExchangeHouse: z.boolean().optional(),
     unlockCustomsHouse: z.boolean().optional(),
+    unlockHarborLocksUpgrade: z.boolean().optional(),
+    unlockCharteredPortsUpgrade: z.boolean().optional(),
+    unlockRailDepot: z.boolean().optional(),
     unlockGovernorsOffice: z.boolean().optional(),
     unlockGarrisonHall: z.boolean().optional(),
     unlockAirport: z.boolean().optional(),
     unlockRadarSystem: z.boolean().optional(),
+    unlockImperialExchange: z.boolean().optional(),
+    unlockWorldEngine: z.boolean().optional(),
+    unlockAegisDome: z.boolean().optional(),
+    unlockAegisLock: z.boolean().optional(),
+    unlockAstralDock: z.boolean().optional(),
+    unlockAstralDockLaunch: z.boolean().optional(),
+    unlockStormfront: z.boolean().optional(),
     unlockForts: z.boolean().optional(),
     unlockObservatory: z.boolean().optional(),
     unlockSiegeOutposts: z.boolean().optional(),
@@ -151,9 +191,18 @@ const TechEffectsSchema = z
     unlockNavalInfiltration: z.boolean().optional(),
     unlockAetherWall: z.boolean().optional(),
     unlockSabotage: z.boolean().optional(),
-    unlockMountainPass: z.boolean().optional(),
+    unlockSurveySweep: z.boolean().optional(),
+    unlockAetherLance: z.boolean().optional(),
+    unlockRetortRecasting: z.boolean().optional(),
     unlockTerrainShaping: z.boolean().optional(),
     unlockBreachAttack: z.boolean().optional(),
+    unlockIronBastion: z.boolean().optional(),
+    unlockSiegeTower: z.boolean().optional(),
+    unlockThunderBastion: z.boolean().optional(),
+    unlockDreadTower: z.boolean().optional(),
+    unlockWaterworksUpgrade: z.boolean().optional(),
+    unlockAetherEmp: z.boolean().optional(),
+    unlockCityOverclock: z.boolean().optional(),
     settlementSpeedMult: z.number().positive().optional(),
     operationalTempoMult: z.number().positive().optional(),
     researchTimeMult: z.number().positive().optional(),
@@ -186,6 +235,9 @@ const TechEffectsSchema = z
     revealUpkeepMult: z.number().positive().optional(),
     revealCapacityBonus: z.number().int().min(0).optional(),
     visionRadiusBonus: z.number().int().min(0).optional(),
+    observatoryRangeBonus: z.number().int().min(0).optional(),
+    observatoryProtectionRadiusBonus: z.number().int().min(0).optional(),
+    observatoryCastRadiusBonus: z.number().int().min(0).optional(),
     buildCapacityAdd: z.number().int().min(0).optional(),
     developmentProcessCapacityAdd: z.number().int().optional(),
     dockGoldOutputMult: z.number().positive().optional(),
@@ -217,7 +269,7 @@ const TechEffectsSchema = z
 
 const TechSchema = z.object({
   id: z.string().min(1),
-  tier: z.number().int().min(1).max(6).optional(),
+  tier: z.number().int().min(1).max(7).optional(),
   rootId: z.string().min(1).optional(),
   name: z.string().min(1),
   description: z.string().min(1),

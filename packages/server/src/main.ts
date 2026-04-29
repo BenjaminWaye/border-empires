@@ -328,6 +328,7 @@ import {
   type PlayerCompetitionMetrics,
   type PlayerEconomyIndex,
   type RuntimeTileCore,
+  type ResourceOverrideState,
   type SeasonArchiveEntry,
   type SeasonalTechConfig,
   type ShardSiteState,
@@ -364,19 +365,31 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   ADVANCED_IRONWORKS_IRON_PER_DAY,
+  AEGIS_DOME_GOLD_UPKEEP,
+  AEGIS_DOME_PART_BUILD_CRYSTAL_COST,
+  AEGIS_DOME_PART_GOLD_UPKEEP,
+  AETHER_TOWER_BUILD_CRYSTAL_COST,
+  AETHER_TOWER_GOLD_UPKEEP,
+  AETHER_TOWER_RADIUS,
   AIRPORT_BOMBARD_ATTACK_MULT,
   AIRPORT_BOMBARD_MAX_FIELD_TILES,
   AIRPORT_BOMBARD_MIN_FIELD_TILES,
   AIRPORT_BOMBARD_OIL_COST,
   AIRPORT_BOMBARD_RANGE,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   AIRPORT_BUILD_CRYSTAL_COST,
   AIRPORT_BUILD_GOLD_COST,
   AIRPORT_OIL_UPKEEP_PER_MIN,
+  ASTRAL_DOCK_GOLD_UPKEEP,
+  ASTRAL_DOCK_PART_BUILD_CRYSTAL_COST,
+  ASTRAL_DOCK_PART_GOLD_UPKEEP,
   BARBARIAN_MAINTENANCE_INTERVAL_MS,
   BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS,
   BARBARIAN_OWNER_ID,
   BARBARIAN_TICK_MS,
+  BANK_BUILD_CRYSTAL_COST,
   BANK_BUILD_GOLD_COST,
+  BANK_CRYSTAL_UPKEEP,
   BANK_FOOD_UPKEEP,
   BREAKTHROUGH_DEF_MULT_FACTOR,
   BREAKTHROUGH_GOLD_COST,
@@ -389,9 +402,17 @@ import {
   CAMP_GOLD_UPKEEP,
   canAffordGoldCost,
   CARAVANARY_BUILD_GOLD_COST,
+  CARAVANARY_BUILD_CRYSTAL_COST,
   CARAVANARY_FOOD_UPKEEP,
+  CARAVANARY_GOLD_UPKEEP,
+  CENSUS_HALL_BUILD_FOOD_COST,
+  CENSUS_HALL_GOLD_UPKEEP,
+  CHARTERED_PORT_BUILD_CRYSTAL_COST,
+  CHARTERED_PORT_GOLD_UPKEEP,
   COLLECT_VISIBLE_COOLDOWN_MS,
   colorFromId,
+  CLEARING_HOUSE_BUILD_CRYSTAL_COST,
+  CLEARING_HOUSE_GOLD_UPKEEP,
   CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST,
   CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
@@ -412,6 +433,8 @@ import {
   FIRST_SPECIAL_SITE_CAPTURE_GOLD,
   FORT_BUILD_IRON_COST,
   FOUNDRY_BUILD_GOLD_COST,
+  EXCHANGE_HOUSE_BUILD_CRYSTAL_COST,
+  EXCHANGE_HOUSE_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
   FOUNDRY_OUTPUT_MULT,
   FOUNDRY_RADIUS,
@@ -440,6 +463,9 @@ import {
   HARVEST_RESOURCE_RATE_MULT,
   IDLE_SNAPSHOT_INTERVAL_MS,
   INITIAL_SHARD_SCATTER_COUNT,
+  IMPERIAL_EXCHANGE_GOLD_UPKEEP,
+  IMPERIAL_EXCHANGE_PART_BUILD_CRYSTAL_COST,
+  IMPERIAL_EXCHANGE_PART_GOLD_UPKEEP,
   IRONWORKS_BUILD_GOLD_COST,
   IRONWORKS_GOLD_UPKEEP,
   IRONWORKS_IRON_PER_DAY,
@@ -447,6 +473,8 @@ import {
   key,
   LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
   LIGHT_OUTPOST_GOLD_UPKEEP,
+  LOCKWORKS_PORT_BUILD_CRYSTAL_COST,
+  LOCKWORKS_PORT_GOLD_UPKEEP,
   MANPOWER_EPSILON,
   MARKET_BUILD_GOLD_COST,
   MARKET_FOOD_UPKEEP,
@@ -483,11 +511,15 @@ import {
   RADAR_SYSTEM_BUILD_GOLD_COST,
   RADAR_SYSTEM_GOLD_UPKEEP,
   RADAR_SYSTEM_RADIUS,
+  RAIL_DEPOT_BUILD_CRYSTAL_COST,
+  RAIL_DEPOT_GOLD_UPKEEP,
   RESOURCE_CHAIN_BUFF_MS,
   RESOURCE_CHAIN_MULT,
   REVEAL_EMPIRE_ACTIVATION_COST,
   REVEAL_EMPIRE_STATS_CRYSTAL_COST,
   REVEAL_EMPIRE_UPKEEP_PER_MIN,
+  RETORT_RECAST_CRYSTAL_COST,
+  RETORT_RECAST_GOLD_COST,
   SABOTAGE_COOLDOWN_MS,
   SABOTAGE_CRYSTAL_COST,
   SABOTAGE_DURATION_MS,
@@ -529,6 +561,11 @@ import {
   VENDETTA_ATTACK_BUFF_MULT,
   VICTORY_PRESSURE_DEFS,
   VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS,
+  WATERWORKS_BUILD_FOOD_COST,
+  WATERWORKS_GOLD_UPKEEP,
+  WORLD_ENGINE_GOLD_UPKEEP,
+  WORLD_ENGINE_PART_BUILD_CRYSTAL_COST,
+  WORLD_ENGINE_PART_GOLD_UPKEEP,
   WORLD_TOWN_POPULATION_MIN,
   WORLD_TOWN_POPULATION_START_SPREAD,
   WOODEN_FORT_GOLD_UPKEEP
@@ -875,11 +912,13 @@ const tileYieldByTile = new Map<TileKey, TileYieldBuffer>();
 const tileHistoryByTile = new Map<TileKey, TileHistoryState>();
 const settledSinceByTile = new Map<TileKey, number>();
 const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
+const resourceOverridesByTile = new Map<TileKey, ResourceOverrideState>();
 const lastUpkeepByPlayer = new Map<string, UpkeepDiagnostics>();
 const dynamicMissionsByPlayer = new Map<string, DynamicMissionDef[]>();
 const temporaryAttackBuffUntilByPlayer = new Map<string, number>();
 const temporaryIncomeBuffUntilByPlayer = new Map<string, { until: number; resources: [ResourceType, ResourceType] }>();
 const growthPausedUntilByPlayer = new Map<string, number>();
+const cityOverclocksByPlayer = new Map<string, { tileKey: TileKey; endsAt: number }>();
 const townCaptureShockUntilByTile = new Map<TileKey, number>();
 const townGrowthShockUntilByTile = new Map<TileKey, number>();
 const vendettaCaptureCountsByPlayer = new Map<string, Map<string, number>>();
@@ -1177,6 +1216,7 @@ const {
 const { generateClusters, applyClusterResources }: ServerWorldgenClustersRuntime = createServerWorldgenClusters({
   clusterByTile,
   clustersById,
+  resourceOverridesByTile,
   clusterTypeDefs,
   seeded01,
   WORLD_WIDTH,
@@ -1447,6 +1487,7 @@ const {
   OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_CAST_RADIUS,
   RADAR_SYSTEM_RADIUS,
+  AETHER_TOWER_RADIUS,
   GOVERNORS_OFFICE_RADIUS,
   GOVERNORS_OFFICE_UPKEEP_MULT,
   FOUNDRY_RADIUS,
@@ -1498,6 +1539,7 @@ const {
   foodUpkeepCoverageByPlayer,
   townFeedingStateByPlayer,
   growthPausedUntilByPlayer,
+  cityOverclocksByPlayer,
   getPlayerEffectsForPlayer: (playerId: string) => getPlayerEffectsForPlayer(playerId),
   emptyPlayerEffects,
   getOrInitStrategicStocks: (playerId: string) => getOrInitStrategicStocks(playerId),
@@ -1508,6 +1550,7 @@ const {
   townSupport,
   townGoldIncomeEnabledForPlayer,
   ownedTownKeysForPlayer,
+  directlyConnectedTownKeysForTown,
   firstThreeTownKeySetForPlayer,
   structureForSupportedTown,
   structureForSupportedDock,
@@ -1588,11 +1631,14 @@ const {
   PASSIVE_INCOME_MULT,
   OBSERVATORY_UPKEEP_PER_MIN,
   REVEAL_EMPIRE_UPKEEP_PER_MIN,
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   FARMSTEAD_GOLD_UPKEEP,
+  WATERWORKS_GOLD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   MINE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
+  CENSUS_HALL_GOLD_UPKEEP,
+  CARAVANARY_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   BANK_FOOD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
@@ -1602,11 +1648,25 @@ const {
   IRONWORKS_GOLD_UPKEEP,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
   FUEL_PLANT_GOLD_UPKEEP,
+  AETHER_TOWER_GOLD_UPKEEP,
+  EXCHANGE_HOUSE_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
   GARRISON_HALL_GOLD_UPKEEP,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
+  LOCKWORKS_PORT_GOLD_UPKEEP,
+  CHARTERED_PORT_GOLD_UPKEEP,
+  RAIL_DEPOT_GOLD_UPKEEP,
+  CLEARING_HOUSE_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
-  RADAR_SYSTEM_GOLD_UPKEEP
+  RADAR_SYSTEM_GOLD_UPKEEP,
+  IMPERIAL_EXCHANGE_PART_GOLD_UPKEEP,
+  WORLD_ENGINE_PART_GOLD_UPKEEP,
+  AEGIS_DOME_PART_GOLD_UPKEEP,
+  ASTRAL_DOCK_PART_GOLD_UPKEEP,
+  IMPERIAL_EXCHANGE_GOLD_UPKEEP,
+  WORLD_ENGINE_GOLD_UPKEEP,
+  AEGIS_DOME_GOLD_UPKEEP,
+  ASTRAL_DOCK_GOLD_UPKEEP
 });
 
 const {
@@ -1695,6 +1755,7 @@ const {
   converterStructureOutputFor,
   activeAirportAt,
   hostileRadarProtectingTile,
+  tileHasPendingSettlement: (tileKey: TileKey) => pendingSettlementsByTile.has(tileKey),
   economicStructureGoldUpkeepPerInterval,
   economicStructureUpkeepDue,
   prettyEconomicStructureLabel: (structureType: EconomicStructureType) => prettyEconomicStructureLabel(structureType),
@@ -1717,13 +1778,27 @@ const {
   HARVEST_RESOURCE_RATE_MULT,
   SIPHON_SHARE,
   FARMSTEAD_BUILD_FOOD_COST,
+  WATERWORKS_BUILD_FOOD_COST,
   CAMP_BUILD_SUPPLY_COST,
   MINE_BUILD_RESOURCE_COST,
   GRANARY_BUILD_FOOD_COST,
+  CENSUS_HALL_BUILD_FOOD_COST,
+  BANK_BUILD_CRYSTAL_COST,
+  CLEARING_HOUSE_BUILD_CRYSTAL_COST,
+  CARAVANARY_BUILD_CRYSTAL_COST,
   GARRISON_HALL_BUILD_CRYSTAL_COST,
   CUSTOMS_HOUSE_BUILD_CRYSTAL_COST,
+  LOCKWORKS_PORT_BUILD_CRYSTAL_COST,
+  CHARTERED_PORT_BUILD_CRYSTAL_COST,
+  RAIL_DEPOT_BUILD_CRYSTAL_COST,
   RADAR_SYSTEM_BUILD_CRYSTAL_COST,
   AIRPORT_BUILD_CRYSTAL_COST,
+  AETHER_TOWER_BUILD_CRYSTAL_COST,
+  EXCHANGE_HOUSE_BUILD_CRYSTAL_COST,
+  IMPERIAL_EXCHANGE_PART_BUILD_CRYSTAL_COST,
+  WORLD_ENGINE_PART_BUILD_CRYSTAL_COST,
+  AEGIS_DOME_PART_BUILD_CRYSTAL_COST,
+  ASTRAL_DOCK_PART_BUILD_CRYSTAL_COST,
   randomUUID: () => crypto.randomUUID()
 });
 
@@ -1879,6 +1954,7 @@ const clearWorldProgressForSeason = (): void => {
   tileHistoryByTile.clear();
   settledSinceByTile.clear();
   terrainShapesByTile.clear();
+  resourceOverridesByTile.clear();
   victoryPressureById.clear();
   frontierSettlementsByPlayer.clear();
   seasonWinner = undefined;
@@ -6930,6 +7006,72 @@ const terrainShapeWouldSealAdjacentOwnedLand = (x: number, y: number): boolean =
   return false;
 };
 
+const retortRecastTargetLabel = (resource: ResourceType): string => {
+  if (resource === "FARM") return "food";
+  if (resource === "WOOD") return "supply";
+  if (resource === "IRON") return "iron";
+  if (resource === "GEMS") return "crystal";
+  return resource.toLowerCase();
+};
+
+const tryRetortRecast = (
+  actor: Player,
+  x: number,
+  y: number,
+  targetResource: ResourceType
+): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.retort_recasting.requiredTechIds)) {
+    return { ok: false, reason: "requires Grand Synthesis" };
+  }
+  if (abilityOnCooldown(actor.id, "retort_recasting")) {
+    return { ok: false, reason: "retort recasting is cooling down" };
+  }
+  if (targetResource !== "FARM" && targetResource !== "WOOD" && targetResource !== "IRON" && targetResource !== "GEMS") {
+    return { ok: false, reason: "invalid target resource" };
+  }
+  const t = playerTile(x, y);
+  const tk = key(t.x, t.y);
+  const currentResource = t.resource;
+  if (t.terrain !== "LAND") return { ok: false, reason: "target must be land" };
+  if (!currentResource || currentResource === "OIL") return { ok: false, reason: "target must be a resource tile" };
+  if (currentResource === targetResource) return { ok: false, reason: `tile is already ${retortRecastTargetLabel(targetResource)}` };
+  if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
+  if (hostileObservatoryProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  if (combatLocks.has(tk)) return { ok: false, reason: "tile locked in combat" };
+  if (townsByTile.has(tk)) return { ok: false, reason: "cannot recast a town tile" };
+  if (docksByTile.has(tk)) return { ok: false, reason: "cannot recast a dock tile" };
+  if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) {
+    return { ok: false, reason: "remove the structure first" };
+  }
+  if (actor.points < RETORT_RECAST_GOLD_COST) return { ok: false, reason: "insufficient gold for retort recasting" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", RETORT_RECAST_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for retort recasting" };
+  }
+
+  actor.points -= RETORT_RECAST_GOLD_COST;
+  startAbilityCooldown(actor.id, "retort_recasting");
+  resourceOverridesByTile.set(tk, { resource: targetResource });
+  tileYieldByTile.delete(tk);
+  const ownerId = ownership.get(tk);
+  if (ownerId && currentResource !== targetResource) {
+    const counts = getOrInitResourceCounts(ownerId);
+    counts[currentResource] = Math.max(0, (counts[currentResource] ?? 0) - 1);
+    counts[targetResource] = (counts[targetResource] ?? 0) + 1;
+    rebuildEconomyIndexForPlayer(ownerId);
+  }
+  markSummaryChunkDirtyAtTile(t.x, t.y);
+  recalcPlayerDerived(actor);
+  if (ownerId && ownerId !== actor.id) {
+    const owner = players.get(ownerId);
+    if (owner) {
+      recalcPlayerDerived(owner);
+      sendPlayerUpdate(owner, 0);
+    }
+  }
+  sendVisibleTileDeltaAt(t.x, t.y);
+  return { ok: true };
+};
+
 const tryCreateMountain = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
   if (!playerHasTechIds(actor, ABILITY_DEFS.create_mountain.requiredTechIds)) return { ok: false, reason: "requires Terrain Engineering" };
   if (abilityOnCooldown(actor.id, "create_mountain")) return { ok: false, reason: "create mountain is cooling down" };
@@ -7099,6 +7241,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
     fortId: crypto.randomUUID(),
     ownerId: actor.id,
     tileKey: tk,
+    variant: "FORT",
     status: "under_construction",
     startedAt: now(),
     completesAt: now() + FORT_BUILD_MS
@@ -7156,6 +7299,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
     siegeOutpostId: crypto.randomUUID(),
     ownerId: actor.id,
     tileKey: tk,
+    variant: "SIEGE_OUTPOST",
     status: "under_construction",
     startedAt: now(),
     completesAt: now() + SIEGE_OUTPOST_BUILD_MS
@@ -7408,6 +7552,7 @@ const {
   tileYieldByTile,
   tileHistoryByTile,
   terrainShapesByTile,
+  resourceOverridesByTile,
   victoryPressureById,
   frontierSettlementsByPlayer,
   dynamicMissionsByPlayer,
@@ -7516,6 +7661,7 @@ const {
   strategicResourceBufferByPlayer,
   tileHistoryByTile,
   terrainShapesByTile,
+  resourceOverridesByTile,
   victoryPressureById,
   frontierSettlementsByPlayer,
   tileYieldByTile,
@@ -8650,6 +8796,16 @@ registerServerHttpRoutes(app, {
       }
       sendPlayerUpdate(actor, 0);
       sendVisibleTileDeltaAt(msg.x, msg.y);
+      return;
+    }
+
+    if (msg.type === "RETORT_RECAST") {
+      const out = tryRetortRecast(actor, msg.x, msg.y, msg.targetResource);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "RETORT_RECAST_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
       return;
     }
 

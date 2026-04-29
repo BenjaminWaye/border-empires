@@ -32,15 +32,23 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     scaling: { kind: "incremental", rate: 0.1 }
   },
   FARMSTEAD: { baseGoldCost: 700, resourceCost: { resource: "FOOD", amount: 20 } },
+  WATERWORKS: { baseGoldCost: 600, resourceCost: { resource: "FOOD", amount: 20 } },
   CAMP: { baseGoldCost: 800, resourceCost: { resource: "SUPPLY", amount: 30 } },
   MINE: { baseGoldCost: 800, resourceCost: { resource: "IRON", amount: 30 }, resourceOptions: ["IRON", "CRYSTAL"] },
   MARKET: { baseGoldCost: 2_200 },
   GRANARY: { baseGoldCost: 700, resourceCost: { resource: "FOOD", amount: 40 } },
+  CENSUS_HALL: { baseGoldCost: 900, resourceCost: { resource: "FOOD", amount: 30 } },
   BANK: { baseGoldCost: 3_200 },
+  CLEARING_HOUSE: { baseGoldCost: 3_000, resourceCost: { resource: "CRYSTAL", amount: 80 } },
   AIRPORT: {
     baseGoldCost: 3_000,
     resourceCost: { resource: "CRYSTAL", amount: 80 },
     scaling: { kind: "doubling" }
+  },
+  AETHER_TOWER: {
+    baseGoldCost: 6_000,
+    resourceCost: { resource: "CRYSTAL", amount: 160 },
+    scaling: { kind: "incremental", rate: 0.15 }
   },
   WOODEN_FORT: {
     baseGoldCost: 900,
@@ -59,10 +67,22 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   FUEL_PLANT: { baseGoldCost: 3_200 },
   CARAVANARY: { baseGoldCost: 2_600 },
   FOUNDRY: { baseGoldCost: 4_500 },
+  EXCHANGE_HOUSE: { baseGoldCost: 5_000, resourceCost: { resource: "CRYSTAL", amount: 120 } },
   GARRISON_HALL: { baseGoldCost: 2_200, resourceCost: { resource: "CRYSTAL", amount: 80 } },
   CUSTOMS_HOUSE: { baseGoldCost: 1_800, resourceCost: { resource: "CRYSTAL", amount: 60 } },
+  LOCKWORKS_PORT: { baseGoldCost: 900, resourceCost: { resource: "CRYSTAL", amount: 30 } },
+  CHARTERED_PORT: { baseGoldCost: 1_200, resourceCost: { resource: "CRYSTAL", amount: 40 } },
+  RAIL_DEPOT: { baseGoldCost: 4_000, resourceCost: { resource: "CRYSTAL", amount: 100 } },
   GOVERNORS_OFFICE: { baseGoldCost: 2_600 },
-  RADAR_SYSTEM: { baseGoldCost: 4_000, resourceCost: { resource: "CRYSTAL", amount: 120 } }
+  RADAR_SYSTEM: { baseGoldCost: 4_000, resourceCost: { resource: "CRYSTAL", amount: 120 } },
+  IMPERIAL_EXCHANGE_PART: { baseGoldCost: 8_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
+  WORLD_ENGINE_PART: { baseGoldCost: 8_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
+  AEGIS_DOME_PART: { baseGoldCost: 8_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
+  ASTRAL_DOCK_PART: { baseGoldCost: 8_000, resourceCost: { resource: "CRYSTAL", amount: 180 } },
+  IMPERIAL_EXCHANGE: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } },
+  WORLD_ENGINE: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } },
+  AEGIS_DOME: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } },
+  ASTRAL_DOCK: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } }
 };
 
 export const structureCostDefinition = (type: BuildableStructureType): StructureCostDefinition => STRUCTURE_COST_DEFINITIONS[type];

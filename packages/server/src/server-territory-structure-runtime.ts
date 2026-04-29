@@ -21,6 +21,7 @@ export const createServerTerritoryStructureRuntime = (deps: ServerTerritoryStruc
     OBSERVATORY_PROTECTION_RADIUS,
     OBSERVATORY_CAST_RADIUS,
     RADAR_SYSTEM_RADIUS,
+    AETHER_TOWER_RADIUS,
     GOVERNORS_OFFICE_RADIUS,
     GOVERNORS_OFFICE_UPKEEP_MULT,
     FOUNDRY_RADIUS,
@@ -89,7 +90,9 @@ export const createServerTerritoryStructureRuntime = (deps: ServerTerritoryStruc
 
   const activeAirportAt = (ownerId: string, tileKey: TileKey): EconomicStructure | undefined => {
     const structure = economicStructuresByTile.get(tileKey);
-    return structure && structure.ownerId === ownerId && structure.type === "AIRPORT" && structure.status === "active" ? structure : undefined;
+    if (!structure || structure.ownerId !== ownerId || structure.type !== "AIRPORT" || structure.status !== "active") return undefined;
+    const [x, y] = parseKey(tileKey);
+    return activeOwnedEconomicStructureWithinRange(ownerId, "AETHER_TOWER", x, y, AETHER_TOWER_RADIUS) ? structure : undefined;
   };
 
   const activeOwnedEconomicStructureWithinRange = (
@@ -102,6 +105,7 @@ export const createServerTerritoryStructureRuntime = (deps: ServerTerritoryStruc
     for (const tk of economicStructureTileKeysByPlayer.get(ownerId) ?? []) {
       const structure = economicStructuresByTile.get(tk);
       if (!structure || structure.type !== type || structure.status !== "active") continue;
+      if (structure.disabledUntil && structure.disabledUntil > now()) continue;
       const [sx, sy] = parseKey(tk);
       if (chebyshevDistance(sx, sy, x, y) <= range) return tk;
     }
@@ -113,6 +117,7 @@ export const createServerTerritoryStructureRuntime = (deps: ServerTerritoryStruc
       if (structure.type !== "RADAR_SYSTEM" || structure.status !== "active") continue;
       if (structure.ownerId === actor.id || actor.allies.has(structure.ownerId)) continue;
       const [rx, ry] = parseKey(tk);
+      if (!activeOwnedEconomicStructureWithinRange(structure.ownerId, "AETHER_TOWER", rx, ry, AETHER_TOWER_RADIUS)) continue;
       if (chebyshevDistance(rx, ry, x, y) <= RADAR_SYSTEM_RADIUS) return tk;
     }
     return undefined;
@@ -194,6 +199,7 @@ export const createServerTerritoryStructureRuntime = (deps: ServerTerritoryStruc
   const economicStructureOutputMultAt = (tileKey: TileKey, ownerId: string | undefined): number => {
     const structure = economicStructuresByTile.get(tileKey);
     if (!structure || !ownerId || structure.ownerId !== ownerId || structure.status !== "active") return 1;
+    if (structure.type === "WATERWORKS") return 1.8;
     if (
       structure.type === "GRANARY" ||
       structure.type === "MARKET" ||

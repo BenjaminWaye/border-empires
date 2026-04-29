@@ -60,4 +60,46 @@ describe("applyTechUpdateToState", () => {
     expect(state.techUiSelectedId).toBe("ledger-keeping");
     expect(pushFeed).toHaveBeenCalledWith("Research completed: Coinage.", "tech", "success");
   });
+
+  it("clamps incoming tech catalog tiers to the 7-tier tree", () => {
+    const state = {
+      pendingTechUnlockId: "",
+      techUiSelectedId: "",
+      techDetailOpen: false,
+      activePanel: null,
+      mobilePanel: "core",
+      structureInfoKey: "",
+      crystalAbilityInfoKey: "",
+      techChoices: [],
+      techIds: [],
+      techRootId: undefined,
+      currentResearch: undefined,
+      availableTechPicks: 1,
+      developmentProcessLimit: 3,
+      activeDevelopmentProcessCount: 0,
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      modBreakdown: { attack: [], defense: [], income: [], vision: [] },
+      incomePerMinute: 0,
+      missions: [],
+      techCatalog: [],
+      domainIds: [],
+      domainChoices: [],
+      domainCatalog: [],
+      revealCapacity: 1,
+      activeRevealTargets: []
+    } as any;
+
+    applyTechUpdateToState(
+      state,
+      {
+        techCatalog: [
+          { id: "a", tier: 8, name: "A", description: "", mods: {}, effects: {}, requirements: { gold: 0, resources: {}, checklist: [], canResearch: false } },
+          { id: "b", tier: 9, name: "B", description: "", mods: {}, effects: {}, requirements: { gold: 0, resources: {}, checklist: [], canResearch: false } }
+        ] as any
+      },
+      vi.fn()
+    );
+
+    expect(state.techCatalog.map((tech: any) => tech.tier)).toEqual([7, 7]);
+  });
 });

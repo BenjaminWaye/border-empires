@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Observatory } from "@border-empires/shared";
 import {
   observatoryCooldownReadyAt,
   observatoryProtectionActive,
@@ -10,8 +11,9 @@ const distance = (ax: number, ay: number, bx: number, by: number): number => Mat
 
 describe("observatory cooldown helpers", () => {
   it("treats missing cooldowns as ready immediately", () => {
-    expect(observatoryCooldownReadyAt({})).toBe(0);
-    expect(observatoryProtectionActive({}, 100)).toBe(true);
+    const missingCooldown = {} as Pick<Observatory, "cooldownUntil">;
+    expect(observatoryCooldownReadyAt(missingCooldown)).toBe(0);
+    expect(observatoryProtectionActive(missingCooldown, 100)).toBe(true);
   });
 
   it("disables protection while the observatory is cooling down", () => {

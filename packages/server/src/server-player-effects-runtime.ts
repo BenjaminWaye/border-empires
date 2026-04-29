@@ -80,7 +80,6 @@ export const createServerPlayerEffectsRuntime = (
     if (effects.unlockRevealEmpire) next.unlockRevealEmpire = true;
     if (effects.unlockDeepStrike) next.unlockDeepStrike = true;
     if ((effects as { unlockAetherBridge?: boolean }).unlockAetherBridge) next.unlockAetherBridge = true;
-    if (effects.unlockMountainPass) next.unlockMountainPass = true;
     if (effects.unlockTerrainShaping) next.unlockTerrainShaping = true;
     if (effects.unlockBreachAttack) next.unlockBreachAttack = true;
     if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
@@ -119,6 +118,10 @@ export const createServerPlayerEffectsRuntime = (
     if (typeof effects.revealUpkeepMult === "number") next.revealUpkeepMult *= effects.revealUpkeepMult;
     if (typeof effects.revealCapacityBonus === "number") next.revealCapacityBonus += effects.revealCapacityBonus;
     if (typeof effects.visionRadiusBonus === "number") next.visionRadiusBonus += effects.visionRadiusBonus;
+    if (typeof effects.observatoryRangeBonus === "number") {
+      next.observatoryProtectionRadiusBonus += effects.observatoryRangeBonus;
+      next.observatoryCastRadiusBonus += effects.observatoryRangeBonus;
+    }
     if (typeof effects.developmentProcessCapacityAdd === "number") next.developmentProcessCapacityAdd += effects.developmentProcessCapacityAdd;
     if (typeof effects.dockGoldOutputMult === "number") next.dockGoldOutputMult *= effects.dockGoldOutputMult;
     if (typeof effects.dockGoldCapMult === "number") next.dockGoldCapMult *= effects.dockGoldCapMult;
@@ -178,6 +181,10 @@ export const createServerPlayerEffectsRuntime = (
     if (typeof effects.revealUpkeepMult === "number") next.revealUpkeepMult *= effects.revealUpkeepMult;
     if (typeof effects.revealCapacityBonus === "number") next.revealCapacityBonus += effects.revealCapacityBonus;
     if (typeof effects.visionRadiusBonus === "number") next.visionRadiusBonus += effects.visionRadiusBonus;
+    if (typeof effects.observatoryRangeBonus === "number") {
+      next.observatoryProtectionRadiusBonus += effects.observatoryRangeBonus;
+      next.observatoryCastRadiusBonus += effects.observatoryRangeBonus;
+    }
     if (typeof effects.observatoryProtectionRadiusBonus === "number") next.observatoryProtectionRadiusBonus += effects.observatoryProtectionRadiusBonus;
     if (typeof effects.observatoryCastRadiusBonus === "number") next.observatoryCastRadiusBonus += effects.observatoryCastRadiusBonus;
     if (typeof effects.observatoryVisionBonus === "number") next.observatoryVisionBonus += effects.observatoryVisionBonus;

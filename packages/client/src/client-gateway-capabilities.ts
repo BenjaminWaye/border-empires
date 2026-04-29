@@ -20,6 +20,7 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
   CREATE_MOUNTAIN: "Mountain creation",
   OVERLOAD_SYNTHESIZER: "Synthesizer overloads",
   PURGE_SIPHON: "Siphon purge",
+  RETORT_RECAST: "Retort Transmutation",
   REMOVE_MOUNTAIN: "Mountain removal",
   REMOVE_STRUCTURE: "Structure removal",
   REVEAL_EMPIRE: "Empire reveal",

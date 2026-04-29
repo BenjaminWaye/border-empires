@@ -151,7 +151,21 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       tile.optimisticPending = "structure_build";
       if (kind === "FORT") {
         delete tile.economicStructure;
-        tile.fort = { ownerId: state.me, status: "under_construction", completesAt };
+        const variant =
+          tile.fort?.variant === "FORT"
+            ? state.techIds.includes("fortified-walls")
+              ? "IRON_BASTION"
+              : "FORT"
+            : tile.fort?.variant === "IRON_BASTION"
+              ? state.techIds.includes("steelworking")
+                ? "THUNDER_BASTION"
+                : "IRON_BASTION"
+              : state.techIds.includes("steelworking")
+                ? "THUNDER_BASTION"
+                : state.techIds.includes("fortified-walls")
+                  ? "IRON_BASTION"
+                  : "FORT";
+        tile.fort = { ownerId: state.me, status: "under_construction", variant, completesAt };
         return;
       }
       if (kind === "OBSERVATORY") {
@@ -160,7 +174,21 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       }
       if (kind === "SIEGE_OUTPOST") {
         delete tile.economicStructure;
-        tile.siegeOutpost = { ownerId: state.me, status: "under_construction", completesAt };
+        const variant =
+          tile.siegeOutpost?.variant === "SIEGE_OUTPOST"
+            ? state.techIds.includes("siegecraft")
+              ? "SIEGE_TOWER"
+              : "SIEGE_OUTPOST"
+            : tile.siegeOutpost?.variant === "SIEGE_TOWER"
+              ? state.techIds.includes("standing-army")
+                ? "DREAD_TOWER"
+                : "SIEGE_TOWER"
+              : state.techIds.includes("standing-army")
+                ? "DREAD_TOWER"
+                : state.techIds.includes("siegecraft")
+                  ? "SIEGE_TOWER"
+                  : "SIEGE_OUTPOST";
+        tile.siegeOutpost = { ownerId: state.me, status: "under_construction", variant, completesAt };
         return;
       }
       tile.economicStructure = { ownerId: state.me, type: kind, status: "under_construction", completesAt };

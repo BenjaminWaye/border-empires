@@ -1,5 +1,5 @@
 import type { BuildableStructureType } from "./structure-costs.js";
-import { structurePlacementMetadataData } from "./structure-placement-metadata.js";
+import structurePlacementMetadataJson from "./structure-placement-metadata.json" with { type: "json" };
 import type { OwnershipState, PopulationTier, ResourceType } from "./types.js";
 
 export type StructureTileSurface = "settled" | "resource" | "town" | "support" | "dock" | "dock_support";
@@ -24,7 +24,7 @@ type TileSurfaceInput = {
   supportedDockCount?: number | undefined;
 };
 
-const STRUCTURE_PLACEMENT_METADATA = structurePlacementMetadataData as Record<BuildableStructureType, StructurePlacementMetadata>;
+const STRUCTURE_PLACEMENT_METADATA = structurePlacementMetadataJson as Record<BuildableStructureType, StructurePlacementMetadata>;
 
 export const structurePlacementMetadata = (type: BuildableStructureType): StructurePlacementMetadata => STRUCTURE_PLACEMENT_METADATA[type];
 

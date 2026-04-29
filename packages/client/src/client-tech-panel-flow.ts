@@ -26,17 +26,20 @@ type TechPanelDeps = {
   structureInfoForKey: (type: StructureInfoKey) => {
     title: string;
     detail: string;
+    effects: string[];
     glyph: string;
     placement: string;
     image?: string;
     costBits: string[];
     buildTimeLabel: string;
+    upkeepBits?: string[];
   };
   structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
 };
 
 export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
   const { state, techPickEl, mobileTechPickEl } = deps;
+  const clampTechTier = (tier: number): number => Math.max(1, Math.min(7, Math.round(tier)));
 
   const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
     if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
@@ -48,13 +51,18 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     if (typeof cached === "number") return cached;
     const t = byId.get(id);
     if (!t) return 1;
+    if (typeof t.tier === "number" && Number.isFinite(t.tier)) {
+      const explicitTier = clampTechTier(t.tier);
+      memo.set(id, explicitTier);
+      return explicitTier;
+    }
     const parents = t.prereqIds && t.prereqIds.length > 0 ? t.prereqIds : t.requires ? [t.requires] : [];
     if (parents.length === 0) {
       memo.set(id, 1);
       return 1;
     }
     const parentTier = Math.max(...parents.map((p) => techTier(p, byId, memo)));
-    const tier = parentTier + 1;
+    const tier = clampTechTier(parentTier + 1);
     memo.set(id, tier);
     return tier;
   };

@@ -129,6 +129,7 @@ export interface ServerTerritoryStructureRuntimeDeps {
   OBSERVATORY_PROTECTION_RADIUS: number;
   OBSERVATORY_CAST_RADIUS: number;
   RADAR_SYSTEM_RADIUS: number;
+  AETHER_TOWER_RADIUS: number;
   GOVERNORS_OFFICE_RADIUS: number;
   GOVERNORS_OFFICE_UPKEEP_MULT: number;
   FOUNDRY_RADIUS: number;

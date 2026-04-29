@@ -1,15 +1,26 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureSortRank, type BuildableStructureType } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { hostileObservatoryProtectingTileAt } from "./client-observatory-cooldown.js";
+import { ownObservatoryCastRadius } from "./client-observatory-rules.js";
 import type { Tile, TileActionDef, TileMenuView } from "./client-types.js";
 
 export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "reveal_empire" ||
   id === "reveal_empire_stats" ||
+  id === "survey_sweep" ||
+  id === "aether_lance" ||
+  id === "retort_recast_food" ||
+  id === "retort_recast_supply" ||
+  id === "retort_recast_iron" ||
+  id === "retort_recast_crystal" ||
   id === "aether_wall" ||
   id === "aether_bridge" ||
   id === "siphon_tile" ||
   id === "purge_siphon" ||
+  id === "aether_emp" ||
+  id === "city_overclock" ||
+  id === "astral_dock_launch" ||
+  id === "aegis_lock" ||
   id === "create_mountain" ||
   id === "remove_mountain";
 
@@ -25,6 +36,8 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "SIEGE_OUTPOST";
     case "build_farmstead":
       return "FARMSTEAD";
+    case "build_waterworks":
+      return "WATERWORKS";
     case "build_camp":
       return "CAMP";
     case "build_mine":
@@ -33,10 +46,16 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "MARKET";
     case "build_granary":
       return "GRANARY";
+    case "build_census_hall":
+      return "CENSUS_HALL";
     case "build_bank":
       return "BANK";
+    case "build_clearing_house":
+      return "CLEARING_HOUSE";
     case "build_airport":
       return "AIRPORT";
+    case "build_aether_tower":
+      return "AETHER_TOWER";
     case "build_wooden_fort":
       return "WOODEN_FORT";
     case "build_light_outpost":
@@ -57,6 +76,28 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "GARRISON_HALL";
     case "build_customs_house":
       return "CUSTOMS_HOUSE";
+    case "build_lockworks_port":
+      return "LOCKWORKS_PORT";
+    case "build_rail_depot":
+      return "RAIL_DEPOT";
+    case "build_exchange_house":
+      return "EXCHANGE_HOUSE";
+    case "build_imperial_exchange_part":
+      return "IMPERIAL_EXCHANGE_PART";
+    case "build_world_engine_part":
+      return "WORLD_ENGINE_PART";
+    case "build_aegis_dome_part":
+      return "AEGIS_DOME_PART";
+    case "build_astral_dock_part":
+      return "ASTRAL_DOCK_PART";
+    case "build_imperial_exchange":
+      return "IMPERIAL_EXCHANGE";
+    case "build_world_engine":
+      return "WORLD_ENGINE";
+    case "build_aegis_dome":
+      return "AEGIS_DOME";
+    case "build_astral_dock":
+      return "ASTRAL_DOCK";
     case "build_governors_office":
       return "GOVERNORS_OFFICE";
     case "build_radar_system":
@@ -82,17 +123,21 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "cartography";
     case "build_airport":
       return "aeronautics";
+    case "build_aether_tower":
+      return "plastics";
     case "build_radar_system":
       return "radar";
     case "build_governors_office":
       return "civil-service";
     case "build_garrison_hall":
-      return "standing-army";
+      return "organized-supply";
     case "build_siege_camp":
     case "build_camp":
       return "leatherworking";
     case "build_farmstead":
       return "agriculture";
+    case "build_waterworks":
+      return "irrigation";
     case "build_mine":
       return "mining";
     case "build_market":
@@ -110,13 +155,41 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_fuel_plant":
       return "plastics";
     case "build_customs_house":
+      return "harborcraft";
+    case "build_lockworks_port":
+      return "port-infrastructure";
+    case "build_rail_depot":
       return "global-trade-networks";
+    case "build_exchange_house":
+      return "imperial-roads";
+    case "build_imperial_exchange_part":
+    case "build_imperial_exchange":
+      return "urban-markets";
+    case "build_world_engine_part":
+    case "build_world_engine":
+      return "world-engine";
+    case "build_aegis_dome_part":
+    case "build_aegis_dome":
+    case "aegis_lock":
+      return "aegis-dome";
+    case "build_astral_dock_part":
+    case "build_astral_dock":
+    case "astral_dock_launch":
+      return "astral-dock";
     case "reveal_empire":
-      return "cryptography";
-    case "siphon_tile":
-      return "logistics";
+      return "beacon-towers";
     case "reveal_empire_stats":
       return "surveying";
+    case "siphon_tile":
+      return "logistics";
+    case "survey_sweep":
+      return "surveying";
+    case "aether_lance":
+      return "signal-fires";
+    case "aether_emp":
+      return "cryptography";
+    case "city_overclock":
+      return "imperial-roads";
     case "aether_wall":
       return "harborcraft";
     case "aether_bridge":
@@ -177,3 +250,16 @@ export const hostileObservatoryProtectingTile = (
   state: Pick<ClientState, "tiles" | "me" | "allies">,
   tile: Tile
 ): Tile | undefined => hostileObservatoryProtectingTileAt(state.tiles.values(), state.me, state.allies, tile, Date.now());
+
+export const ownedActiveObservatoryWithinRange = (
+  state: Pick<ClientState, "tiles" | "me" | "techIds" | "techCatalog" | "domainIds" | "domainCatalog">,
+  tile: Tile
+): boolean => {
+  const range = ownObservatoryCastRadius(state);
+  for (const candidate of state.tiles.values()) {
+    if (candidate.fogged || candidate.ownerId !== state.me || candidate.terrain !== "LAND") continue;
+    if (candidate.observatory?.ownerId !== state.me || candidate.observatory.status !== "active") continue;
+    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= range) return true;
+  }
+  return false;
+};

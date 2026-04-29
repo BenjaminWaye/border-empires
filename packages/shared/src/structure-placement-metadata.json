@@ -20,6 +20,12 @@
     "sortGroup": "resource",
     "resourceTypes": ["FARM", "FISH"]
   },
+  "WATERWORKS": {
+    "showOn": ["resource"],
+    "placementMode": "same_tile",
+    "sortGroup": "resource",
+    "resourceTypes": ["FARM", "FISH"]
+  },
   "CAMP": {
     "showOn": ["resource"],
     "placementMode": "same_tile",
@@ -42,12 +48,27 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
+  "CENSUS_HALL": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
   "BANK": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
+  "CLEARING_HOUSE": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
   "AIRPORT": {
+    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "AETHER_TOWER": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
@@ -107,6 +128,11 @@
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
+  "EXCHANGE_HOUSE": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
   "GARRISON_HALL": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
@@ -117,12 +143,67 @@
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
+  "LOCKWORKS_PORT": {
+    "showOn": ["dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "CHARTERED_PORT": {
+    "showOn": ["dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "RAIL_DEPOT": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
   "GOVERNORS_OFFICE": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "RADAR_SYSTEM": {
+    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "IMPERIAL_EXCHANGE_PART": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "WORLD_ENGINE_PART": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "AEGIS_DOME_PART": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "ASTRAL_DOCK_PART": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "IMPERIAL_EXCHANGE": {
+    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "WORLD_ENGINE": {
+    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "AEGIS_DOME": {
+    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
+  },
+  "ASTRAL_DOCK": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"

@@ -23,9 +23,9 @@ const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["
   type === "FUEL_PLANT";
 
 const structureNameForTile = (tile: Tile): string | undefined => {
-  if (tile.fort) return "Fort";
+  if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "IRON_BASTION" ? "Iron Bastion" : "Fort";
   if (tile.observatory) return "Observatory";
-  if (tile.siegeOutpost) return "Siege Outpost";
+  if (tile.siegeOutpost) return tile.siegeOutpost.variant === "DREAD_TOWER" ? "Dread Tower" : tile.siegeOutpost.variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
   if (tile.economicStructure) return economicStructureName(tile.economicStructure.type);
   return undefined;
 };
@@ -34,16 +34,20 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   const supportedTownLabel = supportedTown?.town?.name ? supportedTown.town.name : supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
   if (actionId === "settle_land") return "Makes this tile defended and activates production.";
   if (actionId === "build_fortification") {
+    if (tile.fort?.variant === "FORT") return "Upgrade this Fort into an Iron Bastion. Iron Bastions defend at 4x.";
+    if (tile.fort?.variant === "IRON_BASTION") return "Upgrade this Iron Bastion into a Thunder Bastion. Thunder Bastions defend at 8x.";
     return tile.economicStructure?.type === "WOODEN_FORT"
-      ? "Upgrade this Wooden Fort into a full fortification. +25% defense here. Active forts also stop failed attacks from losing the origin tile."
-      : "Fortify this tile. +25% defense here. Active forts also stop failed attacks from losing the origin tile.";
+      ? "Upgrade this Wooden Fort into a full fortification. Forts defend at 2.5x and stop failed attacks from costing the origin tile."
+      : "Fortify this tile. Forts defend at 2.5x and stop failed attacks from costing the origin tile.";
   }
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
   if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
   if (actionId === "build_siege_camp") {
+    if (tile.siegeOutpost?.variant === "SIEGE_OUTPOST") return "Upgrade this Siege Outpost into a Siege Tower. Siege Towers attack at 2x.";
+    if (tile.siegeOutpost?.variant === "SIEGE_TOWER") return "Upgrade this Siege Tower into a Dread Tower. Dread Towers attack at 3x.";
     return tile.economicStructure?.type === "LIGHT_OUTPOST"
-      ? "Upgrade this Light Outpost into a full siege outpost. Attacks from here hit 25% harder."
-      : "Adds an offensive staging point on this border or dock tile. Attacks from here hit 25% harder.";
+      ? "Upgrade this Light Outpost into a full siege outpost. Siege Outposts attack at 1.25x."
+      : "Adds an offensive staging point on this border or dock tile. Siege Outposts attack at 1.25x.";
   }
   if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
   if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";
@@ -58,7 +62,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_bank") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% city income and +1 flat income.`;
   }
-  if (actionId === "build_airport") return "Build an airport on empty settled land. Bombard enemy tiles within 30 tiles for oil.";
+  if (actionId === "build_airport") return "Build a Sky Dock on empty settled land. Bombard enemy tiles within 30 tiles for crystal.";
+  if (actionId === "build_aether_tower") return "Late-game power node. Sky and monument structures in its radius stay online.";
   if (actionId === "build_caravanary") {
     return `Build on this support tile for ${supportedTownLabel}. Boosts its connected-town income bonus by 25%.`;
   }
@@ -66,8 +71,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output.";
   if (actionId === "build_ironworks") return "Convert heavy gold upkeep into steady iron output on this support tile.";
   if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output.";
-  if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile.";
-  if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Crystal Synthesizer into an Advanced Crystal Synthesizer with 20% higher output.";
+  if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile with an Aether Condenser.";
+  if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output.";
   if (actionId === "overload_fur_synthesizer") return "Spend 12500 gold for an instant supply burst, then shut this Fur Synthesizer down for 24 hours.";
   if (actionId === "overload_ironworks") return "Spend 12500 gold for an instant iron burst, then shut this ironworks down for 24 hours.";
   if (actionId === "overload_crystal_synthesizer") return "Spend 12500 gold for an instant crystal burst, then shut this synthesizer down for 24 hours.";
@@ -76,18 +81,42 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine output within 10 tiles.";
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
-  if (actionId === "build_customs_house") return "Build on a settled dock tile. Increases income from that dock by 50%.";
-  if (actionId === "build_governors_office") return "Administrative center. Reduces local food upkeep and settled-tile upkeep within 10 tiles.";
-  if (actionId === "build_radar_system") return "Air defense grid. Blocks enemy airport bombardment within 30 tiles and reveals the attack origin.";
+  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1 gold / minute per connected owned dock.";
+  if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
+  if (actionId === "build_rail_depot") return "Build on a town support tile. Every 10 minutes it settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across the linked town network.";
+  if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales gold and growth with the local support network.";
+  if (actionId === "build_imperial_exchange_part") return "Build one of three Imperial Exchange monument parts in a Great City or Metropolis.";
+  if (actionId === "build_world_engine_part") return "Build one of three Worldbreaker Cannon monument parts in a Great City or Metropolis.";
+  if (actionId === "build_aegis_dome_part") return "Build one of three Aegis Dome monument parts in a Great City or Metropolis.";
+  if (actionId === "build_astral_dock_part") return "Build one of three Astral Dock monument parts in a Great City or Metropolis.";
+  if (actionId === "build_imperial_exchange") return "Place the final Imperial Exchange for free after finishing three parts.";
+  if (actionId === "build_world_engine") return "Place the final Worldbreaker Cannon for free after finishing three parts.";
+  if (actionId === "build_aegis_dome") return "Place the final Aegis Dome for free after finishing three parts.";
+  if (actionId === "build_astral_dock") return "Place the final Astral Dock for free after finishing three parts.";
+  if (actionId === "imperial_exchange_levy_food") return "Seize every rival empire's stored FOOD at once.";
+  if (actionId === "imperial_exchange_levy_iron") return "Seize every rival empire's stored IRON at once.";
+  if (actionId === "imperial_exchange_levy_crystal") return "Seize every rival empire's stored CRYSTAL at once.";
+  if (actionId === "imperial_exchange_levy_supply") return "Seize every rival empire's stored SUPPLY at once.";
+  if (actionId === "world_engine_strike") return "Arm the Worldbreaker Cannon and choose an enemy land tile to shatter into mountain.";
+  if (actionId === "retort_recast_food") return "Recast this exposed resource tile into a food vein.";
+  if (actionId === "retort_recast_supply") return "Recast this exposed resource tile into a supply vein.";
+  if (actionId === "retort_recast_iron") return "Recast this exposed resource tile into an iron vein.";
+  if (actionId === "retort_recast_crystal") return "Recast this exposed resource tile into a crystal vein.";
+  if (actionId === "aether_emp") return "Fire an Aether EMP to disable one hostile powered structure for 20 minutes.";
+  if (actionId === "city_overclock") return "Overclock this city for 15 minutes to boost local growth, income, and manpower output.";
+  if (actionId === "astral_dock_launch") return "Launch one satellite for 24 hours of full-map vision.";
+  if (actionId === "aegis_lock") return "Seal the Aegis Dome region so hostile attacks cannot change ownership and hostile abilities fail for a short time.";
+  if (actionId === "build_governors_office") return "Administrative center. Builds a Ministry Hall that reduces local food upkeep and settled-tile upkeep within 10 tiles.";
+  if (actionId === "build_radar_system") return "Resonance grid. Blocks enemy sky bombardment within 30 tiles and reveals the attack origin.";
   if (actionId === "remove_structure") {
     const structureName = structureNameForTile(tile);
     if (!structureName) return undefined;
     if (tile.economicStructure) {
       return `Remove this ${structureName}. Its income, upkeep, and structure effects stay disabled until removal finishes.`;
     }
-    if (tile.fort) return "Remove this Fort. Its defense bonus is disabled until removal finishes.";
+    if (tile.fort) return `Remove this ${structureNameForTile(tile)}. Its defense bonus is disabled until removal finishes.`;
     if (tile.observatory) return "Remove this Observatory. Its vision and protection effects are disabled until removal finishes.";
-    if (tile.siegeOutpost) return "Remove this Siege Outpost. Its attack bonus is disabled until removal finishes.";
+    if (tile.siegeOutpost) return `Remove this ${structureNameForTile(tile)}. Its attack bonus is disabled until removal finishes.`;
   }
   return undefined;
 };

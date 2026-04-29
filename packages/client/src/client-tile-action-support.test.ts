@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tileActionAvailabilityWithDevelopmentSlot } from "./client-tile-action-logic.js";
-import { shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
+import { ownedActiveObservatoryWithinRange, shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 
@@ -216,5 +216,53 @@ describe("tileActionAvailabilityWithDevelopmentSlot", () => {
       disabledReason: "Need 900 gold",
       cost: "Need 900 gold"
     });
+  });
+});
+
+describe("ownedActiveObservatoryWithinRange", () => {
+  it("requires an active owned observatory inside the computed cast radius", () => {
+    expect(
+      ownedActiveObservatoryWithinRange(
+        {
+          me: "me",
+          techIds: ["beacon-towers"],
+          techCatalog: [
+            {
+              id: "beacon-towers",
+              name: "Beacon Towers",
+              tier: 4,
+              description: "",
+              mods: {},
+              effects: { observatoryRangeBonus: 5 },
+              requirements: { gold: 0, resources: {}, canResearch: true, checklist: [] }
+            }
+          ],
+          domainIds: [],
+          domainCatalog: [],
+          tiles: new Map([
+            [
+              "10,10",
+              {
+                x: 10,
+                y: 10,
+                terrain: "LAND",
+                ownerId: "me",
+                observatory: { ownerId: "me", status: "active" }
+              }
+            ],
+            [
+              "45,10",
+              {
+                x: 45,
+                y: 10,
+                terrain: "LAND",
+                resource: "IRON"
+              }
+            ]
+          ])
+        },
+        { x: 45, y: 10, terrain: "LAND", resource: "IRON" }
+      )
+    ).toBe(true);
   });
 });
