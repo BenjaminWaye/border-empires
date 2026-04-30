@@ -8617,6 +8617,12 @@ registerServerHttpRoutes(app, {
       }
 
       socketsByPlayer.set(player.id, socket);
+      // If a returning player with a completed profile has no territory (e.g.
+      // after a snapshot wipe), spawn them now so they land in a playable state
+      // rather than stuck in the world with zero tiles and no way to recover.
+      if (!playerNeedsProfileSetup(player) && player.territoryTiles.size === 0) {
+        spawnPlayer(player);
+      }
       resumeVictoryPressureTimers();
       completeDueResearchForPlayer(player);
       applyManpowerRegen(player);
