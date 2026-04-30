@@ -1,9 +1,10 @@
-import { AmbientLight, BoxGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PlaneGeometry, RepeatWrapping, SRGBColorSpace, Scene, Vector3, WebGLRenderer } from "three";
+import { AmbientLight, BoxGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
 import { isForestTile } from "./client-constants.js";
 import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
+import { createLegacy3DTerrainTextures } from "./client-map-3d-terrain-textures.js";
 import { normalizeColorForThree } from "./client-three-color.js";
 
 type ClientThreeTerrainRendererDeps = {
@@ -27,66 +28,6 @@ const MOUNTAIN_SQUARE_PEAK_ROTATION_RADIANS = Math.PI / 4;
 const LAND_TILE_TOP_Y = 0.37;
 const OWNERSHIP_SURFACE_Y = LAND_TILE_TOP_Y + 0.004;
 const MARKER_SURFACE_Y = LAND_TILE_TOP_Y + 0.02;
-
-const LEGACY_TEXTURE_SIZE = 64;
-const clamp255 = (value: number): number => Math.max(0, Math.min(255, Math.round(value)));
-const tint = (r: number, g: number, b: number, delta: number): [number, number, number] => [
-  clamp255(r + delta),
-  clamp255(g + delta),
-  clamp255(b + delta)
-];
-
-const createLegacyTerrainTexture = (
-  base: [number, number, number],
-  options: { grain: number; waveA?: number; waveB?: number; crack?: number; grass?: boolean; rock?: boolean }
-): CanvasTexture => {
-  const size = LEGACY_TEXTURE_SIZE;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("failed to create legacy terrain texture canvas context");
-  const img = ctx.createImageData(size, size);
-  const data = img.data;
-  const [br, bg, bb] = base;
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const index = (y * size + x) * 4;
-      const wave =
-        Math.sin((x + y * 0.8) * (options.waveA ?? 0)) * 0.5 +
-        Math.cos((y - x * 0.6) * (options.waveB ?? 0)) * 0.5;
-      const grain =
-        Math.sin((x * 12.9898 + y * 78.233) * 0.017) * 0.5 +
-        Math.sin((x * 93.17 - y * 51.11) * 0.021) * 0.5;
-      let delta = grain * options.grain + wave * (options.waveA ? 10 : 0);
-      if (options.crack) {
-        const crack = Math.sin((x * 0.9 + y * 0.2) * 0.25) + Math.cos((y * 1.1 - x * 0.3) * 0.21);
-        delta -= Math.max(0, crack) * options.crack;
-      }
-      if (options.grass) {
-        const blade = Math.sin((x * 0.7 + y * 1.3) * 0.33) * 8 + Math.cos((x * 1.1 - y * 0.8) * 0.27) * 6;
-        delta += blade * 0.25;
-      }
-      if (options.rock) {
-        const pebble = Math.sin((x * 0.42 + y * 0.58) * 0.9) * Math.cos((x * 0.66 - y * 0.31) * 0.8);
-        delta += pebble * 14;
-      }
-      const [r, g, b] = tint(br, bg, bb, delta);
-      data[index] = r;
-      data[index + 1] = g;
-      data[index + 2] = b;
-      data[index + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.wrapS = RepeatWrapping;
-  texture.wrapT = RepeatWrapping;
-  texture.repeat.set(1, 1);
-  texture.needsUpdate = true;
-  return texture;
-};
 
 export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendererDeps) => {
   const glCanvas = document.createElement("canvas");
@@ -118,11 +59,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const cameraTarget = new Vector3(0, 0, 0);
   camera.up.set(0, 0, -1);
 
-  const grassLightTexture = createLegacyTerrainTexture([111, 165, 89], { grain: 8, waveA: 0.22, waveB: 0.18, grass: true });
-  const grassDarkTexture = createLegacyTerrainTexture([89, 140, 71], { grain: 8, waveA: 0.22, waveB: 0.18, grass: true });
-  const sandTexture = createLegacyTerrainTexture([214, 184, 135], { grain: 11, waveA: 0.18, waveB: 0.14 });
-  const seaDeepTexture = createLegacyTerrainTexture([71, 128, 158], { grain: 9, waveA: 0.34, waveB: 0.28 });
-  const seaCoastTexture = createLegacyTerrainTexture([103, 154, 182], { grain: 8, waveA: 0.31, waveB: 0.26 });
+  const { grassLightTexture, grassDarkTexture, sandTexture, seaDeepTexture, seaCoastTexture } = createLegacy3DTerrainTextures();
 
   const seaMaterial = new MeshStandardMaterial({
     color: "#ffffff",
