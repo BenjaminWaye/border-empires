@@ -101,6 +101,9 @@ const techCardStatusLine = (
   return { text: blocked.label, tone: blocked.tone };
 };
 
+const techCardIsAvailable = (tech: TechInfo, isChoice: boolean, isPending: boolean): boolean =>
+  !isPending && (tech.requirements.canResearch || isChoice);
+
 const techTierSlotWidth = (): number => TECH_TREE_NODE_W + TECH_TREE_TIER_SPREAD * 2;
 
 const techTierNodeOffset = (index: number, count: number): number => {
@@ -183,8 +186,11 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
         )
         .map((tech) => {
           const selected = args.techUiSelectedId === tech.id ? " selected" : "";
-          const owned = ownedTechIds.includes(tech.id) ? " owned" : "";
-          const blocked = tech.requirements.canResearch || args.isPendingTechUnlock(tech.id) ? "" : " blocked";
+          const isOwned = ownedTechIds.includes(tech.id);
+          const owned = isOwned ? " owned" : "";
+          const isPending = args.isPendingTechUnlock(tech.id);
+          const available = techCardIsAvailable(tech, true, isPending) ? " available" : "";
+          const blocked = isOwned || available || isPending ? "" : " blocked";
           const researchingThis = args.currentResearch?.techId === tech.id;
           const researchRemaining =
             researchingThis && typeof args.currentResearch?.completesAt === "number"
@@ -196,11 +202,11 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
           const missingResourcesHtml = techMissingResourceSummaryHtml(tech);
           const costLabel = researchingThis
             ? `Researching • ${args.formatCooldownShort(researchRemaining)}`
-            : args.isPendingTechUnlock(tech.id)
+            : isPending
               ? "Unlocking..."
               : blockedStatus.text;
           const costToneClass =
-            researchingThis || args.isPendingTechUnlock(tech.id)
+            researchingThis || isPending
               ? ""
               : blockedStatus.tone === "missing"
                 ? " tech-card-cost-missing"
@@ -208,7 +214,7 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
                   ? " tech-card-cost-blocked"
                   : "";
           const passiveSummary = formatTechPassiveSummary(tech);
-          return `<button class="tech-card${selected}${owned}${blocked}${missingResources ? " resource-blocked" : ""}" data-tech-card="${tech.id}">
+          return `<button class="tech-card${selected}${owned}${available}${blocked}${missingResources ? " resource-blocked" : ""}" data-tech-card="${tech.id}">
             <div class="tech-card-top">
               <strong>${tech.name}</strong>
               <span class="tech-card-badge">T${args.techTier(tech.id, byId, tierMemo)}</span>
@@ -462,29 +468,32 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
     .map((layout) => {
       const { tech } = layout;
       const selected = args.techUiSelectedId === tech.id ? " selected" : "";
-      const owned = ownedSet.has(tech.id) ? " owned" : "";
-      const pending = args.isPendingTechUnlock(tech.id) ? " pending" : "";
+      const isOwned = ownedSet.has(tech.id);
+      const owned = isOwned ? " owned" : "";
+      const isPending = args.isPendingTechUnlock(tech.id);
+      const pending = isPending ? " pending" : "";
       const researchingThis = args.currentResearch?.techId === tech.id;
       const researchRemaining =
         researchingThis && typeof args.currentResearch?.completesAt === "number"
           ? Math.max(0, args.currentResearch.completesAt - Date.now())
           : 0;
-      const available = tech.requirements.canResearch && !args.isPendingTechUnlock(tech.id) ? " available" : "";
-      const choice = choicesSet.has(tech.id) ? " choice" : "";
-      const blocked = owned || available || pending ? "" : " blocked";
+      const isChoice = choicesSet.has(tech.id);
+      const choice = isChoice ? " choice" : "";
+      const available = techCardIsAvailable(tech, isChoice, isPending) ? " available" : "";
+      const blocked = isOwned || available || isPending ? "" : " blocked";
       const prereqs = args.techPrereqIds(tech);
-      const stateLabel = researchingThis ? "Researching" : pending ? "Unlocking" : owned ? "Unlocked" : tech.requirements.canResearch ? "Available" : "Locked";
+      const stateLabel = researchingThis ? "Researching" : isPending ? "Unlocking" : isOwned ? "Unlocked" : available ? "Available" : "Locked";
       const costLabel =
         researchingThis
           ? `Researching • ${args.formatCooldownShort(researchRemaining)}`
-          : pending
+          : isPending
             ? "Waiting for server confirmation..."
             : techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry technology", args.formatTechCost).text;
       const blockedStatus = techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry technology", args.formatTechCost);
       const missingResources = techMissingResourceSummary(tech);
       const missingResourcesHtml = techMissingResourceSummaryHtml(tech);
       const costToneClass =
-        researchingThis || pending
+        researchingThis || isPending
           ? ""
           : blockedStatus.tone === "missing"
             ? " tech-card-cost-missing"
