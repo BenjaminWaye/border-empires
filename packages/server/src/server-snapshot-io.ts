@@ -322,7 +322,8 @@ export const createServerSnapshotIoRuntime = (
       });
       worker.on("error", (err) => {
         snapshotSaveWorkerState.available = false;
-        snapshotSaveWorkerState.enabled = false;
+        // Do NOT set enabled = false here — let the next save attempt create a fresh worker.
+        // Transient worker errors (OOM in worker, resource limit) should self-heal on retry.
         snapshotSaveWorkerState.worker = undefined;
         clearSnapshotSaveWorkerInflight(err instanceof Error ? err : new Error(String(err)));
       });
@@ -330,7 +331,7 @@ export const createServerSnapshotIoRuntime = (
         snapshotSaveWorkerState.available = false;
         snapshotSaveWorkerState.worker = undefined;
         if (code !== 0) {
-          snapshotSaveWorkerState.enabled = false;
+          // Do NOT set enabled = false — allow worker restart on next save attempt.
           clearSnapshotSaveWorkerInflight(new Error(`snapshot save worker exited with code ${code}`));
         }
       });
@@ -372,7 +373,7 @@ export const createServerSnapshotIoRuntime = (
     try {
       await promise;
     } catch {
-      snapshotSaveWorkerState.enabled = false;
+      // Do NOT set enabled = false — allow worker restart on next save attempt.
       snapshotSaveWorkerState.available = false;
       snapshotSaveWorkerState.worker = undefined;
       await saveSnapshotSectionsDirect(sections);

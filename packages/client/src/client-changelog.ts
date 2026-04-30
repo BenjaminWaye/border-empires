@@ -19,10 +19,23 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.30.11",
+  version: "2026.04.30.12",
   title: "What's New",
   summary: "Recent updates include dedicated structure art for missing economic overlays like Rail Depot, Lockworks Port, Chartered Port, and Exchange House, a legacy AI settlement fix so starving empires stop spending settles on fur or empty settlement rings and stop valuing food before they even have a real town to feed, a monument-art pass that gives Imperial Exchange, Aegis Dome, Worldbreaker Cannon, and Astral Dock much larger bespoke overlays, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever on insufficient points, clearer tech-tree availability cards, brighter rewrite 3D grass and sand textures with visible tile grid lines restored, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
   entries: [
+    {
+      introducedIn: "2026.04.30.11",
+      title: "Server memory and stability hardening for long-running games",
+      why: "With 30 players and 1M+ tiles, the server could slowly exhaust memory over 12–36 hours: chunk snapshot caches grew without bound, the snapshot save worker disabled itself permanently after any crash, AI intent latches leaked on reconnect, and memory pressure was invisible to the load-shedding logic so AI ticks kept running even when RSS was near the 512 MB VM ceiling.",
+      changes: [
+        "Chunk and visibility snapshot caches now evict the oldest 20% of entries when RSS exceeds 380 MB, preventing unbounded cache growth during long sessions.",
+        "Load-shedding now considers RSS alongside event loop metrics — soft shed at 420 MB, hard shed at 460 MB — so AI ticks pause before the VM runs out of headroom.",
+        "Snapshot saves are skipped when RSS is at or above 420 MB, avoiding the structured-clone spike that could tip the server over the edge.",
+        "The snapshot save worker now restarts automatically after a crash instead of disabling permanently and falling back to synchronous main-thread serialization.",
+        "AI intent latches are released when a player disconnects, preventing zombie latch accumulation across reconnects.",
+        "AI execute candidate cache is purged after any tick that exceeds its budget, reclaiming memory from stale per-cycle data."
+      ]
+    },
     {
       introducedIn: "2026.04.30.11",
       title: "Legacy AI now values food and support tiles more coherently",
