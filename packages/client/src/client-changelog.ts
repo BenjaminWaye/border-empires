@@ -21,8 +21,18 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.04.30.12",
   title: "What's New",
-  summary: "Recent updates include dedicated structure art for missing economic overlays like Rail Depot, Lockworks Port, Chartered Port, and Exchange House, a legacy AI settlement fix so starving empires stop spending settles on fur or empty settlement rings and stop valuing food before they even have a real town to feed, a monument-art pass that gives Imperial Exchange, Aegis Dome, Worldbreaker Cannon, and Astral Dock much larger bespoke overlays, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever on insufficient points, clearer tech-tree availability cards, brighter rewrite 3D grass and sand textures with visible tile grid lines restored, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
+  summary: "Recent updates include a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
   entries: [
+    {
+      introducedIn: "2026.04.30.12",
+      title: "Rewrite 3D terrain brightness now matches the legacy 2D palette more closely",
+      why: "The first 3D terrain brightening pass restored the grid but still missed the real 2D brightness because the textures were not using the exact legacy terrain base colors and the lit 3D materials were still darkening them.",
+      changes: [
+        "Rewrite 3D grass, sand, and coastal water textures now use the exact legacy 2D terrain base colors instead of a brighter approximation.",
+        "Land and sand materials now get a small emissive lift so the 3D lighting model preserves terrain readability closer to the flatter 2D presentation.",
+        "Tile-edge grid lines remain baked into the terrain textures, with regression coverage still guarding the palette alignment."
+      ]
+    },
     {
       introducedIn: "2026.04.30.11",
       title: "Server memory and stability hardening for long-running games",
@@ -64,16 +74,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "AI runtime planning now emits `COLLECT_VISIBLE` when a broke empire still has visible settled yield sources, so accrued gold gets converted into spendable points instead of the empire appearing frozen.",
         "Both direct and worker-backed AI command producers now locally rate-limit repeated visible-yield collects, including after collect-cooldown rejections, so recovered simulations do not spam the runtime while cooldown state is still active.",
         "Added simulation regression coverage for the planner collect fallback, direct producer collect cooldown handling, and worker producer collect cooldown handling."
-      ]
-    },
-    {
-      introducedIn: "2026.04.30.7",
-      title: "Rewrite 3D terrain now uses a brighter 2D-style palette with visible tile grid lines",
-      why: "The rewrite 3D terrain had drifted darker than the legacy 2D map and the square tile boundaries disappeared once the renderer stopped drawing them as a separate overlay, making the terrain feel flatter and harder to read.",
-      changes: [
-        "Grass, sand, and coastal water textures now use a brighter palette tuned back toward the legacy 2D terrain colors.",
-        "3D terrain textures now bake in subtle tile-edge darkening so the square grid reads again without adding a separate heavy grid mesh on top of the terrain.",
-        "Extracted the legacy 3D terrain texture generator into a focused module with regression coverage for the palette and edge blend."
       ]
     },
     {
