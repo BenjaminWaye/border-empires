@@ -37,7 +37,7 @@ export const normalizeDeploymentUrl = (value) => {
 export const parseVercelInspectOutput = (output) => {
   const lines = output.split(/\r?\n/);
   let target;
-  let deploymentUrl;
+  const deploymentUrl = normalizeDeploymentUrl(output);
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -46,14 +46,7 @@ export const parseVercelInspectOutput = (output) => {
       target = trimmed.split(/\s+/).at(-1);
       continue;
     }
-    if (trimmed.startsWith("url")) {
-      const match = trimmed.match(/https:\/\/[a-zA-Z0-9.-]+\.vercel\.app\/?/);
-      if (match) deploymentUrl = normalizeDeploymentUrl(match[0]);
-      continue;
-    }
   }
-
-  if (!deploymentUrl) throw new Error("Could not parse deployment URL from `vercel inspect` output");
   return {
     target,
     deploymentUrl
