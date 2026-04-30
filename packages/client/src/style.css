@@ -3859,6 +3859,38 @@ body {
   font-size: 12px;
 }
 
+.tech-card-cost-missing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.tech-missing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(128, 29, 29, 0.18);
+  border: 1px solid rgba(255, 122, 122, 0.22);
+  color: #ffb4b4;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.tech-missing-badge-icon {
+  font-size: 10px;
+  line-height: 1;
+  color: #ff8e8e;
+}
+
+.tech-missing-more {
+  font-size: 11px;
+  color: rgba(255, 180, 180, 0.82);
+}
+
 .tech-card-requirement {
   font-size: 12px;
   font-weight: 700;
