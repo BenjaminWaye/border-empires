@@ -59,3 +59,26 @@ export const broadcastBulk = (
     sent.add(socket);
   }
 };
+
+export const detachBulkSocketForPlayer = (
+  controlSocketsByPlayer: ReadonlyMap<string, PlayerSocketLike>,
+  bulkSocketsByPlayer: Map<string, PlayerSocketLike>,
+  playerId: string,
+  closingSocket: PlayerSocketLike
+): {
+  closedCurrentBulkSocket: boolean;
+  preserveChunkSessionState: boolean;
+} => {
+  const currentBulkSocket = bulkSocketsByPlayer.get(playerId);
+  if (currentBulkSocket !== closingSocket) {
+    return {
+      closedCurrentBulkSocket: false,
+      preserveChunkSessionState: true
+    };
+  }
+  bulkSocketsByPlayer.delete(playerId);
+  return {
+    closedCurrentBulkSocket: true,
+    preserveChunkSessionState: isOpenSocket(controlSocketsByPlayer.get(playerId))
+  };
+};
