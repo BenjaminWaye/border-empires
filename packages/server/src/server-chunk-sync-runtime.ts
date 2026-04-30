@@ -1,4 +1,4 @@
-import type { Player, Tile } from "@border-empires/shared";
+import type { Player, Tile, TileKey } from "@border-empires/shared";
 import { createChunkReadManager } from "./sim/chunk-read-manager.js";
 import type { ChunkReadRequest } from "./sim/chunk-read-shared.js";
 import {
@@ -33,6 +33,10 @@ type ChunkSnapshotPerfSample = {
   cachedPayloadChunks: number;
   rebuiltChunks: number;
   batches: number;
+  batchGapMs: number;
+  maxBatchGapMs: number;
+  batchWorkMs: number;
+  maxBatchWorkMs: number;
 };
 
 type AuthSyncTiming = {
@@ -70,6 +74,7 @@ export interface CreateServerChunkSyncRuntimeDeps {
     {
       visibility: VisibilitySnapshot;
       visibilityVersion: number;
+      discoveryVersion: number;
       payloadByChunkKey: Map<string, string>;
       summaryVersionByPayloadKey: Map<string, number>;
       visibilityMaskByChunkKey: Map<string, Uint8Array>;
@@ -82,6 +87,9 @@ export interface CreateServerChunkSyncRuntimeDeps {
   pendingChunkRefreshByPlayer: Set<string>;
   chunkSnapshotSentAtByPlayer: Map<string, { cx: number; cy: number; radius: number; sentAt: number }>;
   chunkSubscriptionByPlayer: Map<string, { cx: number; cy: number; radius: number }>;
+  discoveredTilesForPlayer: (playerId: string) => ReadonlySet<TileKey> | undefined;
+  discoveryVersionForPlayer: (playerId: string) => number;
+  recordDiscoveredTilesForPlayer: (playerId: string, tileKeys: Iterable<TileKey>) => boolean;
   summaryChunkTiles: (worldCx: number, worldCy: number, mode: ChunkSummaryMode) => readonly Tile[];
   summaryTileAt: (x: number, y: number, mode: ChunkSummaryMode) => Tile;
   summaryChunkVersionByChunkKey: Map<string, number>;
@@ -165,6 +173,9 @@ export const createServerChunkSyncRuntime = (
     chunkSnapshotSentAtByPlayer: deps.chunkSnapshotSentAtByPlayer,
     chunkSubscriptionByPlayer: deps.chunkSubscriptionByPlayer,
     bulkSocketForPlayer: deps.bulkSocketForPlayer,
+    discoveredTilesForPlayer: deps.discoveredTilesForPlayer,
+    discoveryVersionForPlayer: deps.discoveryVersionForPlayer,
+    recordDiscoveredTilesForPlayer: deps.recordDiscoveredTilesForPlayer,
     authSyncTimingByPlayer: deps.authSyncTimingByPlayer,
     fogChunkTiles: (worldCx: number, worldCy: number) => {
       const chunkKey = `${worldCx},${worldCy}`;

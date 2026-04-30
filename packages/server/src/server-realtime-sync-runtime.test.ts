@@ -81,6 +81,7 @@ describe("server realtime sync runtime", () => {
       activeSettlementTileKeyForPlayer: () => undefined,
       ownedTownKeysForPlayer: () => [],
       playerTile: (x, y) => ({ x, y, terrain: "LAND", fogged: false, lastChangedAt: 0 }),
+      recordDiscoveredTilesForPlayer: () => false,
       tileInSubscription: () => true,
       sendChunkSnapshot,
       visibilitySnapshotForPlayer: () => ({ allVisible: true, visibleMask: new Uint8Array(0) }),
