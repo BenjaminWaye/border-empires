@@ -66,9 +66,7 @@ export const inspectDeployment = (run, deploymentRef) => {
     "inspect",
     deploymentRef,
     "--scope",
-    vercelClientProject.scope,
-    "--project",
-    vercelClientProject.projectId
+    vercelClientProject.scope
   ]);
   return parseVercelInspectOutput(output);
 };
