@@ -185,6 +185,17 @@ describe("selectBackend — env default", () => {
     expect(result.source).toBe("env-default");
   });
 
+  it("staging Vercel hostname ignores ?backend=legacy and stays on gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY_URL,
+      gatewayWsUrl: GATEWAY_URL,
+      ctx: stagingCtx({ search: "?backend=legacy" })
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.wsUrl).toBe(GATEWAY_URL);
+    expect(result.source).toBe("env-default");
+  });
+
   it("staging custom domain defaults to gateway", () => {
     const result = selectBackend({
       legacyWsUrl: LEGACY_URL,
@@ -201,6 +212,17 @@ describe("selectBackend — env default", () => {
       legacyWsUrl: LEGACY_URL,
       gatewayWsUrl: GATEWAY_URL,
       ctx: stagingCustomDomainCtx({ cookieStr: "be-backend=legacy" })
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.wsUrl).toBe(GATEWAY_URL);
+    expect(result.source).toBe("env-default");
+  });
+
+  it("staging custom domain ignores ?backend=legacy and stays on gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY_URL,
+      gatewayWsUrl: GATEWAY_URL,
+      ctx: stagingCustomDomainCtx({ search: "?backend=legacy" })
     });
     expect(result.backend).toBe("gateway");
     expect(result.wsUrl).toBe(GATEWAY_URL);

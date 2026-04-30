@@ -19,10 +19,31 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.01.5",
+  version: "2026.05.01.6",
   title: "What's New",
-  summary: "Recent updates include production true-3D terrain now defaulting on fresh client loads unless you explicitly override the renderer mode, clearer frontier combat debug payloads in the browser console, a frontier combat sync fix so authoritative post-combat tile updates now clear delayed attacks even when the target stays enemy or barbarian, a legacy town-capture visibility fix so conquered AI towns now stay visible on frontier tiles after combat without changing conquest rules, a true-3D forest overlay fix so canvas tree sprites no longer stack on top of the 3D forest meshes, a legacy chunk-stream fix so stale bulk-socket closes no longer reset the live session's chunk generation back to 1 mid-session, a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
+  summary: "Recent updates include staging login probes no longer seeding fake `staging-probe-*` empires into shared rewrite staging, staging hosts now staying pinned to the staging gateway even on stale client builds or explicit legacy overrides, production true-3D terrain now defaulting on fresh client loads unless you explicitly override the renderer mode, clearer frontier combat debug payloads in the browser console, a frontier combat sync fix so authoritative post-combat tile updates now clear delayed attacks even when the target stays enemy or barbarian, a legacy town-capture visibility fix so conquered AI towns now stay visible on frontier tiles after combat without changing conquest rules, a true-3D forest overlay fix so canvas tree sprites no longer stack on top of the 3D forest meshes, a legacy chunk-stream fix so stale bulk-socket closes no longer reset the live session's chunk generation back to 1 mid-session, a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
   entries: [
+    {
+      introducedIn: "2026.05.01.6",
+      title: "Staging login probes no longer create fake shared empires",
+      why: "The rewrite staging login probe was authenticating with raw `staging-probe-*` strings, and the managed gateway still accepted unmapped non-Firebase tokens as real player ids. Every latency probe run therefore spawned durable fake empires into shared staging.",
+      changes: [
+        "Managed rewrite auth now rejects unmapped raw tokens instead of turning them into persistent player ids.",
+        "The staging login probe now requires an explicit auth token and reuses that real account for every attempt instead of inventing `staging-probe-*` identities.",
+        "README guidance now documents the required `STAGING_LOGIN_PROBE_AUTH_TOKEN` flow for staging latency checks."
+      ]
+    },
+    {
+      introducedIn: "2026.05.01.6",
+      title: "Staging hosts now recover to the staging gateway on stale client builds",
+      why: "If a stale client deployment reached `staging.borderempires.com` without a baked `VITE_GATEWAY_WS_URL`, the client still selected the gateway backend by hostname but silently reused the legacy websocket URL, and explicit legacy overrides could also push the staging hostname back onto production legacy.",
+      changes: [
+        "Staging hostnames now default the gateway websocket URL to `wss://border-empires-gateway-staging.fly.dev/ws` when no explicit gateway env var is present.",
+        "Staging hostname routing now ignores explicit `?backend=legacy` overrides in addition to stale legacy cookies, so the staging domain stays pinned to the staging gateway.",
+        "The staging preview deploy script now verifies that both the preview bundle and the staging alias actually reference the staging gateway URL before it reports success.",
+        "Added client regression coverage for the staging-host fallback path so future staging deploys cannot silently fall back to the production legacy websocket URL."
+      ]
+    },
     {
       introducedIn: "2026.05.01.5",
       title: "Production client loads now default to true 3D terrain",
