@@ -43,7 +43,7 @@ primary_region = "arn"
   processes = ["app"]
 
 [[mounts]]
-  source = "border_empires_data"
+  source = "be_restore_260422"
   destination = "/data"
   initial_size = "1gb"
 

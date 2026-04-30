@@ -123,6 +123,7 @@ import { createServerOwnershipRuntime } from "./server-ownership-runtime.js";
 import { createServerSnapshotIoRuntime } from "./server-snapshot-io.js";
 import { createServerSnapshotHydrateRuntime } from "./server-snapshot-hydrate.js";
 import { createServerPlayerIdentityRuntime } from "./server-player-identity-runtime.js";
+import { addOwnedIndexEntry, removeOwnedIndexEntry, valuesForOwnedIndex } from "./player-owned-index.js";
 import { playerNeedsProfileSetup, resetHumanProfileForSeason } from "./server-player-profile-lifecycle.js";
 import { collectStagingProbePlayerReports, collectUnboundHumanPlayerReports } from "./server-probe-guard.js";
 import { createServerAiFrontierSignalsRuntime } from "./server-ai-frontier-signals.js";
@@ -954,6 +955,7 @@ type EmpireVisualStyle = {
 };
 const combatLocks = new Map<TileKey, PendingCapture>();
 const pendingSettlementsByTile = new Map<TileKey, PendingSettlement>();
+const pendingSettlementTileKeysByOwnerId = new Map<string, Set<TileKey>>();
 const repeatFights = new Map<string, number[]>();
 const resourceCountsByPlayer = new Map<string, Record<ResourceType, number>>();
 const strategicResourceStockByPlayer = new Map<string, Record<StrategicResource, number>>();
@@ -976,12 +978,15 @@ const townCaptureShockUntilByTile = new Map<TileKey, number>();
 const townGrowthShockUntilByTile = new Map<TileKey, number>();
 const vendettaCaptureCountsByPlayer = new Map<string, Map<string, number>>();
 const forcedRevealTilesByPlayer = new Map<string, Set<TileKey>>();
+const discoveredTileKeysByPlayer = new Map<string, Set<TileKey>>();
+const discoveredTileVersionByPlayer = new Map<string, number>();
 const cachedVisibilitySnapshotByPlayer = new Map<string, VisibilitySnapshot>();
 const cachedChunkSnapshotByPlayer = new Map<
   string,
   {
     visibility: VisibilitySnapshot;
     visibilityVersion: number;
+    discoveryVersion: number;
     payloadByChunkKey: Map<string, string>;
     summaryVersionByPayloadKey: Map<string, number>;
     visibilityMaskByChunkKey: Map<string, Uint8Array>;
@@ -993,8 +998,13 @@ const chunkSnapshotGenerationByPlayer = new Map<string, number>();
 const chunkSnapshotInFlightByPlayer = new Map<string, number>();
 const pendingChunkRefreshByPlayer = new Set<string>();
 const allianceRequests = new Map<string, AllianceRequest>();
+const allianceRequestIdsByFromPlayerId = new Map<string, Set<string>>();
+const allianceRequestIdsByToPlayerId = new Map<string, Set<string>>();
 const truceRequests = new Map<string, TruceRequest>();
+const truceRequestIdsByFromPlayerId = new Map<string, Set<string>>();
+const truceRequestIdsByToPlayerId = new Map<string, Set<string>>();
 const trucesByPair = new Map<string, ActiveTruce>();
+const activeTrucePairKeysByPlayerId = new Map<string, Set<string>>();
 const truceBreakPenaltyByPair = new Map<string, { penalizedPlayerId: string; targetPlayerId: string; endsAt: number }>();
 const chunkSubscriptionByPlayer = new Map<string, { cx: number; cy: number; radius: number }>();
 const chunkSnapshotSentAtByPlayer = new Map<string, { cx: number; cy: number; radius: number; sentAt: number }>();
@@ -1025,6 +1035,10 @@ const recentChunkSnapshotPerf = perfRing<{
   cachedPayloadChunks: number;
   rebuiltChunks: number;
   batches: number;
+  batchGapMs: number;
+  maxBatchGapMs: number;
+  batchWorkMs: number;
+  maxBatchWorkMs: number;
 }>(50);
 const recentRuntimeVitals = perfRing<ReturnType<typeof sampleRuntimeVitals>>(180);
 const RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB = [380, 420, 460] as const;
@@ -1058,6 +1072,7 @@ const revealWatchersByTarget = new Map<string, Set<string>>();
 const siphonByTile = new Map<TileKey, ActiveSiphon>();
 const siphonCacheByPlayer = new Map<string, SiphonCache[]>();
 const activeAetherBridgesById = new Map<string, ActiveAetherBridge>();
+const activeAetherBridgeIdsByOwnerId = new Map<string, Set<string>>();
 const activeAetherWallsById = new Map<string, ActiveAetherWall>();
 const activeAetherWallIdsByEdgeKey = new Map<string, Set<string>>();
 const abilityCooldownsByPlayer = new Map<string, Map<AbilityDefinition["id"], number>>();
@@ -1079,6 +1094,30 @@ const clearAuthIdentityBindingForPlayer = (playerId: string): void => {
   }
 };
 
+const discoveredTilesForPlayer = (playerId: string): ReadonlySet<TileKey> | undefined =>
+  discoveredTileKeysByPlayer.get(playerId);
+
+const discoveryVersionForPlayer = (playerId: string): number =>
+  discoveredTileVersionByPlayer.get(playerId) ?? 0;
+
+const recordDiscoveredTilesForPlayer = (playerId: string, tileKeys: Iterable<TileKey>): boolean => {
+  let discovered = discoveredTileKeysByPlayer.get(playerId);
+  if (!discovered) {
+    discovered = new Set<TileKey>();
+    discoveredTileKeysByPlayer.set(playerId, discovered);
+  }
+  let changed = false;
+  for (const tileKey of tileKeys) {
+    if (discovered.has(tileKey)) continue;
+    discovered.add(tileKey);
+    changed = true;
+  }
+  if (changed) {
+    discoveredTileVersionByPlayer.set(playerId, discoveryVersionForPlayer(playerId) + 1);
+  }
+  return changed;
+};
+
 const removePlayerRuntimeState = (playerId: string): void => {
   playerBaseMods.delete(playerId);
   strategicResourceStockByPlayer.delete(playerId);
@@ -1086,6 +1125,8 @@ const removePlayerRuntimeState = (playerId: string): void => {
   economyIndexByPlayer.delete(playerId);
   dynamicMissionsByPlayer.delete(playerId);
   forcedRevealTilesByPlayer.delete(playerId);
+  discoveredTileKeysByPlayer.delete(playerId);
+  discoveredTileVersionByPlayer.delete(playerId);
   revealedEmpireTargetsByPlayer.delete(playerId);
   playerEffectsByPlayer.delete(playerId);
   clusterControlledTilesByPlayer.delete(playerId);
@@ -1146,6 +1187,95 @@ let activeSeasonTechConfig: SeasonalTechConfig = {
   balanceConstants: {}
 };
 const pairKeyFor = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
+
+const pendingSettlementsForPlayer = (playerId: string): PendingSettlement[] =>
+  valuesForOwnedIndex(pendingSettlementTileKeysByOwnerId, playerId, pendingSettlementsByTile);
+
+const incomingAllianceRequestsForPlayer = (playerId: string): AllianceRequest[] =>
+  valuesForOwnedIndex(allianceRequestIdsByToPlayerId, playerId, allianceRequests);
+
+const outgoingAllianceRequestsForPlayer = (playerId: string): AllianceRequest[] =>
+  valuesForOwnedIndex(allianceRequestIdsByFromPlayerId, playerId, allianceRequests);
+
+const incomingTruceRequestsForPlayer = (playerId: string): TruceRequest[] =>
+  valuesForOwnedIndex(truceRequestIdsByToPlayerId, playerId, truceRequests);
+
+const outgoingTruceRequestsForPlayer = (playerId: string): TruceRequest[] =>
+  valuesForOwnedIndex(truceRequestIdsByFromPlayerId, playerId, truceRequests);
+
+const activeAetherBridgesForPlayer = (playerId: string): ActiveAetherBridge[] =>
+  valuesForOwnedIndex(activeAetherBridgeIdsByOwnerId, playerId, activeAetherBridgesById);
+
+const rebuildPlayerUpdateIndexes = (): void => {
+  pendingSettlementTileKeysByOwnerId.clear();
+  for (const settlement of pendingSettlementsByTile.values()) {
+    addOwnedIndexEntry(pendingSettlementTileKeysByOwnerId, settlement.ownerId, settlement.tileKey);
+  }
+
+  allianceRequestIdsByFromPlayerId.clear();
+  allianceRequestIdsByToPlayerId.clear();
+  for (const request of allianceRequests.values()) {
+    addOwnedIndexEntry(allianceRequestIdsByFromPlayerId, request.fromPlayerId, request.id);
+    addOwnedIndexEntry(allianceRequestIdsByToPlayerId, request.toPlayerId, request.id);
+  }
+
+  truceRequestIdsByFromPlayerId.clear();
+  truceRequestIdsByToPlayerId.clear();
+  for (const request of truceRequests.values()) {
+    addOwnedIndexEntry(truceRequestIdsByFromPlayerId, request.fromPlayerId, request.id);
+    addOwnedIndexEntry(truceRequestIdsByToPlayerId, request.toPlayerId, request.id);
+  }
+
+  activeTrucePairKeysByPlayerId.clear();
+  for (const [pairKey, truce] of trucesByPair.entries()) {
+    addOwnedIndexEntry(activeTrucePairKeysByPlayerId, truce.playerAId, pairKey);
+    addOwnedIndexEntry(activeTrucePairKeysByPlayerId, truce.playerBId, pairKey);
+  }
+
+  activeAetherBridgeIdsByOwnerId.clear();
+  for (const bridge of activeAetherBridgesById.values()) {
+    addOwnedIndexEntry(activeAetherBridgeIdsByOwnerId, bridge.ownerId, bridge.bridgeId);
+  }
+};
+
+const addAllianceRequest = (request: AllianceRequest): void => {
+  allianceRequests.set(request.id, request);
+  addOwnedIndexEntry(allianceRequestIdsByFromPlayerId, request.fromPlayerId, request.id);
+  addOwnedIndexEntry(allianceRequestIdsByToPlayerId, request.toPlayerId, request.id);
+};
+
+const removeAllianceRequest = (request: AllianceRequest | undefined): void => {
+  if (!request) return;
+  allianceRequests.delete(request.id);
+  removeOwnedIndexEntry(allianceRequestIdsByFromPlayerId, request.fromPlayerId, request.id);
+  removeOwnedIndexEntry(allianceRequestIdsByToPlayerId, request.toPlayerId, request.id);
+};
+
+const addTruceRequest = (request: TruceRequest): void => {
+  truceRequests.set(request.id, request);
+  addOwnedIndexEntry(truceRequestIdsByFromPlayerId, request.fromPlayerId, request.id);
+  addOwnedIndexEntry(truceRequestIdsByToPlayerId, request.toPlayerId, request.id);
+};
+
+const removeTruceRequest = (request: TruceRequest | undefined): void => {
+  if (!request) return;
+  truceRequests.delete(request.id);
+  removeOwnedIndexEntry(truceRequestIdsByFromPlayerId, request.fromPlayerId, request.id);
+  removeOwnedIndexEntry(truceRequestIdsByToPlayerId, request.toPlayerId, request.id);
+};
+
+const addActiveTruce = (pairKey: string, truce: ActiveTruce): void => {
+  trucesByPair.set(pairKey, truce);
+  addOwnedIndexEntry(activeTrucePairKeysByPlayerId, truce.playerAId, pairKey);
+  addOwnedIndexEntry(activeTrucePairKeysByPlayerId, truce.playerBId, pairKey);
+};
+
+const removeActiveTruce = (pairKey: string, truce: ActiveTruce | undefined): void => {
+  if (!truce) return;
+  trucesByPair.delete(pairKey);
+  removeOwnedIndexEntry(activeTrucePairKeysByPlayerId, truce.playerAId, pairKey);
+  removeOwnedIndexEntry(activeTrucePairKeysByPlayerId, truce.playerBId, pairKey);
+};
 const ACTION_WINDOW_MS = 5_000;
 const ACTION_LIMIT = 12;
 const AI_INTENT_LATCH_PROVISIONAL_MS = 2_500;
@@ -2001,6 +2131,7 @@ const clearWorldProgressForSeason = (): void => {
     if (settle.timeout) clearTimeout(settle.timeout);
   }
   pendingSettlementsByTile.clear();
+  pendingSettlementTileKeysByOwnerId.clear();
   townCaptureShockUntilByTile.clear();
   townGrowthShockUntilByTile.clear();
   tileYieldByTile.clear();
@@ -2017,12 +2148,19 @@ const clearWorldProgressForSeason = (): void => {
   barbarianAgentByTileKey.clear();
   combatLocks.clear();
   allianceRequests.clear();
+  allianceRequestIdsByFromPlayerId.clear();
+  allianceRequestIdsByToPlayerId.clear();
   truceRequests.clear();
+  truceRequestIdsByFromPlayerId.clear();
+  truceRequestIdsByToPlayerId.clear();
   trucesByPair.clear();
+  activeTrucePairKeysByPlayerId.clear();
   truceBreakPenaltyByPair.clear();
   repeatFights.clear();
   collectVisibleCooldownByPlayer.clear();
   cachedVisibilitySnapshotByPlayer.clear();
+  discoveredTileKeysByPlayer.clear();
+  discoveredTileVersionByPlayer.clear();
   aiIndexStore.clearAll();
   aiTurnDebugByPlayer.clear();
   aiLastActionFailureByPlayer.clear();
@@ -2051,6 +2189,7 @@ const clearWorldProgressForSeason = (): void => {
   siphonByTile.clear();
   siphonCacheByPlayer.clear();
   activeAetherBridgesById.clear();
+  activeAetherBridgeIdsByOwnerId.clear();
   activeAetherWallsById.clear();
   activeAetherWallIdsByEdgeKey.clear();
   strategicReplayEvents.length = 0;
@@ -2622,7 +2761,7 @@ const { sendPlayerUpdate } = createServerPlayerUpdateRuntime({
   getOrInitStrategicStocks: (playerId) => getOrInitStrategicStocks(playerId),
   techPayloadSnapshotForPlayer: (player, scope) => techPayloadSnapshotForPlayer(player, scope),
   refreshGlobalStatusCache: (force) => refreshGlobalStatusCache(force),
-  pendingSettlementsByTile,
+  pendingSettlementsForPlayer: (playerId) => pendingSettlementsForPlayer(playerId),
   parseKey,
   developmentProcessCapacityForPlayer: (playerId) => developmentProcessCapacityForPlayer(playerId),
   activeDevelopmentProcessCountForPlayer: (playerId) => activeDevelopmentProcessCountForPlayer(playerId),
@@ -2641,10 +2780,11 @@ const { sendPlayerUpdate } = createServerPlayerUpdateRuntime({
   revealCapacityForPlayer: (player) => revealCapacityForPlayer(player),
   getOrInitRevealTargets: (playerId) => getOrInitRevealTargets(playerId),
   getAbilityCooldowns: (playerId) => getAbilityCooldowns(playerId),
-  activeAetherBridgesById,
+  activeAetherBridgesForPlayer: (playerId) => activeAetherBridgesForPlayer(playerId),
   activeAetherWallViews: () => activeAetherWallViews(),
-  allianceRequests,
-  truceRequests,
+  incomingAllianceRequestsForPlayer: (playerId) => incomingAllianceRequestsForPlayer(playerId),
+  outgoingAllianceRequestsForPlayer: (playerId) => outgoingAllianceRequestsForPlayer(playerId),
+  outgoingTruceRequestsForPlayer: (playerId) => outgoingTruceRequestsForPlayer(playerId),
   activeTruceViewsForPlayer: (playerId) => activeTruceViewsForPlayer(playerId),
   missionPayload: (player) => missionPayload(player),
   currentLeaderboardSnapshot: () => currentLeaderboardSnapshot(),
@@ -5380,11 +5520,11 @@ const pruneExpiredTruces = (): void => {
   const nowMs = now();
   for (const [pairKey, truce] of trucesByPair) {
     if (truce.endsAt > nowMs) continue;
-    trucesByPair.delete(pairKey);
+    removeActiveTruce(pairKey, truce);
   }
-  for (const [requestId, request] of truceRequests) {
+  for (const [, request] of truceRequests) {
     if (request.expiresAt > nowMs) continue;
-    truceRequests.delete(requestId);
+    removeTruceRequest(request);
   }
   for (const [pairKey, penalty] of truceBreakPenaltyByPair) {
     if (penalty.endsAt > nowMs) continue;
@@ -5506,18 +5646,29 @@ const recomputeExposure = (p: Player): void => {
 const broadcastAllianceUpdate = (a: Player, b: Player): void => {
   const wa = socketsByPlayer.get(a.id);
   const wb = socketsByPlayer.get(b.id);
-  const outgoingFor = (playerId: string): AllianceRequest[] => [...allianceRequests.values()].filter((r) => r.fromPlayerId === playerId);
-  const incomingFor = (playerId: string): AllianceRequest[] => [...allianceRequests.values()].filter((r) => r.toPlayerId === playerId);
   markVisibilityDirtyForPlayers([a.id, b.id, ...a.allies, ...b.allies]);
-  wa?.send(JSON.stringify({ type: "ALLIANCE_UPDATE", allies: [...a.allies], incomingAllianceRequests: incomingFor(a.id), outgoingAllianceRequests: outgoingFor(a.id) }));
-  wb?.send(JSON.stringify({ type: "ALLIANCE_UPDATE", allies: [...b.allies], incomingAllianceRequests: incomingFor(b.id), outgoingAllianceRequests: outgoingFor(b.id) }));
+  wa?.send(
+    JSON.stringify({
+      type: "ALLIANCE_UPDATE",
+      allies: [...a.allies],
+      incomingAllianceRequests: incomingAllianceRequestsForPlayer(a.id),
+      outgoingAllianceRequests: outgoingAllianceRequestsForPlayer(a.id)
+    })
+  );
+  wb?.send(
+    JSON.stringify({
+      type: "ALLIANCE_UPDATE",
+      allies: [...b.allies],
+      incomingAllianceRequests: incomingAllianceRequestsForPlayer(b.id),
+      outgoingAllianceRequests: outgoingAllianceRequestsForPlayer(b.id)
+    })
+  );
 };
 
 const activeTruceViewsForPlayer = (playerId: string): Array<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }> => {
   pruneExpiredTruces();
   const out: Array<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }> = [];
-  for (const truce of trucesByPair.values()) {
-    if (truce.playerAId !== playerId && truce.playerBId !== playerId) continue;
+  for (const truce of valuesForOwnedIndex(activeTrucePairKeysByPlayerId, playerId, trucesByPair)) {
     const otherPlayerId = truce.playerAId === playerId ? truce.playerBId : truce.playerAId;
     out.push({
       otherPlayerId,
@@ -5533,14 +5684,12 @@ const activeTruceViewsForPlayer = (playerId: string): Array<{ otherPlayerId: str
 const broadcastTruceUpdate = (a: Player, b: Player, announcement?: string): void => {
   const wa = socketsByPlayer.get(a.id);
   const wb = socketsByPlayer.get(b.id);
-  const outgoingFor = (playerId: string): TruceRequest[] => [...truceRequests.values()].filter((request) => request.fromPlayerId === playerId);
-  const incomingFor = (playerId: string): TruceRequest[] => [...truceRequests.values()].filter((request) => request.toPlayerId === playerId);
   wa?.send(
     JSON.stringify({
       type: "TRUCE_UPDATE",
       activeTruces: activeTruceViewsForPlayer(a.id),
-      incomingTruceRequests: incomingFor(a.id),
-      outgoingTruceRequests: outgoingFor(a.id),
+      incomingTruceRequests: incomingTruceRequestsForPlayer(a.id),
+      outgoingTruceRequests: outgoingTruceRequestsForPlayer(a.id),
       announcement
     })
   );
@@ -5548,8 +5697,8 @@ const broadcastTruceUpdate = (a: Player, b: Player, announcement?: string): void
     JSON.stringify({
       type: "TRUCE_UPDATE",
       activeTruces: activeTruceViewsForPlayer(b.id),
-      incomingTruceRequests: incomingFor(b.id),
-      outgoingTruceRequests: outgoingFor(b.id),
+      incomingTruceRequests: incomingTruceRequestsForPlayer(b.id),
+      outgoingTruceRequests: outgoingTruceRequestsForPlayer(b.id),
       announcement
     })
   );
@@ -5616,6 +5765,9 @@ const {
   pendingChunkRefreshByPlayer,
   chunkSnapshotSentAtByPlayer,
   chunkSubscriptionByPlayer,
+  discoveredTilesForPlayer,
+  discoveryVersionForPlayer,
+  recordDiscoveredTilesForPlayer,
   summaryChunkTiles,
   summaryTileAt,
   summaryChunkVersionByChunkKey,
@@ -5753,6 +5905,7 @@ const {
   activeSettlementTileKeyForPlayer: (playerId: string) => activeSettlementTileKeyForPlayer(playerId),
   ownedTownKeysForPlayer: (playerId: string) => ownedTownKeysForPlayer(playerId),
   playerTile,
+  recordDiscoveredTilesForPlayer,
   tileInSubscription,
   sendChunkSnapshot: (socket, player, sub) => sendChunkSnapshot(socket, player, sub),
   visibilitySnapshotForPlayer,
@@ -6483,6 +6636,7 @@ const clearPendingSettlement = (settlement: PendingSettlement): void => {
   settlement.cancelled = true;
   if (settlement.timeout) clearTimeout(settlement.timeout);
   pendingSettlementsByTile.delete(settlement.tileKey);
+  removeOwnedIndexEntry(pendingSettlementTileKeysByOwnerId, settlement.ownerId, settlement.tileKey);
 };
 
 const refundPendingSettlement = (settlement: PendingSettlement): void => {
@@ -6496,6 +6650,7 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
   if (settlement.cancelled) return;
   const startedAt = now();
   pendingSettlementsByTile.delete(settlement.tileKey);
+  removeOwnedIndexEntry(pendingSettlementTileKeysByOwnerId, settlement.ownerId, settlement.tileKey);
   const [x, y] = parseKey(settlement.tileKey);
   const liveActor = players.get(settlement.ownerId);
   if (!liveActor) return;
@@ -6667,6 +6822,7 @@ const startSettlement = (
     cancelled: false
   };
   pendingSettlementsByTile.set(tk, pending);
+  addOwnedIndexEntry(pendingSettlementTileKeysByOwnerId, actor.id, tk);
   logTileSync("settlement_started", {
     playerId: actor.id,
     tileKey: tk,
@@ -6762,6 +6918,7 @@ const tryCastAetherBridge = (actor: Player, x: number, y: number): { ok: boolean
     endsAt: now() + AETHER_BRIDGE_DURATION_MS
   };
   activeAetherBridgesById.set(bridge.bridgeId, bridge);
+  addOwnedIndexEntry(activeAetherBridgeIdsByOwnerId, bridge.ownerId, bridge.bridgeId);
   const [fromX, fromY] = parseKey(bridge.fromTileKey);
   const [toX, toY] = parseKey(bridge.toTileKey);
   pushStrategicReplayEvent({
@@ -7625,6 +7782,7 @@ const {
   temporaryAttackBuffUntilByPlayer,
   temporaryIncomeBuffUntilByPlayer,
   forcedRevealTilesByPlayer,
+  discoveredTileKeysByPlayer,
   revealedEmpireTargetsByPlayer,
   allianceRequests,
   fortsByTile,
@@ -7742,6 +7900,7 @@ const {
   observatoryTileKeysByPlayer,
   economicStructureTileKeysByPlayer,
   forcedRevealTilesByPlayer,
+  discoveredTileKeysByPlayer,
   revealedEmpireTargetsByPlayer,
   allianceRequests,
   fortsByTile,
@@ -7809,6 +7968,7 @@ const {
 const bootstrapRuntimeState = async (): Promise<void> => {
   const loadStartedAt = Date.now();
   const loadedSnapshot = loadSnapshot();
+  rebuildPlayerUpdateIndexes();
   const stagingProbePlayers = collectStagingProbePlayerReports(players.values());
   const unboundHumanPlayers = collectUnboundHumanPlayerReports(players.values(), authIdentityByUid.values());
   if (stagingProbePlayers.length > 0 || unboundHumanPlayers.length > 0) {
@@ -8211,6 +8371,7 @@ registerInterval(() => {
   for (const [bridgeId, bridge] of activeAetherBridgesById) {
     if (bridge.endsAt > now()) continue;
     activeAetherBridgesById.delete(bridgeId);
+    removeOwnedIndexEntry(activeAetherBridgeIdsByOwnerId, bridge.ownerId, bridgeId);
     const [bx, by] = parseKey(bridge.fromTileKey);
     markSummaryChunkDirtyAtTile(bx, by);
     const [tx, ty] = parseKey(bridge.toTileKey);
@@ -8617,6 +8778,12 @@ registerServerHttpRoutes(app, {
       }
 
       socketsByPlayer.set(player.id, socket);
+      // If a returning player with a completed profile has no territory (e.g.
+      // after a snapshot wipe), spawn them now so they land in a playable state
+      // rather than stuck in the world with zero tiles and no way to recover.
+      if (!playerNeedsProfileSetup(player) && player.territoryTiles.size === 0) {
+        spawnPlayer(player);
+      }
       resumeVictoryPressureTimers();
       completeDueResearchForPlayer(player);
       applyManpowerRegen(player);
@@ -8668,21 +8835,17 @@ registerServerHttpRoutes(app, {
             activeRevealTargets: [...getOrInitRevealTargets(player.id)],
             abilityCooldowns: Object.fromEntries(getAbilityCooldowns(player.id)),
             activeTruces: activeTruceViewsForPlayer(player.id),
-            activeAetherBridges: [...activeAetherBridgesById.values()]
-              .filter((bridge) => bridge.ownerId === player.id)
-              .map((bridge) => {
-                const [fromX, fromY] = parseKey(bridge.fromTileKey);
-                const [toX, toY] = parseKey(bridge.toTileKey);
-                return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
-              }),
+            activeAetherBridges: activeAetherBridgesForPlayer(player.id).map((bridge) => {
+              const [fromX, fromY] = parseKey(bridge.fromTileKey);
+              const [toX, toY] = parseKey(bridge.toTileKey);
+              return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
+            }),
             activeAetherWalls: activeAetherWallViews(),
             strategicReplayEvents,
-            pendingSettlements: [...pendingSettlementsByTile.values()]
-              .filter((settlement) => settlement.ownerId === player.id)
-              .map((settlement) => {
-                const [x, y] = parseKey(settlement.tileKey);
-                return { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt };
-              })
+            pendingSettlements: pendingSettlementsForPlayer(player.id).map((settlement) => {
+              const [x, y] = parseKey(settlement.tileKey);
+              return { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt };
+            })
           },
           config: {
             width: WORLD_WIDTH,
@@ -8710,10 +8873,10 @@ registerServerHttpRoutes(app, {
           leaderboard: currentLeaderboardSnapshot(),
           seasonVictory: currentVictoryPressureObjectives(),
           seasonWinner,
-          allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id),
-          outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === player.id),
-          truceRequests: [...truceRequests.values()].filter((r) => r.toPlayerId === player.id),
-          outgoingTruceRequests: [...truceRequests.values()].filter((r) => r.fromPlayerId === player.id),
+          allianceRequests: incomingAllianceRequestsForPlayer(player.id),
+          outgoingAllianceRequests: outgoingAllianceRequestsForPlayer(player.id),
+          truceRequests: incomingTruceRequestsForPlayer(player.id),
+          outgoingTruceRequests: outgoingTruceRequestsForPlayer(player.id),
           offlineActivity
         })
       );
@@ -8774,6 +8937,7 @@ registerServerHttpRoutes(app, {
           break;
         }
       }
+      spawnPlayer(actor);
       broadcastBulk({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       sendPlayerUpdate(actor, 0);
       return;
@@ -9257,7 +9421,7 @@ registerServerHttpRoutes(app, {
         fromName: actor.name,
         toName: target.name
       };
-      allianceRequests.set(request.id, request);
+      addAllianceRequest(request);
       socket.send(JSON.stringify({ type: "ALLIANCE_REQUESTED", request, targetName: target.name }));
       socketsByPlayer.get(target.id)?.send(JSON.stringify({ type: "ALLIANCE_REQUEST_INCOMING", request, fromName: actor.name }));
       return;
@@ -9292,7 +9456,7 @@ registerServerHttpRoutes(app, {
         fromName: actor.name,
         toName: target.name
       };
-      truceRequests.set(request.id, request);
+      addTruceRequest(request);
       socket.send(JSON.stringify({ type: "TRUCE_REQUESTED", request, targetName: target.name }));
       socketsByPlayer.get(target.id)?.send(JSON.stringify({ type: "TRUCE_REQUEST_INCOMING", request, fromName: actor.name }));
       return;
@@ -9307,14 +9471,14 @@ registerServerHttpRoutes(app, {
       const from = players.get(request.fromPlayerId);
       if (!from) {
         socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_INVALID", message: "request sender offline/unknown" }));
-        allianceRequests.delete(msg.requestId);
+        removeAllianceRequest(request);
         return;
       }
       actor.allies.add(from.id);
       from.allies.add(actor.id);
       recomputeExposure(actor);
       recomputeExposure(from);
-      allianceRequests.delete(msg.requestId);
+      removeAllianceRequest(request);
       broadcastAllianceUpdate(actor, from);
       return;
     }
@@ -9326,7 +9490,7 @@ registerServerHttpRoutes(app, {
         return;
       }
       const from = players.get(request.fromPlayerId);
-      allianceRequests.delete(msg.requestId);
+      removeAllianceRequest(request);
       if (!from) return;
       broadcastAllianceUpdate(actor, from);
       return;
@@ -9339,7 +9503,7 @@ registerServerHttpRoutes(app, {
         return;
       }
       const target = players.get(request.toPlayerId);
-      allianceRequests.delete(msg.requestId);
+      removeAllianceRequest(request);
       if (!target) return;
       broadcastAllianceUpdate(actor, target);
       return;
@@ -9354,12 +9518,12 @@ registerServerHttpRoutes(app, {
       const from = players.get(request.fromPlayerId);
       if (!from) {
         socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_REQUEST_INVALID", message: "request sender offline/unknown" }));
-        truceRequests.delete(msg.requestId);
+        removeTruceRequest(request);
         return;
       }
       if (playerHasActiveTruce(actor.id) || playerHasActiveTruce(from.id)) {
         socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_EXISTS", message: "one player already has an active truce" }));
-        truceRequests.delete(msg.requestId);
+        removeTruceRequest(request);
         return;
       }
       const truce: ActiveTruce = {
@@ -9369,8 +9533,8 @@ registerServerHttpRoutes(app, {
         endsAt: now() + request.durationHours * 60 * 60_000,
         createdByPlayerId: from.id
       };
-      truceRequests.delete(msg.requestId);
-      trucesByPair.set(playerPairKey(actor.id, from.id), truce);
+      removeTruceRequest(request);
+      addActiveTruce(playerPairKey(actor.id, from.id), truce);
       pushStrategicReplayEvent({
         at: truce.startedAt,
         type: "TRUCE_START",
@@ -9392,7 +9556,7 @@ registerServerHttpRoutes(app, {
         return;
       }
       const from = players.get(request.fromPlayerId);
-      truceRequests.delete(msg.requestId);
+      removeTruceRequest(request);
       if (!from) return;
       broadcastTruceUpdate(actor, from);
       return;
@@ -9405,7 +9569,7 @@ registerServerHttpRoutes(app, {
         return;
       }
       const target = players.get(request.toPlayerId);
-      truceRequests.delete(msg.requestId);
+      removeTruceRequest(request);
       if (!target) return;
       broadcastTruceUpdate(actor, target);
       return;
@@ -9432,7 +9596,7 @@ registerServerHttpRoutes(app, {
         socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_BREAK_INVALID", message: "no active truce with target" }));
         return;
       }
-      trucesByPair.delete(playerPairKey(actor.id, target.id));
+      removeActiveTruce(playerPairKey(actor.id, target.id), truce);
       truceBreakPenaltyByPair.set(playerPairKey(actor.id, target.id), {
         penalizedPlayerId: actor.id,
         targetPlayerId: target.id,

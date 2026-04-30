@@ -82,6 +82,7 @@ describe("chunk snapshot cache regression guard", () => {
       {
         visibility: VisibilitySnapshot;
         visibilityVersion: number;
+        discoveryVersion: number;
         payloadByChunkKey: Map<string, string>;
         summaryVersionByPayloadKey: Map<string, number>;
         visibilityMaskByChunkKey: Map<string, Uint8Array>;
@@ -253,6 +254,7 @@ describe("chunk snapshot cache regression guard", () => {
       {
         visibility: VisibilitySnapshot;
         visibilityVersion: number;
+        discoveryVersion: number;
         payloadByChunkKey: Map<string, string>;
         summaryVersionByPayloadKey: Map<string, number>;
         visibilityMaskByChunkKey: Map<string, Uint8Array>;
