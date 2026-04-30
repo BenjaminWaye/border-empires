@@ -262,6 +262,52 @@ describe("client gateway sync regression", () => {
     });
   });
 
+  it("keeps previously discovered tiles fogged when a sparse chunk batch omits unexplored tiles", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    state.tiles.set("9,9", {
+      x: 9,
+      y: 9,
+      terrain: "SEA",
+      resource: "FISH",
+      fogged: true
+    } as any);
+    state.discoveredTiles.add("9,9");
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_BATCH",
+        generation: 1,
+        chunks: [
+          {
+            cx: 0,
+            cy: 0,
+            tilesMaskedByFog: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fogged: false }]
+          }
+        ]
+      })
+    });
+
+    expect(state.tiles.get("9,9")).toMatchObject({
+      x: 9,
+      y: 9,
+      terrain: "SEA",
+      resource: "FISH",
+      fogged: true
+    });
+    expect(state.discoveredTiles.has("9,9")).toBe(true);
+    expect(state.tiles.get("10,10")).toMatchObject({
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: "player-1",
+      ownershipState: "SETTLED",
+      fogged: false
+    });
+  });
+
   it("keeps existing numeric HUD state when rewrite init omits legacy player stats", () => {
     const state = createState();
     state.gold = 0;
