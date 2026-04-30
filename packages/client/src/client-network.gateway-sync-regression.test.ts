@@ -70,6 +70,7 @@ const bind = (state: any, ws: FakeWebSocket) => {
     dropQueuedTargetKeyIfAbsent: vi.fn(),
     processActionQueue,
     clearSettlementProgressForTile: vi.fn(),
+    settlementProgressForTile: vi.fn(() => false),
     terrainAt: vi.fn(() => "LAND"),
     requestAttackPreviewForTarget: vi.fn(),
     openSingleTileActionMenu: vi.fn(),
@@ -98,6 +99,53 @@ const createRuntimeStyleShowCaptureAlert =
   };
 
 describe("client gateway sync regression", () => {
+  it("resolves an in-flight attack from post-combat tile sync even when the target stays barbarian", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(2_000);
+
+    const state = createState();
+    state.me = "player-1";
+    state.tiles.set("10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" });
+    state.tiles.set("10,11", { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian", ownershipState: "BARBARIAN" });
+    state.actionCurrent = { x: 10, y: 11, origin: { x: 10, y: 10 }, retries: 0, clientSeq: 9, commandId: "cmd-9", actionType: "ATTACK" };
+    state.actionTargetKey = "10,11";
+    state.actionInFlight = true;
+    state.actionAcceptedAck = true;
+    state.combatStartAck = true;
+    state.capture = { startAt: 1_000, resolvesAt: 2_250, target: { x: 10, y: 11 } };
+    state.queuedTargetKeys.add("10,11");
+    const ws = new FakeWebSocket();
+    const { processActionQueue } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [{ x: 10, y: 11, ownerId: "barbarian", ownershipState: "BARBARIAN" }]
+      })
+    });
+
+    expect(state.actionInFlight).toBe(true);
+
+    vi.setSystemTime(2_300);
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [{ x: 10, y: 11, ownerId: "barbarian", ownershipState: "BARBARIAN" }]
+      })
+    });
+
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionAcceptedAck).toBe(false);
+    expect(state.combatStartAck).toBe(false);
+    expect(state.actionCurrent).toBeUndefined();
+    expect(state.actionTargetKey).toBe("");
+    expect(state.capture).toBeUndefined();
+    expect(state.queuedTargetKeys.has("10,11")).toBe(false);
+    expect(processActionQueue).toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+
   it("hydrates init initialState tiles before the first refresh", () => {
     const state = createState();
     const ws = new FakeWebSocket();
