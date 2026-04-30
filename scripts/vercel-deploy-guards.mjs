@@ -38,19 +38,33 @@ export const normalizeDeploymentUrl = (value) => {
 export const parseVercelInspectOutput = (output) => {
   const lines = output.split(/\r?\n/);
   let target;
+  let inAliasesSection = false;
+  const aliases = [];
   const deploymentUrl = normalizeDeploymentUrl(output);
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
+    if (trimmed === "Aliases") {
+      inAliasesSection = true;
+      continue;
+    }
+    if (inAliasesSection && /^[A-Za-z][A-Za-z\s]+$/.test(trimmed)) {
+      inAliasesSection = false;
+    }
     if (trimmed.startsWith("target")) {
       target = trimmed.split(/\s+/).at(-1);
       continue;
     }
+    if (!inAliasesSection) continue;
+    const aliasUrl = trimmed.match(/https:\/\/[^\s]+/u)?.[0];
+    if (!aliasUrl) continue;
+    aliases.push(aliasUrl.replace(/^https:\/\//u, "").replace(/\/$/u, ""));
   }
   return {
     target,
-    deploymentUrl
+    deploymentUrl,
+    aliases
   };
 };
 
@@ -83,6 +97,13 @@ export const assertAliasDoesNotResolveToDeployment = ({ run, aliasHost, unexpect
   }
   if (unexpectedTarget && inspected.target === unexpectedTarget) {
     throw new Error(`${aliasHost} unexpectedly resolved to a ${unexpectedTarget} deployment`);
+  }
+};
+
+export const assertDeploymentDoesNotClaimAlias = ({ run, deploymentRef, aliasHost }) => {
+  const inspected = inspectDeployment(run, deploymentRef);
+  if (inspected.aliases.includes(aliasHost)) {
+    throw new Error(`${deploymentRef} unexpectedly claims alias ${aliasHost}`);
   }
 };
 
