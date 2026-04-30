@@ -587,7 +587,7 @@ export const drawForestOverlay = (
   py: number,
   size: number
 ): void => {
-  if (size < 12 || !isForestTile(wx, wy)) return;
+  if (isTrue3DRendererActive() || size < 12 || !isForestTile(wx, wy)) return;
   const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
   const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
   const treeCount = size >= 44 ? 4 : size >= 24 ? 3 : 2;
