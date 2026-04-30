@@ -33,7 +33,7 @@ export interface CreateServerPlayerUpdateRuntimeDeps {
     techCatalog: unknown[];
   };
   refreshGlobalStatusCache: (force: boolean) => void;
-  pendingSettlementsByTile: Map<TileKey, { ownerId: string; tileKey: TileKey; startedAt: number; resolvesAt: number }>;
+  pendingSettlementsForPlayer: (playerId: string) => Array<{ ownerId: string; tileKey: TileKey; startedAt: number; resolvesAt: number }>;
   parseKey: (tileKey: TileKey) => [number, number];
   developmentProcessCapacityForPlayer: (playerId: string) => number;
   activeDevelopmentProcessCountForPlayer: (playerId: string) => number;
@@ -61,10 +61,11 @@ export interface CreateServerPlayerUpdateRuntimeDeps {
   revealCapacityForPlayer: (player: Player) => number;
   getOrInitRevealTargets: (playerId: string) => Set<string>;
   getAbilityCooldowns: (playerId: string) => Map<string, number>;
-  activeAetherBridgesById: Map<string, { bridgeId: string; ownerId: string; fromTileKey: TileKey; toTileKey: TileKey; startedAt: number; endsAt: number }>;
+  activeAetherBridgesForPlayer: (playerId: string) => Array<{ bridgeId: string; ownerId: string; fromTileKey: TileKey; toTileKey: TileKey; startedAt: number; endsAt: number }>;
   activeAetherWallViews: () => unknown[];
-  allianceRequests: Map<string, AllianceRequest>;
-  truceRequests: Map<string, TruceRequest>;
+  incomingAllianceRequestsForPlayer: (playerId: string) => AllianceRequest[];
+  outgoingAllianceRequestsForPlayer: (playerId: string) => AllianceRequest[];
+  outgoingTruceRequestsForPlayer: (playerId: string) => TruceRequest[];
   activeTruceViewsForPlayer: (playerId: string) => Array<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }>;
   missionPayload: (player: Player) => unknown;
   currentLeaderboardSnapshot: () => LeaderboardSnapshotView;
@@ -89,14 +90,14 @@ export const createServerPlayerUpdateRuntime = (
     const ws = deps.bulkSocketForPlayer(player.id);
     if (!ws || ws.readyState !== ws.OPEN) return;
     const startedAt = deps.now();
-    const includeProgression = options.includeProgression ?? detail === "full";
-    const includeGlobalStatus = options.includeGlobalStatus ?? detail === "full";
-    const includeWorldStatus = options.includeWorldStatus ?? detail === "full";
+    const includeProgression = options.includeProgression ?? false;
+    const includeGlobalStatus = options.includeGlobalStatus ?? false;
+    const includeWorldStatus = options.includeWorldStatus ?? false;
     const includeEconomy = options.includeEconomy ?? detail === "full";
     const includeBreakdowns = options.includeBreakdowns ?? detail === "full";
-    const includeSocial = options.includeSocial ?? detail === "full";
+    const includeSocial = options.includeSocial ?? false;
     const includeMissions = options.includeMissions ?? detail === "full";
-    const includeAllianceRequests = options.includeAllianceRequests ?? detail === "full";
+    const includeAllianceRequests = options.includeAllianceRequests ?? false;
     const includeDevelopmentStatus = options.includeDevelopmentStatus ?? detail === "full";
     const economyStartedAt = deps.now();
     const economy = includeEconomy ? deps.playerEconomySnapshot(player) : undefined;
@@ -105,7 +106,7 @@ export const createServerPlayerUpdateRuntime = (
     if (includeGlobalStatus) deps.refreshGlobalStatusCache(false);
     const developmentStartedAt = deps.now();
     const pendingSettlements = includeDevelopmentStatus
-      ? [...deps.pendingSettlementsByTile.values()].filter((settlement) => settlement.ownerId === player.id).map((settlement) => {
+      ? deps.pendingSettlementsForPlayer(player.id).map((settlement) => {
           const [x, y] = deps.parseKey(settlement.tileKey);
           return { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt };
         })
@@ -153,7 +154,7 @@ export const createServerPlayerUpdateRuntime = (
       payload.domainIds = [...player.domainIds];
     }
     if (includeWorldStatus) {
-      payload.activeAetherBridges = [...deps.activeAetherBridgesById.values()].filter((bridge) => bridge.ownerId === player.id).map((bridge) => {
+      payload.activeAetherBridges = deps.activeAetherBridgesForPlayer(player.id).map((bridge) => {
         const [fromX, fromY] = deps.parseKey(bridge.fromTileKey);
         const [toX, toY] = deps.parseKey(bridge.toTileKey);
         return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
@@ -163,13 +164,13 @@ export const createServerPlayerUpdateRuntime = (
     if (includeDevelopmentStatus) Object.assign(payload, { pendingSettlements, developmentProcessLimit, activeDevelopmentProcessCount });
     if (includeAllianceRequests) {
       Object.assign(payload, {
-        incomingAllianceRequests: [...deps.allianceRequests.values()].filter((request) => request.toPlayerId === player.id),
-        outgoingAllianceRequests: [...deps.allianceRequests.values()].filter((request) => request.fromPlayerId === player.id)
+        incomingAllianceRequests: deps.incomingAllianceRequestsForPlayer(player.id),
+        outgoingAllianceRequests: deps.outgoingAllianceRequestsForPlayer(player.id)
       });
     }
     if (includeSocial) {
       payload.activeTruces = deps.activeTruceViewsForPlayer(player.id);
-      payload.outgoingTruceRequests = [...deps.truceRequests.values()].filter((request) => request.fromPlayerId === player.id);
+      payload.outgoingTruceRequests = deps.outgoingTruceRequestsForPlayer(player.id);
     }
     if (includeMissions) payload.missions = deps.missionPayload(player);
     if (includeGlobalStatus) {

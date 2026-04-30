@@ -98,6 +98,7 @@ const makeDeps = (snapshotDir: string): CreateServerSnapshotIoDeps => {
     temporaryAttackBuffUntilByPlayer: new Map(),
     temporaryIncomeBuffUntilByPlayer: new Map(),
     forcedRevealTilesByPlayer: new Map(),
+    discoveredTileKeysByPlayer: new Map([[player.id, new Set<TileKey>(["0,0", "1,1"])]]),
     revealedEmpireTargetsByPlayer: new Map(),
     allianceRequests: new Map(),
     fortsByTile: new Map(),
@@ -183,5 +184,17 @@ describe("server snapshot io regression", () => {
   it("keeps snapshot section persistence on a dedicated worker path", () => {
     const source = fs.readFileSync(fileURLToPath(new URL("./server-snapshot-io.ts", import.meta.url)), "utf8");
     expect(source).toContain('new Worker(resolveWorkerEntryUrl("./server-snapshot-save-worker.js", import.meta.url))');
+  });
+
+  it("persists discovered tiles in the systems snapshot section", () => {
+    const snapshotDir = fs.mkdtempSync(path.join(os.tmpdir(), "be-snapshot-io-"));
+    tempDirs.push(snapshotDir);
+    const runtime = createServerSnapshotIoRuntime(makeDeps(snapshotDir));
+
+    const snapshot = runtime.buildSnapshotState();
+    const sections = runtime.splitSnapshotState(snapshot);
+
+    expect(snapshot.discoveredTiles).toEqual([["player-1", ["0,0", "1,1"]]]);
+    expect(sections.systems.discoveredTiles).toEqual([["player-1", ["0,0", "1,1"]]]);
   });
 });

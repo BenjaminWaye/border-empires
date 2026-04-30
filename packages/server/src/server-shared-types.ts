@@ -165,6 +165,7 @@ export interface SnapshotState {
   temporaryAttackBuffUntil?: [string, number][];
   temporaryIncomeBuff?: [string, { until: number; resources: [ResourceType, ResourceType] }][];
   forcedReveal?: [string, TileKey[]][];
+  discoveredTiles?: [string, TileKey[]][];
   revealedEmpireTargets?: [string, string[]][];
   allianceRequests?: AllianceRequest[];
   forts?: Fort[];
@@ -236,6 +237,7 @@ export interface SnapshotEconomySection {
 export interface SnapshotSystemsSection {
   seasonVictory?: [SeasonVictoryPathId, VictoryPressureTracker][];
   forcedReveal?: [string, TileKey[]][];
+  discoveredTiles?: [string, TileKey[]][];
   revealedEmpireTargets?: [string, string[]][];
   allianceRequests?: AllianceRequest[];
   forts?: Fort[];

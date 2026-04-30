@@ -96,6 +96,7 @@ const makeDeps = (): CreateServerSnapshotHydrateDeps => {
     observatoryTileKeysByPlayer: new Map(),
     economicStructureTileKeysByPlayer: new Map(),
     forcedRevealTilesByPlayer: new Map(),
+    discoveredTileKeysByPlayer: new Map(),
     revealedEmpireTargetsByPlayer: new Map(),
     allianceRequests: new Map(),
     fortsByTile: new Map(),
@@ -210,5 +211,20 @@ describe("server snapshot hydrate regression", () => {
     expect(deps.ownership.get("1,1")).toBe("player-1");
     expect(deps.ownershipStateByTile.get("1,1")).toBe("SETTLED");
     expect(deps.settledSinceByTile.get("1,1")).toBe(0);
+  });
+
+  it("hydrates discovered tiles so sparse chunk reconnects can restore explored fog", () => {
+    const deps = makeDeps();
+    const runtime = createServerSnapshotHydrateRuntime(deps);
+
+    runtime.hydrateSnapshotState({
+      world: { width: 2, height: 2 },
+      players: [snapshotPlayer()],
+      ownership: [],
+      resources: [],
+      discoveredTiles: [["player-1", ["0,0", "1,1"]]]
+    });
+
+    expect([...((deps.discoveredTileKeysByPlayer.get("player-1") ?? new Set()) as Set<TileKey>)].sort()).toEqual(["0,0", "1,1"]);
   });
 });
