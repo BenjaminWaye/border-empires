@@ -1638,7 +1638,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
         clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined,
         target,
-        resolvesAt
+        resolvesAt,
+        result: lockedCombatResult
       });
       renderHud();
       return;
