@@ -344,15 +344,26 @@ export const structureInfoForKey = (
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return "/overlays/advanced-crystal-synthesizer-overlay.svg";
     if (key === "FUEL_PLANT") return "/overlays/fuel-plant-overlay.svg";
     if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
+    if (key === "ADVANCED_FOUNDRY") return "/overlays/foundry-overlay.svg";
+    if (key === "EXCHANGE_HOUSE") return "/overlays/exchange-house-overlay.svg";
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
+    if (key === "LOCKWORKS_PORT") return "/overlays/lockworks-port-overlay.svg";
+    if (key === "CHARTERED_PORT") return "/overlays/chartered-port-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/bank-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
     if (key === "GARRISON_HALL") return "/overlays/garrison-hall-overlay.svg";
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
     if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
     if (key === "AETHER_TOWER") return "/overlays/radar-system-overlay.svg";
-    if (key === "AEGIS_DOME") return "/overlays/radar-system-overlay.svg";
-    if (key === "ASTRAL_DOCK") return "/overlays/airport-overlay.svg";
+    if (key === "ASTRAL_DOCK_PART") return "/overlays/astral-dock-overlay.svg";
+    if (key === "AEGIS_DOME") return "/overlays/aegis-dome-overlay.svg";
+    if (key === "AEGIS_DOME_PART") return "/overlays/aegis-dome-overlay.svg";
+    if (key === "ASTRAL_DOCK") return "/overlays/astral-dock-overlay.svg";
+    if (key === "RAIL_DEPOT") return "/overlays/rail-depot-overlay.svg";
+    if (key === "IMPERIAL_EXCHANGE_PART") return "/overlays/imperial-exchange-overlay.svg";
+    if (key === "IMPERIAL_EXCHANGE") return "/overlays/imperial-exchange-overlay.svg";
+    if (key === "WORLD_ENGINE_PART") return "/overlays/world-engine-overlay.svg";
+    if (key === "WORLD_ENGINE") return "/overlays/world-engine-overlay.svg";
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
@@ -694,7 +705,7 @@ export const structureInfoForKey = (
       placement: "Build on an open settled support tile for a Great City or Metropolis you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
-    });
+    }, imageFor(type));
   }
   if (type === "GOVERNORS_OFFICE") {
     return structure({
@@ -754,7 +765,7 @@ export const structureInfoForKey = (
       placement: "Build on an open support tile for a Great City or Metropolis you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
-    });
+    }, imageFor(type));
   }
   if (type === "WORLD_ENGINE_PART") {
     return structure({
@@ -764,7 +775,7 @@ export const structureInfoForKey = (
       placement: "Build on an open support tile for a Great City or Metropolis you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
-    });
+    }, imageFor(type));
   }
   if (type === "IMPERIAL_EXCHANGE") {
     return structure({
@@ -774,7 +785,7 @@ export const structureInfoForKey = (
       placement: "Place on any settled tile you own after finishing 3 Imperial Exchange Parts.",
       costBits: ["Free after 3 parts"],
       buildTimeLabel: buildTimeLabelFor(type)
-    });
+    }, imageFor(type));
   }
   if (type === "WORLD_ENGINE") {
     return structure({
@@ -784,7 +795,7 @@ export const structureInfoForKey = (
       placement: "Place on any settled tile you own after finishing 3 Worldbreaker Cannon Parts.",
       costBits: ["Free after 3 parts"],
       buildTimeLabel: buildTimeLabelFor(type)
-    });
+    }, imageFor(type));
   }
   if (type === "AEGIS_DOME_PART") {
     return structure({
@@ -794,7 +805,7 @@ export const structureInfoForKey = (
       placement: "Build on an open support tile for a Great City or Metropolis you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
-    });
+    }, imageFor(type));
   }
   if (type === "AEGIS_DOME") {
     return structure({

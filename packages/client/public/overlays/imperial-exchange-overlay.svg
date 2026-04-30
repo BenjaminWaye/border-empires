@@ -1,0 +1,43 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <path d="M10 106L34 92H98L74 106H10Z" fill="#87623C"/>
+  <path d="M34 92V84H98V92H34Z" fill="#D8CAB3"/>
+  <path d="M98 92L118 82V74L98 84V92Z" fill="#A4ADB7"/>
+  <path d="M34 84L54 74H118L98 84H34Z" fill="#B78648"/>
+
+  <path d="M24 92L42 81H92L74 92H24Z" fill="#E7DCC8"/>
+  <path d="M42 81V60H92V81H42Z" fill="#EFE5D4"/>
+  <path d="M92 81L108 72V51L92 60V81Z" fill="#B0B8C3"/>
+  <path d="M42 60L60 50H108L92 60H42Z" fill="#C99550"/>
+
+  <path d="M34 74L43 68H51L42 74H34Z" fill="#C9B08C"/>
+  <path d="M49 74L58 68H66L57 74H49Z" fill="#C9B08C"/>
+  <path d="M64 74L73 68H81L72 74H64Z" fill="#C9B08C"/>
+  <path d="M79 74L88 68H96L87 74H79Z" fill="#C9B08C"/>
+
+  <path d="M54 60V42H80V60H54Z" fill="#F2E7D7"/>
+  <path d="M80 60L92 53V35L80 42V60Z" fill="#B6BFCA"/>
+  <path d="M54 42L66 35H92L80 42H54Z" fill="#AA4D38"/>
+  <path d="M50 42C55 28, 67 22, 78 26C86 29, 90 35, 92 42H50Z" fill="#D0A552"/>
+  <path d="M60 44C64 35, 74 34, 79 44" stroke="#FFF1C2" stroke-width="3" stroke-linecap="round"/>
+
+  <path d="M23 81V55H31V81H23Z" fill="#DCCBAF"/>
+  <path d="M31 81L38 76V50L31 55V81Z" fill="#98A3AF"/>
+  <path d="M23 55L31 50H38L31 55H23Z" fill="#B38A55"/>
+  <path d="M31 55V33" stroke="#E8D59D" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="31" cy="30" r="4" fill="#F4E3A5"/>
+
+  <path d="M93 81V55H101V81H93Z" fill="#DCCBAF"/>
+  <path d="M101 81L108 76V50L101 55V81Z" fill="#98A3AF"/>
+  <path d="M93 55L101 50H108L101 55H93Z" fill="#B38A55"/>
+  <path d="M101 55V33" stroke="#E8D59D" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="101" cy="30" r="4" fill="#F4E3A5"/>
+
+  <path d="M58 74H76" stroke="#A37C44" stroke-width="4" stroke-linecap="round"/>
+  <path d="M64 74V92" stroke="#35475A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M20 88C34 80, 53 79, 68 84" stroke="#F0DB93" stroke-width="4" stroke-linecap="round"/>
+  <path d="M69 84C81 88, 95 87, 108 80" stroke="#F0DB93" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="18" cy="88" r="6" fill="#D8A53D"/>
+  <circle cx="113" cy="80" r="6" fill="#D8A53D"/>
+
+</svg>
