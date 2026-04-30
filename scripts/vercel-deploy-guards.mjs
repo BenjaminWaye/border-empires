@@ -25,7 +25,8 @@ export const vercelClientEnv = (env = process.env) => ({
 });
 
 export const normalizeDeploymentUrl = (value) => {
-  const matches = [...value.matchAll(/https:\/\/[a-zA-Z0-9.-]+\.vercel\.app\/?/g)].map((match) => match[0]);
+  const normalizedValue = value.replace(/\u001b\[[0-9;]*m/g, "");
+  const matches = [...normalizedValue.matchAll(/https:\/\/[^\s]+\.vercel\.app\/?/g)].map((match) => match[0]);
   const preferred =
     matches.find((url) => url.includes("border-empires-client-") && !url.includes("border-empires-client.vercel.app")) ??
     matches.find((url) => !url.includes("border-empires-client.vercel.app")) ??
@@ -59,7 +60,8 @@ export const inspectDeployment = (run, deploymentRef) => {
     "inspect",
     deploymentRef,
     "--scope",
-    vercelClientProject.scope
+    vercelClientProject.scope,
+    "--no-color"
   ]);
   return parseVercelInspectOutput(output);
 };
