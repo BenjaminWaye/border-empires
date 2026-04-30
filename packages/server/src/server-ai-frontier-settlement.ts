@@ -7,6 +7,7 @@ import type {
   AiTerritorySummary,
   CollectAiTerritorySummary
 } from "./server-ai-frontier-types.js";
+import type { TownDefinition } from "./server-shared-types.js";
 
 export interface CreateServerAiFrontierSettlementDeps {
   WORLD_WIDTH: number;
@@ -55,7 +56,7 @@ export interface CreateServerAiFrontierSettlementDeps {
   aiEconomyPriorityState: (
     actor: Player,
     territorySummary?: Pick<AiTerritorySummary, "settledTileCount" | "worldFlags" | "controlledTowns" | "foodPressure">
-  ) => { foodCoverageLow: boolean; economyWeak: boolean };
+  ) => { controlledTowns: number; foodCoverageLow: boolean; economyWeak: boolean };
   cachedSupportedTownKeysForTile: (
     actorId: string,
     tileKey: TileKey,
@@ -80,7 +81,7 @@ export interface ServerAiFrontierSettlementRuntime {
     assumedFrontierKeys?: ReadonlySet<TileKey>,
     territorySummary?: Pick<
       AiTerritorySummary,
-      "visibility" | "foodPressure" | "settlementEvaluationByKey" | "islandFootprintSignalByTileKey" | "islandProgress"
+      "visibility" | "foodPressure" | "settlementEvaluationByKey" | "islandFootprintSignalByTileKey" | "islandProgress" | "controlledTowns"
     >
   ) => AiSettlementCandidateEvaluation;
   isAiVisibleEconomicFrontierTile: (
@@ -95,7 +96,15 @@ export interface ServerAiFrontierSettlementRuntime {
     victoryPath?: AiSeasonVictoryPathId,
     territorySummary?: Pick<
       AiTerritorySummary,
-      "visibility" | "foodPressure" | "settlementEvaluationByKey" | "scoutRevealCountByTileKey" | "scoutRevealMarks" | "scoutRevealStamp" | "islandFootprintSignalByTileKey" | "islandProgress"
+      | "visibility"
+      | "foodPressure"
+      | "settlementEvaluationByKey"
+      | "scoutRevealCountByTileKey"
+      | "scoutRevealMarks"
+      | "scoutRevealStamp"
+      | "islandFootprintSignalByTileKey"
+      | "islandProgress"
+      | "controlledTowns"
     >
   ) => AiNeutralFrontierClass;
   bestAiScaffoldExpand: (
@@ -122,7 +131,10 @@ export const createServerAiFrontierSettlementRuntime = (
     tile: Tile,
     victoryPath?: AiSeasonVictoryPathId,
     assumedFrontierKeys?: ReadonlySet<TileKey>,
-    territorySummary?: Pick<AiTerritorySummary, "visibility" | "foodPressure" | "settlementEvaluationByKey" | "islandFootprintSignalByTileKey" | "islandProgress">
+    territorySummary?: Pick<
+      AiTerritorySummary,
+      "visibility" | "foodPressure" | "settlementEvaluationByKey" | "islandFootprintSignalByTileKey" | "islandProgress" | "controlledTowns"
+    >
   ): AiSettlementCandidateEvaluation => {
     const tk = deps.key(tile.x, tile.y);
     const cacheKey = `${tk}|${victoryPath ?? "none"}|${assumedFrontierKeys ? [...assumedFrontierKeys].sort().join(",") : "-"}`;
@@ -151,7 +163,10 @@ export const createServerAiFrontierSettlementRuntime = (
       return { ownerId: neighbor.ownerId, ownershipState: neighbor.ownershipState };
     };
     const isTown = deps.townsByTile.has(tk);
-    const resourceValue = tile.resource ? deps.baseTileValue(tile.resource) : 0;
+    const isFoodTile = tile.resource === "FARM" || tile.resource === "FISH";
+    const controlledTowns = territorySummary?.controlledTowns ?? deps.aiEconomyPriorityState(actor).controlledTowns;
+    const foodTileHasImmediateValue = controlledTowns > 0;
+    const resourceValue = tile.resource && (!isFoodTile || foodTileHasImmediateValue) ? deps.baseTileValue(tile.resource) : 0;
     const economicFrontierSignal = deps.aiEconomicFrontierSignal(actor, tile, territorySummary?.visibility, territorySummary?.foodPressure, territorySummary);
     const foodPressure = territorySummary?.foodPressure ?? deps.aiFoodPressureSignal(actor);
     const dockValue = deps.docksByTile.has(tk) ? deps.aiDockStrategicSignal(actor, tile, territorySummary) : 0;
@@ -172,6 +187,7 @@ export const createServerAiFrontierSettlementRuntime = (
       }
     }
     let nearbyOwnedTownCount = 0;
+    let nearbyOwnedDockCount = 0;
     for (let dy = -2; dy <= 2; dy += 1) {
       for (let dx = -2; dx <= 2; dx += 1) {
         if (dx === 0 && dy === 0) continue;
@@ -180,12 +196,16 @@ export const createServerAiFrontierSettlementRuntime = (
         const ny = deps.wrapY(tile.y + dy, deps.WORLD_HEIGHT);
         if (deps.terrainAt(nx, ny) !== "LAND") continue;
         const neighborKey = deps.key(nx, ny);
-        if (!deps.townsByTile.has(neighborKey)) continue;
         if (deps.ownership.get(neighborKey) !== actor.id || deps.ownershipStateByTile.get(neighborKey) !== "SETTLED") continue;
-        nearbyOwnedTownCount += 1;
+        const neighborTown = deps.townsByTile.get(neighborKey) as TownDefinition | undefined;
+        if (neighborTown && !neighborTown.isSettlement) {
+          nearbyOwnedTownCount += 1;
+          continue;
+        }
+        if (deps.docksByTile.has(neighborKey)) nearbyOwnedDockCount += 1;
       }
     }
-    const foodSettlementSignal = foodPressure > 0 && (tile.resource === "FARM" || tile.resource === "FISH") ? Math.round(foodPressure * 0.9) : 0;
+    const foodSettlementSignal = foodPressure > 0 && isFoodTile && foodTileHasImmediateValue ? Math.round(foodPressure * 0.9) : 0;
     const adjacentInteresting = deps.adjacentNeighborCores(tile.x, tile.y).reduce((score, neighbor) => {
       const neighborKey = deps.key(neighbor.x, neighbor.y);
       const hostileOwner = neighbor.ownerId && neighbor.ownerId !== actor.id && !actor.allies.has(neighbor.ownerId);
@@ -213,22 +233,25 @@ export const createServerAiFrontierSettlementRuntime = (
     const connectedCoreValue = alliedSettledNeighbors >= 2 ? 24 : alliedSettledNeighbors >= 1 ? 10 : -10;
     const townConnectionSignal =
       nearbyOwnedTownCount >= 2 ? 110 + alliedSettledNeighbors * 16 : nearbyOwnedTownCount === 1 && alliedSettledNeighbors >= 2 ? 45 : 0;
+    const anchoredByActiveCore = nearbyOwnedTownCount > 0 || nearbyOwnedDockCount > 0 || townSupportSignal > 0 || isTown || dockValue > 0;
+    const strategicShapeValue = anchoredByActiveCore ? defensiveShapeValue : 0;
+    const strategicConnectionSignal = anchoredByActiveCore ? townConnectionSignal : 0;
     const isEconomicallyInteresting =
       isTown ||
-      Boolean(tile.resource) ||
+      resourceValue > 0 ||
       dockValue > 0 ||
       economicFrontierSignal >= 95 ||
       townSupportSignal > 0 ||
-      townConnectionSignal >= 90;
+      strategicConnectionSignal >= 90;
     const isDefensivelyCompact = ownedNeighbors >= 3 && exposedSides <= 1;
-    const isStrategicallyInteresting = adjacentInteresting >= 35 || defensiveShapeValue >= 26 || townSupportSignal > 0;
+    const isStrategicallyInteresting = adjacentInteresting >= 35 || (anchoredByActiveCore && defensiveShapeValue >= 26) || townSupportSignal > 0;
     let score = 0;
     if (isTown) score += 140;
     score += resourceValue * 1.5;
     score += foodSettlementSignal + dockValue + economicFrontierSignal;
     score += victoryPath === "SETTLED_TERRITORY" ? islandFootprintSignal : Math.round(islandFootprintSignal * 0.35);
-    score += townSupportSignal + adjacentInteresting + defensiveShapeValue + connectedCoreValue;
-    score += victoryPath === "ECONOMIC_HEGEMONY" ? townConnectionSignal : Math.round(townConnectionSignal * 0.35);
+    score += townSupportSignal + adjacentInteresting + strategicShapeValue + (anchoredByActiveCore ? connectedCoreValue : 0);
+    score += victoryPath === "ECONOMIC_HEGEMONY" ? strategicConnectionSignal : Math.round(strategicConnectionSignal * 0.35);
     if (victoryPath === "SETTLED_TERRITORY") score += 25;
     if (victoryPath === "ECONOMIC_HEGEMONY") score += resourceValue + dockValue + (isTown ? 30 : 0);
     if (!isEconomicallyInteresting && !isStrategicallyInteresting) score -= 120;
@@ -240,7 +263,11 @@ export const createServerAiFrontierSettlementRuntime = (
       isStrategicallyInteresting,
       isDefensivelyCompact,
       supportsImmediatePlan:
-        isEconomicallyInteresting || isDefensivelyCompact || townSupportSignal > 0 || townConnectionSignal >= 70 || score >= (victoryPath === "SETTLED_TERRITORY" ? 36 : 58),
+        isEconomicallyInteresting ||
+        (anchoredByActiveCore && isDefensivelyCompact) ||
+        townSupportSignal > 0 ||
+        strategicConnectionSignal >= 70 ||
+        score >= (victoryPath === "SETTLED_TERRITORY" ? 36 : 58),
       townSupportSignal,
       intrinsicDockValue: dockValue,
       islandFootprintSignal
@@ -260,7 +287,18 @@ export const createServerAiFrontierSettlementRuntime = (
     from: Tile,
     to: Tile,
     victoryPath?: AiSeasonVictoryPathId,
-    territorySummary?: Pick<AiTerritorySummary, "visibility" | "foodPressure" | "settlementEvaluationByKey" | "scoutRevealCountByTileKey" | "scoutRevealMarks" | "scoutRevealStamp" | "islandFootprintSignalByTileKey" | "islandProgress">
+    territorySummary?: Pick<
+      AiTerritorySummary,
+      | "visibility"
+      | "foodPressure"
+      | "settlementEvaluationByKey"
+      | "scoutRevealCountByTileKey"
+      | "scoutRevealMarks"
+      | "scoutRevealStamp"
+      | "islandFootprintSignalByTileKey"
+      | "islandProgress"
+      | "controlledTowns"
+    >
   ): AiNeutralFrontierClass => {
     if (isAiVisibleEconomicFrontierTile(actor, to, territorySummary)) return "economic";
     const scaffoldEvaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([deps.key(to.x, to.y)]), territorySummary);

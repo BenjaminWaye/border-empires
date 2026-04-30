@@ -42,7 +42,7 @@ export interface CreateServerAiFrontierPlanningDeps {
     assumedFrontierKeys?: ReadonlySet<TileKey>,
     territorySummary?: Pick<
       AiTerritorySummary,
-      "visibility" | "foodPressure" | "settlementEvaluationByKey" | "islandFootprintSignalByTileKey" | "islandProgress"
+      "visibility" | "foodPressure" | "settlementEvaluationByKey" | "islandFootprintSignalByTileKey" | "islandProgress" | "controlledTowns"
     >
   ) => AiSettlementCandidateEvaluation;
   townsByTile: Map<TileKey, unknown>;
@@ -361,20 +361,36 @@ export const createServerAiFrontierPlanningRuntime = (
     let settlementAvailable = false;
     let townSupportSettlementAvailable = false;
     let islandSettlementAvailable = false;
+    const foodTileHasImmediateValue = territorySummary.controlledTowns > 0;
     for (const tile of territorySummary.frontierTiles) {
       const tileKey = deps.key(tile.x, tile.y);
       if (deps.tileHasPendingSettlement(tileKey)) continue;
       const hasTownSupport = deps.cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0;
-      const hasIntrinsicEconomicValue = deps.townsByTile.has(tileKey) || Boolean(tile.resource) || deps.docksByTile.has(tileKey);
       const isFoodTile = tile.resource === "FARM" || tile.resource === "FISH";
+      const hasIntrinsicEconomicValue =
+        deps.townsByTile.has(tileKey) || deps.docksByTile.has(tileKey) || Boolean(tile.resource && (!isFoodTile || foodTileHasImmediateValue));
       if (!townSupportSettlementAvailable && hasTownSupport) townSupportSettlementAvailable = true;
-      if (!settlementAvailable && (hasIntrinsicEconomicValue || hasTownSupport || isFoodTile || (!economyWeak && !foodCoverageLow && !territorySummary.underThreat))) {
+      if (
+        !settlementAvailable &&
+        (
+          foodCoverageLow
+            ? isFoodTile && foodTileHasImmediateValue
+            : hasIntrinsicEconomicValue || hasTownSupport || (isFoodTile && foodTileHasImmediateValue) || (!economyWeak && !territorySummary.underThreat)
+        )
+      ) {
         settlementAvailable = true;
       }
       if (!islandSettlementAvailable) {
         const islandId = islandIdByTile.get(tileKey);
         const matchesFocus = focusIslandId !== undefined ? islandId === focusIslandId : islandId !== undefined;
-        if (matchesFocus && (hasIntrinsicEconomicValue || hasTownSupport || isFoodTile || (!economyWeak && !foodCoverageLow && !territorySummary.underThreat))) {
+        if (
+          matchesFocus &&
+          (
+            foodCoverageLow
+              ? isFoodTile && foodTileHasImmediateValue
+              : hasIntrinsicEconomicValue || hasTownSupport || (isFoodTile && foodTileHasImmediateValue) || (!economyWeak && !territorySummary.underThreat)
+          )
+        ) {
           islandSettlementAvailable = true;
         }
       }

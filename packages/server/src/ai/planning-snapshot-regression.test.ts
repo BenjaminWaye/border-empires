@@ -237,7 +237,8 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(fortBody).toContain("fortsByTile.has(tk)");
     expect(fortBody).toContain("isBorderTile(tile.x, tile.y, actor.id)");
     expect(availabilityBody).not.toContain('evaluateAiSettlementCandidate(actor, tile, "SETTLED_TERRITORY", undefined, territorySummary)');
-    expect(availabilityBody).toContain("if (matchesFocus && (hasIntrinsicEconomicValue || hasTownSupport || isFoodTile || (!economyWeak && !foodCoverageLow && !territorySummary.underThreat))) {");
+    expect(availabilityBody).toContain("foodCoverageLow");
+    expect(availabilityBody).toContain("isFoodTile && foodTileHasImmediateValue");
     expect(availabilityBody).toContain("islandSettlementAvailable = true;");
   });
 
