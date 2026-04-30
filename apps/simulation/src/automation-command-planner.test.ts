@@ -99,6 +99,33 @@ describe("automation command planner", () => {
     expect(result.diagnostic.noCommandReason).toBe("insufficient_manpower_for_attack");
   });
 
+  it("collects visible yield before idling on insufficient points when a settled town can pay out", () => {
+    const settlement = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Grain", populationTier: "SETTLEMENT" }
+    });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 0,
+      manpower: 10,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [settlement],
+      tilesByKey: new Map([["0,0", settlement]]),
+      clientSeq: 2,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
+    });
+    expect(result.diagnostic.noCommandReason).toBeUndefined();
+  });
+
   it("reports no_frontier_targets when no legal land expansion or attack exists", () => {
     const owned = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const sea = makeTile(1, 0, { terrain: "SEA" });

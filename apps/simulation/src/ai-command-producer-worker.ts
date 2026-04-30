@@ -97,6 +97,7 @@ const resolveWorkerScript = (given?: string): string | URL =>
 
 const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean =>
   queueDepths.human_interactive > 0;
+const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
@@ -117,10 +118,15 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     options.aiPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
   );
   const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
+  const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
 
   let tickInFlight = false;
   let nextPlayerIndex = 0;
   let humanBacklogWasNonEmpty = false;
+
+  const backOffCollectVisible = (playerId: string, eventAt: number): void => {
+    collectVisibleCooldownUntilByPlayer.set(playerId, eventAt + COLLECT_VISIBLE_COOLDOWN_MS);
+  };
 
   const worker = new Worker(resolveWorkerScript(options.workerScriptPath));
 
@@ -313,6 +319,12 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     }
     const pending = pendingCommandByPlayer.get(event.playerId);
     if (!pending || pending.commandId !== event.commandId) return;
+    if (event.eventType === "COMMAND_REJECTED" && event.code === "COLLECT_COOLDOWN") {
+      backOffCollectVisible(event.playerId, now());
+    }
+    if (event.eventType === "COLLECT_RESULT") {
+      backOffCollectVisible(event.playerId, now());
+    }
     if (
       event.eventType === "COMMAND_REJECTED" ||
       event.eventType === "COMBAT_RESOLVED" ||
@@ -395,11 +407,18 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           const breached = plannerDurationMs > plannerBreachThresholdMs;
           options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
           if (!command) continue;
+          if (command.type === "COLLECT_VISIBLE") {
+            const blockedUntil = collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0;
+            if (blockedUntil > issuedAt) continue;
+          }
           pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
           nextClientSeqByPlayer.set(playerId, clientSeq + 1);
           nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
           const submitStartedAt = now();
           await options.submitCommand(command);
+          if (command.type === "COLLECT_VISIBLE") {
+            backOffCollectVisible(playerId, issuedAt);
+          }
           options.onDiagnostic?.({
             phase: "submit_command",
             durationMs: Math.max(0, now() - submitStartedAt),

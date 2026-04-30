@@ -179,6 +179,121 @@ describe("ai command producer", () => {
     );
   });
 
+  it("rate-limits repeated collect-visible commands until the local cooldown expires", async () => {
+    let nowMs = 1_000;
+    const submittedTypes: string[] = [];
+    let onEventHandler: ((event: { eventType: string; playerId: string; commandId: string }) => void) | undefined;
+    const onEvent = vi.fn((handler) => {
+      onEventHandler = handler;
+      return () => undefined;
+    });
+    const runtime = {
+      chooseNextAutomationCommand: vi.fn(() => undefined),
+      explainNextAutomationCommand: vi.fn((playerId: string, clientSeq: number, issuedAt: number) => ({
+        command: {
+          commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+          sessionId: `ai-runtime:${playerId}`,
+          playerId,
+          clientSeq,
+          issuedAt,
+          type: "COLLECT_VISIBLE" as const,
+          payloadJson: "{}"
+        },
+        diagnostic: {
+          playerId,
+          sessionPrefix: "ai-runtime" as const,
+          settlementEligible: false,
+          settlementCandidateFound: false,
+          frontierEnemyTargetCount: 0,
+          frontierNeutralTargetCount: 0,
+          canAttack: false,
+          canExpand: false
+        }
+      })),
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedTypes.push(command.type);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000
+    });
+
+    await producer.tick();
+    onEventHandler?.({ eventType: "COLLECT_RESULT", playerId: "ai-1", commandId: "ai-runtime-ai-1-1-1000" });
+    nowMs = 1_001;
+    await producer.tick();
+    nowMs = 21_001;
+    await producer.tick();
+    producer.close();
+
+    expect(submittedTypes).toEqual(["COLLECT_VISIBLE", "COLLECT_VISIBLE"]);
+  });
+
+  it("backs off collect-visible after a collect-cooldown rejection", async () => {
+    let nowMs = 1_000;
+    const submittedTypes: string[] = [];
+    let onEventHandler: ((event: { eventType: string; playerId: string; commandId: string; code?: string }) => void) | undefined;
+    const onEvent = vi.fn((handler) => {
+      onEventHandler = handler;
+      return () => undefined;
+    });
+    const runtime = {
+      chooseNextAutomationCommand: vi.fn(() => undefined),
+      explainNextAutomationCommand: vi.fn((playerId: string, clientSeq: number, issuedAt: number) => ({
+        command: {
+          commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+          sessionId: `ai-runtime:${playerId}`,
+          playerId,
+          clientSeq,
+          issuedAt,
+          type: "COLLECT_VISIBLE" as const,
+          payloadJson: "{}"
+        },
+        diagnostic: {
+          playerId,
+          sessionPrefix: "ai-runtime" as const,
+          settlementEligible: false,
+          settlementCandidateFound: false,
+          frontierEnemyTargetCount: 0,
+          frontierNeutralTargetCount: 0,
+          canAttack: false,
+          canExpand: false
+        }
+      })),
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedTypes.push(command.type);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000
+    });
+
+    await producer.tick();
+    onEventHandler?.({
+      eventType: "COMMAND_REJECTED",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000",
+      code: "COLLECT_COOLDOWN"
+    });
+    nowMs = 1_001;
+    await producer.tick();
+    nowMs = 21_001;
+    await producer.tick();
+    producer.close();
+
+    expect(submittedTypes).toEqual(["COLLECT_VISIBLE", "COLLECT_VISIBLE"]);
+  });
+
   it("releases stale pending AI commands so one stuck player does not freeze forever", async () => {
     let nowMs = 1_000;
     const submittedPlayers: string[] = [];
