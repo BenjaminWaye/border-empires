@@ -106,4 +106,49 @@ describe("expanded tech tree rendering", () => {
     expect(html).not.toContain("Tier 8");
     expect(html).not.toContain("Tier 9");
   });
+
+  it("marks offered tech choices as available even when resources are still missing", () => {
+    const techCatalog: TechInfo[] = [
+      baseTech({ id: "toolmaking", name: "Toolmaking", tier: 1, requirements: { gold: 2000, resources: {}, canResearch: false, checklist: [] } }),
+      baseTech({
+        id: "cartography",
+        name: "Cartography",
+        tier: 2,
+        requires: "toolmaking",
+        requirements: {
+          gold: 2500,
+          resources: { CRYSTAL: 25 },
+          canResearch: false,
+          checklist: [
+            { label: "Gold 2500", met: false },
+            { label: "CRYSTAL 25", met: false }
+          ]
+        }
+      })
+    ];
+    const byId = new Map(techCatalog.map((tech) => [tech.id, tech]));
+
+    const html = renderExpandedTechChoiceTreeHtml({
+      techCatalog,
+      techUiSelectedId: "cartography",
+      techRootId: undefined,
+      currentResearch: null,
+      effectiveOwnedTechIds: ["toolmaking"],
+      effectiveTechChoices: ["cartography"],
+      orderedTechIdsByTier: (catalog) => catalog.map((tech) => tech.id),
+      techTier: (id) => byId.get(id)?.tier ?? 1,
+      techPrereqIds: (tech) => (tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : []),
+      techNameList: (ids) => ids.map((id) => byId.get(id)?.name ?? id).join(", "),
+      formatTechCost: (tech) => (tech.requirements.checklist ?? []).map((entry) => entry.label).join(" · ") || "Cost not listed",
+      isPendingTechUnlock: () => false,
+      formatCooldownShort: () => "0s",
+      titleCaseFromId: (id) => id,
+      viewportHeight: 700,
+      isMobile: false
+    });
+
+    expect(html).toContain('<span class="tech-tree-card-badge">Available</span>');
+    expect(html).toContain('class="tech-missing-badge"');
+    expect(html).not.toContain('<span class="tech-tree-card-badge">Locked</span>');
+  });
 });
