@@ -87,12 +87,16 @@ That configures `pre-push` to run `pnpm ci:local`.
 To measure end-to-end staging login latency (AUTH -> INIT) and enforce the 5s target:
 
 ```bash
-pnpm ops:staging:login-probe
+STAGING_LOGIN_PROBE_AUTH_TOKEN="<firebase-id-token>" pnpm ops:staging:login-probe
 ```
 
 This runs multiple real websocket auth attempts against:
 
 - `wss://border-empires-gateway-staging.fly.dev/ws?channel=control`
+
+The probe now requires an explicit auth token and reuses that same account for
+every attempt. It no longer invents `staging-probe-*` identities, so running
+the probe does not seed fake empires into shared staging.
 
 The probe prints per-attempt outcomes plus summary p50/p95/p99.  
 It exits non-zero when:
