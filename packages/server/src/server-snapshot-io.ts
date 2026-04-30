@@ -118,6 +118,16 @@ const readSnapshotJsonSync = <T>(file: string): { data: T; bytes: number; elapse
   return { data: JSON.parse(text) as T, bytes: Buffer.byteLength(text), elapsedMs: Date.now() - startedAt };
 };
 
+// Async wrapper for JSON.stringify to avoid blocking the event loop.
+// Yields control back to the event loop via setImmediate to allow other I/O operations to proceed.
+const stringifyAsync = async <T>(data: T): Promise<string> => {
+  return new Promise((resolve) => {
+    setImmediate(() => {
+      resolve(JSON.stringify(data));
+    });
+  });
+};
+
 export const createServerSnapshotIoRuntime = (
   deps: CreateServerSnapshotIoDeps
 ): ServerSnapshotIoRuntime => {
@@ -248,32 +258,34 @@ export const createServerSnapshotIoRuntime = (
     deps.logSnapshotSerializationMemory("after_build", startedAt, deps.runtimeMemoryStats());
     const sections = splitSnapshotState(snapshot);
     deps.logSnapshotSerializationMemory("after_split", startedAt, deps.runtimeMemoryStats());
-    const serializedSections = {
-      meta: JSON.stringify(sections.meta),
-      players: JSON.stringify(sections.players),
-      territory: JSON.stringify(sections.territory),
-      economy: JSON.stringify(sections.economy),
-      systems: JSON.stringify(sections.systems)
-    };
-    const index: SnapshotSectionIndex = {
-      formatVersion: 2,
-      sections: {
-        meta: deps.SNAPSHOT_SECTION_FILES.meta,
-        players: deps.SNAPSHOT_SECTION_FILES.players,
-        territory: deps.SNAPSHOT_SECTION_FILES.territory,
-        economy: deps.SNAPSHOT_SECTION_FILES.economy,
-        systems: deps.SNAPSHOT_SECTION_FILES.systems
-      }
-    };
-    const serializedIndex = JSON.stringify(index);
+    // JSON.stringify is synchronous and can block the event loop for several
+    // seconds on large snapshots. Move all serialization inside the promise
+    // chain and use stringifyAsync (setImmediate-yielded) so that I/O
+    // (WebSocket upgrades, auth, etc.) can be processed between each section.
     snapshotSavePromise = snapshotSavePromise.catch(() => undefined).then(async () => {
+      const metaSerialized = await stringifyAsync(sections.meta);
+      const playersSerialized = await stringifyAsync(sections.players);
+      const territorySerialized = await stringifyAsync(sections.territory);
+      const economySerialized = await stringifyAsync(sections.economy);
+      const systemsSerialized = await stringifyAsync(sections.systems);
+      const index: SnapshotSectionIndex = {
+        formatVersion: 2,
+        sections: {
+          meta: deps.SNAPSHOT_SECTION_FILES.meta,
+          players: deps.SNAPSHOT_SECTION_FILES.players,
+          territory: deps.SNAPSHOT_SECTION_FILES.territory,
+          economy: deps.SNAPSHOT_SECTION_FILES.economy,
+          systems: deps.SNAPSHOT_SECTION_FILES.systems
+        }
+      };
+      const serializedIndex = await stringifyAsync(index);
       await fs.promises.mkdir(deps.SNAPSHOT_DIR, { recursive: true });
       await Promise.all([
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("meta"), serializedSections.meta),
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("players"), serializedSections.players),
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("territory"), serializedSections.territory),
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("economy"), serializedSections.economy),
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("systems"), serializedSections.systems)
+        writeSnapshotJsonAtomic(deps.snapshotSectionFile("meta"), metaSerialized),
+        writeSnapshotJsonAtomic(deps.snapshotSectionFile("players"), playersSerialized),
+        writeSnapshotJsonAtomic(deps.snapshotSectionFile("territory"), territorySerialized),
+        writeSnapshotJsonAtomic(deps.snapshotSectionFile("economy"), economySerialized),
+        writeSnapshotJsonAtomic(deps.snapshotSectionFile("systems"), systemsSerialized)
       ]);
       await writeSnapshotJsonAtomic(deps.SNAPSHOT_INDEX_FILE, serializedIndex);
       deps.logSnapshotSerializationMemory("after_write", startedAt, deps.runtimeMemoryStats());
