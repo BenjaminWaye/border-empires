@@ -703,7 +703,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const tileKey = keyFor(tile.x, tile.y);
       const existing = state.tiles.get(tileKey);
       const normalizedTile =
-        "ownerId" in tile
+        "ownerId" in tile || tile.fogged
           ? tile
           : {
               ...tile,

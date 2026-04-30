@@ -28,7 +28,14 @@ const createState = () =>
     playerVisualStyles: new Map<string, unknown>()
   }) as any;
 
-const bind = (state: any, ws: FakeWebSocket) => {
+const bind = (
+  state: any,
+  ws: FakeWebSocket,
+  overrides: {
+    mergeIncomingTileDetail?: (existing: any, incoming: any) => any;
+    mergeServerTileWithOptimisticState?: (tile: any) => any;
+  } = {}
+) => {
   const renderHud = vi.fn();
   const requestViewRefresh = vi.fn();
   const processActionQueue = vi.fn(() => false);
@@ -47,8 +54,11 @@ const bind = (state: any, ws: FakeWebSocket) => {
     clearOptimisticTileState: vi.fn(),
     requestViewRefresh,
     applyPendingSettlementsFromServer: vi.fn(),
-    mergeIncomingTileDetail: vi.fn((_existing, incoming) => incoming),
-    mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
+    mergeIncomingTileDetail: vi.fn(
+      overrides.mergeIncomingTileDetail ??
+        ((existing, incoming) => (existing ? { ...existing, ...incoming } : incoming))
+    ),
+    mergeServerTileWithOptimisticState: vi.fn(overrides.mergeServerTileWithOptimisticState ?? ((tile) => tile)),
     maybeAnnounceShardSite: vi.fn(),
     markDockDiscovered: vi.fn(),
     centerOnOwnedTile: vi.fn(),
@@ -305,6 +315,45 @@ describe("client gateway sync regression", () => {
       ownerId: "player-1",
       ownershipState: "SETTLED",
       fogged: false
+    });
+  });
+
+  it("preserves existing ownership when a fogged chunk tile omits owner fields", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    state.tiles.set("25,238", {
+      x: 25,
+      y: 238,
+      terrain: "LAND",
+      ownerId: "enemy-blue",
+      ownershipState: "FRONTIER",
+      fogged: false
+    } as any);
+    state.discoveredTiles.add("25,238");
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_BATCH",
+        generation: 1,
+        chunks: [
+          {
+            cx: 1,
+            cy: 14,
+            tilesMaskedByFog: [{ x: 25, y: 238, terrain: "LAND", fogged: true, detailLevel: "summary" }]
+          }
+        ]
+      })
+    });
+
+    expect(state.tiles.get("25,238")).toMatchObject({
+      x: 25,
+      y: 238,
+      terrain: "LAND",
+      ownerId: "enemy-blue",
+      ownershipState: "FRONTIER",
+      fogged: true
     });
   });
 
