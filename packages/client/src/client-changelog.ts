@@ -19,9 +19,9 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.01.1",
+  version: "2026.05.01.2",
   title: "What's New",
-  summary: "Recent updates include a legacy town-capture visibility fix so conquered AI towns now stay visible on frontier tiles after combat without changing conquest rules, a legacy chunk-stream fix so stale bulk-socket closes no longer reset the live session's chunk generation back to 1 mid-session, a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
+  summary: "Recent updates include a legacy town-capture visibility fix so conquered AI towns now stay visible on frontier tiles after combat without changing conquest rules, a true-3D forest overlay fix so canvas tree sprites no longer stack on top of the 3D forest meshes, a legacy chunk-stream fix so stale bulk-socket closes no longer reset the live session's chunk generation back to 1 mid-session, a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
   entries: [
     {
       introducedIn: "2026.05.01.1",
@@ -31,6 +31,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Legacy client sync no longer strips authoritative town summaries just because a tile is still frontier after capture.",
         "Captured towns now stay visible through combat-result, tile-delta, and chunk-batch reconciliation while preserving the existing frontier-first conquest flow.",
         "Added client regression coverage so future sync changes keep frontier towns visible after conquest."
+      ]
+    },
+    {
+      introducedIn: "2026.05.01.2",
+      title: "True 3D forests no longer double-draw canvas tree sprites",
+      why: "When the true 3D terrain renderer was active, the legacy canvas forest overlay still ran for visible land tiles, so flat tree sprites were being painted over the 3D forest meshes.",
+      changes: [
+        "The runtime loop now skips canvas forest overlay draws whenever the true 3D renderer is active.",
+        "The forest overlay helper also hard-stops in true 3D mode so future call sites cannot reintroduce the double-draw by accident.",
+        "Added client regression coverage to keep canvas forest overlays disabled while true 3D rendering is on."
       ]
     },
     {
