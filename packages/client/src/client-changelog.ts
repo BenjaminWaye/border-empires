@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.30.10",
+  version: "2026.04.30.11",
   title: "What's New",
-  summary: "Recent updates include dedicated structure art for missing economic overlays like Rail Depot, Lockworks Port, Chartered Port, and Exchange House, plus a monument-art pass that gives Imperial Exchange, Aegis Dome, Worldbreaker Cannon, and Astral Dock much larger bespoke overlays, with the Worldbreaker now reading as a giant ion cannon instead of an ordinary support building. Other recent updates include clearer tech-tree availability cards so current tech choices now read as available even when you still need more resources, with missing costs rendered as proper badges instead of jammed raw X markers, brighter rewrite 3D grass and sand textures with visible tile grid lines restored, per-route dock crossing cooldowns so a multi-link dock no longer locks all of its routes after one frontier expansion, plus a legacy socket-routing fix so stale bulk sockets no longer black-hole tile sync after reconnects and the earlier rewrite gateway socket-routing fix that stopped attack accepts and other frontier control events from preferring stale closed control sockets over a healthy bulk channel.",
+  summary: "Recent updates include dedicated structure art for missing economic overlays like Rail Depot, Lockworks Port, Chartered Port, and Exchange House, a legacy AI settlement fix so starving empires stop spending settles on fur or empty settlement rings and stop valuing food before they even have a real town to feed, a monument-art pass that gives Imperial Exchange, Aegis Dome, Worldbreaker Cannon, and Astral Dock much larger bespoke overlays, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever on insufficient points, clearer tech-tree availability cards, brighter rewrite 3D grass and sand textures with visible tile grid lines restored, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
   entries: [
+    {
+      introducedIn: "2026.04.30.11",
+      title: "Legacy AI now values food and support tiles more coherently",
+      why: "Legacy AI could keep settling fur or empty compact filler while its towns were starving, settle food before it even had a real town that could use it, and treat the ring around a mere settlement as if it already had real town-support value.",
+      changes: [
+        "Food-starved legacy AI now only uses owned-frontier settlement to activate actual food tiles instead of burning settles on unrelated resources or empty filler.",
+        "Legacy AI no longer treats farm and fish tiles as immediate settlement value before it controls its first real town.",
+        "Settlement scoring now ignores fake compact-core value around mere settlements, so the AI stops filling support rings that only matter once a settlement has grown into a town."
+      ]
+    },
     {
       introducedIn: "2026.04.30.10",
       title: "Economic structures and monuments now use dedicated overlay art",
