@@ -24,6 +24,7 @@ import { resolveInitialState } from "./initial-state.js";
 import { buildInitMessage } from "./reconnect-recovery.js";
 import { type SimulationSeedProfile } from "./seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "./sim-client.js";
+import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "./socket-routing.js";
 import { createSocialState } from "./social-state.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "./supported-client-messages.js";
@@ -539,44 +540,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {})
   });
 
-  const socketsForEvent = (
-    sockets: ReadonlySet<import("ws").WebSocket>,
-    eventType: SimulationClientEvent["eventType"]
-  ): import("ws").WebSocket[] => {
-    const controlSockets: import("ws").WebSocket[] = [];
-    const bulkSockets: import("ws").WebSocket[] = [];
-    for (const socket of sockets) {
-      const session = sessionsBySocket.get(socket);
-      if (!session) continue;
-      if (session.channel === "bulk") bulkSockets.push(socket);
-      else controlSockets.push(socket);
-    }
-    if (eventType === "TILE_DELTA_BATCH") return bulkSockets.length > 0 ? bulkSockets : controlSockets;
-    return controlSockets.length > 0 ? controlSockets : bulkSockets;
-  };
-
-  const socketsForTileDeltaBatchByPlayer = (
-    sockets: ReadonlySet<import("ws").WebSocket>
-  ): import("ws").WebSocket[] => {
-    const socketsByPlayerId = new Map<
-      string,
-      { control: import("ws").WebSocket[]; bulk: import("ws").WebSocket[] }
-    >();
-    for (const socket of sockets) {
-      const session = sessionsBySocket.get(socket);
-      if (!session?.playerId) continue;
-      const grouped = socketsByPlayerId.get(session.playerId) ?? { control: [], bulk: [] };
-      if (session.channel === "bulk") grouped.bulk.push(socket);
-      else grouped.control.push(socket);
-      socketsByPlayerId.set(session.playerId, grouped);
-    }
-    const selected: import("ws").WebSocket[] = [];
-    for (const grouped of socketsByPlayerId.values()) {
-      selected.push(...(grouped.bulk.length > 0 ? grouped.bulk : grouped.control));
-    }
-    return selected;
-  };
-
   const queueOrSendSessionPayload = (socket: import("ws").WebSocket, payload: unknown): void => {
     const session = sessionsBySocket.get(socket);
     if (!session || session.initSent) {
@@ -664,12 +627,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           commandId: event.commandId,
           tiles: jsonSafeTileDeltaBatch(tileDeltas)
         };
-        for (const targetSocket of socketsForTileDeltaBatchByPlayer(sockets)) {
+        for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(sockets, (candidate) => sessionsBySocket.get(candidate))) {
           queueOrSendSessionPayload(targetSocket, tileDeltaPayload);
         }
         return;
       }
-      for (const socket of socketsForEvent(sockets, event.eventType)) {
+      for (const socket of selectSocketsForEvent(sockets, event.eventType, (candidate) => sessionsBySocket.get(candidate))) {
         if (event.eventType === "COMMAND_ACCEPTED") {
           void commandStore
             .markAccepted(event.commandId, Date.now())
