@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 
 import type { Player, SeasonVictoryPathId, TileKey } from "@border-empires/shared";
 
@@ -13,6 +14,7 @@ import type {
   SnapshotSystemsSection,
   SnapshotTerritorySection
 } from "./server-shared-types.js";
+import { resolveWorkerEntryUrl } from "./runtime/resolve-worker-entry.js";
 
 type SnapshotOwnershipStateEntry = NonNullable<SnapshotState["ownershipState"]>[number];
 type SnapshotBarbarianAgent = NonNullable<SnapshotState["barbarianAgents"]>[number];
@@ -106,6 +108,25 @@ export interface ServerSnapshotIoRuntime {
   loadLegacySnapshot: () => SnapshotState | undefined;
 }
 
+type SnapshotSaveSections = {
+  meta: SnapshotMetaSection;
+  players: SnapshotPlayersSection;
+  territory: SnapshotTerritorySection;
+  economy: SnapshotEconomySection;
+  systems: SnapshotSystemsSection;
+};
+
+type SnapshotSaveWorkerRequest = {
+  id: number;
+  snapshotDir: string;
+  snapshotIndexFile: string;
+  snapshotSectionFiles: Record<keyof SnapshotSectionIndex["sections"], string>;
+  sectionFilePaths: Record<keyof SnapshotSectionIndex["sections"], string>;
+  sections: SnapshotSaveSections;
+};
+
+type SnapshotSaveWorkerResponse = { id: number } | { id: number; error: string };
+
 const writeSnapshotJsonAtomic = async (targetFile: string, serialized: string): Promise<void> => {
   const tmpFile = `${targetFile}.${process.pid}.tmp`;
   await fs.promises.writeFile(tmpFile, serialized);
@@ -118,20 +139,23 @@ const readSnapshotJsonSync = <T>(file: string): { data: T; bytes: number; elapse
   return { data: JSON.parse(text) as T, bytes: Buffer.byteLength(text), elapsedMs: Date.now() - startedAt };
 };
 
-// Async wrapper for JSON.stringify to avoid blocking the event loop.
-// Yields control back to the event loop via setImmediate to allow other I/O operations to proceed.
-const stringifyAsync = async <T>(data: T): Promise<string> => {
-  return new Promise((resolve) => {
-    setImmediate(() => {
-      resolve(JSON.stringify(data));
-    });
-  });
-};
-
 export const createServerSnapshotIoRuntime = (
   deps: CreateServerSnapshotIoDeps
 ): ServerSnapshotIoRuntime => {
   let snapshotSavePromise: Promise<void> = Promise.resolve();
+  const snapshotSaveWorkerState: {
+    worker: Worker | undefined;
+    enabled: boolean;
+    available: boolean;
+    nextRequestId: number;
+    inflight: Map<number, { resolve: () => void; reject: (err: Error) => void }>;
+  } = {
+    worker: undefined,
+    enabled: true,
+    available: false,
+    nextRequestId: 0,
+    inflight: new Map()
+  };
 
   const buildSnapshotState = (): SnapshotState => {
     const snapshot: SnapshotState = {
@@ -251,6 +275,107 @@ export const createServerSnapshotIoRuntime = (
     }
   });
 
+  const saveSnapshotSectionsDirect = async (sections: SnapshotSaveSections): Promise<void> => {
+    const index: SnapshotSectionIndex = {
+      formatVersion: 2,
+      sections: {
+        meta: deps.SNAPSHOT_SECTION_FILES.meta,
+        players: deps.SNAPSHOT_SECTION_FILES.players,
+        territory: deps.SNAPSHOT_SECTION_FILES.territory,
+        economy: deps.SNAPSHOT_SECTION_FILES.economy,
+        systems: deps.SNAPSHOT_SECTION_FILES.systems
+      }
+    };
+    await fs.promises.mkdir(deps.SNAPSHOT_DIR, { recursive: true });
+    await writeSnapshotJsonAtomic(deps.snapshotSectionFile("meta"), JSON.stringify(sections.meta));
+    await writeSnapshotJsonAtomic(deps.snapshotSectionFile("players"), JSON.stringify(sections.players));
+    await writeSnapshotJsonAtomic(deps.snapshotSectionFile("territory"), JSON.stringify(sections.territory));
+    await writeSnapshotJsonAtomic(deps.snapshotSectionFile("economy"), JSON.stringify(sections.economy));
+    await writeSnapshotJsonAtomic(deps.snapshotSectionFile("systems"), JSON.stringify(sections.systems));
+    await writeSnapshotJsonAtomic(deps.SNAPSHOT_INDEX_FILE, JSON.stringify(index));
+  };
+
+  const clearSnapshotSaveWorkerInflight = (error: Error): void => {
+    for (const [requestId, entry] of snapshotSaveWorkerState.inflight.entries()) {
+      entry.reject(error);
+      snapshotSaveWorkerState.inflight.delete(requestId);
+    }
+  };
+
+  const ensureSnapshotSaveWorker = (): Worker | undefined => {
+    if (!snapshotSaveWorkerState.enabled) return undefined;
+    if (snapshotSaveWorkerState.worker) return snapshotSaveWorkerState.worker;
+    try {
+      const worker = new Worker(resolveWorkerEntryUrl("./server-snapshot-save-worker.js", import.meta.url));
+      worker.on("message", (message: SnapshotSaveWorkerResponse) => {
+        const entry = snapshotSaveWorkerState.inflight.get(message.id);
+        if (!entry) return;
+        snapshotSaveWorkerState.inflight.delete(message.id);
+        if ("error" in message) {
+          entry.reject(new Error(message.error));
+          return;
+        }
+        entry.resolve();
+      });
+      worker.on("error", (err) => {
+        snapshotSaveWorkerState.available = false;
+        snapshotSaveWorkerState.enabled = false;
+        snapshotSaveWorkerState.worker = undefined;
+        clearSnapshotSaveWorkerInflight(err instanceof Error ? err : new Error(String(err)));
+      });
+      worker.on("exit", (code) => {
+        snapshotSaveWorkerState.available = false;
+        snapshotSaveWorkerState.worker = undefined;
+        if (code !== 0) {
+          snapshotSaveWorkerState.enabled = false;
+          clearSnapshotSaveWorkerInflight(new Error(`snapshot save worker exited with code ${code}`));
+        }
+      });
+      snapshotSaveWorkerState.worker = worker;
+      snapshotSaveWorkerState.available = true;
+      return worker;
+    } catch {
+      snapshotSaveWorkerState.available = false;
+      snapshotSaveWorkerState.enabled = false;
+      return undefined;
+    }
+  };
+
+  const saveSnapshotSectionsViaWorker = async (sections: SnapshotSaveSections): Promise<void> => {
+    const worker = ensureSnapshotSaveWorker();
+    if (!worker) {
+      await saveSnapshotSectionsDirect(sections);
+      return;
+    }
+    const requestId = ++snapshotSaveWorkerState.nextRequestId;
+    const promise = new Promise<void>((resolve, reject) => {
+      snapshotSaveWorkerState.inflight.set(requestId, { resolve, reject });
+    });
+    const request: SnapshotSaveWorkerRequest = {
+      id: requestId,
+      snapshotDir: deps.SNAPSHOT_DIR,
+      snapshotIndexFile: deps.SNAPSHOT_INDEX_FILE,
+      snapshotSectionFiles: deps.SNAPSHOT_SECTION_FILES,
+      sectionFilePaths: {
+        meta: deps.snapshotSectionFile("meta"),
+        players: deps.snapshotSectionFile("players"),
+        territory: deps.snapshotSectionFile("territory"),
+        economy: deps.snapshotSectionFile("economy"),
+        systems: deps.snapshotSectionFile("systems")
+      },
+      sections
+    };
+    worker.postMessage(request);
+    try {
+      await promise;
+    } catch {
+      snapshotSaveWorkerState.enabled = false;
+      snapshotSaveWorkerState.available = false;
+      snapshotSaveWorkerState.worker = undefined;
+      await saveSnapshotSectionsDirect(sections);
+    }
+  };
+
   const saveSnapshot = async (): Promise<void> => {
     const startedAt = Date.now();
     deps.logSnapshotSerializationMemory("before_build", startedAt, deps.runtimeMemoryStats());
@@ -258,36 +383,8 @@ export const createServerSnapshotIoRuntime = (
     deps.logSnapshotSerializationMemory("after_build", startedAt, deps.runtimeMemoryStats());
     const sections = splitSnapshotState(snapshot);
     deps.logSnapshotSerializationMemory("after_split", startedAt, deps.runtimeMemoryStats());
-    // JSON.stringify is synchronous and can block the event loop for several
-    // seconds on large snapshots. Move all serialization inside the promise
-    // chain and use stringifyAsync (setImmediate-yielded) so that I/O
-    // (WebSocket upgrades, auth, etc.) can be processed between each section.
     snapshotSavePromise = snapshotSavePromise.catch(() => undefined).then(async () => {
-      const metaSerialized = await stringifyAsync(sections.meta);
-      const playersSerialized = await stringifyAsync(sections.players);
-      const territorySerialized = await stringifyAsync(sections.territory);
-      const economySerialized = await stringifyAsync(sections.economy);
-      const systemsSerialized = await stringifyAsync(sections.systems);
-      const index: SnapshotSectionIndex = {
-        formatVersion: 2,
-        sections: {
-          meta: deps.SNAPSHOT_SECTION_FILES.meta,
-          players: deps.SNAPSHOT_SECTION_FILES.players,
-          territory: deps.SNAPSHOT_SECTION_FILES.territory,
-          economy: deps.SNAPSHOT_SECTION_FILES.economy,
-          systems: deps.SNAPSHOT_SECTION_FILES.systems
-        }
-      };
-      const serializedIndex = await stringifyAsync(index);
-      await fs.promises.mkdir(deps.SNAPSHOT_DIR, { recursive: true });
-      await Promise.all([
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("meta"), metaSerialized),
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("players"), playersSerialized),
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("territory"), territorySerialized),
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("economy"), economySerialized),
-        writeSnapshotJsonAtomic(deps.snapshotSectionFile("systems"), systemsSerialized)
-      ]);
-      await writeSnapshotJsonAtomic(deps.SNAPSHOT_INDEX_FILE, serializedIndex);
+      await saveSnapshotSectionsViaWorker(sections);
       deps.logSnapshotSerializationMemory("after_write", startedAt, deps.runtimeMemoryStats());
     });
     return snapshotSavePromise;
