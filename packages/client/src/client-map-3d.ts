@@ -84,6 +84,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const landMaterialA = new MeshStandardMaterial({
     color: "#ffffff",
     map: grassLightTexture,
+    emissive: "#4d5f34",
+    emissiveMap: grassLightTexture,
+    emissiveIntensity: 0.28,
     roughness: 0.78,
     roughnessMap: grassLightTexture,
     bumpMap: grassLightTexture,
@@ -94,6 +97,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const landMaterialB = new MeshStandardMaterial({
     color: "#ffffff",
     map: grassDarkTexture,
+    emissive: "#42522d",
+    emissiveMap: grassDarkTexture,
+    emissiveIntensity: 0.3,
     roughness: 0.79,
     roughnessMap: grassDarkTexture,
     bumpMap: grassDarkTexture,
@@ -104,6 +110,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const landMaterialC = new MeshStandardMaterial({
     color: "#ffffff",
     map: grassLightTexture,
+    emissive: "#4d5f34",
+    emissiveMap: grassLightTexture,
+    emissiveIntensity: 0.28,
     roughness: 0.78,
     roughnessMap: grassLightTexture,
     bumpMap: grassLightTexture,
@@ -114,6 +123,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const sandMaterialA = new MeshStandardMaterial({
     color: "#ffffff",
     map: sandTexture,
+    emissive: "#8d7954",
+    emissiveMap: sandTexture,
+    emissiveIntensity: 0.24,
     roughness: 0.73,
     roughnessMap: sandTexture,
     bumpMap: sandTexture,
@@ -124,6 +136,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const sandMaterialB = new MeshStandardMaterial({
     color: "#ffffff",
     map: sandTexture,
+    emissive: "#8d7954",
+    emissiveMap: sandTexture,
+    emissiveIntensity: 0.24,
     roughness: 0.73,
     roughnessMap: sandTexture,
     bumpMap: sandTexture,
@@ -134,6 +149,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const sandMaterialC = new MeshStandardMaterial({
     color: "#ffffff",
     map: sandTexture,
+    emissive: "#8d7954",
+    emissiveMap: sandTexture,
+    emissiveIntensity: 0.24,
     roughness: 0.73,
     roughnessMap: sandTexture,
     bumpMap: sandTexture,
