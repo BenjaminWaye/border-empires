@@ -23,6 +23,10 @@ type ChunkSnapshotSample = {
   cachedPayloadChunks: number;
   rebuiltChunks: number;
   batches: number;
+  batchGapMs: number;
+  maxBatchGapMs: number;
+  batchWorkMs: number;
+  maxBatchWorkMs: number;
   chunks: number;
   tiles: number;
 };
@@ -176,6 +180,10 @@ export const createServerRuntimeAdminDashboard = (deps: CreateServerRuntimeAdmin
       summaryReadP95Ms: perfSummary(entries, (entry) => entry.summaryReadMs).p95Ms,
       serializeP95Ms: perfSummary(entries, (entry) => entry.serializeMs).p95Ms,
       sendP95Ms: perfSummary(entries, (entry) => entry.sendMs).p95Ms,
+      batchGapP95Ms: perfSummary(entries, (entry) => entry.batchGapMs).p95Ms,
+      maxBatchGapP95Ms: perfSummary(entries, (entry) => entry.maxBatchGapMs).p95Ms,
+      batchWorkP95Ms: perfSummary(entries, (entry) => entry.batchWorkMs).p95Ms,
+      maxBatchWorkP95Ms: perfSummary(entries, (entry) => entry.maxBatchWorkMs).p95Ms,
       cachedPayloadChunksAvg: perfSummary(entries, (entry) => entry.cachedPayloadChunks).avgMs,
       rebuiltChunksAvg: perfSummary(entries, (entry) => entry.rebuiltChunks).avgMs,
       batchesAvg: perfSummary(entries, (entry) => entry.batches).avgMs,
@@ -183,6 +191,10 @@ export const createServerRuntimeAdminDashboard = (deps: CreateServerRuntimeAdmin
       lastSummaryReadMs: deps.roundTo(lastEntry?.summaryReadMs ?? 0, 1),
       lastSerializeMs: deps.roundTo(lastEntry?.serializeMs ?? 0, 1),
       lastSendMs: deps.roundTo(lastEntry?.sendMs ?? 0, 1),
+      lastBatchGapMs: deps.roundTo(lastEntry?.batchGapMs ?? 0, 1),
+      lastMaxBatchGapMs: deps.roundTo(lastEntry?.maxBatchGapMs ?? 0, 1),
+      lastBatchWorkMs: deps.roundTo(lastEntry?.batchWorkMs ?? 0, 1),
+      lastMaxBatchWorkMs: deps.roundTo(lastEntry?.maxBatchWorkMs ?? 0, 1),
       lastCachedPayloadChunks: deps.roundTo(lastEntry?.cachedPayloadChunks ?? 0, 1),
       lastRebuiltChunks: deps.roundTo(lastEntry?.rebuiltChunks ?? 0, 1),
       lastBatches: deps.roundTo(lastEntry?.batches ?? 0, 1)

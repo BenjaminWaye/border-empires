@@ -12,15 +12,21 @@ export type ChunkBuildInput = {
   fogTiles: Tile[];
   visibleTiles: Tile[];
   visibleMask: Uint8Array;
+  discoveredMask: Uint8Array;
 };
 
 export const serializeChunkBody = (chunk: ChunkPayloadChunk): string => JSON.stringify(chunk);
 
 export const buildChunkFromInput = (input: ChunkBuildInput): ChunkPayloadChunk => {
-  const tilesMaskedByFog = [...input.fogTiles];
+  const tilesMaskedByFog: Tile[] = [];
   for (let index = 0; index < input.visibleMask.length; index += 1) {
-    if (input.visibleMask[index] !== 1) continue;
-    tilesMaskedByFog[index] = input.visibleTiles[index]!;
+    if (input.visibleMask[index] === 1) {
+      tilesMaskedByFog.push(input.visibleTiles[index]!);
+      continue;
+    }
+    if (input.discoveredMask[index] === 1) {
+      tilesMaskedByFog.push(input.fogTiles[index]!);
+    }
   }
   return {
     cx: input.cx,

@@ -67,6 +67,7 @@ export interface CreateServerSnapshotHydrateDeps {
   observatoryTileKeysByPlayer: Map<string, Set<TileKey>>;
   economicStructureTileKeysByPlayer: Map<string, Set<TileKey>>;
   forcedRevealTilesByPlayer: Map<string, Set<TileKey>>;
+  discoveredTileKeysByPlayer: Map<string, Set<TileKey>>;
   revealedEmpireTargetsByPlayer: Map<string, Set<string>>;
   allianceRequests: Map<string, SnapshotAllianceRequest>;
   fortsByTile: Map<TileKey, SnapshotFort>;
@@ -161,7 +162,10 @@ export const createServerSnapshotHydrateRuntime = (
     deps.revealWatchersByTarget.clear();
     deps.observatoryTileKeysByPlayer.clear();
     deps.economicStructureTileKeysByPlayer.clear();
+    deps.forcedRevealTilesByPlayer.clear();
+    deps.discoveredTileKeysByPlayer.clear();
     for (const [playerId, tiles] of raw.forcedReveal ?? []) deps.forcedRevealTilesByPlayer.set(playerId, new Set<TileKey>(tiles));
+    for (const [playerId, tiles] of raw.discoveredTiles ?? []) deps.discoveredTileKeysByPlayer.set(playerId, new Set<TileKey>(tiles));
     for (const [playerId, targets] of raw.revealedEmpireTargets ?? []) deps.setRevealTargetsForPlayer(playerId, targets);
     for (const request of raw.allianceRequests ?? []) deps.allianceRequests.set(request.id, request);
     for (const fort of raw.forts ?? []) deps.fortsByTile.set(fort.tileKey, fort);
