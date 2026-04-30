@@ -4447,7 +4447,21 @@ export class SimulationRuntime {
     return [...deltas.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y));
   }
 
-  private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
+  private originTileHeldByActiveFort(playerId: string, originKey: string): boolean {
+    const origin = this.tiles.get(originKey);
+    if (!origin || origin.terrain !== "LAND" || origin.ownerId !== playerId) return false;
+    const activeFort =
+      origin.fort?.ownerId === playerId &&
+      origin.fort.status === "active" &&
+      (origin.fort.disabledUntil ?? 0) <= this.now();
+    const activeWoodenFort =
+      origin.economicStructure?.ownerId === playerId &&
+      origin.economicStructure.type === "WOODEN_FORT" &&
+      origin.economicStructure.status === "active";
+    return activeFort || activeWoodenFort;
+  }
+
+  private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
     const previousTarget = this.tiles.get(lock.targetKey);
     const combat =
       lock.actionType === "EXPAND"
@@ -4468,6 +4482,7 @@ export class SimulationRuntime {
       lock.actionType === "ATTACK" || lock.actionType === "BREAKTHROUGH_ATTACK"
         ? -this.attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
         : 0;
+    const originHeldByFort = this.originTileHeldByActiveFort(lock.playerId, lock.originKey);
     const result: LockedFrontierCombatResult = {
       attackType: lock.actionType,
       attackerWon: combat.attackerWon,
@@ -4475,7 +4490,12 @@ export class SimulationRuntime {
       ...(defenderOwnerId ? { defenderOwnerId } : {}),
       origin: { x: lock.originX, y: lock.originY },
       target: { x: lock.targetX, y: lock.targetY },
-      changes: combat.attackerWon ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: "FRONTIER" }] : [],
+      changes:
+        combat.attackerWon
+          ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: "FRONTIER" }]
+          : defenderOwnerId && !originHeldByFort
+            ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: "FRONTIER" }]
+            : [],
       pointsDelta: 0,
       manpowerDelta,
       pillagedGold: plunder?.gold ?? 0,
@@ -4507,6 +4527,7 @@ export class SimulationRuntime {
     const attacker = this.players.get(lock.playerId);
     const defender = previousOwnerId ? this.players.get(previousOwnerId) : undefined;
     const attackerWon = combatResult?.attackerWon ?? false;
+    const originLost = Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY));
     if (attacker && (lock.actionType === "EXPAND" || lock.actionType === "ATTACK")) {
       attacker.points = Math.max(0, attacker.points - FRONTIER_CLAIM_COST);
     }
@@ -4556,8 +4577,31 @@ export class SimulationRuntime {
         playerId: lock.playerId,
         tileDeltas
       });
+    } else if (originLost && previousOwnerId) {
+      const previousOrigin = this.tiles.get(lock.originKey);
+      if (previousOrigin) {
+        const resolvedOrigin: DomainTileState = {
+          ...previousOrigin,
+          ownerId: previousOwnerId,
+          ownershipState: "FRONTIER",
+          town: undefined,
+          fort: undefined,
+          observatory: undefined,
+          siegeOutpost: undefined,
+          economicStructure: undefined
+        };
+        this.replaceTileState(lock.originKey, resolvedOrigin);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: lock.commandId,
+          playerId: lock.playerId,
+          tileDeltas: [this.tileDeltaFromState(resolvedOrigin)]
+        });
+      }
     }
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
+    if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
+    if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
     if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) this.respawnIfEliminated(previousOwnerId, lock.commandId);
   }
 
