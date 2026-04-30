@@ -3,7 +3,6 @@ import { request as httpsRequest } from "node:https";
 import { spawnSync } from "node:child_process";
 import {
   assertAliasDoesNotResolveToDeployment,
-  assertDeploymentDoesNotClaimAlias,
   assertRequiredBranch,
   assertAliasMatchesDeployment,
   ensureTrackedProjectLink,
@@ -128,9 +127,4 @@ assertAliasDoesNotResolveToDeployment({
   aliasHost: stagingAlias,
   unexpectedDeploymentUrl: deploymentUrl,
   unexpectedTarget: "production"
-});
-assertDeploymentDoesNotClaimAlias({
-  run,
-  deploymentRef: `https://${productionAlias}`,
-  aliasHost: stagingAlias
 });
