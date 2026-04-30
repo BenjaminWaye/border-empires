@@ -210,12 +210,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   let threeTerrainRenderer:
     | ReturnType<typeof createClientThreeTerrainRenderer>
     | undefined;
-  const prefersRewrite3DDefault = state.activeBackend === "gateway" && !rendererModeExplicitlySet;
-  const localhost3DDefault =
-    typeof window !== "undefined" &&
-    window.location.hostname === "localhost" &&
-    !rendererModeExplicitlySet;
-  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || prefersRewrite3DDefault || localhost3DDefault;
+  const defaultThreeTerrainRenderer = !rendererModeExplicitlySet;
+  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || defaultThreeTerrainRenderer;
   const ensureThreeTerrainRenderer = (): void => {
     if (!shouldUseThreeTerrainRenderer) return;
     if (!state.authSessionReady) return;
