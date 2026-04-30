@@ -19,18 +19,47 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.30.2",
+  version: "2026.04.30.5",
   title: "What's New",
-  summary: "Recent updates include brighter rewrite 3D grass and sand textures with visible tile grid lines restored, moving legacy snapshot save serialization and file writes onto a dedicated worker so production no longer has to keep that persistence path on the main event loop, the earlier fix for snapshot serialization blocking during saves, frontier combat revealing from the locked COMBAT_START result without any follow-up COMBAT_RESULT message, a legacy login hot-path fix that stops auth and full empire refreshes from rebuilding personalized leaderboard and season-victory payloads during connection, a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include brighter rewrite 3D grass and sand textures with visible tile grid lines restored, a rewrite gateway socket-routing fix that stops attack accepts and other frontier control events from preferring stale closed control sockets over a healthy bulk channel, sparse legacy chunk snapshots that stop sending never-explored tiles while preserving previously discovered fog on reconnect, immediate starting territory after profile setup for fresh players, owner-indexed legacy player update payloads that avoid repeated global scans for social and development state, new chunk-stream instrumentation for real wall-time between batches, moving legacy snapshot save serialization and file writes onto a dedicated worker so production no longer has to keep that persistence path on the main event loop, the earlier fix for snapshot serialization blocking during saves, frontier combat revealing from the locked COMBAT_START result without any follow-up COMBAT_RESULT message, a legacy login hot-path fix that stops auth and full empire refreshes from rebuilding personalized leaderboard and season-victory payloads during connection, a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
     {
-      introducedIn: "2026.04.30.2",
+      introducedIn: "2026.04.30.5",
       title: "Rewrite 3D terrain now uses a brighter 2D-style palette with visible tile grid lines",
       why: "The rewrite 3D terrain had drifted darker than the legacy 2D map and the square tile boundaries disappeared once the renderer stopped drawing them as a separate overlay, making the terrain feel flatter and harder to read.",
       changes: [
         "Grass, sand, and coastal water textures now use a brighter palette tuned back toward the legacy 2D terrain colors.",
         "3D terrain textures now bake in subtle tile-edge darkening so the square grid reads again without adding a separate heavy grid mesh on top of the terrain.",
         "Extracted the legacy 3D terrain texture generator into a focused module with regression coverage for the palette and edge blend."
+      ]
+    },
+    {
+      introducedIn: "2026.04.30.4",
+      title: "Rewrite frontier acks now ignore stale control sockets",
+      why: "A reconnect could leave a dead control socket in the session set while a healthy bulk socket was still open, and the gateway routing code would still prefer the dead control channel for attack accepts and other frontier control events. That dropped the ack on the floor and made attacks look permanently stuck even though the simulation had already accepted them.",
+      changes: [
+        "Gateway frontier event routing now filters out closed sockets before choosing whether control or bulk should carry a player event.",
+        "If the control socket is stale but the bulk socket is still healthy, rewrite COMMAND_ACCEPTED and other frontier control messages now fall back to the healthy channel instead of silently disappearing.",
+        "Added gateway regression coverage for stale-control attack ack delivery and per-player tile-delta routing."
+      ]
+    },
+    {
+      introducedIn: "2026.04.30.3",
+      title: "Legacy world sync now skips never-explored tiles",
+      why: "Legacy chunk sync was still sending dense 64x64 chunk payloads even for tiles the player had never seen, which wasted chunk-stream time and forced the server to rebuild and serialize far more map state than the client actually needed.",
+      changes: [
+        "Legacy now persists per-player discovered tiles in snapshots so reconnects and server restarts keep explored fog intact.",
+        "Chunk payloads now include visible tiles plus previously discovered fogged tiles, while omitting truly unexplored tiles instead of serializing dense fog-only chunk arrays.",
+        "Added owner-indexed player-update lookups and new chunk batch-gap instrumentation so remaining legacy sync cost is easier to measure and no longer depends on repeated global-map scans."
+      ]
+    },
+    {
+      introducedIn: "2026.04.30.2",
+      title: "New players now spawn immediately after profile setup",
+      why: "After completing name and color setup on a fresh world, the server was not calling spawnPlayer, so the player record was marked complete but had no starting territory. Players landed in the game view with zero settled tiles and all game actions blocked.",
+      changes: [
+        "SET_PROFILE now calls `spawnPlayer(actor)` after marking the profile complete, which grants the player's capital and starting frontier tiles immediately.",
+        "Fresh players no longer need to reconnect or wait for a respawn cycle to receive their starting territory."
       ]
     },
     {
