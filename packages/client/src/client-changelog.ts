@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.01.4",
+  version: "2026.05.01.5",
   title: "What's New",
-  summary: "Recent updates include clearer frontier combat debug payloads in the browser console, a frontier combat sync fix so authoritative post-combat tile updates now clear delayed attacks even when the target stays enemy or barbarian, a legacy town-capture visibility fix so conquered AI towns now stay visible on frontier tiles after combat without changing conquest rules, a true-3D forest overlay fix so canvas tree sprites no longer stack on top of the 3D forest meshes, a legacy chunk-stream fix so stale bulk-socket closes no longer reset the live session's chunk generation back to 1 mid-session, a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
+  summary: "Recent updates include production true-3D terrain now defaulting on fresh client loads unless you explicitly override the renderer mode, clearer frontier combat debug payloads in the browser console, a frontier combat sync fix so authoritative post-combat tile updates now clear delayed attacks even when the target stays enemy or barbarian, a legacy town-capture visibility fix so conquered AI towns now stay visible on frontier tiles after combat without changing conquest rules, a true-3D forest overlay fix so canvas tree sprites no longer stack on top of the 3D forest meshes, a legacy chunk-stream fix so stale bulk-socket closes no longer reset the live session's chunk generation back to 1 mid-session, a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
   entries: [
+    {
+      introducedIn: "2026.05.01.5",
+      title: "Production client loads now default to true 3D terrain",
+      why: "The Three.js terrain renderer was only auto-enabled for gateway-backed sessions, localhost, or an explicit renderer query override, so production `play.borderempires.com` loads on the legacy backend stayed in the flat canvas terrain path by default.",
+      changes: [
+        "Fresh client sessions now default to the true 3D terrain renderer whenever no explicit `renderer` query parameter is set.",
+        "Explicit renderer overrides still win, so `?renderer=3d` keeps forcing Three.js terrain and non-3D modes can still opt out.",
+        "Added a regression guard so future bootstrap changes do not tie the default 3D terrain path back to backend selection."
+      ]
+    },
     {
       introducedIn: "2026.05.01.4",
       title: "Frontier combat-start debug logs now show locked results",
