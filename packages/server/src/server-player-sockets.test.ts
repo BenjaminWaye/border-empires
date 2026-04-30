@@ -25,6 +25,20 @@ describe("server-player-sockets", () => {
     expect(control.send).toHaveBeenCalledWith("fallback-message");
   });
 
+  it("falls back to the control socket when the bulk socket is stale", () => {
+    const control = fakeSocket();
+    const staleBulk = fakeSocket();
+    staleBulk.readyState = 3;
+    const controlSockets = new Map<string, PlayerSocketLike>([["p1", control]]);
+    const bulkSockets = new Map<string, PlayerSocketLike>([["p1", staleBulk]]);
+
+    expect(bulkSocketForPlayer(controlSockets, bulkSockets, "p1")).toBe(control);
+
+    sendBulkToPlayer(controlSockets, bulkSockets, "p1", "fallback-message");
+    expect(control.send).toHaveBeenCalledWith("fallback-message");
+    expect(staleBulk.send).not.toHaveBeenCalled();
+  });
+
   it("sends control traffic only on the control socket", () => {
     const control = fakeSocket();
     const bulk = fakeSocket();
@@ -55,5 +69,19 @@ describe("server-player-sockets", () => {
     expect(shared.send).toHaveBeenCalledTimes(1);
     expect(bulkOnly.send).toHaveBeenCalledTimes(1);
     expect(controlOnly.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("broadcasts on the open control socket when a player's bulk socket is stale", () => {
+    const control = fakeSocket();
+    const staleBulk = fakeSocket();
+    staleBulk.readyState = 3;
+    const controlSockets = new Map<string, PlayerSocketLike>([["p1", control]]);
+    const bulkSockets = new Map<string, PlayerSocketLike>([["p1", staleBulk]]);
+
+    broadcastBulk(controlSockets, bulkSockets, "payload");
+
+    expect(control.send).toHaveBeenCalledTimes(1);
+    expect(control.send).toHaveBeenCalledWith("payload");
+    expect(staleBulk.send).not.toHaveBeenCalled();
   });
 });
