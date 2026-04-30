@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.12",
+  version: "2026.04.30.1",
   title: "What's New",
-  summary: "Recent updates include a fix for snapshot serialization blocking the event loop during saves, frontier combat revealing from the locked COMBAT_START result without any follow-up COMBAT_RESULT message, a legacy login hot-path fix that stops auth and full empire refreshes from rebuilding personalized leaderboard and season-victory payloads during connection, a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include moving legacy snapshot save serialization and file writes onto a dedicated worker so production no longer has to keep that persistence path on the main event loop, the earlier fix for snapshot serialization blocking during saves, frontier combat revealing from the locked COMBAT_START result without any follow-up COMBAT_RESULT message, a legacy login hot-path fix that stops auth and full empire refreshes from rebuilding personalized leaderboard and season-victory payloads during connection, a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.30.1",
+      title: "Legacy snapshot saves now run on a dedicated worker",
+      why: "Production legacy still had the snapshot persistence path tied to the main Node.js event loop, so even after yielding between JSON.stringify calls the server could still starve websocket handshakes while periodic saves were trying to progress under heavy runtime pressure.",
+      changes: [
+        "Snapshot section serialization and file writes now run in a dedicated worker thread instead of on the server's main event loop.",
+        "The worker writes snapshot sections sequentially and preserves the existing atomic tmp-file rename flow for each section and the index file.",
+        "Added regression coverage so future snapshot-save changes keep persistence off the main-thread websocket/auth path."
+      ]
+    },
     {
       introducedIn: "2026.04.29.12",
       title: "Snapshot saves no longer block the server event loop",
