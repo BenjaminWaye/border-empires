@@ -291,6 +291,7 @@ export const menuOverviewForTile = (
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
   const modifierLines: TileOverviewLine[] = [];
+  const hasOwnedLandState = Boolean(tile.ownerId) && tile.terrain === "LAND";
   const pushLine = (html: string): void => {
     lines.push({ html });
   };
@@ -323,7 +324,7 @@ export const menuOverviewForTile = (
   if (tile.resource && !tile.ownerId && resourceLabelText) {
     pushLine(`This ${resourceLabelText.toLowerCase()} node starts producing only after you claim and settle the tile.`);
   }
-  if (tile.terrain === "SEA" || tile.terrain === "MOUNTAIN" || !tile.ownerId) return lines;
+  if (tile.terrain === "SEA" || tile.terrain === "MOUNTAIN") return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter gold and manpower until they grow into towns.");
   }
@@ -336,7 +337,9 @@ export const menuOverviewForTile = (
   }
   const supportedTowns = tile.ownerId === deps.state.me && tile.ownershipState === "SETTLED" ? deps.supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
-    if (tile.town.populationTier === "SETTLEMENT") {
+    if (!hasOwnedLandState) {
+      pushLine("Neutral town. Claim and settle this tile to start its economy.");
+    } else if (tile.town.populationTier === "SETTLEMENT") {
       const displayedTownGoldPerMinute = deps.displayTownGoldPerMinute(tile);
       const settlementGoldPerMinute = Number.isFinite(displayedTownGoldPerMinute) ? displayedTownGoldPerMinute : 0;
       pushLine(`Settlement is producing ${settlementGoldPerMinute.toFixed(2)} gold/m.`);
@@ -348,10 +351,10 @@ export const menuOverviewForTile = (
     ) {
       pushLine("Town is fed but gold is paused until your empire manpower is full.");
     }
-    if (tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
+    if (hasOwnedLandState && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");
     }
-    if (tile.town.populationTier !== "SETTLEMENT") {
+    if (hasOwnedLandState && tile.town.populationTier !== "SETTLEMENT") {
       const supportCurrent = Number.isFinite(tile.town.supportCurrent) ? tile.town.supportCurrent : 0;
       const supportMax = Number.isFinite(tile.town.supportMax) ? tile.town.supportMax : 0;
       pushLine(`Support ${supportCurrent}/${supportMax}`);
@@ -369,7 +372,7 @@ export const menuOverviewForTile = (
     if (connectedDockCount === 0) pushLine("Connect this dock to other docks to gain bonus gold production.");
   }
   if (productionHtml) pushLine(`Production: ${productionHtml}`);
-  lines.push(...tileOverviewUpkeepLines(tile));
+  if (hasOwnedLandState) lines.push(...tileOverviewUpkeepLines(tile));
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
     if (town) {

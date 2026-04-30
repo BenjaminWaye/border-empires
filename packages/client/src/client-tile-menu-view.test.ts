@@ -152,6 +152,54 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Settlement is producing 0.00 gold/m."))).toBe(true);
   });
 
+  it("shows neutral town stats without owned-only economy guidance", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 41,
+        y: 52,
+        terrain: "LAND",
+        upkeepEntries: [{ label: "Town", perMinute: { FOOD: 0.1 } }],
+        town: {
+          name: "Galehaven",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 0,
+          supportMax: 0,
+          goldPerMinute: 0,
+          cap: 40,
+          isFed: false,
+          population: 18_400,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 0,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        }
+      },
+      {
+        ...deps,
+        populationPerMinuteLabel: () => "0/m",
+        townNextGrowthEtaLabel: () => "never"
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Neutral town. Claim and settle this tile to start its economy."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Population 18,400"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Growth 0/m"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Next size: never."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Support 0/0"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Connect this town to other towns"))).toBe(false);
+    expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(false);
+    expect(lines.some((line) => line.html.includes("Town:") && line.html.includes("0.10/m"))).toBe(false);
+  });
+
   it("does not show support or road-bonus UI for settlements even if stale town fields are present", () => {
     const lines = menuOverviewForTile(
       {
