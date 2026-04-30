@@ -4,6 +4,9 @@ export type PlayerSocketLike = {
   send: (payload: string) => void;
 };
 
+const isOpenSocket = (socket: PlayerSocketLike | undefined): socket is PlayerSocketLike =>
+  socket !== undefined && socket.readyState === socket.OPEN;
+
 export const controlSocketForPlayer = (
   controlSocketsByPlayer: ReadonlyMap<string, PlayerSocketLike>,
   playerId: string
@@ -13,7 +16,13 @@ export const bulkSocketForPlayer = (
   controlSocketsByPlayer: ReadonlyMap<string, PlayerSocketLike>,
   bulkSocketsByPlayer: ReadonlyMap<string, PlayerSocketLike>,
   playerId: string
-): PlayerSocketLike | undefined => bulkSocketsByPlayer.get(playerId) ?? controlSocketsByPlayer.get(playerId);
+): PlayerSocketLike | undefined => {
+  const bulkSocket = bulkSocketsByPlayer.get(playerId);
+  if (isOpenSocket(bulkSocket)) return bulkSocket;
+  const controlSocket = controlSocketsByPlayer.get(playerId);
+  if (isOpenSocket(controlSocket)) return controlSocket;
+  return bulkSocket ?? controlSocket;
+};
 
 export const sendControlToPlayer = (
   controlSocketsByPlayer: ReadonlyMap<string, PlayerSocketLike>,
@@ -42,13 +51,10 @@ export const broadcastBulk = (
   payload: string
 ): void => {
   const sent = new Set<PlayerSocketLike>();
-  for (const socket of bulkSocketsByPlayer.values()) {
-    if (socket.readyState !== socket.OPEN || sent.has(socket)) continue;
-    socket.send(payload);
-    sent.add(socket);
-  }
-  for (const [playerId, socket] of controlSocketsByPlayer) {
-    if (bulkSocketsByPlayer.has(playerId) || socket.readyState !== socket.OPEN || sent.has(socket)) continue;
+  const playerIds = new Set<string>([...bulkSocketsByPlayer.keys(), ...controlSocketsByPlayer.keys()]);
+  for (const playerId of playerIds) {
+    const socket = bulkSocketForPlayer(controlSocketsByPlayer, bulkSocketsByPlayer, playerId);
+    if (!isOpenSocket(socket) || sent.has(socket)) continue;
     socket.send(payload);
     sent.add(socket);
   }
