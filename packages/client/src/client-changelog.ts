@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.30.13",
+  version: "2026.05.01.1",
   title: "What's New",
-  summary: "Recent updates include a legacy chunk-stream fix so stale bulk-socket closes no longer reset the live session's chunk generation back to 1 mid-session, a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
+  summary: "Recent updates include a legacy town-capture visibility fix so conquered AI towns now stay visible on frontier tiles after combat without changing conquest rules, a legacy chunk-stream fix so stale bulk-socket closes no longer reset the live session's chunk generation back to 1 mid-session, a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
   entries: [
+    {
+      introducedIn: "2026.05.01.1",
+      title: "Captured AI towns now stay visible on legacy after conquest",
+      why: "Legacy sync was discarding town data on any non-settled tile during combat-result and tile-delta merges, so a conquered AI town could visually disappear even though the server still tracked it on the frontier tile.",
+      changes: [
+        "Legacy client sync no longer strips authoritative town summaries just because a tile is still frontier after capture.",
+        "Captured towns now stay visible through combat-result, tile-delta, and chunk-batch reconciliation while preserving the existing frontier-first conquest flow.",
+        "Added client regression coverage so future sync changes keep frontier towns visible after conquest."
+      ]
+    },
     {
       introducedIn: "2026.04.30.13",
       title: "Legacy chunk generations now survive stale bulk-socket closes",
