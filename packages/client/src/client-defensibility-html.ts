@@ -1,3 +1,4 @@
+import { fullDefensibilityExposureForTiles, idealExposureForTiles } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
 
 type EdgeDirection = "north" | "east" | "south" | "west";
@@ -8,8 +9,6 @@ type DefensibilityBreakdown = {
   internalEdges: number;
   naturalShieldEdges: number;
   borderEdges: number;
-  exposedEdgeRatio: number;
-  rating: "Strong" | "Stable" | "Fragile" | "Very Exposed";
   tips: string[];
 };
 
@@ -17,6 +16,8 @@ type DefensibilityArgs = {
   tiles: Map<string, Tile>;
   me: string;
   defensibilityPct: number;
+  settledT: number;
+  settledE: number;
   showWeakDefensibility: boolean;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
@@ -26,6 +27,9 @@ type DefensibilityArgs = {
 
 const settledOwnedTiles = (args: Pick<DefensibilityArgs, "tiles" | "me">): Tile[] =>
   [...args.tiles.values()].filter((tile) => tile.ownerId === args.me && tile.terrain === "LAND" && tile.ownershipState === "SETTLED" && !tile.fogged);
+
+const settledTileExposureEntries = (args: Pick<DefensibilityArgs, "tiles" | "me" | "keyFor" | "wrapX" | "wrapY" | "terrainAt">) =>
+  settledOwnedTiles(args).map((tile) => ({ tile, exposedSides: exposedSidesForTile(tile, args) }));
 
 export const exposedSidesForTile = (
   tile: Tile,
@@ -49,12 +53,13 @@ export const exposedSidesForTile = (
 };
 
 const weakDefensibilityTiles = (args: Pick<DefensibilityArgs, "tiles" | "me" | "keyFor" | "wrapX" | "wrapY" | "terrainAt">) =>
-  settledOwnedTiles(args)
-    .map((tile) => ({ tile, exposedSides: exposedSidesForTile(tile, args) }))
-    .filter((entry) => entry.exposedSides.length >= 2);
+  settledTileExposureEntries(args).filter((entry) => entry.exposedSides.length >= 2);
+
+const formatDefenseNumber = (value: number): string => (Number.isInteger(value) ? `${value}` : value.toFixed(1));
 
 const defensibilityBreakdown = (args: Pick<DefensibilityArgs, "tiles" | "me" | "keyFor" | "wrapX" | "wrapY" | "terrainAt">): DefensibilityBreakdown => {
-  const tiles = settledOwnedTiles(args);
+  const tileExposureEntries = settledTileExposureEntries(args);
+  const tiles = tileExposureEntries.map((entry) => entry.tile);
   let exposedEdges = 0;
   let internalEdges = 0;
   let naturalShieldEdges = 0;
@@ -80,15 +85,19 @@ const defensibilityBreakdown = (args: Pick<DefensibilityArgs, "tiles" | "me" | "
     }
   }
   const borderEdges = naturalShieldEdges + exposedEdges;
-  const exposedEdgeRatio = borderEdges > 0 ? exposedEdges / borderEdges : 0;
-  const rating =
-    exposedEdgeRatio <= 0.18 ? "Strong" : exposedEdgeRatio <= 0.32 ? "Stable" : exposedEdgeRatio <= 0.5 ? "Fragile" : "Very Exposed";
   const tips: string[] = [];
   if (exposedEdges > naturalShieldEdges) tips.push("Anchor more of your border on coastlines or mountains to replace exposed edges with natural shields.");
   if (tiles.length > 0 && exposedEdges / tiles.length > 1.6) tips.push("Your empire is stretched thin. Fill inward gaps and avoid long one-tile corridors.");
   if (internalEdges < borderEdges * 1.4) tips.push("Compact blocks defend better than snakes. Settling tiles that connect nearby clusters will lift defensibility fastest.");
   if (tips.length === 0) tips.push("Your current shape is efficient. Keep expanding in compact blocks and preserve natural barriers where possible.");
-  return { settledTiles: tiles.length, exposedEdges, internalEdges, naturalShieldEdges, borderEdges, exposedEdgeRatio, rating, tips };
+  return {
+    settledTiles: tiles.length,
+    exposedEdges,
+    internalEdges,
+    naturalShieldEdges,
+    borderEdges,
+    tips
+  };
 };
 
 export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string => {
@@ -103,6 +112,15 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
   const summary = defensibilityBreakdown(sharedArgs);
   const rounded = Math.round(args.defensibilityPct);
   const weakCount = weakDefensibilityTiles(sharedArgs).length;
+  const authoritativeSettledTiles = Math.max(0, Number.isFinite(args.settledT) ? args.settledT : 0);
+  const authoritativeWeightedExposure = Math.max(0, Number.isFinite(args.settledE) ? args.settledE : 0);
+  const compactFrontierTarget = authoritativeSettledTiles > 0 ? idealExposureForTiles(authoritativeSettledTiles) : 0;
+  const fullScoreCutoff = authoritativeSettledTiles > 0 ? fullDefensibilityExposureForTiles(authoritativeSettledTiles) : 0;
+  const weightedExposureClass = authoritativeWeightedExposure <= fullScoreCutoff ? "is-positive" : "is-negative";
+  const scoreCopy =
+    rounded >= 100
+      ? "Your weighted exposure is still within the full-score frontier range for an empire this size. Coastlines and mountains do not count as exposed, and tiles with 3 or 4 open sides are penalized harder than tiles with 2."
+      : "This score drops below 100% when your weighted exposure rises above the full-score frontier range for an empire this size. Coastlines and mountains do not count as exposed, and tiles with 3 or 4 open sides are penalized harder than tiles with 2.";
   return `<div class="defense-panel">
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
@@ -110,9 +128,8 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
           <div class="defense-kicker">Empire Shape</div>
           <strong>${rounded}% defensibility</strong>
         </div>
-        <span class="defense-rating defense-rating-${summary.rating.toLowerCase().replace(/ /g, "-")}">${summary.rating}</span>
       </div>
-      <p class="defense-copy">Compact settled land with fewer exposed sides defends better. Coastlines and mountains count as safer borders than open land.</p>
+      <p class="defense-copy">${scoreCopy}</p>
       <button class="panel-btn defense-toggle-btn" type="button" data-toggle-weak-def="true">${args.showWeakDefensibility ? "Hide Weak Tiles" : "Show Weak Tiles"}${weakCount > 0 ? ` (${weakCount})` : ""}</button>
     </article>
     <article class="card defense-breakdown-card">
@@ -124,10 +141,11 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
       </div>
     </article>
     <article class="card defense-breakdown-card">
-      <strong>How this works</strong>
-      <div class="defense-line"><span>Open land borders</span><strong class="is-negative">${Math.round(summary.exposedEdgeRatio * 100)}%</strong></div>
-      <div class="defense-line"><span>Coast / mountain cover</span><strong class="is-positive">${summary.borderEdges > 0 ? Math.round((summary.naturalShieldEdges / summary.borderEdges) * 100) : 0}%</strong></div>
-      <div class="defense-line"><span>Shape efficiency</span><strong>${rounded >= 100 ? "Maxed" : rounded >= 70 ? "Good" : rounded >= 45 ? "Needs work" : "Very loose"}</strong></div>
+      <strong>How this score is calculated</strong>
+      <div class="defense-line"><span>Compact frontier target</span><strong>${formatDefenseNumber(compactFrontierTarget)}</strong></div>
+      <div class="defense-line"><span>100% cutoff</span><strong>${formatDefenseNumber(fullScoreCutoff)}</strong></div>
+      <div class="defense-line"><span>Authoritative weighted exposure</span><strong class="${weightedExposureClass}">${formatDefenseNumber(authoritativeWeightedExposure)}</strong></div>
+      <p class="defense-copy">The percentage compares your authoritative weighted exposure against the best compact frontier for the same number of settled tiles. Raw exposed-edge counts below help you spot weak borders locally, but the score comes from the server-fed settled territory totals.</p>
     </article>
     <article class="card defense-breakdown-card">
       <strong>Tips to improve</strong>
