@@ -7,8 +7,10 @@
 - Before deleting any worktree, create a recovery point for unmerged work with a branch, tag, or bundle, and verify the target commit is reachable from a preserved ref.
 - When a user asks to "deploy" without naming an environment, treat that as a staging deploy by default. Do not assume production unless the user explicitly says `production`, `prod`, or otherwise makes the production target unambiguous.
 - Before any production deploy, make sure this checkout is updated to the latest `origin/main` so the deploy uses the merged remote state.
-- For production client deploys, use `pnpm deploy:client:prod` from `/Users/benjaminwaye/Sites/border-empires-container/border-empires` so the deploy verifies that the public Vercel alias serves the new bundle.
-- Use exactly one Vercel project for the client deploys: `border-empires-client`, linked from `/Users/benjaminwaye/Sites/border-empires-container/border-empires/.vercel/project.json`.
+- Use exactly one Vercel project for the client deploys: `border-empires-client` (`projectId` `prj_QczQjhdpgV6Mu8Q03r4Ot6KWD1va`, `orgId` `team_GdmtYDKeSISxfvppIgLt4Rma`).
+- Use `pnpm vercel:link:client` from `/Users/benjaminwaye/Sites/border-empires-container/border-empires` to rewrite the current worktree's `.vercel/project.json` to that pinned project before any manual Vercel CLI work.
+- Reserve the `staging` branch for `https://staging.borderempires.com`; `pnpm deploy:client:staging` must run from `staging` unless an explicit one-off override env var is set.
+- For production client deploys, use `pnpm deploy:client:prod` from `/Users/benjaminwaye/Sites/border-empires-container/border-empires`; it must run from `main` and verifies that the public Vercel aliases serve the new bundle without capturing the staging alias.
 - Do not create or link additional Vercel projects for this repo. Reuse `border-empires-client` and prefer the stable production domain `https://border-empires-client.vercel.app/` when reporting deploy results.
 - The production Fly app name for this repo is `border-empires`.
 - Use `fly status -a border-empires`, `fly logs -a border-empires`, and `fly deploy -a border-empires` for production runtime checks and deploys.
