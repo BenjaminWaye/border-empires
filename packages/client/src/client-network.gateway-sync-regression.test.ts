@@ -668,16 +668,16 @@ describe("client gateway sync regression", () => {
     );
   });
 
-  it("drops stale town titles when a combat result demotes the tile from settled land", () => {
+  it("preserves captured town titles when a combat result keeps the town on frontier land", () => {
     const state = createState();
     state.me = "player-1";
-    state.tiles.set("10,10", {
+    state.tiles.set("10,11", {
       x: 10,
-      y: 10,
+      y: 11,
       terrain: "LAND",
-      ownerId: "player-1",
+      ownerId: "player-2",
       ownershipState: "SETTLED",
-      town: { townId: "town-1", name: "Origin Title" }
+      town: { townId: "town-1", name: "Captured Title", type: "FARMING", populationTier: "TOWN" }
     });
     state.actionCurrent = { x: 10, y: 11, origin: { x: 10, y: 10 }, retries: 0, clientSeq: 9, commandId: "cmd-9", actionType: "ATTACK" };
     state.actionTargetKey = "10,11";
@@ -693,20 +693,65 @@ describe("client gateway sync regression", () => {
         type: "COMBAT_RESULT",
         commandId: "cmd-9",
         attackType: "ATTACK",
-        attackerWon: false,
+        attackerWon: true,
         origin: { x: 10, y: 10 },
         target: { x: 10, y: 11 },
-        changes: [{ x: 10, y: 10, ownerId: "player-2", ownershipState: "FRONTIER" }]
+        changes: [{ x: 10, y: 11, ownerId: "player-1", ownershipState: "FRONTIER" }]
       })
     });
 
-    expect(state.tiles.get("10,10")).toMatchObject({
+    expect(state.tiles.get("10,11")).toMatchObject({
       x: 10,
-      y: 10,
-      ownerId: "player-2",
+      y: 11,
+      ownerId: "player-1",
       ownershipState: "FRONTIER"
     });
-    expect(state.tiles.get("10,10")?.town).toBeUndefined();
+    expect(state.tiles.get("10,11")?.town).toMatchObject({
+      townId: "town-1",
+      name: "Captured Title"
+    });
+  });
+
+  it("preserves frontier towns during authoritative tile delta reconciliation", () => {
+    const state = createState();
+    state.me = "player-1";
+    state.tiles.set("10,11", {
+      x: 10,
+      y: 11,
+      terrain: "LAND",
+      ownerId: "player-1",
+      ownershipState: "FRONTIER",
+      town: { townId: "town-1", name: "Captured Title", type: "FARMING", populationTier: "TOWN" }
+    });
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA_BATCH",
+        tiles: [
+          {
+            x: 10,
+            y: 11,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            town: { townId: "town-1", name: "Captured Title", type: "FARMING", populationTier: "TOWN" }
+          }
+        ]
+      })
+    });
+
+    expect(state.tiles.get("10,11")).toMatchObject({
+      x: 10,
+      y: 11,
+      ownerId: "player-1",
+      ownershipState: "FRONTIER",
+      town: expect.objectContaining({
+        townId: "town-1",
+        name: "Captured Title"
+      })
+    });
   });
 
   it("shows queued and recovery alerts correctly with the runtime title-first alert wrapper", () => {
