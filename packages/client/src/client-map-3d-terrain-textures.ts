@@ -11,11 +11,11 @@ const tint = (r: number, g: number, b: number, delta: number): [number, number, 
 ];
 
 export const legacy3DTerrainPalette = {
-  grassLight: [132, 164, 84] as [number, number, number],
-  grassDark: [111, 145, 67] as [number, number, number],
-  sand: [228, 202, 155] as [number, number, number],
-  seaDeep: [98, 156, 190] as [number, number, number],
-  seaCoast: [127, 179, 208] as [number, number, number],
+  grassLight: [119, 142, 66] as [number, number, number],
+  grassDark: [94, 124, 48] as [number, number, number],
+  sand: [214, 184, 135] as [number, number, number],
+  seaDeep: [71, 128, 158] as [number, number, number],
+  seaCoast: [103, 154, 182] as [number, number, number],
   gridLand: [73, 87, 70] as [number, number, number],
   gridSand: [108, 99, 78] as [number, number, number],
   gridSea: [79, 103, 118] as [number, number, number]
