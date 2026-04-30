@@ -850,6 +850,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       tiles: state.tiles,
       me: state.me,
       defensibilityPct: state.defensibilityPct,
+      settledT: state.settledT,
+      settledE: state.settledE,
       showWeakDefensibility: state.showWeakDefensibility,
       keyFor,
       wrapX,

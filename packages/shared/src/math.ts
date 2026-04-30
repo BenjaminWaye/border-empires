@@ -1,6 +1,7 @@
 import { DEF_MULT_MAX, DEF_MULT_MIN, LEVEL_CURVE_C, RATING_A, RATING_B, UNDERDOG_K, WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
 
 const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n));
+const DEFENSIBILITY_FULL_SCORE_RATIO = 0.8;
 const wrap = (value: number, size: number): number => {
   const remainder = value % size;
   return remainder < 0 ? remainder + size : remainder;
@@ -31,17 +32,19 @@ export const exposureWeightFromSides = (exposedSides: number): number => {
   return 4;
 };
 
+export const idealExposureForTiles = (T: number): number => 2 * Math.ceil(2 * Math.sqrt(Math.max(1, T)));
+
+export const fullDefensibilityExposureForTiles = (T: number): number => idealExposureForTiles(T) / DEFENSIBILITY_FULL_SCORE_RATIO;
+
 export const exposureRatio = (T: number, E: number): number => {
-  const safeT = Math.max(1, T);
   const safeE = Math.max(0, E);
   if (safeE <= 0) return 1;
-  const idealPerimeter = 2 * Math.ceil(2 * Math.sqrt(safeT));
-  return clamp(idealPerimeter / safeE, 0, 1);
+  return clamp(idealExposureForTiles(T) / safeE, 0, 1);
 };
 
 export const defensibilityScore = (T: number, E: number): number => {
   const ratio = exposureRatio(T, E);
-  if (ratio >= 0.8) return 1;
+  if (ratio >= DEFENSIBILITY_FULL_SCORE_RATIO) return 1;
   // Raw perimeter ratio underrates ordinary frontiers. This curve keeps
   // perfect shapes at 100% while lifting the practical mid-range much harder.
   return clamp(ratio / (0.2 + 0.8 * ratio), 0, 1);
