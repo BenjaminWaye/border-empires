@@ -829,6 +829,67 @@ describe("client network regression guards", () => {
     consoleErrorSpy.mockRestore();
   });
 
+  it("requeues a busy settlement from the server tile when latest settle state still matches", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = undefined;
+    state.latestSettleTargetKey = "12,18";
+    state.activeDevelopmentProcessCount = 0;
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER"
+    });
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const pushFeed = vi.fn();
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 3 development slots are busy", x: 12, y: 18 })
+    });
+
+    expect(state.activeDevelopmentProcessCount).toBe(3);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(showCaptureAlert).not.toHaveBeenCalled();
+    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("does not invent a queued settlement from a busy error with no local settle evidence", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = undefined;
+    state.latestSettleTargetKey = "";
+    state.settleProgressByTile.clear();
+    state.queuedDevelopmentDispatchPending = false;
+    state.activeDevelopmentProcessCount = 0;
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER"
+    });
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const pushFeed = vi.fn();
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 3 development slots are busy", x: 12, y: 18 })
+    });
+
+    expect(state.activeDevelopmentProcessCount).toBe(3);
+    expect(state.developmentQueue).toEqual([]);
+    expect(showCaptureAlert).toHaveBeenCalledWith("Action failed", "all 3 development slots are busy", "warn", undefined);
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
   it("requeues a settlement without crashing when settlement clear wiring is missing", () => {
     const state = createState();
     state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
