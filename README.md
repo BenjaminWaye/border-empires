@@ -244,10 +244,10 @@ WebSocket URL for client env:
 In Vercel project settings:
 
 - Framework: Vite
-- Root Directory: `packages/client`
+- Root Directory: repo root
 - Install Command: `pnpm install --frozen-lockfile`
-- Build Command: `pnpm --filter @border-empires/client build`
-- Output Directory: `dist`
+- Build Command: `pnpm --filter @border-empires/shared build && pnpm --filter @border-empires/client build`
+- Output Directory: `packages/client/dist`
 
 Set environment variables:
 
@@ -256,23 +256,45 @@ Set environment variables:
 
 Release cadence (required):
 
-1. Deploy **preview/staging** first (staging validation):
+1. Use `pnpm deploy:client:preview` for ad hoc preview URLs from any feature branch. It deploys to the pinned `border-empires-client` project but does not touch stable domains.
+
+2. Keep a shared `staging` branch for client pre-production. Merge tested feature branches into `staging`, then relink the current worktree if needed:
 
 ```bash
-pnpm deploy:client:staging
+pnpm vercel:link:client
 ```
 
-2. Validate staging behavior on the preview URL:
+3. Deploy **preview/staging** from the `staging` branch only:
+
+ ```bash
+ pnpm deploy:client:staging
+ ```
+
+The staging deploy script now:
+
+- pins Vercel CLI to the single `border-empires-client` project via tracked project/org IDs
+- rewrites `.vercel/project.json` in the current worktree if it is missing or stale
+- refuses to run outside the `staging` branch unless `ALLOW_NON_STAGING_BRANCH_DEPLOY=1` is set for a one-off emergency override
+- verifies that `staging.borderempires.com` resolves to the new preview deployment and that production no longer claims the staging alias
+
+4. Validate staging behavior on `https://staging.borderempires.com`:
 - login/session init
 - frontier expand resolution
 - launch attack resolution
 - reconnect/reload behavior
 
-3. Promote only after preview passes:
+5. Promote only after preview passes, from `main`:
 
 ```bash
 pnpm deploy:client:prod
 ```
+
+The production deploy script now:
+
+- refuses to run outside `main` unless `ALLOW_NON_MAIN_PROD_DEPLOY=1` is set
+- pins Vercel CLI to `border-empires-client`
+- verifies `https://play.borderempires.com` and `https://border-empires-client.vercel.app` both resolve to the new production deployment
+- fails if the production deployment still owns `staging.borderempires.com`
 
 Vercel env scopes:
 
@@ -284,7 +306,7 @@ Vercel env scopes:
 Stable URLs:
 
 - Production: `https://play.borderempires.com` (aliased to latest production deploy)
-- Staging: `https://staging.borderempires.com` (aliased by `deploy:client:staging`)
+- Staging: `https://staging.borderempires.com` (reserved for the `staging` branch deploy only)
 
 DNS requirement for stable staging alias:
 
