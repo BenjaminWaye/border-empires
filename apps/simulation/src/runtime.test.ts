@@ -1082,6 +1082,192 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("grants the defender the attacker's origin tile on a failed attack without fort protection", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "player-2",
+            {
+              id: "player-2",
+              isAi: true,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationRuntimeEventShape[] = [];
+      runtime.onEvent((event) => {
+        seen.push(event);
+      });
+
+      runtime.submitCommand({
+        commandId: "lose-origin-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      const combatResolved = seen.find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMBAT_RESOLVED" }> => event.eventType === "COMBAT_RESOLVED"
+      );
+      expect(combatResolved?.combatResult).toEqual(
+        expect.objectContaining({
+          attackerWon: false,
+          changes: [{ x: 10, y: 10, ownerId: "player-2", ownershipState: "FRONTIER" }]
+        })
+      );
+
+      const tileDelta = seen.find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "TILE_DELTA_BATCH" }> =>
+          event.eventType === "TILE_DELTA_BATCH" && event.commandId === "lose-origin-1"
+      );
+      expect(tileDelta?.tileDeltas).toContainEqual(
+        expect.objectContaining({ x: 10, y: 10, ownerId: "player-2", ownershipState: "FRONTIER" })
+      );
+
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)).toEqual(
+        expect.objectContaining({
+          ownerId: "player-2",
+          ownershipState: "FRONTIER"
+        })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the origin tile when a failed attack starts from an active fort", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "player-2",
+            {
+              id: "player-2",
+              isAi: true,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              fort: { ownerId: "player-1", status: "active" }
+            },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationRuntimeEventShape[] = [];
+      runtime.onEvent((event) => {
+        seen.push(event);
+      });
+
+      runtime.submitCommand({
+        commandId: "lose-origin-fort-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      const combatResolved = seen.find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMBAT_RESOLVED" }> =>
+          event.eventType === "COMBAT_RESOLVED" && event.commandId === "lose-origin-fort-1"
+      );
+      expect(combatResolved?.combatResult).toEqual(
+        expect.objectContaining({
+          attackerWon: false,
+          changes: []
+        })
+      );
+
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)).toEqual(
+        expect.objectContaining({
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          fortJson: JSON.stringify({ ownerId: "player-1", status: "active" })
+        })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("emits plunder details for settled captures so victory popups can show loot", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
