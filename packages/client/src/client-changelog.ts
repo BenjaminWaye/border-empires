@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.30.9",
+  version: "2026.04.30.12",
   title: "What's New",
-  summary: "Recent updates include a rewrite 3D terrain brightness correction that now matches the actual legacy 2D grass, sand, and coastal water palette more closely while keeping visible tile grid lines, clearer tech-tree availability cards so current tech choices now read as available even when you still need more resources, with missing costs rendered as proper badges instead of jammed raw X markers, per-route dock crossing cooldowns so a multi-link dock no longer locks all of its routes after one frontier expansion, plus a legacy socket-routing fix so stale bulk sockets no longer black-hole tile sync after reconnects and the earlier rewrite gateway socket-routing fix that stopped attack accepts and other frontier control events from preferring stale closed control sockets over a healthy bulk channel. Other recent updates include sparse legacy chunk snapshots that stop sending never-explored tiles while preserving previously discovered fog on reconnect, immediate starting territory after profile setup for fresh players, owner-indexed legacy player update payloads that avoid repeated global scans for social and development state, new chunk-stream instrumentation for real wall-time between batches, moving legacy snapshot save serialization and file writes onto a dedicated worker so production no longer has to keep that persistence path on the main event loop, the earlier fix for snapshot serialization blocking during saves, frontier combat revealing from the locked COMBAT_START result without any follow-up COMBAT_RESULT message, a legacy login hot-path fix that stops auth and full empire refreshes from rebuilding personalized leaderboard and season-victory payloads during connection, a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
   entries: [
     {
-      introducedIn: "2026.04.30.9",
+      introducedIn: "2026.04.30.12",
       title: "Rewrite 3D terrain brightness now matches the legacy 2D palette more closely",
       why: "The first 3D terrain brightening pass restored the grid but still missed the real 2D brightness because the textures were not using the exact legacy terrain base colors and the lit 3D materials were still darkening them.",
       changes: [
@@ -34,13 +34,33 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.30.8",
-      title: "Tech-tree cards now show available choices and readable missing-cost badges",
-      why: "The expanded tech tree was labeling offered tech choices as locked whenever resources were still short, and the unmet resource markers were rendering as raw inline X characters jammed into the cost text.",
+      introducedIn: "2026.04.30.11",
+      title: "Legacy AI now values food and support tiles more coherently",
+      why: "Legacy AI could keep settling fur or empty compact filler while its towns were starving, settle food before it even had a real town that could use it, and treat the ring around a mere settlement as if it already had real town-support value.",
       changes: [
-        "Expanded tech-tree nodes now show `Available` for current tech choices even before you can fully afford them, while truly unreachable nodes still show `Locked`.",
-        "Missing resource costs now render as styled badge chips with proper spacing instead of collapsing into raw inline X markers in front of each requirement.",
-        "Added client regression coverage for offered-but-unaffordable tech choices so the status badge and missing-cost rendering stay aligned."
+        "Food-starved legacy AI now only uses owned-frontier settlement to activate actual food tiles instead of burning settles on unrelated resources or empty filler.",
+        "Legacy AI no longer treats farm and fish tiles as immediate settlement value before it controls its first real town.",
+        "Settlement scoring now ignores fake compact-core value around mere settlements, so the AI stops filling support rings that only matter once a settlement has grown into a town."
+      ]
+    },
+    {
+      introducedIn: "2026.04.30.10",
+      title: "Economic structures and monuments now use dedicated overlay art",
+      why: "Several economic structures had no dedicated SVG at all, and the major monument projects were still borrowing ordinary support-building art, so late-game structures were missing overlays or failed to read as unique landmarks.",
+      changes: [
+        "Added dedicated SVG overlays for Exchange House, Lockworks Port, Chartered Port, Rail Depot, Imperial Exchange, Aegis Dome, Astral Dock, and the Worldbreaker Cannon.",
+        "Reworked the monument overlays so Imperial Exchange, Aegis Dome, Worldbreaker Cannon, and Astral Dock read as oversized late-game landmarks, including a new ion-cannon silhouette for the Worldbreaker.",
+        "Updated the live map overlay registry and structure-info image mapping so the runtime renderer and structure detail panel stay aligned with the dedicated art."
+      ]
+    },
+    {
+      introducedIn: "2026.04.30.9",
+      title: "Rewrite AI now collects visible yield before stalling out broke",
+      why: "Rewrite AI empires could spend through their starting gold, keep accruing tile yield on visible settlements, and then sit indefinitely on `insufficient_points` because the automation planner never issued the collect command needed to turn that accrued yield into spendable points.",
+      changes: [
+        "AI runtime planning now emits `COLLECT_VISIBLE` when a broke empire still has visible settled yield sources, so accrued gold gets converted into spendable points instead of the empire appearing frozen.",
+        "Both direct and worker-backed AI command producers now locally rate-limit repeated visible-yield collects, including after collect-cooldown rejections, so recovered simulations do not spam the runtime while cooldown state is still active.",
+        "Added simulation regression coverage for the planner collect fallback, direct producer collect cooldown handling, and worker producer collect cooldown handling."
       ]
     },
     {
