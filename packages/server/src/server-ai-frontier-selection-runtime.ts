@@ -50,7 +50,7 @@ export interface CreateServerAiFrontierSelectionDeps {
     assumedFrontierKeys?: ReadonlySet<TileKey>,
     territorySummary?: Pick<
       AiTerritorySummary,
-      "visibility" | "foodPressure" | "settlementEvaluationByKey" | "islandFootprintSignalByTileKey" | "islandProgress"
+      "visibility" | "foodPressure" | "settlementEvaluationByKey" | "islandFootprintSignalByTileKey" | "islandProgress" | "controlledTowns"
     >
   ) => AiSettlementCandidateEvaluation;
   townsByTile: Map<TileKey, TownDefinition>;
@@ -222,20 +222,24 @@ export const createServerAiFrontierSelectionRuntime = (
       const tileKey = deps.key(tile.x, tile.y);
       if (deps.tileHasPendingSettlement(tileKey)) continue;
       const evaluation = deps.evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
-      const hasIntrinsicEconomicValue = deps.townsByTile.has(tileKey) || Boolean(tile.resource) || deps.docksByTile.has(tileKey);
+      const isFoodTile = tile.resource === "FARM" || tile.resource === "FISH";
+      const foodTileHasImmediateValue = territorySummary.controlledTowns > 0;
+      const hasIntrinsicEconomicValue =
+        deps.townsByTile.has(tileKey) || deps.docksByTile.has(tileKey) || Boolean(tile.resource && (!isFoodTile || foodTileHasImmediateValue));
       const settlementPriorityScore =
         evaluation.score +
         (hasIntrinsicEconomicValue ? 480 : 0) +
+        (foodCoverageLow && isFoodTile ? 1_600 : 0) +
         (evaluation.townSupportSignal > 0 ? 980 + evaluation.townSupportSignal * 2 : 0) +
         (victoryPath === "SETTLED_TERRITORY" ? evaluation.islandFootprintSignal : 0);
 
       if (
+        (!foodCoverageLow || isFoodTile) &&
         (evaluation.isEconomicallyInteresting || evaluation.isStrategicallyInteresting) &&
         !(
           (economyWeak || territorySummary.underThreat || foodCoverageLow) &&
           !hasIntrinsicEconomicValue &&
-          tile.resource !== "FARM" &&
-          tile.resource !== "FISH" &&
+          !isFoodTile &&
           evaluation.townSupportSignal <= 0 &&
           !(victoryPath === "SETTLED_TERRITORY" && evaluation.islandFootprintSignal >= 180 && !foodCoverageLow && !economyWeak)
         )

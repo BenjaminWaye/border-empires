@@ -32,10 +32,18 @@ describe("converter toggle regression guard", () => {
       ["AIRPORT", "airport-overlay.svg"],
       ["CARAVANARY", "caravanary-overlay.svg"],
       ["FOUNDRY", "foundry-overlay.svg"],
+      ["EXCHANGE_HOUSE", "exchange-house-overlay.svg"],
       ["GARRISON_HALL", "garrison-hall-overlay.svg"],
       ["CUSTOMS_HOUSE", "customs-house-overlay.svg"],
+      ["LOCKWORKS_PORT", "lockworks-port-overlay.svg"],
+      ["CHARTERED_PORT", "chartered-port-overlay.svg"],
+      ["RAIL_DEPOT", "rail-depot-overlay.svg"],
       ["GOVERNORS_OFFICE", "governors-office-overlay.svg"],
-      ["RADAR_SYSTEM", "radar-system-overlay.svg"]
+      ["RADAR_SYSTEM", "radar-system-overlay.svg"],
+      ["AEGIS_DOME", "aegis-dome-overlay.svg"],
+      ["ASTRAL_DOCK", "astral-dock-overlay.svg"],
+      ["IMPERIAL_EXCHANGE", "imperial-exchange-overlay.svg"],
+      ["WORLD_ENGINE", "world-engine-overlay.svg"]
     ] as const;
 
     for (const [structureType, asset] of dedicatedStructureOverlays) {
