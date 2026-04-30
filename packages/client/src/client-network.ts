@@ -367,6 +367,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     return state.actionCurrent.actionType === "EXPAND";
   };
 
+  const currentActionCanResolveFromPostCombatTileSync = (targetKey: string): boolean => {
+    if (!state.actionInFlight || !state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) return false;
+    if (!state.combatStartAck) return false;
+    if (state.actionCurrent.actionType !== "ATTACK" && state.actionCurrent.actionType !== "BREAKTHROUGH_ATTACK") return false;
+    if (!state.capture || keyFor(state.capture.target.x, state.capture.target.y) !== targetKey) return false;
+    return Date.now() >= state.capture.resolvesAt;
+  };
+
   const rebindLateFrontierAck = (
     target: { x: number; y: number },
     source: "ACTION_ACCEPTED" | "COMBAT_START",
@@ -1729,9 +1737,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (
             !resolvedQueuedFrontierCapture &&
             updateKey === state.actionTargetKey &&
-            currentActionCanResolveFromFrontierOwnership(updateKey) &&
-            resolved?.ownerId === state.me &&
-            resolved.ownershipState === "FRONTIER"
+            ((currentActionCanResolveFromFrontierOwnership(updateKey) &&
+              resolved?.ownerId === state.me &&
+              resolved.ownershipState === "FRONTIER") ||
+              currentActionCanResolveFromPostCombatTileSync(updateKey))
           ) {
             resolvedQueuedFrontierCapture = true;
           }
@@ -1970,9 +1979,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (
           !resolvedQueuedFrontierCapture &&
           updateKey === state.actionTargetKey &&
-          currentActionCanResolveFromFrontierOwnership(updateKey) &&
-          resolved.ownerId === state.me &&
-          resolved.ownershipState === "FRONTIER"
+          ((currentActionCanResolveFromFrontierOwnership(updateKey) &&
+            resolved.ownerId === state.me &&
+            resolved.ownershipState === "FRONTIER") ||
+            currentActionCanResolveFromPostCombatTileSync(updateKey))
         ) {
           resolvedQueuedFrontierCapture = true;
         }
