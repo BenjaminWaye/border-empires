@@ -8,13 +8,11 @@ const clientSource = (filename: string): string => {
   return readFileSync(resolve(here, filename), "utf8");
 };
 
-describe("rewrite renderer default regression guard", () => {
-  it("defaults gateway backend sessions to 3d terrain unless renderer is explicitly overridden", () => {
+describe("3d terrain default regression guard", () => {
+  it("defaults all sessions to 3d terrain unless renderer is explicitly overridden", () => {
     const bootstrapSource = clientSource("./client-bootstrap.ts");
-    expect(bootstrapSource).toContain('const prefersRewrite3DDefault = state.activeBackend === "gateway" && !rendererModeExplicitlySet;');
-    expect(bootstrapSource).toContain('window.location.hostname === "localhost"');
-    expect(bootstrapSource).toContain(
-      "const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || prefersRewrite3DDefault || localhost3DDefault;"
-    );
+    expect(bootstrapSource).toContain("const defaultThreeTerrainRenderer = !rendererModeExplicitlySet;");
+    expect(bootstrapSource).toContain("const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || defaultThreeTerrainRenderer;");
+    expect(bootstrapSource).not.toContain('state.activeBackend === "gateway" && !rendererModeExplicitlySet');
   });
 });
