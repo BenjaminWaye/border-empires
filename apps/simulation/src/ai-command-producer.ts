@@ -29,6 +29,7 @@ type AiCommandProducerOptions = {
 };
 
 const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean => queueDepths.human_interactive > 0;
+const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 
 export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
@@ -41,13 +42,24 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     options.aiPlayerIds.map((playerId) => [playerId, options.startingClientSeqByPlayer?.[playerId] ?? 1] as const)
   );
   const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
+  const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
   let tickInFlight = false;
   let nextPlayerIndex = 0;
   const shouldRun = options.shouldRun ?? (() => true);
 
+  const backOffCollectVisible = (playerId: string, eventAt: number): void => {
+    collectVisibleCooldownUntilByPlayer.set(playerId, eventAt + COLLECT_VISIBLE_COOLDOWN_MS);
+  };
+
   const stopListening = options.runtime.onEvent((event) => {
     const pendingCommand = pendingCommandByPlayer.get(event.playerId);
     if (!pendingCommand || pendingCommand.commandId !== event.commandId) return;
+    if (event.eventType === "COMMAND_REJECTED" && event.code === "COLLECT_COOLDOWN") {
+      backOffCollectVisible(event.playerId, now());
+    }
+    if (event.eventType === "COLLECT_RESULT") {
+      backOffCollectVisible(event.playerId, now());
+    }
     if (
       event.eventType === "COMMAND_REJECTED" ||
       event.eventType === "COMBAT_RESOLVED" ||
@@ -95,11 +107,18 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           options.onNoCommand?.(plan.diagnostic);
         }
         if (!plan.command) continue;
+        if (plan.command.type === "COLLECT_VISIBLE") {
+          const blockedUntil = collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0;
+          if (blockedUntil > issuedAt) continue;
+        }
         pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
         nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
         nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
         try {
           await options.submitCommand(plan.command);
+          if (plan.command.type === "COLLECT_VISIBLE") {
+            backOffCollectVisible(playerId, issuedAt);
+          }
         } catch {
           pendingCommandByPlayer.delete(playerId);
         }

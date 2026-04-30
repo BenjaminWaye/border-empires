@@ -144,6 +144,14 @@ const foodCoverageLow = (
 const economyWeak = (incomePerMinute: number, settledTileCount: number): boolean =>
   incomePerMinute < Math.max(3, settledTileCount * 0.45);
 
+const hasCollectibleVisibleYieldSource = <TTile extends AutomationPlannerTile>(ownedTiles: readonly TTile[]): boolean =>
+  ownedTiles.some(
+    (tile) =>
+      tile.ownershipState === "SETTLED" &&
+      tile.terrain === "LAND" &&
+      (Boolean(tile.town) || Boolean(tile.dockId))
+  );
+
 export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   input: AutomationPlannerInput<TTile>
 ): AutomationPlannerResult => {
@@ -346,6 +354,14 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         toX: frontierAnalysis.expand.target.x,
         toY: frontierAnalysis.expand.target.y
       }),
+      diagnostic: diagnosticBase
+    };
+  }
+
+  if (input.sessionPrefix === "ai-runtime" && !canExpand && hasCollectibleVisibleYieldSource(input.ownedTiles)) {
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+    return {
+      command: createCommand(input.sessionPrefix, input.playerId, input.clientSeq, input.issuedAt, "COLLECT_VISIBLE", {}),
       diagnostic: diagnosticBase
     };
   }

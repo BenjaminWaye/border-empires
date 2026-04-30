@@ -98,6 +98,16 @@ const makeCommand = (playerId: string): CommandEnvelope => ({
   payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
 });
 
+const makeCollectVisibleCommand = (playerId: string, clientSeq = 1, issuedAt = 1000): CommandEnvelope => ({
+  commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+  sessionId: `ai-runtime:${playerId}`,
+  playerId,
+  clientSeq,
+  issuedAt,
+  type: "COLLECT_VISIBLE",
+  payloadJson: "{}"
+});
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 afterEach(() => {
@@ -389,6 +399,57 @@ describe("worker AI command producer pause/resume", () => {
     MockWorker.prototype.postMessage = originalPostMessage;
 
     expect(submitted).toEqual([expect.objectContaining({ playerId: "ai-1", type: "ATTACK" })]);
+  });
+
+  it("backs off collect-visible after a collect-cooldown rejection in worker mode", async () => {
+    let nowMs = 1_000;
+    const runtime = makeRuntime(0);
+    const submitted: CommandEnvelope[] = [];
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: makeCollectVisibleCommand(msg.playerId as string, msg.clientSeq as number, msg.issuedAt as number)
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submitted.push(command);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    runtime.emitEvent({
+      eventType: "COMMAND_REJECTED",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000",
+      code: "COLLECT_COOLDOWN"
+    });
+    nowMs = 1_001;
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    nowMs = 21_001;
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(submitted.map((command) => command.type)).toEqual(["COLLECT_VISIBLE", "COLLECT_VISIBLE"]);
   });
 
   it("stagger-syncs a subset of AI players on each periodic sync interval", async () => {
