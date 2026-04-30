@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.11",
+  version: "2026.04.29.12",
   title: "What's New",
-  summary: "Recent updates include frontier combat revealing from the locked COMBAT_START result without any follow-up COMBAT_RESULT message, a legacy login hot-path fix that stops auth and full empire refreshes from rebuilding personalized leaderboard and season-victory payloads during connection, a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include a fix for snapshot serialization blocking the event loop during saves, frontier combat revealing from the locked COMBAT_START result without any follow-up COMBAT_RESULT message, a legacy login hot-path fix that stops auth and full empire refreshes from rebuilding personalized leaderboard and season-victory payloads during connection, a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.29.12",
+      title: "Snapshot saves no longer block the server event loop",
+      why: "Periodic game-state saves were calling JSON.stringify synchronously on the main thread before queuing the async file write. On large snapshots this blocked all I/O — including WebSocket upgrades — for up to several minutes, causing the wsReadyState 0 connection hang that players experienced after the server had been running for a while.",
+      changes: [
+        "Each snapshot section is now serialized using the existing stringifyAsync helper (a setImmediate-yielded wrapper), moving stringify off the synchronous call stack and into the background promise chain.",
+        "The event loop can process incoming connections and I/O between each section's serialization, eliminating the multi-minute stall."
+      ]
+    },
     {
       introducedIn: "2026.04.29.11",
       title: "Frontier combat now reveals from COMBAT_START alone",
