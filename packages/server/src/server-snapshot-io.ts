@@ -62,6 +62,7 @@ export interface CreateServerSnapshotIoDeps {
   temporaryAttackBuffUntilByPlayer: Map<string, number>;
   temporaryIncomeBuffUntilByPlayer: Map<string, SnapshotTemporaryIncomeBuff>;
   forcedRevealTilesByPlayer: Map<string, Set<TileKey>>;
+  discoveredTileKeysByPlayer: Map<string, Set<TileKey>>;
   revealedEmpireTargetsByPlayer: Map<string, Set<string>>;
   allianceRequests: Map<string, SnapshotAllianceRequest>;
   fortsByTile: Map<TileKey, SnapshotFort>;
@@ -179,6 +180,7 @@ export const createServerSnapshotIoRuntime = (
       temporaryAttackBuffUntil: [...deps.temporaryAttackBuffUntilByPlayer.entries()],
       temporaryIncomeBuff: [...deps.temporaryIncomeBuffUntilByPlayer.entries()],
       forcedReveal: [...deps.forcedRevealTilesByPlayer.entries()].map(([playerId, set]) => [playerId, [...set]]),
+      discoveredTiles: [...deps.discoveredTileKeysByPlayer.entries()].map(([playerId, set]) => [playerId, [...set]]),
       revealedEmpireTargets: [...deps.revealedEmpireTargetsByPlayer.entries()].map(([playerId, set]) => [playerId, [...set]]),
       allianceRequests: [...deps.allianceRequests.values()],
       forts: [...deps.fortsByTile.values()],
@@ -263,6 +265,7 @@ export const createServerSnapshotIoRuntime = (
     systems: {
       ...(snapshot.seasonVictory ? { seasonVictory: snapshot.seasonVictory } : {}),
       ...(snapshot.forcedReveal ? { forcedReveal: snapshot.forcedReveal } : {}),
+      ...(snapshot.discoveredTiles ? { discoveredTiles: snapshot.discoveredTiles } : {}),
       ...(snapshot.revealedEmpireTargets ? { revealedEmpireTargets: snapshot.revealedEmpireTargets } : {}),
       ...(snapshot.allianceRequests ? { allianceRequests: snapshot.allianceRequests } : {}),
       ...(snapshot.forts ? { forts: snapshot.forts } : {}),

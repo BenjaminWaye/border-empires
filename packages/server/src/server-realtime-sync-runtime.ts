@@ -36,6 +36,7 @@ export interface CreateServerRealtimeSyncRuntimeDeps {
   activeSettlementTileKeyForPlayer: (playerId: string) => TileKey | undefined;
   ownedTownKeysForPlayer: (playerId: string) => TileKey[];
   playerTile: (x: number, y: number) => Tile;
+  recordDiscoveredTilesForPlayer: (playerId: string, tileKeys: Iterable<TileKey>) => boolean;
   tileInSubscription: (playerId: string, x: number, y: number) => boolean;
   sendChunkSnapshot: (socket: Ws, player: Player, sub: { cx: number; cy: number; radius: number }) => void;
   visibilitySnapshotForPlayer: (player: Player) => VisibilitySnapshot;
@@ -176,6 +177,20 @@ export const createServerRealtimeSyncRuntime = (
   };
 
   const sendBulkToPlayer = (playerId: string, payload: unknown): void => {
+    if (
+      payload &&
+      typeof payload === "object" &&
+      (payload as { type?: unknown }).type === "TILE_DELTA" &&
+      Array.isArray((payload as { updates?: unknown }).updates)
+    ) {
+      const visibleTileKeys: TileKey[] = [];
+      for (const update of (payload as { updates: Array<Partial<Tile>> }).updates) {
+        if (typeof update?.x !== "number" || typeof update?.y !== "number") continue;
+        if (update.fogged === true) continue;
+        visibleTileKeys.push(deps.key(update.x, update.y));
+      }
+      if (visibleTileKeys.length > 0) deps.recordDiscoveredTilesForPlayer(playerId, visibleTileKeys);
+    }
     deps.sendBulkPayloadToPlayer(deps.socketsByPlayer, deps.bulkSocketsByPlayer, playerId, JSON.stringify(payload));
   };
 
