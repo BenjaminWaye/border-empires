@@ -21,6 +21,7 @@ import {
 } from "@border-empires/shared";
 import type { StrategicResource } from "./server-shared-types.js";
 import type { Ws } from "./server-runtime-config.js";
+import { dockRouteCooldownUntil, setDockRouteCooldownUntil } from "./server-dock-cooldown.js";
 import type {
   BasicFrontierActionType,
   CombatResultChange,
@@ -93,6 +94,7 @@ export interface CreateServerFrontierActionRuntimeDeps {
   manpowerMinForAction: (actionType: BasicFrontierActionType) => number;
   manpowerCostForAction: (actionType: BasicFrontierActionType) => number;
   isAdjacentTile: (fromX: number, fromY: number, toX: number, toY: number) => boolean;
+  dockCrossingDestinationForTarget: (dock: Dock, x: number, y: number, allowAdjacentToDock?: boolean) => Dock | undefined;
   validDockCrossingTarget: (dock: Dock, x: number, y: number, allowAdjacentToDock?: boolean) => boolean;
   findOwnedDockOriginForCrossing: (actor: Player, targetX: number, targetY: number, allowAdjacentToDock?: boolean) => Tile | undefined;
   crossingBlockedByAetherWall: (fromX: number, fromY: number, toX: number, toY: number) => boolean;
@@ -209,6 +211,7 @@ export const createServerFrontierActionRuntime = (
     let fromDock = deps.docksByTile.get(fk);
     let adjacent = deps.isAdjacentTile(from.x, from.y, to.x, to.y);
     const allowAdjacentToDock = effectiveActionType !== "EXPAND";
+    let dockCrossingDestination = fromDock ? deps.dockCrossingDestinationForTarget(fromDock, to.x, to.y, allowAdjacentToDock) : undefined;
     let dockCrossing = Boolean(fromDock && deps.validDockCrossingTarget(fromDock, to.x, to.y, allowAdjacentToDock));
     if (!adjacent && !dockCrossing && effectiveActionType === "ATTACK") {
       const altFrom = deps.findOwnedDockOriginForCrossing(actor, to.x, to.y, allowAdjacentToDock);
@@ -217,12 +220,23 @@ export const createServerFrontierActionRuntime = (
         fk = deps.key(from.x, from.y);
         fromDock = deps.docksByTile.get(fk);
         adjacent = deps.isAdjacentTile(from.x, from.y, to.x, to.y);
+        dockCrossingDestination = fromDock ? deps.dockCrossingDestinationForTarget(fromDock, to.x, to.y, allowAdjacentToDock) : undefined;
         dockCrossing = Boolean(fromDock && deps.validDockCrossingTarget(fromDock, to.x, to.y, allowAdjacentToDock));
       }
     }
     if (!adjacent && !dockCrossing) return { ok: false, code: "NOT_ADJACENT", message: "target must be adjacent or valid dock crossing" };
     if (adjacent && !dockCrossing && deps.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) return { ok: false, code: "AETHER_WALL_BLOCKED", message: "crossing blocked by aether wall" };
-    if (dockCrossing && fromDock && fromDock.cooldownUntil > deps.now()) return { ok: false, code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" };
+    if (dockCrossing && fromDock && dockCrossingDestination) {
+      const cooldownUntil = dockRouteCooldownUntil(fromDock, dockCrossingDestination.dockId);
+      if (cooldownUntil > deps.now()) {
+        return {
+          ok: false,
+          code: "DOCK_COOLDOWN",
+          message: "dock crossing endpoint on cooldown",
+          cooldownRemainingMs: cooldownUntil - deps.now()
+        };
+      }
+    }
     if (from.ownerId !== actor.id) return { ok: false, code: "NOT_OWNER", message: "origin not owned" };
     if (to.terrain !== "LAND") return { ok: false, code: "BARRIER", message: "target is barrier" };
     if (deps.combatLocks.has(fk)) return { ok: false, code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs: Math.max(0, (deps.combatLocks.get(fk)?.resolvesAt ?? deps.now()) - deps.now()) };
@@ -341,7 +355,9 @@ export const createServerFrontierActionRuntime = (
       if (pending.cancelled) return;
       deps.combatLocks.delete(fk);
       deps.combatLocks.delete(tk);
-      if (dockCrossing && fromDock) fromDock.cooldownUntil = deps.now() + DOCK_CROSSING_COOLDOWN_MS;
+      if (dockCrossing && fromDock && dockCrossingDestination) {
+        setDockRouteCooldownUntil(fromDock, dockCrossingDestination.dockId, deps.now() + DOCK_CROSSING_COOLDOWN_MS);
+      }
       if (!defenderOwnerId && !defenderIsBarbarian) {
         actor.points -= deps.FRONTIER_ACTION_GOLD_COST;
         deps.recalcPlayerDerived(actor);
