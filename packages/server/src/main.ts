@@ -309,6 +309,7 @@ import {
 } from "./server-socket-priority.js";
 import {
   broadcastBulk as broadcastBulkAcrossSockets,
+  detachBulkSocketForPlayer,
   bulkSocketForPlayer as resolveBulkSocketForPlayer,
   controlSocketForPlayer as resolveControlSocketForPlayer,
   sendBulkToPlayer as sendBulkPayloadToPlayer
@@ -10689,11 +10690,14 @@ registerServerHttpRoutes(app, {
   socket.on("close", () => {
     if (authedPlayer) {
       if (socketChannel === "bulk") {
-        if (bulkSocketsByPlayer.get(authedPlayer.id) === socket) bulkSocketsByPlayer.delete(authedPlayer.id);
-        chunkSubscriptionByPlayer.delete(authedPlayer.id);
+        const bulkDetach = detachBulkSocketForPlayer(socketsByPlayer, bulkSocketsByPlayer, authedPlayer.id, socket);
+        if (!bulkDetach.closedCurrentBulkSocket) return;
         chunkSnapshotSentAtByPlayer.delete(authedPlayer.id);
-        chunkSnapshotGenerationByPlayer.delete(authedPlayer.id);
         chunkSnapshotInFlightByPlayer.delete(authedPlayer.id);
+        if (!bulkDetach.preserveChunkSessionState) {
+          chunkSubscriptionByPlayer.delete(authedPlayer.id);
+          chunkSnapshotGenerationByPlayer.delete(authedPlayer.id);
+        }
         return;
       }
       if (socketsByPlayer.get(authedPlayer.id) !== socket) return;
