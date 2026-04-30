@@ -467,12 +467,65 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }, boundedDelayMs);
   };
 
+  const busyDevelopmentSlotCountFromError = (errorMessage: string): number | undefined => {
+    const match = /all (\d+) development slots are busy/.exec(errorMessage);
+    if (!match) return undefined;
+    const count = Number(match[1]);
+    return Number.isFinite(count) && count > 0 ? count : undefined;
+  };
+
+  const syncBusyDevelopmentSlotStateFromError = (errorMessage: string): void => {
+    const busyCount = busyDevelopmentSlotCountFromError(errorMessage);
+    if (typeof busyCount !== "number") return;
+    state.developmentProcessLimit = Math.max(state.developmentProcessLimit, busyCount);
+    state.activeDevelopmentProcessCount = Math.max(state.activeDevelopmentProcessCount ?? 0, busyCount);
+  };
+
+  const alreadyQueuedBusyDevelopmentAction = (errorCode: string, errorTileKey: string): boolean => {
+    if (!errorTileKey) return false;
+    const queuedKind =
+      errorCode === "SETTLE_INVALID"
+        ? "SETTLE"
+        : errorCode.endsWith("_BUILD_INVALID") || errorCode === "STRUCTURE_REMOVE_INVALID"
+          ? "BUILD"
+          : undefined;
+    if (!queuedKind) return false;
+    return state.developmentQueue.some((entry) => entry.tileKey === errorTileKey && entry.kind === queuedKind);
+  };
+
+  const canRecoverBusySettlementWithoutAttempt = (errorTileKey: string): boolean =>
+    Boolean(errorTileKey) &&
+    (state.latestSettleTargetKey === errorTileKey || state.settleProgressByTile.has(errorTileKey) || state.queuedDevelopmentDispatchPending);
+
   const maybeRecoverBusyDevelopmentAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
     if (!errorMessage.includes("development slots are busy")) return false;
     if (errorCode !== "SETTLE_INVALID" && !errorCode.endsWith("_BUILD_INVALID") && errorCode !== "STRUCTURE_REMOVE_INVALID") return false;
+    syncBusyDevelopmentSlotStateFromError(errorMessage);
+    if (alreadyQueuedBusyDevelopmentAction(errorCode, errorTileKey)) return true;
     const attempt = state.lastDevelopmentAttempt;
-    if (!attempt || attempt.tileKey !== errorTileKey) return false;
     const tile = state.tiles.get(errorTileKey);
+    if (!attempt || attempt.tileKey !== errorTileKey) {
+      if (
+        errorCode !== "SETTLE_INVALID" ||
+        !canRecoverBusySettlementWithoutAttempt(errorTileKey) ||
+        !tile ||
+        tile.ownerId !== state.me ||
+        tile.ownershipState !== "FRONTIER"
+      ) {
+        return false;
+      }
+      clearOptimisticTileState(errorTileKey, true);
+      clearSettlementProgressSafely(errorTileKey);
+      state.queuedDevelopmentDispatchPending = false;
+      return queueDevelopmentActionFromModule(
+        state,
+        { kind: "SETTLE", x: tile.x, y: tile.y, tileKey: errorTileKey, label: `Settlement at (${tile.x}, ${tile.y})` },
+        {
+          pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
+          renderHud: typeof renderHud === "function" ? renderHud : () => {}
+        }
+      );
+    }
     const matchesOptimisticState =
       attempt.kind === "SETTLE"
         ? state.settleProgressByTile.has(errorTileKey)
