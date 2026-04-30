@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import {
   assertAliasDoesNotResolveToDeployment,
+  assertDeploymentDoesNotClaimAlias,
   assertRequiredBranch,
   assertAliasMatchesDeployment,
   ensureTrackedProjectLink,
@@ -89,6 +90,11 @@ try {
     aliasHost: productionAlias,
     unexpectedDeploymentUrl: deploymentUrl,
     unexpectedTarget: "preview"
+  });
+  assertDeploymentDoesNotClaimAlias({
+    run,
+    deploymentRef: `https://${productionAlias}`,
+    aliasHost: stagingAlias
   });
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
