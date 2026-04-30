@@ -99,9 +99,7 @@ const deploymentUrl = normalizeDeploymentUrl(
       "--prod",
       "--yes",
       "--scope",
-      vercelClientProject.scope,
-      "--project",
-      vercelClientProject.projectId
+      vercelClientProject.scope
     ],
     { env: vercelClientEnv() }
   )

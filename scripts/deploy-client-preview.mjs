@@ -104,8 +104,6 @@ const deploymentUrl = normalizeDeploymentUrl(
       "--yes",
       "--scope",
       vercelClientProject.scope,
-      "--project",
-      vercelClientProject.projectId,
       "--build-env",
       `VITE_GATEWAY_WS_URL=${previewGatewayWsUrl}`,
       "--build-env",

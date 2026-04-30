@@ -42,7 +42,7 @@ const aliasDeployment = (deploymentUrl, aliasHost) => {
   const normalized = deploymentUrl.endsWith("/") ? deploymentUrl.slice(0, -1) : deploymentUrl;
   run(
     "npx",
-    ["vercel", "alias", "set", normalized, aliasHost, "--scope", vercelClientProject.scope, "--project", vercelClientProject.projectId],
+    ["vercel", "alias", "set", normalized, aliasHost, "--scope", vercelClientProject.scope],
     { env: vercelClientEnv() }
   );
   console.log(`Staging alias updated: https://${aliasHost}/`);
@@ -66,8 +66,6 @@ const deploymentUrl = normalizeDeploymentUrl(
       "--yes",
       "--scope",
       vercelClientProject.scope,
-      "--project",
-      vercelClientProject.projectId,
       "--build-env",
       `VITE_GATEWAY_WS_URL=${stagingGatewayWsUrl}`,
       "--build-env",
