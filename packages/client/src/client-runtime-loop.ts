@@ -791,7 +791,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.drawTerrainTile(wx, wy, "LAND", px, py, size);
         }
 
-        if (t && vis === "visible" && t.terrain === "LAND") deps.drawForestOverlay(wx, wy, px, py, size);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") deps.drawForestOverlay(wx, wy, px, py, size);
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
           deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
