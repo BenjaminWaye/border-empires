@@ -5073,15 +5073,21 @@ const latestRuntimeVitalsSample = (): ReturnType<typeof sampleRuntimeVitals> | u
 const runtimeLoadShedLevel = (): "normal" | "soft" | "hard" => {
   const vitals = latestRuntimeVitalsSample();
   if (!vitals) return "normal";
+  // Hard shed: event loop over limit OR RSS at/above the top watermark (460 MB).
+  // On a 512 MB VM, 460 MB leaves <50 MB for OS overhead and new allocations.
   if (
     vitals.eventLoopDelayP95Ms >= AI_EVENT_LOOP_P95_HARD_LIMIT_MS ||
-    vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT
+    vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT ||
+    vitals.rssMb >= RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB[2]
   ) {
     return "hard";
   }
+  // Soft shed: event loop approaching limit OR RSS at/above the middle watermark (420 MB).
+  // Gives 40 MB headroom before hard shed triggers.
   if (
     vitals.eventLoopDelayP95Ms >= AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ||
-    vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT
+    vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT ||
+    vitals.rssMb >= RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB[1]
   ) {
     return "soft";
   }
@@ -6116,6 +6122,10 @@ const {
       },
       "slow ai tick"
     );
+    // Purge execute candidate cache after a slow tick to reclaim memory.
+    // Candidates are per-cycle and stale after the tick completes; if a tick
+    // ran over budget they're especially likely to be large.
+    clearAllAiExecuteCandidates(aiExecuteCandidateCacheState);
   }
 });
 
@@ -8284,10 +8294,39 @@ registerInterval(() => {
 registerInterval(() => {
   const nowMs = now();
   if (!hasOnlinePlayers() && nowMs - lastSnapshotAt < IDLE_SNAPSHOT_INTERVAL_MS) return;
+  // Skip snapshot save if RSS is already under pressure. The structured clone
+  // into the worker thread temporarily spikes memory; deferring 30s is safer
+  // than tipping the VM over the edge. The next interval will save once RSS drops.
+  const vitals = latestRuntimeVitalsSample();
+  if (vitals && vitals.rssMb >= RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB[1]) return;
   saveSnapshotInBackground();
   lastSnapshotAt = nowMs;
 }, 30_000);
 registerInterval(runBarbarianTick, BARBARIAN_TICK_MS);
+// Chunk cache FIFO eviction: when RSS crosses the lowest watermark (380 MB),
+// evict the oldest 20% of cached chunk and visibility snapshots so that
+// memory pressure doesn't climb unchecked. Caches are keyed by playerId and
+// Maps preserve insertion order, so slicing from the front gives the oldest entries.
+// A cache miss causes one extra chunk regeneration for that player — acceptable
+// compared to an OOM crash.
+registerInterval(() => {
+  const vitals = latestRuntimeVitalsSample();
+  if (!vitals || vitals.rssMb < RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB[0]) return;
+  const evictCount = Math.ceil(Math.max(cachedChunkSnapshotByPlayer.size, cachedVisibilitySnapshotByPlayer.size) * 0.2);
+  if (evictCount === 0) return;
+  let evicted = 0;
+  for (const [playerId] of cachedChunkSnapshotByPlayer) {
+    if (evicted >= evictCount) break;
+    cachedChunkSnapshotByPlayer.delete(playerId);
+    evicted++;
+  }
+  evicted = 0;
+  for (const [playerId] of cachedVisibilitySnapshotByPlayer) {
+    if (evicted >= evictCount) break;
+    cachedVisibilitySnapshotByPlayer.delete(playerId);
+    evicted++;
+  }
+}, 30_000);
 registerInterval(runAiTick, AI_DISPATCH_INTERVAL_MS);
 registerInterval(enqueueBarbarianMaintenance, BARBARIAN_MAINTENANCE_INTERVAL_MS);
 registerInterval(expireShardSites, 5_000);
@@ -10668,6 +10707,10 @@ registerServerHttpRoutes(app, {
       actionTimestampsByPlayer.delete(authedPlayer.id);
       fogDisabledByPlayer.delete(authedPlayer.id);
       if (playerNeedsProfileSetup(authedPlayer)) discardIncompleteHumanPlayer(authedPlayer);
+      // Release any AI intent latches for this player so the latch state doesn't
+      // accumulate zombie entries across reconnects. releaseAiLatchedIntent is
+      // idempotent and safe to call when no latch exists.
+      releaseAiLatchedIntent(aiIntentLatchState, authedPlayer.id);
       if (!hasOnlinePlayers()) {
         cancelAllBarbarianPendingCaptures();
         pauseVictoryPressureTimers();
