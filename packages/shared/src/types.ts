@@ -420,6 +420,7 @@ export interface Dock {
   effectiveGoldPerMinute?: number;
   cap?: number;
   cooldownUntil: number;
+  routeCooldownUntilByDockId?: Partial<Record<string, number>>;
 }
 
 export interface BarbarianAgent {
