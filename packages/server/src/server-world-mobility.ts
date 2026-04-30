@@ -171,6 +171,12 @@ export const createServerWorldMobility = (deps: ServerWorldMobilityDeps): Server
     return linked;
   };
 
+  const dockCrossingDestinationForTarget = (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock = true): Dock | undefined =>
+    dockLinkedDestinations(fromDock).find((targetDock) => {
+      const [px, py] = parseKey(targetDock.tileKey);
+      return (toX === px && toY === py) || (allowAdjacentToDock && isAdjacentTile(px, py, toX, toY));
+    });
+
   const validDockCrossingTarget = (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock = true): boolean =>
     dockLinkedTileKeys(fromDock).some((targetDockTileKey) => {
       const [px, py] = parseKey(targetDockTileKey);
@@ -347,6 +353,7 @@ export const createServerWorldMobility = (deps: ServerWorldMobilityDeps): Server
     dockLinkedDestinations,
     dockLinkedTileKeysByDockTileKey,
     dockLinkedTileKeys,
+    dockCrossingDestinationForTarget,
     validDockCrossingTarget,
     findOwnedDockOriginForCrossing,
     adjacentNeighbors,

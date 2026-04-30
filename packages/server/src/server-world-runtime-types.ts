@@ -279,6 +279,7 @@ export interface ServerWorldMobilityRuntime {
   dockLinkedDestinations: (fromDock: Dock) => Dock[];
   dockLinkedTileKeysByDockTileKey: Map<TileKey, TileKey[]>;
   dockLinkedTileKeys: (fromDock: Dock) => TileKey[];
+  dockCrossingDestinationForTarget: (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock?: boolean) => Dock | undefined;
   validDockCrossingTarget: (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock?: boolean) => boolean;
   findOwnedDockOriginForCrossing: (actor: Player, toX: number, toY: number, allowAdjacentToDock?: boolean) => Tile | undefined;
   adjacentNeighbors: (x: number, y: number) => Tile[];

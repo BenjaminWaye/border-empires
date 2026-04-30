@@ -118,6 +118,7 @@ import { createServerVictoryPressure } from "./server-victory-pressure.js";
 import { createServerTechDomainRuntime } from "./server-tech-domain-runtime.js";
 import { createServerEconomyStateRuntime } from "./server-economy-state-runtime.js";
 import { createServerPlayerEffectsRuntime } from "./server-player-effects-runtime.js";
+import { clearDockRouteCooldowns, dockRouteCooldownUntil, setDockRouteCooldownUntil } from "./server-dock-cooldown.js";
 import { createServerPlayerRuntimeSupport } from "./server-player-runtime-support.js";
 import { createServerOwnershipRuntime } from "./server-ownership-runtime.js";
 import { createServerSnapshotIoRuntime } from "./server-snapshot-io.js";
@@ -1990,6 +1991,7 @@ const {
   dockLinkedDestinations,
   dockLinkedTileKeysByDockTileKey,
   dockLinkedTileKeys,
+  dockCrossingDestinationForTarget,
   validDockCrossingTarget,
   findOwnedDockOriginForCrossing,
   adjacentNeighbors,
@@ -2199,7 +2201,7 @@ const clearWorldProgressForSeason = (): void => {
   breachShockByTile.clear();
   settlementDefenseByTile.clear();
   clearVictoryPressurePauseState();
-  for (const d of dockById.values()) d.cooldownUntil = 0;
+  for (const d of dockById.values()) clearDockRouteCooldowns(d);
   vendettaCaptureCountsByPlayer.clear();
   for (const p of players.values()) {
     resetHumanProfileForSeason(p);
@@ -2875,6 +2877,7 @@ const {
   manpowerMinForAction: (actionType) => manpowerMinForAction(actionType),
   manpowerCostForAction: (actionType) => manpowerCostForAction(actionType),
   isAdjacentTile,
+  dockCrossingDestinationForTarget,
   validDockCrossingTarget: (dock, x, y, allowAdjacentToDock) => validDockCrossingTarget(dock, x, y, allowAdjacentToDock),
   findOwnedDockOriginForCrossing,
   crossingBlockedByAetherWall: (fromX, fromY, toX, toY) => crossingBlockedByAetherWall(fromX, fromY, toX, toY),
@@ -9969,6 +9972,7 @@ registerServerHttpRoutes(app, {
     const tk = key(to.x, to.y);
     let fromDock = docksByTile.get(fk);
     let adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
+    let dockCrossingDestination = fromDock ? dockCrossingDestinationForTarget(fromDock, to.x, to.y) : undefined;
     let dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
     const aetherBridge = activeAetherBridgeForTarget(actor.id, tk);
     let bridgeCrossing = false;
@@ -9978,6 +9982,7 @@ registerServerHttpRoutes(app, {
       fk = aetherBridge.fromTileKey;
       fromDock = docksByTile.get(fk);
       adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
+      dockCrossingDestination = fromDock ? dockCrossingDestinationForTarget(fromDock, to.x, to.y) : undefined;
       dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
       bridgeCrossing = true;
     }
@@ -9988,6 +9993,7 @@ registerServerHttpRoutes(app, {
         fk = key(from.x, from.y);
         fromDock = docksByTile.get(fk);
         adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
+        dockCrossingDestination = fromDock ? dockCrossingDestinationForTarget(fromDock, to.x, to.y) : undefined;
         dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
       }
     }
@@ -10023,22 +10029,31 @@ registerServerHttpRoutes(app, {
       );
       return;
     }
-    if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) {
-      const cooldownRemainingMs = Math.max(0, fromDock.cooldownUntil - now());
-      app.log.info(
-        { playerId: actor.id, dockId: fromDock.dockId, cooldownUntil: fromDock.cooldownUntil, cooldownRemainingMs },
-        "action rejected: dock cooldown"
-      );
-      sendHighPrioritySocketMessage(
-        socket,
-        JSON.stringify({
-          type: "ERROR",
-          code: "DOCK_COOLDOWN",
-          message: "dock crossing endpoint on cooldown",
-          cooldownRemainingMs
-        })
-      );
-      return;
+    if (dockCrossing && fromDock && dockCrossingDestination) {
+      const cooldownUntil = dockRouteCooldownUntil(fromDock, dockCrossingDestination.dockId);
+      if (cooldownUntil > now()) {
+        const cooldownRemainingMs = Math.max(0, cooldownUntil - now());
+        app.log.info(
+          {
+            playerId: actor.id,
+            dockId: fromDock.dockId,
+            destinationDockId: dockCrossingDestination.dockId,
+            cooldownUntil,
+            cooldownRemainingMs
+          },
+          "action rejected: dock cooldown"
+        );
+        sendHighPrioritySocketMessage(
+          socket,
+          JSON.stringify({
+            type: "ERROR",
+            code: "DOCK_COOLDOWN",
+            message: "dock crossing endpoint on cooldown",
+            cooldownRemainingMs
+          })
+        );
+        return;
+      }
     }
 
     if (from.ownerId !== actor.id) {
@@ -10390,7 +10405,9 @@ registerServerHttpRoutes(app, {
       if (pending.cancelled) return;
       combatLocks.delete(fk);
       combatLocks.delete(tk);
-      if (dockCrossing && fromDock) fromDock.cooldownUntil = now() + DOCK_CROSSING_COOLDOWN_MS;
+      if (dockCrossing && fromDock && dockCrossingDestination) {
+        setDockRouteCooldownUntil(fromDock, dockCrossingDestination.dockId, now() + DOCK_CROSSING_COOLDOWN_MS);
+      }
 
       if (!defenderOwnerId && !defenderIsBarbarian) {
         if (msg.type === "EXPAND") {
