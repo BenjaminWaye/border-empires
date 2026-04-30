@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.30.12",
+  version: "2026.04.30.13",
   title: "What's New",
-  summary: "Recent updates include a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
+  summary: "Recent updates include a legacy chunk-stream fix so stale bulk-socket closes no longer reset the live session's chunk generation back to 1 mid-session, a rewrite 3D terrain brightness correction that now uses the exact legacy 2D grass, sand, and coastal water palette with a small emissive lift so the terrain stays bright under 3D lighting while keeping visible tile grid lines, a legacy AI settlement fix so starving empires stop wasting settles on fur or empty rings and stop overvaluing food before they have a real town, dedicated economic and monument overlay art for previously missing late-game structures, rewrite AI economy recovery so broke empires now collect visible accrued yield instead of idling forever, clearer tech-tree availability cards, per-route dock crossing cooldowns, and the earlier legacy and rewrite socket-routing fixes that stopped stale sockets from black-holing tile sync and frontier acks after reconnects.",
   entries: [
+    {
+      introducedIn: "2026.04.30.13",
+      title: "Legacy chunk generations now survive stale bulk-socket closes",
+      why: "A stale legacy bulk socket could close after a newer live session had already replaced it, and the server would still wipe that player's active chunk subscription and generation state. The next chunk refresh restarted at generation 1 while the client still held a newer generation, so the client correctly ignored the stale-looking stream and tile sync appeared stuck.",
+      changes: [
+        "Legacy bulk close handling now ignores stale bulk sockets that are no longer the player's active bulk channel.",
+        "When the current bulk socket closes but the control socket is still healthy, the server preserves the active chunk subscription and generation instead of resetting them mid-session.",
+        "Added server regression coverage for stale bulk close cleanup so future socket lifecycle changes do not restart live chunk streams at generation 1."
+      ]
+    },
     {
       introducedIn: "2026.04.30.12",
       title: "Rewrite 3D terrain brightness now matches the legacy 2D palette more closely",

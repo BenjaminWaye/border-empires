@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { broadcastBulk, bulkSocketForPlayer, sendBulkToPlayer, sendControlToPlayer, type PlayerSocketLike } from "./server-player-sockets.js";
+import {
+  broadcastBulk,
+  bulkSocketForPlayer,
+  detachBulkSocketForPlayer,
+  sendBulkToPlayer,
+  sendControlToPlayer,
+  type PlayerSocketLike
+} from "./server-player-sockets.js";
 
 const fakeSocket = (): PlayerSocketLike & { send: ReturnType<typeof vi.fn> } => ({
   OPEN: 1,
@@ -83,5 +90,27 @@ describe("server-player-sockets", () => {
     expect(control.send).toHaveBeenCalledTimes(1);
     expect(control.send).toHaveBeenCalledWith("payload");
     expect(staleBulk.send).not.toHaveBeenCalled();
+  });
+
+  it("ignores stale bulk socket closes and preserves chunk session state for the live session", () => {
+    const control = fakeSocket();
+    const liveBulk = fakeSocket();
+    const staleBulk = fakeSocket();
+    const controlSockets = new Map<string, PlayerSocketLike>([["p1", control]]);
+    const bulkSockets = new Map<string, PlayerSocketLike>([["p1", liveBulk]]);
+
+    const staleClose = detachBulkSocketForPlayer(controlSockets, bulkSockets, "p1", staleBulk);
+    expect(staleClose).toEqual({
+      closedCurrentBulkSocket: false,
+      preserveChunkSessionState: true
+    });
+    expect(bulkSockets.get("p1")).toBe(liveBulk);
+
+    const liveClose = detachBulkSocketForPlayer(controlSockets, bulkSockets, "p1", liveBulk);
+    expect(liveClose).toEqual({
+      closedCurrentBulkSocket: true,
+      preserveChunkSessionState: true
+    });
+    expect(bulkSockets.has("p1")).toBe(false);
   });
 });
