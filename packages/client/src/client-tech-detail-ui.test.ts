@@ -278,4 +278,20 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "90 supply", "60 iron"]);
     expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "140 supply", "120 iron"]);
   });
+
+  it("provides structure art for dedicated economic overlays", () => {
+    const deps = {
+      formatCooldownShort: () => "10m",
+      prettyToken: (value: string) => value
+    };
+
+    expect(structureInfoForKey("EXCHANGE_HOUSE", deps).image).toBe("/overlays/exchange-house-overlay.svg");
+    expect(structureInfoForKey("LOCKWORKS_PORT", deps).image).toBe("/overlays/lockworks-port-overlay.svg");
+    expect(structureInfoForKey("CHARTERED_PORT", deps).image).toBe("/overlays/chartered-port-overlay.svg");
+    expect(structureInfoForKey("RAIL_DEPOT", deps).image).toBe("/overlays/rail-depot-overlay.svg");
+    expect(structureInfoForKey("AEGIS_DOME", deps).image).toBe("/overlays/aegis-dome-overlay.svg");
+    expect(structureInfoForKey("ASTRAL_DOCK", deps).image).toBe("/overlays/astral-dock-overlay.svg");
+    expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).image).toBe("/overlays/imperial-exchange-overlay.svg");
+    expect(structureInfoForKey("WORLD_ENGINE", deps).image).toBe("/overlays/world-engine-overlay.svg");
+  });
 });
