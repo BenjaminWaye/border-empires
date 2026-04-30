@@ -48,9 +48,9 @@ type TryQueueSuccess = {
     pillagedGold: number;
     pillagedShare: number;
     pillagedStrategic: Partial<Record<StrategicResource, number>>;
-    atkEff: number;
-    defEff: number;
-    winChance: number;
+    atkEff?: number;
+    defEff?: number;
+    winChance?: number;
     levelDelta: number;
   };
   attackAlert?: {
@@ -451,26 +451,42 @@ export const createServerFrontierActionRuntime = (
       if (defender) deps.resolveEliminationIfNeeded(defender, deps.socketsByPlayer.has(defender.id) || defender.isAi === true);
       deps.sendPostCombatFollowUps(actor.id, [{ x: from.x, y: from.y }, { x: to.x, y: to.y }], defender && !defenderIsBarbarian ? defender.id : undefined);
     }, resolvesAt - deps.now());
-    const result = precomputedCombat
-      ? {
-          attackType: effectiveActionType,
-          attackerWon: precomputedCombat.attackerWon,
-          ...(precomputedCombat.winnerId ? { winnerId: precomputedCombat.winnerId } : {}),
-          ...(precomputedCombat.defenderOwnerId ? { defenderOwnerId: precomputedCombat.defenderOwnerId } : {}),
-          origin: { x: from.x, y: from.y },
-          target: { x: to.x, y: to.y },
-          changes: precomputedCombat.changes,
-          pointsDelta: precomputedCombat.pointsDelta,
-          manpowerDelta: precomputedCombat.manpowerDelta,
-          pillagedGold: precomputedCombat.pillagedGold,
-          pillagedShare: precomputedCombat.pillagedShare,
-          pillagedStrategic: precomputedCombat.pillagedStrategic,
-          atkEff: precomputedCombat.atkEff,
-          defEff: precomputedCombat.defEff,
-          winChance: precomputedCombat.winChance,
-          levelDelta: 0
-        }
-      : undefined;
+    const result =
+      effectiveActionType === "EXPAND" && !precomputedCombat
+        ? {
+            attackType: effectiveActionType,
+            attackerWon: true,
+            winnerId: actor.id,
+            origin: { x: from.x, y: from.y },
+            target: { x: to.x, y: to.y },
+            changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }],
+            pointsDelta: 0,
+            manpowerDelta: 0,
+            pillagedGold: 0,
+            pillagedShare: 0,
+            pillagedStrategic: {},
+            levelDelta: 0
+          }
+        : precomputedCombat
+          ? {
+              attackType: effectiveActionType,
+              attackerWon: precomputedCombat.attackerWon,
+              ...(precomputedCombat.winnerId ? { winnerId: precomputedCombat.winnerId } : {}),
+              ...(precomputedCombat.defenderOwnerId ? { defenderOwnerId: precomputedCombat.defenderOwnerId } : {}),
+              origin: { x: from.x, y: from.y },
+              target: { x: to.x, y: to.y },
+              changes: precomputedCombat.changes,
+              pointsDelta: precomputedCombat.pointsDelta,
+              manpowerDelta: precomputedCombat.manpowerDelta,
+              pillagedGold: precomputedCombat.pillagedGold,
+              pillagedShare: precomputedCombat.pillagedShare,
+              pillagedStrategic: precomputedCombat.pillagedStrategic,
+              atkEff: precomputedCombat.atkEff,
+              defEff: precomputedCombat.defEff,
+              winChance: precomputedCombat.winChance,
+              levelDelta: 0
+            }
+          : undefined;
     return defender && !defenderIsBarbarian && effectiveActionType === "ATTACK"
       ? { ok: true, actionType: effectiveActionType, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(result ? { result } : {}), attackAlert: { defenderId: defender.id, attackerId: actor.id, attackerName: actor.name, x: to.x, y: to.y, fromX: from.x, fromY: from.y, resolvesAt } }
       : { ok: true, actionType: effectiveActionType, resolvesAt, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, ...(result ? { result } : {}) };

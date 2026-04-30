@@ -273,7 +273,21 @@ describe("server-frontier-action-runtime", () => {
     expect(result).toEqual(
       expect.objectContaining({
         ok: true,
-        actionType: "EXPAND"
+        actionType: "EXPAND",
+        result: {
+          attackType: "EXPAND",
+          attackerWon: true,
+          winnerId: "attacker",
+          origin: { x: 4, y: 4 },
+          target: { x: 5, y: 4 },
+          changes: [{ x: 5, y: 4, ownerId: "attacker", ownershipState: "FRONTIER" }],
+          pointsDelta: 0,
+          manpowerDelta: 0,
+          pillagedGold: 0,
+          pillagedShare: 0,
+          pillagedStrategic: {},
+          levelDelta: 0
+        }
       })
     );
     expect(hasEnoughManpower).toHaveBeenCalledWith(actor, 0);
