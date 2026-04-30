@@ -27,7 +27,7 @@ const run = (command, args, options = {}) => {
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with exit code ${result.status ?? "unknown"}`);
   }
-  return result.stdout.trim();
+  return (options.returnCombinedOutput ? `${result.stdout}${result.stderr}` : result.stdout).trim();
 };
 
 const verifyPreviewServesClient = async (deploymentUrl) => {

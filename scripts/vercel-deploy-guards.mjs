@@ -55,14 +55,11 @@ export const parseVercelInspectOutput = (output) => {
 };
 
 export const inspectDeployment = (run, deploymentRef) => {
-  const output = run("npx", [
-    "vercel",
-    "inspect",
-    deploymentRef,
-    "--scope",
-    vercelClientProject.scope,
-    "--no-color"
-  ]);
+  const output = run(
+    "npx",
+    ["vercel", "inspect", deploymentRef, "--scope", vercelClientProject.scope, "--no-color"],
+    { returnCombinedOutput: true }
+  );
   return parseVercelInspectOutput(output);
 };
 
