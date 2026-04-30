@@ -8774,6 +8774,7 @@ registerServerHttpRoutes(app, {
           break;
         }
       }
+      spawnPlayer(actor);
       broadcastBulk({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       sendPlayerUpdate(actor, 0);
       return;
