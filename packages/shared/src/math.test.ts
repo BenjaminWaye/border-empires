@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { SETTLED_DEFENSE_NEAR_FORT_RADIUS, defensibilityScore, wrappedChebyshevDistance } from "./math.js";
+import {
+  SETTLED_DEFENSE_NEAR_FORT_RADIUS,
+  defensibilityScore,
+  fullDefensibilityExposureForTiles,
+  idealExposureForTiles,
+  wrappedChebyshevDistance
+} from "./math.js";
 
 describe("defensibilityScore", () => {
   it("keeps compact frontiers at full defense", () => {
     expect(defensibilityScore(20, 22)).toBe(1);
     expect(defensibilityScore(60, 40)).toBe(1);
+  });
+
+  it("exposes the same compact-frontier thresholds the client explains", () => {
+    expect(idealExposureForTiles(4)).toBe(8);
+    expect(fullDefensibilityExposureForTiles(4)).toBe(10);
+    expect(defensibilityScore(4, 10)).toBe(1);
+    expect(defensibilityScore(4, 10.5)).toBeLessThan(1);
   });
 
   it("still penalizes messy or overexposed territory", () => {
