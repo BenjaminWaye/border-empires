@@ -1,6 +1,6 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { GoogleAuthProvider, getAuth } from "firebase/auth";
-import { selectBackend } from "./client-backend-selector.js";
+import { isStagingHostname, selectBackend } from "./client-backend-selector.js";
 import { createMultiplexWebSocket } from "./client-multiplex-websocket.js";
 import type { ClientState } from "./client-state.js";
 
@@ -38,10 +38,12 @@ export const createClientSocketSetup = (
   ws: ReturnType<typeof createMultiplexWebSocket>;
   wsUrl: string;
 } => {
+  const hostname = window.location.hostname.toLowerCase();
   const isLocalHost =
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "0.0.0.0";
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0";
+  const isStagingHost = isStagingHostname(hostname);
 
   // Legacy monolith URL — prod default stays wss://border-empires.fly.dev/ws until Phase 6.
   const legacyDefault = isLocalHost
@@ -52,7 +54,9 @@ export const createClientSocketSetup = (
   // Rewrite gateway URL — VITE_GATEWAY_WS_URL is undefined in prod until Phase 6.
   const gatewayDefault = isLocalHost
     ? `${window.location.protocol === "https:" ? "wss" : "ws"}://127.0.0.1:3101/ws`
-    : undefined;
+    : isStagingHost
+      ? "wss://border-empires-gateway-staging.fly.dev/ws"
+      : undefined;
   const gatewayWsUrl =
     (import.meta.env.VITE_GATEWAY_WS_URL as string | undefined) ?? gatewayDefault ?? legacyWsUrl;
 

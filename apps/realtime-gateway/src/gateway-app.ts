@@ -865,9 +865,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             const resolvedPlayerIdentity = resolveGatewayAuthIdentity(message.token, {
+              allowDirectPlayerIdToken: Boolean(options.defaultHumanPlayerId),
               ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
               ...(legacySnapshotBootstrap ? { authIdentities: legacySnapshotBootstrap.authIdentities } : {})
             });
+            if (!resolvedPlayerIdentity) {
+              recordGatewayEvent("warn", "gateway_auth_rejected_unmapped_token", {
+                channel
+              });
+              sendJson(socket, {
+                type: "ERROR",
+                code: "AUTH_FAIL",
+                message: "Authentication token is not recognized by the rewrite gateway."
+              });
+              return;
+            }
             let playerIdentity = { ...resolvedPlayerIdentity };
             if (resolvedPlayerIdentity.authUid) {
               try {

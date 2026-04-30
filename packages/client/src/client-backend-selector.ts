@@ -50,7 +50,7 @@ function isLocalhostHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
 }
 
-function isStagingHostname(hostname: string): boolean {
+export function isStagingHostname(hostname: string): boolean {
   const normalized = hostname.toLowerCase();
   return (
     normalized === "staging.borderempires.com" ||
@@ -87,9 +87,10 @@ export function selectBackend(opts: {
 }): BackendSelection {
   const { legacyWsUrl, gatewayWsUrl } = opts;
   const { search, hostname, cookieStr } = opts.ctx ?? readBrowserCtx();
+  const stagingHost = isStagingHostname(hostname);
 
   const fromParam = readUrlParam(search);
-  if (fromParam !== null) {
+  if (fromParam !== null && !(stagingHost && fromParam === "legacy")) {
     return {
       backend: fromParam,
       wsUrl: fromParam === "gateway" ? gatewayWsUrl : legacyWsUrl,
@@ -97,7 +98,7 @@ export function selectBackend(opts: {
     };
   }
 
-  if (isStagingHostname(hostname)) {
+  if (stagingHost) {
     return {
       backend: "gateway",
       wsUrl: gatewayWsUrl,

@@ -101,11 +101,33 @@ describe("backend cookie mid-session toggle", () => {
     expect(result.wsUrl).toBe(GATEWAY);
   });
 
+  it("staging hostname ignores ?backend=legacy and still resolves to gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY,
+      gatewayWsUrl: GATEWAY,
+      ctx: { hostname: "border-empires-client-staging-benjaminwayes-projects.vercel.app", search: "?backend=legacy", cookieStr: "" }
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.source).toBe("env-default");
+    expect(result.wsUrl).toBe(GATEWAY);
+  });
+
   it("staging custom domain ignores legacy cookie and still resolves to gateway", () => {
     const result = selectBackend({
       legacyWsUrl: LEGACY,
       gatewayWsUrl: GATEWAY,
       ctx: stagingCustomDomainCtx("be-backend=legacy")
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.source).toBe("env-default");
+    expect(result.wsUrl).toBe(GATEWAY);
+  });
+
+  it("staging custom domain ignores ?backend=legacy and still resolves to gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY,
+      gatewayWsUrl: GATEWAY,
+      ctx: { hostname: "staging.borderempires.com", search: "?backend=legacy", cookieStr: "" }
     });
     expect(result.backend).toBe("gateway");
     expect(result.source).toBe("env-default");

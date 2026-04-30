@@ -47,10 +47,11 @@ export type GatewayResolvedIdentity = {
 export const resolveGatewayAuthIdentity = (
   token: string,
   options: {
+    allowDirectPlayerIdToken?: boolean;
     defaultHumanPlayerId?: string;
     authIdentities?: Array<{ uid: string; playerId: string; name?: string; email?: string }>;
   } = {}
-): GatewayResolvedIdentity => {
+): GatewayResolvedIdentity | undefined => {
   const directMappedIdentity = options.authIdentities?.find(
     (identity) => identity.uid === token || identity.email === token || identity.playerId === token
   );
@@ -65,6 +66,7 @@ export const resolveGatewayAuthIdentity = (
 
   const decoded = decodeFirebaseTokenFallback(token);
   if (!decoded) {
+    if (options.allowDirectPlayerIdToken !== true) return undefined;
     return {
       playerId: token,
       playerName: fallbackDisplayNameForToken(token)

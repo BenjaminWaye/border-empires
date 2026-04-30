@@ -35,4 +35,32 @@ describe("client app runtime env", () => {
     expect(state.bridgeDebugWsUrl).toBe("ws://127.0.0.1:3101/ws");
     expect(state.bridgeDebugMode).toBe("rewrite-gateway");
   });
+
+  it("defaults staging hostname websocket traffic to the staging gateway even without a baked gateway env var", () => {
+    vi.stubGlobal("window", {
+      location: {
+        hostname: "staging.borderempires.com",
+        protocol: "https:"
+      }
+    });
+
+    const state = {
+      localhostDevAetherWall: false,
+      bridgeDebugWsUrl: "",
+      bridgeDebugMode: "unknown"
+    };
+    const socket = { close: () => undefined };
+    const createMultiplexWebSocket = vi.spyOn(
+      multiplexWebSocketModule,
+      "createMultiplexWebSocket"
+    ).mockReturnValue(socket as ReturnType<typeof multiplexWebSocketModule.createMultiplexWebSocket>);
+
+    const setup = createClientSocketSetup(state as never);
+
+    expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://border-empires-gateway-staging.fly.dev/ws");
+    expect(setup.wsUrl).toBe("wss://border-empires-gateway-staging.fly.dev/ws");
+    expect(state.localhostDevAetherWall).toBe(false);
+    expect(state.bridgeDebugWsUrl).toBe("wss://border-empires-gateway-staging.fly.dev/ws");
+    expect(state.bridgeDebugMode).toBe("rewrite-gateway");
+  });
 });

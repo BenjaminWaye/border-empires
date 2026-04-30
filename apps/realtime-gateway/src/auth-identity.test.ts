@@ -3,11 +3,15 @@ import { describe, expect, it } from "vitest";
 import { resolveGatewayAuthIdentity } from "./auth-identity.js";
 
 describe("resolveGatewayAuthIdentity", () => {
-  it("keeps plain non-jwt tokens as direct player ids", () => {
-    expect(resolveGatewayAuthIdentity("player-1")).toEqual({
+  it("keeps plain non-jwt tokens as direct player ids only when explicitly allowed", () => {
+    expect(resolveGatewayAuthIdentity("player-1", { allowDirectPlayerIdToken: true })).toEqual({
       playerId: "player-1",
       playerName: "player-1"
     });
+  });
+
+  it("rejects unmapped non-jwt tokens when direct player ids are disabled", () => {
+    expect(resolveGatewayAuthIdentity("staging-probe-1777570947079-1")).toBeUndefined();
   });
 
   it("maps decoded firebase jwt identities onto the configured local human player id", () => {
@@ -52,7 +56,7 @@ describe("resolveGatewayAuthIdentity", () => {
 
   it("anonymizes opaque auth tokens instead of leaking the raw id", () => {
     const token = "abcdefghijklmnopqrstuvwxyz0123456789";
-    expect(resolveGatewayAuthIdentity(token)).toEqual(
+    expect(resolveGatewayAuthIdentity(token, { allowDirectPlayerIdToken: true })).toEqual(
       expect.objectContaining({
         playerId: token,
         playerName: expect.stringMatching(/^Empire [0-9A-Z]{6}$/)

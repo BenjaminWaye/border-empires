@@ -5,7 +5,6 @@ const DEFAULTS = {
   attempts: 10,
   timeoutMs: 8_000,
   intervalMs: 250,
-  tokenPrefix: "staging-probe",
   minSuccessRate: 1
 };
 
@@ -17,11 +16,14 @@ Options:
   --attempts <n>                  Number of auth attempts (default: ${DEFAULTS.attempts})
   --timeout-ms <ms>               Per-attempt timeout (default: ${DEFAULTS.timeoutMs})
   --interval-ms <ms>              Delay between attempts (default: ${DEFAULTS.intervalMs})
-  --token-prefix <prefix>         Auth token prefix (default: ${DEFAULTS.tokenPrefix})
+  --auth-token <token>            Auth token to reuse for every attempt
   --max-p95-ms <ms>               Exit non-zero if success p95 exceeds this threshold
   --min-success-rate <0..1>       Exit non-zero if success rate drops below threshold (default: ${DEFAULTS.minSuccessRate})
   --json                          Emit JSON summary
   --help                          Show help
+
+Environment:
+  STAGING_LOGIN_PROBE_AUTH_TOKEN  Auth token to use when --auth-token is omitted
 `);
 };
 
@@ -37,6 +39,7 @@ const parseNumberArg = (name, raw, fallback) => {
 const parseArgs = (argv) => {
   const options = {
     ...DEFAULTS,
+    authToken: process.env.STAGING_LOGIN_PROBE_AUTH_TOKEN,
     maxP95Ms: undefined,
     json: false
   };
@@ -72,9 +75,9 @@ const parseArgs = (argv) => {
       index += 1;
       continue;
     }
-    if (arg === "--token-prefix") {
-      if (!value) throw new Error("--token-prefix requires a value");
-      options.tokenPrefix = value;
+    if (arg === "--auth-token") {
+      if (!value) throw new Error("--auth-token requires a value");
+      options.authToken = value;
       index += 1;
       continue;
     }
@@ -89,6 +92,9 @@ const parseArgs = (argv) => {
       continue;
     }
     throw new Error(`Unknown argument: ${arg}`);
+  }
+  if (!options.authToken) {
+    throw new Error("missing auth token; pass --auth-token or set STAGING_LOGIN_PROBE_AUTH_TOKEN");
   }
   return options;
 };
@@ -105,8 +111,7 @@ const sleep = (ms) =>
     setTimeout(resolve, ms);
   });
 
-const runAttempt = async ({ url, timeoutMs, tokenPrefix }, attemptIndex) => {
-  const token = `${tokenPrefix}-${Date.now()}-${attemptIndex}`;
+const runAttempt = async ({ url, timeoutMs, authToken }) => {
   const socket = new WebSocket(url);
   let completed = false;
   let authSentAt = 0;
@@ -129,7 +134,7 @@ const runAttempt = async ({ url, timeoutMs, tokenPrefix }, attemptIndex) => {
 
     socket.addEventListener("open", () => {
       authSentAt = Date.now();
-      socket.send(JSON.stringify({ type: "AUTH", token }));
+      socket.send(JSON.stringify({ type: "AUTH", token: authToken }));
     });
 
     socket.addEventListener("message", (event) => {
