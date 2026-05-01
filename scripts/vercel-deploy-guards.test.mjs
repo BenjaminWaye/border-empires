@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  assertProjectDomainBranchBinding,
   ensureTrackedProjectLink,
+  loadVercelApiToken,
   normalizeDeploymentUrl,
   parseVercelInspectOutput,
   vercelClientProject
@@ -56,4 +58,40 @@ test("ensureTrackedProjectLink writes the pinned root project link", () => {
     orgId: vercelClientProject.orgId,
     projectName: vercelClientProject.projectName
   });
+});
+
+test("loadVercelApiToken prefers env token and falls back to CLI auth file", () => {
+  const rootDir = mkdtempSync(join(tmpdir(), "border-empires-vercel-auth-"));
+  const homeDir = join(rootDir, "home");
+  const authFile = join(homeDir, "Library", "Application Support", "com.vercel.cli", "auth.json");
+  mkdirSync(join(homeDir, "Library", "Application Support", "com.vercel.cli"), { recursive: true });
+  writeFileSync(authFile, JSON.stringify({ token: "file-token" }), "utf8");
+
+  assert.equal(loadVercelApiToken({ HOME: homeDir }), "file-token");
+  assert.equal(loadVercelApiToken({ HOME: homeDir, VERCEL_TOKEN: "env-token" }), "env-token");
+});
+
+test("assertProjectDomainBranchBinding accepts a staging-bound domain", () => {
+  const domain = assertProjectDomainBranchBinding({
+    domains: [
+      { name: "staging.borderempires.com", gitBranch: "staging" },
+      { name: "play.borderempires.com", gitBranch: null }
+    ],
+    domainName: "staging.borderempires.com",
+    expectedGitBranch: "staging"
+  });
+
+  assert.equal(domain.name, "staging.borderempires.com");
+});
+
+test("assertProjectDomainBranchBinding rejects a production-bound staging domain", () => {
+  assert.throws(
+    () =>
+      assertProjectDomainBranchBinding({
+        domains: [{ name: "staging.borderempires.com", gitBranch: null }],
+        domainName: "staging.borderempires.com",
+        expectedGitBranch: "staging"
+      }),
+    /bound to production\/default, expected staging/
+  );
 });
