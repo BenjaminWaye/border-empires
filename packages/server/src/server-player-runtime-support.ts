@@ -53,6 +53,7 @@ export interface CreateServerPlayerRuntimeSupportDeps {
   ensureMissionDefaults: (player: Player) => void;
   normalizePlayerProgressionState: (player: Player) => void;
   recomputeExposure: (player: Player) => void;
+  ensureActiveSettlementForPlayer: (playerId: string) => void;
   ensureFallbackSettlementForPlayer: (playerId: string) => void;
   recomputeTownNetworkForPlayer: (playerId: string) => void;
   reconcileCapitalForPlayer: (player: Player) => void;
@@ -223,6 +224,7 @@ export const createServerPlayerRuntimeSupport = (
 
     for (const player of deps.players.values()) {
       deps.recomputeExposure(player);
+      deps.ensureActiveSettlementForPlayer(player.id);
       deps.ensureFallbackSettlementForPlayer(player.id);
       deps.recomputeTownNetworkForPlayer(player.id);
       deps.reconcileCapitalForPlayer(player);
