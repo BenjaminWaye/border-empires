@@ -158,6 +158,7 @@ const makeDeps = (): CreateServerSnapshotHydrateDeps => {
     normalizePlayerProgressionState: () => {},
     recomputePlayerEffectsForPlayer: () => {},
     defaultMissionStats: () => baseMissionStats(),
+    ensureActiveSettlementForPlayer: () => false,
     ensureFallbackSettlementForPlayer: () => false,
     spawnBarbarianAgentAt: () => {},
     parseKey: (tileKey) => {
@@ -226,5 +227,28 @@ describe("server snapshot hydrate regression", () => {
     });
 
     expect([...((deps.discoveredTileKeysByPlayer.get("player-1") ?? new Set()) as Set<TileKey>)].sort()).toEqual(["0,0", "1,1"]);
+  });
+
+  it("repairs the active settlement invariant before fallback settlement checks during hydrate", () => {
+    const deps = makeDeps();
+    const calls: string[] = [];
+    deps.ensureActiveSettlementForPlayer = (playerId) => {
+      calls.push(`active:${playerId}`);
+      return false;
+    };
+    deps.ensureFallbackSettlementForPlayer = (playerId) => {
+      calls.push(`fallback:${playerId}`);
+      return false;
+    };
+    const runtime = createServerSnapshotHydrateRuntime(deps);
+
+    runtime.hydrateSnapshotState({
+      world: { width: 2, height: 2 },
+      players: [snapshotPlayer()],
+      ownership: [],
+      resources: []
+    });
+
+    expect(calls).toEqual(["active:player-1", "fallback:player-1"]);
   });
 });

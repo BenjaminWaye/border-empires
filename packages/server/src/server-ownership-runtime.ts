@@ -68,6 +68,7 @@ export interface CreateServerOwnershipRuntimeDeps {
   recomputeExposure: (player: Player) => void;
   recomputeTownNetworkForPlayer: (playerId: string) => void;
   reconcileCapitalForPlayer: (player: Player) => void;
+  ensureActiveSettlementForPlayer: (playerId: string) => void;
   ensureFallbackSettlementForPlayer: (playerId: string) => void;
   rebuildEconomyIndexForPlayer: (playerId: string) => void;
   relocateCapturedSettlementForPlayer: (
@@ -274,16 +275,19 @@ export const createServerOwnershipRuntime = (
     for (const playerId of affectedPlayers) {
       const player = deps.players.get(playerId);
       if (!player) continue;
+      const playerLostRelocatableSettlement = displacedSettlement?.ownerId === playerId;
       deps.recomputeExposure(player);
+      if (!playerLostRelocatableSettlement) deps.ensureActiveSettlementForPlayer(playerId);
       deps.recomputeTownNetworkForPlayer(playerId);
       deps.reconcileCapitalForPlayer(player);
-      if (!displacedSettlement || displacedSettlement.ownerId !== playerId) deps.ensureFallbackSettlementForPlayer(playerId);
+      if (!playerLostRelocatableSettlement) deps.ensureFallbackSettlementForPlayer(playerId);
       deps.rebuildEconomyIndexForPlayer(playerId);
     }
     if (displacedSettlement) {
       deps.relocateCapturedSettlementForPlayer(displacedSettlement.ownerId, displacedSettlement.town);
       const displacedPlayer = deps.players.get(displacedSettlement.ownerId);
       if (displacedPlayer) {
+        deps.ensureActiveSettlementForPlayer(displacedPlayer.id);
         deps.ensureFallbackSettlementForPlayer(displacedPlayer.id);
         deps.rebuildEconomyIndexForPlayer(displacedPlayer.id);
       }

@@ -33,9 +33,13 @@ describe("settlement relocation regression guard", () => {
   it("repairs missing settlements and keeps the active settlement authoritative for the capital marker", () => {
     const settlementFlowSource = readServerSource("./server-settlement-flow.ts");
     const tileViewSource = readServerSource("./server-tile-view-runtime.ts");
+    const playerRuntimeSource = readServerSource("./server-player-runtime-support.ts");
+    const snapshotHydrateSource = readServerSource("./server-snapshot-hydrate.ts");
     expect(settlementFlowSource).toContain("const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined =>");
     expect(settlementFlowSource).toContain("const ensureActiveSettlementForPlayer = (playerId: string): boolean => {");
     expect(settlementFlowSource).toContain("for (const candidate of [player.spawnOrigin, player.capitalTileKey, oldestSettledSettlementCandidateForPlayer(playerId)]) {");
+    expect(playerRuntimeSource).toContain("deps.ensureActiveSettlementForPlayer(player.id);");
+    expect(snapshotHydrateSource).toContain("deps.ensureActiveSettlementForPlayer(playerId);");
     expect(tileViewSource).toContain("if (ownerId !== deps.BARBARIAN_OWNER_ID && deps.activeSettlementTileKeyForPlayer(ownerId) === tileKey) tile.capital = true;");
   });
 
