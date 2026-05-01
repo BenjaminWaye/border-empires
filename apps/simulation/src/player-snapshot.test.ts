@@ -223,6 +223,76 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
   });
 
+  it("keeps season-victory thresholds based on full world state when the visible tile slice is partial", () => {
+    const visibleRuntimeState = {
+      tiles: [
+        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING", townName: "Nauticus" },
+        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
+      ],
+      players: [
+        {
+          id: "player-1",
+          name: "Nauticus",
+          points: 100,
+          manpower: 150,
+          techIds: [],
+          domainIds: [],
+          strategicResources: {},
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10", "11,10"],
+          settledTileCount: 2,
+          incomePerMinute: 2
+        },
+        {
+          id: "ai-1",
+          name: "BlackFang",
+          points: 120,
+          manpower: 150,
+          techIds: ["breach-doctrine"],
+          domainIds: [],
+          strategicResources: {},
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["30,30", "31,30"],
+          settledTileCount: 2,
+          incomePerMinute: 2
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    };
+    const fullRuntimeState = {
+      ...visibleRuntimeState,
+      tiles: [
+        ...visibleRuntimeState.tiles,
+        { x: 30, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", townType: "MARKET", townName: "BlackFang" },
+        { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "IRON" },
+        { x: 40, y: 40, terrain: "LAND", townType: "MARKET", townName: "Neutral Port" }
+      ]
+    };
+
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", visibleRuntimeState, undefined, {
+      worldStatusRuntimeState: fullRuntimeState
+    });
+
+    expect(snapshot.tiles).toHaveLength(2);
+    expect(snapshot.worldStatus?.seasonVictory.find((objective) => objective.id === "TOWN_CONTROL")).toEqual(
+      expect.objectContaining({
+        progressLabel: "1/2 towns",
+        thresholdLabel: "Need 2 towns"
+      })
+    );
+    expect(snapshot.worldStatus?.seasonVictory.find((objective) => objective.id === "SETTLED_TERRITORY")).toEqual(
+      expect.objectContaining({
+        progressLabel: "2/4 settled land",
+        thresholdLabel: "Need 4 settled land tiles"
+      })
+    );
+  });
+
   it("can skip world status generation when subscribe only needs the visible bootstrap payload", () => {
     const snapshot = buildPlayerSubscriptionSnapshot(
       "player-1",
