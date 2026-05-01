@@ -287,7 +287,7 @@ export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): Serv
     }
   };
 
-  const playerHasOtherGoldIncome = (playerId: string): boolean => {
+  const playerHasPotentialGoldIncome = (playerId: string): boolean => {
     const player = players.get(playerId);
     if (!player) return false;
     for (const tk of player.territoryTiles) {
@@ -297,9 +297,11 @@ export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): Serv
       const resource = resourceAt(x, y);
       const dock = docksByTile.get(tk);
       const town = townsByTile.get(tk);
+      const structure = economicStructuresByTile.get(tk);
       if (resource && (resourceRate[resource] ?? 0) > 0) return true;
       if (dock && dockIncomeForOwner(dock, playerId) > 0) return true;
-      if (town && townPopulationTierForTown(town) !== "SETTLEMENT" && townPotentialIncomeForOwner(town, playerId, { ignoreSuppression: true, ignoreManpowerGate: true }) > 0) return true;
+      if (town && townPotentialIncomeForOwner(town, playerId, { ignoreSuppression: true, ignoreManpowerGate: true }) > 0) return true;
+      if (structure?.ownerId === playerId && structure.type === "BANK" && structure.status === "active") return true;
     }
     return false;
   };
@@ -319,7 +321,7 @@ export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): Serv
   };
 
   const ensureFallbackSettlementForPlayer = (playerId: string): boolean => {
-    if (activeSettlementTileKeyForPlayer(playerId) || playerHasOtherGoldIncome(playerId)) return false;
+    if (activeSettlementTileKeyForPlayer(playerId) || playerHasPotentialGoldIncome(playerId)) return false;
     const candidate = oldestSettledSettlementCandidateForPlayer(playerId);
     if (!candidate || !createSettlementAtTile(playerId, candidate)) return false;
     recomputeTownNetworkForPlayer(playerId);
