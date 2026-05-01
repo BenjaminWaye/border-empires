@@ -6,6 +6,7 @@ import {
   ensureTrackedProjectLink,
   inspectDeployment,
   normalizeDeploymentUrl,
+  verifyProjectDomainBranchBinding,
   vercelClientEnv,
   vercelClientProject
 } from "./vercel-deploy-guards.mjs";
@@ -53,6 +54,10 @@ assertRequiredBranch({
   requiredBranch: vercelClientProject.stagingBranch,
   overrideEnvVar: "ALLOW_NON_STAGING_BRANCH_DEPLOY",
   label: "Staging client deploy"
+});
+await verifyProjectDomainBranchBinding({
+  domainName: stagingAlias,
+  expectedGitBranch: vercelClientProject.stagingBranch
 });
 ensureTrackedProjectLink(rootDir);
 run("pnpm", ["--filter", "@border-empires/shared", "build"]);
