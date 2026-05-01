@@ -8,6 +8,7 @@ export type StoredPlayerProfile = {
 
 export type GatewayPlayerProfileStore = {
   get(playerId: string): Promise<StoredPlayerProfile | undefined>;
+  getMany(playerIds: Iterable<string>): Promise<StoredPlayerProfile[]>;
   setTileColor(playerId: string, tileColor: string): Promise<StoredPlayerProfile>;
   setProfile(playerId: string, name: string, tileColor: string): Promise<StoredPlayerProfile>;
 };
@@ -18,6 +19,18 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
   async get(playerId: string): Promise<StoredPlayerProfile | undefined> {
     const profile = this.profiles.get(playerId);
     return profile ? { ...profile } : undefined;
+  }
+
+  async getMany(playerIds: Iterable<string>): Promise<StoredPlayerProfile[]> {
+    const profiles: StoredPlayerProfile[] = [];
+    const seen = new Set<string>();
+    for (const playerId of playerIds) {
+      if (seen.has(playerId)) continue;
+      seen.add(playerId);
+      const profile = this.profiles.get(playerId);
+      if (profile) profiles.push({ ...profile });
+    }
+    return profiles;
   }
 
   async setTileColor(playerId: string, tileColor: string): Promise<StoredPlayerProfile> {

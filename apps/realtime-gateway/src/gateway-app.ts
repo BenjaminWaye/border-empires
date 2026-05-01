@@ -121,6 +121,41 @@ const readPayloadTarget = (payload: unknown): { x: number; y: number } | undefin
   return typeof target.x === "number" && typeof target.y === "number" ? { x: target.x, y: target.y } : undefined;
 };
 
+const visibleBootstrapPlayerIds = (snapshot: PlayerSubscriptionSnapshot | undefined): string[] => {
+  const playerIds = new Set<string>();
+  const worldStatus = snapshot?.worldStatus;
+  const leaderboard = worldStatus?.leaderboard;
+  if (leaderboard) {
+    for (const entry of leaderboard.overall) playerIds.add(entry.id);
+    for (const entry of leaderboard.byTiles) playerIds.add(entry.id);
+    for (const entry of leaderboard.byIncome) playerIds.add(entry.id);
+    for (const entry of leaderboard.byTechs) playerIds.add(entry.id);
+    if (leaderboard.selfOverall) playerIds.add(leaderboard.selfOverall.id);
+    if (leaderboard.selfByTiles) playerIds.add(leaderboard.selfByTiles.id);
+    if (leaderboard.selfByIncome) playerIds.add(leaderboard.selfByIncome.id);
+    if (leaderboard.selfByTechs) playerIds.add(leaderboard.selfByTechs.id);
+  }
+  for (const objective of worldStatus?.seasonVictory ?? []) {
+    if (objective.leaderPlayerId) playerIds.add(objective.leaderPlayerId);
+  }
+  return [...playerIds];
+};
+
+export const hydrateVisibleLeaderboardProfileOverrides = async (
+  snapshot: PlayerSubscriptionSnapshot | undefined,
+  profileStore: GatewayPlayerProfileStore,
+  profileOverrides: ReturnType<typeof createPlayerProfileOverrides>
+): Promise<void> => {
+  const visiblePlayerProfiles = await profileStore.getMany(visibleBootstrapPlayerIds(snapshot));
+  for (const profile of visiblePlayerProfiles) {
+    profileOverrides.upsert(profile.playerId, {
+      ...(profile.name ? { name: profile.name } : {}),
+      ...(profile.tileColor ? { tileColor: profile.tileColor } : {}),
+      ...(typeof profile.profileComplete === "boolean" ? { profileComplete: profile.profileComplete } : {})
+    });
+  }
+};
+
 type PreviewTile = {
   x: number;
   y: number;
@@ -1005,6 +1040,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,
               allowSeedFallback: allowNonAuthoritativeInitialState
             });
+            await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
             if (session.channel === "control") {
               const initMessage = await buildInitMessage(
                 playerIdentity,

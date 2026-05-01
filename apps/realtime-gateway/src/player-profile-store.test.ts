@@ -42,4 +42,30 @@ describe("InMemoryGatewayPlayerProfileStore", () => {
     });
     vi.useRealTimers();
   });
+
+  it("returns stored profiles for a batch of visible player ids", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(4_000);
+    const store = new InMemoryGatewayPlayerProfileStore();
+    await store.setProfile("player-1", "Nauticus", "#123456");
+    await store.setProfile("player-2", "Benjamin Waye", "#654321");
+
+    await expect(store.getMany(["player-2", "missing", "player-1", "player-2"])).resolves.toEqual([
+      {
+        playerId: "player-2",
+        name: "Benjamin Waye",
+        tileColor: "#654321",
+        profileComplete: true,
+        updatedAt: 4_000
+      },
+      {
+        playerId: "player-1",
+        name: "Nauticus",
+        tileColor: "#123456",
+        profileComplete: true,
+        updatedAt: 4_000
+      }
+    ]);
+    vi.useRealTimers();
+  });
 });
