@@ -262,6 +262,44 @@ describe("worker AI command producer pause/resume", () => {
     );
   });
 
+  it("reports submitted worker AI command types after a successful submit", async () => {
+    const runtime = makeRuntime(0);
+    const onCommand = vi.fn();
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: makeCommand(msg.playerId as string)
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      onCommand,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(onCommand).toHaveBeenCalledWith({
+      playerId: "ai-1",
+      commandType: "ATTACK"
+    });
+  });
+
   it("records worker planner errors as planner_error no-ops", async () => {
     const runtime = makeRuntime(0);
     const onNoCommand = vi.fn();

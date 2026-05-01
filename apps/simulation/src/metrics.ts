@@ -1,4 +1,5 @@
 import type { QueueLane } from "./command-lane.js";
+import { DURABLE_COMMAND_TYPES, type CommandEnvelope } from "@border-empires/sim-protocol";
 import { AUTOMATION_NOOP_REASONS, type AutomationNoopReason } from "./automation-command-planner.js";
 
 const LANES: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -21,6 +22,7 @@ type QuantileSample = {
 
 type TickSource = "ai" | "system";
 type PrepareMetricSource = "prepare" | "spawn";
+type DurableCommandType = CommandEnvelope["type"];
 
 type SimulationMetricsSnapshot = {
   simEventLoopMaxMs: number;
@@ -31,6 +33,8 @@ type SimulationMetricsSnapshot = {
   simAiAutopilotEnabled: number;
   simAiAutopilotPlayerCount: number;
   simAiPlannerBreaches: number;
+  simAiCommandTotalByType: Record<DurableCommandType, number>;
+  simAiCommandRecent: string[];
   simAiNoopTotalByReason: Record<AutomationNoopReason, number>;
   simAiNoopRecent: string[];
   simCheckpointRssMb: number;
@@ -56,6 +60,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simCommandAcceptLatencyMsByLane = new Map<QueueLane, number[]>(LANES.map((lane) => [lane, []]));
   const simEventStoreWriteMs: number[] = [];
   const simGcPauseMs: number[] = [];
+  const simAiCommandTotalByType = new Map<DurableCommandType, number>(
+    DURABLE_COMMAND_TYPES.map((type) => [type, 0])
+  );
+  const simAiCommandRecent: string[] = [];
   const simAiNoopTotalByReason = new Map<AutomationNoopReason, number>(
     AUTOMATION_NOOP_REASONS.map((reason) => [reason, 0])
   );
@@ -96,6 +104,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiAutopilotEnabled,
     simAiAutopilotPlayerCount,
     simAiPlannerBreaches,
+    simAiCommandTotalByType: Object.fromEntries(
+      DURABLE_COMMAND_TYPES.map((type) => [type, simAiCommandTotalByType.get(type) ?? 0])
+    ) as Record<DurableCommandType, number>,
+    simAiCommandRecent: [...simAiCommandRecent],
     simAiNoopTotalByReason: Object.fromEntries(AUTOMATION_NOOP_REASONS.map((reason) => [reason, simAiNoopTotalByReason.get(reason) ?? 0])) as Record<AutomationNoopReason, number>,
     simAiNoopRecent: [...simAiNoopRecent],
     simCheckpointRssMb,
@@ -138,6 +150,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimAiPlannerBreaches(): void {
       simAiPlannerBreaches += 1;
+    },
+    observeSimAiCommand(commandType: DurableCommandType, playerId: string): void {
+      simAiCommandTotalByType.set(commandType, (simAiCommandTotalByType.get(commandType) ?? 0) + 1);
+      simAiCommandRecent.push(`${playerId}:${commandType}`);
+      if (simAiCommandRecent.length > 20) simAiCommandRecent.splice(0, simAiCommandRecent.length - 20);
     },
     observeSimAiNoop(reason: AutomationNoopReason, playerId: string): void {
       simAiNoopTotalByReason.set(reason, (simAiNoopTotalByReason.get(reason) ?? 0) + 1);
@@ -201,6 +218,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_ai_autopilot_player_count ${formatMetricValue(sample.simAiAutopilotPlayerCount)}`,
         "# TYPE sim_ai_planner_breaches counter",
         `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
+        "# TYPE sim_ai_command_total counter",
         "# TYPE sim_ai_noop_total counter",
         "# TYPE sim_checkpoint_rss_mb gauge",
         `sim_checkpoint_rss_mb ${formatMetricValue(sample.simCheckpointRssMb)}`,
@@ -226,6 +244,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p50\"} ${formatMetricValue(laneSample.p50)}`);
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p95\"} ${formatMetricValue(laneSample.p95)}`);
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p99\"} ${formatMetricValue(laneSample.p99)}`);
+      }
+      for (const commandType of DURABLE_COMMAND_TYPES) {
+        lines.push(`sim_ai_command_total{type=\"${commandType}\"} ${formatMetricValue(sample.simAiCommandTotalByType[commandType])}`);
       }
       for (const reason of AUTOMATION_NOOP_REASONS) {
         lines.push(`sim_ai_noop_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiNoopTotalByReason[reason])}`);
