@@ -44,6 +44,7 @@ export type PlannerPlayerView = {
   points: number;
   manpower: number;
   techIds?: string[];
+  domainIds?: string[];
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;
