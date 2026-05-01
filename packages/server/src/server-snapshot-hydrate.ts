@@ -238,9 +238,10 @@ export const createServerSnapshotHydrateRuntime = (
     }
     let probePlayersMarkedIncomplete = 0;
     for (const rawPlayer of raw.players) {
+      const { lastRespawnNotice: _ignoredRespawnNotice, ...rawPlayerRest } = rawPlayer;
       const probePlayer = rawPlayer.isAi !== true && isStagingProbePlayerName(rawPlayer.name);
       const hydrated: Player = {
-        ...rawPlayer,
+        ...rawPlayerRest,
         profileComplete: probePlayer ? false : rawPlayer.profileComplete ?? true,
         Ts: rawPlayer.Ts ?? 0,
         Es: rawPlayer.Es ?? 0,
