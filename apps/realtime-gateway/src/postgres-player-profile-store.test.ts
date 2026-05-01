@@ -75,4 +75,51 @@ describe("PostgresGatewayPlayerProfileStore", () => {
 
     await expect(store.get("missing")).resolves.toBeUndefined();
   });
+
+  it("loads multiple profiles by player id", async () => {
+    const calls: Array<{ sql: string; params: readonly unknown[] | undefined }> = [];
+    const store = new PostgresGatewayPlayerProfileStore({
+      async query(sql, params) {
+        calls.push({ sql: sql.trim(), params });
+        return {
+          rows: [
+            {
+              player_id: "player-2",
+              display_name: "Benjamin Waye",
+              tile_color: "#654321",
+              profile_complete: true,
+              updated_at: 5_000
+            },
+            {
+              player_id: "player-1",
+              display_name: "Nauticus",
+              tile_color: "#123456",
+              profile_complete: true,
+              updated_at: 4_000
+            }
+          ],
+          rowCount: 2
+        };
+      }
+    });
+
+    await expect(store.getMany(["player-2", "player-1", "player-2"])).resolves.toEqual([
+      {
+        playerId: "player-2",
+        name: "Benjamin Waye",
+        tileColor: "#654321",
+        profileComplete: true,
+        updatedAt: 5_000
+      },
+      {
+        playerId: "player-1",
+        name: "Nauticus",
+        tileColor: "#123456",
+        profileComplete: true,
+        updatedAt: 4_000
+      }
+    ]);
+    expect(calls[0]?.sql).toContain("WHERE player_id = ANY");
+    expect(calls[0]?.params).toEqual([["player-2", "player-1"]]);
+  });
 });

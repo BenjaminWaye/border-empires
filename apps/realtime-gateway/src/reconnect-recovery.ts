@@ -131,6 +131,11 @@ export const buildInitMessage = (
         const selfOverride = profileOverrides?.get(bootstrap.leaderboard.selfByTechs.id);
         if (selfOverride?.name) bootstrap.leaderboard.selfByTechs.name = selfOverride.name;
       }
+      for (const objective of bootstrap.seasonVictory) {
+        if (!objective.leaderPlayerId) continue;
+        const objectiveOverride = profileOverrides?.get(objective.leaderPlayerId);
+        if (objectiveOverride?.name) objective.leaderName = objectiveOverride.name;
+      }
       const socialSnapshot = socialState?.snapshotForPlayer(playerIdentity.playerId);
       return {
       type: "INIT",
