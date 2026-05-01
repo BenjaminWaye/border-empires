@@ -1583,6 +1583,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== currentKey);
         state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
+        deps.showCaptureAlert(
+          "Expansion sync delayed",
+          "No server acceptance arrived within 2 seconds. Refreshing nearby tiles while waiting for frontier sync. Use Download debug log below if this keeps happening.",
+          "warn"
+        );
         deps.pushFeed("No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(1, true);
         attackSyncLog("action-accept-timeout-refresh", {
