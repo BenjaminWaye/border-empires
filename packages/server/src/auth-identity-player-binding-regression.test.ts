@@ -165,4 +165,35 @@ describe("auth identity player binding regression", () => {
     expect(lifecycleEvents[0]?.payload.playerId).toBe("missing-player");
     expect(lifecycleEvents[1]?.payload.playerId).toBe(player?.id);
   });
+
+  it("consumes respawn notices after first delivery and does not snapshot them", () => {
+    const deps = makeDeps();
+    const runtime = createServerPlayerRuntimeSupport(deps);
+
+    const identity: AuthIdentity = {
+      uid: "uid-4",
+      playerId: "",
+      name: "Respawned",
+      email: "respawn@example.com"
+    };
+
+    const player = runtime.getOrCreatePlayerForIdentity(identity);
+    expect(player).toBeDefined();
+    if (!player) return;
+
+    player.territoryTiles.clear();
+    player.T = 0;
+    player.E = 4;
+    player.spawnOrigin = "0,0";
+    runtime.preparePlayerRespawnNotice(player, "auth_recovery", "auth_identity_triggered_respawn");
+    runtime.spawnPlayer(player);
+
+    const firstDelivery = runtime.consumeRespawnNoticeForPlayer(player);
+    const secondDelivery = runtime.consumeRespawnNoticeForPlayer(player);
+    const serialized = runtime.serializePlayer(player);
+
+    expect(firstDelivery?.triggerEvent).toBe("auth_identity_triggered_respawn");
+    expect(secondDelivery).toBeUndefined();
+    expect("lastRespawnNotice" in serialized).toBe(false);
+  });
 });

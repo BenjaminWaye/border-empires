@@ -11,6 +11,7 @@ import { bindClientNetwork } from "./client-network.js";
 import { renderClientHud, resizeClientViewport } from "./client-hud.js";
 import { bindClientUiControls } from "./client-ui-controls.js";
 import { downloadClientDebugBundle } from "./client-debug-bundle.js";
+import { downloadRespawnBugReport } from "./client-respawn-report.js";
 import { createClientThreeTerrainRenderer } from "./client-map-3d.js";
 import {
   prefersTrue3DRendererMode,
@@ -327,6 +328,13 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       wsUrl
     });
 
+  const downloadRespawnReportForNotice = (args: { notice: import("./client-types.js").PlayerRespawnNotice }): Promise<void> =>
+    downloadRespawnBugReport({
+      notice: args.notice,
+      state,
+      wsUrl
+    });
+
   const renderShardAlert = (): void =>
     renderShardAlertFromModule(state, {
       shardAlertOverlayEl: dom.shardAlertOverlayEl,
@@ -412,6 +420,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       renderMobilePanels,
         effectiveTechChoices: techFlow.effectiveTechChoices,
         renderManpowerPanelHtml,
+        centerOnOwnedTile,
+        downloadRespawnBugReport: downloadRespawnReportForNotice,
         retryBootstrapNow: () => {
           void authenticateSocket(true).catch(() => {});
         }
