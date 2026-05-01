@@ -25,7 +25,7 @@ export const ACCEPTANCE_RESOLUTION_COMMAND_TYPES = ACCEPTANCE_RESOLUTION_COMMAND
 export const RECONNECT_COMMAND_TYPES = RECONNECT_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 
 export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
-export type FrontierCombatActionType = "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK";
+export type FrontierCombatActionType = "ATTACK" | "EXPAND";
 export type FrontierCombatResultChange = {
   x: number;
   y: number;

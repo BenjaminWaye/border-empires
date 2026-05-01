@@ -55,7 +55,6 @@ export interface TechEffects {
   unlockAetherLance?: boolean;
   unlockRetortRecasting?: boolean;
   unlockTerrainShaping?: boolean;
-  unlockBreachAttack?: boolean;
   unlockIronBastion?: boolean;
   unlockSiegeTower?: boolean;
   unlockThunderBastion?: boolean;
@@ -195,7 +194,6 @@ const TechEffectsSchema = z
     unlockAetherLance: z.boolean().optional(),
     unlockRetortRecasting: z.boolean().optional(),
     unlockTerrainShaping: z.boolean().optional(),
-    unlockBreachAttack: z.boolean().optional(),
     unlockIronBastion: z.boolean().optional(),
     unlockSiegeTower: z.boolean().optional(),
     unlockThunderBastion: z.boolean().optional(),

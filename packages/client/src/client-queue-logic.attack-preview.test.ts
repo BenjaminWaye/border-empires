@@ -138,7 +138,6 @@ describe("attack preview prefetch and cache", () => {
 
     expect(state.attackPreview?.valid).toBe(true);
     expect(state.attackPreview?.winChance).toBeCloseTo(1, 6);
-    expect(state.attackPreview?.breakthroughWinChance).toBeCloseTo(1, 6);
     expect(state.attackPreview?.defEff).toBeCloseTo(0, 6);
     expect(
       attackPreviewDetailForTarget(state, target, {

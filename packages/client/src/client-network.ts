@@ -100,7 +100,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     const queuedActions = state.actionQueue.map((entry) => ({
       x: entry.x,
       y: entry.y,
-      mode: entry.mode ?? "normal",
       retries: entry.retries ?? 0
     }));
     console.info("[frontier-queue-debug]", event, {
@@ -370,7 +369,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const currentActionCanResolveFromPostCombatTileSync = (targetKey: string): boolean => {
     if (!state.actionInFlight || !state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) return false;
     if (!state.combatStartAck) return false;
-    if (state.actionCurrent.actionType !== "ATTACK" && state.actionCurrent.actionType !== "BREAKTHROUGH_ATTACK") return false;
+    if (state.actionCurrent.actionType !== "ATTACK") return false;
     if (!state.capture || keyFor(state.capture.target.x, state.capture.target.y) !== targetKey) return false;
     return Date.now() >= state.capture.resolvesAt;
   };
@@ -378,7 +377,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const rebindLateFrontierAck = (
     target: { x: number; y: number },
     source: "ACTION_ACCEPTED" | "COMBAT_START",
-    actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK"
+    actionType?: "EXPAND" | "ATTACK"
   ): void => {
     const targetKey = keyFor(target.x, target.y);
     const lateAckUntil = state.frontierLateAckUntilByTarget.get(targetKey) ?? 0;
@@ -726,7 +725,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
       if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
       let startedNext = false;
-      if ((msg.attackType === "ATTACK" || msg.attackType === "BREAKTHROUGH_ATTACK") && state.actionQueue.length > 0) {
+      if (msg.attackType === "ATTACK" && state.actionQueue.length > 0) {
         resumeQueuedFrontierActionsAfter(COMBAT_LOCK_MS);
       } else {
         startedNext = processActionQueue();
@@ -1478,7 +1477,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
         currentAction: state.actionCurrent
       });
-      rebindLateFrontierAck(target, "ACTION_ACCEPTED", msg.actionType as "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | undefined);
+      rebindLateFrontierAck(target, "ACTION_ACCEPTED", msg.actionType as "EXPAND" | "ATTACK" | undefined);
       if (msg.actionType === "EXPAND") applyAcceptedExpandOptimisticState(target);
       state.actionAcceptedAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
@@ -1651,7 +1650,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       rebindLateFrontierAck(
         target,
         "COMBAT_START",
-        (lockedResult?.attackType as "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | undefined) ??
+        (lockedResult?.attackType as "EXPAND" | "ATTACK" | undefined) ??
           state.actionCurrent?.actionType
       );
       if (lockedResult?.attackType === "EXPAND") applyAcceptedExpandOptimisticState(target);
@@ -2558,7 +2557,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         valid: boolean;
         reason?: string;
         winChance?: number;
-        breakthroughWinChance?: number;
         atkEff?: number;
         defEff?: number;
         defenseEffPct?: number;
@@ -2571,13 +2569,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       };
       const reason = msg.reason as string | undefined;
       const winChance = msg.winChance as number | undefined;
-      const breakthroughWinChance = msg.breakthroughWinChance as number | undefined;
       const atkEff = msg.atkEff as number | undefined;
       const defEff = msg.defEff as number | undefined;
       const defMult = msg.defMult as number | undefined;
       if (reason) preview.reason = reason;
       if (typeof winChance === "number") preview.winChance = winChance;
-      if (typeof breakthroughWinChance === "number") preview.breakthroughWinChance = breakthroughWinChance;
       if (typeof atkEff === "number") preview.atkEff = atkEff;
       if (typeof defEff === "number") preview.defEff = defEff;
       if (typeof defMult === "number") preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));

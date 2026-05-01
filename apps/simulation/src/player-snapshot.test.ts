@@ -177,7 +177,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           name: "BlackFang",
           points: 120,
           manpower: 150,
-          techIds: ["breach-doctrine"],
+          techIds: [],
           domainIds: [],
           strategicResources: {},
           allies: [],

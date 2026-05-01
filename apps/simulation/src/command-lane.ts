@@ -9,7 +9,6 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
   switch (command.type) {
     case "ATTACK":
     case "EXPAND":
-    case "BREAKTHROUGH_ATTACK":
     case "SETTLE":
     case "BUILD_FORT":
     case "BUILD_OBSERVATORY":
