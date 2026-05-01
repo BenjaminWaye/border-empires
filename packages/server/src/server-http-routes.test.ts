@@ -109,7 +109,7 @@ describe("server HTTP routes", () => {
       playerTile: () => ({ x: 0, y: 0 } as Tile),
       townSupport: () => ({ supportCurrent: 0, supportMax: 0 }),
       now: () => 0,
-      telemetryCounters: { frontierClaims: 0, settlements: 0, breakthroughAttacks: 0, techUnlocks: 0 },
+      telemetryCounters: { frontierClaims: 0, settlements: 0, techUnlocks: 0 },
       aiTurnDebugByPlayer: new Map(),
       buildAdminPlayersPayload: () => ({ ok: true }),
       serverDebugBundle: {
