@@ -3,7 +3,16 @@ import type { Dock } from "@border-empires/shared";
 import type { ServerWorldgenDocksDeps, ServerWorldgenDocksRuntime } from "./server-world-runtime-types.js";
 
 type DockCandidate = { x: number; y: number; componentId: number; seaX: number; seaY: number };
-type LandComponent = { id: number; tileCount: number; fallbackX: number; fallbackY: number; oceanCandidates: DockCandidate[] };
+type LandComponent = {
+  id: number;
+  tileCount: number;
+  fallbackX: number;
+  fallbackY: number;
+  oceanCandidates: DockCandidate[];
+  clusteredOceanCandidates: DockCandidate[];
+  inlandSeaCandidates: DockCandidate[];
+  clusteredInlandSeaCandidates: DockCandidate[];
+};
 
 export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): ServerWorldgenDocksRuntime => {
   const {
@@ -15,7 +24,6 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     wrapY,
     worldIndex,
     terrainAt,
-    adjacentOceanSea,
     largestSeaComponentMask,
     clusterByTile,
     LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
@@ -57,6 +65,18 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     const queue = new Int32Array(total);
     const components: LandComponent[] = [];
     let componentId = 0;
+    const adjacentSea = (x: number, y: number): { x: number; y: number; ocean: boolean } | undefined => {
+      for (const [nx, ny] of [
+        [wrapX(x, WORLD_WIDTH), wrapY(y - 1, WORLD_HEIGHT)],
+        [wrapX(x + 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)],
+        [wrapX(x, WORLD_WIDTH), wrapY(y + 1, WORLD_HEIGHT)],
+        [wrapX(x - 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)]
+      ] as const) {
+        if (terrainAt(nx, ny) !== "SEA") continue;
+        return { x: nx, y: ny, ocean: oceanMask[worldIndex(nx, ny)] === 1 };
+      }
+      return undefined;
+    };
 
     for (let y = 0; y < WORLD_HEIGHT; y += 1) {
       for (let x = 0; x < WORLD_WIDTH; x += 1) {
@@ -66,7 +86,16 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
         let head = 0;
         let tail = 0;
         queue[tail++] = startIdx;
-        const component: LandComponent = { id: componentId, tileCount: 0, fallbackX: x, fallbackY: y, oceanCandidates: [] };
+        const component: LandComponent = {
+          id: componentId,
+          tileCount: 0,
+          fallbackX: x,
+          fallbackY: y,
+          oceanCandidates: [],
+          clusteredOceanCandidates: [],
+          inlandSeaCandidates: [],
+          clusteredInlandSeaCandidates: []
+        };
 
         while (head < tail) {
           const idx = queue[head++]!;
@@ -77,11 +106,28 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
             component.fallbackX = cx;
             component.fallbackY = cy;
           }
-          const ocean = adjacentOceanSea(cx, cy, oceanMask);
-          if (ocean && !clusterByTile.has(key(cx, cy))) {
-            component.oceanCandidates.push({ x: cx, y: cy, componentId, seaX: ocean.x, seaY: ocean.y });
+          const sea = adjacentSea(cx, cy);
+          if (sea) {
+            const candidate = { x: cx, y: cy, componentId, seaX: sea.x, seaY: sea.y };
+            if (sea.ocean) {
+              if (clusterByTile.has(key(cx, cy))) component.clusteredOceanCandidates.push(candidate);
+              else component.oceanCandidates.push(candidate);
+            } else if (clusterByTile.has(key(cx, cy))) {
+              component.clusteredInlandSeaCandidates.push(candidate);
+            } else {
+              component.inlandSeaCandidates.push(candidate);
+            }
           }
-          for (const [nx, ny] of [[wrapX(cx, WORLD_WIDTH), wrapY(cy - 1, WORLD_HEIGHT)], [wrapX(cx + 1, WORLD_WIDTH), wrapY(cy, WORLD_HEIGHT)], [wrapX(cx, WORLD_WIDTH), wrapY(cy + 1, WORLD_HEIGHT)], [wrapX(cx - 1, WORLD_WIDTH), wrapY(cy, WORLD_HEIGHT)]] as const) {
+          for (const [nx, ny] of [
+            [wrapX(cx, WORLD_WIDTH), wrapY(cy - 1, WORLD_HEIGHT)],
+            [wrapX(cx + 1, WORLD_WIDTH), wrapY(cy, WORLD_HEIGHT)],
+            [wrapX(cx, WORLD_WIDTH), wrapY(cy + 1, WORLD_HEIGHT)],
+            [wrapX(cx - 1, WORLD_WIDTH), wrapY(cy, WORLD_HEIGHT)],
+            [wrapX(cx - 1, WORLD_WIDTH), wrapY(cy - 1, WORLD_HEIGHT)],
+            [wrapX(cx + 1, WORLD_WIDTH), wrapY(cy - 1, WORLD_HEIGHT)],
+            [wrapX(cx + 1, WORLD_WIDTH), wrapY(cy + 1, WORLD_HEIGHT)],
+            [wrapX(cx - 1, WORLD_WIDTH), wrapY(cy + 1, WORLD_HEIGHT)]
+          ] as const) {
             const nIdx = worldIndex(nx, ny);
             if (visited[nIdx] || terrainAt(nx, ny) !== "LAND") continue;
             visited[nIdx] = 1;
@@ -101,10 +147,20 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     getDockLinkedTileKeysByDockTileKey().clear();
     const oceanMask = largestSeaComponentMask();
     const { components } = analyzeLandComponentsForDocks(seed, oceanMask);
-    const eligibleComponents = components.filter((component) => component.tileCount >= 24 && component.oceanCandidates.length > 0);
+    const dockCandidatesForComponent = (component: LandComponent): DockCandidate[] =>
+      component.oceanCandidates.length > 0
+        ? component.oceanCandidates
+        : component.clusteredOceanCandidates.length > 0
+          ? component.clusteredOceanCandidates
+          : component.inlandSeaCandidates.length > 0
+            ? component.inlandSeaCandidates
+            : component.clusteredInlandSeaCandidates.length > 0
+              ? component.clusteredInlandSeaCandidates
+              : [{ x: component.fallbackX, y: component.fallbackY, componentId: component.id, seaX: component.fallbackX, seaY: component.fallbackY }];
+    const eligibleComponents = components.filter((component) => dockCandidatesForComponent(component).length > 0);
     const primaryDockCandidateByComponent = new Map<number, DockCandidate>();
     for (const component of eligibleComponents) {
-      const primary = selectSpacedDockCandidates(component.oceanCandidates, 1, seed + component.id * 17)[0];
+      const primary = selectSpacedDockCandidates(dockCandidatesForComponent(component), 1, seed + component.id * 17)[0];
       if (primary) primaryDockCandidateByComponent.set(component.id, primary);
     }
 
@@ -176,7 +232,8 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     for (const component of eligibleComponents) {
       const desiredCount =
         component.tileCount >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD ? Math.max(2, degreeByComponent.get(component.id) ?? 1) : 1;
-      const picks = selectSpacedDockCandidates(component.oceanCandidates, Math.min(desiredCount, component.oceanCandidates.length), seed + component.id * 97);
+      const candidates = dockCandidatesForComponent(component);
+      const picks = selectSpacedDockCandidates(candidates, Math.min(desiredCount, candidates.length), seed + component.id * 97);
       if (picks.length > 0) selectedByComponent.set(component.id, picks);
     }
 
