@@ -119,6 +119,12 @@ const resolveWorkerScript = (given?: string): string | URL =>
 const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean =>
   queueDepths.human_interactive > 0;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+const isAutomationPreplanCommand = (type: CommandEnvelope["type"]): boolean =>
+  type === "COLLECT_VISIBLE" || type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
+const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
+const TRACKED_PREPLAN_RETENTION_MS = 90_000;
+type PreplanOutcome = "applied" | "cooldown_rejected" | "rejected" | "timed_out";
+type TrackedPreplanCommand = { playerId: string; trackedAt: number };
 
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
@@ -139,6 +145,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     options.aiPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
   );
   const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
+  const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
+  const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
 
   let tickInFlight = false;
@@ -147,6 +155,14 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
   const backOffCollectVisible = (playerId: string, eventAt: number): void => {
     collectVisibleCooldownUntilByPlayer.set(playerId, eventAt + COLLECT_VISIBLE_COOLDOWN_MS);
+  };
+
+  const resolvePendingPreplanOutcome = (commandId: string, outcome: PreplanOutcome): void => {
+    const pending = pendingPreplanOutcomeByCommandId.get(commandId);
+    if (!pending) return;
+    clearTimeout(pending.timeoutHandle);
+    pendingPreplanOutcomeByCommandId.delete(commandId);
+    pending.resolve(outcome);
   };
 
   const worker = new Worker(resolveWorkerScript(options.workerScriptPath));
@@ -346,6 +362,22 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     tileDeltaSyncTimeout = setTimeout(flushPendingTileDeltas, tileDeltaSyncDebounceMs);
   };
 
+  const syncPlannerStateImmediately = (playerId: string): void => {
+    flushPendingTileDeltas();
+    syncPlayersImmediately([playerId]);
+  };
+
+  const waitForPreplanOutcome = (playerId: string, commandId: string): Promise<PreplanOutcome> =>
+    new Promise((resolve) => {
+      const timeoutHandle = setTimeout(() => {
+        pendingPreplanOutcomeByCommandId.delete(commandId);
+        const pendingCommand = pendingCommandByPlayer.get(playerId);
+        if (pendingCommand?.commandId === commandId) pendingCommandByPlayer.delete(playerId);
+        resolve("timed_out");
+      }, PREPLAN_OUTCOME_TIMEOUT_MS);
+      pendingPreplanOutcomeByCommandId.set(commandId, { resolve, timeoutHandle });
+    });
+
   const stopListening = options.runtime.onEvent((event) => {
     if (event.eventType === "TILE_DELTA_BATCH") {
       const tileDeltas = Array.isArray(event.tileDeltas) ? event.tileDeltas : [];
@@ -362,7 +394,10 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       queuePlayerSync([event.playerId]);
     }
     const pending = pendingCommandByPlayer.get(event.playerId);
-    if (!pending || pending.commandId !== event.commandId) return;
+    const pendingMatches = pending?.commandId === event.commandId;
+    const trackedPreplan = trackedPreplanByCommandId.get(event.commandId);
+    const trackedPreplanMatches = trackedPreplan?.playerId === event.playerId;
+    if (!pendingMatches && !trackedPreplanMatches) return;
     if (event.eventType === "COMMAND_REJECTED" && event.code === "COLLECT_COOLDOWN") {
       backOffCollectVisible(event.playerId, now());
     }
@@ -377,7 +412,17 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       event.eventType === "TECH_UPDATE" ||
       event.eventType === "DOMAIN_UPDATE"
     ) {
-      pendingCommandByPlayer.delete(event.playerId);
+      if (pendingMatches) pendingCommandByPlayer.delete(event.playerId);
+      if (trackedPreplanMatches) trackedPreplanByCommandId.delete(event.commandId);
+      if (trackedPreplanMatches && event.eventType !== "COMMAND_REJECTED") {
+        syncPlannerStateImmediately(event.playerId);
+      }
+      resolvePendingPreplanOutcome(
+        event.commandId,
+        event.eventType === "COMMAND_REJECTED"
+          ? (event.code === "COLLECT_COOLDOWN" ? "cooldown_rejected" : "rejected")
+          : "applied"
+      );
     }
   });
 
@@ -395,11 +440,21 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const requestPlan = (
     playerId: string,
     clientSeq: number,
-    issuedAt: number
+    issuedAt: number,
+    options?: {
+      skipPreplan?: boolean;
+    }
   ): Promise<CommandEnvelope | null> => {
     return new Promise((resolve) => {
       pendingRequests.set(playerId, resolve);
-      worker.postMessage({ type: "plan", playerId, clientSeq, issuedAt, sessionPrefix: "ai-runtime" });
+      worker.postMessage({
+        type: "plan",
+        playerId,
+        clientSeq,
+        issuedAt,
+        sessionPrefix: "ai-runtime",
+        ...(options?.skipPreplan ? { skipPreplan: true } : {})
+      });
     });
   };
 
@@ -426,9 +481,12 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       if (options.aiPlayerIds.length === 0) return;
 
       // Clear timed-out pending commands (90s timeout)
-      const cutoff = now() - 90_000;
+      const cutoff = now() - TRACKED_PREPLAN_RETENTION_MS;
       for (const [playerId, pending] of pendingCommandByPlayer.entries()) {
         if (pending.startedAt <= cutoff) pendingCommandByPlayer.delete(playerId);
+      }
+      for (const [commandId, trackedPreplan] of trackedPreplanByCommandId.entries()) {
+        if (trackedPreplan.trackedAt <= cutoff) trackedPreplanByCommandId.delete(commandId);
       }
 
       for (let offset = 0; offset < options.aiPlayerIds.length; offset++) {
@@ -436,42 +494,86 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
 
-        const clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
-        const issuedAt = now();
+        let clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
+        let skipPreplan = false;
+        let advancedWithoutPending = false;
+        let activePreplanCommandId: string | undefined;
 
         try {
-          const plannerStartedAt = now();
-          const command = await requestPlan(playerId, clientSeq, issuedAt);
-          const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
-          options.onDiagnostic?.({
-            phase: "request_plan_round_trip",
-            durationMs: plannerDurationMs,
-            playerId
-          });
-          const breached = plannerDurationMs > plannerBreachThresholdMs;
-          options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
-          if (!command) continue;
-          if (command.type === "COLLECT_VISIBLE") {
-            const blockedUntil = collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0;
-            if (blockedUntil > issuedAt) continue;
+          for (let pass = 0; pass < 2; pass += 1) {
+            const issuedAt = now();
+            const plannerStartedAt = now();
+            const command = await requestPlan(playerId, clientSeq, issuedAt, { skipPreplan });
+            const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
+            options.onDiagnostic?.({
+              phase: "request_plan_round_trip",
+              durationMs: plannerDurationMs,
+              playerId
+            });
+            const breached = plannerDurationMs > plannerBreachThresholdMs;
+            options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
+            if (!command) {
+              if (advancedWithoutPending) {
+                nextClientSeqByPlayer.set(playerId, clientSeq);
+                nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+                return;
+              }
+              break;
+            }
+            if (command.type === "COLLECT_VISIBLE") {
+              const blockedUntil = collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0;
+              if (blockedUntil > issuedAt) {
+                skipPreplan = true;
+                continue;
+              }
+            }
+            if (isAutomationPreplanCommand(command.type)) {
+              trackedPreplanByCommandId.set(command.commandId, { playerId, trackedAt: issuedAt });
+              pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
+              activePreplanCommandId = command.commandId;
+              const submitStartedAt = now();
+              await options.submitCommand(command);
+              nextClientSeqByPlayer.set(playerId, clientSeq + 1);
+              options.onCommand?.({ playerId, commandType: command.type });
+              if (command.type === "COLLECT_VISIBLE") {
+                backOffCollectVisible(playerId, issuedAt);
+              }
+              options.onDiagnostic?.({
+                phase: "submit_command",
+                durationMs: Math.max(0, now() - submitStartedAt),
+                playerId
+              });
+              const preplanOutcome = await waitForPreplanOutcome(playerId, command.commandId);
+              activePreplanCommandId = undefined;
+              if (preplanOutcome === "timed_out" || preplanOutcome === "rejected") {
+                break;
+              }
+              clientSeq += 1;
+              skipPreplan = true;
+              advancedWithoutPending = true;
+              continue;
+            }
+            pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
+            nextClientSeqByPlayer.set(playerId, clientSeq + 1);
+            nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+            const submitStartedAt = now();
+            await options.submitCommand(command);
+            options.onCommand?.({ playerId, commandType: command.type });
+            options.onDiagnostic?.({
+              phase: "submit_command",
+              durationMs: Math.max(0, now() - submitStartedAt),
+              playerId
+            });
+            return;
           }
-          pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
-          nextClientSeqByPlayer.set(playerId, clientSeq + 1);
-          nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
-          const submitStartedAt = now();
-          await options.submitCommand(command);
-          options.onCommand?.({ playerId, commandType: command.type });
-          if (command.type === "COLLECT_VISIBLE") {
-            backOffCollectVisible(playerId, issuedAt);
-          }
-          options.onDiagnostic?.({
-            phase: "submit_command",
-            durationMs: Math.max(0, now() - submitStartedAt),
-            playerId
-          });
         } catch {
           pendingCommandByPlayer.delete(playerId);
+          if (activePreplanCommandId) trackedPreplanByCommandId.delete(activePreplanCommandId);
           // swallow — will retry on next tick
+        }
+        if (advancedWithoutPending) {
+          nextClientSeqByPlayer.set(playerId, clientSeq);
+          nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
         }
         return; // one player per tick
       }
@@ -492,6 +594,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       clearInterval(playerSyncInterval);
       if (playerSyncTimeout) clearTimeout(playerSyncTimeout);
       if (tileDeltaSyncTimeout) clearTimeout(tileDeltaSyncTimeout);
+      for (const pending of pendingPreplanOutcomeByCommandId.values()) clearTimeout(pending.timeoutHandle);
+      pendingPreplanOutcomeByCommandId.clear();
+      trackedPreplanByCommandId.clear();
       flushPendingTileDeltas();
       stopListening();
       worker.postMessage({ type: "shutdown" });

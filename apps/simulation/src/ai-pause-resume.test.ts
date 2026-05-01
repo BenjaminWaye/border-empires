@@ -469,7 +469,7 @@ describe("worker AI command producer pause/resume", () => {
       workerScriptPath: "unused-by-mock.js"
     });
 
-    await producer.tick();
+    const firstTick = producer.tick();
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     runtime.emitEvent({
       eventType: "COMMAND_REJECTED",
@@ -477,12 +477,20 @@ describe("worker AI command producer pause/resume", () => {
       commandId: "ai-runtime-ai-1-1-1000",
       code: "COLLECT_COOLDOWN"
     });
+    await firstTick;
     nowMs = 1_001;
     await producer.tick();
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     nowMs = 21_001;
-    await producer.tick();
+    const thirdTick = producer.tick();
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    runtime.emitEvent({
+      eventType: "COMMAND_REJECTED",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-2-21001",
+      code: "COLLECT_COOLDOWN"
+    });
+    await thirdTick;
 
     producer.close();
     MockWorker.prototype.postMessage = originalPostMessage;
@@ -577,6 +585,267 @@ describe("worker AI command producer pause/resume", () => {
 
     producer.close();
     MockWorker.prototype.postMessage = originalPostMessage;
+  });
+
+  it("submits worker preplan progression and then a same-tick gameplay action", async () => {
+    const runtime = makeRuntime(0);
+    const submitted: CommandEnvelope[] = [];
+    const postedPlans: WorkerMessage[] = [];
+
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") postedPlans.push(msg);
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: msg.skipPreplan || msg.clientSeq === 2
+              ? {
+                  commandId: `ai-runtime-${msg.playerId}-2-1000`,
+                  sessionId: `ai-runtime:${msg.playerId}`,
+                  playerId: msg.playerId,
+                  clientSeq: 2,
+                  issuedAt: 1000,
+                  type: "ATTACK",
+                  payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+                }
+              : {
+                  commandId: `ai-runtime-${msg.playerId}-1-1000`,
+                  sessionId: `ai-runtime:${msg.playerId}`,
+                  playerId: msg.playerId,
+                  clientSeq: 1,
+                  issuedAt: 1000,
+                  type: "CHOOSE_TECH",
+                  payloadJson: JSON.stringify({ techId: "toolmaking" })
+                }
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submitted.push(command);
+      },
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    const tickPromise = producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(submitted.map((command) => command.type)).toEqual(["CHOOSE_TECH"]);
+    expect(postedPlans).toHaveLength(1);
+
+    runtime.emitEvent({
+      eventType: "TECH_UPDATE",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000"
+    });
+    await tickPromise;
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(submitted.map((command) => command.type)).toEqual(["CHOOSE_TECH", "ATTACK"]);
+    expect(postedPlans).toHaveLength(2);
+  });
+
+  it("syncs worker player state immediately when a timed-out tech update arrives late", async () => {
+    vi.useFakeTimers();
+    const eventEmitter = new EventEmitter();
+    const plannerPlayers = [
+      {
+        id: "ai-1",
+        points: 500,
+        manpower: 10,
+        hasActiveLock: false,
+        territoryTileKeys: [] as string[],
+        frontierTileKeys: [] as string[],
+        hotFrontierTileKeys: [] as string[],
+        strategicFrontierTileKeys: [] as string[],
+        buildCandidateTileKeys: [] as string[],
+        pendingSettlementTileKeys: [] as string[],
+        activeDevelopmentProcessCount: 0,
+        tileCollectionVersion: 1
+      }
+    ];
+    const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
+      plannerPlayers.filter((player) => playerIds.includes(player.id))
+    );
+    const postedPlans: WorkerMessage[] = [];
+
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") postedPlans.push(msg);
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: msg.skipPreplan
+              ? {
+                  commandId: `ai-runtime-${msg.playerId}-2-1000`,
+                  sessionId: `ai-runtime:${msg.playerId}`,
+                  playerId: msg.playerId,
+                  clientSeq: 2,
+                  issuedAt: 1000,
+                  type: "ATTACK",
+                  payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+                }
+              : {
+                  commandId: `ai-runtime-${msg.playerId}-1-1000`,
+                  sessionId: `ai-runtime:${msg.playerId}`,
+                  playerId: msg.playerId,
+                  clientSeq: 1,
+                  issuedAt: 1000,
+                  type: "CHOOSE_TECH",
+                  payloadJson: JSON.stringify({ techId: "toolmaking" })
+                }
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        exportPlannerWorldView: () => ({ tiles: [], players: plannerPlayers }),
+        exportPlannerPlayerViews,
+        onEvent: (listener: (event: { playerId: string; commandId: string; eventType: string }) => void) => {
+          eventEmitter.on("event", listener);
+          return () => eventEmitter.off("event", listener);
+        }
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    exportPlannerPlayerViews.mockClear();
+    const firstTick = producer.tick();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(5_001);
+    await firstTick;
+
+    eventEmitter.emit("event", {
+      eventType: "TECH_UPDATE",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000"
+    });
+
+    expect(exportPlannerPlayerViews).toHaveBeenCalledWith(["ai-1"]);
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+    vi.useRealTimers();
+    expect(postedPlans).toHaveLength(1);
+  });
+
+  it("keeps timed-out preplan tracking alive across a later worker submit failure", async () => {
+    vi.useFakeTimers();
+    const eventEmitter = new EventEmitter();
+    const plannerPlayers = [
+      {
+        id: "ai-1",
+        points: 500,
+        manpower: 10,
+        hasActiveLock: false,
+        territoryTileKeys: [] as string[],
+        frontierTileKeys: [] as string[],
+        hotFrontierTileKeys: [] as string[],
+        strategicFrontierTileKeys: [] as string[],
+        buildCandidateTileKeys: [] as string[],
+        pendingSettlementTileKeys: [] as string[],
+        activeDevelopmentProcessCount: 0,
+        tileCollectionVersion: 1
+      }
+    ];
+    const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
+      plannerPlayers.filter((player) => playerIds.includes(player.id))
+    );
+    const submittedTypes: string[] = [];
+
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        const planNumber = submittedTypes.length;
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: planNumber === 0
+              ? {
+                  commandId: `ai-runtime-${msg.playerId}-1-1000`,
+                  sessionId: `ai-runtime:${msg.playerId}`,
+                  playerId: msg.playerId,
+                  clientSeq: 1,
+                  issuedAt: 1000,
+                  type: "CHOOSE_TECH",
+                  payloadJson: JSON.stringify({ techId: "toolmaking" })
+                }
+              : {
+                  commandId: `ai-runtime-${msg.playerId}-2-1000`,
+                  sessionId: `ai-runtime:${msg.playerId}`,
+                  playerId: msg.playerId,
+                  clientSeq: 2,
+                  issuedAt: 1000,
+                  type: "ATTACK",
+                  payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+                }
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const submitCommand = vi.fn(async (command: CommandEnvelope) => {
+      submittedTypes.push(command.type);
+      if (command.type === "ATTACK") throw new Error("submit failed");
+    });
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        exportPlannerWorldView: () => ({ tiles: [], players: plannerPlayers }),
+        exportPlannerPlayerViews,
+        onEvent: (listener: (event: { playerId: string; commandId: string; eventType: string }) => void) => {
+          eventEmitter.on("event", listener);
+          return () => eventEmitter.off("event", listener);
+        }
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    exportPlannerPlayerViews.mockClear();
+    const firstTick = producer.tick();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(5_001);
+    await firstTick;
+
+    await producer.tick();
+
+    eventEmitter.emit("event", {
+      eventType: "TECH_UPDATE",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000"
+    });
+
+    expect(submittedTypes).toEqual(["CHOOSE_TECH", "ATTACK"]);
+    expect(exportPlannerPlayerViews).toHaveBeenCalledWith(["ai-1"]);
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+    vi.useRealTimers();
   });
 
   it("does not forward irrelevant tile deltas to the AI worker", async () => {

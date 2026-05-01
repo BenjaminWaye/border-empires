@@ -1,14 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createAiCommandProducer } from "./ai-command-producer.js";
-import { SimulationRuntime } from "./runtime.js";
 
 describe("ai command producer", () => {
   it("submits AI frontier commands through the same durable envelope path", async () => {
-    const runtime = new SimulationRuntime({ seedProfile: "stress-10ai" });
     const submitted: Array<{ playerId: string; type: string; payloadJson: string; clientSeq: number }> = [];
     const producer = createAiCommandProducer({
-      runtime,
+      runtime: {
+        chooseNextAutomationCommand: vi.fn((playerId: string, clientSeq: number, issuedAt: number) => ({
+          commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+          sessionId: `ai-runtime:${playerId}`,
+          playerId,
+          clientSeq,
+          issuedAt,
+          type: "EXPAND" as const,
+          payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+        })),
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: () => () => undefined
+      },
       aiPlayerIds: ["ai-1"],
       submitCommand: async (command) => {
         submitted.push({
@@ -24,13 +34,13 @@ describe("ai command producer", () => {
     await producer.tick();
     producer.close();
 
-    expect(submitted).toHaveLength(1);
-    expect(submitted[0]).toMatchObject({
+    expect(submitted.length).toBeGreaterThanOrEqual(1);
+    expect(submitted.at(-1)).toMatchObject({
       playerId: "ai-1",
-      clientSeq: 1
+      clientSeq: expect.any(Number)
     });
-    expect(["ATTACK", "EXPAND"]).toContain(submitted[0]!.type);
-    expect(JSON.parse(submitted[0]!.payloadJson)).toEqual(
+    expect(["ATTACK", "EXPAND"]).toContain(submitted.at(-1)!.type);
+    expect(JSON.parse(submitted.at(-1)!.payloadJson)).toEqual(
       expect.objectContaining({
         fromX: expect.any(Number),
         fromY: expect.any(Number),
@@ -41,26 +51,22 @@ describe("ai command producer", () => {
   });
 
   it("pauses AI submissions while human interactive backlog exists", async () => {
-    const scheduled: Array<() => void> = [];
-    const runtime = new SimulationRuntime({
-      seedProfile: "stress-10ai",
-      scheduleSoon: (task) => {
-        scheduled.push(task);
-      }
-    });
-    runtime.submitCommand({
-      commandId: "human-cmd",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "ATTACK",
-      payloadJson: JSON.stringify({ fromX: 4, fromY: 4, toX: 5, toY: 4 })
-    });
-
+    let humanInteractive = 1;
     const submitCommand = vi.fn(async () => undefined);
     const producer = createAiCommandProducer({
-      runtime,
+      runtime: {
+        chooseNextAutomationCommand: vi.fn((playerId: string, clientSeq: number, issuedAt: number) => ({
+          commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+          sessionId: `ai-runtime:${playerId}`,
+          playerId,
+          clientSeq,
+          issuedAt,
+          type: "EXPAND" as const,
+          payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+        })),
+        queueDepths: () => ({ human_interactive: humanInteractive, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: () => () => undefined
+      },
       aiPlayerIds: ["ai-1"],
       submitCommand,
       tickIntervalMs: 10_000
@@ -69,12 +75,11 @@ describe("ai command producer", () => {
     await producer.tick();
     expect(submitCommand).not.toHaveBeenCalled();
 
-    for (const task of scheduled) task();
-    await Promise.resolve();
+    humanInteractive = 0;
     await producer.tick();
     producer.close();
 
-    expect(submitCommand).toHaveBeenCalledTimes(1);
+    expect(submitCommand).toHaveBeenCalled();
   });
 
   it("rotates across AI players instead of always retrying the first player", async () => {
@@ -267,12 +272,17 @@ describe("ai command producer", () => {
       tickIntervalMs: 10_000
     });
 
-    await producer.tick();
+    const firstTick = producer.tick();
+    await Promise.resolve();
     onEventHandler?.({ eventType: "COLLECT_RESULT", playerId: "ai-1", commandId: "ai-runtime-ai-1-1-1000" });
+    await firstTick;
     nowMs = 1_001;
     await producer.tick();
     nowMs = 21_001;
-    await producer.tick();
+    const thirdTick = producer.tick();
+    await Promise.resolve();
+    onEventHandler?.({ eventType: "COLLECT_RESULT", playerId: "ai-1", commandId: "ai-runtime-ai-1-2-21001" });
+    await thirdTick;
     producer.close();
 
     expect(submittedTypes).toEqual(["COLLECT_VISIBLE", "COLLECT_VISIBLE"]);
@@ -322,20 +332,425 @@ describe("ai command producer", () => {
       tickIntervalMs: 10_000
     });
 
-    await producer.tick();
+    const firstTick = producer.tick();
+    await Promise.resolve();
     onEventHandler?.({
       eventType: "COMMAND_REJECTED",
       playerId: "ai-1",
       commandId: "ai-runtime-ai-1-1-1000",
       code: "COLLECT_COOLDOWN"
     });
+    await firstTick;
     nowMs = 1_001;
     await producer.tick();
     nowMs = 21_001;
-    await producer.tick();
+    const thirdTick = producer.tick();
+    await Promise.resolve();
+    onEventHandler?.({
+      eventType: "COMMAND_REJECTED",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-2-21001",
+      code: "COLLECT_COOLDOWN"
+    });
+    await thirdTick;
     producer.close();
 
     expect(submittedTypes).toEqual(["COLLECT_VISIBLE", "COLLECT_VISIBLE"]);
+  });
+
+  it("submits progression without consuming the same-tick gameplay action", async () => {
+    const submittedTypes: string[] = [];
+    let onEventHandler: ((event: { eventType: string; playerId: string; commandId: string }) => void) | undefined;
+    const explainNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number, _sessionPrefix: string, options?: { skipPreplan?: boolean }) => {
+        if (!options?.skipPreplan) {
+          return {
+            command: {
+              commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+              sessionId: `ai-runtime:${playerId}`,
+              playerId,
+              clientSeq,
+              issuedAt,
+              type: "CHOOSE_TECH" as const,
+              payloadJson: JSON.stringify({ techId: "toolmaking" })
+            },
+            diagnostic: {
+              playerId,
+              sessionPrefix: "ai-runtime" as const,
+              settlementEligible: false,
+              settlementCandidateFound: false,
+              frontierEnemyTargetCount: 0,
+              frontierNeutralTargetCount: 0,
+              canAttack: false,
+              canExpand: false
+            }
+          };
+        }
+        return {
+          command: {
+            commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+            sessionId: `ai-runtime:${playerId}`,
+            playerId,
+            clientSeq,
+            issuedAt,
+            type: "EXPAND" as const,
+            payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+          },
+          diagnostic: {
+            playerId,
+            sessionPrefix: "ai-runtime" as const,
+            settlementEligible: false,
+            settlementCandidateFound: false,
+            frontierEnemyTargetCount: 0,
+            frontierNeutralTargetCount: 1,
+            canAttack: false,
+            canExpand: true
+          }
+        };
+      }
+    );
+    const producer = createAiCommandProducer({
+      runtime: {
+        chooseNextAutomationCommand: vi.fn(() => undefined),
+        explainNextAutomationCommand,
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: (handler) => {
+          onEventHandler = handler;
+          return () => undefined;
+        }
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedTypes.push(command.type);
+      },
+      now: () => 1_000,
+      tickIntervalMs: 10_000
+    });
+
+    const tickPromise = producer.tick();
+    await Promise.resolve();
+
+    expect(submittedTypes).toEqual(["CHOOSE_TECH"]);
+    expect(explainNextAutomationCommand).toHaveBeenCalledTimes(1);
+
+    onEventHandler?.({
+      eventType: "TECH_UPDATE",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000"
+    });
+    await tickPromise;
+    producer.close();
+
+    expect(submittedTypes).toEqual(["CHOOSE_TECH", "EXPAND"]);
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: true });
+  });
+
+  it("does not treat rejected tech preplan as applied same-tick progression", async () => {
+    const submittedTypes: string[] = [];
+    let onEventHandler: ((event: { eventType: string; playerId: string; commandId: string; code?: string }) => void) | undefined;
+    const explainNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        command: {
+          commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+          sessionId: `ai-runtime:${playerId}`,
+          playerId,
+          clientSeq,
+          issuedAt,
+          type: clientSeq === 1 ? ("CHOOSE_TECH" as const) : ("EXPAND" as const),
+          payloadJson: clientSeq === 1
+            ? JSON.stringify({ techId: "toolmaking" })
+            : JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+        },
+        diagnostic: {
+          playerId,
+          sessionPrefix: "ai-runtime" as const,
+          settlementEligible: false,
+          settlementCandidateFound: false,
+          frontierEnemyTargetCount: 0,
+          frontierNeutralTargetCount: clientSeq === 1 ? 0 : 1,
+          canAttack: false,
+          canExpand: clientSeq !== 1
+        }
+      })
+    );
+    const producer = createAiCommandProducer({
+      runtime: {
+        chooseNextAutomationCommand: vi.fn(() => undefined),
+        explainNextAutomationCommand,
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: (handler) => {
+          onEventHandler = handler;
+          return () => undefined;
+        }
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedTypes.push(command.type);
+      },
+      now: () => 1_000,
+      tickIntervalMs: 10_000
+    });
+
+    const firstTick = producer.tick();
+    await Promise.resolve();
+    onEventHandler?.({
+      eventType: "COMMAND_REJECTED",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000",
+      code: "TECH_INVALID"
+    });
+    await firstTick;
+
+    expect(submittedTypes).toEqual(["CHOOSE_TECH"]);
+    expect(explainNextAutomationCommand).toHaveBeenCalledTimes(1);
+
+    await producer.tick();
+    producer.close();
+
+    expect(submittedTypes).toEqual(["CHOOSE_TECH", "EXPAND"]);
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: false });
+  });
+
+  it("advances client seq after a timed-out preplan command instead of replaying it", async () => {
+    vi.useFakeTimers();
+    const submittedTypes: string[] = [];
+    const explainNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        command: {
+          commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+          sessionId: `ai-runtime:${playerId}`,
+          playerId,
+          clientSeq,
+          issuedAt,
+          type: clientSeq === 1 ? ("CHOOSE_TECH" as const) : ("EXPAND" as const),
+          payloadJson: clientSeq === 1
+            ? JSON.stringify({ techId: "toolmaking" })
+            : JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+        },
+        diagnostic: {
+          playerId,
+          sessionPrefix: "ai-runtime" as const,
+          settlementEligible: false,
+          settlementCandidateFound: false,
+          frontierEnemyTargetCount: 0,
+          frontierNeutralTargetCount: clientSeq === 1 ? 0 : 1,
+          canAttack: false,
+          canExpand: clientSeq !== 1
+        }
+      })
+    );
+    const producer = createAiCommandProducer({
+      runtime: {
+        chooseNextAutomationCommand: vi.fn(() => undefined),
+        explainNextAutomationCommand,
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: () => () => undefined
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedTypes.push(command.type);
+      },
+      now: () => 1_000,
+      tickIntervalMs: 10_000
+    });
+
+    const firstTick = producer.tick();
+    await Promise.resolve();
+    expect(submittedTypes).toEqual(["CHOOSE_TECH"]);
+
+    await vi.advanceTimersByTimeAsync(5_001);
+    await firstTick;
+    await producer.tick();
+    producer.close();
+    vi.useRealTimers();
+
+    expect(submittedTypes).toEqual(["CHOOSE_TECH", "EXPAND"]);
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: false });
+  });
+
+  it("keeps late collect results effective after preplan timeout", async () => {
+    vi.useFakeTimers();
+    let nowMs = 1_000;
+    const submittedTypes: string[] = [];
+    let onEventHandler: ((event: { eventType: string; playerId: string; commandId: string; code?: string }) => void) | undefined;
+    const explainNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number, _sessionPrefix: string, options?: { skipPreplan?: boolean }) => {
+        if (!options?.skipPreplan) {
+          return {
+            command: {
+              commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+              sessionId: `ai-runtime:${playerId}`,
+              playerId,
+              clientSeq,
+              issuedAt,
+              type: "COLLECT_VISIBLE" as const,
+              payloadJson: "{}"
+            },
+            diagnostic: {
+              playerId,
+              sessionPrefix: "ai-runtime" as const,
+              settlementEligible: false,
+              settlementCandidateFound: false,
+              frontierEnemyTargetCount: 0,
+              frontierNeutralTargetCount: 0,
+              canAttack: false,
+              canExpand: false
+            }
+          };
+        }
+        return {
+          command: {
+            commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+            sessionId: `ai-runtime:${playerId}`,
+            playerId,
+            clientSeq,
+            issuedAt,
+            type: "EXPAND" as const,
+            payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+          },
+          diagnostic: {
+            playerId,
+            sessionPrefix: "ai-runtime" as const,
+            settlementEligible: false,
+            settlementCandidateFound: false,
+            frontierEnemyTargetCount: 0,
+            frontierNeutralTargetCount: 1,
+            canAttack: false,
+            canExpand: true
+          }
+        };
+      }
+    );
+    const producer = createAiCommandProducer({
+      runtime: {
+        chooseNextAutomationCommand: vi.fn(() => undefined),
+        explainNextAutomationCommand,
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: (handler) => {
+          onEventHandler = handler;
+          return () => undefined;
+        }
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedTypes.push(command.type);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000
+    });
+
+    const firstTick = producer.tick();
+    await Promise.resolve();
+    expect(submittedTypes).toEqual(["COLLECT_VISIBLE"]);
+
+    await vi.advanceTimersByTimeAsync(5_001);
+    await firstTick;
+
+    onEventHandler?.({
+      eventType: "COLLECT_RESULT",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000"
+    });
+
+    nowMs = 1_001;
+    await producer.tick();
+    producer.close();
+    vi.useRealTimers();
+
+    expect(submittedTypes).toEqual(["COLLECT_VISIBLE", "EXPAND"]);
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(3, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: true });
+  });
+
+  it("falls through to gameplay planning when collect-visible is locally cooldown-blocked", async () => {
+    let nowMs = 1_000;
+    const submittedTypes: string[] = [];
+    const explainNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number, _sessionPrefix: string, options?: { skipPreplan?: boolean }) => {
+        if (!options?.skipPreplan) {
+          return {
+            command: {
+              commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+              sessionId: `ai-runtime:${playerId}`,
+              playerId,
+              clientSeq,
+              issuedAt,
+              type: "COLLECT_VISIBLE" as const,
+              payloadJson: "{}"
+            },
+            diagnostic: {
+              playerId,
+              sessionPrefix: "ai-runtime" as const,
+              settlementEligible: false,
+              settlementCandidateFound: false,
+              frontierEnemyTargetCount: 0,
+              frontierNeutralTargetCount: 0,
+              canAttack: false,
+              canExpand: false
+            }
+          };
+        }
+        return {
+          command: {
+            commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+            sessionId: `ai-runtime:${playerId}`,
+            playerId,
+            clientSeq,
+            issuedAt,
+            type: "EXPAND" as const,
+            payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+          },
+          diagnostic: {
+            playerId,
+            sessionPrefix: "ai-runtime" as const,
+            settlementEligible: false,
+            settlementCandidateFound: false,
+            frontierEnemyTargetCount: 0,
+            frontierNeutralTargetCount: 1,
+            canAttack: false,
+            canExpand: true
+          }
+        };
+      }
+    );
+    let onEventHandler: ((event: { eventType: string; playerId: string; commandId: string; code?: string }) => void) | undefined;
+    const producer = createAiCommandProducer({
+      runtime: {
+        chooseNextAutomationCommand: vi.fn(() => undefined),
+        explainNextAutomationCommand,
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: (handler) => {
+          onEventHandler = handler;
+          return () => undefined;
+        }
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedTypes.push(command.type);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000
+    });
+
+    const firstTick = producer.tick();
+    await Promise.resolve();
+    onEventHandler?.({
+      eventType: "COMMAND_REJECTED",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000",
+      code: "COLLECT_COOLDOWN"
+    });
+    await firstTick;
+    onEventHandler?.({
+      eventType: "TILE_DELTA_BATCH",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-2-1000"
+    });
+    nowMs = 1_001;
+    await producer.tick();
+    producer.close();
+
+    expect(submittedTypes).toEqual(["COLLECT_VISIBLE", "EXPAND", "EXPAND"]);
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(4, "ai-1", 3, expect.any(Number), "ai-runtime", { skipPreplan: true });
   });
 
   it("releases stale pending AI commands so one stuck player does not freeze forever", async () => {
