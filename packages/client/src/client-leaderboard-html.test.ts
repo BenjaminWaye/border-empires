@@ -110,6 +110,63 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).not.toContain("11. You (0.0)");
   });
 
+  it("does not append a duplicate self row when the visible row matches but the ids differ", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [
+          { id: "p1", rank: 11, name: "Benjamin Waye", score: 4, tiles: 1, incomePerMinute: 1, techs: 0 },
+          { id: "p2", rank: 12, name: "Nauticus", score: 1, tiles: 1, incomePerMinute: 0, techs: 0 }
+        ],
+        selfOverall: { id: "me", rank: 11, name: "Benjamin Waye", score: 4, tiles: 1, incomePerMinute: 1, techs: 0 },
+        selfByTiles: { id: "me", rank: 12, name: "Benjamin Waye", value: 1 },
+        selfByIncome: { id: "me", rank: 9, name: "Benjamin Waye", value: 1 },
+        selfByTechs: { id: "me", rank: 5, name: "Benjamin Waye", value: 0 },
+        byTiles: [
+          { id: "p1", rank: 11, name: "Nauticus", value: 1 },
+          { id: "p2", rank: 12, name: "Benjamin Waye", value: 1 }
+        ],
+        byIncome: [
+          { id: "p1", rank: 9, name: "Benjamin Waye", value: 1 },
+          { id: "p2", rank: 12, name: "Nauticus", value: 0 }
+        ],
+        byTechs: [
+          { id: "p1", rank: 4, name: "Nauticus", value: 0 },
+          { id: "p2", rank: 5, name: "Benjamin Waye", value: 0 }
+        ]
+      },
+      [],
+      undefined
+    );
+
+    expect(html).toContain("11. Benjamin Waye | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).not.toContain("12. You (1.0)");
+    expect(html).not.toContain("9. You (1.0)");
+    expect(html).not.toContain("5. You (0.0)");
+  });
+
+  it("does not append a duplicate self row when only hidden precision differs", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [{ id: "p1", rank: 11, name: "Benjamin Waye", score: 4.04, tiles: 1, incomePerMinute: 1.04, techs: 0 }],
+        selfOverall: { id: "me", rank: 11, name: "Benjamin Waye", score: 4.03, tiles: 1, incomePerMinute: 1.03, techs: 0 },
+        selfByTiles: undefined,
+        selfByIncome: { id: "me", rank: 9, name: "Benjamin Waye", value: 1.04 },
+        selfByTechs: { id: "me", rank: 5, name: "Benjamin Waye", value: 0.04 },
+        byTiles: [{ id: "p1", rank: 11, name: "Benjamin Waye", value: 1 }],
+        byIncome: [{ id: "p1", rank: 9, name: "Benjamin Waye", value: 1.03 }],
+        byTechs: [{ id: "p1", rank: 5, name: "Benjamin Waye", value: 0.03 }]
+      },
+      [],
+      undefined
+    );
+
+    expect(html).toContain("11. Benjamin Waye | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).not.toContain("9. You (1.0)");
+    expect(html).not.toContain("5. You (0.0)");
+  });
+
   it("hides the self row when the player is already the leader", () => {
     const html = leaderboardHtml(
       {
