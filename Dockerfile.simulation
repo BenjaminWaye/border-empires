@@ -14,6 +14,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY packages/shared packages/shared
 COPY packages/game-domain packages/game-domain
+COPY packages/server/data packages/server/data
 COPY packages/client-protocol packages/client-protocol
 COPY packages/sim-protocol packages/sim-protocol
 COPY apps/simulation apps/simulation
@@ -47,6 +48,7 @@ COPY --from=build /app/packages/game-domain/package.json ./packages/game-domain/
 COPY --from=build /app/packages/game-domain/dist ./packages/game-domain/dist
 COPY --from=build /app/packages/game-domain/node_modules ./packages/game-domain/node_modules
 COPY --from=build /app/packages/game-domain/data ./packages/game-domain/data
+COPY --from=build /app/packages/server/data ./packages/server/data
 COPY --from=build /app/packages/client-protocol/package.json ./packages/client-protocol/package.json
 COPY --from=build /app/packages/client-protocol/dist ./packages/client-protocol/dist
 COPY --from=build /app/packages/client-protocol/node_modules ./packages/client-protocol/node_modules
@@ -58,12 +60,10 @@ COPY --from=build /app/apps/simulation/dist ./apps/simulation/dist
 COPY --from=build /app/apps/simulation/node_modules ./apps/simulation/node_modules
 COPY --from=build /app/apps/simulation/sql ./apps/simulation/sql
 
-RUN chmod -R a+rX /app/packages/game-domain/data \
+RUN chmod -R a+rX /app/packages/game-domain/data /app/packages/server/data \
   && mkdir -p /app/apps/simulation/dist/packages/game-domain \
   && mkdir -p /app/apps/simulation/dist/packages/game-domain/data \
-  && mkdir -p /app/apps/simulation/dist/packages/server/data \
-  && cp -R /app/packages/game-domain/data/. /app/apps/simulation/dist/packages/game-domain/data/. \
-  && cp -R /app/packages/game-domain/data/. /app/apps/simulation/dist/packages/server/data/.
+  && cp -R /app/packages/game-domain/data/. /app/apps/simulation/dist/packages/game-domain/data/.
 
 ENV NODE_ENV=production
 ENV SIMULATION_PORT=50051
