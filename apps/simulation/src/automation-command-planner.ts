@@ -15,6 +15,8 @@ import {
   chooseBestFortBuild,
   chooseBestSiegeOutpostBuild
 } from "./structure-command-planner.js";
+import { createAutomationCommand } from "./automation-command-factory.js";
+import { economyWeak, foodCoverageLow, hasCollectibleVisibleYieldSource } from "./ai-economic-heuristics.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 
@@ -75,6 +77,7 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   points: number;
   manpower: number;
   techIds?: readonly string[];
+  domainIds?: readonly string[];
   strategicResources?: Partial<Record<StrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;
@@ -115,23 +118,6 @@ type AutomationDecisionContext<TTile extends AutomationPlannerTile> = {
   canAttack: boolean;
   canExpand: boolean;
 };
-const createCommand = (
-  sessionPrefix: AutomationSessionPrefix,
-  playerId: string,
-  clientSeq: number,
-  issuedAt: number,
-  type: CommandEnvelope["type"],
-  payload: Record<string, number | string>
-): CommandEnvelope => ({
-  commandId: `${sessionPrefix}-${playerId}-${clientSeq}-${issuedAt}`,
-  sessionId: `${sessionPrefix}:${playerId}`,
-  playerId,
-  clientSeq,
-  issuedAt,
-  type,
-  payloadJson: JSON.stringify(payload)
-});
-
 export const createAutomationNoopDiagnostic = (
   playerId: string,
   sessionPrefix: AutomationSessionPrefix,
@@ -147,22 +133,6 @@ export const createAutomationNoopDiagnostic = (
   canExpand: false,
   noCommandReason
 });
-
-const foodCoverageLow = (
-  strategicResources: Partial<Record<StrategicResourceKey, number>> | undefined,
-  townCount: number
-): boolean => Math.max(0, strategicResources?.FOOD ?? 0) <= Math.max(24, townCount * 12);
-
-const economyWeak = (incomePerMinute: number, settledTileCount: number): boolean =>
-  incomePerMinute < Math.max(3, settledTileCount * 0.45);
-
-const hasCollectibleVisibleYieldSource = <TTile extends AutomationPlannerTile>(ownedTiles: readonly TTile[]): boolean =>
-  ownedTiles.some(
-    (tile) =>
-      tile.ownershipState === "SETTLED" &&
-      tile.terrain === "LAND" &&
-      (Boolean(tile.town) || Boolean(tile.dockId))
-  );
 
 const shouldSettleCandidateNow = <TTile extends AutomationPlannerTile>(
   context: AutomationDecisionContext<TTile>,
@@ -219,7 +189,7 @@ const buildCommand = <TTile extends AutomationPlannerTile>(
   type: CommandEnvelope["type"],
   payload: Record<string, number | string>
 ): AutomationPlannerResult => ({
-  command: createCommand(
+  command: createAutomationCommand(
     context.input.sessionPrefix,
     context.input.playerId,
     context.input.clientSeq,
