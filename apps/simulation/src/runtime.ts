@@ -107,7 +107,7 @@ import {
 } from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
-import type { PlannerPlayerView, PlannerWorldView } from "./planner-world-view.js";
+import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./planner-world-view.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./planner-world-view-slice.js";
 import {
   createAutomationNoopDiagnostic,
