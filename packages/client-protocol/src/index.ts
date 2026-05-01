@@ -3,7 +3,6 @@ import { z } from "zod";
 export const DurableCommandTypeSchema = z.enum([
   "ATTACK",
   "EXPAND",
-  "BREAKTHROUGH_ATTACK",
   "SETTLE",
   "BUILD_FORT",
   "BUILD_OBSERVATORY",
@@ -54,7 +53,7 @@ export type CommandQueuedMessage = {
 export type ActionAcceptedMessage = {
   type: "ACTION_ACCEPTED";
   commandId: string;
-  actionType: Extract<DurableCommandType, "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK">;
+  actionType: Extract<DurableCommandType, "ATTACK" | "EXPAND">;
   origin: { x: number; y: number };
   target: { x: number; y: number };
   resolvesAt: number;

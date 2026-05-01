@@ -30,7 +30,6 @@ export interface PlayerEffects {
   unlockDeepStrike: boolean;
   unlockAetherBridge: boolean;
   unlockTerrainShaping: boolean;
-  unlockBreachAttack: boolean;
   unlockAetherWall: boolean;
   unlockIronBastion: boolean;
   unlockSiegeTower: boolean;
@@ -115,7 +114,6 @@ export const emptyPlayerEffects = (): PlayerEffects => ({
   unlockDeepStrike: false,
   unlockAetherBridge: false,
   unlockTerrainShaping: false,
-  unlockBreachAttack: false,
   unlockAetherWall: false,
   unlockIronBastion: false,
   unlockSiegeTower: false,
@@ -184,7 +182,6 @@ export const emptyPlayerEffects = (): PlayerEffects => ({
 export interface TelemetryCounters {
   frontierClaims: number;
   settlements: number;
-  breakthroughAttacks: number;
   techUnlocks: number;
 }
 
