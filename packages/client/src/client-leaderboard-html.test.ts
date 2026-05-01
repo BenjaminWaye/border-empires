@@ -47,9 +47,9 @@ describe("leaderboard and season victory rendering", () => {
           name: "Continental Footprint",
           description: "Hold islands.",
           leaderName: "Ivan",
-          progressLabel: "4/6 islands at 10%+ settled · weakest island 10% (110/1100)",
-          selfProgressLabel: "1/6 islands at 10%+ settled",
-          thresholdLabel: "Need 10% settled land on every island",
+          progressLabel: "4/6 islands at 5%+ settled · weakest island 5% (55/1100)",
+          selfProgressLabel: "1/6 islands at 5%+ settled",
+          thresholdLabel: "Need 5% settled land on every island",
           holdDurationSeconds: 86400,
           statusLabel: "Pressure building",
           conditionMet: false
@@ -60,7 +60,7 @@ describe("leaderboard and season victory rendering", () => {
 
     expect(html).toContain("You: 3/87 towns");
     expect(html).toContain("You: 12.0 gold/m");
-    expect(html).toContain("You: 1/6 islands at 10%+ settled");
+    expect(html).toContain("You: 1/6 islands at 5%+ settled");
     expect(html).toContain("44. You | score 1.0 | settled 1 | income 1.0 | tech 1");
     expect(html).toContain("11. You (7.0)");
     expect(html).toContain("8. You (3.5)");

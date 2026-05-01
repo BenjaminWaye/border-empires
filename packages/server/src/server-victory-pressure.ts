@@ -5,6 +5,8 @@ export const createServerVictoryPressure = (deps) => {
     townsByTile,
     SEASON_VICTORY_TOWN_CONTROL_SHARE,
     SEASON_VICTORY_SETTLED_TERRITORY_SHARE,
+    SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE,
+    SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE,
     VICTORY_PRESSURE_DEFS,
     players,
     HOLD_START_BROADCAST_DELAY_MS,
@@ -33,8 +35,42 @@ export const createServerVictoryPressure = (deps) => {
     SEASON_VICTORY_ECONOMY_LEAD_MULT
   } = deps;
 
+  const formatPct = (share: number): string => `${Math.round(share * 100)}%`;
+
   const uniqueLeaderFromMetrics = (metrics: PlayerCompetitionMetrics[], selectValue: (metric: PlayerCompetitionMetrics) => number): { playerId?: string; value: number } => {
     return uniqueLeader(metrics.map((metric) => ({ playerId: metric.playerId, value: selectValue(metric) })));
+  };
+  const resourceMonopolyLeader = (
+    metrics: PlayerCompetitionMetrics[],
+    totalResourceCounts: Record<ResourceType, number>
+  ): { leaderPlayerId?: string; bestOwned: number; bestTotal: number; bestResource?: ResourceType; bestShare: number; contested: boolean } => {
+    let bestLeaderId: string | undefined;
+    let bestOwned = 0;
+    let bestTotal = 0;
+    let bestResource: ResourceType | undefined;
+    let bestShare = 0;
+    let contested = false;
+    for (const metric of metrics) {
+      const controlled = controlledResourceTileCounts(metric.playerId);
+      for (const resource of Object.keys(totalResourceCounts) as ResourceType[]) {
+        const total = totalResourceCounts[resource] ?? 0;
+        if (total <= 0) continue;
+        const owned = controlled[resource] ?? 0;
+        const share = owned / total;
+        if (share > bestShare || (share === bestShare && owned > bestOwned)) {
+          bestLeaderId = metric.playerId;
+          bestOwned = owned;
+          bestTotal = total;
+          bestResource = resource;
+          bestShare = share;
+          contested = false;
+          continue;
+        }
+        if (share === bestShare && owned === bestOwned && owned > 0 && metric.playerId !== bestLeaderId) contested = true;
+      }
+    }
+    if (contested) return { leaderPlayerId: undefined, bestOwned, bestTotal, bestResource: undefined, bestShare, contested: true };
+    return { leaderPlayerId: bestLeaderId, bestOwned, bestTotal, bestResource, bestShare, contested: false };
   };
   const getVictoryPressureTracker = (id: SeasonVictoryPathId): VictoryPressureTracker => {
     let tracker = victoryPressureById.get(id);
@@ -96,29 +132,17 @@ export const createServerVictoryPressure = (deps) => {
         progressLabel = `${leaderValue.toFixed(1)} gold/m vs ${pair.runnerUpValue.toFixed(1)}`;
         thresholdLabel = `Need at least ${SEASON_VICTORY_ECONOMY_MIN_INCOME} gold/m and 33% lead`;
       } else if (def.id === "RESOURCE_MONOPOLY") {
-        let bestLeaderId: string | undefined;
-        let bestOwned = 0;
-        let bestTotal = 0;
-        let bestResource: ResourceType | undefined;
-        for (const metric of metrics) {
-          const controlled = controlledResourceTileCounts(metric.playerId);
-          for (const resource of Object.keys(totalResourceCounts) as ResourceType[]) {
-            const total = totalResourceCounts[resource];
-            if ((total ?? 0) <= 0) continue;
-            const owned = controlled[resource] ?? 0;
-            if (owned > bestOwned) {
-              bestLeaderId = metric.playerId;
-              bestOwned = owned;
-              bestTotal = total ?? 0;
-              bestResource = resource;
-            }
-          }
-        }
-        leaderPlayerId = bestLeaderId;
-        leaderValue = bestOwned;
-        conditionMet = Boolean(leaderPlayerId && bestResource && bestTotal > 0 && bestOwned >= bestTotal);
-        progressLabel = bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource leader";
-        thresholdLabel = "Need 100% control of one resource type";
+        const monopoly = resourceMonopolyLeader(metrics, totalResourceCounts);
+        leaderPlayerId = monopoly.leaderPlayerId;
+        leaderValue = monopoly.bestOwned;
+        conditionMet = Boolean(
+          leaderPlayerId &&
+            monopoly.bestResource &&
+            monopoly.bestTotal > 0 &&
+            monopoly.bestOwned >= Math.ceil(monopoly.bestTotal * SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE)
+        );
+        progressLabel = monopoly.contested ? `Contested at ${Math.round(monopoly.bestShare * 100)}% share` : monopoly.bestResource ? `${monopoly.bestOwned}/${monopoly.bestTotal} ${monopoly.bestResource}` : "No resource leader";
+        thresholdLabel = `Need ${formatPct(SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE)} control of one resource type`;
       } else {
         let bestLeaderId: string | undefined;
         let bestQualifiedCount = 0;
@@ -148,9 +172,9 @@ export const createServerVictoryPressure = (deps) => {
         const bestPct = Math.round(bestWeakestQualifiedRatio * 100);
         progressLabel =
           bestQualifiedCount > 0 && bestWeakestQualifiedTotal > 0
-            ? `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled · weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})`
-            : `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled`;
-        thresholdLabel = "Need 10% settled land on every island";
+            ? `${bestQualifiedCount}/${totalIslands} islands at ${formatPct(SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE)}+ settled · weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})`
+            : `${bestQualifiedCount}/${totalIslands} islands at ${formatPct(SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE)}+ settled`;
+        thresholdLabel = `Need ${formatPct(SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE)} settled land on every island`;
       }
   
       const winner = currentSeasonWinner();
@@ -289,8 +313,8 @@ export const createServerVictoryPressure = (deps) => {
   
     const progress = continentalFootprintProgressForPlayer(playerId, allIslands);
     return progress.qualifiedCount > 0 && progress.weakestQualifiedTotal > 0
-      ? `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled · weakest island ${Math.round(progress.weakestQualifiedRatio * 100)}% (${progress.weakestQualifiedOwned}/${progress.weakestQualifiedTotal})`
-      : `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled`;
+      ? `${progress.qualifiedCount}/${progress.totalIslands} islands at ${formatPct(SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE)}+ settled · weakest island ${Math.round(progress.weakestQualifiedRatio * 100)}% (${progress.weakestQualifiedOwned}/${progress.weakestQualifiedTotal})`
+      : `${progress.qualifiedCount}/${progress.totalIslands} islands at ${formatPct(SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE)}+ settled`;
   };
   
   const seasonVictoryObjectivesForPlayer = (playerId: string | undefined): SeasonVictoryObjectiveView[] => {
@@ -385,6 +409,8 @@ export const createServerVictoryPressure = (deps) => {
     const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
     const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
     const metrics = collectPlayerCompetitionMetrics(nowMs);
+    const totalResourceCounts = worldResourceTileCounts();
+    const allIslands = islandLandCounts();
     let crowned: SeasonWinnerView | undefined;
     let announcement: string | undefined;
   
@@ -402,6 +428,35 @@ export const createServerVictoryPressure = (deps) => {
         const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.settledTiles);
         leaderPlayerId = leader.playerId;
         conditionMet = Boolean(leaderPlayerId && leader.value >= settledTarget);
+      } else if (def.id === "RESOURCE_MONOPOLY") {
+        const monopoly = resourceMonopolyLeader(metrics, totalResourceCounts);
+        leaderPlayerId = monopoly.leaderPlayerId;
+        conditionMet = Boolean(
+          leaderPlayerId &&
+            monopoly.bestTotal > 0 &&
+            monopoly.bestOwned >= Math.ceil(monopoly.bestTotal * SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE)
+        );
+      } else if (def.id === "CONTINENT_FOOTPRINT") {
+        let bestLeaderId: string | undefined;
+        let bestQualifiedCount = 0;
+        let bestWeakestQualifiedRatio = -1;
+        for (const metric of metrics) {
+          const progress = continentalFootprintProgressForPlayer(metric.playerId, allIslands);
+          if (progress.totalIslands === 0) continue;
+          if (
+            progress.qualifiedCount > bestQualifiedCount ||
+            (progress.qualifiedCount === bestQualifiedCount &&
+              (progress.weakestQualifiedRatio > bestWeakestQualifiedRatio ||
+                (progress.weakestQualifiedRatio === bestWeakestQualifiedRatio && metric.playerId < (bestLeaderId ?? "~"))))
+          ) {
+            bestQualifiedCount = progress.qualifiedCount;
+            bestWeakestQualifiedRatio = progress.weakestQualifiedRatio;
+            bestLeaderId = metric.playerId;
+          }
+        }
+        const totalIslands = Math.max(1, [...allIslands.values()].filter((count) => count > 0).length);
+        leaderPlayerId = bestLeaderId;
+        conditionMet = Boolean(leaderPlayerId && bestQualifiedCount >= totalIslands && totalIslands > 0);
       } else {
         const pair = leadingPair(metrics.map((metric) => ({ playerId: metric.playerId, value: metric.incomePerMinute })));
         leaderPlayerId = pair.tied ? undefined : pair.leaderPlayerId;
