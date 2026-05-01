@@ -997,6 +997,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
+            onCommand: ({ playerId, commandType }) => {
+              simulationMetrics.observeSimAiCommand(commandType, playerId);
+            },
             onDiagnostic: (sample) => {
               if (sample.durationMs < slowAiSyncWarnMs) return;
               recordLagDiagnostic("warn", "simulation_ai_worker_slow", sample);
@@ -1019,6 +1022,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             tickIntervalMs: options.aiTickMs ?? 250,
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
+            },
+            onCommand: ({ playerId, commandType }) => {
+              simulationMetrics.observeSimAiCommand(commandType, playerId);
             },
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
@@ -1504,6 +1510,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_ai_autopilot_enabled: sample.simAiAutopilotEnabled,
             sim_ai_autopilot_player_count: sample.simAiAutopilotPlayerCount,
             sim_ai_planner_breaches: sample.simAiPlannerBreaches,
+            sim_ai_command_total: sample.simAiCommandTotalByType,
+            sim_ai_command_recent: sample.simAiCommandRecent,
             sim_ai_noop_total: sample.simAiNoopTotalByReason,
             sim_ai_noop_recent: sample.simAiNoopRecent,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
