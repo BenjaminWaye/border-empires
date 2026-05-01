@@ -11,8 +11,6 @@ import {
   BARBARIAN_DEFENSE_POWER,
   BARBARIAN_MULTIPLY_THRESHOLD,
   buildAetherWallSegments,
-  BREAKTHROUGH_ATTACK_MANPOWER_COST,
-  BREAKTHROUGH_ATTACK_MANPOWER_MIN,
   CHUNK_SIZE,
   CLUSTER_COUNT_MAX,
   CLUSTER_COUNT_MIN,
@@ -396,10 +394,6 @@ import {
   BANK_BUILD_GOLD_COST,
   BANK_CRYSTAL_UPKEEP,
   BANK_FOOD_UPKEEP,
-  BREAKTHROUGH_DEF_MULT_FACTOR,
-  BREAKTHROUGH_GOLD_COST,
-  BREAKTHROUGH_IRON_COST,
-  BREAKTHROUGH_REQUIRED_TECH_ID,
   BREACH_SHOCK_DEF_MULT,
   BREACH_SHOCK_MS,
   CAMP_BUILD_GOLD_COST,
@@ -885,7 +879,7 @@ const buildFrontierResultTiming = (capture: PendingCapture, sentAt: number): Neu
   };
 };
 const buildPredictedFrontierResult = (input: {
-  actionType: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK";
+  actionType: "EXPAND" | "ATTACK";
   actorId: string;
   origin: { x: number; y: number };
   target: { x: number; y: number };
@@ -1171,7 +1165,6 @@ let seasonWinner: SeasonWinnerView | undefined;
 const telemetryCounters: TelemetryCounters = {
   frontierClaims: 0,
   settlements: 0,
-  breakthroughAttacks: 0,
   techUnlocks: 0
 };
 let activeSeason: Season = {
@@ -2082,7 +2075,6 @@ const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
 
 const manpowerCostForAction = (actionType: PendingCapture["actionType"] | ClientMessage["type"]): number => {
   if (actionType === "ATTACK") return ATTACK_MANPOWER_COST;
-  if (actionType === "BREAKTHROUGH_ATTACK") return BREAKTHROUGH_ATTACK_MANPOWER_COST;
   if (actionType === "DEEP_STRIKE_ATTACK") return DEEP_STRIKE_MANPOWER_COST;
   if (actionType === "NAVAL_INFILTRATION_ATTACK") return NAVAL_INFILTRATION_MANPOWER_COST;
   return 0;
@@ -2090,7 +2082,6 @@ const manpowerCostForAction = (actionType: PendingCapture["actionType"] | Client
 
 const manpowerMinForAction = (actionType: PendingCapture["actionType"] | ClientMessage["type"]): number => {
   if (actionType === "ATTACK") return ATTACK_MANPOWER_MIN;
-  if (actionType === "BREAKTHROUGH_ATTACK") return BREAKTHROUGH_ATTACK_MANPOWER_MIN;
   if (actionType === "DEEP_STRIKE_ATTACK") return DEEP_STRIKE_MANPOWER_MIN;
   if (actionType === "NAVAL_INFILTRATION_ATTACK") return NAVAL_INFILTRATION_MANPOWER_MIN;
   return 0;
@@ -5110,8 +5101,8 @@ const noteHumanFrontierActionPriority = (durationMs = HUMAN_FRONTIER_PRIORITY_GR
 
 const humanFrontierActionMessage = (
   msg: ClientMessage
-): msg is Extract<ClientMessage, { type: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK" }> =>
-  msg.type === "ATTACK" || msg.type === "EXPAND" || msg.type === "BREAKTHROUGH_ATTACK";
+): msg is Extract<ClientMessage, { type: "ATTACK" | "EXPAND" }> =>
+  msg.type === "ATTACK" || msg.type === "EXPAND";
 
 const hasOnlineHumanPendingCapture = (): boolean => {
   const pending = new Set<PendingCapture>();
@@ -5204,7 +5195,7 @@ const logAttackTrace = (
   capture: PendingCapture,
   extra?: Record<string, unknown>
 ): void => {
-  if (capture.actionType !== "ATTACK" && capture.actionType !== "BREAKTHROUGH_ATTACK") return;
+  if (capture.actionType !== "ATTACK") return;
   if (!capture.traceId || typeof capture.startedAt !== "number") return;
   const payload = {
     traceId: capture.traceId,
@@ -9806,11 +9797,6 @@ registerServerHttpRoutes(app, {
         return;
       }
 
-      const canBreakthrough =
-        actor.techIds.has(BREAKTHROUGH_REQUIRED_TECH_ID) &&
-        Boolean(to.ownerId && to.ownerId !== actor.id && to.ownerId !== BARBARIAN_OWNER_ID) &&
-        !actor.allies.has(to.ownerId ?? "") &&
-        hasEnoughManpower(actor, BREAKTHROUGH_ATTACK_MANPOWER_MIN);
       const shock = breachShockByTile.get(tk);
       const shockMult = defenderOwnerId && shock && shock.ownerId === defenderOwnerId && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
       const defMult = defender ? playerDefensiveness(defender) * shockMult : shockMult;
@@ -9826,7 +9812,6 @@ registerServerHttpRoutes(app, {
         ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
         : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult +
           frontierDefenseAdd;
-      const breakthroughDefEff = defenderIsBarbarian ? defEff : defEff * BREAKTHROUGH_DEF_MULT_FACTOR;
       socket.send(
         JSON.stringify({
           type: "ATTACK_PREVIEW_RESULT",
@@ -9834,9 +9819,7 @@ registerServerHttpRoutes(app, {
           to: { x: to.x, y: to.y },
           valid: true,
           manpowerMin: ATTACK_MANPOWER_MIN,
-          breakthroughManpowerMin: BREAKTHROUGH_ATTACK_MANPOWER_MIN,
           winChance: combatWinChance(atkEff, defEff),
-          breakthroughWinChance: canBreakthrough ? combatWinChance(atkEff, breakthroughDefEff) : undefined,
           atkEff,
           defEff,
           siegeAtkMult,
@@ -9848,7 +9831,7 @@ registerServerHttpRoutes(app, {
       return;
     }
 
-    if (msg.type !== "ATTACK" && msg.type !== "EXPAND" && msg.type !== "BREAKTHROUGH_ATTACK") return;
+    if (msg.type !== "ATTACK" && msg.type !== "EXPAND") return;
 
     app.log.info(
       {
@@ -9864,8 +9847,7 @@ registerServerHttpRoutes(app, {
     );
     const nowMs = now();
     const expandTraceId = msg.type === "EXPAND" ? `${actor.id}:${nowMs}:${msg.toX},${msg.toY}` : undefined;
-    const attackTraceId =
-      msg.type === "ATTACK" || msg.type === "BREAKTHROUGH_ATTACK" ? `${actor.id}:${msg.type}:${nowMs}:${msg.toX},${msg.toY}` : undefined;
+    const attackTraceId = msg.type === "ATTACK" ? `${actor.id}:${msg.type}:${nowMs}:${msg.toX},${msg.toY}` : undefined;
     if (msg.type === "EXPAND") {
       app.log.info(
         {
@@ -9928,7 +9910,6 @@ registerServerHttpRoutes(app, {
     const staminaCost = 0;
     const manpowerMin = manpowerMinForAction(msg.type);
     const manpowerCost = manpowerCostForAction(msg.type);
-    const isBreakthroughAttack = msg.type === "BREAKTHROUGH_ATTACK";
 
     let from = playerTile(msg.fromX, msg.fromY);
     const to = playerTile(msg.toX, msg.toY);
@@ -9948,22 +9929,6 @@ registerServerHttpRoutes(app, {
       sendHighPrioritySocketMessage(
         socket,
         JSON.stringify({ type: "ERROR", code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" })
-      );
-      return;
-    }
-    if (isBreakthroughAttack && !to.ownerId) {
-      logTileSync("action_validation_rejected_breakthrough_target_invalid", actionValidationPayload(actor.id, msg.type, from, to));
-      app.log.info({ playerId: actor.id, to: preTk }, "action rejected: breakthrough target not enemy");
-      sendHighPrioritySocketMessage(
-        socket,
-        JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "breakthrough requires enemy tile" })
-      );
-      return;
-    }
-    if (isBreakthroughAttack && !actor.techIds.has(BREAKTHROUGH_REQUIRED_TECH_ID)) {
-      sendHighPrioritySocketMessage(
-        socket,
-        JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "requires Breach Doctrine" })
       );
       return;
     }
@@ -9997,14 +9962,6 @@ registerServerHttpRoutes(app, {
           code: "INSUFFICIENT_GOLD",
           message: msg.type === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
         })
-      );
-      return;
-    }
-    if (isBreakthroughAttack && actor.points < BREAKTHROUGH_GOLD_COST) {
-      app.log.info({ playerId: actor.id, points: actor.points, required: BREAKTHROUGH_GOLD_COST }, "action rejected: insufficient gold for breakthrough");
-      sendHighPrioritySocketMessage(
-        socket,
-        JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for breakthrough" })
       );
       return;
     }
@@ -10168,19 +10125,6 @@ registerServerHttpRoutes(app, {
       );
       return;
     }
-    if (isBreakthroughAttack) {
-      if (!consumeStrategicResource(actor, "IRON", BREAKTHROUGH_IRON_COST)) {
-        app.log.info({ playerId: actor.id }, "action rejected: insufficient IRON for breakthrough");
-        sendHighPrioritySocketMessage(
-          socket,
-          JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient IRON for breakthrough" })
-        );
-        return;
-      }
-      actor.points -= BREAKTHROUGH_GOLD_COST;
-      recalcPlayerDerived(actor);
-      telemetryCounters.breakthroughAttacks += 1;
-    }
     if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
     let precomputedCombatPromise: Promise<PrecomputedFrontierCombat> | undefined;
     if (defenderOwnerId || defenderIsBarbarian) {
@@ -10188,7 +10132,7 @@ registerServerHttpRoutes(app, {
       const shock = breachShockByTile.get(tk);
       const shockMult = defenderOwnerId && shock && shock.ownerId === defenderOwnerId && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
       const defMultRaw = defender ? playerDefensiveness(defender) * shockMult : shockMult;
-      const defMult = isBreakthroughAttack ? defMultRaw * BREAKTHROUGH_DEF_MULT_FACTOR : defMultRaw;
+      const defMult = defMultRaw;
       const fortMult = defenderOwnerId ? fortDefenseMultAt(defenderOwnerId, tk) : 1;
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
       const settledDefenseMult = defenderOwnerId ? settledDefenseMultiplierForTarget(defenderOwnerId, to) : 1;
@@ -10429,7 +10373,7 @@ registerServerHttpRoutes(app, {
       result: Boolean(result),
       socketReadyState: socket.readyState
     });
-    if (isBreakthroughAttack || bridgeCrossing) sendPlayerUpdate(actor, 0);
+    if (bridgeCrossing) sendPlayerUpdate(actor, 0);
     if (defender && !defenderIsBarbarian) {
       sendToPlayer(defender.id, {
         type: "ATTACK_ALERT",
@@ -10546,9 +10490,6 @@ registerServerHttpRoutes(app, {
             x: to.x,
             y: to.y
           });
-        }
-        if (!defenderIsBarbarian && isBreakthroughAttack && targetWasSettled && defender) {
-          applyBreachShockAround(to.x, to.y, defender.id);
         }
         if (defenderIsBarbarian) {
           actor.points += pointsDelta;

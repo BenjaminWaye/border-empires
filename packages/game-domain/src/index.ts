@@ -11,14 +11,12 @@ export * from "./town-names.js";
 import {
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,
-  BREAKTHROUGH_ATTACK_MANPOWER_COST,
-  BREAKTHROUGH_ATTACK_MANPOWER_MIN,
   COMBAT_LOCK_MS,
   FRONTIER_CLAIM_MS,
   type Tile
 } from "@border-empires/shared";
 
-export type FrontierCommandType = "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK";
+export type FrontierCommandType = "ATTACK" | "EXPAND";
 export type DomainStrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
 
 export type DomainPlayer = {
@@ -145,8 +143,6 @@ export type ValidateFrontierCommandInput = {
   targetLockedUntil?: number | undefined;
   targetLockOwnerId?: string | undefined;
   actionGoldCost: number;
-  breakthroughGoldCost: number;
-  breakthroughRequiredTechId: string;
   isAdjacent: boolean;
   isDockCrossing: boolean;
   isBridgeCrossing: boolean;
@@ -173,12 +169,6 @@ export type ValidateFrontierCommandResult =
 const manpowerRequirements = (
   actionType: FrontierCommandType
 ): { manpowerMin: number; manpowerCost: number } => {
-  if (actionType === "BREAKTHROUGH_ATTACK") {
-    return {
-      manpowerMin: BREAKTHROUGH_ATTACK_MANPOWER_MIN,
-      manpowerCost: BREAKTHROUGH_ATTACK_MANPOWER_COST
-    };
-  }
   return {
     manpowerMin: ATTACK_MANPOWER_MIN,
     manpowerCost: actionType === "ATTACK" ? ATTACK_MANPOWER_COST : 0
@@ -194,12 +184,6 @@ export const validateFrontierCommand = (
   }
   if (input.actionType === "ATTACK" && (!input.to.ownerId || input.to.ownerId === input.actor.id)) {
     return { ok: false, code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" };
-  }
-  if (input.actionType === "BREAKTHROUGH_ATTACK" && !input.to.ownerId) {
-    return { ok: false, code: "BREAKTHROUGH_TARGET_INVALID", message: "breakthrough requires enemy tile" };
-  }
-  if (input.actionType === "BREAKTHROUGH_ATTACK" && !input.actor.techIds.has(input.breakthroughRequiredTechId)) {
-    return { ok: false, code: "BREAKTHROUGH_TARGET_INVALID", message: "requires Breach Doctrine" };
   }
   if (!input.isAdjacent && !input.isDockCrossing && !input.isBridgeCrossing) {
     return {
@@ -220,7 +204,7 @@ export const validateFrontierCommand = (
     }
     if (input.actionType === "EXPAND") {
       // Frontier expansion from your own recently used origin tile is allowed.
-      // Cooldown remains enforced for ATTACK/BREAKTHROUGH attack actions.
+      // Cooldown remains enforced for attack actions.
     } else {
       return {
         ok: false,
@@ -242,9 +226,6 @@ export const validateFrontierCommand = (
       code: "INSUFFICIENT_GOLD",
       message: input.actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
     };
-  }
-  if (input.actionType === "BREAKTHROUGH_ATTACK" && input.actor.points < input.breakthroughGoldCost) {
-    return { ok: false, code: "INSUFFICIENT_GOLD", message: "insufficient gold for breakthrough" };
   }
   if (input.actor.manpower < manpowerMin) {
     return {

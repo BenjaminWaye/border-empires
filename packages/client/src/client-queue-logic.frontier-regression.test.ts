@@ -105,7 +105,7 @@ describe("frontier queue regressions", () => {
     state.authSessionReady = true;
     state.me = "me";
     state.gold = 999;
-    state.actionQueue = [{ x: 12, y: 18, mode: "normal", retries: 0 }];
+    state.actionQueue = [{ x: 12, y: 18, retries: 0 }];
     state.queuedTargetKeys = new Set<string>(["12,18"]);
 
     const optimisticOrigin = makeTile({ x: 11, y: 18, ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "expand" });
@@ -129,7 +129,7 @@ describe("frontier queue regressions", () => {
 
     expect(started).toBe(false);
     expect(send).not.toHaveBeenCalled();
-    expect(state.actionQueue).toEqual([{ x: 12, y: 18, mode: "normal", retries: 0 }]);
+    expect(state.actionQueue).toEqual([{ x: 12, y: 18, retries: 0 }]);
     expect(state.queuedTargetKeys.has("12,18")).toBe(true);
     expect(state.frontierSyncWaitUntilByTarget.get("12,18")).toBeGreaterThan(Date.now());
   });

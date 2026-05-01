@@ -1,14 +1,12 @@
 import type { ClientState } from "./client-state.js";
 
 type CaptureAlertState = Pick<ClientState, "actionCurrent" | "actionAcceptedAck" | "captureAlert">;
-type FrontierActionType = "ATTACK" | "BREAKTHROUGH_ATTACK" | "EXPAND" | undefined;
+type FrontierActionType = "ATTACK" | "EXPAND" | undefined;
 
 const recoveryTitleForAction = (actionType: FrontierActionType): string => {
   switch (actionType) {
     case "ATTACK":
       return "Recovering attack";
-    case "BREAKTHROUGH_ATTACK":
-      return "Recovering breakthrough";
     case "EXPAND":
       return "Recovering expansion";
     default:
@@ -18,7 +16,6 @@ const recoveryTitleForAction = (actionType: FrontierActionType): string => {
 
 const managedTitles = new Set<string>([
   "Recovering attack",
-  "Recovering breakthrough",
   "Recovering expansion",
   "Recovering frontier action"
 ]);

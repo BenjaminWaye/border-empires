@@ -26,7 +26,7 @@ type RecoveredTileState = {
 export type RecoveredLock = {
   commandId: string;
   playerId: string;
-  actionType: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK";
+  actionType: "ATTACK" | "EXPAND";
   originX: number;
   originY: number;
   targetX: number;
