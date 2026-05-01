@@ -27,7 +27,7 @@ const parseTileKey = (tileKey: string): { x: number; y: number } | undefined => 
   return { x, y };
 };
 
-const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
+export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
   x: tile.x,
   y: tile.y,
   terrain: tile.terrain,

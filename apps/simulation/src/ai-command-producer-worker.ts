@@ -52,8 +52,28 @@ const mergePlannerTileDelta = (
   return next;
 };
 
+/**
+ * Converts a PlannerTileView back to the SimulationTileDelta wire format so
+ * backfilled tiles can be sent to the worker via the existing "tile_deltas"
+ * message path.
+ */
+const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta => ({
+  x: tile.x,
+  y: tile.y,
+  terrain: tile.terrain,
+  ...(tile.resource !== undefined ? { resource: tile.resource } : {}),
+  ...(tile.dockId !== undefined ? { dockId: tile.dockId } : {}),
+  ...(tile.ownerId !== undefined ? { ownerId: tile.ownerId } : {}),
+  ...(tile.ownershipState !== undefined ? { ownershipState: tile.ownershipState } : {}),
+  ...(tile.town !== undefined ? { townJson: JSON.stringify(tile.town) } : {}),
+  ...(tile.fort !== undefined ? { fortJson: JSON.stringify(tile.fort) } : {}),
+  ...(tile.observatory !== undefined ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
+  ...(tile.siegeOutpost !== undefined ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+  ...(tile.economicStructure !== undefined ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {})
+});
+
 type WorkerAiCommandProducerOptions = {
-  runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews">;
+  runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews" | "exportTilesForKeys">;
   aiPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   shouldRun?: () => boolean;
@@ -217,6 +237,29 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       durationMs: Math.max(0, now() - relevanceStartedAt),
       playerCount: players.length
     });
+    // Backfill any tiles that have just entered scope but were never sent to the
+    // worker. This happens when territory expands: new frontier neighbors become
+    // relevant but were never included in the initial worldView slice and have
+    // never triggered a TILE_DELTA_BATCH event (neutral tiles that were always
+    // neutral don't generate deltas). Without this, the planner can't see those
+    // tiles and returns "no_frontier_targets" noop forever.
+    const unseenTileKeys: string[] = [];
+    for (const tileKey of relevantTileKeys) {
+      if (!plannerTilesByKey.has(tileKey)) unseenTileKeys.push(tileKey);
+    }
+    if (unseenTileKeys.length > 0) {
+      const unseenTiles = options.runtime.exportTilesForKeys(unseenTileKeys);
+      const backfillDeltas: SimulationTileDelta[] = [];
+      for (const tile of unseenTiles) {
+        const tileKey = `${tile.x},${tile.y}`;
+        plannerTilesByKey.set(tileKey, tile);
+        backfillDeltas.push(toPlannerTileDelta(tile));
+      }
+      if (backfillDeltas.length > 0) {
+        worker.postMessage({ type: "tile_deltas", tileDeltas: backfillDeltas });
+      }
+    }
+
     const postStartedAt = now();
     worker.postMessage({
       type: "sync_players",

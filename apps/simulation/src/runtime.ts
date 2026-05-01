@@ -108,7 +108,7 @@ import {
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
 import type { PlannerPlayerView, PlannerWorldView } from "./planner-world-view.js";
-import { buildPlannerTileSlice } from "./planner-world-view-slice.js";
+import { buildPlannerTileSlice, toPlannerTileView } from "./planner-world-view-slice.js";
 import {
   createAutomationNoopDiagnostic,
   planAutomationCommand,
@@ -1144,6 +1144,15 @@ export class SimulationRuntime {
       });
     }
     return players;
+  }
+
+  exportTilesForKeys(tileKeys: Iterable<string>): PlannerTileView[] {
+    const result: PlannerTileView[] = [];
+    for (const tileKey of tileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (tile) result.push(toPlannerTileView(tile));
+    }
+    return result;
   }
 
   exportState(): {
