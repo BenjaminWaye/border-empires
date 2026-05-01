@@ -17,7 +17,8 @@ const recoveryTitleForAction = (actionType: FrontierActionType): string => {
 const managedTitles = new Set<string>([
   "Recovering attack",
   "Recovering expansion",
-  "Recovering frontier action"
+  "Recovering frontier action",
+  "Expansion sync delayed"
 ]);
 
 export const showRecoveredFrontierAlert = (
