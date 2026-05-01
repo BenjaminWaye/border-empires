@@ -260,7 +260,8 @@ export const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
 export const SEASON_VICTORY_SETTLED_TERRITORY_SHARE = 0.66;
 export const SEASON_VICTORY_ECONOMY_MIN_INCOME = 200;
 export const SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33;
-export const SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE = 0.1;
+export const SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE = 0.8;
+export const SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE = 0.05;
 export const VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS = 2 * 60 * 60_000;
 export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
@@ -284,13 +285,13 @@ export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "RESOURCE_MONOPOLY",
     name: "Resource Monopoly",
-    description: "Control all tiles of at least one world resource type.",
+    description: "Control at least 80% of all tiles of one world resource type.",
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   },
   {
     id: "CONTINENT_FOOTPRINT",
     name: "Continental Footprint",
-    description: "Settle at least 10% of claimable land on every island.",
+    description: "Settle at least 5% of claimable land on every island.",
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   }
 ];
