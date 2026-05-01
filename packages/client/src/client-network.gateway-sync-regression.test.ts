@@ -156,7 +156,7 @@ describe("client gateway sync regression", () => {
         type: "INIT",
         player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 10, y: 10 } },
         config: { season: { seasonId: "rewrite-stress-10ai", worldSeed: 1010 } },
-        supportedMessageTypes: ["ATTACK", "EXPAND", "BREAKTHROUGH_ATTACK", "ATTACK_PREVIEW"],
+        supportedMessageTypes: ["ATTACK", "EXPAND", "ATTACK_PREVIEW"],
         initialState: {
           playerId: "player-1",
           tiles: [
@@ -189,7 +189,7 @@ describe("client gateway sync regression", () => {
     expect(state.chunkFullCount).toBe(1);
     expect(state.hasOwnedTileInCache).toBe(true);
     expect(state.discoveredTiles.has("10,11")).toBe(true);
-    expect([...state.serverSupportedMessageTypes]).toEqual(["ATTACK", "EXPAND", "BREAKTHROUGH_ATTACK", "ATTACK_PREVIEW"]);
+    expect([...state.serverSupportedMessageTypes]).toEqual(["ATTACK", "EXPAND", "ATTACK_PREVIEW"]);
     expect(requestViewRefresh).toHaveBeenCalledWith(1, true);
   });
 

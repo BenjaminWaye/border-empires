@@ -165,7 +165,6 @@ const attackPreviewResult = (
     to,
     valid: true,
     winChance: preview.winChance,
-    breakthroughWinChance: preview.breakthroughWinChance,
     atkEff: preview.atkEff,
     defEff: preview.defEff,
     defMult: preview.defMult
@@ -484,7 +483,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       (messageType) =>
         messageType !== "ATTACK" &&
         messageType !== "EXPAND" &&
-        messageType !== "BREAKTHROUGH_ATTACK" &&
         messageType !== "SETTLE" &&
         messageType !== "BUILD_FORT" &&
         messageType !== "BUILD_OBSERVATORY" &&
@@ -616,7 +614,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         // Persist command resolution exactly once, not once per socket.
         void commandStore.get(event.commandId).then((command) => {
           if (!command) return;
-          if (command.type === "ATTACK" || command.type === "EXPAND" || command.type === "BREAKTHROUGH_ATTACK") return;
+          if (command.type === "ATTACK" || command.type === "EXPAND") return;
           void commandStore.markResolved(event.commandId, Date.now()).catch((error) =>
             app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved non-frontier command")
           );
@@ -1229,7 +1227,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (
             message.type !== "ATTACK" &&
             message.type !== "EXPAND" &&
-            message.type !== "BREAKTHROUGH_ATTACK" &&
             message.type !== "SETTLE" &&
             message.type !== "BUILD_FORT" &&
             message.type !== "BUILD_OBSERVATORY" &&

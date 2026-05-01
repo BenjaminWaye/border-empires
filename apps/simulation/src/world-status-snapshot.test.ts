@@ -33,7 +33,7 @@ describe("buildWorldStatusSnapshot", () => {
           points: 100,
           incomePerMinute: 0.6,
           settledTileCount: 1,
-          techIds: ["breach-doctrine"],
+          techIds: [],
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,

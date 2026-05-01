@@ -71,7 +71,6 @@ import {
   executeCrystalTargeting as executeCrystalTargetingFromModule,
   hasAetherBridgeCapability as hasAetherBridgeCapabilityFromModule,
   hasAetherWallCapability as hasAetherWallCapabilityFromModule,
-  hasBreakthroughCapability as hasBreakthroughCapabilityFromModule,
   hasOwnedLandWithinClientRange as hasOwnedLandWithinClientRangeFromModule,
   hasRevealCapability as hasRevealCapabilityFromModule,
   hasSiphonCapability as hasSiphonCapabilityFromModule,
@@ -197,7 +196,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const rewriteEnvelopeTypes = new Set([
     "ATTACK",
     "EXPAND",
-    "BREAKTHROUGH_ATTACK",
     "SETTLE",
     "CANCEL_CAPTURE",
     "UNCAPTURE_TILE",
@@ -264,7 +262,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         typedPayload.type === "SETTLE" ||
         typedPayload.type === "EXPAND" ||
         typedPayload.type === "ATTACK" ||
-        typedPayload.type === "BREAKTHROUGH_ATTACK" ||
         typedPayload.type === "REQUEST_TILE_DETAIL"
       ) {
         console.info("[tile-sync] client_send", typedPayload);
@@ -313,8 +310,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
   ): string => explainActionFailureFromServer(code, message, opts);
 
-  const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean =>
-    enqueueTargetFromModule(state, x, y, keyFor, mode);
+  const enqueueTarget = (x: number, y: number): boolean => enqueueTargetFromModule(state, x, y, keyFor);
 
   const buildFrontierQueue = (
     candidates: string[],
@@ -336,10 +332,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     });
 
   const queueSpecificTargets = (
-    targetKeys: string[],
-    mode: "normal" | "breakthrough"
+    targetKeys: string[]
   ): { queued: number; skipped: number; queuedKeys: string[] } =>
-    queueSpecificTargetsFromModule(state, targetKeys, mode, {
+    queueSpecificTargetsFromModule(state, targetKeys, {
       parseKey,
       keyFor,
       isTileOwnedByAlly,
@@ -348,8 +343,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       buildFrontierQueue
     });
 
-  const attackQueueFailureReason = (tile: Tile, mode: "normal" | "breakthrough"): string =>
-    attackQueueFailureReasonFromModule(state, tile, mode, { ownerSpawnShieldActive, hasBreakthroughCapability, pickOriginForTarget });
+  const attackQueueFailureReason = (tile: Tile): string =>
+    attackQueueFailureReasonFromModule(state, tile, { ownerSpawnShieldActive, pickOriginForTarget });
 
   const dropQueuedTargetKeyIfAbsent = (targetKey: string): void =>
     dropQueuedTargetKeyIfAbsentFromModule(state, targetKey, { keyFor });
@@ -545,8 +540,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       pickOriginForTarget
     });
 
-  const attackPreviewDetailForTarget = (to: Tile, mode: "normal" | "breakthrough" = "normal"): string | undefined =>
-    attackPreviewDetailForTargetFromModule(state, to, { keyFor, pickOriginForTarget }, mode);
+  const attackPreviewDetailForTarget = (to: Tile): string | undefined =>
+    attackPreviewDetailForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
 
   const attackPreviewPendingForTarget = (to: Tile): boolean =>
     attackPreviewPendingForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
@@ -885,7 +880,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   });
 
   const hasRevealCapability = (): boolean => hasRevealCapabilityFromModule(state);
-  const hasBreakthroughCapability = (): boolean => hasBreakthroughCapabilityFromModule(state);
   const hasAetherBridgeCapability = (): boolean => hasAetherBridgeCapabilityFromModule(state);
   const hasAetherWallCapability = (): boolean => hasAetherWallCapabilityFromModule(state);
   const hasSiphonCapability = (): boolean => hasSiphonCapabilityFromModule(state);
@@ -963,7 +957,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     renderHud,
     requestAttackPreviewForTarget,
     keyFor,
-    hasBreakthroughCapability,
     isTileOwnedByAlly
   });
 
@@ -997,7 +990,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           const t = state.tiles.get(k);
           return t && t.terrain === "LAND" && !t.ownerId;
         });
-        const out = queueSpecificTargets(neutralTargets, "normal");
+        const out = queueSpecificTargets(neutralTargets);
         if (out.queued > 0) processActionQueue();
         pushFeed(
           out.queued > 0
@@ -1009,7 +1002,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       } else if (selected) {
         const k = keyFor(selected.x, selected.y);
         if (!selected.ownerId) {
-          const out = queueSpecificTargets([k], "normal");
+          const out = queueSpecificTargets([k]);
           if (out.queued > 0) {
             processActionQueue();
             pushFeed(`Queued frontier capture at (${selected.x}, ${selected.y}).`, "combat", "info");
@@ -1029,15 +1022,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         const t = state.tiles.get(k);
         return t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !isTileOwnedByAlly(t);
       });
-      const mode = "normal";
-      const out = queueSpecificTargets(enemyTargets, mode);
+      const out = queueSpecificTargets(enemyTargets);
       if (out.queued > 0) processActionQueue();
       if (out.queued > 0) {
         pushFeed(`Queued ${out.queued} attacks${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "warn");
       } else {
         const singleTile = !fromBulk && selected ? selected : undefined;
         const failureMessage = singleTile
-          ? attackQueueFailureReason(singleTile, mode)
+          ? attackQueueFailureReason(singleTile)
           : "Cannot launch attack for one or more selected tiles.";
         showCaptureAlert("Attack failed", failureMessage, "warn");
         pushFeed(failureMessage, "combat", "error");
@@ -1052,7 +1044,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             return t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !isTileOwnedByAlly(t);
           })
         : [];
-      const out = queueSpecificTargets(connectedTargets, "normal");
+      const out = queueSpecificTargets(connectedTargets);
       if (out.queued > 0) processActionQueue();
       if (out.queued > 0) {
         pushFeed(
@@ -1062,7 +1054,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         );
       } else {
         const failureMessage = selected
-          ? attackQueueFailureReason(selected, "normal")
+          ? attackQueueFailureReason(selected)
           : "Cannot attack this connected region right now.";
         showCaptureAlert("Connected region attack failed", failureMessage, "warn");
         pushFeed(failureMessage, "combat", "error");
@@ -1633,7 +1625,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         renderHud();
         return;
       }
-      if (enqueueTarget(to.x, to.y, "normal")) {
+      if (enqueueTarget(to.x, to.y)) {
         processActionQueue();
         pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
       }
@@ -1726,7 +1718,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     tileMenuViewForTile,
     tileActionLogicDeps,
     hasRevealCapability,
-    hasBreakthroughCapability,
     hasAetherBridgeCapability,
     hasAetherWallCapability,
     hasSiphonCapability,

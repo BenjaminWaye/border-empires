@@ -7,7 +7,6 @@ export const supportedClientMessageTypes = [
   "ATTACK",
   "ATTACK_PREVIEW",
   "EXPAND",
-  "BREAKTHROUGH_ATTACK",
   "SETTLE",
   "BUILD_FORT",
   "BUILD_OBSERVATORY",

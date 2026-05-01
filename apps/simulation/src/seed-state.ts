@@ -57,7 +57,7 @@ const createPlayer = (id: string, isAi: boolean): DomainPlayer => ({
   name: id,
   points: 100,
   manpower: MANPOWER_BASE_CAP,
-  techIds: new Set<string>(isAi ? ["breach-doctrine"] : []),
+  techIds: new Set<string>(),
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",

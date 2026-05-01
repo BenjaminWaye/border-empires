@@ -58,7 +58,7 @@ export interface ServerRealtimeSyncRuntime {
   logTileSync: (event: string, payload: Record<string, unknown>) => void;
   actionValidationPayload: (
     playerId: string,
-    action: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK",
+    action: "ATTACK" | "EXPAND",
     fromTile: ReturnType<CreateServerRealtimeSyncRuntimeDeps["playerTile"]>,
     toTile: ReturnType<CreateServerRealtimeSyncRuntimeDeps["playerTile"]>,
     extra?: Record<string, unknown>
@@ -105,7 +105,7 @@ export const createServerRealtimeSyncRuntime = (
 
   const actionValidationPayload = (
     playerId: string,
-    action: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK",
+    action: "ATTACK" | "EXPAND",
     fromTile: ReturnType<CreateServerRealtimeSyncRuntimeDeps["playerTile"]>,
     toTile: ReturnType<CreateServerRealtimeSyncRuntimeDeps["playerTile"]>,
     extra: Record<string, unknown> = {}

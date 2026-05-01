@@ -13,7 +13,6 @@ describe("frontier combat", () => {
     expect(preview.atkEff).toBe(10);
     expect(preview.defEff).toBeCloseTo(16.2, 6);
     expect(preview.winChance).toBeCloseTo(10 / 26.2, 6);
-    expect(preview.breakthroughWinChance).toBeCloseTo(10 / (10 + 16.2 * 0.6), 6);
   });
 
   it("uses the same preview chance when rolling combat", () => {
@@ -40,7 +39,6 @@ describe("frontier combat", () => {
     expect(preview.defMult).toBeCloseTo(0, 6);
     expect(preview.defEff).toBeCloseTo(0, 6);
     expect(preview.winChance).toBeCloseTo(1, 6);
-    expect(preview.breakthroughWinChance).toBeCloseTo(1, 6);
   });
 
   it("keeps preview and resolution tagged to the same combat module", () => {

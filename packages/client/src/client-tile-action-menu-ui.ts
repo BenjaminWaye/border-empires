@@ -22,7 +22,6 @@ type TileActionMenuUiDeps = {
   renderHud: () => void;
   requestAttackPreviewForTarget: (tile: Tile) => void;
   keyFor: (x: number, y: number) => string;
-  hasBreakthroughCapability: () => boolean;
   isTileOwnedByAlly: (tile: Tile) => boolean;
 };
 

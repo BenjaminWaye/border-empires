@@ -186,7 +186,7 @@ export const createServerTechDomainRuntime = (deps) => {
   const FOOD_DOMAIN_IDS = new Set(["urbanization"]);
   const CRYSTAL_DOMAIN_IDS = new Set<string>();
   
-  const IRON_TECH_IDS = new Set(["masonry", "mining", "bronze-working", "fortified-walls", "siegecraft", "industrial-extraction", "breach-doctrine", "steelworking"]);
+  const IRON_TECH_IDS = new Set(["masonry", "mining", "bronze-working", "fortified-walls", "siegecraft", "industrial-extraction", "steelworking"]);
   const SUPPLY_TECH_IDS = new Set(["toolmaking", "leatherworking", "harborcraft", "logistics", "navigation", "organized-supply", "deep-operations", "terrain-engineering", "imperial-roads", "workshops"]);
   const FOOD_TECH_IDS = new Set(["agriculture", "irrigation", "pottery", "banking", "civil-service", "workshops"]);
   const CRYSTAL_TECH_IDS = new Set([

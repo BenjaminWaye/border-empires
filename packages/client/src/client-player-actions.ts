@@ -167,7 +167,6 @@ export const explainActionFailureFromServer = (
   if (code === "AETHER_WALL_BLOCKED") return "Action blocked: that border is sealed by an Aether Wall.";
   if (code === "SHIELDED") return "Action blocked: that empire is still under spawn protection.";
   if (code === "ALLY_TARGET") return "Action blocked: you cannot attack an allied or truced empire.";
-  if (code === "BREAKTHROUGH_TARGET_INVALID") return `Cannot launch breach attack: ${message}.`;
   if (code === "EXPAND_TARGET_OWNED") return "Frontier claim failed: that tile is already owned.";
   if (message.includes("development slots are busy")) {
     return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;

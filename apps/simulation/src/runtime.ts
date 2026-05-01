@@ -37,9 +37,6 @@ import {
   AETHER_WALL_DURATION_MS,
   AIRPORT_BOMBARD_OIL_COST,
   AIRPORT_BOMBARD_RANGE,
-  BREAKTHROUGH_GOLD_COST,
-  BREAKTHROUGH_IRON_COST,
-  BREAKTHROUGH_REQUIRED_TECH_ID,
   ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
@@ -1592,8 +1589,6 @@ export class SimulationRuntime {
       targetLockedUntil: targetLock?.resolvesAt,
       targetLockOwnerId: targetLock?.playerId,
       actionGoldCost: FRONTIER_CLAIM_COST,
-      breakthroughGoldCost: BREAKTHROUGH_GOLD_COST,
-      breakthroughRequiredTechId: BREAKTHROUGH_REQUIRED_TECH_ID,
       isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
       isDockCrossing,
       isBridgeCrossing: false,
@@ -1623,23 +1618,6 @@ export class SimulationRuntime {
         message: validation.message
       });
       return;
-    }
-
-    if (actionType === "BREAKTHROUGH_ATTACK" && (actor.strategicResources?.IRON ?? 0) < BREAKTHROUGH_IRON_COST) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "INSUFFICIENT_RESOURCE",
-        message: "insufficient IRON for breakthrough"
-      });
-      return;
-    }
-
-    if (actionType === "BREAKTHROUGH_ATTACK") {
-      actor.points = Math.max(0, actor.points - BREAKTHROUGH_GOLD_COST);
-      this.spendStrategicResource(actor, "IRON", BREAKTHROUGH_IRON_COST);
-      this.emitPlayerStateUpdate(command);
     }
 
     const baseLock: LockRecord = {
@@ -4479,7 +4457,7 @@ export class SimulationRuntime {
         ? this.previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
         : undefined;
     const manpowerDelta =
-      lock.actionType === "ATTACK" || lock.actionType === "BREAKTHROUGH_ATTACK"
+      lock.actionType === "ATTACK"
         ? -this.attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
         : 0;
     const originHeldByFort = this.originTileHeldByActiveFort(lock.playerId, lock.originKey);
@@ -4707,7 +4685,6 @@ export class SimulationRuntime {
       if (
         command.type !== "ATTACK" &&
         command.type !== "EXPAND" &&
-        command.type !== "BREAKTHROUGH_ATTACK" &&
         command.type !== "SETTLE" &&
         command.type !== "BUILD_FORT" &&
         command.type !== "BUILD_OBSERVATORY" &&

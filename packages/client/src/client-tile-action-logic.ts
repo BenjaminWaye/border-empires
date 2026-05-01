@@ -65,7 +65,7 @@ type TileActionLogicDeps = {
   renderHud: () => void;
   requireAuthedSession: (message?: string) => boolean;
   ws: RealtimeSocket;
-  attackPreviewDetailForTarget: (to: Tile, mode?: "normal" | "breakthrough") => string | undefined;
+  attackPreviewDetailForTarget: (to: Tile) => string | undefined;
   attackPreviewPendingForTarget: (to: Tile) => boolean;
   pickOriginForTarget: (x: number, y: number, allowAdjacentToDock?: boolean, allowOptimisticExpandOrigin?: boolean) => Tile | undefined;
   buildDetailTextForAction: (actionId: string, tile: Tile, supportedTown?: Tile) => string | undefined;
@@ -101,8 +101,6 @@ type TileActionLogicDeps = {
 
 export const hasRevealCapability = (state: ClientState): boolean =>
   state.techIds.includes("beacon-towers") || state.activeRevealTargets.length > 0;
-
-export const hasBreakthroughCapability = (_state: ClientState): boolean => false;
 
 export const hasAetherBridgeCapability = (state: ClientState): boolean => state.techIds.includes("navigation");
 
