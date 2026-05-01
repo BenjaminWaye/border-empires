@@ -23,6 +23,7 @@ type AiCommandProducerOptions = {
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
+  onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   setIntervalFn?: (task: () => void, intervalMs: number) => ReturnType<typeof setInterval>;
   clearIntervalFn?: (handle: ReturnType<typeof setInterval>) => void;
@@ -116,6 +117,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
         try {
           await options.submitCommand(plan.command);
+          options.onCommand?.({ playerId, commandType: plan.command.type });
           if (plan.command.type === "COLLECT_VISIBLE") {
             backOffCollectVisible(playerId, issuedAt);
           }

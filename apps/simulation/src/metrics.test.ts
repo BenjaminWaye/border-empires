@@ -22,6 +22,9 @@ describe("simulation metrics", () => {
     metrics.observeSimGcPauseMs(3);
     metrics.observeSimGcPauseMs(12);
     metrics.incrementSimAiPlannerBreaches();
+    metrics.observeSimAiCommand("SETTLE", "ai-4");
+    metrics.observeSimAiCommand("EXPAND", "ai-2");
+    metrics.observeSimAiCommand("BUILD_ECONOMIC_STRUCTURE", "ai-9");
     metrics.observeSimAiNoop("no_frontier_targets", "ai-4");
     metrics.observeSimAiNoop("insufficient_manpower_for_attack", "ai-2");
     metrics.observeSimAiNoop("planner_error", "ai-9");
@@ -46,6 +49,11 @@ describe("simulation metrics", () => {
     expect(sample.simAiAutopilotEnabled).toBe(1);
     expect(sample.simAiAutopilotPlayerCount).toBe(20);
     expect(sample.simAiPlannerBreaches).toBe(1);
+    expect(sample.simAiCommandTotalByType.SETTLE).toBe(1);
+    expect(sample.simAiCommandTotalByType.EXPAND).toBe(1);
+    expect(sample.simAiCommandTotalByType.BUILD_ECONOMIC_STRUCTURE).toBe(1);
+    expect(sample.simAiCommandRecent).toContain("ai-4:SETTLE");
+    expect(sample.simAiCommandRecent).toContain("ai-9:BUILD_ECONOMIC_STRUCTURE");
     expect(sample.simAiNoopTotalByReason.no_frontier_targets).toBe(1);
     expect(sample.simAiNoopTotalByReason.insufficient_manpower_for_attack).toBe(1);
     expect(sample.simAiNoopTotalByReason.planner_error).toBe(1);
@@ -70,6 +78,8 @@ describe("simulation metrics", () => {
     expect(exposition).toContain("sim_cpu_percent 37.200");
     expect(exposition).toContain('sim_gc_pause_ms{quantile="p95"}');
     expect(exposition).toContain('sim_command_accept_latency_ms{lane="human_interactive",quantile="p95"}');
+    expect(exposition).toContain('sim_ai_command_total{type="SETTLE"} 1');
+    expect(exposition).toContain('sim_ai_command_total{type="BUILD_ECONOMIC_STRUCTURE"} 1');
     expect(exposition).toContain('sim_ai_noop_total{reason="no_frontier_targets"} 1');
     expect(exposition).toContain('sim_ai_noop_total{reason="planner_error"} 1');
   });
