@@ -17,6 +17,9 @@ describe("login and frontier retry regression guard", () => {
   it("waits for sync instead of immediately retrying the same neutral frontier capture on missing combat start", () => {
     const source = clientSource("./client-runtime-loop.ts");
     expect(source).toContain('No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.');
+    expect(source).toContain(
+      'showCaptureAlert(\n          "Expansion sync delayed",\n          "No server acceptance arrived within 2 seconds. Refreshing nearby tiles while waiting for frontier sync. Use Download debug log below if this keeps happening.",\n          "warn"\n        );'
+    );
     expect(source).toContain("const waitForFrontierSync =");
     expect(source).toContain("!state.actionAcceptedAck && !state.combatStartAck && !currentTile?.ownerId");
     expect(source).toContain("frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 12_000);");
