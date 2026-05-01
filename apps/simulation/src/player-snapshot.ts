@@ -7,11 +7,16 @@ import { estimateIncomePerMinuteFromTiles, estimateStrategicProductionPerMinuteF
 import { buildLivePlayerEconomySnapshot, enrichSnapshotTilesForPlayer } from "./live-snapshot-view.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 
+type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
+
 export const buildPlayerSubscriptionSnapshot = (
   playerId: string,
-  runtimeState: ReturnType<SimulationRuntime["exportState"]>,
+  runtimeState: RuntimeState,
   fallbackTiles?: Iterable<DomainTileState>,
-  options?: { includeWorldStatus?: boolean }
+  options?: {
+    includeWorldStatus?: boolean;
+    worldStatusRuntimeState?: RuntimeState;
+  }
 ): PlayerSubscriptionSnapshot => {
   const sourceTiles =
     runtimeState.tiles.length > 0
@@ -170,7 +175,15 @@ export const buildPlayerSubscriptionSnapshot = (
           }
         }
       : {}),
-    ...(options?.includeWorldStatus === false ? {} : { worldStatus: buildWorldStatusSnapshot(playerId, runtimeState, fallbackTiles) }),
+    ...(options?.includeWorldStatus === false
+      ? {}
+      : {
+          worldStatus: buildWorldStatusSnapshot(
+            playerId,
+            options?.worldStatusRuntimeState ?? runtimeState,
+            fallbackTiles
+          )
+        }),
     tiles: enrichedTiles
   };
 };
