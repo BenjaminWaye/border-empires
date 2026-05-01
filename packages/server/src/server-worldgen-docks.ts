@@ -10,6 +10,8 @@ type LandComponent = {
   fallbackY: number;
   oceanCandidates: DockCandidate[];
   clusteredOceanCandidates: DockCandidate[];
+  inlandSeaCandidates: DockCandidate[];
+  clusteredInlandSeaCandidates: DockCandidate[];
 };
 
 export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): ServerWorldgenDocksRuntime => {
@@ -22,7 +24,6 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     wrapY,
     worldIndex,
     terrainAt,
-    adjacentOceanSea,
     largestSeaComponentMask,
     clusterByTile,
     LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
@@ -64,6 +65,18 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     const queue = new Int32Array(total);
     const components: LandComponent[] = [];
     let componentId = 0;
+    const adjacentSea = (x: number, y: number): { x: number; y: number; ocean: boolean } | undefined => {
+      for (const [nx, ny] of [
+        [wrapX(x, WORLD_WIDTH), wrapY(y - 1, WORLD_HEIGHT)],
+        [wrapX(x + 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)],
+        [wrapX(x, WORLD_WIDTH), wrapY(y + 1, WORLD_HEIGHT)],
+        [wrapX(x - 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)]
+      ] as const) {
+        if (terrainAt(nx, ny) !== "SEA") continue;
+        return { x: nx, y: ny, ocean: oceanMask[worldIndex(nx, ny)] === 1 };
+      }
+      return undefined;
+    };
 
     for (let y = 0; y < WORLD_HEIGHT; y += 1) {
       for (let x = 0; x < WORLD_WIDTH; x += 1) {
@@ -79,7 +92,9 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
           fallbackX: x,
           fallbackY: y,
           oceanCandidates: [],
-          clusteredOceanCandidates: []
+          clusteredOceanCandidates: [],
+          inlandSeaCandidates: [],
+          clusteredInlandSeaCandidates: []
         };
 
         while (head < tail) {
@@ -91,11 +106,17 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
             component.fallbackX = cx;
             component.fallbackY = cy;
           }
-          const ocean = adjacentOceanSea(cx, cy, oceanMask);
-          if (ocean) {
-            const candidate = { x: cx, y: cy, componentId, seaX: ocean.x, seaY: ocean.y };
-            if (clusterByTile.has(key(cx, cy))) component.clusteredOceanCandidates.push(candidate);
-            else component.oceanCandidates.push(candidate);
+          const sea = adjacentSea(cx, cy);
+          if (sea) {
+            const candidate = { x: cx, y: cy, componentId, seaX: sea.x, seaY: sea.y };
+            if (sea.ocean) {
+              if (clusterByTile.has(key(cx, cy))) component.clusteredOceanCandidates.push(candidate);
+              else component.oceanCandidates.push(candidate);
+            } else if (clusterByTile.has(key(cx, cy))) {
+              component.clusteredInlandSeaCandidates.push(candidate);
+            } else {
+              component.inlandSeaCandidates.push(candidate);
+            }
           }
           for (const [nx, ny] of [
             [wrapX(cx, WORLD_WIDTH), wrapY(cy - 1, WORLD_HEIGHT)],
@@ -127,7 +148,15 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     const oceanMask = largestSeaComponentMask();
     const { components } = analyzeLandComponentsForDocks(seed, oceanMask);
     const dockCandidatesForComponent = (component: LandComponent): DockCandidate[] =>
-      component.oceanCandidates.length > 0 ? component.oceanCandidates : component.clusteredOceanCandidates;
+      component.oceanCandidates.length > 0
+        ? component.oceanCandidates
+        : component.clusteredOceanCandidates.length > 0
+          ? component.clusteredOceanCandidates
+          : component.inlandSeaCandidates.length > 0
+            ? component.inlandSeaCandidates
+            : component.clusteredInlandSeaCandidates.length > 0
+              ? component.clusteredInlandSeaCandidates
+              : [{ x: component.fallbackX, y: component.fallbackY, componentId: component.id, seaX: component.fallbackX, seaY: component.fallbackY }];
     const eligibleComponents = components.filter((component) => dockCandidatesForComponent(component).length > 0);
     const primaryDockCandidateByComponent = new Map<number, DockCandidate>();
     for (const component of eligibleComponents) {
