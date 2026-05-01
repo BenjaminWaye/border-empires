@@ -31,6 +31,7 @@ import {
   type AutomationPlannerPhase
 } from "./automation-command-planner.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
+import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
 import type { PlannerDockView, PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
@@ -253,7 +254,10 @@ const emitDiagnostic = (sample: {
 const choosePlannerCommand = (
   playerId: string,
   clientSeq: number,
-  issuedAt: number
+  issuedAt: number,
+  options?: {
+    skipPreplan?: boolean;
+  }
 ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
   const plannerStartedAt = Date.now();
   const player = playersById.get(playerId);
@@ -272,11 +276,42 @@ const choosePlannerCommand = (
     ownedTileCount: ownedTiles.length,
     frontierTileCount: frontierTiles.length
   });
+  if (!options?.skipPreplan) {
+    const preplan = chooseAutomationPreplanCommand({
+      playerId,
+      points: player.points,
+      ...(player.techIds ? { techIds: player.techIds } : {}),
+      ...(player.domainIds ? { domainIds: player.domainIds } : {}),
+      ...(player.strategicResources ? { strategicResources: player.strategicResources } : {}),
+      ...(typeof player.settledTileCount === "number" ? { settledTileCount: player.settledTileCount } : {}),
+      ...(typeof player.townCount === "number" ? { townCount: player.townCount } : {}),
+      ...(typeof player.incomePerMinute === "number" ? { incomePerMinute: player.incomePerMinute } : {}),
+      hasActiveLock: player.hasActiveLock,
+      ownedTiles,
+      clientSeq,
+      issuedAt,
+      sessionPrefix: "ai-runtime"
+    });
+    if (preplan.command) {
+      emitDiagnostic({
+        phase: "planner_total",
+        durationMs: Math.max(0, Date.now() - plannerStartedAt),
+        playerId,
+        ownedTileCount: ownedTiles.length,
+        frontierTileCount: frontierTiles.length
+      });
+      return {
+        command: preplan.command,
+        diagnostic: preplan.diagnostic
+      };
+    }
+  }
   const plan = planAutomationCommand({
     playerId,
     points: player.points,
     manpower: player.manpower,
     ...(player.techIds ? { techIds: player.techIds } : {}),
+    ...(player.domainIds ? { domainIds: player.domainIds } : {}),
     ...(player.strategicResources ? { strategicResources: player.strategicResources } : {}),
     ...(typeof player.settledTileCount === "number" ? { settledTileCount: player.settledTileCount } : {}),
     ...(typeof player.townCount === "number" ? { townCount: player.townCount } : {}),
@@ -371,7 +406,8 @@ parentPort.on("message", (msg: unknown) => {
         const plan = choosePlannerCommand(
           message.playerId as string,
           message.clientSeq as number,
-          message.issuedAt as number
+          message.issuedAt as number,
+          { skipPreplan: message.skipPreplan === true }
         );
         parentPort!.postMessage({ type: "command", playerId: message.playerId, command: plan.command, diagnostic: plan.diagnostic });
       } catch (err) {

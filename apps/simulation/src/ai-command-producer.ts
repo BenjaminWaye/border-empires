@@ -10,7 +10,10 @@ type AiCommandProducerOptions = {
       playerId: string,
       clientSeq: number,
       issuedAt: number,
-      sessionPrefix: "ai-runtime" | "system-runtime"
+      sessionPrefix: "ai-runtime" | "system-runtime",
+      options?: {
+        skipPreplan?: boolean;
+      }
     ) => { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic };
   };
   aiPlayerIds: string[];
@@ -31,6 +34,11 @@ type AiCommandProducerOptions = {
 
 const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean => queueDepths.human_interactive > 0;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+const isAutomationPreplanCommand = (type: CommandEnvelope["type"]): boolean =>
+  type === "COLLECT_VISIBLE" || type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
+const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
+type PreplanOutcome = "applied" | "cooldown_rejected" | "rejected" | "timed_out";
+type TrackedPreplanCommand = { playerId: string; trackedAt: number };
 
 export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
@@ -43,6 +51,8 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     options.aiPlayerIds.map((playerId) => [playerId, options.startingClientSeqByPlayer?.[playerId] ?? 1] as const)
   );
   const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
+  const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
+  const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
   let tickInFlight = false;
   let nextPlayerIndex = 0;
@@ -52,9 +62,31 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     collectVisibleCooldownUntilByPlayer.set(playerId, eventAt + COLLECT_VISIBLE_COOLDOWN_MS);
   };
 
+  const resolvePendingPreplanOutcome = (commandId: string, outcome: PreplanOutcome): void => {
+    const pending = pendingPreplanOutcomeByCommandId.get(commandId);
+    if (!pending) return;
+    clearTimeout(pending.timeoutHandle);
+    pendingPreplanOutcomeByCommandId.delete(commandId);
+    pending.resolve(outcome);
+  };
+
+  const waitForPreplanOutcome = (playerId: string, commandId: string): Promise<PreplanOutcome> =>
+    new Promise((resolve) => {
+      const timeoutHandle = setTimeout(() => {
+        pendingPreplanOutcomeByCommandId.delete(commandId);
+        const pendingCommand = pendingCommandByPlayer.get(playerId);
+        if (pendingCommand?.commandId === commandId) pendingCommandByPlayer.delete(playerId);
+        resolve("timed_out");
+      }, PREPLAN_OUTCOME_TIMEOUT_MS);
+      pendingPreplanOutcomeByCommandId.set(commandId, { resolve, timeoutHandle });
+    });
+
   const stopListening = options.runtime.onEvent((event) => {
     const pendingCommand = pendingCommandByPlayer.get(event.playerId);
-    if (!pendingCommand || pendingCommand.commandId !== event.commandId) return;
+    const pendingMatches = pendingCommand?.commandId === event.commandId;
+    const trackedPreplan = trackedPreplanByCommandId.get(event.commandId);
+    const trackedPreplanMatches = trackedPreplan?.playerId === event.playerId;
+    if (!pendingMatches && !trackedPreplanMatches) return;
     if (event.eventType === "COMMAND_REJECTED" && event.code === "COLLECT_COOLDOWN") {
       backOffCollectVisible(event.playerId, now());
     }
@@ -69,7 +101,14 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
       event.eventType === "TECH_UPDATE" ||
       event.eventType === "DOMAIN_UPDATE"
     ) {
-      pendingCommandByPlayer.delete(event.playerId);
+      if (pendingMatches) pendingCommandByPlayer.delete(event.playerId);
+      if (trackedPreplanMatches) trackedPreplanByCommandId.delete(event.commandId);
+      resolvePendingPreplanOutcome(
+        event.commandId,
+        event.eventType === "COMMAND_REJECTED"
+          ? (event.code === "COLLECT_COOLDOWN" ? "cooldown_rejected" : "rejected")
+          : "applied"
+      );
     }
   });
 
@@ -78,6 +117,11 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     for (const [playerId, pendingCommand] of pendingCommandByPlayer.entries()) {
       if (pendingCommand.startedAt <= cutoff) {
         pendingCommandByPlayer.delete(playerId);
+      }
+    }
+    for (const [commandId, trackedPreplan] of trackedPreplanByCommandId.entries()) {
+      if (trackedPreplan.trackedAt <= cutoff) {
+        trackedPreplanByCommandId.delete(commandId);
       }
     }
   };
@@ -95,36 +139,77 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         const playerIndex = (nextPlayerIndex + offset) % options.aiPlayerIds.length;
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
-        const nextClientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
-        const issuedAt = now();
-        const plannerStartedAt = now();
-        const plan = options.runtime.explainNextAutomationCommand
-          ? options.runtime.explainNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime")
-          : { command: options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime") };
-        const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
-        const breached = plannerDurationMs > plannerBreachThresholdMs;
-        options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
-        if (!plan.command && "diagnostic" in plan && plan.diagnostic) {
-          options.onNoCommand?.(plan.diagnostic);
-        }
-        if (!plan.command) continue;
-        if (plan.command.type === "COLLECT_VISIBLE") {
-          const blockedUntil = collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0;
-          if (blockedUntil > issuedAt) continue;
-        }
-        pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
-        nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
-        nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
-        try {
-          await options.submitCommand(plan.command);
-          options.onCommand?.({ playerId, commandType: plan.command.type });
-          if (plan.command.type === "COLLECT_VISIBLE") {
-            backOffCollectVisible(playerId, issuedAt);
+        let nextClientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
+        let skipPreplan = false;
+        let advancedWithoutPending = false;
+        for (let pass = 0; pass < 2; pass += 1) {
+          const issuedAt = now();
+          const plannerStartedAt = now();
+          const plan = options.runtime.explainNextAutomationCommand
+            ? options.runtime.explainNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime", { skipPreplan })
+            : { command: options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime") };
+          const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
+          const breached = plannerDurationMs > plannerBreachThresholdMs;
+          options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
+          if (!plan.command && "diagnostic" in plan && plan.diagnostic) {
+            options.onNoCommand?.(plan.diagnostic);
           }
-        } catch {
-          pendingCommandByPlayer.delete(playerId);
+          if (!plan.command) {
+            if (advancedWithoutPending) {
+              nextClientSeqByPlayer.set(playerId, nextClientSeq);
+              nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+              return;
+            }
+            break;
+          }
+          if (plan.command.type === "COLLECT_VISIBLE") {
+            const blockedUntil = collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0;
+            if (blockedUntil > issuedAt) {
+              skipPreplan = true;
+              continue;
+            }
+          }
+          if (isAutomationPreplanCommand(plan.command.type)) {
+            try {
+              trackedPreplanByCommandId.set(plan.command.commandId, { playerId, trackedAt: issuedAt });
+              pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
+              await options.submitCommand(plan.command);
+              nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
+              options.onCommand?.({ playerId, commandType: plan.command.type });
+              if (plan.command.type === "COLLECT_VISIBLE") {
+                backOffCollectVisible(playerId, issuedAt);
+              }
+              const preplanOutcome = await waitForPreplanOutcome(playerId, plan.command.commandId);
+              if (preplanOutcome === "timed_out" || preplanOutcome === "rejected") {
+                break;
+              }
+              nextClientSeq += 1;
+              skipPreplan = true;
+              advancedWithoutPending = true;
+              continue;
+            } catch {
+              pendingCommandByPlayer.delete(playerId);
+              trackedPreplanByCommandId.delete(plan.command.commandId);
+              resolvePendingPreplanOutcome(plan.command.commandId, "rejected");
+              break;
+            }
+          }
+          pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
+          nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
+          nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+          try {
+            await options.submitCommand(plan.command);
+            options.onCommand?.({ playerId, commandType: plan.command.type });
+          } catch {
+            pendingCommandByPlayer.delete(playerId);
+          }
+          return;
         }
-        return;
+        if (advancedWithoutPending) {
+          nextClientSeqByPlayer.set(playerId, nextClientSeq);
+          nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+          return;
+        }
       }
     } finally {
       options.onTick?.({ durationMs: Math.max(0, now() - tickStartedAt) });
@@ -140,6 +225,9 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     tick,
     close(): void {
       clearIntervalFn(intervalHandle);
+      for (const pending of pendingPreplanOutcomeByCommandId.values()) clearTimeout(pending.timeoutHandle);
+      pendingPreplanOutcomeByCommandId.clear();
+      trackedPreplanByCommandId.clear();
       stopListening();
     }
   };
