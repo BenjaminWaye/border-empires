@@ -116,6 +116,7 @@ export interface CreateServerSnapshotHydrateDeps {
   normalizePlayerProgressionState: (player: Player) => void;
   recomputePlayerEffectsForPlayer: (player: Player) => void;
   defaultMissionStats: () => Player["missionStats"];
+  ensureActiveSettlementForPlayer: (playerId: string) => void;
   ensureFallbackSettlementForPlayer: (playerId: string) => void;
   spawnBarbarianAgentAt: (x: number, y: number, delayMs: number) => void;
   parseKey: (tileKey: TileKey) => [number, number];
@@ -297,7 +298,10 @@ export const createServerSnapshotHydrateRuntime = (
         cancelled: false
       });
     }
-    for (const playerId of deps.players.keys()) deps.ensureFallbackSettlementForPlayer(playerId);
+    for (const playerId of deps.players.keys()) {
+      deps.ensureActiveSettlementForPlayer(playerId);
+      deps.ensureFallbackSettlementForPlayer(playerId);
+    }
     if (deps.barbarianAgents.size === 0) {
       for (const [tileKey, ownerId] of deps.ownership.entries()) {
         if (ownerId !== deps.BARBARIAN_OWNER_ID) continue;
