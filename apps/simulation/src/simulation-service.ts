@@ -740,10 +740,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     playerId: string,
     options?: { includeWorldStatus?: boolean }
   ): PlayerSubscriptionSnapshot => {
-    const runtimeState =
-      currentSeasonState.status === "ended" ? runtime.exportState() : runtime.exportVisibleStateForPlayer(playerId);
+    const worldStatusRuntimeState = options?.includeWorldStatus === true ? runtime.exportState() : undefined;
+    const runtimeState = worldStatusRuntimeState ?? (
+      currentSeasonState.status === "ended" ? runtime.exportState() : runtime.exportVisibleStateForPlayer(playerId)
+    );
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
-      includeWorldStatus: options?.includeWorldStatus === true
+      includeWorldStatus: options?.includeWorldStatus === true,
+      ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {})
     });
     snapshotCacheByPlayerId.set(playerId, snapshot);
     return snapshot;
