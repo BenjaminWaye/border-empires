@@ -166,7 +166,7 @@ describe("automation command planner", () => {
       points: 500,
       manpower: 10,
       hasActiveLock: false,
-      activeDevelopmentProcessCount: DEVELOPMENT_PROCESS_LIMIT,
+      activeDevelopmentProcessCount: 0,
       frontierTiles: [],
       ownedTiles: [ownedDock],
       tilesByKey: new Map([
@@ -251,6 +251,366 @@ describe("automation command planner", () => {
     expect(result.command).toMatchObject({
       type: "BUILD_FORT",
       payloadJson: JSON.stringify({ x: 8, y: 8 })
+    });
+  });
+
+  it("settles a defensively compact fallback frontier tile instead of idling", () => {
+    const settledA = makeTile(0, 1, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "A", populationTier: "SETTLEMENT" }
+    });
+    const settledB = makeTile(1, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "B", populationTier: "SETTLEMENT" }
+    });
+    const settledC = makeTile(1, 2, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "C", populationTier: "SETTLEMENT" }
+    });
+    const frontier = makeTile(1, 1, {
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER"
+    });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 3,
+      townCount: 3,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier],
+      ownedTiles: [settledA, settledB, settledC, frontier],
+      tilesByKey: new Map([
+        ["0,1", settledA],
+        ["1,0", settledB],
+        ["1,2", settledC],
+        ["1,1", frontier]
+      ]),
+      clientSeq: 5,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 1, y: 1 })
+    });
+  });
+
+  it("uses scaffold expansion fallback when no strategic settlement target exists", () => {
+    const owned = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const scaffold = makeTile(2, 0, {});
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 1,
+      townCount: 0,
+      incomePerMinute: 5,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: DEVELOPMENT_PROCESS_LIMIT,
+      frontierTiles: [frontier],
+      hotFrontierTiles: [frontier],
+      strategicFrontierTiles: [frontier],
+      ownedTiles: [owned, frontier],
+      tilesByKey: new Map([
+        ["0,0", owned],
+        ["1,0", frontier],
+        ["2,0", scaffold]
+      ]),
+      clientSeq: 6,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 1, fromY: 0, toX: 2, toY: 0 })
+    });
+  });
+
+  it("prefers settlement over economic build when both are legal", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { type: "MARKET", name: "Core", populationTier: "TOWN" }
+    });
+    const strategicFrontier = makeTile(1, 0, {
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER",
+      dockId: "dock-a"
+    });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 5_000,
+      manpower: 10,
+      techIds: ["trade"],
+      strategicResources: { FOOD: 60 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 0,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [strategicFrontier],
+      strategicFrontierTiles: [strategicFrontier],
+      buildCandidateTiles: [town],
+      ownedTiles: [town, strategicFrontier],
+      tilesByKey: new Map([
+        ["0,0", town],
+        ["1,0", strategicFrontier]
+      ]),
+      clientSeq: 7,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 1, y: 0 })
+    });
+  });
+
+  it("prefers fallback growth over opportunistic attack on mixed fronts", () => {
+    const settled = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const enemyA = makeTile(1, 1, { ownerId: "enemy-1" });
+    const enemyB = makeTile(2, 1, { ownerId: "enemy-2" });
+    const scaffold = makeTile(2, 0, {});
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 1,
+      townCount: 0,
+      incomePerMinute: 5,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: DEVELOPMENT_PROCESS_LIMIT,
+      frontierTiles: [frontier],
+      hotFrontierTiles: [frontier],
+      strategicFrontierTiles: [frontier],
+      ownedTiles: [settled, frontier],
+      tilesByKey: new Map([
+        ["0,0", settled],
+        ["1,0", frontier],
+        ["1,1", enemyA],
+        ["2,0", scaffold],
+        ["2,1", enemyB]
+      ]),
+      clientSeq: 8,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 1, fromY: 0, toX: 2, toY: 0 })
+    });
+  });
+
+  it("prefers fallback settlement over economic expand when economy is weak", () => {
+    const settledA = makeTile(0, 1, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "A", populationTier: "SETTLEMENT" }
+    });
+    const settledB = makeTile(1, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "B", populationTier: "SETTLEMENT" }
+    });
+    const settledC = makeTile(1, 2, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "C", populationTier: "SETTLEMENT" }
+    });
+    const frontier = makeTile(1, 1, {
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER"
+    });
+    const economicExpand = makeTile(2, 1, { resource: "FARM" });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      strategicResources: { FOOD: 60 },
+      settledTileCount: 3,
+      townCount: 3,
+      incomePerMinute: 0,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier],
+      hotFrontierTiles: [frontier],
+      ownedTiles: [settledA, settledB, settledC, frontier],
+      tilesByKey: new Map([
+        ["0,1", settledA],
+        ["1,0", settledB],
+        ["1,2", settledC],
+        ["1,1", frontier],
+        ["2,1", economicExpand]
+      ]),
+      clientSeq: 9,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 1, y: 1 })
+    });
+  });
+
+  it("uses scaffold expansion when settlement is legal but the current frontier tile is poor", () => {
+    const supportTown = makeTile(22, 19, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Hub", populationTier: "TOWN", supportMax: 3, supportCurrent: 0 }
+    });
+    const settledA = makeTile(21, 19, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED"
+    });
+    const settledB = makeTile(22, 20, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED"
+    });
+    const frontier = makeTile(20, 20, {
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER"
+    });
+    const scaffold = makeTile(21, 20, {});
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 3,
+      townCount: 1,
+      incomePerMinute: 5,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier],
+      hotFrontierTiles: [frontier],
+      strategicFrontierTiles: [frontier],
+      ownedTiles: [supportTown, settledA, settledB, frontier],
+      tilesByKey: new Map([
+        ["22,19", supportTown],
+        ["21,19", settledA],
+        ["22,20", settledB],
+        ["20,20", frontier],
+        ["21,20", scaffold]
+      ]),
+      clientSeq: 11,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 21, toY: 20 })
+    });
+  });
+
+  it("uses scout expansion when fallback settlement is legal but only scouting is worthwhile", () => {
+    const settled = makeTile(20, 19, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED"
+    });
+    const frontier = makeTile(20, 20, {
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER"
+    });
+    const scout = makeTile(21, 20, {});
+    const novelLand = makeTile(22, 20, {});
+    const coastline = {
+      x: 21,
+      y: 19,
+      terrain: "SEA" as const
+    };
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 1,
+      townCount: 0,
+      incomePerMinute: 5,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier],
+      hotFrontierTiles: [frontier],
+      strategicFrontierTiles: [frontier],
+      ownedTiles: [settled, frontier],
+      tilesByKey: new Map([
+        ["20,19", settled],
+        ["20,20", frontier],
+        ["21,20", scout],
+        ["22,20", novelLand],
+        ["21,19", coastline]
+      ]),
+      clientSeq: 12,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 21, toY: 20 })
+    });
+  });
+
+  it("prefers fallback settlement over fort build on contested fronts", () => {
+    const core = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { type: "FARMING", name: "Core", populationTier: "TOWN" }
+    });
+    const settledA = makeTile(1, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "A", populationTier: "SETTLEMENT" }
+    });
+    const settledB = makeTile(0, 1, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "B", populationTier: "SETTLEMENT" }
+    });
+    const frontier = makeTile(1, 1, {
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER"
+    });
+    const enemy = makeTile(2, 0, { ownerId: "enemy-1" });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 5_000,
+      manpower: 10,
+      techIds: ["masonry"],
+      strategicResources: { IRON: 60, FOOD: 60 },
+      settledTileCount: 3,
+      townCount: 3,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier],
+      ownedTiles: [core, settledA, settledB, frontier],
+      tilesByKey: new Map([
+        ["0,0", core],
+        ["1,0", settledA],
+        ["0,1", settledB],
+        ["1,1", frontier],
+        ["2,0", enemy]
+      ]),
+      clientSeq: 10,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 1, y: 1 })
     });
   });
 });
