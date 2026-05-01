@@ -310,6 +310,28 @@ export type ActiveTruceView = {
   createdByPlayerId: string;
 };
 
+export type PlayerRespawnReasonCode = "eliminated" | "auth_recovery" | "startup_recovery";
+
+export type PlayerRespawnNotice = {
+  id: string;
+  at: number;
+  reasonCode: PlayerRespawnReasonCode;
+  title: string;
+  summary: string;
+  detail: string;
+  triggerEvent: string;
+  playerId: string;
+  playerName: string;
+  previousTerritoryTiles: number;
+  previousTerritoryStrength: number;
+  previousExposure: number;
+  wasEliminated: boolean;
+  respawnPending: boolean;
+  wasOnline?: boolean;
+  previousHomeTileKey?: string;
+  spawnTileKey?: string;
+};
+
 export type ActiveAetherBridgeView = {
   bridgeId: string;
   ownerId: string;

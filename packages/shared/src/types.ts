@@ -342,6 +342,28 @@ export interface PlayerActivityEntry {
   actionLabel?: string;
 }
 
+export type PlayerRespawnReasonCode = "eliminated" | "auth_recovery" | "startup_recovery";
+
+export interface PlayerRespawnNotice {
+  id: string;
+  at: number;
+  reasonCode: PlayerRespawnReasonCode;
+  title: string;
+  summary: string;
+  detail: string;
+  triggerEvent: string;
+  playerId: PlayerId;
+  playerName: string;
+  previousTerritoryTiles: number;
+  previousTerritoryStrength: number;
+  previousExposure: number;
+  wasEliminated: boolean;
+  respawnPending: boolean;
+  wasOnline?: boolean;
+  previousHomeTileKey?: TileKey;
+  spawnTileKey?: TileKey;
+}
+
 export interface Player {
   id: PlayerId;
   name: string;
@@ -378,6 +400,7 @@ export interface Player {
   lastActiveAt: number;
   lastEconomyWakeAt?: number;
   activityInbox: PlayerActivityEntry[];
+  lastRespawnNotice?: PlayerRespawnNotice;
 }
 
 export interface CombatLock {
