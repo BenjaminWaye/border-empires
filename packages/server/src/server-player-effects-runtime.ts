@@ -81,7 +81,6 @@ export const createServerPlayerEffectsRuntime = (
     if (effects.unlockDeepStrike) next.unlockDeepStrike = true;
     if ((effects as { unlockAetherBridge?: boolean }).unlockAetherBridge) next.unlockAetherBridge = true;
     if (effects.unlockTerrainShaping) next.unlockTerrainShaping = true;
-    if (effects.unlockBreachAttack) next.unlockBreachAttack = true;
     if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
     if (typeof effects.operationalTempoMult === "number") next.operationalTempoMult *= effects.operationalTempoMult;
     if (typeof effects.researchTimeMult === "number") next.researchTimeMult *= effects.researchTimeMult;

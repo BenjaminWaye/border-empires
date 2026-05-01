@@ -63,7 +63,7 @@ describe("client debug bundle", () => {
         capture: undefined,
         captureAlert: undefined,
         actionInFlight: true,
-        actionCurrent: { x: 12, y: 34, retries: 0, mode: "normal" },
+        actionCurrent: { x: 12, y: 34, retries: 0 },
         actionTargetKey: "12,34",
         actionStartedAt: 123,
         actionAcceptedAck: false,

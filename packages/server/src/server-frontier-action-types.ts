@@ -33,7 +33,7 @@ export interface PendingCapture {
   staminaCost: number;
   manpowerCost: number;
   cancelled: boolean;
-  actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | "DEEP_STRIKE_ATTACK" | "NAVAL_INFILTRATION_ATTACK";
+  actionType?: "EXPAND" | "ATTACK" | "DEEP_STRIKE_ATTACK" | "NAVAL_INFILTRATION_ATTACK";
   startedAt?: number;
   traceId?: string;
   precomputedCombat?: PrecomputedFrontierCombat;

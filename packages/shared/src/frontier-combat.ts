@@ -1,7 +1,5 @@
 import { combatWinChance } from "./math.js";
 
-const BREAKTHROUGH_DEF_MULT_FACTOR = 0.6;
-
 export type FrontierCombatPreviewTile = {
   terrain?: string | undefined;
   ownershipState?: string | undefined;
@@ -14,7 +12,6 @@ export type FrontierCombatPreview = {
   defEff: number;
   defMult: number;
   winChance: number;
-  breakthroughWinChance: number;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
@@ -38,8 +35,7 @@ const buildFrontierCombatPreviewImpl = (target: FrontierCombatPreviewTile): Fron
     atkEff,
     defEff,
     defMult,
-    winChance: combatWinChance(atkEff, defEff),
-    breakthroughWinChance: combatWinChance(atkEff, defEff * BREAKTHROUGH_DEF_MULT_FACTOR)
+    winChance: combatWinChance(atkEff, defEff)
   };
 };
 
@@ -53,20 +49,19 @@ export const buildFrontierCombatPreview: FrontierCombatPreviewFn = Object.assign
 
 const rollFrontierCombatImpl = (
   target: FrontierCombatPreviewTile,
-  actionType: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK",
+  _actionType: "ATTACK" | "EXPAND",
   randomValue = Math.random()
 ): FrontierCombatPreview & { attackerWon: boolean } => {
   const preview = buildFrontierCombatPreview(target);
-  const chance = actionType === "BREAKTHROUGH_ATTACK" ? preview.breakthroughWinChance : preview.winChance;
   return {
     ...preview,
-    attackerWon: randomValue < chance
+    attackerWon: randomValue < preview.winChance
   };
 };
 
 type RollFrontierCombatFn = ((
   target: FrontierCombatPreviewTile,
-  actionType: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK",
+  actionType: "ATTACK" | "EXPAND",
   randomValue?: number
 ) => FrontierCombatPreview & { attackerWon: boolean }) & {
   __combatModule: symbol;

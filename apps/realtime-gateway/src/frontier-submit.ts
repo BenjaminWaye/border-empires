@@ -4,7 +4,7 @@ import type { ClientCommandEnvelope, CommandQueuedMessage } from "@border-empire
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { GatewayCommandStore } from "./command-store.js";
 
-type FrontierCommandType = "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK";
+type FrontierCommandType = "ATTACK" | "EXPAND";
 
 type FrontierCommandMessage = {
   type: FrontierCommandType;

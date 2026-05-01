@@ -219,7 +219,7 @@
       "tier": 4,
       "name": "Siege State",
       "description": "Outposts are deployed to break empires, not merely harass them.",
-      "requiresTechId": "breach-doctrine",
+      "requiresTechId": "siegecraft",
       "cost": { "gold": 42000, "iron": 220, "supply": 520, "shard": 3 },
       "effects": {
         "outpostAttackMult": 1.2,

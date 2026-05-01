@@ -12,7 +12,6 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
   switch (type) {
     case "ATTACK":
     case "EXPAND":
-    case "BREAKTHROUGH_ATTACK":
     case "CAST_AETHER_BRIDGE":
     case "CAST_AETHER_WALL":
     case "AIRPORT_BOMBARD":

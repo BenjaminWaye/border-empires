@@ -258,7 +258,7 @@ export const createInitialState = () => ({
   techTreeScrollLeft: 0,
   techTreeScrollTop: 0,
   techTreeZoom: 1,
-  actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
+  actionQueue: [] as Array<{ x: number; y: number; retries?: number }>,
   frontierLateAckUntilByTarget: new Map<string, number>(),
   developmentQueue: [] as Array<
     | { kind: "SETTLE"; x: number; y: number; tileKey: string; label: string }
@@ -297,11 +297,10 @@ export const createInitialState = () => ({
     | {
         x: number;
         y: number;
-        mode?: "normal" | "breakthrough";
         retries: number;
         commandId?: string;
         clientSeq?: number;
-        actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK";
+        actionType?: "EXPAND" | "ATTACK";
       }
     | undefined,
   attackPreview: undefined as
@@ -311,9 +310,7 @@ export const createInitialState = () => ({
         valid: boolean;
         reason?: string;
         winChance?: number;
-        breakthroughWinChance?: number;
         manpowerMin?: number;
-        breakthroughManpowerMin?: number;
         atkEff?: number;
         defEff?: number;
         defenseEffPct?: number;
@@ -328,9 +325,7 @@ export const createInitialState = () => ({
       valid: boolean;
       reason?: string;
       winChance?: number;
-      breakthroughWinChance?: number;
       manpowerMin?: number;
-      breakthroughManpowerMin?: number;
       atkEff?: number;
       defEff?: number;
       defenseEffPct?: number;

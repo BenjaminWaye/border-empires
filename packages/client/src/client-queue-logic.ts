@@ -106,7 +106,6 @@ const localAttackPreview = (
   });
   preview.valid = true;
   preview.winChance = sharedPreview.winChance;
-  preview.breakthroughWinChance = sharedPreview.breakthroughWinChance;
   preview.atkEff = sharedPreview.atkEff;
   preview.defEff = sharedPreview.defEff;
   preview.defenseEffPct = Math.max(0, Math.min(100, sharedPreview.defMult * 100));
@@ -585,7 +584,7 @@ export const processDevelopmentQueue = (
   return started;
 };
 
-export const enqueueTarget = (state: ClientState, x: number, y: number, keyFor: (x: number, y: number) => string, mode: "normal" | "breakthrough" = "normal"): boolean => {
+export const enqueueTarget = (state: ClientState, x: number, y: number, keyFor: (x: number, y: number) => string): boolean => {
   const targetKey = keyFor(x, y);
   const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
   if (frontierSyncWaitUntil > Date.now()) return false;
@@ -595,7 +594,7 @@ export const enqueueTarget = (state: ClientState, x: number, y: number, keyFor: 
     if (!stillQueued && !currentlyExecuting) state.queuedTargetKeys.delete(targetKey);
   }
   if (state.queuedTargetKeys.has(targetKey)) return false;
-  state.actionQueue.push({ x, y, mode, retries: 0 });
+  state.actionQueue.push({ x, y, retries: 0 });
   state.queuedTargetKeys.add(targetKey);
   return true;
 };
@@ -698,13 +697,12 @@ export const applyPendingSettlementsFromServer = (
 export const queueSpecificTargets = (
   state: ClientState,
   targetKeys: string[],
-  mode: "normal" | "breakthrough",
   deps: {
     parseKey: (key: string) => { x: number; y: number };
     keyFor: (x: number, y: number) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     pickOriginForTarget: (x: number, y: number) => Tile | undefined;
-    enqueueTarget: (x: number, y: number, mode: "normal" | "breakthrough") => boolean;
+    enqueueTarget: (x: number, y: number) => boolean;
     buildFrontierQueue: (candidates: string[], enqueue: (x: number, y: number) => boolean) => { queued: number; skipped: number; queuedKeys: string[] };
   }
 ): { queued: number; skipped: number; queuedKeys: string[] } => {
@@ -717,7 +715,7 @@ export const queueSpecificTargets = (
     else if (tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile)) attackTargets.push(targetKey);
   }
 
-  const neutralResult = deps.buildFrontierQueue(neutralTargets, (x, y) => deps.enqueueTarget(x, y, mode));
+  const neutralResult = deps.buildFrontierQueue(neutralTargets, (x, y) => deps.enqueueTarget(x, y));
   const queuedKeys = [...neutralResult.queuedKeys];
   let queued = neutralResult.queued;
   let skipped = neutralResult.skipped;
@@ -733,7 +731,7 @@ export const queueSpecificTargets = (
       skipped += 1;
       continue;
     }
-    if (!deps.enqueueTarget(x, y, mode)) {
+    if (!deps.enqueueTarget(x, y)) {
       skipped += 1;
       continue;
     }
@@ -747,16 +745,12 @@ export const queueSpecificTargets = (
 export const attackQueueFailureReason = (
   state: ClientState,
   tile: Tile,
-  mode: "normal" | "breakthrough",
   deps: {
     ownerSpawnShieldActive: (ownerId: string) => boolean;
-    hasBreakthroughCapability: () => boolean;
     pickOriginForTarget: (x: number, y: number) => Tile | undefined;
   }
 ): string => {
   if (tile.ownerId && tile.ownerId !== state.me && deps.ownerSpawnShieldActive(tile.ownerId)) return "That empire is still under spawn protection.";
-  if (mode === "breakthrough" && !deps.hasBreakthroughCapability()) return "Breakthrough attacks are unavailable.";
-  if (mode === "breakthrough" && (state.strategicResources.IRON ?? 0) < 1) return "Need 1 IRON.";
   if (state.gold < FRONTIER_CLAIM_COST) return `Need ${FRONTIER_CLAIM_COST} gold.`;
   if (!deps.pickOriginForTarget(tile.x, tile.y)) {
     return tile.dockId ? "No owned linked dock can reach this target." : "Target must border your territory or a linked dock.";
@@ -999,7 +993,6 @@ export const processActionQueue = (
     }
     logActionQueue("action-queue-origin", {
       targetKey,
-      mode: next.mode ?? "standard",
       from: { x: from.x, y: from.y },
       fromOwnerId: from.ownerId,
       fromOwnershipState: from.ownershipState,
@@ -1014,8 +1007,7 @@ export const processActionQueue = (
       x: to.x,
       y: to.y,
       retries: next.retries ?? 0,
-      actionType: !to.ownerId ? "EXPAND" : next.mode === "breakthrough" ? "BREAKTHROUGH_ATTACK" : "ATTACK",
-      ...(next.mode ? { mode: next.mode } : {})
+      actionType: !to.ownerId ? "EXPAND" : "ATTACK"
     };
     const { commandId, clientSeq } = createNextFrontierCommandIdentity(state);
     state.actionCurrent.commandId = commandId;
@@ -1031,7 +1023,7 @@ export const processActionQueue = (
     const existingCapture =
       state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y ? state.capture : undefined;
     state.capture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
-    const actionType = !to.ownerId ? "EXPAND" : next.mode === "breakthrough" ? "BREAKTHROUGH_ATTACK" : "ATTACK";
+    const actionType = !to.ownerId ? "EXPAND" : "ATTACK";
     attackSyncLog("queue-dispatch", {
       actionType,
       target: { x: to.x, y: to.y },
@@ -1051,7 +1043,6 @@ export const processActionQueue = (
         after: to,
         extra: {
           optimisticMs,
-          mode: next.mode ?? "normal",
           from: { x: from.x, y: from.y }
         }
       });
@@ -1061,7 +1052,6 @@ export const processActionQueue = (
         after: to,
         extra: {
           optimisticMs,
-          mode: next.mode ?? "normal",
           from: { x: from.x, y: from.y }
         }
       });
@@ -1100,7 +1090,7 @@ export const processActionQueue = (
       });
       deps.pushFeed(`Queued expand (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
     } else {
-      if (next.mode !== "breakthrough" && !canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
+      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         deps.notifyInsufficientGoldForFrontierAction("attack");
         state.capture = undefined;
         state.actionInFlight = false;
@@ -1113,45 +1103,23 @@ export const processActionQueue = (
         deps.renderHud();
         continue;
       }
-      if (next.mode === "breakthrough") {
-        deps.ws.send(
-          JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq })
-        );
-        attackSyncLog("send", {
-          actionType: "BREAKTHROUGH_ATTACK",
-          target: { x: to.x, y: to.y },
-          origin: { x: from.x, y: from.y },
-          targetKey,
-          startedAt: state.actionStartedAt,
-          wsReadyState: deps.ws.readyState
-        });
-        logActionQueue("action-send", {
-          type: "BREAKTHROUGH_ATTACK",
-          from: { x: from.x, y: from.y },
-          to: { x: to.x, y: to.y },
-          toOwnerId: to.ownerId,
-          toOwnershipState: to.ownershipState
-        });
-        deps.pushFeed(`Queued breakthrough (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "warn");
-      } else {
-        deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq }));
-        attackSyncLog("send", {
-          actionType: "ATTACK",
-          target: { x: to.x, y: to.y },
-          origin: { x: from.x, y: from.y },
-          targetKey,
-          startedAt: state.actionStartedAt,
-          wsReadyState: deps.ws.readyState
-        });
-        logActionQueue("action-send", {
-          type: "ATTACK",
-          from: { x: from.x, y: from.y },
-          to: { x: to.x, y: to.y },
-          toOwnerId: to.ownerId,
-          toOwnershipState: to.ownershipState
-        });
-        deps.pushFeed(`Queued attack (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
-      }
+      deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq }));
+      attackSyncLog("send", {
+        actionType: "ATTACK",
+        target: { x: to.x, y: to.y },
+        origin: { x: from.x, y: from.y },
+        targetKey,
+        startedAt: state.actionStartedAt,
+        wsReadyState: deps.ws.readyState
+      });
+      logActionQueue("action-send", {
+        type: "ATTACK",
+        from: { x: from.x, y: from.y },
+        to: { x: to.x, y: to.y },
+        toOwnerId: to.ownerId,
+        toOwnershipState: to.ownershipState
+      });
+      deps.pushFeed(`Queued attack (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
     }
     state.selected = { x: to.x, y: to.y };
     deps.renderHud();
@@ -1278,8 +1246,7 @@ export const attackPreviewDetailForTarget = (
   deps: {
     keyFor: (x: number, y: number) => string;
     pickOriginForTarget: (x: number, y: number) => Tile | undefined;
-  },
-  mode: "normal" | "breakthrough" = "normal"
+  }
 ): string | undefined => {
   const from = deps.pickOriginForTarget(to.x, to.y);
   const toKey = deps.keyFor(to.x, to.y);
@@ -1300,9 +1267,6 @@ export const attackPreviewDetailForTarget = (
     });
   if (!preview) return undefined;
   if (!preview.valid) return preview.reason ? `Attack ${preview.reason}` : undefined;
-  if (mode === "breakthrough" && typeof preview.breakthroughWinChance === "number") {
-    return `${Math.round(preview.breakthroughWinChance * 100)}% breach win chance`;
-  }
   if (typeof preview.winChance === "number") return `${Math.round(preview.winChance * 100)}% win chance`;
   return undefined;
 };
