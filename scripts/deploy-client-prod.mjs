@@ -8,6 +8,7 @@ import {
   ensureTrackedProjectLink,
   inspectDeployment,
   normalizeDeploymentUrl,
+  verifyProjectDomainBranchBinding,
   vercelClientEnv,
   vercelClientProject
 } from "./vercel-deploy-guards.mjs";
@@ -81,6 +82,10 @@ assertRequiredBranch({
   requiredBranch: vercelClientProject.productionBranch,
   overrideEnvVar: "ALLOW_NON_MAIN_PROD_DEPLOY",
   label: "Production client deploy"
+});
+await verifyProjectDomainBranchBinding({
+  domainName: stagingAlias,
+  expectedGitBranch: vercelClientProject.stagingBranch
 });
 ensureTrackedProjectLink(rootDir);
 const project = JSON.parse(readFileSync(vercelProjectPath, "utf8"));
