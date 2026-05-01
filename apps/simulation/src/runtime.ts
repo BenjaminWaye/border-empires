@@ -114,6 +114,7 @@ import {
   planAutomationCommand,
   type AutomationPlannerDiagnostic
 } from "./automation-command-planner.js";
+import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
 
 type LockRecord = {
   commandId: string;
@@ -938,7 +939,10 @@ export class SimulationRuntime {
     playerId: string,
     clientSeq: number,
     issuedAt: number,
-    sessionPrefix: "ai-runtime" | "system-runtime"
+    sessionPrefix: "ai-runtime" | "system-runtime",
+    options?: {
+      skipPreplan?: boolean;
+    }
   ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
     const player = this.players.get(playerId);
     if (!player) {
@@ -947,16 +951,39 @@ export class SimulationRuntime {
       };
     }
     const summary = this.summaryForPlayer(playerId);
+    const ownedTiles = [...summary.territoryTileKeys]
+      .map((tileKey) => this.tiles.get(tileKey))
+      .filter((tile): tile is DomainTileState => tile !== undefined);
+    const hasActiveLock = [...this.locksByTile.values()].some((lock) => lock.playerId === playerId);
+    if (!options?.skipPreplan) {
+      const preplan = chooseAutomationPreplanCommand({
+        playerId,
+        points: player.points,
+        techIds: [...player.techIds],
+        domainIds: player.domainIds ? [...player.domainIds] : [],
+        strategicResources: { ...(player.strategicResources ?? {}) },
+        settledTileCount: summary.settledTileCount,
+        townCount: summary.townCount,
+        incomePerMinute: summary.goldIncomePerMinute,
+        hasActiveLock,
+        ownedTiles,
+        clientSeq,
+        issuedAt,
+        sessionPrefix
+      });
+      if (preplan.command) return preplan;
+    }
     return planAutomationCommand({
       playerId,
       points: player.points,
       manpower: player.manpower,
       ...([...player.techIds].length ? { techIds: [...player.techIds] } : {}),
+      ...((player.domainIds ? [...player.domainIds] : []).length ? { domainIds: [...(player.domainIds ?? [])] } : {}),
       ...(Object.keys(player.strategicResources ?? {}).length ? { strategicResources: { ...(player.strategicResources ?? {}) } } : {}),
       settledTileCount: summary.settledTileCount,
       townCount: summary.townCount,
       incomePerMinute: summary.goldIncomePerMinute,
-      hasActiveLock: [...this.locksByTile.values()].some((lock) => lock.playerId === playerId),
+      hasActiveLock,
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
       frontierTiles: [...summary.frontierTileKeys]
         .map((tileKey) => this.tiles.get(tileKey))
@@ -970,9 +997,7 @@ export class SimulationRuntime {
       buildCandidateTiles: [...summary.buildCandidateTileKeys]
         .map((tileKey) => this.tiles.get(tileKey))
         .filter((tile): tile is DomainTileState => tile !== undefined),
-      ownedTiles: [...summary.territoryTileKeys]
-        .map((tileKey) => this.tiles.get(tileKey))
-        .filter((tile): tile is DomainTileState => tile !== undefined),
+      ownedTiles,
       tilesByKey: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
       isPendingSettlement: (tile) => summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y)),
@@ -1128,6 +1153,7 @@ export class SimulationRuntime {
         points: player.points,
         manpower: player.manpower,
         techIds: [...player.techIds].sort(),
+        domainIds: [...(player.domainIds ?? [])].sort(),
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
