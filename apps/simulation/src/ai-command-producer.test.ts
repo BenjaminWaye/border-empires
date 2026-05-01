@@ -27,9 +27,9 @@ describe("ai command producer", () => {
     expect(submitted).toHaveLength(1);
     expect(submitted[0]).toMatchObject({
       playerId: "ai-1",
-      type: "ATTACK",
       clientSeq: 1
     });
+    expect(["ATTACK", "EXPAND"]).toContain(submitted[0]!.type);
     expect(JSON.parse(submitted[0]!.payloadJson)).toEqual(
       expect.objectContaining({
         fromX: expect.any(Number),
@@ -177,6 +177,50 @@ describe("ai command producer", () => {
     expect(onNoCommand).toHaveBeenCalledWith(
       expect.objectContaining({ playerId: "ai-1", noCommandReason: "no_frontier_targets" })
     );
+  });
+
+  it("reports submitted AI command types after a successful submit", async () => {
+    const onCommand = vi.fn();
+    const producer = createAiCommandProducer({
+      runtime: {
+        chooseNextAutomationCommand: vi.fn(() => undefined),
+        explainNextAutomationCommand: vi.fn((playerId: string, clientSeq: number, issuedAt: number) => ({
+          command: {
+            commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+            sessionId: `ai-runtime:${playerId}`,
+            playerId,
+            clientSeq,
+            issuedAt,
+            type: "BUILD_ECONOMIC_STRUCTURE" as const,
+            payloadJson: JSON.stringify({ x: 1, y: 1, structureType: "MARKET" })
+          },
+          diagnostic: {
+            playerId,
+            sessionPrefix: "ai-runtime" as const,
+            settlementEligible: true,
+            settlementCandidateFound: true,
+            frontierEnemyTargetCount: 0,
+            frontierNeutralTargetCount: 1,
+            canAttack: false,
+            canExpand: true
+          }
+        })),
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: () => () => undefined
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      onCommand,
+      tickIntervalMs: 10_000
+    });
+
+    await producer.tick();
+    producer.close();
+
+    expect(onCommand).toHaveBeenCalledWith({
+      playerId: "ai-1",
+      commandType: "BUILD_ECONOMIC_STRUCTURE"
+    });
   });
 
   it("rate-limits repeated collect-visible commands until the local cooldown expires", async () => {

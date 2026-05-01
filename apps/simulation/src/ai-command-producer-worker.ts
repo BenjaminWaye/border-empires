@@ -86,6 +86,7 @@ type WorkerAiCommandProducerOptions = {
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
+  onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onDiagnostic?: (sample: {
     phase:
@@ -459,6 +460,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
           const submitStartedAt = now();
           await options.submitCommand(command);
+          options.onCommand?.({ playerId, commandType: command.type });
           if (command.type === "COLLECT_VISIBLE") {
             backOffCollectVisible(playerId, issuedAt);
           }
