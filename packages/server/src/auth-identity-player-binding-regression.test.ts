@@ -66,6 +66,7 @@ const makeDeps = (): CreateServerPlayerRuntimeSupportDeps => {
     ensureMissionDefaults: () => {},
     normalizePlayerProgressionState: () => {},
     recomputeExposure: () => {},
+    ensureActiveSettlementForPlayer: () => {},
     ensureFallbackSettlementForPlayer: () => {},
     recomputeTownNetworkForPlayer: () => {},
     reconcileCapitalForPlayer: () => {},

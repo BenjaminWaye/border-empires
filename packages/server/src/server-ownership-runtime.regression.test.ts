@@ -34,4 +34,11 @@ describe("server ownership runtime regression guard", () => {
     expect(body).toContain("deps.sendLocalVisionDeltaForPlayer(playerId, [{ x: tile.x, y: tile.y }]);");
     expect(body).toContain("deps.refreshSubscribedViewForPlayer(playerId);");
   });
+
+  it("repairs the active settlement invariant before fallback settlement repair after ownership changes", () => {
+    const body = functionBody(ownershipRuntimeSource(), "updateOwnership");
+    expect(body).toContain("const playerLostRelocatableSettlement = displacedSettlement?.ownerId === playerId;");
+    expect(body).toContain("if (!playerLostRelocatableSettlement) deps.ensureActiveSettlementForPlayer(playerId);");
+    expect(body).toContain("deps.ensureActiveSettlementForPlayer(displacedPlayer.id);");
+  });
 });
