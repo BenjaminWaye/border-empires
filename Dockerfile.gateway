@@ -53,6 +53,7 @@ COPY --from=build /app/packages/game-domain/node_modules ./packages/game-domain/
 COPY --from=build /app/packages/game-domain/data ./packages/game-domain/data
 COPY --from=build /app/packages/game-domain/data ./apps/realtime-gateway/packages/game-domain/data
 COPY --from=build /app/packages/server/data ./packages/server/data
+COPY --from=build /app/packages/server/data ./apps/realtime-gateway/packages/server/data
 COPY --from=build /app/packages/client-protocol/package.json ./packages/client-protocol/package.json
 COPY --from=build /app/packages/client-protocol/dist ./packages/client-protocol/dist
 COPY --from=build /app/packages/client-protocol/node_modules ./packages/client-protocol/node_modules
@@ -64,7 +65,7 @@ COPY --from=build /app/apps/realtime-gateway/dist ./apps/realtime-gateway/dist
 COPY --from=build /app/apps/realtime-gateway/node_modules ./apps/realtime-gateway/node_modules
 COPY --from=build /app/apps/realtime-gateway/sql ./apps/realtime-gateway/sql
 
-RUN chmod -R a+rX /app/packages/game-domain/data /app/apps/realtime-gateway/packages/game-domain/data /app/packages/server/data
+RUN chmod -R a+rX /app/packages/game-domain/data /app/apps/realtime-gateway/packages/game-domain/data /app/packages/server/data /app/apps/realtime-gateway/packages/server/data
 
 RUN mkdir -p /app/node_modules/@border-empires \
   && ln -sfn /app/packages/shared /app/node_modules/@border-empires/shared \
