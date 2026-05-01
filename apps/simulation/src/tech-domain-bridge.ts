@@ -35,24 +35,40 @@ type DomainCatalogEntry = {
 
 type StrategicCounts = Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
 
-const resolveDataPath = (relativeCandidates: string[]): string => {
+export const resolveDataPath = (
+  relativeCandidates: readonly string[],
+  options: {
+    from?: string;
+    exists?: (path: string) => boolean;
+  } = {}
+): string => {
+  const from = options.from ?? import.meta.url;
+  const exists = options.exists ?? existsSync;
   for (const relativePath of relativeCandidates) {
-    const resolved = fileURLToPath(new URL(relativePath, import.meta.url));
-    if (existsSync(resolved)) return resolved;
+    const resolved = fileURLToPath(new URL(relativePath, from));
+    if (exists(resolved)) return resolved;
   }
-  return fileURLToPath(new URL(relativeCandidates[0]!, import.meta.url));
+  return fileURLToPath(new URL(relativeCandidates[0]!, from));
 };
 
-export const TECH_TREE_PATH = resolveDataPath([
+export const TECH_TREE_RELATIVE_CANDIDATES = [
   "../../../packages/server/data/tech-tree.json",
   "../../../../packages/server/data/tech-tree.json",
-  "../../../../../../packages/server/data/tech-tree.json"
-]);
-export const DOMAIN_TREE_PATH = resolveDataPath([
+  "../../../packages/game-domain/data/tech-tree.json",
+  "../../../../packages/game-domain/data/tech-tree.json",
+  "../../../../../../packages/server/data/tech-tree.json",
+  "../../../../../../packages/game-domain/data/tech-tree.json"
+] as const;
+export const DOMAIN_TREE_RELATIVE_CANDIDATES = [
   "../../../packages/server/data/domain-tree.json",
   "../../../../packages/server/data/domain-tree.json",
-  "../../../../../../packages/server/data/domain-tree.json"
-]);
+  "../../../packages/game-domain/data/domain-tree.json",
+  "../../../../packages/game-domain/data/domain-tree.json",
+  "../../../../../../packages/server/data/domain-tree.json",
+  "../../../../../../packages/game-domain/data/domain-tree.json"
+] as const;
+export const TECH_TREE_PATH = resolveDataPath(TECH_TREE_RELATIVE_CANDIDATES);
+export const DOMAIN_TREE_PATH = resolveDataPath(DOMAIN_TREE_RELATIVE_CANDIDATES);
 
 const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: TechCatalogEntry[] };
 const domainTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as { domains: DomainCatalogEntry[] };
