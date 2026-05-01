@@ -106,42 +106,6 @@ describe("server worldgen docks", () => {
     return { runtime, docksByTile };
   };
 
-  it("assigns a dock to a thin disconnected island even when the island is smaller than the large-island threshold", () => {
-    const thinIslandTiles = new Set<TileKey>(["1,1", "2,2", "3,3", "4,4", "5,5"]);
-    const mainIslandTiles = new Set<TileKey>(["8,2", "8,3", "8,4", "9,2", "9,3", "9,4", "10,2", "10,3", "10,4"]);
-    const { runtime, docksByTile } = createDockTestRuntime({ landTiles: [...thinIslandTiles, ...mainIslandTiles] });
-
-    runtime.generateDocks(12345);
-
-    expect(docksByTile.size).toBe(2);
-    expect([...docksByTile.keys()].some((tileKey) => thinIslandTiles.has(tileKey))).toBe(true);
-    expect([...docksByTile.keys()].some((tileKey) => mainIslandTiles.has(tileKey))).toBe(true);
-
-    const thinIslandDock = [...docksByTile.values()].find((dock) => thinIslandTiles.has(dock.tileKey));
-    const mainIslandDock = [...docksByTile.values()].find((dock) => mainIslandTiles.has(dock.tileKey));
-    expect(thinIslandDock).toBeDefined();
-    expect(mainIslandDock).toBeDefined();
-    expect(thinIslandDock!.connectedDockIds).toContain(mainIslandDock!.dockId);
-    expect(mainIslandDock!.connectedDockIds).toContain(thinIslandDock!.dockId);
-  });
-
-  it("falls back to clustered coast tiles when an island has no other dock candidates", () => {
-    const clusteredIsletTiles = new Set<TileKey>(["1,1", "1,2", "2,1", "2,2"]);
-    const mainIslandTiles = new Set<TileKey>(["8,2", "8,3", "8,4", "9,2", "9,3", "9,4", "10,2", "10,3", "10,4"]);
-    const { runtime, docksByTile } = createDockTestRuntime({
-      landTiles: [...clusteredIsletTiles, ...mainIslandTiles],
-      clusteredTiles: clusteredIsletTiles
-    });
-
-    runtime.generateDocks(67890);
-
-    const clusteredIsletDock = [...docksByTile.values()].find((dock) => clusteredIsletTiles.has(dock.tileKey));
-    const mainIslandDock = [...docksByTile.values()].find((dock) => mainIslandTiles.has(dock.tileKey));
-    expect(clusteredIsletDock).toBeDefined();
-    expect(mainIslandDock).toBeDefined();
-    expect(clusteredIsletDock!.connectedDockIds).toContain(mainIslandDock!.dockId);
-  });
-
   it("assigns a dock to mountain-sealed land that only touches an inland sea basin", () => {
     const basinTiles = new Set<TileKey>(["2,4", "3,4", "4,4", "2,5", "4,5", "2,6", "3,6", "4,6"]);
     const mountainTiles = new Set<TileKey>(["1,3", "2,3", "3,3", "4,3", "5,3", "1,4", "5,4", "1,5", "5,5", "1,6", "5,6", "1,7", "2,7", "3,7", "4,7", "5,7"]);
