@@ -328,13 +328,20 @@ export const leaderboardHtml = (
   const overallLine = (entry: LeaderboardOverallEntry): string =>
     `${entry.name} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs}`;
   const metricLine = (entry: LeaderboardMetricEntry): string => `${entry.name} (${entry.value.toFixed(1)})`;
-  const includesPlayer = (entries: Array<{ id: string }>, playerId: string | undefined): boolean =>
-    Boolean(playerId) && entries.some((entry) => entry.id === playerId);
+  const includesOverallEntry = (entries: LeaderboardOverallEntry[], selfEntry: LeaderboardOverallEntry | undefined): boolean =>
+    Boolean(selfEntry) &&
+    entries.some(
+      (entry) =>
+        entry.id === selfEntry.id || (entry.rank === selfEntry.rank && overallLine(entry) === overallLine(selfEntry))
+    );
+  const includesMetricEntry = (entries: LeaderboardMetricEntry[], selfEntry: LeaderboardMetricEntry | undefined): boolean =>
+    Boolean(selfEntry) &&
+    entries.some((entry) => entry.id === selfEntry.id || (entry.rank === selfEntry.rank && metricLine(entry) === metricLine(selfEntry)));
   const shouldShowSelfProgress = (objective: SeasonVictoryObjectiveView): boolean =>
     Boolean(objective.selfProgressLabel) && objective.leaderPlayerId !== "me";
   const metricRows = (entries: LeaderboardMetricEntry[], selfEntry: LeaderboardMetricEntry | undefined): string =>
     `${entries.map((entry) => `<div class="lb-row">${entry.rank}. ${metricLine(entry)}</div>`).join("")}${
-      selfEntry && selfEntry.rank !== 1 && !includesPlayer(entries, selfEntry.id)
+      selfEntry && selfEntry.rank !== 1 && !includesMetricEntry(entries, selfEntry)
         ? `<div class="lb-row">${selfEntry.rank}. You (${selfEntry.value.toFixed(1)})</div>`
         : ""
     }`;
@@ -380,7 +387,7 @@ export const leaderboardHtml = (
       <strong>Overall</strong>
       ${leaderboard.overall.map((entry) => `<div class="lb-row">${entry.rank}. ${overallLine(entry)}</div>`).join("")}
       ${
-        leaderboard.selfOverall && leaderboard.selfOverall.rank !== 1 && !includesPlayer(leaderboard.overall, leaderboard.selfOverall.id)
+        leaderboard.selfOverall && leaderboard.selfOverall.rank !== 1 && !includesOverallEntry(leaderboard.overall, leaderboard.selfOverall)
           ? `<div class="lb-row">${leaderboard.selfOverall.rank}. You | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${leaderboard.selfOverall.incomePerMinute.toFixed(1)} | tech ${leaderboard.selfOverall.techs}</div>`
           : ""
       }
