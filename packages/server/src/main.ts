@@ -2785,6 +2785,7 @@ const { sendPlayerUpdate } = createServerPlayerUpdateRuntime({
   currentLeaderboardSnapshot: () => currentLeaderboardSnapshot(),
   currentVictoryPressureObjectives: () => currentVictoryPressureObjectives(),
   seasonWinner,
+  consumeRespawnNoticeForPlayer: (player) => consumeRespawnNoticeForPlayer(player),
   recordServerDebugEvent,
   appLogWarn: (payload, message) => app.log.warn(payload, message)
 });
@@ -5147,8 +5148,13 @@ const resolveEliminationIfNeeded = (p: Player, isOnline: boolean): void => {
   p.isEliminated = true;
   p.points *= 0.7;
   recalcPlayerDerived(p);
-  if (isOnline) spawnPlayer(p);
-  else p.respawnPending = true;
+  if (isOnline) {
+    preparePlayerRespawnNotice(p, "eliminated", "player_elimination_resolved", { wasOnline: true });
+    spawnPlayer(p);
+  } else {
+    preparePlayerRespawnNotice(p, "eliminated", "player_elimination_resolved", { wasOnline: false });
+    p.respawnPending = true;
+  }
 };
 
 const pendingCapturesByAttacker = (attackerId: string): PendingCapture[] => {
@@ -7584,6 +7590,8 @@ const {
   consumeOfflinePlayerActivity,
   queueOfflineTownCaptureActivity,
   rebuildOwnershipDerivedState,
+  preparePlayerRespawnNotice,
+  consumeRespawnNoticeForPlayer,
   spawnPlayer,
   getOrCreatePlayerForIdentity
 } = createServerPlayerRuntimeSupport({
@@ -8102,6 +8110,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
         territoryTiles: p.territoryTiles.size,
         respawnPending: p.respawnPending
       });
+      preparePlayerRespawnNotice(p, "startup_recovery", "startup_player_bootstrap_respawn");
       spawnPlayer(p);
     }
   }
@@ -8822,6 +8831,11 @@ registerServerHttpRoutes(app, {
       // after a snapshot wipe), spawn them now so they land in a playable state
       // rather than stuck in the world with zero tiles and no way to recover.
       if (!playerNeedsProfileSetup(player) && player.territoryTiles.size === 0) {
+        preparePlayerRespawnNotice(
+          player,
+          player.respawnPending || player.isEliminated ? "eliminated" : "auth_recovery",
+          "auth_sync_missing_territory_recovery"
+        );
         spawnPlayer(player);
       }
       resumeVictoryPressureTimers();
@@ -8868,6 +8882,7 @@ registerServerHttpRoutes(app, {
             tileColor: player.tileColor,
             visualStyle: empireStyleFromPlayer(player),
             homeTile: playerHomeTile(player),
+            respawnNotice: consumeRespawnNoticeForPlayer(player),
             availableTechPicks: availableTechPicks(player),
             developmentProcessLimit: developmentProcessCapacityForPlayer(player.id),
             activeDevelopmentProcessCount: activeDevelopmentProcessCountForPlayer(player.id),

@@ -9,6 +9,7 @@ import {
 import { clearFrontierStatusAlert } from "./client-frontier-status.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate } from "./client-gateway-sync.js";
 import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
+import { applyRespawnNoticeToState, normalizeRespawnNotice } from "./client-respawn-notice.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
@@ -198,6 +199,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       ? pushFeedEntry
       : (entry: { text: string; type?: string; severity?: string }) =>
           pushFeed(entry.text, (entry.type as any) ?? "info", (entry.severity as any) ?? "info");
+
+  const applyIncomingRespawnNotice = (value: unknown): void => {
+    const notice = normalizeRespawnNotice(value);
+    applyRespawnNoticeToState(state, notice, appendFeedEntry);
+  };
 
   const maybeRequestTileDetail = (tile: any): void => {
     if (typeof deps.requestTileDetailIfNeeded !== "function") return;
@@ -1223,6 +1229,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (msg.offlineActivity as
           | Array<{ title?: string; detail?: string; type?: string; severity?: string; at?: number; tileKey?: string; actionLabel?: string }>
           | undefined) ?? [];
+      applyIncomingRespawnNotice(player.respawnNotice);
       state.dockPairs = mapMeta.dockPairs ?? [];
       state.dockRouteCache.clear();
       pushFeed(`Spawned. ${incomingSeason?.seasonId ? `Season ${incomingSeason.seasonId}.` : ""} Your tile is centered.`, "info", "success");
@@ -1398,6 +1405,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
       if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
+      applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;

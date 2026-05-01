@@ -818,6 +818,7 @@ body {
 #hud #targeting-overlay,
 #hud #changelog-overlay,
 #hud #guide-overlay,
+#hud #respawn-overlay,
 #hud #structure-info-overlay,
 #hud #tech-detail-overlay {
   pointer-events: auto;
@@ -1386,7 +1387,8 @@ body {
 }
 
 #changelog-overlay,
-#guide-overlay {
+#guide-overlay,
+#respawn-overlay {
   position: fixed;
   inset: 0;
   display: none;
@@ -1397,7 +1399,8 @@ body {
 }
 
 .changelog-backdrop,
-.guide-backdrop {
+.guide-backdrop,
+.respawn-backdrop {
   position: absolute;
   inset: 0;
   background: rgba(1, 6, 12, 0.72);
@@ -1405,7 +1408,8 @@ body {
 }
 
 .changelog-modal,
-.guide-modal {
+.guide-modal,
+.respawn-modal {
   position: relative;
   width: min(780px, calc(100vw - 40px));
   max-height: calc(100dvh - 48px);
@@ -1424,7 +1428,8 @@ body {
 }
 
 .changelog-modal-scroll,
-.guide-modal-scroll {
+.guide-modal-scroll,
+.respawn-modal-scroll {
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1452,14 +1457,16 @@ body {
 }
 
 .changelog-kicker,
-.guide-kicker {
+.guide-kicker,
+.respawn-kicker {
   font-size: 14px;
   color: rgba(201, 208, 201, 0.74);
   font-weight: 600;
 }
 
 .changelog-title,
-.guide-title {
+.guide-title,
+.respawn-title {
   margin: 0;
   font-size: clamp(36px, 4vw, 54px);
   line-height: 1.02;
@@ -1473,6 +1480,55 @@ body {
   font-size: 16px;
   line-height: 1.6;
   color: rgba(226, 233, 226, 0.82);
+}
+
+.respawn-summary {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 17px;
+  line-height: 1.65;
+  color: rgba(236, 240, 235, 0.88);
+}
+
+.respawn-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.respawn-section h3 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(201, 220, 194, 0.86);
+}
+
+.respawn-section p {
+  margin: 0;
+  line-height: 1.65;
+  color: rgba(225, 232, 225, 0.82);
+}
+
+.respawn-reason-card {
+  padding: 16px 18px;
+  border: 1px solid rgba(214, 191, 124, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(92, 67, 26, 0.18), rgba(47, 35, 16, 0.14));
+}
+
+.respawn-diagnostics {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: rgba(216, 224, 216, 0.82);
+}
+
+.respawn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .changelog-topbar {
@@ -1889,12 +1945,14 @@ body {
 
 @media (min-width: 901px) {
   #changelog-overlay,
-  #guide-overlay {
+  #guide-overlay,
+  #respawn-overlay {
     padding: 32px;
   }
 
   .changelog-modal,
-  .guide-modal {
+  .guide-modal,
+  .respawn-modal {
     width: min(920px, calc(100vw - 64px));
     padding: 32px 32px 28px;
   }
@@ -4905,7 +4963,8 @@ button:disabled,
   }
 
   #changelog-overlay,
-  #guide-overlay {
+  #guide-overlay,
+  #respawn-overlay {
     align-items: end;
     padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
   }
@@ -4921,7 +4980,8 @@ button:disabled,
   }
 
   .changelog-modal,
-  .guide-modal {
+  .guide-modal,
+  .respawn-modal {
     width: calc(100vw - 24px);
     max-width: 560px;
     max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px);
