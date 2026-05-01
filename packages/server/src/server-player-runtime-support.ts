@@ -1,11 +1,13 @@
 import type {
   BarbarianAgent,
   Player,
+  PlayerRespawnReasonCode,
   Tile,
   TileKey
 } from "@border-empires/shared";
 
 import { appendPlayerActivityEntry, buildTownActivityEntry } from "./player-activity.js";
+import { buildPlayerRespawnNotice, type PendingRespawnNoticeContext } from "./server-player-respawn-notice.js";
 import type { AuthIdentity } from "./server-auth.js";
 import type { ClusterDefinition, SnapshotState, TownDefinition } from "./server-shared-types.js";
 import type { PlayerEffects } from "./server-effects.js";
@@ -94,6 +96,13 @@ export interface ServerPlayerRuntimeSupport {
     town: TownDefinition
   ) => void;
   rebuildOwnershipDerivedState: () => void;
+  preparePlayerRespawnNotice: (
+    player: Player,
+    reasonCode: PlayerRespawnReasonCode,
+    triggerEvent: string,
+    options?: { wasOnline?: boolean }
+  ) => void;
+  consumeRespawnNoticeForPlayer: (player: Player) => Player["lastRespawnNotice"];
   spawnPlayer: (player: Player) => void;
   getOrCreatePlayerForIdentity: (identity: AuthIdentity) => Player | undefined;
 }
@@ -101,13 +110,17 @@ export interface ServerPlayerRuntimeSupport {
 export const createServerPlayerRuntimeSupport = (
   deps: CreateServerPlayerRuntimeSupportDeps
 ): ServerPlayerRuntimeSupport => {
-  const serializePlayer = (player: Player): SnapshotState["players"][number] => ({
-    ...player,
-    techIds: [...player.techIds],
-    domainIds: [...player.domainIds],
-    territoryTiles: [...player.territoryTiles],
-    allies: [...player.allies]
-  });
+  const pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
+  const serializePlayer = (player: Player): SnapshotState["players"][number] => {
+    const { lastRespawnNotice: _ignoredRespawnNotice, ...playerForSnapshot } = player;
+    return {
+      ...playerForSnapshot,
+      techIds: [...player.techIds],
+      domainIds: [...player.domainIds],
+      territoryTiles: [...player.territoryTiles],
+      allies: [...player.allies]
+    };
+  };
 
   const lastEconomyActivityAtForPlayer = (player: Player): number =>
     Math.max(player.lastActiveAt, player.lastEconomyWakeAt ?? 0);
@@ -237,7 +250,35 @@ export const createServerPlayerRuntimeSupport = (
         continue;
       }
       deps.upsertBarbarianAgent(agent);
-    }
+      }
+    };
+
+  const preparePlayerRespawnNotice = (
+    player: Player,
+    reasonCode: PlayerRespawnReasonCode,
+    triggerEvent: string,
+    options?: { wasOnline?: boolean }
+  ): void => {
+    if (player.isAi) return;
+    const homeTile = deps.playerHomeTile(player);
+    pendingRespawnNoticeByPlayerId.set(player.id, {
+      at: deps.now(),
+      reasonCode,
+      triggerEvent,
+      previousTerritoryTiles: player.territoryTiles.size,
+      previousTerritoryStrength: player.T,
+      previousExposure: player.E,
+      wasEliminated: player.isEliminated,
+      respawnPending: player.respawnPending,
+      ...(typeof options?.wasOnline === "boolean" ? { wasOnline: options.wasOnline } : {}),
+      ...(homeTile ? { previousHomeTileKey: deps.key(homeTile.x, homeTile.y) } : {})
+    });
+  };
+
+  const consumeRespawnNoticeForPlayer = (player: Player): Player["lastRespawnNotice"] => {
+    const notice = player.lastRespawnNotice;
+    delete player.lastRespawnNotice;
+    return notice;
   };
 
   const spawnPlayer = (player: Player): void => {
@@ -291,6 +332,15 @@ export const createServerPlayerRuntimeSupport = (
       player.spawnShieldUntil = deps.now() + 120_000;
       player.isEliminated = false;
       player.respawnPending = false;
+      const pendingRespawnNotice = pendingRespawnNoticeByPlayerId.get(player.id);
+      if (pendingRespawnNotice) {
+        player.lastRespawnNotice = buildPlayerRespawnNotice({
+          player,
+          context: pendingRespawnNotice,
+          spawnTileKey: deps.key(x, y)
+        });
+        pendingRespawnNoticeByPlayerId.delete(player.id);
+      }
       deps.broadcastBulk({ type: "PLAYER_STYLE", playerId: player.id, ...deps.playerStylePayload(player) });
       deps.recordPlayerLifecycleEvent?.("player_spawned", {
         playerId: player.id,
@@ -443,6 +493,11 @@ export const createServerPlayerRuntimeSupport = (
         territoryTiles: player.territoryTiles.size,
         respawnPending: player.respawnPending
       });
+      preparePlayerRespawnNotice(
+        player,
+        player.respawnPending || player.isEliminated ? "eliminated" : "auth_recovery",
+        "auth_identity_triggered_respawn"
+      );
       spawnPlayer(player);
     }
     if (!player.tileColor) player.tileColor = deps.colorFromId(player.id);
@@ -463,6 +518,8 @@ export const createServerPlayerRuntimeSupport = (
     playerActivityName,
     queueOfflineTownCaptureActivity,
     rebuildOwnershipDerivedState,
+    preparePlayerRespawnNotice,
+    consumeRespawnNoticeForPlayer,
     spawnPlayer,
     getOrCreatePlayerForIdentity
   };

@@ -9,11 +9,12 @@ import type { initClientDom } from "./client-dom.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
 import { buildMapLoadingView } from "./client-map-loading-view.js";
+import { renderRespawnOverlay } from "./client-respawn-overlay.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import type { StructureInfoKey } from "./client-map-display.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
-import type { DomainInfo, TechInfo, Tile, TileMenuView } from "./client-types.js";
+import type { DomainInfo, PlayerRespawnNotice, TechInfo, Tile, TileMenuView } from "./client-types.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 type VisibleCollectSummary = {
@@ -102,6 +103,8 @@ type HudDeps = {
   effectiveTechChoices: () => string[];
   renderManpowerPanelHtml: typeof import("./client-side-panel-html.js").renderManpowerPanelHtml;
   retryBootstrapNow: () => void;
+  centerOnOwnedTile: () => void;
+  downloadRespawnBugReport: (args: { notice: PlayerRespawnNotice }) => Promise<void>;
 };
 
 export const renderClientHud = (deps: HudDeps): void => {
@@ -173,7 +176,9 @@ export const renderClientHud = (deps: HudDeps): void => {
     economicStructureName,
     leaderboardHtml,
     feedHtml,
-    retryBootstrapNow
+    retryBootstrapNow,
+    centerOnOwnedTile,
+    downloadRespawnBugReport
   } = deps;
 
   const safeValue = <T>(label: string, fallback: T, render: () => T): T => {
@@ -1130,6 +1135,15 @@ export const renderClientHud = (deps: HudDeps): void => {
   } else if (dom.guideOverlayEl.innerHTML) {
     dom.guideOverlayEl.innerHTML = "";
   }
+
+  renderRespawnOverlay({
+    state,
+    overlayEl: dom.respawnOverlayEl,
+    renderHud: () => renderClientHud(deps),
+    centerOnOwnedTile,
+    pushFeed,
+    downloadRespawnBugReport
+  });
 
   syncAuthOverlay();
   deps.renderMobilePanels();

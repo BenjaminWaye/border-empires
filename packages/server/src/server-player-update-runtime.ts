@@ -1,4 +1,4 @@
-import type { Player, SeasonWinnerView, SeasonVictoryObjectiveView, TileKey, TruceRequest } from "@border-empires/shared";
+import type { Player, PlayerRespawnNotice, SeasonWinnerView, SeasonVictoryObjectiveView, TileKey, TruceRequest } from "@border-empires/shared";
 import type { Ws } from "./server-runtime-config.js";
 import type {
   AllianceRequest,
@@ -71,6 +71,7 @@ export interface CreateServerPlayerUpdateRuntimeDeps {
   currentLeaderboardSnapshot: () => LeaderboardSnapshotView;
   currentVictoryPressureObjectives: () => SeasonVictoryObjectiveView[];
   seasonWinner: SeasonWinnerView | undefined;
+  consumeRespawnNoticeForPlayer: (player: Player) => PlayerRespawnNotice | undefined;
   recordServerDebugEvent: (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown>) => void;
   appLogWarn: (payload: Record<string, unknown>, message: string) => void;
 }
@@ -132,7 +133,8 @@ export const createServerPlayerUpdateRuntime = (
       Es: player.Es,
       shieldUntil: player.spawnShieldUntil,
       defensiveness: deps.playerDefensiveness(player),
-      profileNeedsSetup: player.profileComplete !== true
+      profileNeedsSetup: player.profileComplete !== true,
+      respawnNotice: deps.consumeRespawnNoticeForPlayer(player)
     };
     if (detail === "full") Object.assign(payload, { name: player.name, tileColor: player.tileColor, visualStyle: deps.empireStyleFromPlayer(player), mods: player.mods });
     if (includeBreakdowns) Object.assign(payload, { modBreakdown: deps.playerModBreakdown(player), manpowerBreakdown: deps.playerManpowerBreakdown(player) });

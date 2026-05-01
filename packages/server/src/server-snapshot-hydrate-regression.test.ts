@@ -229,6 +229,39 @@ describe("server snapshot hydrate regression", () => {
     expect([...((deps.discoveredTileKeysByPlayer.get("player-1") ?? new Set()) as Set<TileKey>)].sort()).toEqual(["0,0", "1,1"]);
   });
 
+  it("drops persisted respawn notices during hydrate so old popups do not reopen on the next login", () => {
+    const deps = makeDeps();
+    const runtime = createServerSnapshotHydrateRuntime(deps);
+
+    runtime.hydrateSnapshotState({
+      world: { width: 2, height: 2 },
+      players: [
+        snapshotPlayer({
+          lastRespawnNotice: {
+            id: "respawn-1",
+            at: 1,
+            reasonCode: "startup_recovery",
+            title: "Respawned",
+            summary: "summary",
+            detail: "detail",
+            triggerEvent: "startup_player_bootstrap_respawn",
+            playerId: "player-1",
+            playerName: "Rowan",
+            previousTerritoryTiles: 0,
+            previousTerritoryStrength: 0,
+            previousExposure: 4,
+            wasEliminated: false,
+            respawnPending: false
+          }
+        })
+      ],
+      ownership: [],
+      resources: []
+    });
+
+    expect(deps.players.get("player-1")?.lastRespawnNotice).toBeUndefined();
+  });
+
   it("repairs the active settlement invariant before fallback settlement checks during hydrate", () => {
     const deps = makeDeps();
     const calls: string[] = [];

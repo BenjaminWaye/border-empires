@@ -194,6 +194,7 @@ const hudMarkup = `
   <div id="targeting-overlay" style="display:none;"></div>
   <div id="changelog-overlay" style="display:none;"></div>
   <div id="guide-overlay" style="display:none;"></div>
+  <div id="respawn-overlay" style="display:none;"></div>
   <div id="structure-info-overlay" style="display:none;"></div>
   <div id="tech-detail-overlay" style="display:none;"></div>
 
@@ -464,6 +465,7 @@ export const initClientDom = () => {
   const collectVisibleMobileMetaEl = requireElement<HTMLSpanElement>("#collect-visible-mobile-meta");
   const changelogOverlayEl = requireElement<HTMLDivElement>("#changelog-overlay");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
+  const respawnOverlayEl = requireElement<HTMLDivElement>("#respawn-overlay");
   const structureInfoOverlayEl = requireElement<HTMLDivElement>("#structure-info-overlay");
   const techDetailOverlayEl = requireElement<HTMLDivElement>("#tech-detail-overlay");
   const miniMapCtx = miniMapEl.getContext("2d");
@@ -581,6 +583,7 @@ export const initClientDom = () => {
     panelMissionsEl,
     panelTechEl,
     panelTitleEl,
+    respawnOverlayEl,
     selectedEl,
     shardAlertCardEl,
     shardAlertCloseBtn,
