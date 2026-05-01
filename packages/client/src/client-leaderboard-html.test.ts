@@ -88,6 +88,28 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).not.toContain("1. You (4.0)");
   });
 
+  it("does not append a duplicate self row when the player is already visible outside first place", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [{ id: "me", rank: 11, name: "Nauticus", score: 4, tiles: 1, incomePerMinute: 1, techs: 0 }],
+        selfOverall: { id: "me", rank: 11, name: "Nauticus", score: 4, tiles: 1, incomePerMinute: 1, techs: 0 },
+        selfByTiles: { id: "me", rank: 11, name: "Nauticus", value: 1 },
+        selfByIncome: { id: "me", rank: 11, name: "Nauticus", value: 1 },
+        selfByTechs: { id: "me", rank: 11, name: "Nauticus", value: 0 },
+        byTiles: [{ id: "me", rank: 11, name: "Nauticus", value: 1 }],
+        byIncome: [{ id: "me", rank: 11, name: "Nauticus", value: 1 }],
+        byTechs: [{ id: "me", rank: 11, name: "Nauticus", value: 0 }]
+      },
+      [],
+      undefined
+    );
+
+    expect(html).toContain("11. Nauticus | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).not.toContain("11. You (1.0)");
+    expect(html).not.toContain("11. You (0.0)");
+  });
+
   it("hides the self row when the player is already the leader", () => {
     const html = leaderboardHtml(
       {
