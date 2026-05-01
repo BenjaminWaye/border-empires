@@ -218,13 +218,30 @@ export const chooseBestStrategicSettlementTile = (
   tiles: ReadonlyMap<string, DomainTileState>,
   isPending?: (tile: DomainTileState) => boolean
 ): DomainTileState | undefined => {
+  return chooseBestSettlementTile(playerId, candidates, tiles, {
+    requireStrategic: true,
+    ...(isPending ? { isPending } : {})
+  });
+};
+
+export const chooseBestSettlementTile = (
+  playerId: string,
+  candidates: Iterable<DomainTileState>,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  options: {
+    requireStrategic?: boolean;
+    minimumScore?: number;
+    isPending?: (tile: DomainTileState) => boolean;
+  } = {}
+): DomainTileState | undefined => {
   let bestTile: DomainTileState | undefined;
   let bestScore = Number.NEGATIVE_INFINITY;
   for (const tile of candidates) {
     if (tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
-    if (isPending?.(tile)) continue;
+    if (options.isPending?.(tile)) continue;
     const evaluation = evaluateSettlementCandidate(playerId, tile, tiles);
-    if (!evaluation.strategic) continue;
+    if (options.requireStrategic && !evaluation.strategic) continue;
+    if (typeof options.minimumScore === "number" && evaluation.score < options.minimumScore) continue;
     if (isBetterSettlementCandidate(tile, evaluation.score, bestTile, bestScore)) {
       bestTile = tile;
       bestScore = evaluation.score;
