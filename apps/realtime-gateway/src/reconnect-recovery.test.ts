@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { DomainPlayer } from "@border-empires/game-domain";
+import { anonymizedEmpireNameForId } from "@border-empires/shared";
 import { RECONNECT_COMMAND_TYPES } from "../../../packages/sim-protocol/src/command-coverage-sets.js";
 import { InMemoryGatewayCommandStore } from "./command-store.js";
 import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
@@ -552,6 +553,240 @@ describe("buildInitMessage", () => {
     );
     expect(init.leaderboard.overall).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "player-1", name: "Nauticus Prime" })])
+    );
+  });
+
+  it("recovers distinct human leaderboard names from snapshot profiles when live rows were anonymized", async () => {
+    const store = new InMemoryGatewayCommandStore();
+    const nauticusId = "orz1OiQwxGS5LKwcAwG5wzNCd3P2";
+    const benjaminId = "qwe9OiQwxGS5LKwcAwG5wzNCd3P3";
+    const nauticusFallback = anonymizedEmpireNameForId(nauticusId);
+    const benjaminFallback = anonymizedEmpireNameForId(benjaminId);
+    const snapshotBootstrap: LegacySnapshotBootstrap = {
+      runtimeIdentity: {
+        sourceType: "legacy-snapshot",
+        seasonId: "season-runtime",
+        worldSeed: 7,
+        snapshotLabel: ".snapshot",
+        fingerprint: "snap-fingerprint",
+        playerCount: 3,
+        seededTileCount: 3
+      },
+      season: { seasonId: "season-runtime", worldSeed: 7 },
+      players: new Map([
+        [
+          nauticusId,
+          {
+            id: nauticusId,
+            isAi: false,
+            name: "Nauticus",
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          benjaminId,
+          {
+            id: benjaminId,
+            isAi: false,
+            name: "Benjamin Waye",
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "ai-1",
+          {
+            id: "ai-1",
+            isAi: true,
+            name: "AI 1",
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      playerProfiles: new Map([
+        [
+          nauticusId,
+          {
+            id: nauticusId,
+            name: "Nauticus",
+            points: 100,
+            manpower: 100,
+            incomePerMinute: 1,
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepLastTick: { foodCoverage: 1 },
+            economyBreakdown: {
+              GOLD: { sources: [], sinks: [] },
+              FOOD: { sources: [], sinks: [] },
+              IRON: { sources: [], sinks: [] },
+              CRYSTAL: { sources: [], sinks: [] },
+              SUPPLY: { sources: [], sinks: [] },
+              SHARD: { sources: [], sinks: [] }
+            },
+            techIds: [],
+            domainIds: [],
+            isAi: false,
+            capitalTile: { x: 0, y: 0 }
+          }
+        ],
+        [
+          benjaminId,
+          {
+            id: benjaminId,
+            name: "Benjamin Waye",
+            points: 100,
+            manpower: 100,
+            incomePerMinute: 1,
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepLastTick: { foodCoverage: 1 },
+            economyBreakdown: {
+              GOLD: { sources: [], sinks: [] },
+              FOOD: { sources: [], sinks: [] },
+              IRON: { sources: [], sinks: [] },
+              CRYSTAL: { sources: [], sinks: [] },
+              SUPPLY: { sources: [], sinks: [] },
+              SHARD: { sources: [], sinks: [] }
+            },
+            techIds: [],
+            domainIds: [],
+            isAi: false,
+            capitalTile: { x: 1, y: 0 }
+          }
+        ],
+        [
+          "ai-1",
+          {
+            id: "ai-1",
+            name: "AI 1",
+            points: 100,
+            manpower: 100,
+            incomePerMinute: 4.2,
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepLastTick: { foodCoverage: 1 },
+            economyBreakdown: {
+              GOLD: { sources: [], sinks: [] },
+              FOOD: { sources: [], sinks: [] },
+              IRON: { sources: [], sinks: [] },
+              CRYSTAL: { sources: [], sinks: [] },
+              SUPPLY: { sources: [], sinks: [] },
+              SHARD: { sources: [], sinks: [] }
+            },
+            techIds: [],
+            domainIds: [],
+            isAi: true,
+            capitalTile: { x: 2, y: 0 }
+          }
+        ]
+      ]),
+      authIdentities: [],
+      docks: [],
+      clusters: [],
+      seedTiles: new Map([
+        ["0,0", { x: 0, y: 0, terrain: "LAND" }],
+        ["1,0", { x: 1, y: 0, terrain: "LAND" }],
+        ["2,0", { x: 2, y: 0, terrain: "LAND" }]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: nauticusId, ownershipState: "SETTLED" },
+          { x: 1, y: 0, terrain: "LAND", ownerId: benjaminId, ownershipState: "SETTLED" },
+          { x: 2, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    };
+
+    const init = await buildInitMessage(
+      { playerId: nauticusId, playerName: "Nauticus" },
+      store,
+      {
+        playerId: nauticusId,
+        worldStatus: {
+          leaderboard: {
+            overall: [
+              { id: "ai-1", rank: 1, name: "AI 1", score: 20.6, tiles: 8, incomePerMinute: 4.2, techs: 0 },
+              { id: benjaminId, rank: 2, name: benjaminFallback, score: 4, tiles: 1, incomePerMinute: 1, techs: 0 },
+              { id: nauticusId, rank: 3, name: nauticusFallback, score: 4, tiles: 1, incomePerMinute: 1, techs: 0 }
+            ],
+            byTiles: [
+              { id: "ai-1", rank: 1, name: "AI 1", value: 8 },
+              { id: benjaminId, rank: 2, name: benjaminFallback, value: 1 },
+              { id: nauticusId, rank: 3, name: nauticusFallback, value: 1 }
+            ],
+            byIncome: [
+              { id: "ai-1", rank: 1, name: "AI 1", value: 4.2 },
+              { id: benjaminId, rank: 2, name: benjaminFallback, value: 1 },
+              { id: nauticusId, rank: 3, name: nauticusFallback, value: 1 }
+            ],
+            byTechs: [
+              { id: "ai-1", rank: 1, name: "AI 1", value: 0 },
+              { id: benjaminId, rank: 2, name: benjaminFallback, value: 0 },
+              { id: nauticusId, rank: 3, name: nauticusFallback, value: 0 }
+            ],
+            selfOverall: { id: nauticusId, rank: 3, name: nauticusFallback, score: 4, tiles: 1, incomePerMinute: 1, techs: 0 },
+            selfByTiles: { id: nauticusId, rank: 3, name: nauticusFallback, value: 1 },
+            selfByIncome: { id: nauticusId, rank: 3, name: nauticusFallback, value: 1 },
+            selfByTechs: { id: nauticusId, rank: 3, name: nauticusFallback, value: 0 }
+          },
+          seasonVictory: [
+            {
+              id: "TOWN_CONTROL",
+              name: "Town Control",
+              description: "Own a dominant share of towns.",
+              leaderPlayerId: benjaminId,
+              leaderName: benjaminFallback,
+              progressLabel: "3/5 towns",
+              thresholdLabel: "Need 5 towns",
+              holdDurationSeconds: 21600,
+              statusLabel: "Pressure building",
+              conditionMet: false
+            }
+          ]
+        },
+        tiles: [{ x: 0, y: 0, terrain: "LAND", ownerId: nauticusId, ownershipState: "SETTLED" }]
+      },
+      "season-20ai",
+      snapshotBootstrap
+    );
+
+    expect(init.leaderboard.overall).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: nauticusId, name: "Nauticus" }),
+        expect.objectContaining({ id: benjaminId, name: "Benjamin Waye" }),
+        expect.objectContaining({ id: "ai-1", name: "AI 1" })
+      ])
+    );
+    expect(init.leaderboard.selfOverall).toEqual(expect.objectContaining({ id: nauticusId, name: "Nauticus" }));
+    expect(init.leaderboard.byTiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: nauticusId, name: "Nauticus" }),
+        expect.objectContaining({ id: benjaminId, name: "Benjamin Waye" })
+      ])
+    );
+    expect(init.seasonVictory).toEqual(
+      expect.arrayContaining([expect.objectContaining({ leaderPlayerId: benjaminId, leaderName: "Benjamin Waye" })])
     );
   });
 

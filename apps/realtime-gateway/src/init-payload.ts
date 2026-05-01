@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import {
   MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE,
+  anonymizedEmpireNameForId,
+  isOpaquePlayerId,
   type SeasonVictoryObjectiveView,
   type SeasonVictoryPathId,
   type ResourceType,
@@ -11,7 +13,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "@border-empires/shared";
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import type { LeaderboardMetricEntry, LeaderboardOverallEntry, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import {
   SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE,
   SEASON_VICTORY_ECONOMY_LEAD_MULT,
@@ -213,6 +215,51 @@ const displayNameForSeedPlayer = (playerId: string, fallbackName: string): strin
   return playerId;
 };
 
+const liveNameNeedsSnapshotRecovery = (playerId: string, name: string | undefined): boolean => {
+  if (!name) return true;
+  if (name === playerId) return true;
+  return isOpaquePlayerId(playerId) && name === anonymizedEmpireNameForId(playerId);
+};
+
+const snapshotDisplayNameForPlayer = (
+  playerId: string,
+  snapshotBootstrap: LegacySnapshotBootstrap | undefined
+): string | undefined => {
+  const snapshotName = snapshotBootstrap?.playerProfiles.get(playerId)?.name?.trim();
+  return snapshotName && snapshotName.length > 0 ? snapshotName : undefined;
+};
+
+const recoverEntryNameFromSnapshot = <T extends { id: string; name: string }>(
+  entries: T[],
+  snapshotBootstrap: LegacySnapshotBootstrap | undefined
+): T[] =>
+  entries.map((entry) => {
+    if (!liveNameNeedsSnapshotRecovery(entry.id, entry.name)) return entry;
+    const snapshotName = snapshotDisplayNameForPlayer(entry.id, snapshotBootstrap);
+    return snapshotName ? { ...entry, name: snapshotName } : entry;
+  });
+
+const recoverOptionalEntryNameFromSnapshot = <T extends { id: string; name: string }>(
+  entry: T | undefined,
+  snapshotBootstrap: LegacySnapshotBootstrap | undefined
+): T | undefined => {
+  if (!entry || !liveNameNeedsSnapshotRecovery(entry.id, entry.name)) return entry;
+  const snapshotName = snapshotDisplayNameForPlayer(entry.id, snapshotBootstrap);
+  return snapshotName ? { ...entry, name: snapshotName } : entry;
+};
+
+const recoverSeasonVictoryNamesFromSnapshot = (
+  objectives: SeasonVictoryObjectiveView[],
+  snapshotBootstrap: LegacySnapshotBootstrap | undefined
+): SeasonVictoryObjectiveView[] =>
+  objectives.map((objective) => {
+    if (!objective.leaderPlayerId || !liveNameNeedsSnapshotRecovery(objective.leaderPlayerId, objective.leaderName)) {
+      return objective;
+    }
+    const snapshotName = snapshotDisplayNameForPlayer(objective.leaderPlayerId, snapshotBootstrap);
+    return snapshotName ? { ...objective, leaderName: snapshotName } : objective;
+  });
+
 const firstOwnedTile = (playerId: string, snapshot: PlayerSubscriptionSnapshot): { x: number; y: number } | undefined => {
   const townTile = snapshot.tiles.find((tile) => tile.ownerId === playerId && tile.townType);
   if (townTile) return { x: townTile.x, y: townTile.y };
@@ -261,6 +308,33 @@ const rankMetric = <T extends { id: string; name: string; value: number }>(entri
     .slice()
     .sort((left, right) => right.value - left.value || left.name.localeCompare(right.name))
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
+
+const visibleLeaderboardEntries = (
+  leaderboard:
+    | {
+        overall: Array<{ id: string; name: string }>;
+        byTiles: Array<{ id: string; name: string }>;
+        byIncome: Array<{ id: string; name: string }>;
+        byTechs: Array<{ id: string; name: string }>;
+        selfOverall?: { id: string; name: string };
+        selfByTiles?: { id: string; name: string };
+        selfByIncome?: { id: string; name: string };
+        selfByTechs?: { id: string; name: string };
+      }
+    | undefined
+): Array<{ id: string; name: string }> => {
+  if (!leaderboard) return [];
+  const visible = new Map<string, string>();
+  for (const entry of leaderboard.overall) visible.set(entry.id, entry.name);
+  for (const entry of leaderboard.byTiles) if (!visible.has(entry.id)) visible.set(entry.id, entry.name);
+  for (const entry of leaderboard.byIncome) if (!visible.has(entry.id)) visible.set(entry.id, entry.name);
+  for (const entry of leaderboard.byTechs) if (!visible.has(entry.id)) visible.set(entry.id, entry.name);
+  if (leaderboard.selfOverall && !visible.has(leaderboard.selfOverall.id)) visible.set(leaderboard.selfOverall.id, leaderboard.selfOverall.name);
+  if (leaderboard.selfByTiles && !visible.has(leaderboard.selfByTiles.id)) visible.set(leaderboard.selfByTiles.id, leaderboard.selfByTiles.name);
+  if (leaderboard.selfByIncome && !visible.has(leaderboard.selfByIncome.id)) visible.set(leaderboard.selfByIncome.id, leaderboard.selfByIncome.name);
+  if (leaderboard.selfByTechs && !visible.has(leaderboard.selfByTechs.id)) visible.set(leaderboard.selfByTechs.id, leaderboard.selfByTechs.name);
+  return [...visible.entries()].map(([id, name]) => ({ id, name }));
+};
 
 const RESOURCE_TYPES: ResourceType[] = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR", "OIL"];
 
@@ -616,12 +690,18 @@ export const buildGatewayInitPayload = (
   }
   const settledCounts = settledCountsFromSnapshot(snapshotBootstrap?.initialState ?? initialState);
 
-  const profileSource = snapshotBootstrap?.playerProfiles
-    ? [...snapshotBootstrap.playerProfiles.keys()]
-    : [...seedWorld.players.keys()];
-  const playerStyles = profileSource.map((playerId) => ({
+  const liveVisibleEntries = visibleLeaderboardEntries(liveWorldStatus?.leaderboard);
+  const profileSource = new Set<string>(
+    snapshotBootstrap?.playerProfiles ? [...snapshotBootstrap.playerProfiles.keys()] : [...seedWorld.players.keys()]
+  );
+  for (const entry of liveVisibleEntries) profileSource.add(entry.id);
+  const liveVisibleNameByPlayerId = new Map(liveVisibleEntries.map((entry) => [entry.id, entry.name] as const));
+  const playerStyles = [...profileSource].map((playerId) => ({
     id: playerId,
-    name: snapshotBootstrap?.playerProfiles.get(playerId)?.name ?? displayNameForSeedPlayer(playerId, playerIdentity.playerName),
+    name:
+      snapshotBootstrap?.playerProfiles.get(playerId)?.name ??
+      liveVisibleNameByPlayerId.get(playerId) ??
+      displayNameForSeedPlayer(playerId, playerIdentity.playerName),
     tileColor: hexColorForPlayerId(playerId)
   }));
 
@@ -647,16 +727,43 @@ export const buildGatewayInitPayload = (
     .sort((left, right) => right.score - left.score || right.tiles - left.tiles || left.name.localeCompare(right.name))
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
-  const overall = liveWorldStatus?.leaderboard.overall ?? computedOverall;
-  const byTiles = liveWorldStatus?.leaderboard.byTiles ?? rankMetric(overall.map((entry) => ({ id: entry.id, name: entry.name, value: entry.tiles })));
-  const byIncome = liveWorldStatus?.leaderboard.byIncome ?? rankMetric(overall.map((entry) => ({ id: entry.id, name: entry.name, value: entry.incomePerMinute })));
-  const byTechs = liveWorldStatus?.leaderboard.byTechs ?? rankMetric(overall.map((entry) => ({ id: entry.id, name: entry.name, value: entry.techs })));
+  const overall: LeaderboardOverallEntry[] = recoverEntryNameFromSnapshot(
+    liveWorldStatus?.leaderboard.overall ?? computedOverall,
+    snapshotBootstrap
+  );
+  const byTiles: LeaderboardMetricEntry[] = recoverEntryNameFromSnapshot(
+    liveWorldStatus?.leaderboard.byTiles ?? rankMetric(overall.map((entry) => ({ id: entry.id, name: entry.name, value: entry.tiles }))),
+    snapshotBootstrap
+  );
+  const byIncome: LeaderboardMetricEntry[] = recoverEntryNameFromSnapshot(
+    liveWorldStatus?.leaderboard.byIncome ?? rankMetric(overall.map((entry) => ({ id: entry.id, name: entry.name, value: entry.incomePerMinute }))),
+    snapshotBootstrap
+  );
+  const byTechs: LeaderboardMetricEntry[] = recoverEntryNameFromSnapshot(
+    liveWorldStatus?.leaderboard.byTechs ?? rankMetric(overall.map((entry) => ({ id: entry.id, name: entry.name, value: entry.techs }))),
+    snapshotBootstrap
+  );
 
-  const selfOverall = liveWorldStatus?.leaderboard.selfOverall ?? overall.find((entry) => entry.id === playerIdentity.playerId);
-  const selfByTiles = liveWorldStatus?.leaderboard.selfByTiles ?? byTiles.find((entry) => entry.id === playerIdentity.playerId);
-  const selfByIncome = liveWorldStatus?.leaderboard.selfByIncome ?? byIncome.find((entry) => entry.id === playerIdentity.playerId);
-  const selfByTechs = liveWorldStatus?.leaderboard.selfByTechs ?? byTechs.find((entry) => entry.id === playerIdentity.playerId);
-  const seasonVictory = liveWorldStatus?.seasonVictory ?? buildSeasonVictoryObjectives(playerIdentity.playerId, snapshotBootstrap, initialState, overall);
+  const selfOverall: LeaderboardOverallEntry | undefined = recoverOptionalEntryNameFromSnapshot(
+    liveWorldStatus?.leaderboard.selfOverall ?? overall.find((entry) => entry.id === playerIdentity.playerId),
+    snapshotBootstrap
+  );
+  const selfByTiles: LeaderboardMetricEntry | undefined = recoverOptionalEntryNameFromSnapshot(
+    liveWorldStatus?.leaderboard.selfByTiles ?? byTiles.find((entry) => entry.id === playerIdentity.playerId),
+    snapshotBootstrap
+  );
+  const selfByIncome: LeaderboardMetricEntry | undefined = recoverOptionalEntryNameFromSnapshot(
+    liveWorldStatus?.leaderboard.selfByIncome ?? byIncome.find((entry) => entry.id === playerIdentity.playerId),
+    snapshotBootstrap
+  );
+  const selfByTechs: LeaderboardMetricEntry | undefined = recoverOptionalEntryNameFromSnapshot(
+    liveWorldStatus?.leaderboard.selfByTechs ?? byTechs.find((entry) => entry.id === playerIdentity.playerId),
+    snapshotBootstrap
+  );
+  const seasonVictory = recoverSeasonVictoryNamesFromSnapshot(
+    liveWorldStatus?.seasonVictory ?? buildSeasonVictoryObjectives(playerIdentity.playerId, snapshotBootstrap, initialState, overall),
+    snapshotBootstrap
+  );
   const dockPairs = snapshotBootstrap ? exportDockPairsFromSnapshot(snapshotBootstrap.docks ?? []) : [];
   const homeTile =
     bootstrapProfile?.capitalTile ??

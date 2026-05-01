@@ -54,6 +54,20 @@ export class PostgresGatewayPlayerProfileStore implements GatewayPlayerProfileSt
     return result.rows[0] ? toStoredPlayerProfile(result.rows[0]) : undefined;
   }
 
+  async getMany(playerIds: Iterable<string>): Promise<StoredPlayerProfile[]> {
+    const uniquePlayerIds = [...new Set([...playerIds].filter((playerId) => playerId.trim().length > 0))];
+    if (uniquePlayerIds.length === 0) return [];
+    const result = await this.db.query<PlayerProfileRow>(
+      `
+      SELECT player_id, display_name, tile_color, profile_complete, updated_at
+      FROM player_profiles
+      WHERE player_id = ANY($1::text[])
+      `,
+      [uniquePlayerIds]
+    );
+    return result.rows.map((row) => toStoredPlayerProfile(row));
+  }
+
   async setTileColor(playerId: string, tileColor: string): Promise<StoredPlayerProfile> {
     const now = this.now();
     const result = await this.db.query<PlayerProfileRow>(
