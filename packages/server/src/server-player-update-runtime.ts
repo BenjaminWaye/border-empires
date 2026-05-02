@@ -1,4 +1,5 @@
 import type { Player, PlayerRespawnNotice, SeasonWinnerView, SeasonVictoryObjectiveView, TileKey, TruceRequest } from "@border-empires/shared";
+import { withSettlementRepairDiagnostic } from "./server-settlement-diagnostic-payload.js";
 import type { Ws } from "./server-runtime-config.js";
 import type {
   AllianceRequest,
@@ -34,6 +35,7 @@ export interface CreateServerPlayerUpdateRuntimeDeps {
   };
   refreshGlobalStatusCache: (force: boolean) => void;
   pendingSettlementsForPlayer: (playerId: string) => Array<{ ownerId: string; tileKey: TileKey; startedAt: number; resolvesAt: number }>;
+  settlementRepairDiagnosticForPlayer: (playerId: string) => { key: string; detail: string } | undefined;
   parseKey: (tileKey: TileKey) => [number, number];
   developmentProcessCapacityForPlayer: (playerId: string) => number;
   activeDevelopmentProcessCountForPlayer: (playerId: string) => number;
@@ -136,6 +138,7 @@ export const createServerPlayerUpdateRuntime = (
       profileNeedsSetup: player.profileComplete !== true,
       respawnNotice: deps.consumeRespawnNoticeForPlayer(player)
     };
+    const settlementRepairDiagnostic = deps.settlementRepairDiagnosticForPlayer(player.id);
     if (detail === "full") Object.assign(payload, { name: player.name, tileColor: player.tileColor, visualStyle: deps.empireStyleFromPlayer(player), mods: player.mods });
     if (includeBreakdowns) Object.assign(payload, { modBreakdown: deps.playerModBreakdown(player), manpowerBreakdown: deps.playerManpowerBreakdown(player) });
     if (includeEconomy && economy) Object.assign(payload, { incomePerMinute: economy.incomePerMinute, incomeDelta, strategicProductionPerMinute: economy.strategicProductionPerMinute, economyBreakdown: economy.economyBreakdown, upkeepPerMinute: economy.upkeepPerMinute, upkeepLastTick: economy.upkeepLastTick });
@@ -183,7 +186,7 @@ export const createServerPlayerUpdateRuntime = (
       });
     }
     const sendStartedAt = deps.now();
-    ws.send(JSON.stringify(payload));
+    ws.send(JSON.stringify(withSettlementRepairDiagnostic(payload, settlementRepairDiagnostic)));
     const sendMs = deps.now() - sendStartedAt;
     const elapsedMs = deps.now() - startedAt;
     if (elapsedMs >= deps.HOT_PLAYER_UPDATE_WARN_MS) {

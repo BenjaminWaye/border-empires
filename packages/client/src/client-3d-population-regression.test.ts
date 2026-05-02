@@ -19,5 +19,7 @@ describe("3d reveal population regression guard", () => {
     expect(runtimeLoop).toContain(
       "deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);"
     );
+    expect(runtimeLoop).not.toContain("townTierFor3DPopulation");
+    expect(runtimeLoop).not.toContain("populationTier");
   });
 });

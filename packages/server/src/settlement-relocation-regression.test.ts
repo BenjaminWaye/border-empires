@@ -87,8 +87,13 @@ describe("settlement relocation regression guard", () => {
   it("seeds a settlement at spawn and recreates one only through the fallback helper", () => {
     const playerRuntimeSource = readServerSource("./server-player-runtime-support.ts");
     const settlementFlowSource = readServerSource("./server-settlement-flow.ts");
-    expect(playerRuntimeSource).toContain('if (deps.townsByTile.has(deps.key(x, y))) return false;');
-    expect(playerRuntimeSource).toContain('if (!deps.townsByTile.has(deps.key(x, y))) deps.createSettlementAtTile(player.id, deps.key(x, y));');
+    expect(playerRuntimeSource).toContain("const tileKey = deps.key(x, y);");
+    expect(playerRuntimeSource).toContain("if (deps.townsByTile.has(tileKey)) return false;");
+    expect(playerRuntimeSource).toContain('if (tile.resource || tile.dockId || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;');
+    expect(playerRuntimeSource).toContain('if (!deps.townsByTile.has(tileKey)) deps.createSettlementAtTile(player.id, tileKey);');
+    expect(playerRuntimeSource).toContain("const previousOwnerId = tile.ownerId;");
+    expect(playerRuntimeSource).toContain("const previousOwnershipState = tile.ownershipState;");
+    expect(playerRuntimeSource).toContain("deps.updateOwnership(x, y, previousOwnerId, previousOwnershipState);");
     expect(settlementFlowSource).toContain("const ensureFallbackSettlementForPlayer = (playerId: string): boolean => {");
     expect(settlementFlowSource).toContain("const playerHasPotentialGoldIncome = (playerId: string): boolean => {");
     expect(settlementFlowSource).toContain("ignoreSuppression: true, ignoreManpowerGate: true");
@@ -99,7 +104,9 @@ describe("settlement relocation regression guard", () => {
     const tileViewSource = readServerSource("./server-tile-view-runtime.ts");
     const playerRuntimeSource = readServerSource("./server-player-runtime-support.ts");
     const snapshotHydrateSource = readServerSource("./server-snapshot-hydrate.ts");
-    expect(settlementFlowSource).toContain("const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined =>");
+    expect(settlementFlowSource).toContain("const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined => {");
+    expect(settlementFlowSource).toContain("for (const tileKey of player.territoryTiles) {");
+    expect(settlementFlowSource).toContain("if (isRelocatableSettlementTown(townsByTile.get(tileKey))) return tileKey;");
     expect(settlementFlowSource).toContain("const ensureActiveSettlementForPlayer = (playerId: string): boolean => {");
     expect(settlementFlowSource).toContain("for (const candidate of [player.spawnOrigin, player.capitalTileKey, oldestSettledSettlementCandidateForPlayer(playerId)]) {");
     expect(playerRuntimeSource).toContain("deps.ensureActiveSettlementForPlayer(player.id);");
