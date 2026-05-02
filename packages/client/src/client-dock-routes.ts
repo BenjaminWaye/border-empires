@@ -21,7 +21,7 @@ export const computeDockSeaRoute = (
       { x: deps.wrapX(x + 1), y: deps.wrapY(y) },
       { x: deps.wrapX(x), y: deps.wrapY(y + 1) },
       { x: deps.wrapX(x - 1), y: deps.wrapY(y) }
-    ].filter((point) => terrainAt(point.x, point.y) === "SEA");
+    ].filter((point) => { const terrain = terrainAt(point.x, point.y); return terrain === "SEA" || terrain === "COASTAL_SEA"; });
     if (candidates.length === 0) return undefined;
     candidates.sort((left, right) => manhattanLinear(left.x, left.y, tx, ty) - manhattanLinear(right.x, right.y, tx, ty));
     return candidates[0];
@@ -87,7 +87,7 @@ export const computeDockSeaRoute = (
     ];
     for (const neighbor of neighbors) {
       if (neighbor.x < 0 || neighbor.y < 0 || neighbor.x >= WORLD_WIDTH || neighbor.y >= WORLD_HEIGHT) continue;
-      if (terrainAt(neighbor.x, neighbor.y) !== "SEA") continue;
+      { const terrain = terrainAt(neighbor.x, neighbor.y); if (terrain !== "SEA" && terrain !== "COASTAL_SEA") continue; }
       const neighborIndex = deps.worldIndex(neighbor.x, neighbor.y);
       const tentative = (gScore.get(current) ?? Number.POSITIVE_INFINITY) + 1;
       if (tentative >= (gScore.get(neighborIndex) ?? Number.POSITIVE_INFINITY)) continue;

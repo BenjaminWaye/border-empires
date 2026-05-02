@@ -176,7 +176,7 @@ export const createServerAiFrontierPlanningRuntime = (
       const explorationValue = deps.adjacentNeighborCores(to.x, to.y).reduce((score, neighbor) => {
         if (visibleToActor(neighbor.x, neighbor.y)) return score;
         let next = score + 18;
-        if (neighbor.terrain === "SEA") next += 10;
+        if (neighbor.terrain === "SEA" || neighbor.terrain === "COASTAL_SEA") next += 10;
         return next;
       }, toVisible ? 0 : 24);
       const exposedSides = deps.adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => {
@@ -187,7 +187,7 @@ export const createServerAiFrontierPlanningRuntime = (
       const ownedNeighbors = deps.adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => count + (neighbor.ownerId === actor.id ? 1 : 0), 0);
       const alliedSettledNeighbors = deps.adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => count + (neighbor.ownerId === actor.id && neighbor.ownershipState === "SETTLED" ? 1 : 0), 0);
       const frontierNeighbors = deps.adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => count + (neighbor.ownerId === actor.id && neighbor.ownershipState === "FRONTIER" ? 1 : 0), 0);
-      const coastlineDiscoveryValue = deps.adjacentNeighborCores(to.x, to.y).reduce((score, neighbor) => score + (neighbor.terrain === "SEA" ? (visibleToActor(neighbor.x, neighbor.y) ? 10 : 18) : 0), 0);
+      const coastlineDiscoveryValue = deps.adjacentNeighborCores(to.x, to.y).reduce((score, neighbor) => score + ((neighbor.terrain === "SEA" || neighbor.terrain === "COASTAL_SEA") ? (visibleToActor(neighbor.x, neighbor.y) ? 10 : 18) : 0), 0);
       const compactnessValue = alliedSettledNeighbors * 8 - exposedSides * 12;
       const scoutShapePenalty =
         Math.max(0, ownedNeighbors - 2) * 36 +

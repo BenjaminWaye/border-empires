@@ -24,7 +24,7 @@ type NormalizedGatewayTileUpdate = {
 export type GatewayTileUpdate = {
   x: number;
   y: number;
-  terrain?: "LAND" | "SEA" | "MOUNTAIN";
+  terrain?: Tile["terrain"];
   resource?: string;
   dockId?: string;
   ownerId?: string | null;

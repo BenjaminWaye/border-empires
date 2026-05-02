@@ -1,7 +1,7 @@
 import WebSocket from "ws";
-import { CHUNK_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { CHUNK_SIZE, WORLD_HEIGHT, WORLD_WIDTH, type Terrain } from "@border-empires/shared";
 
-type Tile = { x: number; y: number; terrain: "LAND" | "SEA" | "MOUNTAIN"; ownerId?: string };
+type Tile = { x: number; y: number; terrain: Terrain; ownerId?: string };
 
 type Bot = {
   name: string;
