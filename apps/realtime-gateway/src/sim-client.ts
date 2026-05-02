@@ -15,6 +15,7 @@ import {
 import type { Terrain } from "@border-empires/shared";
 
 type ProtoAck = { ok: boolean };
+type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
 type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
 type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
 type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
@@ -73,6 +74,7 @@ type ProtoSubscribePlayerRequest = {
 };
 type ProtoUnsubscribePlayerRequest = {
   player_id: string;
+  subscription_key?: string;
 };
 type ProtoSimulationEvent = {
   event_type: string;
@@ -120,6 +122,10 @@ type SimulationClientLike = {
   UnsubscribePlayer: (
     request: ProtoUnsubscribePlayerRequest,
     callback: (error: Error | null, response: ProtoAck) => void
+  ) => void;
+  GetSubscriptionNamespace?: (
+    request: Record<string, unknown>,
+    callback: (error: Error | null, response: ProtoSubscriptionNamespaceAck) => void
   ) => void;
   Ping: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoAck) => void) => void;
   GetCurrentSeasonSummary?: (
@@ -590,7 +596,8 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   preparePlayer: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
-  unsubscribePlayer: (playerId: string) => Promise<void>;
+  unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
+  getSubscriptionNamespace: () => Promise<string>;
   ping: () => Promise<void>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
@@ -652,14 +659,37 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
-  unsubscribePlayer(playerId) {
+  unsubscribePlayer(playerId, subscriptionKey) {
     return new Promise<void>((resolve, reject) => {
-      client.UnsubscribePlayer({ player_id: playerId }, (error) => {
+      client.UnsubscribePlayer(
+        { player_id: playerId, ...(subscriptionKey ? { subscription_key: subscriptionKey } : {}) },
+        (error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        }
+      );
+    });
+  },
+  getSubscriptionNamespace() {
+    return new Promise<string>((resolve, reject) => {
+      if (typeof client.GetSubscriptionNamespace !== "function") {
+        reject(new Error("simulation client GetSubscriptionNamespace RPC is unavailable"));
+        return;
+      }
+      client.GetSubscriptionNamespace({}, (error, response) => {
         if (error) {
           reject(error);
           return;
         }
-        resolve();
+        const namespace = response.namespace;
+        if (typeof namespace !== "string" || namespace.length === 0) {
+          reject(new Error("simulation subscription namespace payload missing"));
+          return;
+        }
+        resolve(namespace);
       });
     });
   },
@@ -740,7 +770,8 @@ export const createSimulationClient = (address: string): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   preparePlayer: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
-  unsubscribePlayer: (playerId: string) => Promise<void>;
+  unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
+  getSubscriptionNamespace: () => Promise<string>;
   ping: () => Promise<void>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
