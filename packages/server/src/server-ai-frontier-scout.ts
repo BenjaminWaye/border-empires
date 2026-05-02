@@ -115,7 +115,7 @@ export const createServerAiFrontierScoutRuntime = (
         if (next.ownershipState === "SETTLED") alliedSettledNeighbors += 1;
         if (next.ownershipState === "FRONTIER") frontierNeighbors += 1;
       }
-      if (next.terrain === "SEA") coastlineDiscoveryValue += 18;
+      if (next.terrain === "SEA" || next.terrain === "COASTAL_SEA") coastlineDiscoveryValue += 18;
       if (next.terrain !== "LAND" || next.ownerId !== actor.id) exposedSides += 1;
     }
     const metrics = { ownedNeighbors, alliedSettledNeighbors, frontierNeighbors, coastlineDiscoveryValue, exposedSides };
@@ -176,7 +176,7 @@ export const createServerAiFrontierScoutRuntime = (
         score += economyWeak ? 12 : 8;
       }
       if (deps.isNearMountain(x, y, 2)) score += 8;
-      if (deps.adjacentNeighborCores(x, y).some((neighbor) => neighbor.terrain === "SEA")) score += 8;
+      if (deps.adjacentNeighborCores(x, y).some((neighbor) => neighbor.terrain === "SEA" || neighbor.terrain === "COASTAL_SEA")) score += 8;
     };
     for (const next of deps.adjacentNeighborCores(to.x, to.y)) {
       if (next.terrain !== "LAND") continue;
@@ -252,7 +252,7 @@ export const createServerAiFrontierScoutRuntime = (
               if (next.ownershipState === "SETTLED") alliedSettledNeighbors += 1;
               if (next.ownershipState === "FRONTIER") frontierNeighbors += 1;
             }
-            if (next.terrain === "SEA") coastlineDiscoveryValue += 18;
+            if (next.terrain === "SEA" || next.terrain === "COASTAL_SEA") coastlineDiscoveryValue += 18;
           }
           return { ownedNeighbors, alliedSettledNeighbors, frontierNeighbors, coastlineDiscoveryValue };
         })();

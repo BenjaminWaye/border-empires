@@ -24,6 +24,8 @@ import { parentPort } from "node:worker_threads";
 import {
   ATTACK_MANPOWER_MIN,
   FRONTIER_CLAIM_COST
+,
+  type Terrain
 } from "@border-empires/shared";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
@@ -44,7 +46,7 @@ const playerTileCacheById = new Map<string, {
 type SimulationTileDelta = {
   x: number;
   y: number;
-  terrain?: "LAND" | "SEA" | "MOUNTAIN" | undefined;
+  terrain?: Terrain | undefined;
   resource?: string | undefined;
   dockId?: string | undefined;
   ownerId?: string | undefined;

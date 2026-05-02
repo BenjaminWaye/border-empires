@@ -13,6 +13,7 @@ import {
   type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
+import type { Terrain } from "@border-empires/shared";
 
 import { createSimulationCommandStore } from "./command-store-factory.js";
 import type { SimulationCommandStore } from "./command-store.js";
@@ -182,7 +183,7 @@ type SimulationServiceOptions = {
 type SimulationTileDelta = {
   x: number;
   y: number;
-  terrain?: "LAND" | "SEA" | "MOUNTAIN";
+  terrain?: Terrain;
   resource?: string | undefined;
   dockId?: string | undefined;
   ownerId?: string | undefined;

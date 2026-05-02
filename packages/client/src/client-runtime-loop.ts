@@ -753,9 +753,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         } else if (vis === "fogged") {
           deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
-          deps.ctx.fillStyle = "rgba(2, 5, 10, 0.72)";
+          deps.ctx.fillStyle = (t.terrain === "SEA" || t.terrain === "COASTAL_SEA") ? "rgba(7, 20, 34, 0.34)" : "rgba(2, 5, 10, 0.72)";
           deps.ctx.fillRect(px, py, size, size);
-        } else if (t.terrain === "SEA" || t.terrain === "MOUNTAIN") {
+        } else if (t.terrain === "SEA" || t.terrain === "COASTAL_SEA" || t.terrain === "MOUNTAIN") {
           deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
         } else {
           deps.drawTerrainTile(wx, wy, "LAND", px, py, size);

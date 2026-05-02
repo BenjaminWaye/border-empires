@@ -6894,7 +6894,7 @@ const seaTileCountBetween = (ax: number, ay: number, bx: number, by: number): nu
   let seaTiles = 0;
   for (const step of steps) {
     const terrain = terrainAtRuntime(step.x, step.y);
-    if (terrain !== "SEA") return undefined;
+    if (terrain !== "SEA" && terrain !== "COASTAL_SEA") return undefined;
     seaTiles += 1;
   }
   return seaTiles;

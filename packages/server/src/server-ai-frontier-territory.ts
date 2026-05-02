@@ -70,7 +70,7 @@ export const createServerAiFrontierTerritoryRuntime = (
     let exposedSides = 0;
     for (const neighbor of deps.adjacentNeighborCores(to.x, to.y)) {
       if (isHostileLandNeighbor(actor, neighbor)) return true;
-      if (neighbor.terrain === "SEA") return true;
+      if (neighbor.terrain === "SEA" || neighbor.terrain === "COASTAL_SEA") return true;
       if (neighbor.terrain !== "LAND" || neighbor.ownerId !== actor.id) {
         exposedSides += 1;
         continue;

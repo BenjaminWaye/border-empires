@@ -324,7 +324,7 @@ export const menuOverviewForTile = (
   if (tile.resource && !tile.ownerId && resourceLabelText) {
     pushLine(`This ${resourceLabelText.toLowerCase()} node starts producing only after you claim and settle the tile.`);
   }
-  if (tile.terrain === "SEA" || tile.terrain === "MOUNTAIN") return lines;
+  if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter gold and manpower until they grow into towns.");
   }
@@ -489,7 +489,7 @@ export const tileMenuViewForTile = (
   const regionLabel = tile.regionType ? deps.prettyToken(tile.regionType) : undefined;
   const foreignOwnerLabel = tile.ownerId ? (deps.playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : undefined;
   const ownerLabel =
-    tile.terrain === "SEA"
+    (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA")
       ? actions.length > 0
         ? "Crossing route"
         : "Open sea"
@@ -500,7 +500,7 @@ export const tileMenuViewForTile = (
             ? "Your frontier"
             : "Your settled land"
           : (foreignOwnerLabel ?? "Unknown empire");
-  const ownerLabelIsAlly = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && deps.isTileOwnedByAlly(tile);
+  const ownerLabelIsAlly = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && deps.isTileOwnedByAlly(tile);
   const subtitleHtml = ownerLabelIsAlly
     ? [
         `<span class="tile-owner-label is-ally">${ownerLabel}</span>`,

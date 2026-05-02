@@ -1,5 +1,6 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey } from "@border-empires/game-domain";
+import type { Terrain } from "@border-empires/shared";
 
 import { createAutomationCommand } from "./automation-command-factory.js";
 import type {
@@ -14,7 +15,7 @@ import { chooseAiDomainChoiceForPlayer, chooseAiTechChoiceForPlayer } from "./te
 type StrategicResourceKey = DomainStrategicResourceKey;
 type AutomationPreplanTile = {
   ownershipState?: string | undefined;
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
+  terrain: Terrain;
   town?: unknown;
   dockId?: string | undefined;
   resource?: string | undefined;

@@ -46,7 +46,7 @@ export const exposedSidesForTile = (
     const neighbor = args.tiles.get(args.keyFor(args.wrapX(dir.x), args.wrapY(dir.y)));
     if (neighbor?.ownerId === args.me && neighbor.terrain === "LAND" && neighbor.ownershipState === "SETTLED" && !neighbor.fogged) continue;
     const terrain = args.terrainAt(dir.x, dir.y);
-    if (terrain === "SEA" || terrain === "MOUNTAIN") continue;
+    if (terrain === "SEA" || terrain === "COASTAL_SEA" || terrain === "MOUNTAIN") continue;
     out.push(dir.name);
   }
   return out;
@@ -77,7 +77,7 @@ const defensibilityBreakdown = (args: Pick<DefensibilityArgs, "tiles" | "me" | "
         continue;
       }
       const terrain = args.terrainAt(neighbor.x, neighbor.y);
-      if (terrain === "SEA" || terrain === "MOUNTAIN") {
+      if (terrain === "SEA" || terrain === "COASTAL_SEA" || terrain === "MOUNTAIN") {
         naturalShieldEdges += 1;
         continue;
       }

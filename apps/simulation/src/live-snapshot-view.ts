@@ -1,4 +1,6 @@
-import { OBSERVATORY_UPKEEP_PER_MIN, type Tile } from "@border-empires/shared";
+import { OBSERVATORY_UPKEEP_PER_MIN, type Tile ,
+  type Terrain
+} from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import {
@@ -37,7 +39,7 @@ type RuntimeState = {
   tiles: Array<{
     x: number;
     y: number;
-    terrain?: "LAND" | "SEA" | "MOUNTAIN";
+    terrain?: Terrain;
     resource?: string;
     dockId?: string;
     ownerId?: string;

@@ -347,16 +347,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (debugTarget) debugTarget.__be3dOwnershipDebug = payload;
     console.info("[3d-ownership-debug]", payload);
   };
-  const isCoastalSea = (wx: number, wy: number): boolean => {
-    if (terrainForWorldTile(wx, wy) !== "SEA") return false;
-    const neighbors = [
-      terrainForWorldTile(deps.wrapX(wx), deps.wrapY(wy - 1)),
-      terrainForWorldTile(deps.wrapX(wx + 1), deps.wrapY(wy)),
-      terrainForWorldTile(deps.wrapX(wx), deps.wrapY(wy + 1)),
-      terrainForWorldTile(deps.wrapX(wx - 1), deps.wrapY(wy))
-    ];
-    return neighbors.some((neighbor) => neighbor === "LAND" || neighbor === "MOUNTAIN");
-  };
   const isSandTile = (wx: number, wy: number): boolean => {
     if (terrainForWorldTile(wx, wy) !== "LAND") return false;
     const biome = landBiomeAt(wx, wy);
@@ -571,9 +561,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             isOwnedLand
           };
         }
-        if (terrain === "SEA") {
+        if (terrain === "SEA" || terrain === "COASTAL_SEA") {
           tempMatrix.makeTranslation(x, -0.1, z);
-          if (isCoastalSea(wx, wy)) {
+          if (terrain === "COASTAL_SEA") {
             coastSeaMesh.setMatrixAt(coastSeaCount, tempMatrix);
             coastSeaCount += 1;
           } else {
