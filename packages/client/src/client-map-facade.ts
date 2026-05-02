@@ -155,16 +155,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     options?: { preview?: boolean; nowMs?: number }
   ): void => drawAetherWallSegmentOnCanvas(renderCtx, fromX, fromY, toX, toY, options);
 
-  const isCoastalSea = (x: number, y: number): boolean => {
-    const neighbors = [
-      terrainAt(wrapX(x), wrapY(y - 1)),
-      terrainAt(wrapX(x + 1), wrapY(y)),
-      terrainAt(wrapX(x), wrapY(y + 1)),
-      terrainAt(wrapX(x - 1), wrapY(y))
-    ];
-    return neighbors.includes("LAND");
-  };
-
   const tileNoise = (x: number, y: number, seed: number): number => {
     const hash = hashString(`${wrapX(x)}:${wrapY(y)}:${seed}`);
     return (hash % 10_000) / 10_000;
@@ -200,7 +190,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   };
 
   const terrainColorAt = (x: number, y: number, terrain: Tile["terrain"]): string => {
-    if (terrain === "SEA") return isCoastalSea(x, y) ? "#1f6ea0" : "#0b3d91";
+    if (terrain === "COASTAL_SEA") return "#1f6ea0";
+    if (terrain === "SEA") return "#0b3d91";
     if (terrain === "MOUNTAIN") return "#8b8d92";
     return landTone(x, y);
   };

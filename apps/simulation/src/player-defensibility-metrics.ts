@@ -1,4 +1,6 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH ,
+  isSeaTerrain
+} from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 const wrap = (value: number, size: number): number => {
@@ -31,7 +33,7 @@ const exposedEdgesFor = (
     const next = tiles.get(`${neighbor.x},${neighbor.y}`);
     if (ownedTile(next, playerId, settledOnly)) continue;
     const terrain = next?.terrain ?? "LAND";
-    if (terrain === "SEA" || terrain === "MOUNTAIN") continue;
+    if (isSeaTerrain(terrain) || terrain === "MOUNTAIN") continue;
     exposed += 1;
   }
   return exposed;
