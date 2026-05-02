@@ -29,6 +29,7 @@ import { createSocialState } from "./social-state.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "./supported-client-messages.js";
 import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
+import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "./live-world-status-recovery.js";
 import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
@@ -249,6 +250,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       Number(process.env.GATEWAY_SIMULATION_PREPARE_TIMEOUT_MS ?? simulationSubscribeTimeoutMs)
   );
   const simulationPingTimeoutMs = Math.max(1_500, Number(process.env.GATEWAY_SIMULATION_PING_TIMEOUT_MS ?? 20_000));
+  const liveProfileHydrationTimeoutMs = 150;
   const simulationSubmitTimeoutMs = Math.max(
     500,
     options.simulationSubmitTimeoutMs ??
@@ -594,8 +596,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
 
-  const stopSimulationStream = simulationClient.streamEvents(
-    (event: SimulationClientEvent) => {
+  let simulationEventChain = Promise.resolve();
+  const processSimulationEvent = async (event: SimulationClientEvent): Promise<void> => {
       markSimulationReady();
       if (!event.commandId.startsWith("bootstrap:")) {
         recordGatewayEvent("info", "gateway_simulation_event_received", {
@@ -629,11 +631,25 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         return;
       }
       if (event.eventType === "PLAYER_MESSAGE") {
+        try {
+          await withTimeout(
+            hydrateVisibleLiveProfileOverrides(event.payload, profileStore, profileOverrides),
+            liveProfileHydrationTimeoutMs,
+            "hydrate live player profile overrides"
+          );
+        } catch (error) {
+          app.log.warn(
+            { err: error, commandId: event.commandId, playerId: event.playerId, messageType: event.messageType },
+            "failed to hydrate live player profile overrides; forwarding original player message"
+          );
+        }
+        const recoveredPayload = recoverLivePlayerMessage(event.payload, profileOverrides);
         for (const targetSocket of sockets) {
           const session = sessionsBySocket.get(targetSocket);
           if (!session?.playerId) continue;
-          playerSubscriptions.updateSnapshot(session.playerId, (snapshot) => applyPlayerMessageToSnapshot(snapshot, event.payload));
+          playerSubscriptions.updateSnapshot(session.playerId, (snapshot) => applyPlayerMessageToSnapshot(snapshot, recoveredPayload));
         }
+        event.payload = recoveredPayload;
       }
       // TILE_DELTA_BATCH: snapshot updates and persistence must run exactly once
       // per event (not once per socket), so handle them before the per-socket fan-out loop.
@@ -781,6 +797,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           continue;
         }
       }
+    };
+  const stopSimulationStream = simulationClient.streamEvents(
+    (event: SimulationClientEvent) => {
+      simulationEventChain = simulationEventChain
+        .then(() => processSimulationEvent(event))
+        .catch((error) => {
+          app.log.error({ err: error, commandId: event.commandId, playerId: event.playerId, eventType: event.eventType }, "simulation event processing failed");
+        });
     },
     {
       onConnect() {
