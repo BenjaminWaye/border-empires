@@ -100,7 +100,7 @@ export const resourceFor3DPopulation = (
   if (tile?.resource) return tile.resource;
   if (!syntheticEnabled) return undefined;
   const roll = hash01(wx, wy, 71);
-  if (terrain === "SEA") return roll < 0.02 ? "FISH" : undefined;
+  if (terrain === "SEA" || terrain === "COASTAL_SEA") return roll < 0.02 ? "FISH" : undefined;
   if (terrain !== "LAND") return undefined;
   const resourceCluster = inCluster(wx, wy, 9, 1.75, 71);
   if (!resourceCluster.active) {

@@ -22,7 +22,7 @@
  */
 
 import { parentPort } from "node:worker_threads";
-import type { EconomicStructureType } from "@border-empires/shared";
+import type { EconomicStructureType, Terrain } from "@border-empires/shared";
 import { buildAiTrainingRecord } from "./ai-training-records.js";
 import { createAiTrainingRecorder } from "./ai-training-recorder.js";
 import {
@@ -73,7 +73,7 @@ const rememberedVictoryPathCounts = (): Partial<Record<AutomationVictoryPath, nu
 type SimulationTileDelta = {
   x: number;
   y: number;
-  terrain?: "LAND" | "SEA" | "MOUNTAIN" | undefined;
+  terrain?: Terrain | undefined;
   resource?: string | undefined;
   dockId?: string | undefined;
   ownerId?: string | undefined;

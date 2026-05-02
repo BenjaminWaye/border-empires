@@ -1,3 +1,5 @@
+import type { Terrain } from "@border-empires/shared";
+
 export type OptimisticStructureKind =
   | "FORT"
   | "OBSERVATORY"
@@ -49,7 +51,7 @@ export type TileUpkeepEntry = {
 export type Tile = {
   x: number;
   y: number;
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
+  terrain: Terrain;
   detailLevel?: "summary" | "full";
   fogged?: boolean;
   resource?: string;
@@ -508,6 +510,7 @@ export type GuideStep = {
 };
 
 export type TileVisibilityState = "unexplored" | "fogged" | "visible";
+
 
 export type TerrainTextureId =
   | "SEA_DEEP"

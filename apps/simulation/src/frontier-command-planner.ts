@@ -1,4 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { isSeaTerrain, type Terrain } from "@border-empires/shared";
 
 import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
@@ -8,7 +9,7 @@ import { frontierNeighborKeys } from "./frontier-topology.js";
 type PlannerTile = {
   x: number;
   y: number;
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
+  terrain: Terrain;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   resource?: string | undefined;
@@ -85,7 +86,7 @@ const ownedNeighborCount = (tilesByKey: PlannerTileLookup, tile: PlannerTile, pl
 
 const coastlineDiscoveryValue = (tilesByKey: PlannerTileLookup, tile: PlannerTile): number =>
   frontierNeighborKeys(tile.x, tile.y).reduce(
-    (score, neighborKey) => score + (tilesByKey.get(neighborKey)?.terrain === "SEA" ? 18 : 0),
+    (score, neighborKey) => score + (isSeaTerrain(tilesByKey.get(neighborKey)?.terrain as Terrain) ? 18 : 0),
     0
   );
 

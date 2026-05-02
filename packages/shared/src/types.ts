@@ -1,4 +1,5 @@
-export type Terrain = "LAND" | "SEA" | "MOUNTAIN";
+export type Terrain = "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN";
+export const isSeaTerrain = (terrain: Terrain): terrain is "SEA" | "COASTAL_SEA" => terrain === "SEA" || terrain === "COASTAL_SEA";
 export type ResourceType = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR" | "OIL";
 export type TileKey = `${number},${number}`;
 export type PlayerId = string;

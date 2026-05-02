@@ -1,5 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import type { EconomicStructureType } from "@border-empires/shared";
+import type { EconomicStructureType, Terrain } from "@border-empires/shared";
 
 /**
  * Serializable world-view snapshot passed to AI and system worker threads via
@@ -11,7 +11,7 @@ import type { EconomicStructureType } from "@border-empires/shared";
 export type PlannerTileView = {
   x: number;
   y: number;
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
+  terrain: Terrain;
   resource?: DomainTileState["resource"];
   dockId?: string;
   ownerId?: string;
