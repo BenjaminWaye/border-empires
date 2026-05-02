@@ -7,6 +7,7 @@ import type {
   AutomationPlannerDiagnostic,
   AutomationPlannerResult,
   AutomationPlannerTile,
+  AutomationPreplanProgressState,
   AutomationSessionPrefix
 } from "./automation-command-planner.js";
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
@@ -24,6 +25,7 @@ export type AutomationPlannerDecisionContext<TTile extends AutomationPlannerTile
   frontierAnalysis: FrontierAnalysis;
   tilesByKey: ReadonlyMap<string, TTile>;
   needsFood: boolean;
+  preplanProgressState?: AutomationPreplanProgressState;
   needsEconomy: boolean;
 };
 
@@ -43,6 +45,20 @@ export const shouldSettleCandidateNow = <TTile extends AutomationPlannerTile>(
   const scaffoldOrScoutFallbackAvailable =
     context.frontierAnalysis.frontierOpportunityScaffold > 0 || context.frontierAnalysis.frontierOpportunityScout > 0;
   if (evaluation.townSupportNeed > 0 || evaluation.economicallyInteresting) return true;
+  if (context.preplanProgressState === "tech_unaffordable" && !isStrategicCandidate) {
+    if (
+      context.frontierAnalysis.frontierOpportunityEconomic > 0 ||
+      context.frontierAnalysis.frontierOpportunityScout > 0 ||
+      context.frontierAnalysis.frontierOpportunityScaffold > 0
+    ) {
+      return evaluation.score >= 55 && (evaluation.defensivelyCompact || evaluation.supportsImmediatePlan);
+    }
+    return (
+      evaluation.supportsImmediatePlan ||
+      (evaluation.defensivelyCompact && evaluation.score >= 45) ||
+      evaluation.score >= 65
+    );
+  }
   if (context.frontierAnalysis.frontierEnemyTargetCount > 0 && context.frontierAnalysis.frontierNeutralTargetCount === 0) {
     return evaluation.defensivelyCompact || evaluation.score >= 40;
   }
