@@ -8,6 +8,7 @@ const makeDeps = (): CreateServerPlayerRuntimeSupportDeps => {
   const players = new Map<string, Player>();
   const ownership = new Map<TileKey, string>();
   const ownershipStateByTile = new Map<TileKey, Tile["ownershipState"]>();
+  const townsByTile = new Map<TileKey, { tileKey: TileKey; townId: string; type: "MARKET" | "FARMING"; population: number; maxPopulation: number; connectedTownCount: number; connectedTownBonus: number; lastGrowthTickAt: number }>();
   const resourceCountsByPlayer = new Map<string, Record<string, number>>();
   const tiles = new Map<TileKey, Tile>([
     ["0,0", { x: 0, y: 0, terrain: "LAND", lastChangedAt: 0 }],
@@ -24,7 +25,7 @@ const makeDeps = (): CreateServerPlayerRuntimeSupportDeps => {
     ownership,
     ownershipStateByTile,
     settledSinceByTile: new Map(),
-    townsByTile: new Map(),
+    townsByTile: townsByTile as CreateServerPlayerRuntimeSupportDeps["townsByTile"],
     clusterByTile: new Map(),
     clustersById: new Map(),
     resourceCountsByPlayer,
@@ -92,7 +93,18 @@ const makeDeps = (): CreateServerPlayerRuntimeSupportDeps => {
       if (newState) ownershipStateByTile.set(tileKey, newState);
       else ownershipStateByTile.delete(tileKey);
     },
-    createSettlementAtTile: () => {},
+    createSettlementAtTile: (_playerId, tileKey) => {
+      townsByTile.set(tileKey, {
+        tileKey,
+        townId: `town-${townsByTile.size}`,
+        type: "FARMING",
+        population: 8_000,
+        maxPopulation: 10_000,
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        lastGrowthTickAt: 1_000
+      });
+    },
     sendVisibleTileDeltaAt: () => {},
     broadcastBulk: () => {},
     clusterResourceType: () => "FARM",
