@@ -7,7 +7,7 @@ import {
   matchesCurrentFrontierCommand
 } from "./client-frontier-command.js";
 import { clearFrontierStatusAlert } from "./client-frontier-status.js";
-import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate } from "./client-gateway-sync.js";
+import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "./client-gateway-sync.js";
 import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "./client-respawn-notice.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
@@ -1103,6 +1103,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.economyBreakdown = (player.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
       state.upkeepPerMinute = (player.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
       state.upkeepLastTick = (player.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
+      refreshAllGatewayDerivedTownSummaries({ state, keyFor });
       state.stamina = (player.stamina as number | undefined) ?? state.stamina;
       state.manpower = (player.manpower as number | undefined) ?? state.manpower;
       state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
@@ -1348,6 +1349,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
       state.upkeepPerMinute = (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
       state.upkeepLastTick = (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
+      refreshAllGatewayDerivedTownSummaries({ state, keyFor });
       state.manpowerBreakdown = (msg.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
       if ("pendingSettlements" in msg) {
         applyPendingSettlementsFromServer(
@@ -1871,7 +1873,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             ? normalizeGatewayTileUpdate(update, {
                 existing: state.tiles.get(keyFor(update.x, update.y)),
                 tiles: state.tiles,
-                keyFor
+                keyFor,
+                foodCoverage: state.upkeepLastTick.foodCoverage
               })
             : {};
         const normalizedUpdate =
@@ -1991,6 +1994,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
+        refreshGatewayDerivedTownSummariesAroundTile({ state, keyFor }, resolved.x, resolved.y);
         logFrontierTimeline("frontier-delta-apply", resolved.x, resolved.y, {
           before: existing,
           incoming: normalizedUpdate,
