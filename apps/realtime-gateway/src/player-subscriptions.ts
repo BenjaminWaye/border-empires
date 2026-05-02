@@ -1,8 +1,9 @@
 type SocketLike = { readyState: number };
 
 type PlayerSubscriptionsOptions<TSocket extends SocketLike, TSnapshot> = {
-  subscribePlayer: (playerId: string) => Promise<TSnapshot>;
-  unsubscribePlayer: (playerId: string) => Promise<void>;
+  subscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<TSnapshot>;
+  unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
+  subscriptionNamespace?: string;
 };
 
 export type PlayerSubscriptions<TSocket extends SocketLike, TSnapshot> = {
@@ -18,13 +19,18 @@ export type PlayerSubscriptions<TSocket extends SocketLike, TSnapshot> = {
   updateSnapshot: (playerId: string, updater: (snapshot: TSnapshot) => TSnapshot | void) => void;
 };
 
+const createSubscriptionNamespace = (): string => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
 export const createPlayerSubscriptions = <TSocket extends SocketLike, TSnapshot>(
   options: PlayerSubscriptionsOptions<TSocket, TSnapshot>
 ): PlayerSubscriptions<TSocket, TSnapshot> => {
   const socketsByPlayer = new Map<string, Set<TSocket>>();
   const snapshotByPlayer = new Map<string, TSnapshot>();
   const subscribeInFlightByPlayer = new Map<string, Promise<TSnapshot>>();
+  const subscribeGenerationByPlayer = new Map<string, number>();
+  const subscriptionKeyByPlayer = new Map<string, string>();
   const subscribedPlayers = new Set<string>();
+  const subscriptionNamespace = options.subscriptionNamespace ?? createSubscriptionNamespace();
 
   const subscribeOnce = async (playerId: string): Promise<TSnapshot> => {
     if (subscribedPlayers.has(playerId)) {
@@ -34,15 +40,28 @@ export const createPlayerSubscriptions = <TSocket extends SocketLike, TSnapshot>
     const existingPromise = subscribeInFlightByPlayer.get(playerId);
     if (existingPromise) return existingPromise;
 
+    const generation = (subscribeGenerationByPlayer.get(playerId) ?? 0) + 1;
+    subscribeGenerationByPlayer.set(playerId, generation);
+    const subscriptionKey = `${subscriptionNamespace}:${playerId}:${generation}`;
+    subscriptionKeyByPlayer.set(playerId, subscriptionKey);
+
     const subscribePromise = options
-      .subscribePlayer(playerId)
-      .then((snapshot) => {
+      .subscribePlayer(playerId, subscriptionKey)
+      .then(async (snapshot) => {
+        const hasSockets = (socketsByPlayer.get(playerId)?.size ?? 0) > 0;
+        const isCurrentGeneration = subscribeGenerationByPlayer.get(playerId) === generation;
+        if (!hasSockets || !isCurrentGeneration) {
+          await options.unsubscribePlayer(playerId, subscriptionKey).catch(() => undefined);
+          return snapshot;
+        }
         subscribedPlayers.add(playerId);
         snapshotByPlayer.set(playerId, snapshot);
         return snapshot;
       })
       .finally(() => {
-        subscribeInFlightByPlayer.delete(playerId);
+        if (subscribeGenerationByPlayer.get(playerId) === generation) {
+          subscribeInFlightByPlayer.delete(playerId);
+        }
       });
     subscribeInFlightByPlayer.set(playerId, subscribePromise);
     return subscribePromise;
@@ -72,7 +91,9 @@ export const createPlayerSubscriptions = <TSocket extends SocketLike, TSnapshot>
       snapshotByPlayer.delete(playerId);
       subscribeInFlightByPlayer.delete(playerId);
       subscribedPlayers.delete(playerId);
-      await options.unsubscribePlayer(playerId);
+      const subscriptionKey = subscriptionKeyByPlayer.get(playerId);
+      subscriptionKeyByPlayer.delete(playerId);
+      await options.unsubscribePlayer(playerId, subscriptionKey);
     },
     socketsForPlayer(playerId) {
       return socketsByPlayer.get(playerId) ?? new Set<TSocket>();
@@ -94,8 +115,14 @@ export const createPlayerSubscriptions = <TSocket extends SocketLike, TSnapshot>
       return subscribeOnce(playerId);
     },
     async refreshSnapshot(playerId) {
+      const subscriptionKey = subscriptionKeyByPlayer.get(playerId);
       subscribedPlayers.delete(playerId);
       subscribeInFlightByPlayer.delete(playerId);
+      snapshotByPlayer.delete(playerId);
+      if (subscriptionKey) {
+        subscriptionKeyByPlayer.delete(playerId);
+        await options.unsubscribePlayer(playerId, subscriptionKey).catch(() => undefined);
+      }
       return subscribeOnce(playerId);
     },
     updateSnapshot(playerId, updater) {

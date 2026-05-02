@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
@@ -484,9 +483,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const authBindingStore =
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
+  const liveSubscriptionNamespace = await (async (): Promise<string> => {
+    const namespaceClient = simulationClient as typeof simulationClient & { getSubscriptionNamespace?: () => Promise<string> };
+    if (typeof namespaceClient.getSubscriptionNamespace !== "function") {
+      throw new Error("simulation client GetSubscriptionNamespace RPC is unavailable");
+    }
+    return namespaceClient.getSubscriptionNamespace();
+  })();
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
-    subscribePlayer: (playerId) => simulationClient.subscribePlayer(playerId),
-    unsubscribePlayer: (playerId) => simulationClient.unsubscribePlayer(playerId)
+    subscribePlayer: (playerId, subscriptionKey) =>
+      simulationClient.subscribePlayer(playerId, JSON.stringify({ emitBootstrapEvent: false, ...(subscriptionKey ? { subscriptionKey } : {}) })),
+    unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
+    subscriptionNamespace: liveSubscriptionNamespace
   });
   const profileOverrides = createPlayerProfileOverrides();
   const socialState = createSocialState({
@@ -1066,6 +1074,29 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
+            try {
+              await withTimeout(
+                playerSubscriptions.ensureSubscribed(playerIdentity.playerId),
+                simulationSubscribeTimeoutMs,
+                "gateway live subscribe player"
+              );
+              markSimulationReady();
+            } catch (error) {
+              recordGatewayEvent("error", "gateway_auth_subscribe_failed", {
+                playerId: playerIdentity.playerId,
+                channel,
+                error: error instanceof Error ? error.message : String(error)
+              });
+              await playerSubscriptions.removeSocket(playerIdentity.playerId, socket).catch((removeError) => {
+                app.log.error({ err: removeError, playerId: playerIdentity.playerId }, "failed to rollback player subscription after auth subscribe failure");
+              });
+              sendJson(socket, {
+                type: "ERROR",
+                code: "SERVER_STARTING",
+                message: "Realtime simulation is temporarily unavailable. Retry shortly."
+              });
+              return;
+            }
             const initialState = resolveInitialState({
               playerId: playerIdentity.playerId,
               authoritativeSnapshot: bootstrapInitialState,
