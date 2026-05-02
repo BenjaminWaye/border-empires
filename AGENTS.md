@@ -1,6 +1,7 @@
 # Worktree Setup
 
 - Always create a new git branch and a new git worktree when starting a new thread or a new block of work.
+- Create repo-managed worktrees under `/Users/benjaminwaye/Sites/border-empires-container/border-empires/.codex-worktrees/`, not as sibling folders under `border-empires-container/`.
 - Within a single user thread, keep all follow-up work on the already-active branch and worktree until that work has been merged or explicitly abandoned. Do not create another worktree for the same thread while unmerged work is still active.
 - Always run `pnpm install` immediately after creating a new git worktree before running checks or making code changes.
 - Treat worktree deletion as a cleanup step only after the work is safely merged or otherwise archived. Do not use stale-worktree cleanup as a token-saving tactic.
