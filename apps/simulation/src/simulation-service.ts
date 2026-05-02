@@ -818,18 +818,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const parseSubscribeOptions = (
     subscriptionJson: string | undefined
-  ): { mode: "bootstrap-only" | "live"; emitBootstrapEvent: boolean } => {
+  ): { mode: "bootstrap-only" | "live"; emitBootstrapEvent: boolean; subscriptionKey?: string } => {
     if (!subscriptionJson) return { mode: "live", emitBootstrapEvent: true };
     try {
-      const parsed = JSON.parse(subscriptionJson) as { mode?: unknown; emitBootstrapEvent?: unknown };
+      const parsed = JSON.parse(subscriptionJson) as { mode?: unknown; emitBootstrapEvent?: unknown; subscriptionKey?: unknown };
       return {
         mode: parsed.mode === "bootstrap-only" ? "bootstrap-only" : "live",
-        emitBootstrapEvent: parsed.emitBootstrapEvent === false ? false : parsed.mode === "bootstrap-only" ? false : true
+        emitBootstrapEvent: parsed.emitBootstrapEvent === false ? false : parsed.mode === "bootstrap-only" ? false : true,
+        ...(typeof parsed.subscriptionKey === "string" && parsed.subscriptionKey.length > 0 ? { subscriptionKey: parsed.subscriptionKey } : {})
       };
     } catch {
       return { mode: "live", emitBootstrapEvent: true };
     }
   };
+  let nextSubscriptionNamespace = 0;
   const flushGlobalStatusBroadcast = () => {
     globalStatusBroadcastTimeout = undefined;
     if (subscriptionRegistry.subscribedPlayerIds().length === 0) {
@@ -1362,7 +1364,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         return;
       }
       const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
-      subscriptionRegistry.subscribe(call.request.player_id);
+      if (subscribeOptions.mode !== "bootstrap-only") {
+        subscriptionRegistry.subscribe(call.request.player_id, subscribeOptions.subscriptionKey);
+      }
       const snapshotPayload =
         subscribeOptions.mode === "bootstrap-only"
           ? buildAndCachePlayerSnapshot(call.request.player_id, { includeWorldStatus: true })
@@ -1413,12 +1417,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     },
     UnsubscribePlayer(
-      call: { request: { player_id: string } },
+      call: { request: { player_id: string; subscription_key?: string } },
       callback: (error: Error | null, response: { ok: boolean }) => void
     ) {
-      subscriptionRegistry.unsubscribe(call.request.player_id);
+      subscriptionRegistry.unsubscribe(call.request.player_id, call.request.subscription_key);
       snapshotCacheByPlayerId.delete(call.request.player_id);
       callback(null, { ok: true });
+    },
+    GetSubscriptionNamespace(
+      _call: { request: Record<string, never> },
+      callback: (error: Error | null, response: { ok: boolean; namespace: string }) => void
+    ) {
+      nextSubscriptionNamespace += 1;
+      callback(null, { ok: true, namespace: nextSubscriptionNamespace.toString(36) });
     },
     Ping(
       _call: unknown,
