@@ -443,6 +443,7 @@ describe("worker AI command producer pause/resume", () => {
     let nowMs = 1_000;
     const runtime = makeRuntime(0);
     const submitted: CommandEnvelope[] = [];
+    const decisionReasons: string[] = [];
     const originalPostMessage = MockWorker.prototype.postMessage;
     MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
       if (msg.type === "plan") {
@@ -450,7 +451,18 @@ describe("worker AI command producer pause/resume", () => {
           this.emit("message", {
             type: "command",
             playerId: msg.playerId,
-            command: makeCollectVisibleCommand(msg.playerId as string, msg.clientSeq as number, msg.issuedAt as number)
+            command: makeCollectVisibleCommand(msg.playerId as string, msg.clientSeq as number, msg.issuedAt as number),
+            diagnostic: {
+              playerId: msg.playerId,
+              sessionPrefix: "ai-runtime",
+              preplanReason: "collect_for_active_lock",
+              settlementEligible: false,
+              settlementCandidateFound: false,
+              frontierEnemyTargetCount: 0,
+              frontierNeutralTargetCount: 0,
+              canAttack: false,
+              canExpand: false
+            }
           });
         });
         return;
@@ -463,6 +475,9 @@ describe("worker AI command producer pause/resume", () => {
       aiPlayerIds: ["ai-1"],
       submitCommand: async (command) => {
         submitted.push(command);
+      },
+      onDecision: (diagnostic) => {
+        if (diagnostic.preplanReason) decisionReasons.push(diagnostic.preplanReason);
       },
       now: () => nowMs,
       tickIntervalMs: 10_000,
@@ -496,6 +511,7 @@ describe("worker AI command producer pause/resume", () => {
     MockWorker.prototype.postMessage = originalPostMessage;
 
     expect(submitted.map((command) => command.type)).toEqual(["COLLECT_VISIBLE", "COLLECT_VISIBLE"]);
+    expect(decisionReasons).toEqual(["collect_for_active_lock", "collect_for_active_lock"]);
   });
 
   it("stagger-syncs a subset of AI players on each periodic sync interval", async () => {
