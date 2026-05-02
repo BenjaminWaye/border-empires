@@ -57,6 +57,7 @@ export type EconomicStructureType =
   | "AEGIS_DOME"
   | "ASTRAL_DOCK";
 export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+export type TownGrowthUpgradeTier = "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type ShardSiteKind = "CACHE" | "FALL";
 export type SeasonVictoryPathId =
   | "TOWN_CONTROL"
@@ -252,6 +253,12 @@ export interface Tile {
     bankActive: boolean;
     foodUpkeepPerMinute?: number;
     growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
+    nextPopulationTierUpgrade?: {
+      targetTier: TownGrowthUpgradeTier;
+      requiredPopulation: number;
+      goldCost: number;
+      available: boolean;
+    };
   };
   yield?: {
     gold?: number;

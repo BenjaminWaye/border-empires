@@ -43,7 +43,7 @@ export interface ServerTownSupportRuntime {
   townSupport: (townKey: TileKey, ownerId: string) => { supportCurrent: number; supportMax: number };
   townPopulationTier: (population: number) => PopulationTier;
   townPopulationTierForTown: (town: TownDefinition) => PopulationTier;
-  townPopulationMultiplier: (population: number) => number;
+  townPopulationMultiplier: (population: number, growthTierCap?: PopulationTier) => number;
   townManpowerSnapshotForOwner: (town: TownDefinition, ownerId: string | undefined) => { cap: number; regenPerMinute: number };
   playerManpowerCap: (player: Player) => number;
   manpowerRegenWeightForSettlementIndex: (index: number) => number;
@@ -79,7 +79,7 @@ export interface ServerTownEconomyRuntimeDeps {
   availableYieldStrategicForPlayer: (player: Player, resource: StrategicResource) => number;
   governorUpkeepMultiplierAtTile: (playerId: string, tileKey: TileKey) => number;
   townPopulationTierForTown: (town: TownDefinition) => PopulationTier;
-  townPopulationMultiplier: (population: number) => number;
+  townPopulationMultiplier: (population: number, growthTierCap?: PopulationTier) => number;
   townSupport: (townKey: TileKey, ownerId: string) => { supportCurrent: number; supportMax: number };
   townGoldIncomeEnabledForPlayer: (player: Player, nowMs?: number) => boolean;
   ownedTownKeysForPlayer: (playerId: string) => TileKey[];

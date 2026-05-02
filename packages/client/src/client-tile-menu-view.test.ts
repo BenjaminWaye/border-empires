@@ -110,6 +110,47 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
 
+  it("uses Monumental City in the overview label for the final tier", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 20,
+        y: 45,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Skyhold",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 8,
+          supportMax: 8,
+          goldPerMinute: 12,
+          cap: 300,
+          isFed: true,
+          population: 5_400_000,
+          maxPopulation: 10_000_000,
+          populationGrowthPerMinute: 80,
+          populationTier: "METROPOLIS",
+          connectedTownCount: 2,
+          connectedTownBonus: 0.2,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        }
+      },
+      {
+        ...deps,
+        populationPerMinuteLabel: () => "+80/m",
+        townNextGrowthEtaLabel: () => "Max tier reached"
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Population 5,400,000 • Monumental City"))).toBe(true);
+  });
+
   it("falls back to zero settlement gold when snapshot detail is missing the numeric rate", () => {
     const lines = menuOverviewForTile(
       {
