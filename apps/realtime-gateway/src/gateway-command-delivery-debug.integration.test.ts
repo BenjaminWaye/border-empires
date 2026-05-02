@@ -73,6 +73,7 @@ describe("gateway command delivery debug bundle", () => {
     const app = await createRealtimeGatewayApp({
       logger: false,
       port: 0,
+      defaultHumanPlayerId: "player-1",
       commandStore: new InMemoryGatewayCommandStore(),
       simulationClient: {
         submitCommand: async () => undefined,
@@ -82,8 +83,10 @@ describe("gateway command delivery debug bundle", () => {
           tiles: []
         }),
         unsubscribePlayer: async () => undefined,
+        getSubscriptionNamespace: async () => "1",
         ping: async () => undefined,
-        streamEvents: (listener) => {
+        streamEvents: (listener, options) => {
+          options?.onConnect?.();
           emitSimulationEvent = listener;
           return () => undefined;
         }

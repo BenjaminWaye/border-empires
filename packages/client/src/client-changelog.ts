@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.02.13",
+  version: "2026.05.02.14",
   title: "What's New",
-  summary: "Recent updates include claimed shard confirmations now keeping visible shard caches on newly claimed frontier tiles so you can still use the follow-up collect action, town growth panels now spelling out why growth is paused when a town is unfed or under war shock, rewrite town panels no longer falling back to fake population-1 summaries when later gateway sync only resends a town's identity while still preserving known population and cap data, cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
+  summary: "Recent updates include a rewrite frontier subscription recovery fix so paired control and bulk channels now keep command results streaming across reconnect churn, timeout rollback, and gateway restarts without leaking stale simulation subscriptions, claimed shard confirmations now keeping visible shard caches on newly claimed frontier tiles so you can still use the follow-up collect action, town growth panels now spelling out why growth is paused when a town is unfed or under war shock, rewrite town panels no longer falling back to fake population-1 summaries when later gateway sync only resends a town's identity while still preserving known population and cap data, cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.02.14",
+      title: "Frontier results now survive reconnects, timeouts, and gateway restarts",
+      why: "The rewrite gateway's paired live subscriptions could still lose frontier accepts, rejects, and other player-scoped results after one channel unsubscribed, after a timed-out auth subscribe resolved late, or after a restarted gateway reused a stale subscription identity against the simulation registry.",
+      changes: [
+        "Live rewrite subscriptions now use simulation-issued monotonic namespace keys, so stale subscribe cleanup only removes the exact old backend registration instead of tearing down a newer live session.",
+        "Bootstrap-only auth snapshots no longer count as live subscriptions, timed-out auth subscribes roll back cleanly, and player-scoped events continue streaming as long as one real live channel remains attached.",
+        "Added gateway and simulation regression coverage for double-subscribe churn, late subscribe resolution, restart ordering, degraded startup, and bootstrap snapshot behavior so future subscription changes cannot black-hole frontier results again."
+      ]
+    },
     {
       introducedIn: "2026.05.02.13",
       title: "Town growth panels now explain paused growth",
@@ -41,56 +51,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Gateway-derived town summaries now preserve previously known population and max-population fields when a later partial rewrite update only carries the town identity.",
         "When the rewrite path has never received numeric town stats yet, the client now falls back to tier-based population floors instead of impossible population-1 placeholders for grown towns.",
         "Added client regression coverage for both the partial-resync case and the initial tier-floor fallback case."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.12",
-      title: "Claimed shard tiles now keep their collect action",
-      why: "A frontier claim confirmation could overwrite the newly claimed tile with an explicit empty shard field, which made shard tiles look empty immediately after claim even though the intended next step was to collect the shard from that new frontier tile.",
-      changes: [
-        "Frontier claim confirmation now preserves an existing shard site only for the neutral-to-owned frontier claim transition when the incoming sync update explicitly clears shard detail.",
-        "Claiming a shard tile now leaves the shard visible on your new frontier territory so the follow-up tile menu still offers `Collect Shard` as intended.",
-        "Added websocket and gateway regression coverage so future claim-sync changes cannot strip shard caches from newly claimed tiles or resurrect already collected shards."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.11",
-      title: "Town growth is now cheaper and reaches Monumental City",
-      why: "The first manual promotion pass made town growth more deliberate, but the mid- and late-game costs were still too steep for a satisfying upgrade path and Great Cities had no final action-menu capstone.",
-      changes: [
-        "Lowered the promotion costs to 1500 gold for Town to City and 6000 gold for City to Great City so the upgrades are easier to justify during normal play.",
-        "Great Cities can now spend 15000 gold to grow into a Monumental City once they reach 5,000,000 population, with the action menu explaining the bigger income, manpower, and food-upkeep jump.",
-        "Expanded regression coverage for the shared growth rules and the action-menu promotion states, including the new Monumental City step."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.10",
-      title: "Staging full-map reveal now restores cleanly after reconnects",
-      why: "The staging reveal follow-up still had two rough edges: saved reveal state did not replay automatically on authenticated reconnect, and the client could only show the button correctly once the live server capability had been confirmed.",
-      changes: [
-        "The client now replays the saved staging reveal only after `INIT` confirms fog-toggle capability, so reconnects restore the real full-map reveal without requiring another button click.",
-        "Gateway and server payloads now carry the authenticated fog-toggle capability through `INIT` and later `PLAYER_UPDATE`s, so the staging-only button follows the same live access rule the server enforces.",
-        "Added gateway, server, and client regression coverage for the session capability wiring and reconnect replay ordering so future auth changes keep the reveal path aligned."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.9",
-      title: "Owned towns always show their stored-yield row",
-      why: "Owned town menus hid the stored-yield line whenever the current gold buffer and cap both landed at zero, which made inactive or recently recovered towns look like they had no storage state at all.",
-      changes: [
-        "Owned town menus now keep the stored-yield row visible even when the current stored gold and cap are both zero.",
-        "Non-owned towns still keep the previous behavior so enemy or allied towns do not gain a fake zeroed storage row.",
-        "Added client regression coverage for both the owned-town and non-owned-town cases."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.8",
-      title: "Respawn recovery notices now describe non-playable states accurately",
-      why: "Sign-in recovery could respawn a completed empire when its saved territory state was invalid even if some tile bookkeeping still existed, but the earlier notice copy implied the empire always had literally zero owned tiles.",
-      changes: [
-        "Auth recovery respawn notices now say the empire loaded without a playable foothold instead of specifically claiming it had zero territory.",
-        "Added server regressions so login recovery keeps labeling true offline eliminations as eliminations while broken-but-not-eliminated empires stay marked as auth recovery.",
-        "Added a bootstrap regression guard so startup auto-respawns keep flowing through the shared respawn-notice helper."
       ]
     },
     {
