@@ -1,6 +1,12 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
+import { DOMAIN_TREE_PATH, TECH_TREE_PATH } from "./tech-domain-bridge.js";
+
+const techCatalog = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: { id: string }[] };
+const domainCatalog = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as { domains: { id: string }[] };
 
 const makeTile = (
   x: number,
@@ -52,6 +58,7 @@ describe("automation preplan command", () => {
       type: "COLLECT_VISIBLE",
       payloadJson: "{}"
     });
+    expect(result.diagnostic.preplanReason).toBe("collect_for_active_lock");
   });
 
   it("collects visible yield before frontier spam when the best tech is still unaffordable", () => {
@@ -81,6 +88,8 @@ describe("automation preplan command", () => {
       type: "COLLECT_VISIBLE",
       payloadJson: "{}"
     });
+    expect(result.diagnostic.preplanReason).toBe("collect_for_unaffordable_progression");
+    expect(result.diagnostic.preplanProgressState).toBe("tech_unaffordable");
   });
 
   it("chooses the best affordable tech when no collection recovery is needed", () => {
@@ -110,6 +119,7 @@ describe("automation preplan command", () => {
       type: "CHOOSE_TECH",
       payloadJson: JSON.stringify({ techId: "toolmaking" })
     });
+    expect(result.diagnostic.preplanReason).toBe("choose_tech");
   });
 
   it("chooses the best affordable domain after the enabling tech is owned", () => {
@@ -144,5 +154,60 @@ describe("automation preplan command", () => {
       type: "CHOOSE_DOMAIN",
       payloadJson: JSON.stringify({ domainId: "mercantile-charter" })
     });
+    expect(result.diagnostic.preplanReason).toBe("choose_domain");
+    expect(result.diagnostic.preplanProgressState).toBe("domain_affordable");
+  });
+
+  it("reports economic-recovery collection when progression is not available yet", () => {
+    const settlement = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN" },
+      resource: "FARM"
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 900,
+      techIds: techCatalog.techs.map((tech) => tech.id),
+      domainIds: domainCatalog.domains.map((domain) => domain.id),
+      strategicResources: {},
+      settledTileCount: 18,
+      townCount: 1,
+      incomePerMinute: 1,
+      hasActiveLock: false,
+      ownedTiles: [settlement],
+      clientSeq: 5,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
+    });
+    expect(result.diagnostic.preplanReason).toBe("collect_for_economic_recovery");
+  });
+
+  it("reports missing progression reachability when there is nothing legal to pick", () => {
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 900,
+      techIds: techCatalog.techs.map((tech) => tech.id),
+      domainIds: domainCatalog.domains.map((domain) => domain.id),
+      strategicResources: {},
+      settledTileCount: 40,
+      townCount: 2,
+      incomePerMinute: 10,
+      hasActiveLock: false,
+      ownedTiles: [],
+      clientSeq: 6,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.preplanReason).toBe("defer_no_reachable_progression");
+    expect(result.diagnostic.preplanProgressState).toBe("no_reachable_progression");
   });
 });

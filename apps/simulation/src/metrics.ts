@@ -1,6 +1,13 @@
 import type { QueueLane } from "./command-lane.js";
 import { DURABLE_COMMAND_TYPES, type CommandEnvelope } from "@border-empires/sim-protocol";
-import { AUTOMATION_NOOP_REASONS, type AutomationNoopReason } from "./automation-command-planner.js";
+import {
+  AUTOMATION_NOOP_REASONS,
+  AUTOMATION_PREPLAN_PROGRESS_STATES,
+  AUTOMATION_PREPLAN_REASONS,
+  type AutomationNoopReason,
+  type AutomationPreplanProgressState,
+  type AutomationPreplanReason
+} from "./automation-command-planner.js";
 
 const LANES: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 
@@ -35,6 +42,10 @@ type SimulationMetricsSnapshot = {
   simAiPlannerBreaches: number;
   simAiCommandTotalByType: Record<DurableCommandType, number>;
   simAiCommandRecent: string[];
+  simAiPreplanTotalByReason: Record<AutomationPreplanReason, number>;
+  simAiPreplanRecent: string[];
+  simAiPreplanProgressTotalByState: Record<AutomationPreplanProgressState, number>;
+  simAiPreplanProgressRecent: string[];
   simAiNoopTotalByReason: Record<AutomationNoopReason, number>;
   simAiNoopRecent: string[];
   simCheckpointRssMb: number;
@@ -64,6 +75,14 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     DURABLE_COMMAND_TYPES.map((type) => [type, 0])
   );
   const simAiCommandRecent: string[] = [];
+  const simAiPreplanTotalByReason = new Map<AutomationPreplanReason, number>(
+    AUTOMATION_PREPLAN_REASONS.map((reason) => [reason, 0])
+  );
+  const simAiPreplanRecent: string[] = [];
+  const simAiPreplanProgressTotalByState = new Map<AutomationPreplanProgressState, number>(
+    AUTOMATION_PREPLAN_PROGRESS_STATES.map((state) => [state, 0])
+  );
+  const simAiPreplanProgressRecent: string[] = [];
   const simAiNoopTotalByReason = new Map<AutomationNoopReason, number>(
     AUTOMATION_NOOP_REASONS.map((reason) => [reason, 0])
   );
@@ -108,6 +127,14 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       DURABLE_COMMAND_TYPES.map((type) => [type, simAiCommandTotalByType.get(type) ?? 0])
     ) as Record<DurableCommandType, number>,
     simAiCommandRecent: [...simAiCommandRecent],
+    simAiPreplanTotalByReason: Object.fromEntries(
+      AUTOMATION_PREPLAN_REASONS.map((reason) => [reason, simAiPreplanTotalByReason.get(reason) ?? 0])
+    ) as Record<AutomationPreplanReason, number>,
+    simAiPreplanRecent: [...simAiPreplanRecent],
+    simAiPreplanProgressTotalByState: Object.fromEntries(
+      AUTOMATION_PREPLAN_PROGRESS_STATES.map((state) => [state, simAiPreplanProgressTotalByState.get(state) ?? 0])
+    ) as Record<AutomationPreplanProgressState, number>,
+    simAiPreplanProgressRecent: [...simAiPreplanProgressRecent],
     simAiNoopTotalByReason: Object.fromEntries(AUTOMATION_NOOP_REASONS.map((reason) => [reason, simAiNoopTotalByReason.get(reason) ?? 0])) as Record<AutomationNoopReason, number>,
     simAiNoopRecent: [...simAiNoopRecent],
     simCheckpointRssMb,
@@ -155,6 +182,18 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       simAiCommandTotalByType.set(commandType, (simAiCommandTotalByType.get(commandType) ?? 0) + 1);
       simAiCommandRecent.push(`${playerId}:${commandType}`);
       if (simAiCommandRecent.length > 20) simAiCommandRecent.splice(0, simAiCommandRecent.length - 20);
+    },
+    observeSimAiPreplan(reason: AutomationPreplanReason, playerId: string): void {
+      simAiPreplanTotalByReason.set(reason, (simAiPreplanTotalByReason.get(reason) ?? 0) + 1);
+      simAiPreplanRecent.push(`${playerId}:${reason}`);
+      if (simAiPreplanRecent.length > 20) simAiPreplanRecent.splice(0, simAiPreplanRecent.length - 20);
+    },
+    observeSimAiPreplanProgress(state: AutomationPreplanProgressState, playerId: string): void {
+      simAiPreplanProgressTotalByState.set(state, (simAiPreplanProgressTotalByState.get(state) ?? 0) + 1);
+      simAiPreplanProgressRecent.push(`${playerId}:${state}`);
+      if (simAiPreplanProgressRecent.length > 20) {
+        simAiPreplanProgressRecent.splice(0, simAiPreplanProgressRecent.length - 20);
+      }
     },
     observeSimAiNoop(reason: AutomationNoopReason, playerId: string): void {
       simAiNoopTotalByReason.set(reason, (simAiNoopTotalByReason.get(reason) ?? 0) + 1);
@@ -219,6 +258,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         "# TYPE sim_ai_planner_breaches counter",
         `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
         "# TYPE sim_ai_command_total counter",
+        "# TYPE sim_ai_preplan_total counter",
+        "# TYPE sim_ai_preplan_progress_total counter",
         "# TYPE sim_ai_noop_total counter",
         "# TYPE sim_checkpoint_rss_mb gauge",
         `sim_checkpoint_rss_mb ${formatMetricValue(sample.simCheckpointRssMb)}`,
@@ -247,6 +288,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       }
       for (const commandType of DURABLE_COMMAND_TYPES) {
         lines.push(`sim_ai_command_total{type=\"${commandType}\"} ${formatMetricValue(sample.simAiCommandTotalByType[commandType])}`);
+      }
+      for (const reason of AUTOMATION_PREPLAN_REASONS) {
+        lines.push(`sim_ai_preplan_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiPreplanTotalByReason[reason])}`);
+      }
+      for (const state of AUTOMATION_PREPLAN_PROGRESS_STATES) {
+        lines.push(`sim_ai_preplan_progress_total{state=\"${state}\"} ${formatMetricValue(sample.simAiPreplanProgressTotalByState[state])}`);
       }
       for (const reason of AUTOMATION_NOOP_REASONS) {
         lines.push(`sim_ai_noop_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiNoopTotalByReason[reason])}`);

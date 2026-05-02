@@ -25,6 +25,10 @@ describe("simulation metrics", () => {
     metrics.observeSimAiCommand("SETTLE", "ai-4");
     metrics.observeSimAiCommand("EXPAND", "ai-2");
     metrics.observeSimAiCommand("BUILD_ECONOMIC_STRUCTURE", "ai-9");
+    metrics.observeSimAiPreplan("collect_for_unaffordable_progression", "ai-4");
+    metrics.observeSimAiPreplan("choose_domain", "ai-9");
+    metrics.observeSimAiPreplanProgress("tech_and_domain_unaffordable", "ai-4");
+    metrics.observeSimAiPreplanProgress("domain_affordable", "ai-9");
     metrics.observeSimAiNoop("no_frontier_targets", "ai-4");
     metrics.observeSimAiNoop("insufficient_manpower_for_attack", "ai-2");
     metrics.observeSimAiNoop("planner_error", "ai-9");
@@ -54,6 +58,13 @@ describe("simulation metrics", () => {
     expect(sample.simAiCommandTotalByType.BUILD_ECONOMIC_STRUCTURE).toBe(1);
     expect(sample.simAiCommandRecent).toContain("ai-4:SETTLE");
     expect(sample.simAiCommandRecent).toContain("ai-9:BUILD_ECONOMIC_STRUCTURE");
+    expect(sample.simAiPreplanTotalByReason.collect_for_unaffordable_progression).toBe(1);
+    expect(sample.simAiPreplanTotalByReason.choose_domain).toBe(1);
+    expect(sample.simAiPreplanRecent).toContain("ai-4:collect_for_unaffordable_progression");
+    expect(sample.simAiPreplanRecent).toContain("ai-9:choose_domain");
+    expect(sample.simAiPreplanProgressTotalByState.tech_and_domain_unaffordable).toBe(1);
+    expect(sample.simAiPreplanProgressTotalByState.domain_affordable).toBe(1);
+    expect(sample.simAiPreplanProgressRecent).toContain("ai-4:tech_and_domain_unaffordable");
     expect(sample.simAiNoopTotalByReason.no_frontier_targets).toBe(1);
     expect(sample.simAiNoopTotalByReason.insufficient_manpower_for_attack).toBe(1);
     expect(sample.simAiNoopTotalByReason.planner_error).toBe(1);
@@ -80,6 +91,8 @@ describe("simulation metrics", () => {
     expect(exposition).toContain('sim_command_accept_latency_ms{lane="human_interactive",quantile="p95"}');
     expect(exposition).toContain('sim_ai_command_total{type="SETTLE"} 1');
     expect(exposition).toContain('sim_ai_command_total{type="BUILD_ECONOMIC_STRUCTURE"} 1');
+    expect(exposition).toContain('sim_ai_preplan_total{reason="collect_for_unaffordable_progression"} 1');
+    expect(exposition).toContain('sim_ai_preplan_progress_total{state="tech_and_domain_unaffordable"} 1');
     expect(exposition).toContain('sim_ai_noop_total{reason="no_frontier_targets"} 1');
     expect(exposition).toContain('sim_ai_noop_total{reason="planner_error"} 1');
   });
