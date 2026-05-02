@@ -81,6 +81,7 @@ const createRuntimeHarness = (diagnosticRef: { current: { key: string; detail: s
     currentLeaderboardSnapshot: vi.fn(() => ({ overall: [], selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined, byTiles: [], byIncome: [], byTechs: [] })),
     currentVictoryPressureObjectives: vi.fn(() => []),
     seasonWinner: undefined,
+    consumeRespawnNoticeForPlayer: vi.fn(() => undefined),
     recordServerDebugEvent: vi.fn(),
     appLogWarn: vi.fn()
   });
