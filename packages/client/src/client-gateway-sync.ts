@@ -45,11 +45,15 @@ export type GatewayTileUpdate = {
 };
 
 type GatewayTileSyncDeps = {
-  state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles">;
+  state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
+    upkeepLastTick: { foodCoverage?: number };
+  };
   keyFor: (x: number, y: number) => string;
   mergeIncomingTileDetail: (existing: Tile | undefined, incoming: Tile) => Tile;
   mergeServerTileWithOptimisticState: (tile: Tile) => Tile;
 };
+
+const GATEWAY_DERIVED_TOWN_SUMMARY = "gateway-derived" as const;
 
 const townFoodUpkeepPerMinuteForTier = (tier: TownSummary["populationTier"] | undefined): number => {
   if (tier === "SETTLEMENT" || !tier) return 0;
@@ -112,9 +116,11 @@ const derivedTownIsFed = (
   x: number,
   y: number,
   tiles: ReadonlyMap<string, Tile>,
-  keyFor: (x: number, y: number) => string
+  keyFor: (x: number, y: number) => string,
+  foodCoverage: number | undefined
 ): boolean => {
   if (!ownerId) return false;
+  if (typeof foodCoverage === "number" && Number.isFinite(foodCoverage) && foodCoverage >= 0.999) return true;
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
@@ -157,14 +163,15 @@ const enrichedGatewayTownSummary = (
   partial: PartialTownSummary,
   existing: Tile | undefined,
   tiles: ReadonlyMap<string, Tile>,
-  keyFor: (x: number, y: number) => string
+  keyFor: (x: number, y: number) => string,
+  foodCoverage: number | undefined
 ): Tile["town"] | undefined => {
   const populationTier = partial.populationTier ?? update.townPopulationTier ?? "SETTLEMENT";
   const ownerId = update.ownerId ?? existing?.ownerId;
   const support = supportSummaryForTown(ownerId, update.x, update.y, tiles, keyFor);
   const activeSupport = derivedTownSupportStructures(ownerId, update.x, update.y, tiles, keyFor);
-  const derivedIsFed = populationTier === "SETTLEMENT" ? true : derivedTownIsFed(ownerId, update.x, update.y, tiles, keyFor);
-  const useDerivedTownState = isPartialTownSummary(partial, populationTier);
+  const derivedIsFed = populationTier === "SETTLEMENT" ? true : derivedTownIsFed(ownerId, update.x, update.y, tiles, keyFor, foodCoverage);
+  const useDerivedTownState = partial.summarySource === GATEWAY_DERIVED_TOWN_SUMMARY || isPartialTownSummary(partial, populationTier);
   const supportCurrent = useDerivedTownState
     ? support.supportCurrent
     : isFiniteNumber(partial.supportCurrent)
@@ -201,6 +208,7 @@ const enrichedGatewayTownSummary = (
   return {
     ...(partial.name ? { name: partial.name } : update.townName ? { name: update.townName } : {}),
     type: partial.type ?? update.townType ?? "FARMING",
+    ...(useDerivedTownState ? { summarySource: GATEWAY_DERIVED_TOWN_SUMMARY } : {}),
     baseGoldPerMinute,
     supportCurrent,
     supportMax,
@@ -233,11 +241,12 @@ const gatewayTownSummary = (
   update: GatewayTileUpdate,
   existing: Tile | undefined,
   tiles: ReadonlyMap<string, Tile>,
-  keyFor: (x: number, y: number) => string
+  keyFor: (x: number, y: number) => string,
+  foodCoverage: number | undefined
 ): Tile["town"] | undefined => {
   if (update.townJson) {
     try {
-      return enrichedGatewayTownSummary(update, JSON.parse(update.townJson) as PartialTownSummary, existing, tiles, keyFor);
+      return enrichedGatewayTownSummary(update, JSON.parse(update.townJson) as PartialTownSummary, existing, tiles, keyFor, foodCoverage);
     } catch {
       // fall through to the lossy summary builder when malformed
     }
@@ -249,7 +258,7 @@ const gatewayTownSummary = (
     population: 1,
     populationTier: update.townPopulationTier ?? "SETTLEMENT",
     maxPopulation: 3
-  }, existing, tiles, keyFor);
+  }, existing, tiles, keyFor, foodCoverage);
 };
 
 const parseGatewayStructureJson = <T>(value?: string): T | undefined => {
@@ -267,6 +276,7 @@ export const normalizeGatewayTileUpdate = (
     existing: Tile | undefined;
     tiles: ReadonlyMap<string, Tile>;
     keyFor: (x: number, y: number) => string;
+    foodCoverage: number | undefined;
   }
 ) : NormalizedGatewayTileUpdate => {
   const normalized: NormalizedGatewayTileUpdate = {};
@@ -274,7 +284,7 @@ export const normalizeGatewayTileUpdate = (
   if ("resource" in update) normalized.resource = update.resource;
   if ("dockId" in update) normalized.dockId = update.dockId;
   if ("townJson" in update || "townType" in update || "townName" in update || "townPopulationTier" in update) {
-    normalized.town = gatewayTownSummary(update, args.existing, args.tiles, args.keyFor);
+    normalized.town = gatewayTownSummary(update, args.existing, args.tiles, args.keyFor, args.foodCoverage);
   }
   if ("fortJson" in update) normalized.fort = parseGatewayStructureJson<Tile["fort"]>(update.fortJson);
   if ("observatoryJson" in update) normalized.observatory = parseGatewayStructureJson<Tile["observatory"]>(update.observatoryJson);
@@ -295,6 +305,60 @@ export const normalizeGatewayTileUpdate = (
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("yieldCap" in update) normalized.yieldCap = update.yieldCap;
   return normalized;
+};
+
+const refreshGatewayDerivedTownSummaryByKey = (
+  deps: Pick<GatewayTileSyncDeps, "state" | "keyFor">,
+  tileKey: string
+): void => {
+  const tile = deps.state.tiles.get(tileKey);
+  if (!tile?.town || tile.town.summarySource !== GATEWAY_DERIVED_TOWN_SUMMARY) return;
+  const refreshedTown = enrichedGatewayTownSummary(
+    {
+      x: tile.x,
+      y: tile.y,
+      ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+      ...(tile.town.name ? { townName: tile.town.name } : {}),
+      townType: tile.town.type,
+      townPopulationTier: tile.town.populationTier
+    },
+    tile.town,
+    tile,
+    deps.state.tiles,
+    deps.keyFor,
+    deps.state.upkeepLastTick.foodCoverage
+  );
+  if (!refreshedTown) return;
+  deps.state.tiles.set(tileKey, {
+    ...tile,
+    town: refreshedTown
+  });
+};
+
+export const refreshAllGatewayDerivedTownSummaries = (
+  deps: Pick<GatewayTileSyncDeps, "state" | "keyFor">
+): void => {
+  for (const [tileKey, tile] of deps.state.tiles) {
+    if (tile.town?.summarySource !== GATEWAY_DERIVED_TOWN_SUMMARY) continue;
+    refreshGatewayDerivedTownSummaryByKey(deps, tileKey);
+  }
+};
+
+export const refreshGatewayDerivedTownSummariesAroundTile = (
+  deps: Pick<GatewayTileSyncDeps, "state" | "keyFor">,
+  x: number,
+  y: number
+): void => {
+  const affectedTownKeys = new Set<string>();
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      const tileKey = deps.keyFor(x + dx, y + dy);
+      const tile = deps.state.tiles.get(tileKey);
+      if (tile?.town?.summarySource === GATEWAY_DERIVED_TOWN_SUMMARY) affectedTownKeys.add(tileKey);
+    }
+  }
+
+  for (const tileKey of affectedTownKeys) refreshGatewayDerivedTownSummaryByKey(deps, tileKey);
 };
 
 const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUpdate): void => {
@@ -319,7 +383,8 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   const normalizedGateway = normalizeGatewayTileUpdate(update, {
     existing,
     tiles: deps.state.tiles,
-    keyFor: deps.keyFor
+    keyFor: deps.keyFor,
+    foodCoverage: deps.state.upkeepLastTick.foodCoverage
   });
 
   if (normalizedGateway.terrain) merged.terrain = normalizedGateway.terrain;
@@ -384,6 +449,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
 
   const resolved = deps.mergeServerTileWithOptimisticState(deps.mergeIncomingTileDetail(existing, merged));
   deps.state.tiles.set(tileKey, resolved);
+  refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
 };
 
 export const applyGatewayInitialState = (

@@ -344,7 +344,7 @@ export const menuOverviewForTile = (
       const settlementGoldPerMinute = Number.isFinite(displayedTownGoldPerMinute) ? displayedTownGoldPerMinute : 0;
       pushLine(`Settlement is producing ${settlementGoldPerMinute.toFixed(2)} gold/m.`);
     } else if (!tile.town.isFed) {
-      pushLine("Town is unfed. Needs settled fish or grain nearby.");
+      pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or grain.");
     } else if (
       tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL" &&
       deps.currentManpower + 0.001 < deps.currentManpowerCap
