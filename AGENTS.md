@@ -6,6 +6,9 @@
 - Always run `pnpm install` immediately after creating a new git worktree before running checks or making code changes.
 - Treat worktree deletion as a cleanup step only after the work is safely merged or otherwise archived. Do not use stale-worktree cleanup as a token-saving tactic.
 - Before deleting any worktree, create a recovery point for unmerged work with a branch, tag, or bundle, and verify the target commit is reachable from a preserved ref.
+- After a PR merge, do not consider the task complete until you verify the merge commit is reachable from `origin/main`, remove the merged worktree, delete the local feature branch, and delete the remote feature branch.
+- If an automated merge command claims it deleted the branch or worktree, verify that yourself with `git worktree list`, `git branch --list`, and `git branch -r --list` before telling the user cleanup is done.
+- Never report "merged" or "done" for a branch-backed task until the post-merge cleanup verification above has succeeded, or you explicitly tell the user which cleanup step is still pending.
 - When a user asks to "deploy" without naming an environment, treat that as a staging deploy by default. Do not assume production unless the user explicitly says `production`, `prod`, or otherwise makes the production target unambiguous.
 - Before any production deploy, make sure this checkout is updated to the latest `origin/main` so the deploy uses the merged remote state.
 - Use exactly one Vercel project for the client deploys: `border-empires-client` (`projectId` `prj_QczQjhdpgV6Mu8Q03r4Ot6KWD1va`, `orgId` `team_GdmtYDKeSISxfvppIgLt4Rma`).
@@ -28,12 +31,14 @@ This repo regularly has many agents (and humans) editing, merging, pushing, and 
 - When pushing, use `git push --force-with-lease`, never plain `--force` or `-f`. `--force-with-lease` refuses if the remote moved since your last fetch and prevents silently overwriting another agent's work.
 - Set a unique committer identity per agent thread (`git config user.email "agent-<slug>@border-empires"`) so `git log --author=` can find lost commits later.
 - Before any history-rewriting operation (`rebase`, `reset --hard`, branch deletion, `--force-with-lease` push), confirm the commits you might orphan are reachable from at least one preserved ref (a backup branch, a tag, or your reflog within the 90-day window).
+- Before deleting a merged feature branch, verify the feature tip is contained in `origin/main`, not just in the PR UI or another remote branch ref.
 
 ## Verifying your work survived
 
 - After every commit, run `git log -1 --stat` and confirm the listed files match the changes you just made. If a linter, autosave, or another agent reverted your edit, the commit captured a stale state; you'll catch it here, not after pushing.
 - After every rebase or pull, diff your working branch against the merge base (`git diff $(git merge-base HEAD origin/main)..HEAD --stat`) and confirm your intended files are still in the diff. Do not skip this; lost commits look exactly like a clean rebase.
 - Before merging a PR, scan `git reflog | head -20` for any `reset:` or `checkout:` lines that look unintentional. Recover from reflog if a commit went missing.
+- After merging a PR, re-check `git worktree list`, `git branch --list <branch>`, and `git branch -r --list origin/<branch>` so cleanup failures are caught immediately.
 
 ## Working-tree contention
 
