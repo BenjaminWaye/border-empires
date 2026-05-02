@@ -45,5 +45,4 @@ export const setStagingMapRevealEnabled = (enabled: boolean, options?: StagingMa
   }
 };
 
-export const effectiveFogDisabled = (state: { fogDisabled: boolean; stagingMapRevealEnabled?: boolean }): boolean =>
-  state.fogDisabled || Boolean(state.stagingMapRevealEnabled);
+export const effectiveFogDisabled = (state: { fogDisabled: boolean }): boolean => state.fogDisabled;

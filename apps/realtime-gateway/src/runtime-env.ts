@@ -12,6 +12,7 @@ export type RealtimeGatewayRuntimeEnv = {
   simulationSeedProfile: SimulationSeedProfile;
   allowNonAuthoritativeInitialState: boolean;
   adminApiToken?: string;
+  fogAdminEmail?: string;
 };
 
 const parsePort = (value: string | undefined, fallback: number): number => {
@@ -73,6 +74,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
         : {}),
     simulationSeedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     allowNonAuthoritativeInitialState,
-    ...(env.ADMIN_API_TOKEN ? { adminApiToken: env.ADMIN_API_TOKEN } : {})
+    ...(env.ADMIN_API_TOKEN ? { adminApiToken: env.ADMIN_API_TOKEN } : {}),
+    fogAdminEmail: (env.FOG_ADMIN_EMAIL ?? "bw199005@gmail.com").trim().toLowerCase()
   };
 };

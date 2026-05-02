@@ -27,8 +27,13 @@ describe("client auth flow regression guard", () => {
     expect(source).toContain('setDebugAuthEmail("");');
     expect(source).toContain("state.stagingMapRevealEligible = false;");
     expect(source).toContain("state.stagingMapRevealEnabled = false;");
-    expect(source).toContain("state.stagingMapRevealEligible = isDebugAccountEmail(authEmail);");
     expect(source).toContain("state.authEmail = authEmail ?? \"\";");
     expect(source).toContain("state.stagingMapRevealEnabled = getStagingMapRevealEnabled({");
+    expect(source).toContain("state.stagingMapRevealEligible = Boolean(player.canToggleFog);");
+    expect(source).toContain("const syncDesiredFogDisabled = (): void => {");
+    expect(source).toContain('ws.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: state.stagingMapRevealEnabled }));');
+    expect(source.indexOf("state.stagingMapRevealEligible = Boolean(player.canToggleFog);")).toBeLessThan(
+      source.indexOf("syncDesiredFogDisabled();")
+    );
   });
 });
