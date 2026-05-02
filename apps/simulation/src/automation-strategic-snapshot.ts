@@ -8,7 +8,7 @@ type StrategicResourceKey = DomainStrategicResourceKey;
 type StrategicTile = {
   x: number;
   y: number;
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
+  terrain: DomainTileState["terrain"];
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   dockId?: string | undefined;

@@ -146,7 +146,7 @@ const tint = (r: number, g: number, b: number, delta: number): [number, number, 
 ];
 const terrainTextures = new Map<TerrainTextureId, HTMLCanvasElement>();
 const terrainReliefPx = (wx: number, wy: number, terrain: Tile["terrain"], size: number): number => {
-  if (terrain === "SEA") return Math.max(1, Math.floor(size * 0.08));
+  if (terrain === "SEA" || terrain === "COASTAL_SEA") return Math.max(1, Math.floor(size * 0.08));
   if (terrain === "MOUNTAIN") return Math.max(3, Math.floor(size * 0.3));
   const groupedNoise = Math.abs(Math.sin(wx * 0.77 + wy * 1.13) + Math.cos(wx * 0.51 - wy * 0.89)) * 0.5;
   const base = size * (0.15 + groupedNoise * 0.11);
@@ -483,16 +483,6 @@ export const drawOwnershipSignature = (
   ctx.restore();
 };
 
-const isCoastalSea = (x: number, y: number, wrapX: (value: number) => number, wrapY: (value: number) => number): boolean => {
-  if (terrainAt(x, y) !== "SEA") return false;
-  const neighbors = [
-    terrainAt(wrapX(x), wrapY(y - 1)),
-    terrainAt(wrapX(x + 1), wrapY(y)),
-    terrainAt(wrapX(x), wrapY(y + 1)),
-    terrainAt(wrapX(x - 1), wrapY(y))
-  ];
-  return neighbors.includes("LAND");
-};
 const terrainTextureIdAt = (
   x: number,
   y: number,
@@ -500,7 +490,8 @@ const terrainTextureIdAt = (
   wrapX: (value: number) => number,
   wrapY: (value: number) => number
 ): TerrainTextureId => {
-  if (terrain === "SEA") return isCoastalSea(x, y, wrapX, wrapY) ? "SEA_COAST" : "SEA_DEEP";
+  if (terrain === "COASTAL_SEA") return "SEA_COAST";
+  if (terrain === "SEA") return "SEA_DEEP";
   if (terrain === "MOUNTAIN") return "MOUNTAIN";
   const biome = landBiomeAt(x, y);
   if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
@@ -551,7 +542,7 @@ export const drawTerrainTile = (
       ctx.fillRect(options.px, options.py, options.size, topHeight);
     }
 
-    if (options.terrain === "SEA") {
+    if (options.terrain === "SEA" || options.terrain === "COASTAL_SEA") {
       ctx.fillStyle = "rgba(13, 52, 80, 0.55)";
       ctx.fillRect(options.px, options.py + topHeight, options.size, relief);
       ctx.fillStyle = "rgba(173, 229, 255, 0.15)";

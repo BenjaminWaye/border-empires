@@ -1,4 +1,4 @@
-import type {
+import type { Tile,
   Dock,
   EconomicStructure,
   EconomicStructureType,
@@ -27,7 +27,7 @@ export interface CreateServerEconomyStateRuntimeDeps {
   docksByTile: Map<TileKey, Dock>;
   townsByTile: Map<TileKey, TownDefinition>;
   parseKey: (tileKey: TileKey) => [number, number];
-  terrainAtRuntime: (x: number, y: number) => "LAND" | "SEA" | "MOUNTAIN";
+  terrainAtRuntime: (x: number, y: number) => Tile["terrain"];
   applyClusterResources: (x: number, y: number, resource: ResourceType | undefined) => ResourceType | undefined;
   resourceAt: (x: number, y: number) => ResourceType | undefined;
   strategicResourceKeys: readonly StrategicResource[];
