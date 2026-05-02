@@ -338,6 +338,20 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     pushFeed(message, type, severity);
   };
 
+  const applySettlementRepairDiagnostic = (msg: Record<string, unknown>): void => {
+    const diagnostic = (msg.settlementRepairDiagnostic as { key?: unknown; detail?: unknown } | undefined) ?? undefined;
+    const diagnosticKey = typeof diagnostic?.key === "string" ? diagnostic.key : "";
+    const diagnosticDetail = typeof diagnostic?.detail === "string" ? diagnostic.detail : "";
+    if (!diagnosticKey || !diagnosticDetail) {
+      state.settlementRepairDiagnosticKey = "";
+      return;
+    }
+    if (state.settlementRepairDiagnosticKey === diagnosticKey) return;
+    state.settlementRepairDiagnosticKey = diagnosticKey;
+    showCaptureAlertSafely("Settlement Missing", diagnosticDetail, "error");
+    pushFeedSafely(diagnosticDetail, "error", "error");
+  };
+
   const explainActionFailureSafely = (
     code: string,
     message: string,
@@ -1291,6 +1305,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           siteCount: Number(shardRainNotice.siteCount ?? 0)
         });
       }
+      applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       syncAuthOverlay();
       renderHud();
       return;
@@ -1310,6 +1325,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "PLAYER_UPDATE") {
+      applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       const prevGold = state.gold;
       const prevDefensibility = state.defensibilityPct;
       const prevStrategic = { ...state.strategicResources };
