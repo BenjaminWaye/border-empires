@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.02.11",
+  version: "2026.05.02.12",
   title: "What's New",
-  summary: "Recent updates include cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
+  summary: "Recent updates include shard claim confirmations now keeping visible shard caches on newly claimed frontier tiles so you can still use the follow-up collect action, plus cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.02.12",
+      title: "Claimed shard tiles now keep their collect action",
+      why: "A frontier claim confirmation could overwrite the newly claimed tile with an explicit empty shard field, which made shard tiles look empty immediately after claim even though the intended next step was to collect the shard from that new frontier tile.",
+      changes: [
+        "Frontier claim confirmation now preserves an existing shard site only for the neutral-to-owned frontier claim transition when the incoming sync update explicitly clears shard detail.",
+        "Claiming a shard tile now leaves the shard visible on your new frontier territory so the follow-up tile menu still offers `Collect Shard` as intended.",
+        "Added websocket and gateway regression coverage so future claim-sync changes cannot strip shard caches from newly claimed tiles or resurrect already collected shards."
+      ]
+    },
     {
       introducedIn: "2026.05.02.11",
       title: "Town growth is now cheaper and reaches Monumental City",
