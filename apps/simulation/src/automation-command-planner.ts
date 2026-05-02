@@ -40,7 +40,30 @@ export const AUTOMATION_NOOP_REASONS = [
   "no_frontier_targets"
 ] as const;
 
+export const AUTOMATION_PREPLAN_REASONS = [
+  "collect_for_active_lock",
+  "collect_for_unaffordable_progression",
+  "collect_for_economic_recovery",
+  "choose_tech",
+  "choose_domain",
+  "defer_no_reachable_progression",
+  "defer_unaffordable_progression_without_collect",
+  "defer_to_main_planner"
+] as const;
+
+export const AUTOMATION_PREPLAN_PROGRESS_STATES = [
+  "no_reachable_progression",
+  "tech_unaffordable",
+  "domain_unaffordable",
+  "tech_and_domain_unaffordable",
+  "tech_affordable",
+  "domain_affordable",
+  "tech_and_domain_affordable"
+] as const;
+
 export type AutomationNoopReason = (typeof AUTOMATION_NOOP_REASONS)[number];
+export type AutomationPreplanReason = (typeof AUTOMATION_PREPLAN_REASONS)[number];
+export type AutomationPreplanProgressState = (typeof AUTOMATION_PREPLAN_PROGRESS_STATES)[number];
 export type AutomationSessionPrefix = "ai-runtime" | "system-runtime";
 
 export type AutomationPlannerTile = {
@@ -73,6 +96,13 @@ export type AutomationPlannerDiagnostic = {
   frontierNeutralTargetCount: number;
   canAttack: boolean;
   canExpand: boolean;
+  preplanReason?: AutomationPreplanReason;
+  preplanHasCollectibleVisibleYieldSource?: boolean;
+  preplanNeedsEconomy?: boolean;
+  preplanNeedsFood?: boolean;
+  preplanTechChoiceAffordable?: boolean;
+  preplanDomainChoiceAffordable?: boolean;
+  preplanProgressState?: AutomationPreplanProgressState;
   noCommandReason?: AutomationNoopReason;
 };
 

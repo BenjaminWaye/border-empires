@@ -2,7 +2,12 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey } from "@border-empires/game-domain";
 
 import { createAutomationCommand } from "./automation-command-factory.js";
-import type { AutomationPlannerDiagnostic, AutomationSessionPrefix } from "./automation-command-planner.js";
+import type {
+  AutomationPlannerDiagnostic,
+  AutomationPreplanProgressState,
+  AutomationPreplanReason,
+  AutomationSessionPrefix
+} from "./automation-command-planner.js";
 import { economyWeak, foodCoverageLow, hasCollectibleVisibleYieldSource } from "./ai-economic-heuristics.js";
 import { chooseAiDomainChoiceForPlayer, chooseAiTechChoiceForPlayer } from "./tech-domain-bridge.js";
 
@@ -33,7 +38,8 @@ export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
 
 const createDiagnostic = (
   playerId: string,
-  sessionPrefix: AutomationSessionPrefix
+  sessionPrefix: AutomationSessionPrefix,
+  overrides: Partial<AutomationPlannerDiagnostic> = {}
 ): AutomationPlannerDiagnostic => ({
   playerId,
   sessionPrefix,
@@ -42,8 +48,42 @@ const createDiagnostic = (
   frontierEnemyTargetCount: 0,
   frontierNeutralTargetCount: 0,
   canAttack: false,
-  canExpand: false
+  canExpand: false,
+  ...overrides
 });
+
+const summarizeDeferReason = (options: {
+  techChoiceAffordable: boolean;
+  domainChoiceAffordable: boolean;
+  hasCollectibleVisibleYieldSource: boolean;
+  hasAnyProgressionChoice: boolean;
+}): AutomationPreplanReason => {
+  if (!options.hasAnyProgressionChoice) return "defer_no_reachable_progression";
+  if (
+    !options.techChoiceAffordable &&
+    !options.domainChoiceAffordable &&
+    !options.hasCollectibleVisibleYieldSource
+  ) {
+    return "defer_unaffordable_progression_without_collect";
+  }
+  return "defer_to_main_planner";
+};
+
+const summarizeProgressState = (options: {
+  hasAnyProgressionChoice: boolean;
+  techChoiceAffordable: boolean;
+  domainChoiceAffordable: boolean;
+  hasTechChoice: boolean;
+  hasDomainChoice: boolean;
+}): AutomationPreplanProgressState => {
+  if (!options.hasAnyProgressionChoice) return "no_reachable_progression";
+  if (options.techChoiceAffordable && options.domainChoiceAffordable) return "tech_and_domain_affordable";
+  if (options.techChoiceAffordable) return "tech_affordable";
+  if (options.domainChoiceAffordable) return "domain_affordable";
+  if (options.hasTechChoice && options.hasDomainChoice) return "tech_and_domain_unaffordable";
+  if (options.hasTechChoice) return "tech_unaffordable";
+  return "domain_unaffordable";
+};
 
 export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTile>(
   input: AutomationPreplanInput<TTile>
@@ -57,6 +97,7 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
   const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
+  const hasCollectibleSource = hasCollectibleVisibleYieldSource(input.ownedTiles);
   const techChoice = chooseAiTechChoiceForPlayer(
     {
       id: input.playerId,
@@ -79,9 +120,27 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
     input.ownedTiles
   );
   const hasAffordableProgression = Boolean(techChoice?.affordable || domainChoice?.affordable);
+  const techChoiceAffordable = techChoice?.affordable === true;
+  const domainChoiceAffordable = domainChoice?.affordable === true;
+  const hasAnyProgressionChoice = techChoice !== undefined || domainChoice !== undefined;
+  const progressState = summarizeProgressState({
+    hasAnyProgressionChoice,
+    techChoiceAffordable,
+    domainChoiceAffordable,
+    hasTechChoice: techChoice !== undefined,
+    hasDomainChoice: domainChoice !== undefined
+  });
+  const diagnosticBase = {
+    preplanHasCollectibleVisibleYieldSource: hasCollectibleSource,
+    preplanNeedsEconomy: needsEconomy,
+    preplanNeedsFood: needsFood,
+    preplanTechChoiceAffordable: techChoiceAffordable,
+    preplanDomainChoiceAffordable: domainChoiceAffordable,
+    preplanProgressState: progressState
+  } satisfies Partial<AutomationPlannerDiagnostic>;
 
   if (
-    hasCollectibleVisibleYieldSource(input.ownedTiles) &&
+    hasCollectibleSource &&
     (
       input.hasActiveLock ||
       (
@@ -103,7 +162,14 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
         "COLLECT_VISIBLE",
         {}
       ),
-      diagnostic: createDiagnostic(input.playerId, input.sessionPrefix)
+      diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, {
+        ...diagnosticBase,
+        preplanReason: input.hasActiveLock
+          ? "collect_for_active_lock"
+          : (techChoice !== undefined || domainChoice !== undefined)
+            ? "collect_for_unaffordable_progression"
+            : "collect_for_economic_recovery"
+      })
     };
   }
 
@@ -126,7 +192,10 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
         "CHOOSE_TECH",
         { techId: progressionChoice.id }
       ),
-      diagnostic: createDiagnostic(input.playerId, input.sessionPrefix)
+      diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, {
+        ...diagnosticBase,
+        preplanReason: "choose_tech"
+      })
     };
   }
 
@@ -140,9 +209,22 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
         "CHOOSE_DOMAIN",
         { domainId: progressionChoice.id }
       ),
-      diagnostic: createDiagnostic(input.playerId, input.sessionPrefix)
+      diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, {
+        ...diagnosticBase,
+        preplanReason: "choose_domain"
+      })
     };
   }
 
-  return { diagnostic: createDiagnostic(input.playerId, input.sessionPrefix) };
+  return {
+    diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, {
+      ...diagnosticBase,
+      preplanReason: summarizeDeferReason({
+        techChoiceAffordable,
+        domainChoiceAffordable,
+        hasCollectibleVisibleYieldSource: hasCollectibleSource,
+        hasAnyProgressionChoice
+      })
+    })
+  };
 };

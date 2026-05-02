@@ -664,6 +664,7 @@ describe("ai command producer", () => {
   it("falls through to gameplay planning when collect-visible is locally cooldown-blocked", async () => {
     let nowMs = 1_000;
     const submittedTypes: string[] = [];
+    const decisionReasons: string[] = [];
     const explainNextAutomationCommand = vi.fn(
       (playerId: string, clientSeq: number, issuedAt: number, _sessionPrefix: string, options?: { skipPreplan?: boolean }) => {
         if (!options?.skipPreplan) {
@@ -680,6 +681,7 @@ describe("ai command producer", () => {
             diagnostic: {
               playerId,
               sessionPrefix: "ai-runtime" as const,
+              preplanReason: "collect_for_active_lock" as const,
               settlementEligible: false,
               settlementCandidateFound: false,
               frontierEnemyTargetCount: 0,
@@ -727,6 +729,9 @@ describe("ai command producer", () => {
       submitCommand: async (command) => {
         submittedTypes.push(command.type);
       },
+      onDecision: (diagnostic) => {
+        if (diagnostic.preplanReason) decisionReasons.push(diagnostic.preplanReason);
+      },
       now: () => nowMs,
       tickIntervalMs: 10_000
     });
@@ -750,6 +755,7 @@ describe("ai command producer", () => {
     producer.close();
 
     expect(submittedTypes).toEqual(["COLLECT_VISIBLE", "EXPAND", "EXPAND"]);
+    expect(decisionReasons).toEqual(["collect_for_active_lock"]);
     expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(4, "ai-1", 3, expect.any(Number), "ai-runtime", { skipPreplan: true });
   });
 
