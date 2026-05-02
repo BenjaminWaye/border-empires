@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.02.12",
+  version: "2026.05.02.13",
   title: "What's New",
-  summary: "Recent updates include shard claim confirmations now keeping visible shard caches on newly claimed frontier tiles so you can still use the follow-up collect action, plus cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
+  summary: "Recent updates include claimed shard confirmations now keeping visible shard caches on newly claimed frontier tiles so you can still use the follow-up collect action, town growth panels now spelling out why growth is paused when a town is unfed or under war shock, rewrite town panels no longer falling back to fake population-1 summaries when later gateway sync only resends a town's identity while still preserving known population and cap data, cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.02.13",
+      title: "Town growth panels now explain paused growth",
+      why: "When a town stopped growing, the overview only said that the next size was paused, which made it hard to tell whether the blocker was food, recent capture shock, or nearby war pressure.",
+      changes: [
+        "The next-size line now includes the growth blocker when it can be inferred from current town state, such as an unfed town, recent capture shock, or nearby war shock.",
+        "This keeps the town panel from forcing players to guess why growth is stuck at 0.00/m.",
+        "Added client regression coverage for the new paused-growth labels."
+      ]
+    },
+    {
+      introducedIn: "2026.05.02.13",
+      title: "Rewrite town panels keep real population data during partial resyncs",
+      why: "Some rewrite tile updates resent only a town's name, type, and tier, which made the client rebuild the rest of the panel from placeholder values like population 1 and max population 3 even when a richer summary had already been seen.",
+      changes: [
+        "Gateway-derived town summaries now preserve previously known population and max-population fields when a later partial rewrite update only carries the town identity.",
+        "When the rewrite path has never received numeric town stats yet, the client now falls back to tier-based population floors instead of impossible population-1 placeholders for grown towns.",
+        "Added client regression coverage for both the partial-resync case and the initial tier-floor fallback case."
+      ]
+    },
     {
       introducedIn: "2026.05.02.12",
       title: "Claimed shard tiles now keep their collect action",
@@ -31,6 +51,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Frontier claim confirmation now preserves an existing shard site only for the neutral-to-owned frontier claim transition when the incoming sync update explicitly clears shard detail.",
         "Claiming a shard tile now leaves the shard visible on your new frontier territory so the follow-up tile menu still offers `Collect Shard` as intended.",
         "Added websocket and gateway regression coverage so future claim-sync changes cannot strip shard caches from newly claimed tiles or resurrect already collected shards."
+      ]
+    },
       ]
     },
     {
