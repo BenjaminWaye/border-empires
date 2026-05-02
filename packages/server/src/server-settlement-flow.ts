@@ -188,8 +188,15 @@ export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): Serv
   const isRelocatableSettlementTown = (town: TownDefinition | undefined): town is TownDefinition =>
     Boolean(town && townPopulationTierForTown(town) === "SETTLEMENT");
 
-  const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined =>
-    ownedTownKeysForPlayer(playerId).find((tk) => isRelocatableSettlementTown(townsByTile.get(tk)));
+  const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined => {
+    const player = players.get(playerId);
+    if (!player) return undefined;
+    for (const tileKey of player.territoryTiles) {
+      if (ownership.get(tileKey) !== playerId || ownershipStateByTile.get(tileKey) !== "SETTLED") continue;
+      if (isRelocatableSettlementTown(townsByTile.get(tileKey))) return tileKey;
+    }
+    return undefined;
+  };
 
   const oldestSettledSettlementCandidateForPlayer = (playerId: string): TileKey | undefined => {
     const player = players.get(playerId);
@@ -239,6 +246,51 @@ export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): Serv
     if (ownership.get(tileKey) !== playerId || ownershipStateByTile.get(tileKey) !== "SETTLED" || terrainAtRuntime(x, y) !== "LAND") return false;
     if (townsByTile.has(tileKey) || docksByTile.has(tileKey) || fortsByTile.has(tileKey) || observatoriesByTile.has(tileKey) || siegeOutpostsByTile.has(tileKey) || economicStructuresByTile.has(tileKey)) return false;
     return !applyClusterResources(x, y, resourceAt(x, y));
+  };
+
+  const settlementHostBlockerForTile = (playerId: string, tileKey: TileKey): string | undefined => {
+    const [x, y] = parseKey(tileKey);
+    if (ownership.get(tileKey) !== playerId) return "not owned";
+    if (ownershipStateByTile.get(tileKey) !== "SETTLED") return "not settled";
+    if (terrainAtRuntime(x, y) !== "LAND") return "not land";
+    if (townsByTile.has(tileKey)) return "already has a town";
+    if (docksByTile.has(tileKey)) return "has a dock";
+    if (fortsByTile.has(tileKey)) return "has a fort";
+    if (observatoriesByTile.has(tileKey)) return "has an observatory";
+    if (siegeOutpostsByTile.has(tileKey)) return "has a siege outpost";
+    if (economicStructuresByTile.has(tileKey)) return "has an economic structure";
+    if (applyClusterResources(x, y, resourceAt(x, y))) return "has a resource";
+    return undefined;
+  };
+
+  const settlementRepairDiagnosticForPlayer = (playerId: string): { key: string; detail: string } | undefined => {
+    if (activeSettlementTileKeyForPlayer(playerId)) return undefined;
+    const player = players.get(playerId);
+    if (!player) return undefined;
+    const eligible: TileKey[] = [];
+    const blocked: string[] = [];
+    for (const tileKey of player.territoryTiles) {
+      const [x, y] = parseKey(tileKey);
+      if (ownership.get(tileKey) !== playerId || ownershipStateByTile.get(tileKey) !== "SETTLED" || terrainAtRuntime(x, y) !== "LAND") continue;
+      const blocker = settlementHostBlockerForTile(playerId, tileKey);
+      if (!blocker) eligible.push(tileKey);
+      else blocked.push(`${tileKey} (${blocker})`);
+    }
+    eligible.sort((left, right) => left.localeCompare(right));
+    blocked.sort((left, right) => left.localeCompare(right));
+    if (eligible.length > 0) {
+      return {
+        key: `missing-settlement:eligible:${eligible.join("|")}`,
+        detail: `Your empire has no active settlement. Eligible settled tile${eligible.length === 1 ? "" : "s"}: ${eligible.join(", ")}.`
+      };
+    }
+    return {
+      key: `missing-settlement:blocked:${blocked.join("|") || "none"}`,
+      detail:
+        blocked.length > 0
+          ? `Your empire has no active settlement, and no settled tile can host one. Blocked settled tiles: ${blocked.join(", ")}.`
+          : "Your empire has no active settlement, and no eligible settled tile was found."
+    };
   };
 
   const settledLandKeysForPlayer = (playerId: string): Set<TileKey> => {
@@ -358,6 +410,7 @@ export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): Serv
     activeSettlementTileKeyForPlayer,
     oldestSettledSettlementCandidateForPlayer,
     createSettlementAtTile,
+    settlementRepairDiagnosticForPlayer,
     ensureActiveSettlementForPlayer,
     ensureFallbackSettlementForPlayer,
     relocateCapturedSettlementForPlayer,

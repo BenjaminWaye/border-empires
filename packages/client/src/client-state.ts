@@ -210,6 +210,7 @@ export const createInitialState = () => ({
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number } | undefined,
+  settlementRepairDiagnosticKey: "" as string,
   collectVisibleCooldownUntil: 0,
   pendingCollectVisibleKeys: new Set<string>(),
   pendingCollectVisibleDelta: {

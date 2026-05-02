@@ -118,6 +118,7 @@ import { createServerEconomyStateRuntime } from "./server-economy-state-runtime.
 import { createServerPlayerEffectsRuntime } from "./server-player-effects-runtime.js";
 import { clearDockRouteCooldowns, dockRouteCooldownUntil, setDockRouteCooldownUntil } from "./server-dock-cooldown.js";
 import { createServerPlayerRuntimeSupport } from "./server-player-runtime-support.js";
+import { buildServerInitPayload } from "./server-init-payload.js";
 import { createServerOwnershipRuntime } from "./server-ownership-runtime.js";
 import { createServerSnapshotIoRuntime } from "./server-snapshot-io.js";
 import { createServerSnapshotHydrateRuntime } from "./server-snapshot-hydrate.js";
@@ -1568,6 +1569,7 @@ const {
   activeSettlementTileKeyForPlayer,
   oldestSettledSettlementCandidateForPlayer,
   createSettlementAtTile,
+  settlementRepairDiagnosticForPlayer,
   ensureActiveSettlementForPlayer,
   ensureFallbackSettlementForPlayer,
   relocateCapturedSettlementForPlayer,
@@ -2757,6 +2759,7 @@ const { sendPlayerUpdate } = createServerPlayerUpdateRuntime({
   techPayloadSnapshotForPlayer: (player, scope) => techPayloadSnapshotForPlayer(player, scope),
   refreshGlobalStatusCache: (force) => refreshGlobalStatusCache(force),
   pendingSettlementsForPlayer: (playerId) => pendingSettlementsForPlayer(playerId),
+  settlementRepairDiagnosticForPlayer: (playerId) => settlementRepairDiagnosticForPlayer(playerId),
   parseKey,
   developmentProcessCapacityForPlayer: (playerId) => developmentProcessCapacityForPlayer(playerId),
   activeDevelopmentProcessCountForPlayer: (playerId) => activeDevelopmentProcessCountForPlayer(playerId),
@@ -8846,9 +8849,10 @@ registerServerHttpRoutes(app, {
       const dockPairs = exportDockPairs();
       const offlineActivity = consumeOfflinePlayerActivity(player.id);
       const techPayload = techPayloadSnapshotForPlayer(player, "init");
+      const settlementRepairDiagnostic = settlementRepairDiagnosticForPlayer(player.id);
       sendLoginPhase(socket, "PLAYER_LOADED", "Connecting your empire...", "Empire record ready. Preparing your session...");
       socket.send(
-        JSON.stringify({
+        JSON.stringify(buildServerInitPayload({
           type: "INIT",
           player: {
             id: player.id,
@@ -8933,7 +8937,7 @@ registerServerHttpRoutes(app, {
           truceRequests: incomingTruceRequestsForPlayer(player.id),
           outgoingTruceRequests: outgoingTruceRequestsForPlayer(player.id),
           offlineActivity
-        })
+        }, settlementRepairDiagnostic))
       );
       const authSync = authSyncTimingByPlayer.get(player.id);
       if (authSync) {
