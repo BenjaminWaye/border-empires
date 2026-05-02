@@ -83,6 +83,97 @@ describe("simulation runtime", () => {
     expect(state.tiles.filter((tile) => tile.ownerId === "player-1")).toHaveLength(1);
   });
 
+  it("clears remembered automation victory paths when a player respawns from zero territory", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: true,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map([
+        ["10,10", { x: 10, y: 10, terrain: "LAND" }],
+        ["10,11", { x: 10, y: 11, terrain: "LAND" }]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND" },
+          { x: 10, y: 11, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    (
+      runtime as unknown as {
+        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY">;
+      }
+    ).rememberedAutomationVictoryPathByPlayer.set("player-1", "TOWN_CONTROL");
+
+    expect(runtime.ensurePlayerHasSpawnTerritory("player-1")).toBe(true);
+    expect(
+      (
+        runtime as unknown as {
+          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY">;
+        }
+      ).rememberedAutomationVictoryPathByPlayer.get("player-1")
+    ).toBeUndefined();
+  });
+
+  it("clears remembered automation victory paths when planning a player with no territory", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: true,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [],
+        activeLocks: []
+      }
+    });
+
+    (
+      runtime as unknown as {
+        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY">;
+      }
+    ).rememberedAutomationVictoryPathByPlayer.set("player-1", "ECONOMIC_HEGEMONY");
+
+    runtime.explainNextAutomationCommand("player-1", 1, 1_000, "ai-runtime");
+
+    expect(
+      (
+        runtime as unknown as {
+          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY">;
+        }
+      ).rememberedAutomationVictoryPathByPlayer.get("player-1")
+    ).toBeUndefined();
+  });
+
   it("regenerates manpower from elapsed time before exporting player state", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
@@ -731,7 +822,7 @@ describe("simulation runtime", () => {
       }
     });
 
-    expect(runtime.chooseNextAutomationCommand("ai-1", 1, 1_000, "ai-runtime")).toEqual(
+    expect(runtime.explainNextAutomationCommand("ai-1", 1, 1_000, "ai-runtime", { skipPreplan: true }).command).toEqual(
       expect.objectContaining({
         type: "EXPAND",
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 50, toY: 50 })
