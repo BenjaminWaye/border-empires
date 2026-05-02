@@ -108,6 +108,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     y: z.number().int(),
     ...FrontierCommandMetadataSchema
   }),
+  z.object({ type: z.literal("GROW_TOWN"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("BUILD_SIEGE_OUTPOST"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REVEAL_EMPIRE_STATS"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),

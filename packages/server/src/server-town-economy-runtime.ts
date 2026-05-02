@@ -301,7 +301,7 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
     return (
       TOWN_BASE_GOLD_PER_MIN *
       supportRatio *
-      townPopulationMultiplier(town.population) *
+      townPopulationMultiplier(town.population, town.growthTierCap) *
       (1 + town.connectedTownBonus + railDepotConnectedTownBonusAt(town.tileKey, ownerId)) *
       marketIncomeMultiplierAt(town.tileKey, ownerId) *
       clearingHouseMarketMultiplierAt(town.tileKey, ownerId) *

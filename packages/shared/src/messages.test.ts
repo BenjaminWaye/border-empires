@@ -3,6 +3,14 @@ import { describe, expect, it } from "vitest";
 import { ClientMessageSchema } from "./messages.js";
 
 describe("ClientMessageSchema", () => {
+  it("accepts grow-town messages", () => {
+    expect(ClientMessageSchema.parse({ type: "GROW_TOWN", x: 4, y: 9 })).toEqual({
+      type: "GROW_TOWN",
+      x: 4,
+      y: 9
+    });
+  });
+
   it("accepts alliance and truce dismiss/cancel messages", () => {
     expect(ClientMessageSchema.parse({ type: "ALLIANCE_REJECT", requestId: "alliance-1" })).toEqual({
       type: "ALLIANCE_REJECT",
