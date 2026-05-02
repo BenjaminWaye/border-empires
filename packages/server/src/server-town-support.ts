@@ -1,4 +1,4 @@
-import type { Player, PopulationTier, TileKey } from "@border-empires/shared";
+import { capTownPopulationTier, initialTownGrowthTierCap, townPopulationTierFromPopulation, type Player, type PopulationTier, type TileKey } from "@border-empires/shared";
 
 import type { ManpowerBreakdownLine, TownDefinition } from "./server-shared-types.js";
 import type { ServerTownSupportDeps, ServerTownSupportRuntime } from "./server-town-runtime-types.js";
@@ -75,21 +75,18 @@ export const createServerTownSupport = (deps: ServerTownSupportDeps): ServerTown
     return { supportCurrent, supportMax };
   };
 
-  const townPopulationTier = (population: number): PopulationTier => {
-    if (population >= 5_000_000) return "METROPOLIS";
-    if (population >= 1_000_000) return "GREAT_CITY";
-    if (population >= 100_000) return "CITY";
-    if (population >= POPULATION_TOWN_MIN) return "TOWN";
-    return "SETTLEMENT";
-  };
+  const townPopulationTier = (population: number): PopulationTier => townPopulationTierFromPopulation(population, POPULATION_TOWN_MIN);
 
   const townPopulationTierForTown = (town: TownDefinition): PopulationTier => {
+    if (town.growthTierCap === undefined) {
+      town.growthTierCap = initialTownGrowthTierCap(town.population, POPULATION_TOWN_MIN, town.isSettlement === true);
+    }
     if (town.isSettlement && town.population < POPULATION_TOWN_MIN) return "SETTLEMENT";
-    return townPopulationTier(town.population);
+    return capTownPopulationTier(townPopulationTier(town.population), town.growthTierCap);
   };
 
-  const townPopulationMultiplier = (population: number): number => {
-    const tier = townPopulationTier(population);
+  const townPopulationMultiplier = (population: number, growthTierCap?: PopulationTier): number => {
+    const tier = capTownPopulationTier(townPopulationTier(population), growthTierCap);
     if (tier === "SETTLEMENT") return 0.6;
     if (tier === "CITY") return 1.5;
     if (tier === "GREAT_CITY") return 2.5;

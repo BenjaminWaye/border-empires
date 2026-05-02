@@ -43,10 +43,12 @@ describe("pre-town settlement regression guard", () => {
     expect(source).toContain("const initialTownPopulationAt = (x: number, y: number, seed: number): number =>");
   });
 
-  it("keeps a settlement tier before town", () => {
-    const body = functionBody(serverMainSource(), "townPopulationTier");
-    expect(body).toContain('if (population >= POPULATION_TOWN_MIN) return "TOWN";');
-    expect(body).toContain('return "SETTLEMENT";');
+  it("keeps a settlement tier before town while capping higher promotions", () => {
+    const body = functionBody(serverMainSource(), "townPopulationTierForTown");
+    expect(body).toContain("town.growthTierCap === undefined");
+    expect(body).toContain("initialTownGrowthTierCap(town.population, POPULATION_TOWN_MIN, town.isSettlement === true)");
+    expect(body).toContain('if (town.isSettlement && town.population < POPULATION_TOWN_MIN) return "SETTLEMENT";');
+    expect(body).toContain("return capTownPopulationTier(townPopulationTier(town.population), town.growthTierCap);");
   });
 
   it("treats settlements as a pre-town stage with no support, no upkeep, and starter economy values", () => {

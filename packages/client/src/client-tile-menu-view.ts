@@ -7,6 +7,7 @@ import {
 } from "@border-empires/shared";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, storedYieldSummary, strategicResourceKeyForTile, tileProductionHtml } from "./client-map-display.js";
 import { tileOverviewModifiersForTile } from "./client-tile-overview-modifiers.js";
+import { displayTownPopulationTierLabel } from "./client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
 import { tileOverviewUpkeepLines } from "./client-tile-upkeep-view.js";
@@ -85,10 +86,10 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
   if (actionId === "build_rail_depot") return "Build on a town support tile. Every 10 minutes it settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across the linked town network.";
   if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales gold and growth with the local support network.";
-  if (actionId === "build_imperial_exchange_part") return "Build one of three Imperial Exchange monument parts in a Great City or Metropolis.";
-  if (actionId === "build_world_engine_part") return "Build one of three Worldbreaker Cannon monument parts in a Great City or Metropolis.";
-  if (actionId === "build_aegis_dome_part") return "Build one of three Aegis Dome monument parts in a Great City or Metropolis.";
-  if (actionId === "build_astral_dock_part") return "Build one of three Astral Dock monument parts in a Great City or Metropolis.";
+  if (actionId === "build_imperial_exchange_part") return "Build one of three Imperial Exchange monument parts in a Great City or Monumental City.";
+  if (actionId === "build_world_engine_part") return "Build one of three Worldbreaker Cannon monument parts in a Great City or Monumental City.";
+  if (actionId === "build_aegis_dome_part") return "Build one of three Aegis Dome monument parts in a Great City or Monumental City.";
+  if (actionId === "build_astral_dock_part") return "Build one of three Astral Dock monument parts in a Great City or Monumental City.";
   if (actionId === "build_imperial_exchange") return "Place the final Imperial Exchange for free after finishing three parts.";
   if (actionId === "build_world_engine") return "Place the final Worldbreaker Cannon for free after finishing three parts.";
   if (actionId === "build_aegis_dome") return "Place the final Aegis Dome for free after finishing three parts.";
@@ -359,7 +360,7 @@ export const menuOverviewForTile = (
       const supportMax = Number.isFinite(tile.town.supportMax) ? tile.town.supportMax : 0;
       pushLine(`Support ${supportCurrent}/${supportMax}`);
     }
-    pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${deps.prettyToken(tile.town.populationTier)}`);
+    pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
     pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
     pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town)}.`);
   } else if (tile.resource) {

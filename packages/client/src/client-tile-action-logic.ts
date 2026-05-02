@@ -1,5 +1,6 @@
 import {
   buildAetherWallSegments,
+  type TownGrowthUpgradeView,
   type BuildableStructureType,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
@@ -45,6 +46,38 @@ const structureLabelForRemoval = (tile: Tile): { label: string; durationMs: numb
   if (tile.siegeOutpost) return { label: "Siege Outpost", durationMs: structureBuildDurationMs("SIEGE_OUTPOST") };
   if (tile.economicStructure) return { label: economicStructureName(tile.economicStructure.type), durationMs: economicStructureBuildMs(tile.economicStructure.type) };
   return undefined;
+};
+
+const townGrowthActionForUpgrade = (
+  state: ClientState,
+  upgrade: TownGrowthUpgradeView | undefined
+): TileActionDef | undefined => {
+  if (!upgrade?.available) return undefined;
+  const enabled = state.gold >= upgrade.goldCost;
+  const id =
+    upgrade.targetTier === "CITY"
+      ? "grow_town_to_city"
+      : upgrade.targetTier === "GREAT_CITY"
+        ? "grow_city_to_great_city"
+        : "grow_great_city_to_monumental_city";
+  const label =
+    upgrade.targetTier === "CITY"
+      ? "Grow Town to City"
+      : upgrade.targetTier === "GREAT_CITY"
+        ? "Grow City to Great City"
+        : "Grow Great City to Monumental City";
+  const detail =
+    upgrade.targetTier === "CITY"
+      ? "Unlocks city-tier income and manpower. Food upkeep rises to 0.2/m."
+      : upgrade.targetTier === "GREAT_CITY"
+        ? "Unlocks great-city income and manpower. Food upkeep rises to 0.4/m."
+        : "Unlocks metropolis-tier income and manpower. Food upkeep rises to 0.8/m.";
+  return {
+    id,
+    label,
+    ...(enabled ? { detail } : {}),
+    ...tileActionAvailability(enabled, `Need ${upgrade.goldCost} gold`, `${upgrade.goldCost} gold`)
+  };
 };
 
 type TileActionLogicDeps = {
@@ -1103,6 +1136,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           deps
         )
       });
+    const townGrowthAction = tile.town ? townGrowthActionForUpgrade(state, tile.town.nextPopulationTierUpgrade) : undefined;
+    if (townGrowthAction) out.push(townGrowthAction);
     const hasWoodenFort = tile.economicStructure?.type === "WOODEN_FORT";
     const hasLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST";
     if (
@@ -1805,7 +1840,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasImperialExchangePart || townHasWorldEnginePart || townHasAegisDomePart || townHasAstralDockPart
                 ? "Nearby great city already hosts a monument part"
                 : !isGreatCity
-                  ? "Requires Great City or Metropolis"
+                  ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("urban-markets")
                     ? "Requires Imperial Exchange"
                     : state.gold < 8000
@@ -1835,7 +1870,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasImperialExchangePart || townHasWorldEnginePart || townHasAegisDomePart || townHasAstralDockPart
                 ? "Nearby great city already hosts a monument part"
                 : !isGreatCity
-                  ? "Requires Great City or Metropolis"
+                  ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("world-engine")
                     ? "Requires Worldbreaker Cannon"
                     : state.gold < 8000
@@ -1865,7 +1900,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasImperialExchangePart || townHasWorldEnginePart || townHasAegisDomePart || townHasAstralDockPart
                 ? "Nearby great city already hosts a monument part"
                 : !isGreatCity
-                  ? "Requires Great City or Metropolis"
+                  ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("aegis-dome")
                     ? "Requires Aegis Dome"
                     : state.gold < 8000
@@ -1895,7 +1930,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : townHasImperialExchangePart || townHasWorldEnginePart || townHasAegisDomePart || townHasAstralDockPart
                 ? "Nearby great city already hosts a monument part"
                 : !isGreatCity
-                  ? "Requires Great City or Metropolis"
+                  ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("astral-dock")
                     ? "Requires Astral Dock"
                     : state.gold < 8000

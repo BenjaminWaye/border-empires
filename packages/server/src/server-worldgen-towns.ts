@@ -1,4 +1,4 @@
-import type { ResourceType, TileKey } from "@border-empires/shared";
+import { initialTownGrowthTierCap, type ResourceType, type TileKey } from "@border-empires/shared";
 
 import type { ServerWorldgenTownsDeps, ServerWorldgenTownsRuntime } from "./server-world-runtime-types.js";
 
@@ -63,15 +63,17 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
       });
       if (tooClose) continue;
       placed.push({ x, y });
+      const population = initialTownPopulationAt(x, y, seed);
       townsByTile.set(tileKey, {
         townId: `town-${townsByTile.size}`,
         tileKey,
         type: townTypeAt(x, y),
-        population: initialTownPopulationAt(x, y, seed),
+        population,
         maxPopulation: POPULATION_MAX,
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        lastGrowthTickAt: now()
+        lastGrowthTickAt: now(),
+        growthTierCap: initialTownGrowthTierCap(population, POPULATION_TOWN_MIN)
       });
     }
   };
@@ -145,7 +147,8 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
         if (!hasTown) {
           const picked = land.find((tile) => !docksByTile.has(key(tile.x, tile.y)) && !clusterByTile.has(key(tile.x, tile.y)) && !townsByTile.has(key(tile.x, tile.y)));
           if (picked) {
-            townsByTile.set(key(picked.x, picked.y), { townId: `town-${townsByTile.size}`, tileKey: key(picked.x, picked.y), type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, lastGrowthTickAt: now() });
+            const population = initialTownPopulationAt(picked.x, picked.y, seed);
+            townsByTile.set(key(picked.x, picked.y), { townId: `town-${townsByTile.size}`, tileKey: key(picked.x, picked.y), type: townTypeAt(picked.x, picked.y), population, maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, lastGrowthTickAt: now(), growthTierCap: initialTownGrowthTierCap(population, POPULATION_TOWN_MIN) });
           }
         }
         if (hasFood) continue;
@@ -204,7 +207,8 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
         }
         const tileKey = key(picked.x, picked.y);
         if (!townsByTile.has(tileKey) && !docksByTile.has(tileKey) && !clusterByTile.has(tileKey)) {
-          townsByTile.set(tileKey, { townId: `town-${townsByTile.size}`, tileKey, type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, lastGrowthTickAt: now() });
+          const population = initialTownPopulationAt(picked.x, picked.y, seed);
+          townsByTile.set(tileKey, { townId: `town-${townsByTile.size}`, tileKey, type: townTypeAt(picked.x, picked.y), population, maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, lastGrowthTickAt: now(), growthTierCap: initialTownGrowthTierCap(population, POPULATION_TOWN_MIN) });
         }
       }
     }
