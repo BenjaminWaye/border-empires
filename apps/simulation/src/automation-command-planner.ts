@@ -140,6 +140,7 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   previousVictoryPath?: AutomationVictoryPath | undefined;
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
   onStrategicSnapshot?: (snapshot: AutomationStrategicSnapshot) => void;
+  preplanProgressState?: AutomationPreplanProgressState | undefined;
 };
 
 export type AutomationPlannerResult = {
@@ -186,6 +187,11 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     : input.hotFrontierTiles?.length
       ? input.hotFrontierTiles
       : input.frontierTiles) as unknown as Iterable<DomainTileState>;
+  const fallbackSettlementSources = (input.hotFrontierTiles?.length
+    ? input.hotFrontierTiles
+    : input.frontierTiles.length > 0
+      ? input.frontierTiles
+      : settlementSources) as unknown as Iterable<DomainTileState>;
   const settlementCandidate = settlementEligible
     ? chooseBestStrategicSettlementTile(
         input.playerId,
@@ -197,7 +203,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       )
     : undefined;
   const fallbackSettlementCandidate = settlementEligible
-    ? chooseBestSettlementTile(input.playerId, settlementSources, input.tilesByKey as ReadonlyMap<string, DomainTileState>, {
+    ? chooseBestSettlementTile(input.playerId, fallbackSettlementSources, input.tilesByKey as ReadonlyMap<string, DomainTileState>, {
         ...(input.isPendingSettlement
           ? { isPending: (tile: DomainTileState) => input.isPendingSettlement?.(tile as unknown as TTile) ?? false }
           : {})
@@ -269,7 +275,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     frontierAnalysis,
     tilesByKey: input.tilesByKey,
     needsFood,
-    needsEconomy
+    needsEconomy,
+    ...(input.preplanProgressState ? { preplanProgressState: input.preplanProgressState } : {})
   };
   const summarizeStartedAt = Date.now();
   const actionableFallbackSettlementCandidate =
@@ -279,6 +286,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const canSettleNow = Boolean(
     settlementCandidate && shouldSettleCandidateNow(context, settlementCandidate as TTile)
   );
+  const techUnaffordable = input.preplanProgressState === "tech_unaffordable";
 
   let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
@@ -416,6 +424,17 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   ) {
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return buildPlannerFrontierCommand(context, frontierAnalysis.expand, "EXPAND");
+  }
+
+  if (
+    techUnaffordable &&
+    frontierAnalysis.scoutExpand &&
+    canExpand &&
+    !canSettleNow &&
+    !actionableFallbackSettlementCandidate
+  ) {
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+    return buildPlannerFrontierCommand(context, frontierAnalysis.scoutExpand, "EXPAND");
   }
 
   if (actionableFallbackSettlementCandidate) {
