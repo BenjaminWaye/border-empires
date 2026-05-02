@@ -48,4 +48,14 @@ describe("domain panel detail layout regression guard", () => {
     expect(hudSource).not.toContain("document.querySelector(\"#auth-logout\")");
     expect(hudSource).not.toContain("id=\"auth-logout\"");
   });
+
+  it("keeps the staging-only map reveal button in the settings card", () => {
+    const hudSource = sourceFor("./client-hud.ts");
+
+    expect(hudSource).toContain("stagingMapRevealCardHtml()");
+    expect(hudSource).toContain("data-staging-map-reveal");
+    expect(hudSource).toContain("const stagingMapRevealButtons = dom.hud.querySelectorAll(\"[data-staging-map-reveal]\")");
+    expect(hudSource).toContain("Reveal Full Map");
+    expect(hudSource).toContain("Restore Fog");
+  });
 });
