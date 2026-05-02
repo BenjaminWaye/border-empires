@@ -92,6 +92,16 @@ const debugAuthEmail = (): string => {
   }
 };
 
+export const debugAuthIdentityKeyForEmail = (email: string | undefined | null): string => {
+  const normalized = (email ?? "").trim().toLowerCase();
+  return normalized || "anonymous";
+};
+
+export const isDebugAccountEmail = (email: string | undefined | null): boolean =>
+  debugAuthIdentityKeyForEmail(email) === DEBUG_ACCOUNT_EMAIL;
+
+export const debugAuthIdentityKey = (): string => debugAuthIdentityKeyForEmail(debugAuthEmail());
+
 export const setDebugAuthEmail = (email: string | undefined): void => {
   try {
     const normalized = (email ?? "").trim().toLowerCase();
@@ -102,7 +112,7 @@ export const setDebugAuthEmail = (email: string | undefined): void => {
   }
 };
 
-export const debugEnabledForAccount = (): boolean => debugAuthEmail() === DEBUG_ACCOUNT_EMAIL;
+export const debugEnabledForAccount = (): boolean => isDebugAccountEmail(debugAuthEmail());
 
 export const debugTileLoggingEnabled = (): boolean => {
   if (!debugEnabledForAccount()) return false;

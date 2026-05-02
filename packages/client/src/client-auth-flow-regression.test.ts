@@ -20,4 +20,15 @@ describe("client auth flow regression guard", () => {
     expect(source).toContain("void authenticateSocket(true)");
     expect(source).not.toContain("authSession.token = await user.getIdToken(true);");
   });
+
+  it("reloads the staging map reveal after the debug account signs in and clears it on sign-out", () => {
+    const source = clientSource();
+
+    expect(source).toContain('setDebugAuthEmail("");');
+    expect(source).toContain("state.stagingMapRevealEligible = false;");
+    expect(source).toContain("state.stagingMapRevealEnabled = false;");
+    expect(source).toContain("state.stagingMapRevealEligible = isDebugAccountEmail(authEmail);");
+    expect(source).toContain("state.authEmail = authEmail ?? \"\";");
+    expect(source).toContain("state.stagingMapRevealEnabled = getStagingMapRevealEnabled({");
+  });
 });
