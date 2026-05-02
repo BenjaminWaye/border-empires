@@ -1112,6 +1112,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
               : "Siege Outpost";
     if (actionId === "collect_yield") collectSelectedYield();
     if (actionId === "collect_shard") collectSelectedShard();
+    if (actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "GROW_TOWN", x: selected.x, y: selected.y });
     if (actionId === "build_fortification")
       sendDevelopmentBuild({ type: "BUILD_FORT", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FORT"), {
         x: selected.x,

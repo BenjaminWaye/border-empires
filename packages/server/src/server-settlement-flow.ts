@@ -1,4 +1,4 @@
-import type { EconomicStructure, EconomicStructureType, TileKey } from "@border-empires/shared";
+import { initialTownGrowthTierCap, type EconomicStructure, type EconomicStructureType, type TileKey } from "@border-empires/shared";
 
 import type { TownDefinition } from "./server-shared-types.js";
 import type { ServerSettlementFlowDeps, ServerSettlementFlowRuntime } from "./server-composition-types.js";
@@ -221,17 +221,19 @@ export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): Serv
     if (ownership.get(tileKey) !== ownerId || ownershipStateByTile.get(tileKey) !== "SETTLED" || terrainAtRuntime(x, y) !== "LAND") return undefined;
     if (townsByTile.has(tileKey) || docksByTile.has(tileKey) || fortsByTile.has(tileKey) || observatoriesByTile.has(tileKey) || siegeOutpostsByTile.has(tileKey) || economicStructuresByTile.has(tileKey)) return undefined;
     if (applyClusterResources(x, y, resourceAt(x, y))) return undefined;
+    const population = initialSettlementPopulationAt(x, y);
     const town: TownDefinition = {
       townId: previousTown?.townId ?? `town-${townsByTile.size}`,
       tileKey,
       ...(previousTown?.name ? { name: previousTown.name } : {}),
       type: previousTown?.type ?? townTypeAt(x, y),
-      population: initialSettlementPopulationAt(x, y),
+      population,
       maxPopulation: POPULATION_MAX,
       connectedTownCount: 0,
       connectedTownBonus: 0,
       lastGrowthTickAt: now(),
-      isSettlement: true
+      isSettlement: true,
+      growthTierCap: initialTownGrowthTierCap(population, 10_000, true)
     };
     townsByTile.set(tileKey, town);
     assignMissingTownNamesForWorld();

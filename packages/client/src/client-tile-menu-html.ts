@@ -62,6 +62,9 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "astral_dock_launch") return "☄";
   if (id === "build_radar_system") return "◌";
   if (id === "build_governors_office") return "⌘";
+  if (id === "grow_town_to_city") return "⬆";
+  if (id === "grow_city_to_great_city") return "⬆";
+  if (id === "grow_great_city_to_monumental_city") return "⬆";
   if (id === "remove_structure") return "⌫";
   if (id === "abandon_territory") return "✕";
   if (id === "aether_wall") return "║";

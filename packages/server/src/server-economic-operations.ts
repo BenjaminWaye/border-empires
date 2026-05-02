@@ -250,7 +250,7 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
       if (!monumentTown) return { ok: false, reason: "monument parts require a support tile next to your great city" };
       const tier = townPopulationTierForTown(monumentTown);
       if (tier !== "GREAT_CITY" && tier !== "METROPOLIS") {
-        return { ok: false, reason: "monument parts require a Great City or Metropolis" };
+        return { ok: false, reason: "monument parts require a Great City or Monumental City" };
       }
       for (const existingType of ["IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART", "AEGIS_DOME_PART", "ASTRAL_DOCK_PART"] as const) {
         if (structureForSupportedTown(monumentTownKey, actor.id, existingType)) {

@@ -1,18 +1,19 @@
-import type {
-  ClusterType,
-  Dock,
-  EconomicStructure,
-  Fort,
-  Observatory,
-  OwnershipState,
-  Player,
-  PopulationTier,
-  ResourceType,
-  RegionType,
-  SiegeOutpost,
-  Terrain,
-  Tile,
-  TileKey
+import {
+  nextTownGrowthUpgrade,
+  type ClusterType,
+  type Dock,
+  type EconomicStructure,
+  type Fort,
+  type Observatory,
+  type OwnershipState,
+  type Player,
+  type PopulationTier,
+  type ResourceType,
+  type RegionType,
+  type SiegeOutpost,
+  type Terrain,
+  type Tile,
+  type TileKey
 } from "@border-empires/shared";
 
 import type { ClusterDefinition, RuntimeTileCore, StrategicResource, TileYieldBuffer, TownDefinition } from "./server-shared-types.js";
@@ -139,6 +140,7 @@ export const createServerTileViewRuntime = (deps: CreateServerTileViewRuntimeDep
     const granary = deps.structureForSupportedTown(town.tileKey, ownerId, "GRANARY");
     const bank = deps.structureForSupportedTown(town.tileKey, ownerId, "BANK");
     const connectedTownKeys = includeConnectedTownNames && ownerId ? deps.directlyConnectedTownKeysForTown(ownerId, town.tileKey) : [];
+    const nextUpgrade = nextTownGrowthUpgrade(tier, town.population);
     const summary: NonNullable<Tile["town"]> = {
       name: deps.prettyTownName(town),
       type: town.type,
@@ -172,7 +174,8 @@ export const createServerTileViewRuntime = (deps: CreateServerTileViewRuntimeDep
       granaryActive: Boolean(granary && granary.status === "active"),
       hasBank: Boolean(bank),
       bankActive: Boolean(bank && bank.status === "active"),
-      foodUpkeepPerMinute: deps.townFoodUpkeepPerMinute(town)
+      foodUpkeepPerMinute: deps.townFoodUpkeepPerMinute(town),
+      ...(nextUpgrade ? { nextPopulationTierUpgrade: nextUpgrade } : {})
     };
     const growthModifiers = deps.townGrowthModifiersForOwner(town, ownerId);
     if (growthModifiers) summary.growthModifiers = growthModifiers;
