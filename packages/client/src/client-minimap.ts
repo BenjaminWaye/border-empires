@@ -2,6 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "./client-map-render.js";
 import { resourceIconForKey } from "./client-map-display.js";
 import { shardRainPingActiveAt, visibleShardSiteForTile, type ClientShardRainPing } from "./client-shard-rain-pings.js";
+import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "./client-types.js";
 
 type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"] };
@@ -80,7 +81,7 @@ export const drawMiniMap = (options: {
     }
   }
 
-  if (!options.state.fogDisabled) {
+  if (!effectiveFogDisabled(options.state)) {
     for (let py = 0; py < h; py += 1) {
       for (let px = 0; px < w; px += 1) {
         const wx = Math.floor((px / w) * WORLD_WIDTH);
@@ -121,7 +122,7 @@ export const drawMiniMap = (options: {
     if (!options.isDockRouteVisibleForPlayer(pair)) continue;
     const aKnown = options.state.tiles.get(options.keyFor(pair.ax, pair.ay));
     const bKnown = options.state.tiles.get(options.keyFor(pair.bx, pair.by));
-    if (!options.state.fogDisabled && ((!aKnown || aKnown.fogged) && (!bKnown || bKnown.fogged))) continue;
+    if (!effectiveFogDisabled(options.state) && ((!aKnown || aKnown.fogged) && (!bKnown || bKnown.fogged))) continue;
     const adx = Math.floor((pair.ax / WORLD_WIDTH) * w);
     const ady = Math.floor((pair.ay / WORLD_HEIGHT) * h);
     const bdx = Math.floor((pair.bx / WORLD_WIDTH) * w);
@@ -132,7 +133,7 @@ export const drawMiniMap = (options: {
 
   for (const tile of options.state.tiles.values()) {
     if (!tile.town) continue;
-    if (!options.state.fogDisabled && tile.fogged) continue;
+    if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
     const tx = Math.floor((tile.x / WORLD_WIDTH) * w);
     const ty = Math.floor((tile.y / WORLD_HEIGHT) * h);
     const palette = miniMapTownMarkerPalette(tile, options.hasCollectableYield(tile));
@@ -185,7 +186,7 @@ export const drawMiniMap = (options: {
   for (const [tileKey, ping] of options.state.shardRainPingsByTile) {
     const tile = options.state.tiles.get(tileKey);
     if (tile?.shardSite?.kind !== "FALL") continue;
-    if (!options.state.fogDisabled && tile.fogged) continue;
+    if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
     if (!shardRainPingActiveAt(ping, options.nowMs)) continue;
     const tx = Math.floor((ping.x / WORLD_WIDTH) * w);
     const ty = Math.floor((ping.y / WORLD_HEIGHT) * h);

@@ -9,6 +9,7 @@ import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap.js";
 import { resolveOwnerColor } from "./client-owner-colors.js";
 import { playerNameForOwnerFromState } from "./client-owner-name.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
@@ -94,7 +95,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
 
   const tileVisibilityStateAt = (x: number, y: number, tile?: Tile): TileVisibilityState => {
     if (revealWholeMapInTrue3DMode) return "visible";
-    if (state.fogDisabled) return "visible";
+    if (effectiveFogDisabled(state)) return "visible";
     const tileKey = keyFor(x, y);
     if (!state.discoveredTiles.has(tileKey)) return "unexplored";
     if (!tile || tile.fogged) return "fogged";
@@ -264,7 +265,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
 
   const isDockRouteVisibleForPlayer = (pair: DockPair): boolean =>
     isDockRouteVisibleForPlayerFromModule(pair, {
-      fogDisabled: state.fogDisabled,
+      fogDisabled: effectiveFogDisabled(state),
       selected: state.selected,
       discoveredDockTiles: state.discoveredDockTiles,
       keyFor
