@@ -14,6 +14,7 @@ import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 import { restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
+import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -850,7 +851,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     if (
       firstChunkArriving &&
-      !state.fogDisabled &&
+      !effectiveFogDisabled(state) &&
       state.lastSubRadius < 2 &&
       !state.actionInFlight &&
       !state.capture &&

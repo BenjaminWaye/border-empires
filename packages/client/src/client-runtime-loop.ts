@@ -3,6 +3,7 @@ import { exposedSidesForTile } from "./client-defensibility-html.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
+import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import {
   fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,
@@ -263,7 +264,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     };
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
-      const dockVisible = (!t && state.fogDisabled) || vis === "visible";
+      const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
       if (dockVisible && isDockEndpoint) {
         const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
         if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
@@ -744,7 +745,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fillStyle = "#06090f";
           deps.ctx.fillRect(px, py, size, size);
         } else if (!t) {
-          if (state.firstChunkAt === 0 || state.fogDisabled || revealWholeMapInTrue3DMode) {
+          if (state.firstChunkAt === 0 || effectiveFogDisabled(state) || revealWholeMapInTrue3DMode) {
             deps.drawTerrainTile(wx, wy, terrainAt(wx, wy), px, py, size);
           } else {
             deps.ctx.fillStyle = "#06090f";
@@ -809,7 +810,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (roadNetworkBuiltAt >= 0) continue;
 
         const isDockEndpoint = dockEndpointKeys.has(wk);
-        const dockVisible = (!t && state.fogDisabled) || vis === "visible";
+        const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
         if (dockVisible && isDockEndpoint) {
           const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
           if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
