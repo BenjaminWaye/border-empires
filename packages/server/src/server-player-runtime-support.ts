@@ -321,11 +321,19 @@ export const createServerPlayerRuntimeSupport = (
 
     const trySpawnAt = (x: number, y: number): boolean => {
       const tile = deps.playerTile(x, y);
+      const tileKey = deps.key(x, y);
       if (tile.terrain !== "LAND") return false;
-      if (deps.townsByTile.has(deps.key(x, y))) return false;
+      if (deps.townsByTile.has(tileKey)) return false;
       if (tile.ownerId && tile.ownerId !== deps.BARBARIAN_OWNER_ID) return false;
+      if (tile.resource || tile.dockId || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;
+      const previousOwnerId = tile.ownerId;
+      const previousOwnershipState = tile.ownershipState;
       deps.updateOwnership(x, y, player.id, "SETTLED");
-      if (!deps.townsByTile.has(deps.key(x, y))) deps.createSettlementAtTile(player.id, deps.key(x, y));
+      if (!deps.townsByTile.has(tileKey)) deps.createSettlementAtTile(player.id, tileKey);
+      if (!deps.townsByTile.has(tileKey)) {
+        deps.updateOwnership(x, y, previousOwnerId, previousOwnershipState);
+        return false;
+      }
       player.spawnOrigin = deps.key(x, y);
       player.capitalTileKey = deps.key(x, y);
       deps.sendVisibleTileDeltaAt(x, y);
