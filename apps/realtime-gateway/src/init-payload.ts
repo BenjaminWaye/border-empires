@@ -85,6 +85,7 @@ type GatewayInitPayload = {
     techRootId: string;
     homeTile?: { x: number; y: number };
     tileColor?: string;
+    canToggleFog?: boolean;
   };
   config: { width: number; height: number; season: { seasonId: string; worldSeed: number } };
   techChoices: string[];

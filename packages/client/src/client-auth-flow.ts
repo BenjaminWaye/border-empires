@@ -21,7 +21,7 @@ import {
   syncAuthOverlay as syncAuthOverlayFromModule,
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "./client-auth-ui.js";
-import { isDebugAccountEmail, setDebugAuthEmail } from "./client-debug.js";
+import { setDebugAuthEmail } from "./client-debug.js";
 import { getStagingMapRevealEnabled } from "./client-staging-map-reveal.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
@@ -325,7 +325,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         authSession.emailLinkSentTo = "";
         const authEmail = user.email ?? undefined;
         setDebugAuthEmail(authEmail);
-        state.stagingMapRevealEligible = isDebugAccountEmail(authEmail);
+        state.stagingMapRevealEligible = false;
         state.authEmail = authEmail ?? "";
         state.stagingMapRevealEnabled = getStagingMapRevealEnabled({
           enabledForAccount: state.stagingMapRevealEligible,

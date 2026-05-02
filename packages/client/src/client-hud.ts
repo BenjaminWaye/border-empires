@@ -195,7 +195,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     `<article class="card"><p>${label} is temporarily unavailable.</p></article>`;
 
   const stagingMapRevealCardHtml = (): string => {
-    if (!stagingMapRevealAvailable({ hostname: window.location.hostname, enabledForAccount: state.stagingMapRevealEligible })) return "";
+    if (!stagingMapRevealAvailable({ hostname: window.location.hostname, enabledForAccount: state.stagingMapRevealEligible && state.authSessionReady })) return "";
     const buttonLabel = state.stagingMapRevealEnabled ? "Restore Fog" : "Reveal Full Map";
     const statusLabel = effectiveFogDisabled(state)
       ? "Map reveal is on for this browser in staging."
@@ -1076,20 +1076,17 @@ export const renderClientHud = (deps: HudDeps): void => {
   const stagingMapRevealButtons = dom.hud.querySelectorAll("[data-staging-map-reveal]") as NodeListOf<HTMLButtonElement>;
   stagingMapRevealButtons.forEach((stagingMapRevealBtn: HTMLButtonElement) => {
     stagingMapRevealBtn.onclick = () => {
-      if (!stagingMapRevealAvailable({ hostname: window.location.hostname, enabledForAccount: state.stagingMapRevealEligible })) return;
-      state.stagingMapRevealEnabled = !state.stagingMapRevealEnabled;
-      setStagingMapRevealEnabled(state.stagingMapRevealEnabled, {
+      if (!stagingMapRevealAvailable({ hostname: window.location.hostname, enabledForAccount: state.stagingMapRevealEligible && state.authSessionReady })) return;
+      const nextEnabled = !state.stagingMapRevealEnabled;
+      state.stagingMapRevealEnabled = nextEnabled;
+      setStagingMapRevealEnabled(nextEnabled, {
         hostname: window.location.hostname,
-        enabledForAccount: state.stagingMapRevealEligible,
+        enabledForAccount: state.stagingMapRevealEligible && state.authSessionReady,
         authEmail: state.authEmail
       });
-      requestViewRefresh(2, true);
-      pushFeed(
-        state.stagingMapRevealEnabled
-          ? "Staging-only map reveal enabled for this browser."
-          : "Staging-only map reveal disabled for this browser.",
-        "info",
-        "warn"
+      sendGameMessage(
+        { type: "SET_FOG_DISABLED", disabled: nextEnabled },
+        "Finish signing in before changing the staging map reveal."
       );
       renderClientHud(deps);
     };

@@ -77,9 +77,8 @@ describe("client staging map reveal", () => {
     ).toBe(false);
   });
 
-  it("treats the staging reveal like disabled fog for client rendering", () => {
-    expect(effectiveFogDisabled({ fogDisabled: false, stagingMapRevealEnabled: false })).toBe(false);
-    expect(effectiveFogDisabled({ fogDisabled: false, stagingMapRevealEnabled: true })).toBe(true);
-    expect(effectiveFogDisabled({ fogDisabled: true, stagingMapRevealEnabled: false })).toBe(true);
+  it("uses the server fog flag as the source of truth for client rendering", () => {
+    expect(effectiveFogDisabled({ fogDisabled: false })).toBe(false);
+    expect(effectiveFogDisabled({ fogDisabled: true })).toBe(true);
   });
 });
