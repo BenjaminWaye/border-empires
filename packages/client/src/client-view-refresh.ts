@@ -1,4 +1,5 @@
 import { CHUNK_SIZE } from "@border-empires/shared";
+import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 
@@ -18,7 +19,16 @@ export const centerOnOwnedTile = (state: Pick<ClientState, "tiles" | "me" | "hom
 export const requestViewRefresh = (
   state: Pick<
     ClientState,
-    "authSessionReady" | "fogDisabled" | "camX" | "camY" | "lastSubCx" | "lastSubCy" | "lastSubRadius" | "lastSubAt" | "firstChunkAt"
+    | "authSessionReady"
+    | "fogDisabled"
+    | "stagingMapRevealEnabled"
+    | "camX"
+    | "camY"
+    | "lastSubCx"
+    | "lastSubCy"
+    | "lastSubRadius"
+    | "lastSubAt"
+    | "firstChunkAt"
   >,
   deps: {
     ws: RealtimeSocket;
@@ -29,7 +39,7 @@ export const requestViewRefresh = (
 ): void => {
   if (deps.ws.readyState !== deps.ws.OPEN) return;
   if (!state.authSessionReady) return;
-  const effectiveRadius = state.fogDisabled ? deps.fullMapChunkRadius : deps.radius ?? 2;
+  const effectiveRadius = effectiveFogDisabled(state) ? deps.fullMapChunkRadius : deps.radius ?? 2;
   const cx = Math.floor(state.camX / CHUNK_SIZE);
   const cy = Math.floor(state.camY / CHUNK_SIZE);
   const elapsed = Date.now() - state.lastSubAt;
