@@ -82,6 +82,24 @@ Install the local git hook for this checkout with:
 
 That configures `pre-push` to run `pnpm ci:local`.
 
+## Worktrees
+
+Keep repo-managed worktrees inside the checkout at `.codex-worktrees/`:
+
+```bash
+pnpm worktree:new fix-some-issue
+```
+
+That creates `agent/fix-some-issue` at `.codex-worktrees/fix-some-issue` and runs `pnpm install --frozen-lockfile` in the new worktree.
+
+To migrate older sibling worktrees from `border-empires-container/` into `.codex-worktrees/`, run:
+
+```bash
+pnpm worktree:migrate
+```
+
+This migrates repo-owned sibling worktrees and leaves tool-managed session/tmp worktrees alone.
+
 ## Staging Login SLO Probe
 
 To measure end-to-end staging login latency (AUTH -> INIT) and enforce the 5s target:
