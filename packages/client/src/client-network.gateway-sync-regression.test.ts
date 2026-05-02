@@ -982,4 +982,147 @@ describe("client gateway sync regression", () => {
     expect(state.playerNames.get("player-1")).toBe("Nauticus Prime");
     expect(state.playerColors.get("player-1")).toBe("#123456");
   });
+
+  it("refreshes derived town support after neighboring settle updates arrive later", () => {
+    const state = createState();
+    state.me = "player-1";
+    state.upkeepLastTick.foodCoverage = 0.5;
+    state.tiles.set("9,10", { x: 9, y: 10, terrain: "LAND" });
+    state.tiles.set("10,9", { x: 10, y: 9, terrain: "LAND", resource: "FISH" });
+
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            townType: "FARMING",
+            townName: "Rivetstead Causeway",
+            townPopulationTier: "TOWN"
+          }
+        ]
+      })
+    });
+
+    expect(state.tiles.get("10,10")?.town).toMatchObject({
+      name: "Rivetstead Causeway",
+      supportCurrent: 0,
+      supportMax: 2,
+      isFed: false,
+      summarySource: "gateway-derived"
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 9, terrain: "LAND", resource: "FISH", ownerId: "player-1", ownershipState: "SETTLED" }
+        ]
+      })
+    });
+
+    expect(state.tiles.get("10,10")?.town).toMatchObject({
+      name: "Rivetstead Causeway",
+      supportCurrent: 2,
+      supportMax: 2,
+      isFed: true,
+      marketActive: false,
+      summarySource: "gateway-derived"
+    });
+  });
+
+  it("treats derived towns as fed when empire FOOD coverage is full even without adjacent food", () => {
+    const state = createState();
+    state.me = "player-1";
+    state.upkeepLastTick.foodCoverage = 1;
+    state.tiles.set("9,10", { x: 9, y: 10, terrain: "LAND" });
+
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            townType: "FARMING",
+            townName: "Remote Granary",
+            townPopulationTier: "TOWN"
+          },
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+        ]
+      })
+    });
+
+    expect(state.tiles.get("10,10")?.town).toMatchObject({
+      name: "Remote Granary",
+      supportCurrent: 1,
+      supportMax: 1,
+      isFed: true,
+      goldPerMinute: 2,
+      summarySource: "gateway-derived"
+    });
+  });
+
+  it("rehydrates derived town fed-state when PLAYER_UPDATE changes FOOD coverage", () => {
+    const state = createState();
+    state.me = "player-1";
+    state.upkeepLastTick.foodCoverage = 0.5;
+
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            townType: "FARMING",
+            townName: "Waystation",
+            townPopulationTier: "TOWN"
+          },
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+        ]
+      })
+    });
+
+    expect(state.tiles.get("10,10")?.town).toMatchObject({
+      name: "Waystation",
+      isFed: false,
+      goldPerMinute: 0,
+      summarySource: "gateway-derived"
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "PLAYER_UPDATE",
+        upkeepLastTick: { foodCoverage: 1 }
+      })
+    });
+
+    expect(state.tiles.get("10,10")?.town).toMatchObject({
+      name: "Waystation",
+      isFed: true,
+      goldPerMinute: 2,
+      summarySource: "gateway-derived"
+    });
+  });
 });

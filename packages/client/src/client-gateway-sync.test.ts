@@ -8,7 +8,8 @@ const createDeps = () => {
       tiles: new Map<string, Tile>(),
       incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
       pendingCollectVisibleKeys: new Set<string>(),
-      discoveredTiles: new Set<string>()
+      discoveredTiles: new Set<string>(),
+      upkeepLastTick: { foodCoverage: 1 }
     };
   return {
     state,
