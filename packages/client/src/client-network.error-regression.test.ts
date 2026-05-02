@@ -249,6 +249,53 @@ describe("client network regression guards", () => {
     ).not.toThrow();
   });
 
+  it("preserves shard sites when a frontier tile delta explicitly clears shard detail during claim confirmation", () => {
+    const state = createState();
+    state.tiles.set("60,302", {
+      x: 60,
+      y: 302,
+      terrain: "LAND",
+      fogged: false,
+      shardSite: { kind: "CACHE", amount: 1 }
+    });
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [{ x: 60, y: 302, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER", detailLevel: "summary", shardSiteJson: "" }]
+      })
+    });
+
+    expect(state.tiles.get("60,302")?.ownerId).toBe("me");
+    expect(state.tiles.get("60,302")?.ownershipState).toBe("FRONTIER");
+    expect(state.tiles.get("60,302")?.shardSite).toEqual({ kind: "CACHE", amount: 1 });
+  });
+
+  it("does not resurrect a collected shard on later owned-frontier tile deltas", () => {
+    const state = createState();
+    state.tiles.set("60,302", {
+      x: 60,
+      y: 302,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "me",
+      ownershipState: "FRONTIER"
+    });
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [{ x: 60, y: 302, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER", detailLevel: "summary", shardSiteJson: "" }]
+      })
+    });
+
+    expect(state.tiles.get("60,302")?.shardSite).toBeUndefined();
+  });
+
   it("falls back to pushFeed when pushFeedEntry is missing during combat resolution", () => {
     const state = createState();
     const ws = new FakeWebSocket();

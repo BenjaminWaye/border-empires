@@ -46,6 +46,7 @@ export type GatewayTileUpdate = {
 
 type GatewayTileSyncDeps = {
   state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
+    me?: string | undefined;
     upkeepLastTick: { foodCoverage?: number };
   };
   keyFor: (x: number, y: number) => string;
@@ -420,9 +421,12 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     if (normalizedGateway.sabotage) merged.sabotage = normalizedGateway.sabotage;
     else delete merged.sabotage;
   }
+  const claimedShardSite = !existing?.ownerId && existing?.shardSite ? existing.shardSite : undefined;
   if ("shardSite" in normalizedGateway) {
     if (normalizedGateway.shardSite) merged.shardSite = normalizedGateway.shardSite;
-    else delete merged.shardSite;
+    else if (claimedShardSite && normalizedGateway.ownerId === deps.state.me && normalizedGateway.ownershipState === "FRONTIER") {
+      merged.shardSite = claimedShardSite;
+    } else delete merged.shardSite;
   }
 
   if ("ownerId" in normalizedGateway) {

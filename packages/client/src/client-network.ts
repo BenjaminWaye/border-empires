@@ -1902,7 +1902,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.incomingAttacksByTile.delete(updateKey);
         state.pendingCollectVisibleKeys.delete(keyFor(update.x, update.y));
         const existing = state.tiles.get(keyFor(update.x, update.y));
-        const merged: any = existing ?? { x: normalizedUpdate.x, y: normalizedUpdate.y, terrain: normalizedUpdate.terrain ?? "LAND" };
+        const merged: any = existing
+          ? { ...existing, x: normalizedUpdate.x, y: normalizedUpdate.y }
+          : { x: normalizedUpdate.x, y: normalizedUpdate.y, terrain: normalizedUpdate.terrain ?? "LAND" };
         if (normalizedUpdate.terrain) merged.terrain = normalizedUpdate.terrain;
         if ("detailLevel" in normalizedUpdate) merged.detailLevel = normalizedUpdate.detailLevel;
         if (normalizedUpdate.fogged !== undefined) merged.fogged = normalizedUpdate.fogged;
@@ -1932,9 +1934,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (normalizedUpdate.dock) merged.dock = normalizedUpdate.dock;
           else delete merged.dock;
         }
+        const claimedShardSite = !existing?.ownerId && existing?.shardSite ? existing.shardSite : undefined;
         if ("shardSite" in normalizedUpdate) {
           if (normalizedUpdate.shardSite) merged.shardSite = normalizedUpdate.shardSite;
-          else delete merged.shardSite;
+          else if (claimedShardSite && normalizedUpdate.ownerId === state.me && normalizedUpdate.ownershipState === "FRONTIER") {
+            merged.shardSite = claimedShardSite;
+          } else delete merged.shardSite;
         }
         if (normalizedUpdate.town !== undefined) merged.town = normalizedUpdate.town;
         if ("town" in normalizedUpdate && !normalizedUpdate.town) delete merged.town;
