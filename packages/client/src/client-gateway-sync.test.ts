@@ -12,7 +12,19 @@ const createDeps = () => {
       upkeepLastTick: { foodCoverage: 1 }
     };
   return {
-    state,
+    state: {
+      ...state,
+      me: "me",
+      upkeepLastTick: {
+        food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+        iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+        supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+        crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+        oil: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+        gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+        foodCoverage: 1
+      }
+    },
     keyFor: (x: number, y: number) => `${x},${y}`,
     mergeIncomingTileDetail: (_existing: Tile | undefined, incoming: Tile) => incoming,
     mergeServerTileWithOptimisticState: (tile: Tile) => tile
@@ -104,6 +116,50 @@ describe("client gateway sync", () => {
         yield: { gold: 0.75, strategic: { FOOD: 0.25 } },
         yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 72 } },
         yieldCap: { gold: 480, strategicEach: 24 }
+      })
+    );
+  });
+
+  it("treats owned partial gateway towns as fed when food coverage is fully met", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 350,
+          y: 219,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Rivetstead Causeway",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 15_590,
+            maxPopulation: 50_000,
+            baseGoldPerMinute: 0,
+            goldPerMinute: 0,
+            cap: 0,
+            isFed: false,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          })
+        }
+      ]
+    });
+
+    expect(deps.state.tiles.get("350,219")).toEqual(
+      expect.objectContaining({
+        town: expect.objectContaining({
+          name: "Rivetstead Causeway",
+          isFed: true
+        })
       })
     );
   });

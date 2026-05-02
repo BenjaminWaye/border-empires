@@ -905,12 +905,13 @@ export const tileUpkeepHtml = (tile: Tile): string => {
   return parts.join(" · ");
 };
 
-export const storedYieldSummary = (tile: Tile): string => {
+export const storedYieldSummary = (tile: Tile, options?: { alwaysShowOwnedTownGold?: boolean }): string => {
   const parts: string[] = [];
   const gold = tile.yield?.gold ?? 0;
   const goldCap = tile.yieldCap?.gold ?? 0;
   const canStoreGold = Boolean(tile.town || tile.dockId || (tile.yieldRate?.goldPerMinute ?? 0) > 0.01 || gold > 0.01);
-  if (canStoreGold && (gold > 0.01 || goldCap > 0)) {
+  const alwaysShowOwnedTownGold = options?.alwaysShowOwnedTownGold === true;
+  if (canStoreGold && (gold > 0.01 || goldCap > 0 || alwaysShowOwnedTownGold)) {
     parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${goldCap.toFixed(0)}`);
   }
   const strategicCap = tile.yieldCap?.strategicEach ?? 0;
