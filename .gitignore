@@ -8,3 +8,4 @@ snapshots
 .env.production
 .env.local
 .env.*.local
+.codex-worktrees/
