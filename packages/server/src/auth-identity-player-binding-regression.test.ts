@@ -178,6 +178,110 @@ describe("auth identity player binding regression", () => {
     expect(lifecycleEvents[1]?.payload.playerId).toBe(player?.id);
   });
 
+  it("marks pending offline eliminations as eliminated respawns during login recovery", () => {
+    const deps = makeDeps();
+    const runtime = createServerPlayerRuntimeSupport(deps);
+
+    const identity: AuthIdentity = {
+      uid: "uid-elim",
+      playerId: "player-elim",
+      name: "Respawned",
+      email: "respawn@example.com"
+    };
+
+    const player: Player = {
+      id: "player-elim",
+      name: "Respawned",
+      profileComplete: true,
+      points: 100,
+      level: 0,
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(),
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      powerups: {},
+      tileColor: "#123456",
+      missions: [],
+      missionStats: deps.defaultMissionStats(),
+      territoryTiles: new Set<TileKey>(),
+      T: 0,
+      E: 4,
+      Ts: 0,
+      Es: 4,
+      stamina: deps.STAMINA_MAX,
+      staminaUpdatedAt: deps.now(),
+      manpower: deps.STARTING_MANPOWER,
+      manpowerUpdatedAt: deps.now(),
+      manpowerCapSnapshot: deps.STARTING_MANPOWER,
+      allies: new Set<string>(),
+      spawnOrigin: "0,0",
+      spawnShieldUntil: deps.now(),
+      isEliminated: true,
+      respawnPending: true,
+      lastActiveAt: deps.now(),
+      lastEconomyWakeAt: deps.now(),
+      activityInbox: []
+    };
+    deps.players.set(player.id, player);
+
+    runtime.getOrCreatePlayerForIdentity(identity);
+    const notice = runtime.consumeRespawnNoticeForPlayer(player);
+
+    expect(notice?.reasonCode).toBe("eliminated");
+    expect(notice?.triggerEvent).toBe("auth_identity_triggered_respawn");
+  });
+
+  it("marks broken completed empires as auth recovery respawns during login recovery", () => {
+    const deps = makeDeps();
+    const runtime = createServerPlayerRuntimeSupport(deps);
+
+    const identity: AuthIdentity = {
+      uid: "uid-auth",
+      playerId: "player-auth",
+      name: "Respawned",
+      email: "respawn@example.com"
+    };
+
+    const player: Player = {
+      id: "player-auth",
+      name: "Respawned",
+      profileComplete: true,
+      points: 100,
+      level: 0,
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(),
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      powerups: {},
+      tileColor: "#123456",
+      missions: [],
+      missionStats: deps.defaultMissionStats(),
+      territoryTiles: new Set<TileKey>(["0,0"]),
+      T: 0,
+      E: 4,
+      Ts: 0,
+      Es: 4,
+      stamina: deps.STAMINA_MAX,
+      staminaUpdatedAt: deps.now(),
+      manpower: deps.STARTING_MANPOWER,
+      manpowerUpdatedAt: deps.now(),
+      manpowerCapSnapshot: deps.STARTING_MANPOWER,
+      allies: new Set<string>(),
+      spawnOrigin: "0,0",
+      spawnShieldUntil: deps.now(),
+      isEliminated: false,
+      respawnPending: false,
+      lastActiveAt: deps.now(),
+      lastEconomyWakeAt: deps.now(),
+      activityInbox: []
+    };
+    deps.players.set(player.id, player);
+
+    runtime.getOrCreatePlayerForIdentity(identity);
+    const notice = runtime.consumeRespawnNoticeForPlayer(player);
+
+    expect(notice?.reasonCode).toBe("auth_recovery");
+    expect(notice?.summary).toContain("playable foothold");
+  });
+
   it("consumes respawn notices after first delivery and does not snapshot them", () => {
     const deps = makeDeps();
     const runtime = createServerPlayerRuntimeSupport(deps);
