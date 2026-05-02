@@ -308,7 +308,7 @@ export const structureInfoForKey = (
     if (key === "ADVANCED_FUEL_PLANT") return ["+20% output compared with a Fuel Plant", "-16.7% upkeep compared with a Fuel Plant"];
     if (key === "FOUNDRY") return ["Doubles active Mine output within 10 tiles"];
     if (key === "ADVANCED_FOUNDRY") return ["+150% active Mine output within 12 tiles", "+2 tile industrial radius compared with a Foundry"];
-    if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Metropolis support tile"];
+    if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "LOCKWORKS_PORT") return ["+1.5 gold / m per connected owned dock", "+25% dock storage cap"];
     if (key === "CHARTERED_PORT") return ["+2 gold / m per connected owned dock", "+200% connected-dock income and +25% dock storage cap"];
@@ -317,11 +317,11 @@ export const structureInfoForKey = (
     if (key === "AIRPORT") return ["Bombards enemy territory within 30 tiles", "Requires nearby Aether Tower power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Aether Towers within 30 tiles"];
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Aether Tower power"];
-    if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Metropolises"];
+    if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision every 90 minutes for 300 crystal", "Requires nearby Aether Tower power"];
     if (key === "RAIL_DEPOT") return ["Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network"];
     if (key === "WEATHER_ENGINE") return ["Blocks hostile bombardment within 30 tiles", "Blocks hostile observatory actions within 30 tiles"];
-    if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Metropolises"];
+    if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Levy one resource from all rivals every 60 minutes for 240 crystal", "Requires nearby Aether Tower power"];
     if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes at 220 crystal", "Requires nearby Aether Tower power"];
     if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot that shatters an enemy land tile into mountain every 90 minutes for 300 crystal", "Requires nearby Aether Tower power"];
@@ -662,7 +662,7 @@ export const structureInfoForKey = (
       title: "Astral Dock Part",
       detail: "Astral Dock Parts are the three giant monument sections needed before the final Astral Dock can be assembled anywhere on owned settled land.",
       glyph: "✶",
-      placement: "Build in three different Great Cities or Metropolises on support tiles you own.",
+      placement: "Build in three different Great Cities or Monumental Cities on support tiles you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -702,7 +702,7 @@ export const structureInfoForKey = (
       title: "Exchange House",
       detail: "Exchange Houses are built on great-city support tiles. Each adjacent active support structure adds +10% gold and +5% growth, capped at +80% gold and +40% growth.",
       glyph: "¤",
-      placement: "Build on an open settled support tile for a Great City or Metropolis you own.",
+      placement: "Build on an open settled support tile for a Great City or Monumental City you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -762,7 +762,7 @@ export const structureInfoForKey = (
       title: "Imperial Exchange Part",
       detail: "One of three monument parts required before you can place the final Imperial Exchange for free.",
       glyph: "◈",
-      placement: "Build on an open support tile for a Great City or Metropolis you own.",
+      placement: "Build on an open support tile for a Great City or Monumental City you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -772,7 +772,7 @@ export const structureInfoForKey = (
       title: "Worldbreaker Cannon Part",
       detail: "One of three monument parts required before you can place the final Worldbreaker Cannon for free.",
       glyph: "⬢",
-      placement: "Build on an open support tile for a Great City or Metropolis you own.",
+      placement: "Build on an open support tile for a Great City or Monumental City you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -802,7 +802,7 @@ export const structureInfoForKey = (
       title: "Aegis Dome Part",
       detail: "One of three monument parts required before you can place the final Aegis Dome for free.",
       glyph: "⬡",
-      placement: "Build on an open support tile for a Great City or Metropolis you own.",
+      placement: "Build on an open support tile for a Great City or Monumental City you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

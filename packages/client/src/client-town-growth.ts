@@ -8,13 +8,16 @@ export const populationPerMinuteLabel = (deltaPerMinute: number): string => {
   return `${sign}${abs.toFixed(2)}/m`;
 };
 
+export const displayTownPopulationTierLabel = (populationTier: NonNullable<NonNullable<Tile["town"]>["populationTier"]>): string =>
+  populationTier === "METROPOLIS" ? "Monumental City" : populationTier === "GREAT_CITY" ? "Great City" : populationTier === "SETTLEMENT" ? "Settlement" : populationTier === "TOWN" ? "Town" : "City";
+
 export const townNextPopulationMilestone = (
   town: NonNullable<Tile["town"]>
 ): { label: string; targetPopulation: number } | undefined => {
   if (town.populationTier === "SETTLEMENT") return { label: "Town", targetPopulation: 10_000 };
   if (town.populationTier === "TOWN") return { label: "City", targetPopulation: 100_000 };
   if (town.populationTier === "CITY") return { label: "Great City", targetPopulation: 1_000_000 };
-  if (town.populationTier === "GREAT_CITY") return { label: "Metropolis", targetPopulation: 5_000_000 };
+  if (town.populationTier === "GREAT_CITY") return { label: "Monumental City", targetPopulation: 5_000_000 };
   return undefined;
 };
 
