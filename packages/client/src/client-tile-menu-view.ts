@@ -278,7 +278,7 @@ export const menuOverviewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
     populationPerMinuteLabel: (value: number) => string;
-    townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>) => string;
+    townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>, options?: { explainUnfed?: boolean }) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
     currentManpower: number;
@@ -362,7 +362,7 @@ export const menuOverviewForTile = (
     }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
     pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
-    pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town)}.`);
+    pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town, { explainUnfed: tile.ownerId === deps.state.me && tile.ownershipState === "SETTLED" })}.`);
   } else if (tile.resource) {
     if (tile.ownershipState === "SETTLED" && !productionHtml) {
       pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);

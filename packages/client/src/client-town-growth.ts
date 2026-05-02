@@ -32,11 +32,29 @@ export const formatRoughMinutes = (minutes: number): string => {
   return `${Math.ceil(weeks)}w`;
 };
 
-export const townNextGrowthEtaLabel = (town: NonNullable<Tile["town"]>): string => {
+const townGrowthPauseReason = (
+  town: NonNullable<Tile["town"]>,
+  options?: { explainUnfed?: boolean }
+): string | undefined => {
+  const blockingModifier = town.growthModifiers?.find((modifier) => modifier.deltaPerMinute < 0)?.label;
+  if (blockingModifier === "Recently captured") return "recently captured";
+  if (blockingModifier === "Nearby war") return "nearby war";
+  if (options?.explainUnfed && town.isFed === false) return "town is unfed";
+  if (town.population >= town.maxPopulation) return "population cap reached";
+  return undefined;
+};
+
+export const townNextGrowthEtaLabel = (
+  town: NonNullable<Tile["town"]>,
+  options?: { explainUnfed?: boolean }
+): string => {
   const milestone = townNextPopulationMilestone(town);
   if (!milestone) return "Max tier reached";
   const growth = town.populationGrowthPerMinute ?? 0;
-  if (growth <= 0) return `${milestone.label} growth paused`;
+  if (growth <= 0) {
+    const pauseReason = townGrowthPauseReason(town, options);
+    return pauseReason ? `${milestone.label} growth paused (${pauseReason})` : `${milestone.label} growth paused`;
+  }
   const remainingPopulation = Math.max(0, milestone.targetPopulation - town.population);
   if (remainingPopulation <= 0) return `${milestone.label} ready`;
   return `${milestone.label} in ~${formatRoughMinutes(remainingPopulation / growth)}`;

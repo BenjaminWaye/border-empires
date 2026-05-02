@@ -1,4 +1,5 @@
 import type { ClientState } from "./client-state.js";
+import { estimatedTownPopulationCap, estimatedTownPopulationFloor } from "./client-town-summary-fallbacks.js";
 import type { Tile } from "./client-types.js";
 
 type TownSummary = NonNullable<Tile["town"]>;
@@ -168,6 +169,8 @@ const enrichedGatewayTownSummary = (
   foodCoverage: number | undefined
 ): Tile["town"] | undefined => {
   const populationTier = partial.populationTier ?? update.townPopulationTier ?? "SETTLEMENT";
+  const existingTown = existing?.town;
+  const existingTownTierMatches = existingTown?.populationTier === populationTier;
   const ownerId = update.ownerId ?? existing?.ownerId;
   const support = supportSummaryForTown(ownerId, update.x, update.y, tiles, keyFor);
   const activeSupport = derivedTownSupportStructures(ownerId, update.x, update.y, tiles, keyFor);
@@ -216,8 +219,14 @@ const enrichedGatewayTownSummary = (
     goldPerMinute,
     cap,
     isFed,
-    population: isFiniteNumber(partial.population) ? partial.population : 1,
-    maxPopulation: isFiniteNumber(partial.maxPopulation) ? partial.maxPopulation : 3,
+    population:
+      isFiniteNumber(partial.population) ? partial.population
+        : existingTownTierMatches && isFiniteNumber(existingTown?.population) ? existingTown.population
+          : estimatedTownPopulationFloor(populationTier),
+    maxPopulation:
+      isFiniteNumber(partial.maxPopulation) ? partial.maxPopulation
+        : existingTownTierMatches && isFiniteNumber(existingTown?.maxPopulation) ? existingTown.maxPopulation
+          : estimatedTownPopulationCap(populationTier),
     ...(typeof partial.populationGrowthPerMinute === "number" ? { populationGrowthPerMinute: partial.populationGrowthPerMinute } : {}),
     populationTier,
     connectedTownCount: isFiniteNumber(partial.connectedTownCount) ? partial.connectedTownCount : 0,
@@ -256,9 +265,7 @@ const gatewayTownSummary = (
   return enrichedGatewayTownSummary(update, {
     ...(update.townName ? { name: update.townName } : {}),
     type: update.townType,
-    population: 1,
-    populationTier: update.townPopulationTier ?? "SETTLEMENT",
-    maxPopulation: 3
+    populationTier: update.townPopulationTier ?? "SETTLEMENT"
   }, existing, tiles, keyFor, foodCoverage);
 };
 
