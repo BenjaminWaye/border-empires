@@ -27,6 +27,7 @@ type AiCommandProducerOptions = {
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
+  onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   setIntervalFn?: (task: () => void, intervalMs: number) => ReturnType<typeof setInterval>;
   clearIntervalFn?: (handle: ReturnType<typeof setInterval>) => void;
@@ -152,6 +153,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           const breached = plannerDurationMs > plannerBreachThresholdMs;
           options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
           if (!plan.command && "diagnostic" in plan && plan.diagnostic) {
+            options.onDecision?.(plan.diagnostic);
             options.onNoCommand?.(plan.diagnostic);
           }
           if (!plan.command) {
@@ -168,6 +170,9 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
               skipPreplan = true;
               continue;
             }
+          }
+          if ("diagnostic" in plan && plan.diagnostic) {
+            options.onDecision?.(plan.diagnostic);
           }
           if (isAutomationPreplanCommand(plan.command.type)) {
             try {

@@ -87,6 +87,7 @@ type WorkerAiCommandProducerOptions = {
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
+  onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onDiagnostic?: (sample: {
     phase:
@@ -125,6 +126,10 @@ const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
 const TRACKED_PREPLAN_RETENTION_MS = 90_000;
 type PreplanOutcome = "applied" | "cooldown_rejected" | "rejected" | "timed_out";
 type TrackedPreplanCommand = { playerId: string; trackedAt: number };
+type PlannedCommandResult = {
+  command: CommandEnvelope | null;
+  diagnostic?: AutomationPlannerDiagnostic;
+};
 
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
@@ -167,21 +172,22 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
   const worker = new Worker(resolveWorkerScript(options.workerScriptPath));
 
-  // Resolve map: commandId → resolve function for the pending promise
-  const pendingRequests = new Map<string, (command: CommandEnvelope | null) => void>();
+  const pendingRequests = new Map<string, (result: PlannedCommandResult) => void>();
 
   worker.on("message", (msg: unknown) => {
     if (!msg || typeof msg !== "object") return;
     const message = msg as Record<string, unknown>;
     if (message.type === "command") {
       const key = message.playerId as string;
-      if (!message.command && message.diagnostic) {
-        options.onNoCommand?.(message.diagnostic as AutomationPlannerDiagnostic);
-      }
       const resolve = pendingRequests.get(key);
       if (resolve) {
         pendingRequests.delete(key);
-        resolve(message.command as CommandEnvelope | null);
+        resolve({
+          command: (message.command as CommandEnvelope | null) ?? null,
+          ...(message.diagnostic
+            ? { diagnostic: message.diagnostic as AutomationPlannerDiagnostic }
+            : {})
+        });
       }
     } else if (message.type === "diagnostic") {
       const diagnostic = message.diagnostic as {
@@ -206,7 +212,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       const resolve = pendingRequests.get(key);
       if (resolve) {
         pendingRequests.delete(key);
-        resolve(null);
+        resolve({ command: null });
       }
     }
   });
@@ -214,7 +220,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   worker.on("error", (err) => {
     console.error("[ai-planner-worker] uncaught error:", err);
     // Drain pending requests so ticks don't hang
-    for (const [, resolve] of pendingRequests) resolve(null);
+    for (const [, resolve] of pendingRequests) resolve({ command: null });
     pendingRequests.clear();
   });
 
@@ -444,7 +450,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     options?: {
       skipPreplan?: boolean;
     }
-  ): Promise<CommandEnvelope | null> => {
+  ): Promise<PlannedCommandResult> => {
     return new Promise((resolve) => {
       pendingRequests.set(playerId, resolve);
       worker.postMessage({
@@ -503,7 +509,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           for (let pass = 0; pass < 2; pass += 1) {
             const issuedAt = now();
             const plannerStartedAt = now();
-            const command = await requestPlan(playerId, clientSeq, issuedAt, { skipPreplan });
+            const plan = await requestPlan(playerId, clientSeq, issuedAt, { skipPreplan });
             const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
             options.onDiagnostic?.({
               phase: "request_plan_round_trip",
@@ -512,7 +518,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             });
             const breached = plannerDurationMs > plannerBreachThresholdMs;
             options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
-            if (!command) {
+            if (!plan.command) {
+              if (plan.diagnostic) {
+                options.onDecision?.(plan.diagnostic);
+                options.onNoCommand?.(plan.diagnostic);
+              }
               if (advancedWithoutPending) {
                 nextClientSeqByPlayer.set(playerId, clientSeq);
                 nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
@@ -520,22 +530,25 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               }
               break;
             }
-            if (command.type === "COLLECT_VISIBLE") {
+            if (plan.command.type === "COLLECT_VISIBLE") {
               const blockedUntil = collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0;
               if (blockedUntil > issuedAt) {
                 skipPreplan = true;
                 continue;
               }
             }
-            if (isAutomationPreplanCommand(command.type)) {
-              trackedPreplanByCommandId.set(command.commandId, { playerId, trackedAt: issuedAt });
-              pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
-              activePreplanCommandId = command.commandId;
+            if (plan.diagnostic) {
+              options.onDecision?.(plan.diagnostic);
+            }
+            if (isAutomationPreplanCommand(plan.command.type)) {
+              trackedPreplanByCommandId.set(plan.command.commandId, { playerId, trackedAt: issuedAt });
+              pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
+              activePreplanCommandId = plan.command.commandId;
               const submitStartedAt = now();
-              await options.submitCommand(command);
+              await options.submitCommand(plan.command);
               nextClientSeqByPlayer.set(playerId, clientSeq + 1);
-              options.onCommand?.({ playerId, commandType: command.type });
-              if (command.type === "COLLECT_VISIBLE") {
+              options.onCommand?.({ playerId, commandType: plan.command.type });
+              if (plan.command.type === "COLLECT_VISIBLE") {
                 backOffCollectVisible(playerId, issuedAt);
               }
               options.onDiagnostic?.({
@@ -543,7 +556,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
                 durationMs: Math.max(0, now() - submitStartedAt),
                 playerId
               });
-              const preplanOutcome = await waitForPreplanOutcome(playerId, command.commandId);
+              const preplanOutcome = await waitForPreplanOutcome(playerId, plan.command.commandId);
               activePreplanCommandId = undefined;
               if (preplanOutcome === "timed_out" || preplanOutcome === "rejected") {
                 break;
@@ -553,12 +566,12 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               advancedWithoutPending = true;
               continue;
             }
-            pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
+            pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
             nextClientSeqByPlayer.set(playerId, clientSeq + 1);
             nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
             const submitStartedAt = now();
-            await options.submitCommand(command);
-            options.onCommand?.({ playerId, commandType: command.type });
+            await options.submitCommand(plan.command);
+            options.onCommand?.({ playerId, commandType: plan.command.type });
             options.onDiagnostic?.({
               phase: "submit_command",
               durationMs: Math.max(0, now() - submitStartedAt),
