@@ -27,7 +27,7 @@ const reasonCopy = (
   if (context.reasonCode === "auth_recovery") {
     return {
       title: "Your empire was recovered during sign-in",
-      summary: "Your account loaded into a non-playable empire state, so the server created a fresh starting settlement instead of leaving you stuck with zero territory.",
+      summary: "Your account loaded into a non-playable empire state, so the server created a fresh starting settlement instead of leaving you stuck without a playable foothold.",
       detail: `${player.name}'s saved empire record did not contain a playable foothold at login time, so account recovery forced a respawn.`
     };
   }
