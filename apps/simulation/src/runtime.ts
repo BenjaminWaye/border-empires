@@ -115,6 +115,7 @@ import {
   type AutomationPlannerDiagnostic
 } from "./automation-command-planner.js";
 import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
+import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 
 type LockRecord = {
   commandId: string;
@@ -508,6 +509,7 @@ export class SimulationRuntime {
   private readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
+  private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, {
     tileCollectionVersion: number;
     territoryTileKeys: string[];
@@ -553,6 +555,19 @@ export class SimulationRuntime {
     | undefined;
   private drainScheduled = false;
   private draining = false;
+
+  private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
+    const counts: Partial<Record<AutomationVictoryPath, number>> = {
+      TOWN_CONTROL: 0,
+      ECONOMIC_HEGEMONY: 0,
+      SETTLED_TERRITORY: 0
+    };
+    for (const [playerId, victoryPath] of this.rememberedAutomationVictoryPathByPlayer.entries()) {
+      if ((this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0) <= 0) continue;
+      counts[victoryPath] = (counts[victoryPath] ?? 0) + 1;
+    }
+    return counts;
+  }
 
   constructor(options: SimulationRuntimeOptions = {}) {
     const seedWorld = options.initialPlayers && options.seedTiles ? undefined : createSeedWorld(options.seedProfile);
@@ -660,6 +675,7 @@ export class SimulationRuntime {
     if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return false;
 
     const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
+    this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
     const spawn = chooseLegacySpawnPlacement({
       playerId,
       tiles: this.tiles.values(),
@@ -951,6 +967,9 @@ export class SimulationRuntime {
       };
     }
     const summary = this.summaryForPlayer(playerId);
+    if (summary.territoryTileKeys.size <= 0) {
+      this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
+    }
     const ownedTiles = [...summary.territoryTileKeys]
       .map((tileKey) => this.tiles.get(tileKey))
       .filter((tile): tile is DomainTileState => tile !== undefined);
@@ -1001,6 +1020,12 @@ export class SimulationRuntime {
       tilesByKey: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
       isPendingSettlement: (tile) => summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y)),
+      previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
+      pathPopulationCounts: this.rememberedAutomationVictoryPathCounts(),
+      onStrategicSnapshot: (snapshot) => {
+        if (summary.territoryTileKeys.size <= 0) return;
+        this.rememberedAutomationVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
+      },
       clientSeq,
       issuedAt,
       sessionPrefix

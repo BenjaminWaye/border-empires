@@ -32,6 +32,7 @@ import {
 } from "./automation-command-planner.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
+import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
 import type { PlannerDockView, PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
@@ -43,6 +44,7 @@ const tilesByKey = new Map<string, PlannerTileView>();
 let dockLinksByDockTileKey = new Map<string, readonly string[]>();
 let plannerDocks: PlannerDockView[] = [];
 const playersById = new Map<string, PlannerPlayerView>();
+const rememberedVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
 const aiTrainingRecorder = createAiTrainingRecorder(process.env.SIMULATION_AI_TRAINING_RECORD_PATH);
 const playerTileCacheById = new Map<string, {
   tileCollectionVersion: number;
@@ -53,6 +55,20 @@ const playerTileCacheById = new Map<string, {
   buildCandidateTiles: PlannerTileView[];
   pendingSettlementTileKeys: Set<string>;
 }>();
+
+const rememberedVictoryPathCounts = (): Partial<Record<AutomationVictoryPath, number>> => {
+  const counts: Partial<Record<AutomationVictoryPath, number>> = {
+    TOWN_CONTROL: 0,
+    ECONOMIC_HEGEMONY: 0,
+    SETTLED_TERRITORY: 0
+  };
+  for (const [playerId, victoryPath] of rememberedVictoryPathByPlayer.entries()) {
+    const player = playersById.get(playerId);
+    if (!player || player.territoryTileKeys.length <= 0) continue;
+    counts[victoryPath] = (counts[victoryPath] ?? 0) + 1;
+  }
+  return counts;
+};
 
 type SimulationTileDelta = {
   x: number;
@@ -267,6 +283,9 @@ const choosePlannerCommand = (
       diagnostic: createAutomationNoopDiagnostic(playerId, "ai-runtime", "player_missing")
     };
   }
+  if (player.territoryTileKeys.length <= 0) {
+    rememberedVictoryPathByPlayer.delete(playerId);
+  }
   const resolveTilesStartedAt = Date.now();
   const { frontierTiles, ownedTiles, hotFrontierTiles, strategicFrontierTiles, buildCandidateTiles, pendingSettlementTileKeys } = resolvePlayerTiles(player);
   emitDiagnostic({
@@ -326,6 +345,12 @@ const choosePlannerCommand = (
     tilesByKey,
     dockLinksByDockTileKey,
     isPendingSettlement: (tile) => pendingSettlementTileKeys.has(`${tile.x},${tile.y}`),
+    previousVictoryPath: rememberedVictoryPathByPlayer.get(playerId),
+    pathPopulationCounts: rememberedVictoryPathCounts(),
+    onStrategicSnapshot: (snapshot) => {
+      if (player.territoryTileKeys.length <= 0) return;
+      rememberedVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
+    },
     clientSeq,
     issuedAt,
     sessionPrefix: "ai-runtime",
@@ -424,6 +449,7 @@ parentPort.on("message", (msg: unknown) => {
       const worldView = message.worldView as PlannerWorldView;
       tilesByKey.clear();
       playersById.clear();
+      rememberedVictoryPathByPlayer.clear();
       playerTileCacheById.clear();
       plannerDocks = (worldView.docks ?? []).map((dock) => ({
         ...dock,
@@ -442,6 +468,9 @@ parentPort.on("message", (msg: unknown) => {
     case "sync_players": {
       const players = (message.players as PlannerPlayerView[]) ?? [];
       for (const player of players) {
+        if (player.territoryTileKeys.length <= 0) {
+          rememberedVictoryPathByPlayer.delete(player.id);
+        }
         const cached = playerTileCacheById.get(player.id);
         if (cached && cached.tileCollectionVersion !== player.tileCollectionVersion) {
           playerTileCacheById.delete(player.id);
