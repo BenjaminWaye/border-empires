@@ -70,6 +70,42 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     ]);
   });
 
+  it("returns every tile when full visibility is enabled", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [
+        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+        { x: 31, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+        { x: 40, y: 40, terrain: "SEA" }
+      ],
+      players: [
+        {
+          id: "player-1",
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10"]
+        },
+        {
+          id: "player-2",
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["30,30", "31,30"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    }, undefined, { fullVisibility: true });
+
+    expect(snapshot.tiles).toEqual([
+      expect.objectContaining({ x: 10, y: 10, ownerId: "player-1" }),
+      expect.objectContaining({ x: 30, y: 30, ownerId: "player-2" }),
+      expect.objectContaining({ x: 31, y: 30, ownerId: "player-2" }),
+      expect.objectContaining({ x: 40, y: 40, terrain: "SEA" })
+    ]);
+  });
+
   it("includes ally vision in the bootstrap snapshot", () => {
     expect(
       buildPlayerSubscriptionSnapshot("player-1", {
