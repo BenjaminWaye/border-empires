@@ -53,8 +53,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Added websocket and gateway regression coverage so future claim-sync changes cannot strip shard caches from newly claimed tiles or resurrect already collected shards."
       ]
     },
-      ]
-    },
     {
       introducedIn: "2026.05.02.11",
       title: "Town growth is now cheaper and reaches Monumental City",
