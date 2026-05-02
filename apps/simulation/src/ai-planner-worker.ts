@@ -353,6 +353,7 @@ const choosePlannerCommand = (
       if (player.territoryTileKeys.length <= 0) return;
       rememberedVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
     },
+    ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
     clientSeq,
     issuedAt,
     sessionPrefix: "ai-runtime",
