@@ -282,6 +282,7 @@ export interface TownDefinition {
   connectedTownBonus: number;
   lastGrowthTickAt: number;
   isSettlement?: boolean;
+  growthTierCap?: PopulationTier;
 }
 
 export interface ShardSiteState {

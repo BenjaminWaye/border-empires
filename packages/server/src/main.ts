@@ -51,6 +51,7 @@ import {
   MANPOWER_BASE_REGEN_PER_MINUTE,
   NAVAL_INFILTRATION_MANPOWER_MIN,
   NAVAL_INFILTRATION_MANPOWER_COST,
+  nextTownGrowthUpgrade,
   combatWinChance,
   defensivenessMultiplier,
   levelFromPoints,
@@ -7379,6 +7380,26 @@ const tryRemoveMountain = (actor: Player, x: number, y: number): { ok: boolean; 
   return { ok: true };
 };
 
+const tryGrowTown = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  const tile = playerTile(x, y);
+  if (tile.terrain !== "LAND") return { ok: false, reason: "town growth requires a land tile" };
+  if (tile.ownerId !== actor.id || tile.ownershipState !== "SETTLED") return { ok: false, reason: "town growth requires settled owned land" };
+  const townKey = key(tile.x, tile.y);
+  const town = townsByTile.get(townKey);
+  if (!town) return { ok: false, reason: "select a town first" };
+  const currentTier = townPopulationTierForTown(town);
+  const nextUpgrade = nextTownGrowthUpgrade(currentTier, town.population);
+  if (!nextUpgrade) return { ok: false, reason: "this town cannot grow further from the action menu" };
+  if (!nextUpgrade.available) return { ok: false, reason: `need ${nextUpgrade.requiredPopulation.toLocaleString()} population` };
+  if (actor.points < nextUpgrade.goldCost) return { ok: false, reason: `need ${nextUpgrade.goldCost} gold` };
+
+  actor.points -= nextUpgrade.goldCost;
+  town.growthTierCap = nextUpgrade.targetTier;
+  markSummaryChunkDirtyAtTile(tile.x, tile.y);
+  recalcPlayerDerived(actor);
+  return { ok: true };
+};
+
 const tryAirportBombard = (
   actor: Player,
   fromX: number,
@@ -9026,6 +9047,17 @@ registerServerHttpRoutes(app, {
         return;
       }
       sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "GROW_TOWN") {
+      const out = tryGrowTown(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "GROW_TOWN_INVALID", message: out.reason, x: msg.x, y: msg.y }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      sendVisibleTileDeltaAt(msg.x, msg.y);
       return;
     }
 

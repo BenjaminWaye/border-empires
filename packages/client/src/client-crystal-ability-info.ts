@@ -199,7 +199,7 @@ export const crystalAbilityInfoForKey = (
       title: "City Overclock",
       detail: "Drives one of your major cities into a short industrial frenzy, boosting its linked urban network for 15 minutes.",
       glyph: "⌘",
-      target: "Owned City, Great City, or Metropolis. The target city and its directly connected towns run overclocked.",
+      target: "Owned City, Great City, or Monumental City. The target city and its directly connected towns run overclocked.",
       costBits: ["160 CRYSTAL"],
       cooldownLabel: deps.formatCooldownShort(CITY_OVERCLOCK_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(CITY_OVERCLOCK_DURATION_MS)
