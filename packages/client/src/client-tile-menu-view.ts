@@ -441,7 +441,7 @@ export const menuOverviewForTile = (
   if (tile.siegeOutpost?.status === "removing") {
     pushLine("Siege outpost removal is underway. Attack bonuses from this tile are currently disabled.");
   }
-  const storedYield = storedYieldSummary(tile);
+  const storedYield = storedYieldSummary(tile, { alwaysShowOwnedTownGold: Boolean(tile.town && tile.ownerId === deps.state.me) });
   if (storedYield) pushLine(`Stored yield: ${storedYield}`);
   const construction = deps.constructionCountdownLineForTile(tile);
   if (construction) pushLine(construction);

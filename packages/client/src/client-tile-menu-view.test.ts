@@ -607,6 +607,96 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
 
+  it("always shows stored yield for owned unfed towns", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 350,
+        y: 219,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Rivetstead Causeway",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 5,
+          supportMax: 5,
+          goldPerMinute: 0,
+          cap: 0,
+          isFed: false,
+          population: 15_590,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 4.98,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false,
+          foodUpkeepPerMinute: 0.1
+        },
+        yieldRate: {
+          goldPerMinute: 2
+        }
+      },
+      {
+        ...deps,
+        populationPerMinuteLabel: () => "+4.98/m",
+        townNextGrowthEtaLabel: () => "City in ~12d"
+      }
+    );
+
+    expect(lines.some((line) => line.html === "Stored yield: ◉ 0.0 / 0")).toBe(true);
+  });
+
+  it("does not force stored yield visible for non-owned towns with no gold or cap", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 351,
+        y: 219,
+        terrain: "LAND",
+        ownerId: "rival",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Enemy Causeway",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 5,
+          supportMax: 5,
+          goldPerMinute: 0,
+          cap: 0,
+          isFed: true,
+          population: 15_590,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 4.98,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false,
+          foodUpkeepPerMinute: 0.1
+        },
+        yieldRate: {
+          goldPerMinute: 2
+        }
+      },
+      {
+        ...deps,
+        populationPerMinuteLabel: () => "+4.98/m",
+        townNextGrowthEtaLabel: () => "City in ~12d"
+      }
+    );
+
+    expect(lines.some((line) => line.html.startsWith("Stored yield:"))).toBe(false);
+  });
+
   it("shows building-specific removal progress timing", () => {
     const progress = constructionProgressForTile(
       {
