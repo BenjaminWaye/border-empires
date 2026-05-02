@@ -2789,6 +2789,7 @@ const { sendPlayerUpdate } = createServerPlayerUpdateRuntime({
   currentVictoryPressureObjectives: () => currentVictoryPressureObjectives(),
   seasonWinner,
   consumeRespawnNoticeForPlayer: (player) => consumeRespawnNoticeForPlayer(player),
+  playerCanToggleFog: (player) => playerHasFogAdminAccess(player.id),
   recordServerDebugEvent,
   appLogWarn: (payload, message) => app.log.warn(payload, message)
 });
@@ -8858,6 +8859,7 @@ registerServerHttpRoutes(app, {
             id: player.id,
             name: player.name,
             profileNeedsSetup: player.profileComplete !== true,
+            canToggleFog: playerHasFogAdminAccess(player.id),
             gold: player.points,
             points: player.points,
             level: player.level,

@@ -11,7 +11,8 @@ describe("realtime gateway runtime env", () => {
       applySchema: false,
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "default",
-      allowNonAuthoritativeInitialState: true
+      allowNonAuthoritativeInitialState: true,
+      fogAdminEmail: "bw199005@gmail.com"
     });
   });
 
@@ -53,7 +54,8 @@ describe("realtime gateway runtime env", () => {
       databaseUrl: "postgres://gateway",
       applySchema: true,
       simulationSeedProfile: "season-20ai",
-      allowNonAuthoritativeInitialState: false
+      allowNonAuthoritativeInitialState: false,
+      fogAdminEmail: "bw199005@gmail.com"
     });
   });
 
@@ -69,7 +71,25 @@ describe("realtime gateway runtime env", () => {
       applySchema: false,
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "season-20ai",
-      allowNonAuthoritativeInitialState: true
+      allowNonAuthoritativeInitialState: true,
+      fogAdminEmail: "bw199005@gmail.com"
+    });
+  });
+
+  it("parses explicit fog admin email override", () => {
+    expect(
+      parseRealtimeGatewayRuntimeEnv({
+        FOG_ADMIN_EMAIL: "  me@example.com  "
+      })
+    ).toEqual({
+      host: "127.0.0.1",
+      port: 3101,
+      simulationAddress: "127.0.0.1:50051",
+      applySchema: false,
+      defaultHumanPlayerId: "player-1",
+      simulationSeedProfile: "default",
+      allowNonAuthoritativeInitialState: true,
+      fogAdminEmail: "me@example.com"
     });
   });
 
@@ -90,7 +110,8 @@ describe("realtime gateway runtime env", () => {
       databaseUrl: "postgres://gateway",
       applySchema: false,
       simulationSeedProfile: "season-20ai",
-      allowNonAuthoritativeInitialState: true
+      allowNonAuthoritativeInitialState: true,
+      fogAdminEmail: "bw199005@gmail.com"
     });
   });
 });

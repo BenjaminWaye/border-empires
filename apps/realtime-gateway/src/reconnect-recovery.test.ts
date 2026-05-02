@@ -106,6 +106,21 @@ describe("buildInitMessage", () => {
     });
   });
 
+  it("includes fog-toggle capability in INIT when granted by the gateway", async () => {
+    const init = await buildInitMessage(
+      { playerId: "player-1", playerName: "Nauticus" },
+      new InMemoryGatewayCommandStore(),
+      undefined,
+      "default",
+      undefined,
+      undefined,
+      undefined,
+      true
+    );
+
+    expect(init.player).toEqual(expect.objectContaining({ canToggleFog: true }));
+  });
+
   it("drops queued frontier commands from reconnect recovery", async () => {
     const store = new InMemoryGatewayCommandStore();
     await store.persistQueuedCommand(
