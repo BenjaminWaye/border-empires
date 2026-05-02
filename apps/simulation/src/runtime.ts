@@ -1030,6 +1030,7 @@ export class SimulationRuntime {
         if (summary.territoryTileKeys.size <= 0) return;
         this.rememberedAutomationVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
       },
+      ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
       clientSeq,
       issuedAt,
       sessionPrefix

@@ -613,4 +613,89 @@ describe("automation command planner", () => {
       payloadJson: JSON.stringify({ x: 1, y: 1 })
     });
   });
+
+  it("prefers scout expansion over mediocre fallback settlement while first tech is unaffordable", () => {
+    const settled = makeTile(20, 19, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED"
+    });
+    const frontier = makeTile(20, 20, {
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER"
+    });
+    const fallbackSettle = makeTile(19, 20, {});
+    const scout = makeTile(21, 20, {});
+    const novelLand = makeTile(22, 20, {});
+    const coastline = { x: 21, y: 19, terrain: "SEA" as const };
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 1,
+      townCount: 0,
+      incomePerMinute: 2,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier],
+      hotFrontierTiles: [frontier],
+      strategicFrontierTiles: [frontier],
+      ownedTiles: [settled, frontier],
+      tilesByKey: new Map([
+        ["20,19", settled],
+        ["20,20", frontier],
+        ["19,20", fallbackSettle],
+        ["21,20", scout],
+        ["22,20", novelLand],
+        ["21,19", coastline]
+      ]),
+      preplanProgressState: "tech_unaffordable",
+      clientSeq: 13,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 21, toY: 20 })
+    });
+  });
+
+  it("still settles immediately for an economically interesting fallback tile while first tech is unaffordable", () => {
+    const settled = makeTile(10, 9, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const frontier = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const plainStrategic = makeTile(11, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const richFallback = makeTile(9, 10, { ownerId: "ai-1", ownershipState: "FRONTIER", resource: "IRON" });
+    const scout = makeTile(10, 11, {});
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 1,
+      townCount: 0,
+      incomePerMinute: 2,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier, plainStrategic, richFallback],
+      hotFrontierTiles: [frontier, plainStrategic, richFallback],
+      strategicFrontierTiles: [plainStrategic],
+      ownedTiles: [settled, frontier, plainStrategic, richFallback],
+      tilesByKey: new Map([
+        ["10,9", settled],
+        ["10,10", frontier],
+        ["11,10", plainStrategic],
+        ["9,10", richFallback],
+        ["10,11", scout]
+      ]),
+      preplanProgressState: "tech_unaffordable",
+      clientSeq: 14,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 9, y: 10 })
+    });
+  });
+
 });
