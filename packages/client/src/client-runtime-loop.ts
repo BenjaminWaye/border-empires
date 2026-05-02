@@ -2,7 +2,7 @@ import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile }
 import { exposedSidesForTile } from "./client-defensibility-html.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
-import { resourceFor3DPopulation, townTierFor3DPopulation } from "./client-map-3d-population.js";
+import { resourceFor3DPopulation } from "./client-map-3d-population.js";
 import {
   fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,
@@ -223,43 +223,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       const biome = landBiomeAt(wx, wy);
       const forestTile = isForestTile(wx, wy);
       const resource = resourceFor3DPopulation(wx, wy, terrain, undefined, true, biome, forestTile);
-      const populationTier = townTierFor3DPopulation(wx, wy, terrain, undefined, true);
-      if (!resource && !populationTier) return undefined;
+      if (!resource) return undefined;
       return {
         x: wx,
         y: wy,
         terrain,
-        ...(resource ? { resource } : {}),
-        ...(populationTier
-          ? {
-              town: {
-                type: ((wx + wy) & 1) === 0 ? "MARKET" : "FARMING",
-                baseGoldPerMinute: 0,
-                supportCurrent: 0,
-                supportMax: 0,
-                goldPerMinute: 0,
-                cap: 0,
-                isFed: true,
-                population:
-                  populationTier === "SETTLEMENT" ? 8_000
-                  : populationTier === "TOWN" ? 45_000
-                  : populationTier === "CITY" ? 220_000
-                  : populationTier === "GREAT_CITY" ? 1_200_000
-                  : 5_200_000,
-                maxPopulation: 10_000_000,
-                populationGrowthPerMinute: 0,
-                populationTier,
-                connectedTownCount: 0,
-                connectedTownBonus: 0,
-                hasMarket: false,
-                marketActive: false,
-                hasGranary: false,
-                granaryActive: false,
-                hasBank: false,
-                bankActive: false
-              }
-            }
-          : {})
+        resource
       };
     };
     const drawAetherWallEdge = (

@@ -102,6 +102,7 @@ export interface ServerSettlementFlowRuntime {
   activeSettlementTileKeyForPlayer: (playerId: string) => TileKey | undefined;
   oldestSettledSettlementCandidateForPlayer: (playerId: string) => TileKey | undefined;
   createSettlementAtTile: (ownerId: string, tileKey: TileKey, previousTown?: Pick<TownDefinition, "townId" | "type" | "name">) => TownDefinition | undefined;
+  settlementRepairDiagnosticForPlayer: (playerId: string) => { key: string; detail: string } | undefined;
   ensureActiveSettlementForPlayer: (playerId: string) => boolean;
   ensureFallbackSettlementForPlayer: (playerId: string) => boolean;
   relocateCapturedSettlementForPlayer: (playerId: string, displacedTown: Pick<TownDefinition, "townId" | "type" | "name">) => boolean;
