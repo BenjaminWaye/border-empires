@@ -33,7 +33,8 @@ export const buildInitMessage = (
   seedProfile: SimulationSeedProfile = "default",
   snapshotBootstrap?: LegacySnapshotBootstrap,
   profileOverrides?: PlayerProfileOverrides,
-  socialState?: SocialState
+  socialState?: SocialState,
+  canToggleFog = false
 ): Promise<{
   type: "INIT";
   runtimeIdentity: {
@@ -142,6 +143,7 @@ export const buildInitMessage = (
       runtimeIdentity: bootstrap.runtimeIdentity,
       player: {
         ...bootstrap.player,
+        canToggleFog,
         allies: socialSnapshot?.allies ?? []
       },
       config: bootstrap.config,

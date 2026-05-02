@@ -368,6 +368,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     requestViewRefresh(radius, force);
   };
 
+  const syncDesiredFogDisabled = (): void => {
+    if (!state.authSessionReady) return;
+    if (!state.stagingMapRevealEligible) return;
+    if (!state.serverSupportedMessageTypes.has("SET_FOG_DISABLED")) return;
+    if (state.fogDisabled === state.stagingMapRevealEnabled) return;
+    ws.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: state.stagingMapRevealEnabled }));
+  };
+
   const shouldShowBackendUnavailableAlert = (): boolean => {
     const now = Date.now();
     if (now - lastBackendUnavailableAlertAt < 2_000) return false;
@@ -1090,6 +1098,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.meName = player.name as string;
       state.playerNames.set(state.me, state.meName);
       state.profileSetupRequired = Boolean(player.profileNeedsSetup);
+      state.stagingMapRevealEligible = Boolean(player.canToggleFog);
+      syncDesiredFogDisabled();
       setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
       state.gold = (player.gold as number | undefined) ?? (player.points as number | undefined) ?? state.gold;
       state.level = (player.level as number | undefined) ?? state.level;
@@ -1424,6 +1434,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
       if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
+      if (typeof msg.canToggleFog === "boolean") state.stagingMapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;

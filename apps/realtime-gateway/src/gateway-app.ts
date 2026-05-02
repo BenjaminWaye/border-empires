@@ -39,6 +39,7 @@ type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   initSent: boolean;
   pendingPayloads: unknown[];
   channel: "control" | "bulk";
+  canToggleFog: boolean;
 };
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -65,6 +66,7 @@ type RealtimeGatewayAppOptions = {
   simulationSubscribeTimeoutMs?: number;
   simulationSubmitTimeoutMs?: number;
   adminApiToken?: string;
+  fogAdminEmail?: string;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -74,6 +76,12 @@ const sleep = (ms: number): Promise<void> =>
 
 const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(payload));
+};
+
+const canToggleFogForEmail = (email: string | undefined, fogAdminEmail: string | undefined): boolean => {
+  const normalized = (email ?? "").trim().toLowerCase();
+  const target = (fogAdminEmail ?? "").trim().toLowerCase();
+  return normalized.length > 0 && target.length > 0 && normalized === target;
 };
 
 const jsonSafeTileDeltaBatch = (
@@ -888,7 +896,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         nextClientSeq: 1,
         initSent: channel === "bulk",
         pendingPayloads: [],
-        channel
+        channel,
+        canToggleFog: false
       };
       sessionsBySocket.set(socket, session);
 
@@ -970,6 +979,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             session.playerId = playerIdentity.playerId;
+            session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
             const persistedProfile = await profileStore.get(playerIdentity.playerId);
             if (persistedProfile) {
               profileOverrides.upsert(playerIdentity.playerId, {
@@ -1073,7 +1083,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 simulationSeedProfile,
                 legacySnapshotBootstrap,
                 profileOverrides,
-                socialState
+                socialState,
+                session.canToggleFog
               );
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
               session.initSent = true;
@@ -1143,7 +1154,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {
               queueOrSendSessionPayload(targetSocket, {
                 type: "PLAYER_UPDATE",
-                tileColor: message.color
+                tileColor: message.color,
+                canToggleFog: session.canToggleFog
               });
             }
             return;
@@ -1171,7 +1183,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 type: "PLAYER_UPDATE",
                 name: override.name,
                 tileColor: override.tileColor,
-                profileNeedsSetup: false
+                profileNeedsSetup: false,
+                canToggleFog: session.canToggleFog
               });
             }
             return;
