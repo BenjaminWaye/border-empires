@@ -13,7 +13,8 @@ const gateway = await createRealtimeGatewayApp({
   ...(runtimeEnv.defaultHumanPlayerId ? { defaultHumanPlayerId: runtimeEnv.defaultHumanPlayerId } : {}),
   simulationSeedProfile: runtimeEnv.simulationSeedProfile,
   allowNonAuthoritativeInitialState: runtimeEnv.allowNonAuthoritativeInitialState,
-  ...(runtimeEnv.adminApiToken ? { adminApiToken: runtimeEnv.adminApiToken } : {})
+  ...(runtimeEnv.adminApiToken ? { adminApiToken: runtimeEnv.adminApiToken } : {}),
+  ...(runtimeEnv.fogAdminEmail ? { fogAdminEmail: runtimeEnv.fogAdminEmail } : {})
 });
 
 await gateway.start();

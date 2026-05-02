@@ -74,6 +74,7 @@ export interface CreateServerPlayerUpdateRuntimeDeps {
   currentVictoryPressureObjectives: () => SeasonVictoryObjectiveView[];
   seasonWinner: SeasonWinnerView | undefined;
   consumeRespawnNoticeForPlayer: (player: Player) => PlayerRespawnNotice | undefined;
+  playerCanToggleFog: (player: Player) => boolean;
   recordServerDebugEvent: (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown>) => void;
   appLogWarn: (payload: Record<string, unknown>, message: string) => void;
 }
@@ -136,6 +137,7 @@ export const createServerPlayerUpdateRuntime = (
       shieldUntil: player.spawnShieldUntil,
       defensiveness: deps.playerDefensiveness(player),
       profileNeedsSetup: player.profileComplete !== true,
+      canToggleFog: deps.playerCanToggleFog(player),
       respawnNotice: deps.consumeRespawnNoticeForPlayer(player)
     };
     const settlementRepairDiagnostic = deps.settlementRepairDiagnosticForPlayer(player.id);
