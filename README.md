@@ -100,6 +100,21 @@ pnpm worktree:migrate
 
 This migrates repo-owned sibling worktrees and leaves tool-managed session/tmp worktrees alone.
 
+After a PR merges, finish cleanup before calling the task done:
+
+```bash
+git fetch origin main
+git merge-base --is-ancestor <feature-tip> origin/main
+git worktree remove .codex-worktrees/<slug>
+git branch -d agent/<slug>
+git push origin --delete agent/<slug>
+git worktree list
+git branch --list 'agent/<slug>'
+git branch -r --list 'origin/agent/<slug>'
+```
+
+Do not rely on `gh pr merge --delete-branch` alone; verify the worktree and both branch refs are actually gone before reporting completion.
+
 ## Staging Login SLO Probe
 
 To measure end-to-end staging login latency (AUTH -> INIT) and enforce the 5s target:
