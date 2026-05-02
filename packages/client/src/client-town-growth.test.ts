@@ -41,4 +41,30 @@ describe("client town growth labels", () => {
   it("uses Monumental City in the growth eta text", () => {
     expect(townNextGrowthEtaLabel(makeTown("GREAT_CITY", 4_900_000, 1_000))).toContain("Monumental City");
   });
+
+  it("explains when growth is paused because the town is unfed", () => {
+    expect(townNextGrowthEtaLabel({ ...makeTown("TOWN", 18_400, 0), isFed: false }, { explainUnfed: true })).toBe("City growth paused (town is unfed)");
+  });
+
+  it("does not guess an unfed reason without ownership context", () => {
+    expect(townNextGrowthEtaLabel({ ...makeTown("TOWN", 18_400, 0), isFed: false })).toBe("City growth paused");
+  });
+
+  it("explains when growth is paused because the town was recently captured", () => {
+    expect(
+      townNextGrowthEtaLabel({
+        ...makeTown("TOWN", 18_400, 0),
+        growthModifiers: [{ label: "Recently captured", deltaPerMinute: -12 }]
+      })
+    ).toBe("City growth paused (recently captured)");
+  });
+
+  it("explains when growth is paused by nearby war shock", () => {
+    expect(
+      townNextGrowthEtaLabel({
+        ...makeTown("TOWN", 18_400, 0),
+        growthModifiers: [{ label: "Nearby war", deltaPerMinute: -12 }]
+      })
+    ).toBe("City growth paused (nearby war)");
+  });
 });
