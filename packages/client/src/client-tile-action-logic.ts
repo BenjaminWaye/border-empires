@@ -359,7 +359,7 @@ export const computeCrystalTargets = (
           deps.terrainAt(tile.x + 1, tile.y),
           deps.terrainAt(tile.x, tile.y + 1),
           deps.terrainAt(tile.x - 1, tile.y)
-        ].includes("SEA");
+        ].some((terrain) => terrain === "SEA" || terrain === "COASTAL_SEA");
       if (!isCoastalLand) continue;
       validTargets.add(deps.keyFor(tile.x, tile.y));
       continue;
@@ -645,7 +645,7 @@ const resourceClassForTile = (resource: Tile["resource"]): "food" | "supply" | "
 
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.fogged) return [];
-  if (tile.terrain === "SEA") return [];
+  if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA") return [];
   if (tile.terrain === "MOUNTAIN") {
     const removeCooldown = deps.abilityCooldownRemainingMs("remove_mountain");
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
@@ -2067,7 +2067,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           deps.terrainAt(tile.x + 1, tile.y),
           deps.terrainAt(tile.x, tile.y + 1),
           deps.terrainAt(tile.x - 1, tile.y)
-        ].includes("SEA") &&
+        ].some((terrain) => terrain === "SEA" || terrain === "COASTAL_SEA") &&
         (!tile.ownerId || !observatoryProtection) &&
         deps.abilityCooldownRemainingMs("aether_bridge") <= 0 &&
         (state.strategicResources.CRYSTAL ?? 0) >= 30,
@@ -2078,7 +2078,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               deps.terrainAt(tile.x + 1, tile.y),
               deps.terrainAt(tile.x, tile.y + 1),
               deps.terrainAt(tile.x - 1, tile.y)
-            ].includes("SEA")
+            ].some((terrain) => terrain === "SEA" || terrain === "COASTAL_SEA")
           ? "Target must be coastal land"
           : tile.ownerId && observatoryProtection
             ? "Landing blocked by enemy observatory"

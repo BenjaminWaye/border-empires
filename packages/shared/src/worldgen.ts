@@ -9,6 +9,7 @@ const UNSET_I16 = -2;
 const TERRAIN_SEA = 0;
 const TERRAIN_LAND = 1;
 const TERRAIN_MOUNTAIN = 2;
+const TERRAIN_COASTAL_SEA = 3;
 const BIOME_GRASS = 0;
 const BIOME_SAND = 1;
 const BIOME_COASTAL_SAND = 2;
@@ -57,13 +58,27 @@ const worldIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 const encodeTerrain = (terrain: Terrain): number => {
   if (terrain === "LAND") return TERRAIN_LAND;
   if (terrain === "MOUNTAIN") return TERRAIN_MOUNTAIN;
+  if (terrain === "COASTAL_SEA") return TERRAIN_COASTAL_SEA;
   return TERRAIN_SEA;
 };
 const decodeTerrain = (terrain: number): Terrain => {
   if (terrain === TERRAIN_LAND) return "LAND";
   if (terrain === TERRAIN_MOUNTAIN) return "MOUNTAIN";
+  if (terrain === TERRAIN_COASTAL_SEA) return "COASTAL_SEA";
   return "SEA";
 };
+const isWaterTerrainCode = (terrain: number): boolean => terrain === TERRAIN_SEA || terrain === TERRAIN_COASTAL_SEA;
+
+const baseTerrainCodeAt = (x: number, y: number): number => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  const cField = continentField(wx, wy);
+  if (cField < 0.075) return TERRAIN_SEA;
+  if (cField < 0.12 || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) return TERRAIN_SEA;
+  if (isMountainRange(wx, wy) || isMicroMountainRange(wx, wy) || isMountainCluster(wx, wy)) return TERRAIN_MOUNTAIN;
+  return TERRAIN_LAND;
+};
+
 const terrainCodeAt = (x: number, y: number): number => {
   const idx = worldIndex(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
   const cached = terrainCache[idx] ?? UNSET_U8;
@@ -437,24 +452,20 @@ export const terrainAt = (x: number, y: number): Terrain => {
   const cached = terrainCache[idx] ?? UNSET_U8;
   if (cached !== UNSET_U8) return decodeTerrain(cached);
 
-  const cField = continentField(wx, wy);
-  if (cField < 0.075) {
-    terrainCache[idx] = TERRAIN_SEA;
-    return "SEA";
-  }
-  // Keep clear ocean bands between the three continents.
-  if (cField < 0.12 || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) {
-    terrainCache[idx] = TERRAIN_SEA;
-    return "SEA";
-  }
-
-  if (isMountainRange(wx, wy) || isMicroMountainRange(wx, wy) || isMountainCluster(wx, wy)) {
-    terrainCache[idx] = TERRAIN_MOUNTAIN;
-    return "MOUNTAIN";
+  const base = baseTerrainCodeAt(wx, wy);
+  let terrainCode = base;
+  if (base === TERRAIN_SEA) {
+    const neighbors = [
+      baseTerrainCodeAt(wx, wy - 1),
+      baseTerrainCodeAt(wx + 1, wy),
+      baseTerrainCodeAt(wx, wy + 1),
+      baseTerrainCodeAt(wx - 1, wy)
+    ];
+    if (neighbors.includes(TERRAIN_LAND)) terrainCode = TERRAIN_COASTAL_SEA;
   }
 
-  terrainCache[idx] = TERRAIN_LAND;
-  return "LAND";
+  terrainCache[idx] = terrainCode;
+  return decodeTerrain(terrainCode);
 };
 
 export const isCoastalLandAt = (x: number, y: number): boolean => {
@@ -462,10 +473,10 @@ export const isCoastalLandAt = (x: number, y: number): boolean => {
   const wy = wrapY(y, WORLD_HEIGHT);
   if (terrainCodeAt(wx, wy) !== TERRAIN_LAND) return false;
   return (
-    terrainCodeAt(wx, wy - 1) === TERRAIN_SEA ||
-    terrainCodeAt(wx + 1, wy) === TERRAIN_SEA ||
-    terrainCodeAt(wx, wy + 1) === TERRAIN_SEA ||
-    terrainCodeAt(wx - 1, wy) === TERRAIN_SEA
+    isWaterTerrainCode(terrainCodeAt(wx, wy - 1)) ||
+    isWaterTerrainCode(terrainCodeAt(wx + 1, wy)) ||
+    isWaterTerrainCode(terrainCodeAt(wx, wy + 1)) ||
+    isWaterTerrainCode(terrainCodeAt(wx - 1, wy))
   );
 };
 

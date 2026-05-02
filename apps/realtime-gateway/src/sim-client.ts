@@ -12,6 +12,7 @@ import {
   type SeasonArchiveRow,
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
+import type { Terrain } from "@border-empires/shared";
 
 type ProtoAck = { ok: boolean };
 type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
@@ -207,7 +208,7 @@ export type SimulationClientEvent =
       tileDeltas: Array<{
         x: number;
         y: number;
-        terrain?: "LAND" | "SEA" | "MOUNTAIN";
+        terrain?: Terrain;
         resource?: string | undefined;
         dockId?: string | undefined;
         ownerId?: string | undefined;
@@ -273,7 +274,7 @@ const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Simulatio
     x: tile.x,
     y: tile.y
   };
-  if (tile.terrain === "LAND" || tile.terrain === "SEA" || tile.terrain === "MOUNTAIN") normalized.terrain = tile.terrain;
+  if (tile.terrain === "LAND" || tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") normalized.terrain = tile.terrain;
   if (typeof tile.resource === "string" && tile.resource.length > 0) normalized.resource = tile.resource;
   if ("dock_id" in tile || "dockId" in tile) normalized.dockId = tile.dock_id || tile.dockId || undefined;
   if ("owner_id" in tile || "ownerId" in tile) normalized.ownerId = tile.owner_id || tile.ownerId || undefined;

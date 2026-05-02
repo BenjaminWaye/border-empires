@@ -6,6 +6,8 @@ import {
   FRONTIER_CLAIM_COST,
   SETTLE_COST,
   type EconomicStructureType
+,
+  type Terrain
 } from "@border-empires/shared";
 
 import { chooseBestSettlementTile, chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
@@ -69,7 +71,7 @@ export type AutomationSessionPrefix = "ai-runtime" | "system-runtime";
 export type AutomationPlannerTile = {
   x: number;
   y: number;
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
+  terrain: Terrain;
   ownerId?: string | undefined;
   ownershipState?: DomainTileState["ownershipState"] | undefined;
   resource?: DomainTileState["resource"] | undefined;

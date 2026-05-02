@@ -1,5 +1,7 @@
+import type { Terrain } from "@border-empires/shared";
+
 export type TileMenuOverviewIntroInput = {
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
+  terrain: Terrain;
   ownerKind: "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
   productionLabel?: string | undefined;
   resourceLabel?: string | undefined;
@@ -10,7 +12,7 @@ export const tileMenuSubtitleText = (ownerLabel: string, regionLabel?: string): 
   [ownerLabel, regionLabel ?? ""].filter(Boolean).join(" · ");
 
 export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): string[] => {
-  if (input.terrain === "SEA") {
+  if (input.terrain === "SEA" || input.terrain === "COASTAL_SEA") {
     return [input.isDockEndpoint ? "Dock route endpoint." : "Sea tiles only support naval interactions."];
   }
   if (input.terrain === "MOUNTAIN") {

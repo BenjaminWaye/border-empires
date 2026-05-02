@@ -1,6 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
 import { exposureWeightFromSides, wrapX, wrapY } from "./math.js";
-import type { PlayerId, Terrain, Tile } from "./types.js";
+import { isSeaTerrain, type PlayerId, type Terrain, type Tile } from "./types.js";
 
 const neighbors = [
   [0, -1],
@@ -12,7 +12,7 @@ const neighbors = [
 export type TileLookup = (x: number, y: number) => Tile;
 export type AllyLookup = (playerId: PlayerId, maybeAllyId: PlayerId) => boolean;
 
-const isBarrier = (terrain: Terrain): boolean => terrain === "SEA" || terrain === "MOUNTAIN";
+const isBarrier = (terrain: Terrain): boolean => isSeaTerrain(terrain) || terrain === "MOUNTAIN";
 
 const isSameSide = (playerId: PlayerId, tileOwnerId: PlayerId | undefined, isAlly: AllyLookup): boolean => {
   if (!tileOwnerId) return false;

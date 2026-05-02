@@ -4,6 +4,8 @@ import {
   structureCostDefinition,
   structureShowsOnTile,
   type EconomicStructureType
+,
+  type Terrain
 } from "@border-empires/shared";
 
 import { frontierNeighborKeys } from "./frontier-topology.js";
@@ -23,7 +25,7 @@ export type StructurePlannerPlayer = {
 export type StructurePlannerTile = {
   x: number;
   y: number;
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
+  terrain: Terrain;
   ownerId?: string | undefined;
   ownershipState?: DomainTileState["ownershipState"] | undefined;
   resource?: DomainTileState["resource"] | undefined;

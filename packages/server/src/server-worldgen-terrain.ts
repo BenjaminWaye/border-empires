@@ -1,4 +1,4 @@
-import type { ResourceType, TileKey } from "@border-empires/shared";
+import { isSeaTerrain, type ResourceType, type Terrain, type TileKey } from "@border-empires/shared";
 
 import type { ClusterDefinition } from "./server-shared-types.js";
 import type {
@@ -49,7 +49,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     return n - Math.floor(n);
   };
 
-  const terrainAtRuntime = (x: number, y: number): "LAND" | "SEA" | "MOUNTAIN" => {
+  const terrainAtRuntime = (x: number, y: number): Terrain => {
     const wx = wrapX(x, WORLD_WIDTH);
     const wy = wrapY(y, WORLD_HEIGHT);
     return terrainShapesByTile.get(key(wx, wy))?.terrain ?? terrainAt(wx, wy);
@@ -93,7 +93,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
       terrainAt(wrapX(x, WORLD_WIDTH), wrapY(y + 1, WORLD_HEIGHT)),
       terrainAt(wrapX(x - 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT))
     ];
-    return neighbors.includes("SEA");
+    return neighbors.some((terrain) => isSeaTerrain(terrain));
   };
 
   const worldIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
@@ -107,7 +107,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     for (let y = 0; y < WORLD_HEIGHT; y += 1) {
       for (let x = 0; x < WORLD_WIDTH; x += 1) {
         const startIdx = worldIndex(x, y);
-        if (visited[startIdx] || terrainAt(x, y) !== "SEA") continue;
+        if (visited[startIdx] || !isSeaTerrain(terrainAt(x, y))) continue;
         let head = 0;
         let tail = 0;
         const component: number[] = [];
@@ -127,7 +127,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
           ];
           for (const [nx, ny] of neighbors) {
             const nIdx = worldIndex(nx, ny);
-            if (visited[nIdx] || terrainAt(nx, ny) !== "SEA") continue;
+            if (visited[nIdx] || !isSeaTerrain(terrainAt(nx, ny))) continue;
             visited[nIdx] = 1;
             queue[tail++] = nIdx;
           }
@@ -150,7 +150,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
       [wrapX(x - 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)]
     ];
     for (const [nx, ny] of neighbors) {
-      if (terrainAt(nx, ny) !== "SEA") continue;
+      if (!isSeaTerrain(terrainAt(nx, ny))) continue;
       if (!oceanMask[worldIndex(nx, ny)]) continue;
       return { x: nx, y: ny };
     }

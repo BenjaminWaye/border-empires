@@ -1,10 +1,11 @@
 import type { DomainStrategicResourceKey } from "@border-empires/game-domain";
+import type { Terrain } from "@border-empires/shared";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 
 type EconomyHeuristicTile = {
   ownershipState?: string | undefined;
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
+  terrain: Terrain;
   town?: unknown;
   dockId?: string | undefined;
 };

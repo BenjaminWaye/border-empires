@@ -159,7 +159,7 @@ export const createServerCombatSupportRuntime = (
     if (distance < 2 || distance > deps.NAVAL_INFILTRATION_MAX_RANGE) return false;
     const middle = lineTilesBetween(from.x, from.y, to.x, to.y);
     if (middle.length === 0) return false;
-    if (!middle.some((step) => deps.terrainAtRuntime(step.x, step.y) === "SEA")) return false;
+    if (!middle.some((step) => { const terrain = deps.terrainAtRuntime(step.x, step.y); return terrain === "SEA" || terrain === "COASTAL_SEA"; })) return false;
     if (middle.some((step) => deps.terrainAtRuntime(step.x, step.y) === "MOUNTAIN")) return false;
     if (middle.some((step) => deps.terrainAtRuntime(step.x, step.y) === "LAND")) return false;
     return to.terrain === "LAND";

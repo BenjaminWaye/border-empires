@@ -228,7 +228,7 @@ export type SimulationEvent =
       tileDeltas: Array<{
         x: number;
         y: number;
-        terrain?: "LAND" | "SEA" | "MOUNTAIN" | undefined;
+        terrain?: "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN" | undefined;
         resource?: string | undefined;
         dockId?: string | undefined;
         ownerId?: string | undefined;
@@ -292,7 +292,7 @@ export type PlayerSubscriptionSnapshot = {
   tiles: Array<{
     x: number;
     y: number;
-    terrain?: "LAND" | "SEA" | "MOUNTAIN" | undefined;
+    terrain?: "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN" | undefined;
     resource?: string | undefined;
     dockId?: string | undefined;
     ownerId?: string | undefined;

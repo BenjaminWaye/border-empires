@@ -18,6 +18,8 @@ import {
   VISION_RADIUS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  isSeaTerrain,
+  type Terrain,
   rollFrontierCombat,
   structureBuildDurationMs,
   structureBuildGoldCost,
@@ -1237,7 +1239,7 @@ export class SimulationRuntime {
     tiles: Array<{
       x: number;
       y: number;
-      terrain: "LAND" | "SEA" | "MOUNTAIN";
+      terrain: Terrain;
       resource?: string;
       dockId?: string;
       shardSiteJson?: string;
@@ -3232,7 +3234,7 @@ export class SimulationRuntime {
       this.tiles.get(simulationTileKey(x + 1, y)),
       this.tiles.get(simulationTileKey(x, y + 1)),
       this.tiles.get(simulationTileKey(x - 1, y))
-    ].some((neighbor) => neighbor?.terrain === "SEA");
+    ].some((neighbor) => Boolean(neighbor?.terrain && isSeaTerrain(neighbor.terrain)));
   }
 
   private seaTileCountBetween(ax: number, ay: number, bx: number, by: number): number | undefined {
@@ -3243,7 +3245,7 @@ export class SimulationRuntime {
       const x = Math.round(ax + ((bx - ax) * index) / steps);
       const y = Math.round(ay + ((by - ay) * index) / steps);
       const tile = this.tiles.get(simulationTileKey(x, y));
-      if (!tile || tile.terrain !== "SEA") return undefined;
+      if (!tile || !isSeaTerrain(tile.terrain)) return undefined;
       seaTiles += 1;
     }
     return seaTiles;
@@ -3364,7 +3366,7 @@ export class SimulationRuntime {
   private tileDeltaFromState(tile: DomainTileState): {
     x: number;
     y: number;
-    terrain?: "LAND" | "SEA" | "MOUNTAIN";
+    terrain?: Terrain;
     resource?: string;
     dockId?: string;
     shardSiteJson?: string;
