@@ -295,6 +295,7 @@ const choosePlannerCommand = (
     ownedTileCount: ownedTiles.length,
     frontierTileCount: frontierTiles.length
   });
+  let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
   if (!options?.skipPreplan) {
     const preplan = chooseAutomationPreplanCommand({
       playerId,
@@ -311,6 +312,7 @@ const choosePlannerCommand = (
       issuedAt,
       sessionPrefix: "ai-runtime"
     });
+    preplanDiagnostic = preplan.diagnostic;
     if (preplan.command) {
       emitDiagnostic({
         phase: "planner_total",
@@ -372,6 +374,30 @@ const choosePlannerCommand = (
       });
     }
   });
+  if (preplanDiagnostic?.preplanReason) {
+    plan.diagnostic = {
+      ...plan.diagnostic,
+      preplanReason: preplanDiagnostic.preplanReason,
+      ...(typeof preplanDiagnostic.preplanHasCollectibleVisibleYieldSource === "boolean"
+        ? { preplanHasCollectibleVisibleYieldSource: preplanDiagnostic.preplanHasCollectibleVisibleYieldSource }
+        : {}),
+      ...(typeof preplanDiagnostic.preplanNeedsEconomy === "boolean"
+        ? { preplanNeedsEconomy: preplanDiagnostic.preplanNeedsEconomy }
+        : {}),
+      ...(typeof preplanDiagnostic.preplanNeedsFood === "boolean"
+        ? { preplanNeedsFood: preplanDiagnostic.preplanNeedsFood }
+        : {}),
+      ...(typeof preplanDiagnostic.preplanTechChoiceAffordable === "boolean"
+        ? { preplanTechChoiceAffordable: preplanDiagnostic.preplanTechChoiceAffordable }
+        : {}),
+      ...(typeof preplanDiagnostic.preplanDomainChoiceAffordable === "boolean"
+        ? { preplanDomainChoiceAffordable: preplanDiagnostic.preplanDomainChoiceAffordable }
+        : {}),
+      ...(preplanDiagnostic.preplanProgressState
+        ? { preplanProgressState: preplanDiagnostic.preplanProgressState }
+        : {})
+    };
+  }
   aiTrainingRecorder.record(
     buildAiTrainingRecord({
       player,

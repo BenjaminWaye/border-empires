@@ -974,6 +974,7 @@ export class SimulationRuntime {
       .map((tileKey) => this.tiles.get(tileKey))
       .filter((tile): tile is DomainTileState => tile !== undefined);
     const hasActiveLock = [...this.locksByTile.values()].some((lock) => lock.playerId === playerId);
+    let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
     if (!options?.skipPreplan) {
       const preplan = chooseAutomationPreplanCommand({
         playerId,
@@ -990,9 +991,10 @@ export class SimulationRuntime {
         issuedAt,
         sessionPrefix
       });
+      preplanDiagnostic = preplan.diagnostic;
       if (preplan.command) return preplan;
     }
-    return planAutomationCommand({
+    const plan = planAutomationCommand({
       playerId,
       points: player.points,
       manpower: player.manpower,
@@ -1030,6 +1032,31 @@ export class SimulationRuntime {
       issuedAt,
       sessionPrefix
     });
+    if (preplanDiagnostic?.preplanReason) {
+      plan.diagnostic = {
+        ...plan.diagnostic,
+        preplanReason: preplanDiagnostic.preplanReason,
+        ...(typeof preplanDiagnostic.preplanHasCollectibleVisibleYieldSource === "boolean"
+          ? { preplanHasCollectibleVisibleYieldSource: preplanDiagnostic.preplanHasCollectibleVisibleYieldSource }
+          : {}),
+        ...(typeof preplanDiagnostic.preplanNeedsEconomy === "boolean"
+          ? { preplanNeedsEconomy: preplanDiagnostic.preplanNeedsEconomy }
+          : {}),
+        ...(typeof preplanDiagnostic.preplanNeedsFood === "boolean"
+          ? { preplanNeedsFood: preplanDiagnostic.preplanNeedsFood }
+          : {}),
+        ...(typeof preplanDiagnostic.preplanTechChoiceAffordable === "boolean"
+          ? { preplanTechChoiceAffordable: preplanDiagnostic.preplanTechChoiceAffordable }
+          : {}),
+        ...(typeof preplanDiagnostic.preplanDomainChoiceAffordable === "boolean"
+          ? { preplanDomainChoiceAffordable: preplanDiagnostic.preplanDomainChoiceAffordable }
+          : {}),
+        ...(preplanDiagnostic.preplanProgressState
+          ? { preplanProgressState: preplanDiagnostic.preplanProgressState }
+          : {})
+      };
+    }
+    return plan;
   }
 
   chooseNextAutomationCommand(

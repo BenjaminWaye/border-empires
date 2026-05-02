@@ -1000,6 +1000,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onCommand: ({ playerId, commandType }) => {
               simulationMetrics.observeSimAiCommand(commandType, playerId);
             },
+            onDecision: (diagnostic) => {
+              if (diagnostic.preplanReason) {
+                simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
+              }
+              if (diagnostic.preplanProgressState) {
+                simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
+              }
+            },
             onDiagnostic: (sample) => {
               if (sample.durationMs < slowAiSyncWarnMs) return;
               recordLagDiagnostic("warn", "simulation_ai_worker_slow", sample);
@@ -1025,6 +1033,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             },
             onCommand: ({ playerId, commandType }) => {
               simulationMetrics.observeSimAiCommand(commandType, playerId);
+            },
+            onDecision: (diagnostic) => {
+              if (diagnostic.preplanReason) {
+                simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
+              }
+              if (diagnostic.preplanProgressState) {
+                simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
+              }
             },
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
@@ -1512,6 +1528,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_ai_planner_breaches: sample.simAiPlannerBreaches,
             sim_ai_command_total: sample.simAiCommandTotalByType,
             sim_ai_command_recent: sample.simAiCommandRecent,
+            sim_ai_preplan_total: sample.simAiPreplanTotalByReason,
+            sim_ai_preplan_recent: sample.simAiPreplanRecent,
+            sim_ai_preplan_progress_total: sample.simAiPreplanProgressTotalByState,
+            sim_ai_preplan_progress_recent: sample.simAiPreplanProgressRecent,
             sim_ai_noop_total: sample.simAiNoopTotalByReason,
             sim_ai_noop_recent: sample.simAiNoopRecent,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
