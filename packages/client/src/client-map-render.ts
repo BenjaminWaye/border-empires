@@ -488,12 +488,14 @@ const terrainTextureIdAt = (
   y: number,
   terrain: Tile["terrain"],
   wrapX: (value: number) => number,
-  wrapY: (value: number) => number
+  wrapY: (value: number) => number,
+  visibleLandBiome?: Tile["landBiome"],
+  visibleRegionType?: Tile["regionType"]
 ): TerrainTextureId => {
   if (terrain === "COASTAL_SEA") return "SEA_COAST";
   if (terrain === "SEA") return "SEA_DEEP";
   if (terrain === "MOUNTAIN") return "MOUNTAIN";
-  const biome = landBiomeAt(x, y);
+  const biome = visibleLandBiome ?? landBiomeAt(x, y);
   if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
   return grassShadeAt(x, y) === "DARK" ? "GRASS_DARK" : "GRASS_LIGHT";
 };
@@ -510,6 +512,8 @@ export const drawTerrainTile = (
     wrapX: (value: number) => number;
     wrapY: (value: number) => number;
     cachedTerrainColorAt: (x: number, y: number, terrain: Tile["terrain"]) => string;
+    getVisibleLandBiomeAt?: (x: number, y: number) => Tile["landBiome"];
+    getVisibleRegionTypeAt?: (x: number, y: number) => Tile["regionType"];
   }
 ): void => {
   if (isTrue3DRendererActive()) return;
@@ -518,7 +522,15 @@ export const drawTerrainTile = (
     ctx.fillRect(options.px, options.py, options.size, options.size);
     return;
   }
-  const id = terrainTextureIdAt(options.wx, options.wy, options.terrain, options.wrapX, options.wrapY);
+  const id = terrainTextureIdAt(
+    options.wx,
+    options.wy,
+    options.terrain,
+    options.wrapX,
+    options.wrapY,
+    options.getVisibleLandBiomeAt?.(options.wx, options.wy),
+    options.getVisibleRegionTypeAt?.(options.wx, options.wy)
+  );
   const texture = terrainTextures.get(id);
   if (useTerrainReliefRenderer) {
     const relief = terrainReliefPx(options.wx, options.wy, options.terrain, options.size);
@@ -1038,7 +1050,7 @@ export const drawTownOverlay = (
     return;
   }
   const accent = tile.town.type === "MARKET" ? "rgba(255, 212, 102, 0.9)" : "rgba(162, 241, 132, 0.88)";
-  const biome = landBiomeAt(tile.x, tile.y);
+  const biome = tile.landBiome ?? landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
   const overlay = overlaySet[tile.town.populationTier];
   if (!overlay.complete || !overlay.naturalWidth) {

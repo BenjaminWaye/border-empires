@@ -348,8 +348,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     console.info("[3d-ownership-debug]", payload);
   };
   const isSandTile = (wx: number, wy: number): boolean => {
-    if (terrainForWorldTile(wx, wy) !== "LAND") return false;
-    const biome = landBiomeAt(wx, wy);
+    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+    const terrain = tile?.terrain ?? terrainForWorldTile(wx, wy);
+    if (terrain !== "LAND") return false;
+    const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
     return biome === "SAND" || biome === "COASTAL_SAND";
   };
   const isSandAdjacentToMountain = (wx: number, wy: number): boolean => {
