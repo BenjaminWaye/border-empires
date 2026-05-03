@@ -3,7 +3,7 @@ import { CLIENT_BUILD_VERSION } from "./client-build-version.js";
 import { renderClientChangelogOverlay } from "./client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, guideSteps } from "./client-constants.js";
-import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "./client-debug.js";
+import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "./client-debug.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import type { initClientDom } from "./client-dom.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
@@ -1083,6 +1083,13 @@ export const renderClientHud = (deps: HudDeps): void => {
         hostname: window.location.hostname,
         enabledForAccount: state.stagingMapRevealEligible && state.authSessionReady,
         authEmail: state.authEmail
+      });
+      fogRevealLog("button-click", {
+        nextEnabled,
+        authSessionReady: state.authSessionReady,
+        eligible: state.stagingMapRevealEligible,
+        connection: state.connection,
+        fogDisabled: state.fogDisabled
       });
       sendGameMessage(
         { type: "SET_FOG_DISABLED", disabled: nextEnabled },
