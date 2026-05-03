@@ -3,12 +3,11 @@ import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
 import { isForestTile } from "./client-constants.js";
-import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
-import { createLegacy3DTerrainTextures } from "./client-map-3d-terrain-textures.js";
-import { normalizeColorForThree } from "./client-three-color.js";
 import { applyPerspectiveCamera, createPerspectiveCamera } from "./client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "./client-map-3d-atmosphere.js";
 import { createPointerPick, toroidDelta } from "./client-map-3d-pointer-pick.js";
+import { createHeightfield, type HeightfieldTerrainKind } from "./client-map-3d-heightfield.js";
+import { normalizeColorForThree } from "./client-three-color.js";
 
 type ClientThreeTerrainRendererDeps = {
   state: ClientState;
@@ -26,9 +25,10 @@ const MAX_FOREST_INSTANCES = MAX_VISIBLE_TILES * 5;
 const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
 const MOUNTAIN_SQUARE_PEAK_ROTATION_RADIANS = Math.PI / 4;
-const LAND_TILE_TOP_Y = 0.37;
-const OWNERSHIP_SURFACE_Y = LAND_TILE_TOP_Y + 0.004;
-const MARKER_SURFACE_Y = LAND_TILE_TOP_Y + 0.02;
+const MOUNTAIN_PEAK_RISE_ABOVE_HEIGHTFIELD = 0.55;
+const MOUNTAIN_SNOW_CAP_RISE_ABOVE_HEIGHTFIELD = 1.05;
+const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.012;
+const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.028;
 
 export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendererDeps) => {
   const glCanvas = document.createElement("canvas");
@@ -44,107 +44,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const scene = new Scene();
   const atmosphere = createAtmosphere(scene);
   const camera = createPerspectiveCamera(deps.canvas);
+  const heightfield = createHeightfield();
+  scene.add(heightfield.mesh);
 
-  const { grassLightTexture, grassDarkTexture, sandTexture, seaDeepTexture, seaCoastTexture } = createLegacy3DTerrainTextures();
-
-  const seaMaterial = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: seaDeepTexture,
-    roughness: 0.5,
-    roughnessMap: seaDeepTexture,
-    bumpMap: seaDeepTexture,
-    bumpScale: 0.018,
-    metalness: 0.02,
-    flatShading: true
-  });
-  const coastSeaMaterial = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: seaCoastTexture,
-    roughness: 0.5,
-    roughnessMap: seaCoastTexture,
-    bumpMap: seaCoastTexture,
-    bumpScale: 0.016,
-    metalness: 0.02,
-    flatShading: true
-  });
-  const landMaterialA = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: grassLightTexture,
-    emissive: "#4d5f34",
-    emissiveMap: grassLightTexture,
-    emissiveIntensity: 0.28,
-    roughness: 0.78,
-    roughnessMap: grassLightTexture,
-    bumpMap: grassLightTexture,
-    bumpScale: 0.02,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const landMaterialB = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: grassDarkTexture,
-    emissive: "#42522d",
-    emissiveMap: grassDarkTexture,
-    emissiveIntensity: 0.3,
-    roughness: 0.79,
-    roughnessMap: grassDarkTexture,
-    bumpMap: grassDarkTexture,
-    bumpScale: 0.02,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const landMaterialC = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: grassLightTexture,
-    emissive: "#4d5f34",
-    emissiveMap: grassLightTexture,
-    emissiveIntensity: 0.28,
-    roughness: 0.78,
-    roughnessMap: grassLightTexture,
-    bumpMap: grassLightTexture,
-    bumpScale: 0.02,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const sandMaterialA = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: sandTexture,
-    emissive: "#8d7954",
-    emissiveMap: sandTexture,
-    emissiveIntensity: 0.24,
-    roughness: 0.73,
-    roughnessMap: sandTexture,
-    bumpMap: sandTexture,
-    bumpScale: 0.017,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const sandMaterialB = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: sandTexture,
-    emissive: "#8d7954",
-    emissiveMap: sandTexture,
-    emissiveIntensity: 0.24,
-    roughness: 0.73,
-    roughnessMap: sandTexture,
-    bumpMap: sandTexture,
-    bumpScale: 0.017,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const sandMaterialC = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: sandTexture,
-    emissive: "#8d7954",
-    emissiveMap: sandTexture,
-    emissiveIntensity: 0.24,
-    roughness: 0.73,
-    roughnessMap: sandTexture,
-    bumpMap: sandTexture,
-    bumpScale: 0.017,
-    metalness: 0.01,
-    flatShading: true
-  });
   const mountainPeakMaterial = new MeshStandardMaterial({ color: "#535760", roughness: 0.9, metalness: 0, flatShading: true });
   const mountainSnowCapMaterial = new MeshStandardMaterial({
     color: "#f3f7ff",
@@ -173,24 +75,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     side: DoubleSide
   });
 
-  const seaGeometry = new BoxGeometry(1, 0.2, 1);
-  const coastSeaGeometry = new BoxGeometry(1, 0.2, 1);
-  const landGeometry = new BoxGeometry(1, 0.46, 1);
-  const sandGeometry = new BoxGeometry(1, 0.46, 1);
   const mountainPeakGeometry = new ConeGeometry(0.715, 1.24, 4, 1, false);
   const mountainSnowCapGeometry = new ConeGeometry(0.19, 0.34, 4, 1, false);
   const forestGeometry = new ConeGeometry(0.22, 0.92, 5, 1, false);
   const forestTrunkGeometry = new CylinderGeometry(0.075, 0.085, 0.7, 6);
   const ownershipGeometry = new PlaneGeometry(1, 1);
 
-  const seaMesh = new InstancedMesh(seaGeometry, seaMaterial, MAX_VISIBLE_TILES);
-  const coastSeaMesh = new InstancedMesh(coastSeaGeometry, coastSeaMaterial, MAX_VISIBLE_TILES);
-  const landMeshA = new InstancedMesh(landGeometry, landMaterialA, MAX_VISIBLE_TILES);
-  const landMeshB = new InstancedMesh(landGeometry, landMaterialB, MAX_VISIBLE_TILES);
-  const landMeshC = new InstancedMesh(landGeometry, landMaterialC, MAX_VISIBLE_TILES);
-  const sandMeshA = new InstancedMesh(sandGeometry, sandMaterialA, MAX_VISIBLE_TILES);
-  const sandMeshB = new InstancedMesh(sandGeometry, sandMaterialB, MAX_VISIBLE_TILES);
-  const sandMeshC = new InstancedMesh(sandGeometry, sandMaterialC, MAX_VISIBLE_TILES);
   const mountainPeakMesh = new InstancedMesh(mountainPeakGeometry, mountainPeakMaterial, MAX_VISIBLE_TILES);
   const mountainSnowCapMesh = new InstancedMesh(mountainSnowCapGeometry, mountainSnowCapMaterial, MAX_VISIBLE_TILES);
   const forestMesh = new InstancedMesh(forestGeometry, forestCanopyMaterial, MAX_FOREST_INSTANCES);
@@ -239,14 +129,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
   for (const mesh of [
-    seaMesh,
-    coastSeaMesh,
-    landMeshA,
-    landMeshB,
-    landMeshC,
-    sandMeshA,
-    sandMeshB,
-    sandMeshC,
     mountainPeakMesh,
     mountainSnowCapMesh,
     forestMesh,
@@ -263,14 +145,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
 
-  seaMesh.count = 0;
-  coastSeaMesh.count = 0;
-  landMeshA.count = 0;
-  landMeshB.count = 0;
-  landMeshC.count = 0;
-  sandMeshA.count = 0;
-  sandMeshB.count = 0;
-  sandMeshC.count = 0;
   mountainPeakMesh.count = 0;
   mountainSnowCapMesh.count = 0;
   forestMesh.count = 0;
@@ -278,14 +152,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   ownershipSettledMesh.count = 0;
   ownershipFrontierMesh.count = 0;
   scene.add(
-    seaMesh,
-    coastSeaMesh,
-    landMeshA,
-    landMeshB,
-    landMeshC,
-    sandMeshA,
-    sandMeshB,
-    sandMeshC,
     mountainPeakMesh,
     mountainSnowCapMesh,
     forestMesh,
@@ -312,14 +178,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const shouldDebugOwnership = (): boolean =>
     typeof window !== "undefined" && window.location.hostname === "localhost";
 
-  const mountainJitter = (_wx: number, _wy: number): { x: number; z: number; y: number } => {
-    return {
-      x: 0,
-      z: 0,
-      y: 0.14
-    };
-  };
-
   const terrainForWorldTile = (wx: number, wy: number): Tile["terrain"] => {
     const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
     return tile?.terrain ?? deps.terrainAt(wx, wy);
@@ -338,22 +196,20 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const biome = landBiomeAt(wx, wy);
     return biome === "SAND" || biome === "COASTAL_SAND";
   };
-  const isSandAdjacentToMountain = (wx: number, wy: number): boolean => {
-    const neighbors = [
-      { x: deps.wrapX(wx), y: deps.wrapY(wy - 1) },
-      { x: deps.wrapX(wx + 1), y: deps.wrapY(wy) },
-      { x: deps.wrapX(wx), y: deps.wrapY(wy + 1) },
-      { x: deps.wrapX(wx - 1), y: deps.wrapY(wy) }
-    ];
-    for (const neighbor of neighbors) {
-      if (isSandTile(neighbor.x, neighbor.y)) return true;
+  const heightfieldKindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
+    const terrain = terrainForWorldTile(wx, wy);
+    if (terrain === "SEA" || terrain === "COASTAL_SEA") {
+      if (terrain === "COASTAL_SEA") return "COASTAL_SEA";
+      return "SEA";
     }
-    return false;
+    if (terrain === "MOUNTAIN") return "MOUNTAIN";
+    if (isSandTile(wx, wy)) return "SAND";
+    return "GRASS";
   };
   const syncHighlightMarker = (
     marker: LineSegments,
     tile: { x: number; y: number } | undefined,
-    height: number
+    riseAboveSurface: number
   ): void => {
     if (!tile) {
       marker.visible = false;
@@ -361,7 +217,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     const dx = toroidDelta(deps.state.camX, tile.x, WORLD_WIDTH);
     const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
-    marker.position.set(dx + TILE_CENTER_OFFSET, height, dy + TILE_CENTER_OFFSET);
+    const surfaceY = heightfield.elevationAt(deps.wrapX(tile.x), deps.wrapY(tile.y));
+    marker.position.set(dx + TILE_CENTER_OFFSET, surfaceY + riseAboveSurface, dy + TILE_CENTER_OFFSET);
     marker.visible = true;
   };
   const isTownSupportHighlightableAt = (wx: number, wy: number): boolean => {
@@ -402,7 +259,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         const sx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH);
         const sy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT);
-        marker.position.set(sx + TILE_CENTER_OFFSET, MARKER_SURFACE_Y, sy + TILE_CENTER_OFFSET);
+        const surfaceY = heightfield.elevationAt(wx, wy);
+        marker.position.set(sx + TILE_CENTER_OFFSET, surfaceY + MARKER_RISE_ABOVE_HEIGHTFIELD, sy + TILE_CENTER_OFFSET);
         marker.visible = true;
         markerIndex += 1;
       }
@@ -421,7 +279,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const placeLineMarkers = (
     pool: Array<{ marker: LineSegments }>,
     tiles: Array<{ x: number; y: number }>,
-    yOffset: number
+    riseAboveSurface: number
   ): void => {
     hideLineMarkerPool(pool);
     let index = 0;
@@ -430,7 +288,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       const { marker } = pool[index]!;
       const dx = toroidDelta(deps.state.camX, tile.x, WORLD_WIDTH);
       const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
-      marker.position.set(dx + TILE_CENTER_OFFSET, yOffset, dy + TILE_CENTER_OFFSET);
+      const surfaceY = heightfield.elevationAt(deps.wrapX(tile.x), deps.wrapY(tile.y));
+      marker.position.set(dx + TILE_CENTER_OFFSET, surfaceY + riseAboveSurface, dy + TILE_CENTER_OFFSET);
       marker.visible = true;
       index += 1;
     }
@@ -444,7 +303,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       if (!Number.isFinite(action.x) || !Number.isFinite(action.y)) continue;
       actionTiles.push({ x: action.x, y: action.y });
     }
-    placeLineMarkers(queuedActionMarkers, actionTiles, MARKER_SURFACE_Y);
+    placeLineMarkers(queuedActionMarkers, actionTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
     const settlementTiles: Array<{ x: number; y: number }> = [];
     const buildTiles: Array<{ x: number; y: number }> = [];
     for (const entry of deps.state.developmentQueue) {
@@ -453,8 +312,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       if (entry.kind === "SETTLE") settlementTiles.push({ x: entry.x, y: entry.y });
       if (entry.kind === "BUILD") buildTiles.push({ x: entry.x, y: entry.y });
     }
-    placeLineMarkers(queuedSettlementMarkers, settlementTiles, MARKER_SURFACE_Y);
-    placeLineMarkers(queuedBuildMarkers, buildTiles, MARKER_SURFACE_Y);
+    placeLineMarkers(queuedSettlementMarkers, settlementTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
+    placeLineMarkers(queuedBuildMarkers, buildTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
   };
 
   const applyCamera = (): void => {
@@ -476,17 +335,20 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
   const rebuildVisibleTerrain = (): void => {
     const size = Math.max(1, deps.state.zoom);
-    const halfW = Math.floor(deps.canvas.width / size / 2);
-    const halfH = Math.floor(deps.canvas.height / size / 2);
+    const halfW = Math.max(1, Math.floor(deps.canvas.width / size / 2));
+    const halfH = Math.max(1, Math.floor(deps.canvas.height / size / 2));
 
-    let seaCount = 0;
-    let coastSeaCount = 0;
-    let landCountA = 0;
-    let landCountB = 0;
-    let landCountC = 0;
-    let sandCountA = 0;
-    let sandCountB = 0;
-    let sandCountC = 0;
+    heightfield.mesh.position.set(0, 0, 0);
+    heightfield.rebuild({
+      camX: deps.state.camX,
+      camY: deps.state.camY,
+      halfW,
+      halfH,
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT,
+      tileKindAt: heightfieldKindAt
+    });
+
     let mountainPeakCount = 0;
     let mountainSnowCapCount = 0;
     let forestCount = 0;
@@ -526,81 +388,26 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             isOwnedLand
           };
         }
+        const surfaceY = heightfield.elevationAt(wx, wy);
         if (terrain === "SEA" || terrain === "COASTAL_SEA") {
-          tempMatrix.makeTranslation(x, -0.1, z);
           if (terrain === "COASTAL_SEA") {
-            coastSeaMesh.setMatrixAt(coastSeaCount, tempMatrix);
-            coastSeaCount += 1;
-          } else {
-            seaMesh.setMatrixAt(seaCount, tempMatrix);
-            seaCount += 1;
+            // coastal water rendered by heightfield; intentional no-op
           }
           continue;
         }
         if (terrain === "MOUNTAIN") {
-          const variant = terrainShadeVariantAt(wx, wy);
-          tempMatrix.makeTranslation(x, 0.14, z);
-          if (isSandAdjacentToMountain(wx, wy)) {
-            if (variant === 0) {
-              sandMeshA.setMatrixAt(sandCountA, tempMatrix);
-              sandCountA += 1;
-            } else if (variant === 1) {
-              sandMeshB.setMatrixAt(sandCountB, tempMatrix);
-              sandCountB += 1;
-            } else {
-              sandMeshC.setMatrixAt(sandCountC, tempMatrix);
-              sandCountC += 1;
-            }
-          } else {
-            if (variant === 0) {
-              landMeshA.setMatrixAt(landCountA, tempMatrix);
-              landCountA += 1;
-            } else if (variant === 1) {
-              landMeshB.setMatrixAt(landCountB, tempMatrix);
-              landCountB += 1;
-            } else {
-              landMeshC.setMatrixAt(landCountC, tempMatrix);
-              landCountC += 1;
-            }
-          }
-          const jitter = mountainJitter(wx, wy);
           peakOffset.makeRotationY(MOUNTAIN_SQUARE_PEAK_ROTATION_RADIANS);
           tempMatrix.copy(peakOffset);
-          tempMatrix.setPosition(x + jitter.x, 0.86 + jitter.y, z + jitter.z);
+          tempMatrix.setPosition(x, surfaceY + MOUNTAIN_PEAK_RISE_ABOVE_HEIGHTFIELD, z);
           mountainPeakMesh.setMatrixAt(mountainPeakCount, tempMatrix);
           mountainPeakCount += 1;
           tempMatrix.copy(peakOffset);
-          tempMatrix.setPosition(x + jitter.x, 1.38 + jitter.y, z + jitter.z);
+          tempMatrix.setPosition(x, surfaceY + MOUNTAIN_SNOW_CAP_RISE_ABOVE_HEIGHTFIELD, z);
           mountainSnowCapMesh.setMatrixAt(mountainSnowCapCount, tempMatrix);
           mountainSnowCapCount += 1;
           continue;
         }
-        tempMatrix.makeTranslation(x, 0.14, z);
-        const variant = terrainShadeVariantAt(wx, wy);
-        if (isSandTile(wx, wy)) {
-          if (variant === 0) {
-            sandMeshA.setMatrixAt(sandCountA, tempMatrix);
-            sandCountA += 1;
-          } else if (variant === 1) {
-            sandMeshB.setMatrixAt(sandCountB, tempMatrix);
-            sandCountB += 1;
-          } else {
-            sandMeshC.setMatrixAt(sandCountC, tempMatrix);
-            sandCountC += 1;
-          }
-        } else {
-          if (variant === 0) {
-            landMeshA.setMatrixAt(landCountA, tempMatrix);
-            landCountA += 1;
-          } else if (variant === 1) {
-            landMeshB.setMatrixAt(landCountB, tempMatrix);
-            landCountB += 1;
-          } else {
-            landMeshC.setMatrixAt(landCountC, tempMatrix);
-            landCountC += 1;
-          }
-        }
-          if (forestTile) {
+        if (forestTile) {
           const trunkOzBias = 0.04;
           const forestTreeLayout = [
             { ox: -0.26, oz: -0.24, canopyScale: 0.84, trunkScale: 0.9, trunkY: 0.56, canopyY: 1.1 },
@@ -612,20 +419,20 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           for (const tree of forestTreeLayout) {
             forestTrunkScaleMatrix.makeScale(tree.trunkScale, tree.trunkScale, tree.trunkScale);
             tempMatrix.copy(forestTrunkScaleMatrix);
-            tempMatrix.setPosition(x + tree.ox, tree.trunkY, z + tree.oz + trunkOzBias);
+            tempMatrix.setPosition(x + tree.ox, surfaceY + tree.trunkY, z + tree.oz + trunkOzBias);
             forestTrunkMesh.setMatrixAt(forestTrunkCount, tempMatrix);
             forestTrunkCount += 1;
 
             forestCanopyScaleMatrix.makeScale(tree.canopyScale, tree.canopyScale, tree.canopyScale);
             tempMatrix.copy(forestCanopyScaleMatrix);
-            tempMatrix.setPosition(x + tree.ox, tree.canopyY, z + tree.oz);
+            tempMatrix.setPosition(x + tree.ox, surfaceY + tree.canopyY, z + tree.oz);
             forestMesh.setMatrixAt(forestCount, tempMatrix);
             forestCount += 1;
           }
         }
         if (isOwnedLand && ownerId) {
           tempMatrix.makeRotationX(-Math.PI / 2);
-          tempMatrix.setPosition(x, OWNERSHIP_SURFACE_Y, z);
+          tempMatrix.setPosition(x, surfaceY + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, z);
           const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
           const ownerColor = new Color(normalizedColor);
           if (ownershipState === "FRONTIER") {
@@ -650,28 +457,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
-    seaMesh.count = seaCount;
-    coastSeaMesh.count = coastSeaCount;
-    landMeshA.count = landCountA;
-    landMeshB.count = landCountB;
-    landMeshC.count = landCountC;
-    sandMeshA.count = sandCountA;
-    sandMeshB.count = sandCountB;
-    sandMeshC.count = sandCountC;
     mountainPeakMesh.count = mountainPeakCount;
     mountainSnowCapMesh.count = mountainSnowCapCount;
     forestMesh.count = forestCount;
     forestTrunkMesh.count = forestTrunkCount;
     ownershipSettledMesh.count = ownershipSettledCount;
     ownershipFrontierMesh.count = ownershipFrontierCount;
-    seaMesh.instanceMatrix.needsUpdate = true;
-    coastSeaMesh.instanceMatrix.needsUpdate = true;
-    landMeshA.instanceMatrix.needsUpdate = true;
-    landMeshB.instanceMatrix.needsUpdate = true;
-    landMeshC.instanceMatrix.needsUpdate = true;
-    sandMeshA.instanceMatrix.needsUpdate = true;
-    sandMeshB.instanceMatrix.needsUpdate = true;
-    sandMeshC.instanceMatrix.needsUpdate = true;
     mountainPeakMesh.instanceMatrix.needsUpdate = true;
     mountainSnowCapMesh.instanceMatrix.needsUpdate = true;
     forestMesh.instanceMatrix.needsUpdate = true;
@@ -707,9 +498,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const renderLoop = (): void => {
     const nowMs = performance.now();
     maybeRebuild(nowMs);
-    // Keep marker nearly coplanar with tile tops so tilt does not introduce screen-space offset.
-    syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_SURFACE_Y);
-    syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_SURFACE_Y);
+    syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
+    syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
     syncQueueMarkers();
     renderer.render(scene, camera);
@@ -727,28 +517,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const stop = (): void => {
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     renderer.dispose();
-    seaGeometry.dispose();
-    coastSeaGeometry.dispose();
-    landGeometry.dispose();
-    sandGeometry.dispose();
     mountainPeakGeometry.dispose();
     mountainSnowCapGeometry.dispose();
     forestGeometry.dispose();
     forestTrunkGeometry.dispose();
     ownershipGeometry.dispose();
-    seaMaterial.dispose();
-    coastSeaMaterial.dispose();
-    landMaterialA.dispose();
-    landMaterialB.dispose();
-    landMaterialC.dispose();
-    sandMaterialA.dispose();
-    sandMaterialB.dispose();
-    sandMaterialC.dispose();
-    grassLightTexture.dispose();
-    grassDarkTexture.dispose();
-    sandTexture.dispose();
-    seaDeepTexture.dispose();
-    seaCoastTexture.dispose();
     mountainPeakMaterial.dispose();
     mountainSnowCapMaterial.dispose();
     forestCanopyMaterial.dispose();
@@ -760,6 +533,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const { material } of queuedActionMarkers) material.dispose();
     for (const { material } of queuedSettlementMarkers) material.dispose();
     for (const { material } of queuedBuildMarkers) material.dispose();
+    heightfield.dispose();
     atmosphere.dispose();
     glCanvas.remove();
     delete deps.canvas.dataset.renderer;
