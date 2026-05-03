@@ -1,4 +1,4 @@
-import { BoxGeometry, Color, DoubleSide, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, PlaneGeometry, Scene, WebGLRenderer } from "three";
+import { BoxGeometry, Color, EdgesGeometry, LineBasicMaterial, LineSegments, Scene, WebGLRenderer } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
@@ -8,9 +8,11 @@ import { createAtmosphere } from "./client-map-3d-atmosphere.js";
 import { createPointerPick, toroidDelta } from "./client-map-3d-pointer-pick.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "./client-map-3d-heightfield.js";
 import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
-import { createWaterSurface } from "./client-map-3d-water-surface.js";
+import { createWaterSurface, WATER_SURFACE_Y } from "./client-map-3d-water-surface.js";
 import { createVillageEffects } from "./client-map-3d-village-fx.js";
 import { createForest } from "./client-map-3d-forest.js";
+import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
+import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
 import { normalizeColorForThree } from "./client-three-color.js";
 
 type ClientThreeTerrainRendererDeps = {
@@ -27,8 +29,8 @@ type ClientThreeTerrainRendererDeps = {
 const MAX_VISIBLE_TILES = 14000;
 const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
-const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.012;
-const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.028;
+const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
+const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.038;
 
 export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendererDeps) => {
   const glCanvas = document.createElement("canvas");
@@ -46,31 +48,39 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const camera = createPerspectiveCamera(deps.canvas);
   const heightfield = createHeightfield();
   scene.add(heightfield.mesh);
+  scene.add(heightfield.gridlines);
+  heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const waterSurface = createWaterSurface(scene);
   const villageEffects = createVillageEffects(scene);
   const forest = createForest(scene, MAX_VISIBLE_TILES);
+  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
+  const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
 
-  const ownershipSettledMaterial = new MeshBasicMaterial({
-    color: "#ffffff",
-    transparent: false,
-    depthWrite: false,
-    depthTest: false,
-    side: DoubleSide
-  });
-  const ownershipFrontierMaterial = new MeshBasicMaterial({
-    color: "#ffffff",
-    transparent: true,
-    opacity: 0.68,
-    depthWrite: false,
-    depthTest: false,
-    side: DoubleSide
-  });
+  // Visual-only demo: ?towndemo=1 fakes a row of 5 tiers near (camX, camY)
+  // so you can compare Settlement → Town → City → Great City → Metropolis
+  // side-by-side without playing through them.
+  const townDemoEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("towndemo") === "1";
+  const TOWN_DEMO_TIERS: ReadonlyArray<TownTier> = [
+    "SETTLEMENT",
+    "TOWN",
+    "CITY",
+    "GREAT_CITY",
+    "METROPOLIS"
+  ];
+  const isTownDemoTile = (
+    wx: number,
+    wy: number
+  ): TownTier | undefined => {
+    if (!townDemoEnabled) return undefined;
+    if (wy !== deps.state.camY) return undefined;
+    const dx = wx - deps.state.camX;
+    if (dx < 0 || dx >= TOWN_DEMO_TIERS.length) return undefined;
+    return TOWN_DEMO_TIERS[dx];
+  };
 
-  const ownershipGeometry = new PlaneGeometry(1, 1);
-
-  const ownershipSettledMesh = new InstancedMesh(ownershipGeometry, ownershipSettledMaterial, MAX_VISIBLE_TILES);
-  const ownershipFrontierMesh = new InstancedMesh(ownershipGeometry, ownershipFrontierMaterial, MAX_VISIBLE_TILES);
   const markerEdgesGeometry = new EdgesGeometry(new BoxGeometry(1, 0.04, 1));
   const selectedMarker = new LineSegments(
     markerEdgesGeometry,
@@ -112,9 +122,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
-  for (const mesh of [ownershipSettledMesh, ownershipFrontierMesh]) {
-    mesh.frustumCulled = false;
-  }
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
@@ -122,11 +129,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
 
-  ownershipSettledMesh.count = 0;
-  ownershipFrontierMesh.count = 0;
   scene.add(
-    ownershipSettledMesh,
-    ownershipFrontierMesh,
     selectedMarker,
     hoverMarker,
     ...townSupportMarkers.map(({ marker }) => marker),
@@ -135,7 +138,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...queuedBuildMarkers.map(({ marker }) => marker)
   );
 
-  const tempMatrix = new Matrix4();
   const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0 };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
@@ -320,8 +322,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainMassifs.clear();
     villageEffects.clear();
     forest.clear();
-    let ownershipSettledCount = 0;
-    let ownershipFrontierCount = 0;
+    ownershipOverlay.clear();
+    townOverlay.clear();
     const selectedCoord = deps.state.selected;
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
@@ -369,27 +371,66 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (forestTile) {
           forest.addInstance(x, z, surfaceY);
         }
+        const realTier = tile?.town?.populationTier;
+        const demoTier = isTownDemoTile(wx, wy);
+        const renderedTier: TownTier | undefined = realTier ?? demoTier;
+        if (renderedTier && terrain === "LAND") {
+          townOverlay.addInstance(x, z, surfaceY, renderedTier);
+          // Smoke column over the town. Capital banners stay off for now;
+          // re-enable by adding villageEffects.addCapitalBanner if wanted.
+          const tileSeed = wx * 17 + wy * 31;
+          villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
+        }
         if (isOwnedLand && ownerId) {
-          tempMatrix.makeRotationX(-Math.PI / 2);
-          tempMatrix.setPosition(x, surfaceY + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, z);
           const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
           const ownerColor = new Color(normalizedColor);
-          if (tile?.town) {
-            const tileSeed = wx * 17 + wy * 31;
-            villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
-            if (tile.capital) {
-              villageEffects.addCapitalBanner(x, z, surfaceY, normalizedColor, tileSeed);
-            }
-          }
-          if (ownershipState === "FRONTIER") {
-            ownershipFrontierMesh.setMatrixAt(ownershipFrontierCount, tempMatrix);
-            ownershipFrontierMesh.setColorAt(ownershipFrontierCount, ownerColor);
-            ownershipFrontierCount += 1;
-          } else {
-            ownershipSettledMesh.setMatrixAt(ownershipSettledCount, tempMatrix);
-            ownershipSettledMesh.setColorAt(ownershipSettledCount, ownerColor);
-            ownershipSettledCount += 1;
-          }
+          // Each ownership corner samples the heightfield's averaged
+          // elevation so the painted overlay traces the sculpted ground.
+          // Tile (wx, wy) spans world-XZ [wx, wx+1] × [wy, wy+1]; its 4
+          // grid corners are the integer points (wx, wy), (wx+1, wy),
+          // (wx, wy+1), (wx+1, wy+1).
+          const wxNext = deps.wrapX(wx + 1);
+          const wyNext = deps.wrapY(wy + 1);
+          // Each corner reads the heightfield's averaged elevation so the
+          // painted overlay traces the sculpted ground. Water draws after
+          // the overlay (see WaterSurface.renderOrder) and naturally hides
+          // any portion that dips below the water surface.
+          const corner00Y = (
+            heightfield.elevationAt(deps.wrapX(wx - 1), deps.wrapY(wy - 1)) +
+            heightfield.elevationAt(wx, deps.wrapY(wy - 1)) +
+            heightfield.elevationAt(deps.wrapX(wx - 1), wy) +
+            heightfield.elevationAt(wx, wy)
+          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner10Y = (
+            heightfield.elevationAt(wx, deps.wrapY(wy - 1)) +
+            heightfield.elevationAt(wxNext, deps.wrapY(wy - 1)) +
+            heightfield.elevationAt(wx, wy) +
+            heightfield.elevationAt(wxNext, wy)
+          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner01Y = (
+            heightfield.elevationAt(deps.wrapX(wx - 1), wy) +
+            heightfield.elevationAt(wx, wy) +
+            heightfield.elevationAt(deps.wrapX(wx - 1), wyNext) +
+            heightfield.elevationAt(wx, wyNext)
+          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner11Y = (
+            heightfield.elevationAt(wx, wy) +
+            heightfield.elevationAt(wxNext, wy) +
+            heightfield.elevationAt(wx, wyNext) +
+            heightfield.elevationAt(wxNext, wyNext)
+          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const x0 = x - 0.5;
+          const x1 = x + 0.5;
+          const z0 = z - 0.5;
+          const z1 = z + 0.5;
+          ownershipOverlay.addTile(
+            x0, corner00Y, z0,
+            x1, corner10Y, z0,
+            x0, corner01Y, z1,
+            x1, corner11Y, z1,
+            ownerColor,
+            ownershipState === "FRONTIER"
+          );
           if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
             selectedOwnershipDebug = {
               ...selectedOwnershipDebug,
@@ -406,12 +447,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainMassifs.commit();
     villageEffects.commit();
     forest.commit();
-    ownershipSettledMesh.count = ownershipSettledCount;
-    ownershipFrontierMesh.count = ownershipFrontierCount;
-    ownershipSettledMesh.instanceMatrix.needsUpdate = true;
-    ownershipFrontierMesh.instanceMatrix.needsUpdate = true;
-    if (ownershipSettledMesh.instanceColor) ownershipSettledMesh.instanceColor.needsUpdate = true;
-    if (ownershipFrontierMesh.instanceColor) ownershipFrontierMesh.instanceColor.needsUpdate = true;
+    ownershipOverlay.commit();
+    townOverlay.commit();
   };
 
   const maybeRebuild = (nowMs: number): void => {
@@ -460,14 +497,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const stop = (): void => {
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     renderer.dispose();
-    ownershipGeometry.dispose();
-    ownershipSettledMaterial.dispose();
-    ownershipFrontierMaterial.dispose();
+    ownershipOverlay.dispose();
     markerEdgesGeometry.dispose();
     for (const { material } of townSupportMarkers) material.dispose();
     for (const { material } of queuedActionMarkers) material.dispose();
     for (const { material } of queuedSettlementMarkers) material.dispose();
     for (const { material } of queuedBuildMarkers) material.dispose();
+    townOverlay.dispose();
     forest.dispose();
     villageEffects.dispose();
     waterSurface.dispose();

@@ -1,4 +1,12 @@
-import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshStandardMaterial } from "three";
+import {
+  BufferAttribute,
+  BufferGeometry,
+  DoubleSide,
+  LineBasicMaterial,
+  LineSegments,
+  Mesh,
+  MeshStandardMaterial
+} from "three";
 import { legacy3DTerrainPalette } from "./client-map-3d-terrain-textures.js";
 import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
 
@@ -40,6 +48,10 @@ const MOUNTAIN_ROCK_LIGHT: [number, number, number] = [128, 120, 124];
 const MOUNTAIN_ROCK_DARK: [number, number, number] = [98, 92, 96];
 const GRASS_TINT_DEEP: [number, number, number] = legacy3DTerrainPalette.grassDark;
 const GRASS_TINT_LIGHT: [number, number, number] = legacy3DTerrainPalette.grassLight;
+// Distinct turquoise for the shoreline so it reads clearly through the
+// transparent water plane and contrasts with the darker deep-sea floor.
+const COASTAL_SEA_FLOOR: [number, number, number] = [122, 200, 214];
+const DEEP_SEA_FLOOR: [number, number, number] = [42, 78, 110];
 
 const heightfieldTileColor = (
   kind: HeightfieldTerrainKind,
@@ -53,9 +65,9 @@ const heightfieldTileColor = (
     case "SAND":
       return legacy3DTerrainPalette.sand;
     case "COASTAL_SEA":
-      return legacy3DTerrainPalette.seaCoast;
+      return COASTAL_SEA_FLOOR;
     case "SEA":
-      return legacy3DTerrainPalette.seaDeep;
+      return DEEP_SEA_FLOOR;
   }
 };
 
@@ -90,8 +102,11 @@ export type Heightfield = {
   readonly mesh: Mesh;
   readonly material: MeshStandardMaterial;
   readonly geometry: BufferGeometry;
+  readonly gridlines: LineSegments;
   readonly rebuild: (inputs: HeightfieldRebuildInputs) => void;
   readonly elevationAt: (wx: number, wy: number) => number;
+  readonly cornerYAt: (cornerX: number, cornerZ: number) => number;
+  readonly setGridlinesVisible: (visible: boolean) => void;
   readonly dispose: () => void;
 };
 
@@ -118,6 +133,30 @@ export const createHeightfield = (): Heightfield => {
   mesh.frustumCulled = false;
   mesh.receiveShadow = false;
   mesh.castShadow = false;
+
+  // Gridlines: a LineSegments that reuses the heightfield's position buffer,
+  // with a precomputed index that draws only the horizontal and vertical
+  // tile edges (no diagonals) so the grid follows the sculpted surface.
+  const gridGeometry = new BufferGeometry();
+  gridGeometry.setAttribute("position", geometry.getAttribute("position"));
+  const HORIZONTAL_LINES = HEIGHTFIELD_MAX_TILES_PER_AXIS * VERT_DIM;
+  const VERTICAL_LINES = HEIGHTFIELD_MAX_TILES_PER_AXIS * VERT_DIM;
+  const GRID_INDEX_COUNT = (HORIZONTAL_LINES + VERTICAL_LINES) * 2;
+  const gridIndices = new Uint32Array(GRID_INDEX_COUNT);
+  gridGeometry.setIndex(new BufferAttribute(gridIndices, 1));
+  gridGeometry.setDrawRange(0, 0);
+  const gridMaterial = new LineBasicMaterial({
+    color: "#0c1820",
+    transparent: true,
+    opacity: 0.42,
+    depthWrite: false
+  });
+  const gridlines = new LineSegments(gridGeometry, gridMaterial);
+  gridlines.frustumCulled = false;
+  gridlines.renderOrder = 5;
+  gridlines.visible = false;
+  let gridLastTileSpanX = 0;
+  let gridLastTileSpanY = 0;
 
   const elevationCache = new Map<number, number>();
   const elevationKey = (wx: number, wy: number): number => wx * 100003 + wy;
@@ -227,6 +266,33 @@ export const createHeightfield = (): Heightfield => {
     if (colorAttr) colorAttr.needsUpdate = true;
     geometry.setDrawRange(0, lastIndexCount);
     geometry.computeVertexNormals();
+
+    if (gridlines.visible && (tileSpanX !== gridLastTileSpanX || tileSpanY !== gridLastTileSpanY)) {
+      let gridIdx = 0;
+      // Horizontal edges: for every vertex row, connect (i,j)-(i+1,j)
+      for (let j = 0; j <= tileSpanY; j += 1) {
+        for (let i = 0; i < tileSpanX; i += 1) {
+          gridIndices[gridIdx++] = j * VERT_DIM + i;
+          gridIndices[gridIdx++] = j * VERT_DIM + i + 1;
+        }
+      }
+      // Vertical edges: for every vertex column, connect (i,j)-(i,j+1)
+      for (let j = 0; j < tileSpanY; j += 1) {
+        for (let i = 0; i <= tileSpanX; i += 1) {
+          gridIndices[gridIdx++] = j * VERT_DIM + i;
+          gridIndices[gridIdx++] = (j + 1) * VERT_DIM + i;
+        }
+      }
+      gridGeometry.setDrawRange(0, gridIdx);
+      const gridIndexAttr = gridGeometry.index;
+      if (gridIndexAttr) gridIndexAttr.needsUpdate = true;
+      gridLastTileSpanX = tileSpanX;
+      gridLastTileSpanY = tileSpanY;
+    }
+    if (gridlines.visible) {
+      const gridPosAttr = gridGeometry.getAttribute("position");
+      if (gridPosAttr) (gridPosAttr as BufferAttribute).needsUpdate = true;
+    }
   };
 
   const elevationAt = (wx: number, wy: number): number => {
@@ -234,10 +300,34 @@ export const createHeightfield = (): Heightfield => {
     return cached ?? 0;
   };
 
+  // Heightfield corner Y for the integer grid corner at (cornerX, cornerZ),
+  // which is shared by tiles (cornerX-1, cornerZ-1), (cornerX, cornerZ-1),
+  // (cornerX-1, cornerZ), (cornerX, cornerZ). Mirrors the corner-averaging in
+  // rebuild() so an ownership overlay placed at the four corners of a tile
+  // traces the same surface the heightfield renders.
+  const cornerYAt = (cornerX: number, cornerZ: number): number => {
+    const a = elevationAt(cornerX - 1, cornerZ - 1);
+    const b = elevationAt(cornerX, cornerZ - 1);
+    const c = elevationAt(cornerX - 1, cornerZ);
+    const d = elevationAt(cornerX, cornerZ);
+    return (a + b + c + d) * 0.25;
+  };
+
+  const setGridlinesVisible = (visible: boolean): void => {
+    gridlines.visible = visible;
+    if (visible) {
+      // Force the index rebuild on next rebuild() call.
+      gridLastTileSpanX = 0;
+      gridLastTileSpanY = 0;
+    }
+  };
+
   const dispose = (): void => {
     geometry.dispose();
     material.dispose();
+    gridGeometry.dispose();
+    gridMaterial.dispose();
   };
 
-  return { mesh, material, geometry, rebuild, elevationAt, dispose };
+  return { mesh, material, geometry, gridlines, rebuild, elevationAt, cornerYAt, setGridlinesVisible, dispose };
 };
