@@ -43,12 +43,15 @@ export const createWaterSurface = (scene: Scene): WaterSurface => {
     roughness: 0.28,
     metalness: 0.55,
     transparent: true,
-    opacity: 0.86,
+    opacity: 0.62,
     depthWrite: false
   });
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false;
-  mesh.renderOrder = -10;
+  // Drawn after the ownership overlay (renderOrder 6 / 7) so any submerged
+  // ownership pixels are tinted/hidden by the transparent water rather than
+  // poking through.
+  mesh.renderOrder = 12;
   mesh.position.set(0, WATER_SURFACE_Y, 0);
   scene.add(mesh);
 
