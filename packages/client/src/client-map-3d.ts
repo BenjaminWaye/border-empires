@@ -7,6 +7,7 @@ import { applyPerspectiveCamera, createPerspectiveCamera } from "./client-map-3d
 import { createAtmosphere } from "./client-map-3d-atmosphere.js";
 import { createPointerPick, toroidDelta } from "./client-map-3d-pointer-pick.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "./client-map-3d-heightfield.js";
+import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
 import { normalizeColorForThree } from "./client-three-color.js";
 
 type ClientThreeTerrainRendererDeps = {
@@ -24,9 +25,6 @@ const MAX_VISIBLE_TILES = 14000;
 const MAX_FOREST_INSTANCES = MAX_VISIBLE_TILES * 5;
 const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
-const MOUNTAIN_SQUARE_PEAK_ROTATION_RADIANS = Math.PI / 4;
-const MOUNTAIN_PEAK_RISE_ABOVE_HEIGHTFIELD = 0.55;
-const MOUNTAIN_SNOW_CAP_RISE_ABOVE_HEIGHTFIELD = 1.05;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.012;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.028;
 
@@ -46,17 +44,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const camera = createPerspectiveCamera(deps.canvas);
   const heightfield = createHeightfield();
   scene.add(heightfield.mesh);
+  const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
 
-  const mountainPeakMaterial = new MeshStandardMaterial({ color: "#535760", roughness: 0.9, metalness: 0, flatShading: true });
-  const mountainSnowCapMaterial = new MeshStandardMaterial({
-    color: "#f3f7ff",
-    roughness: 0.62,
-    metalness: 0,
-    flatShading: true,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2
-  });
   const forestCanopyMaterial = new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true });
   const forestTrunkMaterial = new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true });
   const ownershipSettledMaterial = new MeshBasicMaterial({
@@ -75,14 +64,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     side: DoubleSide
   });
 
-  const mountainPeakGeometry = new ConeGeometry(0.715, 1.24, 4, 1, false);
-  const mountainSnowCapGeometry = new ConeGeometry(0.19, 0.34, 4, 1, false);
   const forestGeometry = new ConeGeometry(0.22, 0.92, 5, 1, false);
   const forestTrunkGeometry = new CylinderGeometry(0.075, 0.085, 0.7, 6);
   const ownershipGeometry = new PlaneGeometry(1, 1);
 
-  const mountainPeakMesh = new InstancedMesh(mountainPeakGeometry, mountainPeakMaterial, MAX_VISIBLE_TILES);
-  const mountainSnowCapMesh = new InstancedMesh(mountainSnowCapGeometry, mountainSnowCapMaterial, MAX_VISIBLE_TILES);
   const forestMesh = new InstancedMesh(forestGeometry, forestCanopyMaterial, MAX_FOREST_INSTANCES);
   const forestTrunkMesh = new InstancedMesh(forestTrunkGeometry, forestTrunkMaterial, MAX_FOREST_INSTANCES);
   const ownershipSettledMesh = new InstancedMesh(ownershipGeometry, ownershipSettledMaterial, MAX_VISIBLE_TILES);
@@ -129,8 +114,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
   for (const mesh of [
-    mountainPeakMesh,
-    mountainSnowCapMesh,
     forestMesh,
     forestTrunkMesh,
     ownershipSettledMesh,
@@ -145,15 +128,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
 
-  mountainPeakMesh.count = 0;
-  mountainSnowCapMesh.count = 0;
   forestMesh.count = 0;
   forestTrunkMesh.count = 0;
   ownershipSettledMesh.count = 0;
   ownershipFrontierMesh.count = 0;
   scene.add(
-    mountainPeakMesh,
-    mountainSnowCapMesh,
     forestMesh,
     forestTrunkMesh,
     ownershipSettledMesh,
@@ -167,7 +146,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   );
 
   const tempMatrix = new Matrix4();
-  const peakOffset = new Matrix4();
   const forestCanopyScaleMatrix = new Matrix4();
   const forestTrunkScaleMatrix = new Matrix4();
   const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0 };
@@ -349,8 +327,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       tileKindAt: heightfieldKindAt
     });
 
-    let mountainPeakCount = 0;
-    let mountainSnowCapCount = 0;
+    mountainMassifs.clear();
     let forestCount = 0;
     let forestTrunkCount = 0;
     let ownershipSettledCount = 0;
@@ -396,15 +373,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           continue;
         }
         if (terrain === "MOUNTAIN") {
-          peakOffset.makeRotationY(MOUNTAIN_SQUARE_PEAK_ROTATION_RADIANS);
-          tempMatrix.copy(peakOffset);
-          tempMatrix.setPosition(x, surfaceY + MOUNTAIN_PEAK_RISE_ABOVE_HEIGHTFIELD, z);
-          mountainPeakMesh.setMatrixAt(mountainPeakCount, tempMatrix);
-          mountainPeakCount += 1;
-          tempMatrix.copy(peakOffset);
-          tempMatrix.setPosition(x, surfaceY + MOUNTAIN_SNOW_CAP_RISE_ABOVE_HEIGHTFIELD, z);
-          mountainSnowCapMesh.setMatrixAt(mountainSnowCapCount, tempMatrix);
-          mountainSnowCapCount += 1;
+          mountainMassifs.addInstance(x, z, surfaceY);
           continue;
         }
         if (forestTile) {
@@ -457,14 +426,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
-    mountainPeakMesh.count = mountainPeakCount;
-    mountainSnowCapMesh.count = mountainSnowCapCount;
+    mountainMassifs.commit();
     forestMesh.count = forestCount;
     forestTrunkMesh.count = forestTrunkCount;
     ownershipSettledMesh.count = ownershipSettledCount;
     ownershipFrontierMesh.count = ownershipFrontierCount;
-    mountainPeakMesh.instanceMatrix.needsUpdate = true;
-    mountainSnowCapMesh.instanceMatrix.needsUpdate = true;
     forestMesh.instanceMatrix.needsUpdate = true;
     forestTrunkMesh.instanceMatrix.needsUpdate = true;
     ownershipSettledMesh.instanceMatrix.needsUpdate = true;
@@ -517,13 +483,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const stop = (): void => {
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     renderer.dispose();
-    mountainPeakGeometry.dispose();
-    mountainSnowCapGeometry.dispose();
     forestGeometry.dispose();
     forestTrunkGeometry.dispose();
     ownershipGeometry.dispose();
-    mountainPeakMaterial.dispose();
-    mountainSnowCapMaterial.dispose();
     forestCanopyMaterial.dispose();
     forestTrunkMaterial.dispose();
     ownershipSettledMaterial.dispose();
@@ -533,6 +495,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const { material } of queuedActionMarkers) material.dispose();
     for (const { material } of queuedSettlementMarkers) material.dispose();
     for (const { material } of queuedBuildMarkers) material.dispose();
+    mountainMassifs.dispose();
     heightfield.dispose();
     atmosphere.dispose();
     glCanvas.remove();
