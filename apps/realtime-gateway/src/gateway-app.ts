@@ -618,29 +618,65 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const refreshPlayerFogSnapshot = async (
     playerId: string,
     fogDisabled: boolean,
-    options?: { includeFogUpdate?: boolean }
+    options?: { includeFogUpdate?: boolean; reason?: string; commandId?: string }
   ): Promise<void> => {
-    const snapshot = await withTimeout(
-      simulationClient.subscribePlayer(
+    recordGatewayEvent("info", "gateway_fog_refresh_started", {
+      playerId,
+      fogDisabled,
+      includeFogUpdate: options?.includeFogUpdate === true,
+      ...(options?.reason ? { reason: options.reason } : {}),
+      ...(options?.commandId ? { commandId: options.commandId } : {})
+    });
+    try {
+      const snapshot = await withTimeout(
+        simulationClient.subscribePlayer(
+          playerId,
+          JSON.stringify({ fullVisibility: fogDisabled, emitBootstrapEvent: false })
+        ),
+        simulationSubscribeTimeoutMs,
+        fogDisabled ? "gateway fog resubscribe" : "gateway fog restore resubscribe"
+      );
+      playerSubscriptions.seedSnapshot(playerId, snapshot);
+      const replacementSnapshot = {
+        type: "TILE_SNAPSHOT_REPLACE",
+        tiles: jsonSafeTileDeltaBatch(snapshot.tiles)
+      };
+      const targetSockets = [...playerSubscriptions.socketsForPlayer(playerId)];
+      recordGatewayEvent("info", "gateway_fog_refresh_snapshot_ready", {
         playerId,
-        JSON.stringify({ fullVisibility: fogDisabled, emitBootstrapEvent: false })
-      ),
-      simulationSubscribeTimeoutMs,
-      fogDisabled ? "gateway fog resubscribe" : "gateway fog restore resubscribe"
-    );
-    playerSubscriptions.seedSnapshot(playerId, snapshot);
-    const replacementSnapshot = {
-      type: "TILE_SNAPSHOT_REPLACE",
-      tiles: jsonSafeTileDeltaBatch(snapshot.tiles)
-    };
-    for (const targetSocket of playerSubscriptions.socketsForPlayer(playerId)) {
-      const targetSession = sessionsBySocket.get(targetSocket);
-      if (!targetSession) continue;
-      targetSession.fogDisabled = fogDisabled;
-      if (options?.includeFogUpdate === true) {
-        queueOrSendSessionPayload(targetSocket, { type: "FOG_UPDATE", fogDisabled });
+        fogDisabled,
+        tileCount: snapshot.tiles.length,
+        socketCount: targetSockets.length,
+        ...(options?.reason ? { reason: options.reason } : {}),
+        ...(options?.commandId ? { commandId: options.commandId } : {})
+      });
+      for (const targetSocket of targetSockets) {
+        const targetSession = sessionsBySocket.get(targetSocket);
+        if (!targetSession) continue;
+        targetSession.fogDisabled = fogDisabled;
+        if (options?.includeFogUpdate === true) {
+          queueOrSendSessionPayload(targetSocket, { type: "FOG_UPDATE", fogDisabled });
+        }
+        queueOrSendSessionPayload(targetSocket, replacementSnapshot);
       }
-      queueOrSendSessionPayload(targetSocket, replacementSnapshot);
+      recordGatewayEvent("info", "gateway_fog_refresh_sent", {
+        playerId,
+        fogDisabled,
+        socketCount: targetSockets.length,
+        includeFogUpdate: options?.includeFogUpdate === true,
+        ...(options?.reason ? { reason: options.reason } : {}),
+        ...(options?.commandId ? { commandId: options.commandId } : {})
+      });
+    } catch (error) {
+      recordGatewayEvent("error", "gateway_fog_refresh_failed", {
+        playerId,
+        fogDisabled,
+        includeFogUpdate: options?.includeFogUpdate === true,
+        ...(options?.reason ? { reason: options.reason } : {}),
+        ...(options?.commandId ? { commandId: options.commandId } : {}),
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
     }
   };
 
@@ -730,7 +766,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
           );
           if (hasFogDisabledSession) {
-            await refreshPlayerFogSnapshot(playerId, true);
+            recordGatewayEvent("info", "gateway_fog_refresh_from_live_delta", {
+              playerId,
+              commandId: event.commandId,
+              tileDeltaCount: tileDeltas.length,
+              socketCount: playerSockets.size
+            });
+            await refreshPlayerFogSnapshot(playerId, true, { reason: "live-delta", commandId: event.commandId });
             continue;
           }
           playerSubscriptions.updateSnapshot(playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
@@ -1211,12 +1253,28 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "SET_FOG_DISABLED") {
+            recordGatewayEvent("info", "gateway_fog_toggle_received", {
+              playerId: session.playerId,
+              channel: session.channel,
+              requestedFogDisabled: message.disabled === true,
+              canToggleFog: session.canToggleFog,
+              currentFogDisabled: session.fogDisabled
+            });
             if (!session.canToggleFog) {
+              recordGatewayEvent("warn", "gateway_fog_toggle_forbidden", {
+                playerId: session.playerId,
+                channel: session.channel,
+                requestedFogDisabled: message.disabled === true
+              });
               sendJson(socket, { type: "ERROR", code: "FORBIDDEN", message: "fog toggle unavailable" });
               return;
             }
             const fogDisabled = message.disabled === true;
-            await refreshPlayerFogSnapshot(session.playerId, fogDisabled, { includeFogUpdate: true });
+            await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {
+              includeFogUpdate: true,
+              reason: "client-toggle",
+              commandId: `fog:${session.playerId}:${Date.now()}`
+            });
             return;
           }
 
