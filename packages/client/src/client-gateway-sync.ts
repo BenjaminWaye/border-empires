@@ -1,5 +1,4 @@
 import type { ClientState } from "./client-state.js";
-import { estimatedTownPopulationCap, estimatedTownPopulationFloor } from "./client-town-summary-fallbacks.js";
 import type { Tile } from "./client-types.js";
 
 type TownSummary = NonNullable<Tile["town"]>;
@@ -61,219 +60,66 @@ type GatewayTileSyncDeps = {
   buildMiniMapBase?: () => void;
 };
 
-const GATEWAY_DERIVED_TOWN_SUMMARY = "gateway-derived" as const;
-
-const townFoodUpkeepPerMinuteForTier = (tier: TownSummary["populationTier"] | undefined): number => {
-  if (tier === "SETTLEMENT" || !tier) return 0;
-  if (tier === "CITY") return 0.2;
-  if (tier === "GREAT_CITY") return 0.4;
-  if (tier === "METROPOLIS") return 0.8;
-  return 0.1;
-};
-
-const supportSummaryForTown = (
-  ownerId: string | undefined,
-  x: number,
-  y: number,
-  tiles: ReadonlyMap<string, Tile>,
-  keyFor: (x: number, y: number) => string
-): { supportCurrent: number; supportMax: number } => {
-  if (!ownerId) return { supportCurrent: 0, supportMax: 0 };
-  let supportCurrent = 0;
-  let supportMax = 0;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const tile = tiles.get(keyFor(x + dx, y + dy));
-      if (!tile || tile.terrain !== "LAND" || tile.dockId) continue;
-      supportMax += 1;
-      if (tile.ownerId === ownerId && tile.ownershipState === "SETTLED") supportCurrent += 1;
-    }
-  }
-  return { supportCurrent, supportMax };
-};
-
-const derivedTownSupportStructures = (
-  ownerId: string | undefined,
-  x: number,
-  y: number,
-  tiles: ReadonlyMap<string, Tile>,
-  keyFor: (x: number, y: number) => string
-): { hasMarket: boolean; hasGranary: boolean; hasBank: boolean } => {
-  if (!ownerId) return { hasMarket: false, hasGranary: false, hasBank: false };
-  let hasMarket = false;
-  let hasGranary = false;
-  let hasBank = false;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const tile = tiles.get(keyFor(x + dx, y + dy));
-      if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
-      const structure = tile.economicStructure;
-      if (!structure || structure.status !== "active") continue;
-      if (structure.type === "MARKET") hasMarket = true;
-      if (structure.type === "GRANARY") hasGranary = true;
-      if (structure.type === "BANK") hasBank = true;
-    }
-  }
-  return { hasMarket, hasGranary, hasBank };
-};
-
-const derivedTownIsFed = (
-  ownerId: string | undefined,
-  x: number,
-  y: number,
-  tiles: ReadonlyMap<string, Tile>,
-  keyFor: (x: number, y: number) => string,
-  foodCoverage: number | undefined
-): boolean => {
-  if (!ownerId) return false;
-  if (typeof foodCoverage === "number" && Number.isFinite(foodCoverage) && foodCoverage >= 0.999) return true;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const tile = tiles.get(keyFor(x + dx, y + dy));
-      if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
-      if (tile.resource === "FARM" || tile.resource === "FISH") return true;
-    }
-  }
-  return false;
-};
-
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
-const isZeroTownStub = (town: PartialTownSummary, populationTier: TownSummary["populationTier"]): boolean => {
-  if (populationTier === "SETTLEMENT") return false;
-  const baseGoldPerMinute = isFiniteNumber(town.baseGoldPerMinute) ? town.baseGoldPerMinute : 0;
-  const goldPerMinute = isFiniteNumber(town.goldPerMinute) ? town.goldPerMinute : 0;
-  const cap = isFiniteNumber(town.cap) ? town.cap : 0;
-  const supportCurrent = isFiniteNumber(town.supportCurrent) ? town.supportCurrent : 0;
-  const supportMax = isFiniteNumber(town.supportMax) ? town.supportMax : 0;
+const hasStringArray = (value: unknown): value is string[] => Array.isArray(value) && value.every((entry) => typeof entry === "string");
+
+const isGrowthModifierArray = (value: unknown): value is NonNullable<TownSummary["growthModifiers"]> =>
+  Array.isArray(value) &&
+  value.every((entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    const modifier = entry as { label?: unknown; deltaPerMinute?: unknown };
+    return (
+      (modifier.label === "Recently captured" || modifier.label === "Nearby war" || modifier.label === "Long time peace") &&
+      isFiniteNumber(modifier.deltaPerMinute)
+    );
+  });
+
+const isNextPopulationTierUpgrade = (value: unknown): value is NonNullable<TownSummary["nextPopulationTierUpgrade"]> => {
+  if (!value || typeof value !== "object") return false;
+  const upgrade = value as { targetTier?: unknown; requiredPopulation?: unknown; goldCost?: unknown; available?: unknown };
   return (
-    baseGoldPerMinute <= 0 &&
-    goldPerMinute <= 0 &&
-    cap <= 0 &&
-    supportCurrent <= 0 &&
-    supportMax <= 0 &&
-    town.isFed === false
+    (upgrade.targetTier === "CITY" || upgrade.targetTier === "GREAT_CITY" || upgrade.targetTier === "METROPOLIS") &&
+    isFiniteNumber(upgrade.requiredPopulation) &&
+    isFiniteNumber(upgrade.goldCost) &&
+    typeof upgrade.available === "boolean"
   );
 };
 
-const isPartialTownSummary = (town: PartialTownSummary, populationTier: TownSummary["populationTier"]): boolean =>
-  !isFiniteNumber(town.supportCurrent) ||
-  !isFiniteNumber(town.supportMax) ||
-  !isFiniteNumber(town.baseGoldPerMinute) ||
-  !isFiniteNumber(town.cap) ||
-  isZeroTownStub(town, populationTier);
-
-const enrichedGatewayTownSummary = (
-  update: GatewayTileUpdate,
-  partial: PartialTownSummary,
-  existing: Tile | undefined,
-  tiles: ReadonlyMap<string, Tile>,
-  keyFor: (x: number, y: number) => string,
-  foodCoverage: number | undefined
-): Tile["town"] | undefined => {
-  const populationTier = partial.populationTier ?? update.townPopulationTier ?? "SETTLEMENT";
-  const existingTown = existing?.town;
-  const existingTownTierMatches = existingTown?.populationTier === populationTier;
-  const ownerId = update.ownerId ?? existing?.ownerId;
-  const support = supportSummaryForTown(ownerId, update.x, update.y, tiles, keyFor);
-  const activeSupport = derivedTownSupportStructures(ownerId, update.x, update.y, tiles, keyFor);
-  const derivedIsFed = populationTier === "SETTLEMENT" ? true : derivedTownIsFed(ownerId, update.x, update.y, tiles, keyFor, foodCoverage);
-  const useDerivedTownState = partial.summarySource === GATEWAY_DERIVED_TOWN_SUMMARY || isPartialTownSummary(partial, populationTier);
-  const supportCurrent = useDerivedTownState
-    ? support.supportCurrent
-    : isFiniteNumber(partial.supportCurrent)
-      ? partial.supportCurrent
-      : support.supportCurrent;
-  const supportMax = useDerivedTownState
-    ? support.supportMax
-    : isFiniteNumber(partial.supportMax)
-      ? partial.supportMax
-      : support.supportMax;
-  const hasMarket = useDerivedTownState ? activeSupport.hasMarket : typeof partial.hasMarket === "boolean" ? partial.hasMarket : activeSupport.hasMarket;
-  const hasGranary = useDerivedTownState ? activeSupport.hasGranary : typeof partial.hasGranary === "boolean" ? partial.hasGranary : activeSupport.hasGranary;
-  const hasBank = useDerivedTownState ? activeSupport.hasBank : typeof partial.hasBank === "boolean" ? partial.hasBank : activeSupport.hasBank;
-  const isFed = useDerivedTownState ? derivedIsFed : (typeof partial.isFed === "boolean" ? partial.isFed : derivedIsFed);
-  const baseGoldPerMinute =
-    !useDerivedTownState && isFiniteNumber(partial.baseGoldPerMinute)
-      ? partial.baseGoldPerMinute
-      : populationTier === "SETTLEMENT"
-        ? 1
-        : 2;
-  const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
-  const goldPerMinute =
-    !useDerivedTownState && isFiniteNumber(partial.goldPerMinute)
-      ? partial.goldPerMinute
-      : populationTier === "SETTLEMENT"
-        ? baseGoldPerMinute
-        : isFed
-          ? baseGoldPerMinute * supportRatio * (hasMarket ? 1.5 : 1) * (hasBank ? 1.5 : 1)
-          : 0;
-  const cap =
-    !useDerivedTownState && isFiniteNumber(partial.cap)
-      ? partial.cap
-      : Math.max(0, goldPerMinute) * 60 * 8 * (hasMarket ? 1.5 : 1);
-  return {
-    ...(partial.name ? { name: partial.name } : update.townName ? { name: update.townName } : {}),
-    type: partial.type ?? update.townType ?? "FARMING",
-    ...(useDerivedTownState ? { summarySource: GATEWAY_DERIVED_TOWN_SUMMARY } : {}),
-    baseGoldPerMinute,
-    supportCurrent,
-    supportMax,
-    goldPerMinute,
-    cap,
-    isFed,
-    population:
-      isFiniteNumber(partial.population) ? partial.population
-        : existingTownTierMatches && isFiniteNumber(existingTown?.population) ? existingTown.population
-          : estimatedTownPopulationFloor(populationTier),
-    maxPopulation:
-      isFiniteNumber(partial.maxPopulation) ? partial.maxPopulation
-        : existingTownTierMatches && isFiniteNumber(existingTown?.maxPopulation) ? existingTown.maxPopulation
-          : estimatedTownPopulationCap(populationTier),
-    ...(typeof partial.populationGrowthPerMinute === "number" ? { populationGrowthPerMinute: partial.populationGrowthPerMinute } : {}),
-    populationTier,
-    connectedTownCount: isFiniteNumber(partial.connectedTownCount) ? partial.connectedTownCount : 0,
-    connectedTownBonus: isFiniteNumber(partial.connectedTownBonus) ? partial.connectedTownBonus : 0,
-    ...(Array.isArray(partial.connectedTownNames) ? { connectedTownNames: partial.connectedTownNames } : {}),
-    ...(partial.goldIncomePausedReason ? { goldIncomePausedReason: partial.goldIncomePausedReason } : {}),
-    ...(typeof partial.manpowerCurrent === "number" ? { manpowerCurrent: partial.manpowerCurrent } : {}),
-    ...(typeof partial.manpowerCap === "number" ? { manpowerCap: partial.manpowerCap } : {}),
-    hasMarket,
-    marketActive: useDerivedTownState ? hasMarket && isFed : typeof partial.marketActive === "boolean" ? partial.marketActive : (hasMarket && isFed),
-    hasGranary,
-    granaryActive: useDerivedTownState ? hasGranary : typeof partial.granaryActive === "boolean" ? partial.granaryActive : hasGranary,
-    hasBank,
-    bankActive: useDerivedTownState ? hasBank : typeof partial.bankActive === "boolean" ? partial.bankActive : hasBank,
-    foodUpkeepPerMinute:
-      typeof partial.foodUpkeepPerMinute === "number" ? partial.foodUpkeepPerMinute : townFoodUpkeepPerMinuteForTier(populationTier),
-    ...(Array.isArray(partial.growthModifiers) ? { growthModifiers: partial.growthModifiers } : {})
-  };
-};
-
-const gatewayTownSummary = (
-  update: GatewayTileUpdate,
-  existing: Tile | undefined,
-  tiles: ReadonlyMap<string, Tile>,
-  keyFor: (x: number, y: number) => string,
-  foodCoverage: number | undefined
-): Tile["town"] | undefined => {
-  if (update.townJson) {
-    try {
-      return enrichedGatewayTownSummary(update, JSON.parse(update.townJson) as PartialTownSummary, existing, tiles, keyFor, foodCoverage);
-    } catch {
-      // fall through to the lossy summary builder when malformed
-    }
-  }
-  if (!update.townType) return undefined;
-  return enrichedGatewayTownSummary(update, {
-    ...(update.townName ? { name: update.townName } : {}),
-    type: update.townType,
-    populationTier: update.townPopulationTier ?? "SETTLEMENT"
-  }, existing, tiles, keyFor, foodCoverage);
-};
+const isCompleteTownSummary = (town: PartialTownSummary | undefined): town is TownSummary =>
+  Boolean(
+    town &&
+      (town.type === "MARKET" || town.type === "FARMING") &&
+      (town.populationTier === "SETTLEMENT" ||
+        town.populationTier === "TOWN" ||
+        town.populationTier === "CITY" ||
+        town.populationTier === "GREAT_CITY" ||
+        town.populationTier === "METROPOLIS") &&
+      isFiniteNumber(town.baseGoldPerMinute) &&
+      isFiniteNumber(town.supportCurrent) &&
+      isFiniteNumber(town.supportMax) &&
+      isFiniteNumber(town.goldPerMinute) &&
+      isFiniteNumber(town.cap) &&
+      typeof town.isFed === "boolean" &&
+      isFiniteNumber(town.population) &&
+      isFiniteNumber(town.maxPopulation) &&
+      (town.populationGrowthPerMinute === undefined || isFiniteNumber(town.populationGrowthPerMinute)) &&
+      isFiniteNumber(town.connectedTownCount) &&
+      isFiniteNumber(town.connectedTownBonus) &&
+      (town.connectedTownNames === undefined || hasStringArray(town.connectedTownNames)) &&
+      (town.goldIncomePausedReason === undefined || town.goldIncomePausedReason === "MANPOWER_NOT_FULL") &&
+      (town.manpowerCurrent === undefined || isFiniteNumber(town.manpowerCurrent)) &&
+      (town.manpowerCap === undefined || isFiniteNumber(town.manpowerCap)) &&
+      typeof town.hasMarket === "boolean" &&
+      typeof town.marketActive === "boolean" &&
+      typeof town.hasGranary === "boolean" &&
+      typeof town.granaryActive === "boolean" &&
+      typeof town.hasBank === "boolean" &&
+      typeof town.bankActive === "boolean" &&
+      (town.foodUpkeepPerMinute === undefined || isFiniteNumber(town.foodUpkeepPerMinute)) &&
+      (town.growthModifiers === undefined || isGrowthModifierArray(town.growthModifiers)) &&
+      (town.nextPopulationTierUpgrade === undefined || isNextPopulationTierUpgrade(town.nextPopulationTierUpgrade))
+  );
 
 const parseGatewayStructureJson = <T>(value?: string): T | undefined => {
   if (!value) return undefined;
@@ -284,6 +130,31 @@ const parseGatewayStructureJson = <T>(value?: string): T | undefined => {
   }
 };
 
+const gatewayTownSummary = (
+  update: GatewayTileUpdate,
+  existing: Tile | undefined
+): Tile["town"] | undefined => {
+  const existingTown = existing?.town;
+  const parsedTown = parseGatewayStructureJson<PartialTownSummary>(update.townJson);
+  if ("townJson" in update && !update.townJson) return undefined;
+  if (parsedTown) {
+    const authoritativeTown: PartialTownSummary = {
+      ...parsedTown,
+      ...(update.townName ? { name: update.townName } : {}),
+      ...(update.townType ? { type: update.townType } : {}),
+      ...(update.townPopulationTier ? { populationTier: update.townPopulationTier } : {})
+    };
+    return isCompleteTownSummary(authoritativeTown) ? authoritativeTown : existingTown;
+  }
+  if (!existingTown) return undefined;
+  const mergedTown: PartialTownSummary = {
+    ...existingTown,
+    ...(update.townName ? { name: update.townName } : {}),
+    ...(update.townType ? { type: update.townType } : {})
+  };
+  return isCompleteTownSummary(mergedTown) ? mergedTown : existingTown;
+};
+
 export const normalizeGatewayTileUpdate = (
   update: GatewayTileUpdate,
   args: {
@@ -292,13 +163,13 @@ export const normalizeGatewayTileUpdate = (
     keyFor: (x: number, y: number) => string;
     foodCoverage: number | undefined;
   }
-) : NormalizedGatewayTileUpdate => {
+): NormalizedGatewayTileUpdate => {
   const normalized: NormalizedGatewayTileUpdate = {};
   if (update.terrain) normalized.terrain = update.terrain;
   if ("resource" in update) normalized.resource = update.resource;
   if ("dockId" in update) normalized.dockId = update.dockId;
   if ("townJson" in update || "townType" in update || "townName" in update || "townPopulationTier" in update) {
-    normalized.town = gatewayTownSummary(update, args.existing, args.tiles, args.keyFor, args.foodCoverage);
+    normalized.town = gatewayTownSummary(update, args.existing);
   }
   if ("fortJson" in update) normalized.fort = parseGatewayStructureJson<Tile["fort"]>(update.fortJson);
   if ("observatoryJson" in update) normalized.observatory = parseGatewayStructureJson<Tile["observatory"]>(update.observatoryJson);
@@ -323,59 +194,15 @@ export const normalizeGatewayTileUpdate = (
   return normalized;
 };
 
-const refreshGatewayDerivedTownSummaryByKey = (
-  deps: Pick<GatewayTileSyncDeps, "state" | "keyFor">,
-  tileKey: string
-): void => {
-  const tile = deps.state.tiles.get(tileKey);
-  if (!tile?.town || tile.town.summarySource !== GATEWAY_DERIVED_TOWN_SUMMARY) return;
-  const refreshedTown = enrichedGatewayTownSummary(
-    {
-      x: tile.x,
-      y: tile.y,
-      ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-      ...(tile.town.name ? { townName: tile.town.name } : {}),
-      townType: tile.town.type,
-      townPopulationTier: tile.town.populationTier
-    },
-    tile.town,
-    tile,
-    deps.state.tiles,
-    deps.keyFor,
-    deps.state.upkeepLastTick.foodCoverage
-  );
-  if (!refreshedTown) return;
-  deps.state.tiles.set(tileKey, {
-    ...tile,
-    town: refreshedTown
-  });
-};
-
 export const refreshAllGatewayDerivedTownSummaries = (
-  deps: Pick<GatewayTileSyncDeps, "state" | "keyFor">
-): void => {
-  for (const [tileKey, tile] of deps.state.tiles) {
-    if (tile.town?.summarySource !== GATEWAY_DERIVED_TOWN_SUMMARY) continue;
-    refreshGatewayDerivedTownSummaryByKey(deps, tileKey);
-  }
-};
+  _deps: Pick<GatewayTileSyncDeps, "state" | "keyFor">
+): void => {};
 
 export const refreshGatewayDerivedTownSummariesAroundTile = (
-  deps: Pick<GatewayTileSyncDeps, "state" | "keyFor">,
-  x: number,
-  y: number
-): void => {
-  const affectedTownKeys = new Set<string>();
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      const tileKey = deps.keyFor(x + dx, y + dy);
-      const tile = deps.state.tiles.get(tileKey);
-      if (tile?.town?.summarySource === GATEWAY_DERIVED_TOWN_SUMMARY) affectedTownKeys.add(tileKey);
-    }
-  }
-
-  for (const tileKey of affectedTownKeys) refreshGatewayDerivedTownSummaryByKey(deps, tileKey);
-};
+  _deps: Pick<GatewayTileSyncDeps, "state" | "keyFor">,
+  _x: number,
+  _y: number
+): void => {};
 
 const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUpdate): boolean => {
   const tileKey = deps.keyFor(update.x, update.y);
@@ -396,7 +223,6 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
         detailLevel: "summary",
         fogged: false
       };
-  // Gateway tile updates are the current visible set for this player.
   merged.fogged = false;
 
   const normalizedGateway = normalizeGatewayTileUpdate(update, {
