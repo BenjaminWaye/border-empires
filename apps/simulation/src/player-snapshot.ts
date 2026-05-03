@@ -15,6 +15,7 @@ export const buildPlayerSubscriptionSnapshot = (
   fallbackTiles?: Iterable<DomainTileState>,
   options?: {
     includeWorldStatus?: boolean;
+    fullVisibility?: boolean;
     worldStatusRuntimeState?: RuntimeState;
   }
 ): PlayerSubscriptionSnapshot => {
@@ -56,6 +57,7 @@ export const buildPlayerSubscriptionSnapshot = (
 
   const playersById = new Map(runtimeState.players.map((player) => [player.id, player] as const));
   const addVision = (
+    targetKeys: Set<string>,
     territoryTileKeys: Iterable<string>,
     vision: number,
     visionRadiusBonus: number
@@ -66,42 +68,48 @@ export const buildPlayerSubscriptionSnapshot = (
       if (!coords) continue;
       for (let dy = -radius; dy <= radius; dy += 1) {
         for (let dx = -radius; dx <= radius; dx += 1) {
-          visibleKeys.add(keyFor(wrapX(coords.x + dx), wrapY(coords.y + dy)));
+          targetKeys.add(keyFor(wrapX(coords.x + dx), wrapY(coords.y + dy)));
         }
       }
     }
   };
-  const addVisionForPlayer = (nextPlayerId: string): void => {
+  const addVisionForPlayer = (targetKeys: Set<string>, nextPlayerId: string): void => {
     const nextPlayer = playersById.get(nextPlayerId);
     if (!nextPlayer) return;
-    addVision(nextPlayer.territoryTileKeys, nextPlayer.vision, nextPlayer.visionRadiusBonus);
+    addVision(targetKeys, nextPlayer.territoryTileKeys, nextPlayer.vision, nextPlayer.visionRadiusBonus);
   };
 
-  const visibleKeys = new Set<string>();
-  const primaryPlayer = playersById.get(playerId);
-  if (primaryPlayer) {
-    addVision(primaryPlayer.territoryTileKeys, primaryPlayer.vision, primaryPlayer.visionRadiusBonus);
-    for (const allyId of primaryPlayer.allies) addVisionForPlayer(allyId);
-  } else {
-    addVision(
-      sourceTiles
-        .filter((tile) => tile.ownerId === playerId)
-        .map((tile) => keyFor(tile.x, tile.y)),
-      1,
-      0
-    );
-  }
-  for (const lock of runtimeState.activeLocks) {
-    if (lock.playerId !== playerId) continue;
-    const origin = parseKey(lock.originKey);
-    const target = parseKey(lock.targetKey);
-    if (origin) visibleKeys.add(keyFor(origin.x, origin.y));
-    if (target) visibleKeys.add(keyFor(target.x, target.y));
-  }
+  const tiles =
+    options?.fullVisibility === true
+      ? [...sourceTiles].sort((left, right) => (left.x - right.x) || (left.y - right.y))
+      : (() => {
+          const visibleKeys = new Set<string>();
+          const primaryPlayer = playersById.get(playerId);
+          if (primaryPlayer) {
+            addVision(visibleKeys, primaryPlayer.territoryTileKeys, primaryPlayer.vision, primaryPlayer.visionRadiusBonus);
+            for (const allyId of primaryPlayer.allies) addVisionForPlayer(visibleKeys, allyId);
+          } else {
+            addVision(
+              visibleKeys,
+              sourceTiles
+                .filter((tile) => tile.ownerId === playerId)
+                .map((tile) => keyFor(tile.x, tile.y)),
+              1,
+              0
+            );
+          }
+          for (const lock of runtimeState.activeLocks) {
+            if (lock.playerId !== playerId) continue;
+            const origin = parseKey(lock.originKey);
+            const target = parseKey(lock.targetKey);
+            if (origin) visibleKeys.add(keyFor(origin.x, origin.y));
+            if (target) visibleKeys.add(keyFor(target.x, target.y));
+          }
 
-  const tiles = sourceTiles
-    .filter((tile) => visibleKeys.has(keyFor(tile.x, tile.y)))
-    .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+          return sourceTiles
+            .filter((tile) => visibleKeys.has(keyFor(tile.x, tile.y)))
+            .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+        })();
   const pendingSettlements = runtimeState.pendingSettlements
     .filter((settlement) => settlement.ownerId === playerId)
     .map((settlement) => {

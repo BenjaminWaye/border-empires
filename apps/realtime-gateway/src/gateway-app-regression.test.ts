@@ -17,6 +17,14 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain("session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);");
     expect(source).toContain("session.canToggleFog\n              );");
     expect(source).toContain("canToggleFog: session.canToggleFog");
+    expect(source).toContain('for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId))');
+    expect(source).toContain('if (options?.includeFogUpdate === true) {');
+    expect(source).toContain('queueOrSendSessionPayload(targetSocket, { type: "FOG_UPDATE", fogDisabled });');
+    expect(source).toContain('type: "TILE_SNAPSHOT_REPLACE"');
+    expect(source).toContain('await refreshPlayerFogSnapshot(session.playerId, fogDisabled, { includeFogUpdate: true });');
+    expect(source).toContain('queueOrSendSessionPayload(targetSocket, replacementSnapshot);');
+    expect(source).toContain('const hasFogDisabledSession = [...playerSubscriptions.socketsForPlayer(playerId)].some(');
+    expect(source).toContain('await refreshPlayerFogSnapshot(playerId, true);');
     expect(source).not.toContain("session.authEmail");
   });
 });

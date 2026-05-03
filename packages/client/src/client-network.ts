@@ -1194,7 +1194,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           state,
           keyFor,
           mergeIncomingTileDetail,
-          mergeServerTileWithOptimisticState
+          mergeServerTileWithOptimisticState,
+          clearRenderCaches,
+          buildMiniMapBase
         },
         msg.initialState as { tiles?: Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> } | undefined,
         { preserveExistingDiscoveredTiles: preserveDiscoveredTilesOnReconnect }
@@ -1784,6 +1786,28 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
+    if (msg.type === "TILE_SNAPSHOT_REPLACE") {
+      const tileUpdates =
+        msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
+      const appliedTileCount = applyGatewayInitialState(
+        {
+          state,
+          keyFor,
+          mergeIncomingTileDetail,
+          mergeServerTileWithOptimisticState
+        },
+        tileUpdates ? { tiles: tileUpdates } : undefined
+      );
+      if (appliedTileCount > 0) {
+        state.firstChunkAt = Date.now();
+        state.chunkFullCount = Math.max(state.chunkFullCount, 1);
+        state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
+      }
+      requestViewRefresh(2, true);
+      renderHud();
+      return;
+    }
+
     if (msg.type === "TILE_DELTA_BATCH") {
       const tileUpdates =
         msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
@@ -1809,7 +1833,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           state,
           keyFor,
           mergeIncomingTileDetail,
-          mergeServerTileWithOptimisticState
+          mergeServerTileWithOptimisticState,
+          clearRenderCaches,
+          buildMiniMapBase
         },
         tileUpdates
       );
@@ -1902,12 +1928,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.incomingAttacksByTile.delete(updateKey);
         state.pendingCollectVisibleKeys.delete(keyFor(update.x, update.y));
         const existing = state.tiles.get(keyFor(update.x, update.y));
+        const previousTerrain = existing?.terrain;
+        const previousLandBiome = existing?.landBiome;
+        const previousRegionType = existing?.regionType;
         const merged: any = existing
           ? { ...existing, x: normalizedUpdate.x, y: normalizedUpdate.y }
           : { x: normalizedUpdate.x, y: normalizedUpdate.y, terrain: normalizedUpdate.terrain ?? "LAND" };
+        const terrainChanged = "terrain" in normalizedUpdate;
         if (normalizedUpdate.terrain) merged.terrain = normalizedUpdate.terrain;
         if ("detailLevel" in normalizedUpdate) merged.detailLevel = normalizedUpdate.detailLevel;
         if (normalizedUpdate.fogged !== undefined) merged.fogged = normalizedUpdate.fogged;
+        const clearRuntimeLandContext = merged.terrain !== "LAND" || normalizedUpdate.fogged === true;
+        if (clearRuntimeLandContext) {
+          delete merged.landBiome;
+          delete merged.regionType;
+        } else if (terrainChanged) {
+          if (!("landBiome" in normalizedUpdate)) delete merged.landBiome;
+          if (!("regionType" in normalizedUpdate)) delete merged.regionType;
+        }
         if (normalizedUpdate.resource !== undefined) merged.resource = normalizedUpdate.resource;
         if ("ownerId" in normalizedUpdate) {
           if (normalizedUpdate.ownerId) merged.ownerId = normalizedUpdate.ownerId;
@@ -1928,6 +1966,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
         if (normalizedUpdate.clusterId !== undefined) merged.clusterId = normalizedUpdate.clusterId;
         if (normalizedUpdate.clusterType !== undefined) merged.clusterType = normalizedUpdate.clusterType;
+        if (normalizedUpdate.landBiome !== undefined) merged.landBiome = normalizedUpdate.landBiome;
         if (normalizedUpdate.regionType !== undefined) merged.regionType = normalizedUpdate.regionType;
         if (normalizedUpdate.dockId !== undefined) merged.dockId = normalizedUpdate.dockId;
         if ("dock" in normalizedUpdate) {
@@ -2010,6 +2049,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
+        if (previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType) {
+          clearRenderCaches();
+          buildMiniMapBase();
+        }
         refreshGatewayDerivedTownSummariesAroundTile({ state, keyFor }, resolved.x, resolved.y);
         logFrontierTimeline("frontier-delta-apply", resolved.x, resolved.y, {
           before: existing,

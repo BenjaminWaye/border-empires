@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.03.1",
+  version: "2026.05.03.18",
   title: "What's New",
-  summary: "The true-3D renderer has been rebuilt from a tilted orthographic box look into a sculpted-perspective view: a tilted PerspectiveCamera under a gradient sky and atmospheric fog, a subdivided heightfield ground that averages adjacent tile elevations so neighbouring mountain tiles raise into a continuous ridge while a lone mountain only swells into a soft mound, instanced rocky-base mountain massifs with peaks anchored to that heightfield surface, an animated transparent water surface above the sea-floor, and rising smoke columns plus a fluttering coloured banner over each owned capital. Click pick still uses an invisible flat footprint so selecting a tile under a mountain silhouette lands on the tile under the cursor instead of the slope facing the camera. Recent updates also include claimed shard confirmations now keeping visible shard caches on newly claimed frontier tiles so you can still use the follow-up collect action, town growth panels now spelling out why growth is paused when a town is unfed or under war shock, rewrite town panels no longer falling back to fake population-1 summaries when later gateway sync only resends a town's identity while still preserving known population and cap data, cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
+  summary: "The true-3D renderer has been rebuilt from a tilted orthographic box look into a sculpted-perspective view: a tilted PerspectiveCamera under a gradient sky and atmospheric fog, a subdivided heightfield ground that averages adjacent tile elevations so neighbouring mountain tiles raise into a continuous ridge while a lone mountain only swells into a soft mound, instanced rocky-base mountain massifs with peaks anchored to that heightfield surface, an animated transparent water surface above the sea-floor, and rising smoke columns plus a fluttering coloured banner over each owned capital. Click pick still uses an invisible flat footprint so selecting a tile under a mountain silhouette lands on the tile under the cursor instead of the slope facing the camera. Recent updates also include a runtime land-context fix so mountain-shaped land now carries an inferred biome and region into live tile labels and terrain rendering, a terrain-label fallback fix so land tiles with stale or unavailable biome lookups no longer claim to be sand while still rendering as grass, a staging fog-reveal sync fix so the fog-admin toggle now refreshes from authoritative rewrite snapshots instead of leaking unrelated live map deltas or getting stuck after a failed toggle refresh, dock coverage diagnostics so startup and regeneration logs now call out live undocked land components using the runtime terrain view, a rewrite frontier subscription recovery fix so paired control and bulk channels now keep command results streaming across reconnect churn, timeout rollback, and gateway restarts without leaking stale simulation subscriptions, claimed shard confirmations now keeping visible shard caches on newly claimed frontier tiles so you can still use the follow-up collect action, town growth panels now spelling out why growth is paused when a town is unfed or under war shock, rewrite town panels no longer falling back to fake population-1 summaries when later gateway sync only resends a town's identity while still preserving known population and cap data, cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
   entries: [
     {
-      introducedIn: "2026.05.03.1",
+      introducedIn: "2026.05.03.18",
       title: "True-3D renderer rebuilt with sculpted perspective terrain",
       why: "The earlier orthographic 3D renderer read as a tilted grid of textured boxes rather than a real landscape, so even though it was technically 3D it never landed as the painterly view the team had been targeting since the standalone preview.",
       changes: [
@@ -33,6 +33,46 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Sea now reads as a transparent animated water surface above the heightfield's deep-sea and coastal-sea elevations, with sand and grass cleanly emerging as shoreline.",
         "Owned village tiles now emit drifting smoke columns and capital tiles fly a fluttering coloured banner on a wooden pole, so empires read at a glance from across the map.",
         "Click pick and screen projection still use an invisible flat footprint, so selecting a tile under a mountain silhouette lands on the tile under the cursor instead of the slope facing the camera, and existing aether-wall, observatory, dock-route, and crystal-targeting overlays keep working without per-callsite changes."
+      ]
+    },
+    {
+      introducedIn: "2026.05.03.17",
+      title: "Runtime-shaped land now keeps biome and region context",
+      why: "Removed mountains could turn runtime terrain into land while the client still derived biome and region from base worldgen, so the tile panel and terrain renderer could disagree and shaped land lost its regional subtitle.",
+      changes: [
+        "The server now infers biome and region context for runtime land created on top of former mountains by borrowing the nearest surrounding natural land context.",
+        "Visible client tiles now prefer that server-provided biome for terrain labels and 2D/3D sand-vs-grass rendering, while gateway and live tile sync keep the inferred biome and region in step with cache invalidation across reconnect and delta paths.",
+        "Tile subtitles can once again show a regional name on those runtime-shaped land tiles, while authoritative forest timings and forest labels still stay tied to the real shared forest rules."
+      ]
+    },
+    {
+      introducedIn: "2026.05.03.16",
+      title: "Staging fog reveal now stays in sync with the real rewrite map",
+      why: "The staging fog-admin toggle could still behave inconsistently after the first reveal: some paths only refreshed terrain, some restore flows left stale revealed tiles behind, and later live tile updates could leak unrelated remote map regions into the revealed view.",
+      changes: [
+        "The rewrite gateway now handles fog-toggle refreshes by resubscribing authoritative snapshots, replacing cached tile state instead of patching stale revealed tiles, and fanning the result out to all of your attached sessions.",
+        "The simulation snapshot path now supports true full-visibility exports for fog-admin reveal so revealed empires use the real world state instead of the normal player-vision filter.",
+        "Live rewrite tile updates now resnapshot fog-disabled sessions instead of merging global deltas, and the fog toggle only flips client state after a successful authoritative refresh, with gateway, simulation, and client regression coverage locking the flow in place."
+      ]
+    },
+    {
+      introducedIn: "2026.05.03.15",
+      title: "Server logs now flag undocked landmasses",
+      why: "Tracking down stranded-island reports still required manual map inspection because the server had no direct summary of disconnected land components without docks, and static worldgen terrain was not enough for snapshot-backed worlds with runtime terrain overrides.",
+      changes: [
+        "Legacy server startup validation, season rollover generation, and manual world regeneration now log dock coverage summaries including docked component counts, undocked component counts, and sample undocked coordinates.",
+        "The coverage walk uses the live runtime terrain view, so player-created terrain changes and other snapshot-backed overrides no longer produce misleading dock coverage logs.",
+        "Added server regression coverage for diagonal strips, mixed docked and undocked islands, and runtime terrain overrides so the diagnostic stays aligned with the playable map."
+      ]
+    },
+    {
+      introducedIn: "2026.05.02.14",
+      title: "Frontier results now survive reconnects, timeouts, and gateway restarts",
+      why: "The rewrite gateway's paired live subscriptions could still lose frontier accepts, rejects, and other player-scoped results after one channel unsubscribed, after a timed-out auth subscribe resolved late, or after a restarted gateway reused a stale subscription identity against the simulation registry.",
+      changes: [
+        "Live rewrite subscriptions now use simulation-issued monotonic namespace keys, so stale subscribe cleanup only removes the exact old backend registration instead of tearing down a newer live session.",
+        "Bootstrap-only auth snapshots no longer count as live subscriptions, timed-out auth subscribes roll back cleanly, and player-scoped events continue streaming as long as one real live channel remains attached.",
+        "Added gateway and simulation regression coverage for double-subscribe churn, late subscribe resolution, restart ordering, degraded startup, and bootstrap snapshot behavior so future subscription changes cannot black-hole frontier results again."
       ]
     },
     {
@@ -53,56 +93,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Gateway-derived town summaries now preserve previously known population and max-population fields when a later partial rewrite update only carries the town identity.",
         "When the rewrite path has never received numeric town stats yet, the client now falls back to tier-based population floors instead of impossible population-1 placeholders for grown towns.",
         "Added client regression coverage for both the partial-resync case and the initial tier-floor fallback case."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.12",
-      title: "Claimed shard tiles now keep their collect action",
-      why: "A frontier claim confirmation could overwrite the newly claimed tile with an explicit empty shard field, which made shard tiles look empty immediately after claim even though the intended next step was to collect the shard from that new frontier tile.",
-      changes: [
-        "Frontier claim confirmation now preserves an existing shard site only for the neutral-to-owned frontier claim transition when the incoming sync update explicitly clears shard detail.",
-        "Claiming a shard tile now leaves the shard visible on your new frontier territory so the follow-up tile menu still offers `Collect Shard` as intended.",
-        "Added websocket and gateway regression coverage so future claim-sync changes cannot strip shard caches from newly claimed tiles or resurrect already collected shards."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.11",
-      title: "Town growth is now cheaper and reaches Monumental City",
-      why: "The first manual promotion pass made town growth more deliberate, but the mid- and late-game costs were still too steep for a satisfying upgrade path and Great Cities had no final action-menu capstone.",
-      changes: [
-        "Lowered the promotion costs to 1500 gold for Town to City and 6000 gold for City to Great City so the upgrades are easier to justify during normal play.",
-        "Great Cities can now spend 15000 gold to grow into a Monumental City once they reach 5,000,000 population, with the action menu explaining the bigger income, manpower, and food-upkeep jump.",
-        "Expanded regression coverage for the shared growth rules and the action-menu promotion states, including the new Monumental City step."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.10",
-      title: "Staging full-map reveal now restores cleanly after reconnects",
-      why: "The staging reveal follow-up still had two rough edges: saved reveal state did not replay automatically on authenticated reconnect, and the client could only show the button correctly once the live server capability had been confirmed.",
-      changes: [
-        "The client now replays the saved staging reveal only after `INIT` confirms fog-toggle capability, so reconnects restore the real full-map reveal without requiring another button click.",
-        "Gateway and server payloads now carry the authenticated fog-toggle capability through `INIT` and later `PLAYER_UPDATE`s, so the staging-only button follows the same live access rule the server enforces.",
-        "Added gateway, server, and client regression coverage for the session capability wiring and reconnect replay ordering so future auth changes keep the reveal path aligned."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.9",
-      title: "Owned towns always show their stored-yield row",
-      why: "Owned town menus hid the stored-yield line whenever the current gold buffer and cap both landed at zero, which made inactive or recently recovered towns look like they had no storage state at all.",
-      changes: [
-        "Owned town menus now keep the stored-yield row visible even when the current stored gold and cap are both zero.",
-        "Non-owned towns still keep the previous behavior so enemy or allied towns do not gain a fake zeroed storage row.",
-        "Added client regression coverage for both the owned-town and non-owned-town cases."
-      ]
-    },
-    {
-      introducedIn: "2026.05.02.8",
-      title: "Respawn recovery notices now describe non-playable states accurately",
-      why: "Sign-in recovery could respawn a completed empire when its saved territory state was invalid even if some tile bookkeeping still existed, but the earlier notice copy implied the empire always had literally zero owned tiles.",
-      changes: [
-        "Auth recovery respawn notices now say the empire loaded without a playable foothold instead of specifically claiming it had zero territory.",
-        "Added server regressions so login recovery keeps labeling true offline eliminations as eliminations while broken-but-not-eliminated empires stay marked as auth recovery.",
-        "Added a bootstrap regression guard so startup auto-respawns keep flowing through the shared respawn-notice helper."
       ]
     },
     {
