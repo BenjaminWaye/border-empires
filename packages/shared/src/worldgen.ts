@@ -454,6 +454,11 @@ export const terrainAt = (x: number, y: number): Terrain => {
 
   const base = baseTerrainCodeAt(wx, wy);
   let terrainCode = base;
+  // Tiles that would have been coastal sea (sea adjacent to land) now
+  // generate as LAND so the entire shoreline is capturable; only fully
+  // open sea (no land neighbours) stays SEA. The COASTAL_SEA terrain code
+  // is left in the type union for snapshot back-compat with worlds that
+  // were generated under the old rule.
   if (base === TERRAIN_SEA) {
     const neighbors = [
       baseTerrainCodeAt(wx, wy - 1),
@@ -461,7 +466,7 @@ export const terrainAt = (x: number, y: number): Terrain => {
       baseTerrainCodeAt(wx, wy + 1),
       baseTerrainCodeAt(wx - 1, wy)
     ];
-    if (neighbors.includes(TERRAIN_LAND)) terrainCode = TERRAIN_COASTAL_SEA;
+    if (neighbors.includes(TERRAIN_LAND)) terrainCode = TERRAIN_LAND;
   }
 
   terrainCache[idx] = terrainCode;
