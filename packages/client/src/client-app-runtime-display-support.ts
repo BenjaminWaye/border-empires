@@ -49,9 +49,10 @@ export const createClientRuntimeDisplaySupport = (deps: {
 
   const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
     if (terrain !== "LAND") return terrain;
-    const biome = landBiomeAt(x, y);
-    if (biome === "GRASS") return isForestTile(x, y) ? "FOREST" : "GRASS";
-    return "SAND";
+    const visibleTile = state.tiles.get(`${x},${y}`);
+    const biome = visibleTile?.terrain === "LAND" ? (visibleTile.landBiome ?? landBiomeAt(x, y)) : landBiomeAt(x, y);
+    if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
+    return isForestTile(x, y) ? "FOREST" : "GRASS";
   };
 
   return {

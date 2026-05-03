@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 
 import { showCaptureAlert } from "./client-alerts.js";
@@ -21,6 +24,8 @@ class FakeWebSocket {
     for (const listener of this.listeners.get(type) ?? []) listener(event);
   }
 }
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 const createState = () =>
   ({
@@ -1125,4 +1130,14 @@ describe("client gateway sync regression", () => {
       summarySource: "gateway-derived"
     });
   });
+
+
+  it("replaces cached gateway tiles when fog restore sends a full snapshot reset", () => {
+    const source = readFileSync(resolve(here, "./client-network.ts"), "utf8");
+
+    expect(source).toContain('if (msg.type === "TILE_SNAPSHOT_REPLACE") {');
+    expect(source).toContain('const appliedTileCount = applyGatewayInitialState(');
+    expect(source).toContain('requestViewRefresh(2, true);');
+  });
+
 });

@@ -62,9 +62,12 @@ describe("tile summary economy regression guard", () => {
     expect(body).toContain("applyTileYieldSummary(");
   });
 
-  it("includes region type on thin chunk tiles so tile menus do not wait for full detail", () => {
+  it("includes runtime land context on thin chunk tiles so tile menus do not wait for full detail", () => {
     const body = functionBody(chunkStateSource(), "playerTileSummary");
-    expect(body).toContain('const regionType = terrain === "LAND" ? deps.regionTypeAtLocal(wx, wy) : undefined;');
+    expect(body).toContain('const runtimeLandContext = terrain === "LAND" ? deps.runtimeLandContextAtLocal(wx, wy) : undefined;');
+    expect(body).toContain('const regionType = runtimeLandContext?.regionType;');
+    expect(body).toContain('const landBiome = runtimeLandContext?.landBiome;');
+    expect(body).toContain('if (terrain === "LAND" && landBiome && !shellMode) tile.landBiome = landBiome;');
     expect(body).toContain('if (terrain === "LAND" && regionType && !shellMode) tile.regionType = regionType;');
   });
 });

@@ -1,5 +1,7 @@
 import { isSeaTerrain, type ResourceType, type Terrain, type TileKey } from "@border-empires/shared";
 
+import { inferRuntimeLandContext } from "./server-runtime-land-context.js";
+
 import type { ClusterDefinition } from "./server-shared-types.js";
 import type {
   ClusterTypeDefinition,
@@ -78,6 +80,23 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
   };
 
   const regionTypeAtLocal = (x: number, y: number) => (terrainAt(x, y) === "LAND" ? regionTypeAt(x, y) : undefined);
+
+  const runtimeLandContextAtLocal = (x: number, y: number) =>
+    inferRuntimeLandContext({
+      x,
+      y,
+      width: WORLD_WIDTH,
+      height: WORLD_HEIGHT,
+      wrapX,
+      wrapY,
+      baseTerrainAt: terrainAt,
+      runtimeTerrainAt: terrainAtRuntime,
+      baseLandBiomeAt: landBiomeAt,
+      baseRegionTypeAt: regionTypeAt
+    });
+
+  const runtimeRegionTypeAtLocal = (x: number, y: number) => runtimeLandContextAtLocal(x, y)?.regionType;
+  const runtimeLandBiomeAtLocal = (x: number, y: number) => runtimeLandContextAtLocal(x, y)?.landBiome;
 
   const isAdjacentTile = (ax: number, ay: number, bx: number, by: number): boolean => {
     const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
@@ -394,6 +413,9 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     terrainShapeWithinPlayerDensity,
     hasOwnedLandWithinRange,
     regionTypeAtLocal,
+    runtimeLandContextAtLocal,
+    runtimeRegionTypeAtLocal,
+    runtimeLandBiomeAtLocal,
     isAdjacentTile,
     isCoastalLand,
     largestSeaComponentMask,

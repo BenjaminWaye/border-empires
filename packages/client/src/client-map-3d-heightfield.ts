@@ -17,9 +17,9 @@ const MAX_INDEX_COUNT = QUAD_COUNT * 6;
 
 export const HEIGHTFIELD_DEEP_SEA_ELEVATION = -0.36;
 export const HEIGHTFIELD_COASTAL_SEA_ELEVATION = -0.16;
-export const HEIGHTFIELD_SAND_ELEVATION = -0.02;
-export const HEIGHTFIELD_GRASS_ELEVATION = 0.04;
-export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 1.05;
+export const HEIGHTFIELD_SAND_ELEVATION = 0.07;
+export const HEIGHTFIELD_GRASS_ELEVATION = 0.18;
+export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 1.15;
 
 export const heightfieldTileBaseElevation = (kind: HeightfieldTerrainKind): number => {
   switch (kind) {

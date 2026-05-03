@@ -6,8 +6,8 @@ import {
   Scene
 } from "three";
 
-export const WATER_SURFACE_Y = -0.06;
-export const WATER_WAVE_AMPLITUDE = 0.025;
+export const WATER_SURFACE_Y = -0.13;
+export const WATER_WAVE_AMPLITUDE = 0.018;
 const WATER_PLANE_TILES = 240;
 const WATER_PLANE_SEGMENTS = 60;
 const WATER_WAVE_X_FREQUENCY = 0.42;

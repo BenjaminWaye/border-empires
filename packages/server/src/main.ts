@@ -118,6 +118,7 @@ import { createServerTechDomainRuntime } from "./server-tech-domain-runtime.js";
 import { createServerEconomyStateRuntime } from "./server-economy-state-runtime.js";
 import { createServerPlayerEffectsRuntime } from "./server-player-effects-runtime.js";
 import { clearDockRouteCooldowns, dockRouteCooldownUntil, setDockRouteCooldownUntil } from "./server-dock-cooldown.js";
+import { summarizeDockCoverage } from "./server-dock-coverage.js";
 import { createServerPlayerRuntimeSupport } from "./server-player-runtime-support.js";
 import { buildServerInitPayload } from "./server-init-payload.js";
 import { createServerOwnershipRuntime } from "./server-ownership-runtime.js";
@@ -1322,6 +1323,9 @@ const {
   terrainShapeWithinPlayerDensity,
   hasOwnedLandWithinRange,
   regionTypeAtLocal,
+  runtimeLandContextAtLocal,
+  runtimeRegionTypeAtLocal,
+  runtimeLandBiomeAtLocal,
   isAdjacentTile,
   isCoastalLand,
   largestSeaComponentMask,
@@ -2262,6 +2266,37 @@ const archiveCurrentSeason = (): void => {
   strategicReplayEvents.length = 0;
 };
 
+const logDockCoverageSummary = (context: string, loadedSnapshot?: boolean): void => {
+  const summary = summarizeDockCoverage({
+    worldWidth: WORLD_WIDTH,
+    worldHeight: WORLD_HEIGHT,
+    terrainAt: terrainAtRuntime,
+    wrapX,
+    wrapY,
+    key,
+    docksByTile
+  });
+  const payload = {
+    context,
+    ...(loadedSnapshot === undefined ? {} : { loadedSnapshot }),
+    worldSeed: activeSeason.worldSeed,
+    seasonId: activeSeason.seasonId,
+    dockCount: summary.dockCount,
+    landComponents: summary.landComponents,
+    dockedComponents: summary.dockedComponents,
+    undockedComponents: summary.undockedComponents,
+    largestUndockedComponentTiles: summary.largestUndockedComponentTiles,
+    undockedComponentSamples: summary.undockedComponentSamples
+  };
+  if (runtimeState.appRef) {
+    if (summary.undockedComponents > 0) runtimeState.appRef.log.warn(payload, "dock coverage summary");
+    else runtimeState.appRef.log.info(payload, "dock coverage summary");
+    return;
+  }
+  if (summary.undockedComponents > 0) console.warn("dock coverage summary", payload);
+  else console.info("dock coverage summary", payload);
+};
+
 const startNewSeason = (): void => {
   archiveCurrentSeason();
   activeSeason = {
@@ -2277,6 +2312,7 @@ const startNewSeason = (): void => {
   activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
   activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   clearWorldProgressForSeason();
+  logDockCoverageSummary("season_rollover_generation", false);
   seedInitialShardScatter(activeSeason.worldSeed);
   for (const p of players.values()) spawnPlayer(p);
   spawnInitialBarbarians();
@@ -2302,6 +2338,7 @@ const regenerateWorldInPlace = (): void => {
   activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
   activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   clearWorldProgressForSeason();
+  logDockCoverageSummary("manual_world_regeneration", false);
   seedInitialShardScatter(activeSeason.worldSeed);
   for (const p of players.values()) spawnPlayer(p);
   spawnInitialBarbarians();
@@ -2385,6 +2422,9 @@ const {
   dockIncomeForOwner: (dock: Dock, ownerId: string) => dockIncomeForOwner(dock, ownerId),
   shardSiteViewAt: (tileKey: TileKey) => shardSiteViewAt(tileKey),
   regionTypeAtLocal,
+  runtimeLandContextAtLocal,
+  runtimeRegionTypeAtLocal,
+  runtimeLandBiomeAtLocal,
   observatoryStatusForTile: (ownerId: string, tileKey: TileKey) => observatoryStatusForTile(ownerId, tileKey),
   siphonMultiplierAt: (tileKey: TileKey) => siphonMultiplierAt(tileKey),
   toStrategicResource,
@@ -2428,6 +2468,9 @@ const simulationChunkState = createSimulationChunkState({
   siphonByTile,
   breachShockByTile,
   regionTypeAtLocal,
+  runtimeLandContextAtLocal,
+  runtimeRegionTypeAtLocal,
+  runtimeLandBiomeAtLocal,
   thinTownSummaryForTile,
   townSummaryForTile,
   observatoryStatusForTile: (ownerId, tileKey) => observatoryStatusForTile(ownerId, tileKey),
@@ -8108,6 +8151,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     docks: dockById.size,
     towns: townsByTile.size
   });
+  logDockCoverageSummary("startup_world_validation", loadedSnapshot);
 
   const playerStartedAt = Date.now();
   for (const p of players.values()) {

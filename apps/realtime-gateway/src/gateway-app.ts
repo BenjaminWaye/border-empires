@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
@@ -40,6 +39,7 @@ type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   pendingPayloads: unknown[];
   channel: "control" | "bulk";
   canToggleFog: boolean;
+  fogDisabled: boolean;
 };
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -85,7 +85,10 @@ const canToggleFogForEmail = (email: string | undefined, fogAdminEmail: string |
 };
 
 const jsonSafeTileDeltaBatch = (
-  tileDeltas: Array<NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number]>
+  tileDeltas: Array<
+    | NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number]
+    | NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>
+  >
 ): Array<Record<string, unknown>> =>
   tileDeltas.map((tileDelta) => ({
     ...tileDelta,
@@ -484,9 +487,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const authBindingStore =
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
+  const liveSubscriptionNamespace = await (async (): Promise<string> => {
+    const namespaceClient = simulationClient as typeof simulationClient & { getSubscriptionNamespace?: () => Promise<string> };
+    if (typeof namespaceClient.getSubscriptionNamespace !== "function") {
+      throw new Error("simulation client GetSubscriptionNamespace RPC is unavailable");
+    }
+    return namespaceClient.getSubscriptionNamespace();
+  })();
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
-    subscribePlayer: (playerId) => simulationClient.subscribePlayer(playerId),
-    unsubscribePlayer: (playerId) => simulationClient.unsubscribePlayer(playerId)
+    subscribePlayer: (playerId, subscriptionKey) =>
+      simulationClient.subscribePlayer(playerId, JSON.stringify({ emitBootstrapEvent: false, ...(subscriptionKey ? { subscriptionKey } : {}) })),
+    unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
+    subscriptionNamespace: liveSubscriptionNamespace
   });
   const profileOverrides = createPlayerProfileOverrides();
   const socialState = createSocialState({
@@ -603,6 +615,34 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     }
   };
+  const refreshPlayerFogSnapshot = async (
+    playerId: string,
+    fogDisabled: boolean,
+    options?: { includeFogUpdate?: boolean }
+  ): Promise<void> => {
+    const snapshot = await withTimeout(
+      simulationClient.subscribePlayer(
+        playerId,
+        JSON.stringify({ fullVisibility: fogDisabled, emitBootstrapEvent: false })
+      ),
+      simulationSubscribeTimeoutMs,
+      fogDisabled ? "gateway fog resubscribe" : "gateway fog restore resubscribe"
+    );
+    playerSubscriptions.seedSnapshot(playerId, snapshot);
+    const replacementSnapshot = {
+      type: "TILE_SNAPSHOT_REPLACE",
+      tiles: jsonSafeTileDeltaBatch(snapshot.tiles)
+    };
+    for (const targetSocket of playerSubscriptions.socketsForPlayer(playerId)) {
+      const targetSession = sessionsBySocket.get(targetSocket);
+      if (!targetSession) continue;
+      targetSession.fogDisabled = fogDisabled;
+      if (options?.includeFogUpdate === true) {
+        queueOrSendSessionPayload(targetSocket, { type: "FOG_UPDATE", fogDisabled });
+      }
+      queueOrSendSessionPayload(targetSocket, replacementSnapshot);
+    }
+  };
 
   let simulationEventChain = Promise.resolve();
   const processSimulationEvent = async (event: SimulationClientEvent): Promise<void> => {
@@ -664,12 +704,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       if (event.eventType === "TILE_DELTA_BATCH") {
         const tileDeltas = event.tileDeltas.length > 0 ? event.tileDeltas : (fallbackTileDeltasByCommandId.get(event.commandId) ?? []);
         fallbackTileDeltasByCommandId.delete(event.commandId);
-        // Update cached snapshot for every subscriber (all sockets, all channels) — once.
-        for (const targetSocket of sockets) {
-          const session = sessionsBySocket.get(targetSocket);
-          if (!session?.playerId) continue;
-          playerSubscriptions.updateSnapshot(session.playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
-        }
         // Persist command resolution exactly once, not once per socket.
         void commandStore.get(event.commandId).then((command) => {
           if (!command) return;
@@ -678,14 +712,31 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved non-frontier command")
           );
         });
-        // Fan out the TILE_DELTA_BATCH message to the preferred channel (bulk > control).
+        const socketsByPlayerId = new Map<string, Set<import("ws").WebSocket>>();
+        for (const targetSocket of sockets) {
+          const targetSession = sessionsBySocket.get(targetSocket);
+          if (!targetSession?.playerId) continue;
+          const grouped = socketsByPlayerId.get(targetSession.playerId) ?? new Set<import("ws").WebSocket>();
+          grouped.add(targetSocket);
+          socketsByPlayerId.set(targetSession.playerId, grouped);
+        }
         const tileDeltaPayload = {
           type: "TILE_DELTA_BATCH",
           commandId: event.commandId,
           tiles: jsonSafeTileDeltaBatch(tileDeltas)
         };
-        for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(sockets, (candidate) => sessionsBySocket.get(candidate))) {
-          queueOrSendSessionPayload(targetSocket, tileDeltaPayload);
+        for (const [playerId, playerSockets] of socketsByPlayerId) {
+          const hasFogDisabledSession = [...playerSubscriptions.socketsForPlayer(playerId)].some(
+            (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
+          );
+          if (hasFogDisabledSession) {
+            await refreshPlayerFogSnapshot(playerId, true);
+            continue;
+          }
+          playerSubscriptions.updateSnapshot(playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
+          for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(playerSockets, (candidate) => sessionsBySocket.get(candidate))) {
+            queueOrSendSessionPayload(targetSocket, tileDeltaPayload);
+          }
         }
         return;
       }
@@ -897,7 +948,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         initSent: channel === "bulk",
         pendingPayloads: [],
         channel,
-        canToggleFog: false
+        canToggleFog: false,
+        fogDisabled: false
       };
       sessionsBySocket.set(socket, session);
 
@@ -1066,6 +1118,29 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
+            try {
+              await withTimeout(
+                playerSubscriptions.ensureSubscribed(playerIdentity.playerId),
+                simulationSubscribeTimeoutMs,
+                "gateway live subscribe player"
+              );
+              markSimulationReady();
+            } catch (error) {
+              recordGatewayEvent("error", "gateway_auth_subscribe_failed", {
+                playerId: playerIdentity.playerId,
+                channel,
+                error: error instanceof Error ? error.message : String(error)
+              });
+              await playerSubscriptions.removeSocket(playerIdentity.playerId, socket).catch((removeError) => {
+                app.log.error({ err: removeError, playerId: playerIdentity.playerId }, "failed to rollback player subscription after auth subscribe failure");
+              });
+              sendJson(socket, {
+                type: "ERROR",
+                code: "SERVER_STARTING",
+                message: "Realtime simulation is temporarily unavailable. Retry shortly."
+              });
+              return;
+            }
             const initialState = resolveInitialState({
               playerId: playerIdentity.playerId,
               authoritativeSnapshot: bootstrapInitialState,
@@ -1132,6 +1207,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 updates: [tileDetail]
               });
             }
+            return;
+          }
+
+          if (message.type === "SET_FOG_DISABLED") {
+            if (!session.canToggleFog) {
+              sendJson(socket, { type: "ERROR", code: "FORBIDDEN", message: "fog toggle unavailable" });
+              return;
+            }
+            const fogDisabled = message.disabled === true;
+            await refreshPlayerFogSnapshot(session.playerId, fogDisabled, { includeFogUpdate: true });
             return;
           }
 
