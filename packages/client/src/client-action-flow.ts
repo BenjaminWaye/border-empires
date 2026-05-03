@@ -13,6 +13,7 @@ import {
   sendTruceRequestFromUi
 } from "./client-player-actions.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command.js";
+import { recordClientDebugEvent } from "./client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard.js";
 import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
@@ -229,7 +230,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return false;
     }
     const maybeRewritePayload =
-      payload && typeof payload === "object" ? (payload as { type?: unknown; commandId?: unknown; clientSeq?: unknown }) : undefined;
+      payload && typeof payload === "object"
+        ? (payload as { type?: unknown; commandId?: unknown; clientSeq?: unknown; disabled?: unknown })
+        : undefined;
     if (
       maybeRewritePayload &&
       typeof maybeRewritePayload.type === "string" &&
@@ -266,6 +269,22 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       ) {
         console.info("[tile-sync] client_send", typedPayload);
       }
+    }
+    if (maybeRewritePayload?.type === "SET_FOG_DISABLED") {
+      recordClientDebugEvent("info", "fog-reveal", "ws-send", {
+        disabled: maybeRewritePayload.disabled === true,
+        authSessionReady: state.authSessionReady,
+        connection: state.connection,
+        fogDisabled: state.fogDisabled,
+        eligible: state.stagingMapRevealEligible
+      });
+      console.info("[fog-reveal] ws-send", {
+        disabled: maybeRewritePayload.disabled === true,
+        authSessionReady: state.authSessionReady,
+        connection: state.connection,
+        fogDisabled: state.fogDisabled,
+        eligible: state.stagingMapRevealEligible
+      });
     }
     ws.send(JSON.stringify(payload));
     return true;
