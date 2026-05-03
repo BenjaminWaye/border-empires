@@ -8,6 +8,7 @@ import { createAtmosphere } from "./client-map-3d-atmosphere.js";
 import { createPointerPick, toroidDelta } from "./client-map-3d-pointer-pick.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "./client-map-3d-heightfield.js";
 import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
+import { createWaterSurface } from "./client-map-3d-water-surface.js";
 import { normalizeColorForThree } from "./client-three-color.js";
 
 type ClientThreeTerrainRendererDeps = {
@@ -45,6 +46,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const heightfield = createHeightfield();
   scene.add(heightfield.mesh);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
+  const waterSurface = createWaterSurface(scene);
 
   const forestCanopyMaterial = new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true });
   const forestTrunkMaterial = new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true });
@@ -468,6 +470,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
     syncQueueMarkers();
+    waterSurface.update(nowMs, deps.state.camX, deps.state.camY);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -495,6 +498,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const { material } of queuedActionMarkers) material.dispose();
     for (const { material } of queuedSettlementMarkers) material.dispose();
     for (const { material } of queuedBuildMarkers) material.dispose();
+    waterSurface.dispose();
     mountainMassifs.dispose();
     heightfield.dispose();
     atmosphere.dispose();
