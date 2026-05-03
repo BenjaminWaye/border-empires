@@ -8,11 +8,15 @@ describe("server worldgen docks", () => {
   const createDockTestRuntime = ({
     landTiles,
     clusteredTiles = [],
-    mountainTiles = []
+    mountainTiles = [],
+    coastalSeaTiles = [],
+    largeIslandMultiDockTileThreshold = 999
   }: {
     landTiles: Iterable<TileKey>;
     clusteredTiles?: Iterable<TileKey>;
     mountainTiles?: Iterable<TileKey>;
+    coastalSeaTiles?: Iterable<TileKey>;
+    largeIslandMultiDockTileThreshold?: number;
   }) => {
     const WORLD_WIDTH = 12;
     const WORLD_HEIGHT = 12;
@@ -23,10 +27,13 @@ describe("server worldgen docks", () => {
     const landTileSet = new Set(landTiles);
     const clusteredTileSet = new Set(clusteredTiles);
     const mountainTileSet = new Set(mountainTiles);
-    const terrainAt = (x: number, y: number): "LAND" | "SEA" | "MOUNTAIN" => {
+    const coastalSeaTileSet = new Set(coastalSeaTiles);
+    const terrainAt = (x: number, y: number): "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN" => {
       const tileKey = key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
       if (mountainTileSet.has(tileKey)) return "MOUNTAIN";
-      return landTileSet.has(tileKey) ? "LAND" : "SEA";
+      if (landTileSet.has(tileKey)) return "LAND";
+      if (coastalSeaTileSet.has(tileKey)) return "COASTAL_SEA";
+      return "SEA";
     };
     const largestSeaComponentMask = () => {
       const mask = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
@@ -97,7 +104,7 @@ describe("server worldgen docks", () => {
       adjacentOceanSea,
       largestSeaComponentMask,
       clusterByTile: new Map([...clusteredTileSet].map((tileKey) => [tileKey, "cluster-1"])),
-      LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD: 999,
+      LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD: largeIslandMultiDockTileThreshold,
       docksByTile,
       dockById,
       getDockLinkedTileKeysByDockTileKey: () => dockLinkedTileKeysByDockTileKey
@@ -122,5 +129,87 @@ describe("server worldgen docks", () => {
     expect(basinDock).toBeDefined();
     expect(mainIslandDock).toBeDefined();
     expect(basinDock!.connectedDockIds).toContain(mainIslandDock!.dockId);
+  });
+
+
+  it("treats coastal sea as valid shoreline when placing multiple docks on a large island", () => {
+    const largeIslandTiles = new Set<TileKey>();
+    const coastalSeaTiles = new Set<TileKey>();
+    for (let y = 2; y <= 5; y += 1) {
+      for (let x = 2; x <= 5; x += 1) largeIslandTiles.add(`${x},${y}`);
+    }
+    for (let y = 1; y <= 6; y += 1) {
+      coastalSeaTiles.add(`1,${y}`);
+      coastalSeaTiles.add(`6,${y}`);
+    }
+    for (let x = 1; x <= 6; x += 1) {
+      coastalSeaTiles.add(`${x},1`);
+      coastalSeaTiles.add(`${x},6`);
+    }
+    const northIslandTiles = new Set<TileKey>(["8,1", "9,1", "8,2", "9,2"]);
+    const southIslandTiles = new Set<TileKey>(["8,8", "9,8", "8,9", "9,9"]);
+    const { runtime, docksByTile } = createDockTestRuntime({
+      landTiles: [...largeIslandTiles, ...northIslandTiles, ...southIslandTiles],
+      coastalSeaTiles,
+      largeIslandMultiDockTileThreshold: 8
+    });
+
+    runtime.generateDocks(97531);
+
+    const largeIslandDocks = [...docksByTile.values()].filter((dock) => largeIslandTiles.has(dock.tileKey));
+    expect(largeIslandDocks).toHaveLength(2);
+    expect(largeIslandDocks.every((dock) => (dock.connectedDockIds?.length ?? 0) === 1)).toBe(true);
+  });
+
+
+  it("gives a large island multiple dock tiles by adding extra routes beyond the spanning tree", () => {
+    const largeIslandTiles = new Set<TileKey>();
+    for (let y = 2; y <= 5; y += 1) {
+      for (let x = 1; x <= 4; x += 1) largeIslandTiles.add(`${x},${y}`);
+    }
+    const northIslandTiles = new Set<TileKey>(["7,1", "8,1", "7,2", "8,2"]);
+    const southIslandTiles = new Set<TileKey>(["7,7", "8,7", "7,8", "8,8"]);
+    const eastIslandTiles = new Set<TileKey>(["10,4", "11,4", "10,5", "11,5"]);
+    const { runtime, docksByTile } = createDockTestRuntime({
+      landTiles: [...largeIslandTiles, ...northIslandTiles, ...southIslandTiles, ...eastIslandTiles],
+      largeIslandMultiDockTileThreshold: 8
+    });
+
+    runtime.generateDocks(13579);
+
+    const largeIslandDocks = [...docksByTile.values()].filter((dock) => largeIslandTiles.has(dock.tileKey));
+    const northIslandDocks = [...docksByTile.values()].filter((dock) => northIslandTiles.has(dock.tileKey));
+    const southIslandDocks = [...docksByTile.values()].filter((dock) => southIslandTiles.has(dock.tileKey));
+    const eastIslandDocks = [...docksByTile.values()].filter((dock) => eastIslandTiles.has(dock.tileKey));
+    expect(largeIslandDocks).toHaveLength(2);
+    expect(northIslandDocks).toHaveLength(1);
+    expect(southIslandDocks).toHaveLength(1);
+    expect(eastIslandDocks).toHaveLength(1);
+    expect(new Set(largeIslandDocks.map((dock) => dock.tileKey)).size).toBe(2);
+    expect(new Set(largeIslandDocks.map((dock) => dock.pairedDockId)).size).toBe(2);
+    expect(largeIslandDocks.every((dock) => (dock.connectedDockIds?.length ?? 0) === 1)).toBe(true);
+  });
+
+
+  it("keeps a second dock on a large island even when it has only one neighboring island", () => {
+    const largeIslandTiles = new Set<TileKey>();
+    for (let y = 2; y <= 5; y += 1) {
+      for (let x = 1; x <= 4; x += 1) largeIslandTiles.add(`${x},${y}`);
+    }
+    const smallIslandTiles = new Set<TileKey>(["8,3", "9,3", "8,4", "9,4"]);
+    const { runtime, docksByTile } = createDockTestRuntime({
+      landTiles: [...largeIslandTiles, ...smallIslandTiles],
+      largeIslandMultiDockTileThreshold: 8
+    });
+
+    runtime.generateDocks(86420);
+
+    const largeIslandDocks = [...docksByTile.values()].filter((dock) => largeIslandTiles.has(dock.tileKey));
+    const smallIslandDocks = [...docksByTile.values()].filter((dock) => smallIslandTiles.has(dock.tileKey));
+    expect(largeIslandDocks).toHaveLength(2);
+    expect(smallIslandDocks).toHaveLength(1);
+    expect(largeIslandDocks.every((dock) => (dock.connectedDockIds?.length ?? 0) === 1)).toBe(true);
+    expect(new Set(largeIslandDocks.flatMap((dock) => dock.connectedDockIds ?? [])).size).toBe(1);
+    expect(largeIslandDocks.flatMap((dock) => dock.connectedDockIds ?? [])).toContain(smallIslandDocks[0]!.dockId);
   });
 });
