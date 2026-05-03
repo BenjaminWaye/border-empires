@@ -16,6 +16,7 @@ import type {
   TileKey
 } from "@border-empires/shared";
 import type { SystemSimulationCommand } from "./sim/service.js";
+import type { RuntimeLandContext } from "./server-runtime-land-context.js";
 import type {
   ClusterDefinition,
   ShardSiteState,
@@ -204,6 +205,9 @@ export interface ServerWorldgenTerrainRuntime {
   terrainShapeWithinPlayerDensity: (x: number, y: number) => boolean;
   hasOwnedLandWithinRange: (playerId: string, x: number, y: number, range: number) => boolean;
   regionTypeAtLocal: (x: number, y: number) => RegionType | undefined;
+  runtimeLandContextAtLocal: (x: number, y: number) => RuntimeLandContext | undefined;
+  runtimeRegionTypeAtLocal: (x: number, y: number) => RegionType | undefined;
+  runtimeLandBiomeAtLocal: (x: number, y: number) => LandBiome | undefined;
   isAdjacentTile: (ax: number, ay: number, bx: number, by: number) => boolean;
   isCoastalLand: (x: number, y: number) => boolean;
   largestSeaComponentMask: () => Uint8Array;

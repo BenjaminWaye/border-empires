@@ -17,6 +17,7 @@ import {
 } from "@border-empires/shared";
 
 import type { ClusterDefinition, RuntimeTileCore, StrategicResource, TileYieldBuffer, TownDefinition } from "./server-shared-types.js";
+import type { RuntimeLandContext } from "./server-runtime-land-context.js";
 
 export interface CreateServerTileViewRuntimeDeps {
   WORLD_WIDTH: number;
@@ -74,6 +75,9 @@ export interface CreateServerTileViewRuntimeDeps {
   dockIncomeForOwner: (dock: Dock, ownerId: string) => number;
   shardSiteViewAt: (tileKey: TileKey) => Tile["shardSite"];
   regionTypeAtLocal: (x: number, y: number) => RegionType | undefined;
+  runtimeLandContextAtLocal: (x: number, y: number) => RuntimeLandContext | undefined;
+  runtimeRegionTypeAtLocal: (x: number, y: number) => RegionType | undefined;
+  runtimeLandBiomeAtLocal: (x: number, y: number) => Tile["landBiome"];
   observatoryStatusForTile: (ownerId: string, tileKey: TileKey) => NonNullable<Tile["observatory"]>["status"];
   siphonMultiplierAt: (tileKey: TileKey) => number;
   toStrategicResource: (resource: ResourceType | undefined) => StrategicResource | undefined;
@@ -306,7 +310,9 @@ export const createServerTileViewRuntime = (deps: CreateServerTileViewRuntimeDep
     const history = deps.tileHistoryByTile.get(tileKey);
     const tile: Tile = { x: wx, y: wy, terrain, detailLevel: "full", lastChangedAt: deps.now() };
     const continentId = deps.continentIdAt(wx, wy);
-    const regionType = deps.regionTypeAtLocal(wx, wy);
+    const runtimeLandContext = terrain === "LAND" ? deps.runtimeLandContextAtLocal(wx, wy) : undefined;
+    const regionType = runtimeLandContext?.regionType;
+    const landBiome = runtimeLandContext?.landBiome;
     if (resource && !dock) tile.resource = resource;
     if (ownerId) {
       tile.ownerId = ownerId;
@@ -314,6 +320,7 @@ export const createServerTileViewRuntime = (deps: CreateServerTileViewRuntimeDep
       if (ownerId !== deps.BARBARIAN_OWNER_ID && deps.activeSettlementTileKeyForPlayer(ownerId) === tileKey) tile.capital = true;
     }
     if (continentId !== undefined) tile.continentId = continentId;
+    if (terrain === "LAND" && landBiome) tile.landBiome = landBiome;
     if (terrain === "LAND" && regionType) (tile as Tile & { regionType?: string }).regionType = regionType;
     if (terrain === "LAND" && clusterId) tile.clusterId = clusterId;
     if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;

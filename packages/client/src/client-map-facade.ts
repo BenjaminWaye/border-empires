@@ -179,7 +179,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   };
 
   const landTone = (x: number, y: number): string => {
-    const biome = landBiomeAt(x, y);
+    const visibleTile = state.tiles.get(keyFor(x, y));
+    const biome = visibleTile?.terrain === "LAND" ? (visibleTile.landBiome ?? landBiomeAt(x, y)) : landBiomeAt(x, y);
     if (biome === "COASTAL_SAND") return "#c8b27c";
     if (biome === "SAND") {
       const value = groupedNoise(x, y, 32, 907);
@@ -197,7 +198,12 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   };
 
   const cachedTerrainColorAt = (x: number, y: number, terrain: Tile["terrain"]): string => {
-    const cacheKey = `${x},${y},${terrain}`;
+    const visibleTile = state.tiles.get(keyFor(x, y));
+    const landContextKey =
+      terrain === "LAND"
+        ? `${visibleTile?.terrain === "LAND" ? visibleTile.landBiome ?? "" : ""}|${visibleTile?.terrain === "LAND" ? visibleTile.regionType ?? "" : ""}`
+        : "";
+    const cacheKey = `${x},${y},${terrain},${landContextKey}`;
     const cached = terrainColorCache.get(cacheKey);
     if (cached) return cached;
     const color = terrainColorAt(x, y, terrain);
@@ -211,7 +217,25 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   };
 
   const drawTerrainTile = (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number): void =>
-    drawTerrainTileOnCanvas(ctx, { wx, wy, terrain, px, py, size, wrapX, wrapY, cachedTerrainColorAt });
+    drawTerrainTileOnCanvas(ctx, {
+      wx,
+      wy,
+      terrain,
+      px,
+      py,
+      size,
+      wrapX,
+      wrapY,
+      cachedTerrainColorAt,
+      getVisibleLandBiomeAt: (x, y) => {
+        const tile = state.tiles.get(keyFor(x, y));
+        return tile?.terrain === "LAND" ? tile.landBiome : undefined;
+      },
+      getVisibleRegionTypeAt: (x, y) => {
+        const tile = state.tiles.get(keyFor(x, y));
+        return tile?.terrain === "LAND" ? tile.regionType : undefined;
+      }
+    });
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size);
   const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =>
