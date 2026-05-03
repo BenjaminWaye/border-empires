@@ -4508,6 +4508,25 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
+.lb-player-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lb-player-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: var(--player-color, rgba(255, 255, 255, 0.82));
+  box-shadow: 0 0 0 1px rgba(10, 14, 24, 0.5);
+}
+
+.lb-player-dot.is-unknown {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 .pressure-card {
   display: grid;
   gap: 8px;
