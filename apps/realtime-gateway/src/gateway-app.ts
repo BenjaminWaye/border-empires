@@ -243,6 +243,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const recordGatewayEvent = (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown> = {}): void => {
     recentGatewayEvents.push({ at: Date.now(), level, event, payload });
     if (recentGatewayEvents.length > 250) recentGatewayEvents.splice(0, recentGatewayEvents.length - 250);
+    if (event.startsWith("gateway_fog_")) {
+      const logger = level === "error" ? app.log.error.bind(app.log) : level === "warn" ? app.log.warn.bind(app.log) : app.log.info.bind(app.log);
+      logger({ event, ...payload }, event);
+    }
   };
 
   const simulationClient =
