@@ -1285,6 +1285,12 @@ export class SimulationRuntime {
       resolvesAt: number;
       combatResolutionJson?: string;
     }>;
+    docks: Array<{
+      dockId: string;
+      tileKey: string;
+      pairedDockId: string;
+      connectedDockIds?: readonly string[];
+    }>;
     tileYieldCollectedAtByTile: Array<{ tileKey: string; collectedAt: number }>;
   } {
     return {
@@ -1348,6 +1354,7 @@ export class SimulationRuntime {
           ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
         }))
         .sort((left, right) => left.commandId.localeCompare(right.commandId)),
+      docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
@@ -1458,6 +1465,7 @@ export class SimulationRuntime {
           ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
         }))
         .sort((left, right) => left.commandId.localeCompare(right.commandId)),
+      docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
