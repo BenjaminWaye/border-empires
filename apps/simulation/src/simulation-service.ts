@@ -464,6 +464,66 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let bootstrappedInitialPlayers: ReturnType<typeof generateSeasonWorld>["initialPlayers"] | undefined;
   let bootstrappedCurrentSummary: CurrentSeasonSummary | undefined;
   let bootstrappedSeasonState: SimulationSeasonState | undefined;
+  const bootstrapManagedSeason = async ({
+    seasonSequence,
+    logMessage,
+    logContext
+  }: {
+    seasonSequence: number;
+    logMessage: string;
+    logContext: Record<string, unknown>;
+  }): Promise<{
+    initialState: ReturnType<typeof generateSeasonWorld>["initialState"];
+    initialCommandHistory: ReturnType<typeof recoverCommandHistory>;
+    recoveredCommandCount: number;
+    recoveredEventCount: number;
+  }> => {
+    if (!rulesetId) throw new Error("managed season bootstrap requires rulesetId");
+    const bootstrap = buildBootstrapSeason({
+      seasonSequence,
+      rulesetId,
+      now: Date.now()
+    });
+    const bootstrapRuntime = new SimulationRuntime({
+      ...(options.runtimeOptions ?? {}),
+      initialState: bootstrap.initialState,
+      initialCommandHistory: recoverCommandHistory([], []),
+      mergeSeedTilesWithInitialState: false,
+      initialPlayers: bootstrap.initialPlayers
+    });
+    const currentSummary = buildCurrentSeasonSummary({
+      seasonState: bootstrap.seasonState,
+      runtimeState: bootstrapRuntime.exportState(),
+      onlinePlayers: 0,
+      updatedAt: bootstrap.seasonState.startedAt
+    });
+    await seasonSummaryStore.bootstrapSeason({
+      snapshotSections: {
+        initialState: bootstrap.initialState,
+        commandEvents: []
+      },
+      currentSummary,
+      createdAt: bootstrap.seasonState.startedAt
+    });
+    bootstrappedInitialPlayers = bootstrap.initialPlayers;
+    bootstrappedCurrentSummary = currentSummary;
+    bootstrappedSeasonState = bootstrap.seasonState;
+    log.info(
+      {
+        ...logContext,
+        rulesetId,
+        seasonId: bootstrap.seasonState.seasonId,
+        worldSeed: bootstrap.seasonState.worldSeed
+      },
+      logMessage
+    );
+    return {
+      initialState: bootstrap.initialState,
+      initialCommandHistory: recoverCommandHistory([], []),
+      recoveredCommandCount: 0,
+      recoveredEventCount: 0
+    };
+  };
   if (options.snapshotDir) {
     try {
       legacySnapshotBootstrap = loadLegacySnapshotBootstrap(options.snapshotDir);
@@ -511,49 +571,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         errorMessage.includes("requires durable state") &&
         !legacySnapshotBootstrap
       ) {
-        const bootstrap = buildBootstrapSeason({
+        return bootstrapManagedSeason({
           seasonSequence: 1,
-          rulesetId,
-          now: Date.now()
+          logMessage: "simulation bootstrapped initial managed season",
+          logContext: {}
         });
-        const bootstrapRuntime = new SimulationRuntime({
-          ...(options.runtimeOptions ?? {}),
-          initialState: bootstrap.initialState,
-          initialCommandHistory: recoverCommandHistory([], []),
-          mergeSeedTilesWithInitialState: false,
-          initialPlayers: bootstrap.initialPlayers
-        });
-        const currentSummary = buildCurrentSeasonSummary({
-          seasonState: bootstrap.seasonState,
-          runtimeState: bootstrapRuntime.exportState(),
-          onlinePlayers: 0,
-          updatedAt: bootstrap.seasonState.startedAt
-        });
-        await seasonSummaryStore.bootstrapSeason({
-          snapshotSections: {
-            initialState: bootstrap.initialState,
-            commandEvents: []
-          },
-          currentSummary,
-          createdAt: bootstrap.seasonState.startedAt
-        });
-        bootstrappedInitialPlayers = bootstrap.initialPlayers;
-        bootstrappedCurrentSummary = currentSummary;
-        bootstrappedSeasonState = bootstrap.seasonState;
-        log.info(
-          {
-            rulesetId,
-            seasonId: bootstrap.seasonState.seasonId,
-            worldSeed: bootstrap.seasonState.worldSeed
-          },
-          "simulation bootstrapped initial managed season"
-        );
-        return {
-          initialState: bootstrap.initialState,
-          initialCommandHistory: recoverCommandHistory([], []),
-          recoveredCommandCount: 0,
-          recoveredEventCount: 0
-        };
       }
       if (
         !options.allowSeedRecoveryFallback ||
@@ -580,8 +602,27 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       };
     }
   })();
+  const recoveredSeason = startupRecovery.initialState.season;
+  const shouldReplaceRecoveredSeedState =
+    isDbBackedStartup &&
+    !legacySnapshotBootstrap &&
+    Boolean(rulesetId) &&
+    Boolean(recoveredSeason) &&
+    recoveredSeason!.rulesetId.startsWith("seed:") &&
+    recoveredSeason!.rulesetId !== rulesetId;
+  const effectiveStartupRecovery = shouldReplaceRecoveredSeedState
+    ? await bootstrapManagedSeason({
+        seasonSequence: 1,
+        logMessage: "simulation replaced recovered seed-backed world with managed season bootstrap",
+        logContext: {
+          previousSeasonId: recoveredSeason!.seasonId,
+          previousRulesetId: recoveredSeason!.rulesetId,
+          previousWorldSeed: recoveredSeason!.worldSeed
+        }
+      })
+    : startupRecovery;
   let currentSeasonState =
-    startupRecovery.initialState.season ??
+    effectiveStartupRecovery.initialState.season ??
     bootstrappedSeasonState ??
     createInitialSeasonState({
       seasonSequence: 1,
@@ -592,12 +633,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const runtimePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
   const fallbackActivePlayers = createActivePlayerIdentityMap(runtimePlayers.values());
   let activePlayers =
-    createRecoveredActivePlayerIdentityMap(startupRecovery.initialState, fallbackActivePlayers) ?? fallbackActivePlayers;
+    createRecoveredActivePlayerIdentityMap(effectiveStartupRecovery.initialState, fallbackActivePlayers) ?? fallbackActivePlayers;
   let runtime = new SimulationRuntime({
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
-    initialState: startupRecovery.initialState,
-    initialCommandHistory: startupRecovery.initialCommandHistory,
+    initialState: effectiveStartupRecovery.initialState,
+    initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
     mergeSeedTilesWithInitialState: !isDbBackedStartup,
     ...(commandTraceEnabled
       ? {
@@ -678,7 +719,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   });
   const runStartupReplayCompaction = createStartupReplayCompactionRunner({
     checkpointNow: snapshotCheckpointManager.checkpointNow,
-    recoveredEventCount: startupRecovery.recoveredEventCount,
+    recoveredEventCount: effectiveStartupRecovery.recoveredEventCount,
     startupReplayCompactionMinEvents,
     log
   });
@@ -747,7 +788,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
       includeWorldStatus: options?.includeWorldStatus === true,
       fullVisibility: useFullVisibility,
-      ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {})
+      ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
+      seasonState: currentSeasonState
     });
     snapshotCacheByPlayerId.set(playerId, snapshot);
     return snapshot;
@@ -928,7 +970,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
   const autopilotMaxPersistencePending = 256;
-  const recoveredCommands = startupRecovery.initialCommandHistory.commands;
+  const recoveredCommands = effectiveStartupRecovery.initialCommandHistory.commands;
   const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
     buildNextClientSeqByPlayer(recoveredCommands, playerIds);
   const useAiWorker = options.useAiWorker ?? false;
@@ -991,7 +1033,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (aiPlayerIds.length === 0) {
         emitLog("warn", "simulation ai autopilot enabled with zero AI players", {
           activePlayerCount: activePlayers.size,
-          recoveredPlayerCount: startupRecovery.initialState.players?.length ?? 0,
+          recoveredPlayerCount: effectiveStartupRecovery.initialState.players?.length ?? 0,
           seedPlayerCount: seedPlayers.size
         });
       }
@@ -1344,6 +1386,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           playerId?: string;
           player_json?: string;
           world_status_json?: string;
+          season_json?: string;
+          docks?: Array<{
+            dock_id: string;
+            tile_key: string;
+            paired_dock_id: string;
+            connected_dock_ids?: string[];
+          }>;
           tiles: Array<{
             x: number;
             y: number;
@@ -1399,6 +1448,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         playerId: snapshotPayload.playerId,
         ...(snapshotPayload.player ? { player_json: JSON.stringify(snapshotPayload.player) } : {}),
         ...(snapshotPayload.worldStatus ? { world_status_json: JSON.stringify(snapshotPayload.worldStatus) } : {}),
+        ...(snapshotPayload.season ? { season_json: JSON.stringify(snapshotPayload.season) } : {}),
+        ...(snapshotPayload.docks?.length
+          ? {
+              docks: snapshotPayload.docks.map((dock) => ({
+                dock_id: dock.dockId,
+                tile_key: dock.tileKey,
+                paired_dock_id: dock.pairedDockId,
+                ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
+              }))
+            }
+          : {}),
         tiles: snapshotPayload.tiles.map((tile) => ({
           x: tile.x,
           y: tile.y,
@@ -1497,7 +1557,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     get runtime() {
       return runtime;
     },
-    startupRecovery,
+    startupRecovery: effectiveStartupRecovery,
     async start(): Promise<{ host: string; port: number; address: string }> {
       const requestedPort = options.port ?? 50051;
       const port = await new Promise<number>((resolve, reject) => {
@@ -1569,16 +1629,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         );
       }, 1_000);
       log.info(
-        `recovered ${startupRecovery.recoveredCommandCount} commands and ${startupRecovery.recoveredEventCount} world events; ${startupRecovery.initialState.activeLocks.length} unresolved locks from event log`
+        `recovered ${effectiveStartupRecovery.recoveredCommandCount} commands and ${effectiveStartupRecovery.recoveredEventCount} world events; ${effectiveStartupRecovery.initialState.activeLocks.length} unresolved locks from event log`
       );
       if (legacySnapshotBootstrap) {
         log.info(
           `legacy snapshot bootstrap loaded: ${legacySnapshotBootstrap.playerProfiles.size} players, ${legacySnapshotBootstrap.initialState.tiles.length} tiles, season ${legacySnapshotBootstrap.season?.seasonId ?? "unknown"}`
         );
-      } else if (startupRecovery.recoveredEventCount === 0 && startupRecovery.recoveredCommandCount === 0) {
+      } else if (effectiveStartupRecovery.recoveredEventCount === 0 && effectiveStartupRecovery.recoveredCommandCount === 0) {
         const aiPlayerCount = [...activePlayers.values()].filter((player) => player.isAi).length;
         log.info(
-          `seed profile ${options.seedProfile ?? "default"}: ${aiPlayerCount} AI, ${startupRecovery.initialState.tiles.filter((tile) => tile.ownershipState === "SETTLED").length} settled tiles, ${startupRecovery.initialState.tiles.filter((tile) => tile.town).length} town designations`
+          `seed profile ${options.seedProfile ?? "default"}: ${aiPlayerCount} AI, ${effectiveStartupRecovery.initialState.tiles.filter((tile) => tile.ownershipState === "SETTLED").length} settled tiles, ${effectiveStartupRecovery.initialState.tiles.filter((tile) => tile.town).length} town designations`
         );
       }
       log.info(`simulation service listening on ${boundPort}`);
