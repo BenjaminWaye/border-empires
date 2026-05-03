@@ -5840,9 +5840,17 @@ const {
     maybeLogRuntimeMemoryWatermark("chunk_snapshot", runtimeMemoryStats(), {
       playerId: sample.playerId,
       elapsedMs: sample.elapsedMs,
+      trigger: sample.trigger,
+      visibilityMode: sample.visibilityMode,
       chunks: sample.chunks,
       tiles: sample.tiles,
       radius: sample.radius,
+      worldTiles: sample.worldTiles,
+      worldChunks: sample.worldChunks,
+      batchPayloadBytes: sample.batchPayloadBytes,
+      playerCachePayloadBytes: sample.playerCachePayloadBytes,
+      playerVisibilityMaskBytes: sample.playerVisibilityMaskBytes,
+      playerVisibilitySnapshotBytes: sample.playerVisibilitySnapshotBytes,
       cachedPayloadChunks: sample.cachedPayloadChunks,
       rebuiltChunks: sample.rebuiltChunks,
       batches: sample.batches
@@ -5963,7 +5971,7 @@ const {
   playerTile,
   recordDiscoveredTilesForPlayer,
   tileInSubscription,
-  sendChunkSnapshot: (socket, player, sub) => sendChunkSnapshot(socket, player, sub),
+  sendChunkSnapshot: (socket, player, sub, trigger) => sendChunkSnapshot(socket, player, sub, undefined, undefined, undefined, undefined, trigger),
   visibilitySnapshotForPlayer,
   visibleInSnapshot,
   visible,
@@ -8421,11 +8429,17 @@ registerInterval(() => {
     visibilitySnapshots: cachedVisibilitySnapshotByPlayer.size,
     cachedChunkPlayers: cachedChunkSnapshotByPlayer.size,
     cachedChunkPayloads: cachePayloads.payloads,
-    cachedChunkPayloadMb: cachePayloads.approxPayloadMb
+    cachedChunkPayloadMb: cachePayloads.approxPayloadMb,
+    cachedChunkPayloadBytes: cachePayloads.payloadBytes,
+    cachedChunkVisibilityMasks: cachePayloads.visibilityMasks,
+    cachedChunkVisibilityMaskBytes: cachePayloads.visibilityMaskBytes,
+    cachedVisibilitySnapshotBytes: cachePayloads.visibilitySnapshotBytes,
+    cachedChunkTotalMb: cachePayloads.approxTotalMb
   });
   maybeLogRuntimeMemoryWatermark("runtime_interval", vitals, {
     onlinePlayers: onlineSocketCount(),
-    cachedChunkPayloadMb: cachePayloads.approxPayloadMb
+    cachedChunkPayloadMb: cachePayloads.approxPayloadMb,
+    cachedChunkTotalMb: cachePayloads.approxTotalMb
   });
   app.log.info(
     {
@@ -8437,7 +8451,13 @@ registerInterval(() => {
       visibilitySnapshots: cachedVisibilitySnapshotByPlayer.size,
       cachedChunkPlayers: cachedChunkSnapshotByPlayer.size,
       cachedChunkPayloads: cachePayloads.payloads,
-      cachedChunkPayloadMb: cachePayloads.approxPayloadMb
+      cachedChunkPayloadMb: cachePayloads.approxPayloadMb,
+      cachedChunkPayloadBytes: cachePayloads.payloadBytes,
+      cachedChunkVisibilityMasks: cachePayloads.visibilityMasks,
+      cachedChunkVisibilityMaskBytes: cachePayloads.visibilityMaskBytes,
+      cachedVisibilitySnapshotBytes: cachePayloads.visibilitySnapshotBytes,
+      cachedChunkTotalMb: cachePayloads.approxTotalMb,
+      topChunkCachePlayers: cachePayloads.topPlayers
     },
     "runtime memory"
   );
@@ -8682,7 +8702,7 @@ const {
     chunkSerializerWorkerState,
     chunkReadWorkerState,
     simulationCommandWorkerState,
-    runtimeHotspotExtra: () => ({ chunkCacheMb: cachedChunkPayloadDiagnostics().approxPayloadMb }),
+    runtimeHotspotExtra: () => ({ chunkCacheMb: cachedChunkPayloadDiagnostics().approxTotalMb }),
     runtimeVictoryOverview
   }
 });
@@ -9079,7 +9099,7 @@ registerServerHttpRoutes(app, {
       responseSocket.send(JSON.stringify({ type: "FOG_UPDATE", fogDisabled: DISABLE_FOG || msg.disabled }));
       const sub = chunkSubscriptionByPlayer.get(actor.id);
       if (sub) {
-        sendChunkSnapshot(responseSocket, actor, sub);
+        sendChunkSnapshot(responseSocket, actor, sub, undefined, undefined, undefined, undefined, "fog_toggle");
       }
       return;
     }
@@ -9117,7 +9137,7 @@ registerServerHttpRoutes(app, {
         revealCapacity: revealCapacityForPlayer(actor)
       });
       sendPlayerUpdate(actor, 0);
-      refreshSubscribedViewForPlayer(actor.id);
+      refreshSubscribedViewForPlayer(actor.id, "reveal_empire");
       return;
     }
 
