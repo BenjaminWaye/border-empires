@@ -1784,6 +1784,28 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
+    if (msg.type === "TILE_SNAPSHOT_REPLACE") {
+      const tileUpdates =
+        msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
+      const appliedTileCount = applyGatewayInitialState(
+        {
+          state,
+          keyFor,
+          mergeIncomingTileDetail,
+          mergeServerTileWithOptimisticState
+        },
+        tileUpdates ? { tiles: tileUpdates } : undefined
+      );
+      if (appliedTileCount > 0) {
+        state.firstChunkAt = Date.now();
+        state.chunkFullCount = Math.max(state.chunkFullCount, 1);
+        state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
+      }
+      requestViewRefresh(2, true);
+      renderHud();
+      return;
+    }
+
     if (msg.type === "TILE_DELTA_BATCH") {
       const tileUpdates =
         msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
