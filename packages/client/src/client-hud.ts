@@ -1088,6 +1088,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         { type: "SET_FOG_DISABLED", disabled: nextEnabled },
         "Finish signing in before changing the staging map reveal."
       );
+      requestViewRefresh(2, true);
       renderClientHud(deps);
     };
   });

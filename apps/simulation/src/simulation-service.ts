@@ -739,14 +739,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const buildAndCachePlayerSnapshot = (
     playerId: string,
-    options?: { includeWorldStatus?: boolean }
+    options?: { includeWorldStatus?: boolean; fullVisibility?: boolean }
   ): PlayerSubscriptionSnapshot => {
-    const worldStatusRuntimeState = options?.includeWorldStatus === true ? runtime.exportState() : undefined;
-    const runtimeState = worldStatusRuntimeState ?? (
-      currentSeasonState.status === "ended" ? runtime.exportState() : runtime.exportVisibleStateForPlayer(playerId)
-    );
+    const useFullVisibility = options?.fullVisibility === true || currentSeasonState.status === "ended";
+    const worldStatusRuntimeState = options?.includeWorldStatus === true || useFullVisibility ? runtime.exportState() : undefined;
+    const runtimeState = worldStatusRuntimeState ?? runtime.exportVisibleStateForPlayer(playerId);
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
       includeWorldStatus: options?.includeWorldStatus === true,
+      fullVisibility: useFullVisibility,
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {})
     });
     snapshotCacheByPlayerId.set(playerId, snapshot);
@@ -818,17 +818,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const parseSubscribeOptions = (
     subscriptionJson: string | undefined
-  ): { mode: "bootstrap-only" | "live"; emitBootstrapEvent: boolean; subscriptionKey?: string } => {
-    if (!subscriptionJson) return { mode: "live", emitBootstrapEvent: true };
+  ): { mode: "bootstrap-only" | "live"; emitBootstrapEvent: boolean; subscriptionKey?: string; fullVisibility: boolean } => {
+    if (!subscriptionJson) return { mode: "live", emitBootstrapEvent: true, fullVisibility: false };
     try {
-      const parsed = JSON.parse(subscriptionJson) as { mode?: unknown; emitBootstrapEvent?: unknown; subscriptionKey?: unknown };
+      const parsed = JSON.parse(subscriptionJson) as {
+        mode?: unknown;
+        emitBootstrapEvent?: unknown;
+        subscriptionKey?: unknown;
+        fullVisibility?: unknown;
+      };
       return {
         mode: parsed.mode === "bootstrap-only" ? "bootstrap-only" : "live",
         emitBootstrapEvent: parsed.emitBootstrapEvent === false ? false : parsed.mode === "bootstrap-only" ? false : true,
-        ...(typeof parsed.subscriptionKey === "string" && parsed.subscriptionKey.length > 0 ? { subscriptionKey: parsed.subscriptionKey } : {})
+        ...(typeof parsed.subscriptionKey === "string" && parsed.subscriptionKey.length > 0 ? { subscriptionKey: parsed.subscriptionKey } : {}),
+        fullVisibility: parsed.fullVisibility === true
       };
     } catch {
-      return { mode: "live", emitBootstrapEvent: true };
+      return { mode: "live", emitBootstrapEvent: true, fullVisibility: false };
     }
   };
   let nextSubscriptionNamespace = 0;
@@ -1369,8 +1375,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
       const snapshotPayload =
         subscribeOptions.mode === "bootstrap-only"
-          ? buildAndCachePlayerSnapshot(call.request.player_id, { includeWorldStatus: true })
-          : snapshotCacheByPlayerId.get(call.request.player_id) ?? buildAndCachePlayerSnapshot(call.request.player_id);
+          ? buildAndCachePlayerSnapshot(call.request.player_id, {
+              includeWorldStatus: true,
+              fullVisibility: subscribeOptions.fullVisibility
+            })
+          : buildAndCachePlayerSnapshot(call.request.player_id, {
+              fullVisibility: subscribeOptions.fullVisibility
+            });
       if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
         log.info(
           JSON.stringify({
