@@ -188,7 +188,6 @@ describe("client gateway sync regression", () => {
       resource: "FISH",
       ownerId: "player-1",
       ownershipState: "FRONTIER",
-      town: expect.objectContaining({ type: "FARMING", name: "Nauticus", populationTier: "SETTLEMENT" })
     });
     expect(state.firstChunkAt).toBeGreaterThan(0);
     expect(state.chunkFullCount).toBe(1);
@@ -988,7 +987,7 @@ describe("client gateway sync regression", () => {
     expect(state.playerColors.get("player-1")).toBe("#123456");
   });
 
-  it("refreshes derived town support after neighboring settle updates arrive later", () => {
+  it("does not synthesize town support from sparse gateway deltas", () => {
     const state = createState();
     state.me = "player-1";
     state.upkeepLastTick.foodCoverage = 0.5;
@@ -1016,13 +1015,7 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.tiles.get("10,10")?.town).toMatchObject({
-      name: "Rivetstead Causeway",
-      supportCurrent: 0,
-      supportMax: 2,
-      isFed: false,
-      summarySource: "gateway-derived"
-    });
+    expect(state.tiles.get("10,10")?.town).toBeUndefined();
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -1034,17 +1027,10 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.tiles.get("10,10")?.town).toMatchObject({
-      name: "Rivetstead Causeway",
-      supportCurrent: 2,
-      supportMax: 2,
-      isFed: true,
-      marketActive: false,
-      summarySource: "gateway-derived"
-    });
+    expect(state.tiles.get("10,10")?.town).toBeUndefined();
   });
 
-  it("treats derived towns as fed when empire FOOD coverage is full even without adjacent food", () => {
+  it("does not synthesize town fed-state from empire FOOD coverage", () => {
     const state = createState();
     state.me = "player-1";
     state.upkeepLastTick.foodCoverage = 1;
@@ -1072,17 +1058,10 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.tiles.get("10,10")?.town).toMatchObject({
-      name: "Remote Granary",
-      supportCurrent: 1,
-      supportMax: 1,
-      isFed: true,
-      goldPerMinute: 2,
-      summarySource: "gateway-derived"
-    });
+    expect(state.tiles.get("10,10")?.town).toBeUndefined();
   });
 
-  it("rehydrates derived town fed-state when PLAYER_UPDATE changes FOOD coverage", () => {
+  it("does not hydrate sparse gateway towns when PLAYER_UPDATE changes FOOD coverage", () => {
     const state = createState();
     state.me = "player-1";
     state.upkeepLastTick.foodCoverage = 0.5;
@@ -1109,12 +1088,7 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.tiles.get("10,10")?.town).toMatchObject({
-      name: "Waystation",
-      isFed: false,
-      goldPerMinute: 0,
-      summarySource: "gateway-derived"
-    });
+    expect(state.tiles.get("10,10")?.town).toBeUndefined();
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -1123,12 +1097,7 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.tiles.get("10,10")?.town).toMatchObject({
-      name: "Waystation",
-      isFed: true,
-      goldPerMinute: 2,
-      summarySource: "gateway-derived"
-    });
+    expect(state.tiles.get("10,10")?.town).toBeUndefined();
   });
 
 
