@@ -5,14 +5,27 @@ import { createSeedWorld, parseSimulationSeedProfile, type SimulationSeedProfile
 export const fallbackInitialStateFromSeed = (
   playerId: string,
   seedProfile: SimulationSeedProfile
-): PlayerSubscriptionSnapshot => ({
+): PlayerSubscriptionSnapshot => {
+  const seedWorld = createSeedWorld(seedProfile);
+  return {
   playerId,
-  tiles: [...createSeedWorld(seedProfile).tiles.values()]
+  ...(seedWorld.docks.length
+    ? {
+        docks: seedWorld.docks.map((dock) => ({
+          dockId: dock.dockId,
+          tileKey: dock.tileKey,
+          pairedDockId: dock.pairedDockId,
+          ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+        }))
+      }
+    : {}),
+  tiles: [...seedWorld.tiles.values()]
     .map((tile) => ({
       x: tile.x,
       y: tile.y,
       terrain: tile.terrain,
       ...(tile.resource ? { resource: tile.resource } : {}),
+      ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
       ...(tile.town?.type ? { townType: tile.town.type } : {}),
@@ -20,7 +33,8 @@ export const fallbackInitialStateFromSeed = (
       ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {})
     }))
     .sort((left, right) => (left.x - right.x) || (left.y - right.y))
-});
+  };
+};
 
 export { parseSimulationSeedProfile };
 export type { SimulationSeedProfile };

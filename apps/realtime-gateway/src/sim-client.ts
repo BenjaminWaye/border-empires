@@ -8,7 +8,9 @@ import {
   type CommandEnvelope,
   type CurrentSeasonSummary,
   type LockedFrontierCombatResult,
+  type PlayerSubscriptionDock,
   type PlayerSubscriptionSnapshot,
+  type SimulationSeasonState,
   type SeasonArchiveRow,
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
@@ -55,6 +57,17 @@ type ProtoTileDelta = {
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
   yieldCap?: { gold: number; strategicEach: number };
 };
+type ProtoDockRoute = {
+  dock_id?: string;
+  dockId?: string;
+  tile_key?: string;
+  tileKey?: string;
+  paired_dock_id?: string;
+  pairedDockId?: string;
+  connected_dock_ids?: string[];
+  connectedDockIds?: string[];
+};
+
 type ProtoSubscribePlayerAck = {
   ok: boolean;
   player_id?: string;
@@ -63,6 +76,9 @@ type ProtoSubscribePlayerAck = {
   playerJson?: string;
   world_status_json?: string;
   worldStatusJson?: string;
+  season_json?: string;
+  seasonJson?: string;
+  docks?: ProtoDockRoute[];
   tiles?: ProtoTileDelta[];
   snapshot?: string;
   snapshot_json?: string;
@@ -275,6 +291,20 @@ const toProtoCommand = (command: CommandEnvelope): Record<string, unknown> => ({
   payload_json: command.payloadJson
 });
 
+const normalizeProtoDock = (dock: ProtoDockRoute): PlayerSubscriptionDock | undefined => {
+  const dockId = dock.dock_id || dock.dockId;
+  const tileKey = dock.tile_key || dock.tileKey;
+  const pairedDockId = dock.paired_dock_id || dock.pairedDockId;
+  if (!dockId || !tileKey || !pairedDockId) return undefined;
+  const connectedDockIds = dock.connected_dock_ids || dock.connectedDockIds;
+  return {
+    dockId,
+    tileKey,
+    pairedDockId,
+    ...(connectedDockIds?.length ? { connectedDockIds: [...connectedDockIds] } : {})
+  };
+};
+
 const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number] => {
   const normalized: NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number] = {
     x: tile.x,
@@ -468,6 +498,7 @@ const parseSubscriptionSnapshot = (
 ): PlayerSubscriptionSnapshot => {
   let parsedPlayer: PlayerSubscriptionSnapshot["player"] | undefined;
   let parsedWorldStatus: PlayerSubscriptionSnapshot["worldStatus"] | undefined;
+  let parsedSeason: PlayerSubscriptionSnapshot["season"] | undefined;
   const candidatePlayerJsonValues: string[] = [];
   if (typeof response.player_json === "string") candidatePlayerJsonValues.push(response.player_json);
   if (typeof response.playerJson === "string") candidatePlayerJsonValues.push(response.playerJson);
@@ -498,6 +529,26 @@ const parseSubscriptionSnapshot = (
       continue;
     }
   }
+  const candidateSeasonJsonValues: string[] = [];
+  if (typeof response.season_json === "string") candidateSeasonJsonValues.push(response.season_json);
+  if (typeof response.seasonJson === "string") candidateSeasonJsonValues.push(response.seasonJson);
+  for (const json of candidateSeasonJsonValues) {
+    if (!json) continue;
+    try {
+      const parsed = JSON.parse(json) as SimulationSeasonState;
+      if (parsed && typeof parsed === "object") {
+        parsedSeason = parsed;
+        break;
+      }
+    } catch {
+      continue;
+    }
+  }
+  const parsedDocks = Array.isArray(response.docks)
+    ? response.docks
+        .map((dock) => normalizeProtoDock(dock))
+        .filter((dock): dock is PlayerSubscriptionDock => Boolean(dock))
+    : [];
   if (Array.isArray(response.tiles) && response.tiles.length > 0) {
     const responsePlayerId =
       typeof response.player_id === "string"
@@ -509,6 +560,8 @@ const parseSubscriptionSnapshot = (
       playerId: responsePlayerId,
       ...(parsedPlayer ? { player: parsedPlayer } : {}),
       ...(parsedWorldStatus ? { worldStatus: parsedWorldStatus } : {}),
+      ...(parsedSeason ? { season: parsedSeason } : {}),
+      ...(parsedDocks.length ? { docks: parsedDocks } : {}),
       tiles: response.tiles.map((tile) => normalizeProtoTile(tile))
     };
   }
@@ -528,6 +581,8 @@ const parseSubscriptionSnapshot = (
       if (parsed && typeof parsed === "object" && Array.isArray(parsed.tiles)) {
         if (!parsed.player && parsedPlayer) parsed.player = parsedPlayer;
         if (!parsed.worldStatus && parsedWorldStatus) parsed.worldStatus = parsedWorldStatus;
+        if (!parsed.season && parsedSeason) parsed.season = parsedSeason;
+        if (!parsed.docks && parsedDocks.length) parsed.docks = parsedDocks;
         return parsed;
       }
     } catch {
@@ -539,6 +594,8 @@ const parseSubscriptionSnapshot = (
     playerId,
     ...(parsedPlayer ? { player: parsedPlayer } : {}),
     ...(parsedWorldStatus ? { worldStatus: parsedWorldStatus } : {}),
+    ...(parsedSeason ? { season: parsedSeason } : {}),
+    ...(parsedDocks.length ? { docks: parsedDocks } : {}),
     tiles: []
   };
 };

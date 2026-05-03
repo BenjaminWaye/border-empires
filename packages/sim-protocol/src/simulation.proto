@@ -82,12 +82,21 @@ message TileDelta {
   string shard_site_json = 17;
 }
 
+message DockRoute {
+  string dock_id = 1;
+  string tile_key = 2;
+  string paired_dock_id = 3;
+  repeated string connected_dock_ids = 4;
+}
+
 message SubscribePlayerAck {
   bool ok = 1;
   string player_id = 2;
   repeated TileDelta tiles = 3;
   string player_json = 4;
   string world_status_json = 5;
+  repeated DockRoute docks = 6;
+  string season_json = 7;
 }
 
 message PreparePlayerAck {

@@ -268,6 +268,13 @@ export type SimulationEvent =
       payloadJson: string;
     };
 
+export type PlayerSubscriptionDock = {
+  dockId: string;
+  tileKey: string;
+  pairedDockId: string;
+  connectedDockIds?: string[];
+};
+
 export type PlayerSubscriptionSnapshot = {
   playerId: string;
   player?: {
@@ -289,6 +296,8 @@ export type PlayerSubscriptionSnapshot = {
     domainIds: string[];
   };
   worldStatus?: WorldStatusSnapshot;
+  season?: SimulationSeasonState;
+  docks?: PlayerSubscriptionDock[];
   tiles: Array<{
     x: number;
     y: number;

@@ -145,6 +145,54 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
   });
 
+  it("includes dock route definitions in the bootstrap snapshot", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [
+        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
+        { x: 90, y: 90, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", dockId: "dock-b" }
+      ],
+      players: [
+        {
+          id: "player-1",
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: [],
+      docks: [
+        { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b" },
+        { dockId: "dock-b", tileKey: "90,90", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+      ]
+    }, undefined, {
+      seasonState: {
+        seasonId: "season-managed",
+        seasonSequence: 2,
+        rulesetId: "seasonal-default",
+        worldSeed: 4242,
+        status: "active",
+        startedAt: 1000,
+        victoryTrackers: []
+      }
+    });
+
+    expect(snapshot.season).toEqual({
+      seasonId: "season-managed",
+      seasonSequence: 2,
+      rulesetId: "seasonal-default",
+      worldSeed: 4242,
+      status: "active",
+      startedAt: 1000,
+      victoryTrackers: []
+    });
+    expect(snapshot.docks).toEqual([
+      { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b" },
+      { dockId: "dock-b", tileKey: "90,90", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+    ]);
+  });
+
   it("includes live player economy and development state when exported by the simulation runtime", () => {
     expect(
       buildPlayerSubscriptionSnapshot("player-1", {

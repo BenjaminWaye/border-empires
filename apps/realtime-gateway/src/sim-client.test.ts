@@ -253,6 +253,46 @@ describe("simulation event stream supervisor", () => {
     );
   });
 
+  it("parses dock routes from subscribe responses", async () => {
+    const SubscribePlayer = vi.fn((_request, callback: (error: Error | null, response: {
+      ok: boolean;
+      player_id: string;
+      world_status_json?: string;
+      season_json?: string;
+      docks?: Array<{ dock_id: string; tile_key: string; paired_dock_id: string; connected_dock_ids?: string[] }>;
+      tiles: Array<{ x: number; y: number; dock_id?: string }>;
+    }) => void) =>
+      callback(null, {
+        ok: true,
+        player_id: "player-1",
+        season_json: JSON.stringify({ seasonId: "season-managed", seasonSequence: 2, rulesetId: "seasonal-default", worldSeed: 4242, status: "active", startedAt: 1000, victoryTrackers: [] }),
+        docks: [
+          { dock_id: "dock-a", tile_key: "10,10", paired_dock_id: "dock-b" },
+          { dock_id: "dock-b", tile_key: "90,90", paired_dock_id: "dock-a", connected_dock_ids: ["dock-a"] }
+        ],
+        tiles: [{ x: 10, y: 10, dock_id: "dock-a" }]
+      })
+    );
+    const client = createSimulationClientFromRpcClient({
+      SubmitCommand: vi.fn(),
+      PreparePlayer: vi.fn(),
+      SubscribePlayer,
+      UnsubscribePlayer: vi.fn(),
+      Ping: vi.fn(),
+      StreamEvents: vi.fn()
+    } as never);
+
+    await expect(client.subscribePlayer("player-1")).resolves.toEqual({
+      playerId: "player-1",
+      season: { seasonId: "season-managed", seasonSequence: 2, rulesetId: "seasonal-default", worldSeed: 4242, status: "active", startedAt: 1000, victoryTrackers: [] },
+      docks: [
+        { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b" },
+        { dockId: "dock-b", tileKey: "90,90", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+      ],
+      tiles: [{ x: 10, y: 10, dockId: "dock-a" }]
+    });
+  });
+
   it("accepts player snapshots even if the grpc layer surfaces camelCase snapshotJson", async () => {
     const rpcClient = {
       SubmitCommand: vi.fn(),

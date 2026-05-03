@@ -228,6 +228,54 @@ describe("buildInitMessage", () => {
     });
   });
 
+  it("includes dock metadata for managed rewrite worlds without a legacy snapshot bootstrap", async () => {
+    const store = new InMemoryGatewayCommandStore();
+
+    const message = await buildInitMessage(
+      { playerId: "player-1", playerName: "Nauticus" },
+      store,
+      {
+        playerId: "player-1",
+        season: {
+          seasonId: "season-managed",
+          seasonSequence: 2,
+          rulesetId: "seasonal-default",
+          worldSeed: 4242,
+          status: "active",
+          startedAt: 1000,
+          victoryTrackers: []
+        },
+        docks: [
+          { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b" },
+          { dockId: "dock-b", tileKey: "90,90", pairedDockId: "dock-a" }
+        ],
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a", townType: "MARKET", townName: "Harbor" },
+          { x: 90, y: 90, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-b", townType: "MARKET", townName: "Far Port" }
+        ]
+      },
+      "default"
+    );
+
+    expect(message.runtimeIdentity).toEqual(
+      expect.objectContaining({
+        sourceType: "seed-profile",
+        seasonId: "season-managed",
+        worldSeed: 4242,
+        fingerprint: "seasonal-default-season-managed-4242",
+        seedProfile: "default"
+      })
+    );
+    expect(message.config.season).toEqual({ seasonId: "season-managed", worldSeed: 4242 });
+    expect(message.mapMeta).toEqual(
+      expect.objectContaining({
+        dockCount: 2,
+        dockPairCount: 1,
+        dockPairs: [{ ax: 10, ay: 10, bx: 90, by: 90 }]
+      })
+    );
+  });
+
   it("includes season victory objectives for snapshot-backed rewrite bootstrap", async () => {
     const store = new InMemoryGatewayCommandStore();
     const players = new Map<string, DomainPlayer>([
