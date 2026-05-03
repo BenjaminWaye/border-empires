@@ -10,28 +10,33 @@ const neighbors = (x: number, y: number): Array<[number, number]> => [
   [(x - 1 + WORLD_WIDTH) % WORLD_WIDTH, y]
 ];
 
-describe("coastal sea terrain", () => {
-  it("classifies shoreline water separately from deep sea", () => {
+describe("shoreline tiles generate as land, not coastal sea", () => {
+  it("never emits COASTAL_SEA from worldgen and keeps SEA fully off-coast", () => {
     setWorldSeed(42);
 
-    let coastal: [number, number] | undefined;
-    let deep: [number, number] | undefined;
+    let firstSea: [number, number] | undefined;
+    let firstLand: [number, number] | undefined;
 
-    for (let y = 0; y < WORLD_HEIGHT && (!coastal || !deep); y += 1) {
-      for (let x = 0; x < WORLD_WIDTH && (!coastal || !deep); x += 1) {
+    for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+      for (let x = 0; x < WORLD_WIDTH; x += 1) {
         const terrain = terrainAt(x, y);
-        if (terrain === "COASTAL_SEA") coastal = [x, y];
-        if (terrain === "SEA") deep = [x, y];
+        // The COASTAL_SEA terrain code is preserved on the type union for
+        // back-compat with old snapshots, but worldgen must no longer emit
+        // it — every tile with any land neighbour is generated as LAND so it
+        // is capturable.
+        expect(terrain).not.toBe("COASTAL_SEA");
+        if (!firstLand && terrain === "LAND") firstLand = [x, y];
+        if (!firstSea && terrain === "SEA") firstSea = [x, y];
       }
     }
 
-    expect(coastal).toBeDefined();
-    expect(deep).toBeDefined();
+    expect(firstLand).toBeDefined();
+    expect(firstSea).toBeDefined();
 
-    const [coastalX, coastalY] = coastal!;
-    const [deepX, deepY] = deep!;
-
-    expect(neighbors(coastalX, coastalY).some(([x, y]) => terrainAt(x, y) === "LAND")).toBe(true);
-    expect(neighbors(deepX, deepY).every(([x, y]) => terrainAt(x, y) !== "LAND")).toBe(true);
+    // Pure SEA tiles must be fully off-coast: no land in any 4-neighbour.
+    const [seaX, seaY] = firstSea!;
+    expect(
+      neighbors(seaX, seaY).every(([x, y]) => terrainAt(x, y) !== "LAND")
+    ).toBe(true);
   });
 });
