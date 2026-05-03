@@ -4,6 +4,8 @@ import { InMemorySimulationCommandStore } from "./command-store.js";
 import { InMemorySimulationEventStore } from "./event-store.js";
 import { InMemorySimulationSnapshotStore, buildSimulationSnapshotSections } from "./snapshot-store.js";
 import { generateSeasonWorld } from "./season-worldgen.js";
+import { createSeedWorld } from "./seed-state.js";
+import { createInitialSeasonState } from "./season-lifecycle.js";
 import { createSimulationService } from "./simulation-service.js";
 import type { SimulationEventStore } from "./event-store.js";
 import { InMemorySeasonSummaryStore } from "./season-summary-store.js";
@@ -264,6 +266,61 @@ describe("simulation service startup recovery", () => {
     expect(tiles).toEqual(
       expect.arrayContaining([expect.objectContaining({ x: 99, y: 99, ownerId: "player-1" })])
     );
+    await service.close();
+  });
+
+  it("replaces a recovered seed-backed default world with the managed ruleset bootstrap", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+    const seasonSummaryStore = new InMemorySeasonSummaryStore();
+    const seedWorld = createSeedWorld("default");
+    await snapshotStore.saveSnapshot({
+      lastAppliedEventId: 0,
+      snapshotSections: buildSimulationSnapshotSections({
+        initialState: {
+          tiles: [...seedWorld.tiles.values()],
+          activeLocks: [],
+          season: createInitialSeasonState({
+            seasonSequence: 1,
+            rulesetId: "seed:default",
+            worldSeed: 42,
+            startedAt: 1_000
+          })
+        },
+        commands: [],
+        eventsByCommandId: new Map()
+      }),
+      createdAt: 1_000
+    });
+
+    const service = await createSimulationService({
+      databaseUrl: "postgres://simulation",
+      commandStore,
+      eventStore,
+      snapshotStore,
+      seasonSummaryStore,
+      rulesetId: "seasonal-default",
+      seedProfile: "default",
+      log: {
+        info: () => undefined,
+        error: () => undefined,
+        warn: () => undefined
+      }
+    });
+
+    expect(service.startupRecovery.initialState.season).toEqual(
+      expect.objectContaining({
+        seasonId: "season-1",
+        seasonSequence: 1,
+        rulesetId: "seasonal-default",
+        status: "active",
+        worldSeed: expect.any(Number)
+      })
+    );
+    expect(service.startupRecovery.initialState.tiles.length).toBeGreaterThan(1000);
+    expect(service.startupRecovery.initialState.tiles.some((tile) => tile.ownerId?.startsWith("ai-"))).toBe(true);
+    expect(service.startupRecovery.initialState.tiles.some((tile) => tile.dockId)).toBe(true);
     await service.close();
   });
 
