@@ -1,4 +1,4 @@
-import { AmbientLight, BoxGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from "three";
+import { BoxGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Scene, WebGLRenderer } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
@@ -6,6 +6,9 @@ import { isForestTile } from "./client-constants.js";
 import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
 import { createLegacy3DTerrainTextures } from "./client-map-3d-terrain-textures.js";
 import { normalizeColorForThree } from "./client-three-color.js";
+import { applyPerspectiveCamera, createPerspectiveCamera } from "./client-map-3d-perspective-camera.js";
+import { createAtmosphere } from "./client-map-3d-atmosphere.js";
+import { createPointerPick, toroidDelta } from "./client-map-3d-pointer-pick.js";
 
 type ClientThreeTerrainRendererDeps = {
   state: ClientState;
@@ -22,8 +25,6 @@ const MAX_VISIBLE_TILES = 14000;
 const MAX_FOREST_INSTANCES = MAX_VISIBLE_TILES * 5;
 const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
-const CAMERA_HEIGHT = 100;
-const CAMERA_TILT_DEGREES_FROM_VERTICAL = 14;
 const MOUNTAIN_SQUARE_PEAK_ROTATION_RADIANS = Math.PI / 4;
 const LAND_TILE_TOP_Y = 0.37;
 const OWNERSHIP_SURFACE_Y = LAND_TILE_TOP_Y + 0.004;
@@ -41,23 +42,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   renderer.setPixelRatio(1);
 
   const scene = new Scene();
-  scene.background = new Color("#071223");
-  scene.fog = null;
-
-  const ambient = new AmbientLight("#a7c8e2", 1.12);
-  scene.add(ambient);
-
-  const sun = new DirectionalLight("#fff4d6", 1.7);
-  sun.position.set(-8, 18, 10);
-  scene.add(sun);
-
-  const sky = new DirectionalLight("#87ccff", 0.52);
-  sky.position.set(10, 12, -8);
-  scene.add(sky);
-
-  const camera = new OrthographicCamera(-10, 10, 8, -8, 0.1, 2500);
-  const cameraTarget = new Vector3(0, 0, 0);
-  camera.up.set(0, 0, -1);
+  const atmosphere = createAtmosphere(scene);
+  const camera = createPerspectiveCamera(deps.canvas);
 
   const { grassLightTexture, grassDarkTexture, sandTexture, seaDeepTexture, seaCoastTexture } = createLegacy3DTerrainTextures();
 
@@ -364,12 +350,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     return false;
   };
-  const toroidDelta = (from: number, to: number, dim: number): number => {
-    let delta = to - from;
-    if (delta > dim / 2) delta -= dim;
-    if (delta < -dim / 2) delta += dim;
-    return delta;
-  };
   const syncHighlightMarker = (
     marker: LineSegments,
     tile: { x: number; y: number } | undefined,
@@ -478,26 +458,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   };
 
   const applyCamera = (): void => {
-    const size = Math.max(1, deps.state.zoom);
-    const width = Math.max(1, deps.canvas.width);
-    const height = Math.max(1, deps.canvas.height);
-    const halfW = Math.max(1, Math.floor(width / size / 2));
-    const halfH = Math.max(1, Math.floor(height / size / 2));
-    // Use pixel-space frustum + zoom so 1 world unit == 1 tile exactly.
-    camera.left = -width / 2;
-    camera.right = width / 2;
-    camera.top = height / 2;
-    camera.bottom = -height / 2;
-    camera.zoom = size;
-    const centerOffsetX = width / (2 * size) - halfW;
-    const centerOffsetZ = height / (2 * size) - halfH;
-    const tiltRadians = (CAMERA_TILT_DEGREES_FROM_VERTICAL * Math.PI) / 180;
-    const cameraDepthOffset = Math.tan(tiltRadians) * CAMERA_HEIGHT;
-    camera.position.set(centerOffsetX, CAMERA_HEIGHT, centerOffsetZ + cameraDepthOffset);
-    camera.far = 2500;
-    cameraTarget.set(centerOffsetX, 0, centerOffsetZ);
-    camera.lookAt(cameraTarget);
-    camera.updateProjectionMatrix();
+    applyPerspectiveCamera(camera, {
+      zoom: deps.state.zoom,
+      canvasWidth: deps.canvas.width,
+      canvasHeight: deps.canvas.height
+    });
   };
 
   const resize = (): void => {
@@ -751,37 +716,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     rafId = requestAnimationFrame(renderLoop);
   };
 
-  const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } => {
-    const width = Math.max(1, deps.canvas.width);
-    const height = Math.max(1, deps.canvas.height);
-    const ndcX = (offsetX / width) * 2 - 1;
-    const ndcY = -((offsetY / height) * 2 - 1);
-    const nearPoint = new Vector3(ndcX, ndcY, -1).unproject(camera);
-    const farPoint = new Vector3(ndcX, ndcY, 1).unproject(camera);
-    const rayDir = farPoint.sub(nearPoint);
-    const rayDirY = rayDir.y;
-    if (Math.abs(rayDirY) < 1e-6) {
-      return { gx: deps.state.camX, gy: deps.state.camY };
-    }
-    const tileTopPlaneY = 0.14;
-    const t = (tileTopPlaneY - nearPoint.y) / rayDirY;
-    const hitX = nearPoint.x + rayDir.x * t;
-    const hitZ = nearPoint.z + rayDir.z * t;
-    return {
-      gx: deps.state.camX + Math.floor(hitX),
-      gy: deps.state.camY + Math.floor(hitZ)
-    };
-  };
-
-  const worldToScreen = (wx: number, wy: number): { sx: number; sy: number } => {
-    const dx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-    const dy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-    const projected = new Vector3(dx, LAND_TILE_TOP_Y, dy).project(camera);
-    return {
-      sx: (projected.x * 0.5 + 0.5) * deps.canvas.width,
-      sy: (-projected.y * 0.5 + 0.5) * deps.canvas.height
-    };
-  };
+  const { worldTileRawFromPointer, worldToScreen } = createPointerPick({
+    camera,
+    canvas: deps.canvas,
+    state: deps.state,
+    worldWidth: WORLD_WIDTH,
+    worldHeight: WORLD_HEIGHT
+  });
 
   const stop = (): void => {
     if (rafId !== undefined) cancelAnimationFrame(rafId);
@@ -819,6 +760,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const { material } of queuedActionMarkers) material.dispose();
     for (const { material } of queuedSettlementMarkers) material.dispose();
     for (const { material } of queuedBuildMarkers) material.dispose();
+    atmosphere.dispose();
     glCanvas.remove();
     delete deps.canvas.dataset.renderer;
   };
