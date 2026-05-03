@@ -1,4 +1,4 @@
-import { BoxGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Scene, WebGLRenderer } from "three";
+import { BoxGeometry, Color, DoubleSide, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, PlaneGeometry, Scene, WebGLRenderer } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
@@ -10,6 +10,7 @@ import { createHeightfield, type HeightfieldTerrainKind } from "./client-map-3d-
 import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
 import { createWaterSurface } from "./client-map-3d-water-surface.js";
 import { createVillageEffects } from "./client-map-3d-village-fx.js";
+import { createForest } from "./client-map-3d-forest.js";
 import { normalizeColorForThree } from "./client-three-color.js";
 
 type ClientThreeTerrainRendererDeps = {
@@ -24,7 +25,6 @@ type ClientThreeTerrainRendererDeps = {
 };
 
 const MAX_VISIBLE_TILES = 14000;
-const MAX_FOREST_INSTANCES = MAX_VISIBLE_TILES * 5;
 const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.012;
@@ -49,9 +49,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const waterSurface = createWaterSurface(scene);
   const villageEffects = createVillageEffects(scene);
+  const forest = createForest(scene, MAX_VISIBLE_TILES);
 
-  const forestCanopyMaterial = new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true });
-  const forestTrunkMaterial = new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true });
   const ownershipSettledMaterial = new MeshBasicMaterial({
     color: "#ffffff",
     transparent: false,
@@ -68,12 +67,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     side: DoubleSide
   });
 
-  const forestGeometry = new ConeGeometry(0.22, 0.92, 5, 1, false);
-  const forestTrunkGeometry = new CylinderGeometry(0.075, 0.085, 0.7, 6);
   const ownershipGeometry = new PlaneGeometry(1, 1);
 
-  const forestMesh = new InstancedMesh(forestGeometry, forestCanopyMaterial, MAX_FOREST_INSTANCES);
-  const forestTrunkMesh = new InstancedMesh(forestTrunkGeometry, forestTrunkMaterial, MAX_FOREST_INSTANCES);
   const ownershipSettledMesh = new InstancedMesh(ownershipGeometry, ownershipSettledMaterial, MAX_VISIBLE_TILES);
   const ownershipFrontierMesh = new InstancedMesh(ownershipGeometry, ownershipFrontierMaterial, MAX_VISIBLE_TILES);
   const markerEdgesGeometry = new EdgesGeometry(new BoxGeometry(1, 0.04, 1));
@@ -117,12 +112,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
-  for (const mesh of [
-    forestMesh,
-    forestTrunkMesh,
-    ownershipSettledMesh,
-    ownershipFrontierMesh
-  ]) {
+  for (const mesh of [ownershipSettledMesh, ownershipFrontierMesh]) {
     mesh.frustumCulled = false;
   }
   selectedMarker.frustumCulled = false;
@@ -132,13 +122,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
 
-  forestMesh.count = 0;
-  forestTrunkMesh.count = 0;
   ownershipSettledMesh.count = 0;
   ownershipFrontierMesh.count = 0;
   scene.add(
-    forestMesh,
-    forestTrunkMesh,
     ownershipSettledMesh,
     ownershipFrontierMesh,
     selectedMarker,
@@ -150,8 +136,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   );
 
   const tempMatrix = new Matrix4();
-  const forestCanopyScaleMatrix = new Matrix4();
-  const forestTrunkScaleMatrix = new Matrix4();
   const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0 };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
@@ -333,8 +317,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     mountainMassifs.clear();
     villageEffects.clear();
-    let forestCount = 0;
-    let forestTrunkCount = 0;
+    forest.clear();
     let ownershipSettledCount = 0;
     let ownershipFrontierCount = 0;
     const selectedCoord = deps.state.selected;
@@ -382,27 +365,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           continue;
         }
         if (forestTile) {
-          const trunkOzBias = 0.04;
-          const forestTreeLayout = [
-            { ox: -0.26, oz: -0.24, canopyScale: 0.84, trunkScale: 0.9, trunkY: 0.56, canopyY: 1.1 },
-            { ox: 0.24, oz: -0.23, canopyScale: 0.82, trunkScale: 0.88, trunkY: 0.56, canopyY: 1.08 },
-            { ox: 0.02, oz: 0.0, canopyScale: 1, trunkScale: 1, trunkY: 0.6, canopyY: 1.16 },
-            { ox: -0.24, oz: 0.25, canopyScale: 0.8, trunkScale: 0.86, trunkY: 0.55, canopyY: 1.07 },
-            { ox: 0.25, oz: 0.24, canopyScale: 0.81, trunkScale: 0.87, trunkY: 0.55, canopyY: 1.08 }
-          ] as const;
-          for (const tree of forestTreeLayout) {
-            forestTrunkScaleMatrix.makeScale(tree.trunkScale, tree.trunkScale, tree.trunkScale);
-            tempMatrix.copy(forestTrunkScaleMatrix);
-            tempMatrix.setPosition(x + tree.ox, surfaceY + tree.trunkY, z + tree.oz + trunkOzBias);
-            forestTrunkMesh.setMatrixAt(forestTrunkCount, tempMatrix);
-            forestTrunkCount += 1;
-
-            forestCanopyScaleMatrix.makeScale(tree.canopyScale, tree.canopyScale, tree.canopyScale);
-            tempMatrix.copy(forestCanopyScaleMatrix);
-            tempMatrix.setPosition(x + tree.ox, surfaceY + tree.canopyY, z + tree.oz);
-            forestMesh.setMatrixAt(forestCount, tempMatrix);
-            forestCount += 1;
-          }
+          forest.addInstance(x, z, surfaceY);
         }
         if (isOwnedLand && ownerId) {
           tempMatrix.makeRotationX(-Math.PI / 2);
@@ -440,12 +403,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     mountainMassifs.commit();
     villageEffects.commit();
-    forestMesh.count = forestCount;
-    forestTrunkMesh.count = forestTrunkCount;
+    forest.commit();
     ownershipSettledMesh.count = ownershipSettledCount;
     ownershipFrontierMesh.count = ownershipFrontierCount;
-    forestMesh.instanceMatrix.needsUpdate = true;
-    forestTrunkMesh.instanceMatrix.needsUpdate = true;
     ownershipSettledMesh.instanceMatrix.needsUpdate = true;
     ownershipFrontierMesh.instanceMatrix.needsUpdate = true;
     if (ownershipSettledMesh.instanceColor) ownershipSettledMesh.instanceColor.needsUpdate = true;
@@ -498,11 +458,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const stop = (): void => {
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     renderer.dispose();
-    forestGeometry.dispose();
-    forestTrunkGeometry.dispose();
     ownershipGeometry.dispose();
-    forestCanopyMaterial.dispose();
-    forestTrunkMaterial.dispose();
     ownershipSettledMaterial.dispose();
     ownershipFrontierMaterial.dispose();
     markerEdgesGeometry.dispose();
@@ -510,6 +466,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const { material } of queuedActionMarkers) material.dispose();
     for (const { material } of queuedSettlementMarkers) material.dispose();
     for (const { material } of queuedBuildMarkers) material.dispose();
+    forest.dispose();
     villageEffects.dispose();
     waterSurface.dispose();
     mountainMassifs.dispose();
