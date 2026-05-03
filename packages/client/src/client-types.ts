@@ -82,7 +82,6 @@ export type Tile = {
   town?: {
     name?: string;
     type: "MARKET" | "FARMING";
-    summarySource?: "gateway-derived";
     baseGoldPerMinute: number;
     supportCurrent: number;
     supportMax: number;
