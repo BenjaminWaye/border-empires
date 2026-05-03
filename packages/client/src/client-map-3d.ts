@@ -9,6 +9,7 @@ import { createPointerPick, toroidDelta } from "./client-map-3d-pointer-pick.js"
 import { createHeightfield, type HeightfieldTerrainKind } from "./client-map-3d-heightfield.js";
 import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
 import { createWaterSurface } from "./client-map-3d-water-surface.js";
+import { createVillageEffects } from "./client-map-3d-village-fx.js";
 import { normalizeColorForThree } from "./client-three-color.js";
 
 type ClientThreeTerrainRendererDeps = {
@@ -47,6 +48,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   scene.add(heightfield.mesh);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const waterSurface = createWaterSurface(scene);
+  const villageEffects = createVillageEffects(scene);
 
   const forestCanopyMaterial = new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true });
   const forestTrunkMaterial = new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true });
@@ -330,6 +332,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
 
     mountainMassifs.clear();
+    villageEffects.clear();
     let forestCount = 0;
     let forestTrunkCount = 0;
     let ownershipSettledCount = 0;
@@ -406,6 +409,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           tempMatrix.setPosition(x, surfaceY + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, z);
           const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
           const ownerColor = new Color(normalizedColor);
+          if (tile?.town) {
+            const tileSeed = wx * 17 + wy * 31;
+            villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
+            if (tile.capital) {
+              villageEffects.addCapitalBanner(x, z, surfaceY, normalizedColor, tileSeed);
+            }
+          }
           if (ownershipState === "FRONTIER") {
             ownershipFrontierMesh.setMatrixAt(ownershipFrontierCount, tempMatrix);
             ownershipFrontierMesh.setColorAt(ownershipFrontierCount, ownerColor);
@@ -429,6 +439,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
     mountainMassifs.commit();
+    villageEffects.commit();
     forestMesh.count = forestCount;
     forestTrunkMesh.count = forestTrunkCount;
     ownershipSettledMesh.count = ownershipSettledCount;
@@ -471,6 +482,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncTownSupportMarkers();
     syncQueueMarkers();
     waterSurface.update(nowMs, deps.state.camX, deps.state.camY);
+    villageEffects.update(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -498,6 +510,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const { material } of queuedActionMarkers) material.dispose();
     for (const { material } of queuedSettlementMarkers) material.dispose();
     for (const { material } of queuedBuildMarkers) material.dispose();
+    villageEffects.dispose();
     waterSurface.dispose();
     mountainMassifs.dispose();
     heightfield.dispose();
