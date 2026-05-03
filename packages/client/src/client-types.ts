@@ -61,6 +61,7 @@ export type Tile = {
   breachShockUntil?: number;
   clusterId?: string;
   clusterType?: string;
+  landBiome?: "GRASS" | "SAND" | "COASTAL_SAND";
   regionType?: "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
   dockId?: string;
   dock?: {

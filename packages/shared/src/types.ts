@@ -209,6 +209,7 @@ export interface Tile {
   continentId?: number;
   clusterId?: string;
   clusterType?: ClusterType;
+  landBiome?: LandBiome;
   regionType?: RegionType;
   dockId?: string;
   dock?: {

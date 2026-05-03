@@ -655,6 +655,65 @@ describe("client network regression guards", () => {
     );
   });
 
+  it("rebuilds terrain caches when runtime land context changes", () => {
+    const state = createState();
+    state.tiles.set("100,247", {
+      x: 100,
+      y: 247,
+      terrain: "LAND",
+      fogged: false,
+      detailLevel: "summary",
+      landBiome: "GRASS",
+      regionType: "BROKEN_HIGHLANDS"
+    });
+    const ws = new FakeWebSocket();
+    const clearRenderCaches = vi.fn();
+    const buildMiniMapBase = vi.fn();
+    bindWithDeps(state, ws, { clearRenderCaches, buildMiniMapBase });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [{ x: 100, y: 247, terrain: "LAND", fogged: false, detailLevel: "summary", landBiome: "SAND", regionType: "CRYSTAL_WASTES" }]
+      })
+    });
+
+    expect(clearRenderCaches).toHaveBeenCalledTimes(1);
+    expect(buildMiniMapBase).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears stale runtime land context when a tile stops being visible land", () => {
+    const state = createState();
+    state.tiles.set("100,247", {
+      x: 100,
+      y: 247,
+      terrain: "LAND",
+      fogged: false,
+      detailLevel: "summary",
+      landBiome: "SAND",
+      regionType: "ANCIENT_HEARTLAND"
+    });
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [{ x: 100, y: 247, terrain: "MOUNTAIN", fogged: false, detailLevel: "summary" }]
+      })
+    });
+
+    expect(state.tiles.get("100,247")).toEqual(
+      expect.objectContaining({
+        x: 100,
+        y: 247,
+        terrain: "MOUNTAIN"
+      })
+    );
+    expect(state.tiles.get("100,247")?.landBiome).toBeUndefined();
+    expect(state.tiles.get("100,247")?.regionType).toBeUndefined();
+  });
+
   it("clears stale barbarian ownership when an authoritative TILE_DELTA omits owner fields", () => {
     const state = createState();
     state.tiles.set("100,247", {

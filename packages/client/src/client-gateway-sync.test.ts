@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch } from "./client-gateway-sync.js";
 import type { Tile } from "./client-types.js";
@@ -417,6 +417,116 @@ describe("client gateway sync", () => {
         ownerId: "me",
         ownershipState: "FRONTIER",
         shardSite: { kind: "CACHE", amount: 1 }
+      })
+    );
+  });
+
+  it("clears stale runtime land context when a gateway tile stops being land", () => {
+    const deps = createDeps();
+
+    deps.state.tiles.set("10,12", {
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      fogged: false,
+      detailLevel: "summary",
+      landBiome: "SAND",
+      regionType: "CRYSTAL_WASTES"
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 10,
+        y: 12,
+        terrain: "MOUNTAIN"
+      }
+    ]);
+
+    expect(deps.state.tiles.get("10,12")).toEqual(
+      expect.objectContaining({
+        x: 10,
+        y: 12,
+        terrain: "MOUNTAIN",
+        fogged: false
+      })
+    );
+    expect(deps.state.tiles.get("10,12")?.landBiome).toBeUndefined();
+    expect(deps.state.tiles.get("10,12")?.regionType).toBeUndefined();
+  });
+
+  it("invalidates cached terrain rendering once when gateway land context changes", () => {
+    const deps = {
+      ...createDeps(),
+      clearRenderCaches: vi.fn(),
+      buildMiniMapBase: vi.fn()
+    };
+
+    deps.state.tiles.set("10,12", {
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      fogged: false,
+      detailLevel: "summary",
+      landBiome: "GRASS",
+      regionType: "ANCIENT_HEARTLAND"
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 10,
+        y: 12,
+        terrain: "LAND",
+        landBiome: "SAND",
+        regionType: "CRYSTAL_WASTES"
+      }
+    ]);
+
+    expect(deps.state.tiles.get("10,12")).toEqual(
+      expect.objectContaining({
+        x: 10,
+        y: 12,
+        terrain: "LAND",
+        landBiome: "SAND",
+        regionType: "CRYSTAL_WASTES"
+      })
+    );
+    expect(deps.clearRenderCaches).toHaveBeenCalledTimes(1);
+    expect(deps.buildMiniMapBase).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves ownership when gateway deltas omit owner fields", () => {
+    const deps = createDeps();
+
+    deps.state.tiles.set("10,12", {
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      detailLevel: "summary",
+      landBiome: "GRASS",
+      regionType: "ANCIENT_HEARTLAND"
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 10,
+        y: 12,
+        landBiome: "SAND",
+        regionType: "CRYSTAL_WASTES"
+      }
+    ]);
+
+    expect(deps.state.tiles.get("10,12")).toEqual(
+      expect.objectContaining({
+        x: 10,
+        y: 12,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        landBiome: "SAND",
+        regionType: "CRYSTAL_WASTES"
       })
     );
   });
