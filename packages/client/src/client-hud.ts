@@ -950,7 +950,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.leaderboardEl.innerHTML = safeValue(
     "leaderboardHtml",
     fallbackCard("Leaderboard"),
-    () => leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner)
+    () => leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner, state.playerColors)
   );
   dom.mobileLeaderboardEl.innerHTML = dom.leaderboardEl.innerHTML;
   dom.feedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () =>
