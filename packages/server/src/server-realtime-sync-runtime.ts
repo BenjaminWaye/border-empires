@@ -1,5 +1,6 @@
 import type { Player, Tile, TileKey } from "@border-empires/shared";
 import type { VisibilitySnapshot } from "./chunk/snapshots.js";
+import type { ChunkSnapshotTrigger } from "./chunk/snapshots.js";
 import type { Ws } from "./server-runtime-config.js";
 
 type AuthIdentityLike = {
@@ -38,7 +39,7 @@ export interface CreateServerRealtimeSyncRuntimeDeps {
   playerTile: (x: number, y: number) => Tile;
   recordDiscoveredTilesForPlayer: (playerId: string, tileKeys: Iterable<TileKey>) => boolean;
   tileInSubscription: (playerId: string, x: number, y: number) => boolean;
-  sendChunkSnapshot: (socket: Ws, player: Player, sub: { cx: number; cy: number; radius: number }) => void;
+  sendChunkSnapshot: (socket: Ws, player: Player, sub: { cx: number; cy: number; radius: number }, trigger?: ChunkSnapshotTrigger) => void;
   visibilitySnapshotForPlayer: (player: Player) => VisibilitySnapshot;
   visibleInSnapshot: (snapshot: VisibilitySnapshot, x: number, y: number) => boolean;
   visible: (player: Player, x: number, y: number) => boolean;
@@ -80,7 +81,7 @@ export interface ServerRealtimeSyncRuntime {
   resumeVictoryPressureTimers: () => void;
   clearVictoryPressurePauseState: () => void;
   isVisibleToAnyOnlinePlayer: (x: number, y: number) => boolean;
-  refreshSubscribedViewForPlayer: (playerId: string) => void;
+  refreshSubscribedViewForPlayer: (playerId: string, trigger?: ChunkSnapshotTrigger) => void;
   fogTileForPlayer: (x: number, y: number) => Tile;
   visibleTileForPlayer: (player: Player, x: number, y: number, snapshot?: VisibilitySnapshot) => Tile;
   sendLocalVisionDeltaForPlayer: (playerId: string, centers: Array<{ x: number; y: number }>) => void;
@@ -320,7 +321,7 @@ export const createServerRealtimeSyncRuntime = (
     return false;
   };
 
-  const refreshSubscribedViewForPlayer = (playerId: string): void => {
+  const refreshSubscribedViewForPlayer = (playerId: string, trigger: ChunkSnapshotTrigger = "realtime_refresh"): void => {
     const socket = bulkSocketForPlayer(playerId);
     const player = deps.players.get(playerId);
     const sub = deps.chunkSubscriptionByPlayer.get(playerId);
@@ -351,7 +352,7 @@ export const createServerRealtimeSyncRuntime = (
               });
             }
             deferredSubscribedViewRefreshStartedAtByPlayer.delete(playerId);
-            refreshSubscribedViewForPlayer(playerId);
+            refreshSubscribedViewForPlayer(playerId, trigger);
           }, DEFERRED_SUBSCRIBED_VIEW_REFRESH_MS)
         );
       }
@@ -363,7 +364,7 @@ export const createServerRealtimeSyncRuntime = (
     }
     deferredSubscribedViewRefreshStartedAtByPlayer.delete(playerId);
     deps.pendingChunkRefreshByPlayer.delete(playerId);
-    deps.sendChunkSnapshot(socket, player, sub);
+    deps.sendChunkSnapshot(socket, player, sub, trigger);
   };
 
   const fogTileForPlayer = (x: number, y: number): Tile => {

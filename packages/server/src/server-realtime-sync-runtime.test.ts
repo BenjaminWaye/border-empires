@@ -113,7 +113,7 @@ describe("server realtime sync runtime", () => {
     vi.advanceTimersByTime(50);
 
     expect(sendChunkSnapshot).toHaveBeenCalledTimes(1);
-    expect(sendChunkSnapshot).toHaveBeenCalledWith(socket, player, { cx: 0, cy: 0, radius: 1 });
+    expect(sendChunkSnapshot).toHaveBeenCalledWith(socket, player, { cx: 0, cy: 0, radius: 1 }, "realtime_refresh");
     expect(pendingChunkRefreshByPlayer.has(player.id)).toBe(false);
     expect(recordServerDebugEvent).toHaveBeenCalledWith(
       "info",
