@@ -55,16 +55,22 @@ describe("leaderboard and season victory rendering", () => {
           conditionMet: false
         }
       ],
-      undefined
+      undefined,
+      new Map([
+        ["p1", "#38b000"],
+        ["p2", "#3b82f6"],
+        ["me", "#ef4444"]
+      ])
     );
 
     expect(html).toContain("You: 3/87 towns");
     expect(html).toContain("You: 12.0 gold/m");
     expect(html).toContain("You: 1/6 islands at 5%+ settled");
-    expect(html).toContain("44. You | score 1.0 | settled 1 | income 1.0 | tech 1");
-    expect(html).toContain("11. You (7.0)");
-    expect(html).toContain("8. You (3.5)");
-    expect(html).toContain("13. You (2.0)");
+    expect(html).toContain("44. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> | score 1.0 | settled 1 | income 1.0 | tech 1");
+    expect(html).toContain("11. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (7.0)");
+    expect(html).toContain("8. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (3.5)");
+    expect(html).toContain("13. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (2.0)");
+    expect(html).toContain("<span class=\"lb-player-dot\" style=\"--player-color:#38b000\" aria-hidden=\"true\"></span><span>Alpha</span>");
   });
 
   it("does not duplicate self metric rows when the player is already in the visible top five", () => {
@@ -104,7 +110,9 @@ describe("leaderboard and season victory rendering", () => {
       undefined
     );
 
-    expect(html).toContain("11. Nauticus | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).toContain(
+      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Nauticus</span></span> | score 4.0 | settled 1 | income 1.0 | tech 0'
+    );
     expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1.0 | tech 0");
     expect(html).not.toContain("11. You (1.0)");
     expect(html).not.toContain("11. You (0.0)");
@@ -138,7 +146,9 @@ describe("leaderboard and season victory rendering", () => {
       undefined
     );
 
-    expect(html).toContain("11. Benjamin Waye | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).toContain(
+      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Benjamin Waye</span></span> | score 4.0 | settled 1 | income 1.0 | tech 0'
+    );
     expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1.0 | tech 0");
     expect(html).not.toContain("12. You (1.0)");
     expect(html).not.toContain("9. You (1.0)");
@@ -161,7 +171,9 @@ describe("leaderboard and season victory rendering", () => {
       undefined
     );
 
-    expect(html).toContain("11. Benjamin Waye | score 4.0 | settled 1 | income 1.0 | tech 0");
+    expect(html).toContain(
+      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Benjamin Waye</span></span> | score 4.0 | settled 1 | income 1.0 | tech 0'
+    );
     expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1.0 | tech 0");
     expect(html).not.toContain("9. You (1.0)");
     expect(html).not.toContain("5. You (0.0)");
@@ -202,5 +214,57 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).not.toContain("1. You (5.0)");
     expect(html).not.toContain("1. You (4.0)");
     expect(html).not.toContain("You: 20/87 towns");
+  });
+
+  it("shows a neutral dot when a player color is unavailable", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [{ id: "p1", rank: 1, name: "Gray Banner", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 }],
+        selfOverall: undefined,
+        selfByTiles: undefined,
+        selfByIncome: undefined,
+        selfByTechs: undefined,
+        byTiles: [],
+        byIncome: [],
+        byTechs: []
+      },
+      [],
+      undefined
+    );
+
+    expect(html).toContain('<span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Gray Banner</span>');
+  });
+
+  it("does not show a fake player-color dot for contested season leaders", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [],
+        selfOverall: undefined,
+        selfByTiles: undefined,
+        selfByIncome: undefined,
+        selfByTechs: undefined,
+        byTiles: [],
+        byIncome: [],
+        byTechs: []
+      },
+      [
+        {
+          id: "RESOURCE_MONOPOLY",
+          name: "Resource Monopoly",
+          description: "Control enough of one resource type.",
+          leaderName: "Contested",
+          progressLabel: "6/12 IRON",
+          thresholdLabel: "Need 66% of a live resource",
+          holdDurationSeconds: 86400,
+          statusLabel: "No clear leader",
+          conditionMet: false
+        }
+      ],
+      undefined,
+      new Map([["p1", "#38b000"]])
+    );
+
+    expect(html).toContain("Leader: Contested · 6/12 IRON");
+    expect(html).not.toContain('Leader: <span class="lb-player-name">');
   });
 });
