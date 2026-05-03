@@ -12,6 +12,7 @@ import type {
 } from "@border-empires/shared";
 
 import type { ChunkSummaryMode } from "../chunk/snapshots.js";
+import type { RuntimeLandContext } from "../server-runtime-land-context.js";
 
 type TownLike = {
   tileKey: TileKey;
@@ -68,6 +69,9 @@ type CreateSimulationChunkStateDeps = {
   siphonByTile: Map<TileKey, ActiveSiphon>;
   breachShockByTile: Map<TileKey, BreachShock>;
   regionTypeAtLocal: (x: number, y: number) => RegionType | undefined;
+  runtimeLandContextAtLocal: (x: number, y: number) => RuntimeLandContext | undefined;
+  runtimeRegionTypeAtLocal: (x: number, y: number) => RegionType | undefined;
+  runtimeLandBiomeAtLocal: (x: number, y: number) => Tile["landBiome"];
   thinTownSummaryForTile: (town: any, ownerId: string | undefined) => NonNullable<Tile["town"]>;
   townSummaryForTile: (town: any, ownerId: string | undefined) => NonNullable<Tile["town"]>;
   observatoryStatusForTile: (ownerId: string, tileKey: TileKey) => NonNullable<Tile["observatory"]>["status"];
@@ -117,7 +121,9 @@ export const createSimulationChunkState = (deps: CreateSimulationChunkStateDeps)
     const siegeOutpost = terrain === "LAND" ? deps.siegeOutpostsByTile.get(tk) : undefined;
     const sabotage = deps.siphonByTile.get(tk);
     const breachShock = deps.breachShockByTile.get(tk);
-    const regionType = terrain === "LAND" ? deps.regionTypeAtLocal(wx, wy) : undefined;
+    const runtimeLandContext = terrain === "LAND" ? deps.runtimeLandContextAtLocal(wx, wy) : undefined;
+    const regionType = runtimeLandContext?.regionType;
+    const landBiome = runtimeLandContext?.landBiome;
     const shellMode = mode === "shell";
     const bootstrapMode = mode === "bootstrap" || shellMode;
     const tile: Tile = {
@@ -134,6 +140,7 @@ export const createSimulationChunkState = (deps: CreateSimulationChunkStateDeps)
       if (ownerId !== deps.barbarianOwnerId && deps.activeSettlementTileKeyForPlayer(ownerId) === tk) tile.capital = true;
     }
     if (terrain === "LAND" && clusterType && !shellMode) tile.clusterType = clusterType;
+    if (terrain === "LAND" && landBiome && !shellMode) tile.landBiome = landBiome;
     if (terrain === "LAND" && regionType && !shellMode) tile.regionType = regionType;
     if (dock && !shellMode) tile.dockId = dock.dockId;
     if (terrain === "LAND" && !bootstrapMode) tile.shardSite = shardSite ?? null;

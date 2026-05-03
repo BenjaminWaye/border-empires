@@ -20,6 +20,8 @@ type NormalizedGatewayTileUpdate = {
   yield?: Tile["yield"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
   yieldCap?: Tile["yieldCap"] | undefined;
+  landBiome?: Tile["landBiome"] | undefined;
+  regionType?: Tile["regionType"] | undefined;
 };
 
 export type GatewayTileUpdate = {
@@ -43,6 +45,8 @@ export type GatewayTileUpdate = {
   yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
   yieldCap?: Tile["yieldCap"];
+  landBiome?: Tile["landBiome"];
+  regionType?: Tile["regionType"];
 };
 
 type GatewayTileSyncDeps = {
@@ -53,6 +57,8 @@ type GatewayTileSyncDeps = {
   keyFor: (x: number, y: number) => string;
   mergeIncomingTileDetail: (existing: Tile | undefined, incoming: Tile) => Tile;
   mergeServerTileWithOptimisticState: (tile: Tile) => Tile;
+  clearRenderCaches?: () => void;
+  buildMiniMapBase?: () => void;
 };
 
 const GATEWAY_DERIVED_TOWN_SUMMARY = "gateway-derived" as const;
@@ -312,6 +318,8 @@ export const normalizeGatewayTileUpdate = (
   if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("yieldCap" in update) normalized.yieldCap = update.yieldCap;
+  if ("landBiome" in update) normalized.landBiome = update.landBiome;
+  if ("regionType" in update) normalized.regionType = update.regionType;
   return normalized;
 };
 
@@ -369,13 +377,16 @@ export const refreshGatewayDerivedTownSummariesAroundTile = (
   for (const tileKey of affectedTownKeys) refreshGatewayDerivedTownSummaryByKey(deps, tileKey);
 };
 
-const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUpdate): void => {
+const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUpdate): boolean => {
   const tileKey = deps.keyFor(update.x, update.y);
   deps.state.incomingAttacksByTile.delete(tileKey);
   deps.state.pendingCollectVisibleKeys.delete(tileKey);
   deps.state.discoveredTiles.add(tileKey);
 
   const existing = deps.state.tiles.get(tileKey);
+  const previousTerrain = existing?.terrain;
+  const previousLandBiome = existing?.landBiome;
+  const previousRegionType = existing?.regionType;
   const merged: Tile = existing
     ? { ...existing, x: update.x, y: update.y }
     : {
@@ -396,6 +407,14 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   });
 
   if (normalizedGateway.terrain) merged.terrain = normalizedGateway.terrain;
+  const terrainChanged = previousTerrain !== merged.terrain;
+  if (merged.terrain !== "LAND") {
+    delete merged.landBiome;
+    delete merged.regionType;
+  } else if (terrainChanged) {
+    if (!("landBiome" in normalizedGateway)) delete merged.landBiome;
+    if (!("regionType" in normalizedGateway)) delete merged.regionType;
+  }
   if ("resource" in normalizedGateway) {
     if (normalizedGateway.resource) merged.resource = normalizedGateway.resource;
     else delete merged.resource;
@@ -456,11 +475,20 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     if (normalizedGateway.yieldCap) merged.yieldCap = normalizedGateway.yieldCap;
     else delete merged.yieldCap;
   }
-  if (!normalizedGateway.ownerId) delete merged.ownershipState;
+  if ("landBiome" in normalizedGateway) {
+    if (normalizedGateway.landBiome) merged.landBiome = normalizedGateway.landBiome;
+    else delete merged.landBiome;
+  }
+  if ("regionType" in normalizedGateway) {
+    if (normalizedGateway.regionType) merged.regionType = normalizedGateway.regionType;
+    else delete merged.regionType;
+  }
+  if ("ownerId" in normalizedGateway && !normalizedGateway.ownerId) delete merged.ownershipState;
 
   const resolved = deps.mergeServerTileWithOptimisticState(deps.mergeIncomingTileDetail(existing, merged));
   deps.state.tiles.set(tileKey, resolved);
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
+  return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
 };
 
 export const applyGatewayInitialState = (
@@ -486,7 +514,14 @@ export const applyGatewayInitialState = (
     deps.state.pendingCollectVisibleKeys.clear();
     deps.state.discoveredTiles.clear();
   }
-  for (const tile of tiles) applyGatewayTileUpdate(deps, tile);
+  let invalidatedTerrainCache = false;
+  for (const tile of tiles) {
+    invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile) || invalidatedTerrainCache;
+  }
+  if (invalidatedTerrainCache) {
+    deps.clearRenderCaches?.();
+    deps.buildMiniMapBase?.();
+  }
   return tiles.length;
 };
 
@@ -495,5 +530,12 @@ export const applyGatewayTileDeltaBatch = (
   updates?: GatewayTileUpdate[]
 ): void => {
   if (!Array.isArray(updates) || updates.length === 0) return;
-  for (const update of updates) applyGatewayTileUpdate(deps, update);
+  let invalidatedTerrainCache = false;
+  for (const update of updates) {
+    invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache;
+  }
+  if (invalidatedTerrainCache) {
+    deps.clearRenderCaches?.();
+    deps.buildMiniMapBase?.();
+  }
 };
