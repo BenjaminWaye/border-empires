@@ -73,6 +73,7 @@ describe("gateway command submit timeout handling", () => {
     const app = await createRealtimeGatewayApp({
       logger: false,
       port: 0,
+      defaultHumanPlayerId: "player-1",
       commandStore: new InMemoryGatewayCommandStore(),
       simulationSubmitTimeoutMs: 75,
       simulationClient: {
@@ -86,6 +87,7 @@ describe("gateway command submit timeout handling", () => {
           tiles: []
         }),
         unsubscribePlayer: async () => undefined,
+        getSubscriptionNamespace: async () => "1",
         ping: async () => undefined,
         streamEvents: (_listener, options) => {
           options?.onConnect?.();
@@ -133,6 +135,7 @@ describe("gateway command submit timeout handling", () => {
     const app = await createRealtimeGatewayApp({
       logger: false,
       port: 0,
+      defaultHumanPlayerId: "player-1",
       commandStore: new InMemoryGatewayCommandStore(),
       simulationClient: {
         preparePlayer: async () => ({ playerId: "player-1", spawned: false }),
@@ -142,6 +145,7 @@ describe("gateway command submit timeout handling", () => {
           tiles: []
         }),
         unsubscribePlayer: async () => undefined,
+        getSubscriptionNamespace: async () => "1",
         ping: async () => undefined,
         streamEvents: (_listener, options) => {
           options?.onConnect?.();

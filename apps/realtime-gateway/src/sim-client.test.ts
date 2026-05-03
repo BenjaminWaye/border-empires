@@ -209,6 +209,9 @@ describe("simulation event stream supervisor", () => {
       UnsubscribePlayer: vi.fn((_request, callback: (error: Error | null, response: { ok: boolean }) => void) =>
         callback(null, { ok: true })
       ),
+      GetSubscriptionNamespace: vi.fn((_request, callback: (error: Error | null, response: { ok: boolean; namespace: string }) => void) =>
+        callback(null, { ok: true, namespace: "1" })
+      ),
       Ping: vi.fn((_request, callback: (error: Error | null, response: { ok: boolean }) => void) =>
         callback(null, { ok: true })
       ),
@@ -225,6 +228,7 @@ describe("simulation event stream supervisor", () => {
       tiles: [{ x: 10, y: 10 }]
     });
     await client.unsubscribePlayer("player-1");
+    await expect((client as typeof client & { getSubscriptionNamespace: () => Promise<string> }).getSubscriptionNamespace()).resolves.toBe("1");
 
     expect(rpcClient.PreparePlayer).toHaveBeenCalledWith(
       { player_id: "player-1" },
@@ -236,6 +240,10 @@ describe("simulation event stream supervisor", () => {
     );
     expect(rpcClient.UnsubscribePlayer).toHaveBeenCalledWith(
       { player_id: "player-1" },
+      expect.any(Function)
+    );
+    expect(rpcClient.GetSubscriptionNamespace).toHaveBeenCalledWith(
+      {},
       expect.any(Function)
     );
     await expect(client.ping()).resolves.toBeUndefined();

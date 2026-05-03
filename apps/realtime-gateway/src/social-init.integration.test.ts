@@ -123,6 +123,7 @@ describe("rewrite social integration", () => {
       host: "127.0.0.1",
       port: 0,
       logger: false,
+      defaultHumanPlayerId: "player-1",
       commandStore: new InMemoryGatewayCommandStore(),
       simulationClient: {
         submitCommand: async () => undefined,
@@ -183,12 +184,23 @@ describe("rewrite social integration", () => {
             mapWidth: 1,
             mapHeight: 1,
             playerCount: 2,
-            authoritativeTileCount: 0
+            authoritativeTileCount: 0,
+            leaderboard: {
+              overall: [],
+              weekly: [],
+              byTiles: [],
+              byIncome: [],
+              byTechs: []
+            }
           }
         }),
         unsubscribePlayer: async () => undefined,
+        getSubscriptionNamespace: async () => "1",
         ping: async () => undefined,
-        streamEvents: () => () => undefined
+        streamEvents: (_listener, options) => {
+          options?.onConnect?.();
+          return () => undefined;
+        }
       }
     });
     cleanup.push(() => gateway.close());

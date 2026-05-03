@@ -835,6 +835,81 @@ describe("rewrite stack integration", () => {
     expect(acceptedDelayMs).toBeLessThan(500);
   }, 20_000);
 
+  it("resnapshots fog-disabled sessions instead of merging global tile delta leaks", async () => {
+    const scheduledResolutions: Array<{ delayMs: number; task: () => void }> = [];
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog,
+      runtimeOptions: {
+        now: () => 1_000,
+        scheduleAfter: (delayMs, task) => {
+          scheduledResolutions.push({ delayMs, task });
+        }
+      }
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      simulationAddress: simulationAddress.address,
+      commandStore: new InMemoryGatewayCommandStore(),
+      defaultHumanPlayerId: "player-1",
+      fogAdminEmail: "fog-admin@example.com"
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const fogAdminSocket = await openSocket(gatewayAddress.wsUrl);
+    cleanup.push(() => closeSocket(fogAdminSocket.socket));
+    fogAdminSocket.socket.send(
+      JSON.stringify({
+        type: "AUTH",
+        token: firebaseJwtFor({
+          sub: "firebase-fog-admin-1",
+          user_id: "firebase-fog-admin-1",
+          email: "fog-admin@example.com",
+          name: "Fog Admin"
+        })
+      })
+    );
+    expect((await nextNonBootstrapMessage(fogAdminSocket, "fog-admin init")).type).toBe("INIT");
+
+    fogAdminSocket.socket.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: true }));
+    expect(await nextTypedMessage(fogAdminSocket, "fog update", "FOG_UPDATE")).toEqual({ type: "FOG_UPDATE", fogDisabled: true });
+    expect((await nextNonBootstrapMessage(fogAdminSocket, "fog snapshot replace")).type).toBe("TILE_SNAPSHOT_REPLACE");
+
+    fogAdminSocket.socket.send(
+      JSON.stringify({
+        type: "ATTACK",
+        fromX: 10,
+        fromY: 10,
+        toX: 10,
+        toY: 11,
+        commandId: "fog-resnapshot-cmd-1",
+        clientSeq: 1
+      })
+    );
+
+    await nextNonBootstrapMessage(fogAdminSocket, "queued");
+    await nextNonBootstrapMessage(fogAdminSocket, "accepted");
+    await nextNonBootstrapMessage(fogAdminSocket, "combat-start");
+
+    expect(scheduledResolutions).toHaveLength(1);
+    scheduledResolutions[0]?.task();
+
+    const fogRefresh = await nextNonBootstrapMessage(fogAdminSocket, "fog-admin refresh after remote delta");
+    expect(fogRefresh).toEqual(
+      expect.objectContaining({
+        type: "TILE_SNAPSHOT_REPLACE",
+        tiles: expect.any(Array)
+      })
+    );
+  });
+
   it("broadcasts non-bootstrap tile delta batches to other subscribed players", async () => {
     const scheduledResolutions: Array<{ delayMs: number; task: () => void }> = [];
     const simulation = await createSimulationService({
