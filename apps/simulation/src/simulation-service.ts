@@ -6,6 +6,8 @@ import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceIm
 import { loadSync } from "@grpc/proto-loader";
 import {
   SIMULATION_PROTO_PATH,
+  measurePlayerSubscriptionSnapshot,
+  summarizePlayerSubscriptionSnapshotCache,
   type CommandEnvelope,
   type CurrentSeasonSummary,
   type PlayerSubscriptionSnapshot,
@@ -13,7 +15,7 @@ import {
   type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
-import type { Terrain } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, type Terrain } from "@border-empires/shared";
 
 import { createSimulationCommandStore } from "./command-store-factory.js";
 import type { SimulationCommandStore } from "./command-store.js";
@@ -756,6 +758,73 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
   const snapshotCacheByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
+  const refreshSnapshotCacheMetrics = () => {
+    const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCacheByPlayerId.entries());
+    simulationMetrics.setSimSnapshotCache({
+      entries: cacheSummary.entryCount,
+      bytes: cacheSummary.totalSnapshotJsonBytes
+    });
+    return cacheSummary;
+  };
+  const setCachedSnapshot = (playerId: string, snapshot: PlayerSubscriptionSnapshot) => {
+    snapshotCacheByPlayerId.set(playerId, snapshot);
+    return refreshSnapshotCacheMetrics();
+  };
+  const deleteCachedSnapshot = (playerId: string) => {
+    snapshotCacheByPlayerId.delete(playerId);
+    return refreshSnapshotCacheMetrics();
+  };
+  const clearCachedSnapshots = () => {
+    snapshotCacheByPlayerId.clear();
+    return refreshSnapshotCacheMetrics();
+  };
+  const recordSnapshotDiagnostics = (
+    playerId: string,
+    snapshot: PlayerSubscriptionSnapshot,
+    options: { trigger: string; fullVisibility: boolean; seasonEnded: boolean; worldTileCount: number }
+  ) => {
+    const measure = measurePlayerSubscriptionSnapshot(snapshot);
+    const cacheSummary = refreshSnapshotCacheMetrics();
+    const memory = process.memoryUsage();
+    const rssMb = memory.rss / (1024 * 1024);
+    const heapUsedMb = memory.heapUsed / (1024 * 1024);
+    simulationMetrics.observeSimSnapshotBuild({
+      trigger: options.trigger,
+      playerId,
+      fullVisibility: options.fullVisibility ? 1 : 0,
+      seasonEnded: options.seasonEnded ? 1 : 0,
+      tileCount: measure.tileCount,
+      snapshotJsonBytes: measure.snapshotJsonBytes,
+      tilesJsonBytes: measure.tilesJsonBytes,
+      worldStatusJsonBytes: measure.worldStatusJsonBytes,
+      cacheEntries: cacheSummary.entryCount,
+      cacheBytes: cacheSummary.totalSnapshotJsonBytes,
+      rssMb,
+      heapUsedMb
+    });
+    log.info(
+      {
+        trigger: options.trigger,
+        playerId,
+        fullVisibility: options.fullVisibility,
+        seasonEnded: options.seasonEnded,
+        tileCount: measure.tileCount,
+        worldTileCount: options.worldTileCount,
+        snapshotJsonBytes: measure.snapshotJsonBytes,
+        tilesJsonBytes: measure.tilesJsonBytes,
+        playerJsonBytes: measure.playerJsonBytes,
+        worldStatusJsonBytes: measure.worldStatusJsonBytes,
+        seasonJsonBytes: measure.seasonJsonBytes,
+        docksJsonBytes: measure.docksJsonBytes,
+        cacheEntries: cacheSummary.entryCount,
+        cacheBytes: cacheSummary.totalSnapshotJsonBytes,
+        cacheTopPlayers: cacheSummary.topEntries,
+        rssMb,
+        heapUsedMb
+      },
+      "simulation snapshot diagnostics"
+    );
+  };
   const preparePlayerSlowLogMs = 250;
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 1000;
   let globalStatusBroadcastTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -780,9 +849,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const buildAndCachePlayerSnapshot = (
     playerId: string,
-    options?: { includeWorldStatus?: boolean; fullVisibility?: boolean }
+    options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
   ): PlayerSubscriptionSnapshot => {
-    const useFullVisibility = options?.fullVisibility === true || currentSeasonState.status === "ended";
+    const seasonEnded = currentSeasonState.status === "ended";
+    const useFullVisibility = options?.fullVisibility === true || seasonEnded;
     const worldStatusRuntimeState = options?.includeWorldStatus === true || useFullVisibility ? runtime.exportState() : undefined;
     const runtimeState = worldStatusRuntimeState ?? runtime.exportVisibleStateForPlayer(playerId);
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
@@ -791,7 +861,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState
     });
-    snapshotCacheByPlayerId.set(playerId, snapshot);
+    setCachedSnapshot(playerId, snapshot);
+    recordSnapshotDiagnostics(playerId, snapshot, {
+      trigger:
+        options?.trigger ??
+        (seasonEnded && options?.fullVisibility !== true
+          ? "season_ended_full_visibility"
+          : options?.includeWorldStatus === true
+            ? "subscribe_with_world_status"
+            : "live_subscribe"),
+      fullVisibility: useFullVisibility,
+      seasonEnded,
+      worldTileCount: WORLD_WIDTH * WORLD_HEIGHT
+    });
     return snapshot;
   };
   const clearSeasonVictoryTimer = (): void => {
@@ -853,14 +935,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           };
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
     if (trackerResult.crownedWinner) {
-      snapshotCacheByPlayerId.clear();
+      clearCachedSnapshots();
       if (commandId) scheduleGlobalStatusBroadcast(commandId);
     }
     return finalSummary;
   };
   const parseSubscribeOptions = (
     subscriptionJson: string | undefined
-  ): { mode: "bootstrap-only" | "live"; emitBootstrapEvent: boolean; subscriptionKey?: string; fullVisibility: boolean } => {
+  ): { mode: "bootstrap-only" | "live"; emitBootstrapEvent: boolean; subscriptionKey?: string; fullVisibility: boolean; trigger?: string } => {
     if (!subscriptionJson) return { mode: "live", emitBootstrapEvent: true, fullVisibility: false };
     try {
       const parsed = JSON.parse(subscriptionJson) as {
@@ -868,12 +950,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         emitBootstrapEvent?: unknown;
         subscriptionKey?: unknown;
         fullVisibility?: unknown;
+        trigger?: unknown;
       };
       return {
         mode: parsed.mode === "bootstrap-only" ? "bootstrap-only" : "live",
         emitBootstrapEvent: parsed.emitBootstrapEvent === false ? false : parsed.mode === "bootstrap-only" ? false : true,
         ...(typeof parsed.subscriptionKey === "string" && parsed.subscriptionKey.length > 0 ? { subscriptionKey: parsed.subscriptionKey } : {}),
-        fullVisibility: parsed.fullVisibility === true
+        fullVisibility: parsed.fullVisibility === true,
+        ...(typeof parsed.trigger === "string" && parsed.trigger.length > 0 ? { trigger: parsed.trigger } : {})
       };
     } catch {
       return { mode: "live", emitBootstrapEvent: true, fullVisibility: false };
@@ -1162,7 +1246,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (payload) {
           const cachedSnapshot = snapshotCacheByPlayerId.get(event.playerId);
           if (cachedSnapshot) {
-            snapshotCacheByPlayerId.set(event.playerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
+            setCachedSnapshot(event.playerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
           }
         }
       }
@@ -1170,7 +1254,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
           const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
           if (!cachedSnapshot) continue;
-          snapshotCacheByPlayerId.set(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, event.tileDeltas));
+          setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, event.tileDeltas));
         }
       }
       if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
@@ -1192,7 +1276,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     runtime = nextRuntime;
     activePlayers = nextPlayers;
     currentSeasonState = nextSeasonState;
-    snapshotCacheByPlayerId.clear();
+    clearCachedSnapshots();
     attachRuntimeEventHandlers();
     startAutopilots();
   };
@@ -1338,7 +1422,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id);
           simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
           if (spawned) {
-            snapshotCacheByPlayerId.delete(call.request.player_id);
+            deleteCachedSnapshot(call.request.player_id);
             log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
           }
         }
@@ -1426,10 +1510,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         subscribeOptions.mode === "bootstrap-only"
           ? buildAndCachePlayerSnapshot(call.request.player_id, {
               includeWorldStatus: true,
-              fullVisibility: subscribeOptions.fullVisibility
+              fullVisibility: subscribeOptions.fullVisibility,
+              ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
             })
           : buildAndCachePlayerSnapshot(call.request.player_id, {
-              fullVisibility: subscribeOptions.fullVisibility
+              fullVisibility: subscribeOptions.fullVisibility,
+              ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
             });
       if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
         log.info(
@@ -1492,7 +1578,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       callback: (error: Error | null, response: { ok: boolean }) => void
     ) {
       subscriptionRegistry.unsubscribe(call.request.player_id, call.request.subscription_key);
-      snapshotCacheByPlayerId.delete(call.request.player_id);
+      deleteCachedSnapshot(call.request.player_id);
       callback(null, { ok: true });
     },
     GetSubscriptionNamespace(
@@ -1623,7 +1709,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_heap_total_mb: sample.simHeapTotalMb,
             sim_gc_pause_ms: sample.simGcPauseMs,
             sim_command_accept_latency_ms: sample.simCommandAcceptLatencyMsByLane,
-            sim_event_store_write_ms: sample.simEventStoreWriteMs
+            sim_event_store_write_ms: sample.simEventStoreWriteMs,
+            sim_snapshot_tile_count: sample.simSnapshotTileCount,
+            sim_snapshot_json_bytes: sample.simSnapshotJsonBytes,
+            sim_snapshot_tiles_json_bytes: sample.simSnapshotTilesJsonBytes,
+            sim_snapshot_cache_entries: sample.simSnapshotCacheEntries,
+            sim_snapshot_cache_bytes: sample.simSnapshotCacheBytes,
+            sim_snapshot_recent: sample.simSnapshotRecent
           },
           "simulation metrics sample"
         );
