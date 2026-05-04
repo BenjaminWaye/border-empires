@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.04.10",
+  version: "2026.05.04.11",
   title: "What's New",
-  summary: "Recent updates include rewrite staging AI gaining a late GOAP-style fallback planner with cleaner enemy-vs-barbarian pressure handling, so mixed fronts stop overvaluing barbarian targets and reserve recovery no longer falls through into random low-value actions, plus rewrite staging recovering old thin towns into authoritative population-bearing towns, exporting authoritative remote town summaries without duplicate whole-map fed-state scans, preserving thin remote town identity for rendering without inventing economy state, and keeping bootstrap settlements on their real starting population instead of falling back to 1.",
+  summary: "Recent updates include adding tagged diagnostic logs across the respawn pipeline so silent post-restart respawns can be traced, rewrite staging AI gaining a late GOAP-style fallback planner with cleaner enemy-vs-barbarian pressure handling, rewrite staging recovering old thin towns into authoritative population-bearing towns, exporting authoritative remote town summaries without duplicate whole-map fed-state scans, preserving thin remote town identity for rendering without inventing economy state, and keeping bootstrap settlements on their real starting population instead of falling back to 1.",
   entries: [
+    {
+      introducedIn: "2026.05.04.11",
+      title: "Diagnostic logs across the respawn pipeline",
+      why: "Respawns sometimes occur after gateway or simulation restart without producing the expected client popup or feed entry, and there was no way to identify which step in the respawn flow was silently dropping the notice.",
+      changes: [
+        "Server now emits [respawn-debug] lines at preparePlayerRespawnNotice entry, spawnPlayer entry, and consumeRespawnNoticeForPlayer with caller stack and pending-notice presence so the failing step in any respawn sequence is identifiable from logs.",
+        "Client now emits a [respawn-debug] console.info each time an INIT or auth payload arrives, recording whether the server included a respawn notice, whether normalization succeeded, and whether the notice was suppressed as a duplicate of the last seen id.",
+        "No user-visible behavior changes; this is a temporary diagnostic instrumentation addition to investigate post-restart respawn silence."
+      ]
+    },
     {
       introducedIn: "2026.05.04.10",
       title: "Rewrite staging AI now has GOAP fallback planning",
