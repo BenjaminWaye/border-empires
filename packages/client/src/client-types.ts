@@ -64,6 +64,9 @@ export type Tile = {
   landBiome?: "GRASS" | "SAND" | "COASTAL_SAND";
   regionType?: "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
   dockId?: string;
+  townType?: "MARKET" | "FARMING";
+  townName?: string;
+  townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   dock?: {
     baseGoldPerMinute: number;
     goldPerMinute: number;

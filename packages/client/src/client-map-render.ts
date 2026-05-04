@@ -1032,10 +1032,12 @@ export const drawTownOverlay = (
   size: number,
   ownerColor = "#C44937"
 ): void => {
-  if (!tile.town) return;
+  const townType = tile.town?.type ?? tile.townType;
+  const populationTier = tile.town?.populationTier ?? tile.townPopulationTier;
+  if (!townType || !populationTier) return;
   if (size < 16) {
     drawTownMarker(ctx, px, py, size, true);
-    if (!tile.town.isFed) {
+    if (tile.town && !tile.town.isFed) {
       const badgeSize = Math.max(6, size * 0.24);
       const badgeX = px + size - badgeSize - 1;
       const badgeY = py + 1;
@@ -1049,36 +1051,36 @@ export const drawTownOverlay = (
     }
     return;
   }
-  const accent = tile.town.type === "MARKET" ? "rgba(255, 212, 102, 0.9)" : "rgba(162, 241, 132, 0.88)";
+  const accent = townType === "MARKET" ? "rgba(255, 212, 102, 0.9)" : "rgba(162, 241, 132, 0.88)";
   const biome = tile.landBiome ?? landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
-  const overlay = overlaySet[tile.town.populationTier];
+  const overlay = overlaySet[populationTier];
   if (!overlay.complete || !overlay.naturalWidth) {
     const marker = Math.max(4, Math.floor(size * 0.34));
     const mx = px + Math.floor((size - marker) / 2);
     const my = py + Math.floor((size - marker) / 2);
     ctx.fillStyle = "rgba(10, 14, 24, 0.82)";
     ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-    ctx.fillStyle = tile.town.type === "MARKET" ? "rgba(255, 212, 102, 0.95)" : "rgba(162, 241, 132, 0.95)";
+    ctx.fillStyle = townType === "MARKET" ? "rgba(255, 212, 102, 0.95)" : "rgba(162, 241, 132, 0.95)";
     ctx.fillRect(mx, my, marker, marker);
     return;
   }
   const scaleByTier =
-    tile.town.populationTier === "SETTLEMENT" ? 0.94
-    : tile.town.populationTier === "TOWN" ? 1.46
-    : tile.town.populationTier === "CITY" ? 1.58
-    : tile.town.populationTier === "GREAT_CITY" ? 1.72
+    populationTier === "SETTLEMENT" ? 0.94
+    : populationTier === "TOWN" ? 1.46
+    : populationTier === "CITY" ? 1.58
+    : populationTier === "GREAT_CITY" ? 1.72
     : 1.86;
   const drawSize = size * scaleByTier;
   const offsetX = (drawSize - size) / 2;
   const offsetY =
-    tile.town.populationTier === "SETTLEMENT" ? drawSize * 0.06
-    : tile.town.populationTier === "TOWN" ? drawSize * 0.28
-    : tile.town.populationTier === "CITY" ? drawSize * 0.32
-    : tile.town.populationTier === "GREAT_CITY" ? drawSize * 0.35
+    populationTier === "SETTLEMENT" ? drawSize * 0.06
+    : populationTier === "TOWN" ? drawSize * 0.28
+    : populationTier === "CITY" ? drawSize * 0.32
+    : populationTier === "GREAT_CITY" ? drawSize * 0.35
     : drawSize * 0.39;
   ctx.drawImage(overlay, px - offsetX, py - offsetY, drawSize, drawSize);
-  if (tile.town.populationTier === "SETTLEMENT") {
+  if (populationTier === "SETTLEMENT") {
     drawSettlementFlag(ctx, px, py, size, ownerColor);
   }
   ctx.strokeStyle = accent;
@@ -1089,7 +1091,7 @@ export const drawTownOverlay = (
   ctx.lineTo(px + size * 0.78, py + size * 0.88);
   ctx.stroke();
   ctx.lineWidth = 1;
-  if (!tile.town.isFed) {
+  if (tile.town && !tile.town.isFed) {
     const badgeSize = Math.max(8, size * 0.24);
     const badgeX = px + size * 0.72;
     const badgeY = py + size * 0.08;
