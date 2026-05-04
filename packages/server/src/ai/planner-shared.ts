@@ -27,6 +27,7 @@ export type AiPlanningSnapshot = {
   neutralExpandAvailable: boolean;
   scoutExpandAvailable: boolean;
   scaffoldExpandAvailable: boolean;
+  townSupportExpandAvailable: boolean;
   barbarianAttackAvailable: boolean;
   enemyAttackAvailable: boolean;
   pressureAttackAvailable: boolean;
@@ -126,6 +127,9 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   }
   if (snapshot.townSupportSettlementAvailable && snapshot.canAffordSettlement && !snapshot.pressureThreatensCore) {
     return { reason: "executed_town_support_settlement_priority", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
+  }
+  if (snapshot.townSupportExpandAvailable && snapshot.canAffordFrontierAction && !snapshot.pressureThreatensCore) {
+    return { reason: "executed_town_support_expand_priority", actionKey: "claim_scaffold_border_tile", goapActionKey: "claim_scaffold_border_tile" };
   }
   if (opportunisticPressureReady) {
     return { reason: "executed_opportunistic_pressure_priority", actionKey: "attack_enemy_border_tile", goapActionKey: "attack_enemy_border_tile" };
