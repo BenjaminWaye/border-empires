@@ -472,4 +472,39 @@ describe("simulation service startup recovery", () => {
     releaseSaveSnapshot?.();
     await service.close();
   });
+
+  it("reports runtime identity and persistence health", async () => {
+    const service = await createSimulationService({
+      seedProfile: "season-20ai",
+      commandStore: new InMemorySimulationCommandStore(),
+      eventStore: new InMemorySimulationEventStore(),
+      snapshotStore: new InMemorySimulationSnapshotStore(),
+      seasonSummaryStore: new InMemorySeasonSummaryStore(),
+      log: {
+        info: () => undefined,
+        error: () => undefined
+      }
+    });
+
+    expect(service.healthSnapshot()).toEqual(
+      expect.objectContaining({
+        ok: true,
+        runtimeIdentity: expect.objectContaining({
+          sourceType: "seed-profile",
+          seasonId: expect.any(String),
+          worldSeed: expect.any(Number),
+          fingerprint: expect.any(String),
+          playerCount: expect.any(Number),
+          seededTileCount: expect.any(Number)
+        }),
+        persistence: expect.objectContaining({
+          degraded: false,
+          pendingCount: 0
+        })
+      })
+    );
+
+    await service.close();
+  });
+
 });
