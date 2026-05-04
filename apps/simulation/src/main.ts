@@ -50,11 +50,12 @@ const service = await createSimulationService({
 });
 
 const binding = await service.start();
+const managedProbeHost = managedRuntime ? preferredRoutableProbeHost() : undefined;
 
 const listenerWatchdog = createListenerWatchdog({
   bindHost: binding.host,
   port: binding.port,
-  ...(managedRuntime ? { probeHost: preferredRoutableProbeHost() } : {}),
+  ...(managedProbeHost ? { probeHost: managedProbeHost } : {}),
   probeIntervalMs: runtimeEnv.healthProbeIntervalMs,
   probeTimeoutMs: runtimeEnv.healthProbeTimeoutMs,
   failureThreshold: runtimeEnv.healthFailureThreshold,
