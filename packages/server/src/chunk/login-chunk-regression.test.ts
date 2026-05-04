@@ -28,6 +28,6 @@ describe("login chunk regression guard", () => {
       "utf8"
     );
     expect(chunkSnapshotSource).toContain("if (deps.pendingChunkRefreshByPlayer.delete(actor.id))");
-    expect(chunkSnapshotSource).toContain("sendChunkSnapshot(latestSocket, actor, latestSub);");
+    expect(chunkSnapshotSource).toContain("sendChunkSnapshot(latestSocket, actor, latestSub, undefined, undefined, undefined, undefined, \"pending_refresh\");");
   });
 });
