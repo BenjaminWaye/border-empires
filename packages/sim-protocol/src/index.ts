@@ -328,3 +328,5 @@ export type StartNextSeasonResponse = {
 };
 
 export const SIMULATION_PROTO_PATH = new URL("./simulation.proto", import.meta.url);
+
+export * from "./snapshot-diagnostics.js";
