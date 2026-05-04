@@ -1,6 +1,4 @@
 import type { Player } from "@border-empires/shared";
-import { summarizeChunkSnapshotCaches, type ChunkSnapshotCacheEntry } from "./chunk/cache-diagnostics.js";
-import type { VisibilitySnapshot } from "./chunk/snapshots.js";
 
 type LoggerLike = { warn: (payload: unknown, message: string) => void };
 type IncidentLogLike = { record: (event: string, payload: Record<string, unknown>) => void };
@@ -17,18 +15,11 @@ type AiBudgetSample = {
   actionKey?: string;
 };
 type ChunkSnapshotSample = {
-  trigger?: string;
-  visibilityMode?: string;
   elapsedMs: number;
   visibilityMaskMs: number;
   summaryReadMs: number;
   serializeMs: number;
   sendMs: number;
-  batchPayloadBytes?: number;
-  chunkPayloadBytes?: number;
-  cachedPayloadBytes?: number;
-  rebuiltPayloadBytes?: number;
-  peakRssMb?: number;
   cachedPayloadChunks: number;
   rebuiltChunks: number;
   batches: number;
@@ -60,7 +51,7 @@ export interface RuntimeDashboardPayload {
 }
 
 export interface CreateServerRuntimeAdminDashboardDeps {
-  cachedChunkSnapshotByPlayer: Map<string, ChunkSnapshotCacheEntry>;
+  cachedChunkSnapshotByPlayer: Map<string, { payloadByChunkKey: Map<string, string> }>;
   roundTo: (value: number, digits?: number) => number;
   runtimeMemoryWatermarkThresholdsMb: readonly number[];
   runtimeMemoryWatermarksLogged: Set<number>;
@@ -72,7 +63,7 @@ export interface CreateServerRuntimeAdminDashboardDeps {
   barbarianAgents: Map<string, unknown>;
   clustersById: Map<string, unknown>;
   chunkSubscriptionByPlayer: Map<string, unknown>;
-  cachedVisibilitySnapshotByPlayer: Map<string, VisibilitySnapshot>;
+  cachedVisibilitySnapshotByPlayer: Map<string, unknown>;
   cachedSummaryChunkByChunkKey: Map<string, unknown>;
   chunkSnapshotGenerationByPlayer: Map<string, unknown>;
   chunkSnapshotSentAtByPlayer: Map<string, unknown>;
@@ -114,27 +105,14 @@ export interface CreateServerRuntimeAdminDashboardDeps {
 }
 
 export const createServerRuntimeAdminDashboard = (deps: CreateServerRuntimeAdminDashboardDeps) => {
-  const cachedChunkPayloadDiagnostics = () => {
-    const diagnostics = summarizeChunkSnapshotCaches({
-      cachedChunkSnapshotByPlayer: deps.cachedChunkSnapshotByPlayer,
-      cachedVisibilitySnapshotByPlayer: deps.cachedVisibilitySnapshotByPlayer,
-      maxPlayers: 5
-    });
-    return {
-      payloads: diagnostics.payloads,
-      payloadBytes: diagnostics.payloadBytes,
-      visibilityMasks: diagnostics.visibilityMasks,
-      visibilityMaskBytes: diagnostics.visibilityMaskBytes,
-      visibilitySnapshots: diagnostics.visibilitySnapshots,
-      visibilitySnapshotBytes: diagnostics.visibilitySnapshotBytes,
-      approxPayloadMb: deps.roundTo(diagnostics.approxPayloadMb, 1),
-      approxTotalMb: deps.roundTo(diagnostics.approxTotalMb, 1),
-      topPlayers: diagnostics.topPlayers.map((entry) => ({
-        ...entry,
-        payloadKb: deps.roundTo(entry.payloadBytes / 1024, 1),
-        approxTotalKb: deps.roundTo(entry.approxTotalBytes / 1024, 1)
-      }))
-    };
+  const cachedChunkPayloadDiagnostics = (): { payloads: number; approxPayloadMb: number } => {
+    let payloads = 0;
+    let bytes = 0;
+    for (const cached of deps.cachedChunkSnapshotByPlayer.values()) {
+      payloads += cached.payloadByChunkKey.size;
+      for (const payload of cached.payloadByChunkKey.values()) bytes += Buffer.byteLength(payload, "utf8");
+    }
+    return { payloads, approxPayloadMb: deps.roundTo(bytes / (1024 * 1024), 1) };
   };
 
   const maybeLogRuntimeMemoryWatermark = (reason: string, memory: Record<string, number>, extra: Record<string, unknown> = {}): void => {
@@ -304,12 +282,7 @@ export const createServerRuntimeAdminDashboard = (deps: CreateServerRuntimeAdmin
         visibilitySnapshots: deps.cachedVisibilitySnapshotByPlayer.size,
         cachedChunkPlayers: deps.cachedChunkSnapshotByPlayer.size,
         cachedChunkPayloads: cachePayloads.payloads,
-        cachedChunkPayloadMb: cachePayloads.approxPayloadMb,
-        cachedChunkPayloadBytes: cachePayloads.payloadBytes,
-        cachedChunkVisibilityMasks: cachePayloads.visibilityMasks,
-        cachedChunkVisibilityMaskBytes: cachePayloads.visibilityMaskBytes,
-        cachedVisibilitySnapshotBytes: cachePayloads.visibilitySnapshotBytes,
-        cachedChunkTotalMb: cachePayloads.approxTotalMb
+        cachedChunkPayloadMb: cachePayloads.approxPayloadMb
       },
       queuePressure: {
         pendingAuthVerifications: extras.authPressurePending(),
@@ -333,8 +306,7 @@ export const createServerRuntimeAdminDashboard = (deps: CreateServerRuntimeAdmin
       victory: extras.runtimeVictoryOverview(),
       hotspots: {
         ...runtimeHotspotDiagnostics(),
-        ...extras.runtimeHotspotExtra(),
-        cacheTopPlayers: cachePayloads.topPlayers
+        ...extras.runtimeHotspotExtra()
       },
       collections: runtimeCollectionDiagnostics(),
       history: {
