@@ -32,6 +32,7 @@ export type AiFrontierPlanningSummary = {
   scoutExpandAvailable: boolean;
   economicExpandAvailable: boolean;
   scaffoldExpandAvailable: boolean;
+  townSupportExpandAvailable: boolean;
   islandExpandAvailable: boolean;
   frontierOpportunityEconomic: number;
   frontierOpportunityScout: number;
@@ -125,6 +126,7 @@ export type AiPlanningStaticCache = {
   economicExpandAvailable: boolean;
   scoutExpandAvailable: boolean;
   scaffoldExpandAvailable: boolean;
+  townSupportExpandAvailable: boolean;
   barbarianAttackAvailable: boolean;
   enemyAttackAvailable: boolean;
   pressureAttackScore: number;
@@ -176,6 +178,7 @@ export type AiFrontierAvailabilityProfile = {
   scoutExpandAvailable: boolean;
   economicExpandAvailable: boolean;
   scaffoldExpandAvailable: boolean;
+  townSupportExpandAvailable: boolean;
   frontierOpportunityEconomic: number;
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;

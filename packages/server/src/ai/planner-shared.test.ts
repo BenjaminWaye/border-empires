@@ -27,6 +27,7 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   neutralExpandAvailable: false,
   scoutExpandAvailable: false,
   scaffoldExpandAvailable: false,
+  townSupportExpandAvailable: false,
   barbarianAttackAvailable: false,
   enemyAttackAvailable: false,
   pressureAttackAvailable: false,
@@ -176,6 +177,25 @@ describe("planAiDecision", () => {
     });
 
     expect(decision.reason).not.toBe("executed_island_expand_priority");
+  });
+
+
+  it("prioritizes claiming town-support frontier before generic pressure when a real town ring is still neutral", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "ECONOMIC_HEGEMONY",
+      townSupportSettlementAvailable: false,
+      townSupportExpandAvailable: true,
+      canAffordFrontierAction: true,
+      pressureAttackAvailable: true,
+      attackReady: true,
+      pressureAttackScore: 220,
+      pressureThreatensCore: false,
+      scaffoldExpandAvailable: true
+    });
+
+    expect(decision.actionKey).toBe("claim_scaffold_border_tile");
+    expect(decision.reason).toBe("executed_town_support_expand_priority");
   });
 
   it("prioritizes town-support settlement before generic island pressure when core support can be restored safely", () => {

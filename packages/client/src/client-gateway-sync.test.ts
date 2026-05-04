@@ -158,6 +158,101 @@ describe("client gateway sync", () => {
     expect(deps.state.tiles.get("350,219")?.town).toBeUndefined();
   });
 
+
+  it("preserves existing fed state for non-owned towns when later gateway deltas only resend town identity", () => {
+    const deps = createDeps();
+    deps.state.me = "me";
+    deps.state.upkeepLastTick.foodCoverage = 0;
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 91,
+          y: 44,
+          terrain: "LAND",
+          ownerId: "ai-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Ironwick",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 14_200,
+            maxPopulation: 50_000,
+            baseGoldPerMinute: 2,
+            goldPerMinute: 1.2,
+            cap: 480,
+            supportCurrent: 3,
+            supportMax: 6,
+            isFed: true,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          })
+        }
+      ]
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 91,
+        y: 44,
+        ownerId: "ai-1",
+        ownershipState: "SETTLED",
+        townType: "MARKET",
+        townName: "Ironwick",
+        townPopulationTier: "TOWN"
+      }
+    ]);
+
+    expect(deps.state.tiles.get("91,44")).toEqual(
+      expect.objectContaining({
+        town: expect.objectContaining({
+          isFed: true,
+          population: 14_200,
+          supportCurrent: 3,
+          supportMax: 6
+        })
+      })
+    );
+  });
+
+  it("ignores first-seen non-owned lossy town summaries until authoritative data arrives", () => {
+    const deps = createDeps();
+    deps.state.me = "me";
+    deps.state.upkeepLastTick.foodCoverage = 0;
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 92,
+          y: 44,
+          terrain: "LAND",
+          ownerId: "ai-2",
+          ownershipState: "SETTLED",
+          townType: "MARKET",
+          townName: "Brassumstead",
+          townPopulationTier: "TOWN"
+        }
+      ]
+    });
+
+    expect(deps.state.tiles.get("92,44")).toEqual(
+      expect.objectContaining({
+        x: 92,
+        y: 44,
+        terrain: "LAND",
+        ownerId: "ai-2",
+        ownershipState: "SETTLED"
+      })
+    );
+    expect(deps.state.tiles.get("92,44")?.town).toBeUndefined();
+  });
+
   it("keeps previously known population fields when later gateway deltas only send partial town identity", () => {
     const deps = createDeps();
 

@@ -264,6 +264,7 @@ export const createServerAiFrontierPlanningRuntime = (
     let scoutExpandAvailable = false;
     let economicExpandAvailable = false;
     let scaffoldExpandAvailable = false;
+    let townSupportExpandAvailable = false;
     let islandExpandAvailable = false;
     let frontierOpportunityEconomic = 0;
     let frontierOpportunityScout = 0;
@@ -292,14 +293,15 @@ export const createServerAiFrontierPlanningRuntime = (
       if (economic) economicExpandAvailable = true;
       const islandSignal = deps.aiIslandFootprintSignal(actor, to, territorySummary);
       if (islandSignal > 0) islandExpandAvailable = true;
+      const supportsTown = (territorySummary.supportedTownKeysByTileKey.get(tileKey)?.length ?? 0) > 0;
       const scaffold =
-        deps.cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ||
+        supportsTown ||
         (adjacency.ownedNeighbors >= 3 && adjacency.exposedSides <= 1) ||
         deps.townsByTile.has(tileKey) ||
         Boolean(to.resource) ||
         deps.docksByTile.has(tileKey);
       const scaffoldScore =
-        (deps.cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ? 160 : 0) +
+        (supportsTown ? 160 : 0) +
         (deps.townsByTile.has(tileKey) ? 180 : 0) +
         (to.resource ? 120 + deps.baseTileValue(to.resource) : 0) +
         (deps.docksByTile.has(tileKey) ? 130 : 0) +
@@ -312,6 +314,7 @@ export const createServerAiFrontierPlanningRuntime = (
         if (!bestEconomicExpand || score > bestEconomicExpand.score) bestEconomicExpand = { score, from, to };
       } else if (scaffold) {
         scaffoldExpandAvailable = true;
+        if (supportsTown) townSupportExpandAvailable = true;
         frontierOpportunityScaffold += 1;
         if (!bestScaffoldExpand || scaffoldScore > bestScaffoldExpand.score) bestScaffoldExpand = { score: scaffoldScore, from, to };
       } else if (scoutRevealCount > 0 || !deps.visibleInSnapshot(visibility, to.x, to.y)) {
@@ -335,6 +338,7 @@ export const createServerAiFrontierPlanningRuntime = (
       scoutExpandAvailable,
       economicExpandAvailable,
       scaffoldExpandAvailable,
+      townSupportExpandAvailable,
       islandExpandAvailable,
       frontierOpportunityEconomic,
       frontierOpportunityScout,
@@ -419,14 +423,17 @@ export const createServerAiFrontierPlanningRuntime = (
   const estimateAiFrontierAvailabilityProfile = (actor: Player, territorySummary: AiTerritorySummary): AiFrontierAvailabilityProfile => {
     let frontierOpportunityScaffold = 0;
     let frontierOpportunityScout = 0;
+    let townSupportExpandAvailable = false;
     const neutralExpandCandidates =
       territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
     for (const { to } of neutralExpandCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const tileKey = deps.key(to.x, to.y);
+      const supportsTown = (territorySummary.supportedTownKeysByTileKey.get(tileKey)?.length ?? 0) > 0;
+      if (supportsTown) townSupportExpandAvailable = true;
       if (deps.townsByTile.has(tileKey) || deps.docksByTile.has(tileKey) || Boolean(to.resource)) continue;
       const adjacency = deps.cachedScoutAdjacencyMetrics(actor, to, territorySummary);
-      if (adjacency.ownedNeighbors >= 3 && adjacency.exposedSides <= 1) {
+      if (supportsTown || (adjacency.ownedNeighbors >= 3 && adjacency.exposedSides <= 1)) {
         frontierOpportunityScaffold += 1;
       } else if (deps.countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0) {
         frontierOpportunityScout += 1;
@@ -439,6 +446,7 @@ export const createServerAiFrontierPlanningRuntime = (
       scoutExpandAvailable: frontierOpportunityScout > 0,
       economicExpandAvailable: territorySummary.neutralEconomicExpandCount > 0,
       scaffoldExpandAvailable: frontierOpportunityScaffold > 0,
+      townSupportExpandAvailable,
       frontierOpportunityEconomic,
       frontierOpportunityScout,
       frontierOpportunityScaffold,
@@ -502,6 +510,7 @@ export const createServerAiFrontierPlanningRuntime = (
       economicExpandAvailable: frontierAvailability.economicExpandAvailable,
       scoutExpandAvailable: frontierAvailability.scoutExpandAvailable,
       scaffoldExpandAvailable: frontierAvailability.scaffoldExpandAvailable,
+      townSupportExpandAvailable: frontierAvailability.townSupportExpandAvailable,
       barbarianAttackAvailable: territorySummary.barbarianAttackAvailable,
       enemyAttackAvailable: territorySummary.enemyAttackAvailable,
       pressureAttackScore: pressureAttackProfile.score,
