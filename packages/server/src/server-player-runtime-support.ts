@@ -259,6 +259,21 @@ export const createServerPlayerRuntimeSupport = (
     triggerEvent: string,
     options?: { wasOnline?: boolean }
   ): void => {
+    const callerStack = new Error("respawn-debug-stack").stack?.split("\n").slice(2, 6).join(" | ");
+    deps.runtimeLogInfo(
+      {
+        playerId: player.id,
+        isAi: player.isAi === true,
+        reasonCode,
+        triggerEvent,
+        wasOnline: options?.wasOnline,
+        territoryTiles: player.territoryTiles.size,
+        respawnPending: player.respawnPending,
+        isEliminated: player.isEliminated,
+        callerStack
+      },
+      "[respawn-debug] preparePlayerRespawnNotice"
+    );
     if (player.isAi) return;
     const homeTile = deps.playerHomeTile(player);
     pendingRespawnNoticeByPlayerId.set(player.id, {
@@ -277,11 +292,37 @@ export const createServerPlayerRuntimeSupport = (
 
   const consumeRespawnNoticeForPlayer = (player: Player): Player["lastRespawnNotice"] => {
     const notice = player.lastRespawnNotice;
+    deps.runtimeLogInfo(
+      {
+        playerId: player.id,
+        hadNotice: notice !== undefined,
+        noticeId: notice?.id,
+        reasonCode: notice?.reasonCode,
+        triggerEvent: notice?.triggerEvent,
+        hasPendingPrep: pendingRespawnNoticeByPlayerId.has(player.id)
+      },
+      "[respawn-debug] consumeRespawnNoticeForPlayer"
+    );
     delete player.lastRespawnNotice;
     return notice;
   };
 
   const spawnPlayer = (player: Player): void => {
+    const spawnCallerStack = new Error("respawn-debug-stack").stack?.split("\n").slice(2, 6).join(" | ");
+    deps.runtimeLogInfo(
+      {
+        playerId: player.id,
+        isAi: player.isAi === true,
+        hasPendingNotice: pendingRespawnNoticeByPlayerId.has(player.id),
+        pendingNoticeReason: pendingRespawnNoticeByPlayerId.get(player.id)?.reasonCode,
+        pendingNoticeTrigger: pendingRespawnNoticeByPlayerId.get(player.id)?.triggerEvent,
+        territoryTiles: player.territoryTiles.size,
+        respawnPending: player.respawnPending,
+        isEliminated: player.isEliminated,
+        callerStack: spawnCallerStack
+      },
+      "[respawn-debug] spawnPlayer entry"
+    );
     const hasNearbyPlayerSpawn = (x: number, y: number, radius: number): boolean => {
       for (const other of deps.players.values()) {
         if (other.id === player.id) continue;
