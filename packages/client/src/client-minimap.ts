@@ -15,8 +15,8 @@ export const miniMapTownMarkerPalette = (
   const radius = hasCollectableYield ? 3.6 : 3.2;
   let inner = "rgba(196, 169, 255, 0.94)";
   if (hasCollectableYield) inner = "rgba(255, 220, 118, 0.96)";
-  else if (tile.town?.type === "MARKET") inner = "rgba(255, 214, 112, 0.94)";
-  else if (tile.town?.type === "FARMING") inner = "rgba(157, 236, 130, 0.94)";
+  else if ((tile.town?.type ?? tile.townType) === "MARKET") inner = "rgba(255, 214, 112, 0.94)";
+  else if ((tile.town?.type ?? tile.townType) === "FARMING") inner = "rgba(157, 236, 130, 0.94)";
   return { outer, inner, radius };
 };
 
@@ -132,7 +132,7 @@ export const drawMiniMap = (options: {
   }
 
   for (const tile of options.state.tiles.values()) {
-    if (!tile.town) continue;
+    if (!tile.town && !tile.townType) continue;
     if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
     const tx = Math.floor((tile.x / WORLD_WIDTH) * w);
     const ty = Math.floor((tile.y / WORLD_HEIGHT) * h);

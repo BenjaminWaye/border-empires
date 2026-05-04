@@ -634,6 +634,69 @@ describe("client gateway sync", () => {
     expect(deps.state.tiles.get("77,21")?.town).toBeUndefined();
   });
 
+  it("clears thin town identity when the gateway clears town state", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 88,
+          y: 12,
+          terrain: "LAND",
+          ownerId: "ai-1",
+          ownershipState: "SETTLED",
+          townType: "MARKET",
+          townName: "Brassumstead",
+          townPopulationTier: "TOWN"
+        }
+      ]
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 88,
+        y: 12,
+        townJson: ""
+      }
+    ]);
+
+    expect(deps.state.tiles.get("88,12")).toEqual(
+      expect.not.objectContaining({
+        townType: expect.anything(),
+        townName: expect.anything(),
+        townPopulationTier: expect.anything()
+      })
+    );
+  });
+
+  it("preserves thin remote town identity without inventing town stats", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 88,
+          y: 12,
+          terrain: "LAND",
+          ownerId: "ai-1",
+          ownershipState: "SETTLED",
+          townType: "MARKET",
+          townName: "Brassumstead",
+          townPopulationTier: "TOWN"
+        }
+      ]
+    });
+
+    expect(deps.state.tiles.get("88,12")).toEqual(
+      expect.objectContaining({
+        townType: "MARKET",
+        townName: "Brassumstead",
+        townPopulationTier: "TOWN"
+      })
+    );
+    expect(deps.state.tiles.get("88,12")?.town).toBeUndefined();
+  });
+
   it("keeps previously discovered tiles fogged when reconnecting to the same runtime", () => {
     const deps = createDeps();
 
