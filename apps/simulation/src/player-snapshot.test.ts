@@ -547,6 +547,124 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(snapshot.player?.economyBreakdown?.FOOD.sinks).toEqual([]);
   });
 
+  it("does not fabricate remote town population or fed state from thin rewrite snapshot identity", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [
+        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        {
+          x: 14,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          townType: "FARMING",
+          townName: "Ironwick",
+          townPopulationTier: "TOWN"
+        }
+      ],
+      players: [
+        {
+          id: "player-1",
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10"]
+        },
+        {
+          id: "player-2",
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["14,10"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+
+    const remoteTownTile = snapshot.tiles.find((tile) => tile.x === 14 && tile.y === 10);
+    expect(remoteTownTile).toEqual(
+      expect.objectContaining({
+        townType: "FARMING",
+        townName: "Ironwick",
+        townPopulationTier: "TOWN"
+      })
+    );
+    expect(remoteTownTile?.townJson).toBeUndefined();
+  });
+
+  it("preserves authoritative remote town population and fed state from rewrite snapshots", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [
+        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        {
+          x: 14,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Brassumstead",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 23000,
+            maxPopulation: 100000,
+            populationGrowthPerMinute: 14.5,
+            baseGoldPerMinute: 2,
+            goldPerMinute: 1.5,
+            cap: 720,
+            supportCurrent: 3,
+            supportMax: 6,
+            isFed: true,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false,
+            foodUpkeepPerMinute: 0.1
+          }),
+          townType: "MARKET",
+          townName: "Brassumstead",
+          townPopulationTier: "TOWN"
+        }
+      ],
+      players: [
+        {
+          id: "player-1",
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10"]
+        },
+        {
+          id: "player-2",
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["14,10"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+
+    const remoteTownTile = snapshot.tiles.find((tile) => tile.x === 14 && tile.y === 10);
+    const remoteTown = remoteTownTile?.townJson ? JSON.parse(remoteTownTile.townJson) : undefined;
+    expect(remoteTown).toEqual(
+      expect.objectContaining({
+        name: "Brassumstead",
+        population: 23000,
+        maxPopulation: 100000,
+        isFed: true,
+        supportCurrent: 3,
+        supportMax: 6
+      })
+    );
+  });
+
   it("preserves tech-driven vision radius across snapshot export and restart bootstrap", () => {
     const initialPlayers = new Map([
       [
