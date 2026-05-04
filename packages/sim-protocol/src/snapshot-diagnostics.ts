@@ -20,6 +20,9 @@ export type PlayerSubscriptionSnapshotCacheEntry = {
 export type PlayerSubscriptionSnapshotCacheSummary = {
   entryCount: number;
   totalSnapshotJsonBytes: number;
+  totalNonTileJsonBytes: number;
+  uniqueTilesJsonBytes: number;
+  uniqueTileArrayCount: number;
   topEntries: PlayerSubscriptionSnapshotCacheEntry[];
 };
 
@@ -44,10 +47,16 @@ export const summarizePlayerSubscriptionSnapshotCache = (
   snapshots: Iterable<[string, PlayerSubscriptionSnapshot]>
 ): PlayerSubscriptionSnapshotCacheSummary => {
   const entries: PlayerSubscriptionSnapshotCacheEntry[] = [];
-  let totalSnapshotJsonBytes = 0;
+  let totalNonTileJsonBytes = 0;
+  let uniqueTilesJsonBytes = 0;
+  const uniqueTileArrays = new Map<PlayerSubscriptionSnapshot["tiles"], number>();
   for (const [playerId, snapshot] of snapshots) {
     const measure = measurePlayerSubscriptionSnapshot(snapshot);
-    totalSnapshotJsonBytes += measure.snapshotJsonBytes;
+    totalNonTileJsonBytes += measure.snapshotJsonBytes - measure.tilesJsonBytes;
+    if (!uniqueTileArrays.has(snapshot.tiles)) {
+      uniqueTileArrays.set(snapshot.tiles, measure.tilesJsonBytes);
+      uniqueTilesJsonBytes += measure.tilesJsonBytes;
+    }
     entries.push({
       playerId,
       snapshotJsonBytes: measure.snapshotJsonBytes,
@@ -57,7 +66,10 @@ export const summarizePlayerSubscriptionSnapshotCache = (
   entries.sort((left, right) => right.snapshotJsonBytes - left.snapshotJsonBytes || left.playerId.localeCompare(right.playerId));
   return {
     entryCount: entries.length,
-    totalSnapshotJsonBytes,
+    totalSnapshotJsonBytes: totalNonTileJsonBytes + uniqueTilesJsonBytes,
+    totalNonTileJsonBytes,
+    uniqueTilesJsonBytes,
+    uniqueTileArrayCount: uniqueTileArrays.size,
     topEntries: entries.slice(0, 3)
   };
 };
