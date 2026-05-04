@@ -92,6 +92,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     shardOverlayForTile,
     drawShardFallback,
     drawTownOverlay,
+    drawTownMarker,
+    drawDockMarker,
     hasCollectableYield,
     structureAccentColor,
     structureOverlayImages,
@@ -226,7 +228,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
         wrapY,
         terrainAt,
         effectiveOverlayColor,
-        tileVisibilityStateAt
+        tileVisibilityStateAt,
+        settlementProgressForTile: actionFlow.settlementProgressForTile
       });
       setTrue3DRendererActive(true);
     } catch (error) {
@@ -574,7 +577,10 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     drawForestOverlay,
     effectiveOverlayColor,
     overlayVariantIndexAt,
-    dockOverlayVariants,
+    // The 3D dock overlay supersedes the SVG dock icons when the true-3D
+    // renderer is mounted, so route to an empty variant array to skip
+    // the 2D draws (the runtime loop guards on element presence).
+    dockOverlayVariants: shouldUseThreeTerrainRenderer ? [] : dockOverlayVariants,
     drawCenteredOverlay,
     builtResourceOverlayForTile,
     resourceOverlayForTile,
@@ -587,7 +593,17 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     resourceColor,
     shardOverlayForTile,
     drawShardFallback,
-    drawTownOverlay,
+    // In 3D mode, draw only the town corner badge (gold coin) — the
+    // building itself is rendered by the 3D town overlay. In 2D mode,
+    // draw the full SVG building + corner badge as before.
+    drawTownOverlay: (tile, px, py, size) => {
+      if (threeTerrainRenderer) {
+        if (tile.town) drawTownMarker(px, py, size);
+        return;
+      }
+      drawTownOverlay(tile, px, py, size);
+    },
+    drawDockMarker,
     hasCollectableYield,
     structureAccentColor,
     structureOverlayImages,
