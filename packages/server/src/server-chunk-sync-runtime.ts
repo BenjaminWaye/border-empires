@@ -3,10 +3,14 @@ import { createChunkReadManager } from "./sim/chunk-read-manager.js";
 import type { ChunkReadRequest } from "./sim/chunk-read-shared.js";
 import {
   createChunkSnapshotController,
+  type ChunkSnapshotPerfSample,
+  type ChunkSnapshotPhaseTimings,
+  type ChunkSnapshotTrigger,
   type ChunkFollowUpStage,
   type ChunkSummaryMode,
   type VisibilitySnapshot
 } from "./chunk/snapshots.js";
+import type { ChunkSnapshotCacheEntry } from "./chunk/cache-diagnostics.js";
 import type { ChunkBuildInput } from "./chunk/serializer-shared.js";
 
 type RuntimeMemoryStats = {
@@ -15,28 +19,6 @@ type RuntimeMemoryStats = {
   heapTotalMb: number;
   externalMb: number;
   arrayBuffersMb: number;
-};
-
-type ChunkSnapshotPerfSample = {
-  at: number;
-  playerId: string;
-  elapsedMs: number;
-  chunks: number;
-  tiles: number;
-  radius: number;
-  rssMb: number;
-  heapUsedMb: number;
-  visibilityMaskMs: number;
-  summaryReadMs: number;
-  serializeMs: number;
-  sendMs: number;
-  cachedPayloadChunks: number;
-  rebuiltChunks: number;
-  batches: number;
-  batchGapMs: number;
-  maxBatchGapMs: number;
-  batchWorkMs: number;
-  maxBatchWorkMs: number;
 };
 
 type AuthSyncTiming = {
@@ -69,18 +51,7 @@ export interface CreateServerChunkSyncRuntimeDeps {
   clusterByTile: Map<string, string>;
   clustersById: Map<string, { clusterType?: Tile["clusterType"] }>;
   authSyncTimingByPlayer: Map<string, AuthSyncTiming>;
-  cachedChunkSnapshotByPlayer: Map<
-    string,
-    {
-      visibility: VisibilitySnapshot;
-      visibilityVersion: number;
-      discoveryVersion: number;
-      payloadByChunkKey: Map<string, string>;
-      summaryVersionByPayloadKey: Map<string, number>;
-      visibilityMaskByChunkKey: Map<string, Uint8Array>;
-      visibilityVersionByChunkKey: Map<string, number>;
-    }
-  >;
+  cachedChunkSnapshotByPlayer: Map<string, ChunkSnapshotCacheEntry>;
   fogChunkTilesByChunkKey: Map<string, readonly Tile[]>;
   chunkSnapshotGenerationByPlayer: Map<string, number>;
   chunkSnapshotInFlightByPlayer: Map<string, number>;
@@ -105,7 +76,7 @@ export interface CreateServerChunkSyncRuntimeDeps {
     chunks: number;
     tiles: number;
     radius: number;
-    phases: Omit<ChunkSnapshotPerfSample, "at" | "playerId" | "elapsedMs" | "chunks" | "tiles" | "radius" | "rssMb" | "heapUsedMb">;
+    phases: ChunkSnapshotPhaseTimings;
     memory: RuntimeMemoryStats;
   }) => void;
   serializeChunkBatchViaWorker: (inputs: ChunkBuildInput[]) => Promise<string[]>;
@@ -124,7 +95,7 @@ export interface ServerChunkSyncRuntime {
   buildBootstrapChunkStages: ReturnType<typeof createChunkSnapshotController<Player>>["buildBootstrapChunkStages"];
   sendChunkSnapshot: ReturnType<typeof createChunkSnapshotController<Player>>["sendChunkSnapshot"];
   tileInSubscription: ReturnType<typeof createChunkSnapshotController<Player>>["tileInSubscription"];
-  refreshSubscribedViewForPlayer: (playerId: string) => void;
+  refreshSubscribedViewForPlayer: (playerId: string, trigger?: ChunkSnapshotTrigger) => void;
 }
 
 export const createServerChunkSyncRuntime = (
@@ -233,7 +204,7 @@ export const createServerChunkSyncRuntime = (
     tileInSubscription
   } = createChunkSnapshotController<Player>(chunkSnapshotControllerDeps);
 
-  const refreshSubscribedViewForPlayer = (playerId: string): void => {
+  const refreshSubscribedViewForPlayer = (playerId: string, trigger: ChunkSnapshotTrigger = "realtime_refresh"): void => {
     const socket = deps.bulkSocketForPlayer(playerId);
     const player = deps.players.get(playerId);
     const sub = deps.chunkSubscriptionByPlayer.get(playerId);
@@ -242,7 +213,7 @@ export const createServerChunkSyncRuntime = (
       deps.pendingChunkRefreshByPlayer.add(playerId);
       return;
     }
-    sendChunkSnapshot(socket, player, sub);
+    sendChunkSnapshot(socket, player, sub, undefined, undefined, undefined, undefined, trigger);
   };
 
   return {
