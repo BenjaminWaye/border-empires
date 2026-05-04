@@ -29,8 +29,31 @@ export interface ServerPlayerIdentityRuntime {
 const AI_SINGLE_NAMES = ["Conan", "Boudica", "Ragnar", "Nyx", "Ivar", "Brakka", "Skarn", "Valka", "Torvin", "Morrigan", "Korga", "Thyra"] as const;
 const AI_NAME_PREFIXES = ["Bastard", "Iron", "Wolf", "Raven", "Blood", "Ash", "Bone", "Storm", "Night", "Skull", "Dread", "Black"] as const;
 const AI_NAME_SUFFIXES = ["Cleaver", "Reaver", "Fang", "Hammer", "Render", "Maw", "Howl", "Breaker", "Warden", "Rider", "Seer", "Brand"] as const;
+const AI_COLOR_PALETTE = [
+  "#ff6b6b",
+  "#4ecdc4",
+  "#ffd166",
+  "#c77dff",
+  "#f72585",
+  "#00bbf9",
+  "#8ac926",
+  "#ff9f1c",
+  "#5e60ce",
+  "#2ec4b6",
+  "#e76f51",
+  "#b8f2e6"
+] as const;
 
 const randomFrom = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)]!;
+const hashString = (value: string): number => {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+const aiColorFromId = (id: string): string => AI_COLOR_PALETTE[hashString(id) % AI_COLOR_PALETTE.length]!;
 
 export const createServerPlayerIdentityRuntime = (
   deps: CreateServerPlayerIdentityRuntimeDeps
@@ -107,6 +130,11 @@ export const createServerPlayerIdentityRuntime = (
       if (!aiHasPlaceholderName(player.name)) continue;
       player.name = claimPlayerName(player.id, generateAiNickname());
     }
+    for (const player of existing) {
+      if (!player.tileColor || player.tileColor === deps.colorFromId(player.id)) {
+        player.tileColor = aiColorFromId(player.id);
+      }
+    }
     for (let i = existing.length; i < deps.AI_PLAYERS; i += 1) {
       const id = deps.randomUUID();
       const player: Player = {
@@ -120,7 +148,7 @@ export const createServerPlayerIdentityRuntime = (
         domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         powerups: {},
-        tileColor: deps.colorFromId(id),
+        tileColor: aiColorFromId(id),
         missions: [],
         missionStats: deps.defaultMissionStats(),
         territoryTiles: new Set<TileKey>(),
