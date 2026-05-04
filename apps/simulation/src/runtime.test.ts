@@ -40,11 +40,22 @@ describe("simulation runtime", () => {
 
     const state = runtime.exportState();
     expect(state.players.some((player) => player.id === "firebase-user-1")).toBe(true);
-    expect(
-      state.tiles.some(
-        (tile) => tile.x === 10 && tile.y === 11 && tile.ownerId === "firebase-user-1" && tile.ownershipState === "SETTLED"
-      )
-    ).toBe(true);
+    const spawnedTile = state.tiles.find((tile) => tile.x === 10 && tile.y === 11 && tile.ownerId === "firebase-user-1");
+    const spawnedTown = spawnedTile?.townJson ? JSON.parse(spawnedTile.townJson) : undefined;
+    expect(spawnedTile).toEqual(
+      expect.objectContaining({
+        ownershipState: "SETTLED",
+        townType: "FARMING",
+        townPopulationTier: "SETTLEMENT"
+      })
+    );
+    expect(spawnedTown).toEqual(
+      expect.objectContaining({
+        populationTier: "SETTLEMENT",
+        population: 800,
+        maxPopulation: 10_000_000
+      })
+    );
   });
 
   it("does not respawn players that already have territory", () => {
@@ -2683,7 +2694,7 @@ describe("simulation runtime", () => {
     expect(settledTile?.townName).toBeUndefined();
   });
 
-  it("strips synthetic settlement towns from recovered state", () => {
+  it("preserves synthetic settlement towns in recovered state", () => {
     const runtime = new SimulationRuntime({
       initialState: {
         tiles: [
@@ -2713,8 +2724,21 @@ describe("simulation runtime", () => {
         ownershipState: "SETTLED"
       })
     );
-    expect(settledTile?.townType).toBeUndefined();
-    expect(settledTile?.townName).toBeUndefined();
+    expect(settledTile).toEqual(
+      expect.objectContaining({
+        townType: "FARMING",
+        townName: "Settlement 12,18",
+        townPopulationTier: "SETTLEMENT"
+      })
+    );
+    const recoveredTown = settledTile?.townJson ? JSON.parse(settledTile.townJson) : undefined;
+    expect(recoveredTown).toEqual(
+      expect.objectContaining({
+        populationTier: "SETTLEMENT",
+        population: 800,
+        maxPopulation: 10_000_000
+      })
+    );
   });
 
   it("does not leak seed-only resources, towns, or structures back onto recovered tiles after restart", () => {

@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.04.7",
+  version: "2026.05.04.9",
   title: "What's New",
-  summary: "Recent updates include rewrite staging preserving thin remote town identity for rendering while avoiding invented fed-state and economy summaries, so observed towns no longer disappear or fall back to bogus population-1/unfed states, AI empires now using a brighter custom palette instead of blending back into the default hashed player colors, AI empires now claiming neutral support-ring tiles around real towns before drifting into unrelated frontier actions, leaderboard player-color markers so score rows and season leaders are easier to scan at a glance, plus a dock worldgen follow-up so large islands in generated worlds now place multiple real dock tiles instead of collapsing onto one fallback coast point, with coastal-sea shorelines now counting as valid dockable water during shared world generation, staging fog-toggle diagnostics so the fog-admin reveal path now emits explicit client send logs plus gateway receive, refresh, and failure events instead of silently timing out, rewrite staging bootstrap now carrying authoritative season metadata and real dock routes from the simulation so managed seasons no longer report fake seed-world ids or zero docks in INIT, a runtime land-context fix so mountain-shaped land now carries an inferred biome and region into live tile labels and terrain rendering, a terrain-label fallback fix so land tiles with stale or unavailable biome lookups no longer claim to be sand while still rendering as grass, plus a staging fog-reveal sync fix so the fog-admin toggle now refreshes from authoritative rewrite snapshots instead of leaking unrelated live map deltas or getting stuck after a failed toggle refresh, dock coverage diagnostics so startup and regeneration logs now call out live undocked land components using the runtime terrain view, a rewrite frontier subscription recovery fix so paired control and bulk channels now keep command results streaming across reconnect churn, timeout rollback, and gateway restarts without leaking stale simulation subscriptions, claimed shard confirmations now keeping visible shard caches on newly claimed frontier tiles so you can still use the follow-up collect action, town growth panels now spelling out why growth is paused when a town is unfed or under war shock, rewrite town panels now refusing to invent local population, growth, support, fed-state, or economy summaries when gateway sync only resends sparse town identity, while still preserving previously cached authoritative town data, cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
+  summary: "Recent updates include rewrite staging recovering old thin towns into authoritative population-bearing towns, exporting authoritative remote town summaries without duplicate whole-map fed-state scans, preserving thin remote town identity for rendering without inventing economy state, and keeping bootstrap settlements on their real starting population instead of falling back to 1.",
   entries: [
+    {
+      introducedIn: "2026.05.04.9",
+      title: "Rewrite town recovery restores authoritative remote town snapshots",
+      why: "Older rewrite durable events could leave towns stuck as thin identity-only stubs across restarts, while the snapshot path also risked recomputing whole-map fed-state twice per export.",
+      changes: [
+        "Startup recovery now hydrates old thin non-settlement towns with real tier-based population defaults so restarted rewrite towns stop staying thin forever.",
+        "Rewrite settle-complete and respawn deltas continue sending full townJson, and snapshot export now threads the already-computed per-player fed-town map instead of rescanning the whole world a second time.",
+        "Added recovery and snapshot regressions so remote towns keep authoritative population after restart without reintroducing extra snapshot CPU cost."
+      ]
+    },
+    {
+      introducedIn: "2026.05.04.8",
+      title: "Rewrite bootstrap settlements keep their real starting population",
+      why: "Newly spawned rewrite settlements were being created with only a settlement tier label, so the live snapshot fallback rendered them as population 1 with a max population of 3 instead of their intended starting town state.",
+      changes: [
+        "Rewrite bootstrap settlement creation now seeds real starting population and max population values alongside the settlement tier.",
+        "Freshly spawned player settlements now display their expected starting population in the tile panel instead of falling back to 1.",
+        "Added simulation regression coverage for subscribed-player bootstrap spawns so future spawn-path changes keep the authored settlement population intact."
+      ]
+    },
     {
       introducedIn: "2026.05.04.7",
       title: "Rewrite remote towns stay visible after thin recovery",
