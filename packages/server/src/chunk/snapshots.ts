@@ -1,7 +1,6 @@
 import type { Player, Tile, TileKey } from "@border-empires/shared";
 import type { ChunkBuildInput } from "./serializer-shared.js";
 import type { ChunkReadRequest } from "../sim/chunk-read-shared.js";
-import { summarizeChunkSnapshotPlayerCache, type ChunkSnapshotCacheEntry } from "./cache-diagnostics.js";
 
 export type VisibilitySnapshot = {
   allVisible: boolean;
@@ -26,38 +25,15 @@ type RuntimeMemoryStats = {
   arrayBuffersMb: number;
 };
 
-export type ChunkSnapshotTrigger =
-  | "initial_bootstrap"
-  | "subscribe"
-  | "fog_toggle"
-  | "reveal_empire"
-  | "realtime_refresh"
-  | "pending_refresh";
-
-export type ChunkSnapshotPerfSample = {
+type ChunkSnapshotPerfSample = {
   at: number;
   playerId: string;
-  trigger: ChunkSnapshotTrigger;
-  visibilityMode: "global" | "player";
   elapsedMs: number;
   chunks: number;
   tiles: number;
   radius: number;
-  worldTiles: number;
-  worldChunks: number;
   rssMb: number;
   heapUsedMb: number;
-  peakRssMb: number;
-  peakHeapUsedMb: number;
-  batchPayloadBytes: number;
-  chunkPayloadBytes: number;
-  cachedPayloadBytes: number;
-  rebuiltPayloadBytes: number;
-  playerCachePayloads: number;
-  playerCachePayloadBytes: number;
-  playerVisibilityMasks: number;
-  playerVisibilityMaskBytes: number;
-  playerVisibilitySnapshotBytes: number;
   visibilityMaskMs: number;
   summaryReadMs: number;
   serializeMs: number;
@@ -71,7 +47,7 @@ export type ChunkSnapshotPerfSample = {
   maxBatchWorkMs: number;
 };
 
-export type ChunkSnapshotPhaseTimings = {
+type ChunkSnapshotPhaseTimings = {
   visibilityMaskMs: number;
   summaryReadMs: number;
   serializeMs: number;
@@ -83,6 +59,16 @@ export type ChunkSnapshotPhaseTimings = {
   maxBatchGapMs: number;
   batchWorkMs: number;
   maxBatchWorkMs: number;
+};
+
+type ChunkSnapshotCacheEntry = {
+  visibility: VisibilitySnapshot;
+  visibilityVersion: number;
+  discoveryVersion: number;
+  payloadByChunkKey: Map<string, string>;
+  summaryVersionByPayloadKey: Map<string, number>;
+  visibilityMaskByChunkKey: Map<string, Uint8Array>;
+  visibilityVersionByChunkKey: Map<string, number>;
 };
 
 type SocketLike = {
@@ -175,8 +161,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     followUpStage?: ChunkFollowUpStage,
     chunkCoordsOverride?: Array<{ cx: number; cy: number }>,
     summaryMode?: ChunkSummaryMode,
-    batchSizeOverride?: number,
-    trigger?: ChunkSnapshotTrigger
+    batchSizeOverride?: number
   ) => void;
   tileInSubscription: (playerId: string, x: number, y: number) => boolean;
   clearPlayer: (playerId: string) => void;
@@ -423,14 +408,11 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     followUpStage?: ChunkFollowUpStage,
     chunkCoordsOverride?: Array<{ cx: number; cy: number }>,
     summaryMode: ChunkSummaryMode = "thin",
-    batchSizeOverride?: number,
-    trigger?: ChunkSnapshotTrigger
+    batchSizeOverride?: number
   ): void => {
     const startedAt = deps.now();
     const authSync = deps.authSyncTimingByPlayer.get(actor.id);
     const snapshot = deps.visibilitySnapshotForPlayer(actor);
-    const snapshotTrigger = trigger ?? (authSync?.firstChunkSentAt === undefined ? "initial_bootstrap" : "subscribe");
-    const visibilityMode = snapshot.allVisible ? "global" : "player";
     const generation = (deps.chunkSnapshotGenerationByPlayer.get(actor.id) ?? 0) + 1;
     deps.chunkSnapshotGenerationByPlayer.set(actor.id, generation);
     deps.chunkSnapshotInFlightByPlayer.set(actor.id, generation);
@@ -451,19 +433,6 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       maxBatchGapMs: 0,
       batchWorkMs: 0,
       maxBatchWorkMs: 0
-    };
-    let batchPayloadBytes = 0;
-    let chunkPayloadBytes = 0;
-    let cachedPayloadBytes = 0;
-    let rebuiltPayloadBytes = 0;
-    const initialMemory = deps.runtimeMemoryStats();
-    let peakRssMb = initialMemory.rssMb;
-    let peakHeapUsedMb = initialMemory.heapUsedMb;
-
-    const observeMemory = (): void => {
-      const memory = deps.runtimeMemoryStats();
-      peakRssMb = Math.max(peakRssMb, memory.rssMb);
-      peakHeapUsedMb = Math.max(peakHeapUsedMb, memory.heapUsedMb);
     };
 
     let index = 0;
@@ -506,9 +475,6 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy, summaryMode, phases);
         if (chunk.payload) {
           chunkBatchBodies.push(chunk.payload);
-          const payloadBytes = Buffer.byteLength(chunk.payload, "utf8");
-          chunkPayloadBytes += payloadBytes;
-          cachedPayloadBytes += payloadBytes;
         } else if (chunk.buildInput) {
           pendingBuilds.push({
             chunkKey: chunk.chunkKey,
@@ -542,29 +508,23 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         for (let payloadIndex = 0; payloadIndex < payloads.length; payloadIndex += 1) {
           const pending = pendingBuilds[payloadIndex]!;
           const payload = payloads[payloadIndex]!;
-          const payloadBytes = Buffer.byteLength(payload, "utf8");
           payloadCache.set(pending.chunkKey, payload);
           chunkSnapshotCacheForPlayer(actor.id, snapshot).summaryVersionByPayloadKey.set(
             pending.chunkKey,
             deps.summaryChunkVersion(pending.cx, pending.cy)
           );
           chunkBatchBodies.push(payload);
-          chunkPayloadBytes += payloadBytes;
-          rebuiltPayloadBytes += payloadBytes;
           for (const tileKey of pendingVisibleTileKeys[payloadIndex] ?? []) discoveredTileKeys.add(tileKey);
         }
       }
 
       if (chunkBatchBodies.length > 0) {
         const sendStartedAt = deps.now();
-        const batchPayload = deps.serializeChunkBatchBodies(generation, chunkBatchBodies);
-        batchPayloadBytes += Buffer.byteLength(batchPayload, "utf8");
-        deps.sendChunkBatchPayload(socket, batchPayload);
+        deps.sendChunkBatchPayload(socket, deps.serializeChunkBatchBodies(generation, chunkBatchBodies));
         phases.sendMs += deps.now() - sendStartedAt;
         phases.batches += 1;
         if (discoveredTileKeys.size > 0) deps.recordDiscoveredTilesForPlayer?.(actor.id, discoveredTileKeys);
       }
-      observeMemory();
       const batchWorkMs = deps.now() - batchStartedAt;
       phases.batchWorkMs += batchWorkMs;
       phases.maxBatchWorkMs = Math.max(phases.maxBatchWorkMs, batchWorkMs);
@@ -583,13 +543,6 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
 
       const elapsed = deps.now() - startedAt;
       const memory = deps.runtimeMemoryStats();
-      peakRssMb = Math.max(peakRssMb, memory.rssMb);
-      peakHeapUsedMb = Math.max(peakHeapUsedMb, memory.heapUsedMb);
-      const playerCacheDiagnostics = summarizeChunkSnapshotPlayerCache({
-        playerId: actor.id,
-        cachedChunkSnapshotByPlayer: deps.cachedChunkSnapshotByPlayer,
-        cachedVisibilitySnapshotByPlayer: new Map([[actor.id, snapshot]])
-      });
       if (authSync && authSync.firstChunkSentAt === undefined) {
         authSync.firstChunkSentAt = deps.now();
         deps.onFirstChunkSent({
@@ -602,27 +555,12 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       deps.pushChunkSnapshotPerf({
         at: deps.now(),
         playerId: actor.id,
-        trigger: snapshotTrigger,
-        visibilityMode,
         elapsedMs: elapsed,
         chunks: chunkCount,
         tiles: tileCount,
         radius: sub.radius,
-        worldTiles: deps.worldWidth * deps.worldHeight,
-        worldChunks: deps.chunkCountX * deps.chunkCountY,
         rssMb: memory.rssMb,
         heapUsedMb: memory.heapUsedMb,
-        peakRssMb,
-        peakHeapUsedMb,
-        batchPayloadBytes,
-        chunkPayloadBytes,
-        cachedPayloadBytes,
-        rebuiltPayloadBytes,
-        playerCachePayloads: playerCacheDiagnostics.payloads,
-        playerCachePayloadBytes: playerCacheDiagnostics.payloadBytes,
-        playerVisibilityMasks: playerCacheDiagnostics.visibilityMasks,
-        playerVisibilityMaskBytes: playerCacheDiagnostics.visibilityMaskBytes,
-        playerVisibilitySnapshotBytes: playerCacheDiagnostics.visibilitySnapshotBytes,
         visibilityMaskMs: phases.visibilityMaskMs,
         summaryReadMs: phases.summaryReadMs,
         serializeMs: phases.serializeMs,
@@ -653,7 +591,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         if (latestSocket && latestSocket.readyState === latestSocket.OPEN && latestSub) {
           setTimeout(() => {
             if (latestSocket.readyState !== latestSocket.OPEN) return;
-            sendChunkSnapshot(latestSocket, actor, latestSub, undefined, undefined, undefined, undefined, "pending_refresh");
+            sendChunkSnapshot(latestSocket, actor, latestSub);
           }, 0);
         }
       }
@@ -680,8 +618,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
             followUpStage.next,
             followUpStage.chunkCoords,
             followUpStage.summaryMode,
-            followUpStage.batchSize,
-            snapshotTrigger
+            followUpStage.batchSize
           );
         }, deps.runtimeLoadShedLevel() === "hard" ? deps.chunkSnapshotOverloadYieldMs : deps.chunkSnapshotYieldMs);
       }
