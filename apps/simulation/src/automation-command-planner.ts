@@ -5,13 +5,12 @@ import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST,
   SETTLE_COST,
-  type EconomicStructureType
-,
+  type EconomicStructureType,
   type Terrain
 } from "@border-empires/shared";
 
 import { chooseBestSettlementTile, chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
-import { analyzeOwnedFrontierTargetsFromLookup } from "./frontier-command-planner.js";
+import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
@@ -20,6 +19,7 @@ import {
 import { economyWeak, foodCoverageLow, hasCollectibleVisibleYieldSource } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
+import { chooseAutomationGoapDecision } from "./automation-goap.js";
 import {
   buildPlannerCommand,
   buildPlannerFrontierCommand,
@@ -39,7 +39,8 @@ export const AUTOMATION_NOOP_REASONS = [
   "insufficient_points",
   "insufficient_manpower_for_attack",
   "no_settlement_target",
-  "no_frontier_targets"
+  "no_frontier_targets",
+  "wait_and_recover"
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
@@ -162,6 +163,120 @@ export const createAutomationNoopDiagnostic = (
   canExpand: false,
   noCommandReason
 });
+
+const attackTargetsBarbarian = (attack: FrontierAnalysis["attack"] | undefined): boolean =>
+  Boolean(attack && (attack.target.ownerId === "barbarian" || attack.target.ownershipState === "BARBARIAN"));
+
+export const goapGoldReserveHealthy = (points: number): boolean =>
+  points >= SETTLE_COST + FRONTIER_CLAIM_COST;
+
+const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
+  context: AutomationPlannerDecisionContext<TTile>,
+  frontierAnalysis: FrontierAnalysis,
+  points: number,
+  manpower: number,
+  hasCollectibleVisibleYieldSource: boolean,
+  strategic: AutomationStrategicSnapshot,
+  canAttack: boolean,
+  canExpand: boolean,
+  actionableFallbackSettlementCandidate: TTile | undefined,
+  economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined,
+  fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined,
+  siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined
+): AutomationPlannerResult | undefined => {
+  const hasBarbarianAttackTarget = frontierAnalysis.frontierBarbarianTargetCount > 0;
+  const hasWeakEnemyBorder = frontierAnalysis.frontierEnemyPlayerTargetCount > 0;
+  const goapDecision = chooseAutomationGoapDecision({
+    hasNeutralLandOpportunity: Boolean(frontierAnalysis.economicExpand && frontierAnalysis.frontierOpportunityEconomic > 0),
+    hasScoutOpportunity: Boolean(frontierAnalysis.scoutExpand),
+    hasScaffoldOpportunity: Boolean(frontierAnalysis.scaffoldExpand),
+    hasBarbarianTarget: hasBarbarianAttackTarget,
+    hasWeakEnemyBorder,
+    hasSiegeOutpostSite: Boolean(siegeOutpostBuild && frontierAnalysis.enemyAttack),
+    attackReady: strategic.attackReady,
+    needsSettlement: Boolean(actionableFallbackSettlementCandidate),
+    frontierDebtHigh: frontierAnalysis.frontierNeutralTargetCount >= 3,
+    foodCoverageLow: context.needsFood,
+    underThreat: strategic.underThreat,
+    threatCritical: strategic.threatCritical,
+    economyWeak: context.needsEconomy,
+    needsFortifiedAnchor: Boolean(fortBuild) && frontierAnalysis.frontierEnemyTargetCount > 0,
+    canAffordFrontierAction: canExpand,
+    canAffordSettlement: Boolean(actionableFallbackSettlementCandidate),
+    canBuildFort: Boolean(fortBuild),
+    canBuildEconomy: Boolean(economicBuild),
+    canBuildSiegeOutpost: Boolean(siegeOutpostBuild),
+    goldHealthy: goapGoldReserveHealthy(points),
+    staminaHealthy: manpower >= ATTACK_MANPOWER_MIN || !strategic.underThreat
+  }, strategic.primaryVictoryPath);
+  if (!goapDecision) return undefined;
+
+  switch (goapDecision.actionKey) {
+    case "claim_food_border_tile":
+      if (frontierAnalysis.economicExpand && canExpand) return buildPlannerFrontierCommand(context, frontierAnalysis.economicExpand, "EXPAND");
+      if (frontierAnalysis.expand && canExpand) return buildPlannerFrontierCommand(context, frontierAnalysis.expand, "EXPAND");
+      return undefined;
+    case "claim_neutral_border_tile":
+      if (frontierAnalysis.economicExpand && canExpand && frontierAnalysis.frontierOpportunityEconomic > 0) {
+        return buildPlannerFrontierCommand(context, frontierAnalysis.economicExpand, "EXPAND");
+      }
+      if (frontierAnalysis.expand && canExpand) return buildPlannerFrontierCommand(context, frontierAnalysis.expand, "EXPAND");
+      return undefined;
+    case "claim_scout_border_tile":
+      return frontierAnalysis.scoutExpand && canExpand
+        ? buildPlannerFrontierCommand(context, frontierAnalysis.scoutExpand, "EXPAND")
+        : undefined;
+    case "claim_scaffold_border_tile":
+      return frontierAnalysis.scaffoldExpand && canExpand
+        ? buildPlannerFrontierCommand(context, frontierAnalysis.scaffoldExpand, "EXPAND")
+        : undefined;
+    case "attack_barbarian_border_tile":
+      return frontierAnalysis.barbarianAttack && canAttack && strategic.attackReady && hasBarbarianAttackTarget
+        ? buildPlannerFrontierCommand(context, frontierAnalysis.barbarianAttack, "ATTACK")
+        : undefined;
+    case "attack_enemy_border_tile":
+      return frontierAnalysis.enemyAttack && canAttack && strategic.attackReady && hasWeakEnemyBorder
+        ? buildPlannerFrontierCommand(context, frontierAnalysis.enemyAttack, "ATTACK")
+        : undefined;
+    case "build_siege_outpost":
+      return siegeOutpostBuild
+        ? buildPlannerCommand(context, "BUILD_SIEGE_OUTPOST", { x: siegeOutpostBuild.x, y: siegeOutpostBuild.y })
+        : undefined;
+    case "settle_owned_frontier_tile":
+      return actionableFallbackSettlementCandidate
+        ? buildPlannerSettleCommand(context, actionableFallbackSettlementCandidate)
+        : undefined;
+    case "build_fort_on_exposed_tile":
+      return fortBuild ? buildPlannerCommand(context, "BUILD_FORT", { x: fortBuild.x, y: fortBuild.y }) : undefined;
+    case "build_economic_structure":
+      return economicBuild
+        ? buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
+            x: economicBuild.tile.x,
+            y: economicBuild.tile.y,
+            structureType: economicBuild.structureType
+          })
+        : undefined;
+    case "wait_and_recover":
+      if (
+        hasCollectibleVisibleYieldSource ||
+        frontierAnalysis.economicExpand ||
+        frontierAnalysis.scaffoldExpand ||
+        frontierAnalysis.attack ||
+        !frontierAnalysis.scoutExpand
+      ) {
+        return undefined;
+      }
+      return {
+        diagnostic: {
+          ...context.diagnostic,
+          noCommandReason: "wait_and_recover"
+        }
+      };
+    default:
+      return undefined;
+  }
+};
+
 export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   input: AutomationPlannerInput<TTile>
 ): AutomationPlannerResult => {
@@ -238,8 +353,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           canExpand,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
         })
-      : {
+        : {
           frontierEnemyTargetCount: 0,
+          frontierEnemyPlayerTargetCount: 0,
+          frontierBarbarianTargetCount: 0,
           frontierNeutralTargetCount: 0,
           frontierOpportunityEconomic: 0,
           frontierOpportunityScout: 0,
@@ -287,6 +404,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     settlementCandidate && shouldSettleCandidateNow(context, settlementCandidate as TTile)
   );
   const techUnaffordable = input.preplanProgressState === "tech_unaffordable";
+  const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);
 
   let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
@@ -332,14 +450,14 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   input.onStrategicSnapshot?.(strategic);
 
   if (
-    frontierAnalysis.attack &&
+    preferredEnemyAttack &&
     strategic.attackReady &&
     strategic.frontPosture === "BREAK" &&
     strategic.pressureThreatensCore &&
     strategic.pressureAttackScore >= 220
   ) {
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-    return buildPlannerFrontierCommand(context, frontierAnalysis.attack, "ATTACK");
+    return buildPlannerFrontierCommand(context, preferredEnemyAttack, "ATTACK");
   }
 
   if (settlementCandidate && canSettleNow) {
@@ -441,9 +559,28 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return buildPlannerSettleCommand(context, actionableFallbackSettlementCandidate);
   }
+
+  const goapFallbackResult = buildGoapFallbackResult(
+    context,
+    frontierAnalysis,
+    input.points,
+    input.manpower,
+    hasCollectibleVisibleYieldSource(input.ownedTiles),
+    strategic,
+    canAttack,
+    canExpand,
+    actionableFallbackSettlementCandidate,
+    economicBuild,
+    fortBuild,
+    siegeOutpostBuild
+  );
+  if (goapFallbackResult) {
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+    return goapFallbackResult;
+  }
   if (
     siegeOutpostBuild &&
-    frontierAnalysis.attack &&
+    preferredEnemyAttack &&
     strategic.frontPosture !== "TRUCE" &&
     !strategic.underThreat &&
     (strategic.primaryVictoryPath === "TOWN_CONTROL" || strategic.primaryVictoryPath === "ECONOMIC_HEGEMONY") &&
@@ -508,18 +645,18 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   }
 
   if (
-    frontierAnalysis.attack &&
+    preferredEnemyAttack &&
     strategic.attackReady &&
     frontierAnalysis.frontierEnemyTargetCount > 0 &&
     (frontierAnalysis.frontierNeutralTargetCount === 0 ||
       (!needsFood && !needsEconomy && !settlementCandidate && frontierAnalysis.frontierEnemyTargetCount > 1))
   ) {
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-    return buildPlannerFrontierCommand(context, frontierAnalysis.attack, "ATTACK");
+    return buildPlannerFrontierCommand(context, preferredEnemyAttack, "ATTACK");
   }
 
   if (
-    frontierAnalysis.attack &&
+    preferredEnemyAttack &&
     !(
       strategic.frontPosture === "CONTAIN" &&
       frontierAnalysis.frontierNeutralTargetCount > 0 &&
@@ -527,7 +664,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     )
   ) {
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-    return buildPlannerFrontierCommand(context, frontierAnalysis.attack, "ATTACK");
+    return buildPlannerFrontierCommand(context, preferredEnemyAttack, "ATTACK");
   }
 
   if (frontierAnalysis.expand) {

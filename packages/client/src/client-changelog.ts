@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.04.9",
+  version: "2026.05.04.10",
   title: "What's New",
-  summary: "Recent updates include rewrite staging recovering old thin towns into authoritative population-bearing towns, exporting authoritative remote town summaries without duplicate whole-map fed-state scans, preserving thin remote town identity for rendering without inventing economy state, and keeping bootstrap settlements on their real starting population instead of falling back to 1.",
+  summary: "Recent updates include rewrite staging AI gaining a late GOAP-style fallback planner with cleaner enemy-vs-barbarian pressure handling, so mixed fronts stop overvaluing barbarian targets and reserve recovery no longer falls through into random low-value actions, plus rewrite staging recovering old thin towns into authoritative population-bearing towns, exporting authoritative remote town summaries without duplicate whole-map fed-state scans, preserving thin remote town identity for rendering without inventing economy state, and keeping bootstrap settlements on their real starting population instead of falling back to 1.",
   entries: [
+    {
+      introducedIn: "2026.05.04.10",
+      title: "Rewrite staging AI now has GOAP fallback planning",
+      why: "The rewrite AI could still bottom out into brittle branch-order behavior after the strategic priorities ran, especially on mixed fronts where barbarian pressure could mask a real enemy opportunity or where reserve recovery should have paused instead of forcing another weak action.",
+      changes: [
+        "Rewrite AI now uses a late GOAP-style fallback layer for frontier pressure, scouting, settlement, forts, siege outposts, economy, and reserve recovery when the stronger strategic priorities do not already choose an action.",
+        "Frontier analysis now keeps enemy-player and barbarian attack opportunities separate, so mixed fronts can still choose the correct enemy pressure path instead of blindly following the single highest-scoring hostile target.",
+        "Added regression coverage for reserve-threshold handling, mixed barbarian-versus-enemy pressure, and the new GOAP fallback decisions so staging parity work stays stable through future planner refactors."
+      ]
+    },
     {
       introducedIn: "2026.05.04.9",
       title: "Rewrite town recovery restores authoritative remote town snapshots",
