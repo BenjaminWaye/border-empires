@@ -96,6 +96,7 @@ export type HeightfieldRebuildInputs = {
   readonly worldWidth: number;
   readonly worldHeight: number;
   readonly tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind;
+  readonly isExploredAt?: (wx: number, wy: number) => boolean;
 };
 
 export type Heightfield = {
@@ -166,7 +167,8 @@ export const createHeightfield = (): Heightfield => {
 
   const rebuild = (inputs: HeightfieldRebuildInputs): void => {
     elevationCache.clear();
-    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt } = inputs;
+    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt } = inputs;
+    const exploredAt = isExploredAt ?? ((): boolean => true);
 
     const tileSpanX = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfW + 3));
     const tileSpanY = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfH + 3));
@@ -180,6 +182,8 @@ export const createHeightfield = (): Heightfield => {
       readonly r: number;
       readonly g: number;
       readonly b: number;
+      readonly isSea: boolean;
+      readonly isExplored: boolean;
     };
     const tileSampleCache = new Map<number, TileSample>();
 
@@ -193,11 +197,25 @@ export const createHeightfield = (): Heightfield => {
       const variant = terrainShadeVariantAt(wx, wy);
       const [cr, cg, cb] = heightfieldTileColor(kind, variant);
       const elevation = heightfieldTileBaseElevation(kind) + elevationJitter(wx, wy, kind);
-      const sample: TileSample = { elevation, r: cr / 255, g: cg / 255, b: cb / 255 };
+      const isSea = kind === "SEA" || kind === "COASTAL_SEA";
+      const isExplored = exploredAt(wx, wy);
+      const sample: TileSample = { elevation, r: cr / 255, g: cg / 255, b: cb / 255, isSea, isExplored };
       tileSampleCache.set(cacheKey, sample);
       elevationCache.set(elevationKey(wx, wy), heightfieldTileBaseElevation(kind));
       return sample;
     };
+
+    // Vertex categories so the heightfield reads as discrete tile cells:
+    //  - all sea: no triangle drawn (per-tile water quad covers it).
+    //  - all land: average only land neighbours so the tile is flat at land Y.
+    //  - mixed (coast): pull the corner Y down to just above water and tint
+    //    the vertex sandy-white so the LAND tile bevels into the water as
+    //    a soft beach instead of dropping off as a black cliff.
+    const seaFloorFallbackY = heightfieldTileBaseElevation("SEA");
+    const coastEdgeY = -0.04;
+    const beachR = 244 / 255;
+    const beachG = 232 / 255;
+    const beachB = 198 / 255;
 
     for (let j = 0; j < vertSpanY; j += 1) {
       for (let i = 0; i < vertSpanX; i += 1) {
@@ -205,10 +223,60 @@ export const createHeightfield = (): Heightfield => {
         const s10 = sampleTile(i, j - 1);
         const s01 = sampleTile(i - 1, j);
         const s11 = sampleTile(i, j);
-        const elevation = (s00.elevation + s10.elevation + s01.elevation + s11.elevation) * 0.25;
-        const r = (s00.r + s10.r + s01.r + s11.r) * 0.25;
-        const g = (s00.g + s10.g + s01.g + s11.g) * 0.25;
-        const b = (s00.b + s10.b + s01.b + s11.b) * 0.25;
+        const samples = [s00, s10, s01, s11].filter((s) => s.isExplored);
+        const landSamples = samples.filter((s) => !s.isSea);
+        let elevation: number;
+        let r: number;
+        let g: number;
+        let b: number;
+        const seaSamples = samples.filter((s) => s.isSea);
+        if (samples.length === 0 || landSamples.length === 0) {
+          // No explored land touches this corner; vertex won't be drawn
+          // (all surrounding tiles are skipped in the index buffer), so
+          // values here are placeholders.
+          elevation = seaFloorFallbackY;
+          r = (s00.r + s10.r + s01.r + s11.r) * 0.25;
+          g = (s00.g + s10.g + s01.g + s11.g) * 0.25;
+          b = (s00.b + s10.b + s01.b + s11.b) * 0.25;
+        } else if (seaSamples.length === 0) {
+          // All explored neighbours are land — flat land top, no beach.
+          let sumE = 0;
+          let sumR = 0;
+          let sumG = 0;
+          let sumB = 0;
+          for (const sample of landSamples) {
+            sumE += sample.elevation;
+            sumR += sample.r;
+            sumG += sample.g;
+            sumB += sample.b;
+          }
+          const inv = 1 / landSamples.length;
+          elevation = sumE * inv;
+          r = sumR * inv;
+          g = sumG * inv;
+          b = sumB * inv;
+        } else {
+          // Coast corner: more (explored) sea around the corner ⇒ closer
+          // to water and whiter (foam). Only explored sea contributes —
+          // unexplored neighbours don't pull the edge into beach.
+          const beachMix = seaSamples.length / samples.length;
+          let landSumR = 0;
+          let landSumG = 0;
+          let landSumB = 0;
+          for (const sample of landSamples) {
+            landSumR += sample.r;
+            landSumG += sample.g;
+            landSumB += sample.b;
+          }
+          const invLand = 1 / landSamples.length;
+          const landR = landSumR * invLand;
+          const landG = landSumG * invLand;
+          const landB = landSumB * invLand;
+          elevation = coastEdgeY;
+          r = landR * (1 - beachMix) + beachR * beachMix;
+          g = landG * (1 - beachMix) + beachG * beachMix;
+          b = landB * (1 - beachMix) + beachB * beachMix;
+        }
         const baseIdx = (j * VERT_DIM + i) * 3;
         positions[baseIdx + 0] = tileOffsetX + i;
         positions[baseIdx + 1] = elevation;
@@ -219,10 +287,16 @@ export const createHeightfield = (): Heightfield => {
       }
     }
 
-    if (tileSpanX !== lastTileSpanX) {
+    // Index buffer rebuilt every call now: the sea/land mask shifts as
+    // the camera pans, and sea tiles are skipped entirely so the
+    // heightfield has tile-shaped holes where the per-tile water quads
+    // sit on top.
+    {
       let idxCount = 0;
       for (let j = 0; j < tileSpanY; j += 1) {
         for (let i = 0; i < tileSpanX; i += 1) {
+          const sample = sampleTile(i, j);
+          if (sample.isSea || !sample.isExplored) continue;
           const a = j * VERT_DIM + i;
           const b = a + 1;
           const c = a + VERT_DIM;
@@ -239,25 +313,6 @@ export const createHeightfield = (): Heightfield => {
       lastTileSpanX = tileSpanX;
       const indexAttr = geometry.index;
       if (indexAttr) indexAttr.needsUpdate = true;
-    } else if (tileSpanY * tileSpanX * 6 !== lastIndexCount) {
-      let idxCount = 0;
-      for (let j = 0; j < tileSpanY; j += 1) {
-        for (let i = 0; i < tileSpanX; i += 1) {
-          const a = j * VERT_DIM + i;
-          const b = a + 1;
-          const c = a + VERT_DIM;
-          const d = c + 1;
-          indices[idxCount++] = a;
-          indices[idxCount++] = c;
-          indices[idxCount++] = b;
-          indices[idxCount++] = b;
-          indices[idxCount++] = c;
-          indices[idxCount++] = d;
-        }
-      }
-      lastIndexCount = idxCount;
-      const indexAttr = geometry.index;
-      if (indexAttr) indexAttr.needsUpdate = true;
     }
 
     const positionAttr = geometry.attributes.position;
@@ -267,18 +322,29 @@ export const createHeightfield = (): Heightfield => {
     geometry.setDrawRange(0, lastIndexCount);
     geometry.computeVertexNormals();
 
-    if (gridlines.visible && (tileSpanX !== gridLastTileSpanX || tileSpanY !== gridLastTileSpanY)) {
+    if (gridlines.visible) {
+      // Gridlines must mirror the heightfield's tile-skip rule — emit
+      // an edge only if at least one adjacent tile is drawn (explored
+      // and not sea). Otherwise unexplored corners (parked at sea-floor
+      // Y) form a visible carpet of grid squares beneath the void.
+      const tileDrawn = (i: number, j: number): boolean => {
+        if (i < 0 || j < 0 || i >= tileSpanX || j >= tileSpanY) return false;
+        const s = sampleTile(i, j);
+        return s.isExplored && !s.isSea;
+      };
       let gridIdx = 0;
-      // Horizontal edges: for every vertex row, connect (i,j)-(i+1,j)
+      // Horizontal edges along row j: bordered by tiles (i, j-1) above and (i, j) below.
       for (let j = 0; j <= tileSpanY; j += 1) {
         for (let i = 0; i < tileSpanX; i += 1) {
+          if (!tileDrawn(i, j - 1) && !tileDrawn(i, j)) continue;
           gridIndices[gridIdx++] = j * VERT_DIM + i;
           gridIndices[gridIdx++] = j * VERT_DIM + i + 1;
         }
       }
-      // Vertical edges: for every vertex column, connect (i,j)-(i,j+1)
+      // Vertical edges along column i: bordered by tiles (i-1, j) left and (i, j) right.
       for (let j = 0; j < tileSpanY; j += 1) {
         for (let i = 0; i <= tileSpanX; i += 1) {
+          if (!tileDrawn(i - 1, j) && !tileDrawn(i, j)) continue;
           gridIndices[gridIdx++] = j * VERT_DIM + i;
           gridIndices[gridIdx++] = (j + 1) * VERT_DIM + i;
         }
