@@ -133,6 +133,31 @@ const parseGatewayStructureJson = <T>(value?: string): T | undefined => {
   }
 };
 
+const gatewayTownIdentity = (
+  update: GatewayTileUpdate,
+  existing: Tile | undefined,
+  town: Tile["town"] | undefined
+): Pick<NormalizedGatewayTileUpdate, "townType" | "townName" | "townPopulationTier"> | undefined => {
+  const existingType = existing?.town?.type ?? existing?.townType;
+  const existingName = existing?.town?.name ?? existing?.townName;
+  const existingTier = existing?.town?.populationTier ?? existing?.townPopulationTier;
+
+  if ("townJson" in update && !update.townJson && !("townType" in update) && !("townName" in update) && !("townPopulationTier" in update)) {
+    return { townType: undefined, townName: undefined, townPopulationTier: undefined };
+  }
+
+  const type = town?.type ?? update.townType ?? existingType;
+  const name = town?.name ?? ("townName" in update ? update.townName : existingName);
+  const populationTier = town?.populationTier ?? ("townPopulationTier" in update ? update.townPopulationTier : existingTier);
+
+  if (!type && !name && !populationTier) return undefined;
+  return {
+    townType: type,
+    townName: name,
+    townPopulationTier: populationTier
+  };
+};
+
 const gatewayTownSummary = (
   update: GatewayTileUpdate,
   existing: Tile | undefined
@@ -173,12 +198,8 @@ export const normalizeGatewayTileUpdate = (
   if ("dockId" in update) normalized.dockId = update.dockId;
   if ("townJson" in update || "townType" in update || "townName" in update || "townPopulationTier" in update) {
     normalized.town = gatewayTownSummary(update, args.existing);
-    if ("townType" in update) normalized.townType = update.townType;
-    else if ("townJson" in update && !update.townJson) normalized.townType = undefined;
-    if ("townName" in update) normalized.townName = update.townName;
-    else if ("townJson" in update && !update.townJson) normalized.townName = undefined;
-    if ("townPopulationTier" in update) normalized.townPopulationTier = update.townPopulationTier;
-    else if ("townJson" in update && !update.townJson) normalized.townPopulationTier = undefined;
+    const townIdentity = gatewayTownIdentity(update, args.existing, normalized.town);
+    if (townIdentity) Object.assign(normalized, townIdentity);
   }
   if ("fortJson" in update) normalized.fort = parseGatewayStructureJson<Tile["fort"]>(update.fortJson);
   if ("observatoryJson" in update) normalized.observatory = parseGatewayStructureJson<Tile["observatory"]>(update.observatoryJson);

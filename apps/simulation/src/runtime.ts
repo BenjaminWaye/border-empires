@@ -56,8 +56,8 @@ import {
   SIPHON_PURGE_CRYSTAL_COST,
   SIPHON_SHARE,
   SYNTH_OVERLOAD_DISABLE_MS,
-  SYNTH_OVERLOAD_GOLD_COST
-  ,
+  SYNTH_OVERLOAD_GOLD_COST,
+  POPULATION_MAX,
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
@@ -501,6 +501,21 @@ const isSyntheticSettlementTown = (
     town.name === `Settlement ${x},${y}`
   );
 
+const SYNTHETIC_SETTLEMENT_POPULATION = 800;
+
+const hydrateSyntheticSettlementTown = (
+  town: DomainTileState["town"] | undefined,
+  x: number,
+  y: number
+): DomainTileState["town"] | undefined => {
+  if (!town || !isSyntheticSettlementTown(town, x, y)) return town;
+  return {
+    ...town,
+    population: typeof town.population === "number" ? town.population : SYNTHETIC_SETTLEMENT_POPULATION,
+    maxPopulation: typeof town.maxPopulation === "number" ? town.maxPopulation : POPULATION_MAX
+  };
+};
+
 export class SimulationRuntime {
   private readonly events = new EventEmitter();
   private readonly persistence: SimulationPersistence;
@@ -694,7 +709,9 @@ export class SimulationRuntime {
       town: tile.town ?? {
         name: `Settlement ${tile.x},${tile.y}`,
         type: "FARMING",
-        populationTier: "SETTLEMENT"
+        populationTier: "SETTLEMENT",
+        population: 800,
+        maxPopulation: POPULATION_MAX
       }
     };
     const commandId = `bootstrap-spawn:${playerId}:${this.now()}`;
@@ -1863,19 +1880,7 @@ export class SimulationRuntime {
         eventType: "TILE_DELTA_BATCH",
         commandId: command.commandId,
         playerId: command.playerId,
-        tileDeltas: [
-          {
-            x: settledTile.x,
-            y: settledTile.y,
-            ...(settledTile.terrain ? { terrain: settledTile.terrain } : {}),
-            ...(settledTile.resource ? { resource: settledTile.resource } : {}),
-            ...(settledTile.ownerId ? { ownerId: settledTile.ownerId } : {}),
-            ...(settledTile.ownershipState ? { ownershipState: settledTile.ownershipState } : {}),
-            ...(settledTile.town?.type ? { townType: settledTile.town.type } : {}),
-            ...(settledTile.town?.name ? { townName: settledTile.town.name } : {}),
-            ...(settledTile.town?.populationTier ? { townPopulationTier: settledTile.town.populationTier } : {})
-          }
-        ]
+        tileDeltas: [this.tileDeltaFromState(settledTile)]
       });
       this.emitPlayerStateUpdate(command);
     });
@@ -4760,19 +4765,7 @@ export class SimulationRuntime {
         eventType: "TILE_DELTA_BATCH",
         commandId: `${commandId}:respawn:${playerId}`,
         playerId,
-        tileDeltas: [
-          {
-            x: respawnedTile.x,
-            y: respawnedTile.y,
-            terrain: respawnedTile.terrain,
-            ...(respawnedTile.resource ? { resource: respawnedTile.resource } : {}),
-            ownerId: playerId,
-            ownershipState: "SETTLED",
-            ...(respawnedTile.town?.type ? { townType: respawnedTile.town.type } : {}),
-            ...(respawnedTile.town?.name ? { townName: respawnedTile.town.name } : {}),
-            ...(respawnedTile.town?.populationTier ? { townPopulationTier: respawnedTile.town.populationTier } : {})
-          }
-        ]
+        tileDeltas: [this.tileDeltaFromState(respawnedTile)]
       });
       return;
     }
@@ -4975,10 +4968,7 @@ const createTilesFromInitialState = (
   for (const tile of initialState.tiles) {
     const tileKey = simulationTileKey(tile.x, tile.y);
     const seededTile = mergedTiles.get(tileKey);
-    const hydratedTown =
-      tile.town && !isSyntheticSettlementTown(tile.town, tile.x, tile.y)
-        ? tile.town
-        : undefined;
+    const hydratedTown = hydrateSyntheticSettlementTown(tile.town, tile.x, tile.y);
     mergedTiles.set(tileKey, {
       x: tile.x,
       y: tile.y,
