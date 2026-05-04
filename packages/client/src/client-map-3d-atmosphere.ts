@@ -10,10 +10,10 @@ import {
   SphereGeometry
 } from "three";
 
-export const SKY_TOP_COLOR = "#0a1530";
-export const SKY_MID_COLOR = "#223a66";
-export const SKY_HORIZON_COLOR = "#4d3a52";
-export const FOG_COLOR = "#1a3554";
+export const SKY_TOP_COLOR = "#000000";
+export const SKY_MID_COLOR = "#000000";
+export const SKY_HORIZON_COLOR = "#000000";
+export const FOG_COLOR = "#000000";
 export const FOG_DENSITY = 0.0042;
 export const SKY_RADIUS = 1800;
 

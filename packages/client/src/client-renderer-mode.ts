@@ -9,7 +9,7 @@ export const prefersTrue3DRendererMode = rendererMode === "3d";
 export const isCanvasReliefRendererMode = rendererMode === "3d-canvas";
 export const rendererModeExplicitlySet = rendererMode.length > 0;
 export const revealWholeMapInTrue3DMode =
-  prefersTrue3DRendererMode && revealParam !== "0" && revealParam !== "false" && revealParam !== "off";
+  prefersTrue3DRendererMode && (revealParam === "1" || revealParam === "true" || revealParam === "on");
 export const isTrue3DRendererActive = (): boolean => true3DRendererActive;
 export const setTrue3DRendererActive = (active: boolean): void => {
   true3DRendererActive = active;

@@ -50,7 +50,7 @@ const TIER_CONFIG: Record<TownTier, TierConfig> = {
   TOWN: { houseCount: 10, towers: [], spire: false, clusterRadius: 0.22, houseScale: 0.92 },
   CITY: { houseCount: 15, towers: [[0, 0]], spire: false, clusterRadius: 0.32, houseScale: 0.82 },
   GREAT_CITY: { houseCount: 20, towers: [[-0.24, 0], [0.24, 0]], spire: false, clusterRadius: 0.40, houseScale: 0.74 },
-  METROPOLIS: { houseCount: 100, towers: [[-0.32, -0.30], [0.32, 0.28]], spire: true, clusterRadius: 0.46, houseScale: 0.55 }
+  METROPOLIS: { houseCount: 320, towers: [[-0.32, -0.30], [0.32, 0.28]], spire: true, clusterRadius: 0.50, houseScale: 0.42 }
 };
 
 // Maximum house instances across all visible towns at once.
@@ -71,6 +71,45 @@ const hash01 = (idx: number, salt: number): number => {
 // cluster centrally and high-count towns spread to the edges. Per-instance
 // jitter avoids the dead grid look.
 type HousePlacement = { readonly x: number; readonly z: number; readonly rotationY: number };
+
+// METROPOLIS layout: a circular disk of densely packed huts divided into
+// pie-shaped wedges by clear radial avenues that meet at the central
+// plaza. Avenues are *gaps* (no buildings); the wedges are filled with
+// tiny huts at randomised positions, sqrt-distributed by radius so the
+// areal density is uniform from the inner plaza out to the disk edge.
+const generateMetropolisHousePositions = (
+  count: number,
+  innerRadius: number,
+  outerRadius: number
+): ReadonlyArray<HousePlacement> => {
+  if (count <= 0) return [];
+  const sectorCount = 8;
+  const sectorAngle = (Math.PI * 2) / sectorCount;
+  // Half-width of each radial avenue, in radians. Wedges keep the
+  // remaining usable angle.
+  const avenueHalfWidth = 0.05;
+  const usableAngle = sectorAngle - 2 * avenueHalfWidth;
+  const radialSpan = outerRadius - innerRadius;
+  const placements: HousePlacement[] = [];
+  for (let i = 0; i < count; i += 1) {
+    // Stratify by sector so wedges receive an even share of huts.
+    const sector = i % sectorCount;
+    const sectorBase = sector * sectorAngle + avenueHalfWidth;
+    const angleInSector = hash01(i, 1) * usableAngle;
+    const angle = sectorBase + angleInSector;
+    // Sqrt-distribute radius for uniform area density (more outer ring
+    // huts than inner without manually weighting).
+    const u = hash01(i, 2);
+    const radius = innerRadius + Math.sqrt(u) * radialSpan;
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius;
+    // Random rotation per hut so the wedges look like a real settlement
+    // rather than a stamp.
+    const rotationY = hash01(i, 3) * Math.PI;
+    placements.push({ x, z, rotationY });
+  }
+  return placements;
+};
 
 const generateHousePositions = (count: number, clusterRadius: number): ReadonlyArray<HousePlacement> => {
   if (count <= 0) return [];
@@ -106,7 +145,7 @@ const HOUSE_PLACEMENTS_BY_TIER: Record<TownTier, ReadonlyArray<HousePlacement>> 
   TOWN: generateHousePositions(TIER_CONFIG.TOWN.houseCount, TIER_CONFIG.TOWN.clusterRadius),
   CITY: generateHousePositions(TIER_CONFIG.CITY.houseCount, TIER_CONFIG.CITY.clusterRadius),
   GREAT_CITY: generateHousePositions(TIER_CONFIG.GREAT_CITY.houseCount, TIER_CONFIG.GREAT_CITY.clusterRadius),
-  METROPOLIS: generateHousePositions(TIER_CONFIG.METROPOLIS.houseCount, TIER_CONFIG.METROPOLIS.clusterRadius)
+  METROPOLIS: generateMetropolisHousePositions(TIER_CONFIG.METROPOLIS.houseCount, 0.10, TIER_CONFIG.METROPOLIS.clusterRadius)
 };
 
 export type TownOverlay = {

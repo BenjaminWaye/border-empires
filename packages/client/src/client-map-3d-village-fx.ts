@@ -16,10 +16,11 @@ import {
 const MAX_SMOKE_VILLAGES = 1024;
 const SMOKE_PUFFS_PER_VILLAGE = 4;
 const MAX_SMOKE_PUFFS = MAX_SMOKE_VILLAGES * SMOKE_PUFFS_PER_VILLAGE;
-const SMOKE_PUFF_RADIUS = 0.13;
+const SMOKE_PUFF_RADIUS = 0.06;
 const SMOKE_RISE_HEIGHT = 1.7;
 const SMOKE_BASE_Y = 0.35;
-const SMOKE_CYCLE_MS = 4200;
+// Slower cycle so each puff drifts upward at a calmer pace.
+const SMOKE_CYCLE_MS = 8500;
 
 const MAX_CAPITAL_BANNERS = 256;
 const BANNER_POLE_HEIGHT = 1.55;

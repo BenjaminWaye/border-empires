@@ -13,7 +13,31 @@ import { createVillageEffects } from "./client-map-3d-village-fx.js";
 import { createForest } from "./client-map-3d-forest.js";
 import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
+import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
+import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
+import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
+import { createResourceOverlay, type ResourceKind } from "./client-map-3d-resource-overlay.js";
+import { createAttackOverlay } from "./client-map-3d-attack-overlay.js";
+import { createSettleOverlay } from "./client-map-3d-settle-overlay.js";
+import {
+  createStructureOverlay,
+  STRUCTURE_KINDS_HANDLED_BY_3D,
+  type StructureKind
+} from "./client-map-3d-structure-overlay.js";
+import { resourceFor3DPopulation } from "./client-map-3d-population.js";
+import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import {
+  fortificationOpeningForTile,
+  fortificationOverlayKindForTile,
+  type FortificationOpening,
+  type FortificationOverlayKind
+} from "./client-fortification-overlays.js";
 import { normalizeColorForThree } from "./client-three-color.js";
+
+type TileTimedProgress = {
+  readonly startAt: number;
+  readonly resolvesAt: number;
+};
 
 type ClientThreeTerrainRendererDeps = {
   state: ClientState;
@@ -24,6 +48,7 @@ type ClientThreeTerrainRendererDeps = {
   terrainAt: (x: number, y: number) => Tile["terrain"];
   effectiveOverlayColor: (ownerId: string) => string;
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
+  settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
 };
 
 const MAX_VISIBLE_TILES = 14000;
@@ -31,6 +56,7 @@ const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.038;
+const OVERLAY_RISE_ABOVE_HEIGHTFIELD = 0.012;
 
 export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendererDeps) => {
   const glCanvas = document.createElement("canvas");
@@ -51,11 +77,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   scene.add(heightfield.gridlines);
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
-  const waterSurface = createWaterSurface(scene);
+  const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
   const villageEffects = createVillageEffects(scene);
   const forest = createForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
+  const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
+  const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
+  const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
+  const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES);
+  const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
+  const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
+  const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES);
 
   // Visual-only demo: ?towndemo=1 fakes a row of 5 tiers near (camX, camY)
   // so you can compare Settlement → Town → City → Great City → Metropolis
@@ -79,6 +112,48 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const dx = wx - deps.state.camX;
     if (dx < 0 || dx >= TOWN_DEMO_TIERS.length) return undefined;
     return TOWN_DEMO_TIERS[dx];
+  };
+
+  // Visual-only demo: ?fortdemo=1 fakes a row of 4 fort kinds two tiles
+  // south of the camera so you can compare them side-by-side. Demo
+  // forts are owned by "demo" so the cardinal-opening rule still
+  // resolves (FORT next to FORT opens its first cardinal); place each
+  // kind 2 tiles apart so they don't merge walls.
+  const fortDemoEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("fortdemo") === "1";
+  const FORT_DEMO_KINDS: ReadonlyArray<FortificationOverlayKind> = [
+    "FORT",
+    "WOODEN_FORT",
+    "LIGHT_OUTPOST",
+    "SIEGE_OUTPOST"
+  ];
+  const FORT_DEMO_SPACING = 2;
+  // Row 1 at camY+2: 4 kinds spaced 2 tiles apart (no wall sharing).
+  // Row 2 at camY+5: a pair of FORTs touching at (camX, camY+5) and
+  //                  (camX+1, camY+5) so the wall-sharing rule kicks in
+  //                  — the left fort opens E, the right opens W.
+  const fortDemoSpec = (
+    wx: number,
+    wy: number
+  ): { kind: FortificationOverlayKind; opening: FortificationOpening } | undefined => {
+    if (!fortDemoEnabled) return undefined;
+    if (wy === deps.state.camY + 2) {
+      const dx = wx - deps.state.camX;
+      if (dx < 0) return undefined;
+      if (dx % FORT_DEMO_SPACING !== 0) return undefined;
+      const idx = dx / FORT_DEMO_SPACING;
+      if (idx >= FORT_DEMO_KINDS.length) return undefined;
+      const kind = FORT_DEMO_KINDS[idx];
+      if (!kind) return undefined;
+      return { kind, opening: "CLOSED" };
+    }
+    if (wy === deps.state.camY + 5) {
+      const dx = wx - deps.state.camX;
+      if (dx === 0) return { kind: "FORT", opening: "EAST" };
+      if (dx === 1) return { kind: "FORT", opening: "WEST" };
+    }
+    return undefined;
   };
 
   const markerEdgesGeometry = new EdgesGeometry(new BoxGeometry(1, 0.04, 1));
@@ -309,6 +384,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const halfH = Math.max(1, Math.floor(deps.canvas.height / size / 2));
 
     heightfield.mesh.position.set(0, 0, 0);
+    const isExploredForHeightfield = (wx: number, wy: number): boolean => {
+      if (revealWholeMapInTrue3DMode) return true;
+      const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+      return deps.tileVisibilityStateAt(wx, wy, tile) === "visible";
+    };
     heightfield.rebuild({
       camX: deps.state.camX,
       camY: deps.state.camY,
@@ -316,7 +396,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       halfH,
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT,
-      tileKindAt: heightfieldKindAt
+      tileKindAt: heightfieldKindAt,
+      isExploredAt: isExploredForHeightfield
     });
 
     mountainMassifs.clear();
@@ -324,6 +405,22 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     forest.clear();
     ownershipOverlay.clear();
     townOverlay.clear();
+    dockOverlay.clear();
+    waterSurface.clear();
+    barbarianOverlay.clear();
+    fortOverlay.clear();
+    resourceOverlay.clear();
+    attackOverlay.clear();
+    settleOverlay.clear();
+    structureOverlay.clear();
+    // Build the dock-endpoint key set the same way the 2D runtime loop
+    // does, since `tile.dockId` is not reliably populated on every
+    // dock-endpoint tile snapshot.
+    const dockEndpointKeys = new Set<string>();
+    for (const pair of deps.state.dockPairs) {
+      dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
+      dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
+    }
     const selectedCoord = deps.state.selected;
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
@@ -333,7 +430,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const wy = deps.wrapY(deps.state.camY + dy);
         const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
         const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
-        if (visibility === "unexplored") continue;
+        // Skip tiles outside the player's vision unless ?reveal=1 is set.
+        // The reveal flag is the developer-facing whole-map mode used by
+        // the 2D path's `syntheticOverlayTileAt`.
+        if (visibility !== "visible" && !revealWholeMapInTrue3DMode) continue;
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
@@ -357,12 +457,64 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             isOwnedLand
           };
         }
-        const surfaceY = heightfield.elevationAt(wx, wy);
+        // Overlays sit on the *rendered* surface, not the tile's base
+        // elevation. The heightfield's drawn corners get pulled up by
+        // averaging with raised neighbours (mountains, hills), so a
+        // tile's painted surface can be much higher than its base. Max
+        // of all 4 corners + small buffer keeps overlays above the
+        // ground at every interior point of the tile.
+        const wxNext = deps.wrapX(wx + 1);
+        const wyNext = deps.wrapY(wy + 1);
+        const surfaceY = Math.max(
+          heightfield.elevationAt(wx, wy),
+          heightfield.cornerYAt(wx, wy),
+          heightfield.cornerYAt(wxNext, wy),
+          heightfield.cornerYAt(wx, wyNext),
+          heightfield.cornerYAt(wxNext, wyNext)
+        ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+        // Per-tile water quad on top of the heightfield's sea-floor
+        // hole. Shallow vs deep texture is decided by the water surface
+        // module — pass shallow=true if any tile within Chebyshev
+        // radius 2 is land/mountain.
         if (terrain === "SEA" || terrain === "COASTAL_SEA") {
+          let shallow = false;
+          for (let nz = -2; nz <= 2 && !shallow; nz += 1) {
+            for (let nx = -2; nx <= 2 && !shallow; nx += 1) {
+              if (nx === 0 && nz === 0) continue;
+              const nwx = deps.wrapX(wx + nx);
+              const nwy = deps.wrapY(wy + nz);
+              const nt = terrainForWorldTile(nwx, nwy);
+              if (nt === "LAND" || nt === "MOUNTAIN") shallow = true;
+            }
+          }
+          waterSurface.addTile(x, z, shallow);
           if (terrain === "COASTAL_SEA") {
             // coastal water rendered by heightfield; intentional no-op
           }
           continue;
+        }
+        // Dock 3D pier/quay/harbor — anchored to the tile's land Y so
+        // the deck sits on the ground inland and overhangs the water.
+        const tileKey = deps.keyFor(wx, wy);
+        if (tile?.dockId || dockEndpointKeys.has(tileKey)) {
+          const cardinalsForDock: Array<{ dx: number; dy: number; rot: number }> = [
+            { dx: 0, dy: 1, rot: 0 },
+            { dx: 1, dy: 0, rot: -Math.PI / 2 },
+            { dx: 0, dy: -1, rot: Math.PI },
+            { dx: -1, dy: 0, rot: Math.PI / 2 }
+          ];
+          let dockRotation = 0;
+          for (const c of cardinalsForDock) {
+            const nwx = deps.wrapX(wx + c.dx);
+            const nwy = deps.wrapY(wy + c.dy);
+            const nt = terrainForWorldTile(nwx, nwy);
+            if (nt === "SEA" || nt === "COASTAL_SEA") {
+              dockRotation = c.rot;
+              break;
+            }
+          }
+          const dockSurfaceY = Math.max(heightfield.elevationAt(wx, wy), -0.04) + 0.02;
+          dockOverlay.addInstance(x, z, dockSurfaceY, dockRotation, wx, wy);
         }
         if (terrain === "MOUNTAIN") {
           mountainMassifs.addInstance(x, z, surfaceY);
@@ -380,6 +532,58 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // re-enable by adding villageEffects.addCapitalBanner if wanted.
           const tileSeed = wx * 17 + wy * 31;
           villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
+        }
+        if (tile && ownerId === "barbarian" && terrain === "LAND") {
+          barbarianOverlay.addInstance(x, z, surfaceY);
+        }
+        if (terrain === "LAND") {
+          // Use the same resource source as the 2D path (`resourceFor3DPopulation`).
+          // When ?reveal=1, this synthesises a resource on land tiles that
+          // don't yet have a real `state.tiles` entry — mirroring the
+          // `syntheticOverlayTileAt` path in client-runtime-loop.ts.
+          const biome = landBiomeAt(wx, wy);
+          const resolvedResource = resourceFor3DPopulation(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, biome, forestTile);
+          if (resolvedResource) {
+            const validResources: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR", "OIL"];
+            if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
+              resourceOverlay.addInstance(x, z, surfaceY, resolvedResource as ResourceKind, wx, wy);
+            }
+          }
+        }
+        const incomingAttack = deps.state.incomingAttacksByTile.get(deps.keyFor(wx, wy));
+        if (incomingAttack && incomingAttack.resolvesAt > Date.now() && terrain === "LAND") {
+          attackOverlay.addInstance(x, z, surfaceY, incomingAttack.resolvesAt);
+        }
+        if (tile?.economicStructure && terrain === "LAND") {
+          const structureType = tile.economicStructure.type as string;
+          if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
+            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind);
+          }
+        }
+        const settleProgress = deps.settlementProgressForTile(wx, wy);
+        if (settleProgress && terrain === "LAND") {
+          const totalMs = Math.max(1, settleProgress.resolvesAt - settleProgress.startAt);
+          const progressNow = Math.max(0, Math.min(1, (Date.now() - settleProgress.startAt) / totalMs));
+          const settleOwnerColor = ownerId
+            ? new Color(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)))
+            : new Color("#ffd166");
+          settleOverlay.addInstance(x, z, surfaceY, settleOwnerColor, progressNow, wx, wy);
+        }
+        if (tile) {
+          const fortKind = fortificationOverlayKindForTile(tile);
+          if (fortKind) {
+            const opening = fortificationOpeningForTile(tile, {
+              tiles: deps.state.tiles,
+              keyFor: deps.keyFor,
+              wrapX: deps.wrapX,
+              wrapY: deps.wrapY
+            });
+            fortOverlay.addInstance(x, z, surfaceY, fortKind, opening);
+          }
+        }
+        const demoFort = fortDemoSpec(wx, wy);
+        if (demoFort && terrain === "LAND") {
+          fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening);
         }
         if (isOwnedLand && ownerId) {
           const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
@@ -449,6 +653,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     forest.commit();
     ownershipOverlay.commit();
     townOverlay.commit();
+    dockOverlay.commit();
+    waterSurface.commit();
+    barbarianOverlay.commit();
+    fortOverlay.commit();
+    resourceOverlay.commit();
+    attackOverlay.commit();
+    settleOverlay.commit();
+    structureOverlay.commit();
   };
 
   const maybeRebuild = (nowMs: number): void => {
@@ -480,8 +692,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
     syncQueueMarkers();
-    waterSurface.update(nowMs, deps.state.camX, deps.state.camY);
     villageEffects.update(nowMs);
+    attackOverlay.tick(nowMs);
+    settleOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -504,6 +717,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const { material } of queuedSettlementMarkers) material.dispose();
     for (const { material } of queuedBuildMarkers) material.dispose();
     townOverlay.dispose();
+    dockOverlay.dispose();
+    barbarianOverlay.dispose();
+    fortOverlay.dispose();
+    resourceOverlay.dispose();
+    attackOverlay.dispose();
+    settleOverlay.dispose();
+    structureOverlay.dispose();
     forest.dispose();
     villageEffects.dispose();
     waterSurface.dispose();
