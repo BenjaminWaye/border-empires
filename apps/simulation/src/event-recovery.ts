@@ -129,10 +129,19 @@ const recoverTownState = (
   existing?: RecoveredTileState
 ): DomainTileState["town"] | undefined => {
   const parsedTown = parseOptionalJson<DomainTileState["town"]>(tileDelta.townJson);
-  if (parsedTown) return parsedTown;
+  if (parsedTown) {
+    return {
+      ...existing?.town,
+      ...parsedTown,
+      ...(tileDelta.townName ? { name: tileDelta.townName } : {}),
+      type: parsedTown.type ?? tileDelta.townType ?? existing?.town?.type ?? "FARMING",
+      populationTier: parsedTown.populationTier ?? tileDelta.townPopulationTier ?? existing?.town?.populationTier ?? "SETTLEMENT"
+    };
+  }
   if (tileDelta.townName || tileDelta.townType || tileDelta.townPopulationTier) {
     return {
-      name: tileDelta.townName ?? existing?.town?.name ?? `Settlement ${tileDelta.x},${tileDelta.y}`,
+      ...existing?.town,
+      ...(tileDelta.townName ? { name: tileDelta.townName } : {}),
       type: tileDelta.townType ?? existing?.town?.type ?? "FARMING",
       populationTier: tileDelta.townPopulationTier ?? existing?.town?.populationTier ?? "SETTLEMENT"
     };
