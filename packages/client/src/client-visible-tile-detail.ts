@@ -1,5 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
+import { tileHasTownIdentity } from "./client-town-identity.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
 
 type VisibleTileSnapshot = {
@@ -28,8 +29,7 @@ const shouldRequestVisibleTileDetail = (tile: Tile | undefined): tile is Tile =>
   return Boolean(
     tile.ownerId ||
       tile.resource ||
-      tile.town ||
-      tile.townType ||
+      tileHasTownIdentity(tile) ||
       tile.dockId ||
       tile.fort ||
       tile.observatory ||
@@ -46,8 +46,7 @@ const visibleTilePriority = (tile: Tile, me: string, camX: number, camY: number)
   const shellLikeOwnedSummary =
     tile.ownerId &&
     !tile.resource &&
-    !tile.town &&
-    !tile.townType &&
+    !tileHasTownIdentity(tile) &&
     !tile.dockId &&
     !tile.fort &&
     !tile.observatory &&
@@ -59,7 +58,7 @@ const visibleTilePriority = (tile: Tile, me: string, camX: number, camY: number)
   else if (tile.ownerId) score += 700;
   if (tile.ownershipState === "SETTLED") score += 140;
   if (tile.ownershipState === "FRONTIER") score += 80;
-  if (tile.town || tile.townType) score += 340;
+  if (tileHasTownIdentity(tile)) score += 340;
   if (tile.resource) score += 300;
   if (tile.dockId) score += 280;
   if (tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) score += 260;
