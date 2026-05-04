@@ -71,4 +71,20 @@ describe("snapshot diagnostics", () => {
     expect(summary.totalSnapshotJsonBytes).toBeGreaterThan(0);
     expect(summary.topEntries[0]?.playerId).toBe("player-2");
   });
+
+  it("deduplicates shared tile arrays when summarizing cache bytes", () => {
+    const sharedTiles = [{ x: 1, y: 1, terrain: "LAND" as const }];
+    const summary = summarizePlayerSubscriptionSnapshotCache([
+      ["player-1", { playerId: "player-1", tiles: sharedTiles }],
+      ["player-2", { playerId: "player-2", tiles: sharedTiles }]
+    ]);
+
+    expect(summary.entryCount).toBe(2);
+    expect(summary.uniqueTileArrayCount).toBe(1);
+    expect(summary.uniqueTilesJsonBytes).toBeGreaterThan(0);
+    expect(summary.totalSnapshotJsonBytes).toBeLessThan(
+      JSON.stringify({ playerId: "player-1", tiles: sharedTiles }).length +
+        JSON.stringify({ playerId: "player-2", tiles: sharedTiles }).length
+    );
+  });
 });
