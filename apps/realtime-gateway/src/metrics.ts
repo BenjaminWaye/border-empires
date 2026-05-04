@@ -6,13 +6,37 @@ const quantile = (values: number[], q: number): number => {
 };
 
 const clampMetric = (value: number): number => (Number.isFinite(value) && value >= 0 ? value : 0);
-
 const formatMetricValue = (value: number): string => (Number.isInteger(value) ? `${value}` : value.toFixed(3));
+
+const appendSample = (target: number[], value: number, limit: number): void => {
+  target.push(clampMetric(value));
+  if (target.length > limit) target.splice(0, target.length - limit);
+};
+
+const appendRecent = <T>(target: T[], value: T, limit: number): void => {
+  target.push(value);
+  if (target.length > limit) target.splice(0, target.length - limit);
+};
 
 type QuantileSample = {
   p50: number;
   p95: number;
   p99: number;
+};
+
+export type GatewaySnapshotMetricSample = {
+  trigger: string;
+  playerId: string;
+  fullVisibility: number;
+  tileCount: number;
+  snapshotJsonBytes: number;
+  tilesJsonBytes: number;
+  worldStatusJsonBytes: number;
+  cacheEntries: number;
+  cacheBytes: number;
+  socketCount: number;
+  rssMb: number;
+  heapUsedMb: number;
 };
 
 export type GatewayMetricsSnapshot = {
@@ -28,15 +52,26 @@ export type GatewayMetricsSnapshot = {
   gatewayInputToStateUpdateLatencyMs: QuantileSample;
   gatewayCommandSubmitLatencyMs: QuantileSample;
   gatewaySimRpcLatencyMs: QuantileSample;
+  gatewaySnapshotTileCount: QuantileSample;
+  gatewaySnapshotJsonBytes: QuantileSample;
+  gatewaySnapshotTilesJsonBytes: QuantileSample;
+  gatewaySnapshotCacheEntries: number;
+  gatewaySnapshotCacheBytes: number;
+  gatewaySnapshotRecent: GatewaySnapshotMetricSample[];
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
   const limit = Math.max(8, sampleLimit);
+  const recentLimit = Math.max(8, Math.min(24, Math.floor(limit / 4)));
   const eventLoopDelayMs: number[] = [];
   const gcPauseMs: number[] = [];
   const inputToStateUpdateLatencyMs: number[] = [];
   const commandSubmitLatencyMs: number[] = [];
   const simRpcLatencyMs: number[] = [];
+  const gatewaySnapshotTileCount: number[] = [];
+  const gatewaySnapshotJsonBytes: number[] = [];
+  const gatewaySnapshotTilesJsonBytes: number[] = [];
+  const gatewaySnapshotRecent: GatewaySnapshotMetricSample[] = [];
   let gatewayEventLoopMaxMs = 0;
   let gatewayWsSessions = 0;
   let gatewayBackendConnected = 0;
@@ -44,11 +79,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let gatewayRssMb = 0;
   let gatewayHeapUsedMb = 0;
   let gatewayHeapTotalMb = 0;
-
-  const appendSample = (target: number[], value: number): void => {
-    target.push(clampMetric(value));
-    if (target.length > limit) target.splice(0, target.length - limit);
-  };
+  let gatewaySnapshotCacheEntries = 0;
+  let gatewaySnapshotCacheBytes = 0;
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -68,7 +100,13 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     gatewayGcPauseMs: quantileSample(gcPauseMs),
     gatewayInputToStateUpdateLatencyMs: quantileSample(inputToStateUpdateLatencyMs),
     gatewayCommandSubmitLatencyMs: quantileSample(commandSubmitLatencyMs),
-    gatewaySimRpcLatencyMs: quantileSample(simRpcLatencyMs)
+    gatewaySimRpcLatencyMs: quantileSample(simRpcLatencyMs),
+    gatewaySnapshotTileCount: quantileSample(gatewaySnapshotTileCount),
+    gatewaySnapshotJsonBytes: quantileSample(gatewaySnapshotJsonBytes),
+    gatewaySnapshotTilesJsonBytes: quantileSample(gatewaySnapshotTilesJsonBytes),
+    gatewaySnapshotCacheEntries,
+    gatewaySnapshotCacheBytes,
+    gatewaySnapshotRecent: [...gatewaySnapshotRecent]
   });
 
   return {
@@ -76,7 +114,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
       gatewayEventLoopMaxMs = clampMetric(value);
     },
     observeGatewayEventLoopDelayMs(value: number): void {
-      appendSample(eventLoopDelayMs, value);
+      appendSample(eventLoopDelayMs, value, limit);
     },
     setGatewayWsSessions(value: number): void {
       gatewayWsSessions = Math.max(0, Math.floor(clampMetric(value)));
@@ -87,26 +125,32 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     setGatewayCpuPercent(value: number): void {
       gatewayCpuPercent = clampMetric(value);
     },
-    setGatewayMemoryUsageMb(values: {
-      rssMb: number;
-      heapUsedMb: number;
-      heapTotalMb: number;
-    }): void {
+    setGatewayMemoryUsageMb(values: { rssMb: number; heapUsedMb: number; heapTotalMb: number }): void {
       gatewayRssMb = clampMetric(values.rssMb);
       gatewayHeapUsedMb = clampMetric(values.heapUsedMb);
       gatewayHeapTotalMb = clampMetric(values.heapTotalMb);
     },
     observeGatewayGcPauseMs(value: number): void {
-      appendSample(gcPauseMs, value);
+      appendSample(gcPauseMs, value, limit);
     },
     observeGatewayInputToStateUpdateLatencyMs(value: number): void {
-      appendSample(inputToStateUpdateLatencyMs, value);
+      appendSample(inputToStateUpdateLatencyMs, value, limit);
     },
     observeGatewayCommandSubmitLatencyMs(value: number): void {
-      appendSample(commandSubmitLatencyMs, value);
+      appendSample(commandSubmitLatencyMs, value, limit);
     },
     observeGatewaySimRpcLatencyMs(value: number): void {
-      appendSample(simRpcLatencyMs, value);
+      appendSample(simRpcLatencyMs, value, limit);
+    },
+    observeGatewaySnapshotBuild(sample: GatewaySnapshotMetricSample): void {
+      appendSample(gatewaySnapshotTileCount, sample.tileCount, limit);
+      appendSample(gatewaySnapshotJsonBytes, sample.snapshotJsonBytes, limit);
+      appendSample(gatewaySnapshotTilesJsonBytes, sample.tilesJsonBytes, limit);
+      appendRecent(gatewaySnapshotRecent, { ...sample }, recentLimit);
+    },
+    setGatewaySnapshotCache(values: { entries: number; bytes: number }): void {
+      gatewaySnapshotCacheEntries = clampMetric(values.entries);
+      gatewaySnapshotCacheBytes = clampMetric(values.bytes);
     },
     snapshot,
     renderPrometheus(): string {
@@ -145,7 +189,23 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         "# TYPE gateway_sim_rpc_latency_ms gauge",
         `gateway_sim_rpc_latency_ms{quantile=\"p50\"} ${formatMetricValue(sample.gatewaySimRpcLatencyMs.p50)}`,
         `gateway_sim_rpc_latency_ms{quantile=\"p95\"} ${formatMetricValue(sample.gatewaySimRpcLatencyMs.p95)}`,
-        `gateway_sim_rpc_latency_ms{quantile=\"p99\"} ${formatMetricValue(sample.gatewaySimRpcLatencyMs.p99)}`
+        `gateway_sim_rpc_latency_ms{quantile=\"p99\"} ${formatMetricValue(sample.gatewaySimRpcLatencyMs.p99)}`,
+        "# TYPE gateway_snapshot_tile_count gauge",
+        `gateway_snapshot_tile_count{quantile=\"p50\"} ${formatMetricValue(sample.gatewaySnapshotTileCount.p50)}`,
+        `gateway_snapshot_tile_count{quantile=\"p95\"} ${formatMetricValue(sample.gatewaySnapshotTileCount.p95)}`,
+        `gateway_snapshot_tile_count{quantile=\"p99\"} ${formatMetricValue(sample.gatewaySnapshotTileCount.p99)}`,
+        "# TYPE gateway_snapshot_json_bytes gauge",
+        `gateway_snapshot_json_bytes{quantile=\"p50\"} ${formatMetricValue(sample.gatewaySnapshotJsonBytes.p50)}`,
+        `gateway_snapshot_json_bytes{quantile=\"p95\"} ${formatMetricValue(sample.gatewaySnapshotJsonBytes.p95)}`,
+        `gateway_snapshot_json_bytes{quantile=\"p99\"} ${formatMetricValue(sample.gatewaySnapshotJsonBytes.p99)}`,
+        "# TYPE gateway_snapshot_tiles_json_bytes gauge",
+        `gateway_snapshot_tiles_json_bytes{quantile=\"p50\"} ${formatMetricValue(sample.gatewaySnapshotTilesJsonBytes.p50)}`,
+        `gateway_snapshot_tiles_json_bytes{quantile=\"p95\"} ${formatMetricValue(sample.gatewaySnapshotTilesJsonBytes.p95)}`,
+        `gateway_snapshot_tiles_json_bytes{quantile=\"p99\"} ${formatMetricValue(sample.gatewaySnapshotTilesJsonBytes.p99)}`,
+        "# TYPE gateway_snapshot_cache_entries gauge",
+        `gateway_snapshot_cache_entries ${formatMetricValue(sample.gatewaySnapshotCacheEntries)}`,
+        "# TYPE gateway_snapshot_cache_bytes gauge",
+        `gateway_snapshot_cache_bytes ${formatMetricValue(sample.gatewaySnapshotCacheBytes)}`
       ].join("\n");
     }
   };

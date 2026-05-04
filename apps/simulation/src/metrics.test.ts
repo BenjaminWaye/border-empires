@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createSimulationMetrics } from "./metrics.js";
 
 describe("simulation metrics", () => {
-  it("tracks backlog, planner breaches, and lane quantiles", () => {
+  it("tracks backlog, planner breaches, lane quantiles, and snapshot diagnostics", () => {
     const metrics = createSimulationMetrics();
     metrics.setSimEventLoopMaxMs(18);
     metrics.observeSimEventLoopDelayMs(6);
@@ -32,7 +32,6 @@ describe("simulation metrics", () => {
     metrics.observeSimAiNoop("no_frontier_targets", "ai-4");
     metrics.observeSimAiNoop("insufficient_manpower_for_attack", "ai-2");
     metrics.observeSimAiNoop("planner_error", "ai-9");
-
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 8);
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 12);
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 20);
@@ -41,6 +40,35 @@ describe("simulation metrics", () => {
     metrics.observeSimEventStoreWriteMs(3);
     metrics.observeSimEventStoreWriteMs(7);
     metrics.observeSimEventStoreWriteMs(11);
+    metrics.setSimSnapshotCache({ entries: 3, bytes: 4096 });
+    metrics.observeSimSnapshotBuild({
+      trigger: "gateway_auth_bootstrap",
+      playerId: "player-1",
+      fullVisibility: 0,
+      seasonEnded: 0,
+      tileCount: 256,
+      snapshotJsonBytes: 2048,
+      tilesJsonBytes: 1536,
+      worldStatusJsonBytes: 128,
+      cacheEntries: 3,
+      cacheBytes: 4096,
+      rssMb: 512,
+      heapUsedMb: 128
+    });
+    metrics.observeSimSnapshotBuild({
+      trigger: "gateway_fog_refresh",
+      playerId: "player-1",
+      fullVisibility: 1,
+      seasonEnded: 0,
+      tileCount: 512,
+      snapshotJsonBytes: 4096,
+      tilesJsonBytes: 3584,
+      worldStatusJsonBytes: 192,
+      cacheEntries: 3,
+      cacheBytes: 4096,
+      rssMb: 520,
+      heapUsedMb: 132
+    });
 
     const sample = metrics.snapshot();
     expect(sample.simEventLoopMaxMs).toBe(18);
@@ -78,6 +106,12 @@ describe("simulation metrics", () => {
     expect(sample.simCommandAcceptLatencyMsByLane.human_interactive.p50).toBe(12);
     expect(sample.simEventStoreWriteMs.p95).toBe(11);
     expect(metrics.currentAcceptLatencyP95Ms()).toBe(20);
+    expect(sample.simSnapshotTileCount.p95).toBe(512);
+    expect(sample.simSnapshotJsonBytes.p95).toBe(4096);
+    expect(sample.simSnapshotTilesJsonBytes.p95).toBe(3584);
+    expect(sample.simSnapshotCacheEntries).toBe(3);
+    expect(sample.simSnapshotCacheBytes).toBe(4096);
+    expect(sample.simSnapshotRecent.at(-1)?.trigger).toBe("gateway_fog_refresh");
 
     const exposition = metrics.renderPrometheus();
     expect(exposition).toContain("sim_event_loop_max_ms 18");
@@ -95,5 +129,7 @@ describe("simulation metrics", () => {
     expect(exposition).toContain('sim_ai_preplan_progress_total{state="tech_and_domain_unaffordable"} 1');
     expect(exposition).toContain('sim_ai_noop_total{reason="no_frontier_targets"} 1');
     expect(exposition).toContain('sim_ai_noop_total{reason="planner_error"} 1');
+    expect(exposition).toContain('sim_snapshot_json_bytes{quantile="p95"}');
+    expect(exposition).toContain("sim_snapshot_cache_bytes 4096");
   });
 });
