@@ -12,9 +12,12 @@ describe("simulation service fog subscribe regression", () => {
   it("supports full-visibility subscribe snapshots for fog-admin reveal flows", () => {
     const file = source();
 
-    expect(file).toContain('options?: { includeWorldStatus?: boolean; fullVisibility?: boolean }');
-    expect(file).toContain('const useFullVisibility = options?.fullVisibility === true || currentSeasonState.status === "ended";');
+    expect(file).toContain('options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }');
+    expect(file).toContain('const seasonEnded = currentSeasonState.status === "ended";');
+    expect(file).toContain('const useFullVisibility = options?.fullVisibility === true || seasonEnded;');
     expect(file).toContain('fullVisibility: parsed.fullVisibility === true');
-    expect(file).toContain('fullVisibility: subscribeOptions.fullVisibility');
+    expect(file).toContain('...(typeof parsed.trigger === "string" && parsed.trigger.length > 0 ? { trigger: parsed.trigger } : {})');
+    expect(file).toContain('fullVisibility: subscribeOptions.fullVisibility,');
+    expect(file).toContain('...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})');
   });
 });
