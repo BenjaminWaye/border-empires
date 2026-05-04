@@ -49,6 +49,36 @@ import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "./season-lifecycle.js";
 import { generateSeasonWorld, type SimulationRulesetId } from "./season-worldgen.js";
 
+export type SimulationRuntimeIdentity = {
+  sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
+  seasonId: string;
+  worldSeed: number;
+  snapshotLabel?: string;
+  fingerprint: string;
+  playerCount: number;
+  seededTileCount: number;
+};
+
+export type SimulationHealthSnapshot = {
+  ok: boolean;
+  runtimeIdentity: SimulationRuntimeIdentity;
+  persistence: {
+    degraded: boolean;
+    pendingCount: number;
+    lastFailureAt?: number;
+    fatalError?: string;
+  };
+  season: {
+    seasonId: string;
+    worldSeed: number;
+    status: SimulationSeasonState["status"];
+  };
+  startupRecovery: {
+    recoveredCommandCount: number;
+    recoveredEventCount: number;
+  };
+};
+
 type ProtoCommandEnvelope = {
   command_id: string;
   session_id: string;
@@ -633,6 +663,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       startedAt: Date.now()
     });
   const runtimePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
+  let runtimeSeededTileCount = effectiveStartupRecovery.initialState.tiles.length;
   const fallbackActivePlayers = createActivePlayerIdentityMap(runtimePlayers.values());
   let activePlayers =
     createRecoveredActivePlayerIdentityMap(effectiveStartupRecovery.initialState, fallbackActivePlayers) ?? fallbackActivePlayers;
@@ -659,6 +690,35 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     initialPlayers: runtimePlayers
   });
   const simulationMetrics = createSimulationMetrics();
+  const runtimeIdentity = (): SimulationRuntimeIdentity => {
+    if (legacySnapshotBootstrap) {
+      return {
+        ...legacySnapshotBootstrap.runtimeIdentity,
+        playerCount: activePlayers.size,
+        seededTileCount: runtimeSeededTileCount
+      };
+    }
+    const sourceType: SimulationRuntimeIdentity["sourceType"] = rulesetId ? "managed-season" : "seed-profile";
+    const fingerprint = crypto
+      .createHash("sha256")
+      .update(
+        JSON.stringify({
+          sourceType,
+          seasonId: currentSeasonState.seasonId,
+          worldSeed: currentSeasonState.worldSeed,
+          seededTileCount: runtimeSeededTileCount
+        })
+      )
+      .digest("hex");
+    return {
+      sourceType,
+      seasonId: currentSeasonState.seasonId,
+      worldSeed: currentSeasonState.worldSeed,
+      fingerprint,
+      playerCount: activePlayers.size,
+      seededTileCount: runtimeSeededTileCount
+    };
+  };
   const startupReplayCompactionMinEvents = Math.max(
     1,
     options.startupReplayCompactionMinEvents ?? 10_000
@@ -1267,15 +1327,18 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const replaceRuntime = ({
     nextRuntime,
     nextPlayers,
-    nextSeasonState
+    nextSeasonState,
+    nextSeededTileCount
   }: {
     nextRuntime: SimulationRuntime;
     nextPlayers: typeof activePlayers;
     nextSeasonState: SimulationSeasonState;
+    nextSeededTileCount: number;
   }): void => {
     runtime = nextRuntime;
     activePlayers = nextPlayers;
     currentSeasonState = nextSeasonState;
+    runtimeSeededTileCount = nextSeededTileCount;
     clearCachedSnapshots();
     attachRuntimeEventHandlers();
     startAutopilots();
@@ -1339,7 +1402,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       replaceRuntime({
         nextRuntime,
         nextPlayers: createActivePlayerIdentityMap(bootstrap.initialPlayers.values()),
-        nextSeasonState: bootstrap.seasonState
+        nextSeasonState: bootstrap.seasonState,
+        nextSeededTileCount: bootstrap.initialState.tiles.length
       });
       currentSummary = nextSummary;
       currentSummarySignature = leaderboardSignature(nextSummary);
@@ -1765,6 +1829,29 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     renderMetrics(): string {
       return simulationMetrics.renderPrometheus();
+    },
+    healthSnapshot(): SimulationHealthSnapshot {
+      const degraded = persistenceQueue.isDegraded();
+      const lastFailureAt = persistenceQueue.lastFailureAt();
+      return {
+        ok: !fatalPersistenceError,
+        runtimeIdentity: runtimeIdentity(),
+        persistence: {
+          degraded,
+          pendingCount: persistenceQueue.pendingCount(),
+          ...(typeof lastFailureAt === "number" ? { lastFailureAt } : {}),
+          ...(fatalPersistenceError ? { fatalError: fatalPersistenceError.message } : {})
+        },
+        season: {
+          seasonId: currentSeasonState.seasonId,
+          worldSeed: currentSeasonState.worldSeed,
+          status: currentSeasonState.status
+        },
+        startupRecovery: {
+          recoveredCommandCount: effectiveStartupRecovery.recoveredCommandCount,
+          recoveredEventCount: effectiveStartupRecovery.recoveredEventCount
+        }
+      };
     },
     metricsSnapshot() {
       return simulationMetrics.snapshot();
