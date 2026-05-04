@@ -15,6 +15,7 @@ import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordCli
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 import { restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
 import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
+import { tileHasTownIdentity } from "./client-town-identity.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -213,7 +214,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       tile.ownerId === state.me ||
       tile.resource ||
       tile.dockId ||
-      tile.town ||
+      tileHasTownIdentity(tile) ||
       tile.fort ||
       tile.observatory ||
       tile.siegeOutpost ||

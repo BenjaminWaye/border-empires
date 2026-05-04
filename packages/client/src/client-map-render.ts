@@ -2,6 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt, terrainAt } from 
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
 import { isForestTile } from "./client-constants.js";
 import { isCanvasReliefRendererMode, isTrue3DRendererActive } from "./client-renderer-mode.js";
+import { townIdentityForTile } from "./client-town-identity.js";
 import type { RoadDirections } from "./client-road-network.js";
 import type { EmpireVisualStyle, Tile } from "./client-types.js";
 
@@ -1032,9 +1033,8 @@ export const drawTownOverlay = (
   size: number,
   ownerColor = "#C44937"
 ): void => {
-  const townType = tile.town?.type ?? tile.townType;
-  const populationTier = tile.town?.populationTier ?? tile.townPopulationTier;
-  if (!townType || !populationTier) return;
+  const town = townIdentityForTile(tile);
+  if (!town) return;
   if (size < 16) {
     drawTownMarker(ctx, px, py, size, true);
     if (tile.town && !tile.town.isFed) {
@@ -1051,36 +1051,36 @@ export const drawTownOverlay = (
     }
     return;
   }
-  const accent = townType === "MARKET" ? "rgba(255, 212, 102, 0.9)" : "rgba(162, 241, 132, 0.88)";
+  const accent = town.type === "MARKET" ? "rgba(255, 212, 102, 0.9)" : "rgba(162, 241, 132, 0.88)";
   const biome = tile.landBiome ?? landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
-  const overlay = overlaySet[populationTier];
+  const overlay = overlaySet[town.populationTier];
   if (!overlay.complete || !overlay.naturalWidth) {
     const marker = Math.max(4, Math.floor(size * 0.34));
     const mx = px + Math.floor((size - marker) / 2);
     const my = py + Math.floor((size - marker) / 2);
     ctx.fillStyle = "rgba(10, 14, 24, 0.82)";
     ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-    ctx.fillStyle = townType === "MARKET" ? "rgba(255, 212, 102, 0.95)" : "rgba(162, 241, 132, 0.95)";
+    ctx.fillStyle = town.type === "MARKET" ? "rgba(255, 212, 102, 0.95)" : "rgba(162, 241, 132, 0.95)";
     ctx.fillRect(mx, my, marker, marker);
     return;
   }
   const scaleByTier =
-    populationTier === "SETTLEMENT" ? 0.94
-    : populationTier === "TOWN" ? 1.46
-    : populationTier === "CITY" ? 1.58
-    : populationTier === "GREAT_CITY" ? 1.72
+    town.populationTier === "SETTLEMENT" ? 0.94
+    : town.populationTier === "TOWN" ? 1.46
+    : town.populationTier === "CITY" ? 1.58
+    : town.populationTier === "GREAT_CITY" ? 1.72
     : 1.86;
   const drawSize = size * scaleByTier;
   const offsetX = (drawSize - size) / 2;
   const offsetY =
-    populationTier === "SETTLEMENT" ? drawSize * 0.06
-    : populationTier === "TOWN" ? drawSize * 0.28
-    : populationTier === "CITY" ? drawSize * 0.32
-    : populationTier === "GREAT_CITY" ? drawSize * 0.35
+    town.populationTier === "SETTLEMENT" ? drawSize * 0.06
+    : town.populationTier === "TOWN" ? drawSize * 0.28
+    : town.populationTier === "CITY" ? drawSize * 0.32
+    : town.populationTier === "GREAT_CITY" ? drawSize * 0.35
     : drawSize * 0.39;
   ctx.drawImage(overlay, px - offsetX, py - offsetY, drawSize, drawSize);
-  if (populationTier === "SETTLEMENT") {
+  if (town.populationTier === "SETTLEMENT") {
     drawSettlementFlag(ctx, px, py, size, ownerColor);
   }
   ctx.strokeStyle = accent;

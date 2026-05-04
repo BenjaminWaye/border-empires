@@ -358,10 +358,51 @@ describe("loadSimulationStartupRecovery", () => {
           town: expect.objectContaining({
             name: "Settlement 10,12",
             type: "FARMING",
-            populationTier: "SETTLEMENT"
+            populationTier: "SETTLEMENT",
+            population: 800,
+            maxPopulation: 10_000_000
           })
         })
       ])
+    );
+  });
+
+  it("hydrates old thin non-settlement town deltas during startup recovery", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const playerId = "ai-old-thin";
+
+    await eventStore.appendEvent(
+      {
+        eventType: "TILE_DELTA_BATCH",
+        commandId: "old-thin-town:1",
+        playerId,
+        tileDeltas: [
+          {
+            x: 22,
+            y: 8,
+            terrain: "LAND",
+            ownerId: playerId,
+            ownershipState: "SETTLED",
+            townType: "MARKET",
+            townName: "Old Brass",
+            townPopulationTier: "TOWN"
+          }
+        ]
+      },
+      1_000
+    );
+
+    const startupRecovery = await loadSimulationStartupRecovery({ commandStore, eventStore });
+    const recoveredTownTile = startupRecovery.initialState.tiles.find((tile) => tile.x === 22 && tile.y === 8);
+    expect(recoveredTownTile?.town).toEqual(
+      expect.objectContaining({
+        name: "Old Brass",
+        type: "MARKET",
+        populationTier: "TOWN",
+        population: 10_000,
+        maxPopulation: 10_000_000
+      })
     );
   });
 

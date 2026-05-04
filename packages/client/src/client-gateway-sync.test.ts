@@ -599,6 +599,11 @@ describe("client gateway sync", () => {
     });
 
     expect(deps.state.tiles.get("77,21")?.town).toBeUndefined();
+    expect(deps.state.tiles.get("77,21")).toMatchObject({
+      townType: "FARMING",
+      townName: "Northwatch",
+      townPopulationTier: "TOWN"
+    });
   });
 
   it("does not invent upgrade stats when sparse gateway updates only change town identity", () => {
@@ -632,6 +637,11 @@ describe("client gateway sync", () => {
     ]);
 
     expect(deps.state.tiles.get("77,21")?.town).toBeUndefined();
+    expect(deps.state.tiles.get("77,21")).toMatchObject({
+      townType: "FARMING",
+      townName: "Northwatch",
+      townPopulationTier: "TOWN"
+    });
   });
 
   it("clears thin town identity when the gateway clears town state", () => {
