@@ -31,7 +31,7 @@ import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "./live-world-status-recovery.js";
 import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -500,7 +500,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   })();
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
     subscribePlayer: (playerId, subscriptionKey) =>
-      simulationClient.subscribePlayer(playerId, JSON.stringify({ emitBootstrapEvent: false, ...(subscriptionKey ? { subscriptionKey } : {}) })),
+      simulationClient.subscribePlayer(
+        playerId,
+        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", ...(subscriptionKey ? { subscriptionKey } : {}) })
+      ),
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
     subscriptionNamespace: liveSubscriptionNamespace
   });
@@ -521,6 +524,70 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }>
   >();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
+  const gatewaySnapshotMeasureByPlayerId = new Map<string, ReturnType<typeof measurePlayerSubscriptionSnapshot>>();
+  const refreshGatewaySnapshotCacheMetrics = () => {
+    let totalBytes = 0;
+    const topEntries = [...gatewaySnapshotMeasureByPlayerId.entries()]
+      .map(([playerId, measure]) => {
+        totalBytes += measure.snapshotJsonBytes;
+        return { playerId, snapshotJsonBytes: measure.snapshotJsonBytes, tileCount: measure.tileCount };
+      })
+      .sort((left, right) => right.snapshotJsonBytes - left.snapshotJsonBytes || left.playerId.localeCompare(right.playerId))
+      .slice(0, 3);
+    gatewayMetrics.setGatewaySnapshotCache({ entries: gatewaySnapshotMeasureByPlayerId.size, bytes: totalBytes });
+    return { entryCount: gatewaySnapshotMeasureByPlayerId.size, totalBytes, topEntries };
+  };
+  const syncGatewaySnapshotMetricsFromCache = (playerId: string) => {
+    const snapshot = playerSubscriptions.snapshotForPlayer(playerId);
+    if (!snapshot) {
+      gatewaySnapshotMeasureByPlayerId.delete(playerId);
+      return refreshGatewaySnapshotCacheMetrics();
+    }
+    gatewaySnapshotMeasureByPlayerId.set(playerId, measurePlayerSubscriptionSnapshot(snapshot));
+    return refreshGatewaySnapshotCacheMetrics();
+  };
+  const recordGatewaySnapshotDiagnostics = (
+    playerId: string,
+    snapshot: PlayerSubscriptionSnapshot,
+    options: { trigger: string; fullVisibility: boolean; socketCount: number; payloadJsonBytes: number }
+  ) => {
+    const measure = measurePlayerSubscriptionSnapshot(snapshot);
+    gatewaySnapshotMeasureByPlayerId.set(playerId, measure);
+    const cacheSummary = refreshGatewaySnapshotCacheMetrics();
+    const memory = process.memoryUsage();
+    const rssMb = memory.rss / (1024 * 1024);
+    const heapUsedMb = memory.heapUsed / (1024 * 1024);
+    gatewayMetrics.observeGatewaySnapshotBuild({
+      trigger: options.trigger,
+      playerId,
+      fullVisibility: options.fullVisibility ? 1 : 0,
+      tileCount: measure.tileCount,
+      snapshotJsonBytes: measure.snapshotJsonBytes,
+      tilesJsonBytes: measure.tilesJsonBytes,
+      worldStatusJsonBytes: measure.worldStatusJsonBytes,
+      cacheEntries: cacheSummary.entryCount,
+      cacheBytes: cacheSummary.totalBytes,
+      socketCount: options.socketCount,
+      rssMb,
+      heapUsedMb
+    });
+    recordGatewayEvent("info", "gateway_snapshot_diagnostics", {
+      trigger: options.trigger,
+      playerId,
+      fullVisibility: options.fullVisibility,
+      tileCount: measure.tileCount,
+      snapshotJsonBytes: measure.snapshotJsonBytes,
+      tilesJsonBytes: measure.tilesJsonBytes,
+      worldStatusJsonBytes: measure.worldStatusJsonBytes,
+      payloadJsonBytes: options.payloadJsonBytes,
+      cacheEntries: cacheSummary.entryCount,
+      cacheBytes: cacheSummary.totalBytes,
+      cacheTopPlayers: cacheSummary.topEntries,
+      socketCount: options.socketCount,
+      rssMb,
+      heapUsedMb
+    });
+  };
   const recordCommandSocketDelivery = (
     event: "gateway_command_payload_sent" | "gateway_command_payload_queued",
     socket: import("ws").WebSocket,
@@ -635,7 +702,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       const snapshot = await withTimeout(
         simulationClient.subscribePlayer(
           playerId,
-          JSON.stringify({ fullVisibility: fogDisabled, emitBootstrapEvent: false })
+          JSON.stringify({
+            fullVisibility: fogDisabled,
+            emitBootstrapEvent: false,
+            trigger: fogDisabled ? "gateway_fog_refresh" : "gateway_fog_restore"
+          })
         ),
         simulationSubscribeTimeoutMs,
         fogDisabled ? "gateway fog resubscribe" : "gateway fog restore resubscribe"
@@ -645,7 +716,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         type: "TILE_SNAPSHOT_REPLACE",
         tiles: jsonSafeTileDeltaBatch(snapshot.tiles)
       };
+      const replacementSnapshotJsonBytes = jsonByteSize(replacementSnapshot);
       const targetSockets = [...playerSubscriptions.socketsForPlayer(playerId)];
+      recordGatewaySnapshotDiagnostics(playerId, snapshot, {
+        trigger: fogDisabled ? "gateway_fog_refresh" : "gateway_fog_restore",
+        fullVisibility: fogDisabled,
+        socketCount: targetSockets.length,
+        payloadJsonBytes: replacementSnapshotJsonBytes
+      });
       recordGatewayEvent("info", "gateway_fog_refresh_snapshot_ready", {
         playerId,
         fogDisabled,
@@ -736,6 +814,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           const session = sessionsBySocket.get(targetSocket);
           if (!session?.playerId) continue;
           playerSubscriptions.updateSnapshot(session.playerId, (snapshot) => applyPlayerMessageToSnapshot(snapshot, recoveredPayload));
+          syncGatewaySnapshotMetricsFromCache(session.playerId);
         }
         event.payload = recoveredPayload;
       }
@@ -780,6 +859,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             continue;
           }
           playerSubscriptions.updateSnapshot(playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
+          syncGatewaySnapshotMetricsFromCache(playerId);
           for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(playerSockets, (candidate) => sessionsBySocket.get(candidate))) {
             queueOrSendSessionPayload(targetSocket, tileDeltaPayload);
           }
@@ -970,7 +1050,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         gateway_gc_pause_ms: sample.gatewayGcPauseMs,
         gateway_input_to_state_update_latency_ms: sample.gatewayInputToStateUpdateLatencyMs,
         gateway_command_submit_latency_ms: sample.gatewayCommandSubmitLatencyMs,
-        gateway_sim_rpc_latency_ms: sample.gatewaySimRpcLatencyMs
+        gateway_sim_rpc_latency_ms: sample.gatewaySimRpcLatencyMs,
+        gateway_snapshot_tile_count: sample.gatewaySnapshotTileCount,
+        gateway_snapshot_json_bytes: sample.gatewaySnapshotJsonBytes,
+        gateway_snapshot_tiles_json_bytes: sample.gatewaySnapshotTilesJsonBytes,
+        gateway_snapshot_cache_entries: sample.gatewaySnapshotCacheEntries,
+        gateway_snapshot_cache_bytes: sample.gatewaySnapshotCacheBytes,
+        gateway_snapshot_recent: sample.gatewaySnapshotRecent
       },
       "gateway metrics sample"
     );
@@ -1134,7 +1220,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               bootstrapInitialState = await withTimeout(
                 simulationClient.subscribePlayer(
                   playerIdentity.playerId,
-                  JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false })
+                  JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false, trigger: "gateway_auth_bootstrap" })
                 ),
                 simulationSubscribeTimeoutMs,
                 "gateway bootstrap player"
@@ -1163,7 +1249,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
-            if (bootstrapInitialState) playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
+            if (bootstrapInitialState) {
+              playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
+              recordGatewaySnapshotDiagnostics(playerIdentity.playerId, bootstrapInitialState, {
+                trigger: "gateway_auth_bootstrap",
+                fullVisibility: false,
+                socketCount: 1,
+                payloadJsonBytes: 0
+              });
+            }
             try {
               await withTimeout(
                 playerSubscriptions.ensureSubscribed(playerIdentity.playerId),
@@ -1216,6 +1310,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   playerId: playerIdentity.playerId,
                   channel,
                   initialTileCount: initMessage.initialState?.tiles?.length ?? 0,
+                  initJsonBytes: jsonByteSize(initMessage),
                   playerPayloadPresent: Boolean(initMessage.player),
                   seasonId: initMessage.runtimeIdentity.seasonId,
                   runtimeFingerprint: initMessage.runtimeIdentity.fingerprint,
@@ -1276,7 +1371,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             const fogDisabled = message.disabled === true;
             await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {
               includeFogUpdate: true,
-              reason: "client-toggle",
+              reason: "fog_toggle",
               commandId: `fog:${session.playerId}:${Date.now()}`
             });
             return;
@@ -1995,9 +2090,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
       socket.on("close", () => {
         if (!session.playerId) return;
-        void playerSubscriptions.removeSocket(session.playerId, socket).catch((error) => {
-          app.log.error({ err: error, playerId: session.playerId }, "failed to unsubscribe player");
-        });
+        void playerSubscriptions.removeSocket(session.playerId, socket)
+          .then(() => {
+            syncGatewaySnapshotMetricsFromCache(session.playerId!);
+          })
+          .catch((error) => {
+            app.log.error({ err: error, playerId: session.playerId }, "failed to unsubscribe player");
+          });
       });
     });
   });
