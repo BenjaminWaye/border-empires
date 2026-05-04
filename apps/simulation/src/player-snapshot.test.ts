@@ -106,6 +106,39 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     ]);
   });
 
+  it("reuses shared full-visibility tiles when provided", () => {
+    const sharedTiles = [
+      { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1" },
+      { x: 11, y: 10, terrain: "SEA" as const }
+    ];
+    const snapshot = buildPlayerSubscriptionSnapshot(
+      "player-1",
+      {
+        tiles: [],
+        players: [
+          {
+            id: "player-1",
+            allies: [],
+            vision: 1,
+            visionRadiusBonus: 0,
+            territoryTileKeys: ["10,10"],
+            points: 5,
+            manpower: 3,
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            techIds: [],
+            domainIds: []
+          }
+        ],
+        pendingSettlements: [],
+        activeLocks: []
+      },
+      undefined,
+      { fullVisibility: true, sharedFullVisibilityTiles: sharedTiles }
+    );
+
+    expect(snapshot.tiles).toBe(sharedTiles);
+  });
+
   it("includes ally vision in the bootstrap snapshot", () => {
     expect(
       buildPlayerSubscriptionSnapshot("player-1", {

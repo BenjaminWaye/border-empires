@@ -608,6 +608,71 @@ export const buildLivePlayerEconomySnapshot = (
   };
 };
 
+const toSharedVisibilityTownSummary = (town: DomainTileState["town"] | undefined): DomainTileState["town"] | undefined => {
+  if (!town) return undefined;
+  return {
+    ...(town.name ? { name: town.name } : {}),
+    type: town.type,
+    populationTier: town.populationTier,
+    ...(typeof town.population === "number" ? { population: town.population } : {}),
+    ...(typeof town.maxPopulation === "number" ? { maxPopulation: town.maxPopulation } : {}),
+    ...(typeof town.connectedTownCount === "number" ? { connectedTownCount: town.connectedTownCount } : {}),
+    ...(typeof town.connectedTownBonus === "number" ? { connectedTownBonus: town.connectedTownBonus } : {}),
+    ...(Array.isArray(town.connectedTownNames) ? { connectedTownNames: town.connectedTownNames } : {})
+  } as DomainTileState["town"];
+};
+
+const buildSnapshotTileYieldFields = (
+  tile: RuntimeState["tiles"][number],
+  collectedAtByTile: ReadonlyMap<string, number>,
+  town: DomainTileState["town"] | undefined
+) => {
+  const yieldTile: DomainTileState = {
+    x: tile.x,
+    y: tile.y,
+    terrain: tile.terrain ?? "LAND",
+    ...(tile.resource ? { resource: tile.resource as DomainTileState["resource"] } : {}),
+    ...(tile.dockId ? { dockId: tile.dockId } : {}),
+    ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+    ...(tile.ownershipState ? { ownershipState: tile.ownershipState as DomainTileState["ownershipState"] } : {}),
+    ...(town ? { town } : tile.townJson ? { town: JSON.parse(tile.townJson) as DomainTileState["town"] } : {}),
+    ...(tile.economicStructureJson ? { economicStructure: JSON.parse(tile.economicStructureJson) as DomainTileState["economicStructure"] } : {})
+  };
+  const yieldView = buildTileYieldView(yieldTile, collectedAtByTile.get(keyFor(tile.x, tile.y)), Date.now());
+  return {
+    ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
+    ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
+    ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {})
+  };
+};
+
+export const enrichSnapshotTilesForGlobalVisibility = (
+  runtimeState: RuntimeState
+): RuntimeState["tiles"] => {
+  const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
+  const tilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), entry] as const));
+  const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
+  const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
+  const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
+  return [...runtimeState.tiles]
+    .sort((left, right) => (left.x - right.x) || (left.y - right.y))
+    .map((tile) => {
+      const player = tile.ownerId ? playersById.get(tile.ownerId) : undefined;
+      const fedTownKeys = tile.ownerId ? (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) : new Set<string>();
+      const town = toSharedVisibilityTownSummary(buildTownSummary(tile, player, tilesByKey, fedTownKeys, false));
+      const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, town);
+      if (!town) return { ...tile, ...yieldFields };
+      return {
+        ...tile,
+        townJson: JSON.stringify(town),
+        townType: town.type,
+        ...(town.name ? { townName: town.name } : {}),
+        townPopulationTier: town.populationTier,
+        ...yieldFields
+      };
+    });
+};
+
 export const enrichSnapshotTilesForPlayer = (
   playerId: string,
   runtimeState: RuntimeState,
@@ -619,23 +684,7 @@ export const enrichSnapshotTilesForPlayer = (
   return visibleTiles.map((tile) => {
     const player = runtimeState.players.find((entry) => entry.id === tile.ownerId);
     const town = buildTownSummary(tile, player, tilesByKey, tile.ownerId === playerId ? playerEconomy.fedTownKeys : new Set<string>(), tile.ownerId === playerId);
-    const yieldTile: DomainTileState = {
-      x: tile.x,
-      y: tile.y,
-      terrain: tile.terrain ?? "LAND",
-      ...(tile.resource ? { resource: tile.resource as DomainTileState["resource"] } : {}),
-      ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-      ...(tile.ownershipState ? { ownershipState: tile.ownershipState as DomainTileState["ownershipState"] } : {}),
-      ...(town ? { town } : tile.townJson ? { town: JSON.parse(tile.townJson) as DomainTileState["town"] } : {}),
-      ...(tile.economicStructureJson ? { economicStructure: JSON.parse(tile.economicStructureJson) as DomainTileState["economicStructure"] } : {})
-    };
-    const yieldView = buildTileYieldView(yieldTile, collectedAtByTile.get(keyFor(tile.x, tile.y)), Date.now());
-    const yieldFields = {
-      ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
-      ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
-      ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {})
-    };
+    const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, town);
     if (!town) return { ...tile, ...yieldFields };
     return {
       ...tile,

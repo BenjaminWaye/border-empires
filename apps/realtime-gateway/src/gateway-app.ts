@@ -20,6 +20,7 @@ import type { GatewayPlayerProfileStore } from "./player-profile-store.js";
 import { createGatewayPlayerProfileStore } from "./player-profile-store-factory.js";
 import { withTimeout } from "./promise-timeout.js";
 import { resolveInitialState } from "./initial-state.js";
+import { createFullVisibilityReplacementPayloadCache } from "./full-visibility-replacement-payload-cache.js";
 import { buildInitMessage } from "./reconnect-recovery.js";
 import { type SimulationSeedProfile } from "./seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "./sim-client.js";
@@ -31,7 +32,7 @@ import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "./live-world-status-recovery.js";
 import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -523,27 +524,24 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     string,
     Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }>
   >();
+  const fullVisibilityReplacementPayloadCache = createFullVisibilityReplacementPayloadCache({
+    jsonSafeTileDeltaBatch,
+    jsonByteSize
+  });
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
-  const gatewaySnapshotMeasureByPlayerId = new Map<string, ReturnType<typeof measurePlayerSubscriptionSnapshot>>();
+  const gatewaySnapshotByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
   const refreshGatewaySnapshotCacheMetrics = () => {
-    let totalBytes = 0;
-    const topEntries = [...gatewaySnapshotMeasureByPlayerId.entries()]
-      .map(([playerId, measure]) => {
-        totalBytes += measure.snapshotJsonBytes;
-        return { playerId, snapshotJsonBytes: measure.snapshotJsonBytes, tileCount: measure.tileCount };
-      })
-      .sort((left, right) => right.snapshotJsonBytes - left.snapshotJsonBytes || left.playerId.localeCompare(right.playerId))
-      .slice(0, 3);
-    gatewayMetrics.setGatewaySnapshotCache({ entries: gatewaySnapshotMeasureByPlayerId.size, bytes: totalBytes });
-    return { entryCount: gatewaySnapshotMeasureByPlayerId.size, totalBytes, topEntries };
+    const cacheSummary = summarizePlayerSubscriptionSnapshotCache(gatewaySnapshotByPlayerId.entries());
+    gatewayMetrics.setGatewaySnapshotCache({ entries: cacheSummary.entryCount, bytes: cacheSummary.totalSnapshotJsonBytes });
+    return { entryCount: cacheSummary.entryCount, totalBytes: cacheSummary.totalSnapshotJsonBytes, topEntries: cacheSummary.topEntries };
   };
   const syncGatewaySnapshotMetricsFromCache = (playerId: string) => {
     const snapshot = playerSubscriptions.snapshotForPlayer(playerId);
     if (!snapshot) {
-      gatewaySnapshotMeasureByPlayerId.delete(playerId);
+      gatewaySnapshotByPlayerId.delete(playerId);
       return refreshGatewaySnapshotCacheMetrics();
     }
-    gatewaySnapshotMeasureByPlayerId.set(playerId, measurePlayerSubscriptionSnapshot(snapshot));
+    gatewaySnapshotByPlayerId.set(playerId, snapshot);
     return refreshGatewaySnapshotCacheMetrics();
   };
   const recordGatewaySnapshotDiagnostics = (
@@ -552,7 +550,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     options: { trigger: string; fullVisibility: boolean; socketCount: number; payloadJsonBytes: number }
   ) => {
     const measure = measurePlayerSubscriptionSnapshot(snapshot);
-    gatewaySnapshotMeasureByPlayerId.set(playerId, measure);
+    gatewaySnapshotByPlayerId.set(playerId, snapshot);
     const cacheSummary = refreshGatewaySnapshotCacheMetrics();
     const memory = process.memoryUsage();
     const rssMb = memory.rss / (1024 * 1024);
@@ -712,11 +710,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         fogDisabled ? "gateway fog resubscribe" : "gateway fog restore resubscribe"
       );
       playerSubscriptions.seedSnapshot(playerId, snapshot);
-      const replacementSnapshot = {
-        type: "TILE_SNAPSHOT_REPLACE",
-        tiles: jsonSafeTileDeltaBatch(snapshot.tiles)
-      };
-      const replacementSnapshotJsonBytes = jsonByteSize(replacementSnapshot);
+      const { payload: replacementSnapshot, payloadJsonBytes: replacementSnapshotJsonBytes } =
+        fullVisibilityReplacementPayloadCache.get(snapshot);
       const targetSockets = [...playerSubscriptions.socketsForPlayer(playerId)];
       recordGatewaySnapshotDiagnostics(playerId, snapshot, {
         trigger: fogDisabled ? "gateway_fog_refresh" : "gateway_fog_restore",
