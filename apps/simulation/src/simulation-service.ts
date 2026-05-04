@@ -32,6 +32,7 @@ import { createWorkerSystemCommandProducer } from "./system-command-producer-wor
 import { loadLegacySnapshotBootstrap } from "./legacy-snapshot-bootstrap.js";
 import { buildNextClientSeqByPlayer } from "./next-client-seq.js";
 import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
+import { enrichSnapshotTilesForGlobalVisibility } from "./live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "./seed-state.js";
 import { createPlayerSubscriptionRegistry } from "./subscription-registry.js";
 import { createSimulationPersistenceQueue } from "./simulation-persistence-queue.js";
@@ -818,6 +819,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
   const snapshotCacheByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
+  let sharedFullVisibilityTilesCache: PlayerSubscriptionSnapshot["tiles"] | undefined;
+  const invalidateSharedFullVisibilityTilesCache = (): void => {
+    sharedFullVisibilityTilesCache = undefined;
+  };
+  const sharedFullVisibilityTiles = (runtimeState: ReturnType<SimulationRuntime["exportState"]>): PlayerSubscriptionSnapshot["tiles"] => {
+    if (!sharedFullVisibilityTilesCache) sharedFullVisibilityTilesCache = enrichSnapshotTilesForGlobalVisibility(runtimeState);
+    return sharedFullVisibilityTilesCache;
+  };
   const refreshSnapshotCacheMetrics = () => {
     const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCacheByPlayerId.entries());
     simulationMetrics.setSimSnapshotCache({
@@ -918,6 +927,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
       includeWorldStatus: options?.includeWorldStatus === true,
       fullVisibility: useFullVisibility,
+      ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState
     });
@@ -1100,6 +1110,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       clientSeq: command.clientSeq,
       type: command.type
     });
+    invalidateSharedFullVisibilityTilesCache();
     const runtimeSubmitStartedAt = Date.now();
     runtime.submitCommand(command);
     const runtimeSubmitDurationMs = Date.now() - runtimeSubmitStartedAt;
