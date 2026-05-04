@@ -8,6 +8,9 @@ type NormalizedGatewayTileUpdate = {
   resource?: Tile["resource"] | undefined;
   dockId?: string | undefined;
   town?: Tile["town"] | undefined;
+  townType?: Tile["townType"] | undefined;
+  townName?: Tile["townName"] | undefined;
+  townPopulationTier?: Tile["townPopulationTier"] | undefined;
   fort?: Tile["fort"] | undefined;
   observatory?: Tile["observatory"] | undefined;
   siegeOutpost?: Tile["siegeOutpost"] | undefined;
@@ -170,6 +173,12 @@ export const normalizeGatewayTileUpdate = (
   if ("dockId" in update) normalized.dockId = update.dockId;
   if ("townJson" in update || "townType" in update || "townName" in update || "townPopulationTier" in update) {
     normalized.town = gatewayTownSummary(update, args.existing);
+    if ("townType" in update) normalized.townType = update.townType;
+    else if ("townJson" in update && !update.townJson) normalized.townType = undefined;
+    if ("townName" in update) normalized.townName = update.townName;
+    else if ("townJson" in update && !update.townJson) normalized.townName = undefined;
+    if ("townPopulationTier" in update) normalized.townPopulationTier = update.townPopulationTier;
+    else if ("townJson" in update && !update.townJson) normalized.townPopulationTier = undefined;
   }
   if ("fortJson" in update) normalized.fort = parseGatewayStructureJson<Tile["fort"]>(update.fortJson);
   if ("observatoryJson" in update) normalized.observatory = parseGatewayStructureJson<Tile["observatory"]>(update.observatoryJson);
@@ -252,6 +261,23 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("town" in normalizedGateway) {
     if (normalizedGateway.town) merged.town = normalizedGateway.town;
     else delete merged.town;
+  }
+  if ("townType" in normalizedGateway) {
+    if (normalizedGateway.townType) merged.townType = normalizedGateway.townType;
+    else delete merged.townType;
+  }
+  if ("townName" in normalizedGateway) {
+    if (normalizedGateway.townName) merged.townName = normalizedGateway.townName;
+    else delete merged.townName;
+  }
+  if ("townPopulationTier" in normalizedGateway) {
+    if (normalizedGateway.townPopulationTier) merged.townPopulationTier = normalizedGateway.townPopulationTier;
+    else delete merged.townPopulationTier;
+  }
+  if (merged.town) {
+    merged.townType = merged.town.type;
+    if (merged.town.name) merged.townName = merged.town.name;
+    merged.townPopulationTier = merged.town.populationTier;
   }
   if ("fort" in normalizedGateway) {
     if (normalizedGateway.fort) merged.fort = normalizedGateway.fort;
