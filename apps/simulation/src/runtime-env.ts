@@ -28,6 +28,9 @@ export type SimulationRuntimeEnv = {
   requireDurableStartupState?: boolean;
   /** When true, AI/system planning runs in worker threads off the main event loop. */
   useAiWorker: boolean;
+  healthProbeIntervalMs: number;
+  healthProbeTimeoutMs: number;
+  healthFailureThreshold: number;
 };
 
 const parsePositiveNumber = (value: string | undefined, fallback: number, label: string): number => {
@@ -120,6 +123,21 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       env.SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS,
       15_000,
       "simulation global status broadcast debounce"
+    ),
+    healthProbeIntervalMs: parsePositiveNumber(
+      env.SIMULATION_HEALTH_PROBE_INTERVAL_MS,
+      5_000,
+      "simulation health probe interval"
+    ),
+    healthProbeTimeoutMs: parsePositiveNumber(
+      env.SIMULATION_HEALTH_PROBE_TIMEOUT_MS,
+      2_000,
+      "simulation health probe timeout"
+    ),
+    healthFailureThreshold: parsePositiveNumber(
+      env.SIMULATION_HEALTH_FAILURE_THRESHOLD,
+      3,
+      "simulation health failure threshold"
     ),
     startupRecoveryTimeoutMs: parsePositiveNumber(
       env.SIMULATION_STARTUP_RECOVERY_TIMEOUT_MS,
