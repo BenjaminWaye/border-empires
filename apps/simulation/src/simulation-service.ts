@@ -49,6 +49,7 @@ import type { SeasonSummaryStore } from "./season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "./season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "./season-lifecycle.js";
 import { generateSeasonWorld, type SimulationRulesetId } from "./season-worldgen.js";
+import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -105,6 +106,36 @@ type ProtoStartNextSeasonRequest = {
 type ProtoStartNextSeasonResponse = {
   ok: boolean;
   season_id: string;
+};
+
+const formatNoFrontierDiagnostic = (
+  source: "worker" | "runtime",
+  diagnostic: AutomationPlannerDiagnostic
+): string => {
+  const parts = [
+    `source=${source}`,
+    diagnostic.playerId,
+    `owned=${diagnostic.ownedTileCount ?? 0}`,
+    `owned_frontier=${diagnostic.ownedFrontierTileCount ?? 0}`,
+    `frontier=${diagnostic.frontierTileCountInput ?? 0}`,
+    `hot=${diagnostic.hotFrontierTileCountInput ?? 0}`,
+    `strategic=${diagnostic.strategicFrontierTileCountInput ?? 0}`,
+    `origins=${diagnostic.frontierOriginCount ?? 0}`,
+    `dock_origins=${diagnostic.dockOriginCount ?? 0}`,
+    `scope_keys=${diagnostic.playerScopeKeyCount ?? 0}`,
+    `scope_tiles=${diagnostic.playerScopeTileCount ?? 0}`,
+    `settle=${diagnostic.settlementCandidateFound ? 1 : 0}`,
+    `enemy=${diagnostic.frontierEnemyTargetCount}`,
+    `enemy_player=${diagnostic.frontierEnemyPlayerTargetCount ?? 0}`,
+    `barbarian=${diagnostic.frontierBarbarianTargetCount ?? 0}`,
+    `neutral=${diagnostic.frontierNeutralTargetCount}`,
+    `econ=${diagnostic.frontierOpportunityEconomic ?? 0}`,
+    `scout=${diagnostic.frontierOpportunityScout ?? 0}`,
+    `scaffold=${diagnostic.frontierOpportunityScaffold ?? 0}`,
+    `waste=${diagnostic.frontierOpportunityWaste ?? 0}`,
+    `preplan=${diagnostic.preplanProgressState ?? "none"}`
+  ];
+  return parts.join(":");
 };
 
 type ProtoSimulationEvent = {
@@ -1231,6 +1262,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onNoCommand: (diagnostic) => {
               if (diagnostic.noCommandReason) {
                 simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
+                if (diagnostic.noCommandReason === "no_frontier_targets") {
+                  simulationMetrics.observeSimAiNoFrontierDetail(formatNoFrontierDiagnostic("worker", diagnostic));
+                }
               }
             }
           })
@@ -1261,6 +1295,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onNoCommand: (diagnostic) => {
               if (diagnostic.noCommandReason) {
                 simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
+                if (diagnostic.noCommandReason === "no_frontier_targets") {
+                  simulationMetrics.observeSimAiNoFrontierDetail(formatNoFrontierDiagnostic("runtime", diagnostic));
+                }
               }
             }
           });
@@ -1785,6 +1822,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_ai_preplan_progress_recent: sample.simAiPreplanProgressRecent,
             sim_ai_noop_total: sample.simAiNoopTotalByReason,
             sim_ai_noop_recent: sample.simAiNoopRecent,
+            sim_ai_no_frontier_recent: sample.simAiNoFrontierRecent,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
             sim_cpu_percent: sample.simCpuPercent,
             sim_heap_used_mb: sample.simHeapUsedMb,

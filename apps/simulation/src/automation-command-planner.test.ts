@@ -195,6 +195,8 @@ describe("automation command planner", () => {
       frontierTiles: [],
       ownedTiles: [settled],
       tilesByKey: new Map([["0,0", settled]]),
+      playerScopeKeyCount: 1,
+      playerScopeTileCount: 1,
       clientSeq: 102,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"
@@ -204,6 +206,14 @@ describe("automation command planner", () => {
     expect(result.diagnostic.settlementEligible).toBe(true);
     expect(result.diagnostic.settlementCandidateFound).toBe(false);
     expect(result.diagnostic.noCommandReason).toBe("no_frontier_targets");
+    expect(result.diagnostic.ownedTileCount).toBe(1);
+    expect(result.diagnostic.ownedFrontierTileCount).toBe(0);
+    expect(result.diagnostic.frontierTileCountInput).toBe(0);
+    expect(result.diagnostic.frontierOriginCount).toBe(1);
+    expect(result.diagnostic.playerScopeKeyCount).toBe(1);
+    expect(result.diagnostic.playerScopeTileCount).toBe(1);
+    expect(result.diagnostic.frontierOpportunityEconomic).toBe(0);
+    expect(result.diagnostic.frontierOpportunityScout).toBe(0);
   });
 
   it("uses dock-linked frontier expansion when strategic settlement has no target", () => {
