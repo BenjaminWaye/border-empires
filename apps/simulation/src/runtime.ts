@@ -775,8 +775,16 @@ export class SimulationRuntime {
     if (!player) {
       player = createHumanRuntimePlayer(playerId);
       this.players.set(playerId, player);
-      this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
-      this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
+      // Only initialize an empty summary if one does not already exist. The
+      // recovery constructor lazily populates per-player summaries from owned
+      // tile state via applyTileToPlayerSummaries, so a returning player who
+      // owns recovered tiles but is missing from initialState.players already
+      // has a populated summary here. Overwriting it would silently wipe
+      // their territory and force a respawn at the next zero-territory check.
+      if (!this.playerSummaries.has(playerId)) {
+        this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+        this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
+      }
     }
 
     const territoryTiles = this.summaryForPlayer(playerId).territoryTileKeys.size;

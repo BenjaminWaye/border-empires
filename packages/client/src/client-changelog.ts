@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.3",
+  version: "2026.05.06.4",
   title: "What's New",
-  summary: "Linked-dock connection lines now render correctly on a toroidal world: the dashed lines between paired docks no longer shoot off-screen in the wrong direction when the camera, A-dock, and B-dock straddle the world wrap. Plus the respawn notice popup port to the rewrite stack, the opt-in true-3D renderer overlay pass, fog-of-war fixes, capturable coastal LAND fix, and the earlier respawn diagnostics, AI GOAP fallback, town recovery, snapshot, and town-population fixes from this release train.",
+  summary: "Returning players no longer get silently respawned at a fresh tile and lose their entire empire across simulation restarts: the simulation runtime now preserves recovered per-player territory summaries when a returning human player is missing from the snapshot's players list. Plus toroidal linked-dock connection lines, the respawn notice popup port to the rewrite stack, the opt-in true-3D renderer overlay pass, fog-of-war fixes, capturable coastal LAND fix, and the earlier respawn diagnostics, AI GOAP fallback, town recovery, snapshot, and town-population fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.4",
+      title: "Returning players keep their empire across simulation restarts",
+      why: "The simulation snapshot store currently only persists AI and barbarian players in its players list, so a human player coming back after a sim restart was not in the recovered players map even though all of their owned tiles were correctly indexed into per-player summaries by the constructor recovery path. The very next ensurePlayerHasSpawnTerritory call (the gateway PreparePlayer gRPC entry on auth) overwrote the populated summary with an empty one, then immediately observed zero territory and forced a full respawn at a fresh placement tile.",
+      changes: [
+        "ensurePlayerHasSpawnTerritory now only seeds an empty per-player summary when one does not already exist, so recovered tile ownership survives the lazy player record creation that runs when a returning human first connects after a sim restart.",
+        "Added a runtime regression test covering the returning-tile-owner-missing-from-initialState-players case so this silent-respawn path stays closed."
+      ]
+    },
     {
       introducedIn: "2026.05.06.3",
       title: "Linked-dock connection lines render correctly across the world wrap",
