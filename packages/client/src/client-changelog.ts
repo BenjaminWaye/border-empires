@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.12",
+  version: "2026.05.06.13",
   title: "What's New",
-  summary: "Settled resource tiles (farms, fish, iron, gems, oil, wood, fur) on the rewrite stack now display their full per-day production rate and stored yield in the tile overview, instead of falling back to the 'Resource node can produce X once developed and collected' placeholder. The simulation always computed this data; it was just being dropped at the gRPC wire because the protocol message had no field for it.",
+  summary: "Linked-dock connection lines now follow an actual sea route between paired docks instead of cutting straight across landmasses, and they now find paths that wrap across the world edge. Plus the prior settled resource production/stored yield rewrite-stack fix, the 'Town is unfed' guard, satellite-reveal foreign towns, and the earlier 3D-renderer polish from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.13",
+      title: "Linked-dock connection lines now hug the actual sea route",
+      why: "The dashed connection line between paired docks was supposed to follow the sea path between them, but the client-side A* over the 450×450 world only allocated 24,000 expansions and never wrapped across the world edge — so most non-trivial pairs ran out of expansions or had no non-wrapping path at all and silently fell back to a single straight line cutting across landmasses.",
+      changes: [
+        "A* now wraps neighbors toroidally and uses a toroidal Manhattan heuristic, so dock pairs whose shortest sea path crosses the world edge can now resolve to a real route instead of falling back to a straight line.",
+        "Replaced the linear open-list scan with a binary min-heap, so the per-expansion cost no longer grows with the frontier size; the existing 24,000-expansion cap is now reached far less often because A* is more efficient and stays focused on the goal.",
+        "Routes are still cached per dock pair, so the heap-based A* runs at most once per pair per session."
+      ]
+    },
     {
       introducedIn: "2026.05.06.12",
       title: "Settled resource tiles now show production and stored yield on the rewrite stack",
