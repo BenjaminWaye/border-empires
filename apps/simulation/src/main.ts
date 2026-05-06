@@ -125,13 +125,29 @@ const closeWithMetrics = async (): Promise<void> => {
   await service.close();
 };
 
+const SHUTDOWN_HARD_EXIT_MS = 10_000;
+
 const beginShutdown = (reason: string, details?: Record<string, unknown>): Promise<void> => {
   if (shutdownPromise) return shutdownPromise;
   console.info({ reason, ...(details ?? {}) }, "simulation process shutdown requested");
-  shutdownPromise = closeWithMetrics().catch((error) => {
-    console.error({ err: error, reason }, "simulation process shutdown failed");
-    throw error;
-  });
+  const hardExitTimer = setTimeout(() => {
+    console.error(
+      { reason, hardExitMs: SHUTDOWN_HARD_EXIT_MS },
+      "simulation shutdown deadline exceeded; force-exiting so Fly can restart the machine"
+    );
+    process.exit(process.exitCode ?? 1);
+  }, SHUTDOWN_HARD_EXIT_MS);
+  hardExitTimer.unref();
+  shutdownPromise = closeWithMetrics()
+    .then(() => {
+      clearTimeout(hardExitTimer);
+      process.exit(process.exitCode ?? 0);
+    })
+    .catch((error) => {
+      clearTimeout(hardExitTimer);
+      console.error({ err: error, reason }, "simulation process shutdown failed");
+      process.exit(process.exitCode ?? 1);
+    });
   return shutdownPromise;
 };
 

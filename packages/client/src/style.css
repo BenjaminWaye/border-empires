@@ -2487,6 +2487,44 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+.tile-overview-line-loading {
+  margin-top: 4px;
+}
+.tile-town-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: rgba(201, 216, 236, 0.78);
+  font-size: 12px;
+}
+.tile-town-loading-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(159, 217, 246, 0.24);
+  border-top-color: rgba(159, 217, 246, 0.95);
+  border-radius: 999px;
+  animation: tile-action-spin 0.9s linear infinite;
+  flex: 0 0 auto;
+}
+.tile-town-loading-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tile-town-debug-btn {
+  appearance: none;
+  background: rgba(255, 209, 102, 0.12);
+  border: 1px solid rgba(255, 209, 102, 0.4);
+  color: #ffd166;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tile-town-debug-btn:hover {
+  background: rgba(255, 209, 102, 0.2);
+}
 .tile-overview-effect-name {
   color: rgba(241, 247, 255, 0.9);
   font-weight: 700;

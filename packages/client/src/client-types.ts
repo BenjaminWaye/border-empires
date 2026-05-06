@@ -67,6 +67,11 @@ export type Tile = {
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+  // Set true when a town payload arrived but failed the renderable gate
+  // (population missing or below MIN_RENDERABLE_TOWN_POPULATION). The
+  // overview pane keys its spinner state off this — not off townType
+  // presence, which can be set independently by tile-shell updates.
+  townDataPartial?: boolean;
   dock?: {
     baseGoldPerMinute: number;
     goldPerMinute: number;
@@ -636,7 +641,7 @@ export type TileMenuProgressView = {
 
 export type TileOverviewLine = {
   html: string;
-  kind?: "effect" | "section";
+  kind?: "effect" | "section" | "loading";
 };
 
 export type TileMenuView = {

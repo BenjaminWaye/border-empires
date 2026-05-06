@@ -19,6 +19,7 @@ type SimulationPersistenceQueueDependencies = {
     retryCount: number;
   }) => void;
   onPersistenceFailure?: (error: Error) => void;
+  retryBackoffMs?: readonly number[];
   log?: Pick<Console, "error">;
 };
 
@@ -34,8 +35,7 @@ const noopLogger: Pick<Console, "error"> = {
   error: () => undefined
 };
 
-const PERSISTENCE_RETRY_BACKOFF_MS = [25, 75, 150] as const;
-const DEFAULT_PERSISTENCE_RETRY_BACKOFF_MS = 150;
+const DEFAULT_PERSISTENCE_RETRY_BACKOFF_MS: readonly number[] = [250, 1_000, 5_000, 15_000, 30_000];
 
 const isTransientPersistenceError = (error: unknown): boolean => {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
@@ -53,10 +53,13 @@ const delay = async (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-const withPersistenceRetry = async (operation: () => Promise<void>): Promise<{ retryCount: number }> => {
+const withPersistenceRetry = async (
+  operation: () => Promise<void>,
+  backoffMs: readonly number[]
+): Promise<{ retryCount: number }> => {
   let attempt = 0;
   let lastError: unknown;
-  const maxAttempts = PERSISTENCE_RETRY_BACKOFF_MS.length + 1;
+  const maxAttempts = backoffMs.length + 1;
   while (attempt < maxAttempts) {
     try {
       await operation();
@@ -66,7 +69,7 @@ const withPersistenceRetry = async (operation: () => Promise<void>): Promise<{ r
       if (!isTransientPersistenceError(error) || attempt >= maxAttempts - 1) {
         throw error;
       }
-      const retryDelayMs = PERSISTENCE_RETRY_BACKOFF_MS[attempt] ?? DEFAULT_PERSISTENCE_RETRY_BACKOFF_MS;
+      const retryDelayMs = backoffMs[attempt] ?? backoffMs[backoffMs.length - 1] ?? 0;
       await delay(retryDelayMs);
       attempt += 1;
     }
@@ -100,6 +103,7 @@ export const createSimulationPersistenceQueue = (
   dependencies: SimulationPersistenceQueueDependencies
 ): SimulationPersistenceQueue => {
   const log = dependencies.log ?? noopLogger;
+  const retryBackoffMs = dependencies.retryBackoffMs ?? DEFAULT_PERSISTENCE_RETRY_BACKOFF_MS;
   let drain = Promise.resolve();
   let pendingCount = 0;
   let degradedUntil = 0;
@@ -132,7 +136,7 @@ export const createSimulationPersistenceQueue = (
         try {
           const result = await withPersistenceRetry(async () => {
             commandStatusOperation = await persistCommandStatus(dependencies.commandStore, event, createdAt);
-          });
+          }, retryBackoffMs);
           commandStatusRetryCount = result.retryCount;
         } catch (error) {
           commandStatusFailed = true;
@@ -171,7 +175,7 @@ export const createSimulationPersistenceQueue = (
           try {
             const result = await withPersistenceRetry(async () => {
               await dependencies.eventStore.appendEvent(event, createdAt);
-            });
+            }, retryBackoffMs);
             eventStoreRetryCount = result.retryCount;
             dependencies.onEventPersisted?.();
           } catch (error) {

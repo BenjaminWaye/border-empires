@@ -299,6 +299,53 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Stored yield:"))).toBe(false);
   });
 
+  it("hides the unfed warning when the town is producing gold or growing population (stale isFed flag)", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 22,
+        y: 50,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Goldenford",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 0,
+          supportMax: 7,
+          goldPerMinute: 2,
+          cap: 40,
+          isFed: false,
+          population: 17_532,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 5.6,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        yieldRate: {
+          goldPerMinute: 2
+        }
+      },
+      {
+        ...deps,
+        displayTownGoldPerMinute: () => 2,
+        populationPerMinuteLabel: () => "+5.6/m",
+        townNextGrowthEtaLabel: () => "City in ~11d"
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Population 17,532"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Growth"))).toBe(true);
+  });
+
   it("does not show support or road-bonus UI for settlements even if stale town fields are present", () => {
     const lines = menuOverviewForTile(
       {
@@ -940,6 +987,58 @@ describe("menuOverviewForTile", () => {
 
     expect(menu.subtitle).toBe("Ancient Rival · ANCIENT_HEARTLAND");
     expect(menu.subtitleHtml).toBeUndefined();
+  });
+
+  it("shows a spinner and debug-download button when a town payload arrived but failed the renderable gate", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 117,
+        y: 248,
+        terrain: "LAND",
+        ownerId: "rival",
+        ownershipState: "SETTLED",
+        townType: "MARKET",
+        townPopulationTier: "TOWN",
+        townDataPartial: true
+      },
+      deps
+    );
+
+    const loadingLine = lines.find((line) => line.kind === "loading");
+    expect(loadingLine).toBeDefined();
+    expect(loadingLine?.html).toContain("tile-town-loading-spinner");
+    expect(loadingLine?.html).toContain("Loading town details…");
+    expect(loadingLine?.html).toContain('data-tile-debug-download="117,248"');
+    expect(loadingLine?.html).toContain('aria-live="polite"');
+  });
+
+  it("renders foreign-visibility towns without owner-only economy lines when private fields are absent", () => {
+    // Foreign towns under satellite reveal carry only public fields. The
+    // overview pane should show the public summary (population, tier) and
+    // skip private guidance like "Town is unfed" or "Support 0/0".
+    const lines = menuOverviewForTile(
+      {
+        x: 200,
+        y: 200,
+        terrain: "LAND",
+        ownerId: "rival",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Foreign Capital",
+          type: "MARKET",
+          populationTier: "CITY",
+          population: 42_000,
+          maxPopulation: 80_000,
+          // Owner-only fields intentionally absent — server stripped them.
+        } as unknown as NonNullable<Tile["town"]>
+      },
+      deps
+    );
+
+    expect(lines.some((line) => line.html.includes("Population 42,000"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Support 0/0"))).toBe(false);
+    expect(lines.some((line) => line.html.startsWith("Next size:"))).toBe(false);
   });
 
   it("renders allied owner names with the ally subtitle accent", () => {

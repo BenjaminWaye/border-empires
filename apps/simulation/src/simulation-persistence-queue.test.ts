@@ -133,7 +133,12 @@ describe("createSimulationPersistenceQueue", () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();
     vi.spyOn(eventStore, "appendEvent").mockRejectedValue(new Error("db timeout"));
-    const queue = createSimulationPersistenceQueue({ commandStore, eventStore, log: { error: vi.fn() } });
+    const queue = createSimulationPersistenceQueue({
+      commandStore,
+      eventStore,
+      retryBackoffMs: [0, 0, 0],
+      log: { error: vi.fn() }
+    });
 
     queue.enqueueEvent(
       {
@@ -162,6 +167,7 @@ describe("createSimulationPersistenceQueue", () => {
       commandStore,
       eventStore,
       onPersistenceFailure,
+      retryBackoffMs: [0, 0, 0],
       log: { error: vi.fn() }
     });
 
@@ -228,6 +234,44 @@ describe("createSimulationPersistenceQueue", () => {
         retryCount: 0
       })
     );
+  });
+
+  it("rides out a multi-attempt transient outage when the retry budget covers it", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const onPersistenceFailure = vi.fn();
+    const appendSpy = vi
+      .spyOn(eventStore, "appendEvent")
+      .mockRejectedValueOnce(new Error("Connection terminated due to connection timeout"))
+      .mockRejectedValueOnce(new Error("Connection terminated due to connection timeout"))
+      .mockRejectedValueOnce(new Error("Connection terminated due to connection timeout"))
+      .mockImplementation(async (event, createdAt) => {
+        await InMemorySimulationEventStore.prototype.appendEvent.call(eventStore, event, createdAt);
+      });
+    const queue = createSimulationPersistenceQueue({
+      commandStore,
+      eventStore,
+      onPersistenceFailure,
+      retryBackoffMs: [0, 0, 0, 0, 0],
+      log: { error: vi.fn() }
+    });
+
+    queue.enqueueEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-1",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "nope"
+      },
+      100
+    );
+
+    await queue.whenIdle();
+
+    expect(appendSpy).toHaveBeenCalledTimes(4);
+    expect(onPersistenceFailure).not.toHaveBeenCalled();
+    expect(queue.isDegraded()).toBe(false);
   });
 
   it("retries a transient event-store timeout and does not report a fatal failure when recovery succeeds", async () => {

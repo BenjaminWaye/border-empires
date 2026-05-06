@@ -121,7 +121,11 @@ describe("client gateway sync", () => {
     );
   });
 
-  it("does not synthesize town stats from partial townJson payloads", () => {
+  it("accepts town summaries once population clears the renderable threshold", () => {
+    // The old behavior rejected any town summary missing owner-only economy
+    // fields, which silently dropped foreign towns under satellite reveal.
+    // The new gate uses population (>= 500) as the "this is a real town"
+    // signal — see MIN_RENDERABLE_TOWN_POPULATION in client-gateway-sync.ts.
     const deps = createDeps();
 
     applyGatewayInitialState(deps, {
@@ -150,6 +154,34 @@ describe("client gateway sync", () => {
             granaryActive: false,
             hasBank: false,
             bankActive: false
+          })
+        }
+      ]
+    });
+
+    expect(deps.state.tiles.get("350,219")?.town?.population).toBe(15_590);
+    expect(deps.state.tiles.get("350,219")?.town?.populationTier).toBe("TOWN");
+  });
+
+  it("rejects town summaries when population is below the renderable threshold", () => {
+    // Anything below 500 is treated as partial/in-flight data so the renderer
+    // falls back to the spinner state instead of acting on bogus zeros.
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 350,
+          y: 219,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Rivetstead Causeway",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 0,
+            maxPopulation: 50_000
           })
         }
       ]

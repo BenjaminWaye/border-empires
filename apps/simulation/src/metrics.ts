@@ -73,6 +73,7 @@ export type SimulationMetricsSnapshot = {
   simAiPreplanProgressRecent: string[];
   simAiNoopTotalByReason: Record<AutomationNoopReason, number>;
   simAiNoopRecent: string[];
+  simAiNoFrontierRecent: string[];
   simCheckpointRssMb: number;
   simCpuPercent: number;
   simHeapUsedMb: number;
@@ -123,6 +124,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     AUTOMATION_NOOP_REASONS.map((reason) => [reason, 0])
   );
   const simAiNoopRecent: string[] = [];
+  const simAiNoFrontierRecent: string[] = [];
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
   let simAiAutopilotEnabled = 0;
@@ -172,6 +174,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       AUTOMATION_NOOP_REASONS.map((reason) => [reason, simAiNoopTotalByReason.get(reason) ?? 0])
     ) as Record<AutomationNoopReason, number>,
     simAiNoopRecent: [...simAiNoopRecent],
+    simAiNoFrontierRecent: [...simAiNoFrontierRecent],
     simCheckpointRssMb,
     simCpuPercent,
     simHeapUsedMb,
@@ -231,6 +234,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     observeSimAiNoop(reason: AutomationNoopReason, playerId: string): void {
       simAiNoopTotalByReason.set(reason, (simAiNoopTotalByReason.get(reason) ?? 0) + 1);
       appendRecent(simAiNoopRecent, `${playerId}:${reason}`, 12);
+    },
+    observeSimAiNoFrontierDetail(detail: string): void {
+      appendRecent(simAiNoFrontierRecent, detail, 12);
     },
     setSimCheckpointRssMb(value: number): void {
       simCheckpointRssMb = clampMetric(value);
