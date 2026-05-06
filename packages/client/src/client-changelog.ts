@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.9",
+  version: "2026.05.06.10",
   title: "What's New",
-  summary: "Frontier-claimed town tiles no longer pile on three redundant settle prompts plus a 0/m Production row, an Upkeep block, and a 0/0 Stored yield line; settled settlements no longer display their income twice; and the prior 3D-renderer polish + rewrite fixes remain in this release train.",
+  summary: "Foreign towns under satellite reveal now render their public summary on the map and in the town overview pane instead of being silently dropped, and tiles whose town payload hasn't arrived yet show a loading spinner with a debug-download button so a stuck spinner can be reported with full diagnostic context. Plus the prior frontier-with-town and settled-settlement panel cleanup, the 3D-renderer polish, and the rewrite fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.10",
+      title: "Foreign towns now render under satellite reveal + loading spinner for partial town data",
+      why: "The shared full-visibility snapshot cache strips owner-only economy fields from foreign towns for privacy, but the client's town-completeness gate required all of those fields and silently dropped any town summary missing them — so satellite reveal was supposed to show every town on the map but actually showed none of them. The completeness gate was also incorrectly conflating 'town summary failed validation' with 'no town here', leaving no way for a player to tell whether the data was in flight or simply absent.",
+      changes: [
+        "Town-renderable gate now keys off population (>= 500, the authoritative 'this is a real town' signal in this game) instead of demanding every owner-only economy field. Foreign towns under reveal carry name, type, populationTier, population, and maxPopulation and now render the public summary on the map and in the overview pane.",
+        "Owner-only overview lines (Town is unfed, Support, Next size) are now guarded on whether the town actually carries owner-economy data, so foreign towns no longer show misleading 'unfed' or '0/0 support' copy.",
+        "When a town payload arrives but fails the renderable gate (population missing or below 500), the town overview pane now shows a loading spinner plus a 'Download debug log' button. The button writes a JSON file with the tile state, viewer context, and the last 50 tile-touching WS messages so a stuck spinner can be reported with full diagnostic context."
+      ]
+    },
     {
       introducedIn: "2026.05.06.9",
       title: "Frontier-with-town and settled-settlement panels stop piling on duplicate lines",
