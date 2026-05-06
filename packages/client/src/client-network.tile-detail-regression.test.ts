@@ -327,7 +327,11 @@ describe("client network tile detail regression", () => {
     );
   });
 
-  it("does not synthesize town detail from partial rewrite town payloads", () => {
+  it("accepts rewrite town payloads once population clears the renderable threshold", () => {
+    // Town payloads are now accepted on population alone (>= 500) so foreign
+    // towns under satellite reveal render with whatever public fields the
+    // server sends. Owner-only economy fields stay undefined when absent and
+    // the overview pane guards on hasOwnerEconomyData before showing them.
     const state = createState();
     state.tiles.set("80,240", {
       x: 80,
@@ -452,6 +456,7 @@ describe("client network tile detail regression", () => {
         detailLevel: "full"
       })
     );
-    expect(state.tiles.get("79,240")?.town).toBeUndefined();
+    expect(state.tiles.get("79,240")?.town?.population).toBe(18_977);
+    expect(state.tiles.get("79,240")?.town?.populationTier).toBe("TOWN");
   });
 });

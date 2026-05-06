@@ -11,6 +11,7 @@ type NormalizedGatewayTileUpdate = {
   townType?: Tile["townType"] | undefined;
   townName?: Tile["townName"] | undefined;
   townPopulationTier?: Tile["townPopulationTier"] | undefined;
+  townDataPartial?: boolean;
   fort?: Tile["fort"] | undefined;
   observatory?: Tile["observatory"] | undefined;
   siegeOutpost?: Tile["siegeOutpost"] | undefined;
@@ -89,37 +90,62 @@ const isNextPopulationTierUpgrade = (value: unknown): value is NonNullable<TownS
   );
 };
 
-const isCompleteTownSummary = (town: PartialTownSummary | undefined): town is TownSummary =>
+// Minimum population that any real town in this game has. Values below this
+// indicate the town summary is partial (server hasn't sent a real population
+// yet, or the field is a zero-default placeholder) and the renderer should
+// show a "loading" state instead of acting on bogus numbers.
+export const MIN_RENDERABLE_TOWN_POPULATION = 500;
+
+const isValidTownType = (value: unknown): value is NonNullable<TownSummary["type"]> =>
+  value === "MARKET" || value === "FARMING";
+
+const isValidTownPopulationTier = (value: unknown): value is NonNullable<TownSummary["populationTier"]> =>
+  value === "SETTLEMENT" ||
+  value === "TOWN" ||
+  value === "CITY" ||
+  value === "GREAT_CITY" ||
+  value === "METROPOLIS";
+
+const isFiniteOptionalNumber = (value: unknown): boolean => value === undefined || isFiniteNumber(value);
+
+const isOptionalBoolean = (value: unknown): boolean => value === undefined || typeof value === "boolean";
+
+// Renderable threshold: the gate the UI uses to decide if it has enough data to
+// draw a town card. Foreign towns under satellite reveal carry only public
+// fields (type/tier/population/maxPopulation/connected*), and the server
+// intentionally strips owner-only economy fields. Population >= 500 is the
+// authoritative "this is a real town" signal — anything lower is partial data
+// and should drive a spinner state in the overview pane.
+const isRenderableTownSummary = (town: PartialTownSummary | undefined): town is TownSummary =>
   Boolean(
     town &&
-      (town.type === "MARKET" || town.type === "FARMING") &&
-      (town.populationTier === "SETTLEMENT" ||
-        town.populationTier === "TOWN" ||
-        town.populationTier === "CITY" ||
-        town.populationTier === "GREAT_CITY" ||
-        town.populationTier === "METROPOLIS") &&
-      isFiniteNumber(town.baseGoldPerMinute) &&
-      isFiniteNumber(town.supportCurrent) &&
-      isFiniteNumber(town.supportMax) &&
-      isFiniteNumber(town.goldPerMinute) &&
-      isFiniteNumber(town.cap) &&
-      typeof town.isFed === "boolean" &&
+      isValidTownType(town.type) &&
+      isValidTownPopulationTier(town.populationTier) &&
       isFiniteNumber(town.population) &&
+      town.population >= MIN_RENDERABLE_TOWN_POPULATION &&
       isFiniteNumber(town.maxPopulation) &&
-      (town.populationGrowthPerMinute === undefined || isFiniteNumber(town.populationGrowthPerMinute)) &&
-      isFiniteNumber(town.connectedTownCount) &&
-      isFiniteNumber(town.connectedTownBonus) &&
+      // Tolerate missing private/economy fields — foreign towns under reveal
+      // legitimately omit them. Just sanity-check the ones we DO receive.
+      isFiniteOptionalNumber(town.baseGoldPerMinute) &&
+      isFiniteOptionalNumber(town.supportCurrent) &&
+      isFiniteOptionalNumber(town.supportMax) &&
+      isFiniteOptionalNumber(town.goldPerMinute) &&
+      isFiniteOptionalNumber(town.cap) &&
+      isOptionalBoolean(town.isFed) &&
+      isFiniteOptionalNumber(town.populationGrowthPerMinute) &&
+      isFiniteOptionalNumber(town.connectedTownCount) &&
+      isFiniteOptionalNumber(town.connectedTownBonus) &&
       (town.connectedTownNames === undefined || hasStringArray(town.connectedTownNames)) &&
       (town.goldIncomePausedReason === undefined || town.goldIncomePausedReason === "MANPOWER_NOT_FULL") &&
-      (town.manpowerCurrent === undefined || isFiniteNumber(town.manpowerCurrent)) &&
-      (town.manpowerCap === undefined || isFiniteNumber(town.manpowerCap)) &&
-      typeof town.hasMarket === "boolean" &&
-      typeof town.marketActive === "boolean" &&
-      typeof town.hasGranary === "boolean" &&
-      typeof town.granaryActive === "boolean" &&
-      typeof town.hasBank === "boolean" &&
-      typeof town.bankActive === "boolean" &&
-      (town.foodUpkeepPerMinute === undefined || isFiniteNumber(town.foodUpkeepPerMinute)) &&
+      isFiniteOptionalNumber(town.manpowerCurrent) &&
+      isFiniteOptionalNumber(town.manpowerCap) &&
+      isOptionalBoolean(town.hasMarket) &&
+      isOptionalBoolean(town.marketActive) &&
+      isOptionalBoolean(town.hasGranary) &&
+      isOptionalBoolean(town.granaryActive) &&
+      isOptionalBoolean(town.hasBank) &&
+      isOptionalBoolean(town.bankActive) &&
+      isFiniteOptionalNumber(town.foodUpkeepPerMinute) &&
       (town.growthModifiers === undefined || isGrowthModifierArray(town.growthModifiers)) &&
       (town.nextPopulationTierUpgrade === undefined || isNextPopulationTierUpgrade(town.nextPopulationTierUpgrade))
   );
@@ -158,13 +184,21 @@ const gatewayTownIdentity = (
   };
 };
 
+type GatewayTownSummaryResult = {
+  town: Tile["town"] | undefined;
+  // True when a parsed town payload failed the renderable gate. Drives the
+  // overview pane's spinner state — distinct from "townType is set" because
+  // tile-shell updates can carry townType without a town summary.
+  partial: boolean;
+};
+
 const gatewayTownSummary = (
   update: GatewayTileUpdate,
   existing: Tile | undefined
-): Tile["town"] | undefined => {
+): GatewayTownSummaryResult => {
   const existingTown = existing?.town;
   const parsedTown = parseGatewayStructureJson<PartialTownSummary>(update.townJson);
-  if ("townJson" in update && !update.townJson) return undefined;
+  if ("townJson" in update && !update.townJson) return { town: undefined, partial: false };
   if (parsedTown) {
     const authoritativeTown: PartialTownSummary = {
       ...parsedTown,
@@ -172,15 +206,17 @@ const gatewayTownSummary = (
       ...(update.townType ? { type: update.townType } : {}),
       ...(update.townPopulationTier ? { populationTier: update.townPopulationTier } : {})
     };
-    return isCompleteTownSummary(authoritativeTown) ? authoritativeTown : existingTown;
+    if (isRenderableTownSummary(authoritativeTown)) return { town: authoritativeTown, partial: false };
+    return { town: existingTown, partial: !existingTown };
   }
-  if (!existingTown) return undefined;
+  if (!existingTown) return { town: undefined, partial: false };
   const mergedTown: PartialTownSummary = {
     ...existingTown,
     ...(update.townName ? { name: update.townName } : {}),
     ...(update.townType ? { type: update.townType } : {})
   };
-  return isCompleteTownSummary(mergedTown) ? mergedTown : existingTown;
+  if (isRenderableTownSummary(mergedTown)) return { town: mergedTown, partial: false };
+  return { town: existingTown, partial: false };
 };
 
 export const normalizeGatewayTileUpdate = (
@@ -197,7 +233,9 @@ export const normalizeGatewayTileUpdate = (
   if ("resource" in update) normalized.resource = update.resource;
   if ("dockId" in update) normalized.dockId = update.dockId;
   if ("townJson" in update || "townType" in update || "townName" in update || "townPopulationTier" in update) {
-    normalized.town = gatewayTownSummary(update, args.existing);
+    const summary = gatewayTownSummary(update, args.existing);
+    normalized.town = summary.town;
+    normalized.townDataPartial = summary.partial;
     const townIdentity = gatewayTownIdentity(update, args.existing, normalized.town);
     if (townIdentity) Object.assign(normalized, townIdentity);
   }
@@ -299,6 +337,10 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     merged.townType = merged.town.type;
     if (merged.town.name) merged.townName = merged.town.name;
     merged.townPopulationTier = merged.town.populationTier;
+  }
+  if ("townDataPartial" in normalizedGateway) {
+    if (normalizedGateway.townDataPartial) merged.townDataPartial = true;
+    else delete merged.townDataPartial;
   }
   if ("fort" in normalizedGateway) {
     if (normalizedGateway.fort) merged.fort = normalizedGateway.fort;
