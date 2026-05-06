@@ -19,10 +19,24 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.04.11",
+  version: "2026.05.06.1",
   title: "What's New",
-  summary: "Recent updates include adding tagged diagnostic logs across the respawn pipeline so silent post-restart respawns can be traced, rewrite staging AI gaining a late GOAP-style fallback planner with cleaner enemy-vs-barbarian pressure handling, rewrite staging recovering old thin towns into authoritative population-bearing towns, exporting authoritative remote town summaries without duplicate whole-map fed-state scans, preserving thin remote town identity for rendering without inventing economy state, and keeping bootstrap settlements on their real starting population instead of falling back to 1.",
+  summary: "The opt-in true-3D renderer (?renderer=3d) gets a major content pass: full 3D overlays for docks, barbarians, forts, resources, settlement progress, attack targets, and the first tier of economic structures (FARMSTEAD, WATERWORKS, CAMP, MINE, IRONWORKS); the unexplored area now reads as a clean black void instead of a ghost grid; the new fog-of-war default respects vision unless ?reveal=1 is passed; and worldgen now converts every sea tile bordering land into capturable LAND so coastlines no longer have uncapturable strips. Plus the earlier respawn diagnostics, AI GOAP fallback, town recovery, snapshot, and town-population fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.1",
+      title: "True-3D renderer gets a full overlay pass + fog-of-war fixes",
+      why: "The earlier 3D renderer rebuild moved terrain into the sculpted-perspective view, but barbarians, docks, forts, resources, settlement progress, attack targets, and economic structures were all still being painted as 2D images on top of the 3D scene — so the canvas above the 3D world was full of flat icons and tilted SVGs that did not match the rest of the painterly look.",
+      changes: [
+        "Docks now render as 3D pier / quay / harbor variants oriented toward the sea. Barbarians get a skull-on-pole figure. Forts are walls + corner towers with one cardinal opening per the existing wall-merge rule, plus a watchtower for outposts (catapult on siege, red flag on light).",
+        "Every resource has three deterministic per-tile layouts so adjacent same-resource tiles look distinct, with octahedral crystal clusters for gems, ore stockpiles for iron, large field plates for farms, and matching designs for fish, wood, fur, and oil.",
+        "Settlement progress now shows a swarm of small wandering people boxes with a pulsing yellow perimeter frame; the wander cadence matches the 2D loader exactly. Incoming attacks pulse a red plate + X bars that flash faster as resolution approaches.",
+        "Tier-1 economic structure upgrades (FARMSTEAD, WATERWORKS, CAMP, MINE, IRONWORKS) now have 3D overlays; higher tiers still fall back to the 2D image library so partial rollout is safe.",
+        "The unexplored area now renders as a uniform black void: scene background, fog, and sky-dome are all black, the heightfield skips fogged + unexplored tiles in both its index buffer and gridlines, and overlays sit on the rendered surface (max of the four corner Ys) so wheat / iron / forts no longer get buried by raised neighbour terrain near hills.",
+        "Reveal default flipped: ?renderer=3d now respects fog-of-war by default. Pass ?reveal=1 (or true / on) to opt back into the developer-only whole-map view.",
+        "Worldgen now converts every sea tile bordering land into capturable LAND, so coastal strips no longer leave uncapturable COASTAL_SEA wedges between islands and ownership lines."
+      ]
+    },
     {
       introducedIn: "2026.05.04.11",
       title: "Diagnostic logs across the respawn pipeline",

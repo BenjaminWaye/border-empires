@@ -57,6 +57,7 @@ type StartClientRuntimeLoopDeps = {
   effectiveOverlayColor: (ownerId: string) => string;
   overlayVariantIndexAt: (x: number, y: number, mod: number) => number;
   dockOverlayVariants: Array<HTMLImageElement | undefined>;
+  drawDockMarker: (px: number, py: number, size: number) => void;
   drawCenteredOverlay: (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale?: number) => void;
   builtResourceOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
   resourceOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
@@ -265,7 +266,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
       const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
+      // Corner anchor badge for every visible dock tile — drawn even in
+      // 3D mode so the icon-only summary remains visible when zoomed
+      // out (parallels drawResourceCornerMarker for resource tiles).
       if (dockVisible && isDockEndpoint) {
+        deps.drawDockMarker(px, py, size);
+      }
+      // The 3D dock overlay supersedes the SVG dock icon (and its
+      // fallback placeholder) when the true-3D renderer is mounted.
+      if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
         const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
         if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
         else {
@@ -292,19 +301,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const builtOverlay = deps.builtResourceOverlayForTile(overlayTile);
         const overlay = builtOverlay ?? deps.resourceOverlayForTile(overlayTile);
         if (overlay?.complete && overlay.naturalWidth) {
-          const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
-          deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
+          if (!isTrue3DRendererActive()) {
+            const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
+            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
+          }
           deps.drawResourceCornerMarker(overlayTile, px, py, size);
         } else {
-          const rc = deps.resourceColor(overlayTile.resource);
-          if (!rc) return;
-          const marker = Math.max(3, Math.floor(size * 0.22));
-          const mx = px + Math.floor((size - marker) / 2);
-          const my = py + Math.floor((size - marker) / 2);
-          deps.ctx.fillStyle = "rgba(12, 16, 28, 0.7)";
-          deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-          deps.ctx.fillStyle = rc;
-          deps.ctx.fillRect(mx, my, marker, marker);
+          if (!isTrue3DRendererActive()) {
+            const rc = deps.resourceColor(overlayTile.resource);
+            if (!rc) return;
+            const marker = Math.max(3, Math.floor(size * 0.22));
+            const mx = px + Math.floor((size - marker) / 2);
+            const my = py + Math.floor((size - marker) / 2);
+            deps.ctx.fillStyle = "rgba(12, 16, 28, 0.7)";
+            deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
+            deps.ctx.fillStyle = rc;
+            deps.ctx.fillRect(mx, my, marker, marker);
+          }
           deps.drawResourceCornerMarker(overlayTile, px, py, size);
         }
       }
@@ -364,7 +377,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.fillRect(mx, my, marker, marker);
       }
 
-      if (t && vis === "visible" && t.terrain === "LAND") {
+      if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
         const fortificationKind = fortificationOverlayKindForTile(t);
         if (fortificationKind) {
           const opening = fortificationOpeningForTile(t, {
@@ -414,8 +427,20 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
         const fortificationKind = fortificationOverlayKindForTile(t);
         const overlay = deps.structureOverlayImages[t.economicStructure.type];
-        if (fortificationKind) {
-          // Fortification rings are rendered above and should not fall back to generic center markers.
+        // Tier-1 structures handled by the 3D structure overlay — skip
+        // the 2D image / fallback so the canvas stays clean over them.
+        const structure3DType = t.economicStructure.type;
+        const handled3DStructure =
+          isTrue3DRendererActive() && (
+            structure3DType === "FARMSTEAD" ||
+            structure3DType === "WATERWORKS" ||
+            structure3DType === "CAMP" ||
+            structure3DType === "MINE" ||
+            structure3DType === "IRONWORKS"
+          );
+        if (fortificationKind || handled3DStructure) {
+          // 3D-rendered (fortifications + Tier-1 economic structures);
+          // do not draw 2D fallbacks.
         } else if (overlay && overlay.complete && overlay.naturalWidth) {
           deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
         } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
@@ -544,9 +569,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
       }
 
-      if (t && vis === "visible" && t.ownerId === "barbarian") deps.drawBarbarianSkullOverlay(px, py, size);
+      if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId === "barbarian") deps.drawBarbarianSkullOverlay(px, py, size);
 
-      if (t && vis === "visible" && deps.shouldDrawOwnershipBorder(t)) {
+      if (!isTrue3DRendererActive() && t && vis === "visible" && deps.shouldDrawOwnershipBorder(t)) {
         const ownerId = t.ownerId!;
         deps.ctx.strokeStyle =
           ownerId === "barbarian"
@@ -654,9 +679,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       const incomingAttack = state.incomingAttacksByTile.get(wk);
       if (incomingAttack) {
         if (incomingAttack.resolvesAt <= Date.now()) state.incomingAttacksByTile.delete(wk);
-        else deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
+        else if (!isTrue3DRendererActive()) deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
       }
-      if (settlementProgress) {
+      if (!isTrue3DRendererActive() && settlementProgress) {
         const totalMs = Math.max(1, settlementProgress.resolvesAt - settlementProgress.startAt);
         const now = Date.now();
         const progress = Math.max(0, Math.min(1, (now - settlementProgress.startAt) / totalMs));
@@ -741,24 +766,26 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const py = screenCenter ? screenCenter.sy - size / 2 : (y + halfH) * size;
         let ownerAlpha = 1;
 
-        if (vis === "unexplored") {
-          deps.ctx.fillStyle = "#06090f";
-          deps.ctx.fillRect(px, py, size, size);
-        } else if (!t) {
-          if (state.firstChunkAt === 0 || effectiveFogDisabled(state) || revealWholeMapInTrue3DMode) {
-            deps.drawTerrainTile(wx, wy, terrainAt(wx, wy), px, py, size);
-          } else {
+        if (!isTrue3DRendererActive()) {
+          if (vis === "unexplored") {
             deps.ctx.fillStyle = "#06090f";
             deps.ctx.fillRect(px, py, size, size);
+          } else if (!t) {
+            if (state.firstChunkAt === 0 || effectiveFogDisabled(state) || revealWholeMapInTrue3DMode) {
+              deps.drawTerrainTile(wx, wy, terrainAt(wx, wy), px, py, size);
+            } else {
+              deps.ctx.fillStyle = "#06090f";
+              deps.ctx.fillRect(px, py, size, size);
+            }
+          } else if (vis === "fogged") {
+            deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
+            deps.ctx.fillStyle = (t.terrain === "SEA" || t.terrain === "COASTAL_SEA") ? "rgba(7, 20, 34, 0.34)" : "rgba(2, 5, 10, 0.72)";
+            deps.ctx.fillRect(px, py, size, size);
+          } else if (t.terrain === "SEA" || t.terrain === "COASTAL_SEA" || t.terrain === "MOUNTAIN") {
+            deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
+          } else {
+            deps.drawTerrainTile(wx, wy, "LAND", px, py, size);
           }
-        } else if (vis === "fogged") {
-          deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
-          deps.ctx.fillStyle = (t.terrain === "SEA" || t.terrain === "COASTAL_SEA") ? "rgba(7, 20, 34, 0.34)" : "rgba(2, 5, 10, 0.72)";
-          deps.ctx.fillRect(px, py, size, size);
-        } else if (t.terrain === "SEA" || t.terrain === "COASTAL_SEA" || t.terrain === "MOUNTAIN") {
-          deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
-        } else {
-          deps.drawTerrainTile(wx, wy, "LAND", px, py, size);
         }
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") deps.drawForestOverlay(wx, wy, px, py, size);
@@ -812,6 +839,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const isDockEndpoint = dockEndpointKeys.has(wk);
         const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
         if (dockVisible && isDockEndpoint) {
+          deps.drawDockMarker(px, py, size);
+        }
+        // 3D dock overlay supersedes the SVG icon (and its fallback) in true-3D mode.
+        if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
           const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
           if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
           else {
@@ -843,19 +874,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const builtOverlay = deps.builtResourceOverlayForTile(overlayTile);
           const overlay = builtOverlay ?? deps.resourceOverlayForTile(overlayTile);
           if (overlay?.complete && overlay.naturalWidth) {
-            const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
-            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
+            if (!isTrue3DRendererActive()) {
+              const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
+              deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
+            }
             deps.drawResourceCornerMarker(overlayTile, px, py, size);
           } else {
-            const rc = deps.resourceColor(overlayTile.resource);
-            if (!rc) continue;
-            const marker = Math.max(3, Math.floor(size * 0.22));
-            const mx = px + Math.floor((size - marker) / 2);
-            const my = py + Math.floor((size - marker) / 2);
-            deps.ctx.fillStyle = "rgba(12, 16, 28, 0.7)";
-            deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-            deps.ctx.fillStyle = rc;
-            deps.ctx.fillRect(mx, my, marker, marker);
+            if (!isTrue3DRendererActive()) {
+              const rc = deps.resourceColor(overlayTile.resource);
+              if (!rc) continue;
+              const marker = Math.max(3, Math.floor(size * 0.22));
+              const mx = px + Math.floor((size - marker) / 2);
+              const my = py + Math.floor((size - marker) / 2);
+              deps.ctx.fillStyle = "rgba(12, 16, 28, 0.7)";
+              deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
+              deps.ctx.fillStyle = rc;
+              deps.ctx.fillRect(mx, my, marker, marker);
+            }
             deps.drawResourceCornerMarker(overlayTile, px, py, size);
           }
         }
@@ -949,7 +984,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const active = t.economicStructure.status === "active";
           const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
           const overlay = deps.structureOverlayImages[t.economicStructure.type];
-          if (overlay && overlay.complete && overlay.naturalWidth) {
+          const structure3DType2 = t.economicStructure.type;
+          const handled3DStructure2 =
+            isTrue3DRendererActive() && (
+              structure3DType2 === "FARMSTEAD" ||
+              structure3DType2 === "WATERWORKS" ||
+              structure3DType2 === "CAMP" ||
+              structure3DType2 === "MINE" ||
+              structure3DType2 === "IRONWORKS"
+            );
+          if (handled3DStructure2) {
+            // 3D-rendered Tier-1 structure; skip the 2D fallbacks.
+          } else if (overlay && overlay.complete && overlay.naturalWidth) {
             deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
           } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
             deps.ctx.fillStyle = deps.structureAccentColor(
@@ -1036,9 +1082,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
         }
 
-        if (t && vis === "visible" && t.ownerId === "barbarian") deps.drawBarbarianSkullOverlay(px, py, size);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId === "barbarian") deps.drawBarbarianSkullOverlay(px, py, size);
 
-        if (t && vis === "visible" && deps.shouldDrawOwnershipBorder(t)) {
+        if (!isTrue3DRendererActive() && t && vis === "visible" && deps.shouldDrawOwnershipBorder(t)) {
           const ownerId = t.ownerId!;
           deps.ctx.strokeStyle =
             ownerId === "barbarian"
@@ -1146,9 +1192,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const incomingAttack = state.incomingAttacksByTile.get(wk);
         if (incomingAttack) {
           if (incomingAttack.resolvesAt <= Date.now()) state.incomingAttacksByTile.delete(wk);
-          else deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
+          else if (!isTrue3DRendererActive()) deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
         }
-        if (settlementProgress) {
+        if (!isTrue3DRendererActive() && settlementProgress) {
           const totalMs = Math.max(1, settlementProgress.resolvesAt - settlementProgress.startAt);
           const now = Date.now();
           const progress = Math.max(0, Math.min(1, (now - settlementProgress.startAt) / totalMs));

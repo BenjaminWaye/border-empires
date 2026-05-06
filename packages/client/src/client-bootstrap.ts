@@ -15,7 +15,6 @@ import { downloadRespawnBugReport } from "./client-respawn-report.js";
 import { createClientThreeTerrainRenderer } from "./client-map-3d.js";
 import {
   prefersTrue3DRendererMode,
-  rendererModeExplicitlySet,
   setTrue3DRendererActive
 } from "./client-renderer-mode.js";
 import { startClientRuntimeLoop } from "./client-runtime-loop.js";
@@ -92,6 +91,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     shardOverlayForTile,
     drawShardFallback,
     drawTownOverlay,
+    drawTownMarker,
+    drawDockMarker,
     hasCollectableYield,
     structureAccentColor,
     structureOverlayImages,
@@ -211,8 +212,12 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   let threeTerrainRenderer:
     | ReturnType<typeof createClientThreeTerrainRenderer>
     | undefined;
-  const defaultThreeTerrainRenderer = !rendererModeExplicitlySet;
-  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || defaultThreeTerrainRenderer;
+  // The true-3D renderer is opt-in: users land on the 2D map by default
+  // and only get 3D when they explicitly pass `?renderer=3d`. This keeps
+  // the production rollout safe (no mobile perf regression for users who
+  // didn't ask for it) while still letting anyone who wants the
+  // sculpted-perspective view try it via the URL flag.
+  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode;
   const ensureThreeTerrainRenderer = (): void => {
     if (!shouldUseThreeTerrainRenderer) return;
     if (!state.authSessionReady) return;
@@ -226,7 +231,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
         wrapY,
         terrainAt,
         effectiveOverlayColor,
-        tileVisibilityStateAt
+        tileVisibilityStateAt,
+        settlementProgressForTile: actionFlow.settlementProgressForTile
       });
       setTrue3DRendererActive(true);
     } catch (error) {
@@ -574,7 +580,10 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     drawForestOverlay,
     effectiveOverlayColor,
     overlayVariantIndexAt,
-    dockOverlayVariants,
+    // The 3D dock overlay supersedes the SVG dock icons when the true-3D
+    // renderer is mounted, so route to an empty variant array to skip
+    // the 2D draws (the runtime loop guards on element presence).
+    dockOverlayVariants: shouldUseThreeTerrainRenderer ? [] : dockOverlayVariants,
     drawCenteredOverlay,
     builtResourceOverlayForTile,
     resourceOverlayForTile,
@@ -587,7 +596,17 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     resourceColor,
     shardOverlayForTile,
     drawShardFallback,
-    drawTownOverlay,
+    // In 3D mode, draw only the town corner badge (gold coin) — the
+    // building itself is rendered by the 3D town overlay. In 2D mode,
+    // draw the full SVG building + corner badge as before.
+    drawTownOverlay: (tile, px, py, size) => {
+      if (threeTerrainRenderer) {
+        if (tile.town) drawTownMarker(px, py, size);
+        return;
+      }
+      drawTownOverlay(tile, px, py, size);
+    },
+    drawDockMarker,
     hasCollectableYield,
     structureAccentColor,
     structureOverlayImages,
