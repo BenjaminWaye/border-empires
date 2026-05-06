@@ -337,13 +337,18 @@ export const menuOverviewForTile = (
   const isSettled = tile.ownershipState === "SETTLED";
   const supportedTowns = tile.ownerId === deps.state.me && isSettled ? deps.supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
+    // Foreign towns under satellite reveal carry only public fields
+    // (type/tier/population/maxPopulation/connected*). When the owner-only
+    // economy fields are absent we hide private-info lines instead of
+    // rendering misleading defaults like "Town is unfed" or "Support 0/0".
+    const hasOwnerEconomyData = typeof tile.town.isFed === "boolean";
     if (!hasOwnedLandState) {
       pushLine("Neutral town. Claim and settle this tile to start its economy.");
     } else if (!isSettled) {
       pushLine("Settle this tile to activate the town's economy and start gold income.");
     } else if (tile.town.populationTier === "SETTLEMENT") {
       // No prose income line — the unified `Production: X/m` row below shows the same value.
-    } else if (!tile.town.isFed) {
+    } else if (hasOwnerEconomyData && !tile.town.isFed) {
       pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or grain.");
     } else if (
       tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL" &&
@@ -354,16 +359,30 @@ export const menuOverviewForTile = (
     if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");
     }
-    if (hasOwnedLandState && isSettled && tile.town.populationTier !== "SETTLEMENT") {
+    if (hasOwnedLandState && isSettled && hasOwnerEconomyData && tile.town.populationTier !== "SETTLEMENT") {
       const supportCurrent = Number.isFinite(tile.town.supportCurrent) ? tile.town.supportCurrent : 0;
       const supportMax = Number.isFinite(tile.town.supportMax) ? tile.town.supportMax : 0;
       pushLine(`Support ${supportCurrent}/${supportMax}`);
     }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
-    if (isSettled) {
+    if (isSettled && hasOwnerEconomyData) {
       pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
       pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town, { explainUnfed: tile.ownerId === deps.state.me })}.`);
     }
+  } else if (tile.townDataPartial) {
+    // We received a town payload but it failed the renderable gate
+    // (population missing or below the 500 floor). Treat as in-flight and
+    // let the player capture a debug log if it stays stuck.
+    const tileKey = `${tile.x},${tile.y}`;
+    lines.push({
+      kind: "loading",
+      html:
+        `<div class="tile-town-loading" role="status" aria-live="polite">` +
+        `<span class="tile-town-loading-spinner" aria-hidden="true"></span>` +
+        `<span class="tile-town-loading-label">Loading town details…</span>` +
+        `<button type="button" class="tile-town-debug-btn" data-tile-debug-download="${tileKey}">Download debug log</button>` +
+        `</div>`
+    });
   } else if (tile.resource) {
     if (tile.ownershipState === "SETTLED" && !productionHtml) {
       pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
