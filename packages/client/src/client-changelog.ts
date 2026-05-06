@@ -19,20 +19,138 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.03.18",
+  version: "2026.05.04.11",
   title: "What's New",
-  summary: "The true-3D renderer has been rebuilt from a tilted orthographic box look into a sculpted-perspective view: a tilted PerspectiveCamera under a gradient sky and atmospheric fog, a subdivided heightfield ground that averages adjacent tile elevations so neighbouring mountain tiles raise into a continuous ridge while a lone mountain only swells into a soft mound, instanced rocky-base mountain massifs with peaks anchored to that heightfield surface, an animated transparent water surface above the sea-floor, and rising smoke columns plus a fluttering coloured banner over each owned capital. Click pick still uses an invisible flat footprint so selecting a tile under a mountain silhouette lands on the tile under the cursor instead of the slope facing the camera. Recent updates also include a runtime land-context fix so mountain-shaped land now carries an inferred biome and region into live tile labels and terrain rendering, a terrain-label fallback fix so land tiles with stale or unavailable biome lookups no longer claim to be sand while still rendering as grass, a staging fog-reveal sync fix so the fog-admin toggle now refreshes from authoritative rewrite snapshots instead of leaking unrelated live map deltas or getting stuck after a failed toggle refresh, dock coverage diagnostics so startup and regeneration logs now call out live undocked land components using the runtime terrain view, a rewrite frontier subscription recovery fix so paired control and bulk channels now keep command results streaming across reconnect churn, timeout rollback, and gateway restarts without leaking stale simulation subscriptions, claimed shard confirmations now keeping visible shard caches on newly claimed frontier tiles so you can still use the follow-up collect action, town growth panels now spelling out why growth is paused when a town is unfed or under war shock, rewrite town panels no longer falling back to fake population-1 summaries when later gateway sync only resends a town's identity while still preserving known population and cap data, cheaper manual town growth so Town to City and City to Great City promotions are easier to buy during normal play, a new Monumental City capstone once Great Cities reach 5,000,000 population, a staging full-map reveal follow-up so the settings-card toggle now restores correctly after authenticated reconnects and only appears when the live server actually grants fog-admin access, plus owned towns always showing their stored-yield row even when their current gold buffer and cap are both zero, clearer respawn recovery wording so sign-in recovery now explains that the server repaired a non-playable empire state without incorrectly implying your empire had literally zero owned tiles, explicit coastal-water terrain so shoreline sea now stays consistent across world generation, sync, gameplay checks, and both the 2D and true-3D renderers, plus the earlier town-summary sync, settlement spawn, name-recovery, AI parity, and economy/runtime fixes from this release train.",
+  summary: "Recent updates include adding tagged diagnostic logs across the respawn pipeline so silent post-restart respawns can be traced, rewrite staging AI gaining a late GOAP-style fallback planner with cleaner enemy-vs-barbarian pressure handling, rewrite staging recovering old thin towns into authoritative population-bearing towns, exporting authoritative remote town summaries without duplicate whole-map fed-state scans, preserving thin remote town identity for rendering without inventing economy state, and keeping bootstrap settlements on their real starting population instead of falling back to 1.",
   entries: [
     {
-      introducedIn: "2026.05.03.18",
-      title: "True-3D renderer rebuilt with sculpted perspective terrain",
-      why: "The earlier orthographic 3D renderer read as a tilted grid of textured boxes rather than a real landscape, so even though it was technically 3D it never landed as the painterly view the team had been targeting since the standalone preview.",
+      introducedIn: "2026.05.04.11",
+      title: "Diagnostic logs across the respawn pipeline",
+      why: "Respawns sometimes occur after gateway or simulation restart without producing the expected client popup or feed entry, and there was no way to identify which step in the respawn flow was silently dropping the notice.",
       changes: [
-        "Replaced the orthographic camera with a tilted PerspectiveCamera under a gradient sky sphere and exponential atmospheric fog, so distant terrain fades into haze instead of the old hard horizon.",
-        "Sea, sand, grass, and mountain tiles now share a single subdivided heightfield where every shared corner averages the four surrounding tiles' elevations, so two neighbouring mountain tiles raise their shared edge into a continuous ridge while an isolated mountain swells into a soft mound that the new rocky-base massif tops with its peak.",
-        "Sea now reads as a transparent animated water surface above the heightfield's deep-sea and coastal-sea elevations, with sand and grass cleanly emerging as shoreline.",
-        "Owned village tiles now emit drifting smoke columns and capital tiles fly a fluttering coloured banner on a wooden pole, so empires read at a glance from across the map.",
-        "Click pick and screen projection still use an invisible flat footprint, so selecting a tile under a mountain silhouette lands on the tile under the cursor instead of the slope facing the camera, and existing aether-wall, observatory, dock-route, and crystal-targeting overlays keep working without per-callsite changes."
+        "Server now emits [respawn-debug] lines at preparePlayerRespawnNotice entry, spawnPlayer entry, and consumeRespawnNoticeForPlayer with caller stack and pending-notice presence so the failing step in any respawn sequence is identifiable from logs.",
+        "Client now emits a [respawn-debug] console.info each time an INIT or auth payload arrives, recording whether the server included a respawn notice, whether normalization succeeded, and whether the notice was suppressed as a duplicate of the last seen id.",
+        "No user-visible behavior changes; this is a temporary diagnostic instrumentation addition to investigate post-restart respawn silence."
+      ]
+    },
+    {
+      introducedIn: "2026.05.04.10",
+      title: "Rewrite staging AI now has GOAP fallback planning",
+      why: "The rewrite AI could still bottom out into brittle branch-order behavior after the strategic priorities ran, especially on mixed fronts where barbarian pressure could mask a real enemy opportunity or where reserve recovery should have paused instead of forcing another weak action.",
+      changes: [
+        "Rewrite AI now uses a late GOAP-style fallback layer for frontier pressure, scouting, settlement, forts, siege outposts, economy, and reserve recovery when the stronger strategic priorities do not already choose an action.",
+        "Frontier analysis now keeps enemy-player and barbarian attack opportunities separate, so mixed fronts can still choose the correct enemy pressure path instead of blindly following the single highest-scoring hostile target.",
+        "Added regression coverage for reserve-threshold handling, mixed barbarian-versus-enemy pressure, and the new GOAP fallback decisions so staging parity work stays stable through future planner refactors."
+      ]
+    },
+    {
+      introducedIn: "2026.05.04.9",
+      title: "Rewrite town recovery restores authoritative remote town snapshots",
+      why: "Older rewrite durable events could leave towns stuck as thin identity-only stubs across restarts, while the snapshot path also risked recomputing whole-map fed-state twice per export.",
+      changes: [
+        "Startup recovery now hydrates old thin non-settlement towns with real tier-based population defaults so restarted rewrite towns stop staying thin forever.",
+        "Rewrite settle-complete and respawn deltas continue sending full townJson, and snapshot export now threads the already-computed per-player fed-town map instead of rescanning the whole world a second time.",
+        "Added recovery and snapshot regressions so remote towns keep authoritative population after restart without reintroducing extra snapshot CPU cost."
+      ]
+    },
+    {
+      introducedIn: "2026.05.04.8",
+      title: "Rewrite bootstrap settlements keep their real starting population",
+      why: "Newly spawned rewrite settlements were being created with only a settlement tier label, so the live snapshot fallback rendered them as population 1 with a max population of 3 instead of their intended starting town state.",
+      changes: [
+        "Rewrite bootstrap settlement creation now seeds real starting population and max population values alongside the settlement tier.",
+        "Freshly spawned player settlements now display their expected starting population in the tile panel instead of falling back to 1.",
+        "Added simulation regression coverage for subscribed-player bootstrap spawns so future spawn-path changes keep the authored settlement population intact."
+      ]
+    },
+    {
+      introducedIn: "2026.05.04.7",
+      title: "Rewrite remote towns stay visible after thin recovery",
+      why: "Rewrite event recovery and snapshot export could leave remote towns with only thin identity, and the last staging fix then hid those incomplete towns entirely because the client only renders visible town sites when a complete town summary survives sync.",
+      changes: [
+        "Rewrite event recovery now preserves thin town deltas without upgrading them into guessed authoritative economy state during restart recovery.",
+        "Gateway sync and rendering now preserve thin remote town identity for map visibility, so observed towns and settlements keep rendering without inventing fed-state, support, or population values when richer data is unavailable.",
+        "Added regression coverage for both startup recovery and visible snapshot export so remote towns stay visible and avoid the old population-1 fallback path."
+      ]
+    },
+    {
+      introducedIn: "2026.05.04.6",
+      title: "Rewrite remote towns stop faking population and food state",
+      why: "Rewrite staging could still synthesize full town summaries from thin remote town identity, which made observed AI towns appear as unfed population-1 towns even when the simulation had either richer authoritative data or no trustworthy economy details at all.",
+      changes: [
+        "Rewrite snapshot export now preserves authoritative remote town population, support, and fed-state when the simulation already has a complete town summary.",
+        "When rewrite snapshots only have thin remote town identity, they now stop short of inventing a full town economy summary, so staging no longer renders AI towns as bogus population-1 unfed towns.",
+        "Added simulation regression coverage for both preserving complete remote town summaries and dropping thin remote fallback summaries."
+      ]
+    },
+    {
+      introducedIn: "2026.05.04.5",
+      title: "AI empires now get a custom palette",
+      why: "AI players were still inheriting the same default hashed color path as everyone else, so bot empires often looked too similar to the baseline ownership colors instead of standing out as distinct rivals on the map.",
+      changes: [
+        "New AI empires now draw from a dedicated set of bright, high-contrast colors instead of the generic fallback palette.",
+        "Existing AI empires are upgraded onto that palette automatically when they are still using the old default derived color, while preserving any explicitly assigned non-default color.",
+        "Added regression coverage so AI color assignment keeps diverging from the default hashed player-color path in future runtime refactors."
+      ]
+    },
+    {
+      introducedIn: "2026.05.04.3",
+      title: "AI towns now reclaim their support rings",
+      why: "The planner knew how to settle owned support tiles next to real towns, but when those ring tiles were still neutral it lacked a dedicated priority to claim them first, so AI empires could ignore obvious town support growth and wander into other frontier work.",
+      changes: [
+        "AI planning now tracks when a neutral border tile would directly support an existing real town.",
+        "When core pressure is manageable, the planner now prioritizes claiming that town-support frontier before generic scaffold or pressure actions, then follows up with the normal settlement priority on the next step.",
+        "Added regression coverage so real-town support expansion stays ahead of generic pressure behavior in future planner changes."
+      ]
+    },
+    {
+      introducedIn: "2026.05.04.1",
+      title: "Leaderboard rows now show each empire's color",
+      why: "The leaderboard was making players rely on names alone, which slowed down quick reads when comparing familiar empires across score rows and season pressure cards.",
+      changes: [
+        "Leaderboard rows now render a small color dot beside each player name using the same empire color the client already tracks for map ownership.",
+        "Season winner and season-victory leader labels now use the same color marker so top-level leaderboard context stays visually consistent.",
+        "Added client regression coverage for both known player colors and the neutral fallback dot when a color has not synced yet."
+      ]
+    },
+    {
+      introducedIn: "2026.05.03.21",
+      title: "Gateway town sync now stays authoritative-only",
+      why: "Sparse gateway town identity updates could still make the client fabricate local population, support, fed-state, and gold summaries, which let stale or contradictory town panels survive even when the server had not resent a full authoritative town payload.",
+      changes: [
+        "Gateway tile sync now caches full town summaries only from authoritative townJson payloads and otherwise limits sparse town updates to patching already-cached server town identity.",
+        "The client no longer invents tier-based fallback populations, derived support counts, fed-state, or synthetic gold/cap summaries when a town arrives without a full authoritative summary.",
+        "Added regression coverage for sparse INIT, sparse tile deltas, and sparse food-coverage refresh paths so town panels do not silently fabricate local state again."
+      ]
+    },
+    {
+      introducedIn: "2026.05.03.20",
+      title: "Large generated islands now keep multiple real dock tiles",
+      why: "Generated worlds were still collapsing many large islands down to a single physical dock because the dock placer ignored `COASTAL_SEA` shoreline water and then fell back to one reusable inland dock hub, even when the island was large enough to deserve multiple outward routes.",
+      changes: [
+        "Shared dock worldgen now treats `COASTAL_SEA` as valid shoreline water when scanning dock candidates, so real coastlines in generated season worlds can host docks instead of being skipped as non-water.",
+        "Large islands now add extra nearest-neighbor routes beyond the initial spanning tree and preserve extra dock tiles even in one-neighbor worlds, while small islands stay capped at one physical dock.",
+        "Added regression coverage for coastal-sea shoreline detection, multi-neighbor large-island routing, and the one-neighbor large-island case so future dock-generator changes cannot collapse big islands back to one fallback dock."
+      ]
+    },
+    {
+      introducedIn: "2026.05.03.19",
+      title: "Staging fog reveal now emits explicit diagnostics",
+      why: "The staging fog-admin reveal button could still look dead when the live toggle path failed somewhere between the browser, gateway, and rewrite snapshot refresh, but the existing code left too many silent gaps to prove where it stopped.",
+      changes: [
+        "The client now records fog-reveal debug events for the button click, websocket send, fog update ack, and snapshot replace path so staging checks can prove whether the browser actually sent the request and what came back.",
+        "The rewrite gateway now records explicit fog-toggle receive, refresh-start, snapshot-ready, refresh-sent, live-delta refresh, and refresh-failed events so staging incidents no longer require inference from missing generic websocket logs.",
+        "These diagnostics are targeted to the staging fog-admin path and make it much faster to isolate whether a broken reveal died in client routing, gateway receipt, or authoritative rewrite resubscribe."
+      ]
+    },
+    {
+      introducedIn: "2026.05.03.18",
+      title: "Rewrite staging bootstrap now keeps real season identity and docks",
+      why: "Managed rewrite seasons could already generate docks and real season state in simulation, but gateway bootstrap was still falling back to seed-profile metadata, so staging clients could see fake `rewrite-default` season ids, stale reconnect state, and empty dock routes.",
+      changes: [
+        "Simulation bootstrap snapshots now carry both season metadata and dock route definitions alongside visible tiles, so the gateway can describe rewrite-world season identity and crossings without depending on a legacy snapshot bridge.",
+        "Gateway INIT now exports season id, world seed, runtime fingerprint, dock counts, and dock pairs from the authoritative rewrite snapshot when no legacy snapshot bootstrap is present.",
+        "Added regression coverage for simulation snapshot export, gRPC subscribe parsing, and rewrite INIT bootstrap so managed staging seasons keep the right reconnect identity and visible docks."
       ]
     },
     {

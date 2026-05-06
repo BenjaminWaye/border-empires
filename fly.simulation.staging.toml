@@ -17,6 +17,9 @@ primary_region = "arn"
   SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB = "480"
   SIMULATION_STARTUP_REPLAY_COMPACTION_MIN_EVENTS = "2000"
   SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS = "15000"
+  SIMULATION_HEALTH_PROBE_INTERVAL_MS = "5000"
+  SIMULATION_HEALTH_PROBE_TIMEOUT_MS = "2000"
+  SIMULATION_HEALTH_FAILURE_THRESHOLD = "3"
   SIMULATION_STARTUP_RECOVERY_TIMEOUT_MS = "300000"
   SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK = "1"
   SIMULATION_DB_APPLY_SCHEMA = "1"
@@ -26,6 +29,7 @@ primary_region = "arn"
   SIMULATION_AI_WORKER = "1"
   SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS = "250"
   SIMULATION_RULESET_ID = "seasonal-default"
+  SIMULATION_SEED_PROFILE = "default"
 
 [[services]]
   protocol = "tcp"
@@ -48,6 +52,14 @@ primary_region = "arn"
   [[services.ports]]
     handlers = []
     port = 50052
+
+  [[services.http_checks]]
+    grace_period = "20s"
+    interval = "10s"
+    method = "get"
+    path = "/healthz"
+    protocol = "http"
+    timeout = "5s"
 
 [[vm]]
   cpu_kind = "shared"

@@ -11,10 +11,11 @@ import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayT
 import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "./client-respawn-notice.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
-import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 import { restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
 import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
+import { tileHasTownIdentity } from "./client-town-identity.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -203,6 +204,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   const applyIncomingRespawnNotice = (value: unknown): void => {
     const notice = normalizeRespawnNotice(value);
+    console.info("[respawn-debug] applyIncomingRespawnNotice", {
+      hasRawValue: value !== undefined && value !== null,
+      rawValueType: typeof value,
+      normalizedOk: notice !== undefined,
+      noticeId: notice?.id,
+      reasonCode: notice?.reasonCode,
+      triggerEvent: notice?.triggerEvent,
+      lastSeenRespawnNoticeId: state.lastSeenRespawnNoticeId,
+      duplicateOfLastSeen: notice ? state.lastSeenRespawnNoticeId === notice.id : undefined,
+      rawValuePreview: value
+    });
     applyRespawnNoticeToState(state, notice, appendFeedEntry);
   };
 
@@ -213,7 +225,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       tile.ownerId === state.me ||
       tile.resource ||
       tile.dockId ||
-      tile.town ||
+      tileHasTownIdentity(tile) ||
       tile.fort ||
       tile.observatory ||
       tile.siegeOutpost ||
@@ -373,6 +385,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (!state.stagingMapRevealEligible) return;
     if (!state.serverSupportedMessageTypes.has("SET_FOG_DISABLED")) return;
     if (state.fogDisabled === state.stagingMapRevealEnabled) return;
+    fogRevealLog("sync-send", {
+      disabled: state.stagingMapRevealEnabled,
+      authSessionReady: state.authSessionReady,
+      eligible: state.stagingMapRevealEligible,
+      fogDisabled: state.fogDisabled
+    });
     ws.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: state.stagingMapRevealEnabled }));
   };
 
@@ -1779,6 +1797,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "FOG_UPDATE") {
+      fogRevealLog("fog-update", {
+        fogDisabled: msg.fogDisabled === true,
+        authSessionReady: state.authSessionReady,
+        eligible: state.stagingMapRevealEligible
+      });
       state.fogDisabled = Boolean(msg.fogDisabled);
       pushFeed(`Fog of war ${state.fogDisabled ? "disabled" : "enabled"}.`, "info", "info");
       requestViewRefresh(2, true);
@@ -1798,6 +1821,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         },
         tileUpdates ? { tiles: tileUpdates } : undefined
       );
+      fogRevealLog("tile-snapshot-replace", {
+        tileCount: Array.isArray(tileUpdates) ? tileUpdates.length : 0,
+        appliedTileCount,
+        fogDisabled: state.fogDisabled,
+        eligible: state.stagingMapRevealEligible
+      });
       if (appliedTileCount > 0) {
         state.firstChunkAt = Date.now();
         state.chunkFullCount = Math.max(state.chunkFullCount, 1);

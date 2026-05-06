@@ -1,5 +1,5 @@
 import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, VISION_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import type { PlayerSubscriptionDock, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import type { SimulationRuntime } from "./runtime.js";
@@ -16,7 +16,9 @@ export const buildPlayerSubscriptionSnapshot = (
   options?: {
     includeWorldStatus?: boolean;
     fullVisibility?: boolean;
+    sharedFullVisibilityTiles?: PlayerSubscriptionSnapshot["tiles"];
     worldStatusRuntimeState?: RuntimeState;
+    seasonState?: PlayerSubscriptionSnapshot["season"];
   }
 ): PlayerSubscriptionSnapshot => {
   const sourceTiles =
@@ -81,7 +83,7 @@ export const buildPlayerSubscriptionSnapshot = (
 
   const tiles =
     options?.fullVisibility === true
-      ? [...sourceTiles].sort((left, right) => (left.x - right.x) || (left.y - right.y))
+      ? sourceTiles
       : (() => {
           const visibleKeys = new Set<string>();
           const primaryPlayer = playersById.get(playerId);
@@ -150,7 +152,16 @@ export const buildPlayerSubscriptionSnapshot = (
     typeof livePlayer?.incomePerMinute === "number"
       ? livePlayer.incomePerMinute
       : liveEconomy.incomePerMinute ?? estimateIncomePerMinuteFromTiles(playerId, runtimeState.tiles);
-  const enrichedTiles = enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy);
+  const enrichedTiles =
+    options?.fullVisibility === true && options?.sharedFullVisibilityTiles
+      ? options.sharedFullVisibilityTiles
+      : enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy);
+  const docks: PlayerSubscriptionDock[] = (runtimeState.docks ?? []).map((dock) => ({
+    dockId: dock.dockId,
+    tileKey: dock.tileKey,
+    pairedDockId: dock.pairedDockId,
+    ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+  }));
 
   return {
     playerId,
@@ -192,6 +203,8 @@ export const buildPlayerSubscriptionSnapshot = (
             fallbackTiles
           )
         }),
+    ...(options?.seasonState ? { season: options.seasonState } : {}),
+    ...(docks.length ? { docks } : {}),
     tiles: enrichedTiles
   };
 };

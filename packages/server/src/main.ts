@@ -3835,6 +3835,7 @@ const buildAiPlanningSnapshot = (
     neutralExpandAvailable: planningStatic.neutralExpandAvailable,
     scoutExpandAvailable: planningStatic.scoutExpandAvailable,
     scaffoldExpandAvailable: planningStatic.scaffoldExpandAvailable,
+    townSupportExpandAvailable: planningStatic.townSupportExpandAvailable,
     barbarianAttackAvailable: planningStatic.barbarianAttackAvailable,
     enemyAttackAvailable: planningStatic.enemyAttackAvailable,
     pressureAttackAvailable: planningStatic.pressureAttackScore > 0,
