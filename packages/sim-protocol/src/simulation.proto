@@ -80,6 +80,9 @@ message TileDelta {
   string economic_structure_json = 15;
   string sabotage_json = 16;
   string shard_site_json = 17;
+  string yield_json = 18;
+  string yield_rate_json = 19;
+  string yield_cap_json = 20;
 }
 
 message DockRoute {
