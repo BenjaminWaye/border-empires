@@ -5,8 +5,7 @@ import {
   Matrix4,
   MeshStandardMaterial,
   PlaneGeometry,
-  Scene,
-  Vector3
+  Scene
 } from "three";
 import { settlePixelWanderPoint } from "./client-capture-effects.js";
 
@@ -102,8 +101,12 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
   }
   scene.add(...allMeshes);
 
+  // Hoisted temps so commit() and tick() don't allocate per call. The
+  // 90° rotation matrix is a constant — built once and reused.
   const matrix = new Matrix4();
   const tmpColor = new Color();
+  const tmpFrameMatrix = new Matrix4();
+  const rotateY90 = new Matrix4().makeRotationY(Math.PI * 0.5);
 
   const entries: TileEntry[] = [];
 
@@ -146,11 +149,12 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
       frameNMesh.setMatrixAt(i, matrix);
       matrix.makeTranslation(e.sceneX, e.surfaceY + FRAME_Y, e.sceneZ + FRAME_HALF);
       frameSMesh.setMatrixAt(i, matrix);
-      // E and W frames are rotated 90° so the long side runs along Z.
-      const rotated = new Matrix4().makeRotationY(Math.PI * 0.5);
-      const trans = new Matrix4().makeTranslation(e.sceneX + FRAME_HALF, e.surfaceY + FRAME_Y, e.sceneZ);
-      frameEMesh.setMatrixAt(i, trans.multiply(rotated));
-      frameWMesh.setMatrixAt(i, new Matrix4().makeTranslation(e.sceneX - FRAME_HALF, e.surfaceY + FRAME_Y, e.sceneZ).multiply(new Matrix4().makeRotationY(Math.PI * 0.5)));
+      // E and W frames: rotate 90° so the long side runs along Z, then
+      // translate. multiplyMatrices writes into tmpFrameMatrix.
+      tmpFrameMatrix.makeTranslation(e.sceneX + FRAME_HALF, e.surfaceY + FRAME_Y, e.sceneZ).multiply(rotateY90);
+      frameEMesh.setMatrixAt(i, tmpFrameMatrix);
+      tmpFrameMatrix.makeTranslation(e.sceneX - FRAME_HALF, e.surfaceY + FRAME_Y, e.sceneZ).multiply(rotateY90);
+      frameWMesh.setMatrixAt(i, tmpFrameMatrix);
     }
     tintMesh.instanceMatrix.needsUpdate = true;
     frameNMesh.instanceMatrix.needsUpdate = true;
@@ -167,7 +171,6 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
 
     // Active people count grows with progress so a freshly-started
     // settlement has fewer wandering than a near-finished one.
-    const personOffset = new Vector3();
     let writeIdx = 0;
     for (const e of entries) {
       const activeCount = Math.max(3, Math.round(3 + e.progress * (PEOPLE_PER_TILE - 3)));
@@ -175,12 +178,11 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
         const point = settlePixelWanderPoint(nowMs, e.worldTileX, e.worldTileY, i);
         // point.x / point.y are in [0,1]; map to tile-local [-0.42, 0.42]
         // so people stay inside the perimeter frame.
-        personOffset.set(
-          (point.x - 0.5) * 0.84,
-          PERSON_Y,
-          (point.y - 0.5) * 0.84
+        matrix.makeTranslation(
+          e.sceneX + (point.x - 0.5) * 0.84,
+          e.surfaceY + PERSON_Y,
+          e.sceneZ + (point.y - 0.5) * 0.84
         );
-        matrix.makeTranslation(e.sceneX + personOffset.x, e.surfaceY + personOffset.y, e.sceneZ + personOffset.z);
         peopleMesh.setMatrixAt(writeIdx, matrix);
         writeIdx += 1;
       }
