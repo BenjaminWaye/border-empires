@@ -71,6 +71,7 @@ import { laneForCommand, type QueueLane } from "./command-lane.js";
 import { isFrontierAdjacent } from "./frontier-adjacency.js";
 import {
   buildDockLinksByDockTileKey,
+  collectLinkedDockRevealKeysForOwners,
   isValidDockCrossingTarget,
   type DockRouteDefinition
 } from "./dock-network.js";
@@ -1417,6 +1418,19 @@ export class SimulationRuntime {
       if (lock.playerId !== playerId) continue;
       visibleKeys.add(lock.originKey);
       visibleKeys.add(lock.targetKey);
+    }
+    if (primaryPlayer) {
+      const visibilityOwnerIds = new Set<string>([playerId, ...primaryPlayer.allies]);
+      for (const revealKey of collectLinkedDockRevealKeysForOwners(
+        visibilityOwnerIds,
+        this.docks,
+        (tileKey) => this.tiles.get(tileKey)?.ownerId,
+        this.dockLinksByDockTileKey,
+        WORLD_WIDTH,
+        WORLD_HEIGHT
+      )) {
+        visibleKeys.add(revealKey);
+      }
     }
 
     return {

@@ -267,6 +267,166 @@ describe("simulation runtime", () => {
     expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
   });
 
+  it("reveals a linked dock when the player owns the source dock", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      seedDocks: [
+        { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+        { dockId: "dock-b", tileKey: "80,80", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+      ],
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
+          { x: 79, y: 79, terrain: "LAND" },
+          { x: 80, y: 79, terrain: "LAND" },
+          { x: 81, y: 79, terrain: "LAND" },
+          { x: 79, y: 80, terrain: "LAND" },
+          { x: 80, y: 80, terrain: "LAND", dockId: "dock-b" },
+          { x: 81, y: 80, terrain: "LAND" },
+          { x: 79, y: 81, terrain: "LAND" },
+          { x: 80, y: 81, terrain: "LAND" },
+          { x: 81, y: 81, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const visibleState = runtime.exportVisibleStateForPlayer("player-1");
+
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        const expectedX = 80 + dx;
+        const expectedY = 80 + dy;
+        expect(
+          visibleState.tiles.some((tile) => tile.x === expectedX && tile.y === expectedY),
+          `expected (${expectedX},${expectedY}) to be visible`
+        ).toBe(true);
+      }
+    }
+    expect(visibleState.tiles.some((tile) => tile.x === 80 && tile.y === 80 && tile.dockId === "dock-b")).toBe(true);
+  });
+
+  it("does not reveal linked docks when the player does not own the source dock", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      seedDocks: [
+        { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+        { dockId: "dock-b", tileKey: "80,80", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+      ],
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", dockId: "dock-a" },
+          { x: 80, y: 80, terrain: "LAND", dockId: "dock-b" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const visibleState = runtime.exportVisibleStateForPlayer("player-1");
+
+    expect(visibleState.tiles.some((tile) => tile.x === 80 && tile.y === 80)).toBe(false);
+  });
+
+  it("reveals an ally's linked docks when the ally owns the source dock", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(["player-2"])
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(["player-1"])
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      seedDocks: [
+        { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+        { dockId: "dock-b", tileKey: "80,80", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+      ],
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", dockId: "dock-a" },
+          { x: 80, y: 80, terrain: "LAND", dockId: "dock-b" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const visibleState = runtime.exportVisibleStateForPlayer("player-1");
+
+    expect(visibleState.tiles.some((tile) => tile.x === 80 && tile.y === 80)).toBe(true);
+  });
+
   it("accepts a human frontier command before queued AI work drains", async () => {
     const runtime = new SimulationRuntime({ now: () => 1_000 });
     const seen: string[] = [];
