@@ -1434,6 +1434,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     const routeDash = [9, 8];
+    const wrapJumpX = (WORLD_WIDTH * size) / 2;
+    const wrapJumpY = (WORLD_HEIGHT * size) / 2;
     for (const pair of state.dockPairs) {
       if (!deps.isDockRouteVisibleForPlayer(pair)) continue;
       const aIsDockLand = terrainAt(pair.ax, pair.ay) === "LAND";
@@ -1447,38 +1449,40 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       const route = deps.computeDockSeaRoute(pair.ax, pair.ay, pair.bx, pair.by);
       deps.ctx.setLineDash(routeDash);
       deps.ctx.lineDashOffset = -((nowMs / 140) % 17);
+      deps.ctx.strokeStyle = selectedRoute ? "rgba(255, 246, 176, 0.9)" : "rgba(255, 233, 149, 0.45)";
+      deps.ctx.lineWidth = selectedRoute ? 2 : 1.2;
       if (route.length < 2) {
         const a = deps.worldToScreen(pair.ax, pair.ay, size, halfW, halfH);
-        const b = {
-          sx: a.sx + deps.toroidDelta(pair.ax, pair.bx, WORLD_WIDTH) * size,
-          sy: a.sy + deps.toroidDelta(pair.ay, pair.by, WORLD_HEIGHT) * size
-        };
-        deps.ctx.strokeStyle = selectedRoute ? "rgba(255, 246, 176, 0.9)" : "rgba(255, 233, 149, 0.45)";
-        deps.ctx.lineWidth = selectedRoute ? 2 : 1.2;
+        const b = deps.worldToScreen(pair.bx, pair.by, size, halfW, halfH);
+        const wraps = Math.abs(b.sx - a.sx) > wrapJumpX || Math.abs(b.sy - a.sy) > wrapJumpY;
         deps.ctx.beginPath();
-        deps.ctx.moveTo(a.sx, a.sy);
-        deps.ctx.lineTo(b.sx, b.sy);
+        if (wraps) {
+          const dx = deps.toroidDelta(pair.ax, pair.bx, WORLD_WIDTH) * size;
+          const dy = deps.toroidDelta(pair.ay, pair.by, WORLD_HEIGHT) * size;
+          deps.ctx.moveTo(a.sx, a.sy);
+          deps.ctx.lineTo(a.sx + dx, a.sy + dy);
+          deps.ctx.moveTo(b.sx - dx, b.sy - dy);
+          deps.ctx.lineTo(b.sx, b.sy);
+        } else {
+          deps.ctx.moveTo(a.sx, a.sy);
+          deps.ctx.lineTo(b.sx, b.sy);
+        }
         deps.ctx.stroke();
         deps.ctx.setLineDash([]);
         deps.ctx.lineDashOffset = 0;
         continue;
       }
-      deps.ctx.strokeStyle = selectedRoute ? "rgba(255, 246, 176, 0.9)" : "rgba(255, 233, 149, 0.45)";
-      deps.ctx.lineWidth = selectedRoute ? 2 : 1.2;
-      let prev = route[0]!;
-      let prevScreen = deps.worldToScreen(prev.x, prev.y, size, halfW, halfH);
+      let prevScreen = deps.worldToScreen(route[0]!.x, route[0]!.y, size, halfW, halfH);
       for (let i = 1; i < route.length; i += 1) {
         const b = route[i]!;
-        const stepX = deps.toroidDelta(prev.x, b.x, WORLD_WIDTH) * size;
-        const stepY = deps.toroidDelta(prev.y, b.y, WORLD_HEIGHT) * size;
-        const sb = { sx: prevScreen.sx + stepX, sy: prevScreen.sy + stepY };
-        if (
+        const sb = deps.worldToScreen(b.x, b.y, size, halfW, halfH);
+        const segmentWraps = Math.abs(sb.sx - prevScreen.sx) > wrapJumpX || Math.abs(sb.sy - prevScreen.sy) > wrapJumpY;
+        const offscreen =
           (prevScreen.sx < -size && sb.sx < -size) ||
           (prevScreen.sy < -size && sb.sy < -size) ||
           (prevScreen.sx > deps.canvas.width + size && sb.sx > deps.canvas.width + size) ||
-          (prevScreen.sy > deps.canvas.height + size && sb.sy > deps.canvas.height + size)
-        ) {
-          prev = b;
+          (prevScreen.sy > deps.canvas.height + size && sb.sy > deps.canvas.height + size);
+        if (segmentWraps || offscreen) {
           prevScreen = sb;
           continue;
         }
@@ -1486,7 +1490,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.moveTo(prevScreen.sx, prevScreen.sy);
         deps.ctx.lineTo(sb.sx, sb.sy);
         deps.ctx.stroke();
-        prev = b;
         prevScreen = sb;
       }
       deps.ctx.setLineDash([]);
