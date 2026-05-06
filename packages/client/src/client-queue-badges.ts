@@ -79,17 +79,28 @@ export const queuedCornerBadgeLayout = ({
         },
     badge:
       size >= 14
-        ? {
-            background: style.background,
-            foreground: style.foreground,
-            text: String(ordinal),
-            x: px + size - Math.min(size - 6, ordinal >= 10 ? 18 : 14) - 3,
-            y: py + 3,
-            width: Math.min(size - 6, ordinal >= 10 ? 18 : 14),
-            height: 12,
-            textX: px + size - Math.min(size - 6, ordinal >= 10 ? 18 : 14) - 1,
-            textY: py + 4
-          }
+        ? (() => {
+            // Roughly 2× the legacy 14×12 badge (so it's readable) but
+            // clamped well below tile size — anything close to `size`
+            // looks like the badge ate the tile. Pixel-aligned x/y/text
+            // so monospace digits hit whole pixels and stay crisp on the
+            // CSS-pixel-sized canvas (no DPR scaling on this overlay).
+            const badgeWidth = ordinal >= 10 ? 26 : 20;
+            const badgeHeight = 18;
+            const badgeX = Math.round(px + size - badgeWidth);
+            const badgeY = Math.round(py);
+            return {
+              background: style.background,
+              foreground: style.foreground,
+              text: String(ordinal),
+              x: badgeX,
+              y: badgeY,
+              width: badgeWidth,
+              height: badgeHeight,
+              textX: badgeX + Math.round(badgeWidth * 0.5),
+              textY: badgeY + Math.round(badgeHeight * 0.5) + 1
+            };
+          })()
         : undefined
   };
 };
@@ -108,9 +119,10 @@ export const drawQueuedCornerBadge = (
   ctx.fillStyle = layout.badge.background;
   ctx.fillRect(layout.badge.x, layout.badge.y, layout.badge.width, layout.badge.height);
   ctx.fillStyle = layout.badge.foreground;
-  ctx.font = "10px monospace";
-  ctx.textBaseline = "top";
-  ctx.textAlign = "left";
+  ctx.font = "14px monospace";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
   ctx.fillText(layout.badge.text, layout.badge.textX, layout.badge.textY);
+  ctx.textBaseline = "alphabetic";
   ctx.textAlign = "start";
 };
