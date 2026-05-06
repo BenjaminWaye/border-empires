@@ -94,6 +94,38 @@ describe("simulation runtime", () => {
     expect(state.tiles.filter((tile) => tile.ownerId === "player-1")).toHaveLength(1);
   });
 
+  it("preserves recovered territory for a returning player missing from initialState.players", () => {
+    // Regression: after a sim restart, recovery rebuilds per-player tile
+    // summaries via lazy applyTileToPlayerSummaries even when the human
+    // player isn't listed in the snapshot's `players` array. The previous
+    // ensurePlayerHasSpawnTerritory path overwrote that lazily-populated
+    // summary with an empty one, then immediately observed zero territory
+    // and forced an unwanted respawn.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 5, y: 5, terrain: "LAND", ownerId: "returning-human", ownershipState: "SETTLED" },
+          { x: 5, y: 6, terrain: "LAND", ownerId: "returning-human", ownershipState: "FRONTIER" },
+          { x: 6, y: 5, terrain: "LAND", ownerId: "returning-human", ownershipState: "SETTLED" }
+        ],
+        activeLocks: [],
+        players: []
+      }
+    });
+
+    const respawned = runtime.ensurePlayerHasSpawnTerritory("returning-human");
+    expect(respawned).toBe(false);
+
+    const state = runtime.exportState();
+    const ownedTiles = state.tiles.filter((tile) => tile.ownerId === "returning-human");
+    expect(ownedTiles).toHaveLength(3);
+    expect(ownedTiles.find((tile) => tile.x === 5 && tile.y === 5)?.ownershipState).toBe("SETTLED");
+    expect(ownedTiles.find((tile) => tile.x === 5 && tile.y === 6)?.ownershipState).toBe("FRONTIER");
+    expect(ownedTiles.find((tile) => tile.x === 6 && tile.y === 5)?.ownershipState).toBe("SETTLED");
+  });
+
   it("clears remembered automation victory paths when a player respawns from zero territory", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
