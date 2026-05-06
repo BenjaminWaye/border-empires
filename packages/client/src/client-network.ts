@@ -983,9 +983,41 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     renderHud();
   });
 
+  const MAX_RECENT_TILE_MESSAGES = 50;
+  const recordRecentTileMessage = (msg: Record<string, unknown>, msgType: string): void => {
+    if (
+      msgType !== "TILE_DELTA" &&
+      msgType !== "TILE_DELTA_BATCH" &&
+      msgType !== "TILE_SNAPSHOT_REPLACE" &&
+      msgType !== "FOG_UPDATE" &&
+      msgType !== "FRONTIER_RESULT" &&
+      msgType !== "COMBAT_RESULT"
+    ) {
+      return;
+    }
+    if (!Array.isArray(state.recentTileMessages)) return;
+    const target = msg.target as { x?: number; y?: number } | undefined;
+    const tiles = Array.isArray(msg.tiles)
+      ? (msg.tiles as Array<unknown>).length
+      : Array.isArray(msg.updates)
+        ? (msg.updates as Array<unknown>).length
+        : undefined;
+    state.recentTileMessages.push({
+      ts: Date.now(),
+      type: msgType,
+      ...(typeof target?.x === "number" ? { x: target.x } : {}),
+      ...(typeof target?.y === "number" ? { y: target.y } : {}),
+      ...(typeof tiles === "number" ? { tileCount: tiles } : {})
+    });
+    if (state.recentTileMessages.length > MAX_RECENT_TILE_MESSAGES) {
+      state.recentTileMessages.splice(0, state.recentTileMessages.length - MAX_RECENT_TILE_MESSAGES);
+    }
+  };
+
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
     const msgType = typeof msg.type === "string" ? msg.type : "UNKNOWN";
+    recordRecentTileMessage(msg, msgType);
     if (
       msgType === "COMMAND_QUEUED" ||
       msgType === "ACTION_ACCEPTED" ||

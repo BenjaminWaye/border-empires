@@ -102,6 +102,50 @@ export const renderTileActionMenu = (
         deps.hideTileActionMenu();
       };
     });
+    const debugButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-tile-debug-download]");
+    debugButtons.forEach((btn) => {
+      btn.onclick = () => {
+        const tileKey = btn.dataset.tileDebugDownload;
+        if (!tileKey) return;
+        const tile = state.tiles.get(tileKey);
+        const [rawX, rawY] = tileKey.split(",");
+        const tileX = Number(rawX);
+        const tileY = Number(rawY);
+        // Filter the tile-message ring buffer down to entries that touched
+        // this tile (or batches whose targets we can't narrow). Helps the
+        // recipient diagnose "why is the data still partial?" without us
+        // having to chase logs across services.
+        const recentMessages = state.recentTileMessages.filter((entry) => {
+          if (typeof entry.x === "number" && typeof entry.y === "number") {
+            return entry.x === tileX && entry.y === tileY;
+          }
+          return true;
+        });
+        const debug = {
+          downloadedAt: new Date().toISOString(),
+          tileKey,
+          location: typeof window !== "undefined" ? window.location?.href : undefined,
+          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+          viewerPlayerId: state.me,
+          fogDisabled: state.fogDisabled,
+          tile,
+          recentTileMessages: recentMessages
+        };
+        try {
+          const blob = new Blob([JSON.stringify(debug, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `town-debug-${tileKey.replace(",", "-")}-${Date.now()}.json`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 0);
+        } catch (error) {
+          console.error("[town-debug] failed to build debug log", error);
+        }
+      };
+    });
     const scrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
     if (scrollBody) {
       scrollBody.scrollTop = restoreTileMenuScrollTop(state.tileActionMenu.scrollTopByTab, activeTab);

@@ -19,18 +19,47 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.10",
+  version: "2026.05.06.13",
   title: "What's New",
-  summary: "Linked-dock connection lines now follow an actual sea route between paired docks instead of cutting straight across landmasses, and they now find paths that wrap across the world edge. Plus the prior frontier-with-town and settled-settlement panel cleanup, the 3D-renderer polish, and rewrite fixes remain in this release train.",
+  summary: "Linked-dock connection lines now follow an actual sea route between paired docks instead of cutting straight across landmasses, and they now find paths that wrap across the world edge. Plus the prior settled resource production/stored yield rewrite-stack fix, the 'Town is unfed' guard, satellite-reveal foreign towns, and the earlier 3D-renderer polish from this release train.",
   entries: [
     {
-      introducedIn: "2026.05.06.10",
+      introducedIn: "2026.05.06.13",
       title: "Linked-dock connection lines now hug the actual sea route",
       why: "The dashed connection line between paired docks was supposed to follow the sea path between them, but the client-side A* over the 450×450 world only allocated 24,000 expansions and never wrapped across the world edge — so most non-trivial pairs ran out of expansions or had no non-wrapping path at all and silently fell back to a single straight line cutting across landmasses.",
       changes: [
         "A* now wraps neighbors toroidally and uses a toroidal Manhattan heuristic, so dock pairs whose shortest sea path crosses the world edge can now resolve to a real route instead of falling back to a straight line.",
         "Replaced the linear open-list scan with a binary min-heap, so the per-expansion cost no longer grows with the frontier size; the existing 24,000-expansion cap is now reached far less often because A* is more efficient and stays focused on the goal.",
         "Routes are still cached per dock pair, so the heap-based A* runs at most once per pair per session."
+      ]
+    },
+    {
+      introducedIn: "2026.05.06.12",
+      title: "Settled resource tiles now show production and stored yield on the rewrite stack",
+      why: "The simulation's `buildTileYieldView` correctly computes per-day strategic production (FOOD, IRON, CRYSTAL, SUPPLY, OIL) and stored-yield buffers for every settled resource tile, but the gRPC TileDelta proto message had no fields for `yield`, `yieldRate`, or `yieldCap`. The simulation-side code was spreading the objects into the response payload, but proto3 silently strips unknown fields, so every settled resource tile reached the client with `tile.yieldRate === undefined` and the overview pane fell back to the 'Resource node can produce X once developed and collected' placeholder.",
+      changes: [
+        "Added `yield_json`, `yield_rate_json`, and `yield_cap_json` string fields to the `TileDelta` protobuf message, following the existing `town_json`/`fort_json`/etc. pattern for complex per-tile state.",
+        "Simulation now JSON-stringifies the yield buffer, yield rate, and yield cap into those proto fields when emitting tile deltas (both the live event stream and the bootstrap subscription snapshot).",
+        "Realtime gateway now parses those JSON strings back into typed `tile.yield`, `tile.yieldRate`, and `tile.yieldCap` objects, falling back gracefully if a field is missing for backward-compat with old simulation builds.",
+        "Settled FARM tiles now render 'Production: 🍞 72.0/day' and 'Stored yield: 🍞 X.XX / 24.0', settled IRON tiles render 'Production: ⛓ 60.0/day' and the matching stored-yield row, etc., instead of the placeholder copy."
+      ]
+    },
+    {
+      introducedIn: "2026.05.06.11",
+      title: "'Town is unfed' warning no longer fires on a town that is obviously fed",
+      why: "Snapshot pipelines occasionally publish a stale `isFed: false` on towns that are simultaneously growing and earning gold, so the overview pane was telling players to add food upkeep to a town producing 2.00 gold/m and growing +5.6/m. The contradiction made the warning untrustworthy and harder to act on for towns that really do need food.",
+      changes: [
+        "The 'Town is unfed' line now only renders when the town has zero gold income AND zero population growth, alongside the persisted `isFed: false` flag. Any positive economic output suppresses the warning, since by definition a producing town is fed."
+      ]
+    },
+    {
+      introducedIn: "2026.05.06.10",
+      title: "Foreign towns now render under satellite reveal + loading spinner for partial town data",
+      why: "The shared full-visibility snapshot cache strips owner-only economy fields from foreign towns for privacy, but the client's town-completeness gate required all of those fields and silently dropped any town summary missing them — so satellite reveal was supposed to show every town on the map but actually showed none of them. The completeness gate was also incorrectly conflating 'town summary failed validation' with 'no town here', leaving no way for a player to tell whether the data was in flight or simply absent.",
+      changes: [
+        "Town-renderable gate now keys off population (>= 500, the authoritative 'this is a real town' signal in this game) instead of demanding every owner-only economy field. Foreign towns under reveal carry name, type, populationTier, population, and maxPopulation and now render the public summary on the map and in the overview pane.",
+        "Owner-only overview lines (Town is unfed, Support, Next size) are now guarded on whether the town actually carries owner-economy data, so foreign towns no longer show misleading 'unfed' or '0/0 support' copy.",
+        "When a town payload arrives but fails the renderable gate (population missing or below 500), the town overview pane now shows a loading spinner plus a 'Download debug log' button. The button writes a JSON file with the tile state, viewer context, and the last 50 tile-touching WS messages so a stuck spinner can be reported with full diagnostic context."
       ]
     },
     {

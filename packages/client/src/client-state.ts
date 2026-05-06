@@ -344,6 +344,18 @@ export const createInitialState = () => ({
   boxSelectStart: undefined as { gx: number; gy: number } | undefined,
   boxSelectCurrent: undefined as { gx: number; gy: number } | undefined,
   fogDisabled: false,
+  // Bounded ring buffer of recently-received WS messages keyed for the
+  // "Download debug log" button on the town overview pane. Captures the
+  // last MAX_RECENT_TILE_MESSAGES tile-touching messages so a stuck
+  // spinner can be diagnosed offline.
+  recentTileMessages: [] as Array<{
+    ts: number;
+    type: string;
+    x?: number;
+    y?: number;
+    tileCount?: number;
+    raw?: unknown;
+  }>,
   stagingMapRevealEligible: false,
   stagingMapRevealEnabled: false,
   lastSubCx: Number.NaN,
