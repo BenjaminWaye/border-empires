@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
+import type { PlayerRespawnNotice } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -298,6 +299,7 @@ export type PlayerSubscriptionSnapshot = {
   worldStatus?: WorldStatusSnapshot;
   season?: SimulationSeasonState;
   docks?: PlayerSubscriptionDock[];
+  respawnNotice?: PlayerRespawnNotice;
   tiles: Array<{
     x: number;
     y: number;

@@ -924,12 +924,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
     const worldStatusRuntimeState = options?.includeWorldStatus === true || useFullVisibility ? runtime.exportState() : undefined;
     const runtimeState = worldStatusRuntimeState ?? runtime.exportVisibleStateForPlayer(playerId);
+    const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
       includeWorldStatus: options?.includeWorldStatus === true,
       fullVisibility: useFullVisibility,
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
-      seasonState: currentSeasonState
+      seasonState: currentSeasonState,
+      ...(respawnNotice ? { respawnNotice } : {})
     });
     setCachedSnapshot(playerId, snapshot);
     recordSnapshotDiagnostics(playerId, snapshot, {

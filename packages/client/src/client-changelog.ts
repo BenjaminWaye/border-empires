@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.1",
+  version: "2026.05.06.2",
   title: "What's New",
-  summary: "The opt-in true-3D renderer (?renderer=3d) gets a major content pass: full 3D overlays for docks, barbarians, forts, resources, settlement progress, attack targets, and the first tier of economic structures (FARMSTEAD, WATERWORKS, CAMP, MINE, IRONWORKS); the unexplored area now reads as a clean black void instead of a ghost grid; the new fog-of-war default respects vision unless ?reveal=1 is passed; and worldgen now converts every sea tile bordering land into capturable LAND so coastlines no longer have uncapturable strips. Plus the earlier respawn diagnostics, AI GOAP fallback, town recovery, snapshot, and town-population fixes from this release train.",
+  summary: "The respawn notice popup now actually fires on staging: the prepare→finalize→peek→consume notice flow has been ported into the rewrite gateway/simulation stack so the staging client receives a respawnNotice on INIT whenever the simulation respawns the player. Plus the opt-in true-3D renderer overlay pass, fog-of-war fixes, capturable coastal LAND fix, and the earlier respawn diagnostics, AI GOAP fallback, town recovery, snapshot, and town-population fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.2",
+      title: "Respawn notice popup now fires on the rewrite gateway/simulation stack",
+      why: "The respawn notice popup and feed entry were only being prepared and consumed in the legacy packages/server stack, so on staging (which runs the rewrite stack) the simulation could respawn a player without the client ever receiving a respawnNotice on INIT — silent respawns with no popup, no feed entry, and nothing to debug from the client.",
+      changes: [
+        "Simulation runtime now prepares a respawn notice in ensurePlayerHasSpawnTerritory and respawnIfEliminated, and finalizes it once the new tile is placed; notice is held on the runtime and published as PlayerSubscriptionSnapshot.respawnNotice.",
+        "Realtime gateway INIT payload now propagates respawnNotice from PlayerSubscriptionSnapshot onto GatewayInitPayload.player, so the existing client respawn-overlay and feed entry path fires on the rewrite stack the same way it already did on legacy.",
+        "Both the simulation prepare/spawn/consume calls and the gateway INIT-build now emit [respawn-debug] log lines so silent respawns can be traced step-by-step from fly logs."
+      ]
+    },
     {
       introducedIn: "2026.05.06.1",
       title: "True-3D renderer gets a full overlay pass + fog-of-war fixes",
