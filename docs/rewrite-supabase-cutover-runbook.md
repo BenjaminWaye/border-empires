@@ -390,6 +390,7 @@ DATABASE_URL="$STAGING_DATABASE_URL" pnpm rewrite:db:size
 DATABASE_URL="$STAGING_DATABASE_URL" npx tsx scripts/rewrite-db-import-legacy-snapshot.ts /absolute/path/to/snapshot
 fly deploy --config fly.simulation.staging.toml
 fly deploy --config fly.gateway.staging.toml
+pnpm ops:staging:drift-check
 ```
 
 If you want a synthetic seed instead of importing a real snapshot:
@@ -400,6 +401,7 @@ DATABASE_URL="$STAGING_DATABASE_URL" node scripts/rewrite-db-seed-snapshot.mjs
 
 #### Staging rehearsal checklist
 
+0. after both staging deploys, run `pnpm ops:staging:drift-check` and confirm there are no stale Fly env overrides
 1. authenticate a human player
 2. confirm initial map loads from DB-backed snapshot
 3. submit frontier expansion

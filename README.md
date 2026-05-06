@@ -142,6 +142,14 @@ Useful read points:
 - Immediate SLO result: terminal output of `pnpm ops:staging:login-probe`
 - Gateway health/latency context: `https://border-empires-gateway-staging.fly.dev/metrics`
 
+To catch stale Fly secrets or manual env drift before debugging a staging outage, run:
+
+```bash
+pnpm ops:staging:drift-check
+```
+
+This compares the effective env on every staging Fly machine against the checked-in values in `fly.gateway.staging.toml` and `fly.simulation.staging.toml`. It exits non-zero on drift, including stale secret overrides like `SIMULATION_ADDRESS=...internal:50051`.
+
 For rewrite localhost stress testing with a durable DB-backed 20-AI world on `http://localhost:5173`, run:
 
 ```bash
