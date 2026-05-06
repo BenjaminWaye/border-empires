@@ -378,6 +378,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     applyCamera();
   };
 
+  // Hoisted Color temps reused per rebuild to avoid per-tile allocation.
+  const tmpSettleOwnerColor = new Color();
+  const tmpOwnerColor = new Color();
+  const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
+
   const rebuildVisibleTerrain = (): void => {
     const size = Math.max(1, deps.state.zoom);
     const halfW = Math.max(1, Math.floor(deps.canvas.width / size / 2));
@@ -564,10 +569,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (settleProgress && terrain === "LAND") {
           const totalMs = Math.max(1, settleProgress.resolvesAt - settleProgress.startAt);
           const progressNow = Math.max(0, Math.min(1, (Date.now() - settleProgress.startAt) / totalMs));
-          const settleOwnerColor = ownerId
-            ? new Color(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)))
-            : new Color("#ffd166");
-          settleOverlay.addInstance(x, z, surfaceY, settleOwnerColor, progressNow, wx, wy);
+          const settleColor = ownerId
+            ? tmpSettleOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)))
+            : SETTLE_FALLBACK_COLOR;
+          settleOverlay.addInstance(x, z, surfaceY, settleColor, progressNow, wx, wy);
         }
         if (tile) {
           const fortKind = fortificationOverlayKindForTile(tile);
@@ -587,14 +592,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         if (isOwnedLand && ownerId) {
           const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
-          const ownerColor = new Color(normalizedColor);
-          // Each ownership corner samples the heightfield's averaged
-          // elevation so the painted overlay traces the sculpted ground.
-          // Tile (wx, wy) spans world-XZ [wx, wx+1] × [wy, wy+1]; its 4
-          // grid corners are the integer points (wx, wy), (wx+1, wy),
-          // (wx, wy+1), (wx+1, wy+1).
-          const wxNext = deps.wrapX(wx + 1);
-          const wyNext = deps.wrapY(wy + 1);
+          // ownershipOverlay.addTile copies the colour, so we can reuse a
+          // hoisted Color across tiles. wxOwn/wyOwn intentionally
+          // separate from the outer wxNext/wyNext to avoid shadowing.
+          const ownerColor = tmpOwnerColor.set(normalizedColor);
+          const wxOwn = deps.wrapX(wx + 1);
+          const wyOwn = deps.wrapY(wy + 1);
           // Each corner reads the heightfield's averaged elevation so the
           // painted overlay traces the sculpted ground. Water draws after
           // the overlay (see WaterSurface.renderOrder) and naturally hides
@@ -607,21 +610,21 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const corner10Y = (
             heightfield.elevationAt(wx, deps.wrapY(wy - 1)) +
-            heightfield.elevationAt(wxNext, deps.wrapY(wy - 1)) +
+            heightfield.elevationAt(wxOwn, deps.wrapY(wy - 1)) +
             heightfield.elevationAt(wx, wy) +
-            heightfield.elevationAt(wxNext, wy)
+            heightfield.elevationAt(wxOwn, wy)
           ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const corner01Y = (
             heightfield.elevationAt(deps.wrapX(wx - 1), wy) +
             heightfield.elevationAt(wx, wy) +
-            heightfield.elevationAt(deps.wrapX(wx - 1), wyNext) +
-            heightfield.elevationAt(wx, wyNext)
+            heightfield.elevationAt(deps.wrapX(wx - 1), wyOwn) +
+            heightfield.elevationAt(wx, wyOwn)
           ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const corner11Y = (
             heightfield.elevationAt(wx, wy) +
-            heightfield.elevationAt(wxNext, wy) +
-            heightfield.elevationAt(wx, wyNext) +
-            heightfield.elevationAt(wxNext, wyNext)
+            heightfield.elevationAt(wxOwn, wy) +
+            heightfield.elevationAt(wx, wyOwn) +
+            heightfield.elevationAt(wxOwn, wyOwn)
           ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const x0 = x - 0.5;
           const x1 = x + 0.5;
