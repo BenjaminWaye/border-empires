@@ -360,6 +360,7 @@ The split simulation service now supports checkpoint memory watermarks so checkp
 Environment variables:
 
 - `SIMULATION_SNAPSHOT_EVERY_EVENTS`: checkpoint cadence by persisted events
+- `SIMULATION_WRITE_CHECKPOINT_PROJECTIONS`: set to `0` to skip per-checkpoint projection table rewrites and keep Postgres I/O focused on durable snapshots
 - `SIMULATION_CHECKPOINT_MAX_RSS_MB`: defer checkpoint when RSS is at or above this many MB
 - `SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB`: defer checkpoint when heap used is at or above this many MB
 

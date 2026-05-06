@@ -187,6 +187,7 @@ type SimulationServiceOptions = {
   databaseUrl?: string;
   applySchema?: boolean;
   checkpointEveryEvents?: number;
+  writeCheckpointProjections?: boolean;
   checkpointForceAfterEvents?: number;
   checkpointMaxRssBytes?: number;
   checkpointMaxHeapUsedBytes?: number;
@@ -751,10 +752,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       };
     },
-    exportProjectionState: () => {
-      const s = runtime.exportState();
-      return { players: s.players, activeLocks: s.activeLocks };
-    },
+    ...(options.writeCheckpointProjections === false
+      ? {}
+      : {
+          exportProjectionState: () => {
+            const state = runtime.exportState();
+            return { players: state.players, activeLocks: state.activeLocks };
+          }
+        }),
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
     ...(typeof options.checkpointForceAfterEvents === "number"
       ? { forceCheckpointAfterEvents: options.checkpointForceAfterEvents }
