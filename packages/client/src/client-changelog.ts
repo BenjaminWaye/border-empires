@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.6",
+  version: "2026.05.06.7",
   title: "What's New",
-  summary: "Tile overview cleanup: claim/settle prompts no longer repeat themselves, frontier-claimed town tiles hide post-settle stats and prompt to settle, settled docks now show base income and connection count, and unclaimed resource tiles collapse three near-duplicate sentences into one actionable line. Plus the rewrite AI dead-end frontier classification, returning-player territory recovery, dock-wrap, respawn, 3D renderer, and fog fixes from the prior release train.",
+  summary: "Recent updates include reducing rewrite simulation checkpoint pressure by checkpointing less aggressively, cleaning up tile overview copy, keeping rewrite staging AI from mislabeling dead-end frontier turns, preserving returning-player empires across simulation restarts, and carrying forward the latest dock-wrap, respawn, true-3D, and town recovery fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.7",
+      title: "Rewrite checkpointing now causes much less database churn",
+      why: "The rewrite simulation could burn through Supabase disk I/O budget even with light human traffic because periodic checkpoints rewrote large projection tables and compacted events too frequently for a small shared database instance.",
+      changes: [
+        "Production and staging now checkpoint less often, which lowers bursty write pressure on the database while still preserving bounded event-log compaction, projection refreshes, and restart recovery.",
+        "The runtime now exposes an explicit low-cost checkpoint mode for environments that can tolerate stale projection tables, while the default production path keeps current projection refreshes intact.",
+        "This is a server-side performance and cost-control change; gameplay rules stay the same, but long-session lag spikes from checkpoint bursts should be less likely on the rewrite stack."
+      ]
+    },
     {
       introducedIn: "2026.05.06.6",
       title: "Tile overview copy is shorter and more actionable",

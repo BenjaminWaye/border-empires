@@ -10,6 +10,7 @@ export type SimulationRuntimeEnv = {
   snapshotDir?: string;
   applySchema: boolean;
   checkpointEveryEvents: number;
+  writeCheckpointProjections: boolean;
   checkpointForceAfterEvents: number;
   checkpointMaxRssBytes?: number;
   checkpointMaxHeapUsedBytes?: number;
@@ -52,6 +53,9 @@ const parseBooleanishEnvFlag = (value: string | undefined): boolean => {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 };
 
+const parseBooleanishEnvFlagWithDefault = (value: string | undefined, fallback: boolean): boolean =>
+  value === undefined ? fallback : parseBooleanishEnvFlag(value);
+
 export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRuntimeEnv => {
   const databaseUrl = env.SIMULATION_DATABASE_URL ?? env.DATABASE_URL;
   const isManagedRuntime = isManagedRuntimeEnv(env);
@@ -88,6 +92,10 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       env.SIMULATION_SNAPSHOT_EVERY_EVENTS,
       5000,
       "simulation snapshot interval"
+    ),
+    writeCheckpointProjections: parseBooleanishEnvFlagWithDefault(
+      env.SIMULATION_WRITE_CHECKPOINT_PROJECTIONS,
+      true
     ),
     checkpointForceAfterEvents: parsePositiveNumber(
       env.SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS,

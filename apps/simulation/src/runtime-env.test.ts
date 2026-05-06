@@ -11,6 +11,7 @@ describe("simulation runtime env", () => {
       metricsPort: 50052,
       applySchema: false,
       checkpointEveryEvents: 5000,
+      writeCheckpointProjections: true,
       checkpointForceAfterEvents: 20000,
       startupReplayCompactionMinEvents: 10000,
       seedProfile: "default",
@@ -20,6 +21,9 @@ describe("simulation runtime env", () => {
       enableSystemAutopilot: false,
       systemTickMs: 500,
       globalStatusBroadcastDebounceMs: 15000,
+      healthProbeIntervalMs: 5000,
+      healthProbeTimeoutMs: 2000,
+      healthFailureThreshold: 3,
       startupRecoveryTimeoutMs: 120000,
       allowSeedRecoveryFallback: false,
       useAiWorker: false
@@ -43,6 +47,7 @@ describe("simulation runtime env", () => {
         DATABASE_URL: "postgres://simulation",
         SIMULATION_DB_APPLY_SCHEMA: "1",
         SIMULATION_SNAPSHOT_EVERY_EVENTS: "75",
+        SIMULATION_WRITE_CHECKPOINT_PROJECTIONS: "0",
         SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS: "420",
         SIMULATION_CHECKPOINT_MAX_RSS_MB: "420",
         SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB: "300",
@@ -64,6 +69,7 @@ describe("simulation runtime env", () => {
       databaseUrl: "postgres://simulation",
       applySchema: true,
       checkpointEveryEvents: 75,
+      writeCheckpointProjections: false,
       checkpointForceAfterEvents: 420,
       startupReplayCompactionMinEvents: 10000,
       checkpointMaxRssBytes: 420 * 1024 * 1024,
@@ -75,6 +81,9 @@ describe("simulation runtime env", () => {
       enableSystemAutopilot: true,
       systemTickMs: 250,
       globalStatusBroadcastDebounceMs: 20000,
+      healthProbeIntervalMs: 5000,
+      healthProbeTimeoutMs: 2000,
+      healthFailureThreshold: 3,
       startupRecoveryTimeoutMs: 20000,
       allowSeedRecoveryFallback: true,
       systemPlayerIds: ["barbarian-1", "barbarian-2"],
@@ -96,6 +105,15 @@ describe("simulation runtime env", () => {
     expect(
       parseSimulationRuntimeEnv({ SIMULATION_AI_WORKER: "1" })
     ).toMatchObject({ useAiWorker: true });
+  });
+
+  it("keeps checkpoint projection writes enabled unless explicitly disabled", () => {
+    expect(parseSimulationRuntimeEnv({})).toMatchObject({ writeCheckpointProjections: true });
+    expect(
+      parseSimulationRuntimeEnv({
+        SIMULATION_WRITE_CHECKPOINT_PROJECTIONS: "false"
+      })
+    ).toMatchObject({ writeCheckpointProjections: false });
   });
 
   it("treats booleanish autopilot env values as enabled", () => {
