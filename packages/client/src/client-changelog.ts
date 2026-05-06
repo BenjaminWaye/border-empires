@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.11",
+  version: "2026.05.06.12",
   title: "What's New",
-  summary: "Towns that are clearly fed (positive gold income or positive population growth) no longer display the misleading 'Town is unfed' warning when the persisted isFed flag is briefly stale. Plus the prior foreign-town reveal fix, frontier-with-town and settled-settlement panel cleanup, 3D renderer polish, and rewrite fixes.",
+  summary: "Settled resource tiles (farms, fish, iron, gems, oil, wood, fur) on the rewrite stack now display their full per-day production rate and stored yield in the tile overview, instead of falling back to the 'Resource node can produce X once developed and collected' placeholder. The simulation always computed this data; it was just being dropped at the gRPC wire because the protocol message had no field for it.",
   entries: [
+    {
+      introducedIn: "2026.05.06.12",
+      title: "Settled resource tiles now show production and stored yield on the rewrite stack",
+      why: "The simulation's `buildTileYieldView` correctly computes per-day strategic production (FOOD, IRON, CRYSTAL, SUPPLY, OIL) and stored-yield buffers for every settled resource tile, but the gRPC TileDelta proto message had no fields for `yield`, `yieldRate`, or `yieldCap`. The simulation-side code was spreading the objects into the response payload, but proto3 silently strips unknown fields, so every settled resource tile reached the client with `tile.yieldRate === undefined` and the overview pane fell back to the 'Resource node can produce X once developed and collected' placeholder.",
+      changes: [
+        "Added `yield_json`, `yield_rate_json`, and `yield_cap_json` string fields to the `TileDelta` protobuf message, following the existing `town_json`/`fort_json`/etc. pattern for complex per-tile state.",
+        "Simulation now JSON-stringifies the yield buffer, yield rate, and yield cap into those proto fields when emitting tile deltas (both the live event stream and the bootstrap subscription snapshot).",
+        "Realtime gateway now parses those JSON strings back into typed `tile.yield`, `tile.yieldRate`, and `tile.yieldCap` objects, falling back gracefully if a field is missing for backward-compat with old simulation builds.",
+        "Settled FARM tiles now render 'Production: 🍞 72.0/day' and 'Stored yield: 🍞 X.XX / 24.0', settled IRON tiles render 'Production: ⛓ 60.0/day' and the matching stored-yield row, etc., instead of the placeholder copy."
+      ]
+    },
     {
       introducedIn: "2026.05.06.11",
       title: "'Town is unfed' warning no longer fires on a town that is obviously fed",
