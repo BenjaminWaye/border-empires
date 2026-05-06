@@ -1,4 +1,4 @@
-import { BoxGeometry, Color, EdgesGeometry, LineBasicMaterial, LineSegments, Scene, WebGLRenderer } from "three";
+import { BufferAttribute, BufferGeometry, Color, LineBasicMaterial, LineSegments, Scene, WebGLRenderer } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
@@ -55,7 +55,7 @@ const MAX_VISIBLE_TILES = 14000;
 const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
-const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.038;
+const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
 const OVERLAY_RISE_ABOVE_HEIGHTFIELD = 0.012;
 
 export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendererDeps) => {
@@ -156,36 +156,86 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     return undefined;
   };
 
-  const markerEdgesGeometry = new EdgesGeometry(new BoxGeometry(1, 0.04, 1));
+  // A bending tile-outline marker: 4 line segments connecting the four
+  // tile corners with each corner's actual rendered Y, so the outline
+  // bows along with the heightfield surface instead of floating as a
+  // flat square. Each marker mesh owns its own BufferGeometry so we can
+  // animate its 4 corners independently per frame.
+  const createBendingMarkerGeometry = (): BufferGeometry => {
+    const geom = new BufferGeometry();
+    // 4 line segments × 2 endpoints × 3 floats = 24 floats.
+    const positions = new Float32Array(24);
+    geom.setAttribute("position", new BufferAttribute(positions, 3));
+    return geom;
+  };
+  const writeBendingMarkerCorners = (
+    geom: BufferGeometry,
+    cx: number,
+    cy: number,
+    cz: number,
+    cornerY00: number,
+    cornerY10: number,
+    cornerY01: number,
+    cornerY11: number,
+    rise: number
+  ): void => {
+    const positionAttr = geom.getAttribute("position") as BufferAttribute;
+    const positions = positionAttr.array as Float32Array;
+    const x0 = cx - 0.48;
+    const x1 = cx + 0.48;
+    const z0 = cz - 0.48;
+    const z1 = cz + 0.48;
+    const y00 = cy + cornerY00 + rise;
+    const y10 = cy + cornerY10 + rise;
+    const y01 = cy + cornerY01 + rise;
+    const y11 = cy + cornerY11 + rise;
+    // NW → NE
+    positions[0] = x0; positions[1] = y00; positions[2] = z0;
+    positions[3] = x1; positions[4] = y10; positions[5] = z0;
+    // NE → SE
+    positions[6] = x1; positions[7] = y10; positions[8] = z0;
+    positions[9] = x1; positions[10] = y11; positions[11] = z1;
+    // SE → SW
+    positions[12] = x1; positions[13] = y11; positions[14] = z1;
+    positions[15] = x0; positions[16] = y01; positions[17] = z1;
+    // SW → NW
+    positions[18] = x0; positions[19] = y01; positions[20] = z0;
+    positions[21] = x0; positions[22] = y00; positions[23] = z0;
+    positionAttr.needsUpdate = true;
+  };
+
+  // Selection: saturated yellow (matches the 2D #ffd166 selection ring
+  // so the two modes feel consistent and selection clearly differs from
+  // the cool-blue hover marker).
   const selectedMarker = new LineSegments(
-    markerEdgesGeometry,
-    new LineBasicMaterial({ color: "#f6f0d5", transparent: true, opacity: 0.88, depthTest: false, depthWrite: false })
+    createBendingMarkerGeometry(),
+    new LineBasicMaterial({ color: "#ffd166", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false })
   );
   const hoverMarker = new LineSegments(
-    markerEdgesGeometry,
+    createBendingMarkerGeometry(),
     new LineBasicMaterial({ color: "#d5ecff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false })
   );
   const townSupportMarkers = Array.from({ length: 8 }, () => {
     const material = new LineBasicMaterial({ color: "#f0f4ff", transparent: true, opacity: 0.56, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(markerEdgesGeometry, material);
+    const marker = new LineSegments(createBendingMarkerGeometry(), material);
     marker.visible = false;
     return { marker, material };
   });
   const queuedActionMarkers = Array.from({ length: 64 }, () => {
     const material = new LineBasicMaterial({ color: "#a78bfa", transparent: true, opacity: 0.93, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(markerEdgesGeometry, material);
+    const marker = new LineSegments(createBendingMarkerGeometry(), material);
     marker.visible = false;
     return { marker, material };
   });
   const queuedSettlementMarkers = Array.from({ length: 64 }, () => {
     const material = new LineBasicMaterial({ color: "#fbbf24", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(markerEdgesGeometry, material);
+    const marker = new LineSegments(createBendingMarkerGeometry(), material);
     marker.visible = false;
     return { marker, material };
   });
   const queuedBuildMarkers = Array.from({ length: 64 }, () => {
     const material = new LineBasicMaterial({ color: "#7dd3fc", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(markerEdgesGeometry, material);
+    const marker = new LineSegments(createBendingMarkerGeometry(), material);
     marker.visible = false;
     return { marker, material };
   });
@@ -262,8 +312,22 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     const dx = toroidDelta(deps.state.camX, tile.x, WORLD_WIDTH);
     const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
-    const surfaceY = heightfield.elevationAt(deps.wrapX(tile.x), deps.wrapY(tile.y));
-    marker.position.set(dx + TILE_CENTER_OFFSET, surfaceY + riseAboveSurface, dy + TILE_CENTER_OFFSET);
+    // Each corner of the marker is anchored to that corner's actual
+    // rendered Y so the outline bends with the heightfield instead of
+    // floating as a flat plane above bowing terrain.
+    const wxNext = deps.wrapX(tile.x + 1);
+    const wyNext = deps.wrapY(tile.y + 1);
+    const cornerY00 = heightfield.cornerYAt(tile.x, tile.y);
+    const cornerY10 = heightfield.cornerYAt(wxNext, tile.y);
+    const cornerY01 = heightfield.cornerYAt(tile.x, wyNext);
+    const cornerY11 = heightfield.cornerYAt(wxNext, wyNext);
+    marker.position.set(0, 0, 0);
+    writeBendingMarkerCorners(
+      marker.geometry as BufferGeometry,
+      dx + TILE_CENTER_OFFSET, 0, dy + TILE_CENTER_OFFSET,
+      cornerY00, cornerY10, cornerY01, cornerY11,
+      riseAboveSurface
+    );
     marker.visible = true;
   };
   const isTownSupportHighlightableAt = (wx: number, wy: number): boolean => {
@@ -304,8 +368,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         const sx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH);
         const sy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT);
-        const surfaceY = heightfield.elevationAt(wx, wy);
-        marker.position.set(sx + TILE_CENTER_OFFSET, surfaceY + MARKER_RISE_ABOVE_HEIGHTFIELD, sy + TILE_CENTER_OFFSET);
+        const wxNext = deps.wrapX(wx + 1);
+        const wyNext = deps.wrapY(wy + 1);
+        marker.position.set(0, 0, 0);
+        writeBendingMarkerCorners(
+          marker.geometry as BufferGeometry,
+          sx + TILE_CENTER_OFFSET, 0, sy + TILE_CENTER_OFFSET,
+          heightfield.cornerYAt(wx, wy),
+          heightfield.cornerYAt(wxNext, wy),
+          heightfield.cornerYAt(wx, wyNext),
+          heightfield.cornerYAt(wxNext, wyNext),
+          MARKER_RISE_ABOVE_HEIGHTFIELD
+        );
         marker.visible = true;
         markerIndex += 1;
       }
@@ -333,8 +407,20 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       const { marker } = pool[index]!;
       const dx = toroidDelta(deps.state.camX, tile.x, WORLD_WIDTH);
       const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
-      const surfaceY = heightfield.elevationAt(deps.wrapX(tile.x), deps.wrapY(tile.y));
-      marker.position.set(dx + TILE_CENTER_OFFSET, surfaceY + riseAboveSurface, dy + TILE_CENTER_OFFSET);
+      const wx = deps.wrapX(tile.x);
+      const wy = deps.wrapY(tile.y);
+      const wxNext = deps.wrapX(tile.x + 1);
+      const wyNext = deps.wrapY(tile.y + 1);
+      marker.position.set(0, 0, 0);
+      writeBendingMarkerCorners(
+        marker.geometry as BufferGeometry,
+        dx + TILE_CENTER_OFFSET, 0, dy + TILE_CENTER_OFFSET,
+        heightfield.cornerYAt(wx, wy),
+        heightfield.cornerYAt(wxNext, wy),
+        heightfield.cornerYAt(wx, wyNext),
+        heightfield.cornerYAt(wxNext, wyNext),
+        riseAboveSurface
+      );
       marker.visible = true;
       index += 1;
     }
@@ -567,12 +653,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         const settleProgress = deps.settlementProgressForTile(wx, wy);
         if (settleProgress && terrain === "LAND") {
-          const totalMs = Math.max(1, settleProgress.resolvesAt - settleProgress.startAt);
-          const progressNow = Math.max(0, Math.min(1, (Date.now() - settleProgress.startAt) / totalMs));
           const settleColor = ownerId
             ? tmpSettleOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)))
             : SETTLE_FALLBACK_COLOR;
-          settleOverlay.addInstance(x, z, surfaceY, settleColor, progressNow, wx, wy);
+          settleOverlay.addInstance(x, z, surfaceY, settleColor, settleProgress.startAt, settleProgress.resolvesAt, wx, wy);
         }
         if (tile) {
           const fortKind = fortificationOverlayKindForTile(tile);
@@ -593,39 +677,22 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (isOwnedLand && ownerId) {
           const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
           // ownershipOverlay.addTile copies the colour, so we can reuse a
-          // hoisted Color across tiles. wxOwn/wyOwn intentionally
-          // separate from the outer wxNext/wyNext to avoid shadowing.
+          // hoisted Color across tiles.
           const ownerColor = tmpOwnerColor.set(normalizedColor);
           const wxOwn = deps.wrapX(wx + 1);
           const wyOwn = deps.wrapY(wy + 1);
-          // Each corner reads the heightfield's averaged elevation so the
-          // painted overlay traces the sculpted ground. Water draws after
-          // the overlay (see WaterSurface.renderOrder) and naturally hides
-          // any portion that dips below the water surface.
-          const corner00Y = (
-            heightfield.elevationAt(deps.wrapX(wx - 1), deps.wrapY(wy - 1)) +
-            heightfield.elevationAt(wx, deps.wrapY(wy - 1)) +
-            heightfield.elevationAt(deps.wrapX(wx - 1), wy) +
-            heightfield.elevationAt(wx, wy)
-          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
-          const corner10Y = (
-            heightfield.elevationAt(wx, deps.wrapY(wy - 1)) +
-            heightfield.elevationAt(wxOwn, deps.wrapY(wy - 1)) +
-            heightfield.elevationAt(wx, wy) +
-            heightfield.elevationAt(wxOwn, wy)
-          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
-          const corner01Y = (
-            heightfield.elevationAt(deps.wrapX(wx - 1), wy) +
-            heightfield.elevationAt(wx, wy) +
-            heightfield.elevationAt(deps.wrapX(wx - 1), wyOwn) +
-            heightfield.elevationAt(wx, wyOwn)
-          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
-          const corner11Y = (
-            heightfield.elevationAt(wx, wy) +
-            heightfield.elevationAt(wxOwn, wy) +
-            heightfield.elevationAt(wx, wyOwn) +
-            heightfield.elevationAt(wxOwn, wyOwn)
-          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          // cornerYAt returns the heightfield's *rendered* Y for each
+          // corner — the same value written into the position buffer
+          // (including coastEdgeY pull-down at mixed corners and the
+          // explored-only filter), so the ownership quad traces the
+          // visible surface exactly. Previously this block averaged
+          // base elevations of the 4 surrounding tiles, which sat
+          // below the rendered surface near coast/explored boundaries
+          // and let the overlay sink under the heightfield.
+          const corner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner10Y = heightfield.cornerYAt(wxOwn, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner01Y = heightfield.cornerYAt(wx, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner11Y = heightfield.cornerYAt(wxOwn, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const x0 = x - 0.5;
           const x1 = x + 0.5;
           const z0 = z - 0.5;
@@ -698,6 +765,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     villageEffects.update(nowMs);
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
+    waterSurface.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -714,11 +782,26 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     renderer.dispose();
     ownershipOverlay.dispose();
-    markerEdgesGeometry.dispose();
-    for (const { material } of townSupportMarkers) material.dispose();
-    for (const { material } of queuedActionMarkers) material.dispose();
-    for (const { material } of queuedSettlementMarkers) material.dispose();
-    for (const { material } of queuedBuildMarkers) material.dispose();
+    selectedMarker.geometry.dispose();
+    hoverMarker.geometry.dispose();
+    (selectedMarker.material as LineBasicMaterial).dispose();
+    (hoverMarker.material as LineBasicMaterial).dispose();
+    for (const { marker, material } of townSupportMarkers) {
+      marker.geometry.dispose();
+      material.dispose();
+    }
+    for (const { marker, material } of queuedActionMarkers) {
+      marker.geometry.dispose();
+      material.dispose();
+    }
+    for (const { marker, material } of queuedSettlementMarkers) {
+      marker.geometry.dispose();
+      material.dispose();
+    }
+    for (const { marker, material } of queuedBuildMarkers) {
+      marker.geometry.dispose();
+      material.dispose();
+    }
     townOverlay.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
