@@ -6,6 +6,7 @@ import {
   MANPOWER_BASE_REGEN_PER_MINUTE,
   anonymizedEmpireNameForId,
   isOpaquePlayerId,
+  type PlayerRespawnNotice,
   type SeasonVictoryObjectiveView,
   type SeasonVictoryPathId,
   type ResourceType,
@@ -86,6 +87,7 @@ type GatewayInitPayload = {
     homeTile?: { x: number; y: number };
     tileColor?: string;
     canToggleFog?: boolean;
+    respawnNotice?: PlayerRespawnNotice;
   };
   config: { width: number; height: number; season: { seasonId: string; worldSeed: number } };
   techChoices: string[];
@@ -832,6 +834,7 @@ export const buildGatewayInitPayload = (
       domainIds: liveSnapshotPlayer?.domainIds ?? domainIds,
       availableTechPicks: techChoices.length,
       techRootId: "rewrite-local",
+      ...(initialState?.respawnNotice ? { respawnNotice: initialState.respawnNotice } : {}),
       ...(liveSnapshotPlayer?.developmentProcessLimit ? { developmentProcessLimit: liveSnapshotPlayer.developmentProcessLimit } : {}),
       ...(typeof liveSnapshotPlayer?.activeDevelopmentProcessCount === "number"
         ? { activeDevelopmentProcessCount: liveSnapshotPlayer.activeDevelopmentProcessCount }
