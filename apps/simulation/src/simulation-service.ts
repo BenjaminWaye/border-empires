@@ -339,7 +339,10 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("siegeOutpostJson" in tile ? { siege_outpost_json: tile.siegeOutpostJson ?? "" } : {}),
           ...("economicStructureJson" in tile ? { economic_structure_json: tile.economicStructureJson ?? "" } : {}),
           ...("sabotageJson" in tile ? { sabotage_json: tile.sabotageJson ?? "" } : {}),
-          ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {})
+          ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {}),
+          ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
+          ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
+          ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
         }))
       : [],
   ...(value.eventType === "TILE_DELTA_BATCH"
@@ -1639,9 +1642,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           ...(tile.townType ? { town_type: tile.townType } : {}),
           ...(tile.townName ? { town_name: tile.townName } : {}),
           ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-          ...("yield" in tile ? { yield: tile.yield } : {}),
-          ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
-          ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {})
+          ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
+          ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
+          ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
         }))
       });
       if (!subscribeOptions.emitBootstrapEvent) return;
