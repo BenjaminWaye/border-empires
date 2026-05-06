@@ -96,9 +96,24 @@ export type AutomationPlannerDiagnostic = {
   settlementEligible: boolean;
   settlementCandidateFound: boolean;
   frontierEnemyTargetCount: number;
+  frontierEnemyPlayerTargetCount?: number;
+  frontierBarbarianTargetCount?: number;
   frontierNeutralTargetCount: number;
+  frontierOpportunityEconomic?: number;
+  frontierOpportunityScout?: number;
+  frontierOpportunityScaffold?: number;
+  frontierOpportunityWaste?: number;
   canAttack: boolean;
   canExpand: boolean;
+  ownedTileCount?: number;
+  ownedFrontierTileCount?: number;
+  frontierTileCountInput?: number;
+  hotFrontierTileCountInput?: number;
+  strategicFrontierTileCountInput?: number;
+  frontierOriginCount?: number;
+  dockOriginCount?: number;
+  playerScopeKeyCount?: number;
+  playerScopeTileCount?: number;
   preplanReason?: AutomationPreplanReason;
   preplanHasCollectibleVisibleYieldSource?: boolean;
   preplanNeedsEconomy?: boolean;
@@ -134,6 +149,8 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   clientSeq: number;
   issuedAt: number;
   sessionPrefix: AutomationSessionPrefix;
+  playerScopeKeyCount?: number | undefined;
+  playerScopeTileCount?: number | undefined;
   onPhaseTiming?: (sample: {
     phase: AutomationPlannerPhase;
     durationMs: number;
@@ -376,9 +393,24 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     settlementEligible,
     settlementCandidateFound: Boolean(settlementCandidate),
     frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount,
+    frontierEnemyPlayerTargetCount: frontierAnalysis.frontierEnemyPlayerTargetCount,
+    frontierBarbarianTargetCount: frontierAnalysis.frontierBarbarianTargetCount,
     frontierNeutralTargetCount: frontierAnalysis.frontierNeutralTargetCount,
+    frontierOpportunityEconomic: frontierAnalysis.frontierOpportunityEconomic,
+    frontierOpportunityScout: frontierAnalysis.frontierOpportunityScout,
+    frontierOpportunityScaffold: frontierAnalysis.frontierOpportunityScaffold,
+    frontierOpportunityWaste: frontierAnalysis.frontierOpportunityWaste,
     canAttack,
-    canExpand
+    canExpand,
+    ownedTileCount: input.ownedTiles.length,
+    ownedFrontierTileCount: ownedFrontierTiles.length,
+    frontierTileCountInput: input.frontierTiles.length,
+    hotFrontierTileCountInput: input.hotFrontierTiles?.length ?? 0,
+    strategicFrontierTileCountInput: input.strategicFrontierTiles?.length ?? 0,
+    frontierOriginCount: frontierOrigins.length,
+    dockOriginCount: dockOrigins.length,
+    ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
+    ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
   };
 
   const settledTileCount = input.settledTileCount ?? input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED").length;
