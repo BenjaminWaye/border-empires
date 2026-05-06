@@ -6,7 +6,7 @@ describe("tile menu copy ownership", () => {
     expect(tileMenuSubtitleText("Unclaimed", "Ancient Heartland")).toBe("Unclaimed · Ancient Heartland");
   });
 
-  it("does not duplicate region or owner lines for unclaimed land in overview", () => {
+  it("uses a single claim prompt for plain unclaimed land", () => {
     expect(
       tileMenuOverviewIntroLines({
         terrain: "LAND",
@@ -14,12 +14,11 @@ describe("tile menu copy ownership", () => {
         productionLabel: "food"
       })
     ).toEqual([
-      "Claim this tile first to turn it into frontier land.",
-      "After you settle it, this tile can produce food."
+      "Claim this tile first to turn it into frontier land."
     ]);
   });
 
-  it("calls out neutral resource nodes explicitly in overview copy", () => {
+  it("collapses neutral resource node copy into a single actionable line", () => {
     expect(
       tileMenuOverviewIntroLines({
         terrain: "LAND",
@@ -28,9 +27,7 @@ describe("tile menu copy ownership", () => {
         resourceLabel: "Iron"
       })
     ).toEqual([
-      "Resource node: Iron.",
-      "Claim this tile first to turn it into frontier land.",
-      "After you settle it, this tile can produce iron."
+      "Resource node: Iron. Claim and settle this tile to start producing iron."
     ]);
   });
 });

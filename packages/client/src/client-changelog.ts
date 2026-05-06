@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.5",
+  version: "2026.05.06.6",
   title: "What's New",
-  summary: "Rewrite staging AI now classifies dead-end frontier turns more honestly and stops leaking invalid settlement candidates into fallback planning, so live debugging can distinguish real settlement failure from plain no-frontier states. Returning players also keep their empire across simulation restarts, and the earlier dock-wrap, respawn, 3D renderer, fog, and rewrite AI parity fixes remain in this release train.",
+  summary: "Tile overview cleanup: claim/settle prompts no longer repeat themselves, frontier-claimed town tiles hide post-settle stats and prompt to settle, settled docks now show base income and connection count, and unclaimed resource tiles collapse three near-duplicate sentences into one actionable line. Plus the rewrite AI dead-end frontier classification, returning-player territory recovery, dock-wrap, respawn, 3D renderer, and fog fixes from the prior release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.6",
+      title: "Tile overview copy is shorter and more actionable",
+      why: "Tile overview panels were repeating the same claim/settle prompt up to four times for unclaimed resource tiles, displaying meaningless 0/0 Support and 0.00/m Production rows on tiles the player did not own, and showing nothing useful for owned settled docks beyond the generic 'Settled land is defended' line.",
+      changes: [
+        "Frontier-claimed town tiles no longer show Support 0/0, Growth 0/m, Next size, or 'Town is unfed' — they show a single 'Settle this tile to activate the town's economy and start gold income' line instead. Population stays visible as the worth-it anchor.",
+        "Unclaimed resource tiles collapse the four near-duplicate claim / settle / production sentences into one actionable line: 'Resource node: Iron. Claim and settle this tile to start producing iron.'",
+        "Unclaimed dock land gets a dock-specific intro ('Unclaimed dock. Claim and settle this tile to plug it into your trade routes.') instead of the generic claim prompt.",
+        "Owned settled docks now show 'Dock income X gold/m' and a connection-count line, including any modifier breakdown when the rewrite ships per-tile dock summaries.",
+        "Production: 0.00/m no longer appears on tiles the player does not own."
+      ]
+    },
     {
       introducedIn: "2026.05.06.5",
       title: "Rewrite staging AI no longer mislabels dead-end frontier turns as settlement failures",
