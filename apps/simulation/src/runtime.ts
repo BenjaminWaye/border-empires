@@ -77,6 +77,7 @@ import { isFrontierAdjacent } from "./frontier-adjacency.js";
 import {
   buildDockLinksByDockTileKey,
   collectLinkedDockRevealKeysForOwners,
+  computeLinkedDockRevealTileKeys,
   isValidDockCrossingTarget,
   type DockRouteDefinition
 } from "./dock-network.js";
@@ -3483,6 +3484,10 @@ export class SimulationRuntime {
   }
 
   private emitEvent(event: SimulationEvent): void {
+    if (event.eventType === "TILE_DELTA_BATCH") {
+      const expanded = this.expandTileDeltasWithLinkedDocks(event.tileDeltas);
+      if (expanded !== event.tileDeltas) event = { ...event, tileDeltas: expanded };
+    }
     this.persistence.recordEvent(event);
     const existingEvents = this.recordedEventsByCommandId.get(event.commandId) ?? [];
     existingEvents.push(event);
@@ -3490,6 +3495,33 @@ export class SimulationRuntime {
     if (isTerminalCommandEvent(event)) this.markTerminalReplayCommand(event.commandId);
     this.pruneReplayCaches();
     this.events.emit("event", event);
+  }
+
+  private expandTileDeltasWithLinkedDocks(
+    deltas: Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]
+  ): Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"] {
+    const dockTileKeysInBatch: string[] = [];
+    for (const delta of deltas) {
+      if (delta.dockId) dockTileKeysInBatch.push(simulationTileKey(delta.x, delta.y));
+    }
+    if (dockTileKeysInBatch.length === 0) return deltas;
+    const revealKeys = computeLinkedDockRevealTileKeys(
+      dockTileKeysInBatch,
+      this.dockLinksByDockTileKey,
+      WORLD_WIDTH,
+      WORLD_HEIGHT
+    );
+    if (revealKeys.size === 0) return deltas;
+    const seen = new Set<string>(deltas.map((delta) => simulationTileKey(delta.x, delta.y)));
+    const additional: typeof deltas = [];
+    for (const tileKey of revealKeys) {
+      if (seen.has(tileKey)) continue;
+      const tile = this.tiles.get(tileKey);
+      if (!tile) continue;
+      additional.push(this.tileDeltaFromState(tile));
+    }
+    if (additional.length === 0) return deltas;
+    return [...deltas, ...additional];
   }
 
   private scheduleLockResolution(lock: LockRecord): void {
