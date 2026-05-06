@@ -161,12 +161,21 @@ export const createHeightfield = (): Heightfield => {
 
   const elevationCache = new Map<number, number>();
   const elevationKey = (wx: number, wy: number): number => wx * 100003 + wy;
+  // Rendered corner-Y cache populated during rebuild(). Keyed on the
+  // integer world coords of the corner (cornerX, cornerZ). Stores the
+  // exact Y written into the heightfield position buffer for that
+  // corner — including the coastEdgeY pull-down at mixed corners and
+  // the explored-only filter — so overlays anchored to the heightfield
+  // surface (ownership rings, hover/select markers) match what the
+  // user actually sees rather than the averaged base elevations.
+  const renderedCornerYCache = new Map<number, number>();
 
   let lastIndexCount = 0;
   let lastTileSpanX = 0;
 
   const rebuild = (inputs: HeightfieldRebuildInputs): void => {
     elevationCache.clear();
+    renderedCornerYCache.clear();
     const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt } = inputs;
     const exploredAt = isExploredAt ?? ((): boolean => true);
 
@@ -284,6 +293,11 @@ export const createHeightfield = (): Heightfield => {
         colors[baseIdx + 0] = r;
         colors[baseIdx + 1] = g;
         colors[baseIdx + 2] = b;
+        // Cache the rendered corner-Y keyed by world coords so overlay
+        // helpers can look up the exact surface Y the heightfield drew.
+        const cornerWorldX = wrap(camX + tileOffsetX + i, worldWidth);
+        const cornerWorldZ = wrap(camY + tileOffsetY + j, worldHeight);
+        renderedCornerYCache.set(elevationKey(cornerWorldX, cornerWorldZ), elevation);
       }
     }
 
@@ -368,10 +382,16 @@ export const createHeightfield = (): Heightfield => {
 
   // Heightfield corner Y for the integer grid corner at (cornerX, cornerZ),
   // which is shared by tiles (cornerX-1, cornerZ-1), (cornerX, cornerZ-1),
-  // (cornerX-1, cornerZ), (cornerX, cornerZ). Mirrors the corner-averaging in
-  // rebuild() so an ownership overlay placed at the four corners of a tile
-  // traces the same surface the heightfield renders.
+  // (cornerX-1, cornerZ), (cornerX, cornerZ). Returns the *rendered* Y
+  // from the last rebuild — the same value written into the heightfield
+  // position buffer (including coastEdgeY pull-down at mixed corners and
+  // the explored-only filter), so overlays anchored at this corner sit
+  // exactly on the visible surface. Falls back to averaged base
+  // elevations for corners outside the visible window (rare; e.g. the
+  // dock orientation lookup near the edge of the rebuild span).
   const cornerYAt = (cornerX: number, cornerZ: number): number => {
+    const cached = renderedCornerYCache.get(elevationKey(cornerX, cornerZ));
+    if (cached !== undefined) return cached;
     const a = elevationAt(cornerX - 1, cornerZ - 1);
     const b = elevationAt(cornerX, cornerZ - 1);
     const c = elevationAt(cornerX - 1, cornerZ);
