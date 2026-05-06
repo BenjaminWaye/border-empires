@@ -1,11 +1,34 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createClientSocketSetup } from "./client-app-runtime-env.js";
 import * as multiplexWebSocketModule from "./client-multiplex-websocket.js";
 
+// Both cases below assert the fallback behavior when no baked gateway env
+// var is present. Local-dev .env.local files ship those vars set to staging
+// (so the dev client can talk to staging by default) which would otherwise
+// short-circuit the fallback under test. Save + clear in beforeEach,
+// restore in afterEach so the assertions actually exercise the code path
+// the test names claim.
+const ENV_KEYS_TO_ISOLATE = ["VITE_GATEWAY_WS_URL", "VITE_WS_URL"] as const;
+
 describe("client app runtime env", () => {
+  const savedEnv: Record<string, string | undefined> = {};
+
   beforeEach(() => {
     vi.restoreAllMocks();
+    const env = import.meta.env as Record<string, string | undefined>;
+    for (const key of ENV_KEYS_TO_ISOLATE) {
+      savedEnv[key] = env[key];
+      delete env[key];
+    }
+  });
+
+  afterEach(() => {
+    const env = import.meta.env as Record<string, string | undefined>;
+    for (const key of ENV_KEYS_TO_ISOLATE) {
+      if (savedEnv[key] === undefined) delete env[key];
+      else env[key] = savedEnv[key];
+    }
   });
 
   it("defaults localhost websocket traffic to the rewrite gateway host binding", () => {
