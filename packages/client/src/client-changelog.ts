@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.4",
+  version: "2026.05.06.5",
   title: "What's New",
-  summary: "Returning players no longer get silently respawned at a fresh tile and lose their entire empire across simulation restarts: the simulation runtime now preserves recovered per-player territory summaries when a returning human player is missing from the snapshot's players list. Plus toroidal linked-dock connection lines, the respawn notice popup port to the rewrite stack, the opt-in true-3D renderer overlay pass, fog-of-war fixes, capturable coastal LAND fix, and the earlier respawn diagnostics, AI GOAP fallback, town recovery, snapshot, and town-population fixes from this release train.",
+  summary: "Rewrite staging AI now classifies dead-end frontier turns more honestly and stops leaking invalid settlement candidates into fallback planning, so live debugging can distinguish real settlement failure from plain no-frontier states. Returning players also keep their empire across simulation restarts, and the earlier dock-wrap, respawn, 3D renderer, fog, and rewrite AI parity fixes remain in this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.5",
+      title: "Rewrite staging AI no longer mislabels dead-end frontier turns as settlement failures",
+      why: "Live staging AI logs were piling up `no_settlement_target` even on turns where the planner had no real frontier work to do, which made the AI look dramatically more broken than it actually was and hid the difference between a bad settlement decision and a true no-frontier dead end.",
+      changes: [
+        "Settlement fallback search now stays constrained to real owned frontier tiles when cached frontier lists are empty, instead of scanning arbitrary owned land and risking invalid fallback picks.",
+        "Fallback settlement selection now discards invalid `-Infinity` settlement evaluations, so non-frontier owned tiles cannot leak into the planner as bogus settle candidates.",
+        "The rewrite automation planner now emits `no_frontier_targets` when there is no actionable settlement or frontier path, instead of blaming settlement by default and inflating the staging `no_settlement_target` metric."
+      ]
+    },
     {
       introducedIn: "2026.05.06.4",
       title: "Returning players keep their empire across simulation restarts",
