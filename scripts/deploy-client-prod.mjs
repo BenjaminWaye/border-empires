@@ -103,6 +103,7 @@ const deploymentUrl = normalizeDeploymentUrl(
       "deploy",
       "--prod",
       "--yes",
+      "--archive=tgz",
       "--scope",
       vercelClientProject.scope
     ],
