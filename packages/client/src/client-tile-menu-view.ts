@@ -342,9 +342,7 @@ export const menuOverviewForTile = (
     } else if (!isSettled) {
       pushLine("Settle this tile to activate the town's economy and start gold income.");
     } else if (tile.town.populationTier === "SETTLEMENT") {
-      const displayedTownGoldPerMinute = deps.displayTownGoldPerMinute(tile);
-      const settlementGoldPerMinute = Number.isFinite(displayedTownGoldPerMinute) ? displayedTownGoldPerMinute : 0;
-      pushLine(`Settlement is producing ${settlementGoldPerMinute.toFixed(2)} gold/m.`);
+      // No prose income line — the unified `Production: X/m` row below shows the same value.
     } else if (!tile.town.isFed) {
       pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or grain.");
     } else if (
@@ -386,8 +384,8 @@ export const menuOverviewForTile = (
       }
     }
   }
-  if (productionHtml && hasOwnedLandState) pushLine(`Production: ${productionHtml}`);
-  if (hasOwnedLandState) lines.push(...tileOverviewUpkeepLines(tile));
+  if (productionHtml && hasOwnedLandState && isSettled) pushLine(`Production: ${productionHtml}`);
+  if (hasOwnedLandState && isSettled) lines.push(...tileOverviewUpkeepLines(tile));
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
     if (town) {
@@ -456,8 +454,10 @@ export const menuOverviewForTile = (
   if (tile.siegeOutpost?.status === "removing") {
     pushLine("Siege outpost removal is underway. Attack bonuses from this tile are currently disabled.");
   }
-  const storedYield = storedYieldSummary(tile, { alwaysShowOwnedTownGold: Boolean(tile.town && tile.ownerId === deps.state.me) });
-  if (storedYield) pushLine(`Stored yield: ${storedYield}`);
+  if (isSettled) {
+    const storedYield = storedYieldSummary(tile, { alwaysShowOwnedTownGold: Boolean(tile.town && tile.ownerId === deps.state.me) });
+    if (storedYield) pushLine(`Stored yield: ${storedYield}`);
+  }
   const construction = deps.constructionCountdownLineForTile(tile);
   if (construction) pushLine(construction);
   for (const historyLine of deps.tileHistoryLines(tile)) pushLine(historyLine);

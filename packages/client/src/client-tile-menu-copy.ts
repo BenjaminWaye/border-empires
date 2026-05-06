@@ -37,6 +37,9 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
     return ["Claim this tile first to turn it into frontier land."];
   }
   if (input.ownerKind === "mine-frontier") {
+    if (input.hasTown) {
+      return input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : [];
+    }
     return input.productionLabel
       ? [
           ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
