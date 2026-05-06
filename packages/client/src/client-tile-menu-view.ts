@@ -336,10 +336,13 @@ export const menuOverviewForTile = (
         : `Shard cache: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be recovered here.`
     );
   }
-  const supportedTowns = tile.ownerId === deps.state.me && tile.ownershipState === "SETTLED" ? deps.supportedOwnedTownsForTile(tile) : [];
+  const isSettled = tile.ownershipState === "SETTLED";
+  const supportedTowns = tile.ownerId === deps.state.me && isSettled ? deps.supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
     if (!hasOwnedLandState) {
       pushLine("Neutral town. Claim and settle this tile to start its economy.");
+    } else if (!isSettled) {
+      pushLine("Settle this tile to activate the town's economy and start gold income.");
     } else if (tile.town.populationTier === "SETTLEMENT") {
       const displayedTownGoldPerMinute = deps.displayTownGoldPerMinute(tile);
       const settlementGoldPerMinute = Number.isFinite(displayedTownGoldPerMinute) ? displayedTownGoldPerMinute : 0;
@@ -352,17 +355,19 @@ export const menuOverviewForTile = (
     ) {
       pushLine("Town is fed but gold is paused until your empire manpower is full.");
     }
-    if (hasOwnedLandState && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
+    if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");
     }
-    if (hasOwnedLandState && tile.town.populationTier !== "SETTLEMENT") {
+    if (hasOwnedLandState && isSettled && tile.town.populationTier !== "SETTLEMENT") {
       const supportCurrent = Number.isFinite(tile.town.supportCurrent) ? tile.town.supportCurrent : 0;
       const supportMax = Number.isFinite(tile.town.supportMax) ? tile.town.supportMax : 0;
       pushLine(`Support ${supportCurrent}/${supportMax}`);
     }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
-    pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
-    pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town, { explainUnfed: tile.ownerId === deps.state.me && tile.ownershipState === "SETTLED" })}.`);
+    if (isSettled) {
+      pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
+      pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town, { explainUnfed: tile.ownerId === deps.state.me })}.`);
+    }
   } else if (tile.resource) {
     if (tile.ownershipState === "SETTLED" && !productionHtml) {
       pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
