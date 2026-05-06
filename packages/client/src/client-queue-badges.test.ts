@@ -26,12 +26,12 @@ describe("queued corner badge layout", () => {
       background: "rgba(49, 31, 4, 0.92)",
       foreground: "#fbbf24",
       text: "2",
-      x: 107,
-      y: 203,
-      width: 14,
-      height: 12,
-      textX: 109,
-      textY: 204
+      x: 104,
+      y: 200,
+      width: 20,
+      height: 18,
+      textX: 114,
+      textY: 210
     });
   });
 
@@ -54,7 +54,8 @@ describe("queued corner badge layout", () => {
       height: 21
     });
     expect(layout?.badge?.text).toBe("11");
-    expect(layout?.badge?.width).toBe(18);
+    expect(layout?.badge?.width).toBe(26);
+    expect(layout?.badge?.height).toBe(18);
   });
 
   it("uses the shared helper for frontier queue numbers in true 3d mode", () => {
@@ -73,12 +74,12 @@ describe("queued corner badge layout", () => {
       background: "rgba(20, 16, 35, 0.85)",
       foreground: "#c4b5fd",
       text: "3",
-      x: 57,
-      y: 78,
-      width: 14,
-      height: 12,
-      textX: 59,
-      textY: 79
+      x: 54,
+      y: 75,
+      width: 20,
+      height: 18,
+      textX: 64,
+      textY: 85
     });
   });
 

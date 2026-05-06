@@ -19,10 +19,24 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.7",
+  version: "2026.05.06.8",
   title: "What's New",
-  summary: "Recent updates include reducing rewrite simulation checkpoint pressure by checkpointing less aggressively, cleaning up tile overview copy, keeping rewrite staging AI from mislabeling dead-end frontier turns, preserving returning-player empires across simulation restarts, and carrying forward the latest dock-wrap, respawn, true-3D, and town recovery fixes from this release train.",
+  summary: "True-3D renderer polish: hover and select borders now bend with the terrain, ownership tints sit flush on the tile surface (no more clipping above or below), settling tiles fill west-to-east with a swarm of pinprick settlers wandering on top, fish hang vertically from the drying rack on FISH resource tiles, the water surface bobs and tiles seamlessly, and queue ordinal badges sit pixel-crisp in the top-right corner of each tile. Plus all the recent rewrite fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.8",
+      title: "True-3D renderer: bending borders, settle swarm, undulating water, and crisper queue badges",
+      why: "The opt-in true-3D renderer (?renderer=3d) had multiple visual rough edges from its initial port: hover/select borders floated as flat boxes above bumpy tiles, ownership tints clipped above or below the surface, the settle animation was stuck on a single static dot, fishing tiles had floating crossed nets, the water looked like a 2D tiled plane, and the queue ordinal badges were tiny and inset awkwardly.",
+      changes: [
+        "Hover and selection borders now bend with the terrain — each corner of the marker reads its own corner-Y from the heightfield, so the outline conforms to the bumpy tile surface instead of floating as a rigid box.",
+        "Selected tile ring is now visibly yellow (#ffd166) and hover is a soft light-blue (#d5ecff), so selection and hover read as distinct states.",
+        "Ownership and frontier tints now sit flush on the tile surface — corners use the same per-corner Y as the heightfield, so the tint no longer clips half above and half below uneven tiles.",
+        "Settling tiles now animate the way they should: an owner-color plate fills the tile west-to-east as progress climbs from 0→1, a yellow perimeter frame pulses around the tile, and a swarm of pinprick black settlers wander on top — count ramps from 2 at the start to 18 at completion. Each settler walks an independent path because the wander seed now uses Murmur3-style mixing instead of small XORs that collapsed all settlers onto the same pixel.",
+        "Fish hang vertically from the drying rack on FISH resource tiles, and the floating crossed-net 'tall cross' artifact is gone.",
+        "Water surface now bobs with a subdivided plane and a low-amplitude sin·sin wave that's zero along all four edges — adjacent water tiles meet flush and no longer read as flat 2D rectangles. The procedural texture is also re-tuned with seamless integer-frequency waves so RepeatWrapping stops showing per-tile boundaries.",
+        "Queue ordinal badges (Frontier, Settlement, Build) are roughly 2× the legacy footprint, pixel-aligned, and pushed flush to the top-right corner of each tile — bold/big fonts and sub-pixel positioning that softened the digits on Retina canvases are gone."
+      ]
+    },
     {
       introducedIn: "2026.05.06.7",
       title: "Rewrite checkpointing now causes much less database churn",
