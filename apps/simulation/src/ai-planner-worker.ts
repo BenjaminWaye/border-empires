@@ -70,6 +70,33 @@ const rememberedVictoryPathCounts = (): Partial<Record<AutomationVictoryPath, nu
   return counts;
 };
 
+const plannerPlayerScopeKeyCount = (player: PlannerPlayerView): number => {
+  const scopedKeys = new Set<string>();
+  for (const key of player.territoryTileKeys) scopedKeys.add(key);
+  for (const key of player.frontierTileKeys) scopedKeys.add(key);
+  for (const key of player.hotFrontierTileKeys) scopedKeys.add(key);
+  for (const key of player.strategicFrontierTileKeys) scopedKeys.add(key);
+  for (const key of player.buildCandidateTileKeys) scopedKeys.add(key);
+  for (const key of player.pendingSettlementTileKeys) scopedKeys.add(key);
+  return scopedKeys.size;
+};
+
+const resolvedPlayerScopeTileCount = (resolved: {
+  ownedTiles: readonly PlannerTileView[];
+  frontierTiles: readonly PlannerTileView[];
+  hotFrontierTiles: readonly PlannerTileView[];
+  strategicFrontierTiles: readonly PlannerTileView[];
+  buildCandidateTiles: readonly PlannerTileView[];
+}): number => {
+  const scopedKeys = new Set<string>();
+  for (const tile of resolved.ownedTiles) scopedKeys.add(`${tile.x},${tile.y}`);
+  for (const tile of resolved.frontierTiles) scopedKeys.add(`${tile.x},${tile.y}`);
+  for (const tile of resolved.hotFrontierTiles) scopedKeys.add(`${tile.x},${tile.y}`);
+  for (const tile of resolved.strategicFrontierTiles) scopedKeys.add(`${tile.x},${tile.y}`);
+  for (const tile of resolved.buildCandidateTiles) scopedKeys.add(`${tile.x},${tile.y}`);
+  return scopedKeys.size;
+};
+
 type SimulationTileDelta = {
   x: number;
   y: number;
@@ -347,6 +374,14 @@ const choosePlannerCommand = (
     tilesByKey,
     dockLinksByDockTileKey,
     isPendingSettlement: (tile) => pendingSettlementTileKeys.has(`${tile.x},${tile.y}`),
+    playerScopeKeyCount: plannerPlayerScopeKeyCount(player),
+    playerScopeTileCount: resolvedPlayerScopeTileCount({
+      ownedTiles,
+      frontierTiles,
+      hotFrontierTiles,
+      strategicFrontierTiles,
+      buildCandidateTiles
+    }),
     previousVictoryPath: rememberedVictoryPathByPlayer.get(playerId),
     pathPopulationCounts: rememberedVictoryPathCounts(),
     onStrategicSnapshot: (snapshot) => {

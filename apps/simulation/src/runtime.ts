@@ -126,6 +126,17 @@ import {
 import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 
+const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {
+  const scopedKeys = new Set<string>();
+  for (const key of summary.territoryTileKeys) scopedKeys.add(key);
+  for (const key of summary.frontierTileKeys) scopedKeys.add(key);
+  for (const key of summary.hotFrontierTileKeys) scopedKeys.add(key);
+  for (const key of summary.strategicFrontierTileKeys) scopedKeys.add(key);
+  for (const key of summary.buildCandidateTileKeys) scopedKeys.add(key);
+  for (const key of summary.pendingSettlementsByTile.keys()) scopedKeys.add(key);
+  return scopedKeys.size;
+};
+
 type LockRecord = {
   commandId: string;
   playerId: string;
@@ -1158,6 +1169,8 @@ export class SimulationRuntime {
       tilesByKey: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
       isPendingSettlement: (tile) => summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y)),
+      playerScopeKeyCount: plannerPlayerScopeKeyCount(summary),
+      playerScopeTileCount: plannerPlayerScopeKeyCount(summary),
       previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
       pathPopulationCounts: this.rememberedAutomationVictoryPathCounts(),
       onStrategicSnapshot: (snapshot) => {
