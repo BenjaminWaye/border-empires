@@ -32,6 +32,7 @@ describe("simulation metrics", () => {
     metrics.observeSimAiNoop("no_frontier_targets", "ai-4");
     metrics.observeSimAiNoop("insufficient_manpower_for_attack", "ai-2");
     metrics.observeSimAiNoop("planner_error", "ai-9");
+    metrics.observeSimAiNoFrontierDetail("source=worker:ai-4:owned=12:owned_frontier=3:frontier=0:hot=0:strategic=0:origins=3:dock_origins=0:scope_keys=24:scope_tiles=22:settle=0:enemy=0:enemy_player=0:barbarian=0:neutral=0:econ=0:scout=0:scaffold=0:waste=2:preplan=tech_unaffordable");
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 8);
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 12);
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 20);
@@ -98,6 +99,7 @@ describe("simulation metrics", () => {
     expect(sample.simAiNoopTotalByReason.planner_error).toBe(1);
     expect(sample.simAiNoopRecent).toContain("ai-4:no_frontier_targets");
     expect(sample.simAiNoopRecent).toContain("ai-9:planner_error");
+    expect(sample.simAiNoFrontierRecent).toContain("source=worker:ai-4:owned=12:owned_frontier=3:frontier=0:hot=0:strategic=0:origins=3:dock_origins=0:scope_keys=24:scope_tiles=22:settle=0:enemy=0:enemy_player=0:barbarian=0:neutral=0:econ=0:scout=0:scaffold=0:waste=2:preplan=tech_unaffordable");
     expect(sample.simCheckpointRssMb).toBe(321.5);
     expect(sample.simCpuPercent).toBe(37.2);
     expect(sample.simHeapUsedMb).toBe(82);
