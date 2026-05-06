@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.2",
+  version: "2026.05.06.3",
   title: "What's New",
-  summary: "The respawn notice popup now actually fires on staging: the prepare→finalize→peek→consume notice flow has been ported into the rewrite gateway/simulation stack so the staging client receives a respawnNotice on INIT whenever the simulation respawns the player. Plus the opt-in true-3D renderer overlay pass, fog-of-war fixes, capturable coastal LAND fix, and the earlier respawn diagnostics, AI GOAP fallback, town recovery, snapshot, and town-population fixes from this release train.",
+  summary: "Linked-dock connection lines now render correctly on a toroidal world: the dashed lines between paired docks no longer shoot off-screen in the wrong direction when the camera, A-dock, and B-dock straddle the world wrap. Plus the respawn notice popup port to the rewrite stack, the opt-in true-3D renderer overlay pass, fog-of-war fixes, capturable coastal LAND fix, and the earlier respawn diagnostics, AI GOAP fallback, town recovery, snapshot, and town-population fixes from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.3",
+      title: "Linked-dock connection lines render correctly across the world wrap",
+      why: "Selecting a dock drew the dashed connection line by stepping out from the selected dock using the toroidal-shortest direction, but the renderer drew the paired dock at its own toroidal-nearest screen position relative to the camera. When the camera, A, and B straddled the wrap edge those two positions diverged by a full world width, so the line shot off-screen in a direction that did not match the paired dock's drawn location.",
+      changes: [
+        "Dock connection endpoints now use worldToScreen for both ends, so the dashed line always points at the actual on-screen position of the paired dock.",
+        "Sea-route segments are now positioned per tile via worldToScreen instead of accumulating from the start, so the path tracks the actual rendered tiles instead of drifting away from them across the wrap edge.",
+        "When A and B straddle the camera's wrap edge, the fallback now draws the toroidal-shortest connection as two parallel stubs (one extending from each dock toward where the other would be unwrapped) instead of a single line going the wrong way."
+      ]
+    },
     {
       introducedIn: "2026.05.06.2",
       title: "Respawn notice popup now fires on the rewrite gateway/simulation stack",
