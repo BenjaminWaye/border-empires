@@ -297,16 +297,21 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     input.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT &&
     input.points >= SETTLE_COST;
   const settlementStartedAt = Date.now();
+  const ownedFrontierTiles = input.ownedTiles.filter(
+    (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
+  ) as readonly TTile[];
   const settlementSources = (input.strategicFrontierTiles?.length
     ? input.strategicFrontierTiles
     : input.hotFrontierTiles?.length
       ? input.hotFrontierTiles
-      : input.frontierTiles) as unknown as Iterable<DomainTileState>;
+      : input.frontierTiles.length > 0
+        ? input.frontierTiles
+        : ownedFrontierTiles) as unknown as Iterable<DomainTileState>;
   const fallbackSettlementSources = (input.hotFrontierTiles?.length
     ? input.hotFrontierTiles
     : input.frontierTiles.length > 0
       ? input.frontierTiles
-      : settlementSources) as unknown as Iterable<DomainTileState>;
+      : ownedFrontierTiles) as unknown as Iterable<DomainTileState>;
   const settlementCandidate = settlementEligible
     ? chooseBestStrategicSettlementTile(
         input.playerId,
@@ -678,12 +683,17 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   }
 
   let noCommandReason: AutomationNoopReason;
+  const hasAnyFrontierOpportunity =
+    frontierAnalysis.frontierEnemyTargetCount > 0 || frontierAnalysis.frontierNeutralTargetCount > 0;
+  const hasAnyActionableSettlementCandidate = hasActionableSettlementCandidate(context);
   if (input.activeDevelopmentProcessCount >= DEVELOPMENT_PROCESS_LIMIT && frontierAnalysis.frontierEnemyTargetCount === 0 && frontierAnalysis.frontierNeutralTargetCount === 0) {
     noCommandReason = "development_process_limit";
   } else if (!canExpand) {
     noCommandReason = "insufficient_points";
   } else if (!canAttack && frontierAnalysis.frontierEnemyTargetCount > 0 && frontierAnalysis.frontierNeutralTargetCount === 0) {
     noCommandReason = "insufficient_manpower_for_attack";
+  } else if (!hasAnyFrontierOpportunity && !hasAnyActionableSettlementCandidate) {
+    noCommandReason = "no_frontier_targets";
   } else if (settlementEligible) {
     noCommandReason = "no_settlement_target";
   } else {

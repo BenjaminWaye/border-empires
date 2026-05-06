@@ -73,6 +73,33 @@ describe("automation command planner", () => {
     expect(result.diagnostic.settlementCandidateFound).toBe(true);
   });
 
+  it("falls back to owned frontier tiles when frontier lists are empty", () => {
+    const frontier = makeTile(2, 2, {
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER",
+      dockId: "dock-1"
+    });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [frontier],
+      tilesByKey: new Map([["2,2", frontier]]),
+      clientSeq: 101,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 2, y: 2 })
+    });
+    expect(result.diagnostic.settlementCandidateFound).toBe(true);
+  });
+
   it("reports insufficient_manpower_for_attack when only enemy land is adjacent", () => {
     const owned = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const enemy = makeTile(1, 0, { ownerId: "enemy-1" });
@@ -150,6 +177,32 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
+    expect(result.diagnostic.noCommandReason).toBe("no_frontier_targets");
+  });
+
+  it("reports no_frontier_targets instead of no_settlement_target when nothing actionable exists", () => {
+    const settled = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN" }
+    });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [settled],
+      tilesByKey: new Map([["0,0", settled]]),
+      clientSeq: 102,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.settlementEligible).toBe(true);
+    expect(result.diagnostic.settlementCandidateFound).toBe(false);
     expect(result.diagnostic.noCommandReason).toBe("no_frontier_targets");
   });
 
@@ -612,6 +665,43 @@ describe("automation command planner", () => {
       type: "SETTLE",
       payloadJson: JSON.stringify({ x: 1, y: 1 })
     });
+  });
+
+  it("does not force a mediocre fallback settlement when no frontier actions exist", () => {
+    const settled = makeTile(10, 10, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN" }
+    });
+    const frontier = makeTile(11, 10, {
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER"
+    });
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 3,
+      townCount: 1,
+      incomePerMinute: 1,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier],
+      hotFrontierTiles: [frontier],
+      strategicFrontierTiles: [],
+      ownedTiles: [settled, frontier],
+      tilesByKey: new Map([
+        ["10,10", settled],
+        ["11,10", frontier]
+      ]),
+      preplanProgressState: "tech_unaffordable",
+      clientSeq: 103,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.noCommandReason).toBe("no_frontier_targets");
   });
 
   it("prefers scout expansion over mediocre fallback settlement while first tech is unaffordable", () => {

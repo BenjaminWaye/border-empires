@@ -240,6 +240,7 @@ export const chooseBestSettlementTile = (
     if (tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
     if (options.isPending?.(tile)) continue;
     const evaluation = evaluateSettlementCandidate(playerId, tile, tiles);
+    if (!Number.isFinite(evaluation.score)) continue;
     if (options.requireStrategic && !evaluation.strategic) continue;
     if (typeof options.minimumScore === "number" && evaluation.score < options.minimumScore) continue;
     if (isBetterSettlementCandidate(tile, evaluation.score, bestTile, bestScore)) {
