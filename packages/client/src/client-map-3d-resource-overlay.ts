@@ -380,31 +380,38 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
   };
 
   const addDryingRack = (wx: number, sy: number, wz: number, ox: number, oz: number): void => {
+    // Two posts + horizontal rod, with fish hanging vertically below
+    // the rod (rotated 90° around Z so the long edge runs along Y, and
+    // positioned so the top of the fish meets the rod). Slight forward
+    // tilt so they read as dangling rather than sitting on the bar.
+    const rodY = 0.22;
+    const fishHangY = rodY - 0.04; // top of fish at rod, center 0.04 below
     addPiece("furPost", wx, sy, wz, ox - 0.13, 0.11, oz);
     addPiece("furPost", wx, sy, wz, ox + 0.13, 0.11, oz);
-    addPiece("netRod", wx, sy, wz, ox, 0.22, oz, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    addPiece("fish", wx, sy, wz, ox - 0.08, 0.18, oz);
-    addPiece("fish", wx, sy, wz, ox, 0.18, oz);
-    addPiece("fish", wx, sy, wz, ox + 0.08, 0.18, oz);
+    addPiece("netRod", wx, sy, wz, ox, rodY, oz, 1, 1, 1, 0, 0, Math.PI * 0.5);
+    // Fish geometry default is 0.07 long (X) × 0.025 tall (Y) × 0.03 deep (Z).
+    // Rotating around Z by 90° aligns the 0.07 axis with Y → fish hangs
+    // head-up / tail-down. A small forward pitch (rotX) gives a natural
+    // dangling lean.
+    const hangSpacing = 0.08;
+    for (let i = -1; i <= 1; i += 1) {
+      addPiece("fish", wx, sy, wz, ox + i * hangSpacing, fishHangY, oz, 1, 1, 1, 0, Math.PI * 0.08, Math.PI * 0.5);
+    }
   };
 
   const addFish = (wx: number, sy: number, wz: number, v: ResourceVariant): void => {
-    // Fishing site = boat + drying rack + crossed nets in three layouts.
+    // Fishing site = boat + drying rack only. The X-crossed nets that
+    // used to read as a tall cross are gone; the rack already implies
+    // fishing equipment.
     if (v === 0) {
       addFishingBoat(wx, sy, wz, -0.16, 0);
       addDryingRack(wx, sy, wz, 0.14, -0.18);
-      addPiece("netRod", wx, sy, wz, 0.14, 0.13, 0.16, 1, 1, 1, 0, 0, Math.PI * 0.5);
-      addPiece("netRod", wx, sy, wz, 0.14, 0.13, 0.16, 1, 1, 1, Math.PI * 0.5, 0, Math.PI * 0.5);
     } else if (v === 1) {
       addFishingBoat(wx, sy, wz, 0.16, -0.16);
       addDryingRack(wx, sy, wz, -0.14, 0.18);
-      addPiece("netRod", wx, sy, wz, -0.14, 0.13, -0.18, 1, 1, 1, 0, 0, Math.PI * 0.5);
-      addPiece("netRod", wx, sy, wz, -0.14, 0.13, -0.18, 1, 1, 1, Math.PI * 0.5, 0, Math.PI * 0.5);
     } else {
       addFishingBoat(wx, sy, wz, 0, 0.18);
       addDryingRack(wx, sy, wz, -0.16, -0.16);
-      addPiece("netRod", wx, sy, wz, 0.18, 0.13, -0.14, 1, 1, 1, 0, 0, Math.PI * 0.5);
-      addPiece("netRod", wx, sy, wz, 0.18, 0.13, -0.14, 1, 1, 1, Math.PI * 0.5, 0, Math.PI * 0.5);
     }
   };
 
