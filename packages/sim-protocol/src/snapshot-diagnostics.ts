@@ -30,18 +30,26 @@ const utf8Encoder = new TextEncoder();
 
 export const jsonByteSize = (value: unknown): number => utf8Encoder.encode(JSON.stringify(value)).length;
 
+const measureCache = new WeakMap<PlayerSubscriptionSnapshot, PlayerSubscriptionSnapshotMeasure>();
+
 export const measurePlayerSubscriptionSnapshot = (
   snapshot: PlayerSubscriptionSnapshot
-): PlayerSubscriptionSnapshotMeasure => ({
-  tileCount: snapshot.tiles.length,
-  docksCount: snapshot.docks?.length ?? 0,
-  snapshotJsonBytes: jsonByteSize(snapshot),
-  tilesJsonBytes: jsonByteSize(snapshot.tiles),
-  playerJsonBytes: snapshot.player ? jsonByteSize(snapshot.player) : 0,
-  worldStatusJsonBytes: snapshot.worldStatus ? jsonByteSize(snapshot.worldStatus) : 0,
-  seasonJsonBytes: snapshot.season ? jsonByteSize(snapshot.season) : 0,
-  docksJsonBytes: snapshot.docks?.length ? jsonByteSize(snapshot.docks) : 0
-});
+): PlayerSubscriptionSnapshotMeasure => {
+  const memoized = measureCache.get(snapshot);
+  if (memoized) return memoized;
+  const measure: PlayerSubscriptionSnapshotMeasure = {
+    tileCount: snapshot.tiles.length,
+    docksCount: snapshot.docks?.length ?? 0,
+    snapshotJsonBytes: jsonByteSize(snapshot),
+    tilesJsonBytes: jsonByteSize(snapshot.tiles),
+    playerJsonBytes: snapshot.player ? jsonByteSize(snapshot.player) : 0,
+    worldStatusJsonBytes: snapshot.worldStatus ? jsonByteSize(snapshot.worldStatus) : 0,
+    seasonJsonBytes: snapshot.season ? jsonByteSize(snapshot.season) : 0,
+    docksJsonBytes: snapshot.docks?.length ? jsonByteSize(snapshot.docks) : 0
+  };
+  measureCache.set(snapshot, measure);
+  return measure;
+};
 
 export const summarizePlayerSubscriptionSnapshotCache = (
   snapshots: Iterable<[string, PlayerSubscriptionSnapshot]>
