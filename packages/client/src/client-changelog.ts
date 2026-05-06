@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.8",
+  version: "2026.05.06.9",
   title: "What's New",
-  summary: "True-3D renderer polish: hover and select borders now bend with the terrain, ownership tints sit flush on the tile surface (no more clipping above or below), settling tiles fill west-to-east with a swarm of pinprick settlers wandering on top, fish hang vertically from the drying rack on FISH resource tiles, the water surface bobs and tiles seamlessly, and queue ordinal badges sit pixel-crisp in the top-right corner of each tile. Plus all the recent rewrite fixes from this release train.",
+  summary: "Frontier-claimed town tiles no longer pile on three redundant settle prompts plus a 0/m Production row, an Upkeep block, and a 0/0 Stored yield line; settled settlements no longer display their income twice; and the prior 3D-renderer polish + rewrite fixes remain in this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.9",
+      title: "Frontier-with-town and settled-settlement panels stop piling on duplicate lines",
+      why: "Expanding into a tile that already has a town was rendering 'Frontier land is visible control, but it has no real defense yet.' + 'Needs settlement to produce gold.' + 'Settle this tile to activate the town’s economy and start gold income.' — three lines, one message — plus a Production: 0.00/m row, an Upkeep block with the post-settle food upkeep, and a Stored yield: 0.0 / 0 line that has no meaning before settlement. Settled settlements were also showing 'Settlement is producing X gold/m.' immediately above 'Production: ◉ X/m', the same number twice.",
+      changes: [
+        "Frontier-claimed town tiles now skip the generic 'Frontier land is visible control / Needs settlement to produce' intro — the town-specific 'Settle this tile to activate the town’s economy and start gold income' line is now the only settle prompt.",
+        "Production, Upkeep, and Stored yield rows are now gated on the tile actually being SETTLED, not just owned, so frontier-owned tiles no longer show a 0/m Production row, post-settle upkeep, or a 0/0 stored-yield line.",
+        "Settled settlements no longer show 'Settlement is producing X gold/m.' as a prose duplicate of the unified 'Production: X/m' row directly below it."
+      ]
+    },
     {
       introducedIn: "2026.05.06.8",
       title: "True-3D renderer: bending borders, settle swarm, undulating water, and crisper queue badges",
