@@ -15,7 +15,6 @@ import { downloadRespawnBugReport } from "./client-respawn-report.js";
 import { createClientThreeTerrainRenderer } from "./client-map-3d.js";
 import {
   prefersTrue3DRendererMode,
-  rendererModeExplicitlySet,
   setTrue3DRendererActive
 } from "./client-renderer-mode.js";
 import { startClientRuntimeLoop } from "./client-runtime-loop.js";
@@ -213,8 +212,12 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   let threeTerrainRenderer:
     | ReturnType<typeof createClientThreeTerrainRenderer>
     | undefined;
-  const defaultThreeTerrainRenderer = !rendererModeExplicitlySet;
-  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || defaultThreeTerrainRenderer;
+  // The true-3D renderer is opt-in: users land on the 2D map by default
+  // and only get 3D when they explicitly pass `?renderer=3d`. This keeps
+  // the production rollout safe (no mobile perf regression for users who
+  // didn't ask for it) while still letting anyone who wants the
+  // sculpted-perspective view try it via the URL flag.
+  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode;
   const ensureThreeTerrainRenderer = (): void => {
     if (!shouldUseThreeTerrainRenderer) return;
     if (!state.authSessionReady) return;
