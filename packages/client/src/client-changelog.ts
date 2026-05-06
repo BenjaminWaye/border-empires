@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.9",
+  version: "2026.05.06.10",
   title: "What's New",
-  summary: "Frontier-claimed town tiles no longer pile on three redundant settle prompts plus a 0/m Production row, an Upkeep block, and a 0/0 Stored yield line; settled settlements no longer display their income twice; and the prior 3D-renderer polish + rewrite fixes remain in this release train.",
+  summary: "Linked-dock connection lines now follow an actual sea route between paired docks instead of cutting straight across landmasses, and they now find paths that wrap across the world edge. Plus the prior frontier-with-town and settled-settlement panel cleanup, the 3D-renderer polish, and rewrite fixes remain in this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.06.10",
+      title: "Linked-dock connection lines now hug the actual sea route",
+      why: "The dashed connection line between paired docks was supposed to follow the sea path between them, but the client-side A* over the 450×450 world only allocated 24,000 expansions and never wrapped across the world edge — so most non-trivial pairs ran out of expansions or had no non-wrapping path at all and silently fell back to a single straight line cutting across landmasses.",
+      changes: [
+        "A* now wraps neighbors toroidally and uses a toroidal Manhattan heuristic, so dock pairs whose shortest sea path crosses the world edge can now resolve to a real route instead of falling back to a straight line.",
+        "Replaced the linear open-list scan with a binary min-heap, so the per-expansion cost no longer grows with the frontier size; the existing 24,000-expansion cap is now reached far less often because A* is more efficient and stays focused on the goal.",
+        "Routes are still cached per dock pair, so the heap-based A* runs at most once per pair per session."
+      ]
+    },
     {
       introducedIn: "2026.05.06.9",
       title: "Frontier-with-town and settled-settlement panels stop piling on duplicate lines",
