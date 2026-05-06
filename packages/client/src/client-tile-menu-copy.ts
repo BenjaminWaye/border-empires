@@ -6,6 +6,7 @@ export type TileMenuOverviewIntroInput = {
   productionLabel?: string | undefined;
   resourceLabel?: string | undefined;
   isDockEndpoint?: boolean;
+  hasTown?: boolean;
 };
 
 export const tileMenuSubtitleText = (ownerLabel: string, regionLabel?: string): string =>
@@ -19,11 +20,21 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
     return ["Mountains block normal land expansion and attacks."];
   }
   if (input.ownerKind === "unclaimed") {
-    return [
-      ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
-      "Claim this tile first to turn it into frontier land.",
-      ...(input.productionLabel ? [`After you settle it, this tile can produce ${input.productionLabel}.`] : [])
-    ];
+    if (input.hasTown) {
+      return input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : [];
+    }
+    if (input.isDockEndpoint) {
+      return [
+        ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
+        "Unclaimed dock. Claim and settle this tile to plug it into your trade routes."
+      ];
+    }
+    if (input.resourceLabel) {
+      return [
+        `Resource node: ${input.resourceLabel}. Claim and settle this tile to start producing ${input.productionLabel ?? input.resourceLabel.toLowerCase()}.`
+      ];
+    }
+    return ["Claim this tile first to turn it into frontier land."];
   }
   if (input.ownerKind === "mine-frontier") {
     return input.productionLabel

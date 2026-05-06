@@ -320,11 +320,9 @@ export const menuOverviewForTile = (
     ownerKind,
     productionLabel,
     resourceLabel: resourceLabelText,
-    isDockEndpoint: Boolean(tile.dockId)
+    isDockEndpoint: Boolean(tile.dockId),
+    hasTown: Boolean(tile.town)
   }).forEach(pushLine);
-  if (tile.resource && !tile.ownerId && resourceLabelText) {
-    pushLine(`This ${resourceLabelText.toLowerCase()} node starts producing only after you claim and settle the tile.`);
-  }
   if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter gold and manpower until they grow into towns.");
@@ -375,9 +373,20 @@ export const menuOverviewForTile = (
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
+    const DOCK_BASE_INCOME_PER_MIN = 0.5;
+    const goldPerMinute = tile.dock?.goldPerMinute ?? DOCK_BASE_INCOME_PER_MIN;
+    pushLine(`Dock income ${goldPerMinute.toFixed(2)} gold/m`);
+    pushLine(connectedDockCount === 0
+      ? "Not connected to any other docks yet."
+      : `Connected to ${connectedDockCount} dock${connectedDockCount === 1 ? "" : "s"}.`);
     if (connectedDockCount === 0) pushLine("Connect this dock to other docks to gain bonus gold production.");
+    if (tile.dock?.modifiers?.length) {
+      for (const modifier of tile.dock.modifiers) {
+        pushLine(`${modifier.label}: +${modifier.percent.toFixed(0)}% (+${modifier.deltaGoldPerMinute.toFixed(2)} gold/m)`);
+      }
+    }
   }
-  if (productionHtml) pushLine(`Production: ${productionHtml}`);
+  if (productionHtml && hasOwnedLandState) pushLine(`Production: ${productionHtml}`);
   if (hasOwnedLandState) lines.push(...tileOverviewUpkeepLines(tile));
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
