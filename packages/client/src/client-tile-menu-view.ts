@@ -348,7 +348,12 @@ export const menuOverviewForTile = (
       pushLine("Settle this tile to activate the town's economy and start gold income.");
     } else if (tile.town.populationTier === "SETTLEMENT") {
       // No prose income line — the unified `Production: X/m` row below shows the same value.
-    } else if (hasOwnerEconomyData && !tile.town.isFed) {
+    } else if (
+      hasOwnerEconomyData &&
+      !tile.town.isFed &&
+      (tile.town.goldPerMinute ?? 0) <= 0.001 &&
+      (tile.town.populationGrowthPerMinute ?? 0) <= 0.001
+    ) {
       pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or grain.");
     } else if (
       tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL" &&
