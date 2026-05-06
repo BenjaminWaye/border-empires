@@ -299,6 +299,53 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Stored yield:"))).toBe(false);
   });
 
+  it("hides the unfed warning when the town is producing gold or growing population (stale isFed flag)", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 22,
+        y: 50,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Goldenford",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 0,
+          supportMax: 7,
+          goldPerMinute: 2,
+          cap: 40,
+          isFed: false,
+          population: 17_532,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 5.6,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        yieldRate: {
+          goldPerMinute: 2
+        }
+      },
+      {
+        ...deps,
+        displayTownGoldPerMinute: () => 2,
+        populationPerMinuteLabel: () => "+5.6/m",
+        townNextGrowthEtaLabel: () => "City in ~11d"
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Population 17,532"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Growth"))).toBe(true);
+  });
+
   it("does not show support or road-bonus UI for settlements even if stale town fields are present", () => {
     const lines = menuOverviewForTile(
       {

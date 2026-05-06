@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.10",
+  version: "2026.05.06.11",
   title: "What's New",
-  summary: "Foreign towns under satellite reveal now render their public summary on the map and in the town overview pane instead of being silently dropped, and tiles whose town payload hasn't arrived yet show a loading spinner with a debug-download button so a stuck spinner can be reported with full diagnostic context. Plus the prior frontier-with-town and settled-settlement panel cleanup, the 3D-renderer polish, and the rewrite fixes from this release train.",
+  summary: "Towns that are clearly fed (positive gold income or positive population growth) no longer display the misleading 'Town is unfed' warning when the persisted isFed flag is briefly stale. Plus the prior foreign-town reveal fix, frontier-with-town and settled-settlement panel cleanup, 3D renderer polish, and rewrite fixes.",
   entries: [
+    {
+      introducedIn: "2026.05.06.11",
+      title: "'Town is unfed' warning no longer fires on a town that is obviously fed",
+      why: "Snapshot pipelines occasionally publish a stale `isFed: false` on towns that are simultaneously growing and earning gold, so the overview pane was telling players to add food upkeep to a town producing 2.00 gold/m and growing +5.6/m. The contradiction made the warning untrustworthy and harder to act on for towns that really do need food.",
+      changes: [
+        "The 'Town is unfed' line now only renders when the town has zero gold income AND zero population growth, alongside the persisted `isFed: false` flag. Any positive economic output suppresses the warning, since by definition a producing town is fed."
+      ]
+    },
     {
       introducedIn: "2026.05.06.10",
       title: "Foreign towns now render under satellite reveal + loading spinner for partial town data",
