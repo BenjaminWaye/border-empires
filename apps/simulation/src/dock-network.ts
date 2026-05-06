@@ -63,3 +63,48 @@ export const isValidDockCrossingTarget = (
       isFrontierAdjacent(coords!.x, coords!.y, toX, toY)
     );
   });
+
+export const computeLinkedDockRevealTileKeys = (
+  ownedDockTileKeys: Iterable<string>,
+  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>,
+  worldWidth: number,
+  worldHeight: number,
+  radius = 1
+): Set<string> => {
+  const wrapX = (x: number): number => ((x % worldWidth) + worldWidth) % worldWidth;
+  const wrapY = (y: number): number => ((y % worldHeight) + worldHeight) % worldHeight;
+  const revealKeys = new Set<string>();
+  for (const ownedDockTileKey of ownedDockTileKeys) {
+    const linkedTileKeys = dockLinksByDockTileKey.get(ownedDockTileKey);
+    if (!linkedTileKeys?.length) continue;
+    for (const linkedTileKey of linkedTileKeys) {
+      const coords = parseTileKey(linkedTileKey);
+      if (!coords) continue;
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          revealKeys.add(`${wrapX(coords.x + dx)},${wrapY(coords.y + dy)}`);
+        }
+      }
+    }
+  }
+  return revealKeys;
+};
+
+export const collectLinkedDockRevealKeysForOwners = (
+  visibilityOwnerIds: ReadonlySet<string>,
+  docks: Iterable<{ tileKey: string }>,
+  ownerOf: (tileKey: string) => string | undefined,
+  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>,
+  worldWidth: number,
+  worldHeight: number,
+  radius = 1
+): Set<string> => {
+  if (visibilityOwnerIds.size === 0) return new Set<string>();
+  const ownedDockTileKeys: string[] = [];
+  for (const dock of docks) {
+    const ownerId = ownerOf(dock.tileKey);
+    if (ownerId && visibilityOwnerIds.has(ownerId)) ownedDockTileKeys.push(dock.tileKey);
+  }
+  if (ownedDockTileKeys.length === 0) return new Set<string>();
+  return computeLinkedDockRevealTileKeys(ownedDockTileKeys, dockLinksByDockTileKey, worldWidth, worldHeight, radius);
+};

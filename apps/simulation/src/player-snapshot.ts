@@ -5,6 +5,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationRuntime } from "./runtime.js";
 import { estimateIncomePerMinuteFromTiles, estimateStrategicProductionPerMinuteFromTiles } from "./player-runtime-summary.js";
 import { buildLivePlayerEconomySnapshot, enrichSnapshotTilesForPlayer } from "./live-snapshot-view.js";
+import { buildDockLinksByDockTileKey, collectLinkedDockRevealKeysForOwners } from "./dock-network.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -106,6 +107,21 @@ export const buildPlayerSubscriptionSnapshot = (
             const target = parseKey(lock.targetKey);
             if (origin) visibleKeys.add(keyFor(origin.x, origin.y));
             if (target) visibleKeys.add(keyFor(target.x, target.y));
+          }
+          if (primaryPlayer && (runtimeState.docks?.length ?? 0) > 0) {
+            const visibilityOwnerIds = new Set<string>([playerId, ...primaryPlayer.allies]);
+            const tileOwnerByKey = new Map(sourceTiles.map((tile) => [keyFor(tile.x, tile.y), tile.ownerId] as const));
+            const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
+            for (const revealKey of collectLinkedDockRevealKeysForOwners(
+              visibilityOwnerIds,
+              runtimeState.docks ?? [],
+              (tileKey) => tileOwnerByKey.get(tileKey),
+              dockLinksByDockTileKey,
+              WORLD_WIDTH,
+              WORLD_HEIGHT
+            )) {
+              visibleKeys.add(revealKey);
+            }
           }
 
           return sourceTiles
