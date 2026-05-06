@@ -427,6 +427,87 @@ describe("simulation runtime", () => {
     expect(visibleState.tiles.some((tile) => tile.x === 80 && tile.y === 80)).toBe(true);
   });
 
+  it("expands TILE_DELTA_BATCH events to include linked dock tiles when a dock tile changes", async () => {
+    const scheduledTasks: Array<() => void> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      scheduleAfter: (_delayMs, task) => {
+        scheduledTasks.push(task);
+      },
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 1_000,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-a" },
+          { x: 49, y: 49, terrain: "LAND" },
+          { x: 50, y: 49, terrain: "LAND" },
+          { x: 51, y: 49, terrain: "LAND" },
+          { x: 49, y: 50, terrain: "LAND" },
+          { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
+          { x: 51, y: 50, terrain: "LAND" },
+          { x: 49, y: 51, terrain: "LAND" },
+          { x: 50, y: 51, terrain: "LAND" },
+          { x: 51, y: 51, terrain: "LAND" }
+        ],
+        docks: [
+          { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+          { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "settle-dock",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 60_000,
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+    await Promise.resolve();
+    while (scheduledTasks.length > 0) scheduledTasks.shift()?.();
+    await Promise.resolve();
+
+    const tileDeltaBatch = seen.find(
+      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "TILE_DELTA_BATCH" }> =>
+        event.eventType === "TILE_DELTA_BATCH" &&
+        event.tileDeltas.some((delta) => delta.x === 10 && delta.y === 10 && delta.dockId === "dock-a")
+    );
+    expect(tileDeltaBatch).toBeDefined();
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        const expectedX = 50 + dx;
+        const expectedY = 50 + dy;
+        expect(
+          tileDeltaBatch!.tileDeltas.some((delta) => delta.x === expectedX && delta.y === expectedY),
+          `expected (${expectedX},${expectedY}) in expanded delta batch`
+        ).toBe(true);
+      }
+    }
+  });
+
   it("accepts a human frontier command before queued AI work drains", async () => {
     const runtime = new SimulationRuntime({ now: () => 1_000 });
     const seen: string[] = [];
