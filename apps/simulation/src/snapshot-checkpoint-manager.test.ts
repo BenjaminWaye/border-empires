@@ -235,6 +235,46 @@ describe("createSnapshotCheckpointManager", () => {
     });
   });
 
+  it("omits projection payloads when projection export is disabled", async () => {
+    const eventStore = new InMemorySimulationEventStore();
+    const saveSnapshot = vi.fn(async () => undefined);
+    const manager = createSnapshotCheckpointManager({
+      eventStore,
+      snapshotStore: {
+        saveSnapshot,
+        loadLatestSnapshot: vi.fn(async () => undefined)
+      } as unknown as InMemorySimulationSnapshotStore,
+      exportSnapshotSections: () => ({
+        initialState: { tiles: [], activeLocks: [] },
+        commandEvents: []
+      }),
+      checkpointEveryEvents: 1,
+      now: () => 12_345
+    });
+
+    await eventStore.appendEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-1",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      },
+      1_100
+    );
+
+    await manager.onEventPersisted();
+
+    expect(saveSnapshot).toHaveBeenCalledWith({
+      lastAppliedEventId: 1,
+      snapshotSections: {
+        initialState: { tiles: [], activeLocks: [] },
+        commandEvents: []
+      },
+      createdAt: 12_345
+    });
+  });
+
   it("allows forced checkpoint compaction to bypass memory watermark when requested", async () => {
     const eventStore = new InMemorySimulationEventStore();
     const saveSnapshot = vi.fn(async () => undefined);
