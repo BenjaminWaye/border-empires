@@ -38,6 +38,7 @@ describe("automation command planner strategic parity", () => {
       { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
     ]);
 
+    let snapshotDebug: { primaryVictoryPath: string; frontPosture: string; attackReady: boolean; scoutExpandWorthwhile: boolean } | undefined;
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 500,
@@ -127,7 +128,7 @@ describe("automation command planner strategic parity", () => {
       manpower: 100,
       settledTileCount: 5,
       townCount: 2,
-      incomePerMinute: 10,
+      incomePerMinute: 9,
       hasActiveLock: false,
       activeDevelopmentProcessCount: 0,
       frontierTiles: [frontier],
@@ -226,6 +227,86 @@ describe("automation command planner strategic parity", () => {
     expect(result.command).toMatchObject({
       type: "EXPAND",
       payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 21, toY: 20 })
+    });
+  });
+
+  it("uses goap to fortify threatened town-control fronts before generic growth", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", type: "MARKET", populationTier: "TOWN" }
+    });
+    const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const enemy = makeTile(1, 1, { ownerId: "enemy-1" });
+    const neutral = makeTile(2, 0, {});
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 5_000,
+      manpower: 0,
+      techIds: ["masonry"],
+      strategicResources: { IRON: 60 },
+      settledTileCount: 5,
+      townCount: 2,
+      incomePerMinute: 0,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier],
+      ownedTiles: [town, frontier],
+      tilesByKey: new Map([
+        ["0,0", town],
+        ["1,0", frontier],
+        ["1,1", enemy],
+        ["2,0", neutral]
+      ]),
+      previousVictoryPath: "TOWN_CONTROL",
+      clientSeq: 25,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "BUILD_FORT",
+      payloadJson: JSON.stringify({ x: 0, y: 0 })
+    });
+  });
+
+  it("uses enemy pressure fallback even when a barbarian target scores higher on the same front", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", type: "MARKET", populationTier: "TOWN" }
+    });
+    const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const enemy = makeTile(2, 0, { ownerId: "enemy-1" });
+    const barbarianDock = makeTile(1, 1, { ownerId: "barbarian", ownershipState: "BARBARIAN", dockId: "dock-b" });
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 700,
+      manpower: 100,
+      settledTileCount: 5,
+      townCount: 2,
+      incomePerMinute: 9,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [frontier],
+      ownedTiles: [town, frontier],
+      tilesByKey: new Map([
+        ["0,0", town],
+        ["1,0", frontier],
+        ["2,0", enemy],
+        ["1,1", barbarianDock]
+      ]),
+      previousVictoryPath: "TOWN_CONTROL",
+      clientSeq: 26,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 1, fromY: 0, toX: 2, toY: 0 })
     });
   });
 });

@@ -327,7 +327,7 @@ describe("client network tile detail regression", () => {
     );
   });
 
-  it("enriches partial rewrite town payloads so support, fed state, and upkeep do not render as stubs", () => {
+  it("does not synthesize town detail from partial rewrite town payloads", () => {
     const state = createState();
     state.tiles.set("80,240", {
       x: 80,
@@ -449,18 +449,9 @@ describe("client network tile detail regression", () => {
 
     expect(state.tiles.get("79,240")).toEqual(
       expect.objectContaining({
-        detailLevel: "full",
-        town: expect.objectContaining({
-          name: "Qadarstrand",
-          populationTier: "TOWN",
-          isFed: true,
-          supportCurrent: 2,
-          supportMax: 2,
-          hasMarket: true,
-          marketActive: true,
-          foodUpkeepPerMinute: 0.1
-        })
+        detailLevel: "full"
       })
     );
+    expect(state.tiles.get("79,240")?.town).toBeUndefined();
   });
 });

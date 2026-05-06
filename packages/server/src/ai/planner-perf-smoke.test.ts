@@ -28,6 +28,7 @@ const lateGameSnapshot = (): AiPlanningSnapshot => ({
   neutralExpandAvailable: true,
   scoutExpandAvailable: true,
   scaffoldExpandAvailable: true,
+  townSupportExpandAvailable: true,
   barbarianAttackAvailable: true,
   enemyAttackAvailable: true,
   pressureAttackAvailable: true,

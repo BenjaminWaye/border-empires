@@ -121,7 +121,7 @@ describe("client gateway sync", () => {
     );
   });
 
-  it("treats owned partial gateway towns as fed when food coverage is fully met", () => {
+  it("does not synthesize town stats from partial townJson payloads", () => {
     const deps = createDeps();
 
     applyGatewayInitialState(deps, {
@@ -155,15 +155,102 @@ describe("client gateway sync", () => {
       ]
     });
 
-    expect(deps.state.tiles.get("350,219")).toEqual(
+    expect(deps.state.tiles.get("350,219")?.town).toBeUndefined();
+  });
+
+
+  it("preserves existing fed state for non-owned towns when later gateway deltas only resend town identity", () => {
+    const deps = createDeps();
+    deps.state.me = "me";
+    deps.state.upkeepLastTick.foodCoverage = 0;
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 91,
+          y: 44,
+          terrain: "LAND",
+          ownerId: "ai-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Ironwick",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 14_200,
+            maxPopulation: 50_000,
+            baseGoldPerMinute: 2,
+            goldPerMinute: 1.2,
+            cap: 480,
+            supportCurrent: 3,
+            supportMax: 6,
+            isFed: true,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          })
+        }
+      ]
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 91,
+        y: 44,
+        ownerId: "ai-1",
+        ownershipState: "SETTLED",
+        townType: "MARKET",
+        townName: "Ironwick",
+        townPopulationTier: "TOWN"
+      }
+    ]);
+
+    expect(deps.state.tiles.get("91,44")).toEqual(
       expect.objectContaining({
         town: expect.objectContaining({
-          name: "Rivetstead Causeway",
           isFed: true,
-          population: 15_590
+          population: 14_200,
+          supportCurrent: 3,
+          supportMax: 6
         })
       })
     );
+  });
+
+  it("ignores first-seen non-owned lossy town summaries until authoritative data arrives", () => {
+    const deps = createDeps();
+    deps.state.me = "me";
+    deps.state.upkeepLastTick.foodCoverage = 0;
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 92,
+          y: 44,
+          terrain: "LAND",
+          ownerId: "ai-2",
+          ownershipState: "SETTLED",
+          townType: "MARKET",
+          townName: "Brassumstead",
+          townPopulationTier: "TOWN"
+        }
+      ]
+    });
+
+    expect(deps.state.tiles.get("92,44")).toEqual(
+      expect.objectContaining({
+        x: 92,
+        y: 44,
+        terrain: "LAND",
+        ownerId: "ai-2",
+        ownershipState: "SETTLED"
+      })
+    );
+    expect(deps.state.tiles.get("92,44")?.town).toBeUndefined();
   });
 
   it("keeps previously known population fields when later gateway deltas only send partial town identity", () => {
@@ -219,18 +306,281 @@ describe("client gateway sync", () => {
       expect.objectContaining({
         town: expect.objectContaining({
           name: "Aetherford Boiler",
-          summarySource: "gateway-derived",
           population: 18_420,
           maxPopulation: 50_000,
-          supportCurrent: 0,
-          supportMax: 0
+          supportCurrent: 3,
+          supportMax: 6,
+          populationGrowthPerMinute: 12.8
         })
       })
     );
-    expect(deps.state.tiles.get("40,18")?.town?.populationGrowthPerMinute).toBeUndefined();
   });
 
-  it("uses tier-based population floors when a gateway town arrives without numeric town stats", () => {
+  it("clears omitted optional fields when authoritative townJson refreshes a cached town", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 40,
+          y: 18,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Aetherford Boiler",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 18_420,
+            maxPopulation: 50_000,
+            populationGrowthPerMinute: 12.8,
+            baseGoldPerMinute: 2,
+            goldPerMinute: 1,
+            cap: 480,
+            supportCurrent: 3,
+            supportMax: 6,
+            isFed: true,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            goldIncomePausedReason: "MANPOWER_NOT_FULL",
+            manpowerCurrent: 80,
+            manpowerCap: 100,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false,
+            nextPopulationTierUpgrade: {
+              targetTier: "CITY",
+              requiredPopulation: 100000,
+              goldCost: 1500,
+              available: false
+            }
+          })
+        }
+      ]
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 40,
+        y: 18,
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        townJson: JSON.stringify({
+          name: "Aetherford Boiler",
+          type: "MARKET",
+          populationTier: "TOWN",
+          population: 18_600,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 13.1,
+          baseGoldPerMinute: 2,
+          goldPerMinute: 2,
+          cap: 960,
+          supportCurrent: 4,
+          supportMax: 6,
+          isFed: true,
+          connectedTownCount: 1,
+          connectedTownBonus: 0.1,
+          hasMarket: true,
+          marketActive: true,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        })
+      }
+    ]);
+
+    expect(deps.state.tiles.get("40,18")?.town).toEqual(
+      expect.objectContaining({
+        population: 18_600,
+        goldPerMinute: 2,
+        supportCurrent: 4,
+        supportMax: 6,
+        connectedTownCount: 1,
+        connectedTownBonus: 0.1,
+        hasMarket: true,
+        marketActive: true
+      })
+    );
+    expect(deps.state.tiles.get("40,18")?.town?.goldIncomePausedReason).toBeUndefined();
+    expect(deps.state.tiles.get("40,18")?.town?.manpowerCurrent).toBeUndefined();
+    expect(deps.state.tiles.get("40,18")?.town?.manpowerCap).toBeUndefined();
+    expect(deps.state.tiles.get("40,18")?.town?.nextPopulationTierUpgrade).toBeUndefined();
+  });
+
+  it("clears cached town state when gateway sends explicit empty townJson", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 40,
+          y: 18,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Old Boiler",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 18420,
+            maxPopulation: 50000,
+            populationGrowthPerMinute: 12.8,
+            baseGoldPerMinute: 2,
+            goldPerMinute: 1,
+            cap: 480,
+            supportCurrent: 3,
+            supportMax: 6,
+            isFed: true,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          })
+        }
+      ]
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 40,
+        y: 18,
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        townJson: ""
+      }
+    ]);
+
+    expect(deps.state.tiles.get("40,18")?.town).toBeUndefined();
+  });
+
+  it("does not clear cached town state when sparse identity updates omit townType", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 40,
+          y: 18,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Old Boiler",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 18420,
+            maxPopulation: 50000,
+            populationGrowthPerMinute: 12.8,
+            baseGoldPerMinute: 2,
+            goldPerMinute: 1,
+            cap: 480,
+            supportCurrent: 3,
+            supportMax: 6,
+            isFed: true,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          })
+        }
+      ]
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 40,
+        y: 18,
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        townName: "Renamed Boiler"
+      }
+    ]);
+
+    expect(deps.state.tiles.get("40,18")?.town).toEqual(
+      expect.objectContaining({
+        name: "Renamed Boiler",
+        type: "MARKET",
+        populationTier: "TOWN",
+        population: 18420,
+        maxPopulation: 50000
+      })
+    );
+  });
+
+  it("does not change cached town tier from sparse identity-only updates", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 40,
+          y: 18,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Aetherford Boiler",
+            type: "MARKET",
+            populationTier: "SETTLEMENT",
+            population: 4200,
+            maxPopulation: 10000,
+            populationGrowthPerMinute: 10.2,
+            baseGoldPerMinute: 1,
+            goldPerMinute: 1,
+            cap: 480,
+            supportCurrent: 0,
+            supportMax: 0,
+            isFed: true,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          })
+        }
+      ]
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 40,
+        y: 18,
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        townType: "MARKET",
+        townName: "Aetherford Boiler",
+        townPopulationTier: "TOWN"
+      }
+    ]);
+
+    expect(deps.state.tiles.get("40,18")?.town).toEqual(
+      expect.objectContaining({
+        name: "Aetherford Boiler",
+        populationTier: "SETTLEMENT",
+        population: 4200,
+        maxPopulation: 10000,
+        goldPerMinute: 1,
+        cap: 480
+      })
+    );
+  });
+
+  it("does not invent town stats when gateway init only sends town identity", () => {
     const deps = createDeps();
 
     applyGatewayInitialState(deps, {
@@ -248,19 +598,15 @@ describe("client gateway sync", () => {
       ]
     });
 
-    expect(deps.state.tiles.get("77,21")).toEqual(
-      expect.objectContaining({
-        town: expect.objectContaining({
-          name: "Northwatch",
-          summarySource: "gateway-derived",
-          population: 10_000,
-          maxPopulation: 100_000
-        })
-      })
-    );
+    expect(deps.state.tiles.get("77,21")?.town).toBeUndefined();
+    expect(deps.state.tiles.get("77,21")).toMatchObject({
+      townType: "FARMING",
+      townName: "Northwatch",
+      townPopulationTier: "TOWN"
+    });
   });
 
-  it("does not preserve stale settlement-sized population when a partial gateway update upgrades the tier", () => {
+  it("does not invent upgrade stats when sparse gateway updates only change town identity", () => {
     const deps = createDeps();
 
     applyGatewayInitialState(deps, {
@@ -290,17 +636,75 @@ describe("client gateway sync", () => {
       }
     ]);
 
-    expect(deps.state.tiles.get("77,21")).toEqual(
-      expect.objectContaining({
-        town: expect.objectContaining({
-          name: "Northwatch",
-          summarySource: "gateway-derived",
-          populationTier: "TOWN",
-          population: 10_000,
-          maxPopulation: 100_000
-        })
+    expect(deps.state.tiles.get("77,21")?.town).toBeUndefined();
+    expect(deps.state.tiles.get("77,21")).toMatchObject({
+      townType: "FARMING",
+      townName: "Northwatch",
+      townPopulationTier: "TOWN"
+    });
+  });
+
+  it("clears thin town identity when the gateway clears town state", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 88,
+          y: 12,
+          terrain: "LAND",
+          ownerId: "ai-1",
+          ownershipState: "SETTLED",
+          townType: "MARKET",
+          townName: "Brassumstead",
+          townPopulationTier: "TOWN"
+        }
+      ]
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 88,
+        y: 12,
+        townJson: ""
+      }
+    ]);
+
+    expect(deps.state.tiles.get("88,12")).toEqual(
+      expect.not.objectContaining({
+        townType: expect.anything(),
+        townName: expect.anything(),
+        townPopulationTier: expect.anything()
       })
     );
+  });
+
+  it("preserves thin remote town identity without inventing town stats", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 88,
+          y: 12,
+          terrain: "LAND",
+          ownerId: "ai-1",
+          ownershipState: "SETTLED",
+          townType: "MARKET",
+          townName: "Brassumstead",
+          townPopulationTier: "TOWN"
+        }
+      ]
+    });
+
+    expect(deps.state.tiles.get("88,12")).toEqual(
+      expect.objectContaining({
+        townType: "MARKET",
+        townName: "Brassumstead",
+        townPopulationTier: "TOWN"
+      })
+    );
+    expect(deps.state.tiles.get("88,12")?.town).toBeUndefined();
   });
 
   it("keeps previously discovered tiles fogged when reconnecting to the same runtime", () => {
