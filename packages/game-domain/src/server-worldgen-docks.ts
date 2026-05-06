@@ -1,4 +1,4 @@
-import type { Dock } from "@border-empires/shared";
+import { isSeaTerrain, type Dock } from "@border-empires/shared";
 
 import type { ServerWorldgenDocksDeps, ServerWorldgenDocksRuntime } from "./server-world-runtime-types.js";
 
@@ -72,7 +72,7 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
         [wrapX(x, WORLD_WIDTH), wrapY(y + 1, WORLD_HEIGHT)],
         [wrapX(x - 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)]
       ] as const) {
-        if (terrainAt(nx, ny) !== "SEA") continue;
+        if (!isSeaTerrain(terrainAt(nx, ny))) continue;
         return { x: nx, y: ny, ocean: oceanMask[worldIndex(nx, ny)] === 1 };
       }
       return undefined;
@@ -147,16 +147,27 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     getDockLinkedTileKeysByDockTileKey().clear();
     const oceanMask = largestSeaComponentMask();
     const { components } = analyzeLandComponentsForDocks(seed, oceanMask);
-    const dockCandidatesForComponent = (component: LandComponent): DockCandidate[] =>
-      component.oceanCandidates.length > 0
-        ? component.oceanCandidates
-        : component.clusteredOceanCandidates.length > 0
-          ? component.clusteredOceanCandidates
-          : component.inlandSeaCandidates.length > 0
-            ? component.inlandSeaCandidates
-            : component.clusteredInlandSeaCandidates.length > 0
-              ? component.clusteredInlandSeaCandidates
-              : [{ x: component.fallbackX, y: component.fallbackY, componentId: component.id, seaX: component.fallbackX, seaY: component.fallbackY }];
+    const orderedDockCandidatesForComponent = (component: LandComponent): DockCandidate[] => {
+      const preferredPools = [
+        component.oceanCandidates,
+        component.clusteredOceanCandidates,
+        component.inlandSeaCandidates,
+        component.clusteredInlandSeaCandidates
+      ];
+      const seenTileKeys = new Set<string>();
+      const orderedCandidates: DockCandidate[] = [];
+      for (const pool of preferredPools) {
+        for (const candidate of pool) {
+          const candidateTileKey = key(candidate.x, candidate.y);
+          if (seenTileKeys.has(candidateTileKey)) continue;
+          seenTileKeys.add(candidateTileKey);
+          orderedCandidates.push(candidate);
+        }
+      }
+      if (orderedCandidates.length > 0) return orderedCandidates;
+      return [{ x: component.fallbackX, y: component.fallbackY, componentId: component.id, seaX: component.fallbackX, seaY: component.fallbackY }];
+    };
+    const dockCandidatesForComponent = (component: LandComponent): DockCandidate[] => orderedDockCandidatesForComponent(component);
     const eligibleComponents = components.filter((component) => dockCandidatesForComponent(component).length > 0);
     const primaryDockCandidateByComponent = new Map<number, DockCandidate>();
     for (const component of eligibleComponents) {
@@ -183,6 +194,11 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
       componentEdgeKeys.add(edgeKey);
       componentEdges.push([aComponentId, bComponentId]);
     };
+
+    const desiredDockCountForComponent = (component: LandComponent): number =>
+      component.tileCount >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD ? 2 : 1;
+
+    const degreeByComponent = new Map<number, number>();
 
     if (componentIds.length > 1) {
       const visitedComponents = new Set<number>([componentIds[0]!]);
@@ -220,12 +236,42 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
         }
         if (bestNeighbor >= 0) addComponentEdge(componentId, bestNeighbor);
       }
-    }
 
-    const degreeByComponent = new Map<number, number>();
-    for (const [aComponentId, bComponentId] of componentEdges) {
-      degreeByComponent.set(aComponentId, (degreeByComponent.get(aComponentId) ?? 0) + 1);
-      degreeByComponent.set(bComponentId, (degreeByComponent.get(bComponentId) ?? 0) + 1);
+      for (const [aComponentId, bComponentId] of componentEdges) {
+        degreeByComponent.set(aComponentId, (degreeByComponent.get(aComponentId) ?? 0) + 1);
+        degreeByComponent.set(bComponentId, (degreeByComponent.get(bComponentId) ?? 0) + 1);
+      }
+
+      const additionalEdgeNeeded = (componentId: number): boolean => {
+        const component = eligibleComponents.find((candidate) => candidate.id === componentId);
+        if (!component) return false;
+        return (degreeByComponent.get(componentId) ?? 0) < desiredDockCountForComponent(component);
+      };
+
+      let edgeAdded = true;
+      while (edgeAdded) {
+        edgeAdded = false;
+        for (const componentId of componentIds) {
+          if (!additionalEdgeNeeded(componentId)) continue;
+          let bestNeighbor = -1;
+          let bestDist = Number.POSITIVE_INFINITY;
+          for (const otherId of componentIds) {
+            if (otherId === componentId) continue;
+            const edgeKey = componentId < otherId ? `${componentId}|${otherId}` : `${otherId}|${componentId}`;
+            if (componentEdgeKeys.has(edgeKey)) continue;
+            const distance = componentSeaDistance(componentId, otherId);
+            if (distance < bestDist) {
+              bestDist = distance;
+              bestNeighbor = otherId;
+            }
+          }
+          if (bestNeighbor < 0) continue;
+          addComponentEdge(componentId, bestNeighbor);
+          degreeByComponent.set(componentId, (degreeByComponent.get(componentId) ?? 0) + 1);
+          degreeByComponent.set(bestNeighbor, (degreeByComponent.get(bestNeighbor) ?? 0) + 1);
+          edgeAdded = true;
+        }
+      }
     }
 
     const selectedByComponent = new Map<number, DockCandidate[]>();
@@ -285,6 +331,39 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
       const bIdx = dockIndexForEdge(bComponentId);
       if (aIdx === undefined || bIdx === undefined) continue;
       addDockConnection(aIdx, bIdx);
+    }
+
+    const seaDistanceBetweenDockIndices = (aIdx: number, bIdx: number): number => {
+      const a = selected[aIdx]!;
+      const b = selected[bIdx]!;
+      const dx = Math.min(Math.abs(a.seaX - b.seaX), WORLD_WIDTH - Math.abs(a.seaX - b.seaX));
+      const dy = Math.min(Math.abs(a.seaY - b.seaY), WORLD_HEIGHT - Math.abs(a.seaY - b.seaY));
+      return dx + dy;
+    };
+
+    for (const component of eligibleComponents) {
+      if (component.tileCount < LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD) continue;
+      const indices = dockIndicesByComponent.get(component.id) ?? [];
+      let offset = nextDockOffsetByComponent.get(component.id) ?? 0;
+      while (offset < indices.length) {
+        const localIdx = indices[offset]!;
+        offset += 1;
+        nextDockOffsetByComponent.set(component.id, offset);
+        let bestRemoteIdx: number | undefined;
+        let bestDist = Number.POSITIVE_INFINITY;
+        for (const otherComponent of eligibleComponents) {
+          if (otherComponent.id === component.id) continue;
+          for (const remoteIdx of dockIndicesByComponent.get(otherComponent.id) ?? []) {
+            const distance = seaDistanceBetweenDockIndices(localIdx, remoteIdx);
+            if (distance < bestDist) {
+              bestDist = distance;
+              bestRemoteIdx = remoteIdx;
+            }
+          }
+        }
+        if (bestRemoteIdx === undefined) break;
+        addDockConnection(localIdx, bestRemoteIdx);
+      }
     }
 
     for (const dock of docks) {

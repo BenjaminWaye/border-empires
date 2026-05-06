@@ -52,6 +52,16 @@ export const attackSyncLog = (event: string, payload: Record<string, unknown>): 
   console.info(`[attack-sync] ${event}`, payload);
 };
 
+export const fogRevealLog = (event: string, payload: Record<string, unknown>): void => {
+  recordClientDebugEvent("info", "fog-reveal", event, payload);
+  try {
+    if (!isDebugAccountEmail(debugAuthEmail())) return;
+    console.info(`[fog-reveal] ${event}`, payload);
+  } catch {
+    // Ignore console/logging failures in restricted browser contexts.
+  }
+};
+
 export const verboseTileDebugEnabled = (): boolean => {
   try {
     return window.localStorage.getItem("tile-debug-verbose") === "1";

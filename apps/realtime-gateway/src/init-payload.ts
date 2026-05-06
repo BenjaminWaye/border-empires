@@ -341,8 +341,8 @@ const RESOURCE_TYPES: ResourceType[] = ["FARM", "WOOD", "IRON", "GEMS", "FISH", 
 
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
 
-const exportDockPairsFromSnapshot = (
-  docks: Array<{ dockId: string; tileKey: string; pairedDockId?: string; connectedDockIds?: string[] }>
+const exportDockPairs = (
+  docks: ReadonlyArray<{ dockId: string; tileKey: string; pairedDockId?: string; connectedDockIds?: readonly string[] }>
 ): Array<{ ax: number; ay: number; bx: number; by: number }> => {
   const dockById = new Map(docks.map((dock) => [dock.dockId, dock] as const));
   const seen = new Set<string>();
@@ -765,14 +765,17 @@ export const buildGatewayInitPayload = (
     liveWorldStatus?.seasonVictory ?? buildSeasonVictoryObjectives(playerIdentity.playerId, snapshotBootstrap, initialState, overall),
     snapshotBootstrap
   );
-  const dockPairs = snapshotBootstrap ? exportDockPairsFromSnapshot(snapshotBootstrap.docks ?? []) : [];
+  const rewriteDocks = initialState?.docks ?? [];
+  const dockPairs = snapshotBootstrap ? exportDockPairs(snapshotBootstrap.docks ?? []) : exportDockPairs(rewriteDocks);
+  const dockCount = snapshotBootstrap?.docks?.length ?? rewriteDocks.length;
   const homeTile =
     bootstrapProfile?.capitalTile ??
     bootstrapProfile?.spawnOrigin ??
     (initialState ? firstOwnedTile(playerIdentity.playerId, initialState) : undefined);
   const myTileColor = hexColorForPlayerId(playerIdentity.playerId);
-  const seasonId = snapshotBootstrap?.season?.seasonId ?? `rewrite-${seedProfile}`;
-  const worldSeed = snapshotBootstrap?.season?.worldSeed ?? simulationWorldSeedForProfile(seedProfile);
+  const rewriteSeason = initialState?.season;
+  const seasonId = snapshotBootstrap?.season?.seasonId ?? rewriteSeason?.seasonId ?? `rewrite-${seedProfile}`;
+  const worldSeed = snapshotBootstrap?.season?.worldSeed ?? rewriteSeason?.worldSeed ?? simulationWorldSeedForProfile(seedProfile);
 
   const runtimeIdentity = snapshotBootstrap
     ? snapshotBootstrap.runtimeIdentity
@@ -780,7 +783,7 @@ export const buildGatewayInitPayload = (
         sourceType: "seed-profile" as const,
         seasonId,
         worldSeed,
-        fingerprint: `seed-${seedProfile}-${worldSeed}`,
+        fingerprint: rewriteSeason ? `${rewriteSeason.rulesetId}-${seasonId}-${worldSeed}` : `seed-${seedProfile}-${worldSeed}`,
         seedProfile,
         playerCount: seedWorld.summary.perPlayer.length,
         seededTileCount: seedWorld.tiles.size
@@ -841,8 +844,8 @@ export const buildGatewayInitPayload = (
       width: WORLD_WIDTH,
       height: WORLD_HEIGHT,
       season: {
-        seasonId: snapshotBootstrap?.season?.seasonId ?? `rewrite-${seedProfile}`,
-        worldSeed: snapshotBootstrap?.season?.worldSeed ?? simulationWorldSeedForProfile(seedProfile)
+        seasonId,
+        worldSeed
       }
     },
     techChoices,
@@ -894,7 +897,7 @@ export const buildGatewayInitPayload = (
     domainIds,
     seasonVictory,
     mapMeta: {
-      dockCount: snapshotBootstrap?.docks?.length ?? 0,
+      dockCount,
       dockPairCount: dockPairs.length,
       clusterCount: snapshotBootstrap?.clusters?.length ?? 0,
       townCount:

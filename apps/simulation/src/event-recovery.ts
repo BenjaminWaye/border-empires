@@ -1,8 +1,9 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
-import type { DomainTileState } from "@border-empires/game-domain";
+import { POPULATION_MAX, POPULATION_TOWN_MIN, type DomainTileState } from "@border-empires/game-domain";
 
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
+import { CITY_POPULATION_MIN, GREAT_CITY_POPULATION_MIN, METROPOLIS_POPULATION_MIN } from "@border-empires/shared";
 import type { DockRouteDefinition } from "./dock-network.js";
 import type { PendingSettlementRecord } from "./player-runtime-summary.js";
 
@@ -124,20 +125,63 @@ const parseOptionalJson = <T>(value?: string): T | undefined => {
   }
 };
 
+const SYNTHETIC_SETTLEMENT_POPULATION = 800;
+
+const isSyntheticSettlementIdentity = (
+  town: Pick<NonNullable<DomainTileState["town"]>, "name" | "populationTier"> | undefined,
+  x: number,
+  y: number
+): boolean => Boolean(town && town.populationTier === "SETTLEMENT" && town.name === `Settlement ${x},${y}`);
+
+const minimumPopulationForTier = (populationTier: NonNullable<DomainTileState["town"]>["populationTier"]): number => {
+  if (populationTier === "METROPOLIS") return METROPOLIS_POPULATION_MIN;
+  if (populationTier === "GREAT_CITY") return GREAT_CITY_POPULATION_MIN;
+  if (populationTier === "CITY") return CITY_POPULATION_MIN;
+  if (populationTier === "TOWN") return POPULATION_TOWN_MIN;
+  return SYNTHETIC_SETTLEMENT_POPULATION;
+};
+
+const hydrateRecoveredTown = (
+  town: DomainTileState["town"] | undefined,
+  x: number,
+  y: number
+): DomainTileState["town"] | undefined => {
+  if (!town) return undefined;
+  const defaultPopulation = isSyntheticSettlementIdentity(town, x, y)
+    ? SYNTHETIC_SETTLEMENT_POPULATION
+    : minimumPopulationForTier(town.populationTier);
+  const population = typeof town.population === "number" ? town.population : defaultPopulation;
+  const maxPopulation = typeof town.maxPopulation === "number" ? town.maxPopulation : POPULATION_MAX;
+  return {
+    ...town,
+    population,
+    maxPopulation
+  };
+};
+
 const recoverTownState = (
   tileDelta: TileDelta,
   existing?: RecoveredTileState
 ): DomainTileState["town"] | undefined => {
   const parsedTown = parseOptionalJson<DomainTileState["town"]>(tileDelta.townJson);
-  if (parsedTown) return parsedTown;
+  if (parsedTown) {
+    return hydrateRecoveredTown({
+      ...existing?.town,
+      ...parsedTown,
+      ...(tileDelta.townName ? { name: tileDelta.townName } : {}),
+      type: parsedTown.type ?? tileDelta.townType ?? existing?.town?.type ?? "FARMING",
+      populationTier: parsedTown.populationTier ?? tileDelta.townPopulationTier ?? existing?.town?.populationTier ?? "SETTLEMENT"
+    }, tileDelta.x, tileDelta.y);
+  }
   if (tileDelta.townName || tileDelta.townType || tileDelta.townPopulationTier) {
-    return {
-      name: tileDelta.townName ?? existing?.town?.name ?? `Settlement ${tileDelta.x},${tileDelta.y}`,
+    return hydrateRecoveredTown({
+      ...existing?.town,
+      ...(tileDelta.townName ? { name: tileDelta.townName } : {}),
       type: tileDelta.townType ?? existing?.town?.type ?? "FARMING",
       populationTier: tileDelta.townPopulationTier ?? existing?.town?.populationTier ?? "SETTLEMENT"
-    };
+    }, tileDelta.x, tileDelta.y);
   }
-  return existing?.town;
+  return hydrateRecoveredTown(existing?.town, tileDelta.x, tileDelta.y);
 };
 
 const applyTileDeltaToRecoveredAccumulator = (

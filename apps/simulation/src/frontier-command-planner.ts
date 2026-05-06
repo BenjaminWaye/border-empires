@@ -35,11 +35,15 @@ type FrontierSelection = {
 
 export type FrontierAnalysis = {
   attack?: FrontierSelection;
+  enemyAttack?: FrontierSelection;
+  barbarianAttack?: FrontierSelection;
   expand?: FrontierSelection;
   economicExpand?: FrontierSelection;
   scaffoldExpand?: FrontierSelection;
   scoutExpand?: FrontierSelection;
   frontierEnemyTargetCount: number;
+  frontierEnemyPlayerTargetCount: number;
+  frontierBarbarianTargetCount: number;
   frontierNeutralTargetCount: number;
   frontierOpportunityEconomic: number;
   frontierOpportunityScout: number;
@@ -203,11 +207,15 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
   const scoreByTargetKey = new Map<string, number>();
   const enemyTargets = new Set<string>();
+  const enemyPlayerTargets = new Set<string>();
+  const barbarianTargets = new Set<string>();
   const neutralTargets = new Set<string>();
   const domainTilesByKey = buildDomainTileLookup(tilesByKey);
   const ownedTileList = [...ownedTiles].sort(sortTiles);
   const currentReachableLandKeys = new Set<string>();
   let bestAttack: FrontierSelection | undefined;
+  let bestEnemyAttack: FrontierSelection | undefined;
+  let bestBarbarianAttack: FrontierSelection | undefined;
   let bestExpand: FrontierSelection | undefined;
   let bestEconomicExpand: FrontierSelection | undefined;
   let bestScaffoldExpand: FrontierSelection | undefined;
@@ -231,6 +239,11 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
       if (target.ownerId) {
         enemyTargets.add(targetKey);
+        if (target.ownerId === "barbarian" || target.ownershipState === "BARBARIAN") {
+          barbarianTargets.add(targetKey);
+        } else {
+          enemyPlayerTargets.add(targetKey);
+        }
         if (!canAttack) continue;
         const cachedScore = scoreByTargetKey.get(targetKey);
         const score =
@@ -242,6 +255,11 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
         scoreByTargetKey.set(targetKey, score);
         const candidate = { from, target, score };
         if (isBetterSelection(candidate, bestAttack)) bestAttack = candidate;
+        if (target.ownerId === "barbarian" || target.ownershipState === "BARBARIAN") {
+          if (isBetterSelection(candidate, bestBarbarianAttack)) bestBarbarianAttack = candidate;
+        } else if (isBetterSelection(candidate, bestEnemyAttack)) {
+          bestEnemyAttack = candidate;
+        }
         continue;
       }
 
@@ -275,11 +293,15 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
 
   return {
     ...(bestAttack ? { attack: bestAttack } : {}),
+    ...(bestEnemyAttack ? { enemyAttack: bestEnemyAttack } : {}),
+    ...(bestBarbarianAttack ? { barbarianAttack: bestBarbarianAttack } : {}),
     ...(bestExpand ? { expand: bestExpand } : {}),
     ...(bestEconomicExpand ? { economicExpand: bestEconomicExpand } : {}),
     ...(bestScaffoldExpand ? { scaffoldExpand: bestScaffoldExpand } : {}),
     ...(bestScoutExpand ? { scoutExpand: bestScoutExpand } : {}),
     frontierEnemyTargetCount: enemyTargets.size,
+    frontierEnemyPlayerTargetCount: enemyPlayerTargets.size,
+    frontierBarbarianTargetCount: barbarianTargets.size,
     frontierNeutralTargetCount: neutralTargets.size,
     frontierOpportunityEconomic,
     frontierOpportunityScout,

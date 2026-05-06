@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
 
 import { buildDockLinksByDockTileKey } from "./dock-network.js";
-import { planAutomationCommand } from "./automation-command-planner.js";
+import { goapGoldReserveHealthy, planAutomationCommand } from "./automation-command-planner.js";
 
 const makeTile = (
   x: number,
@@ -696,6 +696,46 @@ describe("automation command planner", () => {
       type: "SETTLE",
       payloadJson: JSON.stringify({ x: 9, y: 10 })
     });
+  });
+
+  it("honors goap wait_and_recover instead of falling through to late scout expansion", () => {
+    const settled = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const enemy = makeTile(1, 0, { ownerId: "enemy-1" });
+    const scout = makeTile(0, 1, {});
+    const novelLand = makeTile(0, 2, {});
+    const coastline = { x: 1, y: 1, terrain: "SEA" as const };
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 100,
+      manpower: 0,
+      settledTileCount: 2,
+      townCount: 0,
+      incomePerMinute: 4,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [settled],
+      tilesByKey: new Map([
+        ["0,0", settled],
+        ["1,0", enemy],
+        ["0,1", scout],
+        ["0,2", novelLand],
+        ["1,1", coastline]
+      ]),
+      previousVictoryPath: "SETTLED_TERRITORY",
+      clientSeq: 15,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+  });
+
+  it("matches the legacy goldHealthy reserve threshold for the goap adapter", () => {
+    expect(goapGoldReserveHealthy(4)).toBe(false);
+    expect(goapGoldReserveHealthy(5)).toBe(true);
   });
 
 });

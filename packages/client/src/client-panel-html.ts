@@ -26,6 +26,24 @@ type FeedDebugControls = {
   selectedTileKey?: string | undefined;
 };
 
+const escapeHtml = (value: string): string =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
+const safePlayerColor = (value: string | undefined): string | undefined => {
+  if (!value) return undefined;
+  return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value) ? value : undefined;
+};
+
+const playerNameBadgeHtml = (playerId: string | undefined, playerName: string, playerColors: ReadonlyMap<string, string>): string => {
+  const safeColor = safePlayerColor(playerId ? playerColors.get(playerId) : undefined);
+  return `<span class="lb-player-name"><span class="lb-player-dot${safeColor ? "" : " is-unknown"}"${safeColor ? ` style="--player-color:${safeColor}"` : ""} aria-hidden="true"></span><span>${escapeHtml(playerName)}</span></span>`;
+};
+
 const feedDebugControlsHtml = (controls: FeedDebugControls): string => {
   if (!controls.visible) return "";
   const targetLabel = controls.selectedTileKey ?? "No tile selected";
@@ -323,25 +341,31 @@ export const leaderboardHtml = (
     byTechs: LeaderboardMetricEntry[];
   },
   seasonVictory: SeasonVictoryObjectiveView[],
-  seasonWinner: SeasonWinnerView | null | undefined
+  seasonWinner: SeasonWinnerView | null | undefined,
+  playerColors: ReadonlyMap<string, string> = new Map()
 ): string => {
-  const overallLine = (entry: LeaderboardOverallEntry): string =>
+  const overallLineText = (entry: LeaderboardOverallEntry): string =>
     `${entry.name} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs}`;
-  const metricLine = (entry: LeaderboardMetricEntry): string => `${entry.name} (${entry.value.toFixed(1)})`;
+  const overallLineHtml = (entry: LeaderboardOverallEntry): string =>
+    `${playerNameBadgeHtml(entry.id, entry.name, playerColors)} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs}`;
+  const metricLineText = (entry: LeaderboardMetricEntry): string => `${entry.name} (${entry.value.toFixed(1)})`;
+  const metricLineHtml = (entry: LeaderboardMetricEntry): string => `${playerNameBadgeHtml(entry.id, entry.name, playerColors)} (${entry.value.toFixed(1)})`;
   const includesOverallEntry = (entries: LeaderboardOverallEntry[], selfEntry: LeaderboardOverallEntry | undefined): boolean => {
     if (!selfEntry) return false;
-    return entries.some((entry) => entry.id === selfEntry.id || (entry.rank === selfEntry.rank && overallLine(entry) === overallLine(selfEntry)));
+    return entries.some((entry) => entry.id === selfEntry.id || (entry.rank === selfEntry.rank && overallLineText(entry) === overallLineText(selfEntry)));
   };
   const includesMetricEntry = (entries: LeaderboardMetricEntry[], selfEntry: LeaderboardMetricEntry | undefined): boolean => {
     if (!selfEntry) return false;
-    return entries.some((entry) => entry.id === selfEntry.id || (entry.rank === selfEntry.rank && metricLine(entry) === metricLine(selfEntry)));
+    return entries.some((entry) => entry.id === selfEntry.id || (entry.rank === selfEntry.rank && metricLineText(entry) === metricLineText(selfEntry)));
   };
   const shouldShowSelfProgress = (objective: SeasonVictoryObjectiveView): boolean =>
     Boolean(objective.selfProgressLabel) && objective.leaderPlayerId !== "me";
+  const objectiveLeaderHtml = (objective: SeasonVictoryObjectiveView): string =>
+    objective.leaderPlayerId ? playerNameBadgeHtml(objective.leaderPlayerId, objective.leaderName, playerColors) : escapeHtml(objective.leaderName);
   const metricRows = (entries: LeaderboardMetricEntry[], selfEntry: LeaderboardMetricEntry | undefined): string =>
-    `${entries.map((entry) => `<div class="lb-row">${entry.rank}. ${metricLine(entry)}</div>`).join("")}${
+    `${entries.map((entry) => `<div class="lb-row">${entry.rank}. ${metricLineHtml(entry)}</div>`).join("")}${
       selfEntry && selfEntry.rank !== 1 && !includesMetricEntry(entries, selfEntry)
-        ? `<div class="lb-row">${selfEntry.rank}. You (${selfEntry.value.toFixed(1)})</div>`
+        ? `<div class="lb-row">${selfEntry.rank}. ${playerNameBadgeHtml(selfEntry.id, "You", playerColors)} (${selfEntry.value.toFixed(1)})</div>`
         : ""
     }`;
   const winnerCard = seasonWinner
@@ -350,7 +374,7 @@ export const leaderboardHtml = (
       <strong>Season Winner</strong>
       <div class="pressure-row">
         <div class="pressure-head">
-          <span class="pressure-name">${seasonWinner.playerName}</span>
+          <span class="pressure-name">${playerNameBadgeHtml(seasonWinner.playerId, seasonWinner.playerName, playerColors)}</span>
           <span class="pressure-status is-hot">Crowned</span>
         </div>
         <div class="pressure-meta">${seasonWinner.objectiveName}</div>
@@ -371,7 +395,7 @@ export const leaderboardHtml = (
               <span class="pressure-status ${objective.conditionMet ? "is-hot" : ""}">${objective.statusLabel}</span>
             </div>
             <div class="pressure-meta">${objective.description}</div>
-            <div class="pressure-meta">Leader: ${objective.leaderName} · ${objective.progressLabel}</div>
+            <div class="pressure-meta">Leader: ${objectiveLeaderHtml(objective)} · ${objective.progressLabel}</div>
             ${shouldShowSelfProgress(objective) ? `<div class="pressure-meta">You: ${objective.selfProgressLabel}</div>` : ""}
             <div class="pressure-meta">${objective.thresholdLabel}</div>
           </div>`
@@ -384,10 +408,10 @@ export const leaderboardHtml = (
     ${pressureCards}
     <article class="card">
       <strong>Overall</strong>
-      ${leaderboard.overall.map((entry) => `<div class="lb-row">${entry.rank}. ${overallLine(entry)}</div>`).join("")}
+      ${leaderboard.overall.map((entry) => `<div class="lb-row">${entry.rank}. ${overallLineHtml(entry)}</div>`).join("")}
       ${
         leaderboard.selfOverall && leaderboard.selfOverall.rank !== 1 && !includesOverallEntry(leaderboard.overall, leaderboard.selfOverall)
-          ? `<div class="lb-row">${leaderboard.selfOverall.rank}. You | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${leaderboard.selfOverall.incomePerMinute.toFixed(1)} | tech ${leaderboard.selfOverall.techs}</div>`
+          ? `<div class="lb-row">${leaderboard.selfOverall.rank}. ${playerNameBadgeHtml(leaderboard.selfOverall.id, "You", playerColors)} | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${leaderboard.selfOverall.incomePerMinute.toFixed(1)} | tech ${leaderboard.selfOverall.techs}</div>`
           : ""
       }
     </article>

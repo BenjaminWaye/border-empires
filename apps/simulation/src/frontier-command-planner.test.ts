@@ -176,4 +176,24 @@ describe("frontier command planner", () => {
     expect(analysis.frontierOpportunityScout).toBeGreaterThan(0);
     expect(analysis.scaffoldExpand?.target).toMatchObject({ x: 11, y: 11 });
   });
+
+  it("tracks enemy-player and barbarian attack availability separately on mixed fronts", () => {
+    const tiles = new Map([
+      ["0,0", { x: 0, y: 0, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["1,0", { x: 1, y: 0, terrain: "LAND" as const, ownerId: "enemy-1", town: { name: "Raid" } }],
+      ["0,1", { x: 0, y: 1, terrain: "LAND" as const, ownerId: "barbarian", ownershipState: "BARBARIAN", dockId: "dock-b" }]
+    ]);
+
+    const analysis = analyzeOwnedFrontierTargetsFromLookup(
+      tiles,
+      [tiles.get("0,0")!],
+      "ai-1"
+    );
+
+    expect(analysis.frontierEnemyTargetCount).toBe(2);
+    expect(analysis.frontierEnemyPlayerTargetCount).toBe(1);
+    expect(analysis.frontierBarbarianTargetCount).toBe(1);
+    expect(analysis.enemyAttack?.target).toMatchObject({ x: 1, y: 0, ownerId: "enemy-1" });
+    expect(analysis.barbarianAttack?.target).toMatchObject({ x: 0, y: 1, ownerId: "barbarian" });
+  });
 });
