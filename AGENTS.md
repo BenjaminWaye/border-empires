@@ -1,3 +1,14 @@
+# Stack Targeting (Rewrite vs Legacy)
+
+This repo has two stacks. They are not symmetric, and this is the most common source of wasted agent work.
+
+- **Staging** (`https://staging.borderempires.com`, fly apps `border-empires-gateway-staging` + `border-empires-simulation-staging`) runs the **rewrite stack**: `apps/realtime-gateway` + `apps/simulation`, built by `Dockerfile.gateway` / `Dockerfile.simulation`.
+- **Production** (fly app `border-empires`) currently runs the **legacy stack**: `packages/server`, built by `Dockerfile.server`. This is in flight; the rewrite is being prepared for prod but is not there yet.
+- **Default target for any new work is the rewrite stack.** Do not modify, instrument, or build features in `packages/server` (legacy) unless the user explicitly says "legacy", names `packages/server`, or names a production-only behavior. A legacy-only change will not affect staging at all and will only land in prod once it ships there.
+- If a search turns up logic only in `packages/server`, treat that as a missing port to the rewrite stack. Surface that to the user before instrumenting the legacy version, and offer to port it instead.
+- "Deploy to staging" means deploying the rewrite stack: `fly deploy --config fly.gateway.staging.toml`, `fly deploy --config fly.simulation.staging.toml`, and `pnpm deploy:client:staging`. It does not touch the legacy server.
+- "Deploy to production" today means deploying the legacy stack to `border-empires` plus the prod client. Confirm with the user before deploying production rewrite — that's a stack-cutover operation, not a routine deploy.
+
 # Worktree Setup
 
 - Always create a new git branch and a new git worktree when starting a new thread or a new block of work.
@@ -123,8 +134,14 @@ This repo regularly has many agents (and humans) editing, merging, pushing, and 
 - Main repo: `/Users/benjaminwaye/Sites/border-empires-container/border-empires`
 - Workspace packages:
   - `packages/shared`: shared constants, formulas, schemas, and types.
-  - `packages/server`: authoritative game server, simulation runtime, AI, chunk streaming, and persistence.
+  - `packages/game-domain`: rewrite-stack domain logic and constants shared between simulation and gateway.
+  - `packages/sim-protocol`: wire types between gateway and simulation worker.
+  - `packages/client-protocol`: wire types between gateway and browser client.
+  - `packages/server`: legacy authoritative game server. Currently runs in production; not on staging. Only modify when the user explicitly asks for legacy work or names a production-only behavior.
   - `packages/client`: browser client, canvas renderer, auth flow, HUD/panels, input handling, and websocket sync.
+- Apps (rewrite stack — what runs on staging today):
+  - `apps/realtime-gateway`: client-facing websocket gateway, auth binding, INIT payload assembly, command submission. Deployed to `border-empires-gateway-staging` via `Dockerfile.gateway`.
+  - `apps/simulation`: authoritative simulation worker, spawn placement, tick loop, world events. Deployed to `border-empires-simulation-staging` via `Dockerfile.simulation`.
 - Root scripts:
   - `pnpm dev`: builds shared, then runs server and client together.
   - `pnpm build`, `pnpm test`, `pnpm lint`: recurse through workspace packages.

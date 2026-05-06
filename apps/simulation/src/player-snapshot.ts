@@ -1,4 +1,5 @@
 import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, VISION_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import type { PlayerRespawnNotice } from "@border-empires/shared";
 import type { PlayerSubscriptionDock, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 
@@ -20,6 +21,7 @@ export const buildPlayerSubscriptionSnapshot = (
     sharedFullVisibilityTiles?: PlayerSubscriptionSnapshot["tiles"];
     worldStatusRuntimeState?: RuntimeState;
     seasonState?: PlayerSubscriptionSnapshot["season"];
+    respawnNotice?: PlayerRespawnNotice;
   }
 ): PlayerSubscriptionSnapshot => {
   const sourceTiles =
@@ -221,6 +223,7 @@ export const buildPlayerSubscriptionSnapshot = (
         }),
     ...(options?.seasonState ? { season: options.seasonState } : {}),
     ...(docks.length ? { docks } : {}),
+    ...(options?.respawnNotice ? { respawnNotice: options.respawnNotice } : {}),
     tiles: enrichedTiles
   };
 };

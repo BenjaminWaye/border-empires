@@ -1,6 +1,11 @@
 import { EventEmitter } from "node:events";
 
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
+import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
+import {
+  buildRewritePlayerRespawnNotice,
+  type PendingRespawnNoticeContext
+} from "./player-respawn-notice.js";
 import {
   validateFrontierCommand,
   type DomainPlayer,
@@ -540,6 +545,8 @@ export class SimulationRuntime {
   private readonly locksByTile: Map<string, LockRecord>;
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
+  private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
+  private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
   private readonly abilityCooldownsByPlayer = new Map<string, Partial<Record<CrystalAbilityId, number>>>();
   private readonly activeAetherBridgesByPlayer = new Map<string, ActiveAetherBridgeView[]>();
@@ -681,6 +688,87 @@ export class SimulationRuntime {
     return () => this.events.off("event", listener);
   }
 
+  preparePlayerRespawnNotice(
+    playerId: string,
+    reasonCode: PlayerRespawnReasonCode,
+    triggerEvent: string,
+    options?: { wasOnline?: boolean }
+  ): void {
+    const player = this.players.get(playerId);
+    const callerStack = new Error("respawn-debug-stack").stack?.split("\n").slice(2, 6).join(" | ");
+    const territoryTiles = this.summaryForPlayer(playerId).territoryTileKeys.size;
+    const isAi = player?.isAi === true;
+    this.runtimeLogInfo(
+      {
+        playerId,
+        isAi,
+        reasonCode,
+        triggerEvent,
+        wasOnline: options?.wasOnline,
+        territoryTiles,
+        callerStack
+      },
+      "[respawn-debug] preparePlayerRespawnNotice"
+    );
+    if (isAi) return;
+    this.pendingRespawnNoticeByPlayerId.set(playerId, {
+      at: this.now(),
+      reasonCode,
+      triggerEvent,
+      previousTerritoryTiles: territoryTiles,
+      previousTerritoryStrength: 0,
+      previousExposure: 0,
+      wasEliminated: false,
+      respawnPending: territoryTiles === 0,
+      ...(typeof options?.wasOnline === "boolean" ? { wasOnline: options.wasOnline } : {})
+    });
+  }
+
+  peekRespawnNoticeForPlayer(playerId: string): PlayerRespawnNotice | undefined {
+    return this.lastRespawnNoticeByPlayerId.get(playerId);
+  }
+
+  consumeRespawnNoticeForPlayer(playerId: string): PlayerRespawnNotice | undefined {
+    const notice = this.lastRespawnNoticeByPlayerId.get(playerId);
+    this.runtimeLogInfo(
+      {
+        playerId,
+        hadNotice: notice !== undefined,
+        noticeId: notice?.id,
+        reasonCode: notice?.reasonCode,
+        triggerEvent: notice?.triggerEvent,
+        hasPendingPrep: this.pendingRespawnNoticeByPlayerId.has(playerId)
+      },
+      "[respawn-debug] consumeRespawnNoticeForPlayer"
+    );
+    this.lastRespawnNoticeByPlayerId.delete(playerId);
+    return notice;
+  }
+
+  private finalizeRespawnNotice(playerId: string, spawnTileKey: string): void {
+    const pending = this.pendingRespawnNoticeByPlayerId.get(playerId);
+    if (!pending) return;
+    const player = this.players.get(playerId);
+    const playerName = player?.name ?? playerId;
+    const notice = buildRewritePlayerRespawnNotice({
+      playerId,
+      playerName,
+      context: pending,
+      spawnTileKey: spawnTileKey as `${number},${number}`
+    });
+    this.lastRespawnNoticeByPlayerId.set(playerId, notice);
+    this.pendingRespawnNoticeByPlayerId.delete(playerId);
+  }
+
+  private runtimeLogInfo(payload: Record<string, unknown>, message: string): void {
+    try {
+      // eslint-disable-next-line no-console
+      console.info(message, payload);
+    } catch {
+      // best-effort log; never throw from the diagnostic path
+    }
+  }
+
   ensurePlayerHasSpawnTerritory(playerId: string): boolean {
     let player = this.players.get(playerId);
     if (!player) {
@@ -690,7 +778,25 @@ export class SimulationRuntime {
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
     }
 
-    if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return false;
+    const territoryTiles = this.summaryForPlayer(playerId).territoryTileKeys.size;
+    const hasPendingNotice = this.pendingRespawnNoticeByPlayerId.has(playerId);
+    this.runtimeLogInfo(
+      {
+        playerId,
+        isAi: player.isAi === true,
+        territoryTiles,
+        hasPendingNotice,
+        pendingNoticeReason: this.pendingRespawnNoticeByPlayerId.get(playerId)?.reasonCode,
+        pendingNoticeTrigger: this.pendingRespawnNoticeByPlayerId.get(playerId)?.triggerEvent,
+        callerStack: new Error("respawn-debug-stack").stack?.split("\n").slice(2, 6).join(" | ")
+      },
+      "[respawn-debug] ensurePlayerHasSpawnTerritory entry"
+    );
+
+    if (territoryTiles > 0) return false;
+    if (!player.isAi && !hasPendingNotice) {
+      this.preparePlayerRespawnNotice(playerId, "auth_recovery", "ensure_player_has_spawn_territory");
+    }
 
     const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
     this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
@@ -718,6 +824,7 @@ export class SimulationRuntime {
     const commandId = `bootstrap-spawn:${playerId}:${this.now()}`;
     this.tileYieldCollectedAtByTile.set(tileKey, this.now());
     this.replaceTileState(tileKey, spawnedTile);
+    this.finalizeRespawnNotice(playerId, tileKey);
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId,
@@ -4759,6 +4866,9 @@ export class SimulationRuntime {
     const actor = this.players.get(playerId);
     if (!actor) return;
     if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return;
+    if (!actor.isAi && !this.pendingRespawnNoticeByPlayerId.has(playerId)) {
+      this.preparePlayerRespawnNotice(playerId, "eliminated", commandId, { wasOnline: true });
+    }
 
     for (const tile of this.tiles.values()) {
       if (tile.terrain !== "LAND" || tile.ownerId) continue;
@@ -4773,8 +4883,10 @@ export class SimulationRuntime {
         }
       };
       actor.manpower = Math.max(actor.manpower, 100);
-      this.tileYieldCollectedAtByTile.set(simulationTileKey(tile.x, tile.y), this.now());
-      this.replaceTileState(simulationTileKey(tile.x, tile.y), respawnedTile);
+      const respawnedTileKey = simulationTileKey(tile.x, tile.y);
+      this.tileYieldCollectedAtByTile.set(respawnedTileKey, this.now());
+      this.replaceTileState(respawnedTileKey, respawnedTile);
+      this.finalizeRespawnNotice(playerId, respawnedTileKey);
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
         commandId: `${commandId}:respawn:${playerId}`,

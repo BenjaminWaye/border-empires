@@ -138,6 +138,21 @@ export const buildInitMessage = (
         if (objectiveOverride?.name) objective.leaderName = objectiveOverride.name;
       }
       const socialSnapshot = socialState?.snapshotForPlayer(playerIdentity.playerId);
+      try {
+        const respawnNoticeOnPlayer = (bootstrap.player as { respawnNotice?: { id?: string; reasonCode?: string; triggerEvent?: string } }).respawnNotice;
+        // eslint-disable-next-line no-console
+        console.info("[respawn-debug] buildInitMessage", {
+          playerId: playerIdentity.playerId,
+          hasInitialState: initialState !== undefined,
+          initialStateHadRespawnNotice: initialState?.respawnNotice !== undefined,
+          bootstrapPlayerHasRespawnNotice: respawnNoticeOnPlayer !== undefined,
+          noticeId: respawnNoticeOnPlayer?.id,
+          noticeReasonCode: respawnNoticeOnPlayer?.reasonCode,
+          noticeTriggerEvent: respawnNoticeOnPlayer?.triggerEvent
+        });
+      } catch {
+        // best-effort log; never throw from the diagnostic path
+      }
       return {
       type: "INIT",
       runtimeIdentity: bootstrap.runtimeIdentity,
