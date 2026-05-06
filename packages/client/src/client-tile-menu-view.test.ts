@@ -190,7 +190,10 @@ describe("menuOverviewForTile", () => {
       }
     );
 
-    expect(lines.some((line) => line.html.includes("Settlement is producing 0.00 gold/m."))).toBe(true);
+    // The duplicated prose income line ("Settlement is producing X gold/m.") was removed
+    // because the unified `Production:` row already displays the same value. We assert it
+    // is gone to lock in the dedupe.
+    expect(lines.some((line) => line.html.includes("Settlement is producing"))).toBe(false);
   });
 
   it("shows neutral town stats without owned-only economy guidance", () => {
@@ -286,6 +289,14 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Connect this town to other towns"))).toBe(false);
     expect(lines.some((line) => line.html.includes("Growth"))).toBe(false);
     expect(lines.some((line) => line.html.includes("Next size:"))).toBe(false);
+    // Frontier-with-town should NOT also show the generic "Frontier land is visible control..."
+    // intro — the town-specific Settle prompt covers it.
+    expect(lines.some((line) => line.html.includes("Frontier land is visible control"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Needs settlement to produce"))).toBe(false);
+    // No Production / Upkeep / Stored yield rows for non-settled.
+    expect(lines.some((line) => line.html.includes("Production:"))).toBe(false);
+    expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(false);
+    expect(lines.some((line) => line.html.includes("Stored yield:"))).toBe(false);
   });
 
   it("does not show support or road-bonus UI for settlements even if stale town fields are present", () => {
