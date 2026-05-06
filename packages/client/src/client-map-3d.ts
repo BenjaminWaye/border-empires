@@ -1,11 +1,43 @@
-import { AmbientLight, BoxGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from "three";
+import { BoxGeometry, Color, EdgesGeometry, LineBasicMaterial, LineSegments, Scene, WebGLRenderer } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
 import { isForestTile } from "./client-constants.js";
-import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
-import { createLegacy3DTerrainTextures } from "./client-map-3d-terrain-textures.js";
+import { applyPerspectiveCamera, createPerspectiveCamera } from "./client-map-3d-perspective-camera.js";
+import { createAtmosphere } from "./client-map-3d-atmosphere.js";
+import { createPointerPick, toroidDelta } from "./client-map-3d-pointer-pick.js";
+import { createHeightfield, type HeightfieldTerrainKind } from "./client-map-3d-heightfield.js";
+import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
+import { createWaterSurface, WATER_SURFACE_Y } from "./client-map-3d-water-surface.js";
+import { createVillageEffects } from "./client-map-3d-village-fx.js";
+import { createForest } from "./client-map-3d-forest.js";
+import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
+import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
+import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
+import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
+import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
+import { createResourceOverlay, type ResourceKind } from "./client-map-3d-resource-overlay.js";
+import { createAttackOverlay } from "./client-map-3d-attack-overlay.js";
+import { createSettleOverlay } from "./client-map-3d-settle-overlay.js";
+import {
+  createStructureOverlay,
+  STRUCTURE_KINDS_HANDLED_BY_3D,
+  type StructureKind
+} from "./client-map-3d-structure-overlay.js";
+import { resourceFor3DPopulation } from "./client-map-3d-population.js";
+import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import {
+  fortificationOpeningForTile,
+  fortificationOverlayKindForTile,
+  type FortificationOpening,
+  type FortificationOverlayKind
+} from "./client-fortification-overlays.js";
 import { normalizeColorForThree } from "./client-three-color.js";
+
+type TileTimedProgress = {
+  readonly startAt: number;
+  readonly resolvesAt: number;
+};
 
 type ClientThreeTerrainRendererDeps = {
   state: ClientState;
@@ -16,18 +48,15 @@ type ClientThreeTerrainRendererDeps = {
   terrainAt: (x: number, y: number) => Tile["terrain"];
   effectiveOverlayColor: (ownerId: string) => string;
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
+  settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
 };
 
 const MAX_VISIBLE_TILES = 14000;
-const MAX_FOREST_INSTANCES = MAX_VISIBLE_TILES * 5;
 const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
-const CAMERA_HEIGHT = 100;
-const CAMERA_TILT_DEGREES_FROM_VERTICAL = 14;
-const MOUNTAIN_SQUARE_PEAK_ROTATION_RADIANS = Math.PI / 4;
-const LAND_TILE_TOP_Y = 0.37;
-const OWNERSHIP_SURFACE_Y = LAND_TILE_TOP_Y + 0.004;
-const MARKER_SURFACE_Y = LAND_TILE_TOP_Y + 0.02;
+const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
+const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.038;
+const OVERLAY_RISE_ABOVE_HEIGHTFIELD = 0.012;
 
 export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendererDeps) => {
   const glCanvas = document.createElement("canvas");
@@ -41,176 +70,92 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   renderer.setPixelRatio(1);
 
   const scene = new Scene();
-  scene.background = new Color("#071223");
-  scene.fog = null;
+  const atmosphere = createAtmosphere(scene);
+  const camera = createPerspectiveCamera(deps.canvas);
+  const heightfield = createHeightfield();
+  scene.add(heightfield.mesh);
+  scene.add(heightfield.gridlines);
+  heightfield.setGridlinesVisible(true);
+  const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
+  const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
+  const villageEffects = createVillageEffects(scene);
+  const forest = createForest(scene, MAX_VISIBLE_TILES);
+  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
+  const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
+  const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
+  const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
+  const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
+  const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES);
+  const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
+  const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
+  const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES);
 
-  const ambient = new AmbientLight("#a7c8e2", 1.12);
-  scene.add(ambient);
+  // Visual-only demo: ?towndemo=1 fakes a row of 5 tiers near (camX, camY)
+  // so you can compare Settlement → Town → City → Great City → Metropolis
+  // side-by-side without playing through them.
+  const townDemoEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("towndemo") === "1";
+  const TOWN_DEMO_TIERS: ReadonlyArray<TownTier> = [
+    "SETTLEMENT",
+    "TOWN",
+    "CITY",
+    "GREAT_CITY",
+    "METROPOLIS"
+  ];
+  const isTownDemoTile = (
+    wx: number,
+    wy: number
+  ): TownTier | undefined => {
+    if (!townDemoEnabled) return undefined;
+    if (wy !== deps.state.camY) return undefined;
+    const dx = wx - deps.state.camX;
+    if (dx < 0 || dx >= TOWN_DEMO_TIERS.length) return undefined;
+    return TOWN_DEMO_TIERS[dx];
+  };
 
-  const sun = new DirectionalLight("#fff4d6", 1.7);
-  sun.position.set(-8, 18, 10);
-  scene.add(sun);
+  // Visual-only demo: ?fortdemo=1 fakes a row of 4 fort kinds two tiles
+  // south of the camera so you can compare them side-by-side. Demo
+  // forts are owned by "demo" so the cardinal-opening rule still
+  // resolves (FORT next to FORT opens its first cardinal); place each
+  // kind 2 tiles apart so they don't merge walls.
+  const fortDemoEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("fortdemo") === "1";
+  const FORT_DEMO_KINDS: ReadonlyArray<FortificationOverlayKind> = [
+    "FORT",
+    "WOODEN_FORT",
+    "LIGHT_OUTPOST",
+    "SIEGE_OUTPOST"
+  ];
+  const FORT_DEMO_SPACING = 2;
+  // Row 1 at camY+2: 4 kinds spaced 2 tiles apart (no wall sharing).
+  // Row 2 at camY+5: a pair of FORTs touching at (camX, camY+5) and
+  //                  (camX+1, camY+5) so the wall-sharing rule kicks in
+  //                  — the left fort opens E, the right opens W.
+  const fortDemoSpec = (
+    wx: number,
+    wy: number
+  ): { kind: FortificationOverlayKind; opening: FortificationOpening } | undefined => {
+    if (!fortDemoEnabled) return undefined;
+    if (wy === deps.state.camY + 2) {
+      const dx = wx - deps.state.camX;
+      if (dx < 0) return undefined;
+      if (dx % FORT_DEMO_SPACING !== 0) return undefined;
+      const idx = dx / FORT_DEMO_SPACING;
+      if (idx >= FORT_DEMO_KINDS.length) return undefined;
+      const kind = FORT_DEMO_KINDS[idx];
+      if (!kind) return undefined;
+      return { kind, opening: "CLOSED" };
+    }
+    if (wy === deps.state.camY + 5) {
+      const dx = wx - deps.state.camX;
+      if (dx === 0) return { kind: "FORT", opening: "EAST" };
+      if (dx === 1) return { kind: "FORT", opening: "WEST" };
+    }
+    return undefined;
+  };
 
-  const sky = new DirectionalLight("#87ccff", 0.52);
-  sky.position.set(10, 12, -8);
-  scene.add(sky);
-
-  const camera = new OrthographicCamera(-10, 10, 8, -8, 0.1, 2500);
-  const cameraTarget = new Vector3(0, 0, 0);
-  camera.up.set(0, 0, -1);
-
-  const { grassLightTexture, grassDarkTexture, sandTexture, seaDeepTexture, seaCoastTexture } = createLegacy3DTerrainTextures();
-
-  const seaMaterial = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: seaDeepTexture,
-    roughness: 0.5,
-    roughnessMap: seaDeepTexture,
-    bumpMap: seaDeepTexture,
-    bumpScale: 0.018,
-    metalness: 0.02,
-    flatShading: true
-  });
-  const coastSeaMaterial = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: seaCoastTexture,
-    roughness: 0.5,
-    roughnessMap: seaCoastTexture,
-    bumpMap: seaCoastTexture,
-    bumpScale: 0.016,
-    metalness: 0.02,
-    flatShading: true
-  });
-  const landMaterialA = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: grassLightTexture,
-    emissive: "#4d5f34",
-    emissiveMap: grassLightTexture,
-    emissiveIntensity: 0.28,
-    roughness: 0.78,
-    roughnessMap: grassLightTexture,
-    bumpMap: grassLightTexture,
-    bumpScale: 0.02,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const landMaterialB = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: grassDarkTexture,
-    emissive: "#42522d",
-    emissiveMap: grassDarkTexture,
-    emissiveIntensity: 0.3,
-    roughness: 0.79,
-    roughnessMap: grassDarkTexture,
-    bumpMap: grassDarkTexture,
-    bumpScale: 0.02,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const landMaterialC = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: grassLightTexture,
-    emissive: "#4d5f34",
-    emissiveMap: grassLightTexture,
-    emissiveIntensity: 0.28,
-    roughness: 0.78,
-    roughnessMap: grassLightTexture,
-    bumpMap: grassLightTexture,
-    bumpScale: 0.02,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const sandMaterialA = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: sandTexture,
-    emissive: "#8d7954",
-    emissiveMap: sandTexture,
-    emissiveIntensity: 0.24,
-    roughness: 0.73,
-    roughnessMap: sandTexture,
-    bumpMap: sandTexture,
-    bumpScale: 0.017,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const sandMaterialB = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: sandTexture,
-    emissive: "#8d7954",
-    emissiveMap: sandTexture,
-    emissiveIntensity: 0.24,
-    roughness: 0.73,
-    roughnessMap: sandTexture,
-    bumpMap: sandTexture,
-    bumpScale: 0.017,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const sandMaterialC = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: sandTexture,
-    emissive: "#8d7954",
-    emissiveMap: sandTexture,
-    emissiveIntensity: 0.24,
-    roughness: 0.73,
-    roughnessMap: sandTexture,
-    bumpMap: sandTexture,
-    bumpScale: 0.017,
-    metalness: 0.01,
-    flatShading: true
-  });
-  const mountainPeakMaterial = new MeshStandardMaterial({ color: "#535760", roughness: 0.9, metalness: 0, flatShading: true });
-  const mountainSnowCapMaterial = new MeshStandardMaterial({
-    color: "#f3f7ff",
-    roughness: 0.62,
-    metalness: 0,
-    flatShading: true,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2
-  });
-  const forestCanopyMaterial = new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true });
-  const forestTrunkMaterial = new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true });
-  const ownershipSettledMaterial = new MeshBasicMaterial({
-    color: "#ffffff",
-    transparent: false,
-    depthWrite: false,
-    depthTest: false,
-    side: DoubleSide
-  });
-  const ownershipFrontierMaterial = new MeshBasicMaterial({
-    color: "#ffffff",
-    transparent: true,
-    opacity: 0.68,
-    depthWrite: false,
-    depthTest: false,
-    side: DoubleSide
-  });
-
-  const seaGeometry = new BoxGeometry(1, 0.2, 1);
-  const coastSeaGeometry = new BoxGeometry(1, 0.2, 1);
-  const landGeometry = new BoxGeometry(1, 0.46, 1);
-  const sandGeometry = new BoxGeometry(1, 0.46, 1);
-  const mountainPeakGeometry = new ConeGeometry(0.715, 1.24, 4, 1, false);
-  const mountainSnowCapGeometry = new ConeGeometry(0.19, 0.34, 4, 1, false);
-  const forestGeometry = new ConeGeometry(0.22, 0.92, 5, 1, false);
-  const forestTrunkGeometry = new CylinderGeometry(0.075, 0.085, 0.7, 6);
-  const ownershipGeometry = new PlaneGeometry(1, 1);
-
-  const seaMesh = new InstancedMesh(seaGeometry, seaMaterial, MAX_VISIBLE_TILES);
-  const coastSeaMesh = new InstancedMesh(coastSeaGeometry, coastSeaMaterial, MAX_VISIBLE_TILES);
-  const landMeshA = new InstancedMesh(landGeometry, landMaterialA, MAX_VISIBLE_TILES);
-  const landMeshB = new InstancedMesh(landGeometry, landMaterialB, MAX_VISIBLE_TILES);
-  const landMeshC = new InstancedMesh(landGeometry, landMaterialC, MAX_VISIBLE_TILES);
-  const sandMeshA = new InstancedMesh(sandGeometry, sandMaterialA, MAX_VISIBLE_TILES);
-  const sandMeshB = new InstancedMesh(sandGeometry, sandMaterialB, MAX_VISIBLE_TILES);
-  const sandMeshC = new InstancedMesh(sandGeometry, sandMaterialC, MAX_VISIBLE_TILES);
-  const mountainPeakMesh = new InstancedMesh(mountainPeakGeometry, mountainPeakMaterial, MAX_VISIBLE_TILES);
-  const mountainSnowCapMesh = new InstancedMesh(mountainSnowCapGeometry, mountainSnowCapMaterial, MAX_VISIBLE_TILES);
-  const forestMesh = new InstancedMesh(forestGeometry, forestCanopyMaterial, MAX_FOREST_INSTANCES);
-  const forestTrunkMesh = new InstancedMesh(forestTrunkGeometry, forestTrunkMaterial, MAX_FOREST_INSTANCES);
-  const ownershipSettledMesh = new InstancedMesh(ownershipGeometry, ownershipSettledMaterial, MAX_VISIBLE_TILES);
-  const ownershipFrontierMesh = new InstancedMesh(ownershipGeometry, ownershipFrontierMaterial, MAX_VISIBLE_TILES);
   const markerEdgesGeometry = new EdgesGeometry(new BoxGeometry(1, 0.04, 1));
   const selectedMarker = new LineSegments(
     markerEdgesGeometry,
@@ -252,24 +197,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
-  for (const mesh of [
-    seaMesh,
-    coastSeaMesh,
-    landMeshA,
-    landMeshB,
-    landMeshC,
-    sandMeshA,
-    sandMeshB,
-    sandMeshC,
-    mountainPeakMesh,
-    mountainSnowCapMesh,
-    forestMesh,
-    forestTrunkMesh,
-    ownershipSettledMesh,
-    ownershipFrontierMesh
-  ]) {
-    mesh.frustumCulled = false;
-  }
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
@@ -277,35 +204,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
 
-  seaMesh.count = 0;
-  coastSeaMesh.count = 0;
-  landMeshA.count = 0;
-  landMeshB.count = 0;
-  landMeshC.count = 0;
-  sandMeshA.count = 0;
-  sandMeshB.count = 0;
-  sandMeshC.count = 0;
-  mountainPeakMesh.count = 0;
-  mountainSnowCapMesh.count = 0;
-  forestMesh.count = 0;
-  forestTrunkMesh.count = 0;
-  ownershipSettledMesh.count = 0;
-  ownershipFrontierMesh.count = 0;
   scene.add(
-    seaMesh,
-    coastSeaMesh,
-    landMeshA,
-    landMeshB,
-    landMeshC,
-    sandMeshA,
-    sandMeshB,
-    sandMeshC,
-    mountainPeakMesh,
-    mountainSnowCapMesh,
-    forestMesh,
-    forestTrunkMesh,
-    ownershipSettledMesh,
-    ownershipFrontierMesh,
     selectedMarker,
     hoverMarker,
     ...townSupportMarkers.map(({ marker }) => marker),
@@ -314,10 +213,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...queuedBuildMarkers.map(({ marker }) => marker)
   );
 
-  const tempMatrix = new Matrix4();
-  const peakOffset = new Matrix4();
-  const forestCanopyScaleMatrix = new Matrix4();
-  const forestTrunkScaleMatrix = new Matrix4();
   const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0 };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
@@ -325,14 +220,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     typeof window !== "undefined" ? (window as Window & { __be3dOwnershipDebug?: unknown }) : undefined;
   const shouldDebugOwnership = (): boolean =>
     typeof window !== "undefined" && window.location.hostname === "localhost";
-
-  const mountainJitter = (_wx: number, _wy: number): { x: number; z: number; y: number } => {
-    return {
-      x: 0,
-      z: 0,
-      y: 0.14
-    };
-  };
 
   const terrainForWorldTile = (wx: number, wy: number): Tile["terrain"] => {
     const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
@@ -354,28 +241,20 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
     return biome === "SAND" || biome === "COASTAL_SAND";
   };
-  const isSandAdjacentToMountain = (wx: number, wy: number): boolean => {
-    const neighbors = [
-      { x: deps.wrapX(wx), y: deps.wrapY(wy - 1) },
-      { x: deps.wrapX(wx + 1), y: deps.wrapY(wy) },
-      { x: deps.wrapX(wx), y: deps.wrapY(wy + 1) },
-      { x: deps.wrapX(wx - 1), y: deps.wrapY(wy) }
-    ];
-    for (const neighbor of neighbors) {
-      if (isSandTile(neighbor.x, neighbor.y)) return true;
+  const heightfieldKindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
+    const terrain = terrainForWorldTile(wx, wy);
+    if (terrain === "SEA" || terrain === "COASTAL_SEA") {
+      if (terrain === "COASTAL_SEA") return "COASTAL_SEA";
+      return "SEA";
     }
-    return false;
-  };
-  const toroidDelta = (from: number, to: number, dim: number): number => {
-    let delta = to - from;
-    if (delta > dim / 2) delta -= dim;
-    if (delta < -dim / 2) delta += dim;
-    return delta;
+    if (terrain === "MOUNTAIN") return "MOUNTAIN";
+    if (isSandTile(wx, wy)) return "SAND";
+    return "GRASS";
   };
   const syncHighlightMarker = (
     marker: LineSegments,
     tile: { x: number; y: number } | undefined,
-    height: number
+    riseAboveSurface: number
   ): void => {
     if (!tile) {
       marker.visible = false;
@@ -383,7 +262,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     const dx = toroidDelta(deps.state.camX, tile.x, WORLD_WIDTH);
     const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
-    marker.position.set(dx + TILE_CENTER_OFFSET, height, dy + TILE_CENTER_OFFSET);
+    const surfaceY = heightfield.elevationAt(deps.wrapX(tile.x), deps.wrapY(tile.y));
+    marker.position.set(dx + TILE_CENTER_OFFSET, surfaceY + riseAboveSurface, dy + TILE_CENTER_OFFSET);
     marker.visible = true;
   };
   const isTownSupportHighlightableAt = (wx: number, wy: number): boolean => {
@@ -424,7 +304,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         const sx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH);
         const sy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT);
-        marker.position.set(sx + TILE_CENTER_OFFSET, MARKER_SURFACE_Y, sy + TILE_CENTER_OFFSET);
+        const surfaceY = heightfield.elevationAt(wx, wy);
+        marker.position.set(sx + TILE_CENTER_OFFSET, surfaceY + MARKER_RISE_ABOVE_HEIGHTFIELD, sy + TILE_CENTER_OFFSET);
         marker.visible = true;
         markerIndex += 1;
       }
@@ -443,7 +324,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const placeLineMarkers = (
     pool: Array<{ marker: LineSegments }>,
     tiles: Array<{ x: number; y: number }>,
-    yOffset: number
+    riseAboveSurface: number
   ): void => {
     hideLineMarkerPool(pool);
     let index = 0;
@@ -452,7 +333,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       const { marker } = pool[index]!;
       const dx = toroidDelta(deps.state.camX, tile.x, WORLD_WIDTH);
       const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
-      marker.position.set(dx + TILE_CENTER_OFFSET, yOffset, dy + TILE_CENTER_OFFSET);
+      const surfaceY = heightfield.elevationAt(deps.wrapX(tile.x), deps.wrapY(tile.y));
+      marker.position.set(dx + TILE_CENTER_OFFSET, surfaceY + riseAboveSurface, dy + TILE_CENTER_OFFSET);
       marker.visible = true;
       index += 1;
     }
@@ -466,7 +348,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       if (!Number.isFinite(action.x) || !Number.isFinite(action.y)) continue;
       actionTiles.push({ x: action.x, y: action.y });
     }
-    placeLineMarkers(queuedActionMarkers, actionTiles, MARKER_SURFACE_Y);
+    placeLineMarkers(queuedActionMarkers, actionTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
     const settlementTiles: Array<{ x: number; y: number }> = [];
     const buildTiles: Array<{ x: number; y: number }> = [];
     for (const entry of deps.state.developmentQueue) {
@@ -475,31 +357,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       if (entry.kind === "SETTLE") settlementTiles.push({ x: entry.x, y: entry.y });
       if (entry.kind === "BUILD") buildTiles.push({ x: entry.x, y: entry.y });
     }
-    placeLineMarkers(queuedSettlementMarkers, settlementTiles, MARKER_SURFACE_Y);
-    placeLineMarkers(queuedBuildMarkers, buildTiles, MARKER_SURFACE_Y);
+    placeLineMarkers(queuedSettlementMarkers, settlementTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
+    placeLineMarkers(queuedBuildMarkers, buildTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
   };
 
   const applyCamera = (): void => {
-    const size = Math.max(1, deps.state.zoom);
-    const width = Math.max(1, deps.canvas.width);
-    const height = Math.max(1, deps.canvas.height);
-    const halfW = Math.max(1, Math.floor(width / size / 2));
-    const halfH = Math.max(1, Math.floor(height / size / 2));
-    // Use pixel-space frustum + zoom so 1 world unit == 1 tile exactly.
-    camera.left = -width / 2;
-    camera.right = width / 2;
-    camera.top = height / 2;
-    camera.bottom = -height / 2;
-    camera.zoom = size;
-    const centerOffsetX = width / (2 * size) - halfW;
-    const centerOffsetZ = height / (2 * size) - halfH;
-    const tiltRadians = (CAMERA_TILT_DEGREES_FROM_VERTICAL * Math.PI) / 180;
-    const cameraDepthOffset = Math.tan(tiltRadians) * CAMERA_HEIGHT;
-    camera.position.set(centerOffsetX, CAMERA_HEIGHT, centerOffsetZ + cameraDepthOffset);
-    camera.far = 2500;
-    cameraTarget.set(centerOffsetX, 0, centerOffsetZ);
-    camera.lookAt(cameraTarget);
-    camera.updateProjectionMatrix();
+    applyPerspectiveCamera(camera, {
+      zoom: deps.state.zoom,
+      canvasWidth: deps.canvas.width,
+      canvasHeight: deps.canvas.height
+    });
   };
 
   const resize = (): void => {
@@ -511,25 +378,54 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     applyCamera();
   };
 
+  // Hoisted Color temps reused per rebuild to avoid per-tile allocation.
+  const tmpSettleOwnerColor = new Color();
+  const tmpOwnerColor = new Color();
+  const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
+
   const rebuildVisibleTerrain = (): void => {
     const size = Math.max(1, deps.state.zoom);
-    const halfW = Math.floor(deps.canvas.width / size / 2);
-    const halfH = Math.floor(deps.canvas.height / size / 2);
+    const halfW = Math.max(1, Math.floor(deps.canvas.width / size / 2));
+    const halfH = Math.max(1, Math.floor(deps.canvas.height / size / 2));
 
-    let seaCount = 0;
-    let coastSeaCount = 0;
-    let landCountA = 0;
-    let landCountB = 0;
-    let landCountC = 0;
-    let sandCountA = 0;
-    let sandCountB = 0;
-    let sandCountC = 0;
-    let mountainPeakCount = 0;
-    let mountainSnowCapCount = 0;
-    let forestCount = 0;
-    let forestTrunkCount = 0;
-    let ownershipSettledCount = 0;
-    let ownershipFrontierCount = 0;
+    heightfield.mesh.position.set(0, 0, 0);
+    const isExploredForHeightfield = (wx: number, wy: number): boolean => {
+      if (revealWholeMapInTrue3DMode) return true;
+      const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+      return deps.tileVisibilityStateAt(wx, wy, tile) === "visible";
+    };
+    heightfield.rebuild({
+      camX: deps.state.camX,
+      camY: deps.state.camY,
+      halfW,
+      halfH,
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT,
+      tileKindAt: heightfieldKindAt,
+      isExploredAt: isExploredForHeightfield
+    });
+
+    mountainMassifs.clear();
+    villageEffects.clear();
+    forest.clear();
+    ownershipOverlay.clear();
+    townOverlay.clear();
+    dockOverlay.clear();
+    waterSurface.clear();
+    barbarianOverlay.clear();
+    fortOverlay.clear();
+    resourceOverlay.clear();
+    attackOverlay.clear();
+    settleOverlay.clear();
+    structureOverlay.clear();
+    // Build the dock-endpoint key set the same way the 2D runtime loop
+    // does, since `tile.dockId` is not reliably populated on every
+    // dock-endpoint tile snapshot.
+    const dockEndpointKeys = new Set<string>();
+    for (const pair of deps.state.dockPairs) {
+      dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
+      dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
+    }
     const selectedCoord = deps.state.selected;
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
@@ -539,7 +435,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const wy = deps.wrapY(deps.state.camY + dy);
         const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
         const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
-        if (visibility === "unexplored") continue;
+        // Skip tiles outside the player's vision unless ?reveal=1 is set.
+        // The reveal flag is the developer-facing whole-map mode used by
+        // the 2D path's `syntheticOverlayTileAt`.
+        if (visibility !== "visible" && !revealWholeMapInTrue3DMode) continue;
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
@@ -563,117 +462,182 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             isOwnedLand
           };
         }
+        // Overlays sit on the *rendered* surface, not the tile's base
+        // elevation. The heightfield's drawn corners get pulled up by
+        // averaging with raised neighbours (mountains, hills), so a
+        // tile's painted surface can be much higher than its base. Max
+        // of all 4 corners + small buffer keeps overlays above the
+        // ground at every interior point of the tile.
+        const wxNext = deps.wrapX(wx + 1);
+        const wyNext = deps.wrapY(wy + 1);
+        const surfaceY = Math.max(
+          heightfield.elevationAt(wx, wy),
+          heightfield.cornerYAt(wx, wy),
+          heightfield.cornerYAt(wxNext, wy),
+          heightfield.cornerYAt(wx, wyNext),
+          heightfield.cornerYAt(wxNext, wyNext)
+        ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+        // Per-tile water quad on top of the heightfield's sea-floor
+        // hole. Shallow vs deep texture is decided by the water surface
+        // module — pass shallow=true if any tile within Chebyshev
+        // radius 2 is land/mountain.
         if (terrain === "SEA" || terrain === "COASTAL_SEA") {
-          tempMatrix.makeTranslation(x, -0.1, z);
+          let shallow = false;
+          for (let nz = -2; nz <= 2 && !shallow; nz += 1) {
+            for (let nx = -2; nx <= 2 && !shallow; nx += 1) {
+              if (nx === 0 && nz === 0) continue;
+              const nwx = deps.wrapX(wx + nx);
+              const nwy = deps.wrapY(wy + nz);
+              const nt = terrainForWorldTile(nwx, nwy);
+              if (nt === "LAND" || nt === "MOUNTAIN") shallow = true;
+            }
+          }
+          waterSurface.addTile(x, z, shallow);
           if (terrain === "COASTAL_SEA") {
-            coastSeaMesh.setMatrixAt(coastSeaCount, tempMatrix);
-            coastSeaCount += 1;
-          } else {
-            seaMesh.setMatrixAt(seaCount, tempMatrix);
-            seaCount += 1;
+            // coastal water rendered by heightfield; intentional no-op
           }
           continue;
+        }
+        // Dock 3D pier/quay/harbor — anchored to the tile's land Y so
+        // the deck sits on the ground inland and overhangs the water.
+        const tileKey = deps.keyFor(wx, wy);
+        if (tile?.dockId || dockEndpointKeys.has(tileKey)) {
+          const cardinalsForDock: Array<{ dx: number; dy: number; rot: number }> = [
+            { dx: 0, dy: 1, rot: 0 },
+            { dx: 1, dy: 0, rot: -Math.PI / 2 },
+            { dx: 0, dy: -1, rot: Math.PI },
+            { dx: -1, dy: 0, rot: Math.PI / 2 }
+          ];
+          let dockRotation = 0;
+          for (const c of cardinalsForDock) {
+            const nwx = deps.wrapX(wx + c.dx);
+            const nwy = deps.wrapY(wy + c.dy);
+            const nt = terrainForWorldTile(nwx, nwy);
+            if (nt === "SEA" || nt === "COASTAL_SEA") {
+              dockRotation = c.rot;
+              break;
+            }
+          }
+          const dockSurfaceY = Math.max(heightfield.elevationAt(wx, wy), -0.04) + 0.02;
+          dockOverlay.addInstance(x, z, dockSurfaceY, dockRotation, wx, wy);
         }
         if (terrain === "MOUNTAIN") {
-          const variant = terrainShadeVariantAt(wx, wy);
-          tempMatrix.makeTranslation(x, 0.14, z);
-          if (isSandAdjacentToMountain(wx, wy)) {
-            if (variant === 0) {
-              sandMeshA.setMatrixAt(sandCountA, tempMatrix);
-              sandCountA += 1;
-            } else if (variant === 1) {
-              sandMeshB.setMatrixAt(sandCountB, tempMatrix);
-              sandCountB += 1;
-            } else {
-              sandMeshC.setMatrixAt(sandCountC, tempMatrix);
-              sandCountC += 1;
-            }
-          } else {
-            if (variant === 0) {
-              landMeshA.setMatrixAt(landCountA, tempMatrix);
-              landCountA += 1;
-            } else if (variant === 1) {
-              landMeshB.setMatrixAt(landCountB, tempMatrix);
-              landCountB += 1;
-            } else {
-              landMeshC.setMatrixAt(landCountC, tempMatrix);
-              landCountC += 1;
-            }
-          }
-          const jitter = mountainJitter(wx, wy);
-          peakOffset.makeRotationY(MOUNTAIN_SQUARE_PEAK_ROTATION_RADIANS);
-          tempMatrix.copy(peakOffset);
-          tempMatrix.setPosition(x + jitter.x, 0.86 + jitter.y, z + jitter.z);
-          mountainPeakMesh.setMatrixAt(mountainPeakCount, tempMatrix);
-          mountainPeakCount += 1;
-          tempMatrix.copy(peakOffset);
-          tempMatrix.setPosition(x + jitter.x, 1.38 + jitter.y, z + jitter.z);
-          mountainSnowCapMesh.setMatrixAt(mountainSnowCapCount, tempMatrix);
-          mountainSnowCapCount += 1;
+          mountainMassifs.addInstance(x, z, surfaceY);
           continue;
         }
-        tempMatrix.makeTranslation(x, 0.14, z);
-        const variant = terrainShadeVariantAt(wx, wy);
-        if (isSandTile(wx, wy)) {
-          if (variant === 0) {
-            sandMeshA.setMatrixAt(sandCountA, tempMatrix);
-            sandCountA += 1;
-          } else if (variant === 1) {
-            sandMeshB.setMatrixAt(sandCountB, tempMatrix);
-            sandCountB += 1;
-          } else {
-            sandMeshC.setMatrixAt(sandCountC, tempMatrix);
-            sandCountC += 1;
-          }
-        } else {
-          if (variant === 0) {
-            landMeshA.setMatrixAt(landCountA, tempMatrix);
-            landCountA += 1;
-          } else if (variant === 1) {
-            landMeshB.setMatrixAt(landCountB, tempMatrix);
-            landCountB += 1;
-          } else {
-            landMeshC.setMatrixAt(landCountC, tempMatrix);
-            landCountC += 1;
+        if (forestTile) {
+          forest.addInstance(x, z, surfaceY);
+        }
+        const realTier = tile?.town?.populationTier;
+        const demoTier = isTownDemoTile(wx, wy);
+        const renderedTier: TownTier | undefined = realTier ?? demoTier;
+        if (renderedTier && terrain === "LAND") {
+          townOverlay.addInstance(x, z, surfaceY, renderedTier);
+          // Smoke column over the town. Capital banners stay off for now;
+          // re-enable by adding villageEffects.addCapitalBanner if wanted.
+          const tileSeed = wx * 17 + wy * 31;
+          villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
+        }
+        if (tile && ownerId === "barbarian" && terrain === "LAND") {
+          barbarianOverlay.addInstance(x, z, surfaceY);
+        }
+        if (terrain === "LAND") {
+          // Use the same resource source as the 2D path (`resourceFor3DPopulation`).
+          // When ?reveal=1, this synthesises a resource on land tiles that
+          // don't yet have a real `state.tiles` entry — mirroring the
+          // `syntheticOverlayTileAt` path in client-runtime-loop.ts.
+          const biome = landBiomeAt(wx, wy);
+          const resolvedResource = resourceFor3DPopulation(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, biome, forestTile);
+          if (resolvedResource) {
+            const validResources: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR", "OIL"];
+            if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
+              resourceOverlay.addInstance(x, z, surfaceY, resolvedResource as ResourceKind, wx, wy);
+            }
           }
         }
-          if (forestTile) {
-          const trunkOzBias = 0.04;
-          const forestTreeLayout = [
-            { ox: -0.26, oz: -0.24, canopyScale: 0.84, trunkScale: 0.9, trunkY: 0.56, canopyY: 1.1 },
-            { ox: 0.24, oz: -0.23, canopyScale: 0.82, trunkScale: 0.88, trunkY: 0.56, canopyY: 1.08 },
-            { ox: 0.02, oz: 0.0, canopyScale: 1, trunkScale: 1, trunkY: 0.6, canopyY: 1.16 },
-            { ox: -0.24, oz: 0.25, canopyScale: 0.8, trunkScale: 0.86, trunkY: 0.55, canopyY: 1.07 },
-            { ox: 0.25, oz: 0.24, canopyScale: 0.81, trunkScale: 0.87, trunkY: 0.55, canopyY: 1.08 }
-          ] as const;
-          for (const tree of forestTreeLayout) {
-            forestTrunkScaleMatrix.makeScale(tree.trunkScale, tree.trunkScale, tree.trunkScale);
-            tempMatrix.copy(forestTrunkScaleMatrix);
-            tempMatrix.setPosition(x + tree.ox, tree.trunkY, z + tree.oz + trunkOzBias);
-            forestTrunkMesh.setMatrixAt(forestTrunkCount, tempMatrix);
-            forestTrunkCount += 1;
-
-            forestCanopyScaleMatrix.makeScale(tree.canopyScale, tree.canopyScale, tree.canopyScale);
-            tempMatrix.copy(forestCanopyScaleMatrix);
-            tempMatrix.setPosition(x + tree.ox, tree.canopyY, z + tree.oz);
-            forestMesh.setMatrixAt(forestCount, tempMatrix);
-            forestCount += 1;
+        const incomingAttack = deps.state.incomingAttacksByTile.get(deps.keyFor(wx, wy));
+        if (incomingAttack && incomingAttack.resolvesAt > Date.now() && terrain === "LAND") {
+          attackOverlay.addInstance(x, z, surfaceY, incomingAttack.resolvesAt);
+        }
+        if (tile?.economicStructure && terrain === "LAND") {
+          const structureType = tile.economicStructure.type as string;
+          if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
+            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind);
           }
+        }
+        const settleProgress = deps.settlementProgressForTile(wx, wy);
+        if (settleProgress && terrain === "LAND") {
+          const totalMs = Math.max(1, settleProgress.resolvesAt - settleProgress.startAt);
+          const progressNow = Math.max(0, Math.min(1, (Date.now() - settleProgress.startAt) / totalMs));
+          const settleColor = ownerId
+            ? tmpSettleOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)))
+            : SETTLE_FALLBACK_COLOR;
+          settleOverlay.addInstance(x, z, surfaceY, settleColor, progressNow, wx, wy);
+        }
+        if (tile) {
+          const fortKind = fortificationOverlayKindForTile(tile);
+          if (fortKind) {
+            const opening = fortificationOpeningForTile(tile, {
+              tiles: deps.state.tiles,
+              keyFor: deps.keyFor,
+              wrapX: deps.wrapX,
+              wrapY: deps.wrapY
+            });
+            fortOverlay.addInstance(x, z, surfaceY, fortKind, opening);
+          }
+        }
+        const demoFort = fortDemoSpec(wx, wy);
+        if (demoFort && terrain === "LAND") {
+          fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening);
         }
         if (isOwnedLand && ownerId) {
-          tempMatrix.makeRotationX(-Math.PI / 2);
-          tempMatrix.setPosition(x, OWNERSHIP_SURFACE_Y, z);
           const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
-          const ownerColor = new Color(normalizedColor);
-          if (ownershipState === "FRONTIER") {
-            ownershipFrontierMesh.setMatrixAt(ownershipFrontierCount, tempMatrix);
-            ownershipFrontierMesh.setColorAt(ownershipFrontierCount, ownerColor);
-            ownershipFrontierCount += 1;
-          } else {
-            ownershipSettledMesh.setMatrixAt(ownershipSettledCount, tempMatrix);
-            ownershipSettledMesh.setColorAt(ownershipSettledCount, ownerColor);
-            ownershipSettledCount += 1;
-          }
+          // ownershipOverlay.addTile copies the colour, so we can reuse a
+          // hoisted Color across tiles. wxOwn/wyOwn intentionally
+          // separate from the outer wxNext/wyNext to avoid shadowing.
+          const ownerColor = tmpOwnerColor.set(normalizedColor);
+          const wxOwn = deps.wrapX(wx + 1);
+          const wyOwn = deps.wrapY(wy + 1);
+          // Each corner reads the heightfield's averaged elevation so the
+          // painted overlay traces the sculpted ground. Water draws after
+          // the overlay (see WaterSurface.renderOrder) and naturally hides
+          // any portion that dips below the water surface.
+          const corner00Y = (
+            heightfield.elevationAt(deps.wrapX(wx - 1), deps.wrapY(wy - 1)) +
+            heightfield.elevationAt(wx, deps.wrapY(wy - 1)) +
+            heightfield.elevationAt(deps.wrapX(wx - 1), wy) +
+            heightfield.elevationAt(wx, wy)
+          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner10Y = (
+            heightfield.elevationAt(wx, deps.wrapY(wy - 1)) +
+            heightfield.elevationAt(wxOwn, deps.wrapY(wy - 1)) +
+            heightfield.elevationAt(wx, wy) +
+            heightfield.elevationAt(wxOwn, wy)
+          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner01Y = (
+            heightfield.elevationAt(deps.wrapX(wx - 1), wy) +
+            heightfield.elevationAt(wx, wy) +
+            heightfield.elevationAt(deps.wrapX(wx - 1), wyOwn) +
+            heightfield.elevationAt(wx, wyOwn)
+          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner11Y = (
+            heightfield.elevationAt(wx, wy) +
+            heightfield.elevationAt(wxOwn, wy) +
+            heightfield.elevationAt(wx, wyOwn) +
+            heightfield.elevationAt(wxOwn, wyOwn)
+          ) * 0.25 + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const x0 = x - 0.5;
+          const x1 = x + 0.5;
+          const z0 = z - 0.5;
+          const z1 = z + 0.5;
+          ownershipOverlay.addTile(
+            x0, corner00Y, z0,
+            x1, corner10Y, z0,
+            x0, corner01Y, z1,
+            x1, corner11Y, z1,
+            ownerColor,
+            ownershipState === "FRONTIER"
+          );
           if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
             selectedOwnershipDebug = {
               ...selectedOwnershipDebug,
@@ -687,36 +651,19 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
-    seaMesh.count = seaCount;
-    coastSeaMesh.count = coastSeaCount;
-    landMeshA.count = landCountA;
-    landMeshB.count = landCountB;
-    landMeshC.count = landCountC;
-    sandMeshA.count = sandCountA;
-    sandMeshB.count = sandCountB;
-    sandMeshC.count = sandCountC;
-    mountainPeakMesh.count = mountainPeakCount;
-    mountainSnowCapMesh.count = mountainSnowCapCount;
-    forestMesh.count = forestCount;
-    forestTrunkMesh.count = forestTrunkCount;
-    ownershipSettledMesh.count = ownershipSettledCount;
-    ownershipFrontierMesh.count = ownershipFrontierCount;
-    seaMesh.instanceMatrix.needsUpdate = true;
-    coastSeaMesh.instanceMatrix.needsUpdate = true;
-    landMeshA.instanceMatrix.needsUpdate = true;
-    landMeshB.instanceMatrix.needsUpdate = true;
-    landMeshC.instanceMatrix.needsUpdate = true;
-    sandMeshA.instanceMatrix.needsUpdate = true;
-    sandMeshB.instanceMatrix.needsUpdate = true;
-    sandMeshC.instanceMatrix.needsUpdate = true;
-    mountainPeakMesh.instanceMatrix.needsUpdate = true;
-    mountainSnowCapMesh.instanceMatrix.needsUpdate = true;
-    forestMesh.instanceMatrix.needsUpdate = true;
-    forestTrunkMesh.instanceMatrix.needsUpdate = true;
-    ownershipSettledMesh.instanceMatrix.needsUpdate = true;
-    ownershipFrontierMesh.instanceMatrix.needsUpdate = true;
-    if (ownershipSettledMesh.instanceColor) ownershipSettledMesh.instanceColor.needsUpdate = true;
-    if (ownershipFrontierMesh.instanceColor) ownershipFrontierMesh.instanceColor.needsUpdate = true;
+    mountainMassifs.commit();
+    villageEffects.commit();
+    forest.commit();
+    ownershipOverlay.commit();
+    townOverlay.commit();
+    dockOverlay.commit();
+    waterSurface.commit();
+    barbarianOverlay.commit();
+    fortOverlay.commit();
+    resourceOverlay.commit();
+    attackOverlay.commit();
+    settleOverlay.commit();
+    structureOverlay.commit();
   };
 
   const maybeRebuild = (nowMs: number): void => {
@@ -744,83 +691,48 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const renderLoop = (): void => {
     const nowMs = performance.now();
     maybeRebuild(nowMs);
-    // Keep marker nearly coplanar with tile tops so tilt does not introduce screen-space offset.
-    syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_SURFACE_Y);
-    syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_SURFACE_Y);
+    syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
+    syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
     syncQueueMarkers();
+    villageEffects.update(nowMs);
+    attackOverlay.tick(nowMs);
+    settleOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
 
-  const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } => {
-    const width = Math.max(1, deps.canvas.width);
-    const height = Math.max(1, deps.canvas.height);
-    const ndcX = (offsetX / width) * 2 - 1;
-    const ndcY = -((offsetY / height) * 2 - 1);
-    const nearPoint = new Vector3(ndcX, ndcY, -1).unproject(camera);
-    const farPoint = new Vector3(ndcX, ndcY, 1).unproject(camera);
-    const rayDir = farPoint.sub(nearPoint);
-    const rayDirY = rayDir.y;
-    if (Math.abs(rayDirY) < 1e-6) {
-      return { gx: deps.state.camX, gy: deps.state.camY };
-    }
-    const tileTopPlaneY = 0.14;
-    const t = (tileTopPlaneY - nearPoint.y) / rayDirY;
-    const hitX = nearPoint.x + rayDir.x * t;
-    const hitZ = nearPoint.z + rayDir.z * t;
-    return {
-      gx: deps.state.camX + Math.floor(hitX),
-      gy: deps.state.camY + Math.floor(hitZ)
-    };
-  };
-
-  const worldToScreen = (wx: number, wy: number): { sx: number; sy: number } => {
-    const dx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-    const dy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-    const projected = new Vector3(dx, LAND_TILE_TOP_Y, dy).project(camera);
-    return {
-      sx: (projected.x * 0.5 + 0.5) * deps.canvas.width,
-      sy: (-projected.y * 0.5 + 0.5) * deps.canvas.height
-    };
-  };
+  const { worldTileRawFromPointer, worldToScreen } = createPointerPick({
+    camera,
+    canvas: deps.canvas,
+    state: deps.state,
+    worldWidth: WORLD_WIDTH,
+    worldHeight: WORLD_HEIGHT
+  });
 
   const stop = (): void => {
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     renderer.dispose();
-    seaGeometry.dispose();
-    coastSeaGeometry.dispose();
-    landGeometry.dispose();
-    sandGeometry.dispose();
-    mountainPeakGeometry.dispose();
-    mountainSnowCapGeometry.dispose();
-    forestGeometry.dispose();
-    forestTrunkGeometry.dispose();
-    ownershipGeometry.dispose();
-    seaMaterial.dispose();
-    coastSeaMaterial.dispose();
-    landMaterialA.dispose();
-    landMaterialB.dispose();
-    landMaterialC.dispose();
-    sandMaterialA.dispose();
-    sandMaterialB.dispose();
-    sandMaterialC.dispose();
-    grassLightTexture.dispose();
-    grassDarkTexture.dispose();
-    sandTexture.dispose();
-    seaDeepTexture.dispose();
-    seaCoastTexture.dispose();
-    mountainPeakMaterial.dispose();
-    mountainSnowCapMaterial.dispose();
-    forestCanopyMaterial.dispose();
-    forestTrunkMaterial.dispose();
-    ownershipSettledMaterial.dispose();
-    ownershipFrontierMaterial.dispose();
+    ownershipOverlay.dispose();
     markerEdgesGeometry.dispose();
     for (const { material } of townSupportMarkers) material.dispose();
     for (const { material } of queuedActionMarkers) material.dispose();
     for (const { material } of queuedSettlementMarkers) material.dispose();
     for (const { material } of queuedBuildMarkers) material.dispose();
+    townOverlay.dispose();
+    dockOverlay.dispose();
+    barbarianOverlay.dispose();
+    fortOverlay.dispose();
+    resourceOverlay.dispose();
+    attackOverlay.dispose();
+    settleOverlay.dispose();
+    structureOverlay.dispose();
+    forest.dispose();
+    villageEffects.dispose();
+    waterSurface.dispose();
+    mountainMassifs.dispose();
+    heightfield.dispose();
+    atmosphere.dispose();
     glCanvas.remove();
     delete deps.canvas.dataset.renderer;
   };
