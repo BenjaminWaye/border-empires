@@ -56,6 +56,9 @@ type ProtoTileDelta = {
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
   yieldCap?: { gold: number; strategicEach: number };
+  yield_json?: string;
+  yield_rate_json?: string;
+  yield_cap_json?: string;
 };
 type ProtoDockRoute = {
   dock_id?: string;
@@ -337,12 +340,18 @@ const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Simulatio
   if ("shard_site_json" in tile || "shardSiteJson" in tile) normalized.shardSiteJson = tile.shard_site_json || tile.shardSiteJson || undefined;
   if ("yield" in tile && tile.yield && typeof tile.yield === "object") {
     normalized.yield = tile.yield as NonNullable<typeof normalized.yield>;
+  } else if (typeof tile.yield_json === "string" && tile.yield_json.length > 0) {
+    try { normalized.yield = JSON.parse(tile.yield_json) as NonNullable<typeof normalized.yield>; } catch { /* ignore */ }
   }
   if ("yieldRate" in tile && tile.yieldRate && typeof tile.yieldRate === "object") {
     normalized.yieldRate = tile.yieldRate as NonNullable<typeof normalized.yieldRate>;
+  } else if (typeof tile.yield_rate_json === "string" && tile.yield_rate_json.length > 0) {
+    try { normalized.yieldRate = JSON.parse(tile.yield_rate_json) as NonNullable<typeof normalized.yieldRate>; } catch { /* ignore */ }
   }
   if ("yieldCap" in tile && tile.yieldCap && typeof tile.yieldCap === "object") {
     normalized.yieldCap = tile.yieldCap as NonNullable<typeof normalized.yieldCap>;
+  } else if (typeof tile.yield_cap_json === "string" && tile.yield_cap_json.length > 0) {
+    try { normalized.yieldCap = JSON.parse(tile.yield_cap_json) as NonNullable<typeof normalized.yieldCap>; } catch { /* ignore */ }
   }
   return normalized;
 };
