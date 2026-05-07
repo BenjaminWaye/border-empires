@@ -21,6 +21,7 @@ type PlannerTileLookup = ReadonlyMap<string, PlannerTile>;
 type FrontierAffordability = {
   canAttack?: boolean;
   canExpand?: boolean;
+  needsFood?: boolean;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
 };
 
@@ -58,11 +59,11 @@ const sortTiles = (left: { x: number; y: number }, right: { x: number; y: number
 
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
 
-const resourceScore = (resource: string | undefined): number => {
+const resourceScore = (resource: string | undefined, needsFood: boolean = false): number => {
   switch (resource) {
     case "FARM":
     case "FISH":
-      return 180;
+      return needsFood ? 360 : 180;
     case "IRON":
     case "WOOD":
     case "FUR":
@@ -75,11 +76,11 @@ const resourceScore = (resource: string | undefined): number => {
   }
 };
 
-const strategicFrontierTargetScore = (tile: PlannerTile): number => {
+const strategicFrontierTargetScore = (tile: PlannerTile, needsFood: boolean = false): number => {
   let score = 0;
   if (tile.town) score += 1_000;
   if (tile.dockId) score += 450;
-  score += resourceScore(tile.resource);
+  score += resourceScore(tile.resource, needsFood);
   if (!tile.resource && !tile.town && !tile.dockId) score -= 40;
   return score;
 };
@@ -160,10 +161,16 @@ const selectionScoreForClass = (
   frontierClass: FrontierClass,
   target: PlannerTile,
   settlementEvaluation: SettlementCandidateEvaluation,
-  scoutScore: number
+  scoutScore: number,
+  needsFood: boolean = false
 ): number => {
-  const strategicScore = strategicFrontierTargetScore(target);
-  if (frontierClass === "economic") return 260 + strategicScore + settlementEvaluation.score * 0.25;
+  const strategicScore = strategicFrontierTargetScore(target, needsFood);
+  if (frontierClass === "economic") {
+    if (needsFood && target.town && !target.resource) {
+      return 100 + scoutScore;
+    }
+    return 260 + strategicScore + settlementEvaluation.score * 0.25;
+  }
   if (frontierClass === "scaffold") return 180 + settlementEvaluation.score;
   if (frontierClass === "scout") return 120 + scoutScore;
   return 50 + scoutScore + Math.max(0, settlementEvaluation.score);
@@ -206,6 +213,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
 ): FrontierAnalysis => {
   const canAttack = affordability.canAttack ?? true;
   const canExpand = affordability.canExpand ?? true;
+  const needsFood = affordability.needsFood ?? false;
   const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
   const scoreByTargetKey = new Map<string, number>();
   const enemyTargets = new Set<string>();
@@ -252,7 +260,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
         const cachedScore = scoreByTargetKey.get(targetKey);
         const score =
           cachedScore ??
-          (strategicFrontierTargetScore(target) +
+          (strategicFrontierTargetScore(target, needsFood) +
             (target.ownershipState === "FRONTIER" ? 120 : 0) +
             ownedNeighborCount(tilesByKey, target, playerId) * 95 +
             coastlineDiscoveryValue(tilesByKey, target) * 0.35);
@@ -277,7 +285,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       );
       const scoutScore = scoutExpandScore(tilesByKey, from, target, playerId, currentReachableLandKeys, dockLinksByDockTileKey);
       const frontierClass = classifyNeutralOpportunity(target, settlementEvaluation, scoutScore);
-      const score = selectionScoreForClass(frontierClass, target, settlementEvaluation, scoutScore);
+      const score = selectionScoreForClass(frontierClass, target, settlementEvaluation, scoutScore, needsFood);
       const candidate = { from, target, score, frontierClass };
       if (settlementEvaluation.townSupportNeed > 0) {
         frontierOpportunityTownSupport += 1;
