@@ -4,15 +4,23 @@ import type { SimulationSnapshotStore } from "./snapshot-store.js";
 import { InMemorySimulationSnapshotStore } from "./snapshot-store.js";
 import { resolveSimulationMigrationPath } from "./migration-path.js";
 import { createPostgresSimulationSnapshotStore } from "./postgres-snapshot-store.js";
+import { SqliteSimulationSnapshotStore } from "./sqlite-snapshot-store.js";
+import { openSqliteDatabase } from "./sqlite-db.js";
 
 type SnapshotStoreFactoryOptions = {
   databaseUrl?: string;
+  sqlitePath?: string;
   applySchema?: boolean;
 };
 
 export const createSimulationSnapshotStore = async (
   options: SnapshotStoreFactoryOptions = {}
 ): Promise<SimulationSnapshotStore> => {
+  if (options.sqlitePath) {
+    const store = new SqliteSimulationSnapshotStore(openSqliteDatabase(options.sqlitePath));
+    if (options.applySchema) await store.applySchema();
+    return store;
+  }
   if (!options.databaseUrl) return new InMemorySimulationSnapshotStore();
 
   const store = createPostgresSimulationSnapshotStore(options.databaseUrl);

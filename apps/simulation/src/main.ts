@@ -23,6 +23,7 @@ const service = await createSimulationService({
   host: runtimeEnv.host,
   port: runtimeEnv.port,
   ...(runtimeEnv.databaseUrl ? { databaseUrl: runtimeEnv.databaseUrl } : {}),
+  ...(runtimeEnv.sqlitePath ? { sqlitePath: runtimeEnv.sqlitePath } : {}),
   ...(runtimeEnv.snapshotDir ? { snapshotDir: runtimeEnv.snapshotDir } : {}),
   applySchema: runtimeEnv.applySchema,
   checkpointEveryEvents: runtimeEnv.checkpointEveryEvents,
