@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.8",
+  version: "2026.05.07.9",
   title: "What's New",
-  summary: "Forest tiles once again take 4x longer to claim on the rewrite stack — the per-tile multiplier was defined but never wired into the rewrite simulation, so dark-grass tiles were resolving in 1.25s instead of 5s. Plus rewrite AI town-support detection, island-heavy staging season, and the rest of this release train.",
+  summary: "Owned-town tile panels no longer silently render Production: 0.00/m with no Support or Upkeep when a TILE_DELTA arrives before its REQUEST_TILE_DETAIL response. Each missing row now shows a spinner with a live 'loading for Xs' counter and a Report button that downloads tile + recent-message debug context, and the auto-refresh fires even when the tile already says detailLevel=full. Plus the forest claim-time fix, rewrite-AI town-support detection, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.9",
+      title: "Tile panels surface a per-row loader + timer instead of zeroing out missing town economy",
+      why: "Owner-economy fields (isFed, supportCurrent/Max, foodUpkeepPerMinute, populationGrowthPerMinute) only ride the snapshot and REQUEST_TILE_DETAIL responses — the TILE_DELTA_BATCH town payload is the partial domain shape. Between a delta arriving and the gateway answering the follow-up tile-detail request, an own settled town read back as Production: ◉ 0.00/m with Support, Upkeep, and Growth rows missing entirely (Sableythspire Manse only got its real numbers after refreshing twice). A 0/m row that's actually a load-in-progress is indistinguishable from a real 0/m, so failures look like data, not bugs.",
+      changes: [
+        "Own settled non-settlement town tiles whose payload lacks owner-economy fields now render Support / Growth / Production / Upkeep as loading rows with a spinner, a live 'loading for Xs' counter, and a Report button that downloads the same tile + recent-message debug log the existing town-payload spinner uses.",
+        "REQUEST_TILE_DETAIL now retries even when the tile already has detailLevel=full, so the recovery path actually fires the second time the menu sees a partial town instead of being permanently gated by the first detail response.",
+        "The loading-since timestamp is tracked per tile in client state and cleared as soon as the next render sees complete economy data, so the timer reflects a single in-flight gap rather than restarting on every re-render."
+      ]
+    },
     {
       introducedIn: "2026.05.07.8",
       title: "Forest frontier expansion takes 4x longer again",

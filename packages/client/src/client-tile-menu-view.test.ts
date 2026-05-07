@@ -53,7 +53,8 @@ const deps = {
   constructionCountdownLineForTile: () => "",
   tileHistoryLines: () => [] as string[],
   isTileOwnedByAlly: () => false,
-  areaEffectModifiersForTile: () => [] as TileOverviewModifier[]
+  areaEffectModifiersForTile: () => [] as TileOverviewModifier[],
+  townPartialLoadingStartedAt: () => Date.now()
 };
 
 describe("menuOverviewForTile", () => {
@@ -194,6 +195,54 @@ describe("menuOverviewForTile", () => {
     // because the unified `Production:` row already displays the same value. We assert it
     // is gone to lock in the dedupe.
     expect(lines.some((line) => line.html.includes("Settlement is producing"))).toBe(false);
+  });
+
+  it("renders Production/Support/Upkeep loading rows when own settled town arrives without owner-economy fields", () => {
+    const startedAt = 1_700_000_000_000;
+    const lines = menuOverviewForTile(
+      {
+        x: 29,
+        y: 228,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        // Mirrors the wire shape of a TILE_DELTA_BATCH town payload — public
+        // fields only (type/tier/population/maxPopulation/connected*), no
+        // isFed/goldPerMinute/supportCurrent/supportMax/foodUpkeepPerMinute.
+        // The detail panel must not silently render Production: 0.00/m here;
+        // it must surface a loader + timer + Report button per row so the
+        // gap between TILE_DELTA and the follow-up REQUEST_TILE_DETAIL is
+        // visible to the player.
+        town: {
+          name: "Sableythspire Manse",
+          type: "MARKET",
+          population: 20_638,
+          maxPopulation: 50_000,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0
+        } as NonNullable<Tile["town"]>
+      },
+      {
+        ...deps,
+        townPartialLoadingStartedAt: () => startedAt
+      }
+    );
+
+    const loadingLines = lines.filter((line) => line.kind === "loading");
+    const loadingLabels = loadingLines.map((line) => {
+      const match = /<strong>([^<]+):<\/strong>/.exec(line.html);
+      return match ? match[1] : "";
+    });
+    expect(loadingLabels).toEqual(["Support", "Growth", "Production", "Upkeep"]);
+    expect(loadingLines.every((line) => line.html.includes(`data-loading-timer-since="${startedAt}"`))).toBe(true);
+    expect(loadingLines.every((line) => line.html.includes('data-tile-debug-download="29,228"'))).toBe(true);
+    // The misleading "Production: ◉ 0.00/m" row must not render under a partial payload.
+    expect(lines.some((line) => line.kind !== "loading" && line.html.startsWith("Production:"))).toBe(false);
+    // And the bare "Support 0/0" line is similarly suppressed in favor of the loader.
+    expect(lines.some((line) => line.html === "Support 0/0")).toBe(false);
+    // Growth/Next-size also stay hidden under their loader rather than dropping silently.
+    expect(lines.some((line) => line.html.startsWith("Growth ") || line.html.startsWith("Next size:"))).toBe(false);
   });
 
   it("shows neutral town stats without owned-only economy guidance", () => {
