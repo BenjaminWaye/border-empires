@@ -6,7 +6,7 @@ import { buildFrontierCombatPreview } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { resolveGatewayAuthIdentity } from "./auth-identity.js";
-import { reconcileGatewayAuthBinding } from "./gateway-auth-binding-resolution.js";
+import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "./gateway-auth-binding-resolution.js";
 import type { GatewayAuthBindingStore } from "./auth-binding-store.js";
 import { createGatewayAuthBindingStore } from "./auth-binding-store-factory.js";
 import type { GatewayCommandStore } from "./command-store.js";
@@ -16,7 +16,7 @@ import { registerGatewayHttpRoutes } from "./http-routes.js";
 import { createGatewayMetrics } from "./metrics.js";
 import { createPlayerSubscriptions } from "./player-subscriptions.js";
 import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
-import type { GatewayPlayerProfileStore } from "./player-profile-store.js";
+import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "./player-profile-store.js";
 import { createGatewayPlayerProfileStore } from "./player-profile-store-factory.js";
 import { withTimeout } from "./promise-timeout.js";
 import { resolveInitialState } from "./initial-state.js";
@@ -66,6 +66,7 @@ type RealtimeGatewayAppOptions = {
   simulationPrepareTimeoutMs?: number;
   simulationSubscribeTimeoutMs?: number;
   simulationSubmitTimeoutMs?: number;
+  simulationRpcRetryAttempts?: number;
   adminApiToken?: string;
   fogAdminEmail?: string;
 };
@@ -492,6 +493,64 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const authBindingStore =
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
+
+  const authIdentityCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_AUTH_IDENTITY_CACHE_TTL_MS ?? 300_000));
+  const profileCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_PROFILE_CACHE_TTL_MS ?? 300_000));
+  const authBindingCache = new Map<string, { value: ResolvedGatewayAuthBinding; expiresAt: number }>();
+  const profileCache = new Map<string, { value: StoredPlayerProfile | undefined; expiresAt: number }>();
+  const cachedReconcileGatewayAuthBinding = async (
+    identity: Parameters<typeof reconcileGatewayAuthBinding>[0]
+  ): Promise<ResolvedGatewayAuthBinding> => {
+    if (!identity.authUid || authIdentityCacheTtlMs <= 0) {
+      return reconcileGatewayAuthBinding(identity, authBindingStore);
+    }
+    const now = Date.now();
+    const cached = authBindingCache.get(identity.authUid);
+    if (cached && cached.expiresAt > now) return cached.value;
+    const fresh = await reconcileGatewayAuthBinding(identity, authBindingStore);
+    authBindingCache.set(identity.authUid, { value: fresh, expiresAt: now + authIdentityCacheTtlMs });
+    return fresh;
+  };
+  const cachedProfileGet = async (playerId: string): Promise<StoredPlayerProfile | undefined> => {
+    if (profileCacheTtlMs <= 0) return profileStore.get(playerId);
+    const now = Date.now();
+    const cached = profileCache.get(playerId);
+    if (cached && cached.expiresAt > now) return cached.value ? { ...cached.value } : undefined;
+    const fresh = await profileStore.get(playerId);
+    profileCache.set(playerId, { value: fresh ? { ...fresh } : undefined, expiresAt: now + profileCacheTtlMs });
+    return fresh;
+  };
+  const invalidateProfileCache = (playerId: string): void => {
+    profileCache.delete(playerId);
+  };
+
+  const simulationRpcRetryAttempts = Math.max(
+    1,
+    options.simulationRpcRetryAttempts ?? Number(process.env.GATEWAY_SIMULATION_RPC_RETRY_ATTEMPTS ?? 3)
+  );
+  const simulationRpcRetryBaseDelayMs = Math.max(50, Number(process.env.GATEWAY_SIMULATION_RPC_RETRY_BASE_DELAY_MS ?? 250));
+  const simulationRpcRetryMaxDelayMs = Math.max(simulationRpcRetryBaseDelayMs, Number(process.env.GATEWAY_SIMULATION_RPC_RETRY_MAX_DELAY_MS ?? 2_000));
+  const retrySimulationRpc = async <T>(
+    label: string,
+    operation: () => Promise<T>,
+    timeoutMs: number,
+    onAttemptFailed?: (error: unknown, attempt: number) => void
+  ): Promise<T> => {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= simulationRpcRetryAttempts; attempt += 1) {
+      try {
+        return await withTimeout(operation(), timeoutMs, label);
+      } catch (error) {
+        lastError = error;
+        if (attempt >= simulationRpcRetryAttempts) break;
+        onAttemptFailed?.(error, attempt);
+        const backoffMs = Math.min(simulationRpcRetryMaxDelayMs, simulationRpcRetryBaseDelayMs * 2 ** (attempt - 1));
+        await sleep(backoffMs);
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  };
+
   const liveSubscriptionNamespace = await (async (): Promise<string> => {
     const namespaceClient = simulationClient as typeof simulationClient & { getSubscriptionNamespace?: () => Promise<string> };
     if (typeof namespaceClient.getSubscriptionNamespace !== "function") {
@@ -1152,10 +1211,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             let playerIdentity = { ...resolvedPlayerIdentity };
             if (resolvedPlayerIdentity.authUid) {
               try {
-                const reconciledIdentity = await reconcileGatewayAuthBinding(
-                  resolvedPlayerIdentity,
-                  authBindingStore
-                );
+                const reconciledIdentity = await cachedReconcileGatewayAuthBinding(resolvedPlayerIdentity);
                 playerIdentity = { ...reconciledIdentity };
                 if (reconciledIdentity.playerId !== resolvedPlayerIdentity.playerId) {
                   recordGatewayEvent("warn", "gateway_auth_binding_override", {
@@ -1183,7 +1239,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             session.playerId = playerIdentity.playerId;
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
-            const persistedProfile = await profileStore.get(playerIdentity.playerId);
+            const persistedProfile = await cachedProfileGet(playerIdentity.playerId);
             if (persistedProfile) {
               profileOverrides.upsert(playerIdentity.playerId, {
                 ...(persistedProfile.name ? { name: persistedProfile.name } : {}),
@@ -1203,10 +1259,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 playerId: playerIdentity.playerId,
                 channel
               });
-              const prepareResult = await withTimeout(
-                simulationClient.preparePlayer(playerIdentity.playerId),
+              const prepareResult = await retrySimulationRpc(
+                "gateway prepare player",
+                () => simulationClient.preparePlayer(playerIdentity.playerId),
                 simulationPrepareTimeoutMs,
-                "gateway prepare player"
+                (error, attempt) => {
+                  recordGatewayEvent("warn", "gateway_auth_prepare_retry", {
+                    playerId: playerIdentity.playerId,
+                    channel,
+                    attempt,
+                    error: error instanceof Error ? error.message : String(error)
+                  });
+                }
               );
               const prepareDurationMs = Date.now() - prepareStartedAt;
               recordGatewayEvent(
@@ -1236,13 +1300,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             let bootstrapInitialState;
             try {
-              bootstrapInitialState = await withTimeout(
-                simulationClient.subscribePlayer(
+              bootstrapInitialState = await retrySimulationRpc(
+                "gateway bootstrap player",
+                () => simulationClient.subscribePlayer(
                   playerIdentity.playerId,
                   JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false, trigger: "gateway_auth_bootstrap" })
                 ),
                 simulationSubscribeTimeoutMs,
-                "gateway bootstrap player"
+                (error, attempt) => {
+                  recordGatewayEvent("warn", "gateway_auth_bootstrap_retry", {
+                    playerId: playerIdentity.playerId,
+                    channel,
+                    attempt,
+                    error: error instanceof Error ? error.message : String(error)
+                  });
+                }
               );
               markSimulationReady();
               if (bootstrapInitialState) {
@@ -1278,10 +1350,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
             }
             try {
-              await withTimeout(
-                playerSubscriptions.ensureSubscribed(playerIdentity.playerId),
+              await retrySimulationRpc(
+                "gateway live subscribe player",
+                () => playerSubscriptions.ensureSubscribed(playerIdentity.playerId),
                 simulationSubscribeTimeoutMs,
-                "gateway live subscribe player"
+                (error, attempt) => {
+                  recordGatewayEvent("warn", "gateway_auth_subscribe_retry", {
+                    playerId: playerIdentity.playerId,
+                    channel,
+                    attempt,
+                    error: error instanceof Error ? error.message : String(error)
+                  });
+                }
               );
               markSimulationReady();
             } catch (error) {
@@ -1398,6 +1478,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "SET_TILE_COLOR") {
             const storedProfile = await profileStore.setTileColor(session.playerId, message.color);
+            invalidateProfileCache(session.playerId);
             const override = profileOverrides.upsert(session.playerId, {
               ...(storedProfile.name ? { name: storedProfile.name } : {}),
               ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
@@ -1424,6 +1505,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "SET_PROFILE") {
             const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, message.color);
+            invalidateProfileCache(session.playerId);
             const override = profileOverrides.upsert(session.playerId, {
               ...(storedProfile.name ? { name: storedProfile.name } : {}),
               ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),

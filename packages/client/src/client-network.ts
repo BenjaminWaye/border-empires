@@ -292,6 +292,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
+  let authReconnectAttempt = 0;
   let deferredBootstrapRefreshTimer: number | undefined;
   const authProgressIntervalMs = 5000;
   const authProgressIntervalId =
@@ -648,6 +649,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     setAuthStatus(message);
     syncAuthOverlay();
     renderHud();
+    authReconnectAttempt += 1;
+    const baseDelayMs = Math.min(16000, 2000 * 2 ** Math.min(3, authReconnectAttempt - 1));
+    const jitter = 0.5 + Math.random();
+    const delayMs = Math.round(baseDelayMs * jitter);
     authReconnectTimer = window.setTimeout(() => {
       authReconnectTimer = undefined;
       if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN || state.authSessionReady) return;
@@ -658,7 +663,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         syncAuthOverlay();
         renderHud();
       });
-    }, 2000);
+    }, delayMs);
   };
 
   const scheduleReconnectReload = (): void => {
@@ -1102,6 +1107,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.connection = "initialized";
       state.authSessionReady = true;
       state.hasEverInitialized = true;
+      authReconnectAttempt = 0;
       setAuthBusy(false);
       state.authRetrying = false;
       state.authBusyTitle = "";

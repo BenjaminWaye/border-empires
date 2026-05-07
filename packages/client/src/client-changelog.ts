@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.2",
+  version: "2026.05.07.3",
   title: "What's New",
-  summary: "Rewrite staging AI now claims and settles town-support rings more like the legacy AI instead of wandering past under-supported towns. Plus the settings/debug-card cleanup, linked-dock sea routing, settled resource production/stored yield rewrite-stack fix, the 'Town is unfed' guard, satellite-reveal foreign towns, and the earlier 3D-renderer polish from this release train.",
+  summary: "Auth reconnect now uses exponential backoff with jitter so a stalled simulation no longer thrashes the gateway with a 2-second retry loop. Plus the rewrite-AI town-support work, settings/debug-card cleanup, linked-dock sea routing, settled resource production fix, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.3",
+      title: "Auth reconnect uses exponential backoff so a stuck \"Securing session\" no longer hammers the server",
+      why: "When the simulation main thread stalled past the gateway's prepare/subscribe timeout, the client retried AUTH every 2 seconds indefinitely. With 100 concurrent players that turned a transient sim stall into a sustained query storm against the gateway and Supabase, which made recovery slower instead of faster.",
+      changes: [
+        "Auth reconnect delay now grows exponentially (2 → 4 → 8 → 16 s capped) with ±50% jitter, so 100 stuck clients spread their retries instead of stampeding the recovering simulation.",
+        "Counter resets to zero when INIT arrives, so a successful reconnect leaves the next stall starting at the fast 2 s delay again."
+      ]
+    },
     {
       introducedIn: "2026.05.07.2",
       title: "Rewrite AI now prioritizes town-support rings",
