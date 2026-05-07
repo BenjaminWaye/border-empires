@@ -2511,6 +2511,16 @@ body {
   flex: 1 1 auto;
   min-width: 0;
 }
+.tile-town-loading-row {
+  font-size: 12.5px;
+}
+.tile-town-loading-timer {
+  display: inline-block;
+  margin-left: 4px;
+  color: rgba(159, 217, 246, 0.95);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
 .tile-town-debug-btn {
   appearance: none;
   background: rgba(255, 209, 102, 0.12);

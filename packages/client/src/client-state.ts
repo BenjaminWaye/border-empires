@@ -128,6 +128,11 @@ export const createInitialState = () => ({
   settledE: 4,
   selected: undefined as { x: number; y: number } | undefined,
   tileDetailRequestedAt: new Map<string, number>(),
+  // tileKey -> ms timestamp when an owned settled town was first observed
+  // missing owner-economy fields (Production/Support/Upkeep). Used to drive
+  // per-row "loading for Xs" indicators on the tile detail panel until the
+  // gateway responds with a refreshed tile-detail payload.
+  tileTownPartialSince: new Map<string, number>(),
   hover: undefined as { x: number; y: number } | undefined,
   homeTile: undefined as { x: number; y: number } | undefined,
   localhostDevAetherWall: false,
