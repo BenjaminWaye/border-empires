@@ -1,5 +1,5 @@
 import { parseSimulationSeedProfile, type SimulationSeedProfile } from "./seed-state.js";
-import type { SimulationRulesetId } from "./season-worldgen.js";
+import { parseSimulationMapStyle, type SimulationMapStyle, type SimulationRulesetId } from "./season-worldgen.js";
 
 export type SimulationRuntimeEnv = {
   host: string;
@@ -17,6 +17,7 @@ export type SimulationRuntimeEnv = {
   startupReplayCompactionMinEvents: number;
   seedProfile: SimulationSeedProfile;
   rulesetId?: SimulationRulesetId;
+  mapStyle: SimulationMapStyle;
   enableAiAutopilot: boolean;
   aiTickMs: number;
   aiMaxEventLoopLagMs: number;
@@ -118,6 +119,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       : {}),
     seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     ...(env.SIMULATION_RULESET_ID ? { rulesetId: env.SIMULATION_RULESET_ID as SimulationRulesetId } : {}),
+    mapStyle: parseSimulationMapStyle(env.SIMULATION_MAP_STYLE),
     enableAiAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_AI_AUTOPILOT),
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
     aiMaxEventLoopLagMs: parsePositiveNumber(

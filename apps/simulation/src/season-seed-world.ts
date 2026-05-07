@@ -52,6 +52,7 @@ export type GeneratedSeasonSeedWorld = {
   tiles: Map<string, DomainTileState>;
   docks: DockRouteDefinition[];
   worldSeed: number;
+  significantIslandCount: number;
   humanPlayers: number;
   aiPlayers: number;
   totalTiles: number;
@@ -233,6 +234,24 @@ const buildIslandMap = (terrainAtRuntime: (x: number, y: number) => Tile["terrai
   return { islandIdByTile };
 };
 
+const islandSizeSummary = (
+  terrainAtRuntime: (x: number, y: number) => Tile["terrain"],
+  significantTileThreshold: number
+): { sizes: number[]; significantCount: number; largestShare: number } => {
+  const { islandIdByTile } = buildIslandMap(terrainAtRuntime);
+  const sizesByIsland = new Map<number, number>();
+  for (const islandId of islandIdByTile.values()) {
+    sizesByIsland.set(islandId, (sizesByIsland.get(islandId) ?? 0) + 1);
+  }
+  const sizes = [...sizesByIsland.values()].sort((left, right) => right - left);
+  const landTiles = sizes.reduce((sum, size) => sum + size, 0);
+  return {
+    sizes,
+    significantCount: sizes.filter((size) => size >= significantTileThreshold).length,
+    largestShare: landTiles > 0 ? (sizes[0] ?? 0) / landTiles : 0
+  };
+};
+
 const worldLooksBland = (seed: number, clusterByTile: Map<TileKey, string>, townsByTile: Map<TileKey, TownDefinition>, docksByTile: Map<TileKey, { dockId: string }>, seeded01: (x: number, y: number, seed: number) => number): boolean => {
   const step = 15;
   let checkedBlocks = 0;
@@ -273,10 +292,24 @@ export const createSeason20AiSeedWorld = (
   options: {
     humanPlayerCount?: number;
     aiPlayerCount?: number;
+    minSignificantIslands?: number;
+    maxSignificantIslands?: number;
+    significantIslandTileThreshold?: number;
+    maxLargestIslandShare?: number;
   } = {}
 ): GeneratedSeasonSeedWorld => {
   const humanPlayerCount = Math.max(0, options.humanPlayerCount ?? 1);
   const aiPlayerCount = Math.max(0, options.aiPlayerCount ?? 20);
+  const significantIslandTileThreshold = Math.max(1, options.significantIslandTileThreshold ?? 20);
+  const minSignificantIslands = options.minSignificantIslands === undefined ? undefined : Math.max(0, options.minSignificantIslands);
+  const maxSignificantIslands =
+    options.maxSignificantIslands === undefined
+      ? undefined
+      : Math.max(minSignificantIslands ?? 0, options.maxSignificantIslands);
+  const maxLargestIslandShare =
+    options.maxLargestIslandShare === undefined
+      ? undefined
+      : Math.min(1, Math.max(0.01, options.maxLargestIslandShare));
   const activeSeason = { worldSeed: seed };
   const clusterByTile = new Map<TileKey, string>();
   const clustersById = new Map<string, ClusterDefinition>();
@@ -394,7 +427,8 @@ export const createSeason20AiSeedWorld = (
   });
 
   let worldSeed = seed;
-  for (let iteration = 0; iteration < 8; iteration += 1) {
+  let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
+  for (let iteration = 0; iteration < 16; iteration += 1) {
     activeSeason.worldSeed = worldSeed;
     setWorldSeed(worldSeed);
     clustersRuntime.generateClusters(worldSeed);
@@ -405,8 +439,15 @@ export const createSeason20AiSeedWorld = (
     townsRuntime.ensureInterestCoverage(worldSeed);
     townsRuntime.normalizeTownPlacements();
     townsRuntime.assignMissingTownNamesForWorld();
-    if (!worldLooksBland(worldSeed, clusterByTile, townsByTile, docksByTile, terrainRuntime.seeded01)) break;
-    worldSeed = Math.floor(terrainRuntime.seeded01(worldSeed + iteration * 101, worldSeed + iteration * 137, worldSeed + 9001) * 1_000_000_000);
+    islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);
+    const islandDistributionAccepted =
+      (minSignificantIslands === undefined || islandSummary.significantCount >= minSignificantIslands) &&
+      (maxSignificantIslands === undefined || islandSummary.significantCount <= maxSignificantIslands) &&
+      (maxLargestIslandShare === undefined || islandSummary.largestShare <= maxLargestIslandShare);
+    if (islandDistributionAccepted && !worldLooksBland(worldSeed, clusterByTile, townsByTile, docksByTile, terrainRuntime.seeded01)) break;
+    if (iteration < 15) {
+      worldSeed = Math.floor(terrainRuntime.seeded01(worldSeed + iteration * 101, worldSeed + iteration * 137, worldSeed + 9001) * 1_000_000_000);
+    }
   }
   activeSeason.worldSeed = worldSeed;
   setWorldSeed(worldSeed);
@@ -561,6 +602,7 @@ export const createSeason20AiSeedWorld = (
       ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
     })),
     worldSeed,
+    significantIslandCount: islandSummary.significantCount,
     humanPlayers: humanPlayerCount,
     aiPlayers: aiPlayerCount,
     totalTiles: tiles.size,

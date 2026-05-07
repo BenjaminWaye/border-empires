@@ -15,6 +15,7 @@ describe("simulation runtime env", () => {
       checkpointForceAfterEvents: 20000,
       startupReplayCompactionMinEvents: 10000,
       seedProfile: "default",
+      mapStyle: "continents",
       enableAiAutopilot: false,
       aiTickMs: 250,
       aiMaxEventLoopLagMs: 250,
@@ -52,6 +53,7 @@ describe("simulation runtime env", () => {
         SIMULATION_CHECKPOINT_MAX_RSS_MB: "420",
         SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB: "300",
         SIMULATION_SEED_PROFILE: "stress-20ai",
+        SIMULATION_MAP_STYLE: "islands",
         SIMULATION_ENABLE_AI_AUTOPILOT: "1",
         SIMULATION_AI_TICK_MS: "100",
         SIMULATION_ENABLE_SYSTEM_AUTOPILOT: "1",
@@ -75,6 +77,7 @@ describe("simulation runtime env", () => {
       checkpointMaxRssBytes: 420 * 1024 * 1024,
       checkpointMaxHeapUsedBytes: 300 * 1024 * 1024,
       seedProfile: "stress-20ai",
+      mapStyle: "islands",
       enableAiAutopilot: true,
       aiTickMs: 100,
       aiMaxEventLoopLagMs: 250,
@@ -105,6 +108,10 @@ describe("simulation runtime env", () => {
     expect(
       parseSimulationRuntimeEnv({ SIMULATION_AI_WORKER: "1" })
     ).toMatchObject({ useAiWorker: true });
+  });
+
+  it("falls back to continent map style for unknown selector values", () => {
+    expect(parseSimulationRuntimeEnv({ SIMULATION_MAP_STYLE: "unknown" })).toMatchObject({ mapStyle: "continents" });
   });
 
   it("keeps checkpoint projection writes enabled unless explicitly disabled", () => {
