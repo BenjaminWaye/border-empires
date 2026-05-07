@@ -39,6 +39,7 @@ export type FrontierAnalysis = {
   barbarianAttack?: FrontierSelection;
   expand?: FrontierSelection;
   economicExpand?: FrontierSelection;
+  townSupportExpand?: FrontierSelection;
   scaffoldExpand?: FrontierSelection;
   scoutExpand?: FrontierSelection;
   frontierEnemyTargetCount: number;
@@ -46,6 +47,7 @@ export type FrontierAnalysis = {
   frontierBarbarianTargetCount: number;
   frontierNeutralTargetCount: number;
   frontierOpportunityEconomic: number;
+  frontierOpportunityTownSupport: number;
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
   frontierOpportunityWaste: number;
@@ -218,9 +220,11 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   let bestBarbarianAttack: FrontierSelection | undefined;
   let bestExpand: FrontierSelection | undefined;
   let bestEconomicExpand: FrontierSelection | undefined;
+  let bestTownSupportExpand: FrontierSelection | undefined;
   let bestScaffoldExpand: FrontierSelection | undefined;
   let bestScoutExpand: FrontierSelection | undefined;
   let frontierOpportunityEconomic = 0;
+  let frontierOpportunityTownSupport = 0;
   let frontierOpportunityScout = 0;
   let frontierOpportunityScaffold = 0;
   let frontierOpportunityWaste = 0;
@@ -275,6 +279,14 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       const frontierClass = classifyNeutralOpportunity(target, settlementEvaluation, scoutScore);
       const score = selectionScoreForClass(frontierClass, target, settlementEvaluation, scoutScore);
       const candidate = { from, target, score, frontierClass };
+      if (settlementEvaluation.townSupportNeed > 0) {
+        frontierOpportunityTownSupport += 1;
+        const townSupportCandidate = {
+          ...candidate,
+          score: score + settlementEvaluation.townSupportNeed * 120
+        };
+        if (isBetterSelection(townSupportCandidate, bestTownSupportExpand)) bestTownSupportExpand = townSupportCandidate;
+      }
       if (frontierClass === "economic") {
         frontierOpportunityEconomic += 1;
         if (isBetterSelection(candidate, bestEconomicExpand)) bestEconomicExpand = candidate;
@@ -297,6 +309,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     ...(bestBarbarianAttack ? { barbarianAttack: bestBarbarianAttack } : {}),
     ...(bestExpand ? { expand: bestExpand } : {}),
     ...(bestEconomicExpand ? { economicExpand: bestEconomicExpand } : {}),
+    ...(bestTownSupportExpand ? { townSupportExpand: bestTownSupportExpand } : {}),
     ...(bestScaffoldExpand ? { scaffoldExpand: bestScaffoldExpand } : {}),
     ...(bestScoutExpand ? { scoutExpand: bestScoutExpand } : {}),
     frontierEnemyTargetCount: enemyTargets.size,
@@ -304,6 +317,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     frontierBarbarianTargetCount: barbarianTargets.size,
     frontierNeutralTargetCount: neutralTargets.size,
     frontierOpportunityEconomic,
+    frontierOpportunityTownSupport,
     frontierOpportunityScout,
     frontierOpportunityScaffold,
     frontierOpportunityWaste

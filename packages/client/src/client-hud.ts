@@ -311,10 +311,6 @@ export const renderClientHud = (deps: HudDeps): void => {
         <div><strong>Email</strong> ${authEmail}</div>
         <div><strong>Providers</strong> ${providerLabel}</div>
         <div><strong>Player</strong> ${playerId} · ${playerName}</div>
-        <div><strong>Backend</strong> ${state.activeBackend} · <strong>Bootstrap</strong> ${bootstrapLabel}</div>
-        <div><strong>Season</strong> ${seasonId}</div>
-        <div><strong>Runtime</strong> ${runtimeFingerprint}</div>
-        <div class="bridge-debug-ws">${wsLabel}</div>
       </div>
     `;
   };
