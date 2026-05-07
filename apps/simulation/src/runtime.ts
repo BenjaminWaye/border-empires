@@ -1558,7 +1558,10 @@ export class SimulationRuntime {
       for (const revealKey of collectLinkedDockRevealKeysForOwners(
         visibilityOwnerIds,
         this.docks,
-        (tileKey) => this.tiles.get(tileKey)?.ownerId,
+        (tileKey) => {
+          const tile = this.tiles.get(tileKey);
+          return tile?.ownershipState === "SETTLED" ? tile.ownerId : undefined;
+        },
         this.dockLinksByDockTileKey,
         WORLD_WIDTH,
         WORLD_HEIGHT
@@ -3539,7 +3542,10 @@ export class SimulationRuntime {
   ): Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"] {
     const dockTileKeysInBatch: string[] = [];
     for (const delta of deltas) {
-      if (delta.dockId) dockTileKeysInBatch.push(simulationTileKey(delta.x, delta.y));
+      if (!delta.dockId) continue;
+      const tile = this.tiles.get(simulationTileKey(delta.x, delta.y));
+      if (tile?.ownershipState !== "SETTLED") continue;
+      dockTileKeysInBatch.push(simulationTileKey(delta.x, delta.y));
     }
     if (dockTileKeysInBatch.length === 0) return deltas;
     const revealKeys = computeLinkedDockRevealTileKeys(
