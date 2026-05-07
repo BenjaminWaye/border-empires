@@ -13,6 +13,7 @@ import { createVillageEffects } from "./client-map-3d-village-fx.js";
 import { createForest } from "./client-map-3d-forest.js";
 import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
+import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
 import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
@@ -82,6 +83,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const forest = createForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
+  const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
@@ -496,6 +498,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     forest.clear();
     ownershipOverlay.clear();
     townOverlay.clear();
+    unfedBadgeOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
@@ -623,6 +626,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // re-enable by adding villageEffects.addCapitalBanner if wanted.
           const tileSeed = wx * 17 + wy * 31;
           villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
+          // Mirror the 2D unfed-town warning badge: only paint when there's
+          // a real town record (skip demo tiles) and isFed is explicitly
+          // false. Matches the predicate in client-map-render.ts.
+          if (tile?.town && tile.town.isFed === false) {
+            unfedBadgeOverlay.addInstance(x, z, surfaceY);
+          }
         }
         if (tile && ownerId === "barbarian" && terrain === "LAND") {
           barbarianOverlay.addInstance(x, z, surfaceY);
@@ -723,6 +732,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     forest.commit();
     ownershipOverlay.commit();
     townOverlay.commit();
+    unfedBadgeOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -803,6 +813,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       material.dispose();
     }
     townOverlay.dispose();
+    unfedBadgeOverlay.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     fortOverlay.dispose();
