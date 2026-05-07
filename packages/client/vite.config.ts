@@ -17,9 +17,11 @@ const resolveBuildVersion = (): string => {
   const envSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA;
   if (envSha) return envSha.slice(0, 8);
   try {
-    return execSync("git rev-parse --short=8 HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    const sha = execSync("git rev-parse --short=8 HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    const dirty = execSync("git status --porcelain", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim().length > 0;
+    return dirty ? `${sha}-dirty` : sha;
   } catch {
-    return "dev";
+    return `dev-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}`;
   }
 };
 
