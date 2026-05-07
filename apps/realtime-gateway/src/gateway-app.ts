@@ -1060,31 +1060,71 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         }
       }
     };
-  const stopSimulationStream = simulationClient.streamEvents(
-    (event: SimulationClientEvent) => {
-      simulationEventChain = simulationEventChain
-        .then(() => processSimulationEvent(event))
-        .catch((error) => {
-          app.log.error({ err: error, commandId: event.commandId, playerId: event.playerId, eventType: event.eventType }, "simulation event processing failed");
-        });
-    },
-    {
-      onConnect() {
-        markSimulationEventStreamConnected();
+  const eventStreamReconnectBaseMs = Math.max(250, Number(process.env.GATEWAY_SIMULATION_EVENT_STREAM_RECONNECT_BASE_MS ?? 1_000));
+  const eventStreamReconnectMaxMs = Math.max(eventStreamReconnectBaseMs, Number(process.env.GATEWAY_SIMULATION_EVENT_STREAM_RECONNECT_MAX_MS ?? 30_000));
+  let eventStreamReconnectAttempt = 0;
+  let eventStreamReconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  let eventStreamCancel: (() => void) | undefined;
+  let eventStreamShuttingDown = false;
+  const connectEventStream = (): void => {
+    if (eventStreamShuttingDown) return;
+    eventStreamCancel = simulationClient.streamEvents(
+      (event: SimulationClientEvent) => {
+        simulationEventChain = simulationEventChain
+          .then(() => processSimulationEvent(event))
+          .catch((error) => {
+            app.log.error({ err: error, commandId: event.commandId, playerId: event.playerId, eventType: event.eventType }, "simulation event processing failed");
+          });
       },
-      onDisconnect(error) {
-        markSimulationEventStreamDisconnected(error ?? new Error("simulation event stream disconnected"));
-        recordGatewayEvent("warn", "simulation_event_stream_disconnected", {
-          message: error instanceof Error ? error.message : String(error)
-        });
-        app.log.warn({ err: error }, "simulation event stream disconnected; retrying");
+      {
+        onConnect() {
+          eventStreamReconnectAttempt = 0;
+          markSimulationEventStreamConnected();
+        },
+        onDisconnect(error) {
+          markSimulationEventStreamDisconnected(error ?? new Error("simulation event stream disconnected"));
+          recordGatewayEvent("warn", "simulation_event_stream_disconnected", {
+            message: error instanceof Error ? error.message : String(error),
+            reconnectAttempt: eventStreamReconnectAttempt + 1
+          });
+          app.log.warn({ err: error }, "simulation event stream disconnected; retrying");
+          if (eventStreamShuttingDown) return;
+          eventStreamReconnectAttempt += 1;
+          const delayMs = Math.min(eventStreamReconnectMaxMs, eventStreamReconnectBaseMs * 2 ** Math.min(5, eventStreamReconnectAttempt - 1));
+          eventStreamReconnectTimer = setTimeout(connectEventStream, delayMs);
+        }
       }
+    );
+  };
+  connectEventStream();
+  const stopSimulationStream = (): void => {
+    eventStreamShuttingDown = true;
+    if (eventStreamReconnectTimer) {
+      clearTimeout(eventStreamReconnectTimer);
+      eventStreamReconnectTimer = undefined;
     }
-  );
+    eventStreamCancel?.();
+    eventStreamCancel = undefined;
+  };
   void refreshSimulationHealth();
   simulationHealthTimer = setInterval(() => {
     void refreshSimulationHealth();
   }, 2_000);
+
+  const databaseKeepAliveIntervalMs = Math.max(60_000, Number(process.env.GATEWAY_DATABASE_KEEPALIVE_MS ?? 6 * 60 * 60 * 1000));
+  const databaseKeepAliveTimer = setInterval(() => {
+    void commandStore
+      .nextClientSeqForPlayer("__supabase_keepalive__")
+      .then(() => {
+        recordGatewayEvent("info", "gateway_database_keepalive_ok", {});
+      })
+      .catch((error: unknown) => {
+        recordGatewayEvent("warn", "gateway_database_keepalive_failed", {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+  }, databaseKeepAliveIntervalMs);
+  if (typeof databaseKeepAliveTimer.unref === "function") databaseKeepAliveTimer.unref();
   gatewayEventLoopTimer = setInterval(() => {
     const now = Date.now();
     const lagMs = Math.max(0, now - expectedEventLoopTickAt);
@@ -1144,6 +1184,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
+    clearInterval(databaseKeepAliveTimer);
     gcObserver?.disconnect();
     stopSimulationStream();
   });
