@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.7",
+  version: "2026.05.07.8",
   title: "What's New",
-  summary: "Rewrite AI now actually detects town-support deficits in production (the prior pass relied on stored support fields that the runtime never populates) and skips support-filling when food is too low to feed the town. Plus staging's new island-heavy season with 20 AI empires, the true-3D unfed-town badge, dock-line sea-route fix, exponential-backoff auth reconnect, and the rest of this release train.",
+  summary: "Forest tiles once again take 4x longer to claim on the rewrite stack — the per-tile multiplier was defined but never wired into the rewrite simulation, so dark-grass tiles were resolving in 1.25s instead of 5s. Plus rewrite AI town-support detection, island-heavy staging season, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.8",
+      title: "Forest frontier expansion takes 4x longer again",
+      why: "The 4x forest claim multiplier exists in the shared worldgen helpers but was never threaded into the rewrite simulation's frontier validator, so every EXPAND on the rewrite stack was resolving in the flat 1.25s base regardless of terrain. Forest was supposed to be a strategic chokepoint; the bug let players walk through it as fast as plains.",
+      changes: [
+        "Dark-grass (forest) tiles now resolve EXPAND in 5s on the rewrite stack, matching legacy behavior and the intended terrain cost.",
+        "FOREST_FRONTIER_CLAIM_MULT promoted to @border-empires/shared so legacy and rewrite share the same constant.",
+        "validateFrontierCommand accepts a per-call expandClaimDurationMs override so the runtime can pass terrain-aware durations without baking world lookups into the validator."
+      ]
+    },
     {
       introducedIn: "2026.05.07.7",
       title: "Rewrite AI sees town-support deficits in real worlds and gates them on food",
