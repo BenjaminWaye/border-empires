@@ -112,6 +112,81 @@ describe("automation command planner strategic parity", () => {
     });
   });
 
+  it("claims neutral town-support ring tiles before generic pressure", () => {
+    const supportTown = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", type: "FARMING", populationTier: "TOWN", supportMax: 3, supportCurrent: 0 }
+    });
+    const supportTarget = makeTile(1, 0, {});
+    const pressureFrontier = makeTile(5, 5, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const enemy = makeTile(6, 5, { ownerId: "enemy-1" });
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 3,
+      manpower: 100,
+      settledTileCount: 4,
+      townCount: 1,
+      incomePerMinute: 10,
+      strategicResources: { FOOD: 30 },
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [pressureFrontier],
+      strategicFrontierTiles: [pressureFrontier],
+      ownedTiles: [supportTown, pressureFrontier],
+      tilesByKey: new Map([
+        ["0,0", supportTown],
+        ["1,0", supportTarget],
+        ["5,5", pressureFrontier],
+        ["6,5", enemy]
+      ]),
+      clientSeq: 22,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+    });
+    expect(result.diagnostic.frontierOpportunityTownSupport).toBe(1);
+  });
+
+  it("falls back from narrow strategic origins to full frontier origins when the narrow set is empty", () => {
+    const deadStrategicFrontier = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER", resource: "FARM" });
+    const activeFrontier = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const activeTarget = makeTile(11, 10, {});
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 3,
+      manpower: 10,
+      settledTileCount: 4,
+      townCount: 1,
+      incomePerMinute: 8,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [deadStrategicFrontier, activeFrontier],
+      strategicFrontierTiles: [deadStrategicFrontier],
+      ownedTiles: [deadStrategicFrontier, activeFrontier],
+      tilesByKey: new Map([
+        ["0,0", deadStrategicFrontier],
+        ["10,10", activeFrontier],
+        ["11,10", activeTarget]
+      ]),
+      clientSeq: 23,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+    });
+    expect(result.diagnostic.frontierOriginCount).toBe(2);
+  });
+
   it("prefers pressure attacks over neutral growth on town-control fronts", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",

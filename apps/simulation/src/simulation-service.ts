@@ -130,6 +130,7 @@ const formatNoFrontierDiagnostic = (
     `barbarian=${diagnostic.frontierBarbarianTargetCount ?? 0}`,
     `neutral=${diagnostic.frontierNeutralTargetCount}`,
     `econ=${diagnostic.frontierOpportunityEconomic ?? 0}`,
+    `support=${diagnostic.frontierOpportunityTownSupport ?? 0}`,
     `scout=${diagnostic.frontierOpportunityScout ?? 0}`,
     `scaffold=${diagnostic.frontierOpportunityScaffold ?? 0}`,
     `waste=${diagnostic.frontierOpportunityWaste ?? 0}`,
