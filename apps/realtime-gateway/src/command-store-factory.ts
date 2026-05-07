@@ -4,8 +4,6 @@ import type { GatewayCommandStore } from "./command-store.js";
 import { InMemoryGatewayCommandStore } from "./command-store.js";
 import { resolveGatewayMigrationPath } from "./migration-path.js";
 import { createPostgresGatewayCommandStore } from "./postgres-command-store.js";
-import { SqliteGatewayCommandStore } from "./sqlite-command-store.js";
-import { openSqliteDatabase } from "./sqlite-db.js";
 import { retryStartup } from "./startup-retry.js";
 
 type CommandStoreFactoryOptions = {
@@ -18,6 +16,10 @@ export const createGatewayCommandStore = async (
   options: CommandStoreFactoryOptions = {}
 ): Promise<GatewayCommandStore> => {
   if (options.sqlitePath) {
+    const [{ SqliteGatewayCommandStore }, { openSqliteDatabase }] = await Promise.all([
+      import("./sqlite-command-store.js"),
+      import("./sqlite-db.js")
+    ]);
     const store = new SqliteGatewayCommandStore(openSqliteDatabase(options.sqlitePath));
     if (options.applySchema) await store.applySchema();
     return store;

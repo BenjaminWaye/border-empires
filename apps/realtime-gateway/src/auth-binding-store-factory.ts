@@ -3,8 +3,6 @@ import { readFile } from "node:fs/promises";
 import { resolveGatewayMigrationPath } from "./migration-path.js";
 import { InMemoryGatewayAuthBindingStore, type GatewayAuthBindingStore } from "./auth-binding-store.js";
 import { createPostgresGatewayAuthBindingStore } from "./postgres-auth-binding-store.js";
-import { SqliteGatewayAuthBindingStore } from "./sqlite-auth-binding-store.js";
-import { openSqliteDatabase } from "./sqlite-db.js";
 import { retryStartup } from "./startup-retry.js";
 
 type AuthBindingStoreFactoryOptions = {
@@ -17,6 +15,10 @@ export const createGatewayAuthBindingStore = async (
   options: AuthBindingStoreFactoryOptions = {}
 ): Promise<GatewayAuthBindingStore> => {
   if (options.sqlitePath) {
+    const [{ SqliteGatewayAuthBindingStore }, { openSqliteDatabase }] = await Promise.all([
+      import("./sqlite-auth-binding-store.js"),
+      import("./sqlite-db.js")
+    ]);
     const store = new SqliteGatewayAuthBindingStore(openSqliteDatabase(options.sqlitePath));
     if (options.applySchema) await store.applySchema();
     return store;
