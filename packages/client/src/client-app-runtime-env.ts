@@ -60,8 +60,16 @@ export const createClientSocketSetup = (
   const gatewayWsUrl =
     (import.meta.env.VITE_GATEWAY_WS_URL as string | undefined) ?? gatewayDefault ?? legacyWsUrl;
 
+  const envDefaultBackendRaw = (import.meta.env.VITE_BACKEND_DEFAULT as string | undefined)?.toLowerCase();
+  const envDefaultBackend =
+    envDefaultBackendRaw === "gateway" || envDefaultBackendRaw === "legacy" ? envDefaultBackendRaw : undefined;
+
   // Priority: ?backend= URL param > be-backend cookie > env default.
-  const selection = selectBackend({ legacyWsUrl, gatewayWsUrl });
+  const selection = selectBackend({
+    legacyWsUrl,
+    gatewayWsUrl,
+    ...(envDefaultBackend ? { envDefaultBackend } : {})
+  });
   const { wsUrl, backend } = selection;
 
   state.localhostDevAetherWall = isLocalHost;
