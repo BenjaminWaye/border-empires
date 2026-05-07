@@ -100,6 +100,7 @@ export type AutomationPlannerDiagnostic = {
   frontierBarbarianTargetCount?: number;
   frontierNeutralTargetCount: number;
   frontierOpportunityEconomic?: number;
+  frontierOpportunityTownSupport?: number;
   frontierOpportunityScout?: number;
   frontierOpportunityScaffold?: number;
   frontierOpportunityWaste?: number;
@@ -186,6 +187,44 @@ const attackTargetsBarbarian = (attack: FrontierAnalysis["attack"] | undefined):
 
 export const goapGoldReserveHealthy = (points: number): boolean =>
   points >= SETTLE_COST + FRONTIER_CLAIM_COST;
+
+const emptyFrontierAnalysis = (): FrontierAnalysis => ({
+  frontierEnemyTargetCount: 0,
+  frontierEnemyPlayerTargetCount: 0,
+  frontierBarbarianTargetCount: 0,
+  frontierNeutralTargetCount: 0,
+  frontierOpportunityEconomic: 0,
+  frontierOpportunityTownSupport: 0,
+  frontierOpportunityScout: 0,
+  frontierOpportunityScaffold: 0,
+  frontierOpportunityWaste: 0
+});
+
+const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
+  analysis.frontierEnemyTargetCount > 0 ||
+  analysis.frontierNeutralTargetCount > 0 ||
+  Boolean(
+    analysis.attack ||
+      analysis.expand ||
+      analysis.economicExpand ||
+      analysis.townSupportExpand ||
+      analysis.scaffoldExpand ||
+      analysis.scoutExpand
+  );
+
+const dedupeTiles = <TTile extends AutomationPlannerTile>(
+  tiles: Iterable<TTile>
+): TTile[] => {
+  const seen = new Set<string>();
+  const deduped: TTile[] = [];
+  for (const tile of tiles) {
+    const key = `${tile.x},${tile.y}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(tile);
+  }
+  return deduped;
+};
 
 const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
   context: AutomationPlannerDecisionContext<TTile>,
@@ -363,28 +402,44 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       Boolean(tile.dockId) &&
       !baseFrontierOrigins.some((candidate) => candidate.x === tile.x && candidate.y === tile.y)
   );
-  const frontierOrigins =
-    dockOrigins.length > 0
-      ? ([...baseFrontierOrigins, ...dockOrigins] as readonly TTile[])
+  const townSupportOrigins = input.ownedTiles.filter((tile) => {
+    if (tile.ownerId !== input.playerId || tile.ownershipState !== "SETTLED" || !tile.town) return false;
+    const supportMax = Math.max(0, tile.town.supportMax ?? 0);
+    const supportCurrent = Math.max(0, tile.town.supportCurrent ?? 0);
+    return supportMax > supportCurrent;
+  });
+  const narrowFrontierOrigins =
+    dockOrigins.length > 0 || townSupportOrigins.length > 0
+      ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
       : baseFrontierOrigins;
   const frontierStartedAt = Date.now();
-  const frontierAnalysis =
+  let frontierOrigins = narrowFrontierOrigins;
+  let frontierAnalysis =
     canAttack || canExpand
       ? analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, frontierOrigins, input.playerId, {
           canAttack,
           canExpand,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
         })
-        : {
-          frontierEnemyTargetCount: 0,
-          frontierEnemyPlayerTargetCount: 0,
-          frontierBarbarianTargetCount: 0,
-          frontierNeutralTargetCount: 0,
-          frontierOpportunityEconomic: 0,
-          frontierOpportunityScout: 0,
-          frontierOpportunityScaffold: 0,
-          frontierOpportunityWaste: 0
-        };
+      : emptyFrontierAnalysis();
+  if ((canAttack || canExpand) && !hasActionableFrontierAnalysis(frontierAnalysis) && input.frontierTiles.length > 0) {
+    const broadFrontierOrigins = dedupeTiles([
+      ...narrowFrontierOrigins,
+      ...input.frontierTiles,
+      ...ownedFrontierTiles
+    ]);
+    if (broadFrontierOrigins.length > frontierOrigins.length) {
+      const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
+        canAttack,
+        canExpand,
+        ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
+      });
+      if (hasActionableFrontierAnalysis(broadFrontierAnalysis)) {
+        frontierOrigins = broadFrontierOrigins;
+        frontierAnalysis = broadFrontierAnalysis;
+      }
+    }
+  }
   recordPhaseTiming("choose_frontier", frontierStartedAt);
 
   const diagnosticBase: AutomationPlannerDiagnostic = {
@@ -397,6 +452,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     frontierBarbarianTargetCount: frontierAnalysis.frontierBarbarianTargetCount,
     frontierNeutralTargetCount: frontierAnalysis.frontierNeutralTargetCount,
     frontierOpportunityEconomic: frontierAnalysis.frontierOpportunityEconomic,
+    frontierOpportunityTownSupport: frontierAnalysis.frontierOpportunityTownSupport,
     frontierOpportunityScout: frontierAnalysis.frontierOpportunityScout,
     frontierOpportunityScaffold: frontierAnalysis.frontierOpportunityScaffold,
     frontierOpportunityWaste: frontierAnalysis.frontierOpportunityWaste,
@@ -535,6 +591,16 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   if (strategic.townSupportSettlementAvailable && actionableFallbackSettlementCandidate && !strategic.pressureThreatensCore) {
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return buildPlannerSettleCommand(context, actionableFallbackSettlementCandidate);
+  }
+  if (
+    strategic.townSupportExpandAvailable &&
+    frontierAnalysis.townSupportExpand &&
+    canExpand &&
+    !strategic.pressureThreatensCore &&
+    !actionableFallbackSettlementCandidate
+  ) {
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+    return buildPlannerFrontierCommand(context, frontierAnalysis.townSupportExpand, "EXPAND");
   }
   if (
     frontierAnalysis.attack &&
