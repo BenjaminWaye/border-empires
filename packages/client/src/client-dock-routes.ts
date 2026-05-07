@@ -19,16 +19,39 @@ export const computeDockSeaRoute = (
     const dy = Math.abs(fromY - toY);
     return Math.min(dx, WORLD_WIDTH - dx) + Math.min(dy, WORLD_HEIGHT - dy);
   };
+  const isSeaLike = (x: number, y: number): boolean => {
+    const terrain = terrainAt(x, y);
+    return terrain === "SEA" || terrain === "COASTAL_SEA";
+  };
   const nearestSeaNeighbor = (x: number, y: number, tx: number, ty: number): { x: number; y: number } | undefined => {
+    // If the dock tile itself sits on sea-like terrain (rewrite stack puts
+    // some dock tiles on SEA per the deterministic worldgen), use it directly.
+    if (isSeaLike(x, y)) return { x: deps.wrapX(x), y: deps.wrapY(y) };
     const candidates = [
       { x: deps.wrapX(x), y: deps.wrapY(y - 1) },
       { x: deps.wrapX(x + 1), y: deps.wrapY(y) },
       { x: deps.wrapX(x), y: deps.wrapY(y + 1) },
       { x: deps.wrapX(x - 1), y: deps.wrapY(y) }
-    ].filter((point) => { const terrain = terrainAt(point.x, point.y); return terrain === "SEA" || terrain === "COASTAL_SEA"; });
-    if (candidates.length === 0) return undefined;
-    candidates.sort((left, right) => manhattanToroid(left.x, left.y, tx, ty) - manhattanToroid(right.x, right.y, tx, ty));
-    return candidates[0];
+    ].filter((point) => isSeaLike(point.x, point.y));
+    if (candidates.length > 0) {
+      candidates.sort((left, right) => manhattanToroid(left.x, left.y, tx, ty) - manhattanToroid(right.x, right.y, tx, ty));
+      return candidates[0];
+    }
+    // Fall back to a wider 2-tile-radius scan for cases where the dock is
+    // on land surrounded by other land (e.g., one tile inland from the coast).
+    const radius2: Array<{ x: number; y: number }> = [];
+    for (let dx = -2; dx <= 2; dx += 1) {
+      for (let dy = -2; dy <= 2; dy += 1) {
+        if (dx === 0 && dy === 0) continue;
+        if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) continue;
+        const wx = deps.wrapX(x + dx);
+        const wy = deps.wrapY(y + dy);
+        if (isSeaLike(wx, wy)) radius2.push({ x: wx, y: wy });
+      }
+    }
+    if (radius2.length === 0) return undefined;
+    radius2.sort((left, right) => manhattanToroid(left.x, left.y, tx, ty) - manhattanToroid(right.x, right.y, tx, ty));
+    return radius2[0];
   };
   const reconstructSeaPath = (cameFrom: Map<number, number>, endIdx: number): Array<{ x: number; y: number }> => {
     const out: Array<{ x: number; y: number }> = [];
@@ -102,7 +125,7 @@ export const computeDockSeaRoute = (
   const cameFrom = new Map<number, number>();
   const gScore = new Map<number, number>([[start, 0]]);
   heapPush(manhattanToroid(aSea.x, aSea.y, bSea.x, bSea.y), start);
-  const maxExpanded = 24_000;
+  const maxExpanded = 200_000;
   let expanded = 0;
   let solved = false;
 

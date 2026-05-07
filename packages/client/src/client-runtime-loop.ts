@@ -1438,13 +1438,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const wrapJumpY = (WORLD_HEIGHT * size) / 2;
     for (const pair of state.dockPairs) {
       if (!deps.isDockRouteVisibleForPlayer(pair)) continue;
-      const aIsDockLand = terrainAt(pair.ax, pair.ay) === "LAND";
-      const bIsDockLand = terrainAt(pair.bx, pair.by) === "LAND";
       const selectedRoute = Boolean(
         state.selected &&
           ((pair.ax === state.selected.x && pair.ay === state.selected.y) || (pair.bx === state.selected.x && pair.by === state.selected.y))
       );
-      if (!selectedRoute || !aIsDockLand || !bIsDockLand) continue;
+      if (!selectedRoute) continue;
 
       const route = deps.computeDockSeaRoute(pair.ax, pair.ay, pair.bx, pair.by);
       deps.ctx.setLineDash(routeDash);

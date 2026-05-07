@@ -19,18 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.13",
+  version: "2026.05.07.1",
   title: "What's New",
-  summary: "Linked-dock connection lines now follow an actual sea route between paired docks instead of cutting straight across landmasses, and they now find paths that wrap across the world edge. Plus the prior settled resource production/stored yield rewrite-stack fix, the 'Town is unfed' guard, satellite-reveal foreign towns, and the earlier 3D-renderer polish from this release train.",
+  summary: "Linked-dock connection lines now actually render the sea route between paired docks: a stale legacy LAND-only guard was silently dropping lines for valid rewrite-stack dock endpoints, the route search was capped too low for the 450×450 world, the start-tile lookup couldn't handle docks whose deterministic terrain isn't strictly LAND, and the gateway was occasionally shipping `worldSeed: 0` to the client which made the entire client-side terrain map disagree with the actual world.",
   entries: [
     {
-      introducedIn: "2026.05.06.13",
-      title: "Linked-dock connection lines now hug the actual sea route",
-      why: "The dashed connection line between paired docks was supposed to follow the sea path between them, but the client-side A* over the 450×450 world only allocated 24,000 expansions and never wrapped across the world edge — so most non-trivial pairs ran out of expansions or had no non-wrapping path at all and silently fell back to a single straight line cutting across landmasses.",
+      introducedIn: "2026.05.07.1",
+      title: "Linked-dock connection lines actually draw and follow real sea routes now",
+      why: "After yesterday's toroidal A* + heap landed, the dashed dock-link lines still failed to draw or rendered as straight cross-island fallbacks for many real dock pairs. Three layered bugs were stacking: (1) a legacy 'both endpoints must be terrainAt LAND' guard was silently skipping any pair where the rewrite stack had placed a dock on a SEA or MOUNTAIN tile per the deterministic worldgen, (2) `nearestSeaNeighbor` only checked the 4 immediate neighbors, so docks placed one tile inland from the coast or sitting on a sea pocket had no sea start-point and the route returned empty, and (3) the gateway sometimes forwarded `worldSeed: 0` from the rewrite season state, which made the client compute terrainAt against an entirely different world than the simulation had used to place the docks — explaining 'docks in the middle of land' and the persistent straight-line fallback.",
       changes: [
-        "A* now wraps neighbors toroidally and uses a toroidal Manhattan heuristic, so dock pairs whose shortest sea path crosses the world edge can now resolve to a real route instead of falling back to a straight line.",
-        "Replaced the linear open-list scan with a binary min-heap, so the per-expansion cost no longer grows with the frontier size; the existing 24,000-expansion cap is now reached far less often because A* is more efficient and stays focused on the goal.",
-        "Routes are still cached per dock pair, so the heap-based A* runs at most once per pair per session."
+        "Removed the legacy `terrainAt === LAND` guard on dock-line rendering; presence in `state.dockPairs` is now the single source of truth for what's a valid dock endpoint.",
+        "`nearestSeaNeighbor` now returns the dock tile itself when its terrain is sea-like, and falls back to a 2-tile-radius scan when no immediate sea neighbor exists, so A* almost always has a valid start/goal sea tile.",
+        "Bumped A* expansion cap from 24,000 to 200,000 — bounded because of the binary-heap rewrite, ~50ms worst-case one-time per pair, then cached.",
+        "Realtime gateway treats `worldSeed: 0` as missing and falls back to `simulationWorldSeedForProfile(seedProfile)`, so the client-side `terrainAt` agrees with the simulation that placed the docks."
       ]
     },
     {
