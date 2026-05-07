@@ -407,6 +407,44 @@ describe("simulation runtime", () => {
     expect(visibleState.tiles.some((tile) => tile.x === 80 && tile.y === 80)).toBe(false);
   });
 
+  it("does not reveal linked docks when the source dock is only frontier-claimed (discovered, not settled)", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      seedDocks: [
+        { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+        { dockId: "dock-b", tileKey: "80,80", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+      ],
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-a" },
+          { x: 80, y: 80, terrain: "LAND", dockId: "dock-b" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const visibleState = runtime.exportVisibleStateForPlayer("player-1");
+
+    expect(visibleState.tiles.some((tile) => tile.x === 80 && tile.y === 80)).toBe(false);
+  });
+
   it("reveals an ally's linked docks when the ally owns the source dock", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
