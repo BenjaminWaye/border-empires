@@ -135,6 +135,7 @@ describe("gateway auth timeout", () => {
       defaultHumanPlayerId: "player-1",
       commandStore: new InMemoryGatewayCommandStore(),
       simulationPrepareTimeoutMs: 1_000,
+      simulationRpcRetryAttempts: 1,
       simulationClient: {
         preparePlayer: () =>
           new Promise(() => {
@@ -387,6 +388,7 @@ describe("gateway auth timeout", () => {
       defaultHumanPlayerId: "player-1",
       commandStore: new InMemoryGatewayCommandStore(),
       simulationSubscribeTimeoutMs: 1_000,
+      simulationRpcRetryAttempts: 1,
       simulationClient: {
         preparePlayer: async (playerId) => ({ playerId, spawned: false }),
         submitCommand: async () => undefined,
