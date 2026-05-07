@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.5",
+  version: "2026.05.07.6",
   title: "What's New",
-  summary: "The true-3D renderer now paints the unfed-town warning badge on the map, so 3D players can spot starving towns without clicking through them. Plus the recently-landed dock-line sea-route fix, exponential-backoff auth reconnect, rewrite-AI town-support prioritization, settings/debug-card cleanup, settled resource production payloads, and the rest of this release train.",
+  summary: "Staging seasons can now choose an island-heavy map style, and the current staging reroll uses 20 AI empires across 20-30 meaningful islands. Plus the true-3D unfed-town badge, dock-line sea-route fix, exponential-backoff auth reconnect, rewrite-AI town-support prioritization, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.6",
+      title: "Staging can run island-heavy seasons with 20 AI empires",
+      why: "The managed-season rewrite path was still starting only 10 AI empires and had no explicit map-style selector, so staging rerolls could land on a few continent-scale landmasses when the intended test season was a wider island map.",
+      changes: [
+        "Managed seasonal worldgen now has a continent/island map-style selector; staging is configured to use the island style for this reroll.",
+        "Island-style season generation accepts only maps with 20-30 meaningful islands and rejects maps dominated by one oversized landmass.",
+        "Managed seasonal starts now seed 20 AI empires, with names for all 20 AI players."
+      ]
+    },
     {
       introducedIn: "2026.05.07.5",
       title: "True-3D towns now show the unfed warning badge",

@@ -35,6 +35,7 @@ const service = await createSimulationService({
     : {}),
   seedProfile: runtimeEnv.seedProfile,
   ...(runtimeEnv.rulesetId ? { rulesetId: runtimeEnv.rulesetId } : {}),
+  mapStyle: runtimeEnv.mapStyle,
   enableAiAutopilot: runtimeEnv.enableAiAutopilot,
   aiTickMs: runtimeEnv.aiTickMs,
   aiMaxEventLoopLagMs: runtimeEnv.aiMaxEventLoopLagMs,
