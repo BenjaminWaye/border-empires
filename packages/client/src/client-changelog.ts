@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.9",
+  version: "2026.05.07.10",
   title: "What's New",
-  summary: "Owned-town tile panels no longer silently render Production: 0.00/m with no Support or Upkeep when a TILE_DELTA arrives before its REQUEST_TILE_DETAIL response. Each missing row now shows a spinner with a live 'loading for Xs' counter and a Report button that downloads tile + recent-message debug context, and the auto-refresh fires even when the tile already says detailLevel=full. Plus the forest claim-time fix, rewrite-AI town-support detection, and the rest of this release train.",
+  summary: "Linked-dock connection lines no longer fall back to a misleading straight cross-island line when A* fails to find a sea route — selected pairs either show the actual snaking sea route or nothing at all. Plus owned-town tile panels' per-row loaders, the forest claim-time fix, rewrite-AI town-support detection, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.10",
+      title: "Linked-dock lines no longer draw a straight fallback when there's no sea route",
+      why: "Yesterday's PR removed a stale LAND-only guard that had been silently filtering out dock pairs the renderer treated as invalid. Without that filter, pairs whose endpoints A* couldn't connect through sea (e.g., docks placed deep enough inland that even the 2-tile-radius sea search comes up empty) started rendering the straight-line fallback — a single dashed line cutting across islands and shooting off-screen at angles that don't match where the paired dock actually sits. Visually it read as a regression of the original off-screen-direction bug.",
+      changes: [
+        "If `computeDockSeaRoute` returns fewer than 2 tiles, the renderer now skips the dashed line entirely instead of drawing a straight cross-island fallback. Either you see the real sea route or no line at all.",
+        "Removed the parallel-stub wrap-fallback path; the per-step `worldToScreen` route renderer already handles toroidal wrapping correctly when A* succeeds, and skipping the fallback removes the only place the old wrap-stub path could fire."
+      ]
+    },
     {
       introducedIn: "2026.05.07.9",
       title: "Tile panels surface a per-row loader + timer instead of zeroing out missing town economy",
