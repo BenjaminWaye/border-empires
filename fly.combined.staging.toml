@@ -22,8 +22,10 @@ primary_region = "arn"
   GATEWAY_SIMULATION_HEALTH_FAILURE_THRESHOLD = "12"
   GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS = "30000"
   GATEWAY_DB_APPLY_SCHEMA = "1"
+  GATEWAY_SQLITE_PATH = "/data/border-empires.db"
 
-  # Simulation (loopback within the same machine)
+  # Simulation (loopback within the same Node process)
+  SIMULATION_SQLITE_PATH = "/data/border-empires.db"
   SIMULATION_HOST = "127.0.0.1"
   SIMULATION_PORT = "50051"
   SIMULATION_METRICS_HOST = "127.0.0.1"
@@ -55,7 +57,11 @@ primary_region = "arn"
   min_machines_running = 0
   processes = ["app"]
 
+[mounts]
+  source = "be_combined_data"
+  destination = "/data"
+
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory = "1536mb"
+  memory = "1024mb"
