@@ -91,6 +91,35 @@ describe("game domain frontier validation", () => {
     });
   });
 
+  it("uses expandClaimDurationMs override for EXPAND when provided", () => {
+    const result = validateFrontierCommand({
+      now: 1_000,
+      actor: {
+        id: "p1",
+        isAi: false,
+        points: 100,
+        manpower: 100,
+        techIds: new Set<string>(),
+        allies: new Set<string>()
+      },
+      actionType: "EXPAND",
+      from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+      to: { x: 11, y: 11, terrain: "LAND" },
+      actionGoldCost: 1,
+      isAdjacent: true,
+      isDockCrossing: false,
+      isBridgeCrossing: false,
+      targetShielded: false,
+      defenderIsAlliedOrTruced: false,
+      expandClaimDurationMs: FRONTIER_CLAIM_MS * 4
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      resolvesAt: 1_000 + FRONTIER_CLAIM_MS * 4
+    });
+  });
+
   it("allows EXPAND from an origin lock owned by the same player", () => {
     const result = validateFrontierCommand({
       now: 1_000,
