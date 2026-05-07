@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.1",
+  version: "2026.05.07.2",
   title: "What's New",
-  summary: "Settings card now shows auth identity and bridge runtime as two distinct panels instead of repeating Backend / Bootstrap / Season / Runtime / WS in both, and the client build label no longer falls back to the bare string 'dev' for local builds. Plus the prior linked-dock sea routing, settled resource production/stored yield rewrite-stack fix, the 'Town is unfed' guard, satellite-reveal foreign towns, and the earlier 3D-renderer polish from this release train.",
+  summary: "Rewrite staging AI now claims and settles town-support rings more like the legacy AI instead of wandering past under-supported towns. Plus the settings/debug-card cleanup, linked-dock sea routing, settled resource production/stored yield rewrite-stack fix, the 'Town is unfed' guard, satellite-reveal foreign towns, and the earlier 3D-renderer polish from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.2",
+      title: "Rewrite AI now prioritizes town-support rings",
+      why: "Legacy AI treated under-supported towns as core growth targets: first claim the neutral ring tiles around the town, then settle those frontier tiles so the town can reach its support cap. Rewrite staging only had the settlement half of that behavior and could also over-focus on one strategic frontier origin, so AIs could leave obvious support land untouched or report no frontier targets despite owning usable frontier.",
+      changes: [
+        "Support-starved settled towns are now included as bounded planner origins, so the AI can claim neutral support-ring tiles directly from the town instead of only from existing frontier tiles.",
+        "Neutral claims that unlock town support are tracked as their own frontier opportunity and are preferred before non-core pressure attacks, matching the legacy AI priority order.",
+        "If a narrow hot/strategic origin set produces no actionable frontier targets, the planner falls back to the full owned frontier set instead of idling with `no_frontier_targets`."
+      ]
+    },
     {
       introducedIn: "2026.05.07.1",
       title: "Settings card debug panels no longer duplicate bridge info, and 'Client build' is always a real label",
