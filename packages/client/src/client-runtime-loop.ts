@@ -1445,31 +1445,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       if (!selectedRoute) continue;
 
       const route = deps.computeDockSeaRoute(pair.ax, pair.ay, pair.bx, pair.by);
+      // No straight-line fallback: if A* couldn't route through sea
+      // between the two endpoints, draw nothing rather than a misleading
+      // cross-island line.
+      if (route.length < 2) continue;
       deps.ctx.setLineDash(routeDash);
       deps.ctx.lineDashOffset = -((nowMs / 140) % 17);
       deps.ctx.strokeStyle = selectedRoute ? "rgba(255, 246, 176, 0.9)" : "rgba(255, 233, 149, 0.45)";
       deps.ctx.lineWidth = selectedRoute ? 2 : 1.2;
-      if (route.length < 2) {
-        const a = deps.worldToScreen(pair.ax, pair.ay, size, halfW, halfH);
-        const b = deps.worldToScreen(pair.bx, pair.by, size, halfW, halfH);
-        const wraps = Math.abs(b.sx - a.sx) > wrapJumpX || Math.abs(b.sy - a.sy) > wrapJumpY;
-        deps.ctx.beginPath();
-        if (wraps) {
-          const dx = deps.toroidDelta(pair.ax, pair.bx, WORLD_WIDTH) * size;
-          const dy = deps.toroidDelta(pair.ay, pair.by, WORLD_HEIGHT) * size;
-          deps.ctx.moveTo(a.sx, a.sy);
-          deps.ctx.lineTo(a.sx + dx, a.sy + dy);
-          deps.ctx.moveTo(b.sx - dx, b.sy - dy);
-          deps.ctx.lineTo(b.sx, b.sy);
-        } else {
-          deps.ctx.moveTo(a.sx, a.sy);
-          deps.ctx.lineTo(b.sx, b.sy);
-        }
-        deps.ctx.stroke();
-        deps.ctx.setLineDash([]);
-        deps.ctx.lineDashOffset = 0;
-        continue;
-      }
       let prevScreen = deps.worldToScreen(route[0]!.x, route[0]!.y, size, halfW, halfH);
       for (let i = 1; i < route.length; i += 1) {
         const b = route[i]!;
