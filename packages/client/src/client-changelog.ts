@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.4",
+  version: "2026.05.07.5",
   title: "What's New",
-  summary: "Linked-dock connection lines now actually render the sea route between paired docks: a stale legacy LAND-only guard was silently dropping lines for valid rewrite-stack dock endpoints, the route search was capped too low for the 450×450 world, the start-tile lookup couldn't handle docks whose deterministic terrain isn't strictly LAND, and the gateway was occasionally shipping `worldSeed: 0` to the client which made the entire client-side terrain map disagree with the actual world. Plus the prior auth-reconnect backoff, rewrite-AI town-support work, settings/debug-card cleanup, settled resource production fix, and the rest of this release train.",
+  summary: "The true-3D renderer now paints the unfed-town warning badge on the map, so 3D players can spot starving towns without clicking through them. Plus the recently-landed dock-line sea-route fix, exponential-backoff auth reconnect, rewrite-AI town-support prioritization, settings/debug-card cleanup, settled resource production payloads, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.5",
+      title: "True-3D towns now show the unfed warning badge",
+      why: "The tile overview could warn that a town was unfed, but the opt-in true-3D renderer had no equivalent map badge. Players using the 3D view had to click through towns one by one instead of spotting food problems directly on the map.",
+      changes: [
+        "The 3D renderer now paints a compact warning badge above towns whose trusted town data reports `isFed: false`.",
+        "The badge only appears for player-owned towns with complete economy data, so foreign or partial town summaries do not show misleading food warnings.",
+        "Added regression coverage for the 3D badge visibility rules."
+      ]
+    },
     {
       introducedIn: "2026.05.07.4",
       title: "Linked-dock connection lines actually draw and follow real sea routes now",
