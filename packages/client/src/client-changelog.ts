@@ -19,18 +19,28 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.8",
+  version: "2026.05.07.9",
   title: "What's New",
-  summary: "Owned-town tile panels no longer silently render Production: 0.00/m with no Support or Upkeep when a TILE_DELTA arrives before its REQUEST_TILE_DETAIL response. Each missing row now shows a spinner with a live 'loading for Xs' counter and a Report button that downloads tile + recent-message debug context, and the auto-refresh fires even when the tile already says detailLevel=full. Plus the rewrite-AI town-support fix and the rest of the release train.",
+  summary: "Owned-town tile panels no longer silently render Production: 0.00/m with no Support or Upkeep when a TILE_DELTA arrives before its REQUEST_TILE_DETAIL response. Each missing row now shows a spinner with a live 'loading for Xs' counter and a Report button that downloads tile + recent-message debug context, and the auto-refresh fires even when the tile already says detailLevel=full. Plus the forest claim-time fix, rewrite-AI town-support detection, and the rest of this release train.",
   entries: [
     {
-      introducedIn: "2026.05.07.8",
+      introducedIn: "2026.05.07.9",
       title: "Tile panels surface a per-row loader + timer instead of zeroing out missing town economy",
-      why: "Owner-economy fields (isFed, supportCurrent/Max, foodUpkeepPerMinute) only ride the snapshot and REQUEST_TILE_DETAIL responses — the TILE_DELTA_BATCH town payload is the partial domain shape. Between a delta arriving and the gateway answering the follow-up tile-detail request, an own settled town read back as Production: ◉ 0.00/m with Support and Upkeep rows missing entirely (Sableythspire Manse only got its real numbers after refreshing twice). A 0/m row that's actually a load-in-progress is indistinguishable from a real 0/m, so failures look like data, not bugs.",
+      why: "Owner-economy fields (isFed, supportCurrent/Max, foodUpkeepPerMinute, populationGrowthPerMinute) only ride the snapshot and REQUEST_TILE_DETAIL responses — the TILE_DELTA_BATCH town payload is the partial domain shape. Between a delta arriving and the gateway answering the follow-up tile-detail request, an own settled town read back as Production: ◉ 0.00/m with Support, Upkeep, and Growth rows missing entirely (Sableythspire Manse only got its real numbers after refreshing twice). A 0/m row that's actually a load-in-progress is indistinguishable from a real 0/m, so failures look like data, not bugs.",
       changes: [
-        "Own settled non-settlement town tiles whose payload lacks owner-economy fields now render Production / Support / Upkeep as loading rows with a spinner, a live 'loading for Xs' counter, and a Report button that downloads the same tile + recent-message debug log the existing town-payload spinner uses.",
+        "Own settled non-settlement town tiles whose payload lacks owner-economy fields now render Support / Growth / Production / Upkeep as loading rows with a spinner, a live 'loading for Xs' counter, and a Report button that downloads the same tile + recent-message debug log the existing town-payload spinner uses.",
         "REQUEST_TILE_DETAIL now retries even when the tile already has detailLevel=full, so the recovery path actually fires the second time the menu sees a partial town instead of being permanently gated by the first detail response.",
         "The loading-since timestamp is tracked per tile in client state and cleared as soon as the next render sees complete economy data, so the timer reflects a single in-flight gap rather than restarting on every re-render."
+      ]
+    },
+    {
+      introducedIn: "2026.05.07.8",
+      title: "Forest frontier expansion takes 4x longer again",
+      why: "The 4x forest claim multiplier exists in the shared worldgen helpers but was never threaded into the rewrite simulation's frontier validator, so every EXPAND on the rewrite stack was resolving in the flat 1.25s base regardless of terrain. Forest was supposed to be a strategic chokepoint; the bug let players walk through it as fast as plains.",
+      changes: [
+        "Dark-grass (forest) tiles now resolve EXPAND in 5s on the rewrite stack, matching legacy behavior and the intended terrain cost.",
+        "FOREST_FRONTIER_CLAIM_MULT promoted to @border-empires/shared so legacy and rewrite share the same constant.",
+        "validateFrontierCommand accepts a per-call expandClaimDurationMs override so the runtime can pass terrain-aware durations without baking world lookups into the validator."
       ]
     },
     {
