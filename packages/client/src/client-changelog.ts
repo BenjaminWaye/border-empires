@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.9",
+  version: "2026.05.07.10",
   title: "What's New",
-  summary: "Owned-town tile panels no longer silently render Production: 0.00/m with no Support or Upkeep when a TILE_DELTA arrives before its REQUEST_TILE_DETAIL response. Each missing row now shows a spinner with a live 'loading for Xs' counter and a Report button that downloads tile + recent-message debug context, and the auto-refresh fires even when the tile already says detailLevel=full. Plus the forest claim-time fix, rewrite-AI town-support detection, and the rest of this release train.",
+  summary: "Build-time VITE_BACKEND_DEFAULT now lets a Vercel preview pin its default backend choice (gateway or legacy) regardless of hostname. Used by the SQLite-only combined-staging preview that points at the merged single-process Fly app. Plus the per-row tile-panel loaders, forest claim-time fix, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.10",
+      title: "Vercel preview can now pin the default backend via VITE_BACKEND_DEFAULT",
+      why: "Vercel preview hostnames (border-empires-git-feat-...vercel.app) don't match the staging-host pattern, so the backend selector falls back to legacy by default. That made it impossible to point a preview build at the merged single-process combined-staging server without forcing every test session to type ?backend=gateway in the URL.",
+      changes: [
+        "selectBackend accepts an envDefaultBackend opt that overrides the hostname-based default when set to 'gateway' or 'legacy'.",
+        "client-app-runtime-env reads VITE_BACKEND_DEFAULT at build time and threads it through; existing localhost/staging behavior is unchanged when the env var is absent.",
+        "The combined-staging preview branch ships .env.production with VITE_BACKEND_DEFAULT=gateway and VITE_GATEWAY_WS_URL pointing at the SQLite-only merged Fly app."
+      ]
+    },
     {
       introducedIn: "2026.05.07.9",
       title: "Tile panels surface a per-row loader + timer instead of zeroing out missing town economy",
