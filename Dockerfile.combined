@@ -71,7 +71,6 @@ COPY --from=build /app/apps/simulation/package.json ./apps/simulation/package.js
 COPY --from=build /app/apps/simulation/dist ./apps/simulation/dist
 COPY --from=build /app/apps/simulation/node_modules ./apps/simulation/node_modules
 COPY --from=build /app/apps/simulation/sql ./apps/simulation/sql
-COPY --from=build /app/apps/simulation/snapshots ./apps/simulation/snapshots
 
 RUN chmod -R a+rX \
     /app/packages/game-domain/data \
