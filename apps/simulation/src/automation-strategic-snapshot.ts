@@ -271,6 +271,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     settlementSupportsTown(input.playerId, input.fallbackSettlementCandidate, input.tilesByKey);
   const townSupportExpandAvailable =
     input.canExpand &&
+    !input.needsFood &&
     input.frontierAnalysis.frontierOpportunityTownSupport > 0 &&
     Boolean(input.frontierAnalysis.townSupportExpand);
   const islandExpandAvailable =

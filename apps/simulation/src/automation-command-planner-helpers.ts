@@ -44,7 +44,8 @@ export const shouldSettleCandidateNow = <TTile extends AutomationPlannerTile>(
     context.settlementCandidate?.y === candidate.y;
   const scaffoldOrScoutFallbackAvailable =
     context.frontierAnalysis.frontierOpportunityScaffold > 0 || context.frontierAnalysis.frontierOpportunityScout > 0;
-  if (evaluation.townSupportNeed > 0 || evaluation.economicallyInteresting) return true;
+  const candidateHasIntrinsicEconomicValue = Boolean(candidate.town || candidate.dockId || candidate.resource);
+  if (evaluation.economicallyInteresting && (candidateHasIntrinsicEconomicValue || !context.needsFood)) return true;
   if (context.preplanProgressState === "tech_unaffordable" && !isStrategicCandidate) {
     if (
       context.frontierAnalysis.frontierOpportunityEconomic > 0 ||
