@@ -1124,7 +1124,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   }, 2_000);
 
   const databaseKeepAliveIntervalMs = Math.max(60_000, Number(process.env.GATEWAY_DATABASE_KEEPALIVE_MS ?? 6 * 60 * 60 * 1000));
-  const databaseKeepAliveTimer = setInterval(() => {
+  const pingDatabaseKeepAlive = (): void => {
     void commandStore
       .nextClientSeqForPlayer("__supabase_keepalive__")
       .then(() => {
@@ -1135,7 +1135,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           error: error instanceof Error ? error.message : String(error)
         });
       });
-  }, databaseKeepAliveIntervalMs);
+  };
+  pingDatabaseKeepAlive();
+  const databaseKeepAliveTimer = setInterval(pingDatabaseKeepAlive, databaseKeepAliveIntervalMs);
   if (typeof databaseKeepAliveTimer.unref === "function") databaseKeepAliveTimer.unref();
   gatewayEventLoopTimer = setInterval(() => {
     const now = Date.now();
