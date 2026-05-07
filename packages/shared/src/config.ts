@@ -5,6 +5,7 @@ export const VISION_RADIUS = 4;
 export const COMBAT_LOCK_MS = 3_000;
 export const FRONTIER_CLAIM_COST = 1;
 export const FRONTIER_CLAIM_MS = 1_250;
+export const FOREST_FRONTIER_CLAIM_MULT = 4;
 export const SETTLE_COST = 4;
 export const SETTLE_MS = 60_000;
 export const DEVELOPMENT_PROCESS_LIMIT = 3;
