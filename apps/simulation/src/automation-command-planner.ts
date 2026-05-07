@@ -11,6 +11,7 @@ import {
 
 import { chooseBestSettlementTile, chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
+import { computeTownSupport } from "./town-support.js";
 import {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
@@ -404,8 +405,13 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   );
   const townSupportOrigins = input.ownedTiles.filter((tile) => {
     if (tile.ownerId !== input.playerId || tile.ownershipState !== "SETTLED" || !tile.town) return false;
-    const supportMax = Math.max(0, tile.town.supportMax ?? 0);
-    const supportCurrent = Math.max(0, tile.town.supportCurrent ?? 0);
+    if (tile.town.populationTier === "SETTLEMENT") return false;
+    const storedMax = tile.town.supportMax;
+    const storedCurrent = tile.town.supportCurrent;
+    if (typeof storedMax === "number" && typeof storedCurrent === "number") {
+      return storedMax > storedCurrent;
+    }
+    const { supportMax, supportCurrent } = computeTownSupport(input.playerId, tile.x, tile.y, input.tilesByKey);
     return supportMax > supportCurrent;
   });
   const narrowFrontierOrigins =

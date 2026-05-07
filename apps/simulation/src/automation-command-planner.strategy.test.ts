@@ -89,6 +89,7 @@ describe("automation command planner strategic parity", () => {
       settledTileCount: 4,
       townCount: 1,
       incomePerMinute: 8,
+      strategicResources: { FOOD: 30 },
       hasActiveLock: false,
       activeDevelopmentProcessCount: 0,
       frontierTiles: [localFrontier],
@@ -153,6 +154,117 @@ describe("automation command planner strategic parity", () => {
     expect(result.diagnostic.frontierOpportunityTownSupport).toBe(1);
   });
 
+  it("detects town-support deficit from neighbor terrain when supportMax/supportCurrent are unset", () => {
+    const supportTown = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", type: "FARMING", populationTier: "TOWN" }
+    });
+    const supportTarget = makeTile(1, 0, {});
+    const pressureFrontier = makeTile(5, 5, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const enemy = makeTile(6, 5, { ownerId: "enemy-1" });
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 3,
+      manpower: 100,
+      settledTileCount: 4,
+      townCount: 1,
+      incomePerMinute: 10,
+      strategicResources: { FOOD: 30 },
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [pressureFrontier],
+      strategicFrontierTiles: [pressureFrontier],
+      ownedTiles: [supportTown, pressureFrontier],
+      tilesByKey: new Map([
+        ["0,0", supportTown],
+        ["1,0", supportTarget],
+        ["5,5", pressureFrontier],
+        ["6,5", enemy]
+      ]),
+      clientSeq: 24,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+    });
+    expect(result.diagnostic.frontierOpportunityTownSupport).toBe(1);
+  });
+
+  it("does not treat SETTLEMENT-tier spawn towns as having a support deficit", () => {
+    const spawnSettlement = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Spawn", type: "FARMING", populationTier: "SETTLEMENT" }
+    });
+    const neutralNeighbor = makeTile(1, 0, {});
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 3,
+      manpower: 100,
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 1,
+      strategicResources: { FOOD: 30 },
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [spawnSettlement],
+      tilesByKey: new Map([
+        ["0,0", spawnSettlement],
+        ["1,0", neutralNeighbor]
+      ]),
+      clientSeq: 25,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.diagnostic.frontierOpportunityTownSupport ?? 0).toBe(0);
+  });
+
+  it("delays settling pure town-support tiles when food coverage is low", () => {
+    const supportTown = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", type: "FARMING", populationTier: "TOWN", supportMax: 3, supportCurrent: 0 }
+    });
+    const supportFrontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
+    const farmFrontier = makeTile(0, 1, { ownerId: "ai-1", ownershipState: "FRONTIER", resource: "FARM" });
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 4,
+      townCount: 1,
+      incomePerMinute: 8,
+      strategicResources: { FOOD: 0 },
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [supportFrontier, farmFrontier],
+      strategicFrontierTiles: [supportFrontier, farmFrontier],
+      ownedTiles: [supportTown, supportFrontier, farmFrontier],
+      tilesByKey: new Map([
+        ["0,0", supportTown],
+        ["1,0", supportFrontier],
+        ["0,1", farmFrontier]
+      ]),
+      clientSeq: 26,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 0, y: 1 })
+    });
+  });
+
   it("falls back from narrow strategic origins to full frontier origins when the narrow set is empty", () => {
     const deadStrategicFrontier = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER", resource: "FARM" });
     const activeFrontier = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });
@@ -191,7 +303,7 @@ describe("automation command planner strategic parity", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
-      town: { name: "Core", type: "MARKET", populationTier: "TOWN" }
+      town: { name: "Core", type: "MARKET", populationTier: "TOWN", supportMax: 0, supportCurrent: 0 }
     });
     const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const enemy = makeTile(1, 1, { ownerId: "enemy-1" });
@@ -229,7 +341,7 @@ describe("automation command planner strategic parity", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
-      town: { name: "Core", type: "MARKET", populationTier: "TOWN" }
+      town: { name: "Core", type: "MARKET", populationTier: "TOWN", supportMax: 0, supportCurrent: 0 }
     });
     const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const enemy = makeTile(1, 1, { ownerId: "enemy-1" });
@@ -309,7 +421,7 @@ describe("automation command planner strategic parity", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
-      town: { name: "Core", type: "MARKET", populationTier: "TOWN" }
+      town: { name: "Core", type: "MARKET", populationTier: "TOWN", supportMax: 0, supportCurrent: 0 }
     });
     const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const enemy = makeTile(1, 1, { ownerId: "enemy-1" });
@@ -350,7 +462,7 @@ describe("automation command planner strategic parity", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
-      town: { name: "Core", type: "MARKET", populationTier: "TOWN" }
+      town: { name: "Core", type: "MARKET", populationTier: "TOWN", supportMax: 0, supportCurrent: 0 }
     });
     const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const enemy = makeTile(2, 0, { ownerId: "enemy-1" });

@@ -1,6 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import { frontierNeighborKeys } from "./frontier-topology.js";
+import { computeTownSupport } from "./town-support.js";
 
 export type SettlementCandidateEvaluation = {
   score: number;
@@ -41,8 +42,14 @@ const adjacentTownSupportNeed = (
     const neighbor = tiles.get(neighborKey);
     if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED" || !neighbor.town) continue;
     if (assumedFrontierKeys.has(neighborKey)) continue;
-    const supportMax = Math.max(0, neighbor.town.supportMax ?? 0);
-    const supportCurrent = Math.max(0, neighbor.town.supportCurrent ?? 0);
+    if (neighbor.town.populationTier === "SETTLEMENT") continue;
+    const storedMax = neighbor.town.supportMax;
+    const storedCurrent = neighbor.town.supportCurrent;
+    if (typeof storedMax === "number" && typeof storedCurrent === "number") {
+      need += Math.max(0, storedMax - storedCurrent);
+      continue;
+    }
+    const { supportMax, supportCurrent } = computeTownSupport(playerId, neighbor.x, neighbor.y, tiles);
     need += Math.max(0, supportMax - supportCurrent);
   }
   return need;
