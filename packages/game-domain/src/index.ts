@@ -171,7 +171,7 @@ const manpowerRequirements = (
   actionType: FrontierCommandType
 ): { manpowerMin: number; manpowerCost: number } => {
   return {
-    manpowerMin: ATTACK_MANPOWER_MIN,
+    manpowerMin: actionType === "ATTACK" ? ATTACK_MANPOWER_MIN : 0,
     manpowerCost: actionType === "ATTACK" ? ATTACK_MANPOWER_COST : 0
   };
 };
