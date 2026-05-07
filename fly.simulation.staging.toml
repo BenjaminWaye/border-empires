@@ -29,6 +29,7 @@ primary_region = "arn"
   SIMULATION_AI_WORKER = "1"
   SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS = "100"
   SIMULATION_RULESET_ID = "seasonal-default"
+  SIMULATION_MAP_STYLE = "islands"
   SIMULATION_SEED_PROFILE = "default"
 
 [[services]]

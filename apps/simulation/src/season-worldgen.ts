@@ -5,12 +5,16 @@ import { createSeason20AiSeedWorld } from "./season-seed-world.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 
 export type SimulationRulesetId = "seasonal-default";
+export type SimulationMapStyle = "continents" | "islands";
 
 export type GeneratedSeasonWorld = {
   initialPlayers: Map<string, DomainPlayer>;
   initialState: RecoveredSimulationState;
   worldSeed: number;
 };
+
+export const parseSimulationMapStyle = (value: string | undefined): SimulationMapStyle =>
+  value === "islands" || value === "continents" ? value : "continents";
 
 const SEASONAL_AI_NAMES = [
   "Alden Vale",
@@ -22,7 +26,17 @@ const SEASONAL_AI_NAMES = [
   "Hugo Bjork",
   "Linnea Skald",
   "Rowan Hale",
-  "Tove Falk"
+  "Tove Falk",
+  "Astrid Wold",
+  "Niko Reed",
+  "Maren Dusk",
+  "Ivar Stone",
+  "Elin Birch",
+  "Rasmus Pike",
+  "Kara Venn",
+  "Oskar Flint",
+  "Solveig Moor",
+  "Bryn Holt"
 ] as const;
 
 const seasonalAiNameForId = (id: string): string | undefined => {
@@ -79,11 +93,16 @@ const toRecoveredPlayer = (player: DomainPlayer): NonNullable<RecoveredSimulatio
 
 export const generateSeasonWorld = (
   rulesetId: SimulationRulesetId,
-  requestedWorldSeed: number
+  requestedWorldSeed: number,
+  options: {
+    aiPlayerCount?: number;
+    mapStyle?: SimulationMapStyle;
+  } = {}
 ): GeneratedSeasonWorld => {
   if (rulesetId !== "seasonal-default") {
     throw new Error(`unsupported simulation ruleset: ${rulesetId}`);
   }
+  const mapStyle = options.mapStyle ?? "continents";
 
   const generated = createSeason20AiSeedWorld(
     requestedWorldSeed,
@@ -93,7 +112,14 @@ export const generateSeasonWorld = (
     }),
     {
       humanPlayerCount: 0,
-      aiPlayerCount: 10
+      aiPlayerCount: Math.max(0, options.aiPlayerCount ?? 20),
+      ...(mapStyle === "islands"
+        ? {
+            minSignificantIslands: 20,
+            maxSignificantIslands: 30,
+            maxLargestIslandShare: 0.22
+          }
+        : {})
     }
   );
 

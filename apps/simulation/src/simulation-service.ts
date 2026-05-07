@@ -48,7 +48,7 @@ import { createSeasonSummaryStore } from "./season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "./season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "./season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "./season-lifecycle.js";
-import { generateSeasonWorld, type SimulationRulesetId } from "./season-worldgen.js";
+import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "./season-worldgen.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 
 export type SimulationRuntimeIdentity = {
@@ -226,6 +226,7 @@ type SimulationServiceOptions = {
   startupReplayCompactionMinEvents?: number;
   seedProfile?: SimulationSeedProfile;
   rulesetId?: SimulationRulesetId;
+  mapStyle?: SimulationMapStyle;
   snapshotDir?: string;
   enableAiAutopilot?: boolean;
   aiTickMs?: number;
@@ -411,10 +412,12 @@ const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
 const buildBootstrapSeason = ({
   seasonSequence,
   rulesetId,
+  mapStyle,
   now
 }: {
   seasonSequence: number;
   rulesetId: SimulationRulesetId;
+  mapStyle: SimulationMapStyle;
   now: number;
 }): {
   seasonState: SimulationSeasonState;
@@ -422,7 +425,7 @@ const buildBootstrapSeason = ({
   initialPlayers: ReturnType<typeof generateSeasonWorld>["initialPlayers"];
 } => {
   const requestedWorldSeed = randomSeasonWorldSeed();
-  const generatedWorld = generateSeasonWorld(rulesetId, requestedWorldSeed);
+  const generatedWorld = generateSeasonWorld(rulesetId, requestedWorldSeed, { mapStyle });
   const seasonState = createInitialSeasonState({
     seasonSequence,
     rulesetId,
@@ -512,6 +515,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const isDbBackedStartup = typeof options.databaseUrl === "string" && options.databaseUrl.length > 0;
   const requireDurableStartupState = options.requireDurableStartupState ?? isDbBackedStartup;
   const rulesetId = options.rulesetId;
+  const mapStyle = options.mapStyle ?? "continents";
   const seedPlayers = createSeedPlayers(options.seedProfile);
   const storeFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
@@ -551,6 +555,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const bootstrap = buildBootstrapSeason({
       seasonSequence,
       rulesetId,
+      mapStyle,
       now: Date.now()
     });
     const bootstrapRuntime = new SimulationRuntime({
@@ -581,6 +586,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       {
         ...logContext,
         rulesetId,
+        mapStyle,
         seasonId: bootstrap.seasonState.seasonId,
         worldSeed: bootstrap.seasonState.worldSeed
       },
@@ -1434,6 +1440,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const bootstrap = buildBootstrapSeason({
         seasonSequence: currentSeasonState.seasonSequence + 1,
         rulesetId,
+        mapStyle,
         now: Date.now()
       });
       const nextRuntime = new SimulationRuntime({
