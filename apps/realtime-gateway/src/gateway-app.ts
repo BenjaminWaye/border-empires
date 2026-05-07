@@ -32,7 +32,7 @@ import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "./live-world-status-recovery.js";
 import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -530,19 +530,38 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   });
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
   const gatewaySnapshotByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
-  const refreshGatewaySnapshotCacheMetrics = () => {
+  type GatewaySnapshotCacheSummary = {
+    entryCount: number;
+    totalBytes: number;
+    topEntries: PlayerSubscriptionSnapshotCacheSummary["topEntries"];
+  };
+  let lastGatewaySnapshotCacheSummary: GatewaySnapshotCacheSummary = {
+    entryCount: 0,
+    totalBytes: 0,
+    topEntries: []
+  };
+  const refreshGatewaySnapshotCacheMetrics = (): GatewaySnapshotCacheSummary => {
     const cacheSummary = summarizePlayerSubscriptionSnapshotCache(gatewaySnapshotByPlayerId.entries());
     gatewayMetrics.setGatewaySnapshotCache({ entries: cacheSummary.entryCount, bytes: cacheSummary.totalSnapshotJsonBytes });
-    return { entryCount: cacheSummary.entryCount, totalBytes: cacheSummary.totalSnapshotJsonBytes, topEntries: cacheSummary.topEntries };
+    lastGatewaySnapshotCacheSummary = {
+      entryCount: cacheSummary.entryCount,
+      totalBytes: cacheSummary.totalSnapshotJsonBytes,
+      topEntries: cacheSummary.topEntries
+    };
+    return lastGatewaySnapshotCacheSummary;
   };
-  const syncGatewaySnapshotMetricsFromCache = (playerId: string) => {
+  const syncGatewaySnapshotMetricsFromCache = (playerId: string): void => {
+    // Only mutate the per-player map here (cheap). The expensive
+    // summarize-everything pass runs once per second on the metrics tick
+    // (see gatewayMetricsTimer below) — keeping it on per-event paths
+    // (TILE_DELTA_BATCH, player-message fan-out) caused gateway OOMs by
+    // re-JSON.stringify-ing every cached snapshot on every event.
     const snapshot = playerSubscriptions.snapshotForPlayer(playerId);
     if (!snapshot) {
       gatewaySnapshotByPlayerId.delete(playerId);
-      return refreshGatewaySnapshotCacheMetrics();
+      return;
     }
     gatewaySnapshotByPlayerId.set(playerId, snapshot);
-    return refreshGatewaySnapshotCacheMetrics();
   };
   const recordGatewaySnapshotDiagnostics = (
     playerId: string,
@@ -551,7 +570,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   ) => {
     const measure = measurePlayerSubscriptionSnapshot(snapshot);
     gatewaySnapshotByPlayerId.set(playerId, snapshot);
-    const cacheSummary = refreshGatewaySnapshotCacheMetrics();
+    // Read the latest summary (refreshed once per second on the metrics tick)
+    // instead of recomputing here. With N simultaneous fog refreshes (e.g. a
+    // satellite reveal wave) inline-summarizing would be O(N²) work in a
+    // burst. Up to 1s staleness is fine for diagnostics.
+    const cacheSummary = lastGatewaySnapshotCacheSummary;
     const memory = process.memoryUsage();
     const rssMb = memory.rss / (1024 * 1024);
     const heapUsedMb = memory.heapUsed / (1024 * 1024);
@@ -1031,6 +1054,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     for (const [commandId, submittedAt] of pendingInputToStateByCommandId.entries()) {
       if (submittedAt < staleBeforeMs) pendingInputToStateByCommandId.delete(commandId);
     }
+    refreshGatewaySnapshotCacheMetrics();
     const sample = gatewayMetrics.snapshot();
     app.log.info(
       {
