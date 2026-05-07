@@ -16,14 +16,19 @@ import {
 import {
   ATTACK_MANPOWER_MIN,
   DEVELOPMENT_PROCESS_LIMIT,
+  FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
+  FRONTIER_CLAIM_MS,
   MANPOWER_BASE_REGEN_PER_MINUTE,
   MANPOWER_BASE_CAP,
   SETTLE_COST,
   VISION_RADIUS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  grassShadeAt,
   isSeaTerrain,
+  landBiomeAt,
+  terrainAt,
   type Terrain,
   rollFrontierCombat,
   structureBuildDurationMs,
@@ -1836,6 +1841,16 @@ export class SimulationRuntime {
       targetLockResolvesAt: targetLock?.resolvesAt
     });
     const isDockCrossing = this.isDockCrossingTarget(from, to.x, to.y);
+    const isForestTarget =
+      terrainAt(to.x, to.y) === "LAND" &&
+      landBiomeAt(to.x, to.y) === "GRASS" &&
+      grassShadeAt(to.x, to.y) === "DARK";
+    const expandClaimDurationMs =
+      actionType === "EXPAND"
+        ? isForestTarget
+          ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT
+          : FRONTIER_CLAIM_MS
+        : undefined;
     const validation = validateFrontierCommand({
       now: this.now(),
       actor,
@@ -1851,7 +1866,8 @@ export class SimulationRuntime {
       isDockCrossing,
       isBridgeCrossing: false,
       targetShielded: isDockCrossing ? false : this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
-      defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId))
+      defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId)),
+      expandClaimDurationMs
     });
 
     if (!validation.ok) {
