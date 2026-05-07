@@ -87,9 +87,6 @@ RUN mkdir -p /app/node_modules/@border-empires \
   && ln -sfn /app/packages/client-protocol /app/node_modules/@border-empires/client-protocol \
   && ln -sfn /app/packages/sim-protocol /app/node_modules/@border-empires/sim-protocol
 
-COPY scripts/start-combined.sh /app/start-combined.sh
-RUN chmod +x /app/start-combined.sh
-
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV SIMULATION_HOST=127.0.0.1
@@ -102,4 +99,4 @@ EXPOSE 8080
 
 USER borderempires
 
-CMD ["/app/start-combined.sh"]
+CMD ["sh", "-c", "if [ -f apps/realtime-gateway/dist/main-merged.js ]; then exec node apps/realtime-gateway/dist/main-merged.js; elif [ -f apps/realtime-gateway/dist/realtime-gateway/src/main-merged.js ]; then exec node apps/realtime-gateway/dist/realtime-gateway/src/main-merged.js; elif [ -f apps/realtime-gateway/dist/apps/realtime-gateway/src/main-merged.js ]; then exec node apps/realtime-gateway/dist/apps/realtime-gateway/src/main-merged.js; else echo 'merged dist entrypoint not found' >&2; find apps/realtime-gateway/dist -maxdepth 5 -type f >&2 || true; exit 1; fi"]
