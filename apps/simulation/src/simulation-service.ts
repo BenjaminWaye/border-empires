@@ -217,6 +217,7 @@ type SimulationServiceOptions = {
   host?: string;
   port?: number;
   databaseUrl?: string;
+  sqlitePath?: string;
   applySchema?: boolean;
   checkpointEveryEvents?: number;
   writeCheckpointProjections?: boolean;
@@ -519,6 +520,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const seedPlayers = createSeedPlayers(options.seedProfile);
   const storeFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
+    ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
     ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {})
   };
   const commandStore =
