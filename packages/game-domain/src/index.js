@@ -84,7 +84,7 @@ export const validateFrontierCommand = (input) => {
         ok: true,
         origin: { x: input.from.x, y: input.from.y },
         target: { x: input.to.x, y: input.to.y },
-        resolvesAt: input.now + (input.actionType === "EXPAND" ? FRONTIER_CLAIM_MS : COMBAT_LOCK_MS),
+        resolvesAt: input.now + (input.actionType === "EXPAND" ? (input.expandClaimDurationMs ?? FRONTIER_CLAIM_MS) : COMBAT_LOCK_MS),
         manpowerCost,
         manpowerMin
     };

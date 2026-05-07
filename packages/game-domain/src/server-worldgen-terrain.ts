@@ -1,4 +1,4 @@
-import { isSeaTerrain, type ResourceType, type Terrain, type TileKey } from "@border-empires/shared";
+import { FOREST_FRONTIER_CLAIM_MULT, isSeaTerrain, type ResourceType, type Terrain, type TileKey } from "@border-empires/shared";
 
 import type { ClusterDefinition } from "./server-shared-types.js";
 import type {
@@ -303,7 +303,6 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
   const isForestFrontierTile = (x: number, y: number): boolean =>
     terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
 
-  const FOREST_FRONTIER_CLAIM_MULT = 4;
   const FOREST_SETTLEMENT_MULT = 2;
 
   const frontierClaimDurationMsAt = (x: number, y: number): number =>
