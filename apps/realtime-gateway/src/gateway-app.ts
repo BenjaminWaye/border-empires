@@ -19,6 +19,7 @@ import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
 import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "./player-profile-store.js";
 import { createGatewayPlayerProfileStore } from "./player-profile-store-factory.js";
 import { withTimeout } from "./promise-timeout.js";
+import { retryStartup } from "./startup-retry.js";
 import { resolveInitialState } from "./initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "./full-visibility-replacement-payload-cache.js";
 import { buildInitMessage } from "./reconnect-recovery.js";
@@ -556,7 +557,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     if (typeof namespaceClient.getSubscriptionNamespace !== "function") {
       throw new Error("simulation client GetSubscriptionNamespace RPC is unavailable");
     }
-    return namespaceClient.getSubscriptionNamespace();
+    return retryStartup("gateway getSubscriptionNamespace", () => namespaceClient.getSubscriptionNamespace!(), {
+      onAttemptFailed: (error, attempt, delayMs) => {
+        console.warn(
+          `[gateway] getSubscriptionNamespace attempt ${attempt} failed; retrying in ${delayMs}ms:`,
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+    });
   })();
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
     subscribePlayer: (playerId, subscriptionKey) =>
@@ -1116,7 +1124,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   }, 2_000);
 
   const databaseKeepAliveIntervalMs = Math.max(60_000, Number(process.env.GATEWAY_DATABASE_KEEPALIVE_MS ?? 6 * 60 * 60 * 1000));
-  const databaseKeepAliveTimer = setInterval(() => {
+  const pingDatabaseKeepAlive = (): void => {
     void commandStore
       .nextClientSeqForPlayer("__supabase_keepalive__")
       .then(() => {
@@ -1127,7 +1135,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           error: error instanceof Error ? error.message : String(error)
         });
       });
-  }, databaseKeepAliveIntervalMs);
+  };
+  pingDatabaseKeepAlive();
+  const databaseKeepAliveTimer = setInterval(pingDatabaseKeepAlive, databaseKeepAliveIntervalMs);
   if (typeof databaseKeepAliveTimer.unref === "function") databaseKeepAliveTimer.unref();
   gatewayEventLoopTimer = setInterval(() => {
     const now = Date.now();
