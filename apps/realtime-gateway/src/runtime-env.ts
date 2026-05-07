@@ -6,6 +6,7 @@ export type RealtimeGatewayRuntimeEnv = {
   simulationAddress: string;
   simulationWakeAddress?: string;
   databaseUrl?: string;
+  sqlitePath?: string;
   snapshotDir?: string;
   applySchema: boolean;
   defaultHumanPlayerId?: string;
@@ -38,6 +39,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
   env: NodeJS.ProcessEnv
 ): RealtimeGatewayRuntimeEnv => {
   const databaseUrl = env.GATEWAY_DATABASE_URL ?? env.DATABASE_URL;
+  const sqlitePath = env.GATEWAY_SQLITE_PATH ?? env.SQLITE_PATH;
   const snapshotDir = env.GATEWAY_SNAPSHOT_DIR;
   const simulationAddress = env.SIMULATION_ADDRESS ?? "127.0.0.1:50051";
   const simulationWakeAddress =
@@ -49,8 +51,8 @@ export const parseRealtimeGatewayRuntimeEnv = (
     parseBinaryFlag(env.GATEWAY_ALLOW_SEED_FALLBACK) ??
     !isManagedRuntime;
 
-  if (isManagedRuntime && !databaseUrl) {
-    throw new Error("realtime gateway requires GATEWAY_DATABASE_URL or DATABASE_URL in managed runtime");
+  if (isManagedRuntime && !databaseUrl && !sqlitePath) {
+    throw new Error("realtime gateway requires GATEWAY_DATABASE_URL/DATABASE_URL or GATEWAY_SQLITE_PATH/SQLITE_PATH in managed runtime");
   }
   if (isManagedRuntime && !env.SIMULATION_ADDRESS) {
     throw new Error("realtime gateway requires SIMULATION_ADDRESS in managed runtime");
@@ -65,6 +67,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
     simulationAddress,
     ...(simulationWakeAddress ? { simulationWakeAddress } : {}),
     ...(databaseUrl ? { databaseUrl } : {}),
+    ...(sqlitePath ? { sqlitePath } : {}),
     ...(snapshotDir ? { snapshotDir } : {}),
     applySchema: env.GATEWAY_DB_APPLY_SCHEMA === "1",
     ...(env.GATEWAY_DEFAULT_HUMAN_PLAYER_ID
