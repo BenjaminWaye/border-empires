@@ -44,6 +44,7 @@ describe("automation strategic snapshot", () => {
         frontierEnemyTargetCount: 0,
         frontierNeutralTargetCount: 1,
         frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
         frontierOpportunityScout: 0,
         frontierOpportunityScaffold: 0,
         frontierOpportunityWaste: 0
@@ -86,6 +87,7 @@ describe("automation strategic snapshot", () => {
         frontierEnemyTargetCount: 2,
         frontierNeutralTargetCount: 0,
         frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
         frontierOpportunityScout: 0,
         frontierOpportunityScaffold: 0,
         frontierOpportunityWaste: 0
@@ -135,6 +137,7 @@ describe("automation strategic snapshot", () => {
         frontierEnemyTargetCount: 1,
         frontierNeutralTargetCount: 1,
         frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
         frontierOpportunityScout: 0,
         frontierOpportunityScaffold: 0,
         frontierOpportunityWaste: 0
@@ -183,6 +186,7 @@ describe("automation strategic snapshot", () => {
         frontierEnemyTargetCount: 1,
         frontierNeutralTargetCount: 1,
         frontierOpportunityEconomic: 1,
+        frontierOpportunityTownSupport: 0,
         frontierOpportunityScout: 0,
         frontierOpportunityScaffold: 0,
         frontierOpportunityWaste: 0
@@ -225,6 +229,7 @@ describe("automation strategic snapshot", () => {
         frontierEnemyTargetCount: 1,
         frontierNeutralTargetCount: 0,
         frontierOpportunityEconomic: 1,
+        frontierOpportunityTownSupport: 0,
         frontierOpportunityScout: 0,
         frontierOpportunityScaffold: 0,
         frontierOpportunityWaste: 0
@@ -272,6 +277,7 @@ describe("automation strategic snapshot", () => {
         frontierEnemyTargetCount: 0,
         frontierNeutralTargetCount: 1,
         frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
         frontierOpportunityScout: 1,
         frontierOpportunityScaffold: 0,
         frontierOpportunityWaste: 1
