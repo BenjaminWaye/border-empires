@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.06.13",
+  version: "2026.05.07.1",
   title: "What's New",
-  summary: "Linked-dock connection lines now follow an actual sea route between paired docks instead of cutting straight across landmasses, and they now find paths that wrap across the world edge. Plus the prior settled resource production/stored yield rewrite-stack fix, the 'Town is unfed' guard, satellite-reveal foreign towns, and the earlier 3D-renderer polish from this release train.",
+  summary: "Settings card now shows auth identity and bridge runtime as two distinct panels instead of repeating Backend / Bootstrap / Season / Runtime / WS in both, and the client build label no longer falls back to the bare string 'dev' for local builds. Plus the prior linked-dock sea routing, settled resource production/stored yield rewrite-stack fix, the 'Town is unfed' guard, satellite-reveal foreign towns, and the earlier 3D-renderer polish from this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.1",
+      title: "Settings card debug panels no longer duplicate bridge info, and 'Client build' is always a real label",
+      why: "The auth-debug card under the settings panel was repeating Backend, Bootstrap, Season, Runtime, and the WebSocket URL — every one of those rows already appeared in the bridge-debug panel directly above it, doubling the visual noise on a card that should make support hand-offs faster, not harder. Separately, the client build version resolver in vite.config.ts fell back to the literal string 'dev' whenever it couldn't find a commit SHA, which made local builds and any Vercel build that lost its env vars indistinguishable from each other and indistinguishable from a stuck stale build.",
+      changes: [
+        "Auth-debug card is now identity-only: Firebase project, UID, Email, Providers, Player. Bridge / runtime / season / ws still live in the bridge-debug panel above, and the 'Copy Auth Debug' payload is unchanged so support pastes remain self-contained.",
+        "Client build label now appends '-dirty' to the SHA when the working tree has uncommitted changes, so a hot-reloaded local build is distinguishable from a clean checkout at the same commit.",
+        "When git rev-parse genuinely fails the fallback is now a timestamped 'dev-YYYYMMDDHHmm' instead of the bare string 'dev', so a stale build is recognizable on sight."
+      ]
+    },
     {
       introducedIn: "2026.05.06.13",
       title: "Linked-dock connection lines now hug the actual sea route",
