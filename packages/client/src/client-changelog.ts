@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.6",
+  version: "2026.05.07.7",
   title: "What's New",
-  summary: "Staging seasons can now choose an island-heavy map style, and the current staging reroll uses 20 AI empires across 20-30 meaningful islands. Plus the true-3D unfed-town badge, dock-line sea-route fix, exponential-backoff auth reconnect, rewrite-AI town-support prioritization, and the rest of this release train.",
+  summary: "Rewrite AI now actually detects town-support deficits in production (the prior pass relied on stored support fields that the runtime never populates) and skips support-filling when food is too low to feed the town. Plus staging's new island-heavy season with 20 AI empires, the true-3D unfed-town badge, dock-line sea-route fix, exponential-backoff auth reconnect, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.07.7",
+      title: "Rewrite AI sees town-support deficits in real worlds and gates them on food",
+      why: "The prior town-support prioritization pass keyed off `tile.town.supportMax` / `supportCurrent`, which the rewrite runtime never populates — so production AIs reported zero support need on every captured world town and never filled the ring. Stalled economy at ~5 gold/min instead of growing to the 30-40/24h target. Also: filling support tiles for a TOWN-tier town that the AI can't feed produces zero gold (unfed towns earn nothing), so support-filling has to be gated on food coverage.",
+      changes: [
+        "AI now computes town-support deficit dynamically from neighbor terrain when stored support fields are absent (the production case for non-SETTLEMENT-tier towns), matching how `live-snapshot-view` and `player-update-economy` derive the same numbers for client/economy.",
+        "SETTLEMENT-tier spawn towns are explicitly skipped — settlements have no support area, so any deficit signal there is meaningless.",
+        "Pure town-support tiles (no FARM/FISH/town/dock of their own) are no longer settled while food coverage is low; AI claims food sources first, then circles back to fill the support ring.",
+        "Same food gate applies to the support-expand branch in the strategic snapshot, so the AI doesn't waste a frontier-claim on a tile whose only payoff is an unfed town."
+      ]
+    },
     {
       introducedIn: "2026.05.07.6",
       title: "Staging can run island-heavy seasons with 20 AI empires",
