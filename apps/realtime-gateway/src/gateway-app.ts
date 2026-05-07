@@ -19,6 +19,7 @@ import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
 import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "./player-profile-store.js";
 import { createGatewayPlayerProfileStore } from "./player-profile-store-factory.js";
 import { withTimeout } from "./promise-timeout.js";
+import { retryStartup } from "./startup-retry.js";
 import { resolveInitialState } from "./initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "./full-visibility-replacement-payload-cache.js";
 import { buildInitMessage } from "./reconnect-recovery.js";
@@ -556,7 +557,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     if (typeof namespaceClient.getSubscriptionNamespace !== "function") {
       throw new Error("simulation client GetSubscriptionNamespace RPC is unavailable");
     }
-    return namespaceClient.getSubscriptionNamespace();
+    return retryStartup("gateway getSubscriptionNamespace", () => namespaceClient.getSubscriptionNamespace!(), {
+      onAttemptFailed: (error, attempt, delayMs) => {
+        console.warn(
+          `[gateway] getSubscriptionNamespace attempt ${attempt} failed; retrying in ${delayMs}ms:`,
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+    });
   })();
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
     subscribePlayer: (playerId, subscriptionKey) =>
