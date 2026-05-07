@@ -1089,9 +1089,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           });
           app.log.warn({ err: error }, "simulation event stream disconnected; retrying");
           if (eventStreamShuttingDown) return;
+          if (eventStreamReconnectTimer !== undefined) return;
           eventStreamReconnectAttempt += 1;
           const delayMs = Math.min(eventStreamReconnectMaxMs, eventStreamReconnectBaseMs * 2 ** Math.min(5, eventStreamReconnectAttempt - 1));
-          eventStreamReconnectTimer = setTimeout(connectEventStream, delayMs);
+          eventStreamReconnectTimer = setTimeout(() => {
+            eventStreamReconnectTimer = undefined;
+            connectEventStream();
+          }, delayMs);
         }
       }
     );
