@@ -270,6 +270,32 @@ export const queuedBuildProgressForTile = (
   };
 };
 
+// Owner-economy fields (isFed, supportCurrent/Max, foodUpkeepPerMinute, etc.)
+// only ride the snapshot and REQUEST_TILE_DETAIL responses — they are NOT in
+// the TILE_DELTA_BATCH town payload. So between a delta arriving and the
+// gateway answering the follow-up tile-detail request, an own settled town
+// can read back without those fields. Detect that window so the panel can
+// show per-row loaders instead of silently rendering 0/m and hiding rows.
+export const ownTownEconomyFieldsPartial = (tile: Tile, viewerId: string): boolean =>
+  Boolean(
+    tile.ownerId === viewerId &&
+      tile.ownershipState === "SETTLED" &&
+      tile.town &&
+      tile.town.populationTier !== "SETTLEMENT" &&
+      typeof tile.town.isFed !== "boolean"
+  );
+
+const tileTownPartialLoadingRowHtml = (
+  tileKey: string,
+  label: string,
+  loadingSinceMs: number
+): string =>
+  `<div class="tile-town-loading tile-town-loading-row" role="status" aria-live="polite">` +
+    `<span class="tile-town-loading-spinner" aria-hidden="true"></span>` +
+    `<span class="tile-town-loading-label"><strong>${label}:</strong> loading <span class="tile-town-loading-timer" data-loading-timer-since="${loadingSinceMs}">0s</span></span>` +
+    `<button type="button" class="tile-town-debug-btn" data-tile-debug-download="${tileKey}">Report</button>` +
+  `</div>`;
+
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
@@ -288,6 +314,11 @@ export const menuOverviewForTile = (
     tileHistoryLines: (tile: Tile) => string[];
     isTileOwnedByAlly: (tile: Tile) => boolean;
     areaEffectModifiersForTile: (tile: Tile) => TileAreaEffectModifier[];
+    // Returns the ms timestamp at which this tile was first observed missing
+    // owner-economy fields. The caller (typically the action-flow wrapper) is
+    // responsible for seeding the timestamp on the partial-state transition
+    // and clearing it on resolve, so the render itself stays pure.
+    townPartialLoadingStartedAt: (tileKey: string) => number;
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
@@ -336,6 +367,16 @@ export const menuOverviewForTile = (
   }
   const isSettled = tile.ownershipState === "SETTLED";
   const supportedTowns = tile.ownerId === deps.state.me && isSettled ? deps.supportedOwnedTownsForTile(tile) : [];
+  const ownTownEconomyPartial = ownTownEconomyFieldsPartial(tile, deps.state.me);
+  const ownTownLoadingTileKey = ownTownEconomyPartial ? `${tile.x},${tile.y}` : "";
+  const ownTownLoadingSince = ownTownEconomyPartial ? deps.townPartialLoadingStartedAt(ownTownLoadingTileKey) : 0;
+  const pushOwnTownLoadingRow = (label: string): void => {
+    if (!ownTownLoadingTileKey) return;
+    lines.push({
+      kind: "loading",
+      html: tileTownPartialLoadingRowHtml(ownTownLoadingTileKey, label, ownTownLoadingSince)
+    });
+  };
   if (tile.town) {
     // Foreign towns under satellite reveal carry only public fields
     // (type/tier/population/maxPopulation/connected*). When the owner-only
@@ -368,11 +409,15 @@ export const menuOverviewForTile = (
       const supportCurrent = Number.isFinite(tile.town.supportCurrent) ? tile.town.supportCurrent : 0;
       const supportMax = Number.isFinite(tile.town.supportMax) ? tile.town.supportMax : 0;
       pushLine(`Support ${supportCurrent}/${supportMax}`);
+    } else if (ownTownEconomyPartial) {
+      pushOwnTownLoadingRow("Support");
     }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
     if (isSettled && hasOwnerEconomyData) {
       pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
       pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town, { explainUnfed: tile.ownerId === deps.state.me })}.`);
+    } else if (ownTownEconomyPartial) {
+      pushOwnTownLoadingRow("Growth");
     }
   } else if (tile.townDataPartial) {
     // We received a town payload but it failed the renderable gate
@@ -408,8 +453,16 @@ export const menuOverviewForTile = (
       }
     }
   }
-  if (productionHtml && hasOwnedLandState && isSettled) pushLine(`Production: ${productionHtml}`);
-  if (hasOwnedLandState && isSettled) lines.push(...tileOverviewUpkeepLines(tile));
+  if (ownTownEconomyPartial) {
+    pushOwnTownLoadingRow("Production");
+  } else if (productionHtml && hasOwnedLandState && isSettled) {
+    pushLine(`Production: ${productionHtml}`);
+  }
+  if (ownTownEconomyPartial) {
+    pushOwnTownLoadingRow("Upkeep");
+  } else if (hasOwnedLandState && isSettled) {
+    lines.push(...tileOverviewUpkeepLines(tile));
+  }
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
     if (town) {
