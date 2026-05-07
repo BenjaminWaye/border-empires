@@ -6,7 +6,7 @@ primary_region = "arn"
 
 [env]
   NODE_ENV = "staging"
-  NODE_OPTIONS = "--max-old-space-size=360"
+  NODE_OPTIONS = "--max-old-space-size=640"
   SIMULATION_HOST = "0.0.0.0"
   SIMULATION_PORT = "50051"
   SIMULATION_METRICS_HOST = "0.0.0.0"
@@ -65,4 +65,4 @@ primary_region = "arn"
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory = "512mb"
+  memory = "1024mb"
