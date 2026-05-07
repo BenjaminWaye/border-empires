@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.1",
+  version: "2026.05.07.4",
   title: "What's New",
-  summary: "Linked-dock connection lines now actually render the sea route between paired docks: a stale legacy LAND-only guard was silently dropping lines for valid rewrite-stack dock endpoints, the route search was capped too low for the 450×450 world, the start-tile lookup couldn't handle docks whose deterministic terrain isn't strictly LAND, and the gateway was occasionally shipping `worldSeed: 0` to the client which made the entire client-side terrain map disagree with the actual world.",
+  summary: "Linked-dock connection lines now actually render the sea route between paired docks: a stale legacy LAND-only guard was silently dropping lines for valid rewrite-stack dock endpoints, the route search was capped too low for the 450×450 world, the start-tile lookup couldn't handle docks whose deterministic terrain isn't strictly LAND, and the gateway was occasionally shipping `worldSeed: 0` to the client which made the entire client-side terrain map disagree with the actual world. Plus the prior auth-reconnect backoff, rewrite-AI town-support work, settings/debug-card cleanup, settled resource production fix, and the rest of this release train.",
   entries: [
     {
-      introducedIn: "2026.05.07.1",
+      introducedIn: "2026.05.07.4",
       title: "Linked-dock connection lines actually draw and follow real sea routes now",
       why: "After yesterday's toroidal A* + heap landed, the dashed dock-link lines still failed to draw or rendered as straight cross-island fallbacks for many real dock pairs. Three layered bugs were stacking: (1) a legacy 'both endpoints must be terrainAt LAND' guard was silently skipping any pair where the rewrite stack had placed a dock on a SEA or MOUNTAIN tile per the deterministic worldgen, (2) `nearestSeaNeighbor` only checked the 4 immediate neighbors, so docks placed one tile inland from the coast or sitting on a sea pocket had no sea start-point and the route returned empty, and (3) the gateway sometimes forwarded `worldSeed: 0` from the rewrite season state, which made the client compute terrainAt against an entirely different world than the simulation had used to place the docks — explaining 'docks in the middle of land' and the persistent straight-line fallback.",
       changes: [
@@ -32,6 +32,45 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "`nearestSeaNeighbor` now returns the dock tile itself when its terrain is sea-like, and falls back to a 2-tile-radius scan when no immediate sea neighbor exists, so A* almost always has a valid start/goal sea tile.",
         "Bumped A* expansion cap from 24,000 to 200,000 — bounded because of the binary-heap rewrite, ~50ms worst-case one-time per pair, then cached.",
         "Realtime gateway treats `worldSeed: 0` as missing and falls back to `simulationWorldSeedForProfile(seedProfile)`, so the client-side `terrainAt` agrees with the simulation that placed the docks."
+      ]
+    },
+    {
+      introducedIn: "2026.05.07.3",
+      title: "Auth reconnect uses exponential backoff so a stuck \"Securing session\" no longer hammers the server",
+      why: "When the simulation main thread stalled past the gateway's prepare/subscribe timeout, the client retried AUTH every 2 seconds indefinitely. With 100 concurrent players that turned a transient sim stall into a sustained query storm against the gateway and Supabase, which made recovery slower instead of faster.",
+      changes: [
+        "Auth reconnect delay now grows exponentially (2 → 4 → 8 → 16 s capped) with ±50% jitter, so 100 stuck clients spread their retries instead of stampeding the recovering simulation.",
+        "Counter resets to zero when INIT arrives, so a successful reconnect leaves the next stall starting at the fast 2 s delay again."
+      ]
+    },
+    {
+      introducedIn: "2026.05.07.2",
+      title: "Rewrite AI now prioritizes town-support rings",
+      why: "Legacy AI treated under-supported towns as core growth targets: first claim the neutral ring tiles around the town, then settle those frontier tiles so the town can reach its support cap. Rewrite staging only had the settlement half of that behavior and could also over-focus on one strategic frontier origin, so AIs could leave obvious support land untouched or report no frontier targets despite owning usable frontier.",
+      changes: [
+        "Support-starved settled towns are now included as bounded planner origins, so the AI can claim neutral support-ring tiles directly from the town instead of only from existing frontier tiles.",
+        "Neutral claims that unlock town support are tracked as their own frontier opportunity and are preferred before non-core pressure attacks, matching the legacy AI priority order.",
+        "If a narrow hot/strategic origin set produces no actionable frontier targets, the planner falls back to the full owned frontier set instead of idling with `no_frontier_targets`."
+      ]
+    },
+    {
+      introducedIn: "2026.05.07.1",
+      title: "Settings card debug panels no longer duplicate bridge info, and 'Client build' is always a real label",
+      why: "The auth-debug card under the settings panel was repeating Backend, Bootstrap, Season, Runtime, and the WebSocket URL — every one of those rows already appeared in the bridge-debug panel directly above it, doubling the visual noise on a card that should make support hand-offs faster, not harder. Separately, the client build version resolver in vite.config.ts fell back to the literal string 'dev' whenever it couldn't find a commit SHA, which made local builds and any Vercel build that lost its env vars indistinguishable from each other and indistinguishable from a stuck stale build.",
+      changes: [
+        "Auth-debug card is now identity-only: Firebase project, UID, Email, Providers, Player. Bridge / runtime / season / ws still live in the bridge-debug panel above, and the 'Copy Auth Debug' payload is unchanged so support pastes remain self-contained.",
+        "Client build label now appends '-dirty' to the SHA when the working tree has uncommitted changes, so a hot-reloaded local build is distinguishable from a clean checkout at the same commit.",
+        "When git rev-parse genuinely fails the fallback is now a timestamped 'dev-YYYYMMDDHHmm' instead of the bare string 'dev', so a stale build is recognizable on sight."
+      ]
+    },
+    {
+      introducedIn: "2026.05.06.13",
+      title: "Linked-dock connection lines now hug the actual sea route",
+      why: "The dashed connection line between paired docks was supposed to follow the sea path between them, but the client-side A* over the 450×450 world only allocated 24,000 expansions and never wrapped across the world edge — so most non-trivial pairs ran out of expansions or had no non-wrapping path at all and silently fell back to a single straight line cutting across landmasses.",
+      changes: [
+        "A* now wraps neighbors toroidally and uses a toroidal Manhattan heuristic, so dock pairs whose shortest sea path crosses the world edge can now resolve to a real route instead of falling back to a straight line.",
+        "Replaced the linear open-list scan with a binary min-heap, so the per-expansion cost no longer grows with the frontier size; the existing 24,000-expansion cap is now reached far less often because A* is more efficient and stays focused on the goal.",
+        "Routes are still cached per dock pair, so the heap-based A* runs at most once per pair per session."
       ]
     },
     {
