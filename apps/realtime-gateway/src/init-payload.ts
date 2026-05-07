@@ -777,7 +777,8 @@ export const buildGatewayInitPayload = (
   const myTileColor = hexColorForPlayerId(playerIdentity.playerId);
   const rewriteSeason = initialState?.season;
   const seasonId = snapshotBootstrap?.season?.seasonId ?? rewriteSeason?.seasonId ?? `rewrite-${seedProfile}`;
-  const worldSeed = snapshotBootstrap?.season?.worldSeed ?? rewriteSeason?.worldSeed ?? simulationWorldSeedForProfile(seedProfile);
+  const worldSeedCandidate = snapshotBootstrap?.season?.worldSeed ?? rewriteSeason?.worldSeed;
+  const worldSeed = typeof worldSeedCandidate === "number" && worldSeedCandidate !== 0 ? worldSeedCandidate : simulationWorldSeedForProfile(seedProfile);
 
   const runtimeIdentity = snapshotBootstrap
     ? snapshotBootstrap.runtimeIdentity
