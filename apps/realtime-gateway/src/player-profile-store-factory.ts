@@ -3,8 +3,6 @@ import { readFile } from "node:fs/promises";
 import { resolveGatewayMigrationPath } from "./migration-path.js";
 import { createPostgresGatewayPlayerProfileStore } from "./postgres-player-profile-store.js";
 import { InMemoryGatewayPlayerProfileStore, type GatewayPlayerProfileStore } from "./player-profile-store.js";
-import { SqliteGatewayPlayerProfileStore } from "./sqlite-player-profile-store.js";
-import { openSqliteDatabase } from "./sqlite-db.js";
 import { retryStartup } from "./startup-retry.js";
 
 type PlayerProfileStoreFactoryOptions = {
@@ -17,6 +15,10 @@ export const createGatewayPlayerProfileStore = async (
   options: PlayerProfileStoreFactoryOptions = {}
 ): Promise<GatewayPlayerProfileStore> => {
   if (options.sqlitePath) {
+    const [{ SqliteGatewayPlayerProfileStore }, { openSqliteDatabase }] = await Promise.all([
+      import("./sqlite-player-profile-store.js"),
+      import("./sqlite-db.js")
+    ]);
     const store = new SqliteGatewayPlayerProfileStore(openSqliteDatabase(options.sqlitePath));
     if (options.applySchema) await store.applySchema();
     return store;

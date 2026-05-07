@@ -4,8 +4,6 @@ import type { SimulationSnapshotStore } from "./snapshot-store.js";
 import { InMemorySimulationSnapshotStore } from "./snapshot-store.js";
 import { resolveSimulationMigrationPath } from "./migration-path.js";
 import { createPostgresSimulationSnapshotStore } from "./postgres-snapshot-store.js";
-import { SqliteSimulationSnapshotStore } from "./sqlite-snapshot-store.js";
-import { openSqliteDatabase } from "./sqlite-db.js";
 
 type SnapshotStoreFactoryOptions = {
   databaseUrl?: string;
@@ -17,6 +15,10 @@ export const createSimulationSnapshotStore = async (
   options: SnapshotStoreFactoryOptions = {}
 ): Promise<SimulationSnapshotStore> => {
   if (options.sqlitePath) {
+    const [{ SqliteSimulationSnapshotStore }, { openSqliteDatabase }] = await Promise.all([
+      import("./sqlite-snapshot-store.js"),
+      import("./sqlite-db.js")
+    ]);
     const store = new SqliteSimulationSnapshotStore(openSqliteDatabase(options.sqlitePath));
     if (options.applySchema) await store.applySchema();
     return store;
