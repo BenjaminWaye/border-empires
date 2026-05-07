@@ -2,6 +2,44 @@ import { describe, expect, it } from "vitest";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import { createSeedPlayers, createSeedWorld, parseSimulationSeedProfile, simulationWorldSeedForProfile } from "./seed-state.js";
+import type { SimulationSeedWorld } from "./seed-state.js";
+
+const countSignificantIslands = (world: SimulationSeedWorld, minTiles: number): number => {
+  const seen = new Set<string>();
+  const key = (x: number, y: number): string => `${x},${y}`;
+  let significantIslands = 0;
+
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      const startKey = key(x, y);
+      if (seen.has(startKey)) continue;
+      if (world.tiles.get(startKey)?.terrain !== "LAND") continue;
+
+      const queue: Array<{ x: number; y: number }> = [{ x, y }];
+      seen.add(startKey);
+      let size = 0;
+      for (let index = 0; index < queue.length; index += 1) {
+        const current = queue[index]!;
+        size += 1;
+        for (let dy = -1; dy <= 1; dy += 1) {
+          for (let dx = -1; dx <= 1; dx += 1) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = (current.x + dx + WORLD_WIDTH) % WORLD_WIDTH;
+            const ny = (current.y + dy + WORLD_HEIGHT) % WORLD_HEIGHT;
+            const nextKey = key(nx, ny);
+            if (seen.has(nextKey)) continue;
+            if (world.tiles.get(nextKey)?.terrain !== "LAND") continue;
+            seen.add(nextKey);
+            queue.push({ x: nx, y: ny });
+          }
+        }
+      }
+      if (size >= minTiles) significantIslands += 1;
+    }
+  }
+
+  return significantIslands;
+};
 
 describe("simulation seed state", () => {
   it("falls back to the default profile for unknown env values", () => {
@@ -83,7 +121,9 @@ describe("simulation seed state", () => {
     expect(world.summary.totalTiles).toBe(WORLD_WIDTH * WORLD_HEIGHT);
     expect(world.summary.totalSettledTiles).toBe(21);
     expect(world.summary.totalTownTiles).toBe(21);
-    expect(simulationWorldSeedForProfile("season-20ai")).toBe(20_260);
+    expect(simulationWorldSeedForProfile("season-20ai")).toBe(22);
+    expect(countSignificantIslands(world, 20)).toBeGreaterThanOrEqual(20);
+    expect(countSignificantIslands(world, 20)).toBeLessThanOrEqual(30);
     expect(world.summary.perPlayer.filter((player) => player.isAi)).toHaveLength(20);
     expect(world.summary.perPlayer.every((player) => player.settledTiles === 1 && player.towns === 1)).toBe(true);
     expect(world.players.has("barbarian-1")).toBe(true);

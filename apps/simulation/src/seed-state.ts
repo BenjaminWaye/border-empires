@@ -34,7 +34,7 @@ const SIMULATION_PROFILE_WORLD_SEEDS = {
   "stress-10ai": 1_010,
   "stress-20ai": 2_020,
   "stress-40ai": 4_040,
-  "season-20ai": 20_260
+  "season-20ai": 22
 } satisfies Record<SimulationSeedProfile, number>;
 
 const createTown = (
