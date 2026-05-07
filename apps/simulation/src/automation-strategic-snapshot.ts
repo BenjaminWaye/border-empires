@@ -32,6 +32,7 @@ export type AutomationStrategicSnapshot = {
   threatCritical: boolean;
   growthFoundationEstablished: boolean;
   townSupportSettlementAvailable: boolean;
+  townSupportExpandAvailable: boolean;
   islandExpandAvailable: boolean;
   islandSettlementAvailable: boolean;
   openingScoutAvailable: boolean;
@@ -268,6 +269,10 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
   const townSupportSettlementAvailable =
     settlementSupportsTown(input.playerId, input.settlementCandidate, input.tilesByKey) ||
     settlementSupportsTown(input.playerId, input.fallbackSettlementCandidate, input.tilesByKey);
+  const townSupportExpandAvailable =
+    input.canExpand &&
+    input.frontierAnalysis.frontierOpportunityTownSupport > 0 &&
+    Boolean(input.frontierAnalysis.townSupportExpand);
   const islandExpandAvailable =
     primaryVictoryPath === "SETTLED_TERRITORY" &&
     input.canExpand &&
@@ -337,6 +342,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     threatCritical,
     growthFoundationEstablished,
     townSupportSettlementAvailable,
+    townSupportExpandAvailable,
     islandExpandAvailable,
     islandSettlementAvailable,
     openingScoutAvailable,
