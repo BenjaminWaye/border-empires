@@ -265,6 +265,71 @@ describe("automation command planner strategic parity", () => {
     });
   });
 
+  it("prefers a neutral FARM over a neutral world town when food coverage is low", () => {
+    const ownedSettled = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const neutralFarm = makeTile(1, 0, { resource: "FARM" });
+    const neutralWorldTown = makeTile(1, 1, { town: { name: "World", type: "MARKET", populationTier: "TOWN" } });
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 100,
+      settledTileCount: 1,
+      townCount: 0,
+      incomePerMinute: 1,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [ownedSettled],
+      tilesByKey: new Map([
+        ["0,0", ownedSettled],
+        ["1,0", neutralFarm],
+        ["1,1", neutralWorldTown]
+      ]),
+      clientSeq: 27,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+    });
+  });
+
+  it("still prefers the world town over the FARM when food coverage is healthy", () => {
+    const ownedSettled = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const neutralFarm = makeTile(1, 0, { resource: "FARM" });
+    const neutralWorldTown = makeTile(1, 1, { town: { name: "World", type: "MARKET", populationTier: "TOWN" } });
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 100,
+      settledTileCount: 1,
+      townCount: 0,
+      incomePerMinute: 1,
+      strategicResources: { FOOD: 100 },
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles: [],
+      ownedTiles: [ownedSettled],
+      tilesByKey: new Map([
+        ["0,0", ownedSettled],
+        ["1,0", neutralFarm],
+        ["1,1", neutralWorldTown]
+      ]),
+      clientSeq: 28,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 1 })
+    });
+  });
+
   it("falls back from narrow strategic origins to full frontier origins when the narrow set is empty", () => {
     const deadStrategicFrontier = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER", resource: "FARM" });
     const activeFrontier = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });

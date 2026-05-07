@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.10",
+  version: "2026.05.08.1",
   title: "What's New",
-  summary: "Linked-dock connection lines no longer fall back to a misleading straight cross-island line when A* fails to find a sea route — selected pairs either show the actual snaking sea route or nothing at all. Plus owned-town tile panels' per-row loaders, the forest claim-time fix, rewrite-AI town-support detection, and the rest of this release train.",
+  summary: "Rewrite AI is now food-aware when it picks claim targets: it prioritizes FARM/FISH over neutral world towns when food is low (capturing a town it can't feed produces zero gold), and the FARM/FISH score boost when food is short is twice as strong. Plus the dock-line straight-fallback fix, owned-town tile-panel per-row loaders, forest claim-time fix, prior rewrite-AI town-support detection, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.1",
+      title: "AI prioritizes FARM/FISH over neutral world towns when food is low",
+      why: "Even with the 2026.05.07.7 fix, the AI would happily capture a TOWN-tier neutral world town while food-starved. Each captured town adds upkeep (TOWN: 0.1/min, CITY: 0.3, GREAT_CITY: 0.6, METROPOLIS: 1.0) but produces zero gold while unfed — so AIs ended up cash-stalled with a fleet of unfed empty towns, exactly the failure mode the support-ring fix was meant to unlock.",
+      changes: [
+        "When `needsFood`, neutral world towns without their own resource (no FARM/FISH on the same tile) are demoted in the frontier-economic ranking so any FARM/FISH frontier wins. AI claims food first, then captures the town once it can actually feed it.",
+        "FARM/FISH `resourceScore` is doubled (180 → 360) when food coverage is low, so a FARM two steps away beats an IRON tile right next door.",
+        "Same gate applies to attack-side scoring — capturing an enemy town also adds food upkeep on capture, so an unfed-town capture is deprioritized while food is short.",
+        "Both gates lift automatically when the food reserve threshold is met."
+      ]
+    },
     {
       introducedIn: "2026.05.07.10",
       title: "Linked-dock lines no longer draw a straight fallback when there's no sea route",
