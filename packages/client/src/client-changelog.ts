@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.8",
+  version: "2026.05.09.1",
   title: "What's New",
-  summary: "Painterly grass and sand textures in renderer=3d. Each world tile samples a different rotated patch of a hand-toned painted texture so the surface stops reading as procedural noise; grass gets a multi-tone bright-meadow palette with cellular-speckle clumps, sand goes ivory bleached-beach, the grass↔sand boundary is a clean anti-aliased cut, and tiles within 2 of a forest get a darker mossy halo so wooded areas read distinctly. Plus the AI intent-latch fix from earlier in the train.",
+  summary: "Manpower now scales with the towns you own. Capturing or upgrading a town raises both your manpower cap and your per-minute regen using the legacy per-tier table (settlement/town/city/great city/metropolis = 150/300/600/1200/2400 cap, 10/15/30/60/120 regen) with diminishing-returns weighting on the regen for towns past your fifth and fifteenth. Capturing a new town also credits the cap delta to your current manpower so the increase is felt immediately.",
   entries: [
+    {
+      introducedIn: "2026.05.09.1",
+      title: "Manpower cap and regen scale with owned towns",
+      why: "On the rewrite stack the manpower cap and regen were flat constants (150 / 10 per minute) regardless of how many towns you owned, so capturing or growing a town gave you no military benefit. Legacy summed per-tier contributions across owned towns; the rewrite never ported that, leaving every empire stuck at a single-settlement budget.",
+      changes: [
+        "Per-tier manpower contributions: SETTLEMENT 150 cap / 10 regen, TOWN 300 / 15, CITY 600 / 30, GREAT_CITY 1200 / 60, METROPOLIS 2400 / 120 — summed across every town you own.",
+        "Diminishing-returns regen weighting: the first five owned towns regen at full rate, towns 6–15 at 50%, and any beyond fifteen at 20% — same curve as legacy.",
+        "Capturing or upgrading a town credits the cap delta to your current manpower instantly, so a city upgrade or a fresh capture becomes immediately useful instead of slowly filling over time.",
+        "Base 150 cap / 10 regen kept as a floor so freshly-spawned players (and barbarians, which are modeled as tile-only players in the rewrite) still have a baseline manpower budget before their first settlement is registered."
+      ]
+    },
     {
       introducedIn: "2026.05.08.8",
       title: "Painterly grass/sand in renderer=3d, per-tile variation, forest halo",
