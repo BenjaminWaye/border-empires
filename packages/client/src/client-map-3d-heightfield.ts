@@ -5,9 +5,14 @@ import {
   LineBasicMaterial,
   LineSegments,
   Mesh,
-  MeshStandardMaterial
+  MeshStandardMaterial,
+  Vector2
 } from "three";
-import { legacy3DTerrainPalette } from "./client-map-3d-terrain-textures.js";
+import {
+  createTerrainDetailMaps,
+  legacy3DTerrainPalette,
+  type TerrainDetailMaps
+} from "./client-map-3d-terrain-textures.js";
 import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
 
 export type HeightfieldTerrainKind = "GRASS" | "SAND" | "MOUNTAIN" | "COASTAL_SEA" | "SEA";
@@ -104,6 +109,7 @@ export type Heightfield = {
   readonly material: MeshStandardMaterial;
   readonly geometry: BufferGeometry;
   readonly gridlines: LineSegments;
+  readonly detailMaps: TerrainDetailMaps;
   readonly rebuild: (inputs: HeightfieldRebuildInputs) => void;
   readonly elevationAt: (wx: number, wy: number) => number;
   readonly cornerYAt: (cornerX: number, cornerZ: number) => number;
@@ -115,20 +121,64 @@ export const createHeightfield = (): Heightfield => {
   const geometry = new BufferGeometry();
   const positions = new Float32Array(VERT_COUNT * 3);
   const colors = new Float32Array(VERT_COUNT * 3);
+  // UV uses world tile coords so the detail texture stays anchored to tiles
+  // as the camera pans (1 repeat per tile via RepeatWrapping). vMapUv ends up
+  // = fract(uv) in the shader, so each tile gets one full pattern.
+  const uvs = new Float32Array(VERT_COUNT * 2);
   const indices = new Uint32Array(MAX_INDEX_COUNT);
 
   geometry.setAttribute("position", new BufferAttribute(positions, 3));
   geometry.setAttribute("color", new BufferAttribute(colors, 3));
+  geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
+
+  // Procedural detail (color/normal/roughness) maps. The color map is a
+  // packed channel buffer (R = grass detail, G = sand detail, B = tile-edge
+  // AO) which the shader injection below blends per-biome from the vertex
+  // color signature. The normal and roughness maps are biome-agnostic and
+  // run through the standard MeshStandardMaterial slots.
+  const detailMaps = createTerrainDetailMaps();
 
   const material = new MeshStandardMaterial({
     vertexColors: true,
     flatShading: false,
-    roughness: 0.92,
+    map: detailMaps.colorMap ?? null,
+    normalMap: detailMaps.normalMap ?? null,
+    normalScale: new Vector2(0.85, 0.85),
+    roughnessMap: detailMaps.roughnessMap ?? null,
+    roughness: 0.95,
     metalness: 0.0,
     side: DoubleSide
   });
+
+  // Replace three.js's built-in <map_fragment> with a biome-aware blend that
+  // reads the packed color map: green-dominant vertex color picks the grass
+  // detail (R), tan-dominant picks the sand detail (G), and B is multiplied
+  // in as a soft AO so adjacent tiles get a believable shadowed seam without
+  // needing a second UV channel for an aoMap. Without this hook the same
+  // texture would either flatten grass or flatten sand — never both.
+  material.onBeforeCompile = (shader): void => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <map_fragment>",
+      `
+      #ifdef USE_MAP
+        vec4 detailSample = texture2D( map, vMapUv );
+        // greenBias > 0 on grassy vertices, < 0 on sandy/rocky ones.
+        float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
+        float grassMask = smoothstep(-0.04, 0.18, greenBias);
+        float biomeDetail = mix(detailSample.g, detailSample.r, grassMask);
+        // biomeDetail is centered ~0.5 — remap to a multiplicative term that
+        // brightens highlights and darkens grain pits without crushing color.
+        float modulation = (biomeDetail - 0.5) * 0.62 + 1.0;
+        // B channel is tile-edge AO (1.0 center, ~0.62 corner). Lift the
+        // floor a bit so corners don't go muddy under the ownership tint.
+        float ao = mix(0.78, 1.04, detailSample.b);
+        diffuseColor.rgb *= modulation * ao;
+      #endif
+      `
+    );
+  };
 
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false;
@@ -293,6 +343,12 @@ export const createHeightfield = (): Heightfield => {
         colors[baseIdx + 0] = r;
         colors[baseIdx + 1] = g;
         colors[baseIdx + 2] = b;
+        // Mesh-space UV — the texture is repeat-wrapped, so one full detail
+        // pattern lands per 1×1 tile and the tile-edge AO baked into the
+        // blue channel naturally lines up with corners.
+        const baseUv = (j * VERT_DIM + i) * 2;
+        uvs[baseUv + 0] = tileOffsetX + i;
+        uvs[baseUv + 1] = tileOffsetY + j;
         // Cache the rendered corner-Y keyed by world coords so overlay
         // helpers can look up the exact surface Y the heightfield drew.
         const cornerWorldX = wrap(camX + tileOffsetX + i, worldWidth);
@@ -331,8 +387,10 @@ export const createHeightfield = (): Heightfield => {
 
     const positionAttr = geometry.attributes.position;
     const colorAttr = geometry.attributes.color;
+    const uvAttr = geometry.attributes.uv;
     if (positionAttr) positionAttr.needsUpdate = true;
     if (colorAttr) colorAttr.needsUpdate = true;
+    if (uvAttr) uvAttr.needsUpdate = true;
     geometry.setDrawRange(0, lastIndexCount);
     geometry.computeVertexNormals();
 
@@ -411,9 +469,21 @@ export const createHeightfield = (): Heightfield => {
   const dispose = (): void => {
     geometry.dispose();
     material.dispose();
+    detailMaps.dispose();
     gridGeometry.dispose();
     gridMaterial.dispose();
   };
 
-  return { mesh, material, geometry, gridlines, rebuild, elevationAt, cornerYAt, setGridlinesVisible, dispose };
+  return {
+    mesh,
+    material,
+    geometry,
+    gridlines,
+    detailMaps,
+    rebuild,
+    elevationAt,
+    cornerYAt,
+    setGridlinesVisible,
+    dispose
+  };
 };
