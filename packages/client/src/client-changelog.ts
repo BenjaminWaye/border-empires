@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.1",
+  version: "2026.05.08.2",
   title: "What's New",
-  summary: "Rewrite AI is now food-aware when it picks claim targets: it prioritizes FARM/FISH over neutral world towns when food is low (capturing a town it can't feed produces zero gold), and the FARM/FISH score boost when food is short is twice as strong. Plus the dock-line straight-fallback fix, owned-town tile-panel per-row loaders, forest claim-time fix, prior rewrite-AI town-support detection, and the rest of this release train.",
+  summary: "The 4x forest claim multiplier shipped yesterday wasn't actually firing on staging because simulation startup recovery never reseeded the worldgen helpers — every restart left the global seed at the default of 42, so forest detection ran against the wrong world and EXPAND fell back to the 1.25s base. Recovery now restores the active season's worldSeed up front. Plus the food-aware AI claim scoring, dock-line straight-fallback fix, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.2",
+      title: "Forest claim duration actually fires after a sim restart",
+      why: "Yesterday's forest-claim fix relied on the rewrite simulation having `setWorldSeed` set to the active season's seed when frontier validation runs. That's only true on a fresh-season path; the recovery path that loads a season from durable storage at restart never re-set the seed, so the helpers fell back to the default seed of 42 and reported every tile as non-forest. Net effect on staging: forest tiles still resolved EXPAND in 1.25s instead of 5s after a deploy, even though the per-tile multiplier was wired correctly.",
+      changes: [
+        "Simulation service calls setWorldSeed(currentSeasonState.worldSeed) immediately after startup recovery determines the active season, so all worldgen helpers (terrainAt / landBiomeAt / grassShadeAt) read the right world during command processing.",
+        "Forest EXPAND on the rewrite stack now genuinely takes 5s on staging across deploys/restarts, matching the user-facing changelog entry for 2026.05.07.8."
+      ]
+    },
     {
       introducedIn: "2026.05.08.1",
       title: "AI prioritizes FARM/FISH over neutral world towns when food is low",

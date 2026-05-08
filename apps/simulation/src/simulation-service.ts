@@ -15,7 +15,7 @@ import {
   type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
-import { WORLD_HEIGHT, WORLD_WIDTH, type Terrain } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed, type Terrain } from "@border-empires/shared";
 
 import { createSimulationCommandStore } from "./command-store-factory.js";
 import type { SimulationCommandStore } from "./command-store.js";
@@ -705,6 +705,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       worldSeed: 0,
       startedAt: Date.now()
     });
+  setWorldSeed(currentSeasonState.worldSeed);
   const runtimePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
   let runtimeSeededTileCount = effectiveStartupRecovery.initialState.tiles.length;
   const fallbackActivePlayers = createActivePlayerIdentityMap(runtimePlayers.values());
