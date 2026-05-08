@@ -158,38 +158,71 @@ export const createHeightfield = (): Heightfield => {
   });
 
   // Replace three.js's built-in <map_fragment> with a biome-aware two-texture
-  // blend. greenBias > 0 on grassy vertices (high G channel from
-  // heightfieldTileColor), < 0 on sandy ones — smoothstepped into a [0,1]
-  // mask. Vertex color is then re-applied as a mild tint multiplier so
-  // per-tile variants and beach-corner blends still register, but the base
-  // surface color comes from the painted texture, not the vertex.
+  // blend that also adds per-tile variation. The painted grass/sand textures
+  // tile every 8 world units, but each individual world tile hashes its
+  // coord into a 90° rotation + random offset so it samples a different
+  // region of the texture — the eye stops noticing repetition. Soft-narrow
+  // biome cut keeps the grass/sand boundary anti-aliased without the
+  // mid-blend zone that read as a darker green band before.
   if (detailMaps.sandColorMap) {
     const sandMapUniform = { value: detailMaps.sandColorMap };
     material.onBeforeCompile = (shader): void => {
       shader.uniforms.sandColorMap = sandMapUniform;
+
+      // Vertex shader: pass the raw world-coord uv (= camX + tileOffsetX + i,
+      // see rebuild()) through as `vTerrainWorldUv` so the fragment shader
+      // can recover which world tile a pixel belongs to via floor().
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <common>",
+        `#include <common>
+varying vec2 vTerrainWorldUv;`
+      );
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <uv_vertex>",
+        `#include <uv_vertex>
+vTerrainWorldUv = uv;`
+      );
+
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <common>",
         `#include <common>
-uniform sampler2D sandColorMap;`
+uniform sampler2D sandColorMap;
+varying vec2 vTerrainWorldUv;`
       );
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <map_fragment>",
         `
       #ifdef USE_MAP
-        vec4 grassSample = texture2D( map, vMapUv );
-        vec4 sandSample = texture2D( sandColorMap, vMapUv );
+        // ---- Per-tile UV variation ----
+        // Hash the world-tile coord for a 90° rotation index + a random
+        // (offsetX, offsetY) within [0, 8) world-units. Adjacent tiles get
+        // independent hashes so they sample disjoint regions of the same
+        // painted texture and rotate independently — repetition vanishes.
+        vec2 tileId = floor(vTerrainWorldUv);
+        float h1 = fract(sin(dot(tileId, vec2(12.9898, 78.233))) * 43758.5453);
+        float h2 = fract(sin(dot(tileId, vec2(63.7264, 10.873))) * 43758.5453);
+        float angle = floor(h1 * 4.0) * 1.5707963267948966;
+        float ca = cos(angle);
+        float sa = sin(angle);
+        mat2 R = mat2(ca, -sa, sa, ca);
+        vec2 inTile = vTerrainWorldUv - tileId;
+        vec2 rotated = R * (inTile - 0.5) + 0.5;
+        vec2 offset = vec2(h2 * 8.0, fract(h2 * 7.31) * 8.0);
+        // Multiply by 1/tilesPerRepeat (8) to put back into texture-local UV;
+        // the texture has RepeatWrapping so any value samples cleanly.
+        vec2 sampleUv = (tileId + rotated + offset) * 0.125;
+
+        vec4 grassSample = texture2D( map, sampleUv );
+        vec4 sandSample = texture2D( sandColorMap, sampleUv );
         float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
-        // Sharp biome cut: pure step so grass and sand never mid-blend.
-        // The vertex color interpolates linearly across the tile so the
-        // cut lands at the iso-line greenBias=0.07 — a single-pixel-wide
-        // hard boundary in screen space, with full-strength grass on one
-        // side and full-strength sand on the other (no darker tuft band).
-        float grassMask = step(0.07, greenBias);
+        // Soft-narrow biome cut: 0.03-wide blend zone, just enough to
+        // antialias the seam without a visible mid-blend band of
+        // muddy-green-into-tan.
+        float grassMask = smoothstep(0.055, 0.085, greenBias);
         vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
-        // Very mild vertex-color tint: extract unit-luminance hue from the
-        // vertex color and mix it in at 12% — enough that per-tile shade
-        // variants still register but the bright painted base color stays
-        // in charge.
+
+        // Very mild vertex-color tint at 12% — beach-corner blends and
+        // per-tile shade variants still register; painted base dominates.
         float vertLum = max(0.001, dot(vColor.rgb, vec3(0.299, 0.587, 0.114)));
         vec3 tint = mix(vec3(1.0), vColor.rgb / vertLum, 0.12);
         diffuseColor.rgb = biomeColor * tint;
