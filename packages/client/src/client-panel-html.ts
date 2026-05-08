@@ -358,10 +358,13 @@ export const leaderboardHtml = (
     if (!selfEntry) return false;
     return entries.some((entry) => entry.id === selfEntry.id || (entry.rank === selfEntry.rank && metricLineText(entry) === metricLineText(selfEntry)));
   };
+  const selfPlayerId =
+    leaderboard.selfOverall?.id ?? leaderboard.selfByTiles?.id ?? leaderboard.selfByIncome?.id ?? leaderboard.selfByTechs?.id;
+  const isSelfPlayer = (playerId: string | undefined): boolean => Boolean(playerId && selfPlayerId && playerId === selfPlayerId);
   const shouldShowSelfProgress = (objective: SeasonVictoryObjectiveView): boolean =>
-    Boolean(objective.selfProgressLabel) && objective.leaderPlayerId !== "me";
+    Boolean(objective.selfProgressLabel) && !isSelfPlayer(objective.leaderPlayerId);
   const objectiveLeaderHtml = (objective: SeasonVictoryObjectiveView): string =>
-    objective.leaderPlayerId ? playerNameBadgeHtml(objective.leaderPlayerId, objective.leaderName, playerColors) : escapeHtml(objective.leaderName);
+    objective.leaderPlayerId ? playerNameBadgeHtml(objective.leaderPlayerId, isSelfPlayer(objective.leaderPlayerId) ? "You" : objective.leaderName, playerColors) : escapeHtml(objective.leaderName);
   const metricRows = (entries: LeaderboardMetricEntry[], selfEntry: LeaderboardMetricEntry | undefined): string =>
     `${entries.map((entry) => `<div class="lb-row">${entry.rank}. ${metricLineHtml(entry)}</div>`).join("")}${
       selfEntry && selfEntry.rank !== 1 && !includesMetricEntry(entries, selfEntry)
@@ -374,7 +377,7 @@ export const leaderboardHtml = (
       <strong>Season Winner</strong>
       <div class="pressure-row">
         <div class="pressure-head">
-          <span class="pressure-name">${playerNameBadgeHtml(seasonWinner.playerId, seasonWinner.playerName, playerColors)}</span>
+          <span class="pressure-name">${playerNameBadgeHtml(seasonWinner.playerId, isSelfPlayer(seasonWinner.playerId) ? "You" : seasonWinner.playerName, playerColors)}</span>
           <span class="pressure-status is-hot">Crowned</span>
         </div>
         <div class="pressure-meta">${seasonWinner.objectiveName}</div>
