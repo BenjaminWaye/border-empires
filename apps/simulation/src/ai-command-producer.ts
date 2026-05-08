@@ -7,57 +7,16 @@ import {
   probeAiLatchedIntent,
   releaseAiLatchedIntent,
   reservationHeldByOtherAi,
-  reserveAiTarget,
-  type AiLatchedIntentKind
+  reserveAiTarget
 } from "./ai-intent-latch.js";
+import {
+  extractOriginTileKey,
+  extractTargetTileKey,
+  intentKindForCommand,
+  wakeWindowMsForCommand
+} from "./ai-intent-latch-helpers.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
-
-const intentKindForCommand = (commandType: CommandEnvelope["type"]): AiLatchedIntentKind | undefined => {
-  if (commandType === "ATTACK" || commandType === "EXPAND") return "frontier";
-  if (commandType === "SETTLE") return "settlement";
-  if (
-    commandType === "BUILD_FORT" ||
-    commandType === "BUILD_ECONOMIC_STRUCTURE" ||
-    commandType === "BUILD_SIEGE_OUTPOST"
-  ) {
-    return "structure";
-  }
-  return undefined;
-};
-
-const wakeWindowMsForCommand = (commandType: CommandEnvelope["type"]): number => {
-  if (commandType === "ATTACK" || commandType === "EXPAND") return 3_500;
-  if (commandType === "SETTLE") return 61_000;
-  return 0;
-};
-
-const extractTargetTileKey = (command: CommandEnvelope): string | undefined => {
-  try {
-    const payload = JSON.parse(command.payloadJson) as Record<string, unknown>;
-    if (typeof payload.toX === "number" && typeof payload.toY === "number") {
-      return `${payload.toX},${payload.toY}`;
-    }
-    if (typeof payload.x === "number" && typeof payload.y === "number") {
-      return `${payload.x},${payload.y}`;
-    }
-  } catch {
-    /* malformed payload — no key */
-  }
-  return undefined;
-};
-
-const extractOriginTileKey = (command: CommandEnvelope): string | undefined => {
-  try {
-    const payload = JSON.parse(command.payloadJson) as Record<string, unknown>;
-    if (typeof payload.fromX === "number" && typeof payload.fromY === "number") {
-      return `${payload.fromX},${payload.fromY}`;
-    }
-  } catch {
-    /* malformed payload — no key */
-  }
-  return undefined;
-};
 
 type AiCommandProducerOptions = {
   runtime: Pick<SimulationRuntime, "chooseNextAutomationCommand" | "queueDepths" | "onEvent"> & {
@@ -329,7 +288,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
           nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
           nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
-          urgentByPlayerId.delete(playerId);
+          const wasUrgent = urgentByPlayerId.delete(playerId);
           if (latchingEnabled && intentKind) {
             const wakeWindowMs = wakeWindowMsForCommand(plan.command.type);
             if (wakeWindowMs > 0) {
@@ -361,6 +320,9 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           } catch {
             pendingCommandByPlayer.delete(playerId);
             if (latchingEnabled) releaseAiLatchedIntent(intentLatchState, playerId);
+            // Restore urgency on failed submit so the defender doesn't lose
+            // its priority slot to a transient command-store error.
+            if (wasUrgent) urgentByPlayerId.add(playerId);
           }
           return;
         }
