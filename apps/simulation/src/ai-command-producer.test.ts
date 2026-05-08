@@ -121,6 +121,134 @@ describe("ai command producer", () => {
     expect(submittedPlayers).toEqual(["ai-1", "ai-2", "ai-3"]);
   });
 
+  it("prioritizes an AI defender on the next tick when a human captures one of its tiles", async () => {
+    const onEvent = vi.fn(() => () => undefined);
+    const chooseNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+        sessionId: `ai-runtime:${playerId}`,
+        playerId,
+        clientSeq,
+        issuedAt,
+        type: "ATTACK" as const,
+        payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+      })
+    );
+    const runtime = {
+      chooseNextAutomationCommand,
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const submittedPlayers: string[] = [];
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1", "ai-2", "ai-3"],
+      submitCommand: async (command) => {
+        submittedPlayers.push(command.playerId);
+      },
+      now: () => 1_000,
+      tickIntervalMs: 10_000
+    });
+
+    await producer.tick();
+    runtime.onEvent.mock.calls[0]?.[0]?.({ eventType: "COMMAND_REJECTED", playerId: "ai-1", commandId: "ai-runtime-ai-1-1-1000" });
+
+    // Human "human-1" captures an "ai-3" tile. The AI defender should jump to the front of the queue.
+    runtime.onEvent.mock.calls[0]?.[0]?.({
+      eventType: "COMBAT_RESOLVED",
+      commandId: "human-cmd",
+      playerId: "human-1",
+      actionType: "ATTACK",
+      originX: 5,
+      originY: 5,
+      targetX: 6,
+      targetY: 5,
+      attackerWon: true,
+      combatResult: { defenderOwnerId: "ai-3" }
+    });
+
+    await producer.tick();
+    runtime.onEvent.mock.calls[0]?.[0]?.({ eventType: "COMMAND_REJECTED", playerId: "ai-3", commandId: "ai-runtime-ai-3-1-1000" });
+    await producer.tick();
+    runtime.onEvent.mock.calls[0]?.[0]?.({ eventType: "COMMAND_REJECTED", playerId: "ai-1", commandId: "ai-runtime-ai-1-2-1000" });
+    await producer.tick();
+    producer.close();
+
+    // ai-3 jumps ahead of ai-2 on tick 2 because COMBAT_RESOLVED marked it urgent.
+    // After ai-3's urgent dispatch, nextPlayerIndex advances past ai-3 → tick 3 starts at ai-1
+    // (pending was already cleared after tick 1). Tick 4 then reaches ai-2.
+    expect(submittedPlayers).toEqual(["ai-1", "ai-3", "ai-1", "ai-2"]);
+  });
+
+  it("ignores COMBAT_RESOLVED events that don't represent a human capturing AI territory", async () => {
+    const onEvent = vi.fn(() => () => undefined);
+    const chooseNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+        sessionId: `ai-runtime:${playerId}`,
+        playerId,
+        clientSeq,
+        issuedAt,
+        type: "EXPAND" as const,
+        payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+      })
+    );
+    const runtime = {
+      chooseNextAutomationCommand,
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const submittedPlayers: string[] = [];
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1", "ai-2", "ai-3"],
+      submitCommand: async (command) => {
+        submittedPlayers.push(command.playerId);
+      },
+      now: () => 1_000,
+      tickIntervalMs: 10_000
+    });
+
+    await producer.tick();
+    runtime.onEvent.mock.calls[0]?.[0]?.({ eventType: "COMMAND_REJECTED", playerId: "ai-1", commandId: "ai-runtime-ai-1-1-1000" });
+
+    // AI vs AI capture (ai-1 captures ai-3 tile) — should NOT trigger urgent priority.
+    runtime.onEvent.mock.calls[0]?.[0]?.({
+      eventType: "COMBAT_RESOLVED",
+      commandId: "ai-1-cmd",
+      playerId: "ai-1",
+      actionType: "ATTACK",
+      originX: 5,
+      originY: 5,
+      targetX: 6,
+      targetY: 5,
+      attackerWon: true,
+      combatResult: { defenderOwnerId: "ai-3" }
+    });
+
+    // EXPAND result (claim, not capture from another player) — should NOT trigger.
+    runtime.onEvent.mock.calls[0]?.[0]?.({
+      eventType: "COMBAT_RESOLVED",
+      commandId: "human-expand",
+      playerId: "human-1",
+      actionType: "EXPAND",
+      originX: 0,
+      originY: 0,
+      targetX: 1,
+      targetY: 0,
+      attackerWon: true,
+      combatResult: { defenderOwnerId: "ai-3" }
+    });
+
+    await producer.tick();
+    runtime.onEvent.mock.calls[0]?.[0]?.({ eventType: "COMMAND_REJECTED", playerId: "ai-2", commandId: "ai-runtime-ai-2-1-1000" });
+    await producer.tick();
+    producer.close();
+
+    // Normal round-robin order — neither AI-vs-AI capture nor EXPAND should bump anyone.
+    expect(submittedPlayers).toEqual(["ai-1", "ai-2", "ai-3"]);
+  });
+
   it("does not submit while the producer is externally paused", async () => {
     const submitCommand = vi.fn(async () => undefined);
     const producer = createAiCommandProducer({
