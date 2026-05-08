@@ -273,23 +273,23 @@ const blendPalette4 = (
   return [r, g, b];
 };
 
-// Civ-style palette: warm sage / olive / yellow-grass / dark moss. Selected
-// to match the bright painterly grass in the reference, with enough range for
-// patchy multi-tone shading.
+// Cheerful sunny-meadow grass palette. All four corners are bright — a Civ-VI
+// style sunny field never goes near dark moss, so the FBM blend stays in
+// happy-green territory regardless of which palette corner dominates.
 const GRASS_PALETTE: Palette4 = [
-  [156, 178, 102], // bright sage (00)
-  [128, 154, 78],  // olive       (10)
-  [184, 192, 116], // yellow-grass(01)
-  [98, 128, 70]    // dark moss   (11)
+  [172, 206, 116], // bright spring green
+  [192, 218, 132], // pale meadow
+  [156, 192, 104], // fresh sage
+  [206, 224, 142]  // sunlit highlight
 ] as const;
 
-// Sand palette: pale dune / warm ochre / cool tan / rich umber. The umber
-// corner gives the rich brown patches visible at sand transitions in Civ.
+// Sun-bleached sand palette: every corner is a light, warm tan. No deep
+// umber so the cellular blend can't muddy the surface.
 const SAND_PALETTE: Palette4 = [
-  [236, 218, 174], // pale dune
-  [212, 182, 132], // warm ochre
-  [194, 168, 132], // cool tan
-  [168, 138, 100]  // rich umber
+  [244, 226, 184], // cream
+  [228, 200, 156], // bright tan
+  [220, 194, 152], // beach sand
+  [248, 232, 198]  // sun-bleached highlight
 ] as const;
 
 export type TerrainDetailMaps = {
@@ -327,24 +327,30 @@ const createPainterlyBiomeTexture = (
   const heights = new Float32Array(size * size);
 
   // Pre-compute hashed stamp positions once. Stamps are placed on a coarse
-  // jittered grid so they're spread out but irregular — matches the look of
-  // hand-placed grass tufts or pebbles in painted RTS textures.
-  const stampGrid = Math.max(1, Math.round(options.stampDensity));
-  const stampCellPx = size / stampGrid;
+  // jittered grid so they're spread out but irregular. stampDensity = 0
+  // disables them entirely (used for grass — stamps were reading as dirt
+  // patches rather than grass tufts at this scale).
   type Stamp = { cx: number; cy: number; strength: number; r: number };
   const stamps: Stamp[] = [];
-  for (let sy = 0; sy < stampGrid; sy += 1) {
-    for (let sx = 0; sx < stampGrid; sx += 1) {
-      const jitterX = periodicHash01(sx * 13 + 1, sy * 31 + 5, stampGrid, options.seed + 41);
-      const jitterY = periodicHash01(sx * 23 + 7, sy * 41 + 3, stampGrid, options.seed + 67);
-      const live = periodicHash01(sx * 7 + 11, sy * 19 + 13, stampGrid, options.seed + 89);
-      // Drop ~30% of stamps so the spacing is irregular.
-      if (live < 0.3) continue;
-      const cx = (sx + jitterX) * stampCellPx;
-      const cy = (sy + jitterY) * stampCellPx;
-      const strength = 0.45 + 0.55 * periodicHash01(sx * 5 + 3, sy * 17 + 9, stampGrid, options.seed + 23);
-      const r = options.stampRadius * (0.6 + 0.6 * periodicHash01(sx * 11 + 17, sy * 7, stampGrid, options.seed + 31));
-      stamps.push({ cx, cy, strength, r });
+  if (options.stampDensity > 0) {
+    const stampGrid = Math.max(1, Math.round(options.stampDensity));
+    const stampCellPx = size / stampGrid;
+    for (let sy = 0; sy < stampGrid; sy += 1) {
+      for (let sx = 0; sx < stampGrid; sx += 1) {
+        const jitterX = periodicHash01(sx * 13 + 1, sy * 31 + 5, stampGrid, options.seed + 41);
+        const jitterY = periodicHash01(sx * 23 + 7, sy * 41 + 3, stampGrid, options.seed + 67);
+        const live = periodicHash01(sx * 7 + 11, sy * 19 + 13, stampGrid, options.seed + 89);
+        // Drop ~30% of stamps so spacing is irregular.
+        if (live < 0.3) continue;
+        const cx = (sx + jitterX) * stampCellPx;
+        const cy = (sy + jitterY) * stampCellPx;
+        const strength =
+          0.45 + 0.55 * periodicHash01(sx * 5 + 3, sy * 17 + 9, stampGrid, options.seed + 23);
+        const r =
+          options.stampRadius *
+          (0.6 + 0.6 * periodicHash01(sx * 11 + 17, sy * 7, stampGrid, options.seed + 31));
+        stamps.push({ cx, cy, strength, r });
+      }
     }
   }
 
@@ -471,32 +477,41 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
 
   const grass = createPainterlyBiomeTexture(size, GRASS_PALETTE, {
     seed: 7,
-    cellularCellSize: size / 12,
-    cellularStrength: 0.55,
-    bladeStripeFreq: 22,
-    bladeStripeStrength: 0.55,
+    // Smaller cells + low strength → fine, soft tonal variation across the
+    // surface rather than visible blotches.
+    cellularCellSize: size / 24,
+    cellularStrength: 0.18,
+    // Tight, fine vertical stripes so the texture reads as grass blades up
+    // close. Strong enough to see, fine enough not to look stripey.
+    bladeStripeFreq: 38,
+    bladeStripeStrength: 0.7,
     rippleFreqX: 0,
     rippleFreqY: 0,
     rippleStrength: 0,
-    stampDensity: 12,
-    stampDarkness: 0.85,
-    stampRadius: size / 24,
-    grainStrength: 0.55
+    // No stamps on grass — stamps at this scale read as dirt patches and
+    // muddy the cheerful color. Grass relies on palette + cellular + blades.
+    stampDensity: 0,
+    stampDarkness: 0,
+    stampRadius: 0,
+    grainStrength: 0.4
   });
 
   const sand = createPainterlyBiomeTexture(size, SAND_PALETTE, {
     seed: 53,
-    cellularCellSize: size / 8,
-    cellularStrength: 0.42,
+    cellularCellSize: size / 10,
+    cellularStrength: 0.28,
     bladeStripeFreq: 0,
     bladeStripeStrength: 0,
     rippleFreqX: 5,
     rippleFreqY: 9,
-    rippleStrength: 0.5,
-    stampDensity: 9,
-    stampDarkness: 0.55,
-    stampRadius: size / 18,
-    grainStrength: 0.7
+    rippleStrength: 0.42,
+    // Soft, sparse pebble accents — sand keeps a hint of stamp variation
+    // since the sun-bleached palette can absorb light darkening without
+    // looking muddy.
+    stampDensity: 8,
+    stampDarkness: 0.28,
+    stampRadius: size / 22,
+    grainStrength: 0.55
   });
 
   // Normal + roughness use a composite of grass and sand height fields so a
