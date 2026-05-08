@@ -73,7 +73,9 @@ describe("3d unfed-town badge regression guard", () => {
   });
 
   it("does NOT paint on a neutral (unowned) town — matches tile-menu's 'Neutral town' branch", () => {
-    const tile = ownedSettledUnfedTownTile({ ownerId: undefined, ownershipState: undefined });
+    const tile = ownedSettledUnfedTownTile();
+    delete (tile as { ownerId?: string }).ownerId;
+    delete (tile as { ownershipState?: Tile["ownershipState"] }).ownershipState;
     expect(shouldShowTownUnfedWarning(tile)).toBe(false);
   });
 
