@@ -19,8 +19,10 @@ import {
   FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
-  MANPOWER_BASE_REGEN_PER_MINUTE,
   MANPOWER_BASE_CAP,
+  MANPOWER_BASE_REGEN_PER_MINUTE,
+  TOWN_MANPOWER_BY_TIER,
+  manpowerRegenWeightForSettlementIndex,
   SETTLE_COST,
   VISION_RADIUS,
   WORLD_HEIGHT,
@@ -964,8 +966,24 @@ export class SimulationRuntime {
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
-    const snapshotCap = Number.isFinite(player.manpowerCapSnapshot) ? Math.max(0, player.manpowerCapSnapshot ?? 0) : 0;
-    return Math.max(MANPOWER_BASE_CAP, snapshotCap);
+    const summary = this.summaryForPlayer(player.id);
+    let cap = 0;
+    for (const tier of summary.ownedTownTierByTile.values()) {
+      cap += TOWN_MANPOWER_BY_TIER[tier]?.cap ?? 0;
+    }
+    return Math.max(MANPOWER_BASE_CAP, cap);
+  }
+
+  private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
+    const summary = this.summaryForPlayer(player.id);
+    let regen = 0;
+    let index = 0;
+    for (const tier of summary.ownedTownTierByTile.values()) {
+      const base = TOWN_MANPOWER_BY_TIER[tier]?.regenPerMinute ?? 0;
+      regen += base * manpowerRegenWeightForSettlementIndex(index);
+      index += 1;
+    }
+    return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen);
   }
 
   private effectiveManpowerAt(player: RuntimePlayer, nowMs = this.now()): number {
@@ -974,8 +992,8 @@ export class SimulationRuntime {
     if (!Number.isFinite(player.manpowerUpdatedAt)) return Math.min(cap, Math.max(0, player.manpower));
     const updatedAt = player.manpowerUpdatedAt ?? nowMs;
     const elapsedMinutes = Math.max(0, (nowMs - updatedAt) / 60_000);
-    const nextManpower =
-      elapsedMinutes > 0 ? player.manpower + elapsedMinutes * MANPOWER_BASE_REGEN_PER_MINUTE : player.manpower;
+    const regenPerMinute = this.playerManpowerRegenPerMinute(player);
+    const nextManpower = elapsedMinutes > 0 ? player.manpower + elapsedMinutes * regenPerMinute : player.manpower;
     return Math.max(0, Math.min(cap, nextManpower));
   }
 
@@ -986,6 +1004,10 @@ export class SimulationRuntime {
       player.manpowerUpdatedAt = nowMs;
       player.manpowerCapSnapshot = cap;
       return;
+    }
+    const previousCap = Number.isFinite(player.manpowerCapSnapshot) ? player.manpowerCapSnapshot! : cap;
+    if (cap > previousCap) {
+      player.manpower = Math.min(cap, Math.max(0, player.manpower) + (cap - previousCap));
     }
     if (!Number.isFinite(player.manpowerUpdatedAt)) {
       player.manpower = Math.max(0, Math.min(cap, player.manpower));
