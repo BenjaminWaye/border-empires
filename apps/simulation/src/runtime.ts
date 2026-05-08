@@ -564,6 +564,7 @@ export class SimulationRuntime {
   private readonly locksByTile: Map<string, LockRecord>;
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
+  private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
@@ -998,6 +999,7 @@ export class SimulationRuntime {
   }
 
   private applyManpowerRegen(player: RuntimePlayer, nowMs = this.now()): void {
+    this.applyEconomyAccrual(player, nowMs);
     const cap = this.playerManpowerCap(player);
     if (!Number.isFinite(player.manpower)) {
       player.manpower = cap;
@@ -1018,6 +1020,58 @@ export class SimulationRuntime {
     player.manpower = this.effectiveManpowerAt(player, nowMs);
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;
+  }
+
+  private applyEconomyAccrual(player: RuntimePlayer, nowMs = this.now()): void {
+    const last = this.lastEconomyAccrualAtByPlayer.get(player.id);
+    if (last === undefined) {
+      this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
+      return;
+    }
+    const elapsedMs = nowMs - last;
+    if (elapsedMs <= 0) return;
+    if (!this.playerSummaries.has(player.id)) {
+      this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
+      return;
+    }
+    const summary = this.summaryForPlayer(player.id);
+    const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles);
+    const elapsedMinutes = elapsedMs / 60_000;
+    if (economy.upkeepPerMinute.gold > 0) {
+      const drained = economy.upkeepPerMinute.gold * elapsedMinutes;
+      player.points = Math.max(0, (player.points ?? 0) - drained);
+    }
+    const stock = {
+      FOOD: player.strategicResources?.FOOD ?? 0,
+      IRON: player.strategicResources?.IRON ?? 0,
+      CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
+      SUPPLY: player.strategicResources?.SUPPLY ?? 0,
+      SHARD: player.strategicResources?.SHARD ?? 0,
+      OIL: player.strategicResources?.OIL ?? 0
+    };
+    let mutated = false;
+    if (economy.upkeepPerMinute.food > 0) {
+      stock.FOOD = Math.max(0, stock.FOOD - economy.upkeepPerMinute.food * elapsedMinutes);
+      mutated = true;
+    }
+    if (economy.upkeepPerMinute.iron > 0) {
+      stock.IRON = Math.max(0, stock.IRON - economy.upkeepPerMinute.iron * elapsedMinutes);
+      mutated = true;
+    }
+    if (economy.upkeepPerMinute.crystal > 0) {
+      stock.CRYSTAL = Math.max(0, stock.CRYSTAL - economy.upkeepPerMinute.crystal * elapsedMinutes);
+      mutated = true;
+    }
+    if (economy.upkeepPerMinute.supply > 0) {
+      stock.SUPPLY = Math.max(0, stock.SUPPLY - economy.upkeepPerMinute.supply * elapsedMinutes);
+      mutated = true;
+    }
+    if (economy.upkeepPerMinute.oil > 0) {
+      stock.OIL = Math.max(0, stock.OIL - economy.upkeepPerMinute.oil * elapsedMinutes);
+      mutated = true;
+    }
+    if (mutated) player.strategicResources = stock;
+    this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
   }
 
   private applyTileToPlayerSummaries(tileKey: string, tile: DomainTileState): void {
@@ -3683,15 +3737,14 @@ export class SimulationRuntime {
   } {
     const tileKey = simulationTileKey(tile.x, tile.y);
     const yieldView = buildTileYieldView(tile, this.tileYieldCollectedAtByTile.get(tileKey), now);
-    const gold = Math.floor((yieldView?.yield?.gold ?? 0) * 100) / 100;
+    const gold = yieldView?.yield?.gold ?? 0;
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
       ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number]
     >) {
-      const rounded = Math.floor(amount * 100) / 100;
-      if (rounded > 0) {
-        strategic[resource] = rounded;
-        this.addStrategicResource(this.players.get(tile.ownerId!)!, resource, rounded);
+      if (amount > 0) {
+        strategic[resource] = amount;
+        this.addStrategicResource(this.players.get(tile.ownerId!)!, resource, amount);
       }
     }
     if (gold > 0 || Object.keys(strategic).length > 0) this.tileYieldCollectedAtByTile.set(tileKey, now);
