@@ -14,19 +14,23 @@
 //
 // What this does, in order:
 //   1. Fetches origin/main and reads its SHA.
-//   2. Force-pushes origin/main onto origin/staging so the staging branch
+//   2. Asserts the local working tree HEAD matches origin/main and is clean.
+//      `fly deploy` ships the local checkout, so deploying from a stale tree
+//      would label new SHAs onto old code (this is how the #184 forest-claim
+//      fix shipped to origin/staging without landing in the sim image).
+//   3. Force-pushes origin/main onto origin/staging so the staging branch
 //      tracks bleeding-edge main.
-//   3. Builds workspace internal packages (shared, sim-protocol, etc.) so the
+//   4. Builds workspace internal packages (shared, sim-protocol, etc.) so the
 //      Fly + Vercel build steps don't trip over stale typings.
-//   4. Deploys simulation to Fly (border-empires-simulation-staging) with a
+//   5. Deploys simulation to Fly (border-empires-simulation-staging) with a
 //      rolling strategy so the prior machine stays live until the new one is
 //      healthy.
-//   5. Deploys gateway to Fly (border-empires-gateway-staging), same strategy.
-//   6. Writes the target SHA to packages/client/public/__build_sha.txt so the
+//   6. Deploys gateway to Fly (border-empires-gateway-staging), same strategy.
+//   7. Writes the target SHA to packages/client/public/__build_sha.txt so the
 //      client bundle ships it as a static asset (`/__build_sha.txt`). Anyone
 //      with Vercel SSO access to staging.borderempires.com can hit that
 //      endpoint to confirm which commit is live.
-//   7. Runs the existing deploy-client-staging.mjs to publish the client and
+//   8. Runs the existing deploy-client-staging.mjs to publish the client and
 //      flip the staging alias. That script already verifies the alias swap.
 //
 // Concurrency:
@@ -86,6 +90,28 @@ const main = async () => {
   const targetSha = captureStdout("git", ["rev-parse", "origin/main"]);
   const targetShortSha = targetSha.slice(0, 7);
   log(`Target SHA: ${targetSha} (${targetShortSha})`);
+
+  // `fly deploy` ships the local working tree, but we stamp `origin/main`
+  // onto `origin/staging` and onto `__build_sha.txt`. If the working tree
+  // does not match `origin/main` exactly, staging gets old code labelled
+  // with a new SHA — which is how the #184 forest-claim fix shipped to
+  // origin/staging without actually landing in the simulation image.
+  // Refuse to deploy unless HEAD matches origin/main and the tree is clean.
+  const headSha = captureStdout("git", ["rev-parse", "HEAD"]);
+  if (headSha !== targetSha) {
+    fail(
+      `working tree HEAD ${headSha.slice(0, 7)} does not match origin/main ${targetShortSha}. ` +
+        `fly deploy ships the local working tree, so deploying from a stale checkout would publish old code under the new SHA. ` +
+        `Run this from a worktree checked out at origin/main (e.g. ` +
+        `\`bash scripts/create-worktree.sh deploy-staging origin/main && cd .codex-worktrees/deploy-staging\`).`
+    );
+  }
+  const dirtyStatus = captureStdout("git", ["status", "--porcelain"]);
+  if (dirtyStatus.length > 0) {
+    fail(
+      `working tree has uncommitted changes; refusing to deploy because fly would ship them as part of the staging image:\n${dirtyStatus}`
+    );
+  }
 
   log("Force-pushing origin/main onto origin/staging");
   run("git", ["push", "origin", `${targetSha}:refs/heads/staging`, "--force"]);
