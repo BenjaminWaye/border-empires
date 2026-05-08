@@ -24,6 +24,22 @@ export const STAMINA_MAX = 10;
 export const STAMINA_REGEN_MS = 120_000;
 export const MANPOWER_BASE_CAP = 150;
 export const MANPOWER_BASE_REGEN_PER_MINUTE = 10;
+export const MANPOWER_EPSILON = 1e-6;
+export const TOWN_MANPOWER_BY_TIER: Record<
+  "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS",
+  { cap: number; regenPerMinute: number }
+> = {
+  SETTLEMENT: { cap: 150, regenPerMinute: 10 },
+  TOWN: { cap: 300, regenPerMinute: 15 },
+  CITY: { cap: 600, regenPerMinute: 30 },
+  GREAT_CITY: { cap: 1_200, regenPerMinute: 60 },
+  METROPOLIS: { cap: 2_400, regenPerMinute: 120 }
+};
+export const manpowerRegenWeightForSettlementIndex = (index: number): number => {
+  if (index < 5) return 1;
+  if (index < 15) return 0.5;
+  return 0.2;
+};
 export const ATTACK_MANPOWER_MIN = 60;
 export const ATTACK_MANPOWER_COST = 60;
 export const DEEP_STRIKE_MANPOWER_MIN = 100;

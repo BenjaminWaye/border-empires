@@ -1,6 +1,7 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
+type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
 
 type EconomyTileLike = {
   ownerId?: string | undefined;
@@ -29,6 +30,7 @@ export type PlayerRuntimeSummary = {
   buildCandidateTileKeys: Set<string>;
   settledTileCount: number;
   townCount: number;
+  ownedTownTierByTile: Map<string, TownPopulationTier>;
   goldIncomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   activeDevelopmentProcessCount: number;
@@ -138,6 +140,7 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   buildCandidateTileKeys: new Set<string>(),
   settledTileCount: 0,
   townCount: 0,
+  ownedTownTierByTile: new Map<string, TownPopulationTier>(),
   goldIncomePerMinute: 0,
   strategicProductionPerMinute: emptyStrategicProduction(),
   activeDevelopmentProcessCount: 0,
@@ -191,7 +194,11 @@ export const applyTileToPlayerSummary = (
     const resourceKey = strategicResourceForTile(tile.resource);
     if (resourceKey) summary.strategicProductionPerMinute[resourceKey] += strategicProductionPerMinuteForResource(tile.resource);
   }
-  if (hasTownOnTile(tile)) summary.townCount += 1;
+  if (hasTownOnTile(tile)) {
+    summary.townCount += 1;
+    const tier = townPopulationTierForTile(tile) ?? "SETTLEMENT";
+    summary.ownedTownTierByTile.set(tileKey, tier);
+  }
   summary.goldIncomePerMinute += goldIncomePerMinuteForTile(tile);
   summary.activeDevelopmentProcessCount += activeStructureProcessCount(tile, tile.ownerId);
 };
@@ -214,7 +221,10 @@ export const removeTileFromPlayerSummary = (
       );
     }
   }
-  if (hasTownOnTile(tile)) summary.townCount = Math.max(0, summary.townCount - 1);
+  if (hasTownOnTile(tile)) {
+    summary.townCount = Math.max(0, summary.townCount - 1);
+    summary.ownedTownTierByTile.delete(tileKey);
+  }
   summary.goldIncomePerMinute = Math.max(0, summary.goldIncomePerMinute - goldIncomePerMinuteForTile(tile));
   summary.activeDevelopmentProcessCount = Math.max(0, summary.activeDevelopmentProcessCount - activeStructureProcessCount(tile, tile.ownerId));
 };
