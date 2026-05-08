@@ -11,8 +11,12 @@ import {
 const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
 
+// Settled keeps the strong claim color (0.85) so owned territory reads
+// unambiguously. Frontier is dropped from 0.55 → 0.32 so the new biome
+// detail (grass blades, sand ripples, tile-edge AO) shows through and the
+// two ownership states are clearly distinct.
 const SETTLED_OPACITY = 0.85;
-const FRONTIER_OPACITY = 0.55;
+const FRONTIER_OPACITY = 0.32;
 
 export type OwnershipOverlay = {
   readonly settledMesh: Mesh;
