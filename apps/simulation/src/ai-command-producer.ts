@@ -48,6 +48,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const setIntervalFn = options.setIntervalFn ?? ((task, intervalMs) => setInterval(task, intervalMs));
   const clearIntervalFn = options.clearIntervalFn ?? ((handle) => clearInterval(handle));
   const plannerBreachThresholdMs = Math.max(1, options.plannerBreachThresholdMs ?? 50);
+  const aiPlayerIdSet = new Set(options.aiPlayerIds);
   const nextClientSeqByPlayer = new Map<string, number>(
     options.aiPlayerIds.map((playerId) => [playerId, options.startingClientSeqByPlayer?.[playerId] ?? 1] as const)
   );
@@ -55,6 +56,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
+  const urgentByPlayerId = new Set<string>();
   let tickInFlight = false;
   let nextPlayerIndex = 0;
   const shouldRun = options.shouldRun ?? (() => true);
@@ -83,6 +85,16 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     });
 
   const stopListening = options.runtime.onEvent((event) => {
+    if (
+      event.eventType === "COMBAT_RESOLVED" &&
+      event.attackerWon &&
+      event.actionType === "ATTACK" &&
+      event.combatResult?.defenderOwnerId &&
+      aiPlayerIdSet.has(event.combatResult.defenderOwnerId) &&
+      !aiPlayerIdSet.has(event.playerId)
+    ) {
+      urgentByPlayerId.add(event.combatResult.defenderOwnerId);
+    }
     const pendingCommand = pendingCommandByPlayer.get(event.playerId);
     const pendingMatches = pendingCommand?.commandId === event.commandId;
     const trackedPreplan = trackedPreplanByCommandId.get(event.commandId);
@@ -136,8 +148,28 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     try {
       if (options.aiPlayerIds.length === 0) return;
       clearExpiredPendingCommands();
+      const iterationOrder: number[] = [];
+      const seenIndices = new Set<number>();
+      const urgentSnapshot = [...urgentByPlayerId];
+      for (const urgentPlayerId of urgentSnapshot) {
+        if (!aiPlayerIdSet.has(urgentPlayerId)) {
+          urgentByPlayerId.delete(urgentPlayerId);
+          continue;
+        }
+        const idx = options.aiPlayerIds.indexOf(urgentPlayerId);
+        if (idx >= 0 && !seenIndices.has(idx)) {
+          iterationOrder.push(idx);
+          seenIndices.add(idx);
+        }
+      }
       for (let offset = 0; offset < options.aiPlayerIds.length; offset += 1) {
         const playerIndex = (nextPlayerIndex + offset) % options.aiPlayerIds.length;
+        if (!seenIndices.has(playerIndex)) {
+          iterationOrder.push(playerIndex);
+          seenIndices.add(playerIndex);
+        }
+      }
+      for (const playerIndex of iterationOrder) {
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
         let nextClientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
@@ -202,6 +234,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
           nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
           nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+          urgentByPlayerId.delete(playerId);
           try {
             await options.submitCommand(plan.command);
             options.onCommand?.({ playerId, commandType: plan.command.type });
@@ -213,6 +246,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         if (advancedWithoutPending) {
           nextClientSeqByPlayer.set(playerId, nextClientSeq);
           nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+          urgentByPlayerId.delete(playerId);
           return;
         }
       }

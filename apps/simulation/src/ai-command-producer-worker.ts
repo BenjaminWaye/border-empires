@@ -153,6 +153,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
+  const urgentByPlayerId = new Set<string>();
 
   let tickInFlight = false;
   let nextPlayerIndex = 0;
@@ -399,6 +400,16 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     } else if (aiPlayerIdSet.has(event.playerId)) {
       queuePlayerSync([event.playerId]);
     }
+    if (
+      event.eventType === "COMBAT_RESOLVED" &&
+      event.attackerWon &&
+      event.actionType === "ATTACK" &&
+      event.combatResult?.defenderOwnerId &&
+      aiPlayerIdSet.has(event.combatResult.defenderOwnerId) &&
+      !aiPlayerIdSet.has(event.playerId)
+    ) {
+      urgentByPlayerId.add(event.combatResult.defenderOwnerId);
+    }
     const pending = pendingCommandByPlayer.get(event.playerId);
     const pendingMatches = pending?.commandId === event.commandId;
     const trackedPreplan = trackedPreplanByCommandId.get(event.commandId);
@@ -495,8 +506,28 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         if (trackedPreplan.trackedAt <= cutoff) trackedPreplanByCommandId.delete(commandId);
       }
 
+      const iterationOrder: number[] = [];
+      const seenIndices = new Set<number>();
+      const urgentSnapshot = [...urgentByPlayerId];
+      for (const urgentPlayerId of urgentSnapshot) {
+        if (!aiPlayerIdSet.has(urgentPlayerId)) {
+          urgentByPlayerId.delete(urgentPlayerId);
+          continue;
+        }
+        const idx = options.aiPlayerIds.indexOf(urgentPlayerId);
+        if (idx >= 0 && !seenIndices.has(idx)) {
+          iterationOrder.push(idx);
+          seenIndices.add(idx);
+        }
+      }
       for (let offset = 0; offset < options.aiPlayerIds.length; offset++) {
         const playerIndex = (nextPlayerIndex + offset) % options.aiPlayerIds.length;
+        if (!seenIndices.has(playerIndex)) {
+          iterationOrder.push(playerIndex);
+          seenIndices.add(playerIndex);
+        }
+      }
+      for (const playerIndex of iterationOrder) {
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
 
@@ -569,6 +600,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
             nextClientSeqByPlayer.set(playerId, clientSeq + 1);
             nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+            urgentByPlayerId.delete(playerId);
             const submitStartedAt = now();
             await options.submitCommand(plan.command);
             options.onCommand?.({ playerId, commandType: plan.command.type });
@@ -587,6 +619,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         if (advancedWithoutPending) {
           nextClientSeqByPlayer.set(playerId, clientSeq);
           nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+          urgentByPlayerId.delete(playerId);
         }
         return; // one player per tick
       }
