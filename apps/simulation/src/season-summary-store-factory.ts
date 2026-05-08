@@ -9,12 +9,22 @@ import {
 
 type SeasonSummaryStoreFactoryOptions = {
   databaseUrl?: string;
+  sqlitePath?: string;
   applySchema?: boolean;
 };
 
 export const createSeasonSummaryStore = async (
   options: SeasonSummaryStoreFactoryOptions = {}
 ): Promise<SeasonSummaryStore> => {
+  if (options.sqlitePath) {
+    const [{ SqliteSeasonSummaryStore }, { openSqliteDatabase }] = await Promise.all([
+      import("./sqlite-season-summary-store.js"),
+      import("./sqlite-db.js")
+    ]);
+    const store = new SqliteSeasonSummaryStore(openSqliteDatabase(options.sqlitePath));
+    if (options.applySchema) await store.applySchema();
+    return store;
+  }
   if (!options.databaseUrl) return new InMemorySeasonSummaryStore();
 
   const store = createPostgresSeasonSummaryStore(options.databaseUrl);

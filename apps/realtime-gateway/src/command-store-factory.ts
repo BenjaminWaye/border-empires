@@ -8,12 +8,22 @@ import { retryStartup } from "./startup-retry.js";
 
 type CommandStoreFactoryOptions = {
   databaseUrl?: string;
+  sqlitePath?: string;
   applySchema?: boolean;
 };
 
 export const createGatewayCommandStore = async (
   options: CommandStoreFactoryOptions = {}
 ): Promise<GatewayCommandStore> => {
+  if (options.sqlitePath) {
+    const [{ SqliteGatewayCommandStore }, { openSqliteDatabase }] = await Promise.all([
+      import("./sqlite-command-store.js"),
+      import("./sqlite-db.js")
+    ]);
+    const store = new SqliteGatewayCommandStore(openSqliteDatabase(options.sqlitePath));
+    if (options.applySchema) await store.applySchema();
+    return store;
+  }
   if (!options.databaseUrl) return new InMemoryGatewayCommandStore();
 
   const store = createPostgresGatewayCommandStore(options.databaseUrl);

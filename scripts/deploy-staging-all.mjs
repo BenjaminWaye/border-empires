@@ -22,10 +22,11 @@
 //      tracks bleeding-edge main.
 //   4. Builds workspace internal packages (shared, sim-protocol, etc.) so the
 //      Fly + Vercel build steps don't trip over stale typings.
-//   5. Deploys simulation to Fly (border-empires-simulation-staging) with a
-//      rolling strategy so the prior machine stays live until the new one is
-//      healthy.
-//   6. Deploys gateway to Fly (border-empires-gateway-staging), same strategy.
+//   5. Deploys the merged sim+gateway to Fly
+//      (border-empires-combined-staging) with a rolling strategy so the
+//      prior machine stays live until the new one is healthy. The split
+//      sim/gateway apps were retired when staging cut over to the
+//      single-process SQLite-only build (PR #177).
 //   7. Writes the target SHA to packages/client/public/__build_sha.txt so the
 //      client bundle ships it as a static asset (`/__build_sha.txt`). Anyone
 //      with Vercel SSO access to staging.borderempires.com can hit that
@@ -125,18 +126,12 @@ const main = async () => {
     "build"
   ]);
 
-  log("Deploying simulation to Fly (border-empires-simulation-staging)");
+  log("Deploying merged sim+gateway to Fly (border-empires-combined-staging)");
   run("fly", [
     "deploy",
-    "--config", "fly.simulation.staging.toml",
-    "--strategy", "rolling"
-  ]);
-
-  log("Deploying gateway to Fly (border-empires-gateway-staging)");
-  run("fly", [
-    "deploy",
-    "--config", "fly.gateway.staging.toml",
-    "--strategy", "rolling"
+    "--config", "fly.combined.staging.toml",
+    "--strategy", "rolling",
+    "--remote-only"
   ]);
 
   log(`Writing build SHA marker to ${buildShaArtifactPath}`);
