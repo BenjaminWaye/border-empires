@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import { buildFrontierCombatPreview } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
+import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "./broadcast-payload.js";
 import { resolveGatewayAuthIdentity } from "./auth-identity.js";
 import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "./gateway-auth-binding-resolution.js";
 import type { GatewayAuthBindingStore } from "./auth-binding-store.js";
@@ -79,7 +80,7 @@ const sleep = (ms: number): Promise<void> =>
   });
 
 const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
-  if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(payload));
+  sendJsonToSocket(socket, payload);
 };
 
 const canToggleFogForEmail = (email: string | undefined, fogAdminEmail: string | undefined): boolean => {
@@ -118,20 +119,23 @@ const optionalCommandMetadata = (message: unknown): { commandId?: string; client
 };
 
 const readPayloadType = (payload: unknown): string | undefined => {
-  if (!payload || typeof payload !== "object") return undefined;
-  const candidate = payload as { type?: unknown };
+  const source = unwrapPayloadSource(payload);
+  if (!source || typeof source !== "object") return undefined;
+  const candidate = source as { type?: unknown };
   return typeof candidate.type === "string" ? candidate.type : undefined;
 };
 
 const readPayloadCommandId = (payload: unknown): string | undefined => {
-  if (!payload || typeof payload !== "object") return undefined;
-  const candidate = payload as { commandId?: unknown };
+  const source = unwrapPayloadSource(payload);
+  if (!source || typeof source !== "object") return undefined;
+  const candidate = source as { commandId?: unknown };
   return typeof candidate.commandId === "string" ? candidate.commandId : undefined;
 };
 
 const readPayloadTarget = (payload: unknown): { x: number; y: number } | undefined => {
-  if (!payload || typeof payload !== "object") return undefined;
-  const candidate = payload as { target?: unknown };
+  const source = unwrapPayloadSource(payload);
+  if (!source || typeof source !== "object") return undefined;
+  const candidate = source as { target?: unknown };
   if (!candidate.target || typeof candidate.target !== "object") return undefined;
   const target = candidate.target as { x?: unknown; y?: unknown };
   return typeof target.x === "number" && typeof target.y === "number" ? { x: target.x, y: target.y } : undefined;
@@ -769,9 +773,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   const fanoutPlayerPayloads = (payloadsByPlayerId: Map<string, unknown[]>): void => {
     for (const [playerId, payloads] of payloadsByPlayerId) {
+      const sockets = [...playerSubscriptions.socketsForPlayer(playerId)];
+      if (sockets.length === 0) continue;
       for (const payload of payloads) {
-        for (const targetSocket of playerSubscriptions.socketsForPlayer(playerId)) {
-          queueOrSendSessionPayload(targetSocket, payload);
+        const broadcast = sockets.length > 1 ? preSerializeBroadcast(payload) : payload;
+        for (const targetSocket of sockets) {
+          queueOrSendSessionPayload(targetSocket, broadcast);
         }
       }
     }
@@ -819,6 +826,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         ...(options?.reason ? { reason: options.reason } : {}),
         ...(options?.commandId ? { commandId: options.commandId } : {})
       });
+      const replacementBroadcast =
+        targetSockets.length > 1 ? preSerializeBroadcast(replacementSnapshot) : replacementSnapshot;
       for (const targetSocket of targetSockets) {
         const targetSession = sessionsBySocket.get(targetSocket);
         if (!targetSession) continue;
@@ -826,7 +835,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         if (options?.includeFogUpdate === true) {
           queueOrSendSessionPayload(targetSocket, { type: "FOG_UPDATE", fogDisabled });
         }
-        queueOrSendSessionPayload(targetSocket, replacementSnapshot);
+        queueOrSendSessionPayload(targetSocket, replacementBroadcast);
       }
       recordGatewayEvent("info", "gateway_fog_refresh_sent", {
         playerId,
@@ -931,6 +940,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           commandId: event.commandId,
           tiles: jsonSafeTileDeltaBatch(tileDeltas)
         };
+        // Same payload fans out to every socket across every player; serialize
+        // once so 100+ sockets share a single JSON.stringify call.
+        const tileDeltaBroadcast = preSerializeBroadcast(tileDeltaPayload);
         for (const [playerId, playerSockets] of socketsByPlayerId) {
           const hasFogDisabledSession = [...playerSubscriptions.socketsForPlayer(playerId)].some(
             (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
@@ -948,7 +960,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           playerSubscriptions.updateSnapshot(playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
           syncGatewaySnapshotMetricsFromCache(playerId);
           for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(playerSockets, (candidate) => sessionsBySocket.get(candidate))) {
-            queueOrSendSessionPayload(targetSocket, tileDeltaPayload);
+            queueOrSendSessionPayload(targetSocket, tileDeltaBroadcast);
           }
         }
         return;
