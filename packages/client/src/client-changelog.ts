@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.5",
+  version: "2026.05.08.6",
   title: "What's New",
-  summary: "Tile flips and incoming attacks from AI players now reach you in real time on the rewrite stack. The simulation was dropping every event whose causing player was an AI, so AI captures of your tiles never streamed live — the map silently desynced and your border looked correct until the next snapshot refetch flipped everything at once. Plus the AI defense-priority and COLLECT_VISIBLE preplan fixes, the unfed-town badge predicate, and the rest of this release train.",
+  summary: "Season-victory cards show your own progress again when another empire leads an objective, and call you out as You when you are the current objective leader or crowned winner. Plus the live AI tile-flip/attack-alert fix, the AI defense-priority and COLLECT_VISIBLE preplan fixes, the unfed-town badge predicate, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.6",
+      title: "Season victory cards show your progress again",
+      why: "The rewrite simulation built a personalized objective list with `You:` progress, then live global-status broadcasts replaced it with the stored season summary. That summary is intentionally global, so it has leader and hold status but no current-player comparison line. Separately, once you became the leader, the card showed your public display name instead of `You` because the client was checking for the literal test id `me`.",
+      changes: [
+        "Global status updates now keep the stored leader/hold fields while merging each connected player's own `selfProgressLabel`, restoring lines such as `You: 5.0 gold/m` when another empire leads.",
+        "Season objective leader labels now infer the current player id from the self leaderboard entries and render `You` when the objective leader matches.",
+        "Season winner cards use the same self-labeling path, so a crowned win reads as yours instead of repeating your display name."
+      ]
+    },
     {
       introducedIn: "2026.05.08.5",
       title: "AI captures of your tiles flip live, and the under-attack overlay fires when AIs hit you",
