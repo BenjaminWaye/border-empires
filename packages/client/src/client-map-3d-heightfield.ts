@@ -102,7 +102,14 @@ export type HeightfieldRebuildInputs = {
   readonly worldHeight: number;
   readonly tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind;
   readonly isExploredAt?: (wx: number, wy: number) => boolean;
+  // Drives the "darker grass around trees" zone — any tile within
+  // FOREST_HALO_RADIUS of a forest tile gets a forestProximity = 1, smoothed
+  // at corners through vertex averaging. Optional so tests don't have to
+  // pass it; absent → no halo.
+  readonly isForestAt?: (wx: number, wy: number) => boolean;
 };
+
+const FOREST_HALO_RADIUS = 2;
 
 export type Heightfield = {
   readonly mesh: Mesh;
@@ -126,11 +133,16 @@ export const createHeightfield = (): Heightfield => {
   // full painted pattern spans `tilesPerRepeat` tiles, killing the obvious
   // 1-tile barcode look that the previous packed grayscale produced.
   const uvs = new Float32Array(VERT_COUNT * 2);
+  // Per-vertex forest-halo strength. Averaged at corners across the 4
+  // surrounding tiles, so the boundary of the dark-grass zone fades over
+  // ~1 tile through standard vertex interpolation in the rasterizer.
+  const forestZones = new Float32Array(VERT_COUNT);
   const indices = new Uint32Array(MAX_INDEX_COUNT);
 
   geometry.setAttribute("position", new BufferAttribute(positions, 3));
   geometry.setAttribute("color", new BufferAttribute(colors, 3));
   geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
+  geometry.setAttribute("forestZone", new BufferAttribute(forestZones, 1));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
 
@@ -171,23 +183,29 @@ export const createHeightfield = (): Heightfield => {
 
       // Vertex shader: pass the raw world-coord uv (= camX + tileOffsetX + i,
       // see rebuild()) through as `vTerrainWorldUv` so the fragment shader
-      // can recover which world tile a pixel belongs to via floor().
+      // can recover which world tile a pixel belongs to via floor(). Also
+      // pass the forestZone attribute (corner-averaged forest proximity)
+      // for the dark-grass halo around tree tiles.
       shader.vertexShader = shader.vertexShader.replace(
         "#include <common>",
         `#include <common>
-varying vec2 vTerrainWorldUv;`
+attribute float forestZone;
+varying vec2 vTerrainWorldUv;
+varying float vForestZone;`
       );
       shader.vertexShader = shader.vertexShader.replace(
         "#include <uv_vertex>",
         `#include <uv_vertex>
-vTerrainWorldUv = uv;`
+vTerrainWorldUv = uv;
+vForestZone = forestZone;`
       );
 
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <common>",
         `#include <common>
 uniform sampler2D sandColorMap;
-varying vec2 vTerrainWorldUv;`
+varying vec2 vTerrainWorldUv;
+varying float vForestZone;`
       );
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <map_fragment>",
@@ -221,11 +239,19 @@ varying vec2 vTerrainWorldUv;`
         float grassMask = smoothstep(0.055, 0.085, greenBias);
         vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
 
+        // Forest halo: where the grass is within 2 tiles of a tree tile
+        // (vForestZone interpolates 0..1 from the per-corner average),
+        // multiply down toward a forest-floor tone. Gated by grassMask so
+        // sand near forests stays bright. Only ~30% darkening at full
+        // strength so the speckled grass detail is still readable.
+        float forestDarken = vForestZone * grassMask;
+        vec3 forestTinted = biomeColor * mix(vec3(1.0), vec3(0.66, 0.78, 0.58), forestDarken);
+
         // Very mild vertex-color tint at 12% — beach-corner blends and
         // per-tile shade variants still register; painted base dominates.
         float vertLum = max(0.001, dot(vColor.rgb, vec3(0.299, 0.587, 0.114)));
         vec3 tint = mix(vec3(1.0), vColor.rgb / vertLum, 0.12);
-        diffuseColor.rgb = biomeColor * tint;
+        diffuseColor.rgb = forestTinted * tint;
       #endif
       `
       );
@@ -278,8 +304,19 @@ varying vec2 vTerrainWorldUv;`
   const rebuild = (inputs: HeightfieldRebuildInputs): void => {
     elevationCache.clear();
     renderedCornerYCache.clear();
-    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt } = inputs;
+    const {
+      camX,
+      camY,
+      halfW,
+      halfH,
+      worldWidth,
+      worldHeight,
+      tileKindAt,
+      isExploredAt,
+      isForestAt
+    } = inputs;
     const exploredAt = isExploredAt ?? ((): boolean => true);
+    const forestAt = isForestAt ?? ((): boolean => false);
 
     const tileSpanX = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfW + 3));
     const tileSpanY = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfH + 3));
@@ -295,8 +332,21 @@ varying vec2 vTerrainWorldUv;`
       readonly b: number;
       readonly isSea: boolean;
       readonly isExplored: boolean;
+      readonly forestProx: number;
     };
     const tileSampleCache = new Map<number, TileSample>();
+
+    // 1 if this tile or any tile within FOREST_HALO_RADIUS is a forest, else 0.
+    // Cheap toroidal Chebyshev-disc scan; the early-exit on the first hit
+    // keeps cost low even at the radius=2 (5×5 = 25 lookups worst case).
+    const forestProxAt = (wx: number, wy: number): number => {
+      for (let dy = -FOREST_HALO_RADIUS; dy <= FOREST_HALO_RADIUS; dy += 1) {
+        for (let dx = -FOREST_HALO_RADIUS; dx <= FOREST_HALO_RADIUS; dx += 1) {
+          if (forestAt(wrap(wx + dx, worldWidth), wrap(wy + dy, worldHeight))) return 1;
+        }
+      }
+      return 0;
+    };
 
     const sampleTile = (di: number, dj: number): TileSample => {
       const wx = wrap(camX + tileOffsetX + di, worldWidth);
@@ -310,7 +360,17 @@ varying vec2 vTerrainWorldUv;`
       const elevation = heightfieldTileBaseElevation(kind) + elevationJitter(wx, wy, kind);
       const isSea = kind === "SEA" || kind === "COASTAL_SEA";
       const isExplored = exploredAt(wx, wy);
-      const sample: TileSample = { elevation, r: cr / 255, g: cg / 255, b: cb / 255, isSea, isExplored };
+      // Forest halo only matters on land grass — no point scanning sea/mountain.
+      const forestProx = !isSea && kind !== "MOUNTAIN" ? forestProxAt(wx, wy) : 0;
+      const sample: TileSample = {
+        elevation,
+        r: cr / 255,
+        g: cg / 255,
+        b: cb / 255,
+        isSea,
+        isExplored,
+        forestProx
+      };
       tileSampleCache.set(cacheKey, sample);
       elevationCache.set(elevationKey(wx, wy), heightfieldTileBaseElevation(kind));
       return sample;
@@ -403,6 +463,10 @@ varying vec2 vTerrainWorldUv;`
         const baseUv = (j * VERT_DIM + i) * 2;
         uvs[baseUv + 0] = camX + tileOffsetX + i;
         uvs[baseUv + 1] = camY + tileOffsetY + j;
+        // Forest halo: average the 4 surrounding tiles' forestProx so the
+        // halo edge fades over a tile through standard vertex interpolation.
+        const vertIdx = j * VERT_DIM + i;
+        forestZones[vertIdx] = (s00.forestProx + s10.forestProx + s01.forestProx + s11.forestProx) * 0.25;
         // Cache the rendered corner-Y keyed by world coords so overlay
         // helpers can look up the exact surface Y the heightfield drew.
         const cornerWorldX = wrap(camX + tileOffsetX + i, worldWidth);
@@ -442,9 +506,11 @@ varying vec2 vTerrainWorldUv;`
     const positionAttr = geometry.attributes.position;
     const colorAttr = geometry.attributes.color;
     const uvAttr = geometry.attributes.uv;
+    const forestAttr = geometry.attributes.forestZone;
     if (positionAttr) positionAttr.needsUpdate = true;
     if (colorAttr) colorAttr.needsUpdate = true;
     if (uvAttr) uvAttr.needsUpdate = true;
+    if (forestAttr) forestAttr.needsUpdate = true;
     geometry.setDrawRange(0, lastIndexCount);
     geometry.computeVertexNormals();
 
