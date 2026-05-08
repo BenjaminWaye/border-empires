@@ -42,6 +42,14 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
         `INSERT INTO world_snapshots (last_applied_event_id, snapshot_payload, created_at) VALUES (?, ?, ?)`
       )
       .run(snapshot.lastAppliedEventId, JSON.stringify(payload), snapshot.createdAt);
+    // Retention: keep only the most recent 3 snapshots. Each is a full
+    // world dump, so unbounded retention fills the volume in hours.
+    this.db.exec(
+      `DELETE FROM world_snapshots WHERE snapshot_id NOT IN (
+         SELECT snapshot_id FROM world_snapshots ORDER BY snapshot_id DESC LIMIT 3
+       )`
+    );
+    this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
   }
 
   async loadLatestSnapshot(): Promise<StoredSimulationSnapshot | undefined> {
