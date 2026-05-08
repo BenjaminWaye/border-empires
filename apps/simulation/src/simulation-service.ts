@@ -513,7 +513,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
   };
-  const isDbBackedStartup = typeof options.databaseUrl === "string" && options.databaseUrl.length > 0;
+  const isDbBackedStartup =
+    (typeof options.databaseUrl === "string" && options.databaseUrl.length > 0) ||
+    (typeof options.sqlitePath === "string" && options.sqlitePath.length > 0);
   const requireDurableStartupState = options.requireDurableStartupState ?? isDbBackedStartup;
   const rulesetId = options.rulesetId;
   const mapStyle = options.mapStyle ?? "continents";
