@@ -283,14 +283,14 @@ const GRASS_PALETTE: Palette4 = [
   [206, 224, 142]  // sunlit highlight
 ] as const;
 
-// Sun-bleached sand palette — pushed lighter so the surface reads as bright
-// summer beach instead of weathered tan. Every corner is pale; no warm-ochre
-// or beach-sand mid tones to drag the brightness down.
+// Tropical-beach sand palette — almost-white, sunlit. Every corner is
+// barely-tinted cream/ivory so the surface reads as bright bleached sand
+// even with the cellular and stamp shading layered in.
 const SAND_PALETTE: Palette4 = [
-  [252, 238, 204], // very pale cream
-  [244, 224, 188], // light tan
-  [240, 220, 184], // soft sand
-  [254, 246, 220]  // bleached highlight
+  [255, 248, 224], // ivory
+  [252, 240, 210], // pale cream
+  [250, 236, 206], // warm ivory
+  [255, 252, 236]  // sunlit highlight (near-white)
 ] as const;
 
 export type TerrainDetailMaps = {
@@ -533,21 +533,20 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
   const sand = createPainterlyBiomeTexture(size, SAND_PALETTE, {
     seed: 53,
     cellularCellSize: size / 10,
-    // Softer cellular so nothing pulls the bright cream down into shadow.
-    cellularStrength: 0.16,
+    // Almost no cellular shading — keeps the bleached sand uniformly bright.
+    cellularStrength: 0.08,
     bladeStripeFreq: 0,
     bladeStripeStrength: 0,
     rippleFreqX: 5,
     rippleFreqY: 9,
-    rippleStrength: 0.32,
-    // No speckle on sand — sand reads as smooth swept dunes, not pointillist.
+    rippleStrength: 0.22,
     speckleCellSize: 0,
     speckleStrength: 0,
-    // Very sparse, very light pebble accents.
-    stampDensity: 7,
-    stampDarkness: 0.16,
-    stampRadius: size / 22,
-    grainStrength: 0.4
+    // Very faint pebble accents — barely register against the ivory base.
+    stampDensity: 6,
+    stampDarkness: 0.09,
+    stampRadius: size / 24,
+    grainStrength: 0.28
   });
 
   // Normal + roughness use a composite of grass and sand height fields so a
