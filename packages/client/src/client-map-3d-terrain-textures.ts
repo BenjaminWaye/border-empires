@@ -7,7 +7,12 @@ import {
 } from "three";
 
 const LEGACY_TEXTURE_SIZE = 64;
-const DETAIL_TEXTURE_SIZE = 256;
+// Painterly textures span ~8 tiles per repeat (see TERRAIN_DETAIL_TILES_PER_REPEAT
+// in the heightfield); 512² gives ~64px per tile of effective resolution which
+// is plenty for the soft, blended Civ-style look without burning a second on
+// startup generation.
+const DETAIL_TEXTURE_SIZE = 512;
+export const TERRAIN_DETAIL_TILES_PER_REPEAT = 8;
 
 const clamp255 = (value: number): number => Math.max(0, Math.min(255, Math.round(value)));
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
@@ -159,10 +164,10 @@ export const createLegacy3DTerrainTextures = (): {
   })
 });
 
-// Periodic hash used as the seed for a tiling value-noise field. Wrapping the
-// integer cell index by `period` before hashing makes the noise wrap exactly
-// at the texture boundary so one tile of detail repeats seamlessly to the
-// next without visible seams.
+// ---------------------------------------------------------------------------
+// Painterly biome detail texture suite (Civ-style, hand-painted look).
+// ---------------------------------------------------------------------------
+
 const periodicHash01 = (gx: number, gy: number, period: number, seed: number): number => {
   const wx = ((gx % period) + period) % period;
   const wy = ((gy % period) + period) % period;
@@ -195,11 +200,20 @@ const periodicValueNoise = (
   return lerp(nx0, nx1, sy);
 };
 
-const fbm = (x: number, y: number, size: number, octaves: number, seed: number): number => {
+// Multi-octave value noise (FBM). Each octave doubles frequency and halves
+// amplitude. Returned in [0, 1].
+const fbm = (
+  x: number,
+  y: number,
+  size: number,
+  baseCell: number,
+  octaves: number,
+  seed: number
+): number => {
   let amplitude = 0.5;
   let total = 0;
   let amplitudeSum = 0;
-  let cell = size / 4;
+  let cell = baseCell;
   for (let o = 0; o < octaves; o += 1) {
     const period = Math.max(2, Math.round(size / cell));
     total += periodicValueNoise(x, y, cell, period, seed + o * 17) * amplitude;
@@ -210,123 +224,317 @@ const fbm = (x: number, y: number, size: number, octaves: number, seed: number):
   return total / Math.max(amplitudeSum, 1e-6);
 };
 
-// Soft tile-edge ambient occlusion. Fades from 1.0 at center to ~0.62 at the
-// extreme corner, with a wider footprint than the legacy gridline so adjacent
-// tiles get a believable shadowed seam without an obvious painted line.
-const tileEdgeAO = (x: number, y: number, size: number): number => {
-  const half = size * 0.5;
-  const dx = (x - half + 0.5) / half;
-  const dy = (y - half + 0.5) / half;
-  const distFromCenter = Math.max(Math.abs(dx), Math.abs(dy));
-  const ao = 1 - smoothstep(clamp01((distFromCenter - 0.62) / 0.38)) * 0.38;
-  return ao;
+// Worley/cellular noise — distance to nearest jittered feature point on a
+// cell grid. Returned ~0 at feature points, growing outward; clamped/scaled
+// so the typical max is ~1.
+const periodicCellular = (
+  x: number,
+  y: number,
+  cell: number,
+  period: number,
+  seed: number
+): number => {
+  const gx = Math.floor(x / cell);
+  const gy = Math.floor(y / cell);
+  let minDist2 = Infinity;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      const ngx = gx + dx;
+      const ngy = gy + dy;
+      const fx = (ngx + periodicHash01(ngx * 7 + 1, ngy * 5 + 3, period, seed)) * cell;
+      const fy = (ngy + periodicHash01(ngx * 3 + 5, ngy * 11 + 7, period, seed + 1)) * cell;
+      const ex = x - fx;
+      const ey = y - fy;
+      const d2 = ex * ex + ey * ey;
+      if (d2 < minDist2) minDist2 = d2;
+    }
+  }
+  return Math.min(1, Math.sqrt(minDist2) / cell);
 };
 
-// Anisotropic blade pattern: vertical-ish stripes with a small horizontal
-// jitter so the texture reads as bent grass rather than a barcode. The
-// frequencies chosen are integer multiples of (2π / size) so the pattern
-// tiles perfectly with the noise.
-const grassBladePattern = (x: number, y: number, size: number): number => {
-  const k = (2 * Math.PI) / size;
-  const stripe = Math.sin(x * k * 14 + Math.sin(y * k * 4) * 1.2);
-  const tip = Math.cos(x * k * 28 + y * k * 6) * 0.35;
-  return stripe * 0.5 + tip * 0.5;
+// Quad-tone palette mixer: blends among four colors driven by two noise
+// channels in [0,1]. Picks the corner of a 2×2 palette grid via bilinear
+// interpolation, giving painterly multi-tone fields.
+type Palette4 = readonly [
+  [number, number, number],
+  [number, number, number],
+  [number, number, number],
+  [number, number, number]
+];
+const blendPalette4 = (
+  palette: Palette4,
+  u: number,
+  v: number
+): [number, number, number] => {
+  const [c00, c10, c01, c11] = palette;
+  const r = lerp(lerp(c00[0], c10[0], u), lerp(c01[0], c11[0], u), v);
+  const g = lerp(lerp(c00[1], c10[1], u), lerp(c01[1], c11[1], u), v);
+  const b = lerp(lerp(c00[2], c10[2], u), lerp(c01[2], c11[2], u), v);
+  return [r, g, b];
 };
 
-// Sand pattern: lower-frequency cross-ripples (dunes) plus a peppered
-// high-frequency speckle for grain. Same tile-friendly trig.
-const sandRipplePattern = (x: number, y: number, size: number): number => {
-  const k = (2 * Math.PI) / size;
-  const ripple = Math.sin(y * k * 6 + Math.cos(x * k * 3) * 1.4);
-  const grain = Math.sin(x * k * 36) * Math.cos(y * k * 36) * 0.45;
-  return ripple * 0.55 + grain * 0.55;
-};
+// Civ-style palette: warm sage / olive / yellow-grass / dark moss. Selected
+// to match the bright painterly grass in the reference, with enough range for
+// patchy multi-tone shading.
+const GRASS_PALETTE: Palette4 = [
+  [156, 178, 102], // bright sage (00)
+  [128, 154, 78],  // olive       (10)
+  [184, 192, 116], // yellow-grass(01)
+  [98, 128, 70]    // dark moss   (11)
+] as const;
+
+// Sand palette: pale dune / warm ochre / cool tan / rich umber. The umber
+// corner gives the rich brown patches visible at sand transitions in Civ.
+const SAND_PALETTE: Palette4 = [
+  [236, 218, 174], // pale dune
+  [212, 182, 132], // warm ochre
+  [194, 168, 132], // cool tan
+  [168, 138, 100]  // rich umber
+] as const;
 
 export type TerrainDetailMaps = {
-  readonly colorMap: CanvasTexture | null;
+  readonly grassColorMap: CanvasTexture | null;
+  readonly sandColorMap: CanvasTexture | null;
   readonly normalMap: CanvasTexture | null;
   readonly roughnessMap: CanvasTexture | null;
+  readonly tilesPerRepeat: number;
   readonly dispose: () => void;
 };
 
-// Builds a per-tile detail set at DETAIL_TEXTURE_SIZE that the heightfield
-// material samples once per tile (UVs == world coords, RepeatWrapping). The
-// color map packs three biome-relevant signals so a single shader injection
-// in client-map-3d-heightfield can blend the right detail per biome:
-//   R = grass detail (luminance variation around 0.5, anisotropic blades)
-//   G = sand detail  (luminance variation around 0.5, dune ripples + grain)
-//   B = tile-edge AO (1.0 at center, ~0.62 at corner)
-// Normals are derived from a composite height field of the same patterns so
-// the lit highlights line up with the visible grain. Roughness varies in
-// lockstep (deeper grain = rougher) so the warm sun picks up texture instead
-// of flat-shading the surface.
-export const createTerrainDetailMaps = (): TerrainDetailMaps => {
-  // Heightfield unit tests run under node where document is undefined. The
-  // material falls back gracefully to vertex-color-only shading without the
-  // detail maps, which is fine for the geometry assertions those tests make.
-  if (typeof document === "undefined") {
-    return { colorMap: null, normalMap: null, roughnessMap: null, dispose: (): void => {} };
+const createPainterlyBiomeTexture = (
+  size: number,
+  palette: Palette4,
+  options: {
+    seed: number;
+    cellularCellSize: number;
+    cellularStrength: number;
+    bladeStripeFreq: number;
+    bladeStripeStrength: number;
+    rippleFreqX: number;
+    rippleFreqY: number;
+    rippleStrength: number;
+    stampDensity: number;
+    stampDarkness: number;
+    stampRadius: number;
+    grainStrength: number;
   }
-  const size = DETAIL_TEXTURE_SIZE;
-  const colorCanvas = document.createElement("canvas");
-  const normalCanvas = document.createElement("canvas");
-  const roughnessCanvas = document.createElement("canvas");
-  colorCanvas.width = colorCanvas.height = size;
-  normalCanvas.width = normalCanvas.height = size;
-  roughnessCanvas.width = roughnessCanvas.height = size;
-  const colorCtx = colorCanvas.getContext("2d");
-  const normalCtx = normalCanvas.getContext("2d");
-  const roughnessCtx = roughnessCanvas.getContext("2d");
-  if (!colorCtx || !normalCtx || !roughnessCtx) {
-    throw new Error("failed to create detail texture canvas contexts");
-  }
-  const colorImage = colorCtx.createImageData(size, size);
-  const normalImage = normalCtx.createImageData(size, size);
-  const roughnessImage = roughnessCtx.createImageData(size, size);
-
-  // Composite height field used by both the color luminance term and the
-  // Sobel normal pass so lighting matches the visible grain pattern.
+): { canvas: HTMLCanvasElement; heights: Float32Array } => {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("failed to create painterly biome texture canvas context");
+  const image = ctx.createImageData(size, size);
   const heights = new Float32Array(size * size);
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const idx = y * size + x;
-      const baseFbm = fbm(x, y, size, 4, 7) * 1.2 - 0.6;
-      const blades = grassBladePattern(x, y, size) * 0.45;
-      const ripples = sandRipplePattern(x, y, size) * 0.45;
-      heights[idx] = baseFbm * 0.55 + blades * 0.5 + ripples * 0.5;
+
+  // Pre-compute hashed stamp positions once. Stamps are placed on a coarse
+  // jittered grid so they're spread out but irregular — matches the look of
+  // hand-placed grass tufts or pebbles in painted RTS textures.
+  const stampGrid = Math.max(1, Math.round(options.stampDensity));
+  const stampCellPx = size / stampGrid;
+  type Stamp = { cx: number; cy: number; strength: number; r: number };
+  const stamps: Stamp[] = [];
+  for (let sy = 0; sy < stampGrid; sy += 1) {
+    for (let sx = 0; sx < stampGrid; sx += 1) {
+      const jitterX = periodicHash01(sx * 13 + 1, sy * 31 + 5, stampGrid, options.seed + 41);
+      const jitterY = periodicHash01(sx * 23 + 7, sy * 41 + 3, stampGrid, options.seed + 67);
+      const live = periodicHash01(sx * 7 + 11, sy * 19 + 13, stampGrid, options.seed + 89);
+      // Drop ~30% of stamps so the spacing is irregular.
+      if (live < 0.3) continue;
+      const cx = (sx + jitterX) * stampCellPx;
+      const cy = (sy + jitterY) * stampCellPx;
+      const strength = 0.45 + 0.55 * periodicHash01(sx * 5 + 3, sy * 17 + 9, stampGrid, options.seed + 23);
+      const r = options.stampRadius * (0.6 + 0.6 * periodicHash01(sx * 11 + 17, sy * 7, stampGrid, options.seed + 31));
+      stamps.push({ cx, cy, strength, r });
     }
   }
+
+  const TWO_PI = 2 * Math.PI;
+  const k = TWO_PI / size;
 
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const idx = y * size + x;
       const px = idx * 4;
 
-      const grassLuma = clamp01(
-        0.5 + grassBladePattern(x, y, size) * 0.22 + (fbm(x, y, size, 3, 11) - 0.5) * 0.32
-      );
-      const sandLuma = clamp01(
-        0.5 + sandRipplePattern(x, y, size) * 0.20 + (fbm(x, y, size, 3, 19) - 0.5) * 0.28
-      );
-      const ao = tileEdgeAO(x, y, size);
+      // Two independent low-freq noise channels drive the 4-color palette
+      // blend. Different cell sizes break up the shape so it doesn't look
+      // checkerboarded.
+      const u = clamp01(fbm(x, y, size, size / 4, 3, options.seed));
+      const v = clamp01(fbm(x, y, size, size / 5, 3, options.seed + 137));
+      let [r, g, b] = blendPalette4(palette, u, v);
 
-      colorImage.data[px + 0] = clamp255(grassLuma * 255);
-      colorImage.data[px + 1] = clamp255(sandLuma * 255);
-      colorImage.data[px + 2] = clamp255(ao * 255);
-      colorImage.data[px + 3] = 255;
+      // Mid-frequency cellular patches: dark in patch interiors (close to
+      // feature points), light at boundaries. Blended in subtly for organic
+      // clumps without losing the base palette.
+      const cellular = periodicCellular(
+        x,
+        y,
+        options.cellularCellSize,
+        Math.max(2, Math.round(size / options.cellularCellSize)),
+        options.seed + 211
+      );
+      const cellularShade = (cellular - 0.5) * options.cellularStrength;
+      r += cellularShade * 28;
+      g += cellularShade * 26;
+      b += cellularShade * 22;
 
-      // Tangent-space normal via Sobel on the seamless height field.
+      // Anisotropic blade/ripple pattern. Grass uses near-vertical stripes,
+      // sand uses cross-hatched ripples — the magnitudes are tuned by the
+      // caller via bladeStripe* and ripple*.
+      const stripe =
+        Math.sin(x * k * options.bladeStripeFreq + Math.sin(y * k * 4) * 1.1) *
+        options.bladeStripeStrength;
+      const ripple =
+        Math.sin(y * k * options.rippleFreqY + Math.cos(x * k * options.rippleFreqX) * 1.4) *
+        options.rippleStrength;
+      const directional = stripe + ripple;
+      r += directional * 8;
+      g += directional * 9;
+      b += directional * 6;
+
+      // Stamps: at each stamp position, apply a soft radial darkening. For
+      // grass these read as tufts, for sand as wet/erosion patches. Quadratic
+      // falloff keeps the edges soft (no ringing).
+      let stampShade = 0;
+      for (let s = 0; s < stamps.length; s += 1) {
+        const stamp = stamps[s]!;
+        // Toroidal distance — closest of the 9 wrap copies — keeps stamps
+        // seamless across the texture boundary.
+        let dx = x - stamp.cx;
+        let dy = y - stamp.cy;
+        if (dx > size * 0.5) dx -= size;
+        else if (dx < -size * 0.5) dx += size;
+        if (dy > size * 0.5) dy -= size;
+        else if (dy < -size * 0.5) dy += size;
+        const d2 = dx * dx + dy * dy;
+        const r2 = stamp.r * stamp.r;
+        if (d2 < r2) {
+          const t = 1 - d2 / r2;
+          stampShade += t * t * stamp.strength;
+        }
+      }
+      stampShade = Math.min(1, stampShade);
+      const stampDelta = stampShade * options.stampDarkness;
+      r -= stampDelta * 38;
+      g -= stampDelta * 32;
+      b -= stampDelta * 24;
+
+      // High-frequency grain — keeps surfaces from looking plastic when the
+      // camera zooms in. Tuned per-biome via grainStrength.
+      const grain = (fbm(x, y, size, 8, 2, options.seed + 311) - 0.5) * options.grainStrength;
+      r += grain * 22;
+      g += grain * 20;
+      b += grain * 18;
+
+      image.data[px + 0] = clamp255(r);
+      image.data[px + 1] = clamp255(g);
+      image.data[px + 2] = clamp255(b);
+      image.data[px + 3] = 255;
+
+      // Composite scalar height for the shared normal/roughness pass. Pulls
+      // from cellular (deep clumps), directional pattern, stamps (deeper
+      // pits), and grain.
+      heights[idx] =
+        (cellular - 0.5) * 0.55 +
+        directional * 0.05 +
+        stampShade * -0.6 +
+        grain * 0.15;
+    }
+  }
+
+  ctx.putImageData(image, 0, 0);
+  return { canvas, heights };
+};
+
+// Builds the painterly biome detail suite. Two full-color textures (grass +
+// sand) carry the surface look, plus a shared normal/roughness pair. The
+// heightfield material samples both color textures at the same UV and blends
+// them by the vertex-color biome mask in onBeforeCompile, so each biome looks
+// distinctly painterly rather than reading as the same noise tinted.
+//
+// UV scale: caller wraps so one full repeat spans TERRAIN_DETAIL_TILES_PER_REPEAT
+// tiles. That kills the 1-tile repetition that made the procedural noise look
+// like a barcode.
+export const createTerrainDetailMaps = (): TerrainDetailMaps => {
+  if (typeof document === "undefined") {
+    return {
+      grassColorMap: null,
+      sandColorMap: null,
+      normalMap: null,
+      roughnessMap: null,
+      tilesPerRepeat: TERRAIN_DETAIL_TILES_PER_REPEAT,
+      dispose: (): void => {}
+    };
+  }
+
+  const size = DETAIL_TEXTURE_SIZE;
+
+  const grass = createPainterlyBiomeTexture(size, GRASS_PALETTE, {
+    seed: 7,
+    cellularCellSize: size / 12,
+    cellularStrength: 0.55,
+    bladeStripeFreq: 22,
+    bladeStripeStrength: 0.55,
+    rippleFreqX: 0,
+    rippleFreqY: 0,
+    rippleStrength: 0,
+    stampDensity: 12,
+    stampDarkness: 0.85,
+    stampRadius: size / 24,
+    grainStrength: 0.55
+  });
+
+  const sand = createPainterlyBiomeTexture(size, SAND_PALETTE, {
+    seed: 53,
+    cellularCellSize: size / 8,
+    cellularStrength: 0.42,
+    bladeStripeFreq: 0,
+    bladeStripeStrength: 0,
+    rippleFreqX: 5,
+    rippleFreqY: 9,
+    rippleStrength: 0.5,
+    stampDensity: 9,
+    stampDarkness: 0.55,
+    stampRadius: size / 18,
+    grainStrength: 0.7
+  });
+
+  // Normal + roughness use a composite of grass and sand height fields so a
+  // single shared pair works for both biomes (the fragment shader applies
+  // them after the color blend). Averaging keeps the lighting subtle on both
+  // sides; a per-biome split here would burden VRAM with little extra payoff.
+  const normalCanvas = document.createElement("canvas");
+  const roughnessCanvas = document.createElement("canvas");
+  normalCanvas.width = normalCanvas.height = size;
+  roughnessCanvas.width = roughnessCanvas.height = size;
+  const normalCtx = normalCanvas.getContext("2d");
+  const roughnessCtx = roughnessCanvas.getContext("2d");
+  if (!normalCtx || !roughnessCtx) {
+    throw new Error("failed to create normal/roughness canvas contexts");
+  }
+  const normalImage = normalCtx.createImageData(size, size);
+  const roughnessImage = roughnessCtx.createImageData(size, size);
+
+  const composite = new Float32Array(size * size);
+  for (let i = 0; i < composite.length; i += 1) {
+    composite[i] = (grass.heights[i]! + sand.heights[i]!) * 0.5;
+  }
+
+  const normalStrength = 3.6;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const idx = y * size + x;
+      const px = idx * 4;
       const xm = (x - 1 + size) % size;
       const xp = (x + 1) % size;
       const ym = (y - 1 + size) % size;
       const yp = (y + 1) % size;
-      const hL = heights[y * size + xm]!;
-      const hR = heights[y * size + xp]!;
-      const hD = heights[ym * size + x]!;
-      const hU = heights[yp * size + x]!;
-      const strength = 2.4;
-      const nx = -(hR - hL) * strength;
-      const ny = -(hU - hD) * strength;
+      const hL = composite[y * size + xm]!;
+      const hR = composite[y * size + xp]!;
+      const hD = composite[ym * size + x]!;
+      const hU = composite[yp * size + x]!;
+      const nx = -(hR - hL) * normalStrength;
+      const ny = -(hU - hD) * normalStrength;
       const nz = 1;
       const invLen = 1 / Math.sqrt(nx * nx + ny * ny + nz * nz);
       normalImage.data[px + 0] = clamp255((nx * invLen * 0.5 + 0.5) * 255);
@@ -334,9 +542,10 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
       normalImage.data[px + 2] = clamp255((nz * invLen * 0.5 + 0.5) * 255);
       normalImage.data[px + 3] = 255;
 
-      // Deeper grain pits read as rougher; sun-lit ridges keep a tiny sheen.
-      const heightHere = heights[idx]!;
-      const roughness = clamp01(0.88 - heightHere * 0.18 + (fbm(x, y, size, 2, 23) - 0.5) * 0.06);
+      // Pits and stamp interiors read rougher (darker). Surface ridges keep
+      // a hint of sheen so the warm sun catches them.
+      const h = composite[idx]!;
+      const roughness = clamp01(0.86 - h * 0.22);
       const roughnessByte = clamp255(roughness * 255);
       roughnessImage.data[px + 0] = roughnessByte;
       roughnessImage.data[px + 1] = roughnessByte;
@@ -345,42 +554,57 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
     }
   }
 
-  colorCtx.putImageData(colorImage, 0, 0);
   normalCtx.putImageData(normalImage, 0, 0);
   roughnessCtx.putImageData(roughnessImage, 0, 0);
 
-  const colorMap = new CanvasTexture(colorCanvas);
-  // Color map carries packed data, not viewable color — sampling stays linear
-  // so the shader math (R/G blend + B AO) isn't sRGB-decoded.
-  colorMap.colorSpace = NoColorSpace;
-  colorMap.wrapS = RepeatWrapping;
-  colorMap.wrapT = RepeatWrapping;
-  colorMap.repeat.set(1, 1);
-  colorMap.anisotropy = 4;
-  colorMap.needsUpdate = true;
+  const grassColorMap = new CanvasTexture(grass.canvas);
+  grassColorMap.colorSpace = SRGBColorSpace;
+  grassColorMap.wrapS = RepeatWrapping;
+  grassColorMap.wrapT = RepeatWrapping;
+  // repeat = 1/N → the heightfield's per-vertex world-coord UV samples one
+  // full texture per N tiles. The heightfield wires its vMapUv through this
+  // texture's matrix so the sand sampler in onBeforeCompile shares the scale.
+  grassColorMap.repeat.set(1 / TERRAIN_DETAIL_TILES_PER_REPEAT, 1 / TERRAIN_DETAIL_TILES_PER_REPEAT);
+  grassColorMap.anisotropy = 8;
+  grassColorMap.needsUpdate = true;
+
+  const sandColorMap = new CanvasTexture(sand.canvas);
+  sandColorMap.colorSpace = SRGBColorSpace;
+  sandColorMap.wrapS = RepeatWrapping;
+  sandColorMap.wrapT = RepeatWrapping;
+  sandColorMap.repeat.set(1 / TERRAIN_DETAIL_TILES_PER_REPEAT, 1 / TERRAIN_DETAIL_TILES_PER_REPEAT);
+  sandColorMap.anisotropy = 8;
+  sandColorMap.needsUpdate = true;
 
   const normalMap = new CanvasTexture(normalCanvas);
   normalMap.colorSpace = LinearSRGBColorSpace;
   normalMap.wrapS = RepeatWrapping;
   normalMap.wrapT = RepeatWrapping;
-  normalMap.repeat.set(1, 1);
-  normalMap.anisotropy = 4;
+  normalMap.repeat.set(1 / TERRAIN_DETAIL_TILES_PER_REPEAT, 1 / TERRAIN_DETAIL_TILES_PER_REPEAT);
+  normalMap.anisotropy = 8;
   normalMap.needsUpdate = true;
 
   const roughnessMap = new CanvasTexture(roughnessCanvas);
   roughnessMap.colorSpace = NoColorSpace;
   roughnessMap.wrapS = RepeatWrapping;
   roughnessMap.wrapT = RepeatWrapping;
-  roughnessMap.repeat.set(1, 1);
-  roughnessMap.anisotropy = 4;
+  roughnessMap.repeat.set(1 / TERRAIN_DETAIL_TILES_PER_REPEAT, 1 / TERRAIN_DETAIL_TILES_PER_REPEAT);
+  roughnessMap.anisotropy = 8;
   roughnessMap.needsUpdate = true;
 
   const dispose = (): void => {
-    colorMap.dispose();
+    grassColorMap.dispose();
+    sandColorMap.dispose();
     normalMap.dispose();
     roughnessMap.dispose();
   };
 
-  return { colorMap, normalMap, roughnessMap, dispose };
+  return {
+    grassColorMap,
+    sandColorMap,
+    normalMap,
+    roughnessMap,
+    tilesPerRepeat: TERRAIN_DETAIL_TILES_PER_REPEAT,
+    dispose
+  };
 };
-
