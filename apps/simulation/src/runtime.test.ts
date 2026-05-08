@@ -3539,7 +3539,7 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", sabotage: { ownerId: "player-2", endsAt: 2_000, outputMultiplier: 0.5 } },
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 2, y: 1, terrain: "MOUNTAIN" },
-          { x: 1, y: 2, terrain: "LAND", shardSite: { kind: "CACHE", amount: 3 } }
+          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } }
         ],
         activeLocks: []
       }
@@ -3604,6 +3604,120 @@ describe("simulation runtime", () => {
     expect(runtime.exportState().tiles).toContainEqual(expect.objectContaining({ x: 1, y: 1, terrain: "MOUNTAIN" }));
     expect(runtime.exportState().tiles).toContainEqual(expect.objectContaining({ x: 2, y: 1, terrain: "LAND" }));
     expect(JSON.stringify(seen.get("collect-shard-1"))).toContain("\"SHARD\":3");
+  });
+
+  it("rejects COLLECT_SHARD on a shard tile the player does not own", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 1_000,
+            manpower: 1_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { SHARD: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 1, y: 0, terrain: "LAND", shardSite: { kind: "CACHE", amount: 4 } }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "collect-unowned",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "COLLECT_SHARD",
+      payloadJson: JSON.stringify({ x: 1, y: 0 })
+    });
+
+    await Promise.resolve();
+
+    expect(seen).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_REJECTED",
+        commandId: "collect-unowned",
+        playerId: "player-1",
+        code: "COLLECT_NOT_OWNED"
+      })
+    );
+    expect(runtime.exportState().tiles).toContainEqual(
+      expect.objectContaining({ x: 1, y: 0, shardSiteJson: expect.stringContaining("\"amount\":4") })
+    );
+  });
+
+  it("emits a PLAYER_UPDATE with the new SHARD stock after a successful collect", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 1_000,
+            manpower: 1_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { SHARD: 0 }
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 5 } }
+        ],
+        activeLocks: []
+      }
+    });
+    const playerMessages: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "PLAYER_MESSAGE" && event.commandId === "collect-owned") {
+        playerMessages.push(JSON.parse(event.payloadJson) as Record<string, unknown>);
+      }
+    });
+
+    runtime.submitCommand({
+      commandId: "collect-owned",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "COLLECT_SHARD",
+      payloadJson: JSON.stringify({ x: 1, y: 0 })
+    });
+
+    await Promise.resolve();
+
+    expect(playerMessages).toContainEqual(
+      expect.objectContaining({
+        type: "PLAYER_UPDATE",
+        strategicResources: expect.objectContaining({ SHARD: 5 })
+      })
+    );
   });
 
   it("publishes aether bridge and wall updates and blocks frontier crossings through active walls", async () => {

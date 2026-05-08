@@ -1,6 +1,6 @@
-export type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+export type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY";
 
-export type EconomyResourceKey = Exclude<EconomyFocusKey, "ALL"> | "OIL";
+export type EconomyResourceKey = Exclude<EconomyFocusKey, "ALL"> | "SHARD" | "OIL";
 
 export type EconomyBucket = {
   label: string;

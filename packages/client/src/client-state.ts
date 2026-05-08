@@ -256,7 +256,7 @@ export const createInitialState = () => ({
   dismissedShardAlertKeys: new Set<string>(),
   structureInfoKey: "" as string,
   crystalAbilityInfoKey: "" as string,
-  economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD",
+  economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY",
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
   techTreeExpanded: false,
