@@ -1942,10 +1942,11 @@ export class SimulationRuntime {
     // so the rewrite client can render the under-attack overlay. Routed via
     // PLAYER_MESSAGE with playerId=defender — the gateway delivers this to
     // the defender's socket, even when the attacker is an unsubscribed AI.
-    // The synthetic commandId prevents the gateway's PLAYER_MESSAGE handler
-    // from calling markResolved on the *attacker's* real command, which
-    // would prematurely close the attacker's recovery slot before
-    // COMBAT_RESOLVED actually arrives.
+    // Re-uses the attacker's commandId so the alert is recorded alongside
+    // the rest of that command's events (avoids unbounded growth in the
+    // non-terminal replay map). The gateway's PLAYER_MESSAGE handler
+    // recognises the ATTACK_ALERT messageType and skips markResolved so
+    // the attacker's real recovery slot stays open until COMBAT_RESOLVED.
     const defenderOwnerId = combatResolution?.result.defenderOwnerId;
     if (
       actionType === "ATTACK" &&
@@ -1954,7 +1955,7 @@ export class SimulationRuntime {
     ) {
       this.emitEvent({
         eventType: "PLAYER_MESSAGE",
-        commandId: `attack-alert:${command.commandId}`,
+        commandId: command.commandId,
         playerId: defenderOwnerId,
         messageType: "ATTACK_ALERT",
         payloadJson: JSON.stringify({

@@ -926,12 +926,13 @@ describe("rewrite stack integration", () => {
     cleanup.push(() => simulation.close());
     const simulationAddress = await simulation.start();
 
+    const gatewayCommandStore = new InMemoryGatewayCommandStore();
     const gateway = await createRealtimeGatewayApp({
       host: "127.0.0.1",
       port: 0,
       logger: false,
       simulationAddress: simulationAddress.address,
-      commandStore: new InMemoryGatewayCommandStore(),
+      commandStore: gatewayCommandStore,
       defaultHumanPlayerId: "player-1"
     });
     cleanup.push(() => gateway.close());
@@ -975,6 +976,10 @@ describe("rewrite stack integration", () => {
       })
     );
 
+    // Sharing the attacker's commandId with the alert must not flip the
+    // attacker's command to RESOLVED — only the real COMBAT_RESOLVED should.
+    expect((await gatewayCommandStore.get("broadcast-cmd-1"))?.status).not.toBe("RESOLVED");
+
     expect(scheduledResolutions).toHaveLength(1);
     scheduledResolutions[0]?.task();
 
@@ -986,6 +991,8 @@ describe("rewrite stack integration", () => {
         tiles: expect.arrayContaining([expect.objectContaining({ x: 10, y: 11, ownerId: "player-1" })])
       })
     );
+
+    await waitUntil(async () => (await gatewayCommandStore.get("broadcast-cmd-1"))?.status === "RESOLVED");
   });
 
   it("supports settlement commands through the rewrite gateway", async () => {
