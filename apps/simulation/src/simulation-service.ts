@@ -41,6 +41,7 @@ import { SimulationRuntime } from "./runtime.js";
 import { loadSimulationStartupRecovery } from "./startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "./startup-replay-compaction.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
+import { personalizeSeasonVictoryObjectives } from "./personalized-season-victory.js";
 import { laneForCommand } from "./command-lane.js";
 import { createSimulationMetrics } from "./metrics.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
@@ -1115,7 +1116,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         });
         const playerWorldStatus = {
           ...worldStatus,
-          seasonVictory: summary.seasonVictory
+          seasonVictory: personalizeSeasonVictoryObjectives(summary.seasonVictory, worldStatus.seasonVictory)
         };
         const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
         if (cachedSnapshot) {
@@ -1394,7 +1395,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, event.tileDeltas));
         }
       }
-      if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
+      // TILE_DELTA_BATCH events describe authoritative tile changes that
+      // every subscribed player needs in real time, regardless of which
+      // player triggered them. The gateway fans these out to allSockets()
+      // and applies them to per-player snapshots, so a human watching their
+      // border get captured by an AI must see the flip live — not only
+      // after a snapshot refetch.
+      const isWorldVisibleBroadcast = event.eventType === "TILE_DELTA_BATCH";
+      if (!isWorldVisibleBroadcast && !subscriptionRegistry.isSubscribed(event.playerId)) return;
       const protoEvent = toProtoEvent(event);
       for (const stream of eventStreams) stream.write(protoEvent);
     });
