@@ -491,7 +491,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT,
       tileKindAt: heightfieldKindAt,
-      isExploredAt: isExploredForHeightfield
+      isExploredAt: isExploredForHeightfield,
+      isForestAt: isForestTile
     });
 
     mountainMassifs.clear();

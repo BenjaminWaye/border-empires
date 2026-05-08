@@ -5,9 +5,14 @@ import {
   LineBasicMaterial,
   LineSegments,
   Mesh,
-  MeshStandardMaterial
+  MeshStandardMaterial,
+  Vector2
 } from "three";
-import { legacy3DTerrainPalette } from "./client-map-3d-terrain-textures.js";
+import {
+  createTerrainDetailMaps,
+  legacy3DTerrainPalette,
+  type TerrainDetailMaps
+} from "./client-map-3d-terrain-textures.js";
 import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
 
 export type HeightfieldTerrainKind = "GRASS" | "SAND" | "MOUNTAIN" | "COASTAL_SEA" | "SEA";
@@ -97,13 +102,21 @@ export type HeightfieldRebuildInputs = {
   readonly worldHeight: number;
   readonly tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind;
   readonly isExploredAt?: (wx: number, wy: number) => boolean;
+  // Drives the "darker grass around trees" zone — any tile within
+  // FOREST_HALO_RADIUS of a forest tile gets a forestProximity = 1, smoothed
+  // at corners through vertex averaging. Optional so tests don't have to
+  // pass it; absent → no halo.
+  readonly isForestAt?: (wx: number, wy: number) => boolean;
 };
+
+const FOREST_HALO_RADIUS = 2;
 
 export type Heightfield = {
   readonly mesh: Mesh;
   readonly material: MeshStandardMaterial;
   readonly geometry: BufferGeometry;
   readonly gridlines: LineSegments;
+  readonly detailMaps: TerrainDetailMaps;
   readonly rebuild: (inputs: HeightfieldRebuildInputs) => void;
   readonly elevationAt: (wx: number, wy: number) => number;
   readonly cornerYAt: (cornerX: number, cornerZ: number) => number;
@@ -115,20 +128,135 @@ export const createHeightfield = (): Heightfield => {
   const geometry = new BufferGeometry();
   const positions = new Float32Array(VERT_COUNT * 3);
   const colors = new Float32Array(VERT_COUNT * 3);
+  // UV uses world tile coords so the painterly biome textures stay glued to
+  // tiles as the camera pans. The grass texture's `repeat` is set so one
+  // full painted pattern spans `tilesPerRepeat` tiles, killing the obvious
+  // 1-tile barcode look that the previous packed grayscale produced.
+  const uvs = new Float32Array(VERT_COUNT * 2);
+  // Per-vertex forest-halo strength. Averaged at corners across the 4
+  // surrounding tiles, so the boundary of the dark-grass zone fades over
+  // ~1 tile through standard vertex interpolation in the rasterizer.
+  const forestZones = new Float32Array(VERT_COUNT);
   const indices = new Uint32Array(MAX_INDEX_COUNT);
 
   geometry.setAttribute("position", new BufferAttribute(positions, 3));
   geometry.setAttribute("color", new BufferAttribute(colors, 3));
+  geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
+  geometry.setAttribute("forestZone", new BufferAttribute(forestZones, 1));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
 
+  // Painterly biome detail suite: a full-color grass texture, a full-color
+  // sand texture, and a shared normal+roughness pair. The fragment shader
+  // (onBeforeCompile below) samples both color textures at the same UV and
+  // blends them by the vertex-color biome mask, so each biome looks like
+  // hand-painted grass or hand-painted sand rather than the same noise.
+  const detailMaps = createTerrainDetailMaps();
+
+  // Use the grass color map as the primary `map` so three.js sets up the
+  // USE_MAP define + vMapUv varying for us. The sand map is wired in as a
+  // custom uniform and sampled at the same vMapUv (both textures use the
+  // same `repeat` so the UV transform matches).
   const material = new MeshStandardMaterial({
     vertexColors: true,
     flatShading: false,
+    map: detailMaps.grassColorMap ?? null,
+    normalMap: detailMaps.normalMap ?? null,
+    normalScale: new Vector2(1.05, 1.05),
+    roughnessMap: detailMaps.roughnessMap ?? null,
     roughness: 0.92,
     metalness: 0.0,
     side: DoubleSide
   });
+
+  // Replace three.js's built-in <map_fragment> with a biome-aware two-texture
+  // blend that also adds per-tile variation. The painted grass/sand textures
+  // tile every 8 world units, but each individual world tile hashes its
+  // coord into a 90° rotation + random offset so it samples a different
+  // region of the texture — the eye stops noticing repetition. Soft-narrow
+  // biome cut keeps the grass/sand boundary anti-aliased without the
+  // mid-blend zone that read as a darker green band before.
+  if (detailMaps.sandColorMap) {
+    const sandMapUniform = { value: detailMaps.sandColorMap };
+    material.onBeforeCompile = (shader): void => {
+      shader.uniforms.sandColorMap = sandMapUniform;
+
+      // Vertex shader: pass the raw world-coord uv (= camX + tileOffsetX + i,
+      // see rebuild()) through as `vTerrainWorldUv` so the fragment shader
+      // can recover which world tile a pixel belongs to via floor(). Also
+      // pass the forestZone attribute (corner-averaged forest proximity)
+      // for the dark-grass halo around tree tiles.
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <common>",
+        `#include <common>
+attribute float forestZone;
+varying vec2 vTerrainWorldUv;
+varying float vForestZone;`
+      );
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <uv_vertex>",
+        `#include <uv_vertex>
+vTerrainWorldUv = uv;
+vForestZone = forestZone;`
+      );
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <common>",
+        `#include <common>
+uniform sampler2D sandColorMap;
+varying vec2 vTerrainWorldUv;
+varying float vForestZone;`
+      );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <map_fragment>",
+        `
+      #ifdef USE_MAP
+        // ---- Per-tile UV variation ----
+        // Hash the world-tile coord for a 90° rotation index + a random
+        // (offsetX, offsetY) within [0, 8) world-units. Adjacent tiles get
+        // independent hashes so they sample disjoint regions of the same
+        // painted texture and rotate independently — repetition vanishes.
+        vec2 tileId = floor(vTerrainWorldUv);
+        float h1 = fract(sin(dot(tileId, vec2(12.9898, 78.233))) * 43758.5453);
+        float h2 = fract(sin(dot(tileId, vec2(63.7264, 10.873))) * 43758.5453);
+        float angle = floor(h1 * 4.0) * 1.5707963267948966;
+        float ca = cos(angle);
+        float sa = sin(angle);
+        mat2 R = mat2(ca, -sa, sa, ca);
+        vec2 inTile = vTerrainWorldUv - tileId;
+        vec2 rotated = R * (inTile - 0.5) + 0.5;
+        vec2 offset = vec2(h2 * 8.0, fract(h2 * 7.31) * 8.0);
+        // Multiply by 1/tilesPerRepeat (8) to put back into texture-local UV;
+        // the texture has RepeatWrapping so any value samples cleanly.
+        vec2 sampleUv = (tileId + rotated + offset) * 0.125;
+
+        vec4 grassSample = texture2D( map, sampleUv );
+        vec4 sandSample = texture2D( sandColorMap, sampleUv );
+        float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
+        // Soft-narrow biome cut: 0.03-wide blend zone, just enough to
+        // antialias the seam without a visible mid-blend band of
+        // muddy-green-into-tan.
+        float grassMask = smoothstep(0.055, 0.085, greenBias);
+        vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
+
+        // Forest halo: where the grass is within 2 tiles of a tree tile
+        // (vForestZone interpolates 0..1 from the per-corner average),
+        // multiply down toward a forest-floor tone. Gated by grassMask so
+        // sand near forests stays bright. Only ~30% darkening at full
+        // strength so the speckled grass detail is still readable.
+        float forestDarken = vForestZone * grassMask;
+        vec3 forestTinted = biomeColor * mix(vec3(1.0), vec3(0.66, 0.78, 0.58), forestDarken);
+
+        // Very mild vertex-color tint at 12% — beach-corner blends and
+        // per-tile shade variants still register; painted base dominates.
+        float vertLum = max(0.001, dot(vColor.rgb, vec3(0.299, 0.587, 0.114)));
+        vec3 tint = mix(vec3(1.0), vColor.rgb / vertLum, 0.12);
+        diffuseColor.rgb = forestTinted * tint;
+      #endif
+      `
+      );
+    };
+  }
 
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false;
@@ -176,8 +304,19 @@ export const createHeightfield = (): Heightfield => {
   const rebuild = (inputs: HeightfieldRebuildInputs): void => {
     elevationCache.clear();
     renderedCornerYCache.clear();
-    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt } = inputs;
+    const {
+      camX,
+      camY,
+      halfW,
+      halfH,
+      worldWidth,
+      worldHeight,
+      tileKindAt,
+      isExploredAt,
+      isForestAt
+    } = inputs;
     const exploredAt = isExploredAt ?? ((): boolean => true);
+    const forestAt = isForestAt ?? ((): boolean => false);
 
     const tileSpanX = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfW + 3));
     const tileSpanY = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfH + 3));
@@ -193,8 +332,21 @@ export const createHeightfield = (): Heightfield => {
       readonly b: number;
       readonly isSea: boolean;
       readonly isExplored: boolean;
+      readonly forestProx: number;
     };
     const tileSampleCache = new Map<number, TileSample>();
+
+    // 1 if this tile or any tile within FOREST_HALO_RADIUS is a forest, else 0.
+    // Cheap toroidal Chebyshev-disc scan; the early-exit on the first hit
+    // keeps cost low even at the radius=2 (5×5 = 25 lookups worst case).
+    const forestProxAt = (wx: number, wy: number): number => {
+      for (let dy = -FOREST_HALO_RADIUS; dy <= FOREST_HALO_RADIUS; dy += 1) {
+        for (let dx = -FOREST_HALO_RADIUS; dx <= FOREST_HALO_RADIUS; dx += 1) {
+          if (forestAt(wrap(wx + dx, worldWidth), wrap(wy + dy, worldHeight))) return 1;
+        }
+      }
+      return 0;
+    };
 
     const sampleTile = (di: number, dj: number): TileSample => {
       const wx = wrap(camX + tileOffsetX + di, worldWidth);
@@ -208,7 +360,17 @@ export const createHeightfield = (): Heightfield => {
       const elevation = heightfieldTileBaseElevation(kind) + elevationJitter(wx, wy, kind);
       const isSea = kind === "SEA" || kind === "COASTAL_SEA";
       const isExplored = exploredAt(wx, wy);
-      const sample: TileSample = { elevation, r: cr / 255, g: cg / 255, b: cb / 255, isSea, isExplored };
+      // Forest halo only matters on land grass — no point scanning sea/mountain.
+      const forestProx = !isSea && kind !== "MOUNTAIN" ? forestProxAt(wx, wy) : 0;
+      const sample: TileSample = {
+        elevation,
+        r: cr / 255,
+        g: cg / 255,
+        b: cb / 255,
+        isSea,
+        isExplored,
+        forestProx
+      };
       tileSampleCache.set(cacheKey, sample);
       elevationCache.set(elevationKey(wx, wy), heightfieldTileBaseElevation(kind));
       return sample;
@@ -293,6 +455,18 @@ export const createHeightfield = (): Heightfield => {
         colors[baseIdx + 0] = r;
         colors[baseIdx + 1] = g;
         colors[baseIdx + 2] = b;
+        // World-anchored UV: as the camera pans, the texture slides under
+        // tile boundaries to match the world content shifting through the
+        // mesh slot. Combined with the texture's repeat = 1/tilesPerRepeat,
+        // each painted region spans many tiles so the per-tile barcode look
+        // disappears and adjacent tiles draw different parts of the painting.
+        const baseUv = (j * VERT_DIM + i) * 2;
+        uvs[baseUv + 0] = camX + tileOffsetX + i;
+        uvs[baseUv + 1] = camY + tileOffsetY + j;
+        // Forest halo: average the 4 surrounding tiles' forestProx so the
+        // halo edge fades over a tile through standard vertex interpolation.
+        const vertIdx = j * VERT_DIM + i;
+        forestZones[vertIdx] = (s00.forestProx + s10.forestProx + s01.forestProx + s11.forestProx) * 0.25;
         // Cache the rendered corner-Y keyed by world coords so overlay
         // helpers can look up the exact surface Y the heightfield drew.
         const cornerWorldX = wrap(camX + tileOffsetX + i, worldWidth);
@@ -331,8 +505,12 @@ export const createHeightfield = (): Heightfield => {
 
     const positionAttr = geometry.attributes.position;
     const colorAttr = geometry.attributes.color;
+    const uvAttr = geometry.attributes.uv;
+    const forestAttr = geometry.attributes.forestZone;
     if (positionAttr) positionAttr.needsUpdate = true;
     if (colorAttr) colorAttr.needsUpdate = true;
+    if (uvAttr) uvAttr.needsUpdate = true;
+    if (forestAttr) forestAttr.needsUpdate = true;
     geometry.setDrawRange(0, lastIndexCount);
     geometry.computeVertexNormals();
 
@@ -411,9 +589,21 @@ export const createHeightfield = (): Heightfield => {
   const dispose = (): void => {
     geometry.dispose();
     material.dispose();
+    detailMaps.dispose();
     gridGeometry.dispose();
     gridMaterial.dispose();
   };
 
-  return { mesh, material, geometry, gridlines, rebuild, elevationAt, cornerYAt, setGridlinesVisible, dispose };
+  return {
+    mesh,
+    material,
+    geometry,
+    gridlines,
+    detailMaps,
+    rebuild,
+    elevationAt,
+    cornerYAt,
+    setGridlinesVisible,
+    dispose
+  };
 };
