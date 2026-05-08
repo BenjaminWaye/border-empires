@@ -23,6 +23,10 @@ type RawSimulationClient = {
     },
     callback: (error: Error | null, response: { ok: boolean }) => void
   ) => void;
+  SubscribePlayer?: (
+    request: { player_id: string; subscription_json: string },
+    callback: (error: Error | null, response: { ok: boolean }) => void
+  ) => void;
   StreamEvents?: (
     request: { at: number }
   ) => { on: (event: "data" | "error", handler: (value: any) => void) => void; cancel: () => void };
@@ -47,6 +51,17 @@ const proto = loadPackageDefinition(packageDefinition) as unknown as {
 const createRawSimulationClient = (address: string) =>
   new proto.border_empires.simulation.SimulationService(address, credentials.createInsecure());
 
+const subscribePlayer = async (client: RawSimulationClient, playerId: string): Promise<void> => {
+  const rpc = client.SubscribePlayer;
+  if (!rpc) throw new Error("SubscribePlayer RPC unavailable");
+  await new Promise<void>((resolve, reject) => {
+    rpc.call(client, { player_id: playerId, subscription_json: "{}" }, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+};
+
 const submitCommand = async (
   client: RawSimulationClient,
   request: {
@@ -69,11 +84,19 @@ const submitCommand = async (
   });
 };
 
+type StreamedEvent = {
+  event_type?: string;
+  command_id?: string;
+  player_id?: string;
+  message_type?: string;
+  payload_json?: string;
+};
+
 const waitForStreamEvent = async (
   client: RawSimulationClient,
-  predicate: (event: { event_type?: string; command_id?: string; player_id?: string }) => boolean,
+  predicate: (event: StreamedEvent) => boolean,
   timeoutMs = 4_000
-): Promise<{ event_type?: string; command_id?: string; player_id?: string }> => {
+): Promise<StreamedEvent> => {
   const rpc = client.StreamEvents;
   if (!rpc) throw new Error("StreamEvents RPC unavailable");
   const stream = rpc.call(client, { at: Date.now() });
@@ -191,5 +214,113 @@ describe("simulation streams TILE_DELTA_BATCH from unsubscribed actors", () => {
         player_id: actorId
       })
     );
+  });
+
+  it("emits an ATTACK_ALERT player message addressed to the defender so they see the incoming-attack overlay", async () => {
+    const service = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      enableAiAutopilot: false,
+      enableSystemAutopilot: false,
+      log: silentLog
+    });
+    cleanup.push(() => service.close());
+    const started = await service.start();
+    const client = createRawSimulationClient(started.address);
+
+    // Look for two seeded players whose tiles are adjacent so we can drive a
+    // real ATTACK between them. The attacker plays the role of an unsubscribed
+    // AI; the defender plays the role of a subscribed human whose tile is
+    // about to be hit. The runtime emits a PLAYER_MESSAGE addressed to the
+    // defender — that's what the rewrite client renders as the under-attack
+    // overlay.
+    const exportedTiles = service.runtime.exportState().tiles;
+    const tileByKey = new Map(exportedTiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
+    const ownedNeighborOffsets: Array<{ dx: number; dy: number }> = [
+      { dx: 0, dy: -1 },
+      { dx: 1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: 0 },
+      { dx: -1, dy: -1 },
+      { dx: 1, dy: -1 },
+      { dx: 1, dy: 1 },
+      { dx: -1, dy: 1 }
+    ];
+    let attackerId: string | undefined;
+    let defenderId: string | undefined;
+    let attackOrigin: (typeof exportedTiles)[number] | undefined;
+    let attackTarget: (typeof exportedTiles)[number] | undefined;
+    for (const tile of exportedTiles) {
+      if (!tile.ownerId) continue;
+      for (const { dx, dy } of ownedNeighborOffsets) {
+        const neighbor = tileByKey.get(`${tile.x + dx},${tile.y + dy}`);
+        if (
+          neighbor &&
+          neighbor.terrain === "LAND" &&
+          neighbor.ownerId &&
+          neighbor.ownerId !== tile.ownerId
+        ) {
+          attackerId = tile.ownerId;
+          defenderId = neighbor.ownerId;
+          attackOrigin = tile;
+          attackTarget = neighbor;
+          break;
+        }
+      }
+      if (attackTarget) break;
+    }
+    expect(attackerId, "expected a seeded attacker with an enemy-owned neighbor").toBeDefined();
+    expect(defenderId, "expected a seeded defender owning the chosen target tile").toBeDefined();
+    expect(attackOrigin, "expected an owned origin tile for the attacker").toBeDefined();
+    expect(attackTarget, "expected an enemy-owned target tile").toBeDefined();
+    if (!attackerId || !defenderId || !attackOrigin || !attackTarget) return;
+
+    // Subscribe only the defender — that's the production shape: human
+    // defender's gateway is the only stream listener that should be alerted,
+    // while the AI attacker remains unsubscribed.
+    await subscribePlayer(client, defenderId);
+
+    const commandId = "unsubscribed-attacker-attack-alert";
+    const attackAlert = waitForStreamEvent(
+      client,
+      (event) =>
+        (event.event_type === "PLAYER_MESSAGE" &&
+          event.message_type === "ATTACK_ALERT" &&
+          event.command_id === commandId) ||
+        (event.event_type === "COMMAND_REJECTED" && event.command_id === commandId)
+    );
+
+    await submitCommand(client, {
+      command_id: commandId,
+      session_id: "session-unsub-attack-alert",
+      player_id: attackerId,
+      client_seq: 1,
+      issued_at: Date.now(),
+      type: "ATTACK",
+      payload_json: JSON.stringify({
+        fromX: attackOrigin.x,
+        fromY: attackOrigin.y,
+        toX: attackTarget.x,
+        toY: attackTarget.y
+      })
+    });
+
+    const event = await attackAlert;
+    expect(event.event_type, `attack rejected: ${event.payload_json ?? ""}`).toBe("PLAYER_MESSAGE");
+    expect(event.player_id).toBe(defenderId);
+    expect(typeof event.payload_json).toBe("string");
+    if (typeof event.payload_json !== "string") return;
+    const payload = JSON.parse(event.payload_json) as Record<string, unknown>;
+    expect(payload).toEqual(
+      expect.objectContaining({
+        type: "ATTACK_ALERT",
+        attackerId,
+        x: attackTarget.x,
+        y: attackTarget.y,
+        fromX: attackOrigin.x,
+        fromY: attackOrigin.y
+      })
+    );
+    expect(typeof payload.resolvesAt).toBe("number");
   });
 });

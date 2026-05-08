@@ -1180,11 +1180,13 @@ describe("simulation runtime", () => {
 
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
         "COMMAND_ACCEPTED:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
@@ -2332,11 +2334,13 @@ describe("simulation runtime", () => {
 
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
         "COMMAND_ACCEPTED:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1"

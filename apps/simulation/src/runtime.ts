@@ -1938,6 +1938,33 @@ export class SimulationRuntime {
       resolvesAt: validation.resolvesAt,
       ...(combatResolution ? { combatResult: combatResolution.result } : {})
     });
+    // Notify the defender that an attack is incoming on one of their tiles
+    // so the rewrite client can render the under-attack overlay. Routed via
+    // PLAYER_MESSAGE with playerId=defender — the gateway delivers this to
+    // the defender's socket, even when the attacker is an unsubscribed AI.
+    const defenderOwnerId = combatResolution?.result.defenderOwnerId;
+    if (
+      actionType === "ATTACK" &&
+      defenderOwnerId &&
+      defenderOwnerId !== command.playerId
+    ) {
+      this.emitEvent({
+        eventType: "PLAYER_MESSAGE",
+        commandId: command.commandId,
+        playerId: defenderOwnerId,
+        messageType: "ATTACK_ALERT",
+        payloadJson: JSON.stringify({
+          type: "ATTACK_ALERT",
+          attackerId: command.playerId,
+          attackerName: actor.name ?? command.playerId,
+          x: validation.target.x,
+          y: validation.target.y,
+          fromX: validation.origin.x,
+          fromY: validation.origin.y,
+          resolvesAt: validation.resolvesAt
+        })
+      });
+    }
     this.scheduleLockResolution(lock);
   }
 

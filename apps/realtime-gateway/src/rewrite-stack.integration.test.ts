@@ -963,6 +963,18 @@ describe("rewrite stack integration", () => {
     await nextNonBootstrapMessage(attackerSocket, "accepted");
     await nextNonBootstrapMessage(attackerSocket, "combat-start");
 
+    // The defender (player-2) is alerted at acceptance time so the rewrite
+    // client can render the under-attack overlay before the tile flips.
+    const observerAlert = await nextNonBootstrapMessage(observerSocket, "observer attack alert");
+    expect(observerAlert).toEqual(
+      expect.objectContaining({
+        type: "ATTACK_ALERT",
+        attackerId: "player-1",
+        x: 10,
+        y: 11
+      })
+    );
+
     expect(scheduledResolutions).toHaveLength(1);
     scheduledResolutions[0]?.task();
 
