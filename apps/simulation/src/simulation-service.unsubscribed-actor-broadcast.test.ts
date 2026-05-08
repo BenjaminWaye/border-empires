@@ -281,12 +281,13 @@ describe("simulation streams TILE_DELTA_BATCH from unsubscribed actors", () => {
     await subscribePlayer(client, defenderId);
 
     const commandId = "unsubscribed-attacker-attack-alert";
+    const expectedAlertCommandId = `attack-alert:${commandId}`;
     const attackAlert = waitForStreamEvent(
       client,
       (event) =>
         (event.event_type === "PLAYER_MESSAGE" &&
           event.message_type === "ATTACK_ALERT" &&
-          event.command_id === commandId) ||
+          event.command_id === expectedAlertCommandId) ||
         (event.event_type === "COMMAND_REJECTED" && event.command_id === commandId)
     );
 

@@ -1178,15 +1178,19 @@ describe("simulation runtime", () => {
 
       runtime.submitCommand(command);
 
+      // ATTACK_ALERT is intentionally NOT replayed on duplicate submit: it's
+      // an acceptance-time side-effect addressed to the defender, not part of
+      // the attacker's idempotent result. Replay only re-emits events
+      // recorded under the original commandId, so the second submission
+      // omits the attack-alert:* PLAYER_MESSAGE.
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
+        "PLAYER_MESSAGE:attack-alert:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
         "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
@@ -2332,15 +2336,19 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
 
+      // ATTACK_ALERT is intentionally NOT replayed on duplicate submit: it's
+      // an acceptance-time side-effect addressed to the defender, not part of
+      // the attacker's idempotent result. Replay only re-emits events
+      // recorded under the original commandId, so the second submission
+      // omits the attack-alert:* PLAYER_MESSAGE.
       expect(seen).toEqual([
         "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
+        "PLAYER_MESSAGE:attack-alert:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
         "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
