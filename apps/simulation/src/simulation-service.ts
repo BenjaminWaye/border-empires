@@ -41,6 +41,7 @@ import { SimulationRuntime } from "./runtime.js";
 import { loadSimulationStartupRecovery } from "./startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "./startup-replay-compaction.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
+import { personalizeSeasonVictoryObjectives } from "./personalized-season-victory.js";
 import { laneForCommand } from "./command-lane.js";
 import { createSimulationMetrics } from "./metrics.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
@@ -1104,7 +1105,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         });
         const playerWorldStatus = {
           ...worldStatus,
-          seasonVictory: summary.seasonVictory
+          seasonVictory: personalizeSeasonVictoryObjectives(summary.seasonVictory, worldStatus.seasonVictory)
         };
         const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
         if (cachedSnapshot) {
