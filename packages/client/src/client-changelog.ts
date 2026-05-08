@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.2",
+  version: "2026.05.09.3",
   title: "What's New",
-  summary: "Shard capture now requires a frontier on the shard tile, and shard stock updates when you collect. The Collect Shards button is hidden on tiles you don't own. Shard is dropped from the detailed economy tab since it has no income source or upkeep.",
+  summary: "3D roads actually render now, as terrain-hugging painterly ribbons with curved eight-direction joins and rounded junction hubs — two render bugs were swallowing the new overlay completely. Plus the shard capture / economy-tab cleanup and manpower-by-town-tier scaling from earlier today.",
   entries: [
+    {
+      introducedIn: "2026.05.09.3",
+      title: "3D roads actually render now, as deliberate map art instead of debug paths",
+      why: "The true-3D renderer had the road network data available, but the new ribbon overlay shipped with two bugs that made roads invisible in 3D mode: the index buffer was constructed via Three.js's Uint32BufferAttribute, whose constructor silently copies its input array so every per-vertex index write landed on a dead buffer; and the legacy 2D canvas road draw was still firing in 3D mode, stamping flat tan strokes over the WebGL scene every frame. The visual treatment also needed to respect the game's eight-direction connected-town graph while reading as natural, illustrated roads on the heightfield terrain.",
+      changes: [
+        "3D roads now render as custom terrain-following ribbon geometry with a warm tan body, dark painted edge bands, subtle grain, and polygon offset to avoid terrain flicker.",
+        "Ordinary two-way road tiles use smooth cubic curves between their two connected edges or corners; endpoint, town, and junction tiles get rounded painted hubs with curved arms to all active directions.",
+        "The 2D canvas road overlay is now suppressed when the true-3D renderer is active, matching the existing pattern for resource/dock/structure/barbarian overlays — the new ribbons no longer have to fight the legacy strokes for visibility.",
+        "Road overlay commit no longer recomputes vertex normals across the worst-case 1.4M-index buffer on every camera move, which was the dominant cost of zoom-in lag.",
+        "The implementation keeps a single shared road material and deterministic per-tile arm variation so later tech/domain road tiers can swap visual parameters without replacing the road network logic."
+      ]
+    },
     {
       introducedIn: "2026.05.09.2",
       title: "Shard capture requires owning the tile; stock now updates",
