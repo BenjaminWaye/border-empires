@@ -31,7 +31,7 @@ type EconomyPanelArgs = {
   economicStructureName: (type: EconomicStructureType) => string;
 };
 
-const resources: EconomyResource[] = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
+const resources: EconomyResource[] = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
 
 const formatUpkeepSummary = (
   upkeep: EconomyPanelArgs["upkeepPerMinute"],
@@ -60,7 +60,6 @@ const economySourceLabelForTile = (
     if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
     return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Settled land";
   }
-  if (resource === "SHARD") return "Shard sites";
   if (tile.resource) return prettyToken(resourceLabel(tile.resource));
   if (tile.town && resource === "FOOD") return "Town support";
   return tile.economicStructure ? economicStructureName(tile.economicStructure.type) : "Empire effects";
