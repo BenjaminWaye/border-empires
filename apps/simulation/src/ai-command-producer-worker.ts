@@ -20,6 +20,61 @@ import { createAutomationNoopDiagnostic } from "./automation-command-planner.js"
 import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
+import {
+  createAiIntentLatchState,
+  latchAiIntent,
+  probeAiLatchedIntent,
+  releaseAiLatchedIntent,
+  reservationHeldByOtherAi,
+  reserveAiTarget,
+  type AiLatchedIntentKind
+} from "./ai-intent-latch.js";
+
+const intentKindForCommand = (commandType: CommandEnvelope["type"]): AiLatchedIntentKind | undefined => {
+  if (commandType === "ATTACK" || commandType === "EXPAND") return "frontier";
+  if (commandType === "SETTLE") return "settlement";
+  if (
+    commandType === "BUILD_FORT" ||
+    commandType === "BUILD_ECONOMIC_STRUCTURE" ||
+    commandType === "BUILD_SIEGE_OUTPOST"
+  ) {
+    return "structure";
+  }
+  return undefined;
+};
+
+const wakeWindowMsForCommand = (commandType: CommandEnvelope["type"]): number => {
+  if (commandType === "ATTACK" || commandType === "EXPAND") return 3_500;
+  if (commandType === "SETTLE") return 61_000;
+  return 0;
+};
+
+const extractTargetTileKey = (command: CommandEnvelope): string | undefined => {
+  try {
+    const payload = JSON.parse(command.payloadJson) as Record<string, unknown>;
+    if (typeof payload.toX === "number" && typeof payload.toY === "number") {
+      return `${payload.toX},${payload.toY}`;
+    }
+    if (typeof payload.x === "number" && typeof payload.y === "number") {
+      return `${payload.x},${payload.y}`;
+    }
+  } catch {
+    /* malformed payload — no key */
+  }
+  return undefined;
+};
+
+const extractOriginTileKey = (command: CommandEnvelope): string | undefined => {
+  try {
+    const payload = JSON.parse(command.payloadJson) as Record<string, unknown>;
+    if (typeof payload.fromX === "number" && typeof payload.fromY === "number") {
+      return `${payload.fromX},${payload.fromY}`;
+    }
+  } catch {
+    /* malformed payload — no key */
+  }
+  return undefined;
+};
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -154,6 +209,12 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
   const urgentByPlayerId = new Set<string>();
+  const intentLatchState = createAiIntentLatchState();
+  // Latching is always on for the worker producer — runtime tracks
+  // tileCollectionVersion per player and we read it from the synced
+  // plannerPlayersById map (already kept fresh via player_sync messages).
+  const territoryVersionForPlayer = (playerId: string): number =>
+    plannerPlayersById.get(playerId)?.tileCollectionVersion ?? 0;
 
   let tickInFlight = false;
   let nextPlayerIndex = 0;
@@ -431,6 +492,20 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     ) {
       if (pendingMatches) pendingCommandByPlayer.delete(event.playerId);
       if (trackedPreplanMatches) trackedPreplanByCommandId.delete(event.commandId);
+      if (
+        pendingMatches &&
+        (
+          event.eventType === "COMMAND_REJECTED" ||
+          event.eventType === "COMBAT_RESOLVED" ||
+          event.eventType === "TILE_DELTA_BATCH"
+        )
+      ) {
+        // Release on any terminal pending event:
+        //  - COMBAT_RESOLVED for ATTACK/EXPAND
+        //  - TILE_DELTA_BATCH for SETTLE/BUILD_*
+        //  - COMMAND_REJECTED for any failure
+        releaseAiLatchedIntent(intentLatchState, event.playerId);
+      }
       if (trackedPreplanMatches && event.eventType !== "COMMAND_REJECTED") {
         syncPlannerStateImmediately(event.playerId);
       }
@@ -530,6 +605,13 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       for (const playerIndex of iterationOrder) {
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
+        const playerTerritoryVersion = territoryVersionForPlayer(playerId);
+        const probe = probeAiLatchedIntent(intentLatchState, {
+          playerId,
+          nowMs: now(),
+          territoryVersion: playerTerritoryVersion
+        });
+        if (probe.status === "waiting") continue;
 
         let clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         let skipPreplan = false;
@@ -597,10 +679,45 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               advancedWithoutPending = true;
               continue;
             }
+            const targetTileKey = extractTargetTileKey(plan.command);
+            const intentKind = intentKindForCommand(plan.command.type);
+            if (
+              intentKind &&
+              targetTileKey &&
+              reservationHeldByOtherAi(intentLatchState, playerId, targetTileKey, issuedAt)
+            ) {
+              // Another AI has committed to this tile; defer to let next tick re-plan.
+              break;
+            }
             pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
             nextClientSeqByPlayer.set(playerId, clientSeq + 1);
             nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
             urgentByPlayerId.delete(playerId);
+            if (intentKind) {
+              const wakeWindowMs = wakeWindowMsForCommand(plan.command.type);
+              if (wakeWindowMs > 0) {
+                const wakeAt = issuedAt + wakeWindowMs;
+                const originTileKey = extractOriginTileKey(plan.command);
+                const actionKey = `${plan.command.type}:${targetTileKey ?? originTileKey ?? plan.command.commandId}`;
+                latchAiIntent(intentLatchState, {
+                  playerId,
+                  actionKey,
+                  kind: intentKind,
+                  startedAt: issuedAt,
+                  wakeAt,
+                  territoryVersion: playerTerritoryVersion,
+                  ...(targetTileKey ? { targetTileKey } : {}),
+                  ...(originTileKey ? { originTileKey } : {})
+                });
+                if (targetTileKey) {
+                  reserveAiTarget(
+                    intentLatchState,
+                    { playerId, actionKey, tileKey: targetTileKey, createdAt: issuedAt, wakeAt },
+                    issuedAt
+                  );
+                }
+              }
+            }
             const submitStartedAt = now();
             await options.submitCommand(plan.command);
             options.onCommand?.({ playerId, commandType: plan.command.type });
@@ -614,6 +731,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         } catch {
           pendingCommandByPlayer.delete(playerId);
           if (activePreplanCommandId) trackedPreplanByCommandId.delete(activePreplanCommandId);
+          releaseAiLatchedIntent(intentLatchState, playerId);
           // swallow — will retry on next tick
         }
         if (advancedWithoutPending) {
