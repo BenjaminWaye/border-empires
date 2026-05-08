@@ -11,8 +11,12 @@ import {
 const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
 
-const SETTLED_OPACITY = 0.85;
-const FRONTIER_OPACITY = 0.55;
+// Tuned so the new heightfield biome detail (grass blades, sand ripples,
+// tile-edge AO) reads through the ownership tint. Settled keeps a strong
+// claim color but no longer blots the surface; frontier is a light wash so
+// the underlying biome dominates and the two states are clearly distinct.
+const SETTLED_OPACITY = 0.62;
+const FRONTIER_OPACITY = 0.32;
 
 export type OwnershipOverlay = {
   readonly settledMesh: Mesh;
