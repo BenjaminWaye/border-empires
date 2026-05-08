@@ -19,10 +19,31 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.3",
+  version: "2026.05.08.4",
   title: "What's New",
-  summary: "The unfed-town warning badge no longer lights up neutral, foreign, unsettled, or settlement-tier towns on the map. The badge predicate is now shared with the tile-overview's 'Town is unfed' line, so what you see on the map matches what you see when you click — the previous shape would paint warnings on neutral world towns that have no fed/unfed info at all in the click panel. Plus the prior simulation reseed-on-restart fix, food-aware AI claim scoring, dock-line straight-fallback fix, and the rest of this release train.",
+  summary: "AI now reacts immediately when a human captures one of its tiles — the attacked AI is bumped to the front of the planning queue instead of waiting up to 5+ seconds for round-robin. Plus AI no longer pre-empts itself with COLLECT_VISIBLE when it has gold to expand. Plus the unfed-town badge predicate fix, simulation reseed-on-restart fix, food-aware AI claim scoring, dock-line straight-fallback fix, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.4",
+      title: "AI defends immediately when a human captures one of its tiles",
+      why: "When a human captured an AI tile on staging, the AI took 5+ seconds to react (sometimes much longer). The simulation runs ~20 AIs in round-robin at 250ms ticks, so any single AI's turn comes around once every ~5 seconds even in the best case — and an attacked AI was just sitting in that queue with no priority signal. Legacy had `markAiDefensePriority` wired into the attack-resolution path; the rewrite never ported it during the worker-thread split.",
+      changes: [
+        "When a human attacks and captures an AI's tile (`COMBAT_RESOLVED` with `attackerWon` and `actionType === \"ATTACK\"`), the AI command producer now adds the defender to an urgent set so the next planner tick processes that AI first, before resuming the round-robin.",
+        "Urgent flag clears the moment the AI gets a turn, so it doesn't starve other AIs.",
+        "AI-vs-AI captures and EXPAND-into-neutral don't trigger urgent priority — only human-vs-AI attacks do, since those are the only ones the player sees feel unresponsive.",
+        "Same logic mirrored into the worker-thread producer (`ai-command-producer-worker.ts`) which is what runs in production with `SIMULATION_AI_WORKER=1`."
+      ]
+    },
+    {
+      introducedIn: "2026.05.08.4",
+      title: "AI stops pre-empting itself with COLLECT_VISIBLE when it has gold to expand",
+      why: "The preplan layer was returning `COLLECT_VISIBLE` whenever a tech was unaffordable — even when the AI had 100+ gold sitting unused. With `STARTING_GOLD = 100` and a Tier 1 tech costing 2000 gold, every fresh-spawn AI ran `COLLECT_VISIBLE` for the first ~32 hours of a season instead of using its starting gold to expand. Combined with the `COLLECT_VISIBLE_COOLDOWN_MS = 20_000` rate limit, AIs effectively idled.",
+      changes: [
+        "Preplan now also requires `points < FRONTIER_CLAIM_COST + SETTLE_COST` (5 gold) before returning `COLLECT_VISIBLE` for the unaffordable-progression branch — i.e., AI only harvests yield when it can't even afford one claim+settle.",
+        "Above that threshold, preplan defers to the main planner, which handles expansion, settlement, attacks, and economic builds via the existing decision tree.",
+        "The `hasActiveLock` branch is unchanged — AIs with an in-flight development still harvest yield while waiting."
+      ]
+    },
     {
       introducedIn: "2026.05.08.3",
       title: "Unfed-town warning badge no longer fires on towns we don't actually warn about",
