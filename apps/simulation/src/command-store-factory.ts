@@ -7,12 +7,22 @@ import { createPostgresSimulationCommandStore } from "./postgres-command-store.j
 
 type CommandStoreFactoryOptions = {
   databaseUrl?: string;
+  sqlitePath?: string;
   applySchema?: boolean;
 };
 
 export const createSimulationCommandStore = async (
   options: CommandStoreFactoryOptions = {}
 ): Promise<SimulationCommandStore> => {
+  if (options.sqlitePath) {
+    const [{ SqliteSimulationCommandStore }, { openSqliteDatabase }] = await Promise.all([
+      import("./sqlite-command-store.js"),
+      import("./sqlite-db.js")
+    ]);
+    const store = new SqliteSimulationCommandStore(openSqliteDatabase(options.sqlitePath));
+    if (options.applySchema) await store.applySchema();
+    return store;
+  }
   if (!options.databaseUrl) return new InMemorySimulationCommandStore();
 
   const store = createPostgresSimulationCommandStore(options.databaseUrl);
