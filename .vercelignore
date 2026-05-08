@@ -3,3 +3,14 @@
 .localhost-seasons/
 .DS_Store
 _tmp_*
+.git/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+*.log
+*.tsbuildinfo
+snapshots/
+**/snapshots/
+.fly/
+.vercel/
