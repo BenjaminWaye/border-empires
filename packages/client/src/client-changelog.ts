@@ -19,10 +19,42 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.4",
+  version: "2026.05.08.7",
   title: "What's New",
-  summary: "AI now reacts immediately when a human captures one of its tiles — the attacked AI is bumped to the front of the planning queue instead of waiting up to 5+ seconds for round-robin. Plus AI no longer pre-empts itself with COLLECT_VISIBLE when it has gold to expand. Plus the unfed-town badge predicate fix, simulation reseed-on-restart fix, food-aware AI claim scoring, dock-line straight-fallback fix, and the rest of this release train.",
+  summary: "AI now commits to its plans across ticks via an intent latch — it picks an EXPAND/ATTACK/SETTLE target, sticks with it for the relevant resolution window, and reserves the target tile so two AIs don't both spend gold racing for the same neutral land. Plus season-victory progress fix, AI defense-priority and COLLECT_VISIBLE preplan fixes, unfed-town badge predicate, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.7",
+      title: "AI plans persist across ticks instead of being thrown away every 250ms",
+      why: "The Phase-3 worker-thread split moved the AI planner into a worker but didn't port legacy's `intent-latch.ts` or its tile-reservation map. Result on the rewrite: every 250ms tick, each AI replanned from scratch with no memory of \"I'm already doing this,\" and two AIs staring at the same juicy neutral tile would both try to claim it (one wins, the other wastes gold/cycles). Legacy committed to a chosen action for the duration of its resolution window and reserved the target tile across AIs.",
+      changes: [
+        "Ported `apps/simulation/src/ai-intent-latch.ts` from the legacy `packages/server/src/ai/intent-latch.ts` — same shape (intent + reservation maps, probe/latch/release, expiry on wake-window, invalidation on territoryVersion mismatch or target-no-longer-valid).",
+        "Wired into both the in-process `ai-command-producer.ts` and the worker-thread `ai-command-producer-worker.ts`. After dispatching an EXPAND/ATTACK/SETTLE, the producer latches the AI for the action's resolution window (3.5s for EXPAND/ATTACK, 61s for SETTLE) and reserves the target tile.",
+        "Cross-AI reservation gate: if an AI's planner picks a tile that another AI has already reserved, the producer drops that turn instead of dispatching a doomed claim, and the round-robin moves on.",
+        "Latch is invalidated when the player's `tileCollectionVersion` changes (territory shifted under us), released on COMBAT_RESOLVED / TILE_DELTA_BATCH / COMMAND_REJECTED for the same commandId, and expires automatically when the wake window elapses — so a stuck or unrecorded resolution doesn't deadlock the AI.",
+        "Reuses the existing `tileCollectionVersion` (already incremented in `runtime.ts:markPlannerPlayerTileCollectionDirty`) as the territoryVersion equivalent — no new runtime instrumentation needed."
+      ]
+    },
+    {
+      introducedIn: "2026.05.08.6",
+      title: "Season victory cards show your progress again",
+      why: "The rewrite simulation built a personalized objective list with `You:` progress, then live global-status broadcasts replaced it with the stored season summary. That summary is intentionally global, so it has leader and hold status but no current-player comparison line. Separately, once you became the leader, the card showed your public display name instead of `You` because the client was checking for the literal test id `me`.",
+      changes: [
+        "Global status updates now keep the stored leader/hold fields while merging each connected player's own `selfProgressLabel`, restoring lines such as `You: 5.0 gold/m` when another empire leads.",
+        "Season objective leader labels now infer the current player id from the self leaderboard entries and render `You` when the objective leader matches.",
+        "Season winner cards use the same self-labeling path, so a crowned win reads as yours instead of repeating your display name."
+      ]
+    },
+    {
+      introducedIn: "2026.05.08.5",
+      title: "AI captures of your tiles flip live, and the under-attack overlay fires when AIs hit you",
+      why: "The rewrite simulation gated its event stream on `subscriptionRegistry.isSubscribed(event.playerId)`. Only humans subscribe; AIs never do. So every TILE_DELTA_BATCH whose `playerId` was an AI — i.e., every AI capture of a human tile — was dropped before it left the simulation. The cached server snapshot was correct, but the live event stream wasn't, so the client only learned about lost tiles when fog refresh or chunk reload pulled a fresh snapshot. From the player's seat that looked like 'all my tiles flipped at once'. There was also no rewrite-stack equivalent of the legacy server's ATTACK_ALERT — AI attacks landed completely silently with no overlay or feed warning.",
+      changes: [
+        "TILE_DELTA_BATCH events now bypass the actor-subscription gate. Any tile that changes in the simulation reaches every connected human in real time, even when the cause was an AI command.",
+        "Simulation now emits a defender-addressed ATTACK_ALERT PLAYER_MESSAGE on every accepted ATTACK against a human-owned tile. The gateway routes it to the defender's socket; the existing rewrite client overlay and feed warning fire on receipt — same UX as the legacy stack's incoming-attack indicator.",
+        "Gateway PLAYER_MESSAGE handler skips command-store markResolved for ATTACK_ALERT messages so the alert sharing the attacker's commandId doesn't prematurely close the attacker's recovery slot."
+      ]
+    },
     {
       introducedIn: "2026.05.08.4",
       title: "AI defends immediately when a human captures one of its tiles",
