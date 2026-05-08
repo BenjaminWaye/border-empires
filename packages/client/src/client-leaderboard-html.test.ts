@@ -179,7 +179,7 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).not.toContain("5. You (0.0)");
   });
 
-  it("hides the self row when the player is already the leader", () => {
+  it("labels season objective leaders as You when the current player is already the leader", () => {
     const html = leaderboardHtml(
       {
         overall: [{ id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 }],
@@ -214,6 +214,37 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).not.toContain("1. You (5.0)");
     expect(html).not.toContain("1. You (4.0)");
     expect(html).not.toContain("You: 20/87 towns");
+    expect(html).toContain("Leader: <span class=\"lb-player-name\"><span class=\"lb-player-dot is-unknown\" aria-hidden=\"true\"></span><span>You</span></span> · 20/87 towns");
+    expect(html).not.toContain("Leader: <span class=\"lb-player-name\"><span class=\"lb-player-dot is-unknown\" aria-hidden=\"true\"></span><span>Nauticus</span></span> · 20/87 towns");
+  });
+
+  it("labels the season winner as You when the current player won", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [],
+        selfOverall: { id: "player-auth-1", rank: 12, name: "Nauticus", score: 1, tiles: 1, incomePerMinute: 1, techs: 0 },
+        selfByTiles: undefined,
+        selfByIncome: undefined,
+        selfByTechs: undefined,
+        byTiles: [],
+        byIncome: [],
+        byTechs: []
+      },
+      [],
+      {
+        playerId: "player-auth-1",
+        playerName: "Nauticus",
+        objectiveId: "TOWN_CONTROL",
+        objectiveName: "Town Control",
+        crownedAt: 1700000000000
+      },
+      new Map([["player-auth-1", "#ef4444"]])
+    );
+
+    expect(html).toContain(
+      '<span class="pressure-name"><span class="lb-player-name"><span class="lb-player-dot" style="--player-color:#ef4444" aria-hidden="true"></span><span>You</span></span></span>'
+    );
+    expect(html).not.toContain("<span>Nauticus</span></span></span>");
   });
 
   it("shows a neutral dot when a player color is unavailable", () => {
