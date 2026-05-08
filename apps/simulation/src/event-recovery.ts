@@ -283,6 +283,27 @@ export const applySimulationEventsToRecoveredAccumulator = (
           ownerId: event.playerId,
           ownershipState: "FRONTIER"
         });
+      } else if (event.combatResult?.defenderOwnerId) {
+        const originLost = event.combatResult.changes.some(
+          (change) => change.x === event.originX && change.y === event.originY
+        );
+        if (originLost) {
+          const originKey = simulationTileKey(event.originX, event.originY);
+          const previousOrigin = accumulator.tiles.get(originKey);
+          if (previousOrigin) {
+            accumulator.tiles.set(originKey, {
+              x: event.originX,
+              y: event.originY,
+              terrain: previousOrigin.terrain,
+              ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
+              ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
+              ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
+              ...(previousOrigin.sabotage ? { sabotage: previousOrigin.sabotage } : {}),
+              ownerId: event.combatResult.defenderOwnerId,
+              ownershipState: "FRONTIER"
+            });
+          }
+        }
       }
     }
   }
