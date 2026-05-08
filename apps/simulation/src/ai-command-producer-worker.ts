@@ -26,55 +26,14 @@ import {
   probeAiLatchedIntent,
   releaseAiLatchedIntent,
   reservationHeldByOtherAi,
-  reserveAiTarget,
-  type AiLatchedIntentKind
+  reserveAiTarget
 } from "./ai-intent-latch.js";
-
-const intentKindForCommand = (commandType: CommandEnvelope["type"]): AiLatchedIntentKind | undefined => {
-  if (commandType === "ATTACK" || commandType === "EXPAND") return "frontier";
-  if (commandType === "SETTLE") return "settlement";
-  if (
-    commandType === "BUILD_FORT" ||
-    commandType === "BUILD_ECONOMIC_STRUCTURE" ||
-    commandType === "BUILD_SIEGE_OUTPOST"
-  ) {
-    return "structure";
-  }
-  return undefined;
-};
-
-const wakeWindowMsForCommand = (commandType: CommandEnvelope["type"]): number => {
-  if (commandType === "ATTACK" || commandType === "EXPAND") return 3_500;
-  if (commandType === "SETTLE") return 61_000;
-  return 0;
-};
-
-const extractTargetTileKey = (command: CommandEnvelope): string | undefined => {
-  try {
-    const payload = JSON.parse(command.payloadJson) as Record<string, unknown>;
-    if (typeof payload.toX === "number" && typeof payload.toY === "number") {
-      return `${payload.toX},${payload.toY}`;
-    }
-    if (typeof payload.x === "number" && typeof payload.y === "number") {
-      return `${payload.x},${payload.y}`;
-    }
-  } catch {
-    /* malformed payload — no key */
-  }
-  return undefined;
-};
-
-const extractOriginTileKey = (command: CommandEnvelope): string | undefined => {
-  try {
-    const payload = JSON.parse(command.payloadJson) as Record<string, unknown>;
-    if (typeof payload.fromX === "number" && typeof payload.fromY === "number") {
-      return `${payload.fromX},${payload.fromY}`;
-    }
-  } catch {
-    /* malformed payload — no key */
-  }
-  return undefined;
-};
+import {
+  extractOriginTileKey,
+  extractTargetTileKey,
+  intentKindForCommand,
+  wakeWindowMsForCommand
+} from "./ai-intent-latch-helpers.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -617,6 +576,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         let skipPreplan = false;
         let advancedWithoutPending = false;
         let activePreplanCommandId: string | undefined;
+        let wasUrgent = false;
 
         try {
           for (let pass = 0; pass < 2; pass += 1) {
@@ -692,7 +652,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
             nextClientSeqByPlayer.set(playerId, clientSeq + 1);
             nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
-            urgentByPlayerId.delete(playerId);
+            wasUrgent = urgentByPlayerId.delete(playerId);
             if (intentKind) {
               const wakeWindowMs = wakeWindowMsForCommand(plan.command.type);
               if (wakeWindowMs > 0) {
@@ -732,6 +692,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           pendingCommandByPlayer.delete(playerId);
           if (activePreplanCommandId) trackedPreplanByCommandId.delete(activePreplanCommandId);
           releaseAiLatchedIntent(intentLatchState, playerId);
+          // Restore urgency on failed submit so the defender doesn't lose its
+          // priority slot to a transient command-store error.
+          if (wasUrgent) urgentByPlayerId.add(playerId);
           // swallow — will retry on next tick
         }
         if (advancedWithoutPending) {
