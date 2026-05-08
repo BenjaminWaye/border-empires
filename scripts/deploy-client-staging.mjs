@@ -13,7 +13,7 @@ import {
 
 const rootDir = new URL("../", import.meta.url);
 const stagingAlias = process.env.STAGING_CLIENT_ALIAS ?? vercelClientProject.stagingAliasHost;
-const stagingGatewayWsUrl = process.env.STAGING_GATEWAY_WS_URL ?? "wss://border-empires-gateway-staging.fly.dev/ws";
+const stagingGatewayWsUrl = process.env.STAGING_GATEWAY_WS_URL ?? "wss://border-empires-combined-staging.fly.dev/ws";
 const productionAlias = process.env.PRODUCTION_CLIENT_ALIAS ?? vercelClientProject.productionAliasHost;
 
 const run = (command, args, options = {}) => {
