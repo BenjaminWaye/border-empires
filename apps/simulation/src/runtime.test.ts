@@ -299,6 +299,154 @@ describe("simulation runtime", () => {
     expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
   });
 
+  it("redacts opponent settled state on lock-target tiles outside the viewer's vision", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          {
+            x: 50,
+            y: 50,
+            terrain: "LAND",
+            ownerId: "player-2",
+            ownershipState: "SETTLED",
+            town: { type: "FARMING", name: "Hidden Town", populationTier: "SETTLEMENT", population: 800, maxPopulation: 10_000_000 },
+            fort: { ownerId: "player-2", status: "active" }
+          },
+          { x: 51, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: [
+          {
+            commandId: "lock-1",
+            playerId: "player-1",
+            actionType: "ATTACK",
+            originX: 10,
+            originY: 10,
+            targetX: 50,
+            targetY: 50,
+            originKey: "10,10",
+            targetKey: "50,50",
+            resolvesAt: 120_000
+          }
+        ]
+      }
+    });
+
+    const visibleState = runtime.exportVisibleStateForPlayer("player-1");
+    const lockTargetTile = visibleState.tiles.find((tile) => tile.x === 50 && tile.y === 50);
+
+    expect(lockTargetTile).toEqual({ x: 50, y: 50, terrain: "LAND" });
+    expect(lockTargetTile).not.toHaveProperty("ownerId");
+    expect(lockTargetTile).not.toHaveProperty("ownershipState");
+    expect(lockTargetTile).not.toHaveProperty("townJson");
+    expect(lockTargetTile).not.toHaveProperty("fortJson");
+    // Adjacent enemy settled tile (51,50) was never revealed by anything → should not appear at all.
+    expect(visibleState.tiles.some((tile) => tile.x === 51 && tile.y === 50)).toBe(false);
+  });
+
+  it("does not redact lock-target tiles already covered by territory vision", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          {
+            x: 11,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-2",
+            ownershipState: "SETTLED",
+            town: { type: "FARMING", name: "Adjacent Town", populationTier: "SETTLEMENT", population: 800, maxPopulation: 10_000_000 }
+          }
+        ],
+        activeLocks: [
+          {
+            commandId: "lock-2",
+            playerId: "player-1",
+            actionType: "ATTACK",
+            originX: 10,
+            originY: 10,
+            targetX: 11,
+            targetY: 10,
+            originKey: "10,10",
+            targetKey: "11,10",
+            resolvesAt: 120_000
+          }
+        ]
+      }
+    });
+
+    const visibleState = runtime.exportVisibleStateForPlayer("player-1");
+    const adjacentTile = visibleState.tiles.find((tile) => tile.x === 11 && tile.y === 10);
+
+    expect(adjacentTile).toEqual(
+      expect.objectContaining({ ownerId: "player-2", ownershipState: "SETTLED", townJson: expect.any(String) })
+    );
+  });
+
   it("reveals a linked dock when the player owns the source dock", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,

@@ -1598,7 +1598,7 @@ export class SimulationRuntime {
       if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined;
       return { x, y };
     };
-    const visibleKeys = new Set<string>();
+    const fullVisionKeys = new Set<string>();
     const addVision = (territoryTileKeys: Iterable<string>, vision: number, visionRadiusBonus: number): void => {
       const radius = Math.max(1, Math.floor(VISION_RADIUS * vision) + visionRadiusBonus);
       for (const tileKey of territoryTileKeys) {
@@ -1606,7 +1606,7 @@ export class SimulationRuntime {
         if (!coords) continue;
         for (let dy = -radius; dy <= radius; dy += 1) {
           for (let dx = -radius; dx <= radius; dx += 1) {
-            visibleKeys.add(keyFor(coords.x + dx, coords.y + dy));
+            fullVisionKeys.add(keyFor(coords.x + dx, coords.y + dy));
           }
         }
       }
@@ -1626,8 +1626,7 @@ export class SimulationRuntime {
     }
     for (const lock of this.locksByTile.values()) {
       if (lock.playerId !== playerId) continue;
-      visibleKeys.add(lock.originKey);
-      visibleKeys.add(lock.targetKey);
+      fullVisionKeys.add(lock.originKey);
     }
     if (primaryPlayer) {
       const visibilityOwnerIds = new Set<string>([playerId, ...primaryPlayer.allies]);
@@ -1642,33 +1641,55 @@ export class SimulationRuntime {
         WORLD_WIDTH,
         WORLD_HEIGHT
       )) {
-        visibleKeys.add(revealKey);
+        fullVisionKeys.add(revealKey);
       }
     }
+
+    // Lock targets reveal the tile under attack so the player can see where
+    // their attack landed, but must not leak the opponent's settled state if
+    // the viewer has no other vision of that tile. Track these separately so
+    // the serializer can redact opponent-controlled fields.
+    const lockTargetOnlyKeys = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      if (lock.playerId !== playerId) continue;
+      if (fullVisionKeys.has(lock.targetKey)) continue;
+      lockTargetOnlyKeys.add(lock.targetKey);
+    }
+
+    const allyAndSelfIds = new Set<string>([playerId, ...(primaryPlayer?.allies ?? [])]);
+    const visibleKeys = new Set<string>([...fullVisionKeys, ...lockTargetOnlyKeys]);
 
     return {
       tiles: [...visibleKeys]
         .map((tileKey) => this.tiles.get(tileKey))
         .filter((tile): tile is DomainTileState => Boolean(tile))
-        .map((tile) => ({
-          x: tile.x,
-          y: tile.y,
-          terrain: tile.terrain,
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dockId: tile.dockId } : {}),
-          ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
-          ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-          ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-          ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-          ...(tile.town?.type ? { townType: tile.town.type } : {}),
-          ...(tile.town?.name ? { townName: tile.town.name } : {}),
-          ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-          ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
-          ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-          ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
-          ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
-          ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {})
-        }))
+        .map((tile) => {
+          const tileKey = simulationTileKey(tile.x, tile.y);
+          const isLockTargetOnly = lockTargetOnlyKeys.has(tileKey);
+          const ownedByOther = Boolean(tile.ownerId) && !allyAndSelfIds.has(tile.ownerId as string);
+          if (isLockTargetOnly && ownedByOther) {
+            return { x: tile.x, y: tile.y, terrain: tile.terrain };
+          }
+          return {
+            x: tile.x,
+            y: tile.y,
+            terrain: tile.terrain,
+            ...(tile.resource ? { resource: tile.resource } : {}),
+            ...(tile.dockId ? { dockId: tile.dockId } : {}),
+            ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+            ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
+            ...(tile.town?.type ? { townType: tile.town.type } : {}),
+            ...(tile.town?.name ? { townName: tile.town.name } : {}),
+            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
+            ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
+            ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
+            ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+            ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
+            ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {})
+          };
+        })
         .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
       players: [...this.players.values()]
         .map((player) => {
