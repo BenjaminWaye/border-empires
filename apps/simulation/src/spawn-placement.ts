@@ -1,3 +1,4 @@
+import { isSeaTerrain } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import { simulationTileKey } from "./seed-state.js";
@@ -41,11 +42,52 @@ const hashString = (value: string): number => {
 
 const nextSeed = (seed: number): number => (Math.imul(seed, 1664525) + 1013904223) >>> 0;
 
+const computeCoastalLandKeys = (tileList: readonly DomainTileState[]): Set<string> => {
+  const landByKey = new Map<string, DomainTileState>();
+  const seaKeys = new Set<string>();
+  for (const tile of tileList) {
+    const tileKey = simulationTileKey(tile.x, tile.y);
+    if (tile.terrain === "LAND") landByKey.set(tileKey, tile);
+    else if (isSeaTerrain(tile.terrain)) seaKeys.add(tileKey);
+  }
+  if (seaKeys.size === 0 || landByKey.size === 0) return new Set();
+  const coastal = new Set<string>();
+  const queue: DomainTileState[] = [];
+  for (const tile of landByKey.values()) {
+    const hasSeaNeighbor =
+      seaKeys.has(simulationTileKey(tile.x, tile.y - 1)) ||
+      seaKeys.has(simulationTileKey(tile.x + 1, tile.y)) ||
+      seaKeys.has(simulationTileKey(tile.x, tile.y + 1)) ||
+      seaKeys.has(simulationTileKey(tile.x - 1, tile.y));
+    if (!hasSeaNeighbor) continue;
+    const tileKey = simulationTileKey(tile.x, tile.y);
+    if (coastal.has(tileKey)) continue;
+    coastal.add(tileKey);
+    queue.push(tile);
+  }
+  while (queue.length > 0) {
+    const tile = queue.pop()!;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const neighborKey = simulationTileKey(tile.x + dx, tile.y + dy);
+        if (coastal.has(neighborKey)) continue;
+        const neighbor = landByKey.get(neighborKey);
+        if (!neighbor) continue;
+        coastal.add(neighborKey);
+        queue.push(neighbor);
+      }
+    }
+  }
+  return coastal;
+};
+
 export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { x: number; y: number } | undefined => {
   const tileList = [...input.tiles];
   if (tileList.length === 0) return undefined;
 
   const blocked = input.blockedTileKeys ?? new Set<string>();
+  const coastalLandKeys = computeCoastalLandKeys(tileList);
   const settledCoords = tileList
     .filter((tile) => tile.ownerId && tile.ownershipState === "SETTLED")
     .map((tile) => ({ x: tile.x, y: tile.y }));
@@ -56,7 +98,9 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   const spawnCandidates = tileList
     .filter((tile) => {
       const tileKey = simulationTileKey(tile.x, tile.y);
-      return tile.terrain === "LAND" && !tile.ownerId && !tile.town && !tile.dockId && !blocked.has(tileKey);
+      if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId || blocked.has(tileKey)) return false;
+      if (coastalLandKeys.size > 0 && !coastalLandKeys.has(tileKey)) return false;
+      return true;
     })
     .sort((left, right) => (left.y - right.y) || (left.x - right.x));
   if (spawnCandidates.length === 0) return undefined;

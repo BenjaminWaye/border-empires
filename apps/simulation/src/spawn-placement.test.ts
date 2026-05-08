@@ -37,6 +37,45 @@ describe("chooseLegacySpawnPlacement", () => {
     expect(spawn!.y).toBeLessThanOrEqual(110);
   });
 
+  it("never spawns on a land component fully sealed by mountains with no sea adjacency", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 30; y += 1) {
+      for (let x = 0; x < 30; x += 1) {
+        tiles.push({ x, y, terrain: "SEA" });
+      }
+    }
+    const setTerrain = (x: number, y: number, terrain: DomainTileState["terrain"]): void => {
+      const tile = tiles.find((entry) => entry.x === x && entry.y === y);
+      if (tile) tile.terrain = terrain;
+    };
+    for (let y = 4; y <= 8; y += 1) {
+      for (let x = 4; x <= 8; x += 1) setTerrain(x, y, "LAND");
+    }
+    const sealedLand: Array<[number, number]> = [
+      [20, 20], [21, 20], [22, 20],
+      [20, 21], [21, 21], [22, 21],
+      [20, 22], [21, 22], [22, 22]
+    ];
+    for (const [x, y] of sealedLand) setTerrain(x, y, "LAND");
+    for (let y = 19; y <= 23; y += 1) {
+      for (let x = 19; x <= 23; x += 1) {
+        if (sealedLand.some(([sx, sy]) => sx === x && sy === y)) continue;
+        setTerrain(x, y, "MOUNTAIN");
+      }
+    }
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const spawn = chooseLegacySpawnPlacement({
+        playerId: `firebase-user-sealed-${attempt}`,
+        tiles
+      });
+      expect(spawn).toBeDefined();
+      const onSealed = sealedLand.some(([x, y]) => x === spawn!.x && y === spawn!.y);
+      expect(onSealed).toBe(false);
+    }
+  });
+
+
   it("falls back to first available land when strict placement constraints cannot be met", () => {
     const tiles: DomainTileState[] = [
       { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
