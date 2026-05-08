@@ -1035,9 +1035,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           continue;
         }
         if (event.eventType === "PLAYER_MESSAGE") {
-          void commandStore
-            .markResolved(event.commandId, Date.now())
-            .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist player message"));
+          // ATTACK_ALERT is an acceptance-time side-event addressed to the
+          // defender; it shares the attacker's commandId so it lives in the
+          // same replay bucket, but it must NOT close the attacker's
+          // recovery slot — only the real COMBAT_RESOLVED should do that.
+          if (event.messageType !== "ATTACK_ALERT") {
+            void commandStore
+              .markResolved(event.commandId, Date.now())
+              .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist player message"));
+          }
           queueOrSendSessionPayload(socket, event.payload);
           continue;
         }

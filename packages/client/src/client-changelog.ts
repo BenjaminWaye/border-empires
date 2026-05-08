@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.4",
+  version: "2026.05.08.5",
   title: "What's New",
-  summary: "AI now reacts immediately when a human captures one of its tiles — the attacked AI is bumped to the front of the planning queue instead of waiting up to 5+ seconds for round-robin. Plus AI no longer pre-empts itself with COLLECT_VISIBLE when it has gold to expand. Plus the unfed-town badge predicate fix, simulation reseed-on-restart fix, food-aware AI claim scoring, dock-line straight-fallback fix, and the rest of this release train.",
+  summary: "Tile flips and incoming attacks from AI players now reach you in real time on the rewrite stack. The simulation was dropping every event whose causing player was an AI, so AI captures of your tiles never streamed live — the map silently desynced and your border looked correct until the next snapshot refetch flipped everything at once. Plus the AI defense-priority and COLLECT_VISIBLE preplan fixes, the unfed-town badge predicate, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.5",
+      title: "AI captures of your tiles flip live, and the under-attack overlay fires when AIs hit you",
+      why: "The rewrite simulation gated its event stream on `subscriptionRegistry.isSubscribed(event.playerId)`. Only humans subscribe; AIs never do. So every TILE_DELTA_BATCH whose `playerId` was an AI — i.e., every AI capture of a human tile — was dropped before it left the simulation. The cached server snapshot was correct, but the live event stream wasn't, so the client only learned about lost tiles when fog refresh or chunk reload pulled a fresh snapshot. From the player's seat that looked like 'all my tiles flipped at once'. There was also no rewrite-stack equivalent of the legacy server's ATTACK_ALERT — AI attacks landed completely silently with no overlay or feed warning.",
+      changes: [
+        "TILE_DELTA_BATCH events now bypass the actor-subscription gate. Any tile that changes in the simulation reaches every connected human in real time, even when the cause was an AI command.",
+        "Simulation now emits a defender-addressed ATTACK_ALERT PLAYER_MESSAGE on every accepted ATTACK against a human-owned tile. The gateway routes it to the defender's socket; the existing rewrite client overlay and feed warning fire on receipt — same UX as the legacy stack's incoming-attack indicator.",
+        "Gateway PLAYER_MESSAGE handler skips command-store markResolved for ATTACK_ALERT messages so the alert sharing the attacker's commandId doesn't prematurely close the attacker's recovery slot."
+      ]
+    },
     {
       introducedIn: "2026.05.08.4",
       title: "AI defends immediately when a human captures one of its tiles",
