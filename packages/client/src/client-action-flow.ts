@@ -103,6 +103,7 @@ import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
   constructionProgressForTile as constructionProgressForTileFromModule,
   menuOverviewForTile as menuOverviewForTileFromModule,
+  ownTownEconomyFieldsPartial,
   queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
   queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
   tileMenuViewForTile as tileMenuViewForTileFromModule,
@@ -291,7 +292,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   };
 
   const requestTileDetailIfNeeded = (tile: Tile | undefined): void => {
-    if (!tile || tile.fogged || tile.detailLevel === "full") return;
+    if (!tile || tile.fogged) return;
+    // Detail-level=full means the gateway already enriched this tile once.
+    // Skip unless the most recent payload dropped owner-economy fields (which
+    // the partial gate detects), in which case a fresh REQUEST_TILE_DETAIL
+    // is the recovery path.
+    const isPartial = ownTownEconomyFieldsPartial(tile, state.me);
+    if (tile.detailLevel === "full" && !isPartial) return;
     if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
     const tileKey = keyFor(tile.x, tile.y);
     const lastRequestedAt = state.tileDetailRequestedAt.get(tileKey) ?? 0;
@@ -752,8 +759,21 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       queuedDevelopmentEntryForTile
     });
 
-  const menuOverviewForTile = (tile: Tile): TileOverviewLine[] =>
-    menuOverviewForTileFromModule(tile, {
+  // Pure getter used during render; the seed/clear lifecycle below decides
+  // when an entry exists, so the menu view itself never mutates state.
+  const townPartialLoadingStartedAt = (tileKey: string): number =>
+    state.tileTownPartialSince.get(tileKey) ?? Date.now();
+
+  const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
+    if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
+      const tileKey = `${tile.x},${tile.y}`;
+      if (ownTownEconomyFieldsPartial(tile, state.me)) {
+        if (!state.tileTownPartialSince.has(tileKey)) state.tileTownPartialSince.set(tileKey, Date.now());
+      } else {
+        state.tileTownPartialSince.delete(tileKey);
+      }
+    }
+    return menuOverviewForTileFromModule(tile, {
       state,
       prettyToken,
       terrainLabel,
@@ -775,6 +795,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       constructionCountdownLineForTile,
       tileHistoryLines,
       isTileOwnedByAlly,
+      townPartialLoadingStartedAt,
       areaEffectModifiersForTile: (targetTile: Tile) => {
         const settledDefenseModifiers =
           targetTile.ownerId === state.me ? settledDefenseNearFortDomainModifiers(state.domainCatalog, state.domainIds) : [];
@@ -802,6 +823,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         return tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values(), settledDefenseModifiers);
       }
     });
+  };
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     const visibleTile = tileWithVisibleShardSite(tile, state.shardRainPingsByTile);

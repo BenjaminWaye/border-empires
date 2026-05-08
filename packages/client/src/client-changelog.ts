@@ -19,10 +19,59 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.07.7",
+  version: "2026.05.08.2",
   title: "What's New",
-  summary: "Rewrite AI now actually detects town-support deficits in production (the prior pass relied on stored support fields that the runtime never populates) and skips support-filling when food is too low to feed the town. Plus staging's new island-heavy season with 20 AI empires, the true-3D unfed-town badge, dock-line sea-route fix, exponential-backoff auth reconnect, and the rest of this release train.",
+  summary: "The 4x forest claim multiplier shipped yesterday wasn't actually firing on staging because simulation startup recovery never reseeded the worldgen helpers — every restart left the global seed at the default of 42, so forest detection ran against the wrong world and EXPAND fell back to the 1.25s base. Recovery now restores the active season's worldSeed up front. Plus the food-aware AI claim scoring, dock-line straight-fallback fix, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.2",
+      title: "Forest claim duration actually fires after a sim restart",
+      why: "Yesterday's forest-claim fix relied on the rewrite simulation having `setWorldSeed` set to the active season's seed when frontier validation runs. That's only true on a fresh-season path; the recovery path that loads a season from durable storage at restart never re-set the seed, so the helpers fell back to the default seed of 42 and reported every tile as non-forest. Net effect on staging: forest tiles still resolved EXPAND in 1.25s instead of 5s after a deploy, even though the per-tile multiplier was wired correctly.",
+      changes: [
+        "Simulation service calls setWorldSeed(currentSeasonState.worldSeed) immediately after startup recovery determines the active season, so all worldgen helpers (terrainAt / landBiomeAt / grassShadeAt) read the right world during command processing.",
+        "Forest EXPAND on the rewrite stack now genuinely takes 5s on staging across deploys/restarts, matching the user-facing changelog entry for 2026.05.07.8."
+      ]
+    },
+    {
+      introducedIn: "2026.05.08.1",
+      title: "AI prioritizes FARM/FISH over neutral world towns when food is low",
+      why: "Even with the 2026.05.07.7 fix, the AI would happily capture a TOWN-tier neutral world town while food-starved. Each captured town adds upkeep (TOWN: 0.1/min, CITY: 0.3, GREAT_CITY: 0.6, METROPOLIS: 1.0) but produces zero gold while unfed — so AIs ended up cash-stalled with a fleet of unfed empty towns, exactly the failure mode the support-ring fix was meant to unlock.",
+      changes: [
+        "When `needsFood`, neutral world towns without their own resource (no FARM/FISH on the same tile) are demoted in the frontier-economic ranking so any FARM/FISH frontier wins. AI claims food first, then captures the town once it can actually feed it.",
+        "FARM/FISH `resourceScore` is doubled (180 → 360) when food coverage is low, so a FARM two steps away beats an IRON tile right next door.",
+        "Same gate applies to attack-side scoring — capturing an enemy town also adds food upkeep on capture, so an unfed-town capture is deprioritized while food is short.",
+        "Both gates lift automatically when the food reserve threshold is met."
+      ]
+    },
+    {
+      introducedIn: "2026.05.07.10",
+      title: "Linked-dock lines no longer draw a straight fallback when there's no sea route",
+      why: "Yesterday's PR removed a stale LAND-only guard that had been silently filtering out dock pairs the renderer treated as invalid. Without that filter, pairs whose endpoints A* couldn't connect through sea (e.g., docks placed deep enough inland that even the 2-tile-radius sea search comes up empty) started rendering the straight-line fallback — a single dashed line cutting across islands and shooting off-screen at angles that don't match where the paired dock actually sits. Visually it read as a regression of the original off-screen-direction bug.",
+      changes: [
+        "If `computeDockSeaRoute` returns fewer than 2 tiles, the renderer now skips the dashed line entirely instead of drawing a straight cross-island fallback. Either you see the real sea route or no line at all.",
+        "Removed the parallel-stub wrap-fallback path; the per-step `worldToScreen` route renderer already handles toroidal wrapping correctly when A* succeeds, and skipping the fallback removes the only place the old wrap-stub path could fire."
+      ]
+    },
+    {
+      introducedIn: "2026.05.07.9",
+      title: "Tile panels surface a per-row loader + timer instead of zeroing out missing town economy",
+      why: "Owner-economy fields (isFed, supportCurrent/Max, foodUpkeepPerMinute, populationGrowthPerMinute) only ride the snapshot and REQUEST_TILE_DETAIL responses — the TILE_DELTA_BATCH town payload is the partial domain shape. Between a delta arriving and the gateway answering the follow-up tile-detail request, an own settled town read back as Production: ◉ 0.00/m with Support, Upkeep, and Growth rows missing entirely (Sableythspire Manse only got its real numbers after refreshing twice). A 0/m row that's actually a load-in-progress is indistinguishable from a real 0/m, so failures look like data, not bugs.",
+      changes: [
+        "Own settled non-settlement town tiles whose payload lacks owner-economy fields now render Support / Growth / Production / Upkeep as loading rows with a spinner, a live 'loading for Xs' counter, and a Report button that downloads the same tile + recent-message debug log the existing town-payload spinner uses.",
+        "REQUEST_TILE_DETAIL now retries even when the tile already has detailLevel=full, so the recovery path actually fires the second time the menu sees a partial town instead of being permanently gated by the first detail response.",
+        "The loading-since timestamp is tracked per tile in client state and cleared as soon as the next render sees complete economy data, so the timer reflects a single in-flight gap rather than restarting on every re-render."
+      ]
+    },
+    {
+      introducedIn: "2026.05.07.8",
+      title: "Forest frontier expansion takes 4x longer again",
+      why: "The 4x forest claim multiplier exists in the shared worldgen helpers but was never threaded into the rewrite simulation's frontier validator, so every EXPAND on the rewrite stack was resolving in the flat 1.25s base regardless of terrain. Forest was supposed to be a strategic chokepoint; the bug let players walk through it as fast as plains.",
+      changes: [
+        "Dark-grass (forest) tiles now resolve EXPAND in 5s on the rewrite stack, matching legacy behavior and the intended terrain cost.",
+        "FOREST_FRONTIER_CLAIM_MULT promoted to @border-empires/shared so legacy and rewrite share the same constant.",
+        "validateFrontierCommand accepts a per-call expandClaimDurationMs override so the runtime can pass terrain-aware durations without baking world lookups into the validator."
+      ]
+    },
     {
       introducedIn: "2026.05.07.7",
       title: "Rewrite AI sees town-support deficits in real worlds and gates them on food",

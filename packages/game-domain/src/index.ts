@@ -148,6 +148,7 @@ export type ValidateFrontierCommandInput = {
   isBridgeCrossing: boolean;
   targetShielded: boolean;
   defenderIsAlliedOrTruced: boolean;
+  expandClaimDurationMs?: number | undefined;
 };
 
 export type ValidateFrontierCommandResult =
@@ -170,7 +171,7 @@ const manpowerRequirements = (
   actionType: FrontierCommandType
 ): { manpowerMin: number; manpowerCost: number } => {
   return {
-    manpowerMin: ATTACK_MANPOWER_MIN,
+    manpowerMin: actionType === "ATTACK" ? ATTACK_MANPOWER_MIN : 0,
     manpowerCost: actionType === "ATTACK" ? ATTACK_MANPOWER_COST : 0
   };
 };
@@ -244,7 +245,11 @@ export const validateFrontierCommand = (
     ok: true,
     origin: { x: input.from.x, y: input.from.y },
     target: { x: input.to.x, y: input.to.y },
-    resolvesAt: input.now + (input.actionType === "EXPAND" ? FRONTIER_CLAIM_MS : COMBAT_LOCK_MS),
+    resolvesAt:
+      input.now +
+      (input.actionType === "EXPAND"
+        ? (input.expandClaimDurationMs ?? FRONTIER_CLAIM_MS)
+        : COMBAT_LOCK_MS),
     manpowerCost,
     manpowerMin
   };
