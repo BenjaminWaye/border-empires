@@ -121,9 +121,10 @@ export const createHeightfield = (): Heightfield => {
   const geometry = new BufferGeometry();
   const positions = new Float32Array(VERT_COUNT * 3);
   const colors = new Float32Array(VERT_COUNT * 3);
-  // UV uses world tile coords so the detail texture stays anchored to tiles
-  // as the camera pans (1 repeat per tile via RepeatWrapping). vMapUv ends up
-  // = fract(uv) in the shader, so each tile gets one full pattern.
+  // UV uses world tile coords so the painterly biome textures stay glued to
+  // tiles as the camera pans. The grass texture's `repeat` is set so one
+  // full painted pattern spans `tilesPerRepeat` tiles, killing the obvious
+  // 1-tile barcode look that the previous packed grayscale produced.
   const uvs = new Float32Array(VERT_COUNT * 2);
   const indices = new Uint32Array(MAX_INDEX_COUNT);
 
@@ -133,52 +134,65 @@ export const createHeightfield = (): Heightfield => {
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
 
-  // Procedural detail (color/normal/roughness) maps. The color map is a
-  // packed channel buffer (R = grass detail, G = sand detail, B = tile-edge
-  // AO) which the shader injection below blends per-biome from the vertex
-  // color signature. The normal and roughness maps are biome-agnostic and
-  // run through the standard MeshStandardMaterial slots.
+  // Painterly biome detail suite: a full-color grass texture, a full-color
+  // sand texture, and a shared normal+roughness pair. The fragment shader
+  // (onBeforeCompile below) samples both color textures at the same UV and
+  // blends them by the vertex-color biome mask, so each biome looks like
+  // hand-painted grass or hand-painted sand rather than the same noise.
   const detailMaps = createTerrainDetailMaps();
 
+  // Use the grass color map as the primary `map` so three.js sets up the
+  // USE_MAP define + vMapUv varying for us. The sand map is wired in as a
+  // custom uniform and sampled at the same vMapUv (both textures use the
+  // same `repeat` so the UV transform matches).
   const material = new MeshStandardMaterial({
     vertexColors: true,
     flatShading: false,
-    map: detailMaps.colorMap ?? null,
+    map: detailMaps.grassColorMap ?? null,
     normalMap: detailMaps.normalMap ?? null,
-    normalScale: new Vector2(0.85, 0.85),
+    normalScale: new Vector2(1.05, 1.05),
     roughnessMap: detailMaps.roughnessMap ?? null,
-    roughness: 0.95,
+    roughness: 0.92,
     metalness: 0.0,
     side: DoubleSide
   });
 
-  // Replace three.js's built-in <map_fragment> with a biome-aware blend that
-  // reads the packed color map: green-dominant vertex color picks the grass
-  // detail (R), tan-dominant picks the sand detail (G), and B is multiplied
-  // in as a soft AO so adjacent tiles get a believable shadowed seam without
-  // needing a second UV channel for an aoMap. Without this hook the same
-  // texture would either flatten grass or flatten sand — never both.
-  material.onBeforeCompile = (shader): void => {
-    shader.fragmentShader = shader.fragmentShader.replace(
-      "#include <map_fragment>",
-      `
+  // Replace three.js's built-in <map_fragment> with a biome-aware two-texture
+  // blend. greenBias > 0 on grassy vertices (high G channel from
+  // heightfieldTileColor), < 0 on sandy ones — smoothstepped into a [0,1]
+  // mask. Vertex color is then re-applied as a mild tint multiplier so
+  // per-tile variants and beach-corner blends still register, but the base
+  // surface color comes from the painted texture, not the vertex.
+  if (detailMaps.sandColorMap) {
+    const sandMapUniform = { value: detailMaps.sandColorMap };
+    material.onBeforeCompile = (shader): void => {
+      shader.uniforms.sandColorMap = sandMapUniform;
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <common>",
+        `#include <common>
+uniform sampler2D sandColorMap;`
+      );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <map_fragment>",
+        `
       #ifdef USE_MAP
-        vec4 detailSample = texture2D( map, vMapUv );
-        // greenBias > 0 on grassy vertices, < 0 on sandy/rocky ones.
+        vec4 grassSample = texture2D( map, vMapUv );
+        vec4 sandSample = texture2D( sandColorMap, vMapUv );
         float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
-        float grassMask = smoothstep(-0.04, 0.18, greenBias);
-        float biomeDetail = mix(detailSample.g, detailSample.r, grassMask);
-        // biomeDetail is centered ~0.5 — remap to a multiplicative term that
-        // brightens highlights and darkens grain pits without crushing color.
-        float modulation = (biomeDetail - 0.5) * 0.62 + 1.0;
-        // B channel is tile-edge AO (1.0 center, ~0.62 corner). Lift the
-        // floor a bit so corners don't go muddy under the ownership tint.
-        float ao = mix(0.78, 1.04, detailSample.b);
-        diffuseColor.rgb *= modulation * ao;
+        float grassMask = smoothstep(-0.05, 0.18, greenBias);
+        vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
+        // Mild vertex-color tint: divide by the vertex luminance to extract
+        // a unit-luminance hue, then mix it in at 30% so per-tile variants
+        // (terrainShadeVariantAt) and beach blends shift the base hue
+        // subtly without overpowering the painted texture.
+        float vertLum = max(0.001, dot(vColor.rgb, vec3(0.299, 0.587, 0.114)));
+        vec3 tint = mix(vec3(1.0), vColor.rgb / vertLum, 0.32);
+        diffuseColor.rgb = biomeColor * tint;
       #endif
       `
-    );
-  };
+      );
+    };
+  }
 
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false;
@@ -343,12 +357,14 @@ export const createHeightfield = (): Heightfield => {
         colors[baseIdx + 0] = r;
         colors[baseIdx + 1] = g;
         colors[baseIdx + 2] = b;
-        // Mesh-space UV — the texture is repeat-wrapped, so one full detail
-        // pattern lands per 1×1 tile and the tile-edge AO baked into the
-        // blue channel naturally lines up with corners.
+        // World-anchored UV: as the camera pans, the texture slides under
+        // tile boundaries to match the world content shifting through the
+        // mesh slot. Combined with the texture's repeat = 1/tilesPerRepeat,
+        // each painted region spans many tiles so the per-tile barcode look
+        // disappears and adjacent tiles draw different parts of the painting.
         const baseUv = (j * VERT_DIM + i) * 2;
-        uvs[baseUv + 0] = tileOffsetX + i;
-        uvs[baseUv + 1] = tileOffsetY + j;
+        uvs[baseUv + 0] = camX + tileOffsetX + i;
+        uvs[baseUv + 1] = camY + tileOffsetY + j;
         // Cache the rendered corner-Y keyed by world coords so overlay
         // helpers can look up the exact surface Y the heightfield drew.
         const cornerWorldX = wrap(camX + tileOffsetX + i, worldWidth);
