@@ -35,107 +35,13 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.08.8",
-      title: "Painterly grass/sand in renderer=3d, per-tile variation, forest halo",
-      why: "The 3D heightfield's MeshStandardMaterial was vertex-color-only — no map/normalMap/roughnessMap — so grass and sand both read as flat washes. Frontier vs settled tiles looked identical because the ownership tint was the only visual signal. We needed a painted look that holds up at game zoom without an art pipeline (Civ-VI-style, hand-painted feel from procedural canvas).",
-      changes: [
-        "New 512px painted detail textures generated procedurally on the client: full-color grass + sand maps with a 4-tone palette per biome (sunny meadow / ivory beach), Worley cellular patches, hashed pebble stamps, anisotropic ripples for sand, and a small-cell speckle that reads as scattered grass clumps instead of dune ripples.",
-        "Per-tile UV variation: each world tile hashes its coord into a 90° rotation + random offset within the texture, so adjacent tiles draw disjoint regions of the painting and the 8-tile-wide repetition is gone.",
-        "World-anchored UVs (camX/Y + tileOffset + i) — the painted texture stays glued to world tiles as the camera pans.",
-        "Hand-tuned shader injection on MeshStandardMaterial: samples grass + sand at the rotated UV and blends them by a narrow smoothstep on the vertex-color green-bias, so the grass↔sand boundary is a clean anti-aliased cut without a muddy blend zone.",
-        "Forest halo: tiles within Chebyshev distance 2 of a forest tile get a darker mossy grass tint via a per-vertex `forestZone` attribute (corner-averaged for smooth edges). Wooded areas now read distinctly from open meadow.",
-        "Frontier ownership opacity dropped from 0.55 → 0.32 so the new biome detail shows through unsettled tiles. Settled stays at 0.85 so owned territory still reads as unambiguously claimed."
-      ]
-    },
-    {
-      introducedIn: "2026.05.08.7",
-      title: "AI plans persist across ticks instead of being thrown away every 250ms",
-      why: "The Phase-3 worker-thread split moved the AI planner into a worker but didn't port legacy's `intent-latch.ts` or its tile-reservation map. Result on the rewrite: every 250ms tick, each AI replanned from scratch with no memory of \"I'm already doing this,\" and two AIs staring at the same juicy neutral tile would both try to claim it (one wins, the other wastes gold/cycles). Legacy committed to a chosen action for the duration of its resolution window and reserved the target tile across AIs.",
-      changes: [
-        "Ported `apps/simulation/src/ai-intent-latch.ts` from the legacy `packages/server/src/ai/intent-latch.ts` — same shape (intent + reservation maps, probe/latch/release, expiry on wake-window, invalidation on territoryVersion mismatch or target-no-longer-valid).",
-        "Wired into both the in-process `ai-command-producer.ts` and the worker-thread `ai-command-producer-worker.ts`. After dispatching an EXPAND/ATTACK/SETTLE, the producer latches the AI for the action's resolution window (3.5s for EXPAND/ATTACK, 61s for SETTLE) and reserves the target tile.",
-        "Cross-AI reservation gate: if an AI's planner picks a tile that another AI has already reserved, the producer drops that turn instead of dispatching a doomed claim, and the round-robin moves on.",
-        "Latch is invalidated when the player's `tileCollectionVersion` changes (territory shifted under us), released on COMBAT_RESOLVED / TILE_DELTA_BATCH / COMMAND_REJECTED for the same commandId, and expires automatically when the wake window elapses — so a stuck or unrecorded resolution doesn't deadlock the AI.",
-        "Reuses the existing `tileCollectionVersion` (already incremented in `runtime.ts:markPlannerPlayerTileCollectionDirty`) as the territoryVersion equivalent — no new runtime instrumentation needed."
-      ]
-    },
-    {
-      introducedIn: "2026.05.08.6",
-      title: "Season victory cards show your progress again",
-      why: "The rewrite simulation built a personalized objective list with `You:` progress, then live global-status broadcasts replaced it with the stored season summary. That summary is intentionally global, so it has leader and hold status but no current-player comparison line. Separately, once you became the leader, the card showed your public display name instead of `You` because the client was checking for the literal test id `me`.",
-      changes: [
-        "Global status updates now keep the stored leader/hold fields while merging each connected player's own `selfProgressLabel`, restoring lines such as `You: 5.0 gold/m` when another empire leads.",
-        "Season objective leader labels now infer the current player id from the self leaderboard entries and render `You` when the objective leader matches.",
-        "Season winner cards use the same self-labeling path, so a crowned win reads as yours instead of repeating your display name."
-      ]
-    },
-    {
-      introducedIn: "2026.05.08.5",
-      title: "AI captures of your tiles flip live, and the under-attack overlay fires when AIs hit you",
-      why: "The rewrite simulation gated its event stream on `subscriptionRegistry.isSubscribed(event.playerId)`. Only humans subscribe; AIs never do. So every TILE_DELTA_BATCH whose `playerId` was an AI — i.e., every AI capture of a human tile — was dropped before it left the simulation. The cached server snapshot was correct, but the live event stream wasn't, so the client only learned about lost tiles when fog refresh or chunk reload pulled a fresh snapshot. From the player's seat that looked like 'all my tiles flipped at once'. There was also no rewrite-stack equivalent of the legacy server's ATTACK_ALERT — AI attacks landed completely silently with no overlay or feed warning.",
-      changes: [
-        "TILE_DELTA_BATCH events now bypass the actor-subscription gate. Any tile that changes in the simulation reaches every connected human in real time, even when the cause was an AI command.",
-        "Simulation now emits a defender-addressed ATTACK_ALERT PLAYER_MESSAGE on every accepted ATTACK against a human-owned tile. The gateway routes it to the defender's socket; the existing rewrite client overlay and feed warning fire on receipt — same UX as the legacy stack's incoming-attack indicator.",
-        "Gateway PLAYER_MESSAGE handler skips command-store markResolved for ATTACK_ALERT messages so the alert sharing the attacker's commandId doesn't prematurely close the attacker's recovery slot."
-      ]
-    },
-    {
-      introducedIn: "2026.05.08.4",
-      title: "AI defends immediately when a human captures one of its tiles",
-      why: "When a human captured an AI tile on staging, the AI took 5+ seconds to react (sometimes much longer). The simulation runs ~20 AIs in round-robin at 250ms ticks, so any single AI's turn comes around once every ~5 seconds even in the best case — and an attacked AI was just sitting in that queue with no priority signal. Legacy had `markAiDefensePriority` wired into the attack-resolution path; the rewrite never ported it during the worker-thread split.",
-      changes: [
-        "When a human attacks and captures an AI's tile (`COMBAT_RESOLVED` with `attackerWon` and `actionType === \"ATTACK\"`), the AI command producer now adds the defender to an urgent set so the next planner tick processes that AI first, before resuming the round-robin.",
-        "Urgent flag clears the moment the AI gets a turn, so it doesn't starve other AIs.",
-        "AI-vs-AI captures and EXPAND-into-neutral don't trigger urgent priority — only human-vs-AI attacks do, since those are the only ones the player sees feel unresponsive.",
-        "Same logic mirrored into the worker-thread producer (`ai-command-producer-worker.ts`) which is what runs in production with `SIMULATION_AI_WORKER=1`."
-      ]
-    },
-    {
-      introducedIn: "2026.05.08.4",
-      title: "AI stops pre-empting itself with COLLECT_VISIBLE when it has gold to expand",
-      why: "The preplan layer was returning `COLLECT_VISIBLE` whenever a tech was unaffordable — even when the AI had 100+ gold sitting unused. With `STARTING_GOLD = 100` and a Tier 1 tech costing 2000 gold, every fresh-spawn AI ran `COLLECT_VISIBLE` for the first ~32 hours of a season instead of using its starting gold to expand. Combined with the `COLLECT_VISIBLE_COOLDOWN_MS = 20_000` rate limit, AIs effectively idled.",
-      changes: [
-        "Preplan now also requires `points < FRONTIER_CLAIM_COST + SETTLE_COST` (5 gold) before returning `COLLECT_VISIBLE` for the unaffordable-progression branch — i.e., AI only harvests yield when it can't even afford one claim+settle.",
-        "Above that threshold, preplan defers to the main planner, which handles expansion, settlement, attacks, and economic builds via the existing decision tree.",
-        "The `hasActiveLock` branch is unchanged — AIs with an in-flight development still harvest yield while waiting."
-      ]
-    },
-    {
-      introducedIn: "2026.05.08.3",
-      title: "Unfed-town warning badge no longer fires on towns we don't actually warn about",
-      why: "The 2D and 3D map badges only checked `tile.town && tile.town.isFed === false`, so any town the simulation marked unfed lit up the map — including neutral world towns and unsettled frontier tiles, which the click panel deliberately doesn't warn about (it shows 'Neutral town. Claim and settle...' instead). Players saw a red `!` triangle on Velythwatch, clicked through, and got no fed/unfed info — confusing and wrong.",
-      changes: [
-        "Extracted `shouldShowTownUnfedWarning(tile)` and pointed both renderers at it, so badge visibility now matches the tile-overview's 'Town is unfed' line exactly: must be owned, settled, non-SETTLEMENT tier, with owner economy data, isFed === false, and zero gold/growth.",
-        "Added behavioral tests for neutral / foreign / unsettled / SETTLEMENT-tier / fed / producing / growing towns so the predicate can't drift from the tile-overview again."
-      ]
-    },
-    {
-      introducedIn: "2026.05.08.2",
-      title: "Forest claim duration actually fires after a sim restart",
-      why: "Yesterday's forest-claim fix relied on the rewrite simulation having `setWorldSeed` set to the active season's seed when frontier validation runs. That's only true on a fresh-season path; the recovery path that loads a season from durable storage at restart never re-set the seed, so the helpers fell back to the default seed of 42 and reported every tile as non-forest. Net effect on staging: forest tiles still resolved EXPAND in 1.25s instead of 5s after a deploy, even though the per-tile multiplier was wired correctly.",
-      changes: [
-        "Simulation service calls setWorldSeed(currentSeasonState.worldSeed) immediately after startup recovery determines the active season, so all worldgen helpers (terrainAt / landBiomeAt / grassShadeAt) read the right world during command processing.",
-        "Forest EXPAND on the rewrite stack now genuinely takes 5s on staging across deploys/restarts, matching the user-facing changelog entry for 2026.05.07.8."
-      ]
-    },
-    {
-      introducedIn: "2026.05.08.1",
-      title: "AI prioritizes FARM/FISH over neutral world towns when food is low",
-      why: "Even with the 2026.05.07.7 fix, the AI would happily capture a TOWN-tier neutral world town while food-starved. Each captured town adds upkeep (TOWN: 0.1/min, CITY: 0.3, GREAT_CITY: 0.6, METROPOLIS: 1.0) but produces zero gold while unfed — so AIs ended up cash-stalled with a fleet of unfed empty towns, exactly the failure mode the support-ring fix was meant to unlock.",
-      changes: [
-        "When `needsFood`, neutral world towns without their own resource (no FARM/FISH on the same tile) are demoted in the frontier-economic ranking so any FARM/FISH frontier wins. AI claims food first, then captures the town once it can actually feed it.",
-        "FARM/FISH `resourceScore` is doubled (180 → 360) when food coverage is low, so a FARM two steps away beats an IRON tile right next door.",
-        "Same gate applies to attack-side scoring — capturing an enemy town also adds food upkeep on capture, so an unfed-town capture is deprioritized while food is short.",
-        "Both gates lift automatically when the food reserve threshold is met."
-      ]
-    },
-    {
       introducedIn: "2026.05.07.10",
-      title: "Linked-dock lines no longer draw a straight fallback when there's no sea route",
-      why: "Yesterday's PR removed a stale LAND-only guard that had been silently filtering out dock pairs the renderer treated as invalid. Without that filter, pairs whose endpoints A* couldn't connect through sea (e.g., docks placed deep enough inland that even the 2-tile-radius sea search comes up empty) started rendering the straight-line fallback — a single dashed line cutting across islands and shooting off-screen at angles that don't match where the paired dock actually sits. Visually it read as a regression of the original off-screen-direction bug.",
+      title: "Vercel preview can now pin the default backend via VITE_BACKEND_DEFAULT",
+      why: "Vercel preview hostnames (border-empires-git-feat-...vercel.app) don't match the staging-host pattern, so the backend selector falls back to legacy by default. That made it impossible to point a preview build at the merged single-process combined-staging server without forcing every test session to type ?backend=gateway in the URL.",
       changes: [
-        "If `computeDockSeaRoute` returns fewer than 2 tiles, the renderer now skips the dashed line entirely instead of drawing a straight cross-island fallback. Either you see the real sea route or no line at all.",
-        "Removed the parallel-stub wrap-fallback path; the per-step `worldToScreen` route renderer already handles toroidal wrapping correctly when A* succeeds, and skipping the fallback removes the only place the old wrap-stub path could fire."
+        "selectBackend accepts an envDefaultBackend opt that overrides the hostname-based default when set to 'gateway' or 'legacy'.",
+        "client-app-runtime-env reads VITE_BACKEND_DEFAULT at build time and threads it through; existing localhost/staging behavior is unchanged when the env var is absent.",
+        "The combined-staging preview branch ships .env.production with VITE_BACKEND_DEFAULT=gateway and VITE_GATEWAY_WS_URL pointing at the SQLite-only merged Fly app."
       ]
     },
     {

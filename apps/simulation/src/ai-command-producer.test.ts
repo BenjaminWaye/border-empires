@@ -390,6 +390,208 @@ describe("ai command producer", () => {
     expect(submitCommand.mock.calls[0]?.[0]?.playerId).toBe("ai-1");
   });
 
+  it("with intent-latch enabled, invalidates a latched player when their territory version changes", async () => {
+    let nowMs = 1_000;
+    const territoryVersionByPlayer = new Map<string, number>([["ai-1", 5]]);
+    const onEvent = vi.fn(() => () => undefined);
+    const chooseNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+        sessionId: `ai-runtime:${playerId}`,
+        playerId,
+        clientSeq,
+        issuedAt,
+        type: "EXPAND" as const,
+        payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+      })
+    );
+    const runtime = {
+      chooseNextAutomationCommand,
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const submittedPlayers: string[] = [];
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedPlayers.push(command.playerId);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000,
+      territoryVersionForPlayer: (id) => territoryVersionByPlayer.get(id) ?? 0
+    });
+
+    await producer.tick();
+    nowMs = 1_500;
+    // Clear pending without releasing the latch (so we're in the "latched, pending cleared" gap).
+    runtime.onEvent.mock.calls[0]?.[0]?.({ eventType: "COLLECT_RESULT", playerId: "ai-1", commandId: "ai-runtime-ai-1-1-1000" });
+    // Bump territory version — runtime would do this on any tile change for this player.
+    territoryVersionByPlayer.set("ai-1", 6);
+    // Latch should now be invalidated by the version mismatch; ai-1 replans immediately.
+    await producer.tick();
+    producer.close();
+
+    expect(submittedPlayers).toEqual(["ai-1", "ai-1"]);
+  });
+
+  it("with intent-latch enabled, releases the latch on TILE_DELTA_BATCH (the SETTLE/BUILD resolution event)", async () => {
+    let nowMs = 1_000;
+    const onEvent = vi.fn(() => () => undefined);
+    const chooseNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+        sessionId: `ai-runtime:${playerId}`,
+        playerId,
+        clientSeq,
+        issuedAt,
+        type: "SETTLE" as const,
+        payloadJson: JSON.stringify({ x: 1, y: 0 })
+      })
+    );
+    const runtime = {
+      chooseNextAutomationCommand,
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const submittedPlayers: string[] = [];
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedPlayers.push(command.playerId);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000,
+      territoryVersionForPlayer: () => 0
+    });
+
+    await producer.tick();
+    nowMs = 1_500;
+    // SETTLE resolves with TILE_DELTA_BATCH (no COMBAT_RESOLVED) — must release the latch.
+    runtime.onEvent.mock.calls[0]?.[0]?.({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: "ai-runtime-ai-1-1-1000",
+      playerId: "ai-1",
+      tileDeltas: []
+    });
+    await producer.tick();
+    producer.close();
+
+    expect(submittedPlayers).toEqual(["ai-1", "ai-1"]);
+  });
+
+  it("with intent-latch enabled, does not latch BUILD_* commands so the AI can re-plan immediately after dispatching one", async () => {
+    let nowMs = 1_000;
+    const onEvent = vi.fn(() => () => undefined);
+    const chooseNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+        sessionId: `ai-runtime:${playerId}`,
+        playerId,
+        clientSeq,
+        issuedAt,
+        type: "BUILD_FORT" as const,
+        payloadJson: JSON.stringify({ x: 1, y: 0 })
+      })
+    );
+    const runtime = {
+      chooseNextAutomationCommand,
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const submittedPlayers: string[] = [];
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedPlayers.push(command.playerId);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000,
+      territoryVersionForPlayer: () => 0
+    });
+
+    await producer.tick();
+    nowMs = 1_500;
+    // Build duration varies by structure; we deliberately don't latch BUILD_*. Pending tracker
+    // is the only thing keeping the AI off the wheel — clearing it lets ai-1 dispatch again.
+    runtime.onEvent.mock.calls[0]?.[0]?.({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: "ai-runtime-ai-1-1-1000",
+      playerId: "ai-1",
+      tileDeltas: []
+    });
+    await producer.tick();
+    producer.close();
+
+    expect(submittedPlayers).toEqual(["ai-1", "ai-1"]);
+  });
+
+  it("with intent-latch enabled, restores urgency if submitCommand throws after the urgent flag was consumed", async () => {
+    let nowMs = 1_000;
+    const onEvent = vi.fn(() => () => undefined);
+    let submitShouldThrow = true;
+    const submitCommand = vi.fn(async () => {
+      if (submitShouldThrow) {
+        submitShouldThrow = false;
+        throw new Error("transient command-store error");
+      }
+    });
+    const chooseNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+        sessionId: `ai-runtime:${playerId}`,
+        playerId,
+        clientSeq,
+        issuedAt,
+        type: "ATTACK" as const,
+        payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+      })
+    );
+    const runtime = {
+      chooseNextAutomationCommand,
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1", "ai-2"],
+      submitCommand,
+      now: () => nowMs,
+      tickIntervalMs: 10_000,
+      territoryVersionForPlayer: () => 0
+    });
+
+    // Mark ai-2 urgent via a human-attacks-AI COMBAT_RESOLVED so it's at the front next tick.
+    runtime.onEvent.mock.calls[0]?.[0]?.({
+      eventType: "COMBAT_RESOLVED",
+      commandId: "human-cmd",
+      playerId: "human-1",
+      actionType: "ATTACK",
+      originX: 5,
+      originY: 5,
+      targetX: 6,
+      targetY: 5,
+      attackerWon: true,
+      combatResult: { defenderOwnerId: "ai-2" }
+    });
+
+    // First tick: ai-2 (urgent) is selected, submit throws. Without the restore-on-error fix,
+    // the urgent flag would be lost and ai-2 would have to wait for round-robin.
+    await producer.tick();
+    expect(submitCommand).toHaveBeenCalledTimes(1);
+    expect(submitCommand.mock.calls[0]?.[0]?.playerId).toBe("ai-2");
+
+    nowMs = 1_500;
+    // Next tick: urgent was restored. ai-2 should still be ahead of ai-1.
+    await producer.tick();
+    producer.close();
+
+    expect(submitCommand).toHaveBeenCalledTimes(2);
+    expect(submitCommand.mock.calls[1]?.[0]?.playerId).toBe("ai-2");
+  });
+
   it("does not submit while the producer is externally paused", async () => {
     const submitCommand = vi.fn(async () => undefined);
     const producer = createAiCommandProducer({
