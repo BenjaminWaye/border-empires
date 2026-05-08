@@ -249,6 +249,147 @@ describe("ai command producer", () => {
     expect(submittedPlayers).toEqual(["ai-1", "ai-2", "ai-3"]);
   });
 
+  it("with intent-latch enabled, defers replanning a player while their previous frontier intent is still in its wake window", async () => {
+    let nowMs = 1_000;
+    const onEvent = vi.fn(() => () => undefined);
+    // Each AI expands toward a different tile so the cross-AI reservation gate
+    // doesn't accidentally block ai-2 here — this test is specifically about
+    // the same-player wake-window deferral.
+    const targetByPlayer: Record<string, { fromX: number; fromY: number; toX: number; toY: number }> = {
+      "ai-1": { fromX: 0, fromY: 0, toX: 1, toY: 0 },
+      "ai-2": { fromX: 10, fromY: 10, toX: 11, toY: 10 }
+    };
+    const chooseNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+        sessionId: `ai-runtime:${playerId}`,
+        playerId,
+        clientSeq,
+        issuedAt,
+        type: "EXPAND" as const,
+        payloadJson: JSON.stringify(targetByPlayer[playerId]!)
+      })
+    );
+    const runtime = {
+      chooseNextAutomationCommand,
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const submittedPlayers: string[] = [];
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1", "ai-2"],
+      submitCommand: async (command) => {
+        submittedPlayers.push(command.playerId);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000,
+      territoryVersionForPlayer: () => 0
+    });
+
+    await producer.tick();
+    // ai-1 is now latched on EXPAND (1,0) for 3500ms. Free up pending without releasing the latch.
+    nowMs = 1_500;
+    runtime.onEvent.mock.calls[0]?.[0]?.({ eventType: "COLLECT_RESULT", playerId: "ai-1", commandId: "ai-runtime-ai-1-1-1000" });
+    // Still inside the 3500ms wake window — ai-1 should be skipped, ai-2 takes the turn.
+    await producer.tick();
+    producer.close();
+
+    expect(submittedPlayers).toEqual(["ai-1", "ai-2"]);
+  });
+
+  it("with intent-latch enabled, releases the latch on COMBAT_RESOLVED for the same player", async () => {
+    let nowMs = 1_000;
+    const onEvent = vi.fn(() => () => undefined);
+    const chooseNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+        sessionId: `ai-runtime:${playerId}`,
+        playerId,
+        clientSeq,
+        issuedAt,
+        type: "EXPAND" as const,
+        payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+      })
+    );
+    const runtime = {
+      chooseNextAutomationCommand,
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const submittedPlayers: string[] = [];
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submittedPlayers.push(command.playerId);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000,
+      territoryVersionForPlayer: () => 0
+    });
+
+    await producer.tick();
+    nowMs = 1_500;
+    // COMBAT_RESOLVED clears both the pending tracker and the latch — ai-1 can replan immediately.
+    runtime.onEvent.mock.calls[0]?.[0]?.({
+      eventType: "COMBAT_RESOLVED",
+      commandId: "ai-runtime-ai-1-1-1000",
+      playerId: "ai-1",
+      actionType: "EXPAND",
+      originX: 0,
+      originY: 0,
+      targetX: 1,
+      targetY: 0,
+      attackerWon: true
+    });
+    await producer.tick();
+    producer.close();
+
+    expect(submittedPlayers).toEqual(["ai-1", "ai-1"]);
+  });
+
+  it("with intent-latch enabled, blocks a second AI from claiming a tile already reserved by another AI", async () => {
+    const nowMs = 1_000;
+    const onEvent = vi.fn(() => () => undefined);
+    const submitCommand = vi.fn(async () => undefined);
+    // Both AIs want to expand to the same target tile.
+    const chooseNextAutomationCommand = vi.fn(
+      (playerId: string, clientSeq: number, issuedAt: number) => ({
+        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
+        sessionId: `ai-runtime:${playerId}`,
+        playerId,
+        clientSeq,
+        issuedAt,
+        type: "EXPAND" as const,
+        payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 5, toY: 5 })
+      })
+    );
+    const runtime = {
+      chooseNextAutomationCommand,
+      queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+      onEvent
+    };
+    const producer = createAiCommandProducer({
+      runtime,
+      aiPlayerIds: ["ai-1", "ai-2"],
+      submitCommand,
+      now: () => nowMs,
+      tickIntervalMs: 10_000,
+      territoryVersionForPlayer: () => 0
+    });
+
+    await producer.tick();
+    // ai-1 reserved (5,5). Clear ai-1's pending so the loop reaches ai-2 next tick.
+    runtime.onEvent.mock.calls[0]?.[0]?.({ eventType: "COLLECT_RESULT", playerId: "ai-1", commandId: "ai-runtime-ai-1-1-1000" });
+    await producer.tick();
+    producer.close();
+
+    // Only ai-1 dispatched — ai-2's planner returned the reserved tile, producer broke out without submitting.
+    expect(submitCommand).toHaveBeenCalledTimes(1);
+    expect(submitCommand.mock.calls[0]?.[0]?.playerId).toBe("ai-1");
+  });
+
   it("does not submit while the producer is externally paused", async () => {
     const submitCommand = vi.fn(async () => undefined);
     const producer = createAiCommandProducer({

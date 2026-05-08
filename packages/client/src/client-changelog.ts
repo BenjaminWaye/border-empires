@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.6",
+  version: "2026.05.08.7",
   title: "What's New",
-  summary: "Season-victory cards show your own progress again when another empire leads an objective, and call you out as You when you are the current objective leader or crowned winner. Plus the live AI tile-flip/attack-alert fix, the AI defense-priority and COLLECT_VISIBLE preplan fixes, the unfed-town badge predicate, and the rest of this release train.",
+  summary: "AI now commits to its plans across ticks via an intent latch — it picks an EXPAND/ATTACK/SETTLE target, sticks with it for the relevant resolution window, and reserves the target tile so two AIs don't both spend gold racing for the same neutral land. Plus season-victory progress fix, AI defense-priority and COLLECT_VISIBLE preplan fixes, unfed-town badge predicate, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.7",
+      title: "AI plans persist across ticks instead of being thrown away every 250ms",
+      why: "The Phase-3 worker-thread split moved the AI planner into a worker but didn't port legacy's `intent-latch.ts` or its tile-reservation map. Result on the rewrite: every 250ms tick, each AI replanned from scratch with no memory of \"I'm already doing this,\" and two AIs staring at the same juicy neutral tile would both try to claim it (one wins, the other wastes gold/cycles). Legacy committed to a chosen action for the duration of its resolution window and reserved the target tile across AIs.",
+      changes: [
+        "Ported `apps/simulation/src/ai-intent-latch.ts` from the legacy `packages/server/src/ai/intent-latch.ts` — same shape (intent + reservation maps, probe/latch/release, expiry on wake-window, invalidation on territoryVersion mismatch or target-no-longer-valid).",
+        "Wired into both the in-process `ai-command-producer.ts` and the worker-thread `ai-command-producer-worker.ts`. After dispatching an EXPAND/ATTACK/SETTLE, the producer latches the AI for the action's resolution window (3.5s for EXPAND/ATTACK, 61s for SETTLE) and reserves the target tile.",
+        "Cross-AI reservation gate: if an AI's planner picks a tile that another AI has already reserved, the producer drops that turn instead of dispatching a doomed claim, and the round-robin moves on.",
+        "Latch is invalidated when the player's `tileCollectionVersion` changes (territory shifted under us), released on COMBAT_RESOLVED / TILE_DELTA_BATCH / COMMAND_REJECTED for the same commandId, and expires automatically when the wake window elapses — so a stuck or unrecorded resolution doesn't deadlock the AI.",
+        "Reuses the existing `tileCollectionVersion` (already incremented in `runtime.ts:markPlannerPlayerTileCollectionDirty`) as the territoryVersion equivalent — no new runtime instrumentation needed."
+      ]
+    },
     {
       introducedIn: "2026.05.08.6",
       title: "Season victory cards show your progress again",
