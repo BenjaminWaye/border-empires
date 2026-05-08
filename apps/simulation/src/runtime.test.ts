@@ -892,6 +892,73 @@ describe("simulation runtime", () => {
     expect(payload.gold).toBeGreaterThan(0.9);
   });
 
+  it("drains food upkeep continuously so net-negative food balances actually decrement", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "TOWN", goldPerMinute: 2 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    currentNow += 5 * 60_000;
+
+    runtime.submitCommand({
+      commandId: "collect-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: currentNow,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+
+    await Promise.resolve();
+
+    const playerUpdateEvent = seen.find(
+      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
+    );
+    expect(playerUpdateEvent).toBeDefined();
+    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
+      strategicResources: { FOOD: number };
+    };
+    // Town tier upkeep is 0.1 food/min; 5 minutes elapsed → 0.5 drained from 10.
+    expect(payload.strategicResources.FOOD).toBeCloseTo(9.5, 2);
+  });
+
   it("prefers SETTLE for AI automation when strategic frontier land is available and a development slot is free", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
