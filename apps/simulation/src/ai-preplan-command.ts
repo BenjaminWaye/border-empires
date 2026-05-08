@@ -1,6 +1,6 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey } from "@border-empires/game-domain";
-import type { Terrain } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, SETTLE_COST, type Terrain } from "@border-empires/shared";
 
 import { createAutomationCommand } from "./automation-command-factory.js";
 import type {
@@ -140,11 +140,13 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
     preplanProgressState: progressState
   } satisfies Partial<AutomationPlannerDiagnostic>;
 
+  const canAffordExpansion = input.points >= FRONTIER_CLAIM_COST + SETTLE_COST;
   if (
     hasCollectibleSource &&
     (
       input.hasActiveLock ||
       (
+        !canAffordExpansion &&
         !hasAffordableProgression &&
         (
           (techChoice !== undefined && !techChoice.affordable) ||
