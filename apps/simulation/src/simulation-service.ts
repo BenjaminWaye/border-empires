@@ -1894,6 +1894,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         });
       });
       unsubscribeRuntimeEvents?.();
+      if (globalStatusBroadcastTimeout) {
+        clearTimeout(globalStatusBroadcastTimeout);
+        globalStatusBroadcastTimeout = undefined;
+      }
       await persistenceQueue.whenIdle();
     },
     renderMetrics(): string {
