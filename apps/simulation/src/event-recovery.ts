@@ -271,10 +271,15 @@ export const applySimulationEventsToRecoveredAccumulator = (
         accumulator.activeLocks.delete(event.commandId);
       }
       if (event.attackerWon) {
-        accumulator.tiles.set(simulationTileKey(event.targetX, event.targetY), {
+        const targetKey = simulationTileKey(event.targetX, event.targetY);
+        const previousTarget = accumulator.tiles.get(targetKey);
+        accumulator.tiles.set(targetKey, {
           x: event.targetX,
           y: event.targetY,
-          terrain: "LAND",
+          terrain: previousTarget?.terrain ?? "LAND",
+          ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
+          ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
+          ...(previousTarget?.town ? { town: previousTarget.town } : {}),
           ownerId: event.playerId,
           ownershipState: "FRONTIER"
         });
