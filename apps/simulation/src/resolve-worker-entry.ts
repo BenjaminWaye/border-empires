@@ -26,5 +26,20 @@ export const resolveWorkerEntryUrl = (relativeJsPath: string, baseUrl: string): 
     return tsUrl;
   }
 
+  // Merged-process fallback: when the caller is the gateway's compiled
+  // dist (apps/realtime-gateway/dist/simulation/src/...) and tsc didn't
+  // emit the worker file (because it was never statically imported), the
+  // worker script still exists in the simulation app's own dist at
+  // apps/simulation/dist/<file>. Walk up from the caller to find it.
+  const baseSegments = basePath.split("/").filter(Boolean);
+  const appsIndex = baseSegments.lastIndexOf("apps");
+  if (appsIndex >= 0 && appsIndex + 1 < baseSegments.length) {
+    const root = "/" + baseSegments.slice(0, appsIndex).join("/");
+    const candidate = `${root}/apps/simulation/dist/${relativeJsPath.replace(/^\.\//, "")}`;
+    if (existsSync(candidate)) {
+      return pathToFileURL(candidate);
+    }
+  }
+
   return jsUrl;
 };
