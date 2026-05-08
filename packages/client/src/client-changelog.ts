@@ -19,10 +19,23 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.7",
+  version: "2026.05.08.8",
   title: "What's New",
-  summary: "AI now commits to its plans across ticks via an intent latch — it picks an EXPAND/ATTACK/SETTLE target, sticks with it for the relevant resolution window, and reserves the target tile so two AIs don't both spend gold racing for the same neutral land. Plus season-victory progress fix, AI defense-priority and COLLECT_VISIBLE preplan fixes, unfed-town badge predicate, and the rest of this release train.",
+  summary: "Painterly grass and sand textures in renderer=3d. Each world tile samples a different rotated patch of a hand-toned painted texture so the surface stops reading as procedural noise; grass gets a multi-tone bright-meadow palette with cellular-speckle clumps, sand goes ivory bleached-beach, the grass↔sand boundary is a clean anti-aliased cut, and tiles within 2 of a forest get a darker mossy halo so wooded areas read distinctly. Plus the AI intent-latch fix from earlier in the train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.8",
+      title: "Painterly grass/sand in renderer=3d, per-tile variation, forest halo",
+      why: "The 3D heightfield's MeshStandardMaterial was vertex-color-only — no map/normalMap/roughnessMap — so grass and sand both read as flat washes. Frontier vs settled tiles looked identical because the ownership tint was the only visual signal. We needed a painted look that holds up at game zoom without an art pipeline (Civ-VI-style, hand-painted feel from procedural canvas).",
+      changes: [
+        "New 512px painted detail textures generated procedurally on the client: full-color grass + sand maps with a 4-tone palette per biome (sunny meadow / ivory beach), Worley cellular patches, hashed pebble stamps, anisotropic ripples for sand, and a small-cell speckle that reads as scattered grass clumps instead of dune ripples.",
+        "Per-tile UV variation: each world tile hashes its coord into a 90° rotation + random offset within the texture, so adjacent tiles draw disjoint regions of the painting and the 8-tile-wide repetition is gone.",
+        "World-anchored UVs (camX/Y + tileOffset + i) — the painted texture stays glued to world tiles as the camera pans.",
+        "Hand-tuned shader injection on MeshStandardMaterial: samples grass + sand at the rotated UV and blends them by a narrow smoothstep on the vertex-color green-bias, so the grass↔sand boundary is a clean anti-aliased cut without a muddy blend zone.",
+        "Forest halo: tiles within Chebyshev distance 2 of a forest tile get a darker mossy grass tint via a per-vertex `forestZone` attribute (corner-averaged for smooth edges). Wooded areas now read distinctly from open meadow.",
+        "Frontier ownership opacity dropped from 0.55 → 0.32 so the new biome detail shows through unsettled tiles. Settled stays at 0.85 so owned territory still reads as unambiguously claimed."
+      ]
+    },
     {
       introducedIn: "2026.05.08.7",
       title: "AI plans persist across ticks instead of being thrown away every 250ms",
