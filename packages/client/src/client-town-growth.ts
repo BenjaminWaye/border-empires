@@ -44,6 +44,24 @@ const townGrowthPauseReason = (
   return undefined;
 };
 
+// Mirror of the "Town is unfed" line in client-tile-menu-view.ts. The 2D and
+// 3D map badges must only paint when the tile-menu would also show the
+// unfed warning — otherwise neutral, foreign, or unsettled towns light up
+// the map even though clicking them shows no fed/unfed info.
+export const shouldShowTownUnfedWarning = (tile: Tile): boolean => {
+  const town = tile.town;
+  if (!town) return false;
+  if (!tile.ownerId) return false;
+  if (tile.terrain !== "LAND") return false;
+  if (tile.ownershipState !== "SETTLED") return false;
+  if (town.populationTier === "SETTLEMENT") return false;
+  if (typeof town.isFed !== "boolean") return false;
+  if (town.isFed) return false;
+  if ((town.goldPerMinute ?? 0) > 0.001) return false;
+  if ((town.populationGrowthPerMinute ?? 0) > 0.001) return false;
+  return true;
+};
+
 export const townNextGrowthEtaLabel = (
   town: NonNullable<Tile["town"]>,
   options?: { explainUnfed?: boolean }

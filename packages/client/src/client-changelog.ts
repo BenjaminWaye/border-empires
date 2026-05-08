@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.2",
+  version: "2026.05.08.3",
   title: "What's New",
-  summary: "The 4x forest claim multiplier shipped yesterday wasn't actually firing on staging because simulation startup recovery never reseeded the worldgen helpers — every restart left the global seed at the default of 42, so forest detection ran against the wrong world and EXPAND fell back to the 1.25s base. Recovery now restores the active season's worldSeed up front. Plus the food-aware AI claim scoring, dock-line straight-fallback fix, and the rest of this release train.",
+  summary: "The unfed-town warning badge no longer lights up neutral, foreign, unsettled, or settlement-tier towns on the map. The badge predicate is now shared with the tile-overview's 'Town is unfed' line, so what you see on the map matches what you see when you click — the previous shape would paint warnings on neutral world towns that have no fed/unfed info at all in the click panel. Plus the prior simulation reseed-on-restart fix, food-aware AI claim scoring, dock-line straight-fallback fix, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.3",
+      title: "Unfed-town warning badge no longer fires on towns we don't actually warn about",
+      why: "The 2D and 3D map badges only checked `tile.town && tile.town.isFed === false`, so any town the simulation marked unfed lit up the map — including neutral world towns and unsettled frontier tiles, which the click panel deliberately doesn't warn about (it shows 'Neutral town. Claim and settle...' instead). Players saw a red `!` triangle on Velythwatch, clicked through, and got no fed/unfed info — confusing and wrong.",
+      changes: [
+        "Extracted `shouldShowTownUnfedWarning(tile)` and pointed both renderers at it, so badge visibility now matches the tile-overview's 'Town is unfed' line exactly: must be owned, settled, non-SETTLEMENT tier, with owner economy data, isFed === false, and zero gold/growth.",
+        "Added behavioral tests for neutral / foreign / unsettled / SETTLEMENT-tier / fed / producing / growing towns so the predicate can't drift from the tile-overview again."
+      ]
+    },
     {
       introducedIn: "2026.05.08.2",
       title: "Forest claim duration actually fires after a sim restart",
