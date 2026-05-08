@@ -308,6 +308,10 @@ const createPainterlyBiomeTexture = (
     seed: number;
     cellularCellSize: number;
     cellularStrength: number;
+    // Small-cell cellular noise produces individual dark/light spots —
+    // reads as scattered grass clumps. 0 disables.
+    speckleCellSize: number;
+    speckleStrength: number;
     bladeStripeFreq: number;
     bladeStripeStrength: number;
     rippleFreqX: number;
@@ -384,19 +388,45 @@ const createPainterlyBiomeTexture = (
       g += cellularShade * 26;
       b += cellularShade * 22;
 
-      // Anisotropic blade/ripple pattern. Grass uses near-vertical stripes,
-      // sand uses cross-hatched ripples — the magnitudes are tuned by the
-      // caller via bladeStripe* and ripple*.
+      // Sand uses cross-hatched ripples (tuned to read as soft dunes); the
+      // bladeStripe path is kept around but typically unused now (grass
+      // relies on speckle below for the grass-blade look).
       const stripe =
-        Math.sin(x * k * options.bladeStripeFreq + Math.sin(y * k * 4) * 1.1) *
-        options.bladeStripeStrength;
+        options.bladeStripeStrength > 0
+          ? Math.sin(x * k * options.bladeStripeFreq + Math.sin(y * k * 4) * 1.1) *
+            options.bladeStripeStrength
+          : 0;
       const ripple =
-        Math.sin(y * k * options.rippleFreqY + Math.cos(x * k * options.rippleFreqX) * 1.4) *
-        options.rippleStrength;
+        options.rippleStrength > 0
+          ? Math.sin(y * k * options.rippleFreqY + Math.cos(x * k * options.rippleFreqX) * 1.4) *
+            options.rippleStrength
+          : 0;
       const directional = stripe + ripple;
       r += directional * 8;
       g += directional * 9;
       b += directional * 6;
+
+      // Small-cell cellular speckle — dark at feature points (grass clumps),
+      // light at cell boundaries (gaps between clumps). Gives the
+      // pointillist look of painted grass without the directional-stripe
+      // ripple artifact the previous bladeStripe was producing.
+      let speckleDelta = 0;
+      let speckleHeight = 0;
+      if (options.speckleStrength > 0 && options.speckleCellSize > 0) {
+        const sCell = options.speckleCellSize;
+        const sPeriod = Math.max(2, Math.round(size / sCell));
+        const f1 = periodicCellular(x, y, sCell, sPeriod, options.seed + 991);
+        // f1: ~0 at feature points, up to ~1 at cell boundaries. Centered
+        // at 0.5 → signed delta in [-0.5, 0.5] * strength.
+        const speckleSigned = (f1 - 0.5) * options.speckleStrength;
+        // Asymmetric: bright lift is half as strong as dark shade so the
+        // overall surface stays bright but each clump reads as a clear dot.
+        speckleDelta = speckleSigned < 0 ? speckleSigned : speckleSigned * 0.5;
+        r += speckleDelta * 36;
+        g += speckleDelta * 30;
+        b += speckleDelta * 22;
+        speckleHeight = speckleDelta * 0.45;
+      }
 
       // Stamps: at each stamp position, apply a soft radial darkening. For
       // grass these read as tufts, for sand as wet/erosion patches. Quadratic
@@ -438,11 +468,12 @@ const createPainterlyBiomeTexture = (
       image.data[px + 3] = 255;
 
       // Composite scalar height for the shared normal/roughness pass. Pulls
-      // from cellular (deep clumps), directional pattern, stamps (deeper
-      // pits), and grain.
+      // from cellular (deep clumps), directional pattern, speckle (grass
+      // tufts), stamps (deeper pits), and grain.
       heights[idx] =
         (cellular - 0.5) * 0.55 +
         directional * 0.05 +
+        speckleHeight +
         stampShade * -0.6 +
         grain * 0.15;
     }
@@ -477,23 +508,25 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
 
   const grass = createPainterlyBiomeTexture(size, GRASS_PALETTE, {
     seed: 7,
-    // Smaller cells + low strength → fine, soft tonal variation across the
-    // surface rather than visible blotches.
+    // Soft tonal patches under the speckle.
     cellularCellSize: size / 24,
     cellularStrength: 0.18,
-    // Tight, fine vertical stripes so the texture reads as grass blades up
-    // close. Strong enough to see, fine enough not to look stripey.
-    bladeStripeFreq: 38,
-    bladeStripeStrength: 0.7,
+    // Drop the directional stripe — it was reading as dune ripples on the
+    // grass. Grass-blade illusion now comes from speckle below.
+    bladeStripeFreq: 0,
+    bladeStripeStrength: 0,
     rippleFreqX: 0,
     rippleFreqY: 0,
     rippleStrength: 0,
-    // No stamps on grass — stamps at this scale read as dirt patches and
-    // muddy the cheerful color. Grass relies on palette + cellular + blades.
+    // High-density small-cell cellular: many tiny dark spots = scattered
+    // grass clumps. ~12 cells across the texture (~6 per tile) gives a
+    // pointillist look that reads as painted grass at game zoom.
+    speckleCellSize: size / 56,
+    speckleStrength: 0.65,
     stampDensity: 0,
     stampDarkness: 0,
     stampRadius: 0,
-    grainStrength: 0.4
+    grainStrength: 0.45
   });
 
   const sand = createPainterlyBiomeTexture(size, SAND_PALETTE, {
@@ -505,9 +538,10 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
     rippleFreqX: 5,
     rippleFreqY: 9,
     rippleStrength: 0.42,
-    // Soft, sparse pebble accents — sand keeps a hint of stamp variation
-    // since the sun-bleached palette can absorb light darkening without
-    // looking muddy.
+    // No speckle on sand — sand reads as smooth swept dunes, not pointillist.
+    speckleCellSize: 0,
+    speckleStrength: 0,
+    // Soft, sparse pebble accents.
     stampDensity: 8,
     stampDarkness: 0.28,
     stampRadius: size / 22,
