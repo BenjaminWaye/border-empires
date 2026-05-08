@@ -1,0 +1,5 @@
+.claude/
+.codex-worktrees/
+.localhost-seasons/
+.DS_Store
+_tmp_*
