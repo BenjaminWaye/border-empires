@@ -179,14 +179,22 @@ uniform sampler2D sandColorMap;`
         vec4 grassSample = texture2D( map, vMapUv );
         vec4 sandSample = texture2D( sandColorMap, vMapUv );
         float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
-        float grassMask = smoothstep(-0.05, 0.18, greenBias);
-        vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
+        // Sharp biome cut: pure step instead of smoothstep, so grass and
+        // sand never mid-blend. The vertex color interpolates linearly
+        // across the tile so the cut lands at the iso-line greenBias=0.07,
+        // giving a single-pixel-wide hard boundary in screen space.
+        float grassMask = step(0.07, greenBias);
+        // Tuft band: a thin slice on the grass side of the cut where the
+        // grass color is darkened slightly, drawing the eye to the edge
+        // and reading as denser grass tufts crowding the boundary. Lives
+        // in greenBias [0.07, 0.10] — a narrow strip just inside grass.
+        float tuftBand = grassMask * (1.0 - step(0.10, greenBias));
+        vec3 grassWithTuft = grassSample.rgb * mix(1.0, 0.62, tuftBand);
+        vec3 biomeColor = mix(sandSample.rgb, grassWithTuft, grassMask);
         // Very mild vertex-color tint: extract unit-luminance hue from the
-        // vertex color and mix it in at 12% — enough that beach-corner
-        // blends still warm toward white-foam and per-tile shade variants
-        // still register, but the bright painted base color stays in
-        // charge. Higher mix made the dark-olive grass variant pull every
-        // grass tile toward muddy moss.
+        // vertex color and mix it in at 12% — enough that per-tile shade
+        // variants still register but the bright painted base color stays
+        // in charge.
         float vertLum = max(0.001, dot(vColor.rgb, vec3(0.299, 0.587, 0.114)));
         vec3 tint = mix(vec3(1.0), vColor.rgb / vertLum, 0.12);
         diffuseColor.rgb = biomeColor * tint;
