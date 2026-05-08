@@ -7,12 +7,22 @@ import { createPostgresSimulationEventStore } from "./postgres-event-store.js";
 
 type EventStoreFactoryOptions = {
   databaseUrl?: string;
+  sqlitePath?: string;
   applySchema?: boolean;
 };
 
 export const createSimulationEventStore = async (
   options: EventStoreFactoryOptions = {}
 ): Promise<SimulationEventStore> => {
+  if (options.sqlitePath) {
+    const [{ SqliteSimulationEventStore }, { openSqliteDatabase }] = await Promise.all([
+      import("./sqlite-event-store.js"),
+      import("./sqlite-db.js")
+    ]);
+    const store = new SqliteSimulationEventStore(openSqliteDatabase(options.sqlitePath));
+    if (options.applySchema) await store.applySchema();
+    return store;
+  }
   if (!options.databaseUrl) return new InMemorySimulationEventStore();
 
   const store = createPostgresSimulationEventStore(options.databaseUrl);

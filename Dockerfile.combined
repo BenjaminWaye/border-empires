@@ -8,6 +8,7 @@ COPY packages/shared/package.json packages/shared/package.json
 COPY packages/game-domain/package.json packages/game-domain/package.json
 COPY packages/client-protocol/package.json packages/client-protocol/package.json
 COPY packages/sim-protocol/package.json packages/sim-protocol/package.json
+COPY apps/realtime-gateway/package.json apps/realtime-gateway/package.json
 COPY apps/simulation/package.json apps/simulation/package.json
 
 RUN pnpm install --frozen-lockfile
@@ -17,6 +18,7 @@ COPY packages/game-domain packages/game-domain
 COPY packages/server/data packages/server/data
 COPY packages/client-protocol packages/client-protocol
 COPY packages/sim-protocol packages/sim-protocol
+COPY apps/realtime-gateway apps/realtime-gateway
 COPY apps/simulation apps/simulation
 
 RUN rm -rf \
@@ -24,11 +26,13 @@ RUN rm -rf \
     packages/game-domain/dist \
     packages/client-protocol/dist \
     packages/sim-protocol/dist \
+    apps/realtime-gateway/dist \
     apps/simulation/dist \
   && pnpm --filter @border-empires/shared build \
   && pnpm --filter @border-empires/game-domain build \
   && pnpm --filter @border-empires/client-protocol build \
   && pnpm --filter @border-empires/sim-protocol build \
+  && pnpm --filter @border-empires/realtime-gateway build \
   && pnpm --filter @border-empires/simulation build \
   && pnpm prune --prod
 
@@ -48,27 +52,50 @@ COPY --from=build /app/packages/game-domain/package.json ./packages/game-domain/
 COPY --from=build /app/packages/game-domain/dist ./packages/game-domain/dist
 COPY --from=build /app/packages/game-domain/node_modules ./packages/game-domain/node_modules
 COPY --from=build /app/packages/game-domain/data ./packages/game-domain/data
+COPY --from=build /app/packages/game-domain/data ./apps/realtime-gateway/packages/game-domain/data
+COPY --from=build /app/packages/game-domain/data ./apps/simulation/packages/game-domain/data
 COPY --from=build /app/packages/server/data ./packages/server/data
+COPY --from=build /app/packages/server/data ./apps/realtime-gateway/packages/server/data
+COPY --from=build /app/packages/server/data ./apps/simulation/packages/server/data
 COPY --from=build /app/packages/client-protocol/package.json ./packages/client-protocol/package.json
 COPY --from=build /app/packages/client-protocol/dist ./packages/client-protocol/dist
 COPY --from=build /app/packages/client-protocol/node_modules ./packages/client-protocol/node_modules
 COPY --from=build /app/packages/sim-protocol/package.json ./packages/sim-protocol/package.json
 COPY --from=build /app/packages/sim-protocol/dist ./packages/sim-protocol/dist
 COPY --from=build /app/packages/sim-protocol/node_modules ./packages/sim-protocol/node_modules
+COPY --from=build /app/apps/realtime-gateway/package.json ./apps/realtime-gateway/package.json
+COPY --from=build /app/apps/realtime-gateway/dist ./apps/realtime-gateway/dist
+COPY --from=build /app/apps/realtime-gateway/node_modules ./apps/realtime-gateway/node_modules
+COPY --from=build /app/apps/realtime-gateway/sql ./apps/realtime-gateway/sql
 COPY --from=build /app/apps/simulation/package.json ./apps/simulation/package.json
 COPY --from=build /app/apps/simulation/dist ./apps/simulation/dist
 COPY --from=build /app/apps/simulation/node_modules ./apps/simulation/node_modules
 COPY --from=build /app/apps/simulation/sql ./apps/simulation/sql
 
-RUN chmod -R a+rX /app/packages/game-domain/data /app/packages/server/data \
-  && mkdir -p /app/apps/simulation/dist/packages/game-domain \
-  && mkdir -p /app/apps/simulation/dist/packages/game-domain/data \
-  && cp -R /app/packages/game-domain/data/. /app/apps/simulation/dist/packages/game-domain/data/.
+RUN chmod -R a+rX \
+    /app/packages/game-domain/data \
+    /app/apps/realtime-gateway/packages/game-domain/data \
+    /app/apps/simulation/packages/game-domain/data \
+    /app/packages/server/data \
+    /app/apps/realtime-gateway/packages/server/data \
+    /app/apps/simulation/packages/server/data
+
+RUN mkdir -p /app/node_modules/@border-empires \
+  && ln -sfn /app/packages/shared /app/node_modules/@border-empires/shared \
+  && ln -sfn /app/packages/game-domain /app/node_modules/@border-empires/game-domain \
+  && ln -sfn /app/packages/client-protocol /app/node_modules/@border-empires/client-protocol \
+  && ln -sfn /app/packages/sim-protocol /app/node_modules/@border-empires/sim-protocol
 
 ENV NODE_ENV=production
+ENV PORT=8080
+ENV SIMULATION_HOST=127.0.0.1
 ENV SIMULATION_PORT=50051
-EXPOSE 50051
+ENV SIMULATION_METRICS_HOST=127.0.0.1
+ENV SIMULATION_METRICS_PORT=50052
+ENV SIMULATION_ADDRESS=127.0.0.1:50051
+
+EXPOSE 8080
 
 USER borderempires
 
-CMD ["sh", "-c", "if [ -f apps/simulation/dist/main.js ]; then exec node apps/simulation/dist/main.js; elif [ -f apps/simulation/dist/simulation/src/main.js ]; then exec node apps/simulation/dist/simulation/src/main.js; elif [ -f apps/simulation/dist/apps/simulation/src/main.js ]; then exec node apps/simulation/dist/apps/simulation/src/main.js; elif [ -f apps/simulation/dist/src/main.js ]; then exec node apps/simulation/dist/src/main.js; else echo 'simulation dist entrypoint not found' >&2; find apps/simulation/dist -maxdepth 5 -type f >&2 || true; exit 1; fi"]
+CMD ["sh", "-c", "if [ -f apps/realtime-gateway/dist/main-merged.js ]; then exec node apps/realtime-gateway/dist/main-merged.js; elif [ -f apps/realtime-gateway/dist/realtime-gateway/src/main-merged.js ]; then exec node apps/realtime-gateway/dist/realtime-gateway/src/main-merged.js; elif [ -f apps/realtime-gateway/dist/apps/realtime-gateway/src/main-merged.js ]; then exec node apps/realtime-gateway/dist/apps/realtime-gateway/src/main-merged.js; else echo 'merged dist entrypoint not found' >&2; find apps/realtime-gateway/dist -maxdepth 5 -type f >&2 || true; exit 1; fi"]

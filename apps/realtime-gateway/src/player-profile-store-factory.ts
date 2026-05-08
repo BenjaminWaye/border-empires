@@ -7,12 +7,22 @@ import { retryStartup } from "./startup-retry.js";
 
 type PlayerProfileStoreFactoryOptions = {
   databaseUrl?: string;
+  sqlitePath?: string;
   applySchema?: boolean;
 };
 
 export const createGatewayPlayerProfileStore = async (
   options: PlayerProfileStoreFactoryOptions = {}
 ): Promise<GatewayPlayerProfileStore> => {
+  if (options.sqlitePath) {
+    const [{ SqliteGatewayPlayerProfileStore }, { openSqliteDatabase }] = await Promise.all([
+      import("./sqlite-player-profile-store.js"),
+      import("./sqlite-db.js")
+    ]);
+    const store = new SqliteGatewayPlayerProfileStore(openSqliteDatabase(options.sqlitePath));
+    if (options.applySchema) await store.applySchema();
+    return store;
+  }
   if (!options.databaseUrl) return new InMemoryGatewayPlayerProfileStore();
 
   const store = createPostgresGatewayPlayerProfileStore(options.databaseUrl);

@@ -7,6 +7,7 @@ export type SimulationRuntimeEnv = {
   metricsHost: string;
   metricsPort: number;
   databaseUrl?: string;
+  sqlitePath?: string;
   snapshotDir?: string;
   applySchema: boolean;
   checkpointEveryEvents: number;
@@ -18,6 +19,7 @@ export type SimulationRuntimeEnv = {
   seedProfile: SimulationSeedProfile;
   rulesetId?: SimulationRulesetId;
   mapStyle: SimulationMapStyle;
+  aiPlayerCount?: number;
   enableAiAutopilot: boolean;
   aiTickMs: number;
   aiMaxEventLoopLagMs: number;
@@ -59,10 +61,11 @@ const parseBooleanishEnvFlagWithDefault = (value: string | undefined, fallback: 
 
 export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRuntimeEnv => {
   const databaseUrl = env.SIMULATION_DATABASE_URL ?? env.DATABASE_URL;
+  const sqlitePath = env.SIMULATION_SQLITE_PATH ?? env.SQLITE_PATH;
   const isManagedRuntime = isManagedRuntimeEnv(env);
 
-  if (isManagedRuntime && !databaseUrl) {
-    throw new Error("simulation requires SIMULATION_DATABASE_URL or DATABASE_URL in managed runtime");
+  if (isManagedRuntime && !databaseUrl && !sqlitePath) {
+    throw new Error("simulation requires SIMULATION_DATABASE_URL/DATABASE_URL or SIMULATION_SQLITE_PATH/SQLITE_PATH in managed runtime");
   }
   if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE && !env.SIMULATION_RULESET_ID) {
     throw new Error("simulation requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
@@ -87,6 +90,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     metricsHost: env.SIMULATION_METRICS_HOST ?? (env.SIMULATION_HOST ?? "127.0.0.1"),
     metricsPort: parsePositiveNumber(env.SIMULATION_METRICS_PORT, 50052, "simulation metrics port"),
     ...(databaseUrl ? { databaseUrl } : {}),
+    ...(sqlitePath ? { sqlitePath } : {}),
     ...(env.SIMULATION_SNAPSHOT_DIR ? { snapshotDir: env.SIMULATION_SNAPSHOT_DIR } : {}),
     applySchema: env.SIMULATION_DB_APPLY_SCHEMA === "1",
     checkpointEveryEvents: parsePositiveNumber(
@@ -120,6 +124,9 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     ...(env.SIMULATION_RULESET_ID ? { rulesetId: env.SIMULATION_RULESET_ID as SimulationRulesetId } : {}),
     mapStyle: parseSimulationMapStyle(env.SIMULATION_MAP_STYLE),
+    ...(env.SIMULATION_AI_PLAYER_COUNT
+      ? { aiPlayerCount: parsePositiveNumber(env.SIMULATION_AI_PLAYER_COUNT, 20, "simulation ai player count") }
+      : {}),
     enableAiAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_AI_AUTOPILOT),
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
     aiMaxEventLoopLagMs: parsePositiveNumber(

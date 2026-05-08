@@ -57,6 +57,7 @@ type RealtimeGatewayAppOptions = {
   profileStore?: GatewayPlayerProfileStore;
   authBindingStore?: GatewayAuthBindingStore;
   databaseUrl?: string;
+  sqlitePath?: string;
   applySchema?: boolean;
   defaultHumanPlayerId?: string;
   simulationSeedProfile?: SimulationSeedProfile;
@@ -483,6 +484,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   };
   const commandStoreFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
+    ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
     ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {})
   };
   const commandStore =
