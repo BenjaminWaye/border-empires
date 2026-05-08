@@ -132,6 +132,27 @@ describe("server worldgen docks", () => {
   });
 
 
+  it("places no dock on a land component fully sealed by mountains with no sea adjacency", () => {
+    const sealedLandTiles = new Set<TileKey>(["3,3", "4,3", "3,4", "4,4"]);
+    const mountainTiles = new Set<TileKey>([
+      "2,2", "3,2", "4,2", "5,2",
+      "2,3", "5,3",
+      "2,4", "5,4",
+      "2,5", "3,5", "4,5", "5,5"
+    ]);
+    const coastalIslandTiles = new Set<TileKey>(["8,8", "9,8", "8,9", "9,9"]);
+    const { runtime, docksByTile } = createDockTestRuntime({
+      landTiles: [...sealedLandTiles, ...coastalIslandTiles],
+      mountainTiles
+    });
+
+    runtime.generateDocks(31415);
+
+    const sealedDocks = [...docksByTile.values()].filter((dock) => sealedLandTiles.has(dock.tileKey));
+    expect(sealedDocks).toHaveLength(0);
+  });
+
+
   it("treats coastal sea as valid shoreline when placing multiple docks on a large island", () => {
     const largeIslandTiles = new Set<TileKey>();
     const coastalSeaTiles = new Set<TileKey>();
