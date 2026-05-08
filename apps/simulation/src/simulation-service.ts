@@ -1877,7 +1877,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     async close(): Promise<void> {
       closeAutopilots();
-      unsubscribeRuntimeEvents?.();
       clearSeasonVictoryTimer();
       if (metricsTicker) clearInterval(metricsTicker);
       if (eventLoopSampler) clearInterval(eventLoopSampler);
@@ -1898,6 +1897,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           resolve();
         });
       });
+      unsubscribeRuntimeEvents?.();
+      if (globalStatusBroadcastTimeout) {
+        clearTimeout(globalStatusBroadcastTimeout);
+        globalStatusBroadcastTimeout = undefined;
+      }
+      await persistenceQueue.whenIdle();
     },
     renderMetrics(): string {
       return simulationMetrics.renderPrometheus();
