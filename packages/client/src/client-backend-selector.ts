@@ -82,10 +82,12 @@ export function selectBackend(opts: {
   legacyWsUrl: string;
   /** Value of VITE_GATEWAY_WS_URL (rewrite gateway). Required. */
   gatewayWsUrl: string;
+  /** Build-time default backend override (VITE_BACKEND_DEFAULT). */
+  envDefaultBackend?: BackendChoice;
   /** Override browser globals for testing. Defaults to real window/document. */
   ctx?: BrowserCtx;
 }): BackendSelection {
-  const { legacyWsUrl, gatewayWsUrl } = opts;
+  const { legacyWsUrl, gatewayWsUrl, envDefaultBackend } = opts;
   const { search, hostname, cookieStr } = opts.ctx ?? readBrowserCtx();
   const stagingHost = isStagingHostname(hostname);
 
@@ -115,10 +117,14 @@ export function selectBackend(opts: {
     };
   }
 
-  // Environment default: localhost/staging → gateway;
+  // Environment default: VITE_BACKEND_DEFAULT > localhost/staging → gateway;
   // everywhere else → legacy (production safety).
   const defaultBackend: BackendChoice =
-    isLocalhostHostname(hostname) || isStagingHostname(hostname) ? "gateway" : "legacy";
+    envDefaultBackend === "gateway" || envDefaultBackend === "legacy"
+      ? envDefaultBackend
+      : isLocalhostHostname(hostname) || isStagingHostname(hostname)
+        ? "gateway"
+        : "legacy";
   return {
     backend: defaultBackend,
     wsUrl: defaultBackend === "gateway" ? gatewayWsUrl : legacyWsUrl,
