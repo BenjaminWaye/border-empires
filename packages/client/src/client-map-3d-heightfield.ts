@@ -181,12 +181,14 @@ uniform sampler2D sandColorMap;`
         float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
         float grassMask = smoothstep(-0.05, 0.18, greenBias);
         vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
-        // Mild vertex-color tint: divide by the vertex luminance to extract
-        // a unit-luminance hue, then mix it in at 30% so per-tile variants
-        // (terrainShadeVariantAt) and beach blends shift the base hue
-        // subtly without overpowering the painted texture.
+        // Very mild vertex-color tint: extract unit-luminance hue from the
+        // vertex color and mix it in at 12% — enough that beach-corner
+        // blends still warm toward white-foam and per-tile shade variants
+        // still register, but the bright painted base color stays in
+        // charge. Higher mix made the dark-olive grass variant pull every
+        // grass tile toward muddy moss.
         float vertLum = max(0.001, dot(vColor.rgb, vec3(0.299, 0.587, 0.114)));
-        vec3 tint = mix(vec3(1.0), vColor.rgb / vertLum, 0.32);
+        vec3 tint = mix(vec3(1.0), vColor.rgb / vertLum, 0.12);
         diffuseColor.rgb = biomeColor * tint;
       #endif
       `
