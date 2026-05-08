@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { recoverSimulationStateFromEvents } from "./event-recovery.js";
+import { applySimulationEventsToRecoveredState, recoverSimulationStateFromEvents } from "./event-recovery.js";
 
 describe("recoverSimulationStateFromEvents", () => {
   it("rebuilds tile ownership and clears completed locks from event history", () => {
@@ -39,6 +39,48 @@ describe("recoverSimulationStateFromEvents", () => {
         })
       ])
     );
+  });
+
+  it("preserves terrain, resource, dockId, and town on COMBAT_RESOLVED replay when capture follow-up tile delta is missing", () => {
+    const recovered = applySimulationEventsToRecoveredState(
+      {
+        tiles: [
+          {
+            x: 9,
+            y: 270,
+            terrain: "FOREST",
+            resource: "FOOD",
+            dockId: "dock-7",
+            ownerId: "player-defender",
+            ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "TOWN", name: "SAND" }
+          }
+        ],
+        activeLocks: []
+      },
+      [
+        {
+          eventType: "COMBAT_RESOLVED",
+          commandId: "cmd-3",
+          playerId: "player-attacker",
+          originX: 8,
+          originY: 270,
+          targetX: 9,
+          targetY: 270,
+          attackerWon: true
+        }
+      ]
+    );
+
+    const target = recovered.tiles.find((tile) => tile.x === 9 && tile.y === 270);
+    expect(target).toBeDefined();
+    expect(target?.ownerId).toBe("player-attacker");
+    expect(target?.ownershipState).toBe("FRONTIER");
+    expect(target?.terrain).toBe("FOREST");
+    expect(target?.resource).toBe("FOOD");
+    expect(target?.dockId).toBe("dock-7");
+    expect(target?.town?.name).toBe("SAND");
+    expect(target?.town?.populationTier).toBe("TOWN");
   });
 
   it("keeps unresolved accepted locks in recovered state", () => {
