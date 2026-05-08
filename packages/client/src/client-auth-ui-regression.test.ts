@@ -34,7 +34,7 @@ describe("syncAuthOverlay", () => {
         authBusyTitle: "Securing session",
         authBusyDetail: "Game server reached. Verifying your Google session...",
         activeBackend: "gateway",
-        bridgeDebugWsUrl: "wss://border-empires-gateway-staging.fly.dev/ws"
+        bridgeDebugWsUrl: "wss://border-empires-combined-staging.fly.dev/ws"
       },
       {
         authOverlayEl,
@@ -63,6 +63,6 @@ describe("syncAuthOverlay", () => {
     expect(authBusyTitleEl.textContent).toBe("Securing session");
     expect(authBusyCopyEl.textContent).toBe("Game server reached. Verifying your Google session... (4s elapsed)");
     expect(authDebugRouteEl.textContent).toContain("Backend gateway");
-    expect(authDebugRouteEl.textContent).toContain("border-empires-gateway-staging");
+    expect(authDebugRouteEl.textContent).toContain("border-empires-combined-staging");
   });
 });
