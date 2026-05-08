@@ -29,6 +29,7 @@ const simService = await createSimulationService({
     : {}),
   seedProfile: simEnv.seedProfile,
   ...(simEnv.rulesetId ? { rulesetId: simEnv.rulesetId } : {}),
+  ...(typeof simEnv.aiPlayerCount === "number" ? { aiPlayerCount: simEnv.aiPlayerCount } : {}),
   enableAiAutopilot: simEnv.enableAiAutopilot,
   aiTickMs: simEnv.aiTickMs,
   aiMaxEventLoopLagMs: simEnv.aiMaxEventLoopLagMs,
