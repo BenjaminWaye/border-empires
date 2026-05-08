@@ -19,6 +19,7 @@ export type SimulationRuntimeEnv = {
   seedProfile: SimulationSeedProfile;
   rulesetId?: SimulationRulesetId;
   mapStyle: SimulationMapStyle;
+  aiPlayerCount?: number;
   enableAiAutopilot: boolean;
   aiTickMs: number;
   aiMaxEventLoopLagMs: number;
@@ -123,6 +124,9 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     ...(env.SIMULATION_RULESET_ID ? { rulesetId: env.SIMULATION_RULESET_ID as SimulationRulesetId } : {}),
     mapStyle: parseSimulationMapStyle(env.SIMULATION_MAP_STYLE),
+    ...(env.SIMULATION_AI_PLAYER_COUNT
+      ? { aiPlayerCount: parsePositiveNumber(env.SIMULATION_AI_PLAYER_COUNT, 20, "simulation ai player count") }
+      : {}),
     enableAiAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_AI_AUTOPILOT),
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
     aiMaxEventLoopLagMs: parsePositiveNumber(

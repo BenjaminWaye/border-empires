@@ -228,6 +228,7 @@ type SimulationServiceOptions = {
   seedProfile?: SimulationSeedProfile;
   rulesetId?: SimulationRulesetId;
   mapStyle?: SimulationMapStyle;
+  aiPlayerCount?: number;
   snapshotDir?: string;
   enableAiAutopilot?: boolean;
   aiTickMs?: number;
@@ -414,11 +415,13 @@ const buildBootstrapSeason = ({
   seasonSequence,
   rulesetId,
   mapStyle,
+  aiPlayerCount,
   now
 }: {
   seasonSequence: number;
   rulesetId: SimulationRulesetId;
   mapStyle: SimulationMapStyle;
+  aiPlayerCount?: number;
   now: number;
 }): {
   seasonState: SimulationSeasonState;
@@ -426,7 +429,10 @@ const buildBootstrapSeason = ({
   initialPlayers: ReturnType<typeof generateSeasonWorld>["initialPlayers"];
 } => {
   const requestedWorldSeed = randomSeasonWorldSeed();
-  const generatedWorld = generateSeasonWorld(rulesetId, requestedWorldSeed, { mapStyle });
+  const generatedWorld = generateSeasonWorld(rulesetId, requestedWorldSeed, {
+    mapStyle,
+    ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {})
+  });
   const seasonState = createInitialSeasonState({
     seasonSequence,
     rulesetId,
@@ -560,6 +566,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       seasonSequence,
       rulesetId,
       mapStyle,
+      ...(typeof options.aiPlayerCount === "number" ? { aiPlayerCount: options.aiPlayerCount } : {}),
       now: Date.now()
     });
     const bootstrapRuntime = new SimulationRuntime({
@@ -1446,6 +1453,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         seasonSequence: currentSeasonState.seasonSequence + 1,
         rulesetId,
         mapStyle,
+        ...(typeof options.aiPlayerCount === "number" ? { aiPlayerCount: options.aiPlayerCount } : {}),
         now: Date.now()
       });
       const nextRuntime = new SimulationRuntime({
