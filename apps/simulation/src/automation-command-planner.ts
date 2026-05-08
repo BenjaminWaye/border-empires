@@ -418,6 +418,11 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     dockOrigins.length > 0 || townSupportOrigins.length > 0
       ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
       : baseFrontierOrigins;
+  const settledTileCount = input.settledTileCount ?? input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED").length;
+  const townCount = input.townCount ?? input.ownedTiles.filter((tile) => tile.town && tile.ownershipState === "SETTLED").length;
+  const incomePerMinute = input.incomePerMinute ?? 0;
+  const needsFood = foodCoverageLow(input.strategicResources, townCount);
+  const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
   const frontierStartedAt = Date.now();
   let frontierOrigins = narrowFrontierOrigins;
   let frontierAnalysis =
@@ -425,6 +430,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       ? analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, frontierOrigins, input.playerId, {
           canAttack,
           canExpand,
+          needsFood,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
         })
       : emptyFrontierAnalysis();
@@ -438,6 +444,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
         canAttack,
         canExpand,
+        needsFood,
         ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
       });
       if (hasActionableFrontierAnalysis(broadFrontierAnalysis)) {
@@ -475,11 +482,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
   };
 
-  const settledTileCount = input.settledTileCount ?? input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED").length;
-  const townCount = input.townCount ?? input.ownedTiles.filter((tile) => tile.town && tile.ownershipState === "SETTLED").length;
-  const incomePerMinute = input.incomePerMinute ?? 0;
-  const needsFood = foodCoverageLow(input.strategicResources, townCount);
-  const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
   const context: AutomationPlannerDecisionContext<TTile> = {
     playerId: input.playerId,
     clientSeq: input.clientSeq,

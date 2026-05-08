@@ -14,6 +14,7 @@ import { createForest } from "./client-map-3d-forest.js";
 import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
+import { shouldShowTownUnfedWarning } from "./client-town-growth.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
 import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
@@ -626,10 +627,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // re-enable by adding villageEffects.addCapitalBanner if wanted.
           const tileSeed = wx * 17 + wy * 31;
           villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
-          // Mirror the 2D unfed-town warning badge: only paint when there's
-          // a real town record (skip demo tiles) and isFed is explicitly
-          // false. Matches the predicate in client-map-render.ts.
-          if (tile?.town && tile.town.isFed === false) {
+          // Mirror the "Town is unfed" line in the tile-menu: badge only
+          // paints when clicking the town would also show the unfed warning.
+          // Gates out neutral, foreign, unsettled, and SETTLEMENT-tier towns
+          // — see shouldShowTownUnfedWarning in client-town-growth.ts.
+          if (tile && shouldShowTownUnfedWarning(tile)) {
             unfedBadgeOverlay.addInstance(x, z, surfaceY);
           }
         }

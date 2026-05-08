@@ -112,12 +112,16 @@ export const buildPlayerSubscriptionSnapshot = (
           }
           if (primaryPlayer && (runtimeState.docks?.length ?? 0) > 0) {
             const visibilityOwnerIds = new Set<string>([playerId, ...primaryPlayer.allies]);
-            const tileOwnerByKey = new Map(sourceTiles.map((tile) => [keyFor(tile.x, tile.y), tile.ownerId] as const));
+            const settledOwnerByKey = new Map(
+              sourceTiles
+                .filter((tile) => tile.ownershipState === "SETTLED" && tile.ownerId)
+                .map((tile) => [keyFor(tile.x, tile.y), tile.ownerId] as const)
+            );
             const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
             for (const revealKey of collectLinkedDockRevealKeysForOwners(
               visibilityOwnerIds,
               runtimeState.docks ?? [],
-              (tileKey) => tileOwnerByKey.get(tileKey),
+              (tileKey) => settledOwnerByKey.get(tileKey),
               dockLinksByDockTileKey,
               WORLD_WIDTH,
               WORLD_HEIGHT
