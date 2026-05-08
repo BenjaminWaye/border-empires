@@ -6,8 +6,6 @@ type DockCandidate = { x: number; y: number; componentId: number; seaX: number; 
 type LandComponent = {
   id: number;
   tileCount: number;
-  fallbackX: number;
-  fallbackY: number;
   oceanCandidates: DockCandidate[];
   clusteredOceanCandidates: DockCandidate[];
   inlandSeaCandidates: DockCandidate[];
@@ -59,7 +57,7 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     return selected;
   };
 
-  const analyzeLandComponentsForDocks = (seed: number, oceanMask: Uint8Array) => {
+  const analyzeLandComponentsForDocks = (oceanMask: Uint8Array) => {
     const total = WORLD_WIDTH * WORLD_HEIGHT;
     const visited = new Uint8Array(total);
     const queue = new Int32Array(total);
@@ -89,8 +87,6 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
         const component: LandComponent = {
           id: componentId,
           tileCount: 0,
-          fallbackX: x,
-          fallbackY: y,
           oceanCandidates: [],
           clusteredOceanCandidates: [],
           inlandSeaCandidates: [],
@@ -102,10 +98,6 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
           component.tileCount += 1;
           const cx = idx % WORLD_WIDTH;
           const cy = Math.floor(idx / WORLD_WIDTH);
-          if (seeded01(cx, cy, seed + 733) > 0.997) {
-            component.fallbackX = cx;
-            component.fallbackY = cy;
-          }
           const sea = adjacentSea(cx, cy);
           if (sea) {
             const candidate = { x: cx, y: cy, componentId, seaX: sea.x, seaY: sea.y };
@@ -146,7 +138,7 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     dockById.clear();
     getDockLinkedTileKeysByDockTileKey().clear();
     const oceanMask = largestSeaComponentMask();
-    const { components } = analyzeLandComponentsForDocks(seed, oceanMask);
+    const { components } = analyzeLandComponentsForDocks(oceanMask);
     const orderedDockCandidatesForComponent = (component: LandComponent): DockCandidate[] => {
       const preferredPools = [
         component.oceanCandidates,
@@ -164,8 +156,7 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
           orderedCandidates.push(candidate);
         }
       }
-      if (orderedCandidates.length > 0) return orderedCandidates;
-      return [{ x: component.fallbackX, y: component.fallbackY, componentId: component.id, seaX: component.fallbackX, seaY: component.fallbackY }];
+      return orderedCandidates;
     };
     const dockCandidatesForComponent = (component: LandComponent): DockCandidate[] => orderedDockCandidatesForComponent(component);
     const eligibleComponents = components.filter((component) => dockCandidatesForComponent(component).length > 0);
