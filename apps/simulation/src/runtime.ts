@@ -300,7 +300,7 @@ const createPlayersFromRecoveredState = (
 };
 
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
-const SETTLE_DURATION_MS = 60_000;
+export const SETTLE_DURATION_MS = 60_000;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 
 const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
