@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.4",
+  version: "2026.05.08.5",
   title: "What's New",
-  summary: "AI now reacts immediately when a human captures one of its tiles — the attacked AI is bumped to the front of the planning queue instead of waiting up to 5+ seconds for round-robin. Plus AI no longer pre-empts itself with COLLECT_VISIBLE when it has gold to expand. Plus the unfed-town badge predicate fix, simulation reseed-on-restart fix, food-aware AI claim scoring, dock-line straight-fallback fix, and the rest of this release train.",
+  summary: "Vercel preview now lets us pin its default backend via VITE_BACKEND_DEFAULT, used by the SQLite-only combined-staging preview. Plus AI defense priority on attack, COLLECT_VISIBLE pre-empt fix, unfed-town badge predicate fix, and the rest of this release train.",
   entries: [
+    {
+      introducedIn: "2026.05.08.5",
+      title: "Vercel preview can now pin the default backend via VITE_BACKEND_DEFAULT",
+      why: "Vercel preview hostnames don't match the staging-host pattern, so the backend selector falls back to legacy by default. That made it impossible to point a preview build at the merged single-process combined-staging server without forcing every test session to type ?backend=gateway in the URL.",
+      changes: [
+        "selectBackend accepts an envDefaultBackend opt that overrides the hostname-based default when set to 'gateway' or 'legacy'.",
+        "client-app-runtime-env reads VITE_BACKEND_DEFAULT at build time and threads it through; existing localhost/staging behavior is unchanged when the env var is absent.",
+        "The combined-staging preview branch ships .env.production with VITE_BACKEND_DEFAULT=gateway and VITE_GATEWAY_WS_URL pointing at the SQLite-only merged Fly app."
+      ]
+    },
     {
       introducedIn: "2026.05.08.4",
       title: "AI defends immediately when a human captures one of its tiles",
