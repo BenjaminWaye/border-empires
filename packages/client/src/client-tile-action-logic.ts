@@ -787,18 +787,23 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       }));
   };
   if (tile.shardSite) {
-    return [
-      {
-        id: "collect_shard",
-        label: tile.shardSite.kind === "FALL" ? "Collect Shardfall" : "Collect Shards",
-        detail:
-          tile.shardSite.kind === "FALL"
-            ? `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} from active shard rain`
-            : `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} recovered from this cache`
-      },
-      ...retortRecastActions(),
-      createMountainAction()
-    ];
+    const ownsShardTile =
+      tile.ownerId === state.me &&
+      (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED");
+    if (ownsShardTile) {
+      return [
+        {
+          id: "collect_shard",
+          label: tile.shardSite.kind === "FALL" ? "Collect Shardfall" : "Collect Shards",
+          detail:
+            tile.shardSite.kind === "FALL"
+              ? `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} from active shard rain`
+              : `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} recovered from this cache`
+        },
+        ...retortRecastActions(),
+        createMountainAction()
+      ];
+    }
   }
   if (!tile.ownerId) {
     const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));

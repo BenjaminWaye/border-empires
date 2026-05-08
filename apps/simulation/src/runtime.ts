@@ -3252,6 +3252,19 @@ export class SimulationRuntime {
       });
       return;
     }
+    if (
+      target.ownerId !== command.playerId ||
+      (target.ownershipState !== "FRONTIER" && target.ownershipState !== "SETTLED")
+    ) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "COLLECT_NOT_OWNED",
+        message: "shard tile must be owned by you"
+      });
+      return;
+    }
     this.addStrategicResource(actor, "SHARD", amount);
     const updatedTile: DomainTileState = { ...target, shardSite: undefined };
     this.replaceTileState(targetKey, updatedTile);
@@ -3272,6 +3285,7 @@ export class SimulationRuntime {
       gold: 0,
       strategic: { SHARD: amount }
     });
+    this.emitPlayerStateUpdate(command);
   }
 
   private handleChooseTechCommand(command: CommandEnvelope): void {

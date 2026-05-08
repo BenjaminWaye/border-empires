@@ -19,10 +19,29 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.08.8",
+  version: "2026.05.08.9",
   title: "What's New",
-  summary: "Painterly grass and sand textures in renderer=3d. Each world tile samples a different rotated patch of a hand-toned painted texture so the surface stops reading as procedural noise; grass gets a multi-tone bright-meadow palette with cellular-speckle clumps, sand goes ivory bleached-beach, the grass↔sand boundary is a clean anti-aliased cut, and tiles within 2 of a forest get a darker mossy halo so wooded areas read distinctly. Plus the AI intent-latch fix from earlier in the train.",
+  summary: "Shard capture now requires a frontier on the shard tile, and shard stock updates when you collect. The Collect Shards button is hidden on tiles you don't own. Shard is dropped from the detailed economy tab since it has no income source or upkeep.",
   entries: [
+    {
+      introducedIn: "2026.05.08.9",
+      title: "Shard capture requires owning the tile; stock now updates",
+      why: "On rewrite, COLLECT_SHARD skipped any ownership check and never broadcast a PLAYER_UPDATE, so you could collect shards from tiles you hadn't claimed and your shard stock didn't visibly change.",
+      changes: [
+        "Server: handleCollectShardCommand rejects with COLLECT_NOT_OWNED unless the shard tile is owned by you and in FRONTIER or SETTLED state.",
+        "Server: emit PLAYER_UPDATE after collection so the SHARD stock reaches the client.",
+        "Client: Collect Shards / Collect Shardfall button is hidden on tiles you don't own; unowned shard tiles fall through to normal frontier-claim actions."
+      ]
+    },
+    {
+      introducedIn: "2026.05.08.9",
+      title: "Shard removed from the detailed economy tab",
+      why: "Shards have no continuous income source and no upkeep, so the SHARD summary card and breakdown were always 0/m noise next to the resources that actually have flows.",
+      changes: [
+        "Economy panel summary grid no longer includes SHARD; focus tabs only offer GOLD / FOOD / IRON / CRYSTAL / SUPPLY.",
+        "Shard stock still appears in the strategic resources HUD ribbon — only the economy breakdown view drops it."
+      ]
+    },
     {
       introducedIn: "2026.05.08.8",
       title: "Painterly grass/sand in renderer=3d, per-tile variation, forest halo",
