@@ -3,6 +3,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "./client-fo
 import { isForestTile } from "./client-constants.js";
 import { isCanvasReliefRendererMode, isTrue3DRendererActive } from "./client-renderer-mode.js";
 import { townIdentityForTile } from "./client-town-identity.js";
+import { shouldShowTownUnfedWarning } from "./client-town-growth.js";
 import type { RoadDirections } from "./client-road-network.js";
 import type { EmpireVisualStyle, Tile } from "./client-types.js";
 
@@ -1068,7 +1069,7 @@ export const drawTownOverlay = (
   if (!town) return;
   if (size < 16) {
     drawTownMarker(ctx, px, py, size, true);
-    if (tile.town && !tile.town.isFed) {
+    if (shouldShowTownUnfedWarning(tile)) {
       const badgeSize = Math.max(6, size * 0.24);
       const badgeX = px + size - badgeSize - 1;
       const badgeY = py + 1;
@@ -1122,7 +1123,7 @@ export const drawTownOverlay = (
   ctx.lineTo(px + size * 0.78, py + size * 0.88);
   ctx.stroke();
   ctx.lineWidth = 1;
-  if (tile.town && !tile.town.isFed) {
+  if (shouldShowTownUnfedWarning(tile)) {
     const badgeSize = Math.max(8, size * 0.24);
     const badgeX = px + size * 0.72;
     const badgeY = py + size * 0.08;

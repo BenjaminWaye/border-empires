@@ -61,7 +61,7 @@ describe("automation preplan command", () => {
     expect(result.diagnostic.preplanReason).toBe("collect_for_active_lock");
   });
 
-  it("collects visible yield before frontier spam when the best tech is still unaffordable", () => {
+  it("collects visible yield when AI is too poor to expand and the best tech is still unaffordable", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -70,7 +70,7 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 1_500,
+      points: 3,
       techIds: [],
       domainIds: [],
       strategicResources: { FOOD: 80, CRYSTAL: 40 },
@@ -89,6 +89,33 @@ describe("automation preplan command", () => {
       payloadJson: "{}"
     });
     expect(result.diagnostic.preplanReason).toBe("collect_for_unaffordable_progression");
+    expect(result.diagnostic.preplanProgressState).toBe("tech_unaffordable");
+  });
+
+  it("defers to main planner when AI can afford to expand even though tech is unaffordable", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Seed", populationTier: "SETTLEMENT" }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 100,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 80, CRYSTAL: 40 },
+      settledTileCount: 3,
+      townCount: 1,
+      incomePerMinute: 1,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 3,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toBeUndefined();
     expect(result.diagnostic.preplanProgressState).toBe("tech_unaffordable");
   });
 
@@ -168,7 +195,7 @@ describe("automation preplan command", () => {
 
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
-      points: 900,
+      points: 3,
       techIds: techCatalog.techs.map((tech) => tech.id),
       domainIds: domainCatalog.domains.map((domain) => domain.id),
       strategicResources: {},
