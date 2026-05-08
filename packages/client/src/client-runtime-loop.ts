@@ -865,7 +865,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
         const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
           const roadDirections = roadNetwork.get(wk);
           if (roadDirections) deps.drawRoadOverlay(roadDirections, px, py, size);
         }
@@ -1269,7 +1269,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     for (const { wk, px, py, vis, t } of overlayTiles) {
-      if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
+      if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
         const roadDirections = roadNetwork.get(wk);
         if (roadDirections) deps.drawRoadOverlay(roadDirections, px, py, size);
       }

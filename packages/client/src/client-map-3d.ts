@@ -27,6 +27,8 @@ import {
   type StructureKind
 } from "./client-map-3d-structure-overlay.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
+import { createRoadOverlay } from "./client-map-3d-road-overlay.js";
+import { buildRoadNetwork } from "./client-road-network.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import {
   fortificationOpeningForTile,
@@ -84,6 +86,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const forest = createForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
+  const roadOverlay = createRoadOverlay(scene);
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
@@ -500,6 +503,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     forest.clear();
     ownershipOverlay.clear();
     townOverlay.clear();
+    roadOverlay.clear();
+    const roadNetwork = buildRoadNetwork({
+      tiles: deps.state.tiles,
+      keyFor: deps.keyFor,
+      wrapX: deps.wrapX,
+      wrapY: deps.wrapY
+    });
     unfedBadgeOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
@@ -568,6 +578,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           heightfield.cornerYAt(wx, wyNext),
           heightfield.cornerYAt(wxNext, wyNext)
         ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+        if (terrain === "LAND") {
+          const roadDirs = roadNetwork.get(deps.keyFor(wx, wy));
+          if (roadDirs) {
+            roadOverlay.addInstance(
+              wx, wy,
+              x, z,
+              (cwx: number, cwy: number) => heightfield.cornerYAt(deps.wrapX(cwx), deps.wrapY(cwy)),
+              roadDirs
+            );
+          }
+        }
         // Per-tile water quad on top of the heightfield's sea-floor
         // hole. Shallow vs deep texture is decided by the water surface
         // module — pass shallow=true if any tile within Chebyshev
@@ -735,6 +756,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     forest.commit();
     ownershipOverlay.commit();
     townOverlay.commit();
+    roadOverlay.commit();
     unfedBadgeOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
@@ -816,6 +838,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       material.dispose();
     }
     townOverlay.dispose();
+    roadOverlay.dispose();
     unfedBadgeOverlay.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
