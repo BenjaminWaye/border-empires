@@ -17,9 +17,9 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
             type: "MARKET",
             populationTier: "CITY",
             baseGoldPerMinute: 2,
-            supportCurrent: 3,
-            supportMax: 4,
-            goldPerMinute: 5,
+            supportCurrent: 8,
+            supportMax: 8,
+            goldPerMinute: 2,
             cap: 20,
             isFed: true,
             population: 5,
@@ -36,6 +36,37 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
           townType: "MARKET",
           townName: "BlackFang",
           townPopulationTier: "CITY"
+        },
+        {
+          x: 11,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "BrightFang",
+            type: "FARMING",
+            populationTier: "CITY",
+            baseGoldPerMinute: 2,
+            supportCurrent: 3,
+            supportMax: 4,
+            goldPerMinute: 5,
+            cap: 20,
+            isFed: true,
+            population: 5,
+            maxPopulation: 8,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          }),
+          townType: "FARMING",
+          townName: "BrightFang",
+          townPopulationTier: "CITY"
         }
       ],
       players: [
@@ -50,7 +81,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10"]
+          territoryTileKeys: ["10,10", "11,10"]
         }
       ],
       pendingSettlements: [],
@@ -66,5 +97,8 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town).not.toHaveProperty("supportMax");
     expect(town).not.toHaveProperty("hasMarket");
     expect(town).not.toHaveProperty("goldPerMinute");
+    expect(tiles[0]?.yieldRate?.goldPerMinute).toBe(4.5);
+    expect(town.connectedTownCount).toBe(1);
+    expect(town.connectedTownBonus).toBe(0.5);
   });
 });
