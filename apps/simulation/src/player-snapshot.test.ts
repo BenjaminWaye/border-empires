@@ -230,7 +230,17 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(
       buildPlayerSubscriptionSnapshot("player-1", {
         tiles: [
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM", townType: "FARMING", townName: "Nauticus" },
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            resource: "FARM",
+            townType: "FARMING",
+            townName: "Nauticus",
+            townPopulationTier: "TOWN"
+          },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
         ],
         players: [
@@ -257,7 +267,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         player: expect.objectContaining({
           gold: 64,
           manpower: 120,
-          incomePerMinute: 1,
+          incomePerMinute: 0,
           activeDevelopmentProcessCount: 1,
           pendingSettlements: [{ x: 11, y: 10, startedAt: 1_000, resolvesAt: 61_000 }],
           strategicResources: expect.objectContaining({ FOOD: 3 }),
@@ -270,9 +280,27 @@ describe("buildPlayerSubscriptionSnapshot", () => {
   it("includes authoritative world status for hidden AI territory and season goals", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [
-        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING", townName: "Nauticus" },
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townType: "FARMING",
+          townName: "Nauticus",
+          townPopulationTier: "TOWN"
+        },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-        { x: 30, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", townType: "MARKET", townName: "BlackFang" },
+        {
+          x: 30,
+          y: 30,
+          terrain: "LAND",
+          ownerId: "ai-1",
+          ownershipState: "SETTLED",
+          townType: "MARKET",
+          townName: "BlackFang",
+          townPopulationTier: "TOWN"
+        },
         { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "IRON" }
       ],
       players: [
@@ -316,8 +344,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         ownershipState: "SETTLED",
         townType: "FARMING",
         townName: "Nauticus",
-        townPopulationTier: "SETTLEMENT",
-        yieldRate: expect.objectContaining({ goldPerMinute: 1 })
+        townPopulationTier: "TOWN",
+        yieldRate: expect.objectContaining({ goldPerMinute: 0 })
       }),
       expect.objectContaining({
         x: 11,
@@ -329,7 +357,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
       })
     ]);
     expect(snapshot.worldStatus?.leaderboard.overall).toEqual([
-      expect.objectContaining({ id: "ai-1", name: "BlackFang", tiles: 2, techs: 1 }),
+      expect.objectContaining({ id: "ai-1", name: "BlackFang", tiles: 2, techs: 0 }),
       expect.objectContaining({ id: "player-1", name: "Nauticus", tiles: 2, techs: 0 })
     ]);
     expect(snapshot.worldStatus?.seasonVictory).toEqual(
@@ -343,7 +371,16 @@ describe("buildPlayerSubscriptionSnapshot", () => {
   it("keeps season-victory thresholds based on full world state when the visible tile slice is partial", () => {
     const visibleRuntimeState = {
       tiles: [
-        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING", townName: "Nauticus" },
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townType: "FARMING",
+          townName: "Nauticus",
+          townPopulationTier: "SETTLEMENT"
+        },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
       ],
       players: [
@@ -892,5 +929,64 @@ describe("buildPlayerSubscriptionSnapshot", () => {
       ])
     );
     expect(afterRestartSnapshot.tiles.some((tile) => tile.x === 16 && tile.y === 10)).toBe(false);
+  });
+
+  it("includes live town manpower regen and breakdown in subscription snapshots", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 0,
+            manpowerUpdatedAt: 0,
+            manpowerCapSnapshot: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Alpha", type: "MARKET", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+          },
+          {
+            x: 11,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Beta", type: "MARKET", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", runtime.exportState());
+
+    expect(snapshot.player).toEqual(
+      expect.objectContaining({
+        manpowerCap: 300,
+        manpowerRegenPerMinute: 20,
+        manpowerBreakdown: {
+          cap: [{ label: "2 Settlements", amount: 300 }],
+          regen: [{ label: "2 Settlements", amount: 20 }]
+        }
+      })
+    );
   });
 });

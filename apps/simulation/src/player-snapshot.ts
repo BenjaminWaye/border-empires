@@ -1,4 +1,11 @@
-import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, VISION_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import {
+  DEVELOPMENT_PROCESS_LIMIT,
+  MANPOWER_BASE_CAP,
+  MANPOWER_BASE_REGEN_PER_MINUTE,
+  VISION_RADIUS,
+  WORLD_HEIGHT,
+  WORLD_WIDTH
+} from "@border-empires/shared";
 import type { PlayerRespawnNotice } from "@border-empires/shared";
 import type { PlayerSubscriptionDock, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
@@ -194,7 +201,12 @@ export const buildPlayerSubscriptionSnapshot = (
             ...(livePlayer.name ? { name: livePlayer.name } : {}),
             gold: livePlayer.points,
             manpower: livePlayer.manpower,
-            manpowerCap: Math.max(livePlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
+            manpowerCap: livePlayer.manpowerCap ?? Math.max(livePlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
+            manpowerRegenPerMinute: livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
+            manpowerBreakdown: livePlayer.manpowerBreakdown ?? {
+              cap: [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
+              regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
+            },
             incomePerMinute,
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
