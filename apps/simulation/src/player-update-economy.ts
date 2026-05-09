@@ -30,6 +30,12 @@ import {
   TOWN_BASE_GOLD_PER_MIN,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
+import {
+  buildConnectedTownNetworkForPlayer,
+  dockBaseGoldPerMinuteForPlayer,
+  enrichTownWithConnectedNetwork,
+  type DockEconomyContext
+} from "./economy-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -182,7 +188,7 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<Economy
   }
 };
 
-const townPopulationMultiplier = (populationTier: string | undefined): number => {
+export const townPopulationMultiplier = (populationTier: string | undefined): number => {
   switch (populationTier) {
     case "CITY":
       return 1.5;
@@ -195,7 +201,7 @@ const townPopulationMultiplier = (populationTier: string | undefined): number =>
   }
 };
 
-const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
+export const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
   if (populationTier === "SETTLEMENT" || !populationTier) return 0;
   switch (populationTier) {
     case "CITY":
@@ -209,7 +215,7 @@ const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => 
   }
 };
 
-const supportSummaryForTown = (
+export const supportSummaryForTown = (
   playerId: string,
   tile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>
@@ -229,7 +235,7 @@ const supportSummaryForTown = (
   return { supportCurrent, supportMax };
 };
 
-const hasSupportedStructure = (
+export const hasSupportedStructure = (
   playerId: string,
   tile: DomainTileState,
   structureType: string,
@@ -246,7 +252,27 @@ const hasSupportedStructure = (
   return false;
 };
 
-const buildFedTownKeys = (
+export const buildStrategicProductionForSettledTiles = (
+  summary: PlayerRuntimeSummary,
+  settledTiles: readonly DomainTileState[]
+): Record<StrategicResourceKey, number> => {
+  const strategicProductionPerMinute = {
+    ...summary.strategicProductionPerMinute
+  };
+
+  for (const tile of settledTiles) {
+    const structure = tile.economicStructure;
+    if (!structure || structure.ownerId !== tile.ownerId || structure.status !== "active") continue;
+    const output = converterOutputPerMinute(structure.type);
+    for (const [resourceKey, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) {
+      strategicProductionPerMinute[resourceKey] += amount;
+    }
+  }
+
+  return strategicProductionPerMinute;
+};
+
+export const buildFedTownKeys = (
   player: DomainPlayer,
   summary: PlayerRuntimeSummary,
   tiles: ReadonlyMap<string, DomainTileState>,
@@ -273,28 +299,45 @@ const buildFedTownKeys = (
   return fedTownKeys;
 };
 
+export const townGoldPerMinuteForPlayer = (
+  player: Pick<DomainPlayer, "id" | "mods">,
+  tile: DomainTileState,
+  town: NonNullable<DomainTileState["town"]>,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  fedTownKeys: ReadonlySet<string>
+): number => {
+  const incomeMultiplier = player.mods?.income ?? 1;
+  const tileKey = `${tile.x},${tile.y}`;
+  const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
+  if (isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * incomeMultiplier * PASSIVE_INCOME_MULT;
+  if (!fedTownKeys.has(tileKey)) return 0;
+  const support = supportSummaryForTown(player.id, tile, tiles);
+  const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
+  const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles);
+  const hasBank = hasSupportedStructure(player.id, tile, "BANK", tiles);
+  return (
+    TOWN_BASE_GOLD_PER_MIN *
+    supportRatio *
+    townPopulationMultiplier(town.populationTier) *
+    (1 + (town.connectedTownBonus ?? 0)) *
+    (hasMarket ? 1.5 : 1) *
+    (hasBank ? 1.5 : 1) *
+    incomeMultiplier *
+    PASSIVE_INCOME_MULT
+  ) + (hasBank ? 1 : 0);
+};
+
 export const buildPlayerUpdateEconomySnapshot = (
   player: DomainPlayer,
   summary: PlayerRuntimeSummary,
-  tiles: ReadonlyMap<string, DomainTileState>
+  tiles: ReadonlyMap<string, DomainTileState>,
+  dockContext?: Pick<DockEconomyContext, "dockLinksByDockTileKey">
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
-  const strategicProductionPerMinute = {
-    ...summary.strategicProductionPerMinute
-  };
   const settledTiles = [...summary.territoryTileKeys]
     .map((tileKey) => tiles.get(tileKey))
     .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === player.id && tile.ownershipState === "SETTLED"));
-
-  for (const tile of settledTiles) {
-    const structure = tile.economicStructure;
-    if (structure?.ownerId === player.id && structure.status === "active") {
-      const output = converterOutputPerMinute(structure.type);
-      for (const [resourceKey, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) {
-        strategicProductionPerMinute[resourceKey] += amount;
-      }
-    }
-  }
+  const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles);
 
   const fedTownKeys = buildFedTownKeys(player, summary, tiles, strategicProductionPerMinute);
   const goldSources = new Map<string, EconomyBucket>();
@@ -310,6 +353,8 @@ export const buildPlayerUpdateEconomySnapshot = (
   const shardSources = new Map<string, EconomyBucket>();
   const oilSources = new Map<string, EconomyBucket>();
   const oilSinks = new Map<string, EconomyBucket>();
+  const dockEconomyContext = dockContext ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey } : undefined;
+  const townNetwork = buildConnectedTownNetworkForPlayer(player, tiles, settledTiles);
 
   for (const tile of settledTiles) {
     addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
@@ -335,31 +380,15 @@ export const buildPlayerUpdateEconomySnapshot = (
       );
     }
     if (tile.town) {
-      const tileKey = `${tile.x},${tile.y}`;
-      const isSettlement = tile.town.populationTier === "SETTLEMENT";
-      const support = isSettlement ? { supportCurrent: 0, supportMax: 0 } : supportSummaryForTown(player.id, tile, tiles);
-      const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
-      const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles);
-      const hasBank = hasSupportedStructure(player.id, tile, "BANK", tiles);
-      const goldPerMinute =
-        isSettlement
-          ? SETTLEMENT_BASE_GOLD_PER_MIN * incomeMultiplier * PASSIVE_INCOME_MULT
-          : !fedTownKeys.has(tileKey)
-            ? 0
-            : (
-                TOWN_BASE_GOLD_PER_MIN *
-                supportRatio *
-                townPopulationMultiplier(tile.town.populationTier) *
-                (1 + (tile.town.connectedTownBonus ?? 0)) *
-                (hasMarket ? 1.5 : 1) *
-                (hasBank ? 1.5 : 1) *
-                incomeMultiplier *
-                PASSIVE_INCOME_MULT
-              ) + (hasBank ? 1 : 0);
+      const town = enrichTownWithConnectedNetwork(tile, townNetwork) ?? tile.town;
+      const goldPerMinute = townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys);
       if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
-      addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(tile.town.populationTier), { count: 1 });
+      addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
     }
-    if (tile.dockId) addBucket(goldSources, "Docks", DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });
+    if (tile.dockId) {
+      const dockGoldPerMinute = dockBaseGoldPerMinuteForPlayer(tile, player, dockEconomyContext) * incomeMultiplier * PASSIVE_INCOME_MULT;
+      addBucket(goldSources, "Docks", dockGoldPerMinute > 0 ? dockGoldPerMinute : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });
+    }
     if (tile.fort?.ownerId === player.id && tile.fort.status === "active") {
       addBucket(goldSinks, "Fort", 1, { count: 1 });
       addBucket(ironSinks, "Fort", 0.025, { count: 1 });
