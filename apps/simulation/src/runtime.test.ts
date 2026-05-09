@@ -246,6 +246,196 @@ describe("simulation runtime", () => {
     expect(player?.manpower).toBe(10);
   });
 
+  it("emits town-scaled manpower regen and breakdown in player updates", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 0,
+            manpowerUpdatedAt: 0,
+            manpowerCapSnapshot: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Alpha", type: "MARKET", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+          },
+          {
+            x: 11,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Beta", type: "MARKET", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "collect-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 60_000,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+
+    await Promise.resolve();
+
+    const playerUpdateEvent = seen.find(
+      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
+    );
+    expect(playerUpdateEvent).toBeDefined();
+    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
+      manpower: number;
+      manpowerCap: number;
+      manpowerRegenPerMinute: number;
+      manpowerBreakdown: { cap: Array<{ label: string; amount: number }>; regen: Array<{ label: string; amount: number }> };
+    };
+    expect(payload.manpowerCap).toBe(300);
+    expect(payload.manpowerRegenPerMinute).toBe(20);
+    expect(payload.manpowerBreakdown.cap).toEqual([{ label: "2 Settlements", amount: 300 }]);
+    expect(payload.manpowerBreakdown.regen).toEqual([{ label: "2 Settlements", amount: 20 }]);
+
+    currentNow = 120_000;
+    runtime.submitCommand({
+      commandId: "collect-2",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 120_000,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 11, y: 10 })
+    });
+
+    await Promise.resolve();
+
+    const secondPlayerUpdateEvent = seen
+      .slice()
+      .reverse()
+      .find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+          event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
+      );
+    const secondPayload = JSON.parse(secondPlayerUpdateEvent!.payloadJson) as { manpower: number };
+    expect(secondPayload.manpower - payload.manpower).toBe(20);
+  });
+
+  it("uses explicit plural labels for high-tier manpower breakdown groups", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 0,
+            manpowerUpdatedAt: 0,
+            manpowerCapSnapshot: 6_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "GREAT_CITY", goldPerMinute: 1 }
+          },
+          {
+            x: 11,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "GREAT_CITY", goldPerMinute: 1 }
+          },
+          {
+            x: 12,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "METROPOLIS", goldPerMinute: 1 }
+          },
+          {
+            x: 13,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "METROPOLIS", goldPerMinute: 1 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "collect-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 60_000,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+
+    await Promise.resolve();
+
+    const playerUpdateEvent = seen.find(
+      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
+    );
+    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
+      manpowerBreakdown: { cap: Array<{ label: string; amount: number }>; regen: Array<{ label: string; amount: number }> };
+    };
+    expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["2 Great Cities", "2 Metropolises"]);
+    expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["2 Great Cities", "2 Metropolises"]);
+  });
+
   it("exports only the player's visible tiles for bootstrap snapshots", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
@@ -1452,6 +1642,147 @@ describe("simulation runtime", () => {
       randomSpy.mockRestore();
       vi.useRealTimers();
     }
+  });
+
+  it("cancels an active frontier expansion before it resolves", async () => {
+    const scheduled: Array<() => void> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      scheduleAfter: (_delayMs, task) => {
+        scheduled.push(task);
+      },
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 11, y: 10, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "expand-cancelled-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+    });
+    await Promise.resolve();
+
+    runtime.submitCommand({
+      commandId: "cancel-capture-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_001,
+      type: "CANCEL_CAPTURE",
+      payloadJson: "{}"
+    });
+    await Promise.resolve();
+
+    for (const task of scheduled) task();
+
+    expect(seen).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMBAT_CANCELLED",
+        commandId: "cancel-capture-1",
+        playerId: "player-1",
+        count: 1,
+        cancelledCommandIds: ["expand-cancelled-1"]
+      })
+    );
+    expect(seen.some((event) => event.eventType === "COMBAT_RESOLVED" && event.commandId === "expand-cancelled-1")).toBe(false);
+    const targetTile = runtime.exportState().tiles.find((tile) => tile.x === 11 && tile.y === 10);
+    expect(targetTile).toEqual(expect.objectContaining({ x: 11, y: 10 }));
+    expect(targetTile?.ownerId).toBeUndefined();
+    expect(targetTile?.ownershipState).toBeUndefined();
+  });
+
+  it("keeps cancelled frontier commands terminal in snapshots after the cancel command replay is pruned", async () => {
+    const scheduled: Array<() => void> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      maxTerminalCommandReplayHistory: 1,
+      scheduleAfter: (_delayMs, task) => {
+        scheduled.push(task);
+      },
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 11, y: 10, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    const expandCommand = {
+      commandId: "expand-terminal-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND" as const,
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+    };
+    runtime.submitCommand(expandCommand);
+    await Promise.resolve();
+    runtime.submitCommand({
+      commandId: "cancel-terminal-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_001,
+      type: "CANCEL_CAPTURE",
+      payloadJson: "{}"
+    });
+    await Promise.resolve();
+
+    const eventsAfterCancel = seen.length;
+    expect(seen).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMBAT_CANCELLED",
+        commandId: "cancel-terminal-1",
+        cancelledCommandIds: ["expand-terminal-1"]
+      })
+    );
+    expect(runtime.exportSnapshotSections().commandEvents.some((entry) => entry.commandId === "expand-terminal-1")).toBe(false);
+
+    runtime.submitCommand(expandCommand);
+    runtime.submitCommand({ ...expandCommand, commandId: "expand-terminal-duplicate-seq" });
+    await Promise.resolve();
+    expect(seen).toHaveLength(eventsAfterCancel);
+
+    for (let i = 0; i < 4; i += 1) {
+      runtime.submitCommand({
+        commandId: `reject-${i}`,
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 10 + i,
+        issuedAt: 1_010 + i,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 1, fromY: 1, toX: 2, toY: 2 })
+      });
+      await Promise.resolve();
+    }
+
+    const eventsAfterPrune = seen.length;
+    runtime.submitCommand(expandCommand);
+    await Promise.resolve();
+    for (const task of scheduled) task();
+
+    expect(seen).toHaveLength(eventsAfterPrune);
+    expect(seen.some((event) => event.eventType === "COMBAT_RESOLVED" && event.commandId === "expand-terminal-1")).toBe(false);
+    expect(runtime.exportSnapshotSections().commandEvents.some((entry) => entry.commandId === "expand-terminal-1")).toBe(false);
   });
 
   it("recovers stale frontier origin payloads by selecting a valid owned adjacent origin server-side", async () => {

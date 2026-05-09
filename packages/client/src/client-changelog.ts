@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.4",
+  version: "2026.05.09.7",
   title: "What's New",
-  summary: "3D is now the default renderer — no URL flag needed. Mobile players are prompted to switch to the lighter 2D view. Plus 3D roads, shard capture fix, and economy-tab cleanup from earlier today.",
+  summary: "3D is now the default renderer — no URL flag needed. Mobile players are prompted to switch to the lighter 2D view. Plus frontier cancel fixes, manpower panel improvements, and dock income corrections from today.",
   entries: [
     {
-      introducedIn: "2026.05.09.4",
+      introducedIn: "2026.05.09.7",
       title: "3D renderer is now the default; ?renderer=2d opts into flat canvas",
       why: "The true-3D terrain renderer had been gated behind an explicit ?renderer=3d query parameter since its initial rollout. With the renderer now stable enough for general use, 3D should be what every player sees without needing to know the URL flag.",
       changes: [
@@ -32,6 +32,36 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Pass ?renderer=2d to use the legacy flat canvas renderer (useful for low-end devices or debugging).",
         "?renderer=3d still works as before and is now a no-op synonym for the default.",
         "Mobile and touch-screen players see a one-time prompt on first load asking whether to switch to the lighter 2D renderer; the choice is remembered in localStorage.",
+      ]
+    },
+    {
+      introducedIn: "2026.05.09.6",
+      title: "Cancelling frontier expansion now survives the rewrite server path",
+      why: "The client already offered Cancel Capture, but the rewrite simulation could accept an EXPAND and then lose the cancellation relationship across replay, snapshots, or the gateway command store. That meant a cancelled frontier claim could still resolve later, especially after restart recovery.",
+      changes: [
+        "CANCEL_CAPTURE now removes active EXPAND / ATTACK locks in the simulation runtime and emits the original cancelled command ids.",
+        "Gateway and simulation persistence mark both the cancel command and the cancelled frontier command resolved, so reconnect and restart recovery do not replay the stale accepted claim.",
+        "Simulation snapshots and replay caches keep cancelled frontier commands terminal without replaying synthetic cancel events under the wrong command id."
+      ]
+    },
+    {
+      introducedIn: "2026.05.09.5",
+      title: "Manpower panel shows town modifiers and the live regen rate",
+      why: "The rewrite simulation was already calculating town-scaled manpower regeneration, but PLAYER_UPDATE messages only sent current manpower and cap. The client kept the default +10/m rate and base-only breakdown, so additional towns looked like they were not improving regeneration even while the server-side rule was in place.",
+      changes: [
+        "PLAYER_UPDATE now includes manpowerRegenPerMinute and a compact cap / regen breakdown built from the same town-tier and diminishing-returns rules used by the simulation.",
+        "Initial payloads and subscription snapshots preserve the live manpower breakdown, so opening the manpower tab shows the town tiers and scaling bands currently contributing to cap and regeneration.",
+        "The regression test covers two owned settlement towns producing +20/m and verifies a second minute of accrual adds 20 manpower."
+      ]
+    },
+    {
+      introducedIn: "2026.05.09.4",
+      title: "Connected dock and town bonuses now affect rewrite gold income",
+      why: "The rewrite simulation carried dock route definitions but its live economy only paid the flat dock base rate. Connecting both ends of a dock route therefore changed visibility/mobility but not production. Rewrite town payloads could also omit or carry stale legacy connected-town bonus fields, leaving town networks underpaid unless the stored town object happened to be current.",
+      changes: [
+        "Rewrite player economy, tile yield collection, and snapshot yield views now price docks with the connected owned-settled dock count instead of the flat base rate.",
+        "Connected-town counts and bonuses are derived from the player's settled land network, and complete town summaries with stale connected fields now recompute dependent income fields instead of returning old gold values.",
+        "Added regression coverage for connected dock route income, buffered dock gold yield, authoritative buffered town yield, and derived connected-town income in full-visibility snapshots."
       ]
     },
     {

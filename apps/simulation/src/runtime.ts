@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, LockedFrontierCombatResult, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
 import {
   buildRewritePlayerRespawnNotice,
@@ -108,7 +108,12 @@ import {
   type PendingSettlementRecord,
   type PlayerRuntimeSummary
 } from "./player-runtime-summary.js";
-import { buildPlayerUpdateEconomySnapshot } from "./player-update-economy.js";
+import {
+  buildFedTownKeys,
+  buildPlayerUpdateEconomySnapshot,
+  buildStrategicProductionForSettledTiles
+} from "./player-update-economy.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork } from "./economy-network.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { RecoveredCommandHistory } from "./command-recovery.js";
@@ -142,6 +147,12 @@ const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {
   for (const key of summary.buildCandidateTileKeys) scopedKeys.add(key);
   for (const key of summary.pendingSettlementsByTile.keys()) scopedKeys.add(key);
   return scopedKeys.size;
+};
+
+type RuntimeTileYieldEconomyContext = {
+  player: DomainPlayer;
+  townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
+  fedTownKeys: Set<string>;
 };
 
 type LockRecord = {
@@ -581,6 +592,7 @@ export class SimulationRuntime {
   private readonly recordedEventsByCommandId = new Map<string, SimulationEvent[]>();
   private readonly commandIdsByPlayerSeq = new Map<string, string>();
   private readonly terminalReplayCommandIds = new Map<string, true>();
+  private readonly terminalOnlyReplayCommandIds = new Set<string>();
   private readonly maxTerminalCommandReplayHistory: number;
   private readonly maxPlayerSeqReplayEntries: number;
   private readonly backgroundBatchSize: number;
@@ -892,6 +904,7 @@ export class SimulationRuntime {
 
   private rebuildTerminalReplayIndex(): void {
     this.terminalReplayCommandIds.clear();
+    this.terminalOnlyReplayCommandIds.clear();
     for (const [commandId, events] of this.recordedEventsByCommandId.entries()) {
       if (events.some(isTerminalCommandEvent)) {
         this.terminalReplayCommandIds.set(commandId, true);
@@ -904,9 +917,15 @@ export class SimulationRuntime {
     this.terminalReplayCommandIds.set(commandId, true);
   }
 
+  private markTerminalOnlyReplayCommand(commandId: string): void {
+    this.recordedEventsByCommandId.delete(commandId);
+    this.terminalOnlyReplayCommandIds.add(commandId);
+  }
+
   private dropReplayHistoryForCommand(commandId: string): void {
     this.recordedEventsByCommandId.delete(commandId);
     this.terminalReplayCommandIds.delete(commandId);
+    this.terminalOnlyReplayCommandIds.delete(commandId);
     for (const [playerSeqKey, mappedCommandId] of this.commandIdsByPlayerSeq.entries()) {
       if (mappedCommandId === commandId) this.commandIdsByPlayerSeq.delete(playerSeqKey);
     }
@@ -922,7 +941,9 @@ export class SimulationRuntime {
     while (this.commandIdsByPlayerSeq.size > this.maxPlayerSeqReplayEntries) {
       const oldestPlayerSeqKey = this.commandIdsByPlayerSeq.keys().next().value;
       if (!oldestPlayerSeqKey) break;
+      const oldestCommandId = this.commandIdsByPlayerSeq.get(oldestPlayerSeqKey);
       this.commandIdsByPlayerSeq.delete(oldestPlayerSeqKey);
+      if (oldestCommandId) this.terminalOnlyReplayCommandIds.delete(oldestCommandId);
     }
   }
 
@@ -985,6 +1006,67 @@ export class SimulationRuntime {
       index += 1;
     }
     return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen);
+  }
+
+  private townTierLabel(tier: keyof typeof TOWN_MANPOWER_BY_TIER, count: number): string {
+    const labels: Record<keyof typeof TOWN_MANPOWER_BY_TIER, { singular: string; plural: string }> = {
+      SETTLEMENT: { singular: "Settlement", plural: "Settlements" },
+      TOWN: { singular: "Town", plural: "Towns" },
+      CITY: { singular: "City", plural: "Cities" },
+      GREAT_CITY: { singular: "Great City", plural: "Great Cities" },
+      METROPOLIS: { singular: "Metropolis", plural: "Metropolises" }
+    };
+    const label = labels[tier];
+    if (count === 1) return label.singular;
+    return `${count} ${label.plural}`;
+  }
+
+  private manpowerRegenWeightNote(weight: number): string | undefined {
+    if (weight === 1) return undefined;
+    return `${Math.round(weight * 100)}% scaling`;
+  }
+
+  private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
+    const summary = this.summaryForPlayer(player.id);
+    const capByTier = new Map<keyof typeof TOWN_MANPOWER_BY_TIER, { count: number; amount: number }>();
+    const regenByTierAndWeight = new Map<string, { tier: keyof typeof TOWN_MANPOWER_BY_TIER; count: number; amount: number; weight: number }>();
+    let index = 0;
+    for (const tier of summary.ownedTownTierByTile.values()) {
+      const capBase = TOWN_MANPOWER_BY_TIER[tier]?.cap ?? 0;
+      if (capBase !== 0) {
+        const current = capByTier.get(tier) ?? { count: 0, amount: 0 };
+        capByTier.set(tier, { count: current.count + 1, amount: current.amount + capBase });
+      }
+      const regenBase = TOWN_MANPOWER_BY_TIER[tier]?.regenPerMinute ?? 0;
+      if (regenBase !== 0) {
+        const weight = manpowerRegenWeightForSettlementIndex(index);
+        const key = `${tier}:${weight}`;
+        const current = regenByTierAndWeight.get(key) ?? { tier, count: 0, amount: 0, weight };
+        regenByTierAndWeight.set(key, { ...current, count: current.count + 1, amount: current.amount + regenBase * weight });
+      }
+      index += 1;
+    }
+    const capLines = [...capByTier.entries()].map(([tier, line]) => ({
+      label: this.townTierLabel(tier, line.count),
+      amount: line.amount
+    }));
+    const regenLines = [...regenByTierAndWeight.values()].map((line) => {
+      const note = this.manpowerRegenWeightNote(line.weight);
+      return {
+        label: this.townTierLabel(line.tier, line.count),
+        amount: line.amount,
+        ...(note ? { note } : {})
+      };
+    });
+    const townCap = capLines.reduce((total, line) => total + line.amount, 0);
+    const townRegen = regenLines.reduce((total, line) => total + line.amount, 0);
+    return {
+      cap: townCap >= MANPOWER_BASE_CAP && capLines.length > 0 ? capLines : [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
+      regen:
+        townRegen >= MANPOWER_BASE_REGEN_PER_MINUTE && regenLines.length > 0
+          ? regenLines
+          : [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
+    };
   }
 
   private effectiveManpowerAt(player: RuntimePlayer, nowMs = this.now()): number {
@@ -1212,7 +1294,7 @@ export class SimulationRuntime {
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
-        incomePerMinute: summary.goldIncomePerMinute,
+        incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
         hasActiveLock,
         ownedTiles,
         clientSeq,
@@ -1231,7 +1313,7 @@ export class SimulationRuntime {
       ...(Object.keys(player.strategicResources ?? {}).length ? { strategicResources: { ...(player.strategicResources ?? {}) } } : {}),
       settledTileCount: summary.settledTileCount,
       townCount: summary.townCount,
-      incomePerMinute: summary.goldIncomePerMinute,
+      incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
       hasActiveLock,
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
       frontierTiles: [...summary.frontierTileKeys]
@@ -1301,6 +1383,7 @@ export class SimulationRuntime {
 
   submitCommand(command: CommandEnvelope): void {
     this.pruneReplayCaches();
+    if (this.terminalOnlyReplayCommandIds.has(command.commandId)) return;
     const existingEvents = this.recordedEventsByCommandId.get(command.commandId);
     if (existingEvents) {
       for (const event of existingEvents) this.events.emit("event", event);
@@ -1310,6 +1393,7 @@ export class SimulationRuntime {
     const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
     const existingCommandId = this.commandIdsByPlayerSeq.get(playerSeqKey);
     if (existingCommandId) {
+      if (this.terminalOnlyReplayCommandIds.has(existingCommandId)) return;
       const replayEvents = this.recordedEventsByCommandId.get(existingCommandId);
       if (replayEvents) {
         for (const event of replayEvents) this.events.emit("event", event);
@@ -1440,7 +1524,7 @@ export class SimulationRuntime {
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
-        incomePerMinute: summary.goldIncomePerMinute,
+        incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
         tileCollectionVersion: tileKeys.tileCollectionVersion,
         hasActiveLock: lockPlayerIds.has(player.id),
         territoryTileKeys: tileKeys.territoryTileKeys,
@@ -1489,6 +1573,9 @@ export class SimulationRuntime {
       name?: string;
       points: number;
       manpower: number;
+      manpowerCap?: number;
+      manpowerRegenPerMinute?: number;
+      manpowerBreakdown?: ManpowerBreakdown;
       manpowerCapSnapshot?: number;
       techIds: string[];
       domainIds: string[];
@@ -1552,6 +1639,9 @@ export class SimulationRuntime {
             ...(player.name ? { name: player.name } : {}),
             points: player.points,
             manpower: player.manpower,
+            manpowerCap: this.playerManpowerCap(player),
+            manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+            manpowerBreakdown: this.playerManpowerBreakdown(player),
             ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
             techIds: [...player.techIds].sort(),
             domainIds: [...(player.domainIds ?? [])].sort(),
@@ -1563,7 +1653,7 @@ export class SimulationRuntime {
             territoryTileKeys: [...summary.territoryTileKeys].sort(),
             settledTileCount: summary.settledTileCount,
             townCount: summary.townCount,
-            incomePerMinute: Math.round(summary.goldIncomePerMinute * (player.mods?.income ?? 1) * 100) / 100,
+            incomePerMinute: this.incomePerMinuteForPlayer(player.id),
             strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
             activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
           };
@@ -1711,7 +1801,7 @@ export class SimulationRuntime {
             territoryTileKeys: [...summary.territoryTileKeys].sort(),
             settledTileCount: summary.settledTileCount,
             townCount: summary.townCount,
-            incomePerMinute: Math.round(summary.goldIncomePerMinute * (player.mods?.income ?? 1) * 100) / 100,
+            incomePerMinute: this.incomePerMinuteForPlayer(player.id),
             strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
             activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
           };
@@ -1745,7 +1835,40 @@ export class SimulationRuntime {
     return cloneStrategicProduction(this.summaryForPlayer(playerId).strategicProductionPerMinute);
   }
 
+  private settledTilesForPlayer(playerId: string): DomainTileState[] {
+    return [...this.summaryForPlayer(playerId).territoryTileKeys]
+      .map((tileKey) => this.tiles.get(tileKey))
+      .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
+  }
+
+  private fedTownKeysForPlayer(player: DomainPlayer, settledTiles = this.settledTilesForPlayer(player.id)): Set<string> {
+    const summary = this.summaryForPlayer(player.id);
+    return buildFedTownKeys(
+      player,
+      summary,
+      this.tiles,
+      buildStrategicProductionForSettledTiles(summary, settledTiles)
+    );
+  }
+
+  private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
+    const settledTiles = this.settledTilesForPlayer(player.id);
+    return {
+      player,
+      townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles),
+      fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles)
+    };
+  }
+
   private incomePerMinuteForPlayer(playerId: string): number {
+    const player = this.players.get(playerId);
+    if (!player) return 0;
+    return buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(playerId), this.tiles, {
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    }).incomePerMinute;
+  }
+
+  private estimatedIncomePerMinuteForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     const incomeMult = player?.mods?.income ?? 1;
     return Math.round(this.summaryForPlayer(playerId).goldIncomePerMinute * incomeMult * 100) / 100;
@@ -1764,7 +1887,9 @@ export class SimulationRuntime {
     if (!player) return;
     this.applyManpowerRegen(player);
     const summary = this.summaryForPlayer(playerId);
-    const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles);
+    const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    });
     const metrics = buildPlayerDefensibilityMetrics(playerId, this.tiles);
     player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
     this.emitPlayerMessage(
@@ -1774,6 +1899,8 @@ export class SimulationRuntime {
         gold: player.points,
         manpower: player.manpower,
         manpowerCap: this.playerManpowerCap(player),
+        manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+        manpowerBreakdown: this.playerManpowerBreakdown(player),
         incomePerMinute: economy.incomePerMinute,
         strategicResources: {
           FOOD: player.strategicResources?.FOOD ?? 0,
@@ -2208,14 +2335,15 @@ export class SimulationRuntime {
     let gold = 0;
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
     const touchedTileDeltas: Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> = [];
+    const yieldContext = this.tileYieldEconomyContextForPlayer(actor);
     for (const tile of this.tiles.values()) {
       if (tile.ownerId !== command.playerId || tile.ownershipState !== "SETTLED") continue;
-      const collected = this.collectTileYield(tile, now);
+      const collected = this.collectTileYield(tile, now, yieldContext);
       const touched = collected.gold > 0 || Object.values(collected.strategic).some((value) => Number(value) > 0);
       if (!touched) continue;
       tiles += 1;
       gold += collected.gold;
-      touchedTileDeltas.push(this.tileDeltaFromState(tile));
+      touchedTileDeltas.push(this.tileDeltaFromState(tile, yieldContext));
       for (const [resource, amount] of Object.entries(collected.strategic) as Array<
         ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number]
       >) {
@@ -3676,6 +3804,11 @@ export class SimulationRuntime {
     existingEvents.push(event);
     this.recordedEventsByCommandId.set(event.commandId, existingEvents);
     if (isTerminalCommandEvent(event)) this.markTerminalReplayCommand(event.commandId);
+    if (event.eventType === "COMBAT_CANCELLED") {
+      for (const cancelledCommandId of event.cancelledCommandIds ?? []) {
+        if (cancelledCommandId !== event.commandId) this.markTerminalOnlyReplayCommand(cancelledCommandId);
+      }
+    }
     this.pruneReplayCaches();
     this.events.emit("event", event);
   }
@@ -3716,7 +3849,7 @@ export class SimulationRuntime {
     });
   }
 
-  private tileDeltaFromState(tile: DomainTileState): {
+  private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext): {
     x: number;
     y: number;
     terrain?: Terrain;
@@ -3738,7 +3871,15 @@ export class SimulationRuntime {
       yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
       yieldCap?: { gold: number; strategicEach: number } | undefined;
     } {
-    const yieldView = buildTileYieldView(tile, this.tileYieldCollectedAtByTile.get(simulationTileKey(tile.x, tile.y)), this.now());
+    const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
+    const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
+    const enrichedTile = tile.town && resolvedContext ? { ...tile, town: enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork) } : tile;
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(simulationTileKey(tile.x, tile.y)), this.now(), {
+      ...(player ? { player } : {}),
+      ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
+      tiles: this.tiles,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    });
     return {
       x: tile.x,
       y: tile.y,
@@ -3748,10 +3889,10 @@ export class SimulationRuntime {
       ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
       ownerId: tile.ownerId ?? undefined,
       ownershipState: tile.ownershipState ?? undefined,
-      ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-      ...(tile.town?.type ? { townType: tile.town.type } : {}),
-      ...(tile.town?.name ? { townName: tile.town.name } : {}),
-      ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
+      ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
+      ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
+      ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
+      ...(enrichedTile.town?.populationTier ? { townPopulationTier: enrichedTile.town.populationTier } : {}),
       fortJson: tile.fort ? JSON.stringify(tile.fort) : undefined,
       observatoryJson: tile.observatory ? JSON.stringify(tile.observatory) : undefined,
       siegeOutpostJson: tile.siegeOutpost ? JSON.stringify(tile.siegeOutpost) : undefined,
@@ -3765,14 +3906,23 @@ export class SimulationRuntime {
 
   private collectTileYield(
     tile: DomainTileState,
-    now: number
+    now: number,
+    context?: RuntimeTileYieldEconomyContext
   ): {
     gold: number;
     strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
   } {
     const tileKey = simulationTileKey(tile.x, tile.y);
-    const yieldView = buildTileYieldView(tile, this.tileYieldCollectedAtByTile.get(tileKey), now);
-    const gold = yieldView?.yield?.gold ?? 0;
+    const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
+    const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
+    const enrichedTile = tile.town && resolvedContext ? { ...tile, town: enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork) } : tile;
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(tileKey), now, {
+      ...(player ? { player } : {}),
+      ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
+      tiles: this.tiles,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    });
+    const gold = Math.floor((yieldView?.yield?.gold ?? 0) * 100) / 100;
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
       ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number]
@@ -4848,6 +4998,56 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate(command);
   }
 
+  private activeFrontierLocksForPlayer(playerId: string): LockRecord[] {
+    const locks = new Map<string, LockRecord>();
+    for (const lock of this.locksByTile.values()) {
+      if (lock.playerId !== playerId) continue;
+      if (lock.actionType !== "EXPAND" && lock.actionType !== "ATTACK") continue;
+      locks.set(lock.commandId, lock);
+    }
+    return [...locks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId));
+  }
+
+  private handleCancelCaptureCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    if (!actor) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+
+    const activeLocks = this.activeFrontierLocksForPlayer(command.playerId);
+    if (activeLocks.length === 0) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "NO_ACTIVE_CAPTURE",
+        message: "no active capture to cancel"
+      });
+      return;
+    }
+
+    for (const lock of activeLocks) {
+      this.locksByTile.delete(lock.originKey);
+      this.locksByTile.delete(lock.targetKey);
+    }
+
+    this.emitEvent({
+      eventType: "COMBAT_CANCELLED",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      count: activeLocks.length,
+      cancelledCommandIds: activeLocks.map((lock) => lock.commandId)
+    });
+    this.emitPlayerStateUpdate(command);
+  }
+
   private visibleRadiusForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     return player ? effectiveVisionRadiusForPlayer(player) : 1;
@@ -5124,6 +5324,7 @@ export class SimulationRuntime {
         command.type !== "BUILD_OBSERVATORY" &&
         command.type !== "BUILD_SIEGE_OUTPOST" &&
         command.type !== "BUILD_ECONOMIC_STRUCTURE" &&
+        command.type !== "CANCEL_CAPTURE" &&
         command.type !== "CANCEL_FORT_BUILD" &&
         command.type !== "CANCEL_STRUCTURE_BUILD" &&
         command.type !== "REMOVE_STRUCTURE" &&
@@ -5178,6 +5379,11 @@ export class SimulationRuntime {
 
       if (command.type === "BUILD_ECONOMIC_STRUCTURE") {
         this.handleBuildEconomicStructureCommand(command);
+        return;
+      }
+
+      if (command.type === "CANCEL_CAPTURE") {
+        this.handleCancelCaptureCommand(command);
         return;
       }
 

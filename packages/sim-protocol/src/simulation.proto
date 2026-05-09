@@ -135,6 +135,7 @@ message SimulationEvent {
   string message_type = 24;
   double manpower_delta = 25;
   string combat_result_json = 26;
+  repeated string cancelled_command_ids = 27;
 }
 
 service SimulationService {

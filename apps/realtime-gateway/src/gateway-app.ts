@@ -1006,6 +1006,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           void commandStore
             .markResolved(event.commandId, Date.now())
             .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist cancelled command"));
+          for (const cancelledCommandId of event.cancelledCommandIds ?? []) {
+            if (cancelledCommandId === event.commandId) continue;
+            void commandStore
+              .markResolved(cancelledCommandId, Date.now())
+              .catch((error) =>
+                app.log.error({ err: error, commandId: cancelledCommandId }, "failed to persist cancelled frontier command")
+              );
+          }
           queueOrSendSessionPayload(socket, {
             type: "COMBAT_CANCELLED",
             commandId: event.commandId,

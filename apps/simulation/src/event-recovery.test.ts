@@ -177,4 +177,29 @@ describe("recoverSimulationStateFromEvents", () => {
       }
     ]);
   });
+
+  it("clears cancelled accepted frontier locks from recovered state", () => {
+    const recovered = recoverSimulationStateFromEvents([
+      {
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "expand-cmd-1",
+        playerId: "player-1",
+        actionType: "EXPAND",
+        originX: 10,
+        originY: 10,
+        targetX: 11,
+        targetY: 10,
+        resolvesAt: 3000
+      },
+      {
+        eventType: "COMBAT_CANCELLED",
+        commandId: "cancel-capture-1",
+        playerId: "player-1",
+        count: 1,
+        cancelledCommandIds: ["expand-cmd-1"]
+      }
+    ]);
+
+    expect(recovered.activeLocks).toEqual([]);
+  });
 });

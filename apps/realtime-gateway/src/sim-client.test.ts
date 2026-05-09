@@ -453,6 +453,52 @@ describe("simulation event stream supervisor", () => {
     }
   });
 
+  it("keeps cancelled command ids on COMBAT_CANCELLED stream events", () => {
+    vi.useFakeTimers();
+    try {
+      const stream = new FakeStream();
+      const seen: SimulationClientEvent[] = [];
+
+      startSimulationEventStream(
+        () => stream,
+        (event) => {
+          seen.push(event);
+        }
+      );
+
+      stream.emit("data", {
+        event_type: "COMBAT_CANCELLED",
+        command_id: "cancel-capture-1",
+        player_id: "player-1",
+        action_type: "",
+        origin_x: 0,
+        origin_y: 0,
+        target_x: 0,
+        target_y: 0,
+        resolves_at: 0,
+        code: "",
+        message: "",
+        attacker_won: false,
+        tile_delta_json: "",
+        tile_deltas: [],
+        count: 1,
+        cancelled_command_ids: ["expand-cmd-1"]
+      });
+
+      expect(seen).toEqual([
+        {
+          eventType: "COMBAT_CANCELLED",
+          commandId: "cancel-capture-1",
+          playerId: "player-1",
+          count: 1,
+          cancelledCommandIds: ["expand-cmd-1"]
+        }
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("preserves explicit empty structure fields so downstream clients can clear removed structures", () => {
     vi.useFakeTimers();
     try {
