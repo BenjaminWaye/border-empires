@@ -108,7 +108,12 @@ import {
   type PendingSettlementRecord,
   type PlayerRuntimeSummary
 } from "./player-runtime-summary.js";
-import { buildPlayerUpdateEconomySnapshot } from "./player-update-economy.js";
+import {
+  buildFedTownKeys,
+  buildPlayerUpdateEconomySnapshot,
+  buildStrategicProductionForSettledTiles
+} from "./player-update-economy.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork } from "./economy-network.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { RecoveredCommandHistory } from "./command-recovery.js";
@@ -142,6 +147,12 @@ const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {
   for (const key of summary.buildCandidateTileKeys) scopedKeys.add(key);
   for (const key of summary.pendingSettlementsByTile.keys()) scopedKeys.add(key);
   return scopedKeys.size;
+};
+
+type RuntimeTileYieldEconomyContext = {
+  player: DomainPlayer;
+  townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
+  fedTownKeys: Set<string>;
 };
 
 type LockRecord = {
@@ -1212,7 +1223,7 @@ export class SimulationRuntime {
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
-        incomePerMinute: summary.goldIncomePerMinute,
+        incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
         hasActiveLock,
         ownedTiles,
         clientSeq,
@@ -1231,7 +1242,7 @@ export class SimulationRuntime {
       ...(Object.keys(player.strategicResources ?? {}).length ? { strategicResources: { ...(player.strategicResources ?? {}) } } : {}),
       settledTileCount: summary.settledTileCount,
       townCount: summary.townCount,
-      incomePerMinute: summary.goldIncomePerMinute,
+      incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
       hasActiveLock,
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
       frontierTiles: [...summary.frontierTileKeys]
@@ -1440,7 +1451,7 @@ export class SimulationRuntime {
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
-        incomePerMinute: summary.goldIncomePerMinute,
+        incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
         tileCollectionVersion: tileKeys.tileCollectionVersion,
         hasActiveLock: lockPlayerIds.has(player.id),
         territoryTileKeys: tileKeys.territoryTileKeys,
@@ -1563,7 +1574,7 @@ export class SimulationRuntime {
             territoryTileKeys: [...summary.territoryTileKeys].sort(),
             settledTileCount: summary.settledTileCount,
             townCount: summary.townCount,
-            incomePerMinute: Math.round(summary.goldIncomePerMinute * (player.mods?.income ?? 1) * 100) / 100,
+            incomePerMinute: this.incomePerMinuteForPlayer(player.id),
             strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
             activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
           };
@@ -1711,7 +1722,7 @@ export class SimulationRuntime {
             territoryTileKeys: [...summary.territoryTileKeys].sort(),
             settledTileCount: summary.settledTileCount,
             townCount: summary.townCount,
-            incomePerMinute: Math.round(summary.goldIncomePerMinute * (player.mods?.income ?? 1) * 100) / 100,
+            incomePerMinute: this.incomePerMinuteForPlayer(player.id),
             strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
             activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
           };
@@ -1745,7 +1756,40 @@ export class SimulationRuntime {
     return cloneStrategicProduction(this.summaryForPlayer(playerId).strategicProductionPerMinute);
   }
 
+  private settledTilesForPlayer(playerId: string): DomainTileState[] {
+    return [...this.summaryForPlayer(playerId).territoryTileKeys]
+      .map((tileKey) => this.tiles.get(tileKey))
+      .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
+  }
+
+  private fedTownKeysForPlayer(player: DomainPlayer, settledTiles = this.settledTilesForPlayer(player.id)): Set<string> {
+    const summary = this.summaryForPlayer(player.id);
+    return buildFedTownKeys(
+      player,
+      summary,
+      this.tiles,
+      buildStrategicProductionForSettledTiles(summary, settledTiles)
+    );
+  }
+
+  private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
+    const settledTiles = this.settledTilesForPlayer(player.id);
+    return {
+      player,
+      townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles),
+      fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles)
+    };
+  }
+
   private incomePerMinuteForPlayer(playerId: string): number {
+    const player = this.players.get(playerId);
+    if (!player) return 0;
+    return buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(playerId), this.tiles, {
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    }).incomePerMinute;
+  }
+
+  private estimatedIncomePerMinuteForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     const incomeMult = player?.mods?.income ?? 1;
     return Math.round(this.summaryForPlayer(playerId).goldIncomePerMinute * incomeMult * 100) / 100;
@@ -1764,7 +1808,9 @@ export class SimulationRuntime {
     if (!player) return;
     this.applyManpowerRegen(player);
     const summary = this.summaryForPlayer(playerId);
-    const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles);
+    const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    });
     const metrics = buildPlayerDefensibilityMetrics(playerId, this.tiles);
     player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
     this.emitPlayerMessage(
@@ -2208,14 +2254,15 @@ export class SimulationRuntime {
     let gold = 0;
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
     const touchedTileDeltas: Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> = [];
+    const yieldContext = this.tileYieldEconomyContextForPlayer(actor);
     for (const tile of this.tiles.values()) {
       if (tile.ownerId !== command.playerId || tile.ownershipState !== "SETTLED") continue;
-      const collected = this.collectTileYield(tile, now);
+      const collected = this.collectTileYield(tile, now, yieldContext);
       const touched = collected.gold > 0 || Object.values(collected.strategic).some((value) => Number(value) > 0);
       if (!touched) continue;
       tiles += 1;
       gold += collected.gold;
-      touchedTileDeltas.push(this.tileDeltaFromState(tile));
+      touchedTileDeltas.push(this.tileDeltaFromState(tile, yieldContext));
       for (const [resource, amount] of Object.entries(collected.strategic) as Array<
         ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number]
       >) {
@@ -3716,7 +3763,7 @@ export class SimulationRuntime {
     });
   }
 
-  private tileDeltaFromState(tile: DomainTileState): {
+  private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext): {
     x: number;
     y: number;
     terrain?: Terrain;
@@ -3738,7 +3785,15 @@ export class SimulationRuntime {
       yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
       yieldCap?: { gold: number; strategicEach: number } | undefined;
     } {
-    const yieldView = buildTileYieldView(tile, this.tileYieldCollectedAtByTile.get(simulationTileKey(tile.x, tile.y)), this.now());
+    const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
+    const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
+    const enrichedTile = tile.town && resolvedContext ? { ...tile, town: enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork) } : tile;
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(simulationTileKey(tile.x, tile.y)), this.now(), {
+      ...(player ? { player } : {}),
+      ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
+      tiles: this.tiles,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    });
     return {
       x: tile.x,
       y: tile.y,
@@ -3748,10 +3803,10 @@ export class SimulationRuntime {
       ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
       ownerId: tile.ownerId ?? undefined,
       ownershipState: tile.ownershipState ?? undefined,
-      ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-      ...(tile.town?.type ? { townType: tile.town.type } : {}),
-      ...(tile.town?.name ? { townName: tile.town.name } : {}),
-      ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
+      ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
+      ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
+      ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
+      ...(enrichedTile.town?.populationTier ? { townPopulationTier: enrichedTile.town.populationTier } : {}),
       fortJson: tile.fort ? JSON.stringify(tile.fort) : undefined,
       observatoryJson: tile.observatory ? JSON.stringify(tile.observatory) : undefined,
       siegeOutpostJson: tile.siegeOutpost ? JSON.stringify(tile.siegeOutpost) : undefined,
@@ -3765,14 +3820,23 @@ export class SimulationRuntime {
 
   private collectTileYield(
     tile: DomainTileState,
-    now: number
+    now: number,
+    context?: RuntimeTileYieldEconomyContext
   ): {
     gold: number;
     strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
   } {
     const tileKey = simulationTileKey(tile.x, tile.y);
-    const yieldView = buildTileYieldView(tile, this.tileYieldCollectedAtByTile.get(tileKey), now);
-    const gold = yieldView?.yield?.gold ?? 0;
+    const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
+    const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
+    const enrichedTile = tile.town && resolvedContext ? { ...tile, town: enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork) } : tile;
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(tileKey), now, {
+      ...(player ? { player } : {}),
+      ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
+      tiles: this.tiles,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    });
+    const gold = Math.floor((yieldView?.yield?.gold ?? 0) * 100) / 100;
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
       ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number]
