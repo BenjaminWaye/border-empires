@@ -14,7 +14,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "@border-empires/shared";
-import type { LeaderboardMetricEntry, LeaderboardOverallEntry, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import type { LeaderboardMetricEntry, LeaderboardOverallEntry, ManpowerBreakdown, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import {
   SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE,
   SEASON_VICTORY_ECONOMY_LEAD_MULT,
@@ -74,6 +74,7 @@ type GatewayInitPayload = {
     manpower: number;
     manpowerCap: number;
     manpowerRegenPerMinute: number;
+    manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;
     strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
     strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
@@ -803,7 +804,11 @@ export const buildGatewayInitPayload = (
       stamina: 0,
       manpower: liveSnapshotPlayer?.manpower ?? bootstrapProfile?.manpower ?? player?.manpower ?? MANPOWER_BASE_CAP,
       manpowerCap: liveSnapshotPlayer?.manpowerCap ?? Math.max(bootstrapProfile?.manpower ?? player?.manpower ?? MANPOWER_BASE_CAP, MANPOWER_BASE_CAP),
-      manpowerRegenPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
+      manpowerRegenPerMinute: liveSnapshotPlayer?.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
+      manpowerBreakdown: liveSnapshotPlayer?.manpowerBreakdown ?? {
+        cap: [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
+        regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
+      },
       incomePerMinute: liveSnapshotPlayer?.incomePerMinute ?? bootstrapProfile?.incomePerMinute ?? selfOverall?.incomePerMinute ?? 0,
       strategicResources:
         liveSnapshotPlayer?.strategicResources ??
