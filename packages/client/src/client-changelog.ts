@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.4",
+  version: "2026.05.09.5",
   title: "What's New",
-  summary: "Connected dock routes and connected town networks now pay out correctly on the rewrite stack. Plus 3D roads render again, shard capture/stock updates landed, and manpower now scales by town tier.",
+  summary: "The manpower panel now shows the town modifiers behind cap and regeneration, and rewrite player updates send the town-scaled regen rate instead of leaving the HUD stuck on the base rate. Plus connected dock routes and connected town networks now pay out correctly on the rewrite stack.",
   entries: [
+    {
+      introducedIn: "2026.05.09.5",
+      title: "Manpower panel shows town modifiers and the live regen rate",
+      why: "The rewrite simulation was already calculating town-scaled manpower regeneration, but PLAYER_UPDATE messages only sent current manpower and cap. The client kept the default +10/m rate and base-only breakdown, so additional towns looked like they were not improving regeneration even while the server-side rule was in place.",
+      changes: [
+        "PLAYER_UPDATE now includes manpowerRegenPerMinute and a compact cap / regen breakdown built from the same town-tier and diminishing-returns rules used by the simulation.",
+        "Initial payloads and subscription snapshots preserve the live manpower breakdown, so opening the manpower tab shows the town tiers and scaling bands currently contributing to cap and regeneration.",
+        "The regression test covers two owned settlement towns producing +20/m and verifies a second minute of accrual adds 20 manpower."
+      ]
+    },
     {
       introducedIn: "2026.05.09.4",
       title: "Connected dock and town bonuses now affect rewrite gold income",

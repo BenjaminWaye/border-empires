@@ -246,6 +246,196 @@ describe("simulation runtime", () => {
     expect(player?.manpower).toBe(10);
   });
 
+  it("emits town-scaled manpower regen and breakdown in player updates", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 0,
+            manpowerUpdatedAt: 0,
+            manpowerCapSnapshot: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Alpha", type: "MARKET", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+          },
+          {
+            x: 11,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Beta", type: "MARKET", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "collect-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 60_000,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+
+    await Promise.resolve();
+
+    const playerUpdateEvent = seen.find(
+      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
+    );
+    expect(playerUpdateEvent).toBeDefined();
+    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
+      manpower: number;
+      manpowerCap: number;
+      manpowerRegenPerMinute: number;
+      manpowerBreakdown: { cap: Array<{ label: string; amount: number }>; regen: Array<{ label: string; amount: number }> };
+    };
+    expect(payload.manpowerCap).toBe(300);
+    expect(payload.manpowerRegenPerMinute).toBe(20);
+    expect(payload.manpowerBreakdown.cap).toEqual([{ label: "2 Settlements", amount: 300 }]);
+    expect(payload.manpowerBreakdown.regen).toEqual([{ label: "2 Settlements", amount: 20 }]);
+
+    currentNow = 120_000;
+    runtime.submitCommand({
+      commandId: "collect-2",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 120_000,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 11, y: 10 })
+    });
+
+    await Promise.resolve();
+
+    const secondPlayerUpdateEvent = seen
+      .slice()
+      .reverse()
+      .find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+          event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
+      );
+    const secondPayload = JSON.parse(secondPlayerUpdateEvent!.payloadJson) as { manpower: number };
+    expect(secondPayload.manpower - payload.manpower).toBe(20);
+  });
+
+  it("uses explicit plural labels for high-tier manpower breakdown groups", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 0,
+            manpowerUpdatedAt: 0,
+            manpowerCapSnapshot: 6_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "GREAT_CITY", goldPerMinute: 1 }
+          },
+          {
+            x: 11,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "GREAT_CITY", goldPerMinute: 1 }
+          },
+          {
+            x: 12,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "METROPOLIS", goldPerMinute: 1 }
+          },
+          {
+            x: 13,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "METROPOLIS", goldPerMinute: 1 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "collect-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 60_000,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+
+    await Promise.resolve();
+
+    const playerUpdateEvent = seen.find(
+      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
+    );
+    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
+      manpowerBreakdown: { cap: Array<{ label: string; amount: number }>; regen: Array<{ label: string; amount: number }> };
+    };
+    expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["2 Great Cities", "2 Metropolises"]);
+    expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["2 Great Cities", "2 Metropolises"]);
+  });
+
   it("exports only the player's visible tiles for bootstrap snapshots", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
