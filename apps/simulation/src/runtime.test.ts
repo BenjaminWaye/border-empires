@@ -1644,6 +1644,147 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("cancels an active frontier expansion before it resolves", async () => {
+    const scheduled: Array<() => void> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      scheduleAfter: (_delayMs, task) => {
+        scheduled.push(task);
+      },
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 11, y: 10, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "expand-cancelled-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+    });
+    await Promise.resolve();
+
+    runtime.submitCommand({
+      commandId: "cancel-capture-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_001,
+      type: "CANCEL_CAPTURE",
+      payloadJson: "{}"
+    });
+    await Promise.resolve();
+
+    for (const task of scheduled) task();
+
+    expect(seen).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMBAT_CANCELLED",
+        commandId: "cancel-capture-1",
+        playerId: "player-1",
+        count: 1,
+        cancelledCommandIds: ["expand-cancelled-1"]
+      })
+    );
+    expect(seen.some((event) => event.eventType === "COMBAT_RESOLVED" && event.commandId === "expand-cancelled-1")).toBe(false);
+    const targetTile = runtime.exportState().tiles.find((tile) => tile.x === 11 && tile.y === 10);
+    expect(targetTile).toEqual(expect.objectContaining({ x: 11, y: 10 }));
+    expect(targetTile?.ownerId).toBeUndefined();
+    expect(targetTile?.ownershipState).toBeUndefined();
+  });
+
+  it("keeps cancelled frontier commands terminal in snapshots after the cancel command replay is pruned", async () => {
+    const scheduled: Array<() => void> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      maxTerminalCommandReplayHistory: 1,
+      scheduleAfter: (_delayMs, task) => {
+        scheduled.push(task);
+      },
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 11, y: 10, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    const expandCommand = {
+      commandId: "expand-terminal-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND" as const,
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+    };
+    runtime.submitCommand(expandCommand);
+    await Promise.resolve();
+    runtime.submitCommand({
+      commandId: "cancel-terminal-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_001,
+      type: "CANCEL_CAPTURE",
+      payloadJson: "{}"
+    });
+    await Promise.resolve();
+
+    const eventsAfterCancel = seen.length;
+    expect(seen).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMBAT_CANCELLED",
+        commandId: "cancel-terminal-1",
+        cancelledCommandIds: ["expand-terminal-1"]
+      })
+    );
+    expect(runtime.exportSnapshotSections().commandEvents.some((entry) => entry.commandId === "expand-terminal-1")).toBe(false);
+
+    runtime.submitCommand(expandCommand);
+    runtime.submitCommand({ ...expandCommand, commandId: "expand-terminal-duplicate-seq" });
+    await Promise.resolve();
+    expect(seen).toHaveLength(eventsAfterCancel);
+
+    for (let i = 0; i < 4; i += 1) {
+      runtime.submitCommand({
+        commandId: `reject-${i}`,
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 10 + i,
+        issuedAt: 1_010 + i,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 1, fromY: 1, toX: 2, toY: 2 })
+      });
+      await Promise.resolve();
+    }
+
+    const eventsAfterPrune = seen.length;
+    runtime.submitCommand(expandCommand);
+    await Promise.resolve();
+    for (const task of scheduled) task();
+
+    expect(seen).toHaveLength(eventsAfterPrune);
+    expect(seen.some((event) => event.eventType === "COMBAT_RESOLVED" && event.commandId === "expand-terminal-1")).toBe(false);
+    expect(runtime.exportSnapshotSections().commandEvents.some((entry) => entry.commandId === "expand-terminal-1")).toBe(false);
+  });
+
   it("recovers stale frontier origin payloads by selecting a valid owned adjacent origin server-side", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);

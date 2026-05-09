@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { InMemorySimulationSnapshotStore, buildSimulationSnapshotSections } from "./snapshot-store.js";
+import {
+  InMemorySimulationSnapshotStore,
+  buildSimulationSnapshotCommandEvents,
+  buildSimulationSnapshotSections
+} from "./snapshot-store.js";
 
 describe("InMemorySimulationSnapshotStore", () => {
   it("saves and loads the latest snapshot", async () => {
@@ -59,5 +63,96 @@ describe("InMemorySimulationSnapshotStore", () => {
         commandEvents: []
       }
     });
+  });
+
+  it("excludes accepted frontier commands cancelled by a separate cancel command from runtime snapshot events", () => {
+    const commandEvents = buildSimulationSnapshotCommandEvents(
+      new Map([
+        [
+          "expand-cmd-1",
+          [
+            {
+              eventType: "COMMAND_ACCEPTED",
+              commandId: "expand-cmd-1",
+              playerId: "player-1",
+              actionType: "EXPAND",
+              originX: 10,
+              originY: 10,
+              targetX: 11,
+              targetY: 10,
+              resolvesAt: 2000
+            }
+          ]
+        ],
+        [
+          "cancel-capture-1",
+          [
+            {
+              eventType: "COMBAT_CANCELLED",
+              commandId: "cancel-capture-1",
+              playerId: "player-1",
+              count: 1,
+              cancelledCommandIds: ["expand-cmd-1"]
+            }
+          ]
+        ]
+      ])
+    );
+
+    expect(commandEvents).toEqual([]);
+  });
+
+  it("excludes accepted frontier commands cancelled by a separate cancel command from stored snapshot sections", () => {
+    const snapshotSections = buildSimulationSnapshotSections({
+      initialState: {
+        tiles: [{ x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" }],
+        activeLocks: []
+      },
+      commands: [
+        {
+          commandId: "expand-cmd-1",
+          sessionId: "session-1",
+          playerId: "player-1",
+          clientSeq: 1,
+          type: "EXPAND",
+          payloadJson: "{}",
+          queuedAt: 1000,
+          status: "ACCEPTED",
+          acceptedAt: 1100
+        }
+      ],
+      eventsByCommandId: new Map([
+        [
+          "expand-cmd-1",
+          [
+            {
+              eventType: "COMMAND_ACCEPTED",
+              commandId: "expand-cmd-1",
+              playerId: "player-1",
+              actionType: "EXPAND",
+              originX: 10,
+              originY: 10,
+              targetX: 11,
+              targetY: 10,
+              resolvesAt: 2000
+            }
+          ]
+        ],
+        [
+          "cancel-capture-1",
+          [
+            {
+              eventType: "COMBAT_CANCELLED",
+              commandId: "cancel-capture-1",
+              playerId: "player-1",
+              count: 1,
+              cancelledCommandIds: ["expand-cmd-1"]
+            }
+          ]
+        ]
+      ])
+    });
+
+    expect(snapshotSections.commandEvents).toEqual([]);
   });
 });
