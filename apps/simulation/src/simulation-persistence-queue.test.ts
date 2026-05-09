@@ -307,4 +307,51 @@ describe("createSimulationPersistenceQueue", () => {
     expect(appendSpy).toHaveBeenCalledTimes(2);
     expect(onPersistenceFailure).not.toHaveBeenCalled();
   });
+
+  it("marks cancelled frontier commands resolved when a cancel event persists", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const queue = createSimulationPersistenceQueue({ commandStore, eventStore });
+
+    await commandStore.persistQueuedCommand(
+      {
+        commandId: "expand-cmd-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 100,
+        type: "EXPAND",
+        payloadJson: "{}"
+      },
+      100
+    );
+    await commandStore.markAccepted("expand-cmd-1", 110);
+    await commandStore.persistQueuedCommand(
+      {
+        commandId: "cancel-capture-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 2,
+        issuedAt: 120,
+        type: "CANCEL_CAPTURE",
+        payloadJson: "{}"
+      },
+      120
+    );
+
+    queue.enqueueEvent(
+      {
+        eventType: "COMBAT_CANCELLED",
+        commandId: "cancel-capture-1",
+        playerId: "player-1",
+        count: 1,
+        cancelledCommandIds: ["expand-cmd-1"]
+      },
+      130
+    );
+    await queue.whenIdle();
+
+    await expect(commandStore.get("cancel-capture-1")).resolves.toMatchObject({ status: "RESOLVED", resolvedAt: 130 });
+    await expect(commandStore.get("expand-cmd-1")).resolves.toMatchObject({ status: "RESOLVED", resolvedAt: 130 });
+  });
 });

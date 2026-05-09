@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.5",
+  version: "2026.05.09.6",
   title: "What's New",
-  summary: "The manpower panel now shows the town modifiers behind cap and regeneration, and rewrite player updates send the town-scaled regen rate instead of leaving the HUD stuck on the base rate. Plus connected dock routes and connected town networks now pay out correctly on the rewrite stack.",
+  summary: "Frontier expansion cancel now actually cancels on the rewrite stack and stays cancelled through restart recovery. The manpower panel also shows live town-scaled cap and regeneration, and connected dock/town networks now pay out correctly.",
   entries: [
+    {
+      introducedIn: "2026.05.09.6",
+      title: "Cancelling frontier expansion now survives the rewrite server path",
+      why: "The client already offered Cancel Capture, but the rewrite simulation could accept an EXPAND and then lose the cancellation relationship across replay, snapshots, or the gateway command store. That meant a cancelled frontier claim could still resolve later, especially after restart recovery.",
+      changes: [
+        "CANCEL_CAPTURE now removes active EXPAND / ATTACK locks in the simulation runtime and emits the original cancelled command ids.",
+        "Gateway and simulation persistence mark both the cancel command and the cancelled frontier command resolved, so reconnect and restart recovery do not replay the stale accepted claim.",
+        "Simulation snapshots and replay caches keep cancelled frontier commands terminal without replaying synthetic cancel events under the wrong command id."
+      ]
+    },
     {
       introducedIn: "2026.05.09.5",
       title: "Manpower panel shows town modifiers and the live regen rate",
