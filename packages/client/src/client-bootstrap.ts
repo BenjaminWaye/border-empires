@@ -212,11 +212,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   let threeTerrainRenderer:
     | ReturnType<typeof createClientThreeTerrainRenderer>
     | undefined;
-  // The true-3D renderer is opt-in: users land on the 2D map by default
-  // and only get 3D when they explicitly pass `?renderer=3d`. This keeps
-  // the production rollout safe (no mobile perf regression for users who
-  // didn't ask for it) while still letting anyone who wants the
-  // sculpted-perspective view try it via the URL flag.
+  // The true-3D renderer is the default. Pass `?renderer=2d` to fall back
+  // to the flat canvas renderer (e.g. for low-end devices or debugging).
   const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode;
   const ensureThreeTerrainRenderer = (): void => {
     if (!shouldUseThreeTerrainRenderer) return;

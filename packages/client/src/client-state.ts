@@ -1,5 +1,5 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "./client-changelog.js";
-import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY } from "./client-constants.js";
+import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "./client-constants.js";
 import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
 import type { EconomyBreakdown } from "./client-economy-model.js";
 import type { ClientShardRainAlert } from "./client-shard-alert.js";
@@ -413,6 +413,9 @@ export const createInitialState = () => ({
     open: false,
     seenVersion: storageGet(CLIENT_CHANGELOG_STORAGE_KEY) ?? "",
     scrollTop: 0
+  },
+  rendererPrompt: {
+    dismissed: storageGet(RENDERER_PROMPT_STORAGE_KEY) === "1"
   },
   activeBackend: "legacy" as "legacy" | "gateway",
   bridgeDebugMode: "unknown" as "unknown" | "legacy-server" | "rewrite-gateway",

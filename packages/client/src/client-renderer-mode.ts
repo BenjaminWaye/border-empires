@@ -5,7 +5,8 @@ const revealParam =
 
 let true3DRendererActive = false;
 
-export const prefersTrue3DRendererMode = rendererMode === "3d";
+export const prefers2DRendererMode = rendererMode === "2d";
+export const prefersTrue3DRendererMode = !prefers2DRendererMode;
 export const isCanvasReliefRendererMode = rendererMode === "3d-canvas";
 export const rendererModeExplicitlySet = rendererMode.length > 0;
 export const revealWholeMapInTrue3DMode =
