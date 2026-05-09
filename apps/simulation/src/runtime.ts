@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, LockedFrontierCombatResult, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
 import {
   buildRewritePlayerRespawnNotice,
@@ -998,6 +998,67 @@ export class SimulationRuntime {
     return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen);
   }
 
+  private townTierLabel(tier: keyof typeof TOWN_MANPOWER_BY_TIER, count: number): string {
+    const labels: Record<keyof typeof TOWN_MANPOWER_BY_TIER, { singular: string; plural: string }> = {
+      SETTLEMENT: { singular: "Settlement", plural: "Settlements" },
+      TOWN: { singular: "Town", plural: "Towns" },
+      CITY: { singular: "City", plural: "Cities" },
+      GREAT_CITY: { singular: "Great City", plural: "Great Cities" },
+      METROPOLIS: { singular: "Metropolis", plural: "Metropolises" }
+    };
+    const label = labels[tier];
+    if (count === 1) return label.singular;
+    return `${count} ${label.plural}`;
+  }
+
+  private manpowerRegenWeightNote(weight: number): string | undefined {
+    if (weight === 1) return undefined;
+    return `${Math.round(weight * 100)}% scaling`;
+  }
+
+  private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
+    const summary = this.summaryForPlayer(player.id);
+    const capByTier = new Map<keyof typeof TOWN_MANPOWER_BY_TIER, { count: number; amount: number }>();
+    const regenByTierAndWeight = new Map<string, { tier: keyof typeof TOWN_MANPOWER_BY_TIER; count: number; amount: number; weight: number }>();
+    let index = 0;
+    for (const tier of summary.ownedTownTierByTile.values()) {
+      const capBase = TOWN_MANPOWER_BY_TIER[tier]?.cap ?? 0;
+      if (capBase !== 0) {
+        const current = capByTier.get(tier) ?? { count: 0, amount: 0 };
+        capByTier.set(tier, { count: current.count + 1, amount: current.amount + capBase });
+      }
+      const regenBase = TOWN_MANPOWER_BY_TIER[tier]?.regenPerMinute ?? 0;
+      if (regenBase !== 0) {
+        const weight = manpowerRegenWeightForSettlementIndex(index);
+        const key = `${tier}:${weight}`;
+        const current = regenByTierAndWeight.get(key) ?? { tier, count: 0, amount: 0, weight };
+        regenByTierAndWeight.set(key, { ...current, count: current.count + 1, amount: current.amount + regenBase * weight });
+      }
+      index += 1;
+    }
+    const capLines = [...capByTier.entries()].map(([tier, line]) => ({
+      label: this.townTierLabel(tier, line.count),
+      amount: line.amount
+    }));
+    const regenLines = [...regenByTierAndWeight.values()].map((line) => {
+      const note = this.manpowerRegenWeightNote(line.weight);
+      return {
+        label: this.townTierLabel(line.tier, line.count),
+        amount: line.amount,
+        ...(note ? { note } : {})
+      };
+    });
+    const townCap = capLines.reduce((total, line) => total + line.amount, 0);
+    const townRegen = regenLines.reduce((total, line) => total + line.amount, 0);
+    return {
+      cap: townCap >= MANPOWER_BASE_CAP && capLines.length > 0 ? capLines : [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
+      regen:
+        townRegen >= MANPOWER_BASE_REGEN_PER_MINUTE && regenLines.length > 0
+          ? regenLines
+          : [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
+    };
+  }
+
   private effectiveManpowerAt(player: RuntimePlayer, nowMs = this.now()): number {
     const cap = this.playerManpowerCap(player);
     if (!Number.isFinite(player.manpower)) return cap;
@@ -1500,6 +1561,9 @@ export class SimulationRuntime {
       name?: string;
       points: number;
       manpower: number;
+      manpowerCap?: number;
+      manpowerRegenPerMinute?: number;
+      manpowerBreakdown?: ManpowerBreakdown;
       manpowerCapSnapshot?: number;
       techIds: string[];
       domainIds: string[];
@@ -1563,6 +1627,9 @@ export class SimulationRuntime {
             ...(player.name ? { name: player.name } : {}),
             points: player.points,
             manpower: player.manpower,
+            manpowerCap: this.playerManpowerCap(player),
+            manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+            manpowerBreakdown: this.playerManpowerBreakdown(player),
             ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
             techIds: [...player.techIds].sort(),
             domainIds: [...(player.domainIds ?? [])].sort(),
@@ -1820,6 +1887,8 @@ export class SimulationRuntime {
         gold: player.points,
         manpower: player.manpower,
         manpowerCap: this.playerManpowerCap(player),
+        manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+        manpowerBreakdown: this.playerManpowerBreakdown(player),
         incomePerMinute: economy.incomePerMinute,
         strategicResources: {
           FOOD: player.strategicResources?.FOOD ?? 0,
