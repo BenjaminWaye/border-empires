@@ -1,6 +1,4 @@
-import { OBSERVATORY_UPKEEP_PER_MIN, type Tile ,
-  type Terrain
-} from "@border-empires/shared";
+import { OBSERVATORY_UPKEEP_PER_MIN, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import {
@@ -34,6 +32,14 @@ import {
   TOWN_BASE_GOLD_PER_MIN,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
+import {
+  buildConnectedTownNetworkForPlayer,
+  dockBaseGoldPerMinuteForPlayer,
+  enrichTownWithConnectedNetwork,
+  type ConnectedTownNetworkEntry,
+  type EconomyPlayer
+} from "./economy-network.js";
+import { buildDockLinksByDockTileKey } from "./dock-network.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 
 type RuntimeState = {
@@ -76,6 +82,7 @@ type RuntimeState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
   activeDevelopmentProcessCount?: number;
   }>;
+  docks?: Array<{ dockId: string; tileKey: string; pairedDockId: string; connectedDockIds?: readonly string[] }>;
   tileYieldCollectedAtByTile?: Array<{ tileKey: string; collectedAt: number }>;
 };
 
@@ -111,6 +118,16 @@ type LivePlayerEconomySnapshot = {
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
+const snapshotEconomyPlayer = (player: RuntimeState["players"][number] | undefined): EconomyPlayer | undefined =>
+  player
+    ? {
+        id: player.id,
+        techIds: new Set(player.techIds),
+        domainIds: new Set(player.domainIds),
+        mods: { attack: 1, defense: 1, income: player.incomeMultiplier ?? 1, vision: player.vision }
+      }
+    : undefined;
+
 const parseTown = (tile: RuntimeState["tiles"][number]): Partial<NonNullable<Tile["town"]>> | undefined => {
   if (tile.townJson) {
     try {
@@ -136,6 +153,44 @@ const parseStructure = <T>(json: string | undefined): T | undefined => {
   }
 };
 
+const toDomainTile = (tile: RuntimeState["tiles"][number], town = parseTown(tile)): DomainTileState => ({
+  x: tile.x,
+  y: tile.y,
+  terrain: tile.terrain ?? "LAND",
+  ...(tile.resource ? { resource: tile.resource as DomainTileState["resource"] } : {}),
+  ...(tile.dockId ? { dockId: tile.dockId } : {}),
+  ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+  ...(tile.ownershipState ? { ownershipState: tile.ownershipState as DomainTileState["ownershipState"] } : {}),
+  ...(town
+    ? {
+        town: {
+          ...(town.name ? { name: town.name } : {}),
+          type: town.type ?? tile.townType ?? "FARMING",
+          populationTier: town.populationTier ?? tile.townPopulationTier ?? "SETTLEMENT",
+          ...(typeof town.connectedTownCount === "number" ? { connectedTownCount: town.connectedTownCount } : {}),
+          ...(typeof town.connectedTownBonus === "number" ? { connectedTownBonus: town.connectedTownBonus } : {}),
+          ...(Array.isArray(town.connectedTownNames) ? { connectedTownNames: town.connectedTownNames } : {})
+        }
+      }
+    : {})
+});
+
+const buildSettledDomainTilesByPlayerId = (
+  runtimeState: RuntimeState,
+  domainTilesByKey: ReadonlyMap<string, DomainTileState>
+): Map<string, DomainTileState[]> => {
+  const byPlayerId = new Map<string, DomainTileState[]>();
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const domainTile = domainTilesByKey.get(keyFor(tile.x, tile.y));
+    if (!domainTile) continue;
+    const current = byPlayerId.get(tile.ownerId) ?? [];
+    current.push(domainTile);
+    byPlayerId.set(tile.ownerId, current);
+  }
+  return byPlayerId;
+};
+
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
 const SYNTHETIC_SETTLEMENT_POPULATION = 800;
@@ -153,6 +208,9 @@ const resolvedTownPopulation = (
     return { population: town.population, maxPopulation: town.maxPopulation };
   }
   if (isSyntheticSettlementIdentity(town.name, populationTier, x, y)) {
+    return { population: typeof town.population === "number" ? town.population : SYNTHETIC_SETTLEMENT_POPULATION, maxPopulation: typeof town.maxPopulation === "number" ? town.maxPopulation : POPULATION_MAX };
+  }
+  if (populationTier === "SETTLEMENT") {
     return { population: typeof town.population === "number" ? town.population : SYNTHETIC_SETTLEMENT_POPULATION, maxPopulation: typeof town.maxPopulation === "number" ? town.maxPopulation : POPULATION_MAX };
   }
   return undefined;
@@ -423,7 +481,8 @@ const buildTownSummary = (
   player: RuntimeState["players"][number] | undefined,
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
   fedTownKeys: ReadonlySet<string>,
-  _viewerOwnsTown: boolean
+  _viewerOwnsTown: boolean,
+  townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>
 ): Tile["town"] | undefined => {
   const partial = parseTown(tile);
   const townType = partial?.type ?? tile.townType;
@@ -436,8 +495,16 @@ const buildTownSummary = (
     ...(townType ? { type: townType } : {}),
     populationTier
   };
-  if (isCompleteTownSummary(authoritativeTown)) return authoritativeTown;
-  const townPartial = authoritativeTown;
+  const networkTown = enrichTownWithConnectedNetwork(toDomainTile(tile, authoritativeTown), townNetwork);
+  const townPartial = networkTown ? { ...authoritativeTown, ...networkTown } : authoritativeTown;
+  const connectedFieldsChanged =
+    typeof networkTown?.connectedTownCount === "number" &&
+    (
+      networkTown.connectedTownCount !== authoritativeTown.connectedTownCount ||
+      networkTown.connectedTownBonus !== authoritativeTown.connectedTownBonus ||
+      JSON.stringify(networkTown.connectedTownNames ?? []) !== JSON.stringify(authoritativeTown.connectedTownNames ?? [])
+    );
+  if (!connectedFieldsChanged && isCompleteTownSummary(townPartial)) return townPartial;
   const isSettlement = populationTier === "SETTLEMENT";
   const support = tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
     ? supportSummaryForTown(tileKey, tile.ownerId, tilesByKey)
@@ -516,6 +583,11 @@ export const buildLivePlayerEconomySnapshot = (
 ): LivePlayerEconomySnapshot => {
   const tilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
   const player = runtimeState.players.find((entry) => entry.id === playerId);
+  const economyPlayer = snapshotEconomyPlayer(player);
+  const domainTilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), toDomainTile(tile)] as const));
+  const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
+  const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
+  const townNetwork = economyPlayer ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? []) : undefined;
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
@@ -548,10 +620,17 @@ export const buildLivePlayerEconomySnapshot = (
         oilSources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : tile.resource === "OIL" ? "Oil" : "Supply", resourceRate, { count: 1, resourceKey });
     }
-    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true);
+    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork);
     if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
-    if (tile.dockId) addBucket(goldSources, "Docks", DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });
+    if (tile.dockId) {
+      const dockGoldPerMinute = economyPlayer
+        ? dockBaseGoldPerMinuteForPlayer(toDomainTile(tile), economyPlayer, { tiles: domainTilesByKey, dockLinksByDockTileKey }) *
+          (player?.incomeMultiplier ?? 1) *
+          PASSIVE_INCOME_MULT
+        : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT;
+      addBucket(goldSources, "Docks", dockGoldPerMinute, { count: 1 });
+    }
     const fort = parseStructure<{ status?: string }>(tile.fortJson);
     if (fort?.status === "active") {
       addBucket(goldSinks, "Fort", 1, { count: 1 });
@@ -649,7 +728,13 @@ const toSharedVisibilityTownSummary = (town: DomainTileState["town"] | undefined
 const buildSnapshotTileYieldFields = (
   tile: RuntimeState["tiles"][number],
   collectedAtByTile: ReadonlyMap<string, number>,
-  town: DomainTileState["town"] | undefined
+  town: DomainTileState["town"] | undefined,
+  context?: {
+    player?: EconomyPlayer | undefined;
+    fedTownKeys?: ReadonlySet<string> | undefined;
+    tiles: ReadonlyMap<string, DomainTileState>;
+    dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
+  }
 ) => {
   const yieldTile: DomainTileState = {
     x: tile.x,
@@ -662,7 +747,7 @@ const buildSnapshotTileYieldFields = (
     ...(town ? { town } : tile.townJson ? { town: JSON.parse(tile.townJson) as DomainTileState["town"] } : {}),
     ...(tile.economicStructureJson ? { economicStructure: JSON.parse(tile.economicStructureJson) as DomainTileState["economicStructure"] } : {})
   };
-  const yieldView = buildTileYieldView(yieldTile, collectedAtByTile.get(keyFor(tile.x, tile.y)), Date.now());
+  const yieldView = buildTileYieldView(yieldTile, collectedAtByTile.get(keyFor(tile.x, tile.y)), Date.now(), context);
   return {
     ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
     ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
@@ -675,16 +760,33 @@ export const enrichSnapshotTilesForGlobalVisibility = (
 ): RuntimeState["tiles"] => {
   const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
   const tilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), entry] as const));
+  const domainTilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), toDomainTile(entry)] as const));
+  const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
+  const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
+  const economyPlayersById = new Map(runtimeState.players.map((entry) => [entry.id, snapshotEconomyPlayer(entry)!] as const));
+  const townNetworksByPlayerId = new Map(
+    [...economyPlayersById].map(([id, economyPlayer]) => [
+      id,
+      buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [])
+    ] as const)
+  );
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
   return [...runtimeState.tiles]
     .sort((left, right) => (left.x - right.x) || (left.y - right.y))
     .map((tile) => {
       const player = tile.ownerId ? playersById.get(tile.ownerId) : undefined;
+      const economyPlayer = tile.ownerId ? economyPlayersById.get(tile.ownerId) : undefined;
       const fedTownKeys = tile.ownerId ? (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) : new Set<string>();
-      const town = toSharedVisibilityTownSummary(buildTownSummary(tile, player, tilesByKey, fedTownKeys, false));
-      const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, town);
+      const fullTown = buildTownSummary(tile, player, tilesByKey, fedTownKeys, false, tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined);
+      const town = toSharedVisibilityTownSummary(fullTown);
+      const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, fullTown, {
+        ...(economyPlayer ? { player: economyPlayer } : {}),
+        fedTownKeys,
+        tiles: domainTilesByKey,
+        dockLinksByDockTileKey
+      });
       if (!town) return { ...tile, ...yieldFields };
       return {
         ...tile,
@@ -705,17 +807,36 @@ export const enrichSnapshotTilesForPlayer = (
 ): RuntimeState["tiles"] => {
   const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
   const tilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), entry] as const));
+  const domainTilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), toDomainTile(entry)] as const));
+  const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
+  const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
+  const economyPlayersById = new Map(runtimeState.players.map((entry) => [entry.id, snapshotEconomyPlayer(entry)!] as const));
+  const townNetworksByPlayerId = new Map(
+    [...economyPlayersById].map(([id, economyPlayer]) => [
+      id,
+      buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [])
+    ] as const)
+  );
   const fedTownKeysByPlayer = playerEconomy.fedTownKeysByPlayer;
   return visibleTiles.map((tile) => {
     const player = runtimeState.players.find((entry) => entry.id === tile.ownerId);
+    const economyPlayer = tile.ownerId ? economyPlayersById.get(tile.ownerId) : undefined;
     const town = buildTownSummary(
       tile,
       player,
       tilesByKey,
       tile.ownerId === playerId ? playerEconomy.fedTownKeys : (tile.ownerId ? (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) : new Set<string>()),
-      tile.ownerId === playerId
+      tile.ownerId === playerId,
+      tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined
     );
-    const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, town);
+    const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, town, {
+      ...(economyPlayer ? { player: economyPlayer } : {}),
+      ...(tile.ownerId
+        ? { fedTownKeys: tile.ownerId === playerId ? playerEconomy.fedTownKeys : (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) }
+        : {}),
+      tiles: domainTilesByKey,
+      dockLinksByDockTileKey
+    });
     if (!town) return { ...tile, ...yieldFields };
     return {
       ...tile,
