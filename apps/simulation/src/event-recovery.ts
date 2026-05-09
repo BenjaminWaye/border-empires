@@ -266,6 +266,14 @@ export const applySimulationEventsToRecoveredAccumulator = (
       continue;
     }
 
+    if (event.eventType === "COMBAT_CANCELLED") {
+      accumulator.activeLocks.delete(event.commandId);
+      for (const cancelledCommandId of event.cancelledCommandIds ?? []) {
+        accumulator.activeLocks.delete(cancelledCommandId);
+      }
+      continue;
+    }
+
     if (event.eventType === "COMBAT_RESOLVED") {
       if (accumulator.activeLocks.has(event.commandId)) {
         accumulator.activeLocks.delete(event.commandId);
