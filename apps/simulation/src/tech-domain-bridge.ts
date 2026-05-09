@@ -235,6 +235,38 @@ export const visionRadiusBonusForPlayer = (
   return bonus;
 };
 
+export const additiveEffectForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">,
+  effectKey: string
+): number => {
+  let total = 0;
+  for (const techId of player.techIds) {
+    const value = techEntryById.get(techId)?.effects?.[effectKey];
+    if (typeof value === "number" && Number.isFinite(value)) total += value;
+  }
+  for (const domainId of player.domainIds ?? []) {
+    const value = domainEntryById.get(domainId)?.effects?.[effectKey];
+    if (typeof value === "number" && Number.isFinite(value)) total += value;
+  }
+  return total;
+};
+
+export const multiplicativeEffectForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">,
+  effectKey: string
+): number => {
+  let multiplier = 1;
+  for (const techId of player.techIds) {
+    const value = techEntryById.get(techId)?.effects?.[effectKey];
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) multiplier *= value;
+  }
+  for (const domainId of player.domainIds ?? []) {
+    const value = domainEntryById.get(domainId)?.effects?.[effectKey];
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) multiplier *= value;
+  }
+  return multiplier;
+};
+
 export const effectiveVisionRadiusForPlayer = (
   player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds">
 ): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player));

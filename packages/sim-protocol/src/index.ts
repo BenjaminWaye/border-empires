@@ -27,6 +27,17 @@ export const RECONNECT_COMMAND_TYPES = RECONNECT_COMMAND_TYPES_UNTYPED as readon
 
 export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
 export type FrontierCombatActionType = "ATTACK" | "EXPAND";
+export type ManpowerBreakdownLine = {
+  label: string;
+  amount: number;
+  note?: string;
+};
+
+export type ManpowerBreakdown = {
+  cap: ManpowerBreakdownLine[];
+  regen: ManpowerBreakdownLine[];
+};
+
 export type FrontierCombatResultChange = {
   x: number;
   y: number;
@@ -195,6 +206,7 @@ export type SimulationEvent =
       commandId: string;
       playerId: string;
       count: number;
+      cancelledCommandIds?: string[];
     }
   | {
       eventType: "COMBAT_RESOLVED";
@@ -284,6 +296,8 @@ export type PlayerSubscriptionSnapshot = {
     gold: number;
     manpower: number;
     manpowerCap: number;
+    manpowerRegenPerMinute?: number;
+    manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;
     strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
     strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;

@@ -92,6 +92,14 @@ const persistCommandStatus = async (
     case "COMBAT_RESOLVED":
       await commandStore.markResolved(event.commandId, createdAt);
       return "markResolved";
+    case "COMBAT_CANCELLED":
+      await commandStore.markResolved(event.commandId, createdAt);
+      for (const cancelledCommandId of event.cancelledCommandIds ?? []) {
+        if (cancelledCommandId !== event.commandId) {
+          await commandStore.markResolved(cancelledCommandId, createdAt);
+        }
+      }
+      return "markResolved";
     default:
       return "noop";
   }
@@ -151,6 +159,9 @@ export const createSimulationPersistenceQueue = (
               break;
             case "COMBAT_RESOLVED":
               log.error("failed to persist simulation command resolution", error);
+              break;
+            case "COMBAT_CANCELLED":
+              log.error("failed to persist simulation command cancellation", error);
               break;
             default:
               break;
