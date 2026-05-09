@@ -178,6 +178,37 @@ describe("recoverSimulationStateFromEvents", () => {
     ]);
   });
 
+  it("advances tileYieldCollectedAtByTile from TILE_DELTA_BATCH lastCollectedAt so collects survive restarts between snapshots", () => {
+    const recovered = applySimulationEventsToRecoveredState(
+      {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Settlement 5,5" }
+          }
+        ],
+        activeLocks: [],
+        tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: 1_000 }]
+      },
+      [
+        {
+          eventType: "TILE_DELTA_BATCH",
+          commandId: "collect-1",
+          playerId: "player-1",
+          tileDeltas: [{ x: 5, y: 5, lastCollectedAt: 9_000 }]
+        }
+      ]
+    );
+
+    expect(recovered.tileYieldCollectedAtByTile).toEqual([
+      { tileKey: "5,5", collectedAt: 9_000 }
+    ]);
+  });
+
   it("clears cancelled accepted frontier locks from recovered state", () => {
     const recovered = recoverSimulationStateFromEvents([
       {
