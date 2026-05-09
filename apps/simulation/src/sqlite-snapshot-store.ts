@@ -6,6 +6,7 @@ import {
   type SimulationSnapshotStore,
   type StoredSimulationSnapshot
 } from "./snapshot-store.js";
+import type { SnapshotStringifier } from "./snapshot-stringifier.js";
 import type { ProjectionExportState } from "./postgres-projection-writer.js";
 
 type Row = {
@@ -15,8 +16,17 @@ type Row = {
   created_at: number;
 };
 
+const inlineStringify: SnapshotStringifier = async (payload) => JSON.stringify(payload);
+
 export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
-  constructor(private readonly db: DatabaseSync) {}
+  private readonly stringify: SnapshotStringifier;
+
+  constructor(
+    private readonly db: DatabaseSync,
+    options: { stringify?: SnapshotStringifier } = {}
+  ) {
+    this.stringify = options.stringify ?? inlineStringify;
+  }
 
   async applySchema(): Promise<void> {
     this.db.exec(`
@@ -37,11 +47,15 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     projectionState?: ProjectionExportState;
   }): Promise<void> {
     const payload = buildSimulationSnapshotPayload(snapshot.snapshotSections);
+    // Stringify off the main thread when a worker stringifier is wired in;
+    // a full snapshot is ~18MB on staging and inline JSON.stringify blocks
+    // the simulation event loop long enough to break new player auth.
+    const json = await this.stringify(payload);
     this.db
       .prepare(
         `INSERT INTO world_snapshots (last_applied_event_id, snapshot_payload, created_at) VALUES (?, ?, ?)`
       )
-      .run(snapshot.lastAppliedEventId, JSON.stringify(payload), snapshot.createdAt);
+      .run(snapshot.lastAppliedEventId, json, snapshot.createdAt);
     // Retention: keep only the most recent 3 snapshots. Each is a full
     // world dump, so unbounded retention fills the volume in hours.
     this.db.exec(
