@@ -6,6 +6,7 @@ import { buildFrontierCombatPreview } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "./broadcast-payload.js";
+import { createSlowLoginAlerter } from "./slow-login-alert.js";
 import { resolveGatewayAuthIdentity } from "./auth-identity.js";
 import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "./gateway-auth-binding-resolution.js";
 import type { GatewayAuthBindingStore } from "./auth-binding-store.js";
@@ -300,6 +301,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let simulationConsecutiveHealthFailures = 0;
   let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
+  const slowLoginAlerter = createSlowLoginAlerter({
+    ...(process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK
+      ? { webhookUrl: process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK }
+      : {}),
+    thresholdMs: Math.max(5_000, Number(process.env.GATEWAY_SLOW_LOGIN_ALERT_THRESHOLD_MS ?? 60_000)),
+    metricsSnapshot: () => gatewayMetrics.snapshot(),
+    recentEvents: () => recentGatewayEvents,
+    log: { error: (payload, message) => app.log.error(payload, message) },
+    appLabel: process.env.GATEWAY_SLOW_LOGIN_ALERT_LABEL ?? "border-empires-combined-staging"
+  });
   const slowGatewaySubmitWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_SUBMIT_WARN_MS ?? 1_000));
   const slowGatewayRpcWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_RPC_WARN_MS ?? 1_000));
   let gatewayMetricsTimer: ReturnType<typeof setInterval> | undefined;
@@ -1264,14 +1275,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           const message = parsed.data;
           if (message.type === "AUTH") {
             recordGatewayEvent("info", "gateway_auth", { channel });
+            const authTrace = slowLoginAlerter.begin(channel);
             if (!simulationHealth.connected) {
+              authTrace.startStep("ensure_simulation_ready");
               await ensureSimulationReadyForAuth();
+              authTrace.endStep("ensure_simulation_ready", simulationHealth.connected);
               if (!simulationHealth.connected) {
                 sendJson(socket, {
                   type: "ERROR",
                   code: "SERVER_STARTING",
                   message: "Realtime simulation is temporarily unavailable. Retry shortly."
                 });
+                authTrace.complete("rejected", "SERVER_STARTING");
                 return;
               }
             }
@@ -1289,10 +1304,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 code: "AUTH_FAIL",
                 message: "Authentication token is not recognized by the rewrite gateway."
               });
+              authTrace.complete("rejected", "AUTH_FAIL");
               return;
             }
             let playerIdentity = { ...resolvedPlayerIdentity };
+            authTrace.setPlayerId(playerIdentity.playerId);
             if (resolvedPlayerIdentity.authUid) {
+              authTrace.startStep("reconcile_auth_binding");
               try {
                 const reconciledIdentity = await cachedReconcileGatewayAuthBinding(resolvedPlayerIdentity);
                 playerIdentity = { ...reconciledIdentity };
@@ -1318,11 +1336,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   authUid: resolvedPlayerIdentity.authUid,
                   error: error instanceof Error ? error.message : String(error)
                 });
+              } finally {
+                authTrace.endStep("reconcile_auth_binding");
               }
             }
+            authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
+            authTrace.startStep("profile_get");
             const persistedProfile = await cachedProfileGet(playerIdentity.playerId);
+            authTrace.endStep("profile_get");
             if (persistedProfile) {
               profileOverrides.upsert(playerIdentity.playerId, {
                 ...(persistedProfile.name ? { name: persistedProfile.name } : {}),
@@ -1337,6 +1360,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               persistedProfile?.name ?? playerIdentity.playerName
             );
             const prepareStartedAt = Date.now();
+            authTrace.startStep("prepare_player");
             try {
               recordGatewayEvent("info", "gateway_auth_prepare_started", {
                 playerId: playerIdentity.playerId,
@@ -1367,6 +1391,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 }
               );
               markSimulationReady();
+              authTrace.endStep("prepare_player");
             } catch (error) {
               recordGatewayEvent("error", "gateway_auth_prepare_failed", {
                 playerId: playerIdentity.playerId,
@@ -1379,9 +1404,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 code: "SERVER_STARTING",
                 message: "Realtime simulation is temporarily unavailable. Retry shortly."
               });
+              authTrace.endStep("prepare_player", false);
+              authTrace.complete("rejected", "prepare_failed");
               return;
             }
             let bootstrapInitialState;
+            authTrace.startStep("bootstrap_subscribe");
             try {
               bootstrapInitialState = await retrySimulationRpc(
                 "gateway bootstrap player",
@@ -1400,6 +1428,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 }
               );
               markSimulationReady();
+              authTrace.endStep("bootstrap_subscribe");
               if (bootstrapInitialState) {
                 recordGatewayEvent("info", "gateway_auth_bootstrap_ready", {
                   playerId: playerIdentity.playerId,
@@ -1420,6 +1449,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 code: "SERVER_STARTING",
                 message: "Realtime simulation is temporarily unavailable. Retry shortly."
               });
+              authTrace.endStep("bootstrap_subscribe", false);
+              authTrace.complete("rejected", "bootstrap_failed");
               return;
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
@@ -1432,6 +1463,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 payloadJsonBytes: 0
               });
             }
+            authTrace.startStep("live_subscribe");
             try {
               await retrySimulationRpc(
                 "gateway live subscribe player",
@@ -1447,6 +1479,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 }
               );
               markSimulationReady();
+              authTrace.endStep("live_subscribe");
             } catch (error) {
               recordGatewayEvent("error", "gateway_auth_subscribe_failed", {
                 playerId: playerIdentity.playerId,
@@ -1461,6 +1494,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 code: "SERVER_STARTING",
                 message: "Realtime simulation is temporarily unavailable. Retry shortly."
               });
+              authTrace.endStep("live_subscribe", false);
+              authTrace.complete("rejected", "live_subscribe_failed");
               return;
             }
             const initialState = resolveInitialState({
@@ -1471,8 +1506,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,
               allowSeedFallback: allowNonAuthoritativeInitialState
             });
+            authTrace.startStep("hydrate_leaderboard_profiles");
             await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
+            authTrace.endStep("hydrate_leaderboard_profiles");
             if (session.channel === "control") {
+              authTrace.startStep("build_init");
               const initMessage = await buildInitMessage(
                 playerIdentity,
                 commandStore,
@@ -1501,12 +1539,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   simulationLastError: simulationHealth.lastError ?? ""
                 }
               );
+              authTrace.endStep("build_init");
               sendJson(socket, initMessage);
               for (const payload of session.pendingPayloads) {
                 sendJson(socket, payload);
                 recordCommandSocketDelivery("gateway_command_payload_sent", socket, payload);
               }
               session.pendingPayloads = [];
+              authTrace.complete("init_sent");
+            } else {
+              authTrace.complete("init_sent", "non_control_channel");
             }
             return;
           }
