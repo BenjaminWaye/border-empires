@@ -2,7 +2,7 @@ import { signOut, type Auth } from "firebase/auth";
 import { CLIENT_BUILD_VERSION } from "./client-build-version.js";
 import { renderClientChangelogOverlay } from "./client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
-import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, guideSteps } from "./client-constants.js";
+import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY, guideSteps } from "./client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "./client-debug.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import type { initClientDom } from "./client-dom.js";
@@ -11,6 +11,8 @@ import type { EconomyFocusKey } from "./client-economy-model.js";
 import { buildMapLoadingView } from "./client-map-loading-view.js";
 import { renderRespawnOverlay } from "./client-respawn-overlay.js";
 import { effectiveFogDisabled, setStagingMapRevealEnabled, stagingMapRevealAvailable } from "./client-staging-map-reveal.js";
+import { isMobileDevice } from "./client-panel-nav.js";
+import { prefersTrue3DRendererMode } from "./client-renderer-mode.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import type { StructureInfoKey } from "./client-map-display.js";
@@ -1172,6 +1174,52 @@ export const renderClientHud = (deps: HudDeps): void => {
     }
   } else if (dom.guideOverlayEl.innerHTML) {
     dom.guideOverlayEl.innerHTML = "";
+  }
+
+  const canShowRendererPrompt =
+    !state.rendererPrompt.dismissed &&
+    prefersTrue3DRendererMode &&
+    isMobileDevice() &&
+    state.connection === "initialized" &&
+    state.authSessionReady &&
+    !state.profileSetupRequired &&
+    !state.changelog.open &&
+    !state.guide.open;
+  dom.rendererPromptOverlayEl.style.display = canShowRendererPrompt ? "grid" : "none";
+  if (canShowRendererPrompt) {
+    dom.rendererPromptOverlayEl.innerHTML = `
+      <div class="guide-backdrop" id="renderer-prompt-backdrop"></div>
+      <div class="guide-modal card" role="dialog" aria-modal="true" aria-labelledby="renderer-prompt-title">
+        <div class="guide-modal-scroll">
+          <h2 id="renderer-prompt-title" class="guide-title">Running in 3D mode</h2>
+          <p class="guide-body">The 3D terrain renderer can be demanding on mobile devices. Switch to the lighter 2D version for smoother performance?</p>
+          <div class="guide-actions">
+            <button id="renderer-prompt-keep" class="panel-btn guide-secondary-btn" type="button">Keep 3D</button>
+            <button id="renderer-prompt-switch" class="panel-btn guide-primary-btn" type="button">Switch to 2D</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const dismissPrompt = (): void => {
+      state.rendererPrompt.dismissed = true;
+      storageSet(RENDERER_PROMPT_STORAGE_KEY, "1");
+      renderClientHud(deps);
+    };
+    const keepBtn = dom.rendererPromptOverlayEl.querySelector("#renderer-prompt-keep") as HTMLButtonElement | null;
+    const switchBtn = dom.rendererPromptOverlayEl.querySelector("#renderer-prompt-switch") as HTMLButtonElement | null;
+    const backdropEl = dom.rendererPromptOverlayEl.querySelector("#renderer-prompt-backdrop") as HTMLDivElement | null;
+    if (keepBtn) keepBtn.onclick = dismissPrompt;
+    if (backdropEl) backdropEl.onclick = dismissPrompt;
+    if (switchBtn) {
+      switchBtn.onclick = (): void => {
+        storageSet(RENDERER_PROMPT_STORAGE_KEY, "1");
+        const url = new URL(window.location.href);
+        url.searchParams.set("renderer", "2d");
+        window.location.replace(url.toString());
+      };
+    }
+  } else if (dom.rendererPromptOverlayEl.innerHTML) {
+    dom.rendererPromptOverlayEl.innerHTML = "";
   }
 
   renderRespawnOverlay({

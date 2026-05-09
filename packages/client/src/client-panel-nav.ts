@@ -2,6 +2,11 @@ import type { ClientState } from "./client-state.js";
 
 export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
 
+// Touch-capable device detection for performance-sensitive decisions (distinct from the viewport-width isMobile check).
+export const isMobileDevice = (): boolean =>
+  typeof window !== "undefined" &&
+  (navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
   if (panel === "missions") return "Missions";
   if (panel === "tech") return "Technology Tree";

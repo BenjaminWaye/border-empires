@@ -8,16 +8,14 @@ const clientSource = (filename: string): string => {
   return readFileSync(resolve(here, filename), "utf8");
 };
 
-describe("3d terrain opt-in regression guard", () => {
-  it("only mounts the 3d terrain renderer when ?renderer=3d is explicit", () => {
+describe("3d terrain default regression guard", () => {
+  it("mounts the 3d terrain renderer by default; 2d only when ?renderer=2d is explicit", () => {
     const bootstrapSource = clientSource("./client-bootstrap.ts");
-    // 3D renderer mounts iff prefersTrue3DRendererMode (i.e. ?renderer=3d).
-    // No default-on path: bootstrap must NOT mount 3D when the user hasn't
-    // explicitly asked for it.
+    // 3D is the default. bootstrap must wire shouldUseThreeTerrainRenderer
+    // directly to prefersTrue3DRendererMode (which is true unless ?renderer=2d).
     expect(bootstrapSource).toContain("const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode;");
+    // Guard against accidentally reverting to an opt-in pattern.
     expect(bootstrapSource).not.toContain("const defaultThreeTerrainRenderer = !rendererModeExplicitlySet;");
-    expect(bootstrapSource).not.toContain("prefersTrue3DRendererMode || defaultThreeTerrainRenderer");
-    // The old gateway-only opt-in pattern must also stay out of bootstrap.
     expect(bootstrapSource).not.toContain('state.activeBackend === "gateway" && !rendererModeExplicitlySet');
   });
 });

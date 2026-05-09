@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.6",
+  version: "2026.05.09.7",
   title: "What's New",
-  summary: "Frontier expansion cancel now actually cancels on the rewrite stack and stays cancelled through restart recovery. The manpower panel also shows live town-scaled cap and regeneration, and connected dock/town networks now pay out correctly.",
+  summary: "3D is now the default renderer — no URL flag needed. Mobile players are prompted to switch to the lighter 2D view. Plus frontier cancel fixes, manpower panel improvements, and dock income corrections from today.",
   entries: [
+    {
+      introducedIn: "2026.05.09.7",
+      title: "3D renderer is now the default; ?renderer=2d opts into flat canvas",
+      why: "The true-3D terrain renderer had been gated behind an explicit ?renderer=3d query parameter since its initial rollout. With the renderer now stable enough for general use, 3D should be what every player sees without needing to know the URL flag.",
+      changes: [
+        "3D terrain renderer is on by default for all sessions — no query parameter required.",
+        "Pass ?renderer=2d to use the legacy flat canvas renderer (useful for low-end devices or debugging).",
+        "?renderer=3d still works as before and is now a no-op synonym for the default.",
+        "Mobile and touch-screen players see a one-time prompt on first load asking whether to switch to the lighter 2D renderer; the choice is remembered in localStorage.",
+      ]
+    },
     {
       introducedIn: "2026.05.09.6",
       title: "Cancelling frontier expansion now survives the rewrite server path",
