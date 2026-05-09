@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.3",
+  version: "2026.05.09.4",
   title: "What's New",
-  summary: "3D roads actually render now, as terrain-hugging painterly ribbons with curved eight-direction joins and rounded junction hubs — two render bugs were swallowing the new overlay completely. Plus the shard capture / economy-tab cleanup and manpower-by-town-tier scaling from earlier today.",
+  summary: "3D is now the default renderer — no URL flag needed. Mobile players are prompted to switch to the lighter 2D view. Plus 3D roads, shard capture fix, and economy-tab cleanup from earlier today.",
   entries: [
+    {
+      introducedIn: "2026.05.09.4",
+      title: "3D renderer is now the default; ?renderer=2d opts into flat canvas",
+      why: "The true-3D terrain renderer had been gated behind an explicit ?renderer=3d query parameter since its initial rollout. With the renderer now stable enough for general use, 3D should be what every player sees without needing to know the URL flag.",
+      changes: [
+        "3D terrain renderer is on by default for all sessions — no query parameter required.",
+        "Pass ?renderer=2d to use the legacy flat canvas renderer (useful for low-end devices or debugging).",
+        "?renderer=3d still works as before and is now a no-op synonym for the default.",
+        "Mobile and touch-screen players see a one-time prompt on first load asking whether to switch to the lighter 2D renderer; the choice is remembered in localStorage.",
+      ]
+    },
     {
       introducedIn: "2026.05.09.3",
       title: "3D roads actually render now, as deliberate map art instead of debug paths",
