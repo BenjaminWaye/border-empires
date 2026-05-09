@@ -3870,11 +3870,14 @@ export class SimulationRuntime {
       yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
       yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
       yieldCap?: { gold: number; strategicEach: number } | undefined;
+      lastCollectedAt?: number | undefined;
     } {
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext ? { ...tile, town: enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork) } : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(simulationTileKey(tile.x, tile.y)), this.now(), {
+    const tileKey = simulationTileKey(tile.x, tile.y);
+    const lastCollectedAt = this.tileYieldCollectedAtByTile.get(tileKey);
+    const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, this.now(), {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
       tiles: this.tiles,
@@ -3900,7 +3903,8 @@ export class SimulationRuntime {
       sabotageJson: tile.sabotage ? JSON.stringify(tile.sabotage) : undefined,
       ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
       ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
-      ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {})
+      ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {}),
+      ...(typeof lastCollectedAt === "number" ? { lastCollectedAt } : {})
     };
   }
 
