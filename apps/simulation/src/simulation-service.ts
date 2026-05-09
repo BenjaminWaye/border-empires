@@ -24,6 +24,7 @@ import type { SimulationEventStore } from "./event-store.js";
 import { createSimulationSnapshotStore } from "./snapshot-store-factory.js";
 import type { SimulationSnapshotStore } from "./snapshot-store.js";
 import { createSnapshotCheckpointManager } from "./snapshot-checkpoint-manager.js";
+import { createWorkerSnapshotStringifier, type SnapshotStringifier } from "./snapshot-stringifier.js";
 import { createAiCommandProducer } from "./ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "./ai-command-producer-worker.js";
 import { recoverCommandHistory } from "./command-recovery.js";
@@ -527,10 +528,25 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const rulesetId = options.rulesetId;
   const mapStyle = options.mapStyle ?? "continents";
   const seedPlayers = createSeedPlayers(options.seedProfile);
+  let snapshotStringifier: (SnapshotStringifier & { close: () => Promise<void> }) | undefined;
+  // Only spin up a stringify worker for SQLite-backed deployments — full
+  // snapshots there are ~18MB and inline JSON.stringify blocks the
+  // simulation event loop. Postgres/in-memory tests stay inline.
+  if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_STRINGIFY_INLINE !== "1") {
+    try {
+      snapshotStringifier = createWorkerSnapshotStringifier();
+    } catch (err) {
+      log.error(
+        { err: err instanceof Error ? err.message : String(err) },
+        "failed to start snapshot-stringify worker; falling back to inline JSON.stringify"
+      );
+    }
+  }
   const storeFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
     ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
-    ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {})
+    ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {}),
+    ...(snapshotStringifier ? { stringify: snapshotStringifier } : {})
   };
   const commandStore =
     options.commandStore ??
