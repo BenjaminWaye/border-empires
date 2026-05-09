@@ -61,6 +61,10 @@ export const applyPlayerMessageToSnapshot = (
         ...(typeof payload.gold === "number" ? { gold: payload.gold } : {}),
         ...(typeof payload.manpower === "number" ? { manpower: payload.manpower } : {}),
         ...(typeof payload.manpowerCap === "number" ? { manpowerCap: payload.manpowerCap } : {}),
+        ...(typeof payload.manpowerRegenPerMinute === "number" ? { manpowerRegenPerMinute: payload.manpowerRegenPerMinute } : {}),
+        ...(payload.manpowerBreakdown && typeof payload.manpowerBreakdown === "object"
+          ? { manpowerBreakdown: payload.manpowerBreakdown as NonNullable<PlayerStateSnapshot["manpowerBreakdown"]> }
+          : {}),
         ...(typeof payload.incomePerMinute === "number" ? { incomePerMinute: payload.incomePerMinute } : {}),
         ...(payload.strategicResources && typeof payload.strategicResources === "object"
           ? { strategicResources: payload.strategicResources as PlayerStateSnapshot["strategicResources"] }
