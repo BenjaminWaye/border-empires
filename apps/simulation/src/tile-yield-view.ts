@@ -10,6 +10,8 @@ import {
   TILE_YIELD_CAP_GOLD,
   TILE_YIELD_CAP_RESOURCE
 } from "@border-empires/game-domain";
+import { dockBaseGoldPerMinuteForPlayer, type DockEconomyContext, type EconomyPlayer } from "./economy-network.js";
+import { townGoldPerMinuteForPlayer } from "./player-update-economy.js";
 
 type StrategicYieldKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
 
@@ -82,21 +84,34 @@ const roundPositive = (value: number, digits: number): number => {
 export const buildTileYieldView = (
   tile: DomainTileState,
   lastCollectedAt: number | undefined,
-  now: number
+  now: number,
+  economyContext?: Partial<DockEconomyContext> & {
+    player?: EconomyPlayer | undefined;
+    fedTownKeys?: ReadonlySet<string> | undefined;
+  }
 ): TileYieldView | undefined => {
   if (tile.ownerId === undefined || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return undefined;
+  const economyPlayer = economyContext?.player;
+  const incomeMultiplier = economyPlayer?.id === tile.ownerId ? economyPlayer.mods?.income ?? 1 : 1;
 
-  const townGoldPerMinute =
-    tile.town
-      ? typeof tile.town.goldPerMinute === "number" && tile.town.goldPerMinute > 0.0001
-        ? tile.town.goldPerMinute
-        : tile.town.populationTier === "SETTLEMENT"
-          ? SETTLEMENT_BASE_GOLD_PER_MIN
-          : typeof tile.town.baseGoldPerMinute === "number" && tile.town.baseGoldPerMinute > 0.0001
-            ? tile.town.baseGoldPerMinute
-            : 0
-      : 0;
-  const goldPerMinute = townGoldPerMinute + (tile.dockId ? DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT : 0);
+  const townGoldPerMinute = (() => {
+    if (!tile.town) return 0;
+    if (typeof tile.town.goldPerMinute === "number" && tile.town.goldPerMinute > 0.0001) return tile.town.goldPerMinute;
+    if (tile.town.populationTier === "SETTLEMENT" || !tile.town.populationTier) {
+      return SETTLEMENT_BASE_GOLD_PER_MIN * incomeMultiplier * PASSIVE_INCOME_MULT;
+    }
+    if (economyPlayer?.id !== tile.ownerId || !economyContext?.tiles || !economyContext.fedTownKeys) return 0;
+    return townGoldPerMinuteForPlayer(economyPlayer, tile, tile.town, economyContext.tiles, economyContext.fedTownKeys);
+  })();
+  const dockContext =
+    economyContext?.tiles && economyContext.dockLinksByDockTileKey
+      ? { tiles: economyContext.tiles, dockLinksByDockTileKey: economyContext.dockLinksByDockTileKey }
+      : undefined;
+  const dockGoldPerMinute =
+    tile.dockId && economyPlayer?.id === tile.ownerId
+      ? dockBaseGoldPerMinuteForPlayer(tile, economyPlayer, dockContext) * incomeMultiplier * PASSIVE_INCOME_MULT
+      : tile.dockId ? DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT : 0;
+  const goldPerMinute = townGoldPerMinute + dockGoldPerMinute;
   const strategicPerDay = {
     ...strategicDailyFromResource(tile.resource),
     ...converterDailyOutput(tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined)

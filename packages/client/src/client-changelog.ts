@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.3",
+  version: "2026.05.09.4",
   title: "What's New",
-  summary: "3D roads actually render now, as terrain-hugging painterly ribbons with curved eight-direction joins and rounded junction hubs — two render bugs were swallowing the new overlay completely. Plus the shard capture / economy-tab cleanup and manpower-by-town-tier scaling from earlier today.",
+  summary: "Connected dock routes and connected town networks now pay out correctly on the rewrite stack. Plus 3D roads render again, shard capture/stock updates landed, and manpower now scales by town tier.",
   entries: [
+    {
+      introducedIn: "2026.05.09.4",
+      title: "Connected dock and town bonuses now affect rewrite gold income",
+      why: "The rewrite simulation carried dock route definitions but its live economy only paid the flat dock base rate. Connecting both ends of a dock route therefore changed visibility/mobility but not production. Rewrite town payloads could also omit or carry stale legacy connected-town bonus fields, leaving town networks underpaid unless the stored town object happened to be current.",
+      changes: [
+        "Rewrite player economy, tile yield collection, and snapshot yield views now price docks with the connected owned-settled dock count instead of the flat base rate.",
+        "Connected-town counts and bonuses are derived from the player's settled land network, and complete town summaries with stale connected fields now recompute dependent income fields instead of returning old gold values.",
+        "Added regression coverage for connected dock route income, buffered dock gold yield, authoritative buffered town yield, and derived connected-town income in full-visibility snapshots."
+      ]
+    },
     {
       introducedIn: "2026.05.09.3",
       title: "3D roads actually render now, as deliberate map art instead of debug paths",
