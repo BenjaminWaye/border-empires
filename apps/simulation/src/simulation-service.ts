@@ -213,6 +213,8 @@ type ProtoSimulationEvent = {
     } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;
   }>;
+  count?: number;
+  cancelled_command_ids?: string[];
 };
 
 type SimulationServiceOptions = {
@@ -326,7 +328,7 @@ const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
   payloadJson: value.payload_json
 });
 
-const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
+export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
   event_type: value.eventType,
   command_id: value.commandId,
   player_id: value.playerId,
@@ -356,6 +358,12 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
     : {}),
   ...(value.eventType === "TECH_UPDATE" || value.eventType === "DOMAIN_UPDATE" || value.eventType === "PLAYER_MESSAGE"
     ? { payload_json: value.payloadJson }
+    : {}),
+  ...(value.eventType === "COMBAT_CANCELLED"
+    ? {
+        count: value.count,
+        cancelled_command_ids: value.cancelledCommandIds ?? []
+      }
     : {}),
   tile_deltas:
     value.eventType === "TILE_DELTA_BATCH"

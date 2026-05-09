@@ -206,6 +206,7 @@ export type SimulationEvent =
       commandId: string;
       playerId: string;
       count: number;
+      cancelledCommandIds?: string[];
     }
   | {
       eventType: "COMBAT_RESOLVED";
