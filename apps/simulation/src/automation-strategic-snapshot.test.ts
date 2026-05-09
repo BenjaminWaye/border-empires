@@ -69,7 +69,7 @@ describe("automation strategic snapshot", () => {
     const snapshot = buildAutomationStrategicSnapshot({
       playerId: "ai-1",
       points: 800,
-      manpower: 12,
+      manpower: 80,
       settledTileCount: 5,
       townCount: 2,
       incomePerMinute: 10,
@@ -293,5 +293,80 @@ describe("automation strategic snapshot", () => {
 
     expect(snapshot.openingScoutAvailable).toBe(true);
     expect(snapshot.scoutExpandWorthwhile).toBe(true);
+  });
+
+  it("selects RESOURCE_MONOPOLY when AI has stacked the same resource type", () => {
+    const ironTiles = Array.from({ length: 7 }, (_, index) =>
+      makeTile(index, 0, { ownerId: "ai-1", ownershipState: "SETTLED" })
+    ).map((tile) => ({ ...tile, resource: "IRON" as const }));
+    const tilesByKey = new Map(ironTiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
+    const snapshot = buildAutomationStrategicSnapshot({
+      playerId: "ai-1",
+      points: 800,
+      manpower: 12,
+      settledTileCount: 7,
+      townCount: 1,
+      incomePerMinute: 11,
+      ownedTiles: ironTiles,
+      tilesByKey,
+      frontierAnalysis: {
+        frontierEnemyTargetCount: 0,
+        frontierNeutralTargetCount: 1,
+        frontierOpportunityEconomic: 1,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      },
+      needsFood: false,
+      needsEconomy: false,
+      canAttack: true,
+      canExpand: true,
+      economicBuildAvailable: true,
+      fortBuildAvailable: false,
+      siegeOutpostBuildAvailable: false
+    });
+
+    expect(snapshot.primaryVictoryPath).toBe("RESOURCE_MONOPOLY");
+  });
+
+  it("selects CONTINENT_FOOTPRINT when AI has multiple docks and dock-cross expansion is reachable", () => {
+    const dockA = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-a" });
+    const dockB = makeTile(20, 0, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-b" });
+    const remoteDock = makeTile(50, 50, { dockId: "dock-c" });
+    const snapshot = buildAutomationStrategicSnapshot({
+      playerId: "ai-1",
+      points: 800,
+      manpower: 12,
+      settledTileCount: 4,
+      townCount: 1,
+      incomePerMinute: 9,
+      ownedTiles: [dockA, dockB],
+      tilesByKey: new Map([
+        ["0,0", dockA],
+        ["20,0", dockB],
+        ["50,50", remoteDock]
+      ]),
+      frontierAnalysis: {
+        expand: { from: dockA, target: remoteDock, score: 240 },
+        frontierEnemyTargetCount: 0,
+        frontierNeutralTargetCount: 1,
+        frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      },
+      needsFood: false,
+      needsEconomy: false,
+      canAttack: true,
+      canExpand: true,
+      economicBuildAvailable: false,
+      fortBuildAvailable: false,
+      siegeOutpostBuildAvailable: false
+    });
+
+    expect(snapshot.primaryVictoryPath).toBe("CONTINENT_FOOTPRINT");
+    expect(snapshot.islandExpandAvailable).toBe(true);
   });
 });

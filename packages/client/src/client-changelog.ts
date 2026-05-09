@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.10.2",
+  version: "2026.05.10.3",
   title: "What's New",
-  summary: "Rewrite season-victory pressure now shows and uses the configured Resource Monopoly and Continental Footprint thresholds.",
+  summary: "AIs now strive for five different victory paths instead of all converging on the same one — so a 20-AI season actually looks varied. Settlement scoring stops over-valuing frontier-clustered shapes (frontier tiles have zero combat defense), the over-settle floor is raised so AIs stop sinking gold into negative-yield filler tiles, resource weights are rebalanced (CRYSTAL up, OIL down), and manpower thresholds for attacks now scale with threat level. Plus the rewrite victory-threshold copy fix, town-growth refresh, town-fed warning fix, and 3D-default renderer from earlier today.",
   entries: [
+    {
+      introducedIn: "2026.05.10.3",
+      title: "AI plays five different victory paths and stops over-settling filler tiles",
+      why: "Two compounding problems were making AI seasons feel monolithic and economically broken. First, the AI only strategized for three victory paths (TOWN_CONTROL / SETTLED_TERRITORY / ECONOMIC_HEGEMONY) even though the game has five — so RESOURCE_MONOPOLY and CONTINENT_FOOTPRINT wins almost never happened and AIs converged on the same handful of plans. Second, the settlement scorer treated friendly FRONTIER neighbors as defensive backing, but frontier tiles actually have defMult=0 in real combat — so AIs were seeking out frontier-cluster shapes that don't defend, and over-settling cheap filler tiles at score≥10 (each SETTLE costs 4 gold, so 174 filler settles = ~700 gold drained from the tech budget — exactly what we were seeing on staging at 19 gold/m income).",
+      changes: [
+        "Strategic snapshot now scores five victory paths (TOWN_CONTROL, SETTLED_TERRITORY, ECONOMIC_HEGEMONY, RESOURCE_MONOPOLY, CONTINENT_FOOTPRINT) with the same crowding-penalty mechanism — when one path is overcrowded among AIs, similar AIs diversify. RESOURCE_MONOPOLY rewards stacking the same resource type; CONTINENT_FOOTPRINT rewards multi-dock multi-island spread (single-dock AIs stay SETTLED_TERRITORY).",
+        "Defensive-shape scoring corrected: settled-neighbor weight up (22→28), frontier-neighbor weight way down (10→4), and the cluster bonus now requires SETTLED neighbors specifically (not just any owned). Matches the real combat math where only SETTLED tiles defend.",
+        "Over-settle floor raised: surplus-state minScore 10→30. AIs with budget no longer fill in worthless near-empty tiles just because they have nothing else to do. The needsEconomy/needsFood paths keep their stricter floors.",
+        "Resource scoring rebalanced: GEMS 90→140 (CRYSTAL gates tier-1 tech and yields slowly so it's worth more than its raw rate suggests), OIL 90→60 (late-game tech only), FARM/FISH 180→200 (food gates non-SETTLEMENT income), IRON 120→130, WOOD/FUR stay 120.",
+        "Attack manpower threshold now scales with threat level (port from legacy tempo-policy): ATTACK_MIN when desperate, +5 under threat, +15 with weak economy or one town, +10 default. The same scaled gate is wired into both the primary planner's attackReady signal and the GOAP fallback's staminaHealthy input, so the two branches no longer disagree."
+      ]
+    },
     {
       introducedIn: "2026.05.10.2",
       title: "Season victory pressure uses the lower rewrite thresholds",
