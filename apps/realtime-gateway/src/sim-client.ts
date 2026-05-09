@@ -126,6 +126,8 @@ type ProtoSimulationEvent = {
   tileDeltaJson?: string;
   tile_deltas?: ProtoTileDelta[];
   count?: number;
+  cancelled_command_ids?: string[];
+  cancelledCommandIds?: string[];
 };
 
 type SimulationClientLike = {
@@ -210,6 +212,7 @@ export type SimulationClientEvent =
       commandId: string;
       playerId: string;
       count: number;
+      cancelledCommandIds?: string[];
     }
   | {
       eventType: "COMBAT_RESOLVED";
@@ -417,11 +420,15 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent => {
     };
   }
   if (event.event_type === "COMBAT_CANCELLED") {
+    const cancelledCommandIds = (event.cancelled_command_ids ?? event.cancelledCommandIds ?? []).filter(
+      (commandId): commandId is string => typeof commandId === "string" && commandId.length > 0
+    );
     return {
       eventType: "COMBAT_CANCELLED",
       commandId: event.command_id,
       playerId: event.player_id,
-      count: Number(event.count ?? 0)
+      count: Number(event.count ?? 0),
+      ...(cancelledCommandIds.length > 0 ? { cancelledCommandIds } : {})
     };
   }
   if (event.event_type === "TILE_DELTA_BATCH") {

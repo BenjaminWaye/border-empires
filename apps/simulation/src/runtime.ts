@@ -592,6 +592,7 @@ export class SimulationRuntime {
   private readonly recordedEventsByCommandId = new Map<string, SimulationEvent[]>();
   private readonly commandIdsByPlayerSeq = new Map<string, string>();
   private readonly terminalReplayCommandIds = new Map<string, true>();
+  private readonly terminalOnlyReplayCommandIds = new Set<string>();
   private readonly maxTerminalCommandReplayHistory: number;
   private readonly maxPlayerSeqReplayEntries: number;
   private readonly backgroundBatchSize: number;
@@ -903,6 +904,7 @@ export class SimulationRuntime {
 
   private rebuildTerminalReplayIndex(): void {
     this.terminalReplayCommandIds.clear();
+    this.terminalOnlyReplayCommandIds.clear();
     for (const [commandId, events] of this.recordedEventsByCommandId.entries()) {
       if (events.some(isTerminalCommandEvent)) {
         this.terminalReplayCommandIds.set(commandId, true);
@@ -915,9 +917,15 @@ export class SimulationRuntime {
     this.terminalReplayCommandIds.set(commandId, true);
   }
 
+  private markTerminalOnlyReplayCommand(commandId: string): void {
+    this.recordedEventsByCommandId.delete(commandId);
+    this.terminalOnlyReplayCommandIds.add(commandId);
+  }
+
   private dropReplayHistoryForCommand(commandId: string): void {
     this.recordedEventsByCommandId.delete(commandId);
     this.terminalReplayCommandIds.delete(commandId);
+    this.terminalOnlyReplayCommandIds.delete(commandId);
     for (const [playerSeqKey, mappedCommandId] of this.commandIdsByPlayerSeq.entries()) {
       if (mappedCommandId === commandId) this.commandIdsByPlayerSeq.delete(playerSeqKey);
     }
@@ -933,7 +941,9 @@ export class SimulationRuntime {
     while (this.commandIdsByPlayerSeq.size > this.maxPlayerSeqReplayEntries) {
       const oldestPlayerSeqKey = this.commandIdsByPlayerSeq.keys().next().value;
       if (!oldestPlayerSeqKey) break;
+      const oldestCommandId = this.commandIdsByPlayerSeq.get(oldestPlayerSeqKey);
       this.commandIdsByPlayerSeq.delete(oldestPlayerSeqKey);
+      if (oldestCommandId) this.terminalOnlyReplayCommandIds.delete(oldestCommandId);
     }
   }
 
@@ -1373,6 +1383,7 @@ export class SimulationRuntime {
 
   submitCommand(command: CommandEnvelope): void {
     this.pruneReplayCaches();
+    if (this.terminalOnlyReplayCommandIds.has(command.commandId)) return;
     const existingEvents = this.recordedEventsByCommandId.get(command.commandId);
     if (existingEvents) {
       for (const event of existingEvents) this.events.emit("event", event);
@@ -1382,6 +1393,7 @@ export class SimulationRuntime {
     const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
     const existingCommandId = this.commandIdsByPlayerSeq.get(playerSeqKey);
     if (existingCommandId) {
+      if (this.terminalOnlyReplayCommandIds.has(existingCommandId)) return;
       const replayEvents = this.recordedEventsByCommandId.get(existingCommandId);
       if (replayEvents) {
         for (const event of replayEvents) this.events.emit("event", event);
@@ -3792,6 +3804,11 @@ export class SimulationRuntime {
     existingEvents.push(event);
     this.recordedEventsByCommandId.set(event.commandId, existingEvents);
     if (isTerminalCommandEvent(event)) this.markTerminalReplayCommand(event.commandId);
+    if (event.eventType === "COMBAT_CANCELLED") {
+      for (const cancelledCommandId of event.cancelledCommandIds ?? []) {
+        if (cancelledCommandId !== event.commandId) this.markTerminalOnlyReplayCommand(cancelledCommandId);
+      }
+    }
     this.pruneReplayCaches();
     this.events.emit("event", event);
   }
@@ -4981,6 +4998,56 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate(command);
   }
 
+  private activeFrontierLocksForPlayer(playerId: string): LockRecord[] {
+    const locks = new Map<string, LockRecord>();
+    for (const lock of this.locksByTile.values()) {
+      if (lock.playerId !== playerId) continue;
+      if (lock.actionType !== "EXPAND" && lock.actionType !== "ATTACK") continue;
+      locks.set(lock.commandId, lock);
+    }
+    return [...locks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId));
+  }
+
+  private handleCancelCaptureCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    if (!actor) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+
+    const activeLocks = this.activeFrontierLocksForPlayer(command.playerId);
+    if (activeLocks.length === 0) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "NO_ACTIVE_CAPTURE",
+        message: "no active capture to cancel"
+      });
+      return;
+    }
+
+    for (const lock of activeLocks) {
+      this.locksByTile.delete(lock.originKey);
+      this.locksByTile.delete(lock.targetKey);
+    }
+
+    this.emitEvent({
+      eventType: "COMBAT_CANCELLED",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      count: activeLocks.length,
+      cancelledCommandIds: activeLocks.map((lock) => lock.commandId)
+    });
+    this.emitPlayerStateUpdate(command);
+  }
+
   private visibleRadiusForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     return player ? effectiveVisionRadiusForPlayer(player) : 1;
@@ -5257,6 +5324,7 @@ export class SimulationRuntime {
         command.type !== "BUILD_OBSERVATORY" &&
         command.type !== "BUILD_SIEGE_OUTPOST" &&
         command.type !== "BUILD_ECONOMIC_STRUCTURE" &&
+        command.type !== "CANCEL_CAPTURE" &&
         command.type !== "CANCEL_FORT_BUILD" &&
         command.type !== "CANCEL_STRUCTURE_BUILD" &&
         command.type !== "REMOVE_STRUCTURE" &&
@@ -5311,6 +5379,11 @@ export class SimulationRuntime {
 
       if (command.type === "BUILD_ECONOMIC_STRUCTURE") {
         this.handleBuildEconomicStructureCommand(command);
+        return;
+      }
+
+      if (command.type === "CANCEL_CAPTURE") {
+        this.handleCancelCaptureCommand(command);
         return;
       }
 
