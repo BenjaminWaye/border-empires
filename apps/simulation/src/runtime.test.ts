@@ -566,6 +566,82 @@ describe("simulation runtime", () => {
     expect(visibleState.tiles.some((tile) => tile.x === 51 && tile.y === 50)).toBe(false);
   });
 
+  it("emits visibility audit samples attributing each opponent tile to its reveal source", () => {
+    const audits: { playerId: string; tileKey: string; reasons: string[]; redacted: boolean }[] = [];
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      onVisibilityAudit: (sample) =>
+        audits.push({ playerId: sample.playerId, tileKey: sample.tileKey, reasons: sample.reasons, redacted: sample.redacted }),
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: [
+          {
+            commandId: "lock-1",
+            playerId: "player-1",
+            actionType: "ATTACK",
+            originX: 10,
+            originY: 10,
+            targetX: 50,
+            targetY: 50,
+            originKey: "10,10",
+            targetKey: "50,50",
+            resolvesAt: 120_000
+          }
+        ]
+      }
+    });
+
+    runtime.exportVisibleStateForPlayer("player-1");
+
+    const radiusAudit = audits.find((entry) => entry.tileKey === "12,10");
+    expect(radiusAudit).toBeDefined();
+    expect(radiusAudit?.playerId).toBe("player-1");
+    expect(radiusAudit?.reasons).toEqual(["radius:self"]);
+    expect(radiusAudit?.redacted).toBe(false);
+
+    const lockTargetAudit = audits.find((entry) => entry.tileKey === "50,50");
+    expect(lockTargetAudit).toBeDefined();
+    expect(lockTargetAudit?.reasons).toEqual(["lock-target"]);
+    expect(lockTargetAudit?.redacted).toBe(true);
+
+    expect(audits.every((entry) => entry.reasons.length > 0)).toBe(true);
+  });
+
   it("does not redact lock-target tiles already covered by territory vision", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
