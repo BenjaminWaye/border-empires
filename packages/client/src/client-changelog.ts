@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.10.1",
+  version: "2026.05.10.2",
   title: "What's New",
-  summary: "Town growth panels now reflect live rewrite growth again, and town details respect full FOOD upkeep coverage so fed towns no longer show stale warnings.",
+  summary: "Rewrite season-victory pressure now shows and uses the configured Resource Monopoly and Continental Footprint thresholds.",
   entries: [
+    {
+      introducedIn: "2026.05.10.2",
+      title: "Season victory pressure uses the lower rewrite thresholds",
+      why: "The rewrite status builders still displayed old Resource Monopoly and Continental Footprint requirements in some paths, and Resource Monopoly hold checks could still demand full control instead of the intended 80% share.",
+      changes: [
+        "Resource Monopoly now ranks contenders by resource share, starts its hold at 80% control, and labels the threshold as 80% in rewrite status payloads.",
+        "Continental Footprint status and self-progress labels now consistently show 5% settled land per island instead of the old 10% copy.",
+        "Added rewrite simulation and gateway regression coverage so the status labels and threshold checks stay aligned."
+      ]
+    },
     {
       introducedIn: "2026.05.10.1",
       title: "Town growth panels no longer trust stale paused-growth snapshots",
