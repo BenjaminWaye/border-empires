@@ -259,8 +259,14 @@ export type SimulationEvent =
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
-        lastCollectedAt?: number | undefined;
       }>;
+    }
+  | {
+      eventType: "TILE_YIELD_ANCHOR_UPDATED";
+      commandId: string;
+      playerId: string;
+      tileKey: string;
+      collectedAt: number;
     }
   | {
       eventType: "TECH_UPDATE";

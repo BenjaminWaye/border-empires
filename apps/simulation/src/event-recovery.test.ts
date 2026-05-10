@@ -178,7 +178,7 @@ describe("recoverSimulationStateFromEvents", () => {
     ]);
   });
 
-  it("advances tileYieldCollectedAtByTile from TILE_DELTA_BATCH lastCollectedAt so collects survive restarts between snapshots", () => {
+  it("advances tileYieldCollectedAtByTile from TILE_YIELD_ANCHOR_UPDATED so collects survive restarts between snapshots", () => {
     const recovered = applySimulationEventsToRecoveredState(
       {
         tiles: [
@@ -196,10 +196,11 @@ describe("recoverSimulationStateFromEvents", () => {
       },
       [
         {
-          eventType: "TILE_DELTA_BATCH",
+          eventType: "TILE_YIELD_ANCHOR_UPDATED",
           commandId: "collect-1",
           playerId: "player-1",
-          tileDeltas: [{ x: 5, y: 5, lastCollectedAt: 9_000 }]
+          tileKey: "5,5",
+          collectedAt: 9_000
         }
       ]
     );
