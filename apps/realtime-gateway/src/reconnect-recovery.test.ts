@@ -430,6 +430,19 @@ describe("buildInitMessage", () => {
         })
       ])
     );
+    expect(message.seasonVictory).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "RESOURCE_MONOPOLY",
+          thresholdLabel: "Need 80% control of one resource type"
+        }),
+        expect.objectContaining({
+          id: "CONTINENT_FOOTPRINT",
+          progressLabel: "2/2 islands at 5%+ settled · weakest island 25% (1/4)",
+          thresholdLabel: "Need 5% settled land on every island"
+        })
+      ])
+    );
   });
 
   it("prefers authoritative world status from the rewrite snapshot for leaderboard and season goals", async () => {

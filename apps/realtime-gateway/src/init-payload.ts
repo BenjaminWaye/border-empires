@@ -19,9 +19,17 @@ import {
   SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE,
   SEASON_VICTORY_ECONOMY_LEAD_MULT,
   SEASON_VICTORY_ECONOMY_MIN_INCOME,
+  SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE,
   SEASON_VICTORY_SETTLED_TERRITORY_SHARE,
   SEASON_VICTORY_TOWN_CONTROL_SHARE,
-  VICTORY_PRESSURE_DEFS
+  VICTORY_PRESSURE_DEFS,
+  VICTORY_RESOURCE_TYPES,
+  continentFootprintProgressLabel,
+  continentFootprintThresholdLabel,
+  resourceMonopolyConditionMet,
+  resourceMonopolyLeader,
+  resourceMonopolyProgressLabel,
+  resourceMonopolyThresholdLabel
 } from "@border-empires/game-domain";
 
 import type { LegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
@@ -340,8 +348,6 @@ const visibleLeaderboardEntries = (
   return [...visible.entries()].map(([id, name]) => ({ id, name }));
 };
 
-const RESOURCE_TYPES: ResourceType[] = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR", "OIL"];
-
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
 
 const exportDockPairs = (
@@ -429,7 +435,7 @@ const objectiveSelfProgressLabel = (
     let bestResource: ResourceType | undefined;
     let bestOwned = 0;
     let bestTotal = 0;
-    for (const resource of RESOURCE_TYPES) {
+    for (const resource of VICTORY_RESOURCE_TYPES) {
       const total = totalResourceCounts[resource] ?? 0;
       if (total <= 0) continue;
       const value = owned[resource] ?? 0;
@@ -460,9 +466,14 @@ const objectiveSelfProgressLabel = (
       }
     }
   }
-  return qualifiedCount > 0 && weakestQualifiedTotal > 0
-    ? `${qualifiedCount}/${totalIslands} islands at 10%+ settled · weakest island ${Math.round(weakestQualifiedRatio * 100)}% (${weakestQualifiedOwned}/${weakestQualifiedTotal})`
-    : `${qualifiedCount}/${totalIslands} islands at 10%+ settled`;
+  return continentFootprintProgressLabel({
+    qualifiedCount,
+    totalIslands,
+    weakestRatio: weakestQualifiedRatio,
+    weakestOwned: weakestQualifiedOwned,
+    weakestTotal: weakestQualifiedTotal,
+    requiredShare: SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE
+  });
 };
 
 const buildSeasonVictoryObjectives = (
@@ -557,27 +568,13 @@ const buildSeasonVictoryObjectives = (
           leaderValue >= runnerUp.incomePerMinute * SEASON_VICTORY_ECONOMY_LEAD_MULT
       );
     } else if (def.id === "RESOURCE_MONOPOLY") {
-      let bestResource: ResourceType | undefined;
-      let bestOwned = 0;
-      let bestTotal = 0;
-      for (const [candidatePlayerId, owned] of ownedResourceCountsByPlayerId) {
-    for (const resource of RESOURCE_TYPES) {
-      const total = totalResourceCounts[resource] ?? 0;
-          if (total <= 0) continue;
-          const value = owned[resource] ?? 0;
-          if (value > bestOwned) {
-            leaderPlayerId = candidatePlayerId;
-            bestOwned = value;
-            bestTotal = total;
-            bestResource = resource;
-          }
-        }
-      }
-      leaderValue = bestOwned;
+      const monopoly = resourceMonopolyLeader(ownedResourceCountsByPlayerId, totalResourceCounts);
+      leaderPlayerId = monopoly.leaderPlayerId;
+      leaderValue = monopoly.bestOwned;
       leaderName = leaderPlayerId ? (metricsByPlayerId.get(leaderPlayerId)?.name ?? leaderPlayerId) : "No leader";
-      progressLabel = bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource leader";
-      thresholdLabel = "Need 100% control of one resource type";
-      conditionMet = Boolean(leaderPlayerId && bestResource && bestTotal > 0 && bestOwned >= bestTotal);
+      progressLabel = resourceMonopolyProgressLabel(monopoly);
+      thresholdLabel = resourceMonopolyThresholdLabel(SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE);
+      conditionMet = resourceMonopolyConditionMet(monopoly, SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE);
     } else {
       const totalIslands = Math.max(1, islandTotals.size);
       let bestQualifiedCount = 0;
@@ -615,11 +612,15 @@ const buildSeasonVictoryObjectives = (
       }
       leaderValue = bestQualifiedCount;
       leaderName = leaderPlayerId ? (metricsByPlayerId.get(leaderPlayerId)?.name ?? leaderPlayerId) : "No leader";
-      progressLabel =
-        bestQualifiedCount > 0 && bestWeakestTotal > 0
-          ? `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled · weakest island ${Math.round(bestWeakestRatio * 100)}% (${bestWeakestOwned}/${bestWeakestTotal})`
-          : `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled`;
-      thresholdLabel = "Need 10% settled land on every island";
+      progressLabel = continentFootprintProgressLabel({
+        qualifiedCount: bestQualifiedCount,
+        totalIslands,
+        weakestRatio: bestWeakestRatio,
+        weakestOwned: bestWeakestOwned,
+        weakestTotal: bestWeakestTotal,
+        requiredShare: SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE
+      });
+      thresholdLabel = continentFootprintThresholdLabel(SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE);
       conditionMet = Boolean(leaderPlayerId && bestQualifiedCount >= totalIslands && totalIslands > 0);
     }
     const tracker = trackers.get(def.id);
