@@ -35,6 +35,68 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
   });
 
+  it("refreshes stale complete town growth summaries from live rewrite state", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Old Growth",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 25_000,
+            maxPopulation: 100_000,
+            populationGrowthPerMinute: 0,
+            baseGoldPerMinute: 2,
+            goldPerMinute: 0,
+            cap: 0,
+            supportCurrent: 0,
+            supportMax: 0,
+            isFed: false,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          }),
+          townType: "MARKET",
+          townName: "Old Growth",
+          townPopulationTier: "TOWN"
+        }
+      ],
+      players: [
+        {
+          id: "player-1",
+          strategicResources: { FOOD: 3 },
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+
+    const townTile = snapshot.tiles.find((tile) => tile.x === 10 && tile.y === 10);
+    const town = townTile?.townJson ? JSON.parse(townTile.townJson) : undefined;
+    expect(town).toEqual(
+      expect.objectContaining({
+        name: "Old Growth",
+        isFed: true
+      })
+    );
+    expect(town.populationGrowthPerMinute).toBeGreaterThan(0);
+    expect(town.goldPerMinute).toBeGreaterThan(0);
+  });
+
   it("limits the bootstrap snapshot to owned tiles and nearby frontier visibility", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [
