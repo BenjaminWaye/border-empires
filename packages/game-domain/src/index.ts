@@ -7,6 +7,7 @@ export * from "./server-worldgen-shards.js";
 export * from "./server-worldgen-terrain.js";
 export * from "./server-worldgen-towns.js";
 export * from "./town-names.js";
+export * from "./victory-pressure-utils.js";
 
 import {
   ATTACK_MANPOWER_COST,

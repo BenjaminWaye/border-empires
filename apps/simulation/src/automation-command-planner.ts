@@ -20,7 +20,7 @@ import {
 import { economyWeak, foodCoverageLow, hasCollectibleVisibleYieldSource } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
-import { chooseAutomationGoapDecision } from "./automation-goap.js";
+import { chooseAutomationGoapDecision, type AiSeasonVictoryPathId } from "./automation-goap.js";
 import {
   buildPlannerCommand,
   buildPlannerFrontierCommand,
@@ -29,6 +29,23 @@ import {
   shouldSettleCandidateNow,
   type AutomationPlannerDecisionContext
 } from "./automation-command-planner-helpers.js";
+
+// The strategic snapshot classifies five victory paths but GOAP goal trees are
+// still defined for the original three. Map the new paths onto the closest
+// legacy goal tree until path-specific goals are added. Diversification is
+// preserved at the snapshot/crowding level — only goal selection collapses.
+const mapVictoryPathForGoap = (
+  path: AutomationStrategicSnapshot["primaryVictoryPath"]
+): AiSeasonVictoryPathId => {
+  switch (path) {
+    case "RESOURCE_MONOPOLY":
+      return "ECONOMIC_HEGEMONY";
+    case "CONTINENT_FOOTPRINT":
+      return "SETTLED_TERRITORY";
+    default:
+      return path;
+  }
+};
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 
@@ -264,8 +281,12 @@ const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
     canBuildEconomy: Boolean(economicBuild),
     canBuildSiegeOutpost: Boolean(siegeOutpostBuild),
     goldHealthy: goapGoldReserveHealthy(points),
-    staminaHealthy: manpower >= ATTACK_MANPOWER_MIN || !strategic.underThreat
-  }, strategic.primaryVictoryPath);
+    // Use the same scaled-manpower gate as attackReady so the GOAP fallback
+    // doesn't issue ATTACK actions while the primary planner refuses them.
+    // The `|| !strategic.underThreat` softening still applies — when not
+    // threatened, baseline manpower is enough for non-emergency attacks.
+    staminaHealthy: strategic.manpowerSufficient || !strategic.underThreat
+  }, mapVictoryPathForGoap(strategic.primaryVictoryPath));
   if (!goapDecision) return undefined;
 
   switch (goapDecision.actionKey) {

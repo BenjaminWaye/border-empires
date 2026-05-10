@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.8",
+  version: "2026.05.10.5",
   title: "What's New",
   summary: "Weak tiles now highlight on the 3D map when you toggle them on, and the Defensibility tab is rewritten in plain language so the score is actually understandable.",
   entries: [
     {
-      introducedIn: "2026.05.09.8",
+      introducedIn: "2026.05.10.5",
       title: "Weak-tile overlay now works in 3D, and the Defensibility tab speaks plain English",
       why: "The 3D renderer had no weak-defensibility overlay at all — toggling \"Show Weak Tiles\" did nothing visually unless you were on ?renderer=2d. Now that 3D is the default, the toggle has to actually highlight tiles in 3D too. Separately, the panel copy was full of jargon (\"weighted exposure\", \"frontier range\", \"authoritative\") and players couldn't tell what the score meant or how to improve it.",
       changes: [
@@ -32,6 +32,57 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Defensibility tab rewritten: \"Empire Shape\" → \"Your shape\", \"Exposed edges\" → \"Open sides\", \"Natural shields\" → \"Free walls\", and so on.",
         "Score explanation rewritten in plain language — the panel now tells you what the number means and how to make it go up.",
         "Tip phrasing simplified: instead of \"Anchor more of your border on coastlines\", it now says \"Build next to water or mountains. They work like walls.\"",
+      ]
+    },
+    {
+      introducedIn: "2026.05.10.4",
+      title: "Tech and domain Unlock buttons disable when gold or resources are missing",
+      why: "The Unlock button was enabled whenever prerequisites were satisfied, even if the player did not have enough gold or strategic resources. Pressing it then produced a server-side TECH_INVALID error because the simulation was checking against owned resource-tile counts, while the HUD displayed the player's accumulated stockpile. The two checks disagreed, so legitimate-looking clicks were rejected and impossible costs looked clickable.",
+      changes: [
+        "Gateway init payload and simulation tech/domain update payloads now compute canResearch from the player's gold and strategic-resource stockpile (the same numbers shown in the HUD).",
+        "Choosing a tech or domain now deducts the strategic resource cost server-side, mirroring how gold is already deducted.",
+        "TECH_UPDATE and DOMAIN_UPDATE payloads now carry the post-deduction gold and strategic resources so the HUD reflects the new totals immediately instead of waiting for the next PLAYER_UPDATE."
+      ]
+    },
+    {
+      introducedIn: "2026.05.10.3",
+      title: "AI plays five different victory paths and stops over-settling filler tiles",
+      why: "Two compounding problems were making AI seasons feel monolithic and economically broken. First, the AI only strategized for three victory paths (TOWN_CONTROL / SETTLED_TERRITORY / ECONOMIC_HEGEMONY) even though the game has five — so RESOURCE_MONOPOLY and CONTINENT_FOOTPRINT wins almost never happened and AIs converged on the same handful of plans. Second, the settlement scorer treated friendly FRONTIER neighbors as defensive backing, but frontier tiles actually have defMult=0 in real combat — so AIs were seeking out frontier-cluster shapes that don't defend, and over-settling cheap filler tiles at score≥10 (each SETTLE costs 4 gold, so 174 filler settles = ~700 gold drained from the tech budget — exactly what we were seeing on staging at 19 gold/m income).",
+      changes: [
+        "Strategic snapshot now scores five victory paths (TOWN_CONTROL, SETTLED_TERRITORY, ECONOMIC_HEGEMONY, RESOURCE_MONOPOLY, CONTINENT_FOOTPRINT) with the same crowding-penalty mechanism — when one path is overcrowded among AIs, similar AIs diversify. RESOURCE_MONOPOLY rewards stacking the same resource type; CONTINENT_FOOTPRINT rewards multi-dock multi-island spread (single-dock AIs stay SETTLED_TERRITORY).",
+        "Defensive-shape scoring corrected: settled-neighbor weight up (22→28), frontier-neighbor weight way down (10→4), and the cluster bonus now requires SETTLED neighbors specifically (not just any owned). Matches the real combat math where only SETTLED tiles defend.",
+        "Over-settle floor raised: surplus-state minScore 10→30. AIs with budget no longer fill in worthless near-empty tiles just because they have nothing else to do. The needsEconomy/needsFood paths keep their stricter floors.",
+        "Resource scoring rebalanced: GEMS 90→140 (CRYSTAL gates tier-1 tech and yields slowly so it's worth more than its raw rate suggests), OIL 90→60 (late-game tech only), FARM/FISH 180→200 (food gates non-SETTLEMENT income), IRON 120→130, WOOD/FUR stay 120.",
+        "Attack manpower threshold now scales with threat level (port from legacy tempo-policy): ATTACK_MIN when desperate, +5 under threat, +15 with weak economy or one town, +10 default. The same scaled gate is wired into both the primary planner's attackReady signal and the GOAP fallback's staminaHealthy input, so the two branches no longer disagree."
+      ]
+    },
+    {
+      introducedIn: "2026.05.10.2",
+      title: "Season victory pressure uses the lower rewrite thresholds",
+      why: "The rewrite status builders still displayed old Resource Monopoly and Continental Footprint requirements in some paths, and Resource Monopoly hold checks could still demand full control instead of the intended 80% share.",
+      changes: [
+        "Resource Monopoly now ranks contenders by resource share, starts its hold at 80% control, and labels the threshold as 80% in rewrite status payloads.",
+        "Continental Footprint status and self-progress labels now consistently show 5% settled land per island instead of the old 10% copy.",
+        "Added rewrite simulation and gateway regression coverage so the status labels and threshold checks stay aligned."
+      ]
+    },
+    {
+      introducedIn: "2026.05.10.1",
+      title: "Town growth panels no longer trust stale paused-growth snapshots",
+      why: "On staging, rewrite town snapshots could reuse a complete but stale town summary whose population growth had previously been cached as 0. The client then correctly displayed every next-size line as growth paused even when the live town was fed and below its population cap.",
+      changes: [
+        "Rewrite snapshots now refresh dynamic town economy and population-growth fields from live owner, food, support, and population state before sending them to the client.",
+        "Added simulation regression coverage for a fed town whose stored summary says growth is 0, verifying the exported town regains positive growth and income."
+      ]
+    },
+    {
+      introducedIn: "2026.05.09.8",
+      title: "Fed towns stop showing stale unfed warnings",
+      why: "Rewrite tile detail fallback was recomputing town fed state from only adjacent fish or grain. That contradicted the actual economy rule shown in the top bar, where stored FOOD plus FOOD production covers global upkeep, so a town could display `Town is unfed` even while the player had a healthy positive FOOD balance and full upkeep coverage.",
+      changes: [
+        "Gateway tile detail now treats full global FOOD upkeep coverage as a fed signal before falling back to nearby food heuristics.",
+        "The town overview also suppresses stale unfed warning copy and unfed growth explanations while global FOOD coverage is full.",
+        "The regression test covers a town with positive stored FOOD, positive FOOD production, full foodCoverage, and no adjacent food tile so the warning cannot come back from the detail fallback."
       ]
     },
     {

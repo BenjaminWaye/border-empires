@@ -1,7 +1,26 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
+import { ATTACK_MANPOWER_MIN } from "@border-empires/shared";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
+
+// Scales required manpower with threat level — matches legacy tempo-policy:
+//   threatCritical → ATTACK_MIN  (gamble allowed when desperate)
+//   underThreat    → ATTACK_MIN +5
+//   weak economy / one-town early game → ATTACK_MIN +15 (need real surplus)
+//   default        → ATTACK_MIN +10
+// Prevents AIs from launching marginal attacks that lose them their regen window.
+const requiredAttackManpower = (input: {
+  underThreat: boolean;
+  threatCritical: boolean;
+  needsEconomy: boolean;
+  townCount: number;
+}): number => {
+  if (input.threatCritical) return ATTACK_MANPOWER_MIN;
+  if (input.underThreat) return ATTACK_MANPOWER_MIN + 5;
+  if (input.needsEconomy || input.townCount <= 1) return ATTACK_MANPOWER_MIN + 15;
+  return ATTACK_MANPOWER_MIN + 10;
+};
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 
@@ -12,10 +31,16 @@ type StrategicTile = {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   dockId?: string | undefined;
+  resource?: DomainTileState["resource"] | undefined;
   town?: unknown;
 };
 
-export type AutomationVictoryPath = "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY";
+export type AutomationVictoryPath =
+  | "TOWN_CONTROL"
+  | "SETTLED_TERRITORY"
+  | "ECONOMIC_HEGEMONY"
+  | "RESOURCE_MONOPOLY"
+  | "CONTINENT_FOOTPRINT";
 export type AutomationStrategicFocus =
   | "BALANCED"
   | "ECONOMIC_RECOVERY"
@@ -40,6 +65,7 @@ export type AutomationStrategicSnapshot = {
   pressureAttackScore: number;
   pressureThreatensCore: boolean;
   attackReady: boolean;
+  manpowerSufficient: boolean;
   victoryPathContender: boolean;
   hasActiveTown: boolean;
   hasActiveDock: boolean;
@@ -114,6 +140,29 @@ const settlementSupportsTown = <TTile extends StrategicTile>(
   return evaluation.townSupportNeed > 0;
 };
 
+const ownedResourceTileCounts = <TTile extends StrategicTile>(
+  playerId: string,
+  ownedTiles: readonly TTile[]
+): Map<NonNullable<DomainTileState["resource"]>, number> => {
+  const counts = new Map<NonNullable<DomainTileState["resource"]>, number>();
+  for (const tile of ownedTiles) {
+    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED" || !tile.resource) continue;
+    counts.set(tile.resource, (counts.get(tile.resource) ?? 0) + 1);
+  }
+  return counts;
+};
+
+const ownedDockTileCount = <TTile extends StrategicTile>(
+  playerId: string,
+  ownedTiles: readonly TTile[]
+): number => {
+  let count = 0;
+  for (const tile of ownedTiles) {
+    if (tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.dockId) count += 1;
+  }
+  return count;
+};
+
 const scoreVictoryPaths = <TTile extends StrategicTile>(
   input: StrategicSnapshotInput<TTile>
 ): Record<AutomationVictoryPath, VictoryPathScore> => {
@@ -128,6 +177,29 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
   const townProgress = input.townCount / townsTarget;
   const settledProgress = input.settledTileCount / settledTilesTarget;
   const economyProgress = input.incomePerMinute / economyTarget;
+
+  const resourceCounts = ownedResourceTileCounts(input.playerId, input.ownedTiles);
+  // Find the resource type the AI has accumulated the most of — this is the
+  // candidate resource for a RESOURCE_MONOPOLY win. Concentration matters more
+  // than absolute count for path-selection (the win threshold is 80% of one
+  // resource type globally, so AI needs to focus on a single type).
+  let topResourceCount = 0;
+  for (const value of resourceCounts.values()) {
+    if (value > topResourceCount) topResourceCount = value;
+  }
+  const dockCount = ownedDockTileCount(input.playerId, input.ownedTiles);
+
+  // RESOURCE_MONOPOLY contender progress is approximated by raw concentration:
+  // 4 tiles of one resource ≈ contender, 6+ ≈ strong contender. Without
+  // world-wide totals in scope we can't compute the real 80%-monopoly ratio.
+  const resourceMonopolyTarget = 6;
+  const resourceMonopolyProgress = topResourceCount / resourceMonopolyTarget;
+
+  // CONTINENT_FOOTPRINT progress approximated by dock count + whether
+  // cross-island expansion is currently reachable. Real progress needs island
+  // map access which the snapshot doesn't have.
+  const continentFootprintTarget = 3;
+  const continentFootprintProgress = dockCount / continentFootprintTarget;
 
   const townControlScore =
     input.townCount * 140 +
@@ -147,15 +219,35 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     (input.settlementCandidate ? 36 : 0) +
     (input.fallbackSettlementCandidate ? 16 : 0) +
     (!input.needsFood && !input.needsEconomy ? 18 : -18);
+  const resourceMonopolyScore =
+    topResourceCount * 60 +
+    input.frontierAnalysis.frontierOpportunityEconomic * 22 +
+    (input.economicBuildAvailable ? 40 : 0) +
+    (!input.needsFood && !input.needsEconomy ? 16 : -20);
+  // CONTINENT_FOOTPRINT is the multi-island spread path. A single dock is still
+  // SETTLED_TERRITORY territory ("I'm a land empire that happens to own one
+  // dock"). Require ≥2 docks before the big island-growth bonus kicks in, so
+  // the path only dominates once the AI is genuinely committed to the continental
+  // strategy.
+  const continentFootprintScore =
+    dockCount * 60 +
+    (dockCount >= 2 && islandGrowthAvailable ? 160 : 0) +
+    (dockCount >= 2 && input.fallbackSettlementCandidate?.dockId ? 60 : 0) +
+    (dockCount >= 2 && input.settlementCandidate?.dockId ? 40 : 0) +
+    (!input.needsFood ? 12 : -16);
   const populationCounts = {
     TOWN_CONTROL: input.pathPopulationCounts?.TOWN_CONTROL ?? 0,
     ECONOMIC_HEGEMONY: input.pathPopulationCounts?.ECONOMIC_HEGEMONY ?? 0,
-    SETTLED_TERRITORY: input.pathPopulationCounts?.SETTLED_TERRITORY ?? 0
+    SETTLED_TERRITORY: input.pathPopulationCounts?.SETTLED_TERRITORY ?? 0,
+    RESOURCE_MONOPOLY: input.pathPopulationCounts?.RESOURCE_MONOPOLY ?? 0,
+    CONTINENT_FOOTPRINT: input.pathPopulationCounts?.CONTINENT_FOOTPRINT ?? 0
   };
   const minimumPopulation = Math.min(
     populationCounts.TOWN_CONTROL,
     populationCounts.ECONOMIC_HEGEMONY,
-    populationCounts.SETTLED_TERRITORY
+    populationCounts.SETTLED_TERRITORY,
+    populationCounts.RESOURCE_MONOPOLY,
+    populationCounts.CONTINENT_FOOTPRINT
   );
   const crowdingPenalty = (path: AutomationVictoryPath, contender: boolean, softContender: boolean): number => {
     const overMinimum = Math.max(0, populationCounts[path] - minimumPopulation);
@@ -169,6 +261,10 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
   const economicSoftContender = economyProgress >= VICTORY_PATH_SOFT_CONTENDER_ECONOMY_RATIO;
   const settledContender = settledProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
   const settledSoftContender = settledProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
+  const resourceMonopolyContender = resourceMonopolyProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
+  const resourceMonopolySoftContender = resourceMonopolyProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
+  const continentFootprintContender = continentFootprintProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
+  const continentFootprintSoftContender = continentFootprintProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
 
   return {
     TOWN_CONTROL: {
@@ -185,6 +281,16 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
       score: settledTerritoryScore - crowdingPenalty("SETTLED_TERRITORY", settledContender, settledSoftContender),
       contender: settledContender,
       softContender: settledSoftContender
+    },
+    RESOURCE_MONOPOLY: {
+      score: resourceMonopolyScore - crowdingPenalty("RESOURCE_MONOPOLY", resourceMonopolyContender, resourceMonopolySoftContender),
+      contender: resourceMonopolyContender,
+      softContender: resourceMonopolySoftContender
+    },
+    CONTINENT_FOOTPRINT: {
+      score: continentFootprintScore - crowdingPenalty("CONTINENT_FOOTPRINT", continentFootprintContender, continentFootprintSoftContender),
+      contender: continentFootprintContender,
+      softContender: continentFootprintSoftContender
     }
   };
 };
@@ -274,8 +380,13 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     !input.needsFood &&
     input.frontierAnalysis.frontierOpportunityTownSupport > 0 &&
     Boolean(input.frontierAnalysis.townSupportExpand);
+  // CONTINENT_FOOTPRINT shares the dock-crossing preference with SETTLED_TERRITORY:
+  // both win conditions reward spreading across islands. Until the planner has
+  // path-specific frontier scoring, both paths route through the same gate.
+  const islandFocusedPath =
+    primaryVictoryPath === "SETTLED_TERRITORY" || primaryVictoryPath === "CONTINENT_FOOTPRINT";
   const islandExpandAvailable =
-    primaryVictoryPath === "SETTLED_TERRITORY" &&
+    islandFocusedPath &&
     input.canExpand &&
     (
       targetRequiresDockCrossing(input.frontierAnalysis.economicExpand) ||
@@ -283,7 +394,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       targetRequiresDockCrossing(input.frontierAnalysis.scaffoldExpand)
     );
   const islandSettlementAvailable =
-    primaryVictoryPath === "SETTLED_TERRITORY" &&
+    islandFocusedPath &&
     Boolean(input.settlementCandidate?.dockId || input.fallbackSettlementCandidate?.dockId);
   const openingScoutAvailable =
     input.canExpand &&
@@ -301,8 +412,16 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       (!growthFoundationEstablished && input.frontierAnalysis.frontierOpportunityScout > 0) ||
       input.frontierAnalysis.frontierOpportunityWaste > 0
     );
+  const manpowerSufficient =
+    input.manpower >= requiredAttackManpower({
+      underThreat,
+      threatCritical,
+      needsEconomy: input.needsEconomy,
+      townCount: input.townCount
+    });
   const attackReady =
     input.canAttack &&
+    manpowerSufficient &&
     (pressureThreatensCore || (!input.needsFood && !input.needsEconomy) || pressureAttackScore >= 180);
 
   let strategicFocus: AutomationStrategicFocus = "BALANCED";
@@ -351,6 +470,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     pressureAttackScore,
     pressureThreatensCore,
     attackReady,
+    manpowerSufficient,
     victoryPathContender,
     hasActiveTown,
     hasActiveDock

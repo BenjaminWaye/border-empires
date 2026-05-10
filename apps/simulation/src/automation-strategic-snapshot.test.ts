@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ATTACK_MANPOWER_MIN } from "@border-empires/shared";
 
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 
@@ -69,7 +70,7 @@ describe("automation strategic snapshot", () => {
     const snapshot = buildAutomationStrategicSnapshot({
       playerId: "ai-1",
       points: 800,
-      manpower: 12,
+      manpower: ATTACK_MANPOWER_MIN + 20,
       settledTileCount: 5,
       townCount: 2,
       incomePerMinute: 10,
@@ -293,5 +294,239 @@ describe("automation strategic snapshot", () => {
 
     expect(snapshot.openingScoutAvailable).toBe(true);
     expect(snapshot.scoutExpandWorthwhile).toBe(true);
+  });
+
+  it("selects RESOURCE_MONOPOLY when AI has stacked the same resource type", () => {
+    const ironTiles = Array.from({ length: 7 }, (_, index) =>
+      makeTile(index, 0, { ownerId: "ai-1", ownershipState: "SETTLED" })
+    ).map((tile) => ({ ...tile, resource: "IRON" as const }));
+    const tilesByKey = new Map(ironTiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
+    const snapshot = buildAutomationStrategicSnapshot({
+      playerId: "ai-1",
+      points: 800,
+      manpower: 12,
+      settledTileCount: 7,
+      townCount: 1,
+      incomePerMinute: 11,
+      ownedTiles: ironTiles,
+      tilesByKey,
+      frontierAnalysis: {
+        frontierEnemyTargetCount: 0,
+        frontierNeutralTargetCount: 1,
+        frontierOpportunityEconomic: 1,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      },
+      needsFood: false,
+      needsEconomy: false,
+      canAttack: true,
+      canExpand: true,
+      economicBuildAvailable: true,
+      fortBuildAvailable: false,
+      siegeOutpostBuildAvailable: false
+    });
+
+    expect(snapshot.primaryVictoryPath).toBe("RESOURCE_MONOPOLY");
+  });
+
+  it("selects CONTINENT_FOOTPRINT when AI has multiple docks and dock-cross expansion is reachable", () => {
+    const dockA = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-a" });
+    const dockB = makeTile(20, 0, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-b" });
+    const remoteDock = makeTile(50, 50, { dockId: "dock-c" });
+    const snapshot = buildAutomationStrategicSnapshot({
+      playerId: "ai-1",
+      points: 800,
+      manpower: 12,
+      settledTileCount: 4,
+      townCount: 1,
+      incomePerMinute: 9,
+      ownedTiles: [dockA, dockB],
+      tilesByKey: new Map([
+        ["0,0", dockA],
+        ["20,0", dockB],
+        ["50,50", remoteDock]
+      ]),
+      frontierAnalysis: {
+        expand: { from: dockA, target: remoteDock, score: 240 },
+        frontierEnemyTargetCount: 0,
+        frontierNeutralTargetCount: 1,
+        frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      },
+      needsFood: false,
+      needsEconomy: false,
+      canAttack: true,
+      canExpand: true,
+      economicBuildAvailable: false,
+      fortBuildAvailable: false,
+      siegeOutpostBuildAvailable: false
+    });
+
+    expect(snapshot.primaryVictoryPath).toBe("CONTINENT_FOOTPRINT");
+    expect(snapshot.islandExpandAvailable).toBe(true);
+  });
+
+  it("requires +15 manpower over base for one-town AI without enemy pressure", () => {
+    // townCount<=1 tier, no enemies → not underThreat → threshold = ATTACK_MANPOWER_MIN + 15.
+    const town = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Solo" } });
+    const baseInput = {
+      playerId: "ai-1",
+      points: 800,
+      settledTileCount: 3,
+      townCount: 1,
+      incomePerMinute: 6,
+      ownedTiles: [town],
+      tilesByKey: new Map([["0,0", town]]),
+      frontierAnalysis: {
+        frontierEnemyTargetCount: 0,
+        frontierNeutralTargetCount: 1,
+        frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      },
+      needsFood: false,
+      needsEconomy: false,
+      canAttack: true,
+      canExpand: true,
+      economicBuildAvailable: false,
+      fortBuildAvailable: false,
+      siegeOutpostBuildAvailable: false
+    } as const;
+    const tooLow = buildAutomationStrategicSnapshot({ ...baseInput, manpower: ATTACK_MANPOWER_MIN + 14 });
+    const sufficient = buildAutomationStrategicSnapshot({ ...baseInput, manpower: ATTACK_MANPOWER_MIN + 15 });
+
+    expect(tooLow.underThreat).toBe(false);
+    expect(tooLow.manpowerSufficient).toBe(false);
+    expect(sufficient.manpowerSufficient).toBe(true);
+  });
+
+  it("requires only +5 manpower when underThreat (frontier enemies + needsEconomy)", () => {
+    // underThreat tier → threshold = ATTACK_MANPOWER_MIN + 5.
+    const town = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Core" } });
+    const enemy = makeTile(1, 0, { ownerId: "enemy-1" });
+    const snapshot = buildAutomationStrategicSnapshot({
+      playerId: "ai-1",
+      points: 800,
+      manpower: ATTACK_MANPOWER_MIN + 5,
+      settledTileCount: 5,
+      townCount: 2,
+      incomePerMinute: 1,
+      ownedTiles: [town],
+      tilesByKey: new Map([
+        ["0,0", town],
+        ["1,0", enemy]
+      ]),
+      frontierAnalysis: {
+        attack: { from: town, target: enemy, score: 100 },
+        frontierEnemyTargetCount: 1,
+        frontierNeutralTargetCount: 0,
+        frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      },
+      needsFood: false,
+      needsEconomy: true,
+      canAttack: true,
+      canExpand: true,
+      economicBuildAvailable: false,
+      fortBuildAvailable: false,
+      siegeOutpostBuildAvailable: false
+    });
+
+    expect(snapshot.underThreat).toBe(true);
+    expect(snapshot.threatCritical).toBe(false);
+    expect(snapshot.manpowerSufficient).toBe(true);
+  });
+
+  it("relaxes the manpower gate to ATTACK_MIN when threat is critical", () => {
+    // threatCritical → require exactly ATTACK_MANPOWER_MIN. Gambling allowed when desperate.
+    const town = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Core" } });
+    const enemyA = makeTile(1, 0, { ownerId: "enemy-1" });
+    const enemyB = makeTile(0, 1, { ownerId: "enemy-2" });
+    const snapshot = buildAutomationStrategicSnapshot({
+      playerId: "ai-1",
+      points: 800,
+      manpower: ATTACK_MANPOWER_MIN,
+      settledTileCount: 5,
+      townCount: 2,
+      incomePerMinute: 1,
+      ownedTiles: [town],
+      tilesByKey: new Map([
+        ["0,0", town],
+        ["1,0", enemyA],
+        ["0,1", enemyB]
+      ]),
+      frontierAnalysis: {
+        attack: { from: town, target: enemyA, score: 360 },
+        frontierEnemyTargetCount: 2,
+        frontierNeutralTargetCount: 0,
+        frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      },
+      needsFood: true,
+      needsEconomy: true,
+      canAttack: true,
+      canExpand: true,
+      economicBuildAvailable: false,
+      fortBuildAvailable: false,
+      siegeOutpostBuildAvailable: false
+    });
+
+    expect(snapshot.threatCritical).toBe(true);
+    expect(snapshot.manpowerSufficient).toBe(true);
+  });
+
+  it("requires +10 manpower over base for the default tier (multi-town, healthy economy, no threat)", () => {
+    // Default tier (not threatCritical, not underThreat, not needsEconomy, townCount>1)
+    // → threshold = ATTACK_MANPOWER_MIN + 10.
+    const town = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Core" } });
+    const otherTown = makeTile(2, 0, { ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Outpost" } });
+    const baseInput = {
+      playerId: "ai-1",
+      points: 800,
+      settledTileCount: 8,
+      townCount: 2,
+      incomePerMinute: 12,
+      ownedTiles: [town, otherTown],
+      tilesByKey: new Map([
+        ["0,0", town],
+        ["2,0", otherTown]
+      ]),
+      frontierAnalysis: {
+        frontierEnemyTargetCount: 0,
+        frontierNeutralTargetCount: 1,
+        frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      },
+      needsFood: false,
+      needsEconomy: false,
+      canAttack: true,
+      canExpand: true,
+      economicBuildAvailable: false,
+      fortBuildAvailable: false,
+      siegeOutpostBuildAvailable: false
+    } as const;
+    const tooLow = buildAutomationStrategicSnapshot({ ...baseInput, manpower: ATTACK_MANPOWER_MIN + 9 });
+    const sufficient = buildAutomationStrategicSnapshot({ ...baseInput, manpower: ATTACK_MANPOWER_MIN + 10 });
+
+    expect(tooLow.underThreat).toBe(false);
+    expect(tooLow.threatCritical).toBe(false);
+    expect(tooLow.manpowerSufficient).toBe(false);
+    expect(sufficient.manpowerSufficient).toBe(true);
   });
 });
