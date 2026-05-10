@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.7",
+  version: "2026.05.09.8",
   title: "What's New",
-  summary: "3D is now the default renderer — no URL flag needed. Mobile players are prompted to switch to the lighter 2D view. Plus frontier cancel fixes, manpower panel improvements, and dock income corrections from today.",
+  summary: "Weak tiles now highlight on the 3D map when you toggle them on, and the Defensibility tab is rewritten in plain language so the score is actually understandable.",
   entries: [
+    {
+      introducedIn: "2026.05.09.8",
+      title: "Weak-tile overlay now works in 3D, and the Defensibility tab speaks plain English",
+      why: "The 3D renderer had no weak-defensibility overlay at all — toggling \"Show Weak Tiles\" did nothing visually unless you were on ?renderer=2d. Now that 3D is the default, the toggle has to actually highlight tiles in 3D too. Separately, the panel copy was full of jargon (\"weighted exposure\", \"frontier range\", \"authoritative\") and players couldn't tell what the score meant or how to improve it.",
+      changes: [
+        "3D map now paints orange highlights on tiles with 2 open sides and red highlights on tiles with 3+ open sides, matching the 2D behaviour.",
+        "Defensibility tab rewritten: \"Empire Shape\" → \"Your shape\", \"Exposed edges\" → \"Open sides\", \"Natural shields\" → \"Free walls\", and so on.",
+        "Score explanation rewritten in plain language — the panel now tells you what the number means and how to make it go up.",
+        "Tip phrasing simplified: instead of \"Anchor more of your border on coastlines\", it now says \"Build next to water or mountains. They work like walls.\"",
+      ]
+    },
     {
       introducedIn: "2026.05.09.7",
       title: "3D renderer is now the default; ?renderer=2d opts into flat canvas",
