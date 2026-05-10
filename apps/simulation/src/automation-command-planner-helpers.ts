@@ -65,13 +65,18 @@ export const shouldSettleCandidateNow = <TTile extends AutomationPlannerTile>(
   }
   if (!isStrategicCandidate && scaffoldOrScoutFallbackAvailable) return false;
   if (context.needsFood || context.needsEconomy) return evaluation.defensivelyCompact || evaluation.score >= 45;
+  // Surplus path floor was 10, which let through near-empty filler tiles.
+  // Each SETTLE costs 4 gold — at 174 settled / 19 income (real staging case)
+  // the AI was draining its tech budget on tiles with score 10-30. Bump the
+  // floor to 30 (≈1 settled neighbor + clustering bonus) so we only fill in
+  // tiles that actually shape territory, not pure fillers.
   return (
     evaluation.supportsImmediatePlan ||
     evaluation.defensivelyCompact ||
     (context.frontierAnalysis.frontierOpportunityScaffold <= 0 &&
       context.frontierAnalysis.frontierOpportunityScout <= 0 &&
       context.frontierAnalysis.frontierOpportunityEconomic <= 0 &&
-      evaluation.score >= 10)
+      evaluation.score >= 30)
   );
 };
 
