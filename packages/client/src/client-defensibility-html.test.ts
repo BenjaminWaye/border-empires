@@ -30,11 +30,11 @@ describe("renderDefensibilityPanelHtml", () => {
     });
 
     expect(html).not.toContain("Very Exposed");
-    expect(html).toContain("How this score is calculated");
-    expect(html).toContain("weighted exposure is still within the full-score frontier range");
-    expect(html).toContain('<span>Compact frontier target</span><strong>8</strong>');
-    expect(html).toContain('<span>100% cutoff</span><strong>10</strong>');
-    expect(html).toContain('<span>Authoritative weighted exposure</span><strong class="is-positive">4</strong>');
+    expect(html).toContain("Where does the % come from?");
+    expect(html).toContain("Your kingdom is squished into a tight blob");
+    expect(html).toContain('<span>A perfect blob your size would have</span><strong>8</strong>');
+    expect(html).toContain('<span>You score 100% if you stay at or below</span><strong>10</strong>');
+    expect(html).toContain('<span>You actually have</span><strong class="is-positive">4</strong>');
   });
 
   it("uses authoritative settled totals for the score explanation and changes copy below 100%", () => {
@@ -60,11 +60,11 @@ describe("renderDefensibilityPanelHtml", () => {
       terrainAt: (x, y) => tiles.get(keyFor(x, y))?.terrain ?? "LAND"
     });
 
-    expect(html).toContain("This score drops below 100%");
+    expect(html).toContain("too many sides facing open ground");
     expect(html).not.toContain("How 100% is calculated");
-    expect(html).toContain('<span>Compact frontier target</span><strong>18</strong>');
-    expect(html).toContain('<span>100% cutoff</span><strong>22.5</strong>');
-    expect(html).toContain('<span>Authoritative weighted exposure</span><strong class="is-negative">30</strong>');
-    expect(html).toContain('<span>Settled tiles</span><strong>4</strong>');
+    expect(html).toContain('<span>A perfect blob your size would have</span><strong>18</strong>');
+    expect(html).toContain('<span>You score 100% if you stay at or below</span><strong>22.5</strong>');
+    expect(html).toContain('<span>You actually have</span><strong class="is-negative">30</strong>');
+    expect(html).toContain('<span>Tiles you own</span><strong>4</strong>');
   });
 });

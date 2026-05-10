@@ -28,7 +28,8 @@ import {
   frontierClaimDurationMsForTile,
   guideSteps
 } from "./client-constants.js";
-import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import { renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import { exposedSidesForTile } from "./client-defensibility-tile.js";
 import { bootstrapClientApp } from "./client-bootstrap.js";
 import { createClientCollectSupport } from "./client-app-runtime-collect-support.js";
 import { createClientRuntimeDisplaySupport } from "./client-app-runtime-display-support.js";
