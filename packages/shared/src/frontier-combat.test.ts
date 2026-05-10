@@ -11,6 +11,7 @@ describe("frontier combat", () => {
     });
 
     expect(preview.atkEff).toBe(10);
+    expect(preview.atkMult).toBe(1);
     expect(preview.defEff).toBeCloseTo(16.2, 6);
     expect(preview.winChance).toBeCloseTo(10 / 26.2, 6);
   });
@@ -43,6 +44,27 @@ describe("frontier combat", () => {
 
   it("keeps preview and resolution tagged to the same combat module", () => {
     expect(buildFrontierCombatPreview.__combatModule).toBe(rollFrontierCombat.__combatModule);
+  });
+
+  it("scales attacker effective power by attackerOutpostMult", () => {
+    const baseline = buildFrontierCombatPreview({
+      terrain: "LAND",
+      ownershipState: "SETTLED",
+      townType: "FARMING"
+    });
+    const boosted = buildFrontierCombatPreview(
+      {
+        terrain: "LAND",
+        ownershipState: "SETTLED",
+        townType: "FARMING"
+      },
+      { attackerOutpostMult: 1.25 }
+    );
+
+    expect(baseline.atkEff).toBe(10);
+    expect(boosted.atkEff).toBeCloseTo(12.5, 6);
+    expect(boosted.atkMult).toBeCloseTo(1.25, 6);
+    expect(boosted.winChance).toBeGreaterThan(baseline.winChance);
   });
 
   it("keeps empirical win rate close to preview win chance", () => {
