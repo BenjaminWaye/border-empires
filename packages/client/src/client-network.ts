@@ -2237,7 +2237,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         domainChoices: (msg.domainChoices as string[]) ?? state.domainChoices,
         domainCatalog: (msg.domainCatalog as any[]) ?? state.domainCatalog,
         revealCapacity: (msg.revealCapacity as number) ?? state.revealCapacity,
-        activeRevealTargets: (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets
+        activeRevealTargets: (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets,
+        gold: typeof msg.gold === "number" ? msg.gold : undefined,
+        strategicResources: (msg.strategicResources as typeof state.strategicResources | undefined) ?? undefined
       }, pushFeed);
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       renderHud();
@@ -2259,6 +2261,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
       state.missions = (msg.missions as any[]) ?? state.missions;
+      if (typeof msg.gold === "number") state.gold = msg.gold;
+      if (msg.strategicResources && typeof msg.strategicResources === "object") {
+        state.strategicResources = {
+          ...state.strategicResources,
+          ...(msg.strategicResources as Partial<typeof state.strategicResources>)
+        };
+      }
       pushFeed(`Domain chosen: ${state.domainIds[state.domainIds.length - 1] ?? "unknown"}`, "tech", "success");
       renderHud();
       return;

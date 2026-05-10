@@ -110,32 +110,6 @@ const toResources = (
   ...(typeof cost?.shard === "number" && cost.shard > 0 ? { SHARD: cost.shard } : {})
 });
 
-const strategicCountsForPlayer = (playerId: string, tiles: Iterable<AiProgressionPlannerTile>): StrategicCounts => {
-  const counts: StrategicCounts = {};
-  for (const tile of tiles) {
-    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
-    switch (tile.resource) {
-      case "FARM":
-      case "FISH":
-        counts.FOOD = (counts.FOOD ?? 0) + 1;
-        break;
-      case "IRON":
-        counts.IRON = (counts.IRON ?? 0) + 1;
-        break;
-      case "GEMS":
-        counts.CRYSTAL = (counts.CRYSTAL ?? 0) + 1;
-        break;
-      case "FUR":
-        counts.SUPPLY = (counts.SUPPLY ?? 0) + 1;
-        break;
-      case "OIL":
-        counts.OIL = (counts.OIL ?? 0) + 1;
-        break;
-    }
-  }
-  return counts;
-};
-
 const rawResourceCountsForPlayer = (playerId: string, tiles: Iterable<AiProgressionPlannerTile>): RawResourceCounts => {
   const counts: RawResourceCounts = {};
   for (const tile of tiles) {
@@ -356,21 +330,34 @@ const settledTileCount = (playerId: string, tiles: Iterable<DomainTileState>): n
   return count;
 };
 
+const spendStrategicResources = (
+  player: DomainPlayer,
+  required: StrategicCounts
+): void => {
+  const next = { ...(player.strategicResources ?? {}) };
+  for (const [resource, amount] of Object.entries(required) as Array<[keyof StrategicCounts, number]>) {
+    if (!amount) continue;
+    next[resource] = Math.max(0, (next[resource] ?? 0) - amount);
+  }
+  player.strategicResources = next;
+};
+
 export const chooseTechForPlayer = (
   player: DomainPlayer,
   techId: string,
-  tiles: Iterable<DomainTileState>
+  _tiles: Iterable<DomainTileState>
 ): { ok: true } | { ok: false; reason: string } => {
   const tech = techTree.techs.find((entry) => entry.id === techId);
   if (!tech) return { ok: false, reason: "tech not found" };
   const choices = reachableTechChoices([...player.techIds]);
   if (!choices.includes(techId)) return { ok: false, reason: "requirements not met" };
-  const strategic = strategicCountsForPlayer(player.id, tiles);
+  const available = player.strategicResources ?? {};
   const required = toResources(tech.cost);
-  if (player.points < (tech.cost?.gold ?? 0) || !hasResources(required, strategic)) {
+  if (player.points < (tech.cost?.gold ?? 0) || !hasResources(required, available)) {
     return { ok: false, reason: "requirements not met" };
   }
   player.points = Math.max(0, player.points - (tech.cost?.gold ?? 0));
+  spendStrategicResources(player, required);
   player.techIds.add(techId);
   player.techRootId = tech.rootId ?? player.techRootId ?? "rewrite-local";
   player.mods = recomputeMods(player);
@@ -380,19 +367,20 @@ export const chooseTechForPlayer = (
 export const chooseDomainForPlayer = (
   player: DomainPlayer,
   domainId: string,
-  tiles: Iterable<DomainTileState>
+  _tiles: Iterable<DomainTileState>
 ): { ok: true } | { ok: false; reason: string } => {
   const domain = domainTree.domains.find((entry) => entry.id === domainId);
   if (!domain) return { ok: false, reason: "domain not found" };
   const ownedDomainIds = [...(player.domainIds ?? [])];
   const choices = reachableDomainChoices([...player.techIds], ownedDomainIds);
   if (!choices.includes(domainId)) return { ok: false, reason: "requirements not met" };
-  const strategic = strategicCountsForPlayer(player.id, tiles);
+  const available = player.strategicResources ?? {};
   const required = toResources(domain.cost);
-  if (player.points < (domain.cost?.gold ?? 0) || !hasResources(required, strategic)) {
+  if (player.points < (domain.cost?.gold ?? 0) || !hasResources(required, available)) {
     return { ok: false, reason: "requirements not met" };
   }
   player.points = Math.max(0, player.points - (domain.cost?.gold ?? 0));
+  spendStrategicResources(player, required);
   if (!player.domainIds) player.domainIds = new Set<string>();
   player.domainIds.add(domainId);
   player.mods = recomputeMods(player);
@@ -404,7 +392,15 @@ export const buildTechUpdatePayload = (player: DomainPlayer, tiles: Iterable<Dom
   const domainIds = [...(player.domainIds ?? [])];
   const techChoices = reachableTechChoices(techIds);
   const domainChoices = reachableDomainChoices(techIds, domainIds);
-  const strategic = strategicCountsForPlayer(player.id, tiles);
+  const available = player.strategicResources ?? {};
+  const strategicResources = {
+    FOOD: available.FOOD ?? 0,
+    IRON: available.IRON ?? 0,
+    CRYSTAL: available.CRYSTAL ?? 0,
+    SUPPLY: available.SUPPLY ?? 0,
+    SHARD: available.SHARD ?? 0,
+    OIL: available.OIL ?? 0
+  };
   return {
     status: "completed" as const,
     techRootId: player.techRootId ?? "rewrite-local",
@@ -415,6 +411,8 @@ export const buildTechUpdatePayload = (player: DomainPlayer, tiles: Iterable<Dom
     mods: player.mods ?? { attack: 1, defense: 1, income: 1, vision: 1 },
     incomePerMinute: estimateIncomePerMinuteFromTiles(player.id, tiles),
     missions: [],
+    gold: player.points,
+    strategicResources,
     techCatalog: techTree.techs.map((tech) => ({
       id: tech.id,
       tier: tech.tier,
@@ -429,7 +427,7 @@ export const buildTechUpdatePayload = (player: DomainPlayer, tiles: Iterable<Dom
       requirements: {
         gold: tech.cost?.gold ?? 0,
         resources: toResources(tech.cost),
-        canResearch: techChoices.includes(tech.id) && player.points >= (tech.cost?.gold ?? 0) && hasResources(toResources(tech.cost), strategic)
+        canResearch: techChoices.includes(tech.id) && player.points >= (tech.cost?.gold ?? 0) && hasResources(toResources(tech.cost), available)
       },
       ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
     })),
@@ -446,7 +444,7 @@ export const buildTechUpdatePayload = (player: DomainPlayer, tiles: Iterable<Dom
       requirements: {
         gold: domain.cost?.gold ?? 0,
         resources: toResources(domain.cost),
-        canResearch: domainChoices.includes(domain.id) && player.points >= (domain.cost?.gold ?? 0) && hasResources(toResources(domain.cost), strategic)
+        canResearch: domainChoices.includes(domain.id) && player.points >= (domain.cost?.gold ?? 0) && hasResources(toResources(domain.cost), available)
       }
     })),
     revealCapacity: 0,
@@ -464,6 +462,8 @@ export const buildDomainUpdatePayload = (player: DomainPlayer, tiles: Iterable<D
     activeRevealTargets: techPayload.activeRevealTargets,
     mods: techPayload.mods,
     incomePerMinute: techPayload.incomePerMinute,
-    missions: techPayload.missions
+    missions: techPayload.missions,
+    gold: techPayload.gold,
+    strategicResources: techPayload.strategicResources
   };
 };

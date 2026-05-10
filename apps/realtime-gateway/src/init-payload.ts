@@ -301,6 +301,14 @@ const toResources = (
   ...(typeof cost?.shard === "number" && cost.shard > 0 ? { SHARD: cost.shard } : {})
 });
 
+const hasResources = (
+  required: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>,
+  available: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>
+): boolean =>
+  (Object.entries(required) as Array<[keyof typeof available, number]>).every(
+    ([resource, amount]) => (available[resource] ?? 0) >= (amount ?? 0)
+  );
+
 const reachableTechChoices = (ownedTechIds: string[]): string[] =>
   techTree.techs
     .filter((tech) => {
@@ -794,13 +802,19 @@ export const buildGatewayInitPayload = (
         seededTileCount: seedWorld.tiles.size
       };
 
+  const availableGold = liveSnapshotPlayer?.gold ?? bootstrapProfile?.points ?? player?.points ?? 0;
+  const availableStrategic =
+    liveSnapshotPlayer?.strategicResources ??
+    bootstrapProfile?.strategicResources ??
+    { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 };
+
   return {
     runtimeIdentity,
     player: {
       id: playerIdentity.playerId,
       name: playerIdentity.playerName,
-      gold: liveSnapshotPlayer?.gold ?? bootstrapProfile?.points ?? player?.points ?? 0,
-      points: liveSnapshotPlayer?.gold ?? bootstrapProfile?.points ?? player?.points ?? 0,
+      gold: availableGold,
+      points: availableGold,
       level: 1,
       stamina: 0,
       manpower: liveSnapshotPlayer?.manpower ?? bootstrapProfile?.manpower ?? player?.manpower ?? MANPOWER_BASE_CAP,
@@ -811,10 +825,7 @@ export const buildGatewayInitPayload = (
         regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
       },
       incomePerMinute: liveSnapshotPlayer?.incomePerMinute ?? bootstrapProfile?.incomePerMinute ?? selfOverall?.incomePerMinute ?? 0,
-      strategicResources:
-        liveSnapshotPlayer?.strategicResources ??
-        bootstrapProfile?.strategicResources ??
-        { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+      strategicResources: availableStrategic,
       strategicProductionPerMinute:
         liveSnapshotPlayer?.strategicProductionPerMinute ??
         bootstrapProfile?.strategicProductionPerMinute ??
@@ -859,39 +870,51 @@ export const buildGatewayInitPayload = (
       }
     },
     techChoices,
-    techCatalog: techTree.techs.map((tech) => ({
-      id: tech.id,
-      tier: tech.tier,
-      name: tech.name,
-      description: tech.description,
-      ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
-      ...(tech.rootId ? { rootId: tech.rootId } : {}),
-      ...(tech.requires ? { requires: tech.requires } : {}),
-      ...(tech.prereqIds ? { prereqIds: tech.prereqIds } : {}),
-      ...(tech.effects ? { effects: tech.effects } : {}),
-      mods: tech.mods ?? {},
-      requirements: {
-        gold: tech.cost?.gold ?? 0,
-        resources: toResources(tech.cost),
-        canResearch: techChoices.includes(tech.id)
-      },
-      ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
-    })),
+    techCatalog: techTree.techs.map((tech) => {
+      const resources = toResources(tech.cost);
+      return {
+        id: tech.id,
+        tier: tech.tier,
+        name: tech.name,
+        description: tech.description,
+        ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
+        ...(tech.rootId ? { rootId: tech.rootId } : {}),
+        ...(tech.requires ? { requires: tech.requires } : {}),
+        ...(tech.prereqIds ? { prereqIds: tech.prereqIds } : {}),
+        ...(tech.effects ? { effects: tech.effects } : {}),
+        mods: tech.mods ?? {},
+        requirements: {
+          gold: tech.cost?.gold ?? 0,
+          resources,
+          canResearch:
+            techChoices.includes(tech.id) &&
+            availableGold >= (tech.cost?.gold ?? 0) &&
+            hasResources(resources, availableStrategic)
+        },
+        ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
+      };
+    }),
     domainChoices,
-    domainCatalog: domainTree.domains.map((domain) => ({
-      id: domain.id,
-      tier: domain.tier,
-      name: domain.name,
-      description: domain.description,
-      requiresTechId: domain.requiresTechId,
-      ...(domain.effects ? { effects: domain.effects } : {}),
-      mods: domain.mods ?? {},
-      requirements: {
-        gold: domain.cost?.gold ?? 0,
-        resources: toResources(domain.cost),
-        canResearch: domainChoices.includes(domain.id)
-      }
-    })),
+    domainCatalog: domainTree.domains.map((domain) => {
+      const resources = toResources(domain.cost);
+      return {
+        id: domain.id,
+        tier: domain.tier,
+        name: domain.name,
+        description: domain.description,
+        requiresTechId: domain.requiresTechId,
+        ...(domain.effects ? { effects: domain.effects } : {}),
+        mods: domain.mods ?? {},
+        requirements: {
+          gold: domain.cost?.gold ?? 0,
+          resources,
+          canResearch:
+            domainChoices.includes(domain.id) &&
+            availableGold >= (domain.cost?.gold ?? 0) &&
+            hasResources(resources, availableStrategic)
+        }
+      };
+    }),
     leaderboard: {
       overall,
       ...(selfOverall ? { selfOverall } : {}),
