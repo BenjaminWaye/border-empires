@@ -65,6 +65,7 @@ export type AutomationStrategicSnapshot = {
   pressureAttackScore: number;
   pressureThreatensCore: boolean;
   attackReady: boolean;
+  manpowerSufficient: boolean;
   victoryPathContender: boolean;
   hasActiveTown: boolean;
   hasActiveDock: boolean;
@@ -469,6 +470,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     pressureAttackScore,
     pressureThreatensCore,
     attackReady,
+    manpowerSufficient,
     victoryPathContender,
     hasActiveTown,
     hasActiveDock

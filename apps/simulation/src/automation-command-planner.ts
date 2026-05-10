@@ -281,7 +281,11 @@ const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
     canBuildEconomy: Boolean(economicBuild),
     canBuildSiegeOutpost: Boolean(siegeOutpostBuild),
     goldHealthy: goapGoldReserveHealthy(points),
-    staminaHealthy: manpower >= ATTACK_MANPOWER_MIN || !strategic.underThreat
+    // Use the same scaled-manpower gate as attackReady so the GOAP fallback
+    // doesn't issue ATTACK actions while the primary planner refuses them.
+    // The `|| !strategic.underThreat` softening still applies — when not
+    // threatened, baseline manpower is enough for non-emergency attacks.
+    staminaHealthy: strategic.manpowerSufficient || !strategic.underThreat
   }, mapVictoryPathForGoap(strategic.primaryVictoryPath));
   if (!goapDecision) return undefined;
 

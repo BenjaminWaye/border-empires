@@ -629,7 +629,9 @@ export class SimulationRuntime {
     const counts: Partial<Record<AutomationVictoryPath, number>> = {
       TOWN_CONTROL: 0,
       ECONOMIC_HEGEMONY: 0,
-      SETTLED_TERRITORY: 0
+      SETTLED_TERRITORY: 0,
+      RESOURCE_MONOPOLY: 0,
+      CONTINENT_FOOTPRINT: 0
     };
     for (const [playerId, victoryPath] of this.rememberedAutomationVictoryPathByPlayer.entries()) {
       if ((this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0) <= 0) continue;

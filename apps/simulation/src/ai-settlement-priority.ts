@@ -23,7 +23,7 @@ const resourceScore = (resource: DomainTileState["resource"] | undefined): numbe
       return 130;
     case "WOOD":
     case "FUR":
-      return 110;
+      return 120;
     case "GEMS":
       return 140;
     case "OIL":
