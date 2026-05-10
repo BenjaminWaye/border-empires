@@ -32,6 +32,7 @@ import {
   landBiomeAt,
   terrainAt,
   type Terrain,
+  scanOutpostMult,
   rollFrontierCombat,
   structureBuildDurationMs,
   structureBuildGoldCost,
@@ -5153,15 +5154,20 @@ export class SimulationRuntime {
     return activeFort || activeWoodenFort;
   }
 
+  private attackerOutpostMult(playerId: string, originX: number, originY: number): number {
+    return scanOutpostMult(playerId, originX, originY, (x, y) => this.tiles.get(simulationTileKey(x, y)));
+  }
+
   private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
     const previousTarget = this.tiles.get(lock.targetKey);
+    const attackerOutpostMult = this.attackerOutpostMult(lock.playerId, lock.originX, lock.originY);
     const combat =
       lock.actionType === "EXPAND"
         ? {
-            ...rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType),
+            ...rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType, undefined, { attackerOutpostMult }),
             attackerWon: true
           }
-        : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType);
+        : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType, undefined, { attackerOutpostMult });
     const defenderOwnerId = previousTarget?.ownerId;
     const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";

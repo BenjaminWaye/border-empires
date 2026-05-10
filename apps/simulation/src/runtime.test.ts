@@ -4530,4 +4530,110 @@ describe("simulation runtime", () => {
       })
     );
   });
+
+  it("threads attacker outpost aura into resolved combat atkEff", async () => {
+    // End-to-end smoke test: confirms the runtime wires `scanOutpostMult` into
+    // `rollFrontierCombat` via `buildLockedCombatResolution`. The aura
+    // algorithm itself (reach, wrap, status filter, Siege > Light) is covered
+    // exhaustively in `packages/shared/src/outpost-aura.test.ts`. The new tile
+    // at (11,10) sits at Chebyshev distance 1 from the origin (10,10), inside
+    // the reach=2 aura; without it the attacker should hit the unboosted 10.
+    const buildRuntime = (withOutpost: boolean): SimulationRuntime =>
+      new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 100,
+              manpower: 5_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "player-2",
+            {
+              id: "player-2",
+              isAi: false,
+              points: 100,
+              manpower: 5_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER"
+            },
+            {
+              x: 10,
+              y: 11,
+              terrain: "LAND",
+              ownerId: "player-2",
+              ownershipState: "SETTLED",
+              town: { name: "Target", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
+            ...(withOutpost
+              ? [
+                  {
+                    x: 11,
+                    y: 10,
+                    terrain: "LAND" as const,
+                    ownerId: "player-1",
+                    ownershipState: "SETTLED" as const,
+                    economicStructure: {
+                      ownerId: "player-1",
+                      type: "LIGHT_OUTPOST" as const,
+                      status: "active" as const
+                    }
+                  }
+                ]
+              : [])
+          ],
+          activeLocks: []
+        }
+      });
+
+    const captureAtkEff = async (runtime: SimulationRuntime): Promise<number | undefined> => {
+      const seen: SimulationEvent[] = [];
+      runtime.onEvent((event) => seen.push(event));
+      runtime.submitCommand({
+        commandId: "atk-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+      await Promise.resolve();
+      const accepted = seen.find(
+        (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
+          event.eventType === "COMMAND_ACCEPTED"
+      );
+      return accepted?.combatResult?.atkEff;
+    };
+
+    const baselineAtkEff = await captureAtkEff(buildRuntime(false));
+    const boostedAtkEff = await captureAtkEff(buildRuntime(true));
+
+    expect(baselineAtkEff).toBe(10);
+    expect(boostedAtkEff).toBeCloseTo(12.5, 6);
+  });
 });

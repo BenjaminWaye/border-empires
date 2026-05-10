@@ -2,7 +2,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { buildFrontierCombatPreview } from "@border-empires/shared";
+import { buildFrontierCombatPreview, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "./broadcast-payload.js";
@@ -185,10 +185,39 @@ type PreviewTile = {
   ownershipState?: string | undefined;
   dockId?: string | undefined;
   townType?: string | undefined;
+  economicStructureJson?: string | undefined;
+  siegeOutpostJson?: string | undefined;
 };
 
-const tileAt = (tiles: PreviewTile[], x: number, y: number): PreviewTile | undefined =>
-  tiles.find((tile) => tile.x === x && tile.y === y);
+const previewTileKey = (x: number, y: number): string => `${x},${y}`;
+
+type PreviewTileWithAura = PreviewTile & OutpostAuraTileFacts;
+
+const parseStructureJson = <T>(json: string | undefined): T | undefined => {
+  if (!json) return undefined;
+  try {
+    return JSON.parse(json) as T;
+  } catch {
+    return undefined;
+  }
+};
+
+// Builds a single tile map keyed by "x,y" that also carries each tile's
+// JSON-decoded outpost structures. Parsing happens once per preview, not
+// once per scan-cell, so the 5x5 aura sweep does only Map.get() work.
+const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithAura> => {
+  const map = new Map<string, PreviewTileWithAura>();
+  for (const tile of tiles) {
+    const siegeOutpost = parseStructureJson<{ ownerId?: string; status?: string }>(tile.siegeOutpostJson);
+    const economicStructure = parseStructureJson<{ ownerId?: string; type?: string; status?: string }>(tile.economicStructureJson);
+    map.set(previewTileKey(tile.x, tile.y), {
+      ...tile,
+      ...(siegeOutpost ? { siegeOutpost } : {}),
+      ...(economicStructure ? { economicStructure } : {})
+    });
+  }
+  return map;
+};
 
 const attackPreviewResult = (
   playerId: string,
@@ -200,8 +229,9 @@ const attackPreviewResult = (
   if (!tiles) {
     return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "preview unavailable" };
   }
-  const origin = tileAt(tiles, from.x, from.y);
-  const target = tileAt(tiles, to.x, to.y);
+  const tileMap = buildPreviewTileMap(tiles);
+  const origin = tileMap.get(previewTileKey(from.x, from.y));
+  const target = tileMap.get(previewTileKey(to.x, to.y));
   if (!origin || origin.ownerId !== playerId) {
     return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "origin not owned" };
   }
@@ -214,7 +244,8 @@ const attackPreviewResult = (
   if (!isFrontierAdjacent(from.x, from.y, to.x, to.y)) {
     return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "target not adjacent" };
   }
-  const preview = buildFrontierCombatPreview(target);
+  const attackerOutpostMult = scanOutpostMult(playerId, from.x, from.y, (x, y) => tileMap.get(previewTileKey(x, y)));
+  const preview = buildFrontierCombatPreview(target, { attackerOutpostMult });
   return {
     type: "ATTACK_PREVIEW_RESULT",
     from,
@@ -223,7 +254,8 @@ const attackPreviewResult = (
     winChance: preview.winChance,
     atkEff: preview.atkEff,
     defEff: preview.defEff,
-    defMult: preview.defMult
+    defMult: preview.defMult,
+    atkMult: preview.atkMult
   };
 };
 
