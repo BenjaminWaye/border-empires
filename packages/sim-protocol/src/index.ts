@@ -262,6 +262,13 @@ export type SimulationEvent =
       }>;
     }
   | {
+      eventType: "TILE_YIELD_ANCHOR_UPDATED";
+      commandId: string;
+      playerId: string;
+      tileKey: string;
+      collectedAt: number;
+    }
+  | {
       eventType: "TECH_UPDATE";
       commandId: string;
       playerId: string;

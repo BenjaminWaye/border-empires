@@ -5,6 +5,7 @@ import {
   FUEL_PLANT_OIL_PER_DAY,
   FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   IRONWORKS_IRON_PER_DAY,
+  OFFLINE_YIELD_ACCUM_MAX_MS,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TILE_YIELD_CAP_GOLD,
@@ -126,7 +127,11 @@ export const buildTileYieldView = (
           : TILE_YIELD_CAP_GOLD,
     strategicEach: maxDaily > 0 ? maxDaily / 3 : TILE_YIELD_CAP_RESOURCE
   };
-  const elapsedMinutes = Math.max(0, (now - (lastCollectedAt ?? 0)) / 60_000);
+  // Clamp at OFFLINE_YIELD_ACCUM_MAX_MS so a missing or stale lastCollectedAt
+  // (e.g. recovery edge case, manual DB edit) can never grant more than the
+  // intended offline window — defense-in-depth on top of the per-tile cap.
+  const elapsedMs = Math.min(OFFLINE_YIELD_ACCUM_MAX_MS, Math.max(0, now - (lastCollectedAt ?? 0)));
+  const elapsedMinutes = elapsedMs / 60_000;
   const strategic: Partial<Record<StrategicYieldKey, number>> = {};
   for (const [resource, daily] of Object.entries(strategicPerDay) as Array<[StrategicYieldKey, number]>) {
     const amount = Math.min(yieldCap.strategicEach, (daily / 1440) * elapsedMinutes);
