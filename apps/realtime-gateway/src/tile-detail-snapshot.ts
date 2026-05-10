@@ -108,6 +108,13 @@ const derivedTownIsFed = (
   return false;
 };
 
+const snapshotFoodCoverage = (snapshot: PlayerSubscriptionSnapshot | undefined): number | undefined => {
+  const upkeepLastTick = snapshot?.player?.upkeepLastTick;
+  if (!upkeepLastTick || typeof upkeepLastTick !== "object") return undefined;
+  const foodCoverage = (upkeepLastTick as { foodCoverage?: unknown }).foodCoverage;
+  return typeof foodCoverage === "number" && Number.isFinite(foodCoverage) ? foodCoverage : undefined;
+};
+
 const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "OIL", number>> => {
   switch (structureType) {
     case "FARMSTEAD": return { GOLD: FARMSTEAD_GOLD_UPKEEP / 10 };
@@ -153,7 +160,12 @@ export const buildSnapshotTileDetail = (
   const supportSummary = supportSummaryForTown(tilesByKey, playerId, x, y);
   const supportStructures = derivedTownSupportStructures(tilesByKey, playerId, x, y);
   const populationTier = parsedTown?.populationTier ?? tile.townPopulationTier ?? "SETTLEMENT";
-  const isFed = populationTier === "SETTLEMENT" ? true : derivedTownIsFed(tilesByKey, playerId, x, y);
+  const foodCoverage = snapshotFoodCoverage(snapshot);
+  const isFed =
+    populationTier === "SETTLEMENT" ||
+    (typeof foodCoverage === "number" && foodCoverage >= 0.999) ||
+    parsedTown?.isFed === true ||
+    derivedTownIsFed(tilesByKey, playerId, x, y);
   const baseGoldPerMinute =
     typeof parsedTown?.baseGoldPerMinute === "number" && parsedTown.baseGoldPerMinute > 0.0001
       ? parsedTown.baseGoldPerMinute
