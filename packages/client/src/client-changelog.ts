@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.8",
+  version: "2026.05.10.1",
   title: "What's New",
-  summary: "Town details now respect full FOOD upkeep coverage, so fed towns no longer show stale unfed warnings. Plus 3D is now the default renderer, frontier cancel fixes, manpower panel improvements, and dock income corrections from today.",
+  summary: "Town growth panels now reflect live rewrite growth again, and town details respect full FOOD upkeep coverage so fed towns no longer show stale warnings.",
   entries: [
+    {
+      introducedIn: "2026.05.10.1",
+      title: "Town growth panels no longer trust stale paused-growth snapshots",
+      why: "On staging, rewrite town snapshots could reuse a complete but stale town summary whose population growth had previously been cached as 0. The client then correctly displayed every next-size line as growth paused even when the live town was fed and below its population cap.",
+      changes: [
+        "Rewrite snapshots now refresh dynamic town economy and population-growth fields from live owner, food, support, and population state before sending them to the client.",
+        "Added simulation regression coverage for a fed town whose stored summary says growth is 0, verifying the exported town regains positive growth and income."
+      ]
+    },
     {
       introducedIn: "2026.05.09.8",
       title: "Fed towns stop showing stale unfed warnings",
