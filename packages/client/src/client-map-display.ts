@@ -125,7 +125,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   const kind = type as string;
   if (kind === "MARKET") return "Nearby town: +50% fed gold output and +50% gold storage cap.";
   if (kind === "BROKER_MARKET") return "Upgrades a market into a broker market with +87.5% fed town gold output and +0.5 flat town income.";
-  if (kind === "GRANARY") return "Boosts nearby farmsteads within 10 tiles and trims local town food upkeep.";
+  if (kind === "GRANARY") return "Boosts nearby town population growth by 15%.";
   if (kind === "SEED_GRANARY") return "Upgrades a granary into a seed granary with +30% local town population growth and lower local town food upkeep.";
   if (kind === "CENSUS_HALL") return "Drives local population growth through census administration.";
   if (kind === "BANK") return "Nearby town: +50% city income and +1 flat income.";
@@ -291,7 +291,7 @@ export const structureInfoForKey = (
     if (key === "MINE") return ["+50% iron or crystal output on mineral tiles"];
     if (key === "MARKET") return ["+50% fed town gold output", "+50% town gold storage cap"];
     if (key === "BROKER_MARKET") return ["+87.5% fed town gold output", "+0.5 flat town gold income"];
-    if (key === "GRANARY") return ["+50% food output on FARM and FISH tiles within 10 tiles", "-10% local town food upkeep"];
+    if (key === "GRANARY") return ["+15% nearby town population growth"];
     if (key === "SEED_GRANARY") return ["+30% local town population growth", "-10% local town food upkeep"];
     if (key === "CENSUS_HALL") return ["+25% local town population growth"];
     if (key === "BANK") return ["+50% city income", "+1 flat city income"];

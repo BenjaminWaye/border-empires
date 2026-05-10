@@ -58,7 +58,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% fed gold output and +50% gold storage cap.`;
   }
   if (actionId === "build_granary") {
-    return `Build on this support tile for ${supportedTownLabel}. Grants +20% population growth and +20% gold storage cap.`;
+    return `Build on this support tile for ${supportedTownLabel}. Grants +15% population growth.`;
   }
   if (actionId === "build_bank") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% city income and +1 flat income.`;
