@@ -270,6 +270,17 @@ type SimulationRuntimeOptions = {
   }) => void;
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
+  onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
+};
+
+export type VisibilityAuditSample = {
+  playerId: string;
+  tileKey: string;
+  x: number;
+  y: number;
+  ownerId: string;
+  reasons: string[];
+  redacted: boolean;
 };
 
 const createPlayersFromRecoveredState = (
@@ -599,6 +610,7 @@ export class SimulationRuntime {
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
+  private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
   private readonly onQueueDrain:
     | ((sample: {
         durationMs: number;
@@ -643,6 +655,7 @@ export class SimulationRuntime {
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
+    this.onVisibilityAudit = options.onVisibilityAudit;
     this.players =
       createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
       (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
@@ -1688,15 +1701,26 @@ export class SimulationRuntime {
       if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined;
       return { x, y };
     };
+    const radiusSelfKeys = new Set<string>();
+    const radiusAllyKeys = new Map<string, Set<string>>();
+    const lockOriginKeys = new Set<string>();
+    const dockRevealKeys = new Set<string>();
     const fullVisionKeys = new Set<string>();
-    const addVision = (territoryTileKeys: Iterable<string>, vision: number, visionRadiusBonus: number): void => {
+    const addVision = (
+      territoryTileKeys: Iterable<string>,
+      vision: number,
+      visionRadiusBonus: number,
+      sink: Set<string>
+    ): void => {
       const radius = Math.max(1, Math.floor(VISION_RADIUS * vision) + visionRadiusBonus);
       for (const tileKey of territoryTileKeys) {
         const coords = parseKey(tileKey);
         if (!coords) continue;
         for (let dy = -radius; dy <= radius; dy += 1) {
           for (let dx = -radius; dx <= radius; dx += 1) {
-            fullVisionKeys.add(keyFor(coords.x + dx, coords.y + dy));
+            const wrapped = keyFor(coords.x + dx, coords.y + dy);
+            sink.add(wrapped);
+            fullVisionKeys.add(wrapped);
           }
         }
       }
@@ -1706,16 +1730,19 @@ export class SimulationRuntime {
     if (primaryPlayer) {
       this.applyManpowerRegen(primaryPlayer);
       const primarySummary = this.summaryForPlayer(playerId);
-      addVision(primarySummary.territoryTileKeys, primaryPlayer.mods?.vision ?? 1, visionRadiusBonusForPlayer(primaryPlayer));
+      addVision(primarySummary.territoryTileKeys, primaryPlayer.mods?.vision ?? 1, visionRadiusBonusForPlayer(primaryPlayer), radiusSelfKeys);
       for (const allyId of primaryPlayer.allies) {
         const ally = this.players.get(allyId);
         if (!ally) continue;
         this.applyManpowerRegen(ally);
-        addVision(this.summaryForPlayer(allyId).territoryTileKeys, ally.mods?.vision ?? 1, visionRadiusBonusForPlayer(ally));
+        const allySink = new Set<string>();
+        addVision(this.summaryForPlayer(allyId).territoryTileKeys, ally.mods?.vision ?? 1, visionRadiusBonusForPlayer(ally), allySink);
+        radiusAllyKeys.set(allyId, allySink);
       }
     }
     for (const lock of this.locksByTile.values()) {
       if (lock.playerId !== playerId) continue;
+      lockOriginKeys.add(lock.originKey);
       fullVisionKeys.add(lock.originKey);
     }
     if (primaryPlayer) {
@@ -1731,6 +1758,7 @@ export class SimulationRuntime {
         WORLD_WIDTH,
         WORLD_HEIGHT
       )) {
+        dockRevealKeys.add(revealKey);
         fullVisionKeys.add(revealKey);
       }
     }
@@ -1748,6 +1776,28 @@ export class SimulationRuntime {
 
     const allyAndSelfIds = new Set<string>([playerId, ...(primaryPlayer?.allies ?? [])]);
     const visibleKeys = new Set<string>([...fullVisionKeys, ...lockTargetOnlyKeys]);
+    const onVisibilityAudit = this.onVisibilityAudit;
+    const auditOpponentTile = (tile: DomainTileState, tileKey: string, redacted: boolean): void => {
+      if (!onVisibilityAudit) return;
+      if (!tile.ownerId || allyAndSelfIds.has(tile.ownerId)) return;
+      const reasons: string[] = [];
+      if (radiusSelfKeys.has(tileKey)) reasons.push("radius:self");
+      for (const [allyId, set] of radiusAllyKeys) {
+        if (set.has(tileKey)) reasons.push(`radius:ally:${allyId}`);
+      }
+      if (lockOriginKeys.has(tileKey)) reasons.push("lock-origin");
+      if (dockRevealKeys.has(tileKey)) reasons.push("dock-reveal");
+      if (lockTargetOnlyKeys.has(tileKey)) reasons.push("lock-target");
+      onVisibilityAudit({
+        playerId,
+        tileKey,
+        x: tile.x,
+        y: tile.y,
+        ownerId: tile.ownerId,
+        reasons,
+        redacted
+      });
+    };
 
     return {
       tiles: [...visibleKeys]
@@ -1758,8 +1808,10 @@ export class SimulationRuntime {
           const isLockTargetOnly = lockTargetOnlyKeys.has(tileKey);
           const ownedByOther = Boolean(tile.ownerId) && !allyAndSelfIds.has(tile.ownerId as string);
           if (isLockTargetOnly && ownedByOther) {
+            auditOpponentTile(tile, tileKey, true);
             return { x: tile.x, y: tile.y, terrain: tile.terrain };
           }
+          if (ownedByOther) auditOpponentTile(tile, tileKey, false);
           return {
             x: tile.x,
             y: tile.y,

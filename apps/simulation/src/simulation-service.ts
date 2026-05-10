@@ -38,7 +38,7 @@ import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "
 import { createPlayerSubscriptionRegistry } from "./subscription-registry.js";
 import { createSimulationPersistenceQueue } from "./simulation-persistence-queue.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-cache.js";
-import { SimulationRuntime } from "./runtime.js";
+import { SimulationRuntime, type VisibilityAuditSample } from "./runtime.js";
 import { loadSimulationStartupRecovery } from "./startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "./startup-replay-compaction.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
@@ -529,6 +529,35 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
   };
+  const visibilityAuditAttributedEnabled = process.env.SIMULATION_VISIBILITY_AUDIT === "1";
+  const visibilityAuditDedupMs = Math.max(1000, Number(process.env.SIMULATION_VISIBILITY_AUDIT_DEDUP_MS ?? 30_000));
+  const visibilityAuditDedup = new Map<string, number>();
+  const visibilityAuditDedupMaxEntries = 10_000;
+  const handleVisibilityAudit = (sample: VisibilityAuditSample): void => {
+    const isUnattributed = sample.reasons.length === 0;
+    if (!isUnattributed && !visibilityAuditAttributedEnabled) return;
+    const dedupKey = `${sample.playerId}:${sample.tileKey}`;
+    const at = Date.now();
+    const last = visibilityAuditDedup.get(dedupKey);
+    if (last !== undefined && at - last < visibilityAuditDedupMs) return;
+    visibilityAuditDedup.set(dedupKey, at);
+    if (visibilityAuditDedup.size > visibilityAuditDedupMaxEntries) {
+      const cutoff = at - visibilityAuditDedupMs * 5;
+      for (const [key, ts] of visibilityAuditDedup) {
+        if (ts < cutoff) visibilityAuditDedup.delete(key);
+      }
+    }
+    emitLog(isUnattributed ? "warn" : "info", "simulation visibility audit", {
+      event: isUnattributed ? "sim_visibility_unattributed" : "sim_visibility_attributed",
+      playerId: sample.playerId,
+      tileKey: sample.tileKey,
+      x: sample.x,
+      y: sample.y,
+      ownerId: sample.ownerId,
+      reasons: sample.reasons,
+      redacted: sample.redacted
+    });
+  };
   const isDbBackedStartup =
     (typeof options.databaseUrl === "string" && options.databaseUrl.length > 0) ||
     (typeof options.sqlitePath === "string" && options.sqlitePath.length > 0);
@@ -766,6 +795,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (sample.durationMs < slowQueueDrainWarnMs) return;
       recordLagDiagnostic("warn", "runtime_queue_drain_slow", sample);
     },
+    onVisibilityAudit: handleVisibilityAudit,
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });
@@ -1493,7 +1523,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         initialState: bootstrap.initialState,
         initialCommandHistory: recoverCommandHistory([], []),
         mergeSeedTilesWithInitialState: false,
-        initialPlayers: bootstrap.initialPlayers
+        initialPlayers: bootstrap.initialPlayers,
+        onVisibilityAudit: handleVisibilityAudit
       });
       const nextSummary = buildCurrentSeasonSummary({
         seasonState: bootstrap.seasonState,
