@@ -4,7 +4,8 @@ import { renderClientChangelogOverlay } from "./client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY, guideSteps } from "./client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "./client-debug.js";
-import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import { renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import { exposedSidesForTile, isOwnedSettledLandTile } from "./client-defensibility-tile.js";
 import type { initClientDom } from "./client-dom.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
@@ -368,7 +369,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
     <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}</strong></button>
-    <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
+    <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Fat blob shapes with fewer open sides are easier to defend. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
@@ -884,7 +885,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     btn.onclick = () => {
       state.showWeakDefensibility = !state.showWeakDefensibility;
       const weakTileCount = [...state.tiles.values()].filter((tile) => {
-        if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED" || tile.fogged) return false;
+        if (!isOwnedSettledLandTile(tile, state.me)) return false;
         return exposedSidesForTile(tile, {
           tiles: state.tiles,
           me: state.me,
@@ -896,8 +897,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       }).length;
       pushFeed(
         state.showWeakDefensibility
-          ? `Weak defensibility overlay enabled (${weakTileCount} tiles highlighted).`
-          : "Weak defensibility overlay hidden.",
+          ? `Showing weak tiles (${weakTileCount} highlighted).`
+          : "Weak tiles hidden.",
         "info",
         "info"
       );

@@ -1,5 +1,5 @@
 import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile } from "./client-constants.js";
-import { exposedSidesForTile } from "./client-defensibility-html.js";
+import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
@@ -589,7 +589,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineDashOffset = 0;
         deps.ctx.lineWidth = 1;
       }
-      if (state.showWeakDefensibility && t && vis === "visible" && t.ownerId === state.me && t.terrain === "LAND" && t.ownershipState === "SETTLED" && !t.fogged) {
+      if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
         const exposedSides = exposedSidesForTile(t, {
           tiles: state.tiles,
           me: state.me,
@@ -598,8 +598,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           wrapY: deps.wrapY,
           terrainAt
         });
-        if (exposedSides.length >= 2) {
-          const critical = exposedSides.length >= 3;
+        const severity = weakDefensibilitySeverity(exposedSides.length);
+        if (severity) {
+          const critical = severity === "critical";
           deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
           deps.ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
           deps.ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
@@ -1102,7 +1103,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineDashOffset = 0;
           deps.ctx.lineWidth = 1;
         }
-        if (state.showWeakDefensibility && t && vis === "visible" && t.ownerId === state.me && t.terrain === "LAND" && t.ownershipState === "SETTLED" && !t.fogged) {
+        if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
           const exposedSides = exposedSidesForTile(t, {
             tiles: state.tiles,
             me: state.me,
@@ -1111,8 +1112,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             wrapY: deps.wrapY,
             terrainAt
           });
-          if (exposedSides.length >= 2) {
-            const critical = exposedSides.length >= 3;
+          const severity = weakDefensibilitySeverity(exposedSides.length);
+          if (severity) {
+            const critical = severity === "critical";
             deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
             deps.ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
             deps.ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";

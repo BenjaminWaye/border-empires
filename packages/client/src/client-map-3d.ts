@@ -28,6 +28,8 @@ import {
 } from "./client-map-3d-structure-overlay.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
 import { createRoadOverlay } from "./client-map-3d-road-overlay.js";
+import { createDefensibilityOverlay } from "./client-map-3d-defensibility-overlay.js";
+import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { buildRoadNetwork } from "./client-road-network.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import {
@@ -95,6 +97,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
   const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES);
+  const defensibilityOverlay = createDefensibilityOverlay(scene, MAX_VISIBLE_TILES);
 
   // Visual-only demo: ?towndemo=1 fakes a row of 5 tiers near (camX, camY)
   // so you can compare Settlement → Town → City → Great City → Metropolis
@@ -519,6 +522,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.clear();
     settleOverlay.clear();
     structureOverlay.clear();
+    defensibilityOverlay.clear();
     // Build the dock-endpoint key set the same way the 2D runtime loop
     // does, since `tile.dockId` is not reliably populated on every
     // dock-endpoint tile snapshot.
@@ -746,6 +750,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             };
           }
         }
+        if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
+          const exposedSides = exposedSidesForTile(tile, {
+            tiles: deps.state.tiles,
+            me: deps.state.me,
+            keyFor: deps.keyFor,
+            wrapX: deps.wrapX,
+            wrapY: deps.wrapY,
+            terrainAt: deps.terrainAt
+          });
+          const severity = weakDefensibilitySeverity(exposedSides.length);
+          if (severity) defensibilityOverlay.addInstance(x, z, surfaceY, severity);
+        }
       }
     }
 
@@ -766,6 +782,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.commit();
     settleOverlay.commit();
     structureOverlay.commit();
+    defensibilityOverlay.commit();
   };
 
   const maybeRebuild = (nowMs: number): void => {
@@ -847,6 +864,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();
+    defensibilityOverlay.dispose();
     forest.dispose();
     villageEffects.dispose();
     waterSurface.dispose();
