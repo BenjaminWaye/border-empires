@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.10.5",
+  version: "2026.05.10.6",
   title: "What's New",
-  summary: "Weak tiles now highlight on the 3D map when you toggle them on, and the Defensibility tab is rewritten in plain language so the score is actually understandable.",
+  summary: "Wooden Forts and Light Outposts are now affordable on day one (75g / 0.5/min upkeep), and active Light/Siege Outposts within two tiles of your attack origin now boost your effective attack power. Plus weak-tile 3D highlights and the Defensibility tab rewrite.",
   entries: [
+    {
+      introducedIn: "2026.05.10.6",
+      title: "Wooden Fort and Light Outpost are buildable on day one",
+      why: "Both structures previously cost 900 gold with 5 gold/minute upkeep, well outside the reach of a player with the 100 gold starting purse, so early-game defense and pressure plays were locked behind a long economic ramp. The new pricing puts the first one in your hands immediately and lets one settlement income pay upkeep on two of them.",
+      changes: [
+        "Wooden Fort base cost dropped from 900g to 75g (still scales by 10% per additional fort).",
+        "Light Outpost base cost dropped from 900g to 75g (also +10% per additional).",
+        "Both structures' gold upkeep dropped from 5/min to 0.5/min."
+      ]
+    },
+    {
+      introducedIn: "2026.05.10.6",
+      title: "Light and Siege Outposts now project an attacker aura within two tiles",
+      why: "Building a Light Outpost adjacent to enemy territory used to be self-defeating — the enemy could just attack the construction tile during the 60-second build and erase your investment before it provided any value. Extending the aura two tiles out means you can place outposts safely behind your front line and still apply offensive pressure where it counts.",
+      changes: [
+        "Active Light Outposts within Chebyshev distance 2 of your attack origin multiply your effective attack power by 1.25.",
+        "Active Siege Outposts within the same range multiply your effective attack power by 1.6 (Siege overrides Light when both are in range).",
+        "Hover-time attack-preview win chances reflect the boost so you can see exactly how much a nearby outpost is helping a given attack."
+      ]
+    },
     {
       introducedIn: "2026.05.10.5",
       title: "Weak-tile overlay now works in 3D, and the Defensibility tab speaks plain English",

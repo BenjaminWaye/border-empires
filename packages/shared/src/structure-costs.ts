@@ -51,11 +51,11 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     scaling: { kind: "incremental", rate: 0.15 }
   },
   WOODEN_FORT: {
-    baseGoldCost: 900,
+    baseGoldCost: 75,
     scaling: { kind: "incremental", rate: 0.1 }
   },
   LIGHT_OUTPOST: {
-    baseGoldCost: 900,
+    baseGoldCost: 75,
     scaling: { kind: "incremental", rate: 0.1 }
   },
   FUR_SYNTHESIZER: { baseGoldCost: 2_200 },

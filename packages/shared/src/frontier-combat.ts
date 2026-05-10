@@ -11,7 +11,12 @@ export type FrontierCombatPreview = {
   atkEff: number;
   defEff: number;
   defMult: number;
+  atkMult: number;
   winChance: number;
+};
+
+export type FrontierCombatModifiers = {
+  attackerOutpostMult?: number;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
@@ -27,19 +32,27 @@ const defenseMultiplierForTile = (target: FrontierCombatPreviewTile): number => 
   return defMult;
 };
 
-const buildFrontierCombatPreviewImpl = (target: FrontierCombatPreviewTile): FrontierCombatPreview => {
-  const atkEff = 10;
+const buildFrontierCombatPreviewImpl = (
+  target: FrontierCombatPreviewTile,
+  modifiers: FrontierCombatModifiers = {}
+): FrontierCombatPreview => {
+  const atkMult = modifiers.attackerOutpostMult ?? 1;
+  const atkEff = 10 * atkMult;
   const defMult = defenseMultiplierForTile(target);
   const defEff = 10 * defMult;
   return {
     atkEff,
     defEff,
     defMult,
+    atkMult,
     winChance: combatWinChance(atkEff, defEff)
   };
 };
 
-type FrontierCombatPreviewFn = ((target: FrontierCombatPreviewTile) => FrontierCombatPreview) & {
+type FrontierCombatPreviewFn = ((
+  target: FrontierCombatPreviewTile,
+  modifiers?: FrontierCombatModifiers
+) => FrontierCombatPreview) & {
   __combatModule: symbol;
 };
 
@@ -50,9 +63,10 @@ export const buildFrontierCombatPreview: FrontierCombatPreviewFn = Object.assign
 const rollFrontierCombatImpl = (
   target: FrontierCombatPreviewTile,
   _actionType: "ATTACK" | "EXPAND",
-  randomValue = Math.random()
+  randomValue = Math.random(),
+  modifiers: FrontierCombatModifiers = {}
 ): FrontierCombatPreview & { attackerWon: boolean } => {
-  const preview = buildFrontierCombatPreview(target);
+  const preview = buildFrontierCombatPreview(target, modifiers);
   return {
     ...preview,
     attackerWon: randomValue < preview.winChance
@@ -62,7 +76,8 @@ const rollFrontierCombatImpl = (
 type RollFrontierCombatFn = ((
   target: FrontierCombatPreviewTile,
   actionType: "ATTACK" | "EXPAND",
-  randomValue?: number
+  randomValue?: number,
+  modifiers?: FrontierCombatModifiers
 ) => FrontierCombatPreview & { attackerWon: boolean }) & {
   __combatModule: symbol;
 };
