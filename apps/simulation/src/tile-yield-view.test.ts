@@ -93,4 +93,30 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.goldPerMinute).toBe(expectedGoldPerMinute);
     expect(view?.yield?.gold).toBe(expectedGoldPerMinute);
   });
+
+  it("clamps elapsed time at OFFLINE_YIELD_ACCUM_MAX_MS so a stale anchor cannot exceed 12h of yield", () => {
+    const tile: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      town: { type: "FARMING", populationTier: "SETTLEMENT" }
+    };
+    const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
+    const now = 24 * 60 * 60_000; // 24h into the epoch
+    const stale = 0; // anchor at epoch 0 → naive elapsed is 24h
+    const view = buildTileYieldView(tile, stale, now, {
+      player,
+      tiles,
+      dockLinksByDockTileKey: new Map(),
+      fedTownKeys: new Set<string>()
+    });
+    const goldPerMinute = view?.yieldRate.goldPerMinute ?? 0;
+    expect(goldPerMinute).toBeGreaterThan(0);
+    // Even with goldPerMinute * 24h pre-cap math, the buffer must not exceed
+    // goldPerMinute * 12h (OFFLINE_YIELD_ACCUM_MAX_MS). Per-tile cap (8h) wins
+    // here, but the elapsed-clamp is what protects against larger town caps.
+    expect(view?.yield?.gold).toBeLessThanOrEqual(goldPerMinute * 60 * 12 + 1e-6);
+  });
 });

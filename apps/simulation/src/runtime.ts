@@ -3904,6 +3904,9 @@ export class SimulationRuntime {
       ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
       ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
       ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {}),
+      // Load-bearing for recovery: event replay reads this to rebuild
+      // tileYieldCollectedAtByTile when a restart predates the next snapshot.
+      // See applyTileDeltaToRecoveredAccumulator in event-recovery.ts.
       ...(typeof lastCollectedAt === "number" ? { lastCollectedAt } : {})
     };
   }
