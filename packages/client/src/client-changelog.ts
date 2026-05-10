@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.09.7",
+  version: "2026.05.09.8",
   title: "What's New",
-  summary: "3D is now the default renderer — no URL flag needed. Mobile players are prompted to switch to the lighter 2D view. Plus frontier cancel fixes, manpower panel improvements, and dock income corrections from today.",
+  summary: "Town details now respect full FOOD upkeep coverage, so fed towns no longer show stale unfed warnings. Plus 3D is now the default renderer, frontier cancel fixes, manpower panel improvements, and dock income corrections from today.",
   entries: [
+    {
+      introducedIn: "2026.05.09.8",
+      title: "Fed towns stop showing stale unfed warnings",
+      why: "Rewrite tile detail fallback was recomputing town fed state from only adjacent fish or grain. That contradicted the actual economy rule shown in the top bar, where stored FOOD plus FOOD production covers global upkeep, so a town could display `Town is unfed` even while the player had a healthy positive FOOD balance and full upkeep coverage.",
+      changes: [
+        "Gateway tile detail now treats full global FOOD upkeep coverage as a fed signal before falling back to nearby food heuristics.",
+        "The town overview also suppresses stale unfed warning copy and unfed growth explanations while global FOOD coverage is full.",
+        "The regression test covers a town with positive stored FOOD, positive FOOD production, full foodCoverage, and no adjacent food tile so the warning cannot come back from the detail fallback."
+      ]
+    },
     {
       introducedIn: "2026.05.09.7",
       title: "3D renderer is now the default; ?renderer=2d opts into flat canvas",
