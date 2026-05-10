@@ -481,7 +481,7 @@ const buildTownSummary = (
   player: RuntimeState["players"][number] | undefined,
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
   fedTownKeys: ReadonlySet<string>,
-  _viewerOwnsTown: boolean,
+  refreshCompleteTownSummary: boolean,
   townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>
 ): Tile["town"] | undefined => {
   const partial = parseTown(tile);
@@ -497,14 +497,8 @@ const buildTownSummary = (
   };
   const networkTown = enrichTownWithConnectedNetwork(toDomainTile(tile, authoritativeTown), townNetwork);
   const townPartial = networkTown ? { ...authoritativeTown, ...networkTown } : authoritativeTown;
-  const connectedFieldsChanged =
-    typeof networkTown?.connectedTownCount === "number" &&
-    (
-      networkTown.connectedTownCount !== authoritativeTown.connectedTownCount ||
-      networkTown.connectedTownBonus !== authoritativeTown.connectedTownBonus ||
-      JSON.stringify(networkTown.connectedTownNames ?? []) !== JSON.stringify(authoritativeTown.connectedTownNames ?? [])
-    );
-  if (!connectedFieldsChanged && isCompleteTownSummary(townPartial)) return townPartial;
+  const hasCompleteAuthoritativeTown = isCompleteTownSummary(townPartial);
+  if (!refreshCompleteTownSummary && hasCompleteAuthoritativeTown) return townPartial;
   const isSettlement = populationTier === "SETTLEMENT";
   const support = tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
     ? supportSummaryForTown(tileKey, tile.ownerId, tilesByKey)
@@ -534,7 +528,7 @@ const buildTownSummary = (
               PASSIVE_INCOME_MULT
             ) + (hasBank ? 1 : 0);
   const populationView = resolvedTownPopulation(townPartial, tile.x, tile.y, populationTier);
-  if (!populationView && !isCompleteTownSummary({ ...townPartial, ...(townType ? { type: townType } : {}), populationTier })) return undefined;
+  if (!populationView && !hasCompleteAuthoritativeTown) return undefined;
   const population = populationView?.population ?? townPartial.population!;
   const maxPopulation = populationView?.maxPopulation ?? townPartial.maxPopulation!;
   const logisticFactor = 1 - population / Math.max(1, maxPopulation);
@@ -779,7 +773,7 @@ export const enrichSnapshotTilesForGlobalVisibility = (
       const player = tile.ownerId ? playersById.get(tile.ownerId) : undefined;
       const economyPlayer = tile.ownerId ? economyPlayersById.get(tile.ownerId) : undefined;
       const fedTownKeys = tile.ownerId ? (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) : new Set<string>();
-      const fullTown = buildTownSummary(tile, player, tilesByKey, fedTownKeys, false, tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined);
+      const fullTown = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined);
       const town = toSharedVisibilityTownSummary(fullTown);
       const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, fullTown, {
         ...(economyPlayer ? { player: economyPlayer } : {}),
