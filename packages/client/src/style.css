@@ -2710,6 +2710,11 @@ body {
   font-size: 11px;
   font-weight: 700;
 }
+.tile-action-blocker {
+  color: #ff9f9f;
+  font-size: 11px;
+  font-weight: 700;
+}
 .tile-action-detail.is-loading {
   display: inline-flex;
   align-items: center;
