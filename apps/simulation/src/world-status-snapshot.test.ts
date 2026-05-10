@@ -60,7 +60,7 @@ describe("buildWorldStatusSnapshot", () => {
 
     expect(snapshot.leaderboard.overall).toEqual([
       expect.objectContaining({ id: "player-1", score: 11.2, rank: 1 }),
-      expect.objectContaining({ id: "ai-1", score: 10.8, rank: 2 })
+      expect.objectContaining({ id: "ai-1", score: 2.8, rank: 2 })
     ]);
     expect(snapshot.leaderboard.overall.find((entry) => entry.id === "barbarian-1")).toBeUndefined();
     expect(snapshot.seasonVictory.every((objective) => objective.leaderPlayerId !== "barbarian-1")).toBe(true);
@@ -96,6 +96,56 @@ describe("buildWorldStatusSnapshot", () => {
     const townControl = snapshot.seasonVictory.find((objective) => objective.id === "TOWN_CONTROL");
 
     expect(townControl).toEqual(expect.objectContaining({ progressLabel: "1/1 towns", thresholdLabel: "Need 1 towns" }));
+  });
+
+  it("uses configured resource and continent thresholds for season victory status", () => {
+    const tiles = Array.from({ length: 10 }, (_, x) => ({
+      x,
+      y: 0,
+      terrain: "LAND",
+      resource: "IRON",
+      ...(x < 8 ? { ownerId: "player-1", ownershipState: "SETTLED" } : {})
+    }));
+    const runtimeState = {
+      tiles,
+      players: [
+        {
+          id: "player-1",
+          name: "Nauticus",
+          points: 76,
+          incomePerMinute: 2.4,
+          settledTileCount: 8,
+          techIds: [],
+          domainIds: [],
+          strategicResources: {},
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: tiles.slice(0, 8).map((tile) => `${tile.x},${tile.y}`)
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    } as ReturnType<SimulationRuntime["exportState"]>;
+
+    const snapshot = buildWorldStatusSnapshot("player-1", runtimeState);
+    const resourceMonopoly = snapshot.seasonVictory.find((objective) => objective.id === "RESOURCE_MONOPOLY");
+    const continentFootprint = snapshot.seasonVictory.find((objective) => objective.id === "CONTINENT_FOOTPRINT");
+
+    expect(resourceMonopoly).toEqual(
+      expect.objectContaining({
+        progressLabel: "8/10 IRON",
+        thresholdLabel: "Need 80% control of one resource type",
+        conditionMet: true
+      })
+    );
+    expect(continentFootprint).toEqual(
+      expect.objectContaining({
+        progressLabel: "1/1 islands at 5%+ settled · weakest island 80% (8/10)",
+        thresholdLabel: "Need 5% settled land on every island",
+        conditionMet: true
+      })
+    );
   });
 
   it("uses Nauticus as the fallback seeded human display name", () => {

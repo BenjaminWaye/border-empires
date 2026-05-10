@@ -18,14 +18,16 @@ const resourceScore = (resource: DomainTileState["resource"] | undefined): numbe
   switch (resource) {
     case "FARM":
     case "FISH":
-      return 180;
+      return 200;
     case "IRON":
+      return 130;
     case "WOOD":
     case "FUR":
       return 120;
     case "GEMS":
+      return 140;
     case "OIL":
-      return 90;
+      return 60;
     default:
       return 0;
   }
@@ -149,11 +151,14 @@ export const evaluateSettlementCandidate = (
   const nearbyTownCount = nearbyOwnedTownCount(playerId, tile, tiles);
   const adjacency = ownedAdjacencyMetrics(playerId, tile, tiles, assumedFrontierKeys);
   const intrinsicEconomicValue = Boolean(tile.town || tile.dockId || tile.resource);
+  // Frontier tiles have defMult=0 in real combat (packages/shared/src/frontier-combat.ts:21)
+  // — only SETTLED neighbors actually defend. Frontier neighbors get a small clustering
+  // bonus (territory shape) but not a real defensive credit.
   const defensiveShapeValue =
-    adjacency.settledNeighbors * 22 +
-    adjacency.frontierNeighbors * 10 -
+    adjacency.settledNeighbors * 28 +
+    adjacency.frontierNeighbors * 4 -
     adjacency.exposedSides * 14 +
-    (adjacency.ownedNeighbors >= 3 ? 24 : 0) +
+    (adjacency.settledNeighbors >= 2 ? 24 : 0) +
     (adjacency.exposedSides <= 1 ? 18 : 0);
   const townConnectionSignal =
     nearbyTownCount >= 2
@@ -163,7 +168,7 @@ export const evaluateSettlementCandidate = (
         : 0;
   const economicallyInteresting =
     intrinsicEconomicValue || townSupportNeed > 0 || townConnectionSignal >= 90;
-  const defensivelyCompact = adjacency.ownedNeighbors >= 3 && adjacency.exposedSides <= 1;
+  const defensivelyCompact = adjacency.settledNeighbors >= 2 && adjacency.exposedSides <= 1;
   const strategic = economicallyInteresting || adjacency.hostileInterest >= 35 || defensiveShapeValue >= 26;
 
   let score = 0;
