@@ -209,4 +209,71 @@ describe("buildSnapshotTileDetail", () => {
       })
     );
   });
+
+  it("keeps a town fed when global food coverage is full even without adjacent food", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      player: {
+        id: "player-1",
+        gold: 8603,
+        manpower: 1950,
+        manpowerCap: 1950,
+        incomePerMinute: 14.5,
+        strategicResources: { FOOD: 321.5, IRON: 81.5, CRYSTAL: 189.4, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        strategicProductionPerMinute: { FOOD: 0.12, IRON: 0.17, CRYSTAL: 0.4, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        upkeepPerMinute: { food: 0.1, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0.04 },
+        upkeepLastTick: { foodCoverage: 1 },
+        developmentProcessLimit: 3,
+        activeDevelopmentProcessCount: 0,
+        pendingSettlements: [],
+        techIds: [],
+        domainIds: []
+      },
+      tiles: [
+        {
+          x: 29,
+          y: 251,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            type: "FARMING",
+            populationTier: "TOWN",
+            supportCurrent: 4,
+            supportMax: 4,
+            goldPerMinute: 0,
+            cap: 0,
+            isFed: false,
+            population: 21_277,
+            maxPopulation: 25_000,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            foodUpkeepPerMinute: 0.1,
+            baseGoldPerMinute: 2
+          }),
+          townType: "FARMING",
+          townPopulationTier: "TOWN"
+        },
+        { x: 28, y: 250, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 29, y: 250, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 28, y: 251, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 30, y: 251, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 29, 251);
+    expect(detail?.townJson).toBeTypeOf("string");
+    const town = JSON.parse(String(detail?.townJson)) as {
+      isFed: boolean;
+      goldPerMinute: number;
+    };
+
+    expect(town.isFed).toBe(true);
+    expect(town.goldPerMinute).toBe(2);
+    expect(detail).toEqual(
+      expect.objectContaining({
+        yieldRate: expect.objectContaining({ goldPerMinute: 2 })
+      })
+    );
+  });
 });

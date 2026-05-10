@@ -395,6 +395,53 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Growth"))).toBe(true);
   });
 
+  it("hides stale unfed town copy when global food coverage is full", () => {
+    const nextGrowthLabel = vi.fn(() => "City growth paused");
+    const lines = menuOverviewForTile(
+      {
+        x: 29,
+        y: 251,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Merrymarket",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 4,
+          supportMax: 4,
+          goldPerMinute: 0,
+          cap: 0,
+          isFed: false,
+          population: 21_277,
+          maxPopulation: 25_000,
+          populationGrowthPerMinute: 0,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        yieldRate: {
+          goldPerMinute: 0
+        }
+      },
+      {
+        ...deps,
+        state: { me: "me", upkeepLastTick: { foodCoverage: 1 } },
+        townNextGrowthEtaLabel: nextGrowthLabel
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("town is unfed"))).toBe(false);
+    expect(nextGrowthLabel).toHaveBeenCalledWith(expect.objectContaining({ isFed: true }), { explainUnfed: true });
+  });
+
   it("does not show support or road-bonus UI for settlements even if stale town fields are present", () => {
     const lines = menuOverviewForTile(
       {

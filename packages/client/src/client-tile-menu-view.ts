@@ -299,7 +299,7 @@ const tileTownPartialLoadingRowHtml = (
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string };
+    state: { me: string; upkeepLastTick?: { foodCoverage?: number } };
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -383,6 +383,7 @@ export const menuOverviewForTile = (
     // economy fields are absent we hide private-info lines instead of
     // rendering misleading defaults like "Town is unfed" or "Support 0/0".
     const hasOwnerEconomyData = typeof tile.town.isFed === "boolean";
+    const hasFullFoodCoverage = (deps.state.upkeepLastTick?.foodCoverage ?? 1) >= 0.999;
     if (!hasOwnedLandState) {
       pushLine("Neutral town. Claim and settle this tile to start its economy.");
     } else if (!isSettled) {
@@ -392,6 +393,7 @@ export const menuOverviewForTile = (
     } else if (
       hasOwnerEconomyData &&
       !tile.town.isFed &&
+      !hasFullFoodCoverage &&
       (tile.town.goldPerMinute ?? 0) <= 0.001 &&
       (tile.town.populationGrowthPerMinute ?? 0) <= 0.001
     ) {
@@ -414,8 +416,9 @@ export const menuOverviewForTile = (
     }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
     if (isSettled && hasOwnerEconomyData) {
+      const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
-      pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town, { explainUnfed: tile.ownerId === deps.state.me })}.`);
+      pushLine(`Next size: ${deps.townNextGrowthEtaLabel(townForGrowth, { explainUnfed: tile.ownerId === deps.state.me })}.`);
     } else if (ownTownEconomyPartial) {
       pushOwnTownLoadingRow("Growth");
     }
