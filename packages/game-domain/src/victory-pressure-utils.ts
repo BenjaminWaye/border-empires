@@ -1,0 +1,87 @@
+import type { ResourceType } from "@border-empires/shared";
+
+export const VICTORY_RESOURCE_TYPES: ResourceType[] = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR", "OIL"];
+
+export type ResourceMonopolyLeader = {
+  leaderPlayerId?: string;
+  bestOwned: number;
+  bestTotal: number;
+  bestResource?: ResourceType;
+  bestShare: number;
+  contested: boolean;
+};
+
+export const formatVictoryShare = (share: number): string => `${Math.round(share * 100)}%`;
+
+export const resourceMonopolyProgressLabel = (leader: ResourceMonopolyLeader): string => {
+  if (leader.contested) return `Contested at ${Math.round(leader.bestShare * 100)}% share`;
+  return leader.bestResource ? `${leader.bestOwned}/${leader.bestTotal} ${leader.bestResource}` : "No resource leader";
+};
+
+export const resourceMonopolyThresholdLabel = (requiredShare: number): string =>
+  `Need ${formatVictoryShare(requiredShare)} control of one resource type`;
+
+export const resourceMonopolyConditionMet = (leader: ResourceMonopolyLeader, requiredShare: number): boolean =>
+  Boolean(
+    leader.leaderPlayerId &&
+      leader.bestResource &&
+      leader.bestTotal > 0 &&
+      leader.bestOwned >= Math.ceil(leader.bestTotal * requiredShare)
+  );
+
+export const continentFootprintProgressLabel = (input: {
+  qualifiedCount: number;
+  totalIslands: number;
+  weakestRatio: number;
+  weakestOwned: number;
+  weakestTotal: number;
+  requiredShare: number;
+}): string => {
+  const shareLabel = formatVictoryShare(input.requiredShare);
+  return input.qualifiedCount > 0 && input.weakestTotal > 0
+    ? `${input.qualifiedCount}/${input.totalIslands} islands at ${shareLabel}+ settled · weakest island ${Math.round(input.weakestRatio * 100)}% (${input.weakestOwned}/${input.weakestTotal})`
+    : `${input.qualifiedCount}/${input.totalIslands} islands at ${shareLabel}+ settled`;
+};
+
+export const continentFootprintThresholdLabel = (requiredShare: number): string =>
+  `Need ${formatVictoryShare(requiredShare)} settled land on every island`;
+
+export const resourceMonopolyLeader = (
+  ownedResourceCountsByPlayerId: Map<string, Record<ResourceType, number>>,
+  totalResourceCounts: Record<ResourceType, number>
+): ResourceMonopolyLeader => {
+  let leaderPlayerId: string | undefined;
+  let bestOwned = 0;
+  let bestTotal = 0;
+  let bestResource: ResourceType | undefined;
+  let bestShare = 0;
+  let contested = false;
+  for (const [candidatePlayerId, owned] of ownedResourceCountsByPlayerId) {
+    for (const resource of VICTORY_RESOURCE_TYPES) {
+      const total = totalResourceCounts[resource] ?? 0;
+      if (total <= 0) continue;
+      const value = owned[resource] ?? 0;
+      const share = value / total;
+      if (share > bestShare || (share === bestShare && value > bestOwned)) {
+        leaderPlayerId = candidatePlayerId;
+        bestOwned = value;
+        bestTotal = total;
+        bestResource = resource;
+        bestShare = share;
+        contested = false;
+        continue;
+      }
+      if (share === bestShare && value === bestOwned && value > 0 && candidatePlayerId !== leaderPlayerId) contested = true;
+    }
+  }
+  if (contested) return { bestOwned, bestTotal, bestShare, contested };
+  const result: ResourceMonopolyLeader = {
+    bestOwned,
+    bestTotal,
+    bestShare,
+    contested
+  };
+  if (leaderPlayerId) result.leaderPlayerId = leaderPlayerId;
+  if (bestResource) result.bestResource = bestResource;
+  return result;
+};
