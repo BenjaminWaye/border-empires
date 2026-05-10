@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.10.3",
+  version: "2026.05.10.4",
   title: "What's New",
-  summary: "AIs now strive for five different victory paths instead of all converging on the same one — so a 20-AI season actually looks varied. Settlement scoring stops over-valuing frontier-clustered shapes (frontier tiles have zero combat defense), the over-settle floor is raised so AIs stop sinking gold into negative-yield filler tiles, resource weights are rebalanced (CRYSTAL up, OIL down), and manpower thresholds for attacks now scale with threat level. Plus the rewrite victory-threshold copy fix, town-growth refresh, town-fed warning fix, and 3D-default renderer from earlier today.",
+  summary: "Tech and domain Unlock buttons now respect gold and strategic-resource requirements, and the HUD updates immediately when a tech is unlocked instead of waiting for the next periodic broadcast.",
   entries: [
+    {
+      introducedIn: "2026.05.10.4",
+      title: "Tech and domain Unlock buttons disable when gold or resources are missing",
+      why: "The Unlock button was enabled whenever prerequisites were satisfied, even if the player did not have enough gold or strategic resources. Pressing it then produced a server-side TECH_INVALID error because the simulation was checking against owned resource-tile counts, while the HUD displayed the player's accumulated stockpile. The two checks disagreed, so legitimate-looking clicks were rejected and impossible costs looked clickable.",
+      changes: [
+        "Gateway init payload and simulation tech/domain update payloads now compute canResearch from the player's gold and strategic-resource stockpile (the same numbers shown in the HUD).",
+        "Choosing a tech or domain now deducts the strategic resource cost server-side, mirroring how gold is already deducted.",
+        "TECH_UPDATE and DOMAIN_UPDATE payloads now carry the post-deduction gold and strategic resources so the HUD reflects the new totals immediately instead of waiting for the next PLAYER_UPDATE."
+      ]
+    },
     {
       introducedIn: "2026.05.10.3",
       title: "AI plays five different victory paths and stops over-settling filler tiles",

@@ -19,6 +19,8 @@ type TechUpdateMessage = {
   domainCatalog?: ClientState["domainCatalog"] | undefined;
   revealCapacity?: number | undefined;
   activeRevealTargets?: string[] | undefined;
+  gold?: number | undefined;
+  strategicResources?: ClientState["strategicResources"] | undefined;
 };
 
 const normalizeTechCatalog = (catalog: ClientState["techCatalog"] | undefined): ClientState["techCatalog"] | undefined =>
@@ -53,6 +55,8 @@ export const applyTechUpdateToState = (
   state.domainCatalog = msg.domainCatalog ?? state.domainCatalog;
   state.revealCapacity = msg.revealCapacity ?? state.revealCapacity;
   state.activeRevealTargets = msg.activeRevealTargets ?? state.activeRevealTargets;
+  if (typeof msg.gold === "number") state.gold = msg.gold;
+  if (msg.strategicResources) state.strategicResources = { ...state.strategicResources, ...msg.strategicResources };
 
   if (status !== "completed") return;
 
