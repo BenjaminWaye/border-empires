@@ -70,6 +70,7 @@ export const LIGHT_OUTPOST_ATTACK_MULT = 1.25;
 export const SIEGE_OUTPOST_BUILD_MS = 60_000;
 export const SIEGE_OUTPOST_BUILD_COST = 900;
 export const SIEGE_OUTPOST_ATTACK_MULT = 1.6;
+export const OUTPOST_ATTACK_REACH = 2;
 
 export const DOCK_DEFENSE_MULT = 1.5;
 export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
