@@ -70,7 +70,7 @@ type RecoveredSimulationAccumulator = {
   season?: SimulationSeasonState;
   players: NonNullable<RecoveredSimulationState["players"]>;
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
-  tileYieldCollectedAtByTile: NonNullable<RecoveredSimulationState["tileYieldCollectedAtByTile"]>;
+  tileYieldCollectedAtByTile: Map<string, number>;
   collectVisibleCooldownByPlayer: NonNullable<RecoveredSimulationState["collectVisibleCooldownByPlayer"]>;
 };
 
@@ -111,7 +111,9 @@ export const createRecoveredSimulationAccumulator = (
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker) => ({ ...tracker })) } } : {}),
     players: baseState.players ? [...baseState.players] : [],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
-    tileYieldCollectedAtByTile: baseState.tileYieldCollectedAtByTile ? [...baseState.tileYieldCollectedAtByTile] : [],
+    tileYieldCollectedAtByTile: new Map(
+      (baseState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt])
+    ),
     collectVisibleCooldownByPlayer: baseState.collectVisibleCooldownByPlayer ? [...baseState.collectVisibleCooldownByPlayer] : []
   };
 };
@@ -249,6 +251,11 @@ export const applySimulationEventsToRecoveredAccumulator = (
       continue;
     }
 
+    if (event.eventType === "TILE_YIELD_ANCHOR_UPDATED") {
+      accumulator.tileYieldCollectedAtByTile.set(event.tileKey, event.collectedAt);
+      continue;
+    }
+
     if (event.eventType === "COMMAND_ACCEPTED") {
       accumulator.activeLocks.set(event.commandId, {
         commandId: event.commandId,
@@ -328,7 +335,9 @@ export const finalizeRecoveredSimulationAccumulator = (
   ...("season" in accumulator && accumulator.season ? { season: accumulator.season } : {}),
   players: [...accumulator.players],
   pendingSettlements: [...accumulator.pendingSettlements],
-  tileYieldCollectedAtByTile: [...accumulator.tileYieldCollectedAtByTile],
+  tileYieldCollectedAtByTile: [...accumulator.tileYieldCollectedAtByTile.entries()]
+    .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
+    .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
   collectVisibleCooldownByPlayer: [...accumulator.collectVisibleCooldownByPlayer]
 });
 
