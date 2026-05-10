@@ -193,9 +193,6 @@ const applyTileDeltaToRecoveredAccumulator = (
   const tileKey = simulationTileKey(tileDelta.x, tileDelta.y);
   const existing = accumulator.tiles.get(tileKey);
   const recoveredTown = recoverTownState(tileDelta, existing);
-  if (typeof tileDelta.lastCollectedAt === "number") {
-    accumulator.tileYieldCollectedAtByTile.set(tileKey, tileDelta.lastCollectedAt);
-  }
   accumulator.tiles.set(tileKey, {
     x: tileDelta.x,
     y: tileDelta.y,
@@ -251,6 +248,11 @@ export const applySimulationEventsToRecoveredAccumulator = (
       for (const tileDelta of event.tileDeltas) {
         applyTileDeltaToRecoveredAccumulator(accumulator, tileDelta);
       }
+      continue;
+    }
+
+    if (event.eventType === "TILE_YIELD_ANCHOR_UPDATED") {
+      accumulator.tileYieldCollectedAtByTile.set(event.tileKey, event.collectedAt);
       continue;
     }
 

@@ -687,15 +687,16 @@ export class SimulationRuntime {
           ownershipState: "SETTLED",
           ...(latest.town ? { town: latest.town } : {})
         };
-        this.tileYieldCollectedAtByTile.set(pendingSettlement.tileKey, this.now());
+        const recoveredSettleCommandId = `recovered-settle:${pendingSettlement.tileKey}`;
+        this.setTileYieldCollectedAt(recoveredSettleCommandId, pendingSettlement.ownerId, pendingSettlement.tileKey, this.now());
         this.replaceTileState(pendingSettlement.tileKey, settledTile);
         this.emitEvent({
           eventType: "TILE_DELTA_BATCH",
-          commandId: `recovered-settle:${pendingSettlement.tileKey}`,
+          commandId: recoveredSettleCommandId,
           playerId: pendingSettlement.ownerId,
           tileDeltas: [this.tileDeltaFromState(settledTile)]
         });
-        this.emitPlayerStateUpdate({ commandId: `recovered-settle:${pendingSettlement.tileKey}`, playerId: pendingSettlement.ownerId });
+        this.emitPlayerStateUpdate({ commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
       });
     }
     const recoveredCommandHistory = options.initialCommandHistory;
@@ -862,7 +863,7 @@ export class SimulationRuntime {
       }
     };
     const commandId = `bootstrap-spawn:${playerId}:${this.now()}`;
-    this.tileYieldCollectedAtByTile.set(tileKey, this.now());
+    this.setTileYieldCollectedAt(commandId, playerId, tileKey, this.now());
     this.replaceTileState(tileKey, spawnedTile);
     this.finalizeRespawnNotice(playerId, tileKey);
     this.emitEvent({
@@ -1174,6 +1175,21 @@ export class SimulationRuntime {
     this.tiles.set(tileKey, tile);
     this.applyTileToPlayerSummaries(tileKey, tile);
     this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
+  }
+
+  // Update the per-tile collect anchor and emit the matching event so replay can
+  // reconstruct it. Every site that mutates tileYieldCollectedAtByTile during
+  // gameplay (settle, respawn, collect) must go through this helper — otherwise
+  // a sim restart between snapshots will not see the change.
+  private setTileYieldCollectedAt(commandId: string, playerId: string, tileKey: string, collectedAt: number): void {
+    this.tileYieldCollectedAtByTile.set(tileKey, collectedAt);
+    this.emitEvent({
+      eventType: "TILE_YIELD_ANCHOR_UPDATED",
+      commandId,
+      playerId,
+      tileKey,
+      collectedAt
+    });
   }
 
   private rebuildPlannerCandidateIndexesForPlayer(playerId: string): void {
@@ -2292,7 +2308,7 @@ export class SimulationRuntime {
         ownershipState: "SETTLED",
         ...(latest.town ? { town: latest.town } : {})
       };
-      this.tileYieldCollectedAtByTile.set(targetKey, this.now());
+      this.setTileYieldCollectedAt(command.commandId, command.playerId, targetKey, this.now());
       this.replaceTileState(targetKey, settledTile);
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
@@ -2338,7 +2354,7 @@ export class SimulationRuntime {
     const yieldContext = this.tileYieldEconomyContextForPlayer(actor);
     for (const tile of this.tiles.values()) {
       if (tile.ownerId !== command.playerId || tile.ownershipState !== "SETTLED") continue;
-      const collected = this.collectTileYield(tile, now, yieldContext);
+      const collected = this.collectTileYield(tile, now, command, yieldContext);
       const touched = collected.gold > 0 || Object.values(collected.strategic).some((value) => Number(value) > 0);
       if (!touched) continue;
       tiles += 1;
@@ -2398,7 +2414,7 @@ export class SimulationRuntime {
       return;
     }
 
-    const collected = this.collectTileYield(target, this.now());
+    const collected = this.collectTileYield(target, this.now(), command);
     const gold = collected.gold;
     const strategic = collected.strategic;
     const touched = gold > 0 || Object.values(strategic).some((value) => Number(value) > 0);
@@ -3870,14 +3886,11 @@ export class SimulationRuntime {
       yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
       yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
       yieldCap?: { gold: number; strategicEach: number } | undefined;
-      lastCollectedAt?: number | undefined;
     } {
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext ? { ...tile, town: enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork) } : tile;
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    const lastCollectedAt = this.tileYieldCollectedAtByTile.get(tileKey);
-    const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, this.now(), {
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(simulationTileKey(tile.x, tile.y)), this.now(), {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
       tiles: this.tiles,
@@ -3903,17 +3916,14 @@ export class SimulationRuntime {
       sabotageJson: tile.sabotage ? JSON.stringify(tile.sabotage) : undefined,
       ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
       ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
-      ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {}),
-      // Load-bearing for recovery: event replay reads this to rebuild
-      // tileYieldCollectedAtByTile when a restart predates the next snapshot.
-      // See applyTileDeltaToRecoveredAccumulator in event-recovery.ts.
-      ...(typeof lastCollectedAt === "number" ? { lastCollectedAt } : {})
+      ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {})
     };
   }
 
   private collectTileYield(
     tile: DomainTileState,
     now: number,
+    command: Pick<CommandEnvelope, "commandId" | "playerId">,
     context?: RuntimeTileYieldEconomyContext
   ): {
     gold: number;
@@ -3939,7 +3949,9 @@ export class SimulationRuntime {
         this.addStrategicResource(this.players.get(tile.ownerId!)!, resource, amount);
       }
     }
-    if (gold > 0 || Object.keys(strategic).length > 0) this.tileYieldCollectedAtByTile.set(tileKey, now);
+    if (gold > 0 || Object.keys(strategic).length > 0) {
+      this.setTileYieldCollectedAt(command.commandId, command.playerId, tileKey, now);
+    }
     return { gold, strategic };
   }
 
@@ -5308,12 +5320,13 @@ export class SimulationRuntime {
       };
       actor.manpower = Math.max(actor.manpower, 100);
       const respawnedTileKey = simulationTileKey(tile.x, tile.y);
-      this.tileYieldCollectedAtByTile.set(respawnedTileKey, this.now());
+      const respawnCommandId = `${commandId}:respawn:${playerId}`;
+      this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
       this.replaceTileState(respawnedTileKey, respawnedTile);
       this.finalizeRespawnNotice(playerId, respawnedTileKey);
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
-        commandId: `${commandId}:respawn:${playerId}`,
+        commandId: respawnCommandId,
         playerId,
         tileDeltas: [this.tileDeltaFromState(respawnedTile)]
       });
