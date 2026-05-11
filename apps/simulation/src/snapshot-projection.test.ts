@@ -54,13 +54,14 @@ describe("snapshot projection consistency", () => {
       seedProfile: "default",
       enableAiAutopilot: false,
       enableSystemAutopilot: false,
-      allowSeedRecoveryFallback: true
+      allowSeedRecoveryFallback: true,
+      port: 0
     });
     await service.start();
 
     // Wait a moment so the seed world has events
     await new Promise((resolve) => setTimeout(resolve, 100));
-    await service.stop();
+    await service.close();
 
     // At least one projection should have been captured
     // (seeding generates initial events that trigger the checkpoint)
