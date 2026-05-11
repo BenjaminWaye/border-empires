@@ -280,12 +280,35 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
       for (const [, resolve] of pendingRequests) resolve({ command: null });
       pendingRequests.clear();
-      // Force pause/resume re-sync after respawn (new worker starts unpaused; main thread
-      // may believe it's paused from before the crash).
+      // The new worker thread starts unpaused. Reset our local backlog-tracking
+      // flag so the next tick re-issues pause/resume against the fresh worker;
+      // otherwise we'd silently keep planning while the main thread thinks the
+      // worker is paused (or vice-versa).
       humanBacklogWasNonEmpty = false;
       workerMetrics.respawnCount += 1;
-      initializeWorkerFromRuntime();
+      scheduleRespawn(0);
     });
+  };
+
+  // Respawn with retry/backoff. If re-init throws (e.g. exportPlannerWorldView
+  // blows up under main-thread memory pressure), retry on a timer instead of
+  // letting the unhandled throw propagate from the exit handler and crash the
+  // whole process. Capped retry delay so we don't busy-loop.
+  const RESPAWN_RETRY_DELAY_MS = 5_000;
+  const scheduleRespawn = (delayMs: number): void => {
+    if (closed) return;
+    setTimeout(() => {
+      if (closed) return;
+      try {
+        initializeWorkerFromRuntime();
+      } catch (err) {
+        console.error(
+          `[ai-planner-worker] respawn init failed; retrying in ${RESPAWN_RETRY_DELAY_MS}ms:`,
+          err
+        );
+        scheduleRespawn(RESPAWN_RETRY_DELAY_MS);
+      }
+    }, delayMs).unref();
   };
 
   const initializeWorkerFromRuntime = (): void => {
