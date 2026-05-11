@@ -21,7 +21,7 @@ const makeTile = (
 });
 
 describe("automation strategic snapshot", () => {
-  it("chooses settled-territory island focus for dock-cross growth positions", () => {
+  it("chooses territorial-control island focus for dock-cross growth positions", () => {
     const ownedDock = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-a" });
     const remoteDock = makeTile(50, 50, { dockId: "dock-b" });
     const snapshot = buildAutomationStrategicSnapshot({
@@ -62,6 +62,52 @@ describe("automation strategic snapshot", () => {
     expect(snapshot.primaryVictoryPath).toBe("SETTLED_TERRITORY");
     expect(snapshot.strategicFocus).toBe("ISLAND_FOOTPRINT");
     expect(snapshot.islandExpandAvailable).toBe(true);
+  });
+
+  it("treats frontier holdings as territorial-control progress", () => {
+    const town = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Core" } });
+    const frontierTiles = Array.from({ length: 5 }, (_, index) =>
+      makeTile(index + 1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" })
+    );
+    const neutral = makeTile(7, 0, {});
+    const snapshot = buildAutomationStrategicSnapshot({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 10,
+      ownedTiles: [town, ...frontierTiles],
+      tilesByKey: new Map([
+        ["0,0", town],
+        ...frontierTiles.map((tile) => [`${tile.x},${tile.y}`, tile] as const),
+        ["7,0", neutral]
+      ]),
+      frontierAnalysis: {
+        expand: {
+          from: frontierTiles[4],
+          target: neutral,
+          score: 160
+        },
+        frontierEnemyTargetCount: 0,
+        frontierNeutralTargetCount: 1,
+        frontierOpportunityEconomic: 0,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 1,
+        frontierOpportunityScaffold: 1,
+        frontierOpportunityWaste: 0
+      },
+      needsFood: false,
+      needsEconomy: false,
+      canAttack: true,
+      canExpand: true,
+      economicBuildAvailable: false,
+      fortBuildAvailable: false,
+      siegeOutpostBuildAvailable: false
+    });
+
+    expect(snapshot.primaryVictoryPath).toBe("SETTLED_TERRITORY");
+    expect(snapshot.victoryPathContender).toBe(true);
   });
 
   it("chooses break posture and town-control pressure when healthy towns face enemy border pressure", () => {

@@ -429,7 +429,7 @@ const SEASON_GOAL_BY_VICTORY_PATH: Record<AiSeasonVictoryPathId, GoapGoal<AiEmpi
   SETTLED_TERRITORY: {
     id: "season_settled_territory",
     priority: 12,
-    desired: { needsSettlement: false }
+    desired: { hasNeutralLandOpportunity: false, hasScoutOpportunity: false, hasScaffoldOpportunity: false }
   },
   ECONOMIC_HEGEMONY: {
     id: "season_economic_hegemony",
@@ -452,9 +452,9 @@ const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Recor
   SETTLED_TERRITORY: {
     season_settled_territory: 5,
     secure_food_supply: 3,
-    expand_vision_for_value: 1,
+    expand_vision_for_value: 4,
     secure_high_value_frontier: 4,
-    settle_high_value_frontier: 5,
+    settle_high_value_frontier: 2,
     secure_core_income: 2,
     fortify_core_chokepoint: 1,
     stabilize_reserves: 1

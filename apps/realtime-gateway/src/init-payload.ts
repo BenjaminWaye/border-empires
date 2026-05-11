@@ -20,7 +20,7 @@ import {
   SEASON_VICTORY_ECONOMY_LEAD_MULT,
   SEASON_VICTORY_ECONOMY_MIN_INCOME,
   SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE,
-  SEASON_VICTORY_SETTLED_TERRITORY_SHARE,
+  SEASON_VICTORY_TERRITORIAL_CONTROL_SHARE,
   SEASON_VICTORY_TOWN_CONTROL_SHARE,
   VICTORY_PRESSURE_DEFS,
   VICTORY_RESOURCE_TYPES,
@@ -425,9 +425,9 @@ const buildIslandMap = (seedTiles: Map<string, SeedTileState>): Map<string, numb
 const objectiveSelfProgressLabel = (
   objectiveId: SeasonVictoryPathId,
   playerId: string,
-  metricsByPlayerId: Map<string, { towns: number; settledTiles: number; incomePerMinute: number; name: string }>,
+  metricsByPlayerId: Map<string, { towns: number; settledTiles: number; controlledTiles: number; incomePerMinute: number; name: string }>,
   townTarget: number,
-  settledTarget: number,
+  territorialControlTarget: number,
   totalResourceCounts: Record<ResourceType, number>,
   ownedResourceCountsByPlayerId: Map<string, Record<ResourceType, number>>,
   islandTotals: Map<number, number>,
@@ -436,7 +436,7 @@ const objectiveSelfProgressLabel = (
   const metric = metricsByPlayerId.get(playerId);
   if (!metric) return undefined;
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
-  if (objectiveId === "SETTLED_TERRITORY") return `${metric.settledTiles}/${settledTarget} settled land`;
+  if (objectiveId === "SETTLED_TERRITORY") return `${metric.controlledTiles}/${territorialControlTarget} controlled land`;
   if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
     const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0, OIL: 0 };
@@ -494,7 +494,8 @@ const buildSeasonVictoryObjectives = (
   const worldTiles = snapshotBootstrap.initialState.tiles;
   const townCountByPlayerId = new Map<string, number>();
   const settledCountByPlayerId = new Map<string, number>();
-  const metricsByPlayerId = new Map<string, { towns: number; settledTiles: number; incomePerMinute: number; name: string }>();
+  const controlledCountByPlayerId = new Map<string, number>();
+  const metricsByPlayerId = new Map<string, { towns: number; settledTiles: number; controlledTiles: number; incomePerMinute: number; name: string }>();
   const totalResourceCounts: Record<ResourceType, number> = { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0, OIL: 0 };
   const ownedResourceCountsByPlayerId = new Map<string, Record<ResourceType, number>>();
   const islandByTile = buildIslandMap(snapshotBootstrap.seedTiles);
@@ -504,6 +505,9 @@ const buildSeasonVictoryObjectives = (
   for (const tile of worldTiles) {
     const key = tileKeyOf(tile.x, tile.y);
     if (tile.ownerId && tile.town?.type) townCountByPlayerId.set(tile.ownerId, (townCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
+    if (tile.ownerId && (tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER")) {
+      controlledCountByPlayerId.set(tile.ownerId, (controlledCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
+    }
     if (tile.ownerId && tile.ownershipState === "SETTLED") {
       settledCountByPlayerId.set(tile.ownerId, (settledCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
       const islandId = islandByTile.get(key);
@@ -527,6 +531,7 @@ const buildSeasonVictoryObjectives = (
     metricsByPlayerId.set(entry.id, {
       towns: townCountByPlayerId.get(entry.id) ?? 0,
       settledTiles: settledCountByPlayerId.get(entry.id) ?? 0,
+      controlledTiles: controlledCountByPlayerId.get(entry.id) ?? 0,
       incomePerMinute: entry.incomePerMinute,
       name: entry.name
     });
@@ -534,7 +539,7 @@ const buildSeasonVictoryObjectives = (
   const totalTownCount = Math.max(1, [...snapshotBootstrap.seedTiles.values()].filter((tile) => Boolean(tile.town)).length);
   const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
   const totalLandTiles = Math.max(1, [...snapshotBootstrap.seedTiles.values()].filter((tile) => tile.terrain === "LAND").length);
-  const settledTarget = Math.max(1, Math.ceil(totalLandTiles * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
+  const territorialControlTarget = Math.max(1, Math.ceil(totalLandTiles * SEASON_VICTORY_TERRITORIAL_CONTROL_SHARE));
   const trackers = new Map(snapshotBootstrap.seasonVictory ?? []);
   return VICTORY_PRESSURE_DEFS.map((def) => {
     let leaderPlayerId: string | undefined;
@@ -552,13 +557,13 @@ const buildSeasonVictoryObjectives = (
       thresholdLabel = `Need ${townTarget} towns`;
       conditionMet = Boolean(leaderPlayerId && leaderValue >= townTarget);
     } else if (def.id === "SETTLED_TERRITORY") {
-      const ranked = [...metricsByPlayerId.entries()].sort((a, b) => (b[1].settledTiles - a[1].settledTiles) || a[0].localeCompare(b[0]));
+      const ranked = [...metricsByPlayerId.entries()].sort((a, b) => (b[1].controlledTiles - a[1].controlledTiles) || a[0].localeCompare(b[0]));
       leaderPlayerId = ranked[0]?.[0];
-      leaderValue = ranked[0]?.[1].settledTiles ?? 0;
+      leaderValue = ranked[0]?.[1].controlledTiles ?? 0;
       leaderName = ranked[0]?.[1].name ?? "No leader";
-      progressLabel = `${leaderValue}/${settledTarget} settled land`;
-      thresholdLabel = `Need ${settledTarget} settled land tiles`;
-      conditionMet = Boolean(leaderPlayerId && leaderValue >= settledTarget);
+      progressLabel = `${leaderValue}/${territorialControlTarget} controlled land`;
+      thresholdLabel = `Need ${territorialControlTarget} controlled land tiles`;
+      conditionMet = Boolean(leaderPlayerId && leaderValue >= territorialControlTarget);
     } else if (def.id === "ECONOMIC_HEGEMONY") {
       const ranked = leaderboardOverall.slice().sort((a, b) => (b.incomePerMinute - a.incomePerMinute) || a.id.localeCompare(b.id));
       const leader = ranked[0];
@@ -668,7 +673,7 @@ const buildSeasonVictoryObjectives = (
       playerId,
       metricsByPlayerId,
       townTarget,
-      settledTarget,
+      territorialControlTarget,
       totalResourceCounts,
       ownedResourceCountsByPlayerId,
       islandTotals,
