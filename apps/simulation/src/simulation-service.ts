@@ -1449,6 +1449,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // broadcast that would leak opponent tile state outside fog of war.
       // The same filter is applied to each player's cached snapshot so the
       // server-held cache stays consistent with what the player can actually see.
+      //
+      // Trade-off: we lose the gateway's preSerializeBroadcast optimisation
+      // (each subscriber now gets their own JSON.stringify) and pay an
+      // O(N_subscribed × classification_cost) CPU hit per delta event vs the
+      // old constant-time global broadcast. Correctness wins; if this becomes
+      // a hot spot, cache classifyVisibilityForPlayer per (playerId, tick).
       if (event.eventType === "TILE_DELTA_BATCH") {
         for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
           const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
