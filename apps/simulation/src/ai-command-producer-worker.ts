@@ -20,6 +20,9 @@ import { createAutomationNoopDiagnostic } from "./automation-command-planner.js"
 import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
+import type { WorkerMemoryMetrics } from "./snapshot-stringifier.js";
+
+export type { WorkerMemoryMetrics } from "./snapshot-stringifier.js";
 import {
   createAiIntentLatchState,
   latchAiIntent,
@@ -97,6 +100,7 @@ type WorkerAiCommandProducerOptions = {
   playerSyncIntervalMs?: number;
   periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
+  maxOldGenerationSizeMb?: number;
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
@@ -191,71 +195,140 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     pending.resolve(outcome);
   };
 
-  const worker = new Worker(resolveWorkerScript(options.workerScriptPath));
+  const AI_WORKER_MAX_OLD_GEN_MB_DEFAULT = 192;
+  const maxOldGenerationSizeMb = Math.max(64, options.maxOldGenerationSizeMb ?? AI_WORKER_MAX_OLD_GEN_MB_DEFAULT);
+  const workerScriptPath = resolveWorkerScript(options.workerScriptPath);
 
   const pendingRequests = new Map<string, (result: PlannedCommandResult) => void>();
+  let closed = false;
+  const workerMetrics: WorkerMemoryMetrics = { respawnCount: 0 };
 
-  worker.on("message", (msg: unknown) => {
-    if (!msg || typeof msg !== "object") return;
-    const message = msg as Record<string, unknown>;
-    if (message.type === "command") {
-      const key = message.playerId as string;
-      const resolve = pendingRequests.get(key);
-      if (resolve) {
-        pendingRequests.delete(key);
-        resolve({
-          command: (message.command as CommandEnvelope | null) ?? null,
-          ...(message.diagnostic
-            ? { diagnostic: message.diagnostic as AutomationPlannerDiagnostic }
-            : {})
-        });
+  let worker!: Worker;
+  let relevantTileKeyIndex!: ReturnType<typeof createPlannerRelevantTileKeyIndex>;
+
+  const spawnWorker = (): void => {
+    worker = new Worker(workerScriptPath, {
+      resourceLimits: { maxOldGenerationSizeMb }
+    });
+
+    worker.on("message", (msg: unknown) => {
+      if (!msg || typeof msg !== "object") return;
+      const message = msg as Record<string, unknown>;
+      if (message.type === "metrics" && message.memoryUsage && typeof message.memoryUsage === "object") {
+        const mu = message.memoryUsage as NodeJS.MemoryUsage;
+        workerMetrics.rssBytes = mu.rss;
+        workerMetrics.heapTotalBytes = mu.heapTotal;
+        workerMetrics.heapUsedBytes = mu.heapUsed;
+        workerMetrics.externalBytes = mu.external;
+        return;
       }
-    } else if (message.type === "diagnostic") {
-      const diagnostic = message.diagnostic as {
-        phase:
-          | "resolve_player_tiles"
-          | "planner_choose_settlement"
-          | "planner_choose_frontier"
-          | "planner_summarize_frontier"
-          | "planner_total";
-        durationMs: number;
-        playerId: string;
-        ownedTileCount?: number;
-        frontierTileCount?: number;
-      };
-      options.onDiagnostic?.(diagnostic);
-    } else if (message.type === "error") {
-      const key = message.playerId as string;
-      console.error("[ai-planner-worker] planner error:", message.message);
-      if (typeof key === "string" && key.length > 0) {
-        options.onNoCommand?.(createAutomationNoopDiagnostic(key, "ai-runtime", "planner_error"));
+      if (message.type === "command") {
+        const key = message.playerId as string;
+        const resolve = pendingRequests.get(key);
+        if (resolve) {
+          pendingRequests.delete(key);
+          resolve({
+            command: (message.command as CommandEnvelope | null) ?? null,
+            ...(message.diagnostic
+              ? { diagnostic: message.diagnostic as AutomationPlannerDiagnostic }
+              : {})
+          });
+        }
+      } else if (message.type === "diagnostic") {
+        const diagnostic = message.diagnostic as {
+          phase:
+            | "resolve_player_tiles"
+            | "planner_choose_settlement"
+            | "planner_choose_frontier"
+            | "planner_summarize_frontier"
+            | "planner_total";
+          durationMs: number;
+          playerId: string;
+          ownedTileCount?: number;
+          frontierTileCount?: number;
+        };
+        options.onDiagnostic?.(diagnostic);
+      } else if (message.type === "error") {
+        const key = message.playerId as string;
+        console.error("[ai-planner-worker] planner error:", message.message);
+        if (typeof key === "string" && key.length > 0) {
+          options.onNoCommand?.(createAutomationNoopDiagnostic(key, "ai-runtime", "planner_error"));
+        }
+        const resolve = pendingRequests.get(key);
+        if (resolve) {
+          pendingRequests.delete(key);
+          resolve({ command: null });
+        }
       }
-      const resolve = pendingRequests.get(key);
-      if (resolve) {
-        pendingRequests.delete(key);
-        resolve({ command: null });
+    });
+
+    worker.on("error", (err) => {
+      console.error("[ai-planner-worker] uncaught error:", err);
+      // Drain pending requests so ticks don't hang
+      for (const [, resolve] of pendingRequests) resolve({ command: null });
+      pendingRequests.clear();
+    });
+
+    worker.on("exit", (code) => {
+      workerMetrics.lastExitCode = code;
+      workerMetrics.lastExitAt = Date.now();
+      if (closed) return;
+      if (code !== 0) {
+        console.error(
+          `[ai-planner-worker] exited code=${code} — respawning (likely heap cap hit at ${maxOldGenerationSizeMb}MB)`
+        );
       }
+      for (const [, resolve] of pendingRequests) resolve({ command: null });
+      pendingRequests.clear();
+      // The new worker thread starts unpaused. Reset our local backlog-tracking
+      // flag so the next tick re-issues pause/resume against the fresh worker;
+      // otherwise we'd silently keep planning while the main thread thinks the
+      // worker is paused (or vice-versa).
+      humanBacklogWasNonEmpty = false;
+      workerMetrics.respawnCount += 1;
+      scheduleRespawn(0);
+    });
+  };
+
+  // Respawn with retry/backoff. If re-init throws (e.g. exportPlannerWorldView
+  // blows up under main-thread memory pressure), retry on a timer instead of
+  // letting the unhandled throw propagate from the exit handler and crash the
+  // whole process. Capped retry delay so we don't busy-loop.
+  const RESPAWN_RETRY_DELAY_MS = 5_000;
+  const scheduleRespawn = (delayMs: number): void => {
+    if (closed) return;
+    setTimeout(() => {
+      if (closed) return;
+      try {
+        initializeWorkerFromRuntime();
+      } catch (err) {
+        console.error(
+          `[ai-planner-worker] respawn init failed; retrying in ${RESPAWN_RETRY_DELAY_MS}ms:`,
+          err
+        );
+        scheduleRespawn(RESPAWN_RETRY_DELAY_MS);
+      }
+    }, delayMs).unref();
+  };
+
+  const initializeWorkerFromRuntime = (): void => {
+    spawnWorker();
+    plannerPlayersById.clear();
+    plannerTilesByKey.clear();
+    const worldView = options.runtime.exportPlannerWorldView(options.aiPlayerIds);
+    for (const player of worldView.players) plannerPlayersById.set(player.id, player);
+    for (const tile of worldView.tiles) {
+      plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
     }
-  });
+    relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(worldView);
+    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
+    worker.postMessage({
+      type: "init",
+      worldView
+    });
+  };
 
-  worker.on("error", (err) => {
-    console.error("[ai-planner-worker] uncaught error:", err);
-    // Drain pending requests so ticks don't hang
-    for (const [, resolve] of pendingRequests) resolve({ command: null });
-    pendingRequests.clear();
-  });
-
-  const initialWorldView = options.runtime.exportPlannerWorldView(options.aiPlayerIds);
-  for (const player of initialWorldView.players) plannerPlayersById.set(player.id, player);
-  for (const tile of initialWorldView.tiles) {
-    plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
-  }
-  const relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(initialWorldView);
-  relevantTileKeys = new Set(relevantTileKeyIndex.keys());
-  worker.postMessage({
-    type: "init",
-    worldView: initialWorldView
-  });
+  initializeWorkerFromRuntime();
 
   const pendingPlayerSyncIds = new Set<string>();
   let playerSyncTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -716,7 +789,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
   return {
     tick,
+    getWorkerMetrics: (): WorkerMemoryMetrics => ({ ...workerMetrics }),
     close(): void {
+      closed = true;
       clearInterval(intervalHandle);
       clearInterval(playerSyncInterval);
       if (playerSyncTimeout) clearTimeout(playerSyncTimeout);
