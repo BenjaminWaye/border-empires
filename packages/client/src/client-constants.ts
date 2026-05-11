@@ -38,7 +38,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Win the Season",
-    body: "Track victory races in the Victory panel. Town control, settled land, economy, resources, and continent reach can all decide the season if held for 24 hours."
+    body: "Track victory races in the Victory panel. Town control, territorial control, economy, resources, and continent reach can all decide the season if held for 24 hours."
   }
 ];
 

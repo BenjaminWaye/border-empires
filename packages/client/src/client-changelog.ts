@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.10.7",
+  version: "2026.05.10.8",
   title: "What's New",
-  summary: "Building menu now shows build time and stat numbers up front for every basic structure, disabled actions display the blocker reason as a red ✗ line so the cost stays visible, and Granary copy now matches the actual +15% growth simulation effect. Plus day-one fort/outpost pricing, attacker outpost auras, weak-tile 3D highlights, and the Defensibility tab rewrite.",
+  summary: "Territorial Control season victory now counts frontier and settled land, so expansion pressure can win without paying settled-tile upkeep on every tile. Building menu stat copy, disabled action blockers, day-one defenses, outpost auras, 3D weak-tile highlights, and the Defensibility tab improvements are also included.",
   entries: [
+    {
+      introducedIn: "2026.05.10.8",
+      title: "Territorial Control counts frontier and settled land",
+      why: "The land-control season victory was still effectively settled-territory-only in status payloads and AI planning. Winning with 66% settled land could require impossible upkeep at world scale, while frontier is the actual lightweight expansion control mechanic.",
+      changes: [
+        "The Territorial Control objective now ranks leaders and triggers holds from controlled land: SETTLED plus FRONTIER tiles.",
+        "Season victory progress labels now say controlled land instead of settled land in rewrite simulation and gateway payloads.",
+        "AI strategic planning scores the land-control path from controlled tiles and frontier opportunities instead of forcing settle-heavy expansion."
+      ]
+    },
     {
       introducedIn: "2026.05.10.7",
       title: "Building menu shows build time and stat numbers up front",

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { chooseAutomationGoapDecision } from "./automation-goap.js";
 
 describe("automation goap", () => {
-  it("chooses scout expansion goals for settled-territory paths when stable exploration is available", () => {
+  it("chooses scout expansion for territorial-control paths when stable exploration is available", () => {
     const decision = chooseAutomationGoapDecision({
       hasNeutralLandOpportunity: false,
       hasScoutOpportunity: true,
@@ -29,7 +29,7 @@ describe("automation goap", () => {
     }, "SETTLED_TERRITORY");
 
     expect(decision).toMatchObject({
-      goalId: "expand_vision_for_value",
+      goalId: "season_settled_territory",
       actionKey: "claim_scout_border_tile"
     });
   });
