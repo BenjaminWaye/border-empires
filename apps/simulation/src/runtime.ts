@@ -1207,6 +1207,7 @@ export class SimulationRuntime {
     if (summary.territoryTileKeys.size <= 0) return;
     let economyContext: RuntimeTileYieldEconomyContext | undefined;
     const tileKeys = [...summary.territoryTileKeys].sort();
+    const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
     for (const tileKey of tileKeys) {
       if (!hasOutstandingUpkeepNeed(need)) return;
       const tile = this.tiles.get(tileKey);
@@ -1223,32 +1224,38 @@ export class SimulationRuntime {
         dockLinksByDockTileKey: this.dockLinksByDockTileKey
       });
       if (!yieldView?.yield) continue;
-      let maxFractionConsumed = 0;
+      const anchorWas = lastCollectedAt ?? 0;
+      // The single per-tile anchor is shared across every resource the tile
+      // produces. We compute a per-resource candidate anchor from the
+      // remaining buffer (newAnchor = now - remaining/rate) and pick the
+      // latest — so no resource is ever credited with more than its math
+      // allows. The trade-off: when upkeep consumes one resource on a
+      // mixed-yield tile, the unconsumed resource's remaining yield is
+      // drained too (lost, not banked). Mixed-yield tiles are rare, and
+      // per-resource anchors would cost a snapshot-schema change.
+      let candidateAnchorMs = anchorWas;
+      const updateCandidate = (remaining: number, ratePerMs: number): void => {
+        if (ratePerMs <= 0) return;
+        const resourceAnchor = nowMs - remaining / ratePerMs;
+        if (resourceAnchor > candidateAnchorMs) candidateAnchorMs = resourceAnchor;
+      };
       const availableGold = yieldView.yield.gold ?? 0;
       if (availableGold > 0 && need.gold > 0) {
         const consumed = Math.min(availableGold, need.gold);
         need.gold -= consumed;
-        maxFractionConsumed = Math.max(maxFractionConsumed, consumed / availableGold);
+        updateCandidate(availableGold - consumed, yieldView.yieldRate.goldPerMinute / 60_000);
       }
       for (const resource of UPKEEP_STRATEGIC_KEYS) {
         const available = yieldView.yield.strategic[resource] ?? 0;
         if (available > 0 && need[resource] > 0) {
           const consumed = Math.min(available, need[resource]);
           need[resource] -= consumed;
-          maxFractionConsumed = Math.max(maxFractionConsumed, consumed / available);
+          const ratePerMs = (yieldView.yieldRate.strategicPerDay[resource] ?? 0) / (1440 * 60_000);
+          updateCandidate(available - consumed, ratePerMs);
         }
       }
-      if (maxFractionConsumed > 0) {
-        const anchorWas = lastCollectedAt ?? 0;
-        const newAnchor = Math.min(nowMs, anchorWas + (nowMs - anchorWas) * maxFractionConsumed);
-        this.tileYieldCollectedAtByTile.set(tileKey, newAnchor);
-        this.emitEvent({
-          eventType: "TILE_YIELD_ANCHOR_UPDATED",
-          commandId: `accrual:upkeep:${player.id}:${nowMs}`,
-          playerId: player.id,
-          tileKey,
-          collectedAt: newAnchor
-        });
+      if (candidateAnchorMs > anchorWas) {
+        this.setTileYieldCollectedAt(syntheticCommandId, player.id, tileKey, Math.min(nowMs, candidateAnchorMs));
       }
     }
   }

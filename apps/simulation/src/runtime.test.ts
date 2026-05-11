@@ -1427,6 +1427,124 @@ describe("simulation runtime", () => {
     expect(player?.points).toBeCloseTo(8000, 0);
   });
 
+  it("falls back to stockpile when tile yield cannot cover gold upkeep", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 1000,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // 60 min elapse: town yields ~60 gold, GARRISON_HALL draws 2.5
+    // gold/min (~150 gold). Yield covers part of it; the ~90 gold
+    // deficit hits the stockpile, so points drops below 1000 but stays
+    // well above 0.
+    currentNow += 60 * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.points).toBeGreaterThan(850);
+    expect(player?.points).toBeLessThan(960);
+  });
+
+  it("drains accumulated food yield to cover food upkeep before touching the food stockpile", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 0,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "TOWN", goldPerMinute: 1 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            resource: "FARM",
+            ownerId: "player-1",
+            ownershipState: "SETTLED"
+          },
+          {
+            x: 7,
+            y: 5,
+            terrain: "LAND",
+            resource: "FARM",
+            ownerId: "player-1",
+            ownershipState: "SETTLED"
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // 60 min elapse: TOWN tier draws 0.1 food/min (6 food). Two FARM
+    // tiles produce 72/day = 0.05/min each (6 food total). Yield exactly
+    // covers upkeep, so FOOD stockpile stays at 100.
+    currentNow += 60 * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.strategicResources.FOOD).toBeCloseTo(100, 1);
+  });
+
   it("prefers SETTLE for AI automation when strategic frontier land is available and a development slot is free", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
