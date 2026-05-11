@@ -1710,7 +1710,16 @@ export class SimulationRuntime {
     };
   }
 
-  exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
+  private classifyVisibilityForPlayer(playerId: string): {
+    radiusSelfKeys: Set<string>;
+    radiusAllyKeys: Map<string, Set<string>>;
+    lockOriginKeys: Set<string>;
+    dockRevealKeys: Set<string>;
+    lockTargetOnlyKeys: Set<string>;
+    fullVisionKeys: Set<string>;
+    visibleKeys: Set<string>;
+    allyAndSelfIds: Set<string>;
+  } {
     const keyFor = (x: number, y: number): string => simulationTileKey(((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH, ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT);
     const parseKey = (tileKey: string): { x: number; y: number } | undefined => {
       const [rawX, rawY] = tileKey.split(",");
@@ -1794,28 +1803,51 @@ export class SimulationRuntime {
 
     const allyAndSelfIds = new Set<string>([playerId, ...(primaryPlayer?.allies ?? [])]);
     const visibleKeys = new Set<string>([...fullVisionKeys, ...lockTargetOnlyKeys]);
-    const onVisibilityAudit = this.onVisibilityAudit;
-    const auditOpponentTile = (tile: DomainTileState, tileKey: string, redacted: boolean): void => {
-      if (!onVisibilityAudit) return;
-      if (!tile.ownerId || allyAndSelfIds.has(tile.ownerId)) return;
-      const reasons: string[] = [];
-      if (radiusSelfKeys.has(tileKey)) reasons.push("radius:self");
-      for (const [allyId, set] of radiusAllyKeys) {
-        if (set.has(tileKey)) reasons.push(`radius:ally:${allyId}`);
-      }
-      if (lockOriginKeys.has(tileKey)) reasons.push("lock-origin");
-      if (dockRevealKeys.has(tileKey)) reasons.push("dock-reveal");
-      if (lockTargetOnlyKeys.has(tileKey)) reasons.push("lock-target");
-      onVisibilityAudit({
-        playerId,
-        tileKey,
-        x: tile.x,
-        y: tile.y,
-        ownerId: tile.ownerId,
-        reasons,
-        redacted
-      });
+
+    return {
+      radiusSelfKeys,
+      radiusAllyKeys,
+      lockOriginKeys,
+      dockRevealKeys,
+      lockTargetOnlyKeys,
+      fullVisionKeys,
+      visibleKeys,
+      allyAndSelfIds
     };
+  }
+
+  private emitVisibilityAudit(
+    playerId: string,
+    tile: { x: number; y: number; ownerId?: string | undefined },
+    tileKey: string,
+    redacted: boolean,
+    classification: ReturnType<SimulationRuntime["classifyVisibilityForPlayer"]>
+  ): void {
+    const onVisibilityAudit = this.onVisibilityAudit;
+    if (!onVisibilityAudit) return;
+    if (!tile.ownerId || classification.allyAndSelfIds.has(tile.ownerId)) return;
+    const reasons: string[] = [];
+    if (classification.radiusSelfKeys.has(tileKey)) reasons.push("radius:self");
+    for (const [allyId, set] of classification.radiusAllyKeys) {
+      if (set.has(tileKey)) reasons.push(`radius:ally:${allyId}`);
+    }
+    if (classification.lockOriginKeys.has(tileKey)) reasons.push("lock-origin");
+    if (classification.dockRevealKeys.has(tileKey)) reasons.push("dock-reveal");
+    if (classification.lockTargetOnlyKeys.has(tileKey)) reasons.push("lock-target");
+    onVisibilityAudit({
+      playerId,
+      tileKey,
+      x: tile.x,
+      y: tile.y,
+      ownerId: tile.ownerId,
+      reasons,
+      redacted
+    });
+  }
+
+  exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
+    const classification = this.classifyVisibilityForPlayer(playerId);
+    const { lockTargetOnlyKeys, visibleKeys, allyAndSelfIds } = classification;
 
     return {
       tiles: [...visibleKeys]
@@ -1826,10 +1858,10 @@ export class SimulationRuntime {
           const isLockTargetOnly = lockTargetOnlyKeys.has(tileKey);
           const ownedByOther = Boolean(tile.ownerId) && !allyAndSelfIds.has(tile.ownerId as string);
           if (isLockTargetOnly && ownedByOther) {
-            auditOpponentTile(tile, tileKey, true);
+            this.emitVisibilityAudit(playerId, tile, tileKey, true, classification);
             return { x: tile.x, y: tile.y, terrain: tile.terrain };
           }
-          if (ownedByOther) auditOpponentTile(tile, tileKey, false);
+          if (ownedByOther) this.emitVisibilityAudit(playerId, tile, tileKey, false, classification);
           return {
             x: tile.x,
             y: tile.y,
@@ -1895,6 +1927,30 @@ export class SimulationRuntime {
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
     };
+  }
+
+  filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }>(
+    tileDeltas: readonly TDelta[],
+    playerId: string
+  ): TDelta[] {
+    if (tileDeltas.length === 0) return [];
+    const classification = this.classifyVisibilityForPlayer(playerId);
+    const { visibleKeys, lockTargetOnlyKeys, allyAndSelfIds } = classification;
+    const filtered: TDelta[] = [];
+    for (const delta of tileDeltas) {
+      const tileKey = simulationTileKey(delta.x, delta.y);
+      if (!visibleKeys.has(tileKey)) continue;
+      const isLockTargetOnly = lockTargetOnlyKeys.has(tileKey);
+      const ownedByOther = Boolean(delta.ownerId) && !allyAndSelfIds.has(delta.ownerId as string);
+      if (isLockTargetOnly && ownedByOther) {
+        this.emitVisibilityAudit(playerId, delta, tileKey, true, classification);
+        filtered.push({ x: delta.x, y: delta.y, ...(delta.terrain ? { terrain: delta.terrain } : {}) } as TDelta);
+        continue;
+      }
+      if (ownedByOther) this.emitVisibilityAudit(playerId, delta, tileKey, false, classification);
+      filtered.push(delta);
+    }
+    return filtered;
   }
 
   private settledTileCountForPlayer(playerId: string): number {
