@@ -24,7 +24,7 @@ import type { SimulationEventStore } from "./event-store.js";
 import { createSimulationSnapshotStore } from "./snapshot-store-factory.js";
 import type { SimulationSnapshotStore } from "./snapshot-store.js";
 import { createSnapshotCheckpointManager } from "./snapshot-checkpoint-manager.js";
-import { createWorkerSnapshotStringifier, type SnapshotStringifier } from "./snapshot-stringifier.js";
+import { createWorkerSnapshotStringifier, type WorkerMemoryMetrics } from "./snapshot-stringifier.js";
 import { createAiCommandProducer } from "./ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "./ai-command-producer-worker.js";
 import { recoverCommandHistory } from "./command-recovery.js";
@@ -1894,17 +1894,18 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         const workerMemoryMb = (() => {
           const toMb = (bytes?: number): number | undefined =>
             typeof bytes === "number" ? Math.round((bytes / (1024 * 1024)) * 10) / 10 : undefined;
+          type HasWorkerMetrics = { getWorkerMetrics: () => WorkerMemoryMetrics };
           const snapshotMetrics =
             snapshotStringifier && "getWorkerMetrics" in snapshotStringifier
-              ? (snapshotStringifier as { getWorkerMetrics: () => import("./snapshot-stringifier.js").WorkerMemoryMetrics }).getWorkerMetrics()
+              ? (snapshotStringifier as HasWorkerMetrics).getWorkerMetrics()
               : undefined;
           const aiMetrics =
             aiCommandProducer && "getWorkerMetrics" in aiCommandProducer
-              ? (aiCommandProducer as { getWorkerMetrics: () => import("./snapshot-stringifier.js").WorkerMemoryMetrics }).getWorkerMetrics()
+              ? (aiCommandProducer as HasWorkerMetrics).getWorkerMetrics()
               : undefined;
           const systemMetrics =
             systemCommandProducer && "getWorkerMetrics" in systemCommandProducer
-              ? (systemCommandProducer as { getWorkerMetrics: () => import("./snapshot-stringifier.js").WorkerMemoryMetrics }).getWorkerMetrics()
+              ? (systemCommandProducer as HasWorkerMetrics).getWorkerMetrics()
               : undefined;
           return {
             snapshot: snapshotMetrics

@@ -147,11 +147,35 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
       }
       for (const [, resolve] of pendingRequests) resolve(null);
       pendingRequests.clear();
-      // Reset pause-state so next tick re-sends pause/resume to the fresh worker.
+      // The new worker thread starts unpaused. Reset our local backlog-tracking
+      // flag so the next tick re-issues pause/resume against the fresh worker;
+      // otherwise we'd silently keep planning while the main thread thinks the
+      // worker is paused (or vice-versa).
       lastBacklogState = false;
       workerMetrics.respawnCount += 1;
-      initializeWorkerFromRuntime();
+      scheduleRespawn(0);
     });
+  };
+
+  // Respawn with retry/backoff. If re-init throws (e.g. exportPlannerWorldView
+  // blows up under main-thread memory pressure), retry on a timer instead of
+  // letting the unhandled throw propagate from the exit handler and crash the
+  // whole process.
+  const RESPAWN_RETRY_DELAY_MS = 5_000;
+  const scheduleRespawn = (delayMs: number): void => {
+    if (closed) return;
+    setTimeout(() => {
+      if (closed) return;
+      try {
+        initializeWorkerFromRuntime();
+      } catch (err) {
+        console.error(
+          `[system-job-worker] respawn init failed; retrying in ${RESPAWN_RETRY_DELAY_MS}ms:`,
+          err
+        );
+        scheduleRespawn(RESPAWN_RETRY_DELAY_MS);
+      }
+    }, delayMs).unref();
   };
 
   const initializeWorkerFromRuntime = (): void => {
