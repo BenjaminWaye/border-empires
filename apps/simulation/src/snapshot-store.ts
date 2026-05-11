@@ -5,6 +5,32 @@ import { isTerminalCommandEvent } from "./command-event-lifecycle.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { ProjectionExportState } from "./postgres-projection-writer.js";
 
+/**
+ * Event types whose state is already captured elsewhere in the snapshot and
+ * therefore don't need to be replayed from `commandEvents` on recovery.
+ *
+ * - PLAYER_MESSAGE / PLAYER_UPDATE: player gold/manpower/etc. are already
+ *   embedded in the snapshot's `players[]` array.
+ * - TILE_YIELD_ANCHOR_UPDATED: collection timestamps are already in
+ *   `tileYieldCollectedAtByTile`.
+ * - TILE_DELTA_BATCH: the resulting tile state is already in
+ *   `initialState.tiles` (the snapshot is post-event). The event itself is
+ *   only useful to re-broadcast a delta to a reconnecting client; recovery
+ *   doesn't need it to reconstruct world state.
+ *
+ * On staging these three event types accounted for ~99 MB of a 103 MB
+ * snapshot. Dropping them at snapshot-write time has no functional impact
+ * because recovery rebuilds the same state from the dedicated fields.
+ */
+const REDUNDANT_SNAPSHOT_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
+  "PLAYER_MESSAGE",
+  "TILE_YIELD_ANCHOR_UPDATED",
+  "TILE_DELTA_BATCH"
+]);
+
+const stripRedundantSnapshotEvents = (events: readonly SimulationEvent[]): SimulationEvent[] =>
+  events.filter((event) => !REDUNDANT_SNAPSHOT_EVENT_TYPES.has(event.eventType));
+
 export type StoredSnapshotCommandEvents = {
   commandId: string;
   events: SimulationEvent[];
@@ -69,8 +95,9 @@ export const buildSimulationSnapshotSections = ({
       .filter((command) => eventsByCommandId.has(command.commandId))
       .map((command) => ({
         commandId: command.commandId,
-        events: [...(eventsByCommandId.get(command.commandId) ?? [])]
+        events: stripRedundantSnapshotEvents(eventsByCommandId.get(command.commandId) ?? [])
       }))
+      .filter((entry) => entry.events.length > 0)
   };
 };
 
@@ -83,8 +110,9 @@ export const buildSimulationSnapshotCommandEvents = (
     .filter(([, events]) => !events.some(isTerminalCommandEvent))
     .map(([commandId, events]) => ({
       commandId,
-      events: [...events]
+      events: stripRedundantSnapshotEvents(events)
     }))
+    .filter((entry) => entry.events.length > 0)
     .sort((left, right) => left.commandId.localeCompare(right.commandId));
 };
 
