@@ -20,8 +20,7 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
     modifiers.push({ reason: "Market", effect: "+50% gold storage cap", tone: "positive" });
   }
   if (tile.hasGranary && tile.granaryActive) {
-    modifiers.push({ reason: "Granary", effect: "+50% nearby farmstead food output", tone: "positive" });
-    modifiers.push({ reason: "Granary", effect: "-10% local town food upkeep", tone: "positive" });
+    modifiers.push({ reason: "Granary", effect: "+15% population growth", tone: "positive" });
   }
   if (tile.hasBank && tile.bankActive) {
     modifiers.push({ reason: "Bank", effect: "+50% city income", tone: "positive" });
