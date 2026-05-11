@@ -177,7 +177,8 @@ export const RESOURCE_CHAIN_BUFF_MS = 24 * 60 * 60 * 1000;
 export const RESOURCE_CHAIN_MULT = 1.4;
 export const SEASON_VICTORY_HOLD_MS = 24 * 60 * 60_000;
 export const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
-export const SEASON_VICTORY_SETTLED_TERRITORY_SHARE = 0.66;
+export const SEASON_VICTORY_TERRITORIAL_CONTROL_SHARE = 0.66;
+export const SEASON_VICTORY_SETTLED_TERRITORY_SHARE = SEASON_VICTORY_TERRITORIAL_CONTROL_SHARE;
 export const SEASON_VICTORY_ECONOMY_MIN_INCOME = 200;
 export const SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33;
 export const SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE = 0.8;
@@ -192,8 +193,8 @@ export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   },
   {
     id: "SETTLED_TERRITORY",
-    name: "Settled Territory",
-    description: "Settle at least 66% of all claimable land in the world.",
+    name: "Territorial Control",
+    description: "Control at least 66% of all claimable land in the world.",
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   },
   {
