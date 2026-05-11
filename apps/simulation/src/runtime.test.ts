@@ -1545,6 +1545,141 @@ describe("simulation runtime", () => {
     expect(player?.strategicResources.FOOD).toBeCloseTo(100, 1);
   });
 
+  it("advances the per-tile anchor so a later collect only picks up leftover yield", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 0,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 10 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // 60 min elapse: tile (5,5) produces 10 gold/min (~610 gold yield
+    // before any drain); GARRISON_HALL draws 150 gold. Accrual consumes
+    // 150 from the buffer and advances the tile's anchor. A subsequent
+    // COLLECT_TILE should only see the ~460 leftover — never the full
+    // 610 — which would happen if the anchor hadn't moved.
+    currentNow += 60 * 60_000;
+    runtime.submitCommand({
+      commandId: "collect-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: currentNow,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 5, y: 5 })
+    });
+    await Promise.resolve();
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.points).toBeGreaterThan(440);
+    expect(player?.points).toBeLessThan(480);
+  });
+
+  it("drains unconsumed food yield on a mixed-yield tile when gold upkeep advances the shared anchor", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 0,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            resource: "FARM",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 10 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // The mixed-yield tile (5,5) produces 10 gold/min AND 72 FOOD/day
+    // (~3.05 FOOD over 61 minutes since the anchor was never set).
+    // GARRISON_HALL draws gold but no food, so accrual consumes gold
+    // only — yet the single shared anchor advances, so a later collect
+    // sees less than the full 61-minute window of FOOD. This pins the
+    // documented multi-resource trade-off; if per-resource anchors are
+    // ever introduced, this test should be updated.
+    currentNow += 60 * 60_000;
+    runtime.submitCommand({
+      commandId: "collect-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: currentNow,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 5, y: 5 })
+    });
+    await Promise.resolve();
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.strategicResources.FOOD).toBeGreaterThan(2);
+    expect(player?.strategicResources.FOOD).toBeLessThan(3);
+  });
+
   it("prefers SETTLE for AI automation when strategic frontier land is available and a development slot is free", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

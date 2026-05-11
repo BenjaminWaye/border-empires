@@ -1258,6 +1258,14 @@ export class SimulationRuntime {
         this.setTileYieldCollectedAt(syntheticCommandId, player.id, tileKey, Math.min(nowMs, candidateAnchorMs));
       }
     }
+    // Drop the synthetic commandId from the in-memory replay cache. The
+    // anchor events are already durably persisted via emitEvent →
+    // persistence.recordEvent, so event-store recovery still reconstructs
+    // anchors. The cache only retains entries until a terminal event marks
+    // their commandId prunable — accrual never emits terminal events, so
+    // these would otherwise accumulate forever (and bloat every snapshot
+    // built from this map).
+    this.recordedEventsByCommandId.delete(syntheticCommandId);
   }
 
   private applyTileToPlayerSummaries(tileKey: string, tile: DomainTileState): void {
