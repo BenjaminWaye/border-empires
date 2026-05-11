@@ -756,21 +756,8 @@ export class SimulationRuntime {
     options?: { wasOnline?: boolean }
   ): void {
     const player = this.players.get(playerId);
-    const callerStack = new Error("respawn-debug-stack").stack?.split("\n").slice(2, 6).join(" | ");
     const territoryTiles = this.summaryForPlayer(playerId).territoryTileKeys.size;
     const isAi = player?.isAi === true;
-    this.runtimeLogInfo(
-      {
-        playerId,
-        isAi,
-        reasonCode,
-        triggerEvent,
-        wasOnline: options?.wasOnline,
-        territoryTiles,
-        callerStack
-      },
-      "[respawn-debug] preparePlayerRespawnNotice"
-    );
     if (isAi) return;
     this.pendingRespawnNoticeByPlayerId.set(playerId, {
       at: this.now(),
@@ -791,17 +778,6 @@ export class SimulationRuntime {
 
   consumeRespawnNoticeForPlayer(playerId: string): PlayerRespawnNotice | undefined {
     const notice = this.lastRespawnNoticeByPlayerId.get(playerId);
-    this.runtimeLogInfo(
-      {
-        playerId,
-        hadNotice: notice !== undefined,
-        noticeId: notice?.id,
-        reasonCode: notice?.reasonCode,
-        triggerEvent: notice?.triggerEvent,
-        hasPendingPrep: this.pendingRespawnNoticeByPlayerId.has(playerId)
-      },
-      "[respawn-debug] consumeRespawnNoticeForPlayer"
-    );
     this.lastRespawnNoticeByPlayerId.delete(playerId);
     return notice;
   }
@@ -849,18 +825,6 @@ export class SimulationRuntime {
 
     const territoryTiles = this.summaryForPlayer(playerId).territoryTileKeys.size;
     const hasPendingNotice = this.pendingRespawnNoticeByPlayerId.has(playerId);
-    this.runtimeLogInfo(
-      {
-        playerId,
-        isAi: player.isAi === true,
-        territoryTiles,
-        hasPendingNotice,
-        pendingNoticeReason: this.pendingRespawnNoticeByPlayerId.get(playerId)?.reasonCode,
-        pendingNoticeTrigger: this.pendingRespawnNoticeByPlayerId.get(playerId)?.triggerEvent,
-        callerStack: new Error("respawn-debug-stack").stack?.split("\n").slice(2, 6).join(" | ")
-      },
-      "[respawn-debug] ensurePlayerHasSpawnTerritory entry"
-    );
 
     if (territoryTiles > 0) return false;
     if (!player.isAi && !hasPendingNotice) {
