@@ -5,12 +5,14 @@ import { InMemorySimulationSnapshotStore } from "./snapshot-store.js";
 import { resolveSimulationMigrationPath } from "./migration-path.js";
 import { createPostgresSimulationSnapshotStore } from "./postgres-snapshot-store.js";
 import type { SnapshotStringifier } from "./snapshot-stringifier.js";
+import type { WorldgenBaselineResolver } from "./sqlite-snapshot-store.js";
 
 type SnapshotStoreFactoryOptions = {
   databaseUrl?: string;
   sqlitePath?: string;
   applySchema?: boolean;
   stringify?: SnapshotStringifier;
+  resolveBaseline?: WorldgenBaselineResolver;
 };
 
 export const createSimulationSnapshotStore = async (
@@ -21,10 +23,10 @@ export const createSimulationSnapshotStore = async (
       import("./sqlite-snapshot-store.js"),
       import("./sqlite-db.js")
     ]);
-    const store = new SqliteSimulationSnapshotStore(
-      openSqliteDatabase(options.sqlitePath),
-      options.stringify ? { stringify: options.stringify } : {}
-    );
+    const store = new SqliteSimulationSnapshotStore(openSqliteDatabase(options.sqlitePath), {
+      ...(options.stringify ? { stringify: options.stringify } : {}),
+      ...(options.resolveBaseline ? { resolveBaseline: options.resolveBaseline } : {})
+    });
     if (options.applySchema) await store.applySchema();
     return store;
   }
