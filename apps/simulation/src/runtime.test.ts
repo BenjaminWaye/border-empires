@@ -1373,6 +1373,60 @@ describe("simulation runtime", () => {
     expect(payload.strategicResources.FOOD).toBeCloseTo(9.5, 2);
   });
 
+  it("pays gold upkeep from accumulated tile yield before draining the stockpile", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 8000,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "TRADE", populationTier: "TOWN", goldPerMinute: 4 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "CAMP", status: "active" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // 60 minutes elapse offline. Town produces 4 gold/min (~240 gold of
+    // yield accumulates); CAMP draws 1.2 gold/min in upkeep (~72 gold owed).
+    // Yield easily covers the upkeep, so the stockpile must stay at 8000.
+    currentNow += 60 * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.points).toBeCloseTo(8000, 0);
+  });
+
   it("prefers SETTLE for AI automation when strategic frontier land is available and a development slot is free", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

@@ -156,6 +156,18 @@ type RuntimeTileYieldEconomyContext = {
   fedTownKeys: Set<string>;
 };
 
+const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL"] as const;
+type UpkeepStrategicKey = (typeof UPKEEP_STRATEGIC_KEYS)[number];
+type UpkeepNeed = { gold: number } & Record<UpkeepStrategicKey, number>;
+
+const hasOutstandingUpkeepNeed = (need: UpkeepNeed): boolean => {
+  if (need.gold > 0.0001) return true;
+  for (const resource of UPKEEP_STRATEGIC_KEYS) {
+    if (need[resource] > 0.0001) return true;
+  }
+  return false;
+};
+
 type LockRecord = {
   commandId: string;
   playerId: string;
@@ -1136,9 +1148,21 @@ export class SimulationRuntime {
     const summary = this.summaryForPlayer(player.id);
     const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles);
     const elapsedMinutes = elapsedMs / 60_000;
-    if (economy.upkeepPerMinute.gold > 0) {
-      const drained = economy.upkeepPerMinute.gold * elapsedMinutes;
-      player.points = Math.max(0, (player.points ?? 0) - drained);
+    const need: UpkeepNeed = {
+      gold: Math.max(0, economy.upkeepPerMinute.gold) * elapsedMinutes,
+      FOOD: Math.max(0, economy.upkeepPerMinute.food) * elapsedMinutes,
+      IRON: Math.max(0, economy.upkeepPerMinute.iron) * elapsedMinutes,
+      CRYSTAL: Math.max(0, economy.upkeepPerMinute.crystal) * elapsedMinutes,
+      SUPPLY: Math.max(0, economy.upkeepPerMinute.supply) * elapsedMinutes,
+      OIL: Math.max(0, economy.upkeepPerMinute.oil) * elapsedMinutes
+    };
+    // Towns pay their own upkeep from accumulated yield before raiding the
+    // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
+    // so an offline player whose tile income covers upkeep keeps the
+    // stockpile they logged out with.
+    this.consumeUpkeepFromTileYield(player, summary, need, nowMs);
+    if (need.gold > 0) {
+      player.points = Math.max(0, (player.points ?? 0) - need.gold);
     }
     const stock = {
       FOOD: player.strategicResources?.FOOD ?? 0,
@@ -1149,28 +1173,84 @@ export class SimulationRuntime {
       OIL: player.strategicResources?.OIL ?? 0
     };
     let mutated = false;
-    if (economy.upkeepPerMinute.food > 0) {
-      stock.FOOD = Math.max(0, stock.FOOD - economy.upkeepPerMinute.food * elapsedMinutes);
+    if (need.FOOD > 0) {
+      stock.FOOD = Math.max(0, stock.FOOD - need.FOOD);
       mutated = true;
     }
-    if (economy.upkeepPerMinute.iron > 0) {
-      stock.IRON = Math.max(0, stock.IRON - economy.upkeepPerMinute.iron * elapsedMinutes);
+    if (need.IRON > 0) {
+      stock.IRON = Math.max(0, stock.IRON - need.IRON);
       mutated = true;
     }
-    if (economy.upkeepPerMinute.crystal > 0) {
-      stock.CRYSTAL = Math.max(0, stock.CRYSTAL - economy.upkeepPerMinute.crystal * elapsedMinutes);
+    if (need.CRYSTAL > 0) {
+      stock.CRYSTAL = Math.max(0, stock.CRYSTAL - need.CRYSTAL);
       mutated = true;
     }
-    if (economy.upkeepPerMinute.supply > 0) {
-      stock.SUPPLY = Math.max(0, stock.SUPPLY - economy.upkeepPerMinute.supply * elapsedMinutes);
+    if (need.SUPPLY > 0) {
+      stock.SUPPLY = Math.max(0, stock.SUPPLY - need.SUPPLY);
       mutated = true;
     }
-    if (economy.upkeepPerMinute.oil > 0) {
-      stock.OIL = Math.max(0, stock.OIL - economy.upkeepPerMinute.oil * elapsedMinutes);
+    if (need.OIL > 0) {
+      stock.OIL = Math.max(0, stock.OIL - need.OIL);
       mutated = true;
     }
     if (mutated) player.strategicResources = stock;
     this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
+  }
+
+  private consumeUpkeepFromTileYield(
+    player: RuntimePlayer,
+    summary: PlayerRuntimeSummary,
+    need: UpkeepNeed,
+    nowMs: number
+  ): void {
+    if (!hasOutstandingUpkeepNeed(need)) return;
+    if (summary.territoryTileKeys.size <= 0) return;
+    let economyContext: RuntimeTileYieldEconomyContext | undefined;
+    const tileKeys = [...summary.territoryTileKeys].sort();
+    for (const tileKey of tileKeys) {
+      if (!hasOutstandingUpkeepNeed(need)) return;
+      const tile = this.tiles.get(tileKey);
+      if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
+      if (!economyContext) economyContext = this.tileYieldEconomyContextForPlayer(player);
+      const enrichedTile = tile.town
+        ? { ...tile, town: enrichTownWithConnectedNetwork(tile, economyContext.townNetwork) }
+        : tile;
+      const lastCollectedAt = this.tileYieldCollectedAtByTile.get(tileKey);
+      const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, nowMs, {
+        player,
+        fedTownKeys: economyContext.fedTownKeys,
+        tiles: this.tiles,
+        dockLinksByDockTileKey: this.dockLinksByDockTileKey
+      });
+      if (!yieldView?.yield) continue;
+      let maxFractionConsumed = 0;
+      const availableGold = yieldView.yield.gold ?? 0;
+      if (availableGold > 0 && need.gold > 0) {
+        const consumed = Math.min(availableGold, need.gold);
+        need.gold -= consumed;
+        maxFractionConsumed = Math.max(maxFractionConsumed, consumed / availableGold);
+      }
+      for (const resource of UPKEEP_STRATEGIC_KEYS) {
+        const available = yieldView.yield.strategic[resource] ?? 0;
+        if (available > 0 && need[resource] > 0) {
+          const consumed = Math.min(available, need[resource]);
+          need[resource] -= consumed;
+          maxFractionConsumed = Math.max(maxFractionConsumed, consumed / available);
+        }
+      }
+      if (maxFractionConsumed > 0) {
+        const anchorWas = lastCollectedAt ?? 0;
+        const newAnchor = Math.min(nowMs, anchorWas + (nowMs - anchorWas) * maxFractionConsumed);
+        this.tileYieldCollectedAtByTile.set(tileKey, newAnchor);
+        this.emitEvent({
+          eventType: "TILE_YIELD_ANCHOR_UPDATED",
+          commandId: `accrual:upkeep:${player.id}:${nowMs}`,
+          playerId: player.id,
+          tileKey,
+          collectedAt: newAnchor
+        });
+      }
+    }
   }
 
   private applyTileToPlayerSummaries(tileKey: string, tile: DomainTileState): void {
