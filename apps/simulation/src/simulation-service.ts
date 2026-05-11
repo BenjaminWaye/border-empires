@@ -1442,21 +1442,31 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }
         }
       }
+      // TILE_DELTA_BATCH events describe authoritative tile changes. Each
+      // subscribed player only sees the subset of tiles they have vision of,
+      // so we fan out one event per subscribed player with their filtered
+      // (and where required, redacted) deltas — instead of a single global
+      // broadcast that would leak opponent tile state outside fog of war.
+      // The same filter is applied to each player's cached snapshot so the
+      // server-held cache stays consistent with what the player can actually see.
       if (event.eventType === "TILE_DELTA_BATCH") {
         for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
+          const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
           const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-          if (!cachedSnapshot) continue;
-          setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, event.tileDeltas));
+          if (cachedSnapshot && filteredDeltas.length > 0) {
+            setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
+          }
+          if (filteredDeltas.length === 0) continue;
+          const perPlayerEvent = toProtoEvent({
+            ...event,
+            playerId: subscribedPlayerId,
+            tileDeltas: filteredDeltas
+          });
+          for (const stream of eventStreams) stream.write(perPlayerEvent);
         }
+        return;
       }
-      // TILE_DELTA_BATCH events describe authoritative tile changes that
-      // every subscribed player needs in real time, regardless of which
-      // player triggered them. The gateway fans these out to allSockets()
-      // and applies them to per-player snapshots, so a human watching their
-      // border get captured by an AI must see the flip live — not only
-      // after a snapshot refetch.
-      const isWorldVisibleBroadcast = event.eventType === "TILE_DELTA_BATCH";
-      if (!isWorldVisibleBroadcast && !subscriptionRegistry.isSubscribed(event.playerId)) return;
+      if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
       const protoEvent = toProtoEvent(event);
       for (const stream of eventStreams) stream.write(protoEvent);
     });

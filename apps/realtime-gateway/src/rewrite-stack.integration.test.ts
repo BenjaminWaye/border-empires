@@ -910,7 +910,7 @@ describe("rewrite stack integration", () => {
     );
   });
 
-  it("broadcasts non-bootstrap tile delta batches to other subscribed players", async () => {
+  it("delivers tile-delta batches to the actor and filters per-player visibility for everyone else", async () => {
     const scheduledResolutions: Array<{ delayMs: number; task: () => void }> = [];
     const simulation = await createSimulationService({
       host: "127.0.0.1",
@@ -983,12 +983,26 @@ describe("rewrite stack integration", () => {
     expect(scheduledResolutions).toHaveLength(1);
     scheduledResolutions[0]?.task();
 
-    const observerMessage = await nextNonBootstrapMessage(observerSocket, "observer delta");
-    expect(observerMessage).toEqual(
+    // Per-player visibility model: the attacker, who now owns the flipped
+    // tile, receives the delta. The defender lost their last tile in this
+    // seed and is eliminated — with no remaining territory they have no
+    // vision, so the simulation must not leak the flipped tile state to
+    // them; instead they get the respawn error.
+    const attackerDelta = await nextNonBootstrapMessage(attackerSocket, "attacker delta");
+    expect(attackerDelta).toEqual(
       expect.objectContaining({
         type: "TILE_DELTA_BATCH",
         commandId: "broadcast-cmd-1",
         tiles: expect.arrayContaining([expect.objectContaining({ x: 10, y: 11, ownerId: "player-1" })])
+      })
+    );
+
+    const observerMessage = await nextNonBootstrapMessage(observerSocket, "observer post-resolve");
+    expect(observerMessage.type).not.toBe("TILE_DELTA_BATCH");
+    expect(observerMessage).toEqual(
+      expect.objectContaining({
+        type: "ERROR",
+        commandId: expect.stringContaining("respawn:player-2")
       })
     );
 
