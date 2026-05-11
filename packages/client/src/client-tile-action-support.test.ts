@@ -211,10 +211,10 @@ describe("tileActionAvailabilityWithDevelopmentSlot", () => {
   });
 
   it("preserves the real blocker instead of blaming full development slots for unavailable builds", () => {
-    expect(tileActionAvailabilityWithDevelopmentSlot(false, "Need 900 gold", "Need 900 gold", fullSlots)).toEqual({
+    expect(tileActionAvailabilityWithDevelopmentSlot(false, "Need 900 gold", "900 gold • 8m", fullSlots)).toEqual({
       disabled: true,
       disabledReason: "Need 900 gold",
-      cost: "Need 900 gold"
+      cost: "900 gold • 8m"
     });
   });
 });

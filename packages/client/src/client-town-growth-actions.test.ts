@@ -140,7 +140,7 @@ describe("town growth tile actions", () => {
       id: "grow_town_to_city",
       disabled: true,
       disabledReason: "Need 1500 gold",
-      cost: "Need 1500 gold"
+      cost: "1500 gold"
     });
   });
 
