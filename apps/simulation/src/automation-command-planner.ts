@@ -440,6 +440,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
       : baseFrontierOrigins;
   const settledTileCount = input.settledTileCount ?? input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED").length;
+  const controlledTileCount = input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER").length;
   const townCount = input.townCount ?? input.ownedTiles.filter((tile) => tile.town && tile.ownershipState === "SETTLED").length;
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
@@ -551,6 +552,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     points: input.points,
     manpower: input.manpower,
     settledTileCount,
+    controlledTileCount,
     townCount,
     incomePerMinute,
     ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),

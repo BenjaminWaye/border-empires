@@ -82,6 +82,7 @@ type StrategicSnapshotInput<TTile extends StrategicTile> = {
   points: number;
   manpower: number;
   settledTileCount: number;
+  controlledTileCount?: number;
   townCount: number;
   incomePerMinute: number;
   strategicResources?: Partial<Record<StrategicResourceKey, number>>;
@@ -172,10 +173,16 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     Boolean(input.settlementCandidate?.dockId) ||
     Boolean(input.fallbackSettlementCandidate?.dockId);
   const townsTarget = Math.max(2, Math.ceil(Math.max(1, input.settledTileCount) / 5));
-  const settledTilesTarget = Math.max(4, input.townCount * 3);
+  const controlledTileCount =
+    input.controlledTileCount ??
+    Math.max(
+      input.settledTileCount,
+      input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER").length
+    );
+  const territorialControlTarget = Math.max(4, input.townCount * 3);
   const economyTarget = Math.max(8, input.settledTileCount * 0.55);
   const townProgress = input.townCount / townsTarget;
-  const settledProgress = input.settledTileCount / settledTilesTarget;
+  const territorialControlProgress = controlledTileCount / territorialControlTarget;
   const economyProgress = input.incomePerMinute / economyTarget;
 
   const resourceCounts = ownedResourceTileCounts(input.playerId, input.ownedTiles);
@@ -212,12 +219,14 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     input.frontierAnalysis.frontierOpportunityEconomic * 44 +
     (!input.needsFood ? 18 : -24) +
     (input.needsEconomy ? -12 : 0);
-  const settledTerritoryScore =
-    input.settledTileCount * 18 +
-    input.frontierAnalysis.frontierNeutralTargetCount * 12 +
+  const territorialControlScore =
+    controlledTileCount * 18 +
+    input.frontierAnalysis.frontierNeutralTargetCount * 18 +
+    input.frontierAnalysis.frontierOpportunityScout * 10 +
+    input.frontierAnalysis.frontierOpportunityScaffold * 8 +
     (islandGrowthAvailable ? 120 : 0) +
-    (input.settlementCandidate ? 36 : 0) +
-    (input.fallbackSettlementCandidate ? 16 : 0) +
+    (input.settlementCandidate ? 18 : 0) +
+    (input.fallbackSettlementCandidate ? 8 : 0) +
     (!input.needsFood && !input.needsEconomy ? 18 : -18);
   const resourceMonopolyScore =
     topResourceCount * 60 +
@@ -259,8 +268,8 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
   const townControlSoftContender = townProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
   const economicContender = economyProgress >= VICTORY_PATH_CONTENDER_ECONOMY_RATIO;
   const economicSoftContender = economyProgress >= VICTORY_PATH_SOFT_CONTENDER_ECONOMY_RATIO;
-  const settledContender = settledProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
-  const settledSoftContender = settledProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
+  const territorialControlContender = territorialControlProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
+  const territorialControlSoftContender = territorialControlProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
   const resourceMonopolyContender = resourceMonopolyProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
   const resourceMonopolySoftContender = resourceMonopolyProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
   const continentFootprintContender = continentFootprintProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
@@ -278,9 +287,9 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
       softContender: economicSoftContender
     },
     SETTLED_TERRITORY: {
-      score: settledTerritoryScore - crowdingPenalty("SETTLED_TERRITORY", settledContender, settledSoftContender),
-      contender: settledContender,
-      softContender: settledSoftContender
+      score: territorialControlScore - crowdingPenalty("SETTLED_TERRITORY", territorialControlContender, territorialControlSoftContender),
+      contender: territorialControlContender,
+      softContender: territorialControlSoftContender
     },
     RESOURCE_MONOPOLY: {
       score: resourceMonopolyScore - crowdingPenalty("RESOURCE_MONOPOLY", resourceMonopolyContender, resourceMonopolySoftContender),
@@ -317,6 +326,12 @@ const chooseVictoryPath = <TTile extends StrategicTile>(input: StrategicSnapshot
 export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
   input: StrategicSnapshotInput<TTile>
 ): AutomationStrategicSnapshot => {
+  const controlledTileCount =
+    input.controlledTileCount ??
+    Math.max(
+      input.settledTileCount,
+      input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER").length
+    );
   const hasActiveTown = input.townCount > 0 || input.ownedTiles.some((tile) => tile.ownershipState === "SETTLED" && Boolean(tile.town));
   const hasActiveDock = input.ownedTiles.some((tile) => tile.ownershipState === "SETTLED" && Boolean(tile.dockId));
   const growthFoundationEstablished = hasActiveTown || hasActiveDock || input.incomePerMinute >= 10;
@@ -423,6 +438,10 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     input.canAttack &&
     manpowerSufficient &&
     (pressureThreatensCore || (!input.needsFood && !input.needsEconomy) || pressureAttackScore >= 180);
+  const resourceContenderThreshold = Math.ceil(6 * VICTORY_PATH_CONTENDER_PROGRESS_RATIO);
+  const resourcePathContender = [...ownedResourceTileCounts(input.playerId, input.ownedTiles).values()].some(
+    (count) => count >= resourceContenderThreshold
+  );
 
   let strategicFocus: AutomationStrategicFocus = "BALANCED";
   if (
@@ -452,7 +471,11 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       ? input.townCount >= Math.max(2, Math.ceil(input.settledTileCount / 5))
       : primaryVictoryPath === "ECONOMIC_HEGEMONY"
         ? input.incomePerMinute >= Math.max(8, input.settledTileCount * 0.55)
-        : input.settledTileCount >= Math.max(4, input.townCount * 3);
+        : primaryVictoryPath === "RESOURCE_MONOPOLY"
+          ? resourcePathContender
+          : primaryVictoryPath === "CONTINENT_FOOTPRINT"
+            ? ownedDockTileCount(input.playerId, input.ownedTiles) >= 3
+            : controlledTileCount >= Math.max(4, input.townCount * 3);
 
   return {
     primaryVictoryPath,
