@@ -486,6 +486,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         ...visibleRuntimeState.tiles,
         { x: 30, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", townType: "MARKET", townName: "BlackFang" },
         { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "IRON" },
+        { x: 32, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
         { x: 40, y: 40, terrain: "LAND", townType: "MARKET", townName: "Neutral Port" }
       ]
     };
@@ -503,8 +504,9 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
     expect(snapshot.worldStatus?.seasonVictory.find((objective) => objective.id === "SETTLED_TERRITORY")).toEqual(
       expect.objectContaining({
-        progressLabel: "2/4 settled land",
-        thresholdLabel: "Need 4 settled land tiles"
+        name: "Territorial Control",
+        progressLabel: "3/4 controlled land",
+        thresholdLabel: "Need 4 controlled land tiles"
       })
     );
   });
