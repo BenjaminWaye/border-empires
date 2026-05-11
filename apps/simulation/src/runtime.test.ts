@@ -1373,6 +1373,313 @@ describe("simulation runtime", () => {
     expect(payload.strategicResources.FOOD).toBeCloseTo(9.5, 2);
   });
 
+  it("pays gold upkeep from accumulated tile yield before draining the stockpile", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 8000,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "TRADE", populationTier: "TOWN", goldPerMinute: 4 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "CAMP", status: "active" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // 60 minutes elapse offline. Town produces 4 gold/min (~240 gold of
+    // yield accumulates); CAMP draws 1.2 gold/min in upkeep (~72 gold owed).
+    // Yield easily covers the upkeep, so the stockpile must stay at 8000.
+    currentNow += 60 * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.points).toBeCloseTo(8000, 0);
+  });
+
+  it("falls back to stockpile when tile yield cannot cover gold upkeep", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 1000,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 1 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // 60 min elapse: town yields ~60 gold, GARRISON_HALL draws 2.5
+    // gold/min (~150 gold). Yield covers part of it; the ~90 gold
+    // deficit hits the stockpile, so points drops below 1000 but stays
+    // well above 0.
+    currentNow += 60 * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.points).toBeGreaterThan(850);
+    expect(player?.points).toBeLessThan(960);
+  });
+
+  it("drains accumulated food yield to cover food upkeep before touching the food stockpile", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 0,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "TOWN", goldPerMinute: 1 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            resource: "FARM",
+            ownerId: "player-1",
+            ownershipState: "SETTLED"
+          },
+          {
+            x: 7,
+            y: 5,
+            terrain: "LAND",
+            resource: "FARM",
+            ownerId: "player-1",
+            ownershipState: "SETTLED"
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // 60 min elapse: TOWN tier draws 0.1 food/min (6 food). Two FARM
+    // tiles produce 72/day = 0.05/min each (6 food total). Yield exactly
+    // covers upkeep, so FOOD stockpile stays at 100.
+    currentNow += 60 * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.strategicResources.FOOD).toBeCloseTo(100, 1);
+  });
+
+  it("advances the per-tile anchor so a later collect only picks up leftover yield", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 0,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 10 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // 60 min elapse: tile (5,5) produces 10 gold/min (~610 gold yield
+    // before any drain); GARRISON_HALL draws 150 gold. Accrual consumes
+    // 150 from the buffer and advances the tile's anchor. A subsequent
+    // COLLECT_TILE should only see the ~460 leftover — never the full
+    // 610 — which would happen if the anchor hadn't moved.
+    currentNow += 60 * 60_000;
+    runtime.submitCommand({
+      commandId: "collect-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: currentNow,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 5, y: 5 })
+    });
+    await Promise.resolve();
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.points).toBeGreaterThan(440);
+    expect(player?.points).toBeLessThan(480);
+  });
+
+  it("drains unconsumed food yield on a mixed-yield tile when gold upkeep advances the shared anchor", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => currentNow,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 0,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            resource: "FARM",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 10 }
+          },
+          {
+            x: 6,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // The mixed-yield tile (5,5) produces 10 gold/min AND 72 FOOD/day
+    // (~3.05 FOOD over 61 minutes since the anchor was never set).
+    // GARRISON_HALL draws gold but no food, so accrual consumes gold
+    // only — yet the single shared anchor advances, so a later collect
+    // sees less than the full 61-minute window of FOOD. This pins the
+    // documented multi-resource trade-off; if per-resource anchors are
+    // ever introduced, this test should be updated.
+    currentNow += 60 * 60_000;
+    runtime.submitCommand({
+      commandId: "collect-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: currentNow,
+      type: "COLLECT_TILE",
+      payloadJson: JSON.stringify({ x: 5, y: 5 })
+    });
+    await Promise.resolve();
+    const exported = runtime.exportState();
+    const player = exported.players.find((p) => p.id === "player-1");
+    expect(player?.strategicResources.FOOD).toBeGreaterThan(2);
+    expect(player?.strategicResources.FOOD).toBeLessThan(3);
+  });
+
   it("prefers SETTLE for AI automation when strategic frontier land is available and a development slot is free", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
