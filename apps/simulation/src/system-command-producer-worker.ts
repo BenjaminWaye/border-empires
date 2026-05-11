@@ -11,6 +11,7 @@ import type { SimulationRuntime } from "./runtime.js";
 import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
+import type { WorkerMemoryMetrics } from "./snapshot-stringifier.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -54,6 +55,7 @@ type WorkerSystemCommandProducerOptions = {
   playerSyncIntervalMs?: number;
   periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
+  maxOldGenerationSizeMb?: number;
   onTick?: (sample: { durationMs: number }) => void;
 };
 
@@ -84,46 +86,92 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   let tickInFlight = false;
   let lastBacklogState = false;
 
-  const worker = new Worker(resolveWorkerScript(options.workerScriptPath));
+  const SYSTEM_WORKER_MAX_OLD_GEN_MB_DEFAULT = 96;
+  const maxOldGenerationSizeMb = Math.max(48, options.maxOldGenerationSizeMb ?? SYSTEM_WORKER_MAX_OLD_GEN_MB_DEFAULT);
+  const workerScriptPath = resolveWorkerScript(options.workerScriptPath);
+
   const pendingRequests = new Map<string, (command: CommandEnvelope | null) => void>();
+  let closed = false;
+  const workerMetrics: WorkerMemoryMetrics = { respawnCount: 0 };
 
-  worker.on("message", (msg: unknown) => {
-    if (!msg || typeof msg !== "object") return;
-    const message = msg as Record<string, unknown>;
-    if (message.type === "command") {
-      const resolve = pendingRequests.get(message.playerId as string);
-      if (resolve) {
-        pendingRequests.delete(message.playerId as string);
-        resolve(message.command as CommandEnvelope | null);
+  let worker!: Worker;
+  let relevantTileKeyIndex!: ReturnType<typeof createPlannerRelevantTileKeyIndex>;
+
+  const spawnWorker = (): void => {
+    worker = new Worker(workerScriptPath, {
+      resourceLimits: { maxOldGenerationSizeMb }
+    });
+
+    worker.on("message", (msg: unknown) => {
+      if (!msg || typeof msg !== "object") return;
+      const message = msg as Record<string, unknown>;
+      if (message.type === "metrics" && message.memoryUsage && typeof message.memoryUsage === "object") {
+        const mu = message.memoryUsage as NodeJS.MemoryUsage;
+        workerMetrics.rssBytes = mu.rss;
+        workerMetrics.heapTotalBytes = mu.heapTotal;
+        workerMetrics.heapUsedBytes = mu.heapUsed;
+        workerMetrics.externalBytes = mu.external;
+        return;
       }
-    } else if (message.type === "error") {
-      const playerId = message.playerId as string;
-      console.error("[system-job-worker] planner error:", message.message);
-      const resolve = pendingRequests.get(playerId);
-      if (resolve) {
-        pendingRequests.delete(playerId);
-        resolve(null);
+      if (message.type === "command") {
+        const resolve = pendingRequests.get(message.playerId as string);
+        if (resolve) {
+          pendingRequests.delete(message.playerId as string);
+          resolve(message.command as CommandEnvelope | null);
+        }
+      } else if (message.type === "error") {
+        const playerId = message.playerId as string;
+        console.error("[system-job-worker] planner error:", message.message);
+        const resolve = pendingRequests.get(playerId);
+        if (resolve) {
+          pendingRequests.delete(playerId);
+          resolve(null);
+        }
       }
+    });
+
+    worker.on("error", (err) => {
+      console.error("[system-job-worker] uncaught error:", err);
+      for (const [, resolve] of pendingRequests) resolve(null);
+      pendingRequests.clear();
+    });
+
+    worker.on("exit", (code) => {
+      workerMetrics.lastExitCode = code;
+      workerMetrics.lastExitAt = Date.now();
+      if (closed) return;
+      if (code !== 0) {
+        console.error(
+          `[system-job-worker] exited code=${code} — respawning (likely heap cap hit at ${maxOldGenerationSizeMb}MB)`
+        );
+      }
+      for (const [, resolve] of pendingRequests) resolve(null);
+      pendingRequests.clear();
+      // Reset pause-state so next tick re-sends pause/resume to the fresh worker.
+      lastBacklogState = false;
+      workerMetrics.respawnCount += 1;
+      initializeWorkerFromRuntime();
+    });
+  };
+
+  const initializeWorkerFromRuntime = (): void => {
+    spawnWorker();
+    plannerPlayersById.clear();
+    plannerTilesByKey.clear();
+    const worldView = options.runtime.exportPlannerWorldView(options.systemPlayerIds);
+    for (const player of worldView.players) plannerPlayersById.set(player.id, player);
+    for (const tile of worldView.tiles) {
+      plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
     }
-  });
+    relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(worldView);
+    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
+    worker.postMessage({
+      type: "init",
+      worldView
+    });
+  };
 
-  worker.on("error", (err) => {
-    console.error("[system-job-worker] uncaught error:", err);
-    for (const [, resolve] of pendingRequests) resolve(null);
-    pendingRequests.clear();
-  });
-
-  const initialWorldView = options.runtime.exportPlannerWorldView(options.systemPlayerIds);
-  for (const player of initialWorldView.players) plannerPlayersById.set(player.id, player);
-  for (const tile of initialWorldView.tiles) {
-    plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
-  }
-  const relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(initialWorldView);
-  relevantTileKeys = new Set(relevantTileKeyIndex.keys());
-  worker.postMessage({
-    type: "init",
-    worldView: initialWorldView
-  });
+  initializeWorkerFromRuntime();
 
   const pendingPlayerSyncIds = new Set<string>();
   let playerSyncTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -279,7 +327,9 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
 
   return {
     tick,
+    getWorkerMetrics: (): WorkerMemoryMetrics => ({ ...workerMetrics }),
     close(): void {
+      closed = true;
       clearInterval(intervalHandle);
       clearInterval(playerSyncInterval);
       if (playerSyncTimeout) clearTimeout(playerSyncTimeout);

@@ -565,7 +565,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const rulesetId = options.rulesetId;
   const mapStyle = options.mapStyle ?? "continents";
   const seedPlayers = createSeedPlayers(options.seedProfile);
-  let snapshotStringifier: (SnapshotStringifier & { close: () => Promise<void> }) | undefined;
+  let snapshotStringifier: ReturnType<typeof createWorkerSnapshotStringifier> | undefined;
   // Only spin up a stringify worker for SQLite-backed deployments — full
   // snapshots there are ~18MB and inline JSON.stringify blocks the
   // simulation event loop. Postgres/in-memory tests stay inline.
@@ -1891,6 +1891,48 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }
         }
         const sample = simulationMetrics.snapshot();
+        const workerMemoryMb = (() => {
+          const toMb = (bytes?: number): number | undefined =>
+            typeof bytes === "number" ? Math.round((bytes / (1024 * 1024)) * 10) / 10 : undefined;
+          const snapshotMetrics =
+            snapshotStringifier && "getWorkerMetrics" in snapshotStringifier
+              ? (snapshotStringifier as { getWorkerMetrics: () => import("./snapshot-stringifier.js").WorkerMemoryMetrics }).getWorkerMetrics()
+              : undefined;
+          const aiMetrics =
+            aiCommandProducer && "getWorkerMetrics" in aiCommandProducer
+              ? (aiCommandProducer as { getWorkerMetrics: () => import("./snapshot-stringifier.js").WorkerMemoryMetrics }).getWorkerMetrics()
+              : undefined;
+          const systemMetrics =
+            systemCommandProducer && "getWorkerMetrics" in systemCommandProducer
+              ? (systemCommandProducer as { getWorkerMetrics: () => import("./snapshot-stringifier.js").WorkerMemoryMetrics }).getWorkerMetrics()
+              : undefined;
+          return {
+            snapshot: snapshotMetrics
+              ? {
+                  rss_mb: toMb(snapshotMetrics.rssBytes),
+                  heap_used_mb: toMb(snapshotMetrics.heapUsedBytes),
+                  respawn_count: snapshotMetrics.respawnCount,
+                  last_exit_code: snapshotMetrics.lastExitCode
+                }
+              : undefined,
+            ai: aiMetrics
+              ? {
+                  rss_mb: toMb(aiMetrics.rssBytes),
+                  heap_used_mb: toMb(aiMetrics.heapUsedBytes),
+                  respawn_count: aiMetrics.respawnCount,
+                  last_exit_code: aiMetrics.lastExitCode
+                }
+              : undefined,
+            system: systemMetrics
+              ? {
+                  rss_mb: toMb(systemMetrics.rssBytes),
+                  heap_used_mb: toMb(systemMetrics.heapUsedBytes),
+                  respawn_count: systemMetrics.respawnCount,
+                  last_exit_code: systemMetrics.lastExitCode
+                }
+              : undefined
+          };
+        })();
         log.info(
           {
             sim_event_loop_max_ms: sample.simEventLoopMaxMs,
@@ -1922,7 +1964,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_snapshot_tiles_json_bytes: sample.simSnapshotTilesJsonBytes,
             sim_snapshot_cache_entries: sample.simSnapshotCacheEntries,
             sim_snapshot_cache_bytes: sample.simSnapshotCacheBytes,
-            sim_snapshot_recent: sample.simSnapshotRecent
+            sim_snapshot_recent: sample.simSnapshotRecent,
+            sim_worker_memory: workerMemoryMb
           },
           "simulation metrics sample"
         );

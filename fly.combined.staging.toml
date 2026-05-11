@@ -49,7 +49,7 @@ primary_region = "arn"
   SIMULATION_AI_WORKER = "1"
   SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS = "100"
   SIMULATION_AI_PLAYER_COUNT = "5"
-  SIMULATION_AI_TICK_MS = "100"
+  SIMULATION_AI_TICK_MS = "200"
   NODE_OPTIONS = "--max-old-space-size=900"
 
 [http_service]

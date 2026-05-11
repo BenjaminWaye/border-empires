@@ -10,56 +10,98 @@ export const createInlineSnapshotStringifier = (): SnapshotStringifier => inline
 
 export type WorkerSnapshotStringifierOptions = {
   workerScriptPath?: string | URL;
+  maxOldGenerationSizeMb?: number;
+};
+
+export type WorkerMemoryMetrics = {
+  rssBytes?: number;
+  heapTotalBytes?: number;
+  heapUsedBytes?: number;
+  externalBytes?: number;
+  respawnCount: number;
+  lastExitCode?: number;
+  lastExitAt?: number;
 };
 
 const resolveWorkerScript = (given?: string | URL): string | URL =>
   given ?? resolveWorkerEntryUrl("./snapshot-stringify-worker.js", import.meta.url);
 
+const DEFAULT_MAX_OLD_GEN_MB = 96;
+
 export const createWorkerSnapshotStringifier = (
   options: WorkerSnapshotStringifierOptions = {}
-): SnapshotStringifier & { close: () => Promise<void> } => {
-  const worker = new Worker(resolveWorkerScript(options.workerScriptPath));
-  worker.unref();
+): SnapshotStringifier & {
+  close: () => Promise<void>;
+  getWorkerMetrics: () => WorkerMemoryMetrics;
+} => {
+  const scriptPath = resolveWorkerScript(options.workerScriptPath);
+  const maxOldGenerationSizeMb = Math.max(32, options.maxOldGenerationSizeMb ?? DEFAULT_MAX_OLD_GEN_MB);
 
   type Pending = { resolve: (json: string) => void; reject: (error: Error) => void };
   const pending = new Map<number, Pending>();
   let nextId = 0;
-  let workerError: Error | undefined;
+  let closed = false;
+  const metrics: WorkerMemoryMetrics = { respawnCount: 0 };
 
-  worker.on("message", (msg: unknown) => {
-    if (!msg || typeof msg !== "object") return;
-    const message = msg as { id?: unknown; json?: unknown; error?: unknown; ready?: unknown };
-    if (typeof message.id !== "number") return;
-    const handler = pending.get(message.id);
-    if (!handler) return;
-    pending.delete(message.id);
-    if (typeof message.error === "string") {
-      handler.reject(new Error(message.error));
-      return;
-    }
-    handler.resolve(typeof message.json === "string" ? message.json : "");
-  });
+  let worker!: Worker;
 
-  worker.on("error", (err: Error) => {
-    workerError = err;
-    for (const handler of pending.values()) handler.reject(err);
-    pending.clear();
-  });
+  const spawnWorker = (): void => {
+    worker = new Worker(scriptPath, {
+      resourceLimits: { maxOldGenerationSizeMb }
+    });
+    worker.unref();
 
-  worker.on("exit", (code) => {
-    if (workerError) return;
-    if (code !== 0) {
-      const err = new Error(`snapshot-stringify-worker exited with code ${code}`);
-      workerError = err;
+    worker.on("message", (msg: unknown) => {
+      if (!msg || typeof msg !== "object") return;
+      const message = msg as { id?: unknown; json?: unknown; error?: unknown; type?: unknown; memoryUsage?: unknown };
+      if (message.type === "metrics" && message.memoryUsage && typeof message.memoryUsage === "object") {
+        const mu = message.memoryUsage as NodeJS.MemoryUsage;
+        metrics.rssBytes = mu.rss;
+        metrics.heapTotalBytes = mu.heapTotal;
+        metrics.heapUsedBytes = mu.heapUsed;
+        metrics.externalBytes = mu.external;
+        return;
+      }
+      if (typeof message.id !== "number") return;
+      const handler = pending.get(message.id);
+      if (!handler) return;
+      pending.delete(message.id);
+      if (typeof message.error === "string") {
+        handler.reject(new Error(message.error));
+        return;
+      }
+      handler.resolve(typeof message.json === "string" ? message.json : "");
+    });
+
+    worker.on("error", (err: Error) => {
+      console.error("[snapshot-stringify-worker] error:", err);
       for (const handler of pending.values()) handler.reject(err);
       pending.clear();
-    }
-  });
+    });
+
+    worker.on("exit", (code) => {
+      metrics.lastExitCode = code;
+      metrics.lastExitAt = Date.now();
+      if (closed) return;
+      if (code !== 0) {
+        console.error(
+          `[snapshot-stringify-worker] exited code=${code} — respawning (likely heap cap hit at ${maxOldGenerationSizeMb}MB)`
+        );
+      }
+      const drainErr = new Error(`snapshot-stringify-worker exited with code ${code}`);
+      for (const handler of pending.values()) handler.reject(drainErr);
+      pending.clear();
+      metrics.respawnCount += 1;
+      spawnWorker();
+    });
+  };
+
+  spawnWorker();
 
   const stringify: SnapshotStringifier = (payload) =>
     new Promise<string>((resolve, reject) => {
-      if (workerError) {
-        reject(workerError);
+      if (closed) {
+        reject(new Error("snapshot-stringify-worker closed"));
         return;
       }
       const id = ++nextId;
@@ -74,7 +116,9 @@ export const createWorkerSnapshotStringifier = (
 
   return Object.assign(stringify, {
     close: async () => {
+      closed = true;
       await worker.terminate();
-    }
+    },
+    getWorkerMetrics: (): WorkerMemoryMetrics => ({ ...metrics })
   });
 };
