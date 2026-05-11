@@ -20,9 +20,9 @@ import { createAutomationNoopDiagnostic } from "./automation-command-planner.js"
 import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
-import type { WorkerMemoryMetrics } from "./worker-memory-metrics.js";
+import type { WorkerMemoryMetrics } from "./snapshot-stringifier.js";
 
-export type { WorkerMemoryMetrics } from "./worker-memory-metrics.js";
+export type { WorkerMemoryMetrics } from "./snapshot-stringifier.js";
 import {
   createAiIntentLatchState,
   latchAiIntent,

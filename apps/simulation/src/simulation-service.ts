@@ -24,8 +24,7 @@ import type { SimulationEventStore } from "./event-store.js";
 import { createSimulationSnapshotStore } from "./snapshot-store-factory.js";
 import type { SimulationSnapshotStore } from "./snapshot-store.js";
 import { createSnapshotCheckpointManager } from "./snapshot-checkpoint-manager.js";
-import { createInlineSnapshotStringifier, type SnapshotStringifier } from "./snapshot-stringifier.js";
-import type { WorkerMemoryMetrics } from "./worker-memory-metrics.js";
+import { createWorkerSnapshotStringifier, type WorkerMemoryMetrics } from "./snapshot-stringifier.js";
 import { createAiCommandProducer } from "./ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "./ai-command-producer-worker.js";
 import { recoverCommandHistory } from "./command-recovery.js";
@@ -566,17 +565,25 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const rulesetId = options.rulesetId;
   const mapStyle = options.mapStyle ?? "continents";
   const seedPlayers = createSeedPlayers(options.seedProfile);
-  // Snapshot stringify runs inline on the main thread. The worker variant
-  // was added when legacy-stack snapshots were ~18 MB; rewrite-stack
-  // payloads run ~72 KB, where JSON.stringify is sub-millisecond and the
-  // worker's V8 + module-load native baseline (~80 MB) is pure overhead in
-  // the 1024 MB merged-process budget.
-  const snapshotStringifier: SnapshotStringifier = createInlineSnapshotStringifier();
+  let snapshotStringifier: ReturnType<typeof createWorkerSnapshotStringifier> | undefined;
+  // Only spin up a stringify worker for SQLite-backed deployments — full
+  // snapshots there are ~18MB and inline JSON.stringify blocks the
+  // simulation event loop. Postgres/in-memory tests stay inline.
+  if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_STRINGIFY_INLINE !== "1") {
+    try {
+      snapshotStringifier = createWorkerSnapshotStringifier();
+    } catch (err) {
+      log.error(
+        { err: err instanceof Error ? err.message : String(err) },
+        "failed to start snapshot-stringify worker; falling back to inline JSON.stringify"
+      );
+    }
+  }
   const storeFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
     ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
     ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {}),
-    stringify: snapshotStringifier
+    ...(snapshotStringifier ? { stringify: snapshotStringifier } : {})
   };
   const commandStore =
     options.commandStore ??
@@ -1888,6 +1895,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           const toMb = (bytes?: number): number | undefined =>
             typeof bytes === "number" ? Math.round((bytes / (1024 * 1024)) * 10) / 10 : undefined;
           type HasWorkerMetrics = { getWorkerMetrics: () => WorkerMemoryMetrics };
+          const snapshotMetrics =
+            snapshotStringifier && "getWorkerMetrics" in snapshotStringifier
+              ? (snapshotStringifier as HasWorkerMetrics).getWorkerMetrics()
+              : undefined;
           const aiMetrics =
             aiCommandProducer && "getWorkerMetrics" in aiCommandProducer
               ? (aiCommandProducer as HasWorkerMetrics).getWorkerMetrics()
@@ -1899,9 +1910,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           // Per-worker rss is intentionally dropped — process.memoryUsage().rss
           // inside a Worker returns the shared-process RSS, not the worker's
           // contribution. Heap, external, and arrayBuffers are per-V8-isolate
-          // (per-worker) and useful. Snapshot stringify is inline now so it
-          // has no worker entry.
+          // (per-worker) and useful.
           return {
+            snapshot: snapshotMetrics
+              ? {
+                  heap_used_mb: toMb(snapshotMetrics.heapUsedBytes),
+                  external_mb: toMb(snapshotMetrics.externalBytes),
+                  array_buffers_mb: toMb(snapshotMetrics.arrayBuffersBytes),
+                  respawn_count: snapshotMetrics.respawnCount,
+                  last_exit_code: snapshotMetrics.lastExitCode
+                }
+              : undefined,
             ai: aiMetrics
               ? {
                   heap_used_mb: toMb(aiMetrics.heapUsedBytes),

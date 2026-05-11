@@ -11,7 +11,7 @@ import type { SimulationRuntime } from "./runtime.js";
 import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
-import type { WorkerMemoryMetrics } from "./worker-memory-metrics.js";
+import type { WorkerMemoryMetrics } from "./snapshot-stringifier.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
