@@ -579,11 +579,25 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   }
+  // Memoise worldgen baselines per (rulesetId, worldSeed) so the snapshot
+  // store can compact saves and rehydrate loads without paying the 200k-tile
+  // generation cost more than once per seed per process.
+  const worldgenBaselineCache = new Map<string, ReturnType<typeof generateSeasonWorld>["initialState"]["tiles"]>();
+  const resolveWorldgenBaseline = (input: { rulesetId: string; worldSeed: number }) => {
+    if (input.rulesetId !== "seasonal-default") return [];
+    const cacheKey = `${input.rulesetId}:${input.worldSeed}`;
+    const cached = worldgenBaselineCache.get(cacheKey);
+    if (cached) return cached;
+    const generated = generateSeasonWorld(input.rulesetId as SimulationRulesetId, input.worldSeed);
+    worldgenBaselineCache.set(cacheKey, generated.initialState.tiles);
+    return generated.initialState.tiles;
+  };
   const storeFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
     ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
     ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {}),
-    ...(snapshotStringifier ? { stringify: snapshotStringifier } : {})
+    ...(snapshotStringifier ? { stringify: snapshotStringifier } : {}),
+    resolveBaseline: resolveWorldgenBaseline
   };
   const commandStore =
     options.commandStore ??
@@ -1999,6 +2013,27 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       log.info(`simulation service listening on ${boundPort}`);
       if (runStartupReplayCompaction && !startupReplayCompactionPromise) {
         startupReplayCompactionPromise = Promise.resolve().then(runStartupReplayCompaction);
+      } else if (
+        "getLastLoadedFormatVersion" in snapshotStore &&
+        typeof (snapshotStore as { getLastLoadedFormatVersion?: () => number | undefined }).getLastLoadedFormatVersion === "function"
+      ) {
+        // One-shot v0 -> v1 snapshot migration. If startup-replay-compaction
+        // didn't already force a checkpoint and the loaded snapshot is a
+        // legacy v0 row, force one now so the next steady-state save is the
+        // compact form. This is what shrinks an existing 100+ MB snapshot
+        // down to the mutable overlay without waiting for the next natural
+        // checkpoint.
+        const loadedVersion = (snapshotStore as { getLastLoadedFormatVersion: () => number | undefined }).getLastLoadedFormatVersion();
+        if (loadedVersion === 0) {
+          startupReplayCompactionPromise = Promise.resolve()
+            .then(() => snapshotCheckpointManager.checkpointNow({ ignoreMemoryGuard: true }))
+            .then((result) => {
+              log.info({ checkpointResult: result }, "simulation snapshot migrated from v0 to v1");
+            })
+            .catch((error) => {
+              log.error({ err: error }, "simulation v0 -> v1 snapshot migration failed");
+            });
+        }
       }
       return { host, port: boundPort, address: `${host}:${boundPort}` };
     },
