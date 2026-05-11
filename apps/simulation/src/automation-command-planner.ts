@@ -439,9 +439,25 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     dockOrigins.length > 0 || townSupportOrigins.length > 0
       ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
       : baseFrontierOrigins;
-  const settledTileCount = input.settledTileCount ?? input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED").length;
-  const controlledTileCount = input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER").length;
-  const townCount = input.townCount ?? input.ownedTiles.filter((tile) => tile.town && tile.ownershipState === "SETTLED").length;
+  // Fold the per-state counts into a single owned-tiles sweep. Previously
+  // three separate `.filter(...)` walks ran per plan (settled, controlled,
+  // towns); at 1000+ owned tiles per AI × 5 AIs that allocated three
+  // throwaway arrays per AI tick — pure GC pressure on a hot path.
+  const needSettledCount = input.settledTileCount === undefined;
+  const needTownCount = input.townCount === undefined;
+  let computedSettledTileCount = 0;
+  let computedTownCount = 0;
+  let computedControlledTileCount = 0;
+  for (const tile of input.ownedTiles) {
+    const isSettled = tile.ownershipState === "SETTLED";
+    const isFrontier = tile.ownershipState === "FRONTIER";
+    if (isSettled || isFrontier) computedControlledTileCount += 1;
+    if (needSettledCount && isSettled) computedSettledTileCount += 1;
+    if (needTownCount && isSettled && tile.town) computedTownCount += 1;
+  }
+  const settledTileCount = input.settledTileCount ?? computedSettledTileCount;
+  const controlledTileCount = computedControlledTileCount;
+  const townCount = input.townCount ?? computedTownCount;
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
   const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
