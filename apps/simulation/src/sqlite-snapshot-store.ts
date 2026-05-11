@@ -6,6 +6,12 @@ import {
   type SimulationSnapshotStore,
   type StoredSimulationSnapshot
 } from "./snapshot-store.js";
+import {
+  compactSnapshotForStorage,
+  expandSnapshotFromStorage,
+  SNAPSHOT_FORMAT_VERSION,
+  type RecoveredTile
+} from "./snapshot-compaction.js";
 import type { SnapshotStringifier } from "./snapshot-stringifier.js";
 import type { ProjectionExportState } from "./postgres-projection-writer.js";
 
@@ -18,14 +24,31 @@ type Row = {
 
 const inlineStringify: SnapshotStringifier = async (payload) => JSON.stringify(payload);
 
+/**
+ * Resolve the worldgen baseline tiles for a given (rulesetId, worldSeed).
+ * Caller is responsible for memoisation — the store will not cache results.
+ */
+export type WorldgenBaselineResolver = (input: {
+  rulesetId: string;
+  worldSeed: number;
+}) => ReadonlyArray<RecoveredTile>;
+
 export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   private readonly stringify: SnapshotStringifier;
+  private readonly resolveBaseline: WorldgenBaselineResolver | undefined;
+  private lastLoadedFormatVersion: number | undefined;
 
   constructor(
     private readonly db: DatabaseSync,
-    options: { stringify?: SnapshotStringifier } = {}
+    options: { stringify?: SnapshotStringifier; resolveBaseline?: WorldgenBaselineResolver } = {}
   ) {
     this.stringify = options.stringify ?? inlineStringify;
+    this.resolveBaseline = options.resolveBaseline;
+  }
+
+  /** Format version of the most recently loaded snapshot (undefined = none loaded yet, 0 = v0/legacy). */
+  getLastLoadedFormatVersion(): number | undefined {
+    return this.lastLoadedFormatVersion;
   }
 
   async applySchema(): Promise<void> {
@@ -46,10 +69,13 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     createdAt: number;
     projectionState?: ProjectionExportState;
   }): Promise<void> {
-    const payload = buildSimulationSnapshotPayload(snapshot.snapshotSections);
+    const baselineIndex = this.resolveBaselineIndexFromSections(snapshot.snapshotSections);
+    const payload = baselineIndex
+      ? compactSnapshotForStorage(snapshot.snapshotSections, baselineIndex)
+      : buildSimulationSnapshotPayload(snapshot.snapshotSections);
     // Stringify off the main thread when a worker stringifier is wired in;
-    // a full snapshot is ~18MB on staging and inline JSON.stringify blocks
-    // the simulation event loop long enough to break new player auth.
+    // for v1 compact snapshots the inline path is fast enough that we can
+    // accept a brief main-thread pause when no worker is configured.
     const json = await this.stringify(payload);
     this.db
       .prepare(
@@ -66,6 +92,30 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
   }
 
+  private resolveBaselineIndexFromSections(
+    sections: SimulationSnapshotSections
+  ): ReadonlyMap<string, RecoveredTile> | undefined {
+    if (!this.resolveBaseline) return undefined;
+    const season = sections.initialState.season;
+    if (!season) return undefined;
+    const tiles = this.resolveBaseline({ rulesetId: season.rulesetId, worldSeed: season.worldSeed });
+    const index = new Map<string, RecoveredTile>();
+    for (const tile of tiles) index.set(`${tile.x},${tile.y}`, tile);
+    return index;
+  }
+
+  private resolveBaselineForLoadedPayload(parsed: unknown): ReadonlyArray<RecoveredTile> | undefined {
+    if (!this.resolveBaseline) return undefined;
+    if (!parsed || typeof parsed !== "object") return undefined;
+    const formatVersion = (parsed as { formatVersion?: unknown }).formatVersion;
+    if (formatVersion !== SNAPSHOT_FORMAT_VERSION) return undefined;
+    const season = (parsed as { season?: { rulesetId?: unknown; worldSeed?: unknown } }).season;
+    if (!season || typeof season.rulesetId !== "string" || typeof season.worldSeed !== "number") {
+      return undefined;
+    }
+    return this.resolveBaseline({ rulesetId: season.rulesetId, worldSeed: season.worldSeed });
+  }
+
   async loadLatestSnapshot(): Promise<StoredSimulationSnapshot | undefined> {
     const row = this.db
       .prepare(
@@ -74,10 +124,22 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
       )
       .get() as Row | undefined;
     if (!row) return undefined;
+    const parsed = JSON.parse(row.snapshot_payload);
+    const observedFormatVersion =
+      parsed && typeof parsed === "object" && typeof (parsed as { formatVersion?: unknown }).formatVersion === "number"
+        ? (parsed as { formatVersion: number }).formatVersion
+        : 0;
+    this.lastLoadedFormatVersion = observedFormatVersion;
+    // If the on-disk row is v1 (mutable-only overlay), rehydrate against the
+    // worldgen baseline extracted from the snapshot's own season seed.
+    const baseline = this.resolveBaselineForLoadedPayload(parsed);
+    const snapshotPayload = baseline
+      ? expandSnapshotFromStorage(parsed, baseline)
+      : parsed;
     return {
       snapshotId: row.snapshot_id,
       lastAppliedEventId: row.last_applied_event_id,
-      snapshotPayload: JSON.parse(row.snapshot_payload),
+      snapshotPayload,
       createdAt: row.created_at
     };
   }
