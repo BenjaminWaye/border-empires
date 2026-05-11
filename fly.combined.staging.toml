@@ -67,4 +67,4 @@ primary_region = "arn"
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory = "1024mb"
+  memory = "2048mb"

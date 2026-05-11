@@ -33,7 +33,7 @@ describe("simulation runtime env", () => {
 
   it("requires durable database configuration in managed runtime", () => {
     expect(() => parseSimulationRuntimeEnv({ NODE_ENV: "production" })).toThrow(
-      "simulation requires SIMULATION_DATABASE_URL or DATABASE_URL in managed runtime"
+      "simulation requires SIMULATION_DATABASE_URL/DATABASE_URL or SIMULATION_SQLITE_PATH/SQLITE_PATH in managed runtime"
     );
   });
 
