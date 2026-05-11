@@ -1034,6 +1034,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           continue;
         }
         if (event.eventType === "COMMAND_REJECTED") {
+          // Per-player event: only the submitting player's sockets should see
+          // the ERROR. selectSocketsForEvent returns all open sockets across
+          // all players; without this filter, every connected human receives
+          // a console.error for every AI command rejection (and AI workers
+          // reject frequently — stale targets, intent latches, cooldowns).
+          if (sessionsBySocket.get(socket)?.playerId !== event.playerId) continue;
           void commandStore
             .markRejected(event.commandId, Date.now(), event.code, event.message)
             .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist rejected command"));
