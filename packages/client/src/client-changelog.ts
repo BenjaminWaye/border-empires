@@ -19,10 +19,41 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.10.6",
+  version: "2026.05.10.7",
   title: "What's New",
-  summary: "Wooden Forts and Light Outposts are now affordable on day one (75g / 0.5/min upkeep), and active Light/Siege Outposts within two tiles of your attack origin now boost your effective attack power. Plus weak-tile 3D highlights and the Defensibility tab rewrite.",
+  summary: "Building menu now shows build time and stat numbers up front for every basic structure, disabled actions display the blocker reason as a red ✗ line so the cost stays visible, and Granary copy now matches the actual +15% growth simulation effect. Plus day-one fort/outpost pricing, attacker outpost auras, weak-tile 3D highlights, and the Defensibility tab rewrite.",
   entries: [
+    {
+      introducedIn: "2026.05.10.7",
+      title: "Building menu shows build time and stat numbers up front",
+      why: "Players had to guess what each basic building actually does. The cost line for forts and outposts already showed defense/attack multipliers and build time, so the rest of the building palette now matches.",
+      changes: [
+        "Observatory cost line shows +5 vision next to its build time.",
+        "Sky Dock cost line shows the 30-tile bombard radius.",
+        "Farmstead, Camp, and Mine cost lines show the +50% yield they grant.",
+        "Market shows +50% town gold and +50% storage cap.",
+        "Granary shows +15% town growth.",
+        "Bank shows +50% city income and +1 flat income."
+      ]
+    },
+    {
+      introducedIn: "2026.05.10.7",
+      title: "Disabled tile actions show a red ✗ blocker line instead of replacing the cost",
+      why: "When a building was unaffordable the cost slot was overwritten with the blocker reason (e.g. 'Need 900 gold'), which hid the build cost, build time, and stat numbers from the building list. Tech requirements already use a red ✗ pattern for unmet needs, so the tile menu now follows the same convention.",
+      changes: [
+        "Disabled tile actions keep their full cost slot (price, build time, stat numbers) visible.",
+        "The disabled reason renders as a red ✗ line under the action description, matching tech requirement styling.",
+        "tileActionAvailability no longer overwrites cost with the disabled reason."
+      ]
+    },
+    {
+      introducedIn: "2026.05.10.7",
+      title: "Granary description matches the actual simulation effect",
+      why: "Three different places in the client described Granary differently (\"+20% growth and +20% storage\", \"+50% farmstead boost and -10% upkeep\", \"food output within 10 tiles and food upkeep\"), and none of them matched the rewrite simulation, which only applies a 1.15x population growth multiplier with no other effects.",
+      changes: [
+        "Granary build description, tile overview modifier, and structure info card all now read \"+15% population growth\" — the only effect the simulation actually applies."
+      ]
+    },
     {
       introducedIn: "2026.05.10.6",
       title: "Wooden Fort and Light Outpost are buildable on day one",
