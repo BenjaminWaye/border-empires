@@ -225,3 +225,8 @@ parentPort.on("message", (msg: unknown) => {
 });
 
 parentPort.postMessage({ type: "ready" });
+
+const METRICS_INTERVAL_MS = 5_000;
+setInterval(() => {
+  parentPort!.postMessage({ type: "metrics", memoryUsage: process.memoryUsage() });
+}, METRICS_INTERVAL_MS).unref();
