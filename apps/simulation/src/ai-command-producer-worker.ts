@@ -220,6 +220,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         workerMetrics.heapTotalBytes = mu.heapTotal;
         workerMetrics.heapUsedBytes = mu.heapUsed;
         workerMetrics.externalBytes = mu.external;
+        workerMetrics.arrayBuffersBytes = mu.arrayBuffers;
         return;
       }
       if (message.type === "command") {

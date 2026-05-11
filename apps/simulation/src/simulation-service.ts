@@ -1907,33 +1907,42 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             systemCommandProducer && "getWorkerMetrics" in systemCommandProducer
               ? (systemCommandProducer as HasWorkerMetrics).getWorkerMetrics()
               : undefined;
+          // Per-worker rss is intentionally dropped — process.memoryUsage().rss
+          // inside a Worker returns the shared-process RSS, not the worker's
+          // contribution. Heap, external, and arrayBuffers are per-V8-isolate
+          // (per-worker) and useful.
           return {
             snapshot: snapshotMetrics
               ? {
-                  rss_mb: toMb(snapshotMetrics.rssBytes),
                   heap_used_mb: toMb(snapshotMetrics.heapUsedBytes),
+                  external_mb: toMb(snapshotMetrics.externalBytes),
+                  array_buffers_mb: toMb(snapshotMetrics.arrayBuffersBytes),
                   respawn_count: snapshotMetrics.respawnCount,
                   last_exit_code: snapshotMetrics.lastExitCode
                 }
               : undefined,
             ai: aiMetrics
               ? {
-                  rss_mb: toMb(aiMetrics.rssBytes),
                   heap_used_mb: toMb(aiMetrics.heapUsedBytes),
+                  external_mb: toMb(aiMetrics.externalBytes),
+                  array_buffers_mb: toMb(aiMetrics.arrayBuffersBytes),
                   respawn_count: aiMetrics.respawnCount,
                   last_exit_code: aiMetrics.lastExitCode
                 }
               : undefined,
             system: systemMetrics
               ? {
-                  rss_mb: toMb(systemMetrics.rssBytes),
                   heap_used_mb: toMb(systemMetrics.heapUsedBytes),
+                  external_mb: toMb(systemMetrics.externalBytes),
+                  array_buffers_mb: toMb(systemMetrics.arrayBuffersBytes),
                   respawn_count: systemMetrics.respawnCount,
                   last_exit_code: systemMetrics.lastExitCode
                 }
               : undefined
           };
         })();
+        const toMbRounded = (bytes: number): number =>
+          Math.round((bytes / (1024 * 1024)) * 10) / 10;
         log.info(
           {
             sim_event_loop_max_ms: sample.simEventLoopMaxMs,
@@ -1955,8 +1964,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_ai_no_frontier_recent: sample.simAiNoFrontierRecent,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
             sim_cpu_percent: sample.simCpuPercent,
+            sim_rss_mb: toMbRounded(memory.rss),
             sim_heap_used_mb: sample.simHeapUsedMb,
             sim_heap_total_mb: sample.simHeapTotalMb,
+            sim_external_mb: toMbRounded(memory.external),
+            sim_array_buffers_mb: toMbRounded(memory.arrayBuffers),
             sim_gc_pause_ms: sample.simGcPauseMs,
             sim_command_accept_latency_ms: sample.simCommandAcceptLatencyMsByLane,
             sim_event_store_write_ms: sample.simEventStoreWriteMs,
