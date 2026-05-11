@@ -82,7 +82,10 @@ type StrategicSnapshotInput<TTile extends StrategicTile> = {
   points: number;
   manpower: number;
   settledTileCount: number;
-  controlledTileCount?: number;
+  // Settled + frontier owned tiles. Required: the caller computes this in
+  // the same owned-tiles sweep that produces settledTileCount/townCount, so
+  // we never need to re-walk ownedTiles here.
+  controlledTileCount: number;
   townCount: number;
   incomePerMinute: number;
   strategicResources?: Partial<Record<StrategicResourceKey, number>>;
@@ -173,12 +176,7 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     Boolean(input.settlementCandidate?.dockId) ||
     Boolean(input.fallbackSettlementCandidate?.dockId);
   const townsTarget = Math.max(2, Math.ceil(Math.max(1, input.settledTileCount) / 5));
-  const controlledTileCount =
-    input.controlledTileCount ??
-    Math.max(
-      input.settledTileCount,
-      input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER").length
-    );
+  const controlledTileCount = input.controlledTileCount;
   const territorialControlTarget = Math.max(4, input.townCount * 3);
   const economyTarget = Math.max(8, input.settledTileCount * 0.55);
   const townProgress = input.townCount / townsTarget;
@@ -326,12 +324,7 @@ const chooseVictoryPath = <TTile extends StrategicTile>(input: StrategicSnapshot
 export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
   input: StrategicSnapshotInput<TTile>
 ): AutomationStrategicSnapshot => {
-  const controlledTileCount =
-    input.controlledTileCount ??
-    Math.max(
-      input.settledTileCount,
-      input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER").length
-    );
+  const controlledTileCount = input.controlledTileCount;
   const hasActiveTown = input.townCount > 0 || input.ownedTiles.some((tile) => tile.ownershipState === "SETTLED" && Boolean(tile.town));
   const hasActiveDock = input.ownedTiles.some((tile) => tile.ownershipState === "SETTLED" && Boolean(tile.dockId));
   const growthFoundationEstablished = hasActiveTown || hasActiveDock || input.incomePerMinute >= 10;
