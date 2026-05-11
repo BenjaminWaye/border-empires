@@ -957,12 +957,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           });
         }
         const playerId = event.playerId;
-        const playerSockets = new Set<import("ws").WebSocket>();
-        for (const targetSocket of sockets) {
-          const targetSession = sessionsBySocket.get(targetSocket);
-          if (targetSession?.playerId === playerId) playerSockets.add(targetSocket);
-        }
-        if (playerSockets.size === 0) return;
+        // sockets === playerSubscriptions.socketsForPlayer(playerId) (assigned at line 899),
+        // so every entry already belongs to this player; no need to re-filter.
+        const playerSockets = sockets;
         const hasFogDisabledSession = [...playerSubscriptions.socketsForPlayer(playerId)].some(
           (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
         );
