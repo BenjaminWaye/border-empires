@@ -16,6 +16,7 @@ import { isMobileDevice } from "./client-panel-nav.js";
 import { prefersTrue3DRendererMode } from "./client-renderer-mode.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
+import { refreshLiveTechRequirements } from "./client-tech-live-requirements.js";
 import type { StructureInfoKey } from "./client-map-display.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
 import type { DomainInfo, PlayerRespawnNotice, TechInfo, Tile, TileMenuView } from "./client-types.js";
@@ -184,6 +185,8 @@ export const renderClientHud = (deps: HudDeps): void => {
     centerOnOwnedTile,
     downloadRespawnBugReport
   } = deps;
+
+  refreshLiveTechRequirements(state);
 
   const safeValue = <T>(label: string, fallback: T, render: () => T): T => {
     try {
