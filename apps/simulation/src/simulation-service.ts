@@ -790,9 +790,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const fallbackActivePlayers = createActivePlayerIdentityMap(runtimePlayers.values());
   let activePlayers =
     createRecoveredActivePlayerIdentityMap(effectiveStartupRecovery.initialState, fallbackActivePlayers) ?? fallbackActivePlayers;
+  const runtimeBackgroundBatchSize = Math.max(
+    1,
+    Number(process.env.SIMULATION_RUNTIME_BACKGROUND_BATCH_SIZE ?? 1)
+  );
   let runtime = new SimulationRuntime({
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
+    backgroundBatchSize: runtimeBackgroundBatchSize,
     initialState: effectiveStartupRecovery.initialState,
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
     mergeSeedTilesWithInitialState: !isDbBackedStartup,
