@@ -2589,6 +2589,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         syncAuthOverlay();
       }
       const isStructureActionError =
+        // Generic BUILD_INVALID is emitted for town-attached structure failures
+        // (e.g. "town already has granary", "needs an open support tile"). Without
+        // it here, the user's stale view of the tile is never reconciled and they
+        // keep being told the action is invalid for an "empty" tile that already
+        // has the structure server-side.
+        errorCode === "BUILD_INVALID" ||
         errorCode === "FORT_BUILD_INVALID" ||
         errorCode === "OBSERVATORY_BUILD_INVALID" ||
         errorCode === "SIEGE_OUTPOST_BUILD_INVALID" ||
@@ -2607,6 +2613,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else if (isStructureActionError && errorTileKey) {
         clearOptimisticTileStateSafely(errorTileKey, true);
         state.queuedDevelopmentDispatchPending = false;
+        // Force a fresh tile-snapshot fetch from the server so the user's
+        // stale local view (e.g. tile shown empty when the server already
+        // has the structure recorded) gets reconciled. Without this the
+        // player keeps re-trying the same blocked build forever.
+        requestViewRefreshSafely(1, true);
         showCaptureAlertSafely(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
