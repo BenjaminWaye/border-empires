@@ -657,7 +657,7 @@ export class SimulationRuntime {
     const seedWorld = options.initialPlayers && options.seedTiles ? undefined : createSeedWorld(options.seedProfile);
     this.now = options.now ?? (() => Date.now());
     this.persistence = options.persistence ?? new InMemorySimulationPersistence();
-    this.backgroundBatchSize = Math.max(1, options.backgroundBatchSize ?? 8);
+    this.backgroundBatchSize = Math.max(1, options.backgroundBatchSize ?? 1);
     this.maxTerminalCommandReplayHistory = Math.max(
       0,
       options.maxTerminalCommandReplayHistory ?? DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY
