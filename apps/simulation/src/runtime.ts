@@ -1075,6 +1075,20 @@ export class SimulationRuntime {
 
   private applyManpowerRegen(player: RuntimePlayer, nowMs = this.now()): void {
     this.applyEconomyAccrual(player, nowMs);
+    this.refreshManpowerOnly(player, nowMs);
+  }
+
+  /**
+   * Manpower-only variant of {@link applyManpowerRegen} that skips the
+   * economy-accrual side effect. The accrual is O(territory tiles) per call
+   * (it sorts the player's territory tile keys for upkeep collection); doing
+   * it per player on every planner-state export was the dominant source of
+   * the recurring 1.4-2.0 s `sync_players_export` block on staging. Skipping
+   * here is safe because the accrual still runs on every real command path
+   * and on the periodic tick, so player gold/resources catch up within a
+   * single planner cycle.
+   */
+  private refreshManpowerOnly(player: RuntimePlayer, nowMs = this.now()): void {
     const cap = this.playerManpowerCap(player);
     if (!Number.isFinite(player.manpower)) {
       player.manpower = cap;
@@ -1603,7 +1617,11 @@ export class SimulationRuntime {
     for (const playerId of playerIds) {
       const player = this.players.get(playerId);
       if (!player) continue;
-      this.applyManpowerRegen(player);
+      // Use the manpower-only refresh — full applyManpowerRegen also runs
+      // applyEconomyAccrual, which is O(territory tiles) per player and is
+      // the dominant cost in sync_players_export under steady-state AI play.
+      // Economy accrual catches up on the next real command tick.
+      this.refreshManpowerOnly(player);
       const summary = this.summaryForPlayer(playerId);
       const tileKeys = this.plannerPlayerTileKeys(playerId, summary);
       players.push({
