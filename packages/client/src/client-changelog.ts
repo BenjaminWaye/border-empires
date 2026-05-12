@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.11.1",
+  version: "2026.05.12.1",
   title: "What's New",
-  summary: "Stuck-build errors now self-heal: when the server rejects a structure action because the tile is in a different state than the client thought (e.g. \"town already has granary\"), the tile is refreshed from the server instead of leaving the player stuck retrying. Territorial Control, Building menu copy, day-one defenses, outpost auras, 3D weak-tile highlights, and the Defensibility tab improvements from prior releases are included.",
+  summary: "Tech and domain unlock buttons now check your live gold and strategic resources every render, so a tech you can afford right now stops showing as Locked just because the simulation last sent its catalog when you had less gold. Stuck-build self-heal, Territorial Control, Building menu copy, day-one defenses, outpost auras, 3D weak-tile highlights, and the Defensibility tab improvements from prior releases are included.",
   entries: [
+    {
+      introducedIn: "2026.05.12.1",
+      title: "Research panel reads gold and resources from your live HUD totals",
+      why: "The rewrite simulation only recomputes tech/domain canResearch on init and on unlock, so as gold trickled in between unlocks the Workshop Standards card (and every other tech) kept saying Locked with a red Gold 2,000 even when the HUD already showed 3,000+ gold. The Locked state and the Requirements checklist now derive from the same live numbers as the HUD chips.",
+      changes: [
+        "Tech and domain detail cards, the choice grid, and the unlock buttons recompute can-research and the gold/resource checklist from live state.gold and state.strategicResources on every HUD render.",
+        "Requirements lines render real met/unmet marks for gold and each strategic resource instead of a hardcoded unmet fallback when the simulation omits a server-side checklist."
+      ]
+    },
     {
       introducedIn: "2026.05.11.1",
       title: "Failed build actions force a tile resync",
