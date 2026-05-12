@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.10.8",
+  version: "2026.05.11.1",
   title: "What's New",
-  summary: "Territorial Control season victory now counts frontier and settled land, so expansion pressure can win without paying settled-tile upkeep on every tile. Building menu stat copy, disabled action blockers, day-one defenses, outpost auras, 3D weak-tile highlights, and the Defensibility tab improvements are also included.",
+  summary: "Stuck-build errors now self-heal: when the server rejects a structure action because the tile is in a different state than the client thought (e.g. \"town already has granary\"), the tile is refreshed from the server instead of leaving the player stuck retrying. Territorial Control, Building menu copy, day-one defenses, outpost auras, 3D weak-tile highlights, and the Defensibility tab improvements from prior releases are included.",
   entries: [
+    {
+      introducedIn: "2026.05.11.1",
+      title: "Failed build actions force a tile resync",
+      why: "Players kept trying to build the same structure on a tile the server already had recorded as occupied. The client logged the rejection but never re-fetched the tile, so the local view stayed stale and the action looked endlessly broken.",
+      changes: [
+        "Generic BUILD_INVALID rejections (e.g. \"town already has X\", \"needs an open support tile\") now run the same recovery path as typed-structure rejections: clear local optimistic state, alert the player, and request a fresh tile snapshot.",
+        "All structure-action error recoveries now trigger a one-tile-radius view refresh from the server so the player's local map matches authoritative state immediately after a rejection."
+      ]
+    },
     {
       introducedIn: "2026.05.10.8",
       title: "Territorial Control counts frontier and settled land",
