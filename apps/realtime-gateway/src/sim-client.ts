@@ -377,7 +377,7 @@ const parseLockedCombatResult = (json: string | undefined): LockedFrontierCombat
   }
 };
 
-const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent => {
+const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | undefined => {
   if (event.event_type === "COMMAND_ACCEPTED") {
     const combatResult = parseLockedCombatResult(event.combat_result_json || event.combatResultJson);
     return {
@@ -499,13 +499,22 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent => {
       payload
     };
   }
-  return {
-    eventType: "COMMAND_REJECTED",
-    commandId: event.command_id,
-    playerId: event.player_id,
-    code: event.code,
-    message: event.message
-  };
+  if (event.event_type === "COMMAND_REJECTED") {
+    return {
+      eventType: "COMMAND_REJECTED",
+      commandId: event.command_id,
+      playerId: event.player_id,
+      code: event.code,
+      message: event.message
+    };
+  }
+  // Internal-only simulation events (e.g. TILE_YIELD_ANCHOR_UPDATED) reach the
+  // gateway over the same gRPC stream but have no client-facing payload. We
+  // used to fall through to COMMAND_REJECTED, which made every accrual-time
+  // anchor update appear at the client as an empty-code, empty-message ERROR
+  // (#233 filtered AI cross-talk but these are tagged with the human's
+  // playerId, so the per-player filter doesn't help).
+  return undefined;
 };
 
 const parseSubscriptionSnapshot = (
@@ -648,7 +657,8 @@ export const startSimulationEventStream = (
     options?.onConnect?.();
     stream.on("data", (event) => {
       reconnectDelayMs = 250;
-      listener(fromProtoEvent(event as ProtoSimulationEvent));
+      const translated = fromProtoEvent(event as ProtoSimulationEvent);
+      if (translated) listener(translated);
     });
     stream.on("error", (error) => {
       scheduleReconnect(generation, error as Error);
