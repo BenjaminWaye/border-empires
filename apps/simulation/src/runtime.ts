@@ -922,7 +922,7 @@ export class SimulationRuntime {
       eventType: "TILE_DELTA_BATCH",
       commandId,
       playerId: SHARD_RAIN_SYSTEM_PLAYER_ID,
-      tileDeltas: expired.map((entry) => this.tileDeltaFromState(entry.tile))
+      tileDeltas: expired.map((entry) => ({ ...this.tileDeltaFromState(entry.tile), shardSiteJson: "" }))
     });
   }
 
@@ -4081,7 +4081,7 @@ export class SimulationRuntime {
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,
       playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+      tileDeltas: [{ ...this.tileDeltaFromState(updatedTile), shardSiteJson: "" }]
     });
     this.emitEvent({
       eventType: "COLLECT_RESULT",
