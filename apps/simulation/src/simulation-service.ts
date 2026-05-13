@@ -1347,6 +1347,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (diagnostic.preplanProgressState) {
                 simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
               }
+              if (diagnostic.settleDecisionReason && typeof diagnostic.settleDecisionTopScore === "number") {
+                simulationMetrics.observeSimAiSettleDecision(
+                  diagnostic.settleDecisionReason,
+                  diagnostic.playerId,
+                  diagnostic.settleDecisionTopScore
+                );
+              }
             },
             onDiagnostic: (sample) => {
               if (sample.durationMs < slowAiSyncWarnMs) return;
@@ -1383,6 +1390,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               }
               if (diagnostic.preplanProgressState) {
                 simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
+              }
+              if (diagnostic.settleDecisionReason && typeof diagnostic.settleDecisionTopScore === "number") {
+                simulationMetrics.observeSimAiSettleDecision(
+                  diagnostic.settleDecisionReason,
+                  diagnostic.playerId,
+                  diagnostic.settleDecisionTopScore
+                );
               }
             },
             onTick: ({ durationMs }) => {
@@ -1981,6 +1995,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_ai_noop_total: sample.simAiNoopTotalByReason,
             sim_ai_noop_recent: sample.simAiNoopRecent,
             sim_ai_no_frontier_recent: sample.simAiNoFrontierRecent,
+            sim_ai_settle_decision_total: sample.simAiSettleDecisionTotalByReason,
+            sim_ai_settle_decision_recent: sample.simAiSettleDecisionRecent,
+            sim_ai_settle_decision_top_score: sample.simAiSettleDecisionTopScore,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
             sim_cpu_percent: sample.simCpuPercent,
             sim_rss_mb: toMbRounded(memory.rss),
