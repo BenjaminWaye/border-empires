@@ -3940,6 +3940,229 @@ describe("simulation runtime", () => {
     expect(settledTile?.townName).toBeUndefined();
   });
 
+  it("cancels pending settlement when the tile is captured and ignores the stale settle timer after recapture", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.001);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 100,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "ai-1",
+            {
+              id: "ai-1",
+              isAi: true,
+              points: 100,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "settle-cancelled-by-capture",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "SETTLE",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+      await Promise.resolve();
+
+      expect(runtime.exportState().pendingSettlements).toContainEqual(
+        expect.objectContaining({ ownerId: "player-1", tileKey: "10,10" })
+      );
+
+      runtime.submitCommand({
+        commandId: "ai-captures-settling-tile",
+        sessionId: "ai-runtime:ai-1",
+        playerId: "ai-1",
+        clientSeq: 1,
+        issuedAt: 1_100,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 11, toX: 10, toY: 10 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      expect(runtime.exportState().pendingSettlements).not.toContainEqual(
+        expect.objectContaining({ ownerId: "player-1", tileKey: "10,10" })
+      );
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)).toEqual(
+        expect.objectContaining({ ownerId: "ai-1", ownershipState: "FRONTIER" })
+      );
+
+      runtime.submitCommand({
+        commandId: "player-recaptures-before-stale-settle",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 2,
+        issuedAt: 1_200,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 9, toX: 10, toY: 10 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+      vi.advanceTimersByTime(60_000);
+
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)).toEqual(
+        expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a new pending settlement when an old canceled settle timer fires", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.001);
+    let now = 1_000;
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => now,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 100,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "ai-1",
+            {
+              id: "ai-1",
+              isAi: true,
+              points: 100,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "old-settle",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: now,
+        type: "SETTLE",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+      await Promise.resolve();
+
+      now = 2_000;
+      runtime.submitCommand({
+        commandId: "ai-captures-old-settle",
+        sessionId: "ai-runtime:ai-1",
+        playerId: "ai-1",
+        clientSeq: 1,
+        issuedAt: now,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 11, toX: 10, toY: 10 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      now = 6_000;
+      runtime.submitCommand({
+        commandId: "player-recaptures-for-new-settle",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 2,
+        issuedAt: now,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 9, toX: 10, toY: 10 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      now = 10_000;
+      runtime.submitCommand({
+        commandId: "new-settle",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 3,
+        issuedAt: now,
+        type: "SETTLE",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+      await Promise.resolve();
+
+      expect(runtime.exportState().pendingSettlements).toContainEqual(
+        expect.objectContaining({ ownerId: "player-1", tileKey: "10,10", startedAt: 10_000 })
+      );
+
+      vi.advanceTimersByTime(53_800);
+      expect(runtime.exportState().pendingSettlements).toContainEqual(
+        expect.objectContaining({ ownerId: "player-1", tileKey: "10,10", startedAt: 10_000 })
+      );
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)).toEqual(
+        expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" })
+      );
+
+      now = 70_000;
+      vi.advanceTimersByTime(6_200);
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)).toEqual(
+        expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("preserves synthetic settlement towns in recovered state", () => {
     const runtime = new SimulationRuntime({
       initialState: {

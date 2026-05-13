@@ -700,9 +700,13 @@ export class SimulationRuntime {
       this.rebuildPlannerCandidateIndexesForPlayer(playerId);
     }
     for (const pendingSettlement of options.initialState?.pendingSettlements ?? []) {
+      const pendingTile = this.tiles.get(pendingSettlement.tileKey);
+      if (!pendingTile || pendingTile.ownerId !== pendingSettlement.ownerId || pendingTile.ownershipState !== "FRONTIER") continue;
       this.addPendingSettlement({ ...pendingSettlement });
       const delayMs = Math.max(0, pendingSettlement.resolvesAt - this.now());
       this.scheduleAfter(delayMs, () => {
+        const currentSettlement = this.pendingSettlementsByTile.get(pendingSettlement.tileKey);
+        if (!this.pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
         this.removePendingSettlement(pendingSettlement.tileKey);
         const latest = this.tiles.get(pendingSettlement.tileKey);
         if (!latest || latest.ownerId !== pendingSettlement.ownerId) {
@@ -1258,12 +1262,13 @@ export class SimulationRuntime {
     this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
-  private replaceTileState(tileKey: string, tile: DomainTileState): void {
+  private replaceTileState(tileKey: string, tile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
     const previous = this.tiles.get(tileKey);
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
     this.applyTileToPlayerSummaries(tileKey, tile);
     this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
+    if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -1332,6 +1337,29 @@ export class SimulationRuntime {
     removePendingSettlementFromSummary(this.summaryForPlayer(record.ownerId), tileKey);
     this.markPlannerPlayerTileCollectionDirty(record.ownerId);
     return record;
+  }
+
+  private pendingSettlementMatches(record: PendingSettlementRecord | undefined, expected: PendingSettlementRecord): boolean {
+    return Boolean(
+      record &&
+        record.ownerId === expected.ownerId &&
+        record.tileKey === expected.tileKey &&
+        record.startedAt === expected.startedAt &&
+        record.resolvesAt === expected.resolvesAt &&
+        record.goldCost === expected.goldCost
+    );
+  }
+
+  private cancelPendingSettlementIfOwnerChanged(
+    tileKey: string,
+    nextOwnerId: string | undefined,
+    commandId: string
+  ): PendingSettlementRecord | undefined {
+    const pendingSettlement = this.pendingSettlementsByTile.get(tileKey);
+    if (!pendingSettlement || pendingSettlement.ownerId === nextOwnerId) return undefined;
+    this.removePendingSettlement(tileKey);
+    this.emitPlayerStateUpdate({ commandId, playerId: pendingSettlement.ownerId });
+    return pendingSettlement;
   }
 
   private pendingSettlementsSnapshotForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
@@ -2428,9 +2456,22 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate(command);
 
     this.scheduleAfter(SETTLE_DURATION_MS, () => {
+      const expectedSettlement = {
+        ownerId: command.playerId,
+        tileKey: targetKey,
+        startedAt,
+        resolvesAt,
+        goldCost: SETTLE_COST
+      };
+      const currentSettlement = this.pendingSettlementsByTile.get(targetKey);
+      if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
       this.removePendingSettlement(targetKey);
       const latest = this.tiles.get(targetKey);
-      if (!latest || latest.ownerId !== command.playerId) {
+      if (
+        !latest ||
+        latest.ownerId !== command.playerId ||
+        latest.ownershipState !== "FRONTIER"
+      ) {
         this.emitPlayerStateUpdate(command);
         return;
       }
@@ -2657,7 +2698,7 @@ export class SimulationRuntime {
       siegeOutpost: undefined,
       economicStructure: undefined
     };
-    this.replaceTileState(targetKey, updatedTile);
+    this.replaceTileState(targetKey, updatedTile, command.commandId);
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,
@@ -3587,7 +3628,7 @@ export class SimulationRuntime {
           economicStructure: undefined,
           sabotage: undefined
         };
-        this.replaceTileState(tileKey, updatedTile);
+        this.replaceTileState(tileKey, updatedTile, command.commandId);
         changedTiles.push(this.tileDeltaFromState(updatedTile));
       }
     }
@@ -5341,7 +5382,7 @@ export class SimulationRuntime {
         ownerId: lock.playerId,
         ownershipState: "FRONTIER"
       };
-      this.replaceTileState(lock.targetKey, resolvedTarget);
+      this.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
       const tileDeltas =
         attacker?.isAi
           ? [this.tileDeltaFromState(resolvedTarget)]
@@ -5365,7 +5406,7 @@ export class SimulationRuntime {
           siegeOutpost: undefined,
           economicStructure: undefined
         };
-        this.replaceTileState(lock.originKey, resolvedOrigin);
+        this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
         this.emitEvent({
           eventType: "TILE_DELTA_BATCH",
           commandId: lock.commandId,
@@ -5459,7 +5500,7 @@ export class SimulationRuntime {
       const respawnedTileKey = simulationTileKey(tile.x, tile.y);
       const respawnCommandId = `${commandId}:respawn:${playerId}`;
       this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
-      this.replaceTileState(respawnedTileKey, respawnedTile);
+      this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
       this.finalizeRespawnNotice(playerId, respawnedTileKey);
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
