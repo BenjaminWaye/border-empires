@@ -563,4 +563,41 @@ describe("simulation event stream supervisor", () => {
       vi.useRealTimers();
     }
   });
+
+  it("skips internal-only simulation event types so they cannot masquerade as empty COMMAND_REJECTED", () => {
+    vi.useFakeTimers();
+    try {
+      const stream = new FakeStream();
+      const seen: SimulationClientEvent[] = [];
+
+      startSimulationEventStream(
+        () => stream,
+        (event) => {
+          seen.push(event);
+        }
+      );
+
+      stream.emit("data", {
+        event_type: "TILE_YIELD_ANCHOR_UPDATED",
+        command_id: "accrual:upkeep:human-1:1700000000000",
+        player_id: "human-1",
+        action_type: "",
+        origin_x: 0,
+        origin_y: 0,
+        target_x: 0,
+        target_y: 0,
+        resolves_at: 0,
+        code: "",
+        message: "",
+        attacker_won: false,
+        tile_delta_json: "",
+        tile_deltas: [],
+        count: 0
+      });
+
+      expect(seen).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
