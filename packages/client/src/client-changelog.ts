@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.13.1",
+  version: "2026.05.13.2",
   title: "What's New",
-  summary: "Pressing a visible map tile now asks the server for a fresh tile detail snapshot even when the client thinks that tile is already fully loaded, so stale fort and structure visuals can self-correct from the tile menu interaction. Live-cost research checks, stuck-build self-heal, Territorial Control, Building menu copy, day-one defenses, and Defensibility tab improvements from prior releases are included.",
+  summary: "Pending settlement progress is now canceled as soon as an enemy captures the tile, so stale timers cannot keep showing progress or settle the tile after a recapture. Pressed map tiles also force a fresh detail refresh to self-correct stale fort and structure visuals. Live-cost research checks, stuck-build self-heal, Territorial Control, Building menu copy, day-one defenses, and Defensibility tab improvements from prior releases are included.",
   entries: [
+    {
+      introducedIn: "2026.05.13.2",
+      title: "Captured frontier tiles cancel active settlement progress",
+      why: "A settlement timer survived hostile capture. The server would usually leave the tile as frontier at the end, but the pending progress stayed in player updates and could look like the current controller was about to finish settling it. If the original owner recaptured before the stale timer fired, that old timer could still complete.",
+      changes: [
+        "Changing tile ownership now removes any pending settlement for the previous owner and refreshes that player's state immediately.",
+        "Settlement completion callbacks now require their original pending record to still exist, so a stale timer cannot settle a recaptured tile."
+      ]
+    },
     {
       introducedIn: "2026.05.13.1",
       title: "Pressed tiles force a fresh detail refresh",
