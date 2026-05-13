@@ -5592,7 +5592,7 @@ describe("simulation runtime — shard rain", () => {
     expect(expireDelta).toHaveProperty("shardSiteJson", "");
   });
 
-  it("does not spawn or broadcast when no human players are present", () => {
+  it("spawns shards even with only AI players, but skips human-only broadcasts", () => {
     const runtime = new SimulationRuntime({
       now: () => localTime(12, 0),
       initialPlayers: new Map([["ai-1", aiPlayer("ai-1")]]),
@@ -5612,7 +5612,63 @@ describe("simulation runtime — shard rain", () => {
       randomSpy.mockRestore();
     }
 
-    expect(seen.some((event) => event.eventType === "TILE_DELTA_BATCH")).toBe(false);
+    expect(seen.some((event) => event.eventType === "TILE_DELTA_BATCH")).toBe(true);
+    expect(
+      seen.some(
+        (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+      )
+    ).toBe(false);
+  });
+
+  it("emitShardRainHelloFor sends a 'started' notice to a player joining mid-rain", () => {
+    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 15),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 1, expiresAt } },
+          { x: 1, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 2, expiresAt } }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
+
+    const notices = seen.filter(
+      (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
+        event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+    );
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.playerId).toBe("human-1");
+    const payload = JSON.parse(notices[0]!.payloadJson);
+    expect(payload).toEqual(
+      expect.objectContaining({
+        type: "SHARD_RAIN_EVENT",
+        phase: "started",
+        startsAt: expiresAt - 30 * 60_000,
+        expiresAt,
+        siteCount: 2
+      })
+    );
+  });
+
+  it("emitShardRainHelloFor stays silent when no FALL sites are active and rain is not imminent", () => {
+    const runtime = new SimulationRuntime({
+      now: () => localTime(9, 0),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: { tiles: [], activeLocks: [] }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.emitShardRainHelloFor("human-1", localTime(9, 0));
+
     expect(
       seen.some(
         (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
