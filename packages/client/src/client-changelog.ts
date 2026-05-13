@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.12.1",
+  version: "2026.05.13.1",
   title: "What's New",
-  summary: "Tech and domain unlock buttons now check your live gold and strategic resources every render, so a tech you can afford right now stops showing as Locked just because the simulation last sent its catalog when you had less gold. Stuck-build self-heal, Territorial Control, Building menu copy, day-one defenses, outpost auras, 3D weak-tile highlights, and the Defensibility tab improvements from prior releases are included.",
+  summary: "Pressing a visible map tile now asks the server for a fresh tile detail snapshot even when the client thinks that tile is already fully loaded, so stale fort and structure visuals can self-correct from the tile menu interaction. Live-cost research checks, stuck-build self-heal, Territorial Control, Building menu copy, day-one defenses, and Defensibility tab improvements from prior releases are included.",
   entries: [
+    {
+      introducedIn: "2026.05.13.1",
+      title: "Pressed tiles force a fresh detail refresh",
+      why: "A tile could be marked fully detailed locally while the authoritative rewrite state had since added or changed a fort. Pressing that tile opened the menu from cached data and skipped REQUEST_TILE_DETAIL, leaving some forts invisible until a broader refresh happened.",
+      changes: [
+        "Visible tile presses now force a REQUEST_TILE_DETAIL for the pressed tile, even when its cached detailLevel is already full.",
+        "Background visible-tile enrichment still keeps the existing needed-only gate, so normal camera refreshes do not spam full-detail requests."
+      ]
+    },
     {
       introducedIn: "2026.05.12.1",
       title: "Research panel reads gold and resources from your live HUD totals",
