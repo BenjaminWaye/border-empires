@@ -565,6 +565,32 @@ const isSyntheticSettlementTown = (
 
 const SYNTHETIC_SETTLEMENT_POPULATION = 800;
 
+const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
+const SHARD_RAIN_TTL_MS = 30 * 60_000;
+const SHARD_RAIN_WARNING_LEAD_MS = 60 * 60 * 1000;
+const SHARD_RAIN_SITE_MIN = 3;
+const SHARD_RAIN_SITE_MAX = 6;
+const SHARD_RAIN_COMMAND_ID_PREFIX = "system-shard-rain";
+const SHARD_RAIN_SYSTEM_PLAYER_ID = "system-shard-rain";
+
+const shardRainSlotKey = (at: Date): string =>
+  `${at.getFullYear()}-${at.getMonth() + 1}-${at.getDate()}-${at.getHours()}`;
+
+const nextShardRainStartAt = (nowMs: number): number => {
+  const now = new Date(nowMs);
+  const todayBase = new Date(now.getTime());
+  todayBase.setMinutes(0, 0, 0);
+  for (const hour of SHARD_RAIN_SCHEDULE_HOURS) {
+    const candidate = new Date(todayBase.getTime());
+    candidate.setHours(hour, 0, 0, 0);
+    if (candidate.getTime() > nowMs) return candidate.getTime();
+  }
+  const tomorrow = new Date(todayBase.getTime());
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(SHARD_RAIN_SCHEDULE_HOURS[0], 0, 0, 0);
+  return tomorrow.getTime();
+};
+
 const hydrateSyntheticSettlementTown = (
   town: DomainTileState["town"] | undefined,
   x: number,
@@ -617,6 +643,9 @@ export class SimulationRuntime {
   };
   private readonly recordedEventsByCommandId = new Map<string, SimulationEvent[]>();
   private readonly commandIdsByPlayerSeq = new Map<string, string>();
+  private lastShardRainSpawnSlotKey: string | undefined;
+  private lastShardRainWarningSlotKey: string | undefined;
+  private shardRainTickCounter = 0;
   private readonly terminalReplayCommandIds = new Map<string, true>();
   private readonly terminalOnlyReplayCommandIds = new Set<string>();
   private readonly maxTerminalCommandReplayHistory: number;
@@ -767,6 +796,134 @@ export class SimulationRuntime {
   onEvent(listener: (event: SimulationEvent) => void): () => void {
     this.events.on("event", listener);
     return () => this.events.off("event", listener);
+  }
+
+  tickShardRain(nowMs: number = this.now()): void {
+    this.expireShardFallSites(nowMs);
+    this.maybeBroadcastShardRainWarning(nowMs);
+    this.maybeSpawnScheduledShardRain(nowMs);
+  }
+
+  private canHostShardFallSiteAt(tile: DomainTileState | undefined): boolean {
+    if (!tile) return false;
+    if (tile.terrain !== "LAND") return false;
+    if (tile.dockId) return false;
+    if (tile.resource) return false;
+    if (tile.town) return false;
+    if (tile.shardSite) return false;
+    return true;
+  }
+
+  private hasHumanPlayer(): boolean {
+    for (const player of this.players.values()) {
+      if (player.id === SHARD_RAIN_SYSTEM_PLAYER_ID) continue;
+      if (player.id.startsWith("barbarian-")) continue;
+      if (player.isAi) continue;
+      return true;
+    }
+    return false;
+  }
+
+  private nextShardRainCommandId(label: string): string {
+    this.shardRainTickCounter += 1;
+    return `${SHARD_RAIN_COMMAND_ID_PREFIX}:${label}:${this.shardRainTickCounter}:${this.now()}`;
+  }
+
+  private broadcastShardRainNotice(payload: Record<string, unknown>): void {
+    const commandId = this.nextShardRainCommandId("notice");
+    const payloadJson = JSON.stringify(payload);
+    for (const player of this.players.values()) {
+      if (player.id === SHARD_RAIN_SYSTEM_PLAYER_ID) continue;
+      if (player.id.startsWith("barbarian-")) continue;
+      if (player.isAi) continue;
+      this.emitEvent({
+        eventType: "PLAYER_MESSAGE",
+        commandId,
+        playerId: player.id,
+        messageType: "SHARD_RAIN_EVENT",
+        payloadJson
+      });
+    }
+  }
+
+  private maybeBroadcastShardRainWarning(nowMs: number): void {
+    const current = new Date(nowMs);
+    if (current.getMinutes() !== 0) return;
+    const nextStart = nextShardRainStartAt(nowMs);
+    const remaining = nextStart - nowMs;
+    if (remaining > SHARD_RAIN_WARNING_LEAD_MS || remaining <= SHARD_RAIN_WARNING_LEAD_MS - 60_000) return;
+    const slot = new Date(nextStart);
+    const slotKey = shardRainSlotKey(slot);
+    if (this.lastShardRainWarningSlotKey === slotKey) return;
+    this.lastShardRainWarningSlotKey = slotKey;
+    if (!this.hasHumanPlayer()) return;
+    this.broadcastShardRainNotice({ type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: nextStart });
+  }
+
+  private maybeSpawnScheduledShardRain(nowMs: number): void {
+    const current = new Date(nowMs);
+    if (current.getMinutes() !== 0) return;
+    if (!SHARD_RAIN_SCHEDULE_HOURS.includes(current.getHours() as (typeof SHARD_RAIN_SCHEDULE_HOURS)[number])) return;
+    const slotKey = shardRainSlotKey(current);
+    if (this.lastShardRainSpawnSlotKey === slotKey) return;
+    this.lastShardRainSpawnSlotKey = slotKey;
+    this.spawnShardRain(nowMs);
+  }
+
+  private spawnShardRain(nowMs: number): void {
+    if (!this.hasHumanPlayer()) return;
+    const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
+    const expiresAt = nowMs + SHARD_RAIN_TTL_MS;
+    const startsAt = nowMs;
+    const placed: { tileKey: string; tile: DomainTileState }[] = [];
+    let attempts = 0;
+    while (placed.length < count && attempts < count * 300) {
+      attempts += 1;
+      const x = Math.floor(Math.random() * WORLD_WIDTH);
+      const y = Math.floor(Math.random() * WORLD_HEIGHT);
+      const tileKey = simulationTileKey(x, y);
+      const tile = this.tiles.get(tileKey);
+      if (!this.canHostShardFallSiteAt(tile)) continue;
+      const amount = Math.random() > 0.8 ? 2 : 1;
+      const updated: DomainTileState = { ...(tile as DomainTileState), shardSite: { kind: "FALL", amount, expiresAt } };
+      this.replaceTileState(tileKey, updated);
+      placed.push({ tileKey, tile: updated });
+    }
+    if (placed.length === 0) return;
+    const commandId = this.nextShardRainCommandId("spawn");
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId: SHARD_RAIN_SYSTEM_PLAYER_ID,
+      tileDeltas: placed.map((entry) => this.tileDeltaFromState(entry.tile))
+    });
+    this.broadcastShardRainNotice({
+      type: "SHARD_RAIN_EVENT",
+      phase: "started",
+      startsAt,
+      expiresAt,
+      siteCount: placed.length
+    });
+  }
+
+  private expireShardFallSites(nowMs: number): void {
+    const expired: { tileKey: string; tile: DomainTileState }[] = [];
+    for (const [tileKey, tile] of this.tiles) {
+      const site = tile.shardSite;
+      if (!site || site.kind !== "FALL") continue;
+      if (typeof site.expiresAt !== "number" || site.expiresAt > nowMs) continue;
+      const updated: DomainTileState = { ...tile, shardSite: undefined };
+      this.replaceTileState(tileKey, updated);
+      expired.push({ tileKey, tile: updated });
+    }
+    if (expired.length === 0) return;
+    const commandId = this.nextShardRainCommandId("expire");
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId: SHARD_RAIN_SYSTEM_PLAYER_ID,
+      tileDeltas: expired.map((entry) => this.tileDeltaFromState(entry.tile))
+    });
   }
 
   preparePlayerRespawnNotice(
