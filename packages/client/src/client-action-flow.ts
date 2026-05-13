@@ -114,7 +114,18 @@ import { neutralTileClickOutcome } from "./client-tile-interaction.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
-import type { ActiveTruceView, CrystalTargetingAbility, OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuView, TileOverviewLine, TileTimedProgress } from "./client-types.js";
+import type {
+  ActiveTruceView,
+  CrystalTargetingAbility,
+  OptimisticStructureKind,
+  Tile,
+  TileActionDef,
+  TileMenuProgressView,
+  TileMenuView,
+  TileOverviewLine,
+  TileTimedProgress,
+  TileVisibilityState
+} from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
 
 type ActionFlowDeps = Record<string, any> & {
@@ -127,6 +138,19 @@ type ActionFlowDeps = Record<string, any> & {
   tileActionMenuEl: HTMLDivElement;
   holdBuildMenuEl: HTMLDivElement;
 };
+
+type TileDetailRequestOptions = {
+  force?: boolean;
+};
+
+export const shouldSendTileDetailRequest = (tile: Tile | undefined, me: string, options: TileDetailRequestOptions = {}): tile is Tile => {
+  if (!tile || tile.fogged) return false;
+  if (options.force) return true;
+  return tile.detailLevel !== "full" || ownTownEconomyFieldsPartial(tile, me);
+};
+
+export const shouldRefreshTileDetailOnPress = (tile: Tile | undefined, visibility: TileVisibilityState): tile is Tile =>
+  Boolean(tile && visibility === "visible" && !tile.fogged);
 
 export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const {
@@ -291,18 +315,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     return true;
   };
 
-  const requestTileDetailIfNeeded = (tile: Tile | undefined): void => {
-    if (!tile || tile.fogged) return;
+  const requestTileDetailIfNeeded = (tile: Tile | undefined, options: TileDetailRequestOptions = {}): void => {
     // Detail-level=full means the gateway already enriched this tile once.
     // Skip unless the most recent payload dropped owner-economy fields (which
     // the partial gate detects), in which case a fresh REQUEST_TILE_DETAIL
     // is the recovery path.
-    const isPartial = ownTownEconomyFieldsPartial(tile, state.me);
-    if (tile.detailLevel === "full" && !isPartial) return;
+    if (!shouldSendTileDetailRequest(tile, state.me, options)) return;
     if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
     const tileKey = keyFor(tile.x, tile.y);
     const lastRequestedAt = state.tileDetailRequestedAt.get(tileKey) ?? 0;
-    if (Date.now() - lastRequestedAt < 1500) return;
+    if (!options.force && Date.now() - lastRequestedAt < 1500) return;
     ws.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x: tile.x, y: tile.y }));
     state.tileDetailRequestedAt.set(tileKey, Date.now());
   };
@@ -1652,6 +1674,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
 
     const to = clicked;
+    if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
     state.selected = { x: wx, y: wy };
     const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
     const clickOutcome = neutralTileClickOutcome({
