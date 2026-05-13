@@ -1710,6 +1710,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             deleteCachedSnapshot(call.request.player_id);
             log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
           }
+          try {
+            runtime.emitShardRainHelloFor(call.request.player_id);
+          } catch (error) {
+            log.error({ err: error, playerId: call.request.player_id }, "shard rain hello failed");
+          }
         }
         const prepareDurationMs = Date.now() - prepareStartedAt;
         simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);

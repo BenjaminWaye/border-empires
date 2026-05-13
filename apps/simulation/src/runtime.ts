@@ -804,6 +804,49 @@ export class SimulationRuntime {
     this.maybeSpawnScheduledShardRain(nowMs);
   }
 
+  emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
+    const player = this.players.get(playerId);
+    if (!player) return;
+    if (player.id === SHARD_RAIN_SYSTEM_PLAYER_ID) return;
+    if (player.id.startsWith("barbarian-")) return;
+    if (player.isAi) return;
+    const notice = this.computeShardRainNotice(nowMs);
+    if (!notice) return;
+    this.emitEvent({
+      eventType: "PLAYER_MESSAGE",
+      commandId: this.nextShardRainCommandId("hello"),
+      playerId,
+      messageType: "SHARD_RAIN_EVENT",
+      payloadJson: JSON.stringify(notice)
+    });
+  }
+
+  private computeShardRainNotice(nowMs: number): Record<string, unknown> | undefined {
+    let latestExpiresAt = 0;
+    let siteCount = 0;
+    for (const tile of this.tiles.values()) {
+      const site = tile.shardSite;
+      if (!site || site.kind !== "FALL") continue;
+      if (typeof site.expiresAt !== "number" || site.expiresAt <= nowMs) continue;
+      siteCount += 1;
+      if (site.expiresAt > latestExpiresAt) latestExpiresAt = site.expiresAt;
+    }
+    if (siteCount > 0) {
+      return {
+        type: "SHARD_RAIN_EVENT",
+        phase: "started",
+        startsAt: latestExpiresAt - SHARD_RAIN_TTL_MS,
+        expiresAt: latestExpiresAt,
+        siteCount
+      };
+    }
+    const nextStart = nextShardRainStartAt(nowMs);
+    if (nextStart - nowMs <= SHARD_RAIN_WARNING_LEAD_MS) {
+      return { type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: nextStart };
+    }
+    return undefined;
+  }
+
   private canHostShardFallSiteAt(tile: DomainTileState | undefined): boolean {
     if (!tile) return false;
     if (tile.terrain !== "LAND") return false;
@@ -812,16 +855,6 @@ export class SimulationRuntime {
     if (tile.town) return false;
     if (tile.shardSite) return false;
     return true;
-  }
-
-  private hasHumanPlayer(): boolean {
-    for (const player of this.players.values()) {
-      if (player.id === SHARD_RAIN_SYSTEM_PLAYER_ID) continue;
-      if (player.id.startsWith("barbarian-")) continue;
-      if (player.isAi) continue;
-      return true;
-    }
-    return false;
   }
 
   private nextShardRainCommandId(label: string): string {
@@ -856,7 +889,6 @@ export class SimulationRuntime {
     const slotKey = shardRainSlotKey(slot);
     if (this.lastShardRainWarningSlotKey === slotKey) return;
     this.lastShardRainWarningSlotKey = slotKey;
-    if (!this.hasHumanPlayer()) return;
     this.broadcastShardRainNotice({ type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: nextStart });
   }
 
@@ -871,7 +903,7 @@ export class SimulationRuntime {
   }
 
   private spawnShardRain(nowMs: number): void {
-    if (!this.hasHumanPlayer()) return;
+    if (this.players.size === 0) return;
     const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
     const expiresAt = nowMs + SHARD_RAIN_TTL_MS;
     const startsAt = nowMs;
