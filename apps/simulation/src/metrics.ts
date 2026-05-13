@@ -8,6 +8,10 @@ import {
   type AutomationPreplanProgressState,
   type AutomationPreplanReason
 } from "./automation-command-planner.js";
+import {
+  AUTOMATION_SETTLE_DECISION_REASONS,
+  type AutomationSettleDecisionReason
+} from "./automation-command-planner-helpers.js";
 
 const LANES: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 
@@ -74,6 +78,9 @@ export type SimulationMetricsSnapshot = {
   simAiNoopTotalByReason: Record<AutomationNoopReason, number>;
   simAiNoopRecent: string[];
   simAiNoFrontierRecent: string[];
+  simAiSettleDecisionTotalByReason: Record<AutomationSettleDecisionReason, number>;
+  simAiSettleDecisionRecent: string[];
+  simAiSettleDecisionTopScore: QuantileSample;
   simCheckpointRssMb: number;
   simCpuPercent: number;
   simHeapUsedMb: number;
@@ -125,6 +132,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   );
   const simAiNoopRecent: string[] = [];
   const simAiNoFrontierRecent: string[] = [];
+  const simAiSettleDecisionTotalByReason = new Map<AutomationSettleDecisionReason, number>(
+    AUTOMATION_SETTLE_DECISION_REASONS.map((reason) => [reason, 0])
+  );
+  const simAiSettleDecisionRecent: string[] = [];
+  const simAiSettleDecisionTopScore: number[] = [];
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
   let simAiAutopilotEnabled = 0;
@@ -175,6 +187,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     ) as Record<AutomationNoopReason, number>,
     simAiNoopRecent: [...simAiNoopRecent],
     simAiNoFrontierRecent: [...simAiNoFrontierRecent],
+    simAiSettleDecisionTotalByReason: Object.fromEntries(
+      AUTOMATION_SETTLE_DECISION_REASONS.map((reason) => [reason, simAiSettleDecisionTotalByReason.get(reason) ?? 0])
+    ) as Record<AutomationSettleDecisionReason, number>,
+    simAiSettleDecisionRecent: [...simAiSettleDecisionRecent],
+    simAiSettleDecisionTopScore: quantileSample(simAiSettleDecisionTopScore),
     simCheckpointRssMb,
     simCpuPercent,
     simHeapUsedMb,
@@ -237,6 +254,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     observeSimAiNoFrontierDetail(detail: string): void {
       appendRecent(simAiNoFrontierRecent, detail, 12);
+    },
+    observeSimAiSettleDecision(reason: AutomationSettleDecisionReason, playerId: string, topScore: number): void {
+      simAiSettleDecisionTotalByReason.set(reason, (simAiSettleDecisionTotalByReason.get(reason) ?? 0) + 1);
+      const rounded = Math.round(topScore);
+      appendRecent(simAiSettleDecisionRecent, `${playerId}:${reason}:${rounded}`, 12);
+      appendSample(simAiSettleDecisionTopScore, topScore, limit);
     },
     setSimCheckpointRssMb(value: number): void {
       simCheckpointRssMb = clampMetric(value);
@@ -309,6 +332,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         "# TYPE sim_ai_preplan_total counter",
         "# TYPE sim_ai_preplan_progress_total counter",
         "# TYPE sim_ai_noop_total counter",
+        "# TYPE sim_ai_settle_decision_total counter",
+        "# TYPE sim_ai_settle_decision_top_score gauge",
+        `sim_ai_settle_decision_top_score{quantile=\"p50\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p50)}`,
+        `sim_ai_settle_decision_top_score{quantile=\"p95\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p95)}`,
+        `sim_ai_settle_decision_top_score{quantile=\"p99\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p99)}`,
         "# TYPE sim_checkpoint_rss_mb gauge",
         `sim_checkpoint_rss_mb ${formatMetricValue(sample.simCheckpointRssMb)}`,
         "# TYPE sim_cpu_percent gauge",
@@ -361,6 +389,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       }
       for (const reason of AUTOMATION_NOOP_REASONS) {
         lines.push(`sim_ai_noop_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiNoopTotalByReason[reason])}`);
+      }
+      for (const reason of AUTOMATION_SETTLE_DECISION_REASONS) {
+        lines.push(`sim_ai_settle_decision_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiSettleDecisionTotalByReason[reason])}`);
       }
 
       return lines.join("\n");
