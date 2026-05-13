@@ -25,6 +25,7 @@ import {
   buildPlannerCommand,
   buildPlannerFrontierCommand,
   buildPlannerSettleCommand,
+  evaluateSettleCandidateDecision,
   hasActionableSettlementCandidate,
   shouldSettleCandidateNow,
   type AutomationPlannerDecisionContext
@@ -141,6 +142,12 @@ export type AutomationPlannerDiagnostic = {
   preplanDomainChoiceAffordable?: boolean;
   preplanProgressState?: AutomationPreplanProgressState;
   noCommandReason?: AutomationNoopReason;
+  // Populated each tick the planner evaluates a settlement candidate (primary
+  // OR fallback). Records why the candidate was settled / not settled and the
+  // top score the candidate received. Wired into a metric so staging tells us
+  // why AIs are not actually settling.
+  settleDecisionReason?: import("./automation-command-planner-helpers.js").AutomationSettleDecisionReason;
+  settleDecisionTopScore?: number;
 };
 
 export type AutomationPlannerPhase = "choose_settlement" | "choose_frontier" | "summarize_frontier";
@@ -535,13 +542,23 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ...(input.preplanProgressState ? { preplanProgressState: input.preplanProgressState } : {})
   };
   const summarizeStartedAt = Date.now();
-  const actionableFallbackSettlementCandidate =
-    fallbackSettlementCandidate && shouldSettleCandidateNow(context, fallbackSettlementCandidate as TTile)
-      ? (fallbackSettlementCandidate as TTile)
-      : undefined;
-  const canSettleNow = Boolean(
-    settlementCandidate && shouldSettleCandidateNow(context, settlementCandidate as TTile)
-  );
+  // Prefer the primary candidate's decision for diagnostics (it's the highest-
+  // scoring candidate). Fall back to the fallback candidate if no primary.
+  const primarySettleDecision = settlementCandidate
+    ? evaluateSettleCandidateDecision(context, settlementCandidate as TTile)
+    : undefined;
+  const fallbackSettleDecision = fallbackSettlementCandidate
+    ? evaluateSettleCandidateDecision(context, fallbackSettlementCandidate as TTile)
+    : undefined;
+  const settleDecisionForDiagnostic = primarySettleDecision ?? fallbackSettleDecision;
+  if (settleDecisionForDiagnostic) {
+    diagnosticBase.settleDecisionReason = settleDecisionForDiagnostic.reason;
+    diagnosticBase.settleDecisionTopScore = settleDecisionForDiagnostic.topScore;
+  }
+  const actionableFallbackSettlementCandidate = fallbackSettleDecision?.shouldSettle
+    ? (fallbackSettlementCandidate as TTile)
+    : undefined;
+  const canSettleNow = Boolean(primarySettleDecision?.shouldSettle);
   const techUnaffordable = input.preplanProgressState === "tech_unaffordable";
   const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);
 
