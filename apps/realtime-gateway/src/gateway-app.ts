@@ -640,6 +640,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     string,
     Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }>
   >();
+  // Tracks commandIds whose per-player TILE_DELTA_BATCH side effects (persistence,
+  // global-status broadcast scheduling) have already been triggered, so the N
+  // per-player events emitted by the simulation for one command only fire those
+  // side effects once. Bounded by periodic cleanup since the simulation never
+  // resurrects a commandId.
+  const persistedTileDeltaCommandIds = new Set<string>();
+  const persistedTileDeltaCommandIdsMaxEntries = 10_000;
   const fullVisibilityReplacementPayloadCache = createFullVisibilityReplacementPayloadCache({
     jsonSafeTileDeltaBatch,
     jsonByteSize
@@ -921,10 +928,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         gatewayMetrics.observeGatewayInputToStateUpdateLatencyMs(Date.now() - submittedAt);
         pendingInputToStateByCommandId.delete(event.commandId);
       }
-      const sockets =
-        event.eventType === "TILE_DELTA_BATCH" && !event.commandId.startsWith("bootstrap:")
-          ? playerSubscriptions.allSockets()
-          : playerSubscriptions.socketsForPlayer(event.playerId);
+      const sockets = playerSubscriptions.socketsForPlayer(event.playerId);
       if (sockets.size === 0) {
         if (!event.commandId.startsWith("bootstrap:")) {
           recordGatewayEvent("warn", "gateway_simulation_event_no_subscribers", {
@@ -957,54 +961,59 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         }
         event.payload = recoveredPayload;
       }
-      // TILE_DELTA_BATCH: snapshot updates and persistence must run exactly once
-      // per event (not once per socket), so handle them before the per-socket fan-out loop.
+      // TILE_DELTA_BATCH: the simulation now emits one event per subscribed
+      // player with their visibility-filtered tileDeltas, so this branch runs
+      // per-player. Persistence is keyed off commandId and must fire exactly
+      // once per command — dedup across the N per-player events that share a
+      // commandId.
       if (event.eventType === "TILE_DELTA_BATCH") {
         const tileDeltas = event.tileDeltas.length > 0 ? event.tileDeltas : (fallbackTileDeltasByCommandId.get(event.commandId) ?? []);
-        fallbackTileDeltasByCommandId.delete(event.commandId);
-        // Persist command resolution exactly once, not once per socket.
-        void commandStore.get(event.commandId).then((command) => {
-          if (!command) return;
-          if (command.type === "ATTACK" || command.type === "EXPAND") return;
-          void commandStore.markResolved(event.commandId, Date.now()).catch((error) =>
-            app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved non-frontier command")
-          );
-        });
-        const socketsByPlayerId = new Map<string, Set<import("ws").WebSocket>>();
-        for (const targetSocket of sockets) {
-          const targetSession = sessionsBySocket.get(targetSocket);
-          if (!targetSession?.playerId) continue;
-          const grouped = socketsByPlayerId.get(targetSession.playerId) ?? new Set<import("ws").WebSocket>();
-          grouped.add(targetSocket);
-          socketsByPlayerId.set(targetSession.playerId, grouped);
+        if (!persistedTileDeltaCommandIds.has(event.commandId)) {
+          persistedTileDeltaCommandIds.add(event.commandId);
+          if (persistedTileDeltaCommandIds.size > persistedTileDeltaCommandIdsMaxEntries) {
+            const entriesToDrop = persistedTileDeltaCommandIds.size - Math.floor(persistedTileDeltaCommandIdsMaxEntries / 2);
+            let dropped = 0;
+            for (const id of persistedTileDeltaCommandIds) {
+              if (dropped >= entriesToDrop) break;
+              persistedTileDeltaCommandIds.delete(id);
+              dropped += 1;
+            }
+          }
+          fallbackTileDeltasByCommandId.delete(event.commandId);
+          void commandStore.get(event.commandId).then((command) => {
+            if (!command) return;
+            if (command.type === "ATTACK" || command.type === "EXPAND") return;
+            void commandStore.markResolved(event.commandId, Date.now()).catch((error) =>
+              app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved non-frontier command")
+            );
+          });
         }
-        const tileDeltaPayload = {
+        const playerId = event.playerId;
+        // sockets === playerSubscriptions.socketsForPlayer(playerId) (assigned at line 899),
+        // so every entry already belongs to this player; no need to re-filter.
+        const playerSockets = sockets;
+        const hasFogDisabledSession = [...playerSubscriptions.socketsForPlayer(playerId)].some(
+          (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
+        );
+        if (hasFogDisabledSession) {
+          recordGatewayEvent("info", "gateway_fog_refresh_from_live_delta", {
+            playerId,
+            commandId: event.commandId,
+            tileDeltaCount: tileDeltas.length,
+            socketCount: playerSockets.size
+          });
+          await refreshPlayerFogSnapshot(playerId, true, { reason: "live-delta", commandId: event.commandId });
+          return;
+        }
+        playerSubscriptions.updateSnapshot(playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
+        syncGatewaySnapshotMetricsFromCache(playerId);
+        const tileDeltaBroadcast = preSerializeBroadcast({
           type: "TILE_DELTA_BATCH",
           commandId: event.commandId,
           tiles: jsonSafeTileDeltaBatch(tileDeltas)
-        };
-        // Same payload fans out to every socket across every player; serialize
-        // once so 100+ sockets share a single JSON.stringify call.
-        const tileDeltaBroadcast = preSerializeBroadcast(tileDeltaPayload);
-        for (const [playerId, playerSockets] of socketsByPlayerId) {
-          const hasFogDisabledSession = [...playerSubscriptions.socketsForPlayer(playerId)].some(
-            (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
-          );
-          if (hasFogDisabledSession) {
-            recordGatewayEvent("info", "gateway_fog_refresh_from_live_delta", {
-              playerId,
-              commandId: event.commandId,
-              tileDeltaCount: tileDeltas.length,
-              socketCount: playerSockets.size
-            });
-            await refreshPlayerFogSnapshot(playerId, true, { reason: "live-delta", commandId: event.commandId });
-            continue;
-          }
-          playerSubscriptions.updateSnapshot(playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
-          syncGatewaySnapshotMetricsFromCache(playerId);
-          for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(playerSockets, (candidate) => sessionsBySocket.get(candidate))) {
-            queueOrSendSessionPayload(targetSocket, tileDeltaBroadcast);
-          }
+        });
+        for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(playerSockets, (candidate) => sessionsBySocket.get(candidate))) {
+          queueOrSendSessionPayload(targetSocket, tileDeltaBroadcast);
         }
         return;
       }
