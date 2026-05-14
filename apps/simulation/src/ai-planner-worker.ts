@@ -303,6 +303,7 @@ const choosePlannerCommand = (
   options?: {
     skipPreplan?: boolean;
     collectVisibleOnCooldown?: boolean;
+    attackStalemateTargetTileKeys?: ReadonlySet<string>;
   }
 ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
   const plannerStartedAt = Date.now();
@@ -394,6 +395,9 @@ const choosePlannerCommand = (
     },
     ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
     ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
+    ...(options?.attackStalemateTargetTileKeys
+      ? { attackStalemateTargetTileKeys: options.attackStalemateTargetTileKeys }
+      : {}),
     clientSeq,
     issuedAt,
     sessionPrefix: "ai-runtime",
@@ -495,13 +499,18 @@ parentPort.on("message", (msg: unknown) => {
         break;
       }
       try {
+        const stalemateRaw = message.attackStalemateTargetTileKeys;
+        const stalemateSet = Array.isArray(stalemateRaw)
+          ? new Set<string>(stalemateRaw as string[])
+          : undefined;
         const plan = choosePlannerCommand(
           message.playerId as string,
           message.clientSeq as number,
           message.issuedAt as number,
           {
             skipPreplan: message.skipPreplan === true,
-            collectVisibleOnCooldown: message.collectVisibleOnCooldown === true
+            collectVisibleOnCooldown: message.collectVisibleOnCooldown === true,
+            ...(stalemateSet ? { attackStalemateTargetTileKeys: stalemateSet } : {})
           }
         );
         parentPort!.postMessage({ type: "command", playerId: message.playerId, command: plan.command, diagnostic: plan.diagnostic });
