@@ -328,6 +328,19 @@ const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
   payloadJson: value.payload_json
 });
 
+// Event types that exist purely for in-sim bookkeeping (replay anchors,
+// snapshot reconstruction, etc.) and have no client-facing audience. Writing
+// them to the gRPC stream wastes bandwidth and — because the gateway proto
+// shape is flat — has historically tripped consumers into mis-tagging them
+// as empty-code COMMAND_REJECTED. Filter them at the wire boundary so the
+// gateway never sees them in the first place.
+export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
+  "TILE_YIELD_ANCHOR_UPDATED"
+]);
+
+export const isWireInternalEvent = (event: SimulationEvent): boolean =>
+  WIRE_INTERNAL_EVENT_TYPES.has(event.eventType);
+
 export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
   event_type: value.eventType,
   command_id: value.commandId,
@@ -1511,6 +1524,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
         return;
       }
+      if (isWireInternalEvent(event)) return;
       if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
       const protoEvent = toProtoEvent(event);
       for (const stream of eventStreams) stream.write(protoEvent);
