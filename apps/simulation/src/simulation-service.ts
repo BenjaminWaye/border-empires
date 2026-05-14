@@ -1451,10 +1451,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // server-held cache stays consistent with what the player can actually see.
       //
       // Trade-off: we lose the gateway's preSerializeBroadcast optimisation
-      // (each subscriber now gets their own JSON.stringify) and pay an
-      // O(N_subscribed × classification_cost) CPU hit per delta event vs the
-      // old constant-time global broadcast. Correctness wins; if this becomes
-      // a hot spot, cache classifyVisibilityForPlayer per (playerId, tick).
+      // (each subscriber now gets their own JSON.stringify) and the simulation
+      // emits N proto events per command instead of one. With the lazy filter
+      // (runtime.filterTileDeltasForPlayer) the added sim cost is roughly
+      // O(N_subscribed × deltas × territory) — at staging load ~1% of one
+      // core on top of the existing snapshot-cache rebuild that was already
+      // O(N_subscribed × snapshot_size). If subscriber count grows large
+      // enough that gateway per-player serialisation becomes the hot spot,
+      // group subscribers by identical filtered tile-sets and stringify once
+      // per group, or maintain a per-player incremental visible-tile set so
+      // the filter is O(deltas) instead of O(deltas × territory).
       if (event.eventType === "TILE_DELTA_BATCH") {
         for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
           const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
