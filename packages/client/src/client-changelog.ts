@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.14.4",
+  version: "2026.05.14.5",
   title: "What's New",
-  summary: "Pressed tile details now open from cached data immediately, then refresh from the rewrite simulation as soon as the fresh tile snapshot returns. Detail updates also keep their full-detail metadata through gateway batch sync so fort and town panels recover instead of staying in loading.",
+  summary: "Aether Moorings now shows and grants its Aether Wall unlock on rewrite staging again. Pressed tile details now open from cached data immediately, then refresh from the rewrite simulation as soon as the fresh tile snapshot returns.",
   entries: [
+    {
+      introducedIn: "2026.05.14.5",
+      title: "Aether Moorings shows Aether Wall again",
+      why: "The current progression catalog had Aether Wall registered as a crystal ability, but Aether Moorings only advertised Harbor Exchange and dock income, so the tech detail card omitted the ability unlock.",
+      changes: [
+        "Aether Moorings now advertises both Harbor Exchange and Aether Wall, so the tech detail card shows the structure and ability rows together.",
+        "The packaged rewrite tech and domain fallbacks are synchronized with the current production catalogs so deleting the legacy server package does not drop late-game techs or observatory-domain behavior.",
+        "Gateway and simulation regressions now assert that Aether Moorings carries both unlocks and that the packaged progression fallbacks stay in sync."
+      ]
+    },
     {
       introducedIn: "2026.05.14.4",
       title: "Pressed fort tiles recover from stale detail",
