@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.14.8",
+  version: "2026.05.14.9",
   title: "What's New",
-  summary: "Gameplay email alerts can now notify you when another empire sends an alliance request, offers a truce, or attacks your territory. The gateway throttles alerts per recipient each day so email stays useful instead of noisy.",
+  summary: "Seasonal AI empires now resolve correctly when you offer a truce from the tile menu. Gameplay email alerts can notify you about diplomacy requests and incoming attacks, with per-recipient daily throttling.",
   entries: [
+    {
+      introducedIn: "2026.05.14.9",
+      title: "Seasonal AI truce targets resolve",
+      why: "The first truce fix registered fallback AI names, but staging's seasonal world exposes AI empires by generated names like Freja Sund. Offering a truce to those empires could still hit TRUCE_TARGET even though the popup was now visible.",
+      changes: [
+        "The rewrite gateway now registers seasonal default AI display names in social state when staging boots.",
+        "Truce offers sent to seasonal AI names now create a pending offer and receive the AI response instead of failing target lookup."
+      ]
+    },
     {
       introducedIn: "2026.05.14.8",
       title: "Email alerts cover requests and incoming attacks",
