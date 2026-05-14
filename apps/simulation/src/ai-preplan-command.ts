@@ -35,6 +35,13 @@ export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
   clientSeq: number;
   issuedAt: number;
   sessionPrefix: AutomationSessionPrefix;
+  // True when the producer has gated COLLECT_VISIBLE for this AI (per-player
+  // 20s cooldown — see ai-command-producer*.ts COLLECT_VISIBLE_COOLDOWN_MS).
+  // When set, the preplan must not emit a COLLECT_VISIBLE preempt; otherwise
+  // the producer would gate it after the fact and the AI would loop through
+  // both planner passes without dispatching anything useful — exactly the
+  // failure mode we saw on staging (58 dispatched + many silent ticks).
+  collectVisibleOnCooldown?: boolean;
 };
 
 const createDiagnostic = (
@@ -141,8 +148,13 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   } satisfies Partial<AutomationPlannerDiagnostic>;
 
   const canAffordExpansion = input.points >= FRONTIER_CLAIM_COST + SETTLE_COST;
+  // Suppress the COLLECT_VISIBLE preempt while it's on cooldown — otherwise we
+  // emit COLLECT, the producer gates the dispatch, the same AI loops back into
+  // preplan, and we get a silent tick. With cooldown respected here we fall
+  // through to CHOOSE_TECH / CHOOSE_DOMAIN / main-planner instead.
   if (
     hasCollectibleSource &&
+    !input.collectVisibleOnCooldown &&
     (
       input.hasActiveLock ||
       (
