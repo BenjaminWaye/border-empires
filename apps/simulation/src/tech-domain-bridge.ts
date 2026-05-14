@@ -82,19 +82,13 @@ export const resolveDataPath = (
 };
 
 export const TECH_TREE_RELATIVE_CANDIDATES = [
-  "../../../packages/server/data/tech-tree.json",
-  "../../../../packages/server/data/tech-tree.json",
   "../../../packages/game-domain/data/tech-tree.json",
   "../../../../packages/game-domain/data/tech-tree.json",
-  "../../../../../../packages/server/data/tech-tree.json",
   "../../../../../../packages/game-domain/data/tech-tree.json"
 ] as const;
 export const DOMAIN_TREE_RELATIVE_CANDIDATES = [
-  "../../../packages/server/data/domain-tree.json",
-  "../../../../packages/server/data/domain-tree.json",
   "../../../packages/game-domain/data/domain-tree.json",
   "../../../../packages/game-domain/data/domain-tree.json",
-  "../../../../../../packages/server/data/domain-tree.json",
   "../../../../../../packages/game-domain/data/domain-tree.json"
 ] as const;
 export const TECH_TREE_PATH = resolveDataPath(TECH_TREE_RELATIVE_CANDIDATES);
