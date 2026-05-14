@@ -146,6 +146,7 @@ describe("rewrite gateway world-status stream", () => {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" as const }]
       }),
       unsubscribePlayer: async () => undefined,
+      getSubscriptionNamespace: async () => "test-namespace",
       streamEvents: (
         nextListener: (event: SimulationClientEvent) => void,
         lifecycle?: { onConnect?: () => void; onDisconnect?: (error?: unknown) => void }
@@ -272,6 +273,7 @@ describe("rewrite gateway world-status stream", () => {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" as const }]
       }),
       unsubscribePlayer: async () => undefined,
+      getSubscriptionNamespace: async () => "test-namespace",
       streamEvents: (
         nextListener: (event: SimulationClientEvent) => void,
         lifecycle?: { onConnect?: () => void; onDisconnect?: (error?: unknown) => void }
@@ -438,6 +440,7 @@ describe("rewrite gateway world-status stream", () => {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" as const }]
       }),
       unsubscribePlayer: async () => undefined,
+      getSubscriptionNamespace: async () => "test-namespace",
       streamEvents: (
         nextListener: (event: SimulationClientEvent) => void,
         lifecycle?: { onConnect?: () => void; onDisconnect?: (error?: unknown) => void }
@@ -588,6 +591,7 @@ describe("rewrite gateway world-status stream", () => {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" as const }]
       }),
       unsubscribePlayer: async () => undefined,
+      getSubscriptionNamespace: async () => "test-namespace",
       streamEvents: (
         nextListener: (event: SimulationClientEvent) => void,
         lifecycle?: { onConnect?: () => void; onDisconnect?: (error?: unknown) => void }
