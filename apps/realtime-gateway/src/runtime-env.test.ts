@@ -12,13 +12,17 @@ describe("realtime gateway runtime env", () => {
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "default",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "bw199005@gmail.com"
+      fogAdminEmail: "bw199005@gmail.com",
+      emailAlerts: {
+        from: "Border Empires <alerts@borderempires.com>",
+        appUrl: "https://staging.borderempires.com"
+      }
     });
   });
 
   it("requires durable database and simulation address settings in managed runtime", () => {
     expect(() => parseRealtimeGatewayRuntimeEnv({ NODE_ENV: "production" })).toThrow(
-      "realtime gateway requires GATEWAY_DATABASE_URL or DATABASE_URL in managed runtime"
+      "realtime gateway requires GATEWAY_DATABASE_URL/DATABASE_URL or GATEWAY_SQLITE_PATH/SQLITE_PATH in managed runtime"
     );
     expect(() =>
       parseRealtimeGatewayRuntimeEnv({
@@ -55,7 +59,11 @@ describe("realtime gateway runtime env", () => {
       applySchema: true,
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: false,
-      fogAdminEmail: "bw199005@gmail.com"
+      fogAdminEmail: "bw199005@gmail.com",
+      emailAlerts: {
+        from: "Border Empires <alerts@borderempires.com>",
+        appUrl: "https://staging.borderempires.com"
+      }
     });
   });
 
@@ -72,7 +80,11 @@ describe("realtime gateway runtime env", () => {
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "bw199005@gmail.com"
+      fogAdminEmail: "bw199005@gmail.com",
+      emailAlerts: {
+        from: "Border Empires <alerts@borderempires.com>",
+        appUrl: "https://staging.borderempires.com"
+      }
     });
   });
 
@@ -89,7 +101,11 @@ describe("realtime gateway runtime env", () => {
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "default",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "me@example.com"
+      fogAdminEmail: "me@example.com",
+      emailAlerts: {
+        from: "Border Empires <alerts@borderempires.com>",
+        appUrl: "https://staging.borderempires.com"
+      }
     });
   });
 
@@ -111,7 +127,29 @@ describe("realtime gateway runtime env", () => {
       applySchema: false,
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "bw199005@gmail.com"
+      fogAdminEmail: "bw199005@gmail.com",
+      emailAlerts: {
+        from: "Border Empires <alerts@borderempires.com>",
+        appUrl: "https://staging.borderempires.com"
+      }
+    });
+  });
+
+  it("parses gameplay email alert settings", () => {
+    expect(
+      parseRealtimeGatewayRuntimeEnv({
+        GATEWAY_EMAIL_ALERTS_RESEND_API_KEY: "re_test",
+        GATEWAY_EMAIL_ALERTS_FROM: "alerts@example.com",
+        GATEWAY_EMAIL_ALERTS_REPLY_TO: "support@example.com",
+        GATEWAY_EMAIL_ALERTS_APP_URL: "https://play.example",
+        GATEWAY_EMAIL_ALERTS_DAILY_LIMIT: "2"
+      }).emailAlerts
+    ).toEqual({
+      resendApiKey: "re_test",
+      from: "alerts@example.com",
+      replyTo: "support@example.com",
+      appUrl: "https://play.example",
+      dailyLimit: 2
     });
   });
 });

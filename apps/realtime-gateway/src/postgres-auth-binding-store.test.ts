@@ -71,4 +71,33 @@ describe("PostgresGatewayAuthBindingStore", () => {
     });
     expect(calls[0]?.sql).toContain("WHERE LOWER(auth_email) = LOWER($1)");
   });
+
+  it("looks up the latest auth binding by player id", async () => {
+    const calls: Array<{ sql: string; params: readonly unknown[] | undefined }> = [];
+    const store = new PostgresGatewayAuthBindingStore({
+      async query(sql, params) {
+        calls.push({ sql: sql.trim(), params });
+        return {
+          rows: [
+            {
+              auth_uid: "firebase-user-3",
+              player_id: "player-1",
+              auth_email: "player@example.com",
+              updated_at: 3_000
+            }
+          ],
+          rowCount: 1
+        };
+      }
+    });
+
+    await expect(store.getByPlayerId("player-1")).resolves.toEqual({
+      uid: "firebase-user-3",
+      playerId: "player-1",
+      email: "player@example.com",
+      updatedAt: 3_000
+    });
+    expect(calls[0]?.sql).toContain("WHERE player_id = $1");
+    expect(calls[0]?.params).toEqual(["player-1"]);
+  });
 });

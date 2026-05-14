@@ -15,7 +15,8 @@ const gateway = await createRealtimeGatewayApp({
   simulationSeedProfile: runtimeEnv.simulationSeedProfile,
   allowNonAuthoritativeInitialState: runtimeEnv.allowNonAuthoritativeInitialState,
   ...(runtimeEnv.adminApiToken ? { adminApiToken: runtimeEnv.adminApiToken } : {}),
-  ...(runtimeEnv.fogAdminEmail ? { fogAdminEmail: runtimeEnv.fogAdminEmail } : {})
+  ...(runtimeEnv.fogAdminEmail ? { fogAdminEmail: runtimeEnv.fogAdminEmail } : {}),
+  emailAlerts: runtimeEnv.emailAlerts
 });
 
 await gateway.start();

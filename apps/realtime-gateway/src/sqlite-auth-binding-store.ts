@@ -51,6 +51,19 @@ export class SqliteGatewayAuthBindingStore implements GatewayAuthBindingStore {
     return row ? toBinding(row) : undefined;
   }
 
+  async getByPlayerId(playerId: string): Promise<StoredAuthIdentityBinding | undefined> {
+    const row = this.db
+      .prepare(
+        `SELECT auth_uid, player_id, auth_email, updated_at
+         FROM auth_identity_bindings
+         WHERE player_id = ?
+         ORDER BY updated_at DESC
+         LIMIT 1`
+      )
+      .get(playerId) as Row | undefined;
+    return row ? toBinding(row) : undefined;
+  }
+
   async bindIdentity(binding: { uid: string; playerId: string; email?: string }): Promise<StoredAuthIdentityBinding> {
     const now = this.now();
     const row = this.db

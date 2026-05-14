@@ -2,11 +2,11 @@
 
 This repo has two stacks. They are not symmetric, and this is the most common source of wasted agent work.
 
-- **Staging** (`https://staging.borderempires.com`, fly apps `border-empires-gateway-staging` + `border-empires-simulation-staging`) runs the **rewrite stack**: `apps/realtime-gateway` + `apps/simulation`, built by `Dockerfile.gateway` / `Dockerfile.simulation`.
+- **Staging** (`https://staging.borderempires.com`, fly app `border-empires-combined-staging`) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` / `fly.combined.staging.toml`.
 - **Production** (fly app `border-empires`) currently runs the **legacy stack**: `packages/server`, built by `Dockerfile.server`. This is in flight; the rewrite is being prepared for prod but is not there yet.
 - **Default target for any new work is the rewrite stack.** Do not modify, instrument, or build features in `packages/server` (legacy) unless the user explicitly says "legacy", names `packages/server`, or names a production-only behavior. A legacy-only change will not affect staging at all and will only land in prod once it ships there.
 - If a search turns up logic only in `packages/server`, treat that as a missing port to the rewrite stack. Surface that to the user before instrumenting the legacy version, and offer to port it instead.
-- "Deploy to staging" means deploying the rewrite stack. **Use `pnpm deploy:staging:all` from any worktree on any branch** — that script fast-forwards `origin/staging` to `origin/main`, deploys simulation and gateway to Fly in dependency order, then publishes the client to Vercel and flips the staging alias, all in one command. The individual steps (`fly deploy --config fly.gateway.staging.toml`, `fly deploy --config fly.simulation.staging.toml`, `pnpm deploy:client:staging`) still exist as escape hatches but should not be the primary deploy path; running them piecemeal is what historically left staging serving stale gateway / sim or stale client bundles.
+- "Deploy to staging" means deploying the rewrite stack. **Use `pnpm deploy:staging:all` from any worktree on any branch** — that script fast-forwards `origin/staging` to `origin/main`, deploys the combined simulation+gateway Fly app (`border-empires-combined-staging`), then publishes the client to Vercel and flips the staging alias, all in one command. The individual Fly escape hatch is `fly deploy --config fly.combined.staging.toml --strategy rolling --remote-only`; piecemeal split gateway/simulation staging deploys are obsolete.
 - "Deploy to production" today means deploying the legacy stack to `border-empires` plus the prod client. Confirm with the user before deploying production rewrite — that's a stack-cutover operation, not a routine deploy.
 
 # Worktree Setup
@@ -140,8 +140,8 @@ This repo regularly has many agents (and humans) editing, merging, pushing, and 
   - `packages/server`: legacy authoritative game server. Currently runs in production; not on staging. Only modify when the user explicitly asks for legacy work or names a production-only behavior.
   - `packages/client`: browser client, canvas renderer, auth flow, HUD/panels, input handling, and websocket sync.
 - Apps (rewrite stack — what runs on staging today):
-  - `apps/realtime-gateway`: client-facing websocket gateway, auth binding, INIT payload assembly, command submission. Deployed to `border-empires-gateway-staging` via `Dockerfile.gateway`.
-  - `apps/simulation`: authoritative simulation worker, spawn placement, tick loop, world events. Deployed to `border-empires-simulation-staging` via `Dockerfile.simulation`.
+  - `apps/realtime-gateway`: client-facing websocket gateway, auth binding, INIT payload assembly, command submission. On staging it runs inside `border-empires-combined-staging`.
+  - `apps/simulation`: authoritative simulation worker, spawn placement, tick loop, world events. On staging it runs inside `border-empires-combined-staging`.
 - Root scripts:
   - `pnpm dev`: builds shared, then runs server and client together.
   - `pnpm build`, `pnpm test`, `pnpm lint`: recurse through workspace packages.

@@ -25,12 +25,12 @@ test("parseTomlEnvSection reads only the env block", () => {
 test("diffExpectedEnv reports mismatches and missing values", () => {
   const mismatches = diffExpectedEnv(
     {
-      SIMULATION_ADDRESS: "border-empires-simulation-staging.flycast:50051",
+      SIMULATION_ADDRESS: "127.0.0.1:50051",
       NODE_ENV: "staging",
       PORT: "8080"
     },
     {
-      SIMULATION_ADDRESS: "border-empires-simulation-staging.internal:50051",
+      SIMULATION_ADDRESS: "stale-remote-simulation.internal:50051",
       NODE_ENV: "staging"
     }
   );
@@ -38,8 +38,8 @@ test("diffExpectedEnv reports mismatches and missing values", () => {
   assert.deepEqual(mismatches, [
     {
       key: "SIMULATION_ADDRESS",
-      expectedValue: "border-empires-simulation-staging.flycast:50051",
-      actualValue: "border-empires-simulation-staging.internal:50051"
+      expectedValue: "127.0.0.1:50051",
+      actualValue: "stale-remote-simulation.internal:50051"
     },
     {
       key: "PORT",
