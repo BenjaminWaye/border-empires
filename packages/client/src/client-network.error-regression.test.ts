@@ -479,6 +479,106 @@ describe("client network regression guards", () => {
     );
   });
 
+  it("keeps outgoing truce requests from TRUCE_UPDATE payloads", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TRUCE_UPDATE",
+        activeTruces: [],
+        incomingTruceRequests: [],
+        outgoingTruceRequests: [
+          {
+            id: "truce-1",
+            fromPlayerId: "me",
+            toPlayerId: "ai-1",
+            createdAt: 1,
+            expiresAt: 2,
+            durationHours: 12,
+            toName: "ai-1"
+          }
+        ]
+      })
+    });
+
+    expect(state.outgoingTruceRequests).toEqual([expect.objectContaining({ id: "truce-1", toPlayerId: "ai-1" })]);
+    expect(deps.pushFeed).not.toHaveBeenCalled();
+  });
+
+  it("shows truce result announcements as popups", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const deps = bindWithDeps(state, ws, { showCaptureAlert });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TRUCE_UPDATE",
+        activeTruces: [],
+        incomingTruceRequests: [],
+        outgoingTruceRequests: [],
+        announcement: "AI 2 declined your truce offer."
+      })
+    });
+
+    expect(deps.pushFeed).toHaveBeenCalledWith("AI 2 declined your truce offer.", "alliance", "warn");
+    expect(showCaptureAlert).toHaveBeenCalledWith("Truce declined", "AI 2 declined your truce offer.", "warn", undefined);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TRUCE_UPDATE",
+        activeTruces: [],
+        incomingTruceRequests: [],
+        outgoingTruceRequests: [],
+        announcement: "AI 1 and player-1 agreed to a 12h truce."
+      })
+    });
+
+    expect(deps.pushFeed).toHaveBeenCalledWith("AI 1 and player-1 agreed to a 12h truce.", "alliance", "success");
+    expect(showCaptureAlert).toHaveBeenCalledWith(
+      "Truce accepted",
+      "AI 1 and player-1 agreed to a 12h truce.",
+      "success",
+      undefined
+    );
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TRUCE_UPDATE",
+        activeTruces: [],
+        incomingTruceRequests: [],
+        outgoingTruceRequests: [],
+        announcement: "AI 1 broke the truce with player-1."
+      })
+    });
+
+    expect(deps.pushFeed).toHaveBeenCalledWith("AI 1 broke the truce with player-1.", "alliance", "warn");
+    expect(showCaptureAlert).toHaveBeenCalledWith("Truce broken", "AI 1 broke the truce with player-1.", "warn", undefined);
+  });
+
+  it("shows diplomacy errors as warning popups with readable copy", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    bindWithDeps(state, ws, {
+      explainActionFailure: vi.fn(explainActionFailureFromServer),
+      showCaptureAlert
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "TRUCE_TARGET", message: "target not found" })
+    });
+
+    expect(showCaptureAlert).toHaveBeenCalledWith(
+      "Diplomacy failed",
+      "Cannot offer truce: target not found.",
+      "warn",
+      undefined
+    );
+  });
+
   it("shows a warning popup for dock cooldown on an in-flight frontier action", () => {
     const state = createState();
     const ws = new FakeWebSocket();
