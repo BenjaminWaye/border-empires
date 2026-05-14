@@ -1129,7 +1129,12 @@ describe("ai command producer", () => {
     vi.useRealTimers();
 
     expect(submittedTypes).toEqual(["COLLECT_VISIBLE", "EXPAND"]);
-    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(3, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: true });
+    // The post-preplan-timeout planner call hits within the COLLECT cooldown
+    // window now, so the producer hints the planner about it.
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(3, "ai-1", 2, expect.any(Number), "ai-runtime", {
+      skipPreplan: true,
+      collectVisibleOnCooldown: true
+    });
   });
 
   it("falls through to gameplay planning when collect-visible is locally cooldown-blocked", async () => {
@@ -1227,7 +1232,13 @@ describe("ai command producer", () => {
 
     expect(submittedTypes).toEqual(["COLLECT_VISIBLE", "EXPAND", "EXPAND"]);
     expect(decisionReasons).toEqual(["collect_for_active_lock"]);
-    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(4, "ai-1", 3, expect.any(Number), "ai-runtime", { skipPreplan: true });
+    // The 4th planner call hits during the COLLECT_VISIBLE cooldown window, so
+    // the producer now informs the planner so it picks a non-COLLECT action
+    // instead of looping back through the same COLLECT branches.
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(4, "ai-1", 3, expect.any(Number), "ai-runtime", {
+      skipPreplan: true,
+      collectVisibleOnCooldown: true
+    });
   });
 
   it("releases stale pending AI commands so one stuck player does not freeze forever", async () => {

@@ -302,6 +302,7 @@ const choosePlannerCommand = (
   issuedAt: number,
   options?: {
     skipPreplan?: boolean;
+    collectVisibleOnCooldown?: boolean;
   }
 ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
   const plannerStartedAt = Date.now();
@@ -339,7 +340,8 @@ const choosePlannerCommand = (
       ownedTiles,
       clientSeq,
       issuedAt,
-      sessionPrefix: "ai-runtime"
+      sessionPrefix: "ai-runtime",
+      ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {})
     });
     preplanDiagnostic = preplan.diagnostic;
     if (preplan.command) {
@@ -391,6 +393,7 @@ const choosePlannerCommand = (
       rememberedVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
     },
     ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
+    ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
     clientSeq,
     issuedAt,
     sessionPrefix: "ai-runtime",
@@ -496,7 +499,10 @@ parentPort.on("message", (msg: unknown) => {
           message.playerId as string,
           message.clientSeq as number,
           message.issuedAt as number,
-          { skipPreplan: message.skipPreplan === true }
+          {
+            skipPreplan: message.skipPreplan === true,
+            collectVisibleOnCooldown: message.collectVisibleOnCooldown === true
+          }
         );
         parentPort!.postMessage({ type: "command", playerId: message.playerId, command: plan.command, diagnostic: plan.diagnostic });
       } catch (err) {

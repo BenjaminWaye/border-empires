@@ -185,6 +185,7 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
   onStrategicSnapshot?: (snapshot: AutomationStrategicSnapshot) => void;
   preplanProgressState?: AutomationPreplanProgressState | undefined;
+  collectVisibleOnCooldown?: boolean;
 };
 
 export type AutomationPlannerResult = {
@@ -839,7 +840,12 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     return buildPlannerFrontierCommand(context, frontierAnalysis.expand, "EXPAND");
   }
 
-  if (input.sessionPrefix === "ai-runtime" && !canExpand && hasCollectibleVisibleYieldSource(input.ownedTiles)) {
+  if (
+    input.sessionPrefix === "ai-runtime" &&
+    !canExpand &&
+    !input.collectVisibleOnCooldown &&
+    hasCollectibleVisibleYieldSource(input.ownedTiles)
+  ) {
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return buildPlannerCommand(context, "COLLECT_VISIBLE", {});
   }

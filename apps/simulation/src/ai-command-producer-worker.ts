@@ -568,6 +568,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     issuedAt: number,
     options?: {
       skipPreplan?: boolean;
+      collectVisibleOnCooldown?: boolean;
     }
   ): Promise<PlannedCommandResult> => {
     return new Promise((resolve) => {
@@ -578,7 +579,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         clientSeq,
         issuedAt,
         sessionPrefix: "ai-runtime",
-        ...(options?.skipPreplan ? { skipPreplan: true } : {})
+        ...(options?.skipPreplan ? { skipPreplan: true } : {}),
+        ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {})
       });
     });
   };
@@ -656,7 +658,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           for (let pass = 0; pass < 2; pass += 1) {
             const issuedAt = now();
             const plannerStartedAt = now();
-            const plan = await requestPlan(playerId, clientSeq, issuedAt, { skipPreplan });
+            const collectVisibleOnCooldown = (collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0) > issuedAt;
+            const plan = await requestPlan(playerId, clientSeq, issuedAt, {
+              skipPreplan,
+              collectVisibleOnCooldown
+            });
             const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
             options.onDiagnostic?.({
               phase: "request_plan_round_trip",
