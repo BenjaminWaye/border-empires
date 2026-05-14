@@ -252,16 +252,10 @@ const connect = () =>
     try {
       // Prefer the `ws` npm package — Node 22's native WebSocket swallows
       // error messages, making connection failures impossible to diagnose.
-      // ws lives in packages/server/node_modules (not the workspace root).
       try {
         WebSocket = (await import("ws")).default;
       } catch {
-        try {
-          const wsPath = new URL("../packages/server/node_modules/ws/index.js", import.meta.url);
-          WebSocket = (await import(wsPath)).default;
-        } catch {
-          WebSocket = globalThis.WebSocket;
-        }
+        WebSocket = globalThis.WebSocket;
       }
     } catch {
       reject(new Error("WebSocket not available. Run: pnpm add -D ws"));
