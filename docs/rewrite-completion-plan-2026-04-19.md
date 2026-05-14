@@ -42,8 +42,7 @@ Approximate monthly cost of the Fly resources in play (shared-cpu-1x at ~$1.94/m
 | `border-empires-gateway` (512MB) | ~$1.94 |
 | `border-empires-simulation` (512MB) | ~$1.94 |
 | Supabase free tier (database) | $0/mo — 500MB ceiling, 7-day inactivity auto-pause, 7-day PITR |
-| `border-empires-gateway-staging` (512MB, auto-stop on) | ~$0.20 if idle most of the day |
-| `border-empires-simulation-staging` (512MB, auto-stop on) | ~$0.20 if idle most of the day |
+| `border-empires-combined-staging` (combined rewrite staging) | ~$2 while running |
 
 Constraints this forces:
 
@@ -77,7 +76,7 @@ Verified against the tree, not the handoff narrative. HEAD = `22b76c1` on `main`
 
 - **Phase 0** landed as commit `2596eed` / PR #13 (`Phase 0: Land rewrite stack on main behind kill-switch`). Rewrite packages (`apps/realtime-gateway`, `apps/simulation`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`) are tracked in git. Client kill-switch (`packages/client/src/client-backend-selector.ts`) is live: prod default stays on legacy, `?backend=gateway` URL param or `be-backend=gateway` cookie opt in to the new stack. HUD badge surfaces `state.activeBackend`.
 - **Phase 1** landed as commit `e22be4c` / PR #14 (`Phase 1: Clean domain boundary — promote server modules to game-domain`). `packages/game-domain` absorbed `server-game-constants`, `server-shared-types`, `server-world-runtime-types`, 5 worldgen modules, `town-names`, and the tech/domain JSON trees. `apps/simulation` and `apps/realtime-gateway` no longer import `../../../packages/server/*`. `scripts/check-no-cross-package-imports.sh` + `packages/game-domain/src/boundary.test.ts` enforce it in CI. `Dockerfile.gateway` and `Dockerfile.simulation` no longer `COPY packages/server`.
-- **Phase 2** landed as commit `4f24c70` / PR #15 (`Phase 2: Postgres-authoritative persistence — projections, staging configs, importer`). SQL migrations `0004_player_projection.sql` … `0007_visibility_projection.sql` added. `postgres-projection-writer.ts` writes all four projections at checkpoint time. `fly.gateway.staging.toml` and `fly.simulation.staging.toml` created for staging Fly apps. `scripts/rewrite-db-import-legacy-snapshot.ts` seeds world_snapshots + projections from a legacy snapshot directory. `provision-fly-staging.command` creates the Fly Postgres cluster and attaches it. Tests: `restart-parity.integration.test.ts`, `snapshot-projection.test.ts`, `migration-idempotent.test.ts`.
+- **Phase 2** landed as commit `4f24c70` / PR #15 (`Phase 2: Postgres-authoritative persistence — projections, staging configs, importer`). SQL migrations `0004_player_projection.sql` … `0007_visibility_projection.sql` added. `postgres-projection-writer.ts` writes all four projections at checkpoint time. Early split staging configs were later replaced by `fly.combined.staging.toml` for `border-empires-combined-staging`. `scripts/rewrite-db-import-legacy-snapshot.ts` seeds world_snapshots + projections from a legacy snapshot directory. `provision-fly-staging.command` creates the Fly Postgres cluster and attaches it. Tests: `restart-parity.integration.test.ts`, `snapshot-projection.test.ts`, `migration-idempotent.test.ts`.
 - **Phase 3** landed as commit `22b76c1` (`Phase 3: offload AI/system planning to worker threads`). AI planning runs in `apps/simulation/src/ai-planner-worker.ts` (Node worker thread). System jobs run in `apps/simulation/src/system-job-worker.ts`. Worker-backed producers (`ai-command-producer-worker.ts`, `system-command-producer-worker.ts`) pause on human_interactive backlog and resume on drain. Selection happens at startup via `SIMULATION_AI_WORKER=1` env flag. Tests: `ai-pause-resume.test.ts`, `system-job-worker.test.ts`.
 
 **Production impact so far: none.** Client prod default `VITE_WS_URL` is still `wss://border-empires.fly.dev/ws` (legacy monolith). No beta testers have been flipped to the gateway yet.
@@ -239,7 +238,7 @@ What actually landed:
 - `PostgresSimulationSnapshotStore.saveSnapshot()` now accepts optional `projectionState` and writes projections in the same transaction as the snapshot INSERT.
 - `SnapshotCheckpointManager` accepts an `exportProjectionState` callback; `simulation-service.ts` wires it to `runtime.exportState()`.
 - `SimulationSnapshotStore` interface updated so `InMemorySimulationSnapshotStore` still satisfies it unchanged.
-- `fly.gateway.staging.toml`, `fly.simulation.staging.toml`: new staging Fly apps (`border-empires-{gateway,simulation}-staging`).
+- `fly.combined.staging.toml`: current combined staging Fly app (`border-empires-combined-staging`). Earlier split gateway/simulation staging apps were retired.
 - `scripts/rewrite-db-import-legacy-snapshot.ts`: one-shot importer that reads a legacy snapshot dir and seeds `world_snapshots` + all projections.
 - `provision-fly-staging.command`: user-runnable script that creates the Fly Postgres cluster, creates the staging DB and role, creates the two staging Fly apps, and attaches `DATABASE_URL` via `fly postgres attach`.
 - Tests: `restart-parity.integration.test.ts`, `snapshot-projection.test.ts`, `migration-idempotent.test.ts`.
@@ -257,11 +256,11 @@ What actually landed:
 
 **Known residual work from Phase 2 that Phase 4/5/6 must finish:**
 
-1. `provision-fly-staging.command` has not been end-to-end run against current `main` yet. Before Phase 4 closes, run it and confirm both staging apps pass health checks with DB-only boot (no snapshot file).
+1. `provision-fly-staging.command` has not been end-to-end run against current `main` yet. Before Phase 4 closes, run it and confirm combined staging passes health checks with DB-only boot (no snapshot file).
 2. ~~Role password rotation~~ — Supabase uses project-level credentials managed in the Supabase dashboard, not role passwords set by scripts. `SUPABASE_DB_URL` is stored as a Fly secret, never committed. See `docs/rewrite-supabase-cutover-runbook.md`.
 3. Prod `DATABASE_URL` (Supabase) must be set as a Fly secret on `border-empires-gateway` and `border-empires-simulation` before Phase 6. `provision-fly-prod.command` handles the migration apply step; the `DATABASE_URL` Fly secret must be set separately via `fly secrets set DATABASE_URL=... --app <app>`.
 4. Backup strategy is implemented: `.github/workflows/nightly-pg-backup.yml` runs `pg_dump` nightly at 03:00 UTC → Fly Tigris bucket `border-empires-backups` (7 daily + 4 weekly retention). Verify a recent backup exists: `aws --endpoint-url https://fly.storage.tigris.dev s3 ls s3://border-empires-backups/daily/ | tail -3`. Restore runbook: `docs/rewrite-supabase-cutover-runbook.md`.
-5. Staging apps must be configured with `auto_stop_machines = "on"` and `min_machines_running = 0` so they do not run 24/7. Current `fly.gateway.staging.toml` and `fly.simulation.staging.toml` must be audited and patched if needed. This is the $10/month-budget lever in §1.
+5. Staging must be configured intentionally in `fly.combined.staging.toml`; current combined staging keeps one machine warm for reliability. Revisit memory/autostop settings during cost-control work.
 6. `SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK` handling: confirm that `NODE_ENV=staging` and `NODE_ENV=production` both refuse seed fallback; only `NODE_ENV=development` allows it. The runtime-env code enforces this but add an explicit test.
 
 ### Original Phase 2 plan (retained for reference)
@@ -275,11 +274,10 @@ DB is source of truth for commands, events, and snapshots in staging and prod. S
 1. Provision Postgres in Fly:
    - One shared `border-empires-postgres` cluster (staging + prod separate databases, separate roles).
    - Staging DB name `border_empires_staging`, prod DB name `border_empires_prod`.
-   - Fly secrets: `DATABASE_URL` set on both `border-empires-gateway` and `border-empires-simulation` (and their staging siblings — see below).
-2. Create staging Fly apps:
-   - `border-empires-gateway-staging` (`fly.gateway.staging.toml`)
-   - `border-empires-simulation-staging` (`fly.simulation.staging.toml`)
-   - Same Dockerfiles, separate DATABASE_URLs, `NODE_ENV=staging`, different memory/CPU if needed.
+   - Fly secrets: `DATABASE_URL` set on both `border-empires-gateway` and `border-empires-simulation` for split prod rewrite; staging uses `border-empires-combined-staging`.
+2. Create/deploy staging Fly app:
+   - `border-empires-combined-staging` (`fly.combined.staging.toml`)
+   - Combined Dockerfile, shared SQLite volume, `NODE_ENV=staging`, memory/CPU tuned for the merged process.
 3. Run migrations on both DBs:
    - `apps/realtime-gateway/sql/0001_command_store.sql`
    - `apps/simulation/sql/0001_world_events.sql`
@@ -741,7 +739,7 @@ The worst-case downtime is whatever it takes the client deploy to propagate — 
 `fly status` should show:
 
 - 3 prod Fly apps running (gateway, simulation, legacy `border-empires`)
-- 2 staging apps *stopped* (gateway-staging, simulation-staging)
+- 1 combined staging app (`border-empires-combined-staging`) in the intended running/autostop state
 - Supabase free tier: $0/mo (verify project is active and DB size < 400MB)
 - Total invoice trending ≤ $8.18/month until Phase 7 deletes legacy
 
@@ -776,7 +774,7 @@ Only after the new stack has run cleanly in prod for 7 days:
 | Supabase 500MB ceiling reached | Mitigation: `apps/simulation/sql/0008_bounded_storage.sql` compaction tables (`checkpoint_metadata`, `season_archive`, `*_current` projections) keep storage bounded. Monitoring thresholds: warn ≥300MB, critical ≥400MB, emergency ≥450MB. At emergency level, run manual compaction and escalate to Benjamin before Phase 6 cutover. |
 | Supabase 7-day inactivity auto-pause | Mitigation: nightly backup job (`nightly-pg-backup.yml`) hits the DB every night at 03:00 UTC, keeping it active. If a pause occurs (detectable via failed health checks or connection errors with "project is paused"), resume from the Supabase dashboard — takes ~60 seconds. First query after unpause incurs the 60s wake-up penalty. |
 | `DATABASE_URL` rotation leaks into source / test fixtures | `provision-fly-*.command` uses `fly postgres attach` which injects the URL as a secret; never written to a file in the repo. Staging placeholder `staging_changeme` must be rotated immediately after first `provision-fly-staging.command` run — add a CI guard that greps the repo for that string and fails if found. Same pattern for the prod script. |
-| Staging apps run 24/7 and blow the $10/month cap | `fly.gateway.staging.toml` and `fly.simulation.staging.toml` must have `auto_stop_machines = "on"` and `min_machines_running = 0`. Phase 4 task: verify this configuration and that the apps actually sleep when idle. Add a monthly cost check to the runbook. |
+| Staging runs 24/7 and blows the $10/month cap | Audit `fly.combined.staging.toml` memory/autostop settings and verify the monthly cost check before widening staging usage. |
 | AI worker communication overhead eats the savings | Measured by the Phase 5 load test. If `postMessage` cost dominates, move AI to a sibling Fly process with gRPC — but that adds ~$1.94/month and would require dropping elsewhere to stay under cap. Current `PlannerWorldView` strip-heavy-blobs pattern should make worker threads sufficient. |
 | Parity harness produces too many diffs to be useful | Start narrow (only `WorldStatusSnapshot` + player projection). Expand after those are green. No "known-difference" allowlist without an explicit human approval. |
 | Beta testers on legacy hit a new legacy bug while we're mid-cutover | Legacy is frozen after Phase 0; no gameplay changes allowed until Phase 7 closes. Exception: a pure-revert bug fix with a post-mortem noting the breach. |

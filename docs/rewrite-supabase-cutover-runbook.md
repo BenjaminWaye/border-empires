@@ -162,8 +162,7 @@ Purpose: establish a stable starting point before touching runtime behavior.
 
 - Freeze staging deploys unrelated to rewrite persistence.
 - Record current staging and prod runtime config:
-  - `fly.gateway.staging.toml`
-  - `fly.simulation.staging.toml`
+  - `fly.combined.staging.toml`
   - `fly.gateway.toml`
   - `fly.simulation.toml`
 - Confirm scripts exist and are runnable:
@@ -369,16 +368,13 @@ Purpose: move rewrite staging onto Supabase and verify bounded runtime behavior 
 #### Files
 
 - `provision-fly-staging.command`
-- `fly.gateway.staging.toml`
-- `fly.simulation.staging.toml`
+- `fly.combined.staging.toml`
 - `apps/realtime-gateway/src/runtime-env.ts`
 - `apps/simulation/src/runtime-env.ts`
 
 #### Required staging secrets
 
-- `DATABASE_URL` on `border-empires-gateway-staging`
-- `DATABASE_URL` on `border-empires-simulation-staging`
-- `SIMULATION_ADDRESS` on `border-empires-gateway-staging`
+- `DATABASE_URL` on `border-empires-combined-staging`
 
 #### Commands
 
@@ -388,8 +384,7 @@ export STAGING_DATABASE_URL="postgres://...sslmode=require"
 DATABASE_URL="$STAGING_DATABASE_URL" pnpm rewrite:db:migrate
 DATABASE_URL="$STAGING_DATABASE_URL" pnpm rewrite:db:size
 DATABASE_URL="$STAGING_DATABASE_URL" npx tsx scripts/rewrite-db-import-legacy-snapshot.ts /absolute/path/to/snapshot
-fly deploy --config fly.simulation.staging.toml
-fly deploy --config fly.gateway.staging.toml
+fly deploy --config fly.combined.staging.toml --strategy rolling --remote-only
 pnpm ops:staging:drift-check
 ```
 
