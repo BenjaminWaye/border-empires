@@ -4718,8 +4718,7 @@ describe("simulation runtime", () => {
         points: 77,
         manpower: 123,
         techIds: ["agriculture"],
-        domainIds: ["river-kingdoms"],
-        incomeMultiplier: 1.25
+        domainIds: ["river-kingdoms"]
       })
     );
     expect(recoveredState.pendingSettlements).toEqual([
@@ -5417,5 +5416,343 @@ describe("simulation runtime", () => {
 
     expect(baselineAtkEff).toBe(10);
     expect(boostedAtkEff).toBeCloseTo(12.5, 6);
+  });
+});
+
+describe("simulation runtime — shard rain", () => {
+  const humanPlayer = (id: string) => ({
+    id,
+    isAi: false,
+    points: 0,
+    manpower: 0,
+    techIds: new Set<string>(),
+    domainIds: new Set<string>(),
+    mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+    techRootId: "rewrite-local",
+    allies: new Set<string>()
+  });
+  const aiPlayer = (id: string) => ({ ...humanPlayer(id), isAi: true });
+
+  const localTime = (hour: number, minute = 0): number =>
+    new Date(2026, 4, 11, hour, minute, 0, 0).getTime();
+
+  it("broadcasts an 'upcoming' notice one hour before a scheduled rain", () => {
+    const runtime = new SimulationRuntime({
+      now: () => localTime(11, 0),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: { tiles: [], activeLocks: [] }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickShardRain(localTime(11, 0));
+
+    const notices = seen.filter(
+      (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
+        event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+    );
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.playerId).toBe("human-1");
+    const payload = JSON.parse(notices[0]!.payloadJson);
+    expect(payload).toEqual(
+      expect.objectContaining({ type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: localTime(12, 0) })
+    );
+  });
+
+  it("spawns FALL shard sites and broadcasts 'started' at a scheduled hour", () => {
+    const tiles = [
+      { x: 0, y: 0, terrain: "LAND" as const },
+      { x: 1, y: 0, terrain: "LAND" as const },
+      { x: 2, y: 0, terrain: "LAND" as const }
+    ];
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 0),
+      initialPlayers: new Map([
+        ["human-1", humanPlayer("human-1")],
+        ["ai-1", aiPlayer("ai-1")]
+      ]),
+      seedTiles: new Map(),
+      initialState: { tiles, activeLocks: [] }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    // count = SHARD_RAIN_SITE_MIN + floor(random*4); 0 -> 3 sites.
+    // Per attempt: x random, y random, amount random.
+    const randomValues = [
+      0, // count -> 3
+      0, 0, 0.5, // attempt 1: x=0, y=0, amount=1
+      0.01, 0, 0.5, // attempt 2: x≈4 (miss), y=0 -> miss (no tile)
+      1 / 450, 0, 0.5, // attempt 3: x=1, y=0, amount=1
+      2 / 450, 0, 0.5 // attempt 4: x=2, y=0, amount=1
+    ];
+    let cursor = 0;
+    const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
+      const value = randomValues[cursor] ?? 0;
+      cursor += 1;
+      return value;
+    });
+
+    try {
+      runtime.tickShardRain(localTime(12, 0));
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    const batches = seen.filter(
+      (event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
+        event.eventType === "TILE_DELTA_BATCH"
+    );
+    expect(batches).toHaveLength(1);
+    expect(batches[0]!.tileDeltas.length).toBeGreaterThanOrEqual(1);
+    for (const delta of batches[0]!.tileDeltas) {
+      expect(delta.shardSiteJson).toEqual(expect.stringContaining("\"kind\":\"FALL\""));
+    }
+
+    const notices = seen.filter(
+      (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
+        event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+    );
+    expect(notices.every((notice) => notice.playerId === "human-1")).toBe(true);
+    expect(notices.some((notice) => notice.playerId === "ai-1")).toBe(false);
+    const startedNotice = notices.find((notice) => JSON.parse(notice.payloadJson).phase === "started");
+    expect(startedNotice).toBeDefined();
+    const startedPayload = JSON.parse(startedNotice!.payloadJson);
+    expect(startedPayload).toEqual(
+      expect.objectContaining({
+        type: "SHARD_RAIN_EVENT",
+        phase: "started",
+        startsAt: localTime(12, 0),
+        expiresAt: localTime(12, 0) + 30 * 60_000
+      })
+    );
+  });
+
+  it("does not double-spawn when ticked twice in the same slot", () => {
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 0),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [{ x: 0, y: 0, terrain: "LAND" as const }],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      runtime.tickShardRain(localTime(12, 0));
+      runtime.tickShardRain(localTime(12, 0));
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    const startedNotices = seen.filter(
+      (event) =>
+        event.eventType === "PLAYER_MESSAGE" &&
+        event.messageType === "SHARD_RAIN_EVENT" &&
+        JSON.parse(event.payloadJson).phase === "started"
+    );
+    expect(startedNotices).toHaveLength(1);
+  });
+
+  it("emits an explicit shardSiteJson clear marker when expiring FALL sites", () => {
+    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 0),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 1, expiresAt } }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickShardRain(expiresAt + 1_000);
+
+    const batches = seen.filter(
+      (event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
+        event.eventType === "TILE_DELTA_BATCH"
+    );
+    expect(batches.length).toBeGreaterThanOrEqual(1);
+    const expireBatch = batches.find((batch) =>
+      batch.tileDeltas.some((delta) => delta.x === 0 && delta.y === 0)
+    );
+    expect(expireBatch).toBeDefined();
+    const expireDelta = expireBatch!.tileDeltas.find((delta) => delta.x === 0 && delta.y === 0);
+    expect(expireDelta).toBeDefined();
+    expect(expireDelta).toHaveProperty("shardSiteJson", "");
+  });
+
+  it("spawns shards even with only AI players, but skips human-only broadcasts", () => {
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 0),
+      initialPlayers: new Map([["ai-1", aiPlayer("ai-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [{ x: 0, y: 0, terrain: "LAND" as const }],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      runtime.tickShardRain(localTime(12, 0));
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    expect(seen.some((event) => event.eventType === "TILE_DELTA_BATCH")).toBe(true);
+    expect(
+      seen.some(
+        (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+      )
+    ).toBe(false);
+  });
+
+  it("emitShardRainHelloFor sends a 'started' notice to a player joining mid-rain", () => {
+    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 15),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 1, expiresAt } },
+          { x: 1, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 2, expiresAt } }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
+
+    const notices = seen.filter(
+      (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
+        event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+    );
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.playerId).toBe("human-1");
+    const payload = JSON.parse(notices[0]!.payloadJson);
+    expect(payload).toEqual(
+      expect.objectContaining({
+        type: "SHARD_RAIN_EVENT",
+        phase: "started",
+        startsAt: expiresAt - 30 * 60_000,
+        expiresAt,
+        siteCount: 2
+      })
+    );
+  });
+
+  it("clears the rain hello cache after FALL sites are fully collected", async () => {
+    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 15),
+      initialPlayers: new Map([
+        [
+          "human-1",
+          {
+            ...humanPlayer("human-1"),
+            strategicResources: { SHARD: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 0,
+            y: 0,
+            terrain: "LAND" as const,
+            ownerId: "human-1",
+            ownershipState: "SETTLED" as const,
+            shardSite: { kind: "FALL", amount: 1, expiresAt }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.submitCommand({
+      commandId: "collect-rain-1",
+      sessionId: "session-1",
+      playerId: "human-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "COLLECT_SHARD",
+      payloadJson: JSON.stringify({ x: 0, y: 0 })
+    });
+    await Promise.resolve();
+
+    expect(
+      seen.some(
+        (event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "collect-rain-1"
+      )
+    ).toBe(false);
+
+    const helloBefore = seen.length;
+    runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
+    const helloNotices = seen
+      .slice(helloBefore)
+      .filter(
+        (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+      );
+    expect(helloNotices).toHaveLength(0);
+  });
+
+  it("emitShardRainHelloFor only sends one hello per player per rain window", () => {
+    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 15),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [{ x: 0, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 1, expiresAt } }],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
+    runtime.emitShardRainHelloFor("human-1", localTime(12, 20));
+
+    const notices = seen.filter(
+      (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+    );
+    expect(notices).toHaveLength(1);
+  });
+
+  it("emitShardRainHelloFor stays silent when no FALL sites are active and rain is not imminent", () => {
+    const runtime = new SimulationRuntime({
+      now: () => localTime(9, 0),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: { tiles: [], activeLocks: [] }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.emitShardRainHelloFor("human-1", localTime(9, 0));
+
+    expect(
+      seen.some(
+        (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+      )
+    ).toBe(false);
   });
 });
