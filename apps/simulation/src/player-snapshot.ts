@@ -15,6 +15,7 @@ import { estimateIncomePerMinuteFromTiles, estimateStrategicProductionPerMinuteF
 import { buildLivePlayerEconomySnapshot, enrichSnapshotTilesForPlayer } from "./live-snapshot-view.js";
 import { buildDockLinksByDockTileKey, collectLinkedDockRevealKeysForOwners } from "./dock-network.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
+import { buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 
@@ -152,6 +153,12 @@ export const buildPlayerSubscriptionSnapshot = (
   const livePlayer = playersById.get(playerId);
   const hasLivePlayerState = livePlayer && typeof livePlayer.points === "number" && typeof livePlayer.manpower === "number";
   const liveEconomy = buildLivePlayerEconomySnapshot(playerId, runtimeState);
+  const liveProgressionPlayer = livePlayer
+    ? {
+        techIds: new Set(livePlayer.techIds),
+        domainIds: new Set(livePlayer.domainIds)
+      }
+    : undefined;
   const settledTileCount =
     typeof livePlayer?.settledTileCount === "number"
       ? livePlayer.settledTileCount
@@ -224,7 +231,16 @@ export const buildPlayerSubscriptionSnapshot = (
             activeDevelopmentProcessCount,
             pendingSettlements,
             techIds: [...livePlayer.techIds],
-            domainIds: [...livePlayer.domainIds]
+            domainIds: [...livePlayer.domainIds],
+            mods: liveProgressionPlayer ? recomputeMods(liveProgressionPlayer) : { attack: 1, defense: 1, income: 1, vision: 1 },
+            modBreakdown: liveProgressionPlayer
+              ? buildModBreakdownForPlayer(liveProgressionPlayer)
+              : {
+                  attack: [{ label: "Base", mult: 1 }],
+                  defense: [{ label: "Base", mult: 1 }],
+                  income: [{ label: "Base", mult: 1 }],
+                  vision: [{ label: "Base", mult: 1 }]
+                }
           }
         }
       : {}),

@@ -36,6 +36,7 @@ import {
   buildConnectedTownNetworkForPlayer,
   dockBaseGoldPerMinuteForPlayer,
   enrichTownWithConnectedNetwork,
+  firstThreeTownsGoldOutputMultiplierForPlayer,
   type ConnectedTownNetworkEntry,
   type EconomyPlayer
 } from "./economy-network.js";
@@ -75,6 +76,7 @@ type RuntimeState = {
     vision: number;
     visionRadiusBonus: number;
     territoryTileKeys: string[];
+    ownedTownTileKeys?: string[];
     settledTileCount?: number;
     townCount?: number;
     incomePerMinute?: number;
@@ -127,6 +129,24 @@ const snapshotEconomyPlayer = (player: RuntimeState["players"][number] | undefin
         mods: { attack: 1, defense: 1, income: player.incomeMultiplier ?? 1, vision: player.vision }
       }
     : undefined;
+
+const buildFirstThreeTownKeysByPlayer = (
+  runtimeState: RuntimeState
+): Map<string, Set<string>> => {
+  const tilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
+  const result = new Map<string, Set<string>>();
+  for (const player of runtimeState.players) {
+    const firstThree = new Set<string>();
+    for (const tileKey of player.ownedTownTileKeys ?? player.territoryTileKeys) {
+      if (firstThree.size >= 3) break;
+      const tile = tilesByKey.get(tileKey);
+      if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
+      firstThree.add(tileKey);
+    }
+    result.set(player.id, firstThree);
+  }
+  return result;
+};
 
 const parseTown = (tile: RuntimeState["tiles"][number]): Partial<NonNullable<Tile["town"]>> | undefined => {
   if (tile.townJson) {
@@ -482,7 +502,8 @@ const buildTownSummary = (
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
   fedTownKeys: ReadonlySet<string>,
   refreshCompleteTownSummary: boolean,
-  townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>
+  townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>,
+  firstThreeTownKeys?: ReadonlySet<string>
 ): Tile["town"] | undefined => {
   const partial = parseTown(tile);
   const townType = partial?.type ?? tile.townType;
@@ -509,6 +530,11 @@ const buildTownSummary = (
   const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey));
   const hasBank = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "BANK", tilesByKey));
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
+  const economyPlayer = snapshotEconomyPlayer(player);
+  const firstThreeTownMult =
+    economyPlayer && firstThreeTownKeys?.has(tileKey)
+      ? firstThreeTownsGoldOutputMultiplierForPlayer(economyPlayer)
+      : 1;
   const baseGoldPerMinute = isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN;
   const goldPerMinute =
     !tile.ownerId || tile.ownershipState !== "SETTLED"
@@ -524,6 +550,7 @@ const buildTownSummary = (
               (1 + (townPartial.connectedTownBonus ?? 0)) *
               (hasMarket ? 1.5 : 1) *
               (hasBank ? 1.5 : 1) *
+              firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
             ) + (hasBank ? 1 : 0);
@@ -582,6 +609,7 @@ export const buildLivePlayerEconomySnapshot = (
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
   const townNetwork = economyPlayer ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? []) : undefined;
+  const firstThreeTownKeys = buildFirstThreeTownKeysByPlayer(runtimeState).get(playerId);
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
@@ -614,7 +642,7 @@ export const buildLivePlayerEconomySnapshot = (
         oilSources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : tile.resource === "OIL" ? "Oil" : "Supply", resourceRate, { count: 1, resourceKey });
     }
-    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork);
+    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys);
     if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
@@ -726,6 +754,7 @@ const buildSnapshotTileYieldFields = (
   context?: {
     player?: EconomyPlayer | undefined;
     fedTownKeys?: ReadonlySet<string> | undefined;
+    firstThreeTownKeys?: ReadonlySet<string> | undefined;
     tiles: ReadonlyMap<string, DomainTileState>;
     dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   }
@@ -765,6 +794,7 @@ export const enrichSnapshotTilesForGlobalVisibility = (
       buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [])
     ] as const)
   );
+  const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
   return [...runtimeState.tiles]
@@ -773,11 +803,20 @@ export const enrichSnapshotTilesForGlobalVisibility = (
       const player = tile.ownerId ? playersById.get(tile.ownerId) : undefined;
       const economyPlayer = tile.ownerId ? economyPlayersById.get(tile.ownerId) : undefined;
       const fedTownKeys = tile.ownerId ? (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) : new Set<string>();
-      const fullTown = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined);
+      const fullTown = buildTownSummary(
+        tile,
+        player,
+        tilesByKey,
+        fedTownKeys,
+        true,
+        tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
+        tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined
+      );
       const town = toSharedVisibilityTownSummary(fullTown);
       const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, fullTown, {
         ...(economyPlayer ? { player: economyPlayer } : {}),
         fedTownKeys,
+        ...(tile.ownerId ? { firstThreeTownKeys: firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
         tiles: domainTilesByKey,
         dockLinksByDockTileKey
       });
@@ -811,6 +850,7 @@ export const enrichSnapshotTilesForPlayer = (
       buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [])
     ] as const)
   );
+  const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const fedTownKeysByPlayer = playerEconomy.fedTownKeysByPlayer;
   return visibleTiles.map((tile) => {
     const player = runtimeState.players.find((entry) => entry.id === tile.ownerId);
@@ -821,13 +861,15 @@ export const enrichSnapshotTilesForPlayer = (
       tilesByKey,
       tile.ownerId === playerId ? playerEconomy.fedTownKeys : (tile.ownerId ? (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) : new Set<string>()),
       tile.ownerId === playerId,
-      tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined
+      tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
+      tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined
     );
     const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, town, {
       ...(economyPlayer ? { player: economyPlayer } : {}),
       ...(tile.ownerId
         ? { fedTownKeys: tile.ownerId === playerId ? playerEconomy.fedTownKeys : (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) }
         : {}),
+      ...(tile.ownerId ? { firstThreeTownKeys: firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
       tiles: domainTilesByKey,
       dockLinksByDockTileKey
     });
