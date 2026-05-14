@@ -37,6 +37,10 @@ import {
   intentKindForCommand,
   wakeWindowMsForCommand
 } from "./ai-intent-latch-helpers.js";
+import {
+  ATTACK_STALEMATE_WINDOW_MS,
+  createAttackStalemateTracker
+} from "./ai-attack-stalemate.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -173,6 +177,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
   const urgentByPlayerId = new Set<string>();
   const intentLatchState = createAiIntentLatchState();
+  const attackStalemate = createAttackStalemateTracker();
   // Latching is always on for the worker producer — runtime tracks
   // tileCollectionVersion per player and we read it from the synced
   // plannerPlayersById map (already kept fresh via player_sync messages).
@@ -489,6 +494,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         if (typeof delta.ownerId === "string" && aiPlayerIdSet.has(delta.ownerId)) {
           changedPlayers.add(delta.ownerId);
         }
+        // Any ownership change on a tile resets stalemate state for it: if the
+        // tile just flipped, the previous attacker actually broke through.
+        if ("ownerId" in delta && typeof delta.x === "number" && typeof delta.y === "number") {
+          attackStalemate.clearTarget(`${delta.x},${delta.y}`);
+        }
       }
       queuePlayerSync(changedPlayers);
     } else if (aiPlayerIdSet.has(event.playerId)) {
@@ -573,6 +583,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   ): Promise<PlannedCommandResult> => {
     return new Promise((resolve) => {
       pendingRequests.set(playerId, resolve);
+      const stalemateTargets = attackStalemate.stalemateTargetsForPlayer(playerId);
       worker.postMessage({
         type: "plan",
         playerId,
@@ -580,7 +591,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         issuedAt,
         sessionPrefix: "ai-runtime",
         ...(options?.skipPreplan ? { skipPreplan: true } : {}),
-        ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {})
+        ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
+        ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {})
       });
     });
   };
@@ -615,6 +627,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       for (const [commandId, trackedPreplan] of trackedPreplanByCommandId.entries()) {
         if (trackedPreplan.trackedAt <= cutoff) trackedPreplanByCommandId.delete(commandId);
       }
+      attackStalemate.expireOlderThan(now() - ATTACK_STALEMATE_WINDOW_MS);
 
       const iterationOrder: number[] = [];
       const seenIndices = new Set<number>();
@@ -761,6 +774,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             const submitStartedAt = now();
             await options.submitCommand(plan.command);
             options.onCommand?.({ playerId, commandType: plan.command.type });
+            if (plan.command.type === "ATTACK" && targetTileKey) {
+              attackStalemate.recordAttempt(playerId, targetTileKey, issuedAt);
+            }
             options.onDiagnostic?.({
               phase: "submit_command",
               durationMs: Math.max(0, now() - submitStartedAt),
