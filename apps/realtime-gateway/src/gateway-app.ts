@@ -28,13 +28,14 @@ import { buildInitMessage } from "./reconnect-recovery.js";
 import { type SimulationSeedProfile } from "./seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "./sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "./socket-routing.js";
-import { createSocialState } from "./social-state.js";
+import { createSocialState, type SocialTruceRequest } from "./social-state.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "./supported-client-messages.js";
 import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "./live-world-status-recovery.js";
 import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
+import { createSeedPlayers, createSeedWorld } from "../../simulation/src/seed-state.js";
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
@@ -89,6 +90,86 @@ const canToggleFogForEmail = (email: string | undefined, fogAdminEmail: string |
   const target = (fogAdminEmail ?? "").trim().toLowerCase();
   return normalized.length > 0 && target.length > 0 && normalized === target;
 };
+
+const initialSocialNameForSeedPlayer = (playerId: string, seedName: string | undefined): string => {
+  if (playerId === "barbarian-1") return "Barbarians";
+  if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
+  return seedName ?? playerId;
+};
+
+const adjacentKeysForTile = (x: number, y: number): string[] => [`${x + 1},${y}`, `${x - 1},${y}`, `${x},${y + 1}`, `${x},${y - 1}`];
+
+const extractTruceRequestFromPayloads = (
+  payloadsByPlayerId: Map<string, unknown[]>,
+  playerId: string
+): SocialTruceRequest | undefined => {
+  for (const payload of payloadsByPlayerId.get(playerId) ?? []) {
+    if (!payload || typeof payload !== "object") continue;
+    const typed = payload as { type?: unknown; request?: unknown };
+    if (typed.type !== "TRUCE_REQUESTED" || !typed.request || typeof typed.request !== "object") continue;
+    return typed.request as SocialTruceRequest;
+  }
+  return undefined;
+};
+
+const seededAiTruceDecisionFromSnapshot = (
+  snapshot: PlayerSubscriptionSnapshot,
+  request: SocialTruceRequest,
+  economyStrained = false
+): "accept" | "reject" => {
+  const tilesByKey = new Map<string, PlayerSubscriptionSnapshot["tiles"][number]>(
+    snapshot.tiles.map((tile) => [`${tile.x},${tile.y}`, tile] as const)
+  );
+  let pressuredBorderTiles = 0;
+  let pressuredTownTiles = 0;
+  for (const tile of snapshot.tiles) {
+    if (tile.ownerId !== request.toPlayerId || tile.terrain !== "LAND") continue;
+    const hasRequesterNeighbor = adjacentKeysForTile(tile.x, tile.y).some((key) => tilesByKey.get(key)?.ownerId === request.fromPlayerId);
+    if (!hasRequesterNeighbor) continue;
+    pressuredBorderTiles += 1;
+    if (tile.townType || tile.townJson) pressuredTownTiles += 1;
+  }
+  const coreThreatened = pressuredTownTiles > 0;
+  if (pressuredBorderTiles <= 0) return "reject";
+  if (coreThreatened && !economyStrained) return "reject";
+  if (request.durationHours === 12) return "accept";
+  return economyStrained ? "accept" : "reject";
+};
+
+const seededAiEconomyStrained = (
+  player:
+    | PlayerSubscriptionSnapshot["player"]
+    | {
+        strategicResources?: Partial<Record<"FOOD", number>>;
+        strategicProductionPerMinute?: Partial<Record<"FOOD", number>>;
+      }
+    | undefined
+): boolean => {
+  if (!player) return false;
+  const incomePerMinute = "incomePerMinute" in player ? player.incomePerMinute : 0;
+  const foodStock = player.strategicResources?.FOOD ?? 0;
+  const foodProduction = player.strategicProductionPerMinute?.FOOD ?? 0;
+  return incomePerMinute < 40 || foodStock < 50 || foodProduction < 0;
+};
+
+const playerSubscriptionSnapshotFromSeedWorld = (
+  seedWorld: ReturnType<typeof createSeedWorld>,
+  playerId: string
+): PlayerSubscriptionSnapshot => ({
+  playerId,
+  tiles: [...seedWorld.tiles.values()].map((tile) => ({
+    x: tile.x,
+    y: tile.y,
+    terrain: tile.terrain,
+    ...(tile.resource ? { resource: tile.resource } : {}),
+    ...(tile.dockId ? { dockId: tile.dockId } : {}),
+    ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+    ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+    ...(tile.town?.type ? { townType: tile.town.type } : {}),
+    ...(tile.town?.name ? { townName: tile.town.name } : {}),
+    ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {})
+  }))
+});
 
 const jsonSafeTileDeltaBatch = (
   tileDeltas: Array<
@@ -716,16 +797,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     return fetchPromise;
   };
   const profileOverrides = createPlayerProfileOverrides();
+  const seedPlayers = createSeedPlayers(simulationSeedProfile);
+  const seedWorld = createSeedWorld(simulationSeedProfile);
+  const seededAiPlayerIds = new Set([...seedPlayers.values()].filter((player) => player.isAi).map((player) => player.id));
+  const initialSocialPlayers = legacySnapshotBootstrap
+    ? [...legacySnapshotBootstrap.playerProfiles.values()].map((profile) => ({
+        id: profile.id,
+        name: profile.name ?? profile.id
+      }))
+    : [...seedPlayers.values()].map((player) => ({
+        id: player.id,
+        name: initialSocialNameForSeedPlayer(player.id, player.name)
+      }));
   const socialState = createSocialState({
     ...(options.now ? { now: options.now } : {}),
-    ...(legacySnapshotBootstrap
-      ? {
-          players: [...legacySnapshotBootstrap.playerProfiles.values()].map((profile) => ({
-            id: profile.id,
-            name: profile.name
-          }))
-        }
-      : {})
+    players: initialSocialPlayers
   });
   const fallbackTileDeltasByCommandId = new Map<
     string,
@@ -923,6 +1009,52 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         }
       }
     }
+  };
+
+  const maybeAutoRespondToSeededAiTruce = async (request: SocialTruceRequest | undefined): Promise<void> => {
+    if (!request || !seededAiPlayerIds.has(request.toPlayerId)) return;
+    const decisionSnapshot = playerSubscriptions.snapshotForPlayer(request.fromPlayerId);
+    const targetDecisionSnapshot = playerSubscriptions.snapshotForPlayer(request.toPlayerId);
+    const economyStrained = seededAiEconomyStrained(targetDecisionSnapshot?.player ?? seedPlayers.get(request.toPlayerId));
+    const seedDecisionSnapshot = playerSubscriptionSnapshotFromSeedWorld(seedWorld, request.fromPlayerId);
+    const liveSnapshotHasTargetTiles = Boolean(decisionSnapshot?.tiles.some((tile) => tile.ownerId === request.toPlayerId));
+    const liveDecision = decisionSnapshot ? seededAiTruceDecisionFromSnapshot(decisionSnapshot, request, economyStrained) : "reject";
+    const seedDecision = seededAiTruceDecisionFromSnapshot(seedDecisionSnapshot, request, economyStrained);
+    const decision = liveSnapshotHasTargetTiles ? liveDecision : seedDecision;
+    if (!decisionSnapshot) {
+      recordGatewayEvent("warn", "gateway_ai_truce_snapshot_failed", {
+        aiPlayerId: request.toPlayerId,
+        fromPlayerId: request.fromPlayerId,
+        error: "requester snapshot unavailable"
+      });
+    }
+
+    const aiName = request.toName ?? request.toPlayerId;
+    const response =
+      decision === "accept"
+        ? socialState.acceptTruce(request.toPlayerId, request.id)
+        : socialState.rejectTruce(request.toPlayerId, request.id, {
+            [request.fromPlayerId]: `${aiName} declined your truce offer.`,
+            [request.toPlayerId]: `You declined ${request.fromName ?? request.fromPlayerId}'s truce offer.`
+          });
+    if (!response.ok) {
+      recordGatewayEvent("warn", "gateway_ai_truce_response_failed", {
+        aiPlayerId: request.toPlayerId,
+        fromPlayerId: request.fromPlayerId,
+        decision,
+        code: response.code,
+        message: response.message
+      });
+      fanoutPlayerPayloads(socialState.syncPlayers([request.fromPlayerId, request.toPlayerId]).payloadsByPlayerId);
+      return;
+    }
+    recordGatewayEvent("info", "gateway_ai_truce_response", {
+      aiPlayerId: request.toPlayerId,
+      fromPlayerId: request.fromPlayerId,
+      decision,
+      durationHours: request.durationHours
+    });
+    fanoutPlayerPayloads(response.payloadsByPlayerId);
   };
   const refreshPlayerFogSnapshot = async (
     playerId: string,
@@ -1928,6 +2060,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             }
             fanoutPlayerPayloads(result.payloadsByPlayerId);
+            await maybeAutoRespondToSeededAiTruce(extractTruceRequestFromPayloads(result.payloadsByPlayerId, session.playerId));
             return;
           }
 
