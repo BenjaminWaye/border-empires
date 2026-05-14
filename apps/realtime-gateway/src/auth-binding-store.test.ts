@@ -50,4 +50,20 @@ describe("InMemoryGatewayAuthBindingStore", () => {
       updatedAt: 2_000
     });
   });
+
+  it("finds the most recent binding by player id", async () => {
+    let now = 1_000;
+    const store = new InMemoryGatewayAuthBindingStore(() => now);
+
+    await store.bindIdentity({ uid: "firebase-user-1", playerId: "player-1", email: "old@example.com" });
+    now = 2_000;
+    await store.bindIdentity({ uid: "firebase-user-2", playerId: "player-1", email: "new@example.com" });
+
+    await expect(store.getByPlayerId("player-1")).resolves.toEqual({
+      uid: "firebase-user-2",
+      playerId: "player-1",
+      email: "new@example.com",
+      updatedAt: 2_000
+    });
+  });
 });

@@ -1,5 +1,8 @@
 import { parseSimulationSeedProfile, type SimulationSeedProfile } from "./seed-fallback.js";
 
+const DEFAULT_EMAIL_ALERTS_FROM = "Border Empires <alerts@borderempires.com>";
+const DEFAULT_EMAIL_ALERTS_APP_URL = "https://staging.borderempires.com";
+
 export type RealtimeGatewayRuntimeEnv = {
   host: string;
   port: number;
@@ -14,6 +17,13 @@ export type RealtimeGatewayRuntimeEnv = {
   allowNonAuthoritativeInitialState: boolean;
   adminApiToken?: string;
   fogAdminEmail?: string;
+  emailAlerts: {
+    resendApiKey?: string;
+    from?: string;
+    replyTo?: string;
+    appUrl?: string;
+    dailyLimit?: number;
+  };
 };
 
 const parsePort = (value: string | undefined, fallback: number): number => {
@@ -50,6 +60,8 @@ export const parseRealtimeGatewayRuntimeEnv = (
     parseBinaryFlag(env.GATEWAY_ALLOW_NON_AUTHORITATIVE_INITIAL_STATE) ??
     parseBinaryFlag(env.GATEWAY_ALLOW_SEED_FALLBACK) ??
     !isManagedRuntime;
+  const emailAlertsFrom = env.GATEWAY_EMAIL_ALERTS_FROM ?? DEFAULT_EMAIL_ALERTS_FROM;
+  const emailAlertsAppUrl = env.GATEWAY_EMAIL_ALERTS_APP_URL ?? env.PUBLIC_APP_URL ?? DEFAULT_EMAIL_ALERTS_APP_URL;
 
   if (isManagedRuntime && !databaseUrl && !sqlitePath) {
     throw new Error("realtime gateway requires GATEWAY_DATABASE_URL/DATABASE_URL or GATEWAY_SQLITE_PATH/SQLITE_PATH in managed runtime");
@@ -78,6 +90,13 @@ export const parseRealtimeGatewayRuntimeEnv = (
     simulationSeedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     allowNonAuthoritativeInitialState,
     ...(env.ADMIN_API_TOKEN ? { adminApiToken: env.ADMIN_API_TOKEN } : {}),
-    fogAdminEmail: (env.FOG_ADMIN_EMAIL ?? "bw199005@gmail.com").trim().toLowerCase()
+    fogAdminEmail: (env.FOG_ADMIN_EMAIL ?? "bw199005@gmail.com").trim().toLowerCase(),
+    emailAlerts: {
+      ...(env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY ? { resendApiKey: env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY } : {}),
+      from: emailAlertsFrom,
+      ...(env.GATEWAY_EMAIL_ALERTS_REPLY_TO ? { replyTo: env.GATEWAY_EMAIL_ALERTS_REPLY_TO } : {}),
+      appUrl: emailAlertsAppUrl,
+      ...(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT ? { dailyLimit: Number(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT) } : {})
+    }
   };
 };

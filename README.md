@@ -125,7 +125,7 @@ STAGING_LOGIN_PROBE_AUTH_TOKEN="<firebase-id-token>" pnpm ops:staging:login-prob
 
 This runs multiple real websocket auth attempts against:
 
-- `wss://border-empires-gateway-staging.fly.dev/ws?channel=control`
+- `wss://border-empires-combined-staging.fly.dev/ws?channel=control`
 
 The probe now requires an explicit auth token and reuses that same account for
 every attempt. It no longer invents `staging-probe-*` identities, so running
@@ -140,7 +140,7 @@ It exits non-zero when:
 Useful read points:
 
 - Immediate SLO result: terminal output of `pnpm ops:staging:login-probe`
-- Gateway health/latency context: `https://border-empires-gateway-staging.fly.dev/metrics`
+- Gateway health/latency context: `https://border-empires-combined-staging.fly.dev/metrics`
 
 To catch stale Fly secrets or manual env drift before debugging a staging outage, run:
 
@@ -148,7 +148,7 @@ To catch stale Fly secrets or manual env drift before debugging a staging outage
 pnpm ops:staging:drift-check
 ```
 
-This compares the effective env on every staging Fly machine against the checked-in values in `fly.gateway.staging.toml` and `fly.simulation.staging.toml`. It exits non-zero on drift, including stale secret overrides like `SIMULATION_ADDRESS=...internal:50051`.
+This compares the effective env on the combined staging Fly machine against the checked-in values in `fly.combined.staging.toml`. It exits non-zero on drift, including stale secret overrides like `SIMULATION_ADDRESS=...internal:50051`.
 
 For rewrite localhost stress testing with a durable DB-backed 20-AI world on `http://localhost:5173`, run:
 
@@ -340,8 +340,8 @@ The production deploy script now:
 Vercel env scopes:
 
 - Preview/staging deploy uses explicit build-time env from deploy script:
-  - `VITE_GATEWAY_WS_URL=wss://border-empires-gateway-staging.fly.dev/ws`
-  - `VITE_WS_URL=wss://border-empires-gateway-staging.fly.dev/ws`
+  - `VITE_GATEWAY_WS_URL=wss://border-empires-combined-staging.fly.dev/ws`
+  - `VITE_WS_URL=wss://border-empires-combined-staging.fly.dev/ws`
 - Production environment: production backend URLs (`*.fly.dev`)
 
 Stable URLs:
