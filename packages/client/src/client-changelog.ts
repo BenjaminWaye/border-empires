@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.14.2",
+  version: "2026.05.14.3",
   title: "What's New",
-  summary: "Mercantile Charter now gives the first three cities +50% gold output, and the Active Bonuses panel receives current research/domain modifiers from rewrite updates and reconnect INIT payloads. Empty server-error log spam, settlement cancellation on capture, fresh tile-detail refreshes, and live tech affordability fixes are also included.",
+  summary: "Pressed tile details now refresh from the rewrite simulation before rendering, so forts that were missing from the gateway cache appear when you tap the tile. Mercantile Charter now gives the first three cities +50% gold output, and the Active Bonuses panel receives current research/domain modifiers from rewrite updates and reconnect INIT payloads.",
   entries: [
+    {
+      introducedIn: "2026.05.14.3",
+      title: "Pressed fort tiles refresh from simulation",
+      why: "The client was sending REQUEST_TILE_DETAIL on press, but the rewrite gateway answered from its cached subscription snapshot. If that cache had missed the fort update, pressing the known fort tile still returned full detail without fortJson, so the fort stayed invisible.",
+      changes: [
+        "REQUEST_TILE_DETAIL now asks the rewrite simulation for a fresh bootstrap snapshot before building the tile-detail response.",
+        "The gateway falls back to its cached tile detail if the simulation is temporarily unavailable, so tile menus still open during transient backend issues."
+      ]
+    },
     {
       introducedIn: "2026.05.14.2",
       title: "Mercantile Charter boosts the first three cities harder",

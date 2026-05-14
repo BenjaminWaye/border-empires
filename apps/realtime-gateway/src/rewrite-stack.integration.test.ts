@@ -1196,6 +1196,71 @@ describe("rewrite stack integration", () => {
     );
   });
 
+  it("refreshes the simulation snapshot before answering pressed tile details", async () => {
+    const subscriptionTriggers: string[] = [];
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      commandStore: new InMemoryGatewayCommandStore(),
+      defaultHumanPlayerId: "player-1",
+      simulationClient: {
+        preparePlayer: async (playerId) => ({ playerId, spawned: false }),
+        submitCommand: async () => undefined,
+        subscribePlayer: async (playerId, subscriptionJson = "{}") => {
+          const parsed = JSON.parse(subscriptionJson) as { trigger?: string };
+          subscriptionTriggers.push(parsed.trigger ?? "");
+          const hasFreshTileDetail = parsed.trigger === "gateway_tile_detail_refresh";
+          return {
+            playerId,
+            tiles: [
+              {
+                x: 10,
+                y: 10,
+                terrain: "LAND",
+                ownerId: "player-1",
+                ownershipState: "SETTLED",
+                ...(hasFreshTileDetail ? { fortJson: JSON.stringify({ ownerId: "player-1", status: "active" }) } : {})
+              }
+            ]
+          };
+        },
+        unsubscribePlayer: async () => undefined,
+        getSubscriptionNamespace: async () => "tile-detail-refresh-test",
+        ping: async () => undefined,
+        streamEvents: (_listener, options) => {
+          options?.onConnect?.();
+          return () => undefined;
+        }
+      }
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const socket = await openSocket(gatewayAddress.wsUrl);
+    cleanup.push(() => closeSocket(socket.socket));
+    socket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    const init = await nextNonBootstrapMessage(socket, "tile detail refresh init");
+    expect(init).toEqual(expect.objectContaining({ type: "INIT" }));
+
+    socket.socket.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x: 10, y: 10 }));
+    const detail = await nextNonBootstrapMessage(socket, "fresh tile detail result");
+    expect(subscriptionTriggers).toContain("gateway_tile_detail_refresh");
+    expect(detail).toEqual(
+      expect.objectContaining({
+        type: "TILE_DELTA",
+        updates: expect.arrayContaining([
+          expect.objectContaining({
+            x: 10,
+            y: 10,
+            detailLevel: "full",
+            fortJson: expect.stringContaining('"status":"active"')
+          })
+        ])
+      })
+    );
+  });
+
   it("supports siege outpost build commands through the rewrite gateway", async () => {
     const scheduledBuilds: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
