@@ -4735,6 +4735,42 @@ describe("simulation runtime", () => {
     expect(settledEvents.some((entry) => entry.delayMs === 60_000)).toBe(true);
   });
 
+  it("restores first-three-town order from snapshot state after restart", () => {
+    const runtime = new SimulationRuntime({
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "METROPOLIS", name: "Four" } },
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "One" } },
+          { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Two" } },
+          { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN", name: "Three" } }
+        ],
+        activeLocks: [],
+        players: [
+          {
+            id: "player-1",
+            points: 0,
+            manpower: 0,
+            techIds: ["trade"],
+            domainIds: ["mercantile-charter"],
+            strategicResources: { FOOD: 10 },
+            allies: [],
+            ownedTownTileKeys: ["10,10", "20,10", "30,10", "0,10"]
+          }
+        ]
+      }
+    });
+
+    const recovered = new SimulationRuntime({
+      seedTiles: new Map(),
+      initialState: runtime.exportSnapshotSections().initialState
+    });
+    const recoveredPlayer = recovered.exportState().players.find((player) => player.id === "player-1");
+
+    expect(recoveredPlayer?.ownedTownTileKeys).toEqual(["10,10", "20,10", "30,10", "0,10"]);
+    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(15.4);
+  });
+
   it("preserves AI identity from initial players when recovered player rows omit isAi", () => {
     const runtime = new SimulationRuntime({
       initialPlayers: new Map([

@@ -34,7 +34,10 @@ import {
   buildConnectedTownNetworkForPlayer,
   dockBaseGoldPerMinuteForPlayer,
   enrichTownWithConnectedNetwork,
-  type DockEconomyContext
+  firstThreeTownKeysForPlayer,
+  firstThreeTownsGoldOutputMultiplierForPlayer,
+  type DockEconomyContext,
+  type EconomyPlayer
 } from "./economy-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
@@ -300,11 +303,12 @@ export const buildFedTownKeys = (
 };
 
 export const townGoldPerMinuteForPlayer = (
-  player: Pick<DomainPlayer, "id" | "mods">,
+  player: EconomyPlayer,
   tile: DomainTileState,
   town: NonNullable<DomainTileState["town"]>,
   tiles: ReadonlyMap<string, DomainTileState>,
-  fedTownKeys: ReadonlySet<string>
+  fedTownKeys: ReadonlySet<string>,
+  firstThreeTownKeys: ReadonlySet<string> = firstThreeTownKeysForPlayer(player.id, tiles.values())
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
@@ -315,6 +319,9 @@ export const townGoldPerMinuteForPlayer = (
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles);
   const hasBank = hasSupportedStructure(player.id, tile, "BANK", tiles);
+  const firstThreeTownMult = firstThreeTownKeys.has(tileKey)
+    ? firstThreeTownsGoldOutputMultiplierForPlayer(player)
+    : 1;
   return (
     TOWN_BASE_GOLD_PER_MIN *
     supportRatio *
@@ -322,6 +329,7 @@ export const townGoldPerMinuteForPlayer = (
     (1 + (town.connectedTownBonus ?? 0)) *
     (hasMarket ? 1.5 : 1) *
     (hasBank ? 1.5 : 1) *
+    firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
   ) + (hasBank ? 1 : 0);
@@ -337,6 +345,9 @@ export const buildPlayerUpdateEconomySnapshot = (
   const settledTiles = [...summary.territoryTileKeys]
     .map((tileKey) => tiles.get(tileKey))
     .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === player.id && tile.ownershipState === "SETTLED"));
+  const orderedTownTiles = [...summary.ownedTownTierByTile.keys()]
+    .map((tileKey) => tiles.get(tileKey))
+    .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === player.id && tile.ownershipState === "SETTLED"));
   const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles);
 
   const fedTownKeys = buildFedTownKeys(player, summary, tiles, strategicProductionPerMinute);
@@ -355,6 +366,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const oilSinks = new Map<string, EconomyBucket>();
   const dockEconomyContext = dockContext ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey } : undefined;
   const townNetwork = buildConnectedTownNetworkForPlayer(player, tiles, settledTiles);
+  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, orderedTownTiles);
 
   for (const tile of settledTiles) {
     addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
@@ -381,7 +393,7 @@ export const buildPlayerUpdateEconomySnapshot = (
     }
     if (tile.town) {
       const town = enrichTownWithConnectedNetwork(tile, townNetwork) ?? tile.town;
-      const goldPerMinute = townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys);
+      const goldPerMinute = townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys);
       if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
       addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
     }
