@@ -1190,6 +1190,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             eventStreamReconnectTimer = undefined;
             connectEventStream();
           }, delayMs);
+        },
+        onUnknownEvent(eventType) {
+          recordGatewayEvent("warn", "simulation_event_stream_unknown_type", { eventType });
+          app.log.warn({ eventType }, "dropped simulation event with unrecognized event_type");
         }
       }
     );

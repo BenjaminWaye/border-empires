@@ -628,7 +628,11 @@ const parseSubscriptionSnapshot = (
 export const startSimulationEventStream = (
   openStream: () => SimulationEventStream,
   listener: (event: SimulationClientEvent) => void,
-  options?: { onConnect?: () => void; onDisconnect?: (error: Error | null) => void }
+  options?: {
+    onConnect?: () => void;
+    onDisconnect?: (error: Error | null) => void;
+    onUnknownEvent?: (eventType: string) => void;
+  }
 ): (() => void) => {
   let closed = false;
   let reconnectDelayMs = 250;
@@ -657,8 +661,13 @@ export const startSimulationEventStream = (
     options?.onConnect?.();
     stream.on("data", (event) => {
       reconnectDelayMs = 250;
-      const translated = fromProtoEvent(event as ProtoSimulationEvent);
-      if (translated) listener(translated);
+      const protoEvent = event as ProtoSimulationEvent;
+      const translated = fromProtoEvent(protoEvent);
+      if (translated) {
+        listener(translated);
+      } else {
+        options?.onUnknownEvent?.(String(protoEvent.event_type ?? ""));
+      }
     });
     stream.on("error", (error) => {
       scheduleReconnect(generation, error as Error);
@@ -687,7 +696,11 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
-    options?: { onConnect?: () => void; onDisconnect?: (error: Error | null) => void }
+    options?: {
+      onConnect?: () => void;
+      onDisconnect?: (error: Error | null) => void;
+      onUnknownEvent?: (eventType: string) => void;
+    }
   ) => () => void;
 } => ({
   submitCommand(command) {
@@ -861,7 +874,11 @@ export const createSimulationClient = (address: string): {
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
-    options?: { onConnect?: () => void; onDisconnect?: (error: Error | null) => void }
+    options?: {
+      onConnect?: () => void;
+      onDisconnect?: (error: Error | null) => void;
+      onUnknownEvent?: (eventType: string) => void;
+    }
   ) => () => void;
 } => {
   const client = new proto.border_empires.simulation.SimulationService(address, credentials.createInsecure());

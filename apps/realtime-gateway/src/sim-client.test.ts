@@ -569,11 +569,17 @@ describe("simulation event stream supervisor", () => {
     try {
       const stream = new FakeStream();
       const seen: SimulationClientEvent[] = [];
+      const unknown: string[] = [];
 
       startSimulationEventStream(
         () => stream,
         (event) => {
           seen.push(event);
+        },
+        {
+          onUnknownEvent: (eventType) => {
+            unknown.push(eventType);
+          }
         }
       );
 
@@ -596,6 +602,7 @@ describe("simulation event stream supervisor", () => {
       });
 
       expect(seen).toEqual([]);
+      expect(unknown).toEqual(["TILE_YIELD_ANCHOR_UPDATED"]);
     } finally {
       vi.useRealTimers();
     }
