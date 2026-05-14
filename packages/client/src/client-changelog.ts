@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.14.3",
+  version: "2026.05.14.4",
   title: "What's New",
-  summary: "Pressed tile details now refresh from the rewrite simulation before rendering, so forts that were missing from the gateway cache appear when you tap the tile. Mercantile Charter now gives the first three cities +50% gold output, and the Active Bonuses panel receives current research/domain modifiers from rewrite updates and reconnect INIT payloads.",
+  summary: "Pressed tile details now open from cached data immediately, then refresh from the rewrite simulation as soon as the fresh tile snapshot returns. Detail updates also keep their full-detail metadata through gateway batch sync so fort and town panels recover instead of staying in loading.",
   entries: [
+    {
+      introducedIn: "2026.05.14.4",
+      title: "Pressed fort tiles recover from stale detail",
+      why: "The previous pressed-tile fix waited for the simulation refresh before replying. When that refresh was slow, tile menus could sit on loading, and gateway batch sync could still drop the full-detail marker and detail-only rows needed by the menu.",
+      changes: [
+        "REQUEST_TILE_DETAIL now sends the cached tile immediately and follows with a fresh simulation-backed tile update when it arrives.",
+        "Open tile menus keep requesting missing detail through the normal throttle while they are rendered.",
+        "Gateway tile delta batches now preserve detailLevel, upkeep rows, and tile history so full tile detail does not get downgraded on the client."
+      ]
+    },
     {
       introducedIn: "2026.05.14.3",
       title: "Pressed fort tiles refresh from simulation",
