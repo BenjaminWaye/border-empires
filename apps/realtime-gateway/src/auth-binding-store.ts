@@ -8,6 +8,7 @@ export type StoredAuthIdentityBinding = {
 export type GatewayAuthBindingStore = {
   getByUid: (uid: string) => Promise<StoredAuthIdentityBinding | undefined>;
   getByEmail: (email: string) => Promise<StoredAuthIdentityBinding | undefined>;
+  getByPlayerId: (playerId: string) => Promise<StoredAuthIdentityBinding | undefined>;
   bindIdentity: (binding: { uid: string; playerId: string; email?: string }) => Promise<StoredAuthIdentityBinding>;
 };
 
@@ -27,6 +28,17 @@ export class InMemoryGatewayAuthBindingStore implements GatewayAuthBindingStore 
     let latest: StoredAuthIdentityBinding | undefined;
     for (const binding of this.bindingsByUid.values()) {
       if (binding.email?.trim().toLocaleLowerCase() !== needle) continue;
+      if (!latest || binding.updatedAt > latest.updatedAt) latest = binding;
+    }
+    return latest ? { ...latest } : undefined;
+  }
+
+  async getByPlayerId(playerId: string): Promise<StoredAuthIdentityBinding | undefined> {
+    const needle = playerId.trim();
+    if (!needle) return undefined;
+    let latest: StoredAuthIdentityBinding | undefined;
+    for (const binding of this.bindingsByUid.values()) {
+      if (binding.playerId !== needle) continue;
       if (!latest || binding.updatedAt > latest.updatedAt) latest = binding;
     }
     return latest ? { ...latest } : undefined;
