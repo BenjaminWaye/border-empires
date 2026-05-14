@@ -1488,6 +1488,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }
         }
       }
+      if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
+        const payload = event.payloadJson ? (JSON.parse(event.payloadJson) as Record<string, unknown>) : undefined;
+        if (payload) {
+          const cachedSnapshot = snapshotCacheByPlayerId.get(event.playerId);
+          if (cachedSnapshot) {
+            setCachedSnapshot(event.playerId, applyPlayerMessageToSnapshot(cachedSnapshot, { type: event.eventType, ...payload }));
+          }
+        }
+      }
       // TILE_DELTA_BATCH events describe authoritative tile changes. Each
       // subscribed player only sees the subset of tiles they have vision of,
       // so we fan out one event per subscribed player with their filtered
