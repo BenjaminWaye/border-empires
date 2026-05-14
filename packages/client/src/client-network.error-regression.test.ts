@@ -249,6 +249,48 @@ describe("client network regression guards", () => {
     ).not.toThrow();
   });
 
+  it("drops ERROR messages with empty code and message instead of flooding [server-error]", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      for (let i = 0; i < 5; i += 1) {
+        ws.emit("message", {
+          data: JSON.stringify({ type: "ERROR", code: "", message: "" })
+        });
+      }
+      const serverErrorCalls = errorSpy.mock.calls.filter(([label]) => label === "[server-error]");
+      expect(serverErrorCalls).toHaveLength(0);
+      const dropWarnings = warnSpy.mock.calls.filter(([label]) =>
+        typeof label === "string" && label.includes("[server-error]") && label.includes("dropping empty ERROR")
+      );
+      expect(dropWarnings).toHaveLength(1);
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("still logs [server-error] for real rejections with a populated code", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown" })
+      });
+      const serverErrorCalls = errorSpy.mock.calls.filter(([label]) => label === "[server-error]");
+      expect(serverErrorCalls).toHaveLength(1);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("preserves shard sites when a frontier tile delta explicitly clears shard detail during claim confirmation", () => {
     const state = createState();
     state.tiles.set("60,302", {
