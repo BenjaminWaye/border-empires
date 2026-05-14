@@ -43,6 +43,10 @@ const playerTileCacheById = new Map<string, {
   ownedTiles: PlannerTileView[];
 }>();
 
+const BARBARIAN_PLAYER_ID = "barbarian-1";
+const BARBARIAN_TILE_COOLDOWN_MS = 15_000;
+const barbarianCooldownByTileKey = new Map<string, number>();
+
 type SimulationTileDelta = {
   x: number;
   y: number;
@@ -119,6 +123,63 @@ const resolveOwnedTiles = (player: PlannerPlayerView): PlannerTileView[] => {
 
 // ─── Planning logic ───────────────────────────────────────────────────────────
 
+const tileHasNonBarbarianNeighbor = (tile: PlannerTileView): boolean => {
+  const neighbors: ReadonlyArray<readonly [number, number]> = [
+    [tile.x + 1, tile.y],
+    [tile.x - 1, tile.y],
+    [tile.x, tile.y + 1],
+    [tile.x, tile.y - 1]
+  ];
+  for (const [nx, ny] of neighbors) {
+    const neighbor = tilesByKey.get(`${nx},${ny}`);
+    if (!neighbor) continue;
+    if (neighbor.ownerId && neighbor.ownerId !== BARBARIAN_PLAYER_ID) return true;
+  }
+  return false;
+};
+
+const chooseBarbarianCommand = (
+  player: PlannerPlayerView,
+  clientSeq: number,
+  issuedAt: number
+): CommandEnvelope | null => {
+  const ownedTiles = resolveOwnedTiles(player);
+  if (ownedTiles.length === 0) return null;
+
+  const now = Date.now();
+  const eligibleTiles: PlannerTileView[] = [];
+  for (const tile of ownedTiles) {
+    const tileKey = `${tile.x},${tile.y}`;
+    const cooldownUntil = barbarianCooldownByTileKey.get(tileKey);
+    if (cooldownUntil !== undefined && cooldownUntil > now) continue;
+    if (!tileHasNonBarbarianNeighbor(tile)) continue;
+    eligibleTiles.push(tile);
+  }
+  if (eligibleTiles.length === 0) return null;
+
+  const command = chooseNextOwnedFrontierCommandFromLookup(
+    tilesByKey,
+    eligibleTiles,
+    player.id,
+    clientSeq,
+    issuedAt,
+    "system-runtime",
+    { canAttack: true, canExpand: true, dockLinksByDockTileKey }
+  ) ?? null;
+
+  if (command) {
+    try {
+      const payload = JSON.parse(command.payloadJson) as { fromX?: unknown; fromY?: unknown };
+      if (typeof payload.fromX === "number" && typeof payload.fromY === "number") {
+        barbarianCooldownByTileKey.set(`${payload.fromX},${payload.fromY}`, now + BARBARIAN_TILE_COOLDOWN_MS);
+      }
+    } catch {
+      // ignore — cooldown best-effort
+    }
+  }
+  return command;
+};
+
 const chooseSystemCommand = (
   playerId: string,
   clientSeq: number,
@@ -127,6 +188,10 @@ const chooseSystemCommand = (
   const player = playersById.get(playerId);
   if (!player) return null;
   if (player.hasActiveLock) return null;
+
+  if (playerId === BARBARIAN_PLAYER_ID) {
+    return chooseBarbarianCommand(player, clientSeq, issuedAt);
+  }
 
   const ownedTiles = resolveOwnedTiles(player);
 
