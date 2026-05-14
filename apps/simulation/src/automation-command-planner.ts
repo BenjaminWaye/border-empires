@@ -148,6 +148,7 @@ export type AutomationPlannerDiagnostic = {
   // why AIs are not actually settling.
   settleDecisionReason?: import("./automation-command-planner-helpers.js").AutomationSettleDecisionReason;
   settleDecisionTopScore?: number;
+  settleDecisionTileKey?: string;
 };
 
 export type AutomationPlannerPhase = "choose_settlement" | "choose_frontier" | "summarize_frontier";
@@ -552,9 +553,15 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ? evaluateSettleCandidateDecision(context, fallbackSettlementCandidate as TTile)
     : undefined;
   const settleDecisionForDiagnostic = primarySettleDecision ?? fallbackSettleDecision;
+  const settleCandidateForDiagnostic = primarySettleDecision
+    ? (settlementCandidate as TTile | undefined)
+    : (fallbackSettlementCandidate as TTile | undefined);
   if (settleDecisionForDiagnostic) {
     diagnosticBase.settleDecisionReason = settleDecisionForDiagnostic.reason;
     diagnosticBase.settleDecisionTopScore = settleDecisionForDiagnostic.topScore;
+    if (settleCandidateForDiagnostic) {
+      diagnosticBase.settleDecisionTileKey = `${settleCandidateForDiagnostic.x},${settleCandidateForDiagnostic.y}`;
+    }
   }
   const actionableFallbackSettlementCandidate = fallbackSettleDecision?.shouldSettle
     ? (fallbackSettlementCandidate as TTile)

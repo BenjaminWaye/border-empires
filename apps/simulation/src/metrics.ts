@@ -255,10 +255,16 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     observeSimAiNoFrontierDetail(detail: string): void {
       appendRecent(simAiNoFrontierRecent, detail, 12);
     },
-    observeSimAiSettleDecision(reason: AutomationSettleDecisionReason, playerId: string, topScore: number): void {
+    observeSimAiSettleDecision(
+      reason: AutomationSettleDecisionReason,
+      playerId: string,
+      topScore: number,
+      tileKey?: string
+    ): void {
       simAiSettleDecisionTotalByReason.set(reason, (simAiSettleDecisionTotalByReason.get(reason) ?? 0) + 1);
       const rounded = Math.round(topScore);
-      appendRecent(simAiSettleDecisionRecent, `${playerId}:${reason}:${rounded}`, 12);
+      const suffix = tileKey ? `@${tileKey}` : "";
+      appendRecent(simAiSettleDecisionRecent, `${playerId}:${reason}:${rounded}${suffix}`, 12);
       appendSample(simAiSettleDecisionTopScore, topScore, limit);
     },
     setSimCheckpointRssMb(value: number): void {
