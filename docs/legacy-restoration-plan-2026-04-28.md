@@ -84,7 +84,7 @@ track is dead, Phase E removes the rewrite code from `main`.
   always be up; if it isn't, something crashed it).
 - Rewrite prod: `border-empires-gateway` (gateway) + `border-empires-simulation`
   (sim). Don't touch.
-- Rewrite staging: `border-empires-gateway-staging` + `border-empires-simulation-staging`.
+- Rewrite staging: `border-empires-combined-staging`.
   Pattern to mirror for legacy staging.
 - Client: one Vercel project, `border-empires-client` (per container
   `AGENTS.md` — never create another). Aliases currently in use:
@@ -92,7 +92,7 @@ track is dead, Phase E removes the rewrite code from `main`.
   - `staging.borderempires.com` → preview build wired to the **rewrite**
     gateway staging (`scripts/deploy-client-preview.mjs` sets both
     `VITE_WS_URL` and `VITE_GATEWAY_WS_URL` to
-    `wss://border-empires-gateway-staging.fly.dev/ws`).
+    `wss://border-empires-combined-staging.fly.dev/ws`).
   - `border-empires-client.vercel.app` → stable Vercel preview alias used
     only by `deploy-client-prod.mjs` to verify a release rolled out.
   - **`staging-legacy.borderempires.com` will be added in Phase B for the
@@ -191,7 +191,7 @@ own volume and a fresh seed world (WS at
 client at that staging backend by default.
 
 This deliberately mirrors the existing rewrite-staging shape:
-`border-empires-gateway-staging.fly.dev` ← `staging.borderempires.com`.
+`border-empires-combined-staging.fly.dev` ← `staging.borderempires.com`.
 The legacy version is `border-empires-staging.fly.dev` ←
 `staging-legacy.borderempires.com`.
 
@@ -518,8 +518,7 @@ Branch `agent/rewrite-removal-cutover`. Single PR that:
    - `packages/client/src/send-message-guard.ts`
    - `packages/client/src/map-input.ts` (if rewrite-only — verify by reading)
    - `Dockerfile.gateway`, `Dockerfile.simulation`
-   - `fly.gateway.toml`, `fly.gateway.staging.toml`,
-     `fly.simulation.toml`, `fly.simulation.staging.toml`
+   - `fly.gateway.toml`, `fly.simulation.toml`, `fly.combined.staging.toml`
 3. Updates `pnpm-workspace.yaml` to drop `apps/*`.
 4. Updates `tsconfig.base.json` to drop the rewrite path mappings.
 5. Bumps `client-changelog.ts` (this is the **only** branch on which you
@@ -534,8 +533,7 @@ Hand to user:
 ```
 fly apps destroy border-empires-gateway --yes
 fly apps destroy border-empires-simulation --yes
-fly apps destroy border-empires-gateway-staging --yes
-fly apps destroy border-empires-simulation-staging --yes
+fly apps destroy border-empires-combined-staging --yes
 ```
 
 ## Phase F — lag work (DEFERRED — after parity complete)
