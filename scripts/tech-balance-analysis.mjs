@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const techTreePath = path.resolve(process.cwd(), "packages/server/data/tech-tree.json");
+const techTreePath = path.resolve(process.cwd(), "packages/game-domain/data/tech-tree.json");
 const techTree = JSON.parse(fs.readFileSync(techTreePath, "utf8"));
 
 const baseConnectedTownBonus = (connectedTownCount, extraPerStep = 0) => {

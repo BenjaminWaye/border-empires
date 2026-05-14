@@ -1,4 +1,4 @@
-import WebSocket from "../packages/server/node_modules/ws/wrapper.mjs";
+import WebSocket from "ws";
 
 const wsUrl = process.env.WS_URL ?? "ws://127.0.0.1:3101/ws";
 const authToken = process.env.AUTH_TOKEN ?? "player-1";
