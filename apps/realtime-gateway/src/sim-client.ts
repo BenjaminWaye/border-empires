@@ -91,6 +91,22 @@ type ProtoSubscribePlayerRequest = {
   player_id: string;
   subscription_json: string;
 };
+type ProtoFetchTileDetailRequest = {
+  player_id: string;
+  x: number;
+  y: number;
+  full_visibility?: boolean;
+};
+type ProtoFetchTileDetailAck = {
+  ok: boolean;
+  player_id?: string;
+  playerId?: string;
+  x?: number;
+  y?: number;
+  tiles?: ProtoTileDelta[];
+  player_upkeep_json?: string;
+  playerUpkeepJson?: string;
+};
 type ProtoUnsubscribePlayerRequest = {
   player_id: string;
   subscription_key?: string;
@@ -139,6 +155,10 @@ type SimulationClientLike = {
   SubscribePlayer: (
     request: ProtoSubscribePlayerRequest,
     callback: (error: Error | null, response: ProtoSubscribePlayerAck) => void
+  ) => void;
+  FetchTileDetail?: (
+    request: ProtoFetchTileDetailRequest,
+    callback: (error: Error | null, response: ProtoFetchTileDetailAck) => void
   ) => void;
   UnsubscribePlayer: (
     request: ProtoUnsubscribePlayerRequest,
@@ -625,6 +645,42 @@ const parseSubscriptionSnapshot = (
   };
 };
 
+const parseFetchTileDetailAck = (
+  response: ProtoFetchTileDetailAck & Record<string, unknown>,
+  playerId: string,
+  fallbackX: number,
+  fallbackY: number
+): FetchTileDetailResult => {
+  const responsePlayerId =
+    typeof response.player_id === "string"
+      ? response.player_id
+      : typeof response.playerId === "string"
+        ? response.playerId
+        : playerId;
+  const tiles = Array.isArray(response.tiles) ? response.tiles.map((tile) => normalizeProtoTile(tile)) : [];
+  const upkeepJson =
+    typeof response.player_upkeep_json === "string"
+      ? response.player_upkeep_json
+      : typeof response.playerUpkeepJson === "string"
+        ? response.playerUpkeepJson
+        : undefined;
+  let upkeepLastTick: FetchTileDetailResult["upkeepLastTick"];
+  if (upkeepJson) {
+    try {
+      upkeepLastTick = JSON.parse(upkeepJson) as FetchTileDetailResult["upkeepLastTick"];
+    } catch {
+      upkeepLastTick = undefined;
+    }
+  }
+  return {
+    playerId: responsePlayerId,
+    x: typeof response.x === "number" ? response.x : fallbackX,
+    y: typeof response.y === "number" ? response.y : fallbackY,
+    tiles,
+    ...(upkeepLastTick ? { upkeepLastTick } : {})
+  };
+};
+
 export const startSimulationEventStream = (
   openStream: () => SimulationEventStream,
   listener: (event: SimulationClientEvent) => void,
@@ -684,10 +740,19 @@ export const startSimulationEventStream = (
   };
 };
 
+export type FetchTileDetailResult = {
+  playerId: string;
+  x: number;
+  y: number;
+  tiles: PlayerSubscriptionSnapshot["tiles"];
+  upkeepLastTick?: NonNullable<PlayerSubscriptionSnapshot["player"]>["upkeepLastTick"];
+};
+
 export const createSimulationClientFromRpcClient = (client: SimulationClientLike): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   preparePlayer: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
+  fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
   getSubscriptionNamespace: () => Promise<string>;
   ping: () => Promise<void>;
@@ -752,6 +817,23 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
           return;
         }
         resolve(parseSubscriptionSnapshot(response as ProtoSubscribePlayerAck & Record<string, unknown>, playerId));
+      });
+    });
+  },
+  fetchTileDetail(playerId, x, y, fullVisibility = false) {
+    return new Promise<FetchTileDetailResult>((resolve, reject) => {
+      const fetchTileDetailRpc =
+        typeof client.FetchTileDetail === "function" ? client.FetchTileDetail.bind(client) : undefined;
+      if (!fetchTileDetailRpc) {
+        reject(new Error("simulation client FetchTileDetail RPC is unavailable"));
+        return;
+      }
+      fetchTileDetailRpc({ player_id: playerId, x, y, full_visibility: fullVisibility }, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(parseFetchTileDetailAck(response as ProtoFetchTileDetailAck & Record<string, unknown>, playerId, x, y));
       });
     });
   },
@@ -866,6 +948,7 @@ export const createSimulationClient = (address: string): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   preparePlayer: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
+  fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
   getSubscriptionNamespace: () => Promise<string>;
   ping: () => Promise<void>;
