@@ -46,7 +46,7 @@
       "cost": { "gold": 6000, "crystal": 100 },
       "effects": {
         "firstThreeTownsPopulationGrowthMult": 1.15,
-        "firstThreeTownsGoldOutputMult": 1.15
+        "firstThreeTownsGoldOutputMult": 1.5
       }
     },
     {

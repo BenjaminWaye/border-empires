@@ -961,6 +961,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         }
         event.payload = recoveredPayload;
       }
+      if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
+        playerSubscriptions.updateSnapshot(event.playerId, (snapshot) =>
+          applyPlayerMessageToSnapshot(snapshot, { type: event.eventType, ...event.payload })
+        );
+        syncGatewaySnapshotMetricsFromCache(event.playerId);
+      }
       // TILE_DELTA_BATCH: the simulation now emits one event per subscribed
       // player with their visibility-filtered tileDeltas, so this branch runs
       // per-player. Persistence is keyed off commandId and must fire exactly

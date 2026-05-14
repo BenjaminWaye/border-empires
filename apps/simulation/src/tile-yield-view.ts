@@ -89,6 +89,7 @@ export const buildTileYieldView = (
   economyContext?: Partial<DockEconomyContext> & {
     player?: EconomyPlayer | undefined;
     fedTownKeys?: ReadonlySet<string> | undefined;
+    firstThreeTownKeys?: ReadonlySet<string> | undefined;
   }
 ): TileYieldView | undefined => {
   if (tile.ownerId === undefined || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return undefined;
@@ -102,7 +103,14 @@ export const buildTileYieldView = (
       return SETTLEMENT_BASE_GOLD_PER_MIN * incomeMultiplier * PASSIVE_INCOME_MULT;
     }
     if (economyPlayer?.id !== tile.ownerId || !economyContext?.tiles || !economyContext.fedTownKeys) return 0;
-    return townGoldPerMinuteForPlayer(economyPlayer, tile, tile.town, economyContext.tiles, economyContext.fedTownKeys);
+    return townGoldPerMinuteForPlayer(
+      economyPlayer,
+      tile,
+      tile.town,
+      economyContext.tiles,
+      economyContext.fedTownKeys,
+      economyContext.firstThreeTownKeys
+    );
   })();
   const dockContext =
     economyContext?.tiles && economyContext.dockLinksByDockTileKey
