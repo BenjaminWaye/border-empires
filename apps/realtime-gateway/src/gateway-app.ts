@@ -44,6 +44,7 @@ import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "./
 import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../simulation/src/seed-state.js";
+import { seasonalPlayerNameForId } from "../../simulation/src/season-worldgen.js";
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
@@ -105,6 +106,8 @@ const initialSocialNameForSeedPlayer = (playerId: string, seedName: string | und
   if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
   return seedName ?? playerId;
 };
+
+const seasonalDefaultAiPlayerIds = (): string[] => Array.from({ length: 20 }, (_, index) => `ai-${index + 1}`);
 
 const adjacentKeysForTile = (x: number, y: number): string[] => [`${x + 1},${y}`, `${x - 1},${y}`, `${x},${y + 1}`, `${x},${y - 1}`];
 
@@ -838,16 +841,27 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const profileOverrides = createPlayerProfileOverrides();
   const seedPlayers = createSeedPlayers(simulationSeedProfile);
   const seedWorld = createSeedWorld(simulationSeedProfile);
-  const seededAiPlayerIds = new Set([...seedPlayers.values()].filter((player) => player.isAi).map((player) => player.id));
-  const initialSocialPlayers = legacySnapshotBootstrap
-    ? [...legacySnapshotBootstrap.playerProfiles.values()].map((profile) => ({
-        id: profile.id,
-        name: profile.name ?? profile.id
-      }))
-    : [...seedPlayers.values()].map((player) => ({
-        id: player.id,
-        name: initialSocialNameForSeedPlayer(player.id, player.name)
-      }));
+  const seasonalAiPlayerIds = simulationSeedProfile === "default" ? seasonalDefaultAiPlayerIds() : [];
+  const seededAiPlayerIds = new Set([
+    ...[...seedPlayers.values()]
+      .filter((player) => player.isAi)
+      .map((player) => player.id),
+    ...seasonalAiPlayerIds
+  ]);
+  const initialSocialPlayerNamesById = new Map<string, string>();
+  if (legacySnapshotBootstrap) {
+    for (const profile of legacySnapshotBootstrap.playerProfiles.values()) {
+      initialSocialPlayerNamesById.set(profile.id, profile.name ?? profile.id);
+    }
+  } else {
+    for (const player of seedPlayers.values()) {
+      initialSocialPlayerNamesById.set(player.id, initialSocialNameForSeedPlayer(player.id, player.name));
+    }
+    for (const playerId of seasonalAiPlayerIds) {
+      initialSocialPlayerNamesById.set(playerId, seasonalPlayerNameForId(playerId));
+    }
+  }
+  const initialSocialPlayers = [...initialSocialPlayerNamesById].map(([id, name]) => ({ id, name }));
   const socialState = createSocialState({
     ...(options.now ? { now: options.now } : {}),
     players: initialSocialPlayers
