@@ -763,6 +763,11 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return goapFallbackResult;
   }
+  // NOTE: this siege-outpost gate is intentionally NOT stalemate-aware. A
+  // siege outpost is one of the few ways an attacker can break an
+  // entrenched defender (it reduces target defence), so when ATTACK has
+  // been demoted by stalemate we still want this build path to fire as
+  // the antidote, not block it as more of the same.
   if (
     siegeOutpostBuild &&
     preferredEnemyAttack &&

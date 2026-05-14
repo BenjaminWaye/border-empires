@@ -494,15 +494,23 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         if (typeof delta.ownerId === "string" && aiPlayerIdSet.has(delta.ownerId)) {
           changedPlayers.add(delta.ownerId);
         }
-        // Any ownership change on a tile resets stalemate state for it: if the
-        // tile just flipped, the previous attacker actually broke through.
-        if ("ownerId" in delta && typeof delta.x === "number" && typeof delta.y === "number") {
-          attackStalemate.clearTarget(`${delta.x},${delta.y}`);
-        }
       }
       queuePlayerSync(changedPlayers);
     } else if (aiPlayerIdSet.has(event.playerId)) {
       queuePlayerSync([event.playerId]);
+    }
+    if (
+      event.eventType === "COMBAT_RESOLVED" &&
+      event.attackerWon &&
+      event.actionType === "ATTACK"
+    ) {
+      // Tile actually flipped — any AI's stalemate state for this target is
+      // stale (either the target broke open OR it's a different owner's
+      // problem now). TILE_DELTA_BATCH is an unsafe signal for this because
+      // runtime.ts:4610 puts `ownerId` on every delta even on non-transition
+      // updates (yield ticks, building placements), which would defeat the
+      // stalemate counter by resetting it constantly.
+      attackStalemate.clearTarget(`${event.targetX},${event.targetY}`);
     }
     if (
       event.eventType === "COMBAT_RESOLVED" &&
