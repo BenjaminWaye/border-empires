@@ -624,6 +624,50 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
     subscriptionNamespace: liveSubscriptionNamespace
   });
+  const tileDetailRefreshByPlayer = new Map<string, Promise<PlayerSubscriptionSnapshot>>();
+  const refreshPlayerTileDetailSnapshot = async (playerId: string, fullVisibility: boolean): Promise<PlayerSubscriptionSnapshot> => {
+    const refreshKey = `${playerId}:${fullVisibility ? "full" : "visible"}`;
+    const existingRefresh = tileDetailRefreshByPlayer.get(refreshKey);
+    if (existingRefresh) return existingRefresh;
+
+    const refreshPromise = retrySimulationRpc(
+      "gateway tile detail refresh",
+      () =>
+        simulationClient.subscribePlayer(
+          playerId,
+          JSON.stringify({
+            mode: "bootstrap-only",
+            emitBootstrapEvent: false,
+            fullVisibility,
+            trigger: "gateway_tile_detail_refresh"
+          })
+        ),
+      simulationSubscribeTimeoutMs,
+      (error, attempt) => {
+        recordGatewayEvent("warn", "gateway_tile_detail_refresh_retry", {
+          playerId,
+          fullVisibility,
+          attempt,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    )
+      .then((snapshot) => {
+        playerSubscriptions.seedSnapshot(playerId, snapshot);
+        syncGatewaySnapshotMetricsFromCache(playerId);
+        recordGatewayEvent("info", "gateway_tile_detail_refresh_ready", {
+          playerId,
+          fullVisibility,
+          tileCount: snapshot.tiles.length
+        });
+        return snapshot;
+      })
+      .finally(() => {
+        tileDetailRefreshByPlayer.delete(refreshKey);
+      });
+    tileDetailRefreshByPlayer.set(refreshKey, refreshPromise);
+    return refreshPromise;
+  };
   const profileOverrides = createPlayerProfileOverrides();
   const socialState = createSocialState({
     ...(options.now ? { now: options.now } : {}),
@@ -1621,7 +1665,24 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "REQUEST_TILE_DETAIL") {
-            const snapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
+            const cachedSnapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
+            let snapshot = cachedSnapshot;
+            if (simulationHealth.connected) {
+              try {
+                snapshot = await refreshPlayerTileDetailSnapshot(session.playerId, session.fogDisabled);
+              } catch (error) {
+                if (cachedSnapshot) {
+                  playerSubscriptions.seedSnapshot(session.playerId, cachedSnapshot);
+                  syncGatewaySnapshotMetricsFromCache(session.playerId);
+                }
+                recordGatewayEvent("warn", "gateway_tile_detail_refresh_failed", {
+                  playerId: session.playerId,
+                  x: message.x,
+                  y: message.y,
+                  error: error instanceof Error ? error.message : String(error)
+                });
+              }
+            }
             const tileDetail = buildSnapshotTileDetail(snapshot, session.playerId, message.x, message.y);
             if (tileDetail) {
               sendJson(socket, {
