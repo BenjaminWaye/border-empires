@@ -5417,6 +5417,223 @@ describe("simulation runtime", () => {
     expect(baselineAtkEff).toBe(10);
     expect(boostedAtkEff).toBeCloseTo(12.5, 6);
   });
+
+  describe("barbarian walk vs multiply", () => {
+    const buildBarbRuntime = (input: {
+      barbTiles: Array<{ x: number; y: number; resource?: "WHEAT"; town?: boolean }>;
+      targetTile: { x: number; y: number; ownerId?: string; resource?: "WHEAT"; town?: boolean; ownershipState?: "FRONTIER" | "SETTLED" };
+      lockOrigin: { x: number; y: number };
+      lockTarget: { x: number; y: number };
+      attackerId: string;
+    }): { runtime: SimulationRuntime; randomSpy: ReturnType<typeof vi.spyOn>; runResolve: () => void } => {
+      const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      const players = new Map([
+        [
+          "barbarian-1",
+          {
+            id: "barbarian-1",
+            isAi: true,
+            points: Number.MAX_SAFE_INTEGER,
+            manpower: Number.MAX_SAFE_INTEGER,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 1_000,
+            manpower: 200,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]);
+      const tiles = [
+        ...input.barbTiles.map((tile) => ({
+          x: tile.x,
+          y: tile.y,
+          terrain: "LAND" as const,
+          ownerId: "barbarian-1",
+          ownershipState: "FRONTIER" as const,
+          ...(tile.resource ? { resource: tile.resource } : {}),
+          ...(tile.town
+            ? { town: { type: "FARMING" as const, populationTier: "SETTLEMENT" as const, ownerId: "barbarian-1" } }
+            : {})
+        })),
+        {
+          x: input.targetTile.x,
+          y: input.targetTile.y,
+          terrain: "LAND" as const,
+          ...(input.targetTile.ownerId
+            ? {
+                ownerId: input.targetTile.ownerId,
+                ownershipState: input.targetTile.ownershipState ?? ("FRONTIER" as const)
+              }
+            : {}),
+          ...(input.targetTile.resource ? { resource: input.targetTile.resource } : {}),
+          ...(input.targetTile.town
+            ? {
+                town: {
+                  type: "FARMING" as const,
+                  populationTier: "SETTLEMENT" as const,
+                  ownerId: input.targetTile.ownerId ?? "barbarian-1"
+                }
+              }
+            : {})
+        }
+      ];
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        scheduleAfter: (delayMs, task) => {
+          scheduledTasks.push({ delayMs, task });
+        },
+        initialPlayers: players,
+        initialState: {
+          tiles,
+          players: Array.from(players.values()).map((player) => ({
+            id: player.id,
+            isAi: player.isAi,
+            points: player.points,
+            manpower: player.manpower,
+            techIds: [],
+            domainIds: [],
+            mods: player.mods,
+            techRootId: player.techRootId,
+            allies: []
+          })),
+          activeLocks: [
+            {
+              commandId: "barb-lock",
+              playerId: input.attackerId,
+              actionType: "ATTACK",
+              originX: input.lockOrigin.x,
+              originY: input.lockOrigin.y,
+              targetX: input.lockTarget.x,
+              targetY: input.lockTarget.y,
+              originKey: `${input.lockOrigin.x},${input.lockOrigin.y}`,
+              targetKey: `${input.lockTarget.x},${input.lockTarget.y}`,
+              resolvesAt: 1_500
+            }
+          ]
+        }
+      });
+
+      return {
+        runtime,
+        randomSpy,
+        runResolve: () => {
+          expect(scheduledTasks).toHaveLength(1);
+          scheduledTasks[0]?.task();
+        }
+      };
+    };
+
+    const readProgress = (runtime: SimulationRuntime): Map<string, number> =>
+      (runtime as unknown as { barbarianTileProgress: Map<string, number> }).barbarianTileProgress;
+
+    it("releases the source tile to neutral when below the multiply threshold (walk)", () => {
+      const { runtime, randomSpy, runResolve } = buildBarbRuntime({
+        barbTiles: [
+          { x: 10, y: 10 },
+          { x: 10, y: 9 }
+        ],
+        targetTile: { x: 10, y: 11 },
+        lockOrigin: { x: 10, y: 10 },
+        lockTarget: { x: 10, y: 11 },
+        attackerId: "barbarian-1"
+      });
+
+      runResolve();
+
+      const state = runtime.exportState();
+      const origin = state.tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      const target = state.tiles.find((tile) => tile.x === 10 && tile.y === 11);
+      expect(target?.ownerId).toBe("barbarian-1");
+      expect(origin?.ownerId).toBeUndefined();
+
+      const progress = readProgress(runtime);
+      expect(progress.get("10,10")).toBeUndefined();
+      expect(progress.get("10,11")).toBe(1);
+
+      randomSpy.mockRestore();
+    });
+
+    it("keeps both tiles barbarian when accumulated progress crosses the threshold (multiply)", () => {
+      const { runtime, randomSpy, runResolve } = buildBarbRuntime({
+        barbTiles: [
+          { x: 10, y: 10 },
+          { x: 10, y: 9 }
+        ],
+        targetTile: { x: 10, y: 11 },
+        lockOrigin: { x: 10, y: 10 },
+        lockTarget: { x: 10, y: 11 },
+        attackerId: "barbarian-1"
+      });
+      readProgress(runtime).set("10,10", 2);
+
+      runResolve();
+
+      const state = runtime.exportState();
+      expect(state.tiles.find((tile) => tile.x === 10 && tile.y === 10)?.ownerId).toBe("barbarian-1");
+      expect(state.tiles.find((tile) => tile.x === 10 && tile.y === 11)?.ownerId).toBe("barbarian-1");
+
+      const progress = readProgress(runtime);
+      expect(progress.get("10,10")).toBe(0);
+      expect(progress.get("10,11")).toBe(0);
+
+      randomSpy.mockRestore();
+    });
+
+    it("awards a +2 progress gain for high-value captures (resource tile)", () => {
+      const { runtime, randomSpy, runResolve } = buildBarbRuntime({
+        barbTiles: [
+          { x: 10, y: 10 },
+          { x: 10, y: 9 }
+        ],
+        targetTile: { x: 10, y: 11, resource: "WHEAT" },
+        lockOrigin: { x: 10, y: 10 },
+        lockTarget: { x: 10, y: 11 },
+        attackerId: "barbarian-1"
+      });
+
+      runResolve();
+
+      const progress = readProgress(runtime);
+      expect(progress.get("10,11")).toBe(2);
+
+      randomSpy.mockRestore();
+    });
+
+    it("clears the progress entry when a player recaptures a barbarian tile", () => {
+      const { runtime, randomSpy, runResolve } = buildBarbRuntime({
+        barbTiles: [
+          { x: 10, y: 11 },
+          { x: 10, y: 9 }
+        ],
+        targetTile: { x: 10, y: 10, ownerId: "player-1" },
+        lockOrigin: { x: 10, y: 10 },
+        lockTarget: { x: 10, y: 11 },
+        attackerId: "player-1"
+      });
+      readProgress(runtime).set("10,11", 5);
+
+      runResolve();
+
+      expect(readProgress(runtime).has("10,11")).toBe(false);
+
+      randomSpy.mockRestore();
+    });
+  });
 });
 
 describe("simulation runtime — shard rain", () => {

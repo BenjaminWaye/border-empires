@@ -213,7 +213,7 @@ export const createAutomationNoopDiagnostic = (
 });
 
 const attackTargetsBarbarian = (attack: FrontierAnalysis["attack"] | undefined): boolean =>
-  Boolean(attack && (attack.target.ownerId === "barbarian" || attack.target.ownershipState === "BARBARIAN"));
+  Boolean(attack && (attack.target.ownerId === "barbarian-1" || attack.target.ownershipState === "BARBARIAN"));
 
 export const goapGoldReserveHealthy = (points: number): boolean =>
   points >= SETTLE_COST + FRONTIER_CLAIM_COST;
