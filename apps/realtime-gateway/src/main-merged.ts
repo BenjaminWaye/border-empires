@@ -1,6 +1,7 @@
 // Single-process entry: boots the simulation gRPC server on loopback inside
 // this Node runtime, then boots the gateway pointed at it. Saves the second
 // Node V8 baseline (~50-70 MB) compared to running them as two processes.
+import { createServer } from "node:http";
 import { createSimulationService } from "../../simulation/src/simulation-service.js";
 import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
@@ -49,6 +50,43 @@ const simBinding = await simService.start();
 
 console.log(`[merged] simulation gRPC bound at ${simBinding.address}`);
 
+// Standalone sim (apps/simulation/src/main.ts) binds a tiny HTTP server on
+// SIMULATION_METRICS_PORT for `/metrics` + `/health`. The merged entry has
+// to mirror that explicitly — otherwise the per-player diag buffers
+// (sim_ai_settle_decision_recent, etc.) are only reachable via the 1Hz
+// stdout dump, which fly logs throttles too aggressively to catch.
+const simHealthResponse = () => {
+  const health = simService.healthSnapshot();
+  return {
+    statusCode: health.ok ? 200 : 503,
+    body: health
+  };
+};
+const simMetricsServer = createServer((request, response) => {
+  if (request.url === "/metrics") {
+    response.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    response.end(simService.renderMetrics());
+    return;
+  }
+  if (request.url === "/health" || request.url === "/healthz") {
+    const health = simHealthResponse();
+    response.statusCode = health.statusCode;
+    response.setHeader("Content-Type", "application/json; charset=utf-8");
+    response.end(`${JSON.stringify(health.body)}\n`);
+    return;
+  }
+  response.statusCode = 404;
+  response.end("not found");
+});
+await new Promise<void>((resolve, reject) => {
+  simMetricsServer.once("error", reject);
+  simMetricsServer.listen(simEnv.metricsPort, simEnv.metricsHost, () => {
+    simMetricsServer.off("error", reject);
+    resolve();
+  });
+});
+console.log(`[merged] simulation metrics bound at ${simEnv.metricsHost}:${simEnv.metricsPort}`);
+
 // Override the gateway's simulationAddress to always point at our in-process loopback.
 process.env.SIMULATION_ADDRESS = `${simHost}:${simPort}`;
 process.env.GATEWAY_SIMULATION_WAKE_ADDRESS = `${simHost}:${simPort}`;
@@ -79,6 +117,11 @@ const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     await gateway.close();
   } catch (error) {
     console.error("[merged] gateway close error:", error);
+  }
+  try {
+    await new Promise<void>((resolve) => simMetricsServer.close(() => resolve()));
+  } catch (error) {
+    console.error("[merged] simulation metrics close error:", error);
   }
   try {
     await simService.close();
