@@ -518,6 +518,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const commandTraceEnabled = process.env.SIMULATION_COMMAND_TRACE === "1";
   const slowSubmitWarnMs = Math.max(50, Number(process.env.SIMULATION_SLOW_SUBMIT_WARN_MS ?? 250));
   const slowRuntimeSubmitWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_RUNTIME_SUBMIT_WARN_MS ?? 50));
+  // Threshold for "filter fanout took too long on a single TILE_DELTA_BATCH"
+  // diagnostic. Set 0 to disable. Captures total + max-per-subscriber filter
+  // time so we can tell whether filterTileDeltasForPlayer is the source of
+  // simulation event-loop stalls under heavy combat load.
+  const slowTileDeltaFilterWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_TILE_DELTA_FILTER_WARN_MS ?? 50));
+  // Threshold for "buildCaptureRevealTileDeltas took too long" diagnostic.
+  // Each successful human capture builds (2*VISION_RADIUS+1)² tile deltas;
+  // under heavy combat the build itself (before fanout) could block the loop.
+  const slowCaptureRevealBuildWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_CAPTURE_REVEAL_BUILD_WARN_MS ?? 20));
+  const captureRevealBuildSample = (sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }): void => {
+    if (slowCaptureRevealBuildWarnMs <= 0 || sample.durationMs < slowCaptureRevealBuildWarnMs) return;
+    recordLagDiagnostic("warn", "capture_reveal_build_slow", sample);
+  };
   const slowQueueDrainWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_QUEUE_DRAIN_WARN_MS ?? 100));
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
@@ -828,6 +841,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       recordLagDiagnostic("warn", "runtime_queue_drain_slow", sample);
     },
     onVisibilityAudit: handleVisibilityAudit,
+    onCaptureRevealBuilt: captureRevealBuildSample,
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });
@@ -1517,8 +1531,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // per group, or maintain a per-player incremental visible-tile set so
       // the filter is O(deltas) instead of O(deltas × territory).
       if (event.eventType === "TILE_DELTA_BATCH") {
+        const fanoutStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
+        let maxFilterMs = 0;
+        let slowestFilterPlayerId = "";
+        let subscriberCount = 0;
         for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
+          const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
           const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
+          if (slowTileDeltaFilterWarnMs > 0) {
+            const filterMs = Date.now() - filterStartedAt;
+            subscriberCount += 1;
+            if (filterMs > maxFilterMs) {
+              maxFilterMs = filterMs;
+              slowestFilterPlayerId = subscribedPlayerId;
+            }
+          }
           const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
           if (cachedSnapshot && filteredDeltas.length > 0) {
             setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
@@ -1530,6 +1557,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             tileDeltas: filteredDeltas
           });
           for (const stream of eventStreams) stream.write(perPlayerEvent);
+        }
+        if (slowTileDeltaFilterWarnMs > 0) {
+          const totalFanoutMs = Date.now() - fanoutStartedAt;
+          if (totalFanoutMs >= slowTileDeltaFilterWarnMs || maxFilterMs >= slowTileDeltaFilterWarnMs) {
+            recordLagDiagnostic("warn", "tile_delta_filter_slow", {
+              commandId: event.commandId,
+              deltaCount: event.tileDeltas.length,
+              subscriberCount,
+              totalFanoutMs,
+              maxFilterMs,
+              slowestFilterPlayerId,
+              latestEventLoopLagMs,
+              queueDepths: runtime.queueDepths()
+            });
+          }
         }
         return;
       }
@@ -1602,7 +1644,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         initialCommandHistory: recoverCommandHistory([], []),
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
-        onVisibilityAudit: handleVisibilityAudit
+        onVisibilityAudit: handleVisibilityAudit,
+        onCaptureRevealBuilt: captureRevealBuildSample
       });
       const nextSummary = buildCurrentSeasonSummary({
         seasonState: bootstrap.seasonState,
