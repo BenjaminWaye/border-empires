@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.13.2",
+  version: "2026.05.14.1",
   title: "What's New",
-  summary: "Pending settlement progress is now canceled as soon as an enemy captures the tile, so stale timers cannot keep showing progress or settle the tile after a recapture. Pressed map tiles also force a fresh detail refresh to self-correct stale fort and structure visuals. Live-cost research checks, stuck-build self-heal, Territorial Control, Building menu copy, day-one defenses, and Defensibility tab improvements from prior releases are included.",
+  summary: "Empty server-error log spam is gone — the client now drops obviously-malformed ERROR messages with empty code and message instead of flooding the console. Recent fixes also cancel pending settlement progress on tile capture and force fresh detail refresh on pressed tiles. Tech/domain canResearch live recompute, stuck-build self-heal, Territorial Control, Building menu copy, day-one defenses, and Defensibility tab improvements from prior releases are included.",
   entries: [
+    {
+      introducedIn: "2026.05.14.1",
+      title: "Stop logging empty server-error noise",
+      why: "Some upstream events were reaching the client tagged as ERROR but with both code and message empty (proto-default leak from a simulation event the gateway mis-tagged). Each one rendered as a separate [server-error] line and could fill the dev console after a few minutes of play. Every legitimate rejection has a non-empty code, so an empty pair is by construction a labeling bug, not user-facing info.",
+      changes: [
+        "ERROR messages with both code and message empty are now dropped at the client instead of being logged as [server-error] for every occurrence.",
+        "The first dropped empty ERROR per session emits a single console.warn so a genuinely new upstream bug still surfaces instead of being silenced."
+      ]
+    },
     {
       introducedIn: "2026.05.13.2",
       title: "Captured frontier tiles cancel active settlement progress",
