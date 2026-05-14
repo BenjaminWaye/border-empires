@@ -114,17 +114,19 @@ import {
   buildPlayerUpdateEconomySnapshot,
   buildStrategicProductionForSettledTiles
 } from "./player-update-economy.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork } from "./economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { RecoveredCommandHistory } from "./command-recovery.js";
 import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
 import {
+  buildModBreakdownForPlayer,
   buildDomainUpdatePayload,
   buildTechUpdatePayload,
   chooseDomainForPlayer,
   chooseTechForPlayer,
   effectiveVisionRadiusForPlayer,
+  recomputeMods,
   visionRadiusBonusForPlayer
 } from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
@@ -154,6 +156,7 @@ type RuntimeTileYieldEconomyContext = {
   player: DomainPlayer;
   townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
   fedTownKeys: Set<string>;
+  firstThreeTownKeys: Set<string>;
 };
 
 const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL"] as const;
@@ -302,37 +305,36 @@ const createPlayersFromRecoveredState = (
 ): Map<string, RuntimePlayer> | undefined => {
   if (!initialState?.players || initialState.players.length === 0) return undefined;
   return new Map(
-    initialState.players.map((player) => [
-      player.id,
-      {
-        id: player.id,
-        isAi: player.isAi ?? fallbackPlayers?.get(player.id)?.isAi ?? false,
-        name: player.name ?? player.id,
-        points: player.points ?? 0,
-        manpower: player.manpower ?? MANPOWER_BASE_CAP,
-        ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
-        ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
-        techIds: new Set(player.techIds ?? []),
-        domainIds: new Set(player.domainIds ?? []),
-        mods: {
-          attack: 1,
-          defense: 1,
-          income: player.incomeMultiplier ?? 1,
-          vision: player.vision ?? 1
-        },
-        techRootId: "rewrite-recovered",
-        allies: new Set(player.allies ?? []),
-        strategicResources: {
-          FOOD: player.strategicResources?.FOOD ?? 0,
-          IRON: player.strategicResources?.IRON ?? 0,
-          CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-          SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-          SHARD: player.strategicResources?.SHARD ?? 0,
-          OIL: player.strategicResources?.OIL ?? 0
-        },
-        strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
-      }
-    ])
+    initialState.players.map((player) => {
+      const techIds = new Set(player.techIds ?? []);
+      const domainIds = new Set(player.domainIds ?? []);
+      return [
+        player.id,
+        {
+          id: player.id,
+          isAi: player.isAi ?? fallbackPlayers?.get(player.id)?.isAi ?? false,
+          name: player.name ?? player.id,
+          points: player.points ?? 0,
+          manpower: player.manpower ?? MANPOWER_BASE_CAP,
+          ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
+          ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
+          techIds,
+          domainIds,
+          mods: recomputeMods({ techIds, domainIds }),
+          techRootId: "rewrite-recovered",
+          allies: new Set(player.allies ?? []),
+          strategicResources: {
+            FOOD: player.strategicResources?.FOOD ?? 0,
+            IRON: player.strategicResources?.IRON ?? 0,
+            CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
+            SUPPLY: player.strategicResources?.SUPPLY ?? 0,
+            SHARD: player.strategicResources?.SHARD ?? 0,
+            OIL: player.strategicResources?.OIL ?? 0
+          },
+          strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+        }
+      ] as const;
+    })
   );
 };
 
@@ -695,6 +697,20 @@ export class SimulationRuntime {
     }
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
+    }
+    for (const player of options.initialState?.players ?? []) {
+      if (!player.ownedTownTileKeys?.length) continue;
+      const summary = this.summaryForPlayer(player.id);
+      const currentTowns = new Map(summary.ownedTownTierByTile);
+      summary.ownedTownTierByTile.clear();
+      for (const tileKey of player.ownedTownTileKeys) {
+        const tier = currentTowns.get(tileKey);
+        if (tier) {
+          summary.ownedTownTierByTile.set(tileKey, tier);
+          currentTowns.delete(tileKey);
+        }
+      }
+      for (const [tileKey, tier] of currentTowns) summary.ownedTownTierByTile.set(tileKey, tier);
     }
     for (const playerId of this.players.keys()) {
       this.rebuildPlannerCandidateIndexesForPlayer(playerId);
@@ -1202,6 +1218,7 @@ export class SimulationRuntime {
       const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, nowMs, {
         player,
         fedTownKeys: economyContext.fedTownKeys,
+        firstThreeTownKeys: economyContext.firstThreeTownKeys,
         tiles: this.tiles,
         dockLinksByDockTileKey: this.dockLinksByDockTileKey
       });
@@ -1264,9 +1281,40 @@ export class SimulationRuntime {
 
   private replaceTileState(tileKey: string, tile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
     const previous = this.tiles.get(tileKey);
+    const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
+    const previousOwnerTileOrder =
+      previous?.ownerId && sameOwner
+        ? [...this.summaryForPlayer(previous.ownerId).territoryTileKeys]
+        : undefined;
+    const previousOwnerTownOrder =
+      previous?.ownerId && sameOwner
+        ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
+        : undefined;
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
     this.applyTileToPlayerSummaries(tileKey, tile);
+    if (previousOwnerTileOrder && tile.ownerId) {
+      const summary = this.summaryForPlayer(tile.ownerId);
+      const currentKeys = new Set(summary.territoryTileKeys);
+      summary.territoryTileKeys.clear();
+      for (const key of previousOwnerTileOrder) {
+        if (currentKeys.delete(key)) summary.territoryTileKeys.add(key);
+      }
+      for (const key of currentKeys) summary.territoryTileKeys.add(key);
+    }
+    if (previousOwnerTownOrder && tile.ownerId) {
+      const summary = this.summaryForPlayer(tile.ownerId);
+      const currentTowns = new Map(summary.ownedTownTierByTile);
+      summary.ownedTownTierByTile.clear();
+      for (const key of previousOwnerTownOrder) {
+        const tier = currentTowns.get(key);
+        if (tier) {
+          summary.ownedTownTierByTile.set(key, tier);
+          currentTowns.delete(key);
+        }
+      }
+      for (const [key, tier] of currentTowns) summary.ownedTownTierByTile.set(key, tier);
+    }
     this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
   }
@@ -1599,7 +1647,8 @@ export class SimulationRuntime {
             allies: [...player.allies].sort(),
             vision: player.mods?.vision ?? 1,
             visionRadiusBonus: visionRadiusBonusForPlayer(player),
-            incomeMultiplier: player.mods?.income ?? 1
+            incomeMultiplier: player.mods?.income ?? 1,
+            ownedTownTileKeys: [...this.summaryForPlayer(player.id).ownedTownTierByTile.keys()]
           }))
           .sort((left, right) => left.id.localeCompare(right.id)),
         pendingSettlements: [...this.pendingSettlementsByTile.values()]
@@ -1725,6 +1774,7 @@ export class SimulationRuntime {
       visionRadiusBonus: number;
       incomeMultiplier?: number;
       territoryTileKeys: string[];
+      ownedTownTileKeys: string[];
       settledTileCount?: number;
       townCount?: number;
       incomePerMinute?: number;
@@ -1790,7 +1840,8 @@ export class SimulationRuntime {
             vision: player.mods?.vision ?? 1,
             visionRadiusBonus: visionRadiusBonusForPlayer(player),
             incomeMultiplier: player.mods?.income ?? 1,
-            territoryTileKeys: [...summary.territoryTileKeys].sort(),
+            territoryTileKeys: [...summary.territoryTileKeys],
+            ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
             settledTileCount: summary.settledTileCount,
             townCount: summary.townCount,
             incomePerMinute: this.incomePerMinuteForPlayer(player.id),
@@ -2009,7 +2060,8 @@ export class SimulationRuntime {
             vision: player.mods?.vision ?? 1,
             visionRadiusBonus: visionRadiusBonusForPlayer(player),
             incomeMultiplier: player.mods?.income ?? 1,
-            territoryTileKeys: [...summary.territoryTileKeys].sort(),
+            territoryTileKeys: [...summary.territoryTileKeys],
+            ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
             settledTileCount: summary.settledTileCount,
             townCount: summary.townCount,
             incomePerMinute: this.incomePerMinuteForPlayer(player.id),
@@ -2194,6 +2246,12 @@ export class SimulationRuntime {
       .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
   }
 
+  private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {
+    return [...this.summaryForPlayer(playerId).ownedTownTierByTile.keys()]
+      .map((tileKey) => this.tiles.get(tileKey))
+      .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
+  }
+
   private fedTownKeysForPlayer(player: DomainPlayer, settledTiles = this.settledTilesForPlayer(player.id)): Set<string> {
     const summary = this.summaryForPlayer(player.id);
     return buildFedTownKeys(
@@ -2209,7 +2267,8 @@ export class SimulationRuntime {
     return {
       player,
       townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles),
-      fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles)
+      fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles),
+      firstThreeTownKeys: firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id))
     };
   }
 
@@ -2250,6 +2309,8 @@ export class SimulationRuntime {
       {
         type: "PLAYER_UPDATE",
         gold: player.points,
+        mods: player.mods ?? recomputeMods(player),
+        modBreakdown: buildModBreakdownForPlayer(player),
         manpower: player.manpower,
         manpowerCap: this.playerManpowerCap(player),
         manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
@@ -3923,7 +3984,7 @@ export class SimulationRuntime {
       eventType: "TECH_UPDATE",
       commandId: command.commandId,
       playerId: command.playerId,
-      payloadJson: JSON.stringify(buildTechUpdatePayload(actor, this.tiles.values()))
+      payloadJson: JSON.stringify(buildTechUpdatePayload(actor, this.tiles.values(), { incomePerMinute: this.incomePerMinuteForPlayer(actor.id) }))
     });
   }
 
@@ -3971,7 +4032,7 @@ export class SimulationRuntime {
       eventType: "DOMAIN_UPDATE",
       commandId: command.commandId,
       playerId: command.playerId,
-      payloadJson: JSON.stringify(buildDomainUpdatePayload(actor, this.tiles.values()))
+      payloadJson: JSON.stringify(buildDomainUpdatePayload(actor, this.tiles.values(), { incomePerMinute: this.incomePerMinuteForPlayer(actor.id) }))
     });
   }
 
@@ -4243,6 +4304,7 @@ export class SimulationRuntime {
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(simulationTileKey(tile.x, tile.y)), this.now(), {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
+      ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys } : {}),
       tiles: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
@@ -4286,6 +4348,7 @@ export class SimulationRuntime {
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(tileKey), now, {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
+      ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys } : {}),
       tiles: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });

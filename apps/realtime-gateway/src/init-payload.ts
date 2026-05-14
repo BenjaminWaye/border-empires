@@ -61,6 +61,10 @@ type DomainCatalogEntry = {
   cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
 };
 
+type ModKey = "attack" | "defense" | "income" | "vision";
+type StatMods = Record<ModKey, number>;
+type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
+
 type GatewayInitPayload = {
   runtimeIdentity: {
     sourceType: "legacy-snapshot" | "seed-profile";
@@ -91,6 +95,8 @@ type GatewayInitPayload = {
     upkeepLastTick?: Record<string, unknown>;
     techIds: string[];
     domainIds: string[];
+    mods: StatMods;
+    modBreakdown: ModBreakdown;
     availableTechPicks: number;
     techRootId: string;
     homeTile?: { x: number; y: number };
@@ -199,6 +205,57 @@ export const DOMAIN_TREE_PATH = resolveDataPath(DOMAIN_TREE_RELATIVE_CANDIDATES)
 
 const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: TechCatalogEntry[] };
 const domainTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as { domains: DomainCatalogEntry[] };
+const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
+const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
+
+const recomputeMods = (techIds: readonly string[], domainIds: readonly string[]): StatMods => {
+  const next: StatMods = { attack: 1, defense: 1, income: 1, vision: 1 };
+  for (const techId of techIds) {
+    const tech = techEntryById.get(techId);
+    if (!tech?.mods) continue;
+    next.attack *= tech.mods.attack ?? 1;
+    next.defense *= tech.mods.defense ?? 1;
+    next.income *= tech.mods.income ?? 1;
+    next.vision *= tech.mods.vision ?? 1;
+  }
+  for (const domainId of domainIds) {
+    const domain = domainEntryById.get(domainId);
+    if (!domain?.mods) continue;
+    next.attack *= domain.mods.attack ?? 1;
+    next.defense *= domain.mods.defense ?? 1;
+    next.income *= domain.mods.income ?? 1;
+    next.vision *= domain.mods.vision ?? 1;
+  }
+  return next;
+};
+
+const emptyModBreakdown = (): ModBreakdown => ({
+  attack: [{ label: "Base", mult: 1 }],
+  defense: [{ label: "Base", mult: 1 }],
+  income: [{ label: "Base", mult: 1 }],
+  vision: [{ label: "Base", mult: 1 }]
+});
+
+const addModBreakdownEntry = (breakdown: ModBreakdown, label: string, mods: Partial<StatMods> | undefined): void => {
+  if (!mods) return;
+  for (const key of ["attack", "defense", "income", "vision"] as const) {
+    const mult = mods[key];
+    if (typeof mult === "number" && Number.isFinite(mult) && mult !== 1) breakdown[key].push({ label, mult });
+  }
+};
+
+const buildModBreakdown = (techIds: readonly string[], domainIds: readonly string[]): ModBreakdown => {
+  const breakdown = emptyModBreakdown();
+  for (const techId of techIds) {
+    const tech = techEntryById.get(techId);
+    addModBreakdownEntry(breakdown, tech?.name ?? techId, tech?.mods);
+  }
+  for (const domainId of domainIds) {
+    const domain = domainEntryById.get(domainId);
+    addModBreakdownEntry(breakdown, domain?.name ?? domainId, domain?.mods);
+  }
+  return breakdown;
+};
 
 const hexColorForPlayerId = (playerId: string): string => {
   let hash = 0;
@@ -855,6 +912,8 @@ export const buildGatewayInitPayload = (
       ),
       techIds: liveSnapshotPlayer?.techIds ?? techIds,
       domainIds: liveSnapshotPlayer?.domainIds ?? domainIds,
+      mods: liveSnapshotPlayer?.mods ?? recomputeMods(liveSnapshotPlayer?.techIds ?? techIds, liveSnapshotPlayer?.domainIds ?? domainIds),
+      modBreakdown: liveSnapshotPlayer?.modBreakdown ?? buildModBreakdown(liveSnapshotPlayer?.techIds ?? techIds, liveSnapshotPlayer?.domainIds ?? domainIds),
       availableTechPicks: techChoices.length,
       techRootId: "rewrite-local",
       ...(initialState?.respawnNotice ? { respawnNotice: initialState.respawnNotice } : {}),

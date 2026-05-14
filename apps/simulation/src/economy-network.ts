@@ -127,6 +127,21 @@ export const dockGoldOutputMultiplierForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">
 ): number => multiplicativeEffectForPlayer(player, "dockGoldOutputMult");
 
+export const firstThreeTownKeysForPlayer = (
+  playerId: string,
+  tiles: Iterable<Pick<DomainTileState, "x" | "y" | "ownerId" | "ownershipState" | "town">>
+): Set<string> =>
+  new Set(
+    [...tiles]
+      .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.town)
+      .slice(0, 3)
+      .map((tile) => keyFor(tile.x, tile.y))
+  );
+
+export const firstThreeTownsGoldOutputMultiplierForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => multiplicativeEffectForPlayer(player, "firstThreeTownsGoldOutputMult");
+
 export const dockConnectionBonusPerLinkForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">
 ): number => {
