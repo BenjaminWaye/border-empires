@@ -316,6 +316,8 @@ export type PlayerSubscriptionSnapshot = {
     pendingSettlements: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }>;
     techIds: string[];
     domainIds: string[];
+    mods?: Record<"attack" | "defense" | "income" | "vision", number>;
+    modBreakdown?: Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>;
   };
   worldStatus?: WorldStatusSnapshot;
   season?: SimulationSeasonState;

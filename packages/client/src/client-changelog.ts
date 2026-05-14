@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.14.1",
+  version: "2026.05.14.2",
   title: "What's New",
-  summary: "Empty server-error log spam is gone — the client now drops obviously-malformed ERROR messages with empty code and message instead of flooding the console. Recent fixes also cancel pending settlement progress on tile capture and force fresh detail refresh on pressed tiles. Tech/domain canResearch live recompute, stuck-build self-heal, Territorial Control, Building menu copy, day-one defenses, and Defensibility tab improvements from prior releases are included.",
+  summary: "Mercantile Charter now gives the first three cities +50% gold output, and the Active Bonuses panel receives current research/domain modifiers from rewrite updates and reconnect INIT payloads. Empty server-error log spam, settlement cancellation on capture, fresh tile-detail refreshes, and live tech affordability fixes are also included.",
   entries: [
+    {
+      introducedIn: "2026.05.14.2",
+      title: "Mercantile Charter boosts the first three cities harder",
+      why: "The Tier 1 city-income domain was too timid at +15%, and rewrite staging was only showing the first-three-city effect in domain text instead of applying it to live city income.",
+      changes: [
+        "Mercantile Charter now grants +50% gold output to the first three settled towns.",
+        "Rewrite economy snapshots and buffered tile yields now apply the first-three-city gold multiplier, while broader resource-output bonuses stay reserved for later domain tiers.",
+        "The Active Bonuses panel now receives the current research/domain stat modifiers and source rows from rewrite updates and reconnect INIT payloads."
+      ]
+    },
     {
       introducedIn: "2026.05.14.1",
       title: "Stop logging empty server-error noise",
