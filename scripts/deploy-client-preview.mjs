@@ -9,7 +9,7 @@ import {
 } from "./vercel-deploy-guards.mjs";
 
 const rootDir = new URL("../", import.meta.url);
-const previewGatewayWsUrl = process.env.PREVIEW_GATEWAY_WS_URL ?? process.env.STAGING_GATEWAY_WS_URL ?? "wss://border-empires-gateway-staging.fly.dev/ws";
+const previewGatewayWsUrl = process.env.PREVIEW_GATEWAY_WS_URL ?? process.env.STAGING_GATEWAY_WS_URL ?? "wss://border-empires-combined-staging.fly.dev/ws";
 
 const run = (command, args, options = {}) => {
   const result = spawnSync(command, args, {
