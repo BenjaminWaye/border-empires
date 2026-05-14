@@ -305,6 +305,46 @@ export type VisibilityAuditSample = {
   redacted: boolean;
 };
 
+export type SimulationTileWireDelta = {
+  x: number;
+  y: number;
+  terrain?: Terrain;
+  resource?: string;
+  dockId?: string;
+  ownerId?: string;
+  ownershipState?: string;
+  townJson?: string;
+  townType?: string;
+  townName?: string;
+  townPopulationTier?: string;
+  fortJson?: string;
+  observatoryJson?: string;
+  siegeOutpostJson?: string;
+  economicStructureJson?: string;
+  sabotageJson?: string;
+  shardSiteJson?: string;
+};
+
+const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWireDelta => ({
+  x: tile.x,
+  y: tile.y,
+  terrain: tile.terrain,
+  ...(tile.resource ? { resource: tile.resource } : {}),
+  ...(tile.dockId ? { dockId: tile.dockId } : {}),
+  ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+  ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+  ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
+  ...(tile.town?.type ? { townType: tile.town.type } : {}),
+  ...(tile.town?.name ? { townName: tile.town.name } : {}),
+  ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
+  ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
+  ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
+  ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+  ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
+  ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
+  ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {})
+});
+
 const createPlayersFromRecoveredState = (
   initialState?: RecoveredSimulationState,
   fallbackPlayers?: ReadonlyMap<string, RuntimePlayer>
@@ -2305,6 +2345,34 @@ export class SimulationRuntime {
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
     };
+  }
+
+  exportTilesInAreaForPlayer(
+    playerId: string,
+    centerX: number,
+    centerY: number,
+    radius: number,
+    options?: { fullVisibility?: boolean }
+  ): SimulationTileWireDelta[] {
+    const wrapX = (value: number): number => ((value % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
+    const wrapY = (value: number): number => ((value % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
+    const collected: SimulationTileWireDelta[] = [];
+    const seen = new Set<string>();
+    const r = Math.max(0, Math.floor(radius));
+    for (let dy = -r; dy <= r; dy += 1) {
+      for (let dx = -r; dx <= r; dx += 1) {
+        const x = wrapX(centerX + dx);
+        const y = wrapY(centerY + dy);
+        const tileKey = simulationTileKey(x, y);
+        if (seen.has(tileKey)) continue;
+        seen.add(tileKey);
+        const tile = this.tiles.get(tileKey);
+        if (!tile) continue;
+        collected.push(domainTileToWireDelta(tile));
+      }
+    }
+    if (options?.fullVisibility) return collected;
+    return this.filterTileDeltasForPlayer(collected, playerId);
   }
 
   filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }>(

@@ -624,49 +624,89 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
     subscriptionNamespace: liveSubscriptionNamespace
   });
-  const tileDetailRefreshByPlayer = new Map<string, Promise<PlayerSubscriptionSnapshot>>();
-  const refreshPlayerTileDetailSnapshot = async (playerId: string, fullVisibility: boolean): Promise<PlayerSubscriptionSnapshot> => {
-    const refreshKey = `${playerId}:${fullVisibility ? "full" : "visible"}`;
-    const existingRefresh = tileDetailRefreshByPlayer.get(refreshKey);
-    if (existingRefresh) return existingRefresh;
-
-    const refreshPromise = retrySimulationRpc(
-      "gateway tile detail refresh",
-      () =>
-        simulationClient.subscribePlayer(
-          playerId,
-          JSON.stringify({
-            mode: "bootstrap-only",
-            emitBootstrapEvent: false,
-            fullVisibility,
-            trigger: "gateway_tile_detail_refresh"
-          })
-        ),
+  const mergeTileDetailIntoSnapshot = (
+    snapshot: PlayerSubscriptionSnapshot,
+    freshTiles: PlayerSubscriptionSnapshot["tiles"],
+    upkeepLastTick: NonNullable<PlayerSubscriptionSnapshot["player"]>["upkeepLastTick"] | undefined
+  ): PlayerSubscriptionSnapshot => {
+    if (freshTiles.length === 0 && !upkeepLastTick) return snapshot;
+    const tileIndex = new Map<string, number>();
+    snapshot.tiles.forEach((tile, idx) => tileIndex.set(`${tile.x},${tile.y}`, idx));
+    const nextTiles = [...snapshot.tiles];
+    let appended = false;
+    for (const fresh of freshTiles) {
+      const key = `${fresh.x},${fresh.y}`;
+      const idx = tileIndex.get(key);
+      if (typeof idx === "number") {
+        nextTiles[idx] = { ...nextTiles[idx], ...fresh } as typeof nextTiles[number];
+      } else {
+        nextTiles.push(fresh);
+        tileIndex.set(key, nextTiles.length - 1);
+        appended = true;
+      }
+    }
+    if (appended) nextTiles.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+    const nextPlayer =
+      upkeepLastTick && snapshot.player
+        ? { ...snapshot.player, upkeepLastTick }
+        : snapshot.player;
+    return {
+      ...snapshot,
+      ...(nextPlayer ? { player: nextPlayer } : {}),
+      tiles: nextTiles
+    };
+  };
+  const tileDetailFetchByKey = new Map<string, Promise<PlayerSubscriptionSnapshot | undefined>>();
+  const fetchTileDetailFromSim = async (
+    playerId: string,
+    x: number,
+    y: number,
+    fullVisibility: boolean
+  ): Promise<PlayerSubscriptionSnapshot | undefined> => {
+    const fetchKey = `${playerId}:${x}:${y}:${fullVisibility ? "full" : "visible"}`;
+    const existing = tileDetailFetchByKey.get(fetchKey);
+    if (existing) return existing;
+    const fetchRpc = simulationClient.fetchTileDetail;
+    if (typeof fetchRpc !== "function") {
+      return undefined;
+    }
+    const fetchPromise = retrySimulationRpc(
+      "gateway tile detail fetch",
+      () => fetchRpc(playerId, x, y, fullVisibility),
       simulationSubscribeTimeoutMs,
       (error, attempt) => {
-        recordGatewayEvent("warn", "gateway_tile_detail_refresh_retry", {
+        recordGatewayEvent("warn", "gateway_tile_detail_fetch_retry", {
           playerId,
+          x,
+          y,
           fullVisibility,
           attempt,
           error: error instanceof Error ? error.message : String(error)
         });
       }
     )
-      .then((snapshot) => {
-        playerSubscriptions.seedSnapshot(playerId, snapshot);
-        syncGatewaySnapshotMetricsFromCache(playerId);
-        recordGatewayEvent("info", "gateway_tile_detail_refresh_ready", {
-          playerId,
-          fullVisibility,
-          tileCount: snapshot.tiles.length
+      .then((result) => {
+        let updatedSnapshot: PlayerSubscriptionSnapshot | undefined;
+        playerSubscriptions.updateSnapshot(playerId, (snapshot) => {
+          const merged = mergeTileDetailIntoSnapshot(snapshot, result.tiles, result.upkeepLastTick);
+          updatedSnapshot = merged;
+          return merged;
         });
-        return snapshot;
+        syncGatewaySnapshotMetricsFromCache(playerId);
+        recordGatewayEvent("info", "gateway_tile_detail_fetch_ready", {
+          playerId,
+          x,
+          y,
+          fullVisibility,
+          tileCount: result.tiles.length
+        });
+        return updatedSnapshot;
       })
       .finally(() => {
-        tileDetailRefreshByPlayer.delete(refreshKey);
+        tileDetailFetchByKey.delete(fetchKey);
       });
-    tileDetailRefreshByPlayer.set(refreshKey, refreshPromise);
-    return refreshPromise;
+    tileDetailFetchByKey.set(fetchKey, fetchPromise);
+    return fetchPromise;
   };
   const profileOverrides = createPlayerProfileOverrides();
   const socialState = createSocialState({
@@ -1675,8 +1715,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
             }
             if (simulationHealth.connected) {
-              void refreshPlayerTileDetailSnapshot(playerId, session.fogDisabled)
+              void fetchTileDetailFromSim(playerId, message.x, message.y, session.fogDisabled)
                 .then((snapshot) => {
+                  if (!snapshot) return;
                   const freshTileDetail = buildSnapshotTileDetail(snapshot, playerId, message.x, message.y);
                   if (freshTileDetail) {
                     sendJson(socket, {
@@ -1686,11 +1727,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   }
                 })
                 .catch((error) => {
-                  if (cachedSnapshot) {
-                    playerSubscriptions.seedSnapshot(playerId, cachedSnapshot);
-                    syncGatewaySnapshotMetricsFromCache(playerId);
-                  }
-                  recordGatewayEvent("warn", "gateway_tile_detail_refresh_failed", {
+                  recordGatewayEvent("warn", "gateway_tile_detail_fetch_failed", {
                     playerId,
                     x: message.x,
                     y: message.y,
