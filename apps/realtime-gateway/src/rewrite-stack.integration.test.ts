@@ -622,7 +622,8 @@ describe("rewrite stack integration", () => {
       port: 0,
       logger: false,
       simulationAddress: simulationAddress.address,
-      commandStore: new InMemoryGatewayCommandStore()
+      commandStore: new InMemoryGatewayCommandStore(),
+      defaultHumanPlayerId: "player-1"
     });
     cleanup.push(() => gateway.close());
     const gatewayAddress = await gateway.start();
@@ -747,6 +748,145 @@ describe("rewrite stack integration", () => {
       expect.objectContaining({
         type: "TRUCE_UPDATE",
         activeTruces: [expect.objectContaining({ otherPlayerId: "player-1" })]
+      })
+    );
+  });
+
+  it("lets pressured strained seeded AI players accept longer truce offers before they have a live socket", async () => {
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      seedProfile: "stress-10ai",
+      log: silentLog
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      simulationAddress: simulationAddress.address,
+      commandStore: new InMemoryGatewayCommandStore(),
+      simulationSeedProfile: "stress-10ai",
+      defaultHumanPlayerId: "player-1"
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const playerOne = await openSocket(gatewayAddress.wsUrl);
+    cleanup.push(() => closeSocket(playerOne.socket));
+
+    playerOne.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    expect(await nextNonBootstrapMessage(playerOne, "player one init")).toEqual(expect.objectContaining({ type: "INIT" }));
+
+    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "AI 1", durationHours: 24 }));
+
+    expect(
+      await nextMatchingMessage(
+        playerOne,
+        "ai truce update",
+        (message) =>
+          message.type === "TRUCE_UPDATE" &&
+          Array.isArray(message.outgoingTruceRequests) &&
+          message.outgoingTruceRequests.length > 0
+      )
+    ).toEqual(
+      expect.objectContaining({
+        type: "TRUCE_UPDATE",
+        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-1", toName: "AI 1", durationHours: 24 })]
+      })
+    );
+    expect(await nextTypedMessage(playerOne, "ai truce requested", "TRUCE_REQUESTED")).toEqual(
+      expect.objectContaining({
+        type: "TRUCE_REQUESTED",
+        targetName: "AI 1"
+      })
+    );
+    expect(
+      await nextMatchingMessage(
+        playerOne,
+        "ai truce accepted",
+        (message) => message.type === "TRUCE_UPDATE" && Array.isArray(message.activeTruces) && message.activeTruces.length > 0
+      )
+    ).toEqual(
+      expect.objectContaining({
+        type: "TRUCE_UPDATE",
+        activeTruces: [expect.objectContaining({ otherPlayerId: "ai-1", otherPlayerName: "AI 1" })],
+        announcement: "AI 1 and player-1 agreed to a 24h truce."
+      })
+    );
+  });
+
+  it("lets unpressured seeded AI players decline truce offers before they have a live socket", async () => {
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      seedProfile: "stress-10ai",
+      log: silentLog
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      simulationAddress: simulationAddress.address,
+      commandStore: new InMemoryGatewayCommandStore(),
+      simulationSeedProfile: "stress-10ai",
+      defaultHumanPlayerId: "player-1"
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const playerOne = await openSocket(gatewayAddress.wsUrl);
+    cleanup.push(() => closeSocket(playerOne.socket));
+
+    playerOne.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    expect(await nextNonBootstrapMessage(playerOne, "player one init")).toEqual(expect.objectContaining({ type: "INIT" }));
+
+    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "AI 2", durationHours: 12 }));
+
+    expect(
+      await nextMatchingMessage(
+        playerOne,
+        "ai truce pending",
+        (message) =>
+          message.type === "TRUCE_UPDATE" &&
+          Array.isArray(message.outgoingTruceRequests) &&
+          message.outgoingTruceRequests.some((request) => {
+            return Boolean(
+              request &&
+                typeof request === "object" &&
+                "toPlayerId" in request &&
+                (request as { toPlayerId?: unknown }).toPlayerId === "ai-2"
+            );
+          })
+      )
+    ).toEqual(
+      expect.objectContaining({
+        type: "TRUCE_UPDATE",
+        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-2", toName: "AI 2", durationHours: 12 })]
+      })
+    );
+    expect(await nextTypedMessage(playerOne, "ai truce requested", "TRUCE_REQUESTED")).toEqual(
+      expect.objectContaining({
+        type: "TRUCE_REQUESTED",
+        targetName: "AI 2"
+      })
+    );
+    expect(
+      await nextMatchingMessage(
+        playerOne,
+        "ai truce declined",
+        (message) => message.type === "TRUCE_UPDATE" && message.announcement === "AI 2 declined your truce offer."
+      )
+    ).toEqual(
+      expect.objectContaining({
+        type: "TRUCE_UPDATE",
+        outgoingTruceRequests: [],
+        announcement: "AI 2 declined your truce offer."
       })
     );
   });
