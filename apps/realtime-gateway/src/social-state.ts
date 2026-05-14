@@ -54,6 +54,7 @@ type SocialPlayerRecord = {
 type SocialActionResult =
   | { ok: true; notifyPlayerIds: string[]; payloadsByPlayerId: Map<string, unknown[]> }
   | { ok: false; code: string; message: string };
+type SocialSyncResult = Extract<SocialActionResult, { ok: true }>;
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
@@ -71,6 +72,29 @@ const findAllianceRequestBetweenPlayers = (
     }
   }
   return undefined;
+};
+
+const findTruceRequestBetweenPlayers = (
+  requests: Iterable<SocialTruceRequest>,
+  playerAId: string,
+  playerBId: string
+): SocialTruceRequest | undefined => {
+  for (const request of requests) {
+    if (
+      (request.fromPlayerId === playerAId && request.toPlayerId === playerBId) ||
+      (request.fromPlayerId === playerBId && request.toPlayerId === playerAId)
+    ) {
+      return request;
+    }
+  }
+  return undefined;
+};
+
+const playerHasOutgoingTruceRequest = (requests: Iterable<SocialTruceRequest>, playerId: string): boolean => {
+  for (const request of requests) {
+    if (request.fromPlayerId === playerId) return true;
+  }
+  return false;
 };
 
 const activeTruceBetween = (
@@ -99,6 +123,7 @@ export type SocialState = {
   registerPlayer: (playerId: string, name: string) => void;
   renamePlayer: (playerId: string, name: string) => void;
   snapshotForPlayer: (playerId: string) => SocialSnapshot;
+  syncPlayers: (playerIds: string[], announcementByPlayerId?: Partial<Record<string, string>>) => SocialSyncResult;
   requestAlliance: (fromPlayerId: string, targetPlayerName: string) => SocialActionResult;
   acceptAlliance: (playerId: string, requestId: string) => SocialActionResult;
   rejectAlliance: (playerId: string, requestId: string) => SocialActionResult;
@@ -106,7 +131,7 @@ export type SocialState = {
   breakAlliance: (playerId: string, targetPlayerId: string) => SocialActionResult;
   requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24) => SocialActionResult;
   acceptTruce: (playerId: string, requestId: string) => SocialActionResult;
-  rejectTruce: (playerId: string, requestId: string) => SocialActionResult;
+  rejectTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   cancelTruce: (playerId: string, requestId: string) => SocialActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
 };
@@ -199,7 +224,7 @@ export const createSocialState = (options: {
     return payloads;
   };
 
-  const ok = (playerIds: string[], announcementByPlayerId?: Partial<Record<string, string>>): SocialActionResult => ({
+  const ok = (playerIds: string[], announcementByPlayerId?: Partial<Record<string, string>>): SocialSyncResult => ({
     ok: true,
     notifyPlayerIds: playerIds,
     payloadsByPlayerId: updatePayloadsFor(playerIds, announcementByPlayerId)
@@ -223,6 +248,9 @@ export const createSocialState = (options: {
       }
     },
     snapshotForPlayer,
+    syncPlayers(playerIds, announcementByPlayerId) {
+      return ok(playerIds, announcementByPlayerId);
+    },
     requestAlliance(fromPlayerId, targetPlayerName) {
       sweepExpired();
       const actor = ensurePlayer(fromPlayerId);
@@ -298,6 +326,12 @@ export const createSocialState = (options: {
       if (playerHasActiveTruce(target.id, trucesByPair, now())) {
         return { ok: false, code: "TRUCE_EXISTS", message: "target already has an active truce" };
       }
+      if (playerHasOutgoingTruceRequest(truceRequests.values(), actor.id)) {
+        return { ok: false, code: "TRUCE_REQUEST_PENDING", message: "you already have a pending truce offer" };
+      }
+      if (findTruceRequestBetweenPlayers(truceRequests.values(), actor.id, target.id)) {
+        return { ok: false, code: "TRUCE_REQUEST_PENDING", message: "a truce offer is already pending" };
+      }
       const request: SocialTruceRequest = {
         id: crypto.randomUUID(),
         fromPlayerId: actor.id,
@@ -342,14 +376,14 @@ export const createSocialState = (options: {
       const announcement = `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
       return ok([actor.id, from.id], { [actor.id]: announcement, [from.id]: announcement });
     },
-    rejectTruce(playerId, requestId) {
+    rejectTruce(playerId, requestId, announcementByPlayerId) {
       sweepExpired();
       const request = truceRequests.get(requestId);
       if (!request || request.toPlayerId !== playerId || request.expiresAt < now()) {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
       truceRequests.delete(requestId);
-      return ok([playerId, request.fromPlayerId]);
+      return ok([playerId, request.fromPlayerId], announcementByPlayerId);
     },
     cancelTruce(playerId, requestId) {
       sweepExpired();

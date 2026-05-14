@@ -39,6 +39,7 @@ const baseDeps = {
   supportedOwnedDocksForTile: () => [],
   townHasSupportStructure: () => false,
   activeTruceWithPlayer: () => undefined,
+  pendingTruceWithPlayer: () => undefined,
   ownerSpawnShieldActive: () => false
 } as const;
 
