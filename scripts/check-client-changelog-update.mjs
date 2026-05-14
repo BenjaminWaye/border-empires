@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const changelogPath = "packages/client/src/client-changelog.ts";
-const relevantRoots = ["packages/client/src/", "packages/server/src/", "packages/shared/src/"];
+const relevantRoots = ["packages/client/src/", "packages/shared/src/"];
 
 const runGit = (args) =>
   execFileSync("git", args, {
