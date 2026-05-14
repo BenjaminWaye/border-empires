@@ -109,4 +109,92 @@ describe("social state", () => {
     expect(social.snapshotForPlayer("player-1").activeTruces).toHaveLength(0);
     expect(social.snapshotForPlayer("player-2").activeTruces).toHaveLength(0);
   });
+
+  it("can resync players after an accept error clears a stale truce request", () => {
+    const social = createSocialState({
+      now: () => 1_000,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "player-2", name: "Valka" },
+        { id: "player-3", name: "Beejac" }
+      ]
+    });
+
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    expect(social.requestTruce("player-3", "Nauticus", 12).ok).toBe(true);
+    const valkaRequestId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]?.id;
+    const beejacRequestId = social.snapshotForPlayer("player-1").incomingTruceRequests[0]?.id;
+    expect(valkaRequestId).toBeTruthy();
+    expect(beejacRequestId).toBeTruthy();
+
+    expect(social.acceptTruce("player-1", beejacRequestId!).ok).toBe(true);
+    expect(social.acceptTruce("player-2", valkaRequestId!).ok).toBe(false);
+
+    const sync = social.syncPlayers(["player-1", "player-2"]);
+    expect(sync.ok).toBe(true);
+    expect(sync.payloadsByPlayerId.get("player-1")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "TRUCE_UPDATE",
+          outgoingTruceRequests: [],
+          activeTruces: [expect.objectContaining({ otherPlayerId: "player-3" })]
+        })
+      ])
+    );
+    expect(sync.payloadsByPlayerId.get("player-2")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "TRUCE_UPDATE",
+          incomingTruceRequests: [],
+          activeTruces: []
+        })
+      ])
+    );
+  });
+
+  it("rejects duplicate pending truce requests between the same players", () => {
+    const social = createSocialState({
+      now: () => 1_000,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "player-2", name: "Valka" }
+      ]
+    });
+
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    expect(social.requestTruce("player-1", "Valka", 24)).toEqual({
+      ok: false,
+      code: "TRUCE_REQUEST_PENDING",
+      message: "you already have a pending truce offer"
+    });
+    expect(social.requestTruce("player-2", "Nauticus", 12)).toEqual({
+      ok: false,
+      code: "TRUCE_REQUEST_PENDING",
+      message: "a truce offer is already pending"
+    });
+    expect(social.snapshotForPlayer("player-1").outgoingTruceRequests).toHaveLength(1);
+    expect(social.snapshotForPlayer("player-2").incomingTruceRequests).toHaveLength(1);
+  });
+
+  it("rejects additional outgoing truce requests while one is already pending", () => {
+    const social = createSocialState({
+      now: () => 1_000,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "player-2", name: "Valka" },
+        { id: "player-3", name: "Beejac" }
+      ]
+    });
+
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    expect(social.requestTruce("player-1", "Beejac", 12)).toEqual({
+      ok: false,
+      code: "TRUCE_REQUEST_PENDING",
+      message: "you already have a pending truce offer"
+    });
+    expect(social.snapshotForPlayer("player-1").outgoingTruceRequests).toEqual([
+      expect.objectContaining({ toPlayerId: "player-2" })
+    ]);
+    expect(social.snapshotForPlayer("player-3").incomingTruceRequests).toHaveLength(0);
+  });
 });
