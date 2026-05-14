@@ -6,6 +6,9 @@ import { VISION_RADIUS } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "./player-runtime-summary.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
+type ModKey = keyof StatMods;
+
+export type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
 
 type TechCatalogEntry = {
   id: string;
@@ -173,7 +176,7 @@ const playerWorldFlags = (playerId: string, tiles: Iterable<AiProgressionPlanner
 const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
 const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
 
-const recomputeMods = (player: DomainPlayer): StatMods => {
+export const recomputeMods = (player: Pick<DomainPlayer, "techIds" | "domainIds">): StatMods => {
   const next: StatMods = { attack: 1, defense: 1, income: 1, vision: 1 };
   for (const techId of player.techIds) {
     const tech = techEntryById.get(techId);
@@ -192,6 +195,42 @@ const recomputeMods = (player: DomainPlayer): StatMods => {
     next.vision *= domain.mods.vision ?? 1;
   }
   return next;
+};
+
+const emptyModBreakdown = (): ModBreakdown => ({
+  attack: [{ label: "Base", mult: 1 }],
+  defense: [{ label: "Base", mult: 1 }],
+  income: [{ label: "Base", mult: 1 }],
+  vision: [{ label: "Base", mult: 1 }]
+});
+
+const addModBreakdownEntry = (
+  breakdown: ModBreakdown,
+  label: string,
+  mods: Partial<StatMods> | undefined
+): void => {
+  if (!mods) return;
+  for (const key of ["attack", "defense", "income", "vision"] as const) {
+    const mult = mods[key];
+    if (typeof mult === "number" && Number.isFinite(mult) && mult !== 1) {
+      breakdown[key].push({ label, mult });
+    }
+  }
+};
+
+export const buildModBreakdownForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): ModBreakdown => {
+  const breakdown = emptyModBreakdown();
+  for (const techId of player.techIds) {
+    const tech = techEntryById.get(techId);
+    addModBreakdownEntry(breakdown, tech?.name ?? techId, tech?.mods);
+  }
+  for (const domainId of player.domainIds ?? []) {
+    const domain = domainEntryById.get(domainId);
+    addModBreakdownEntry(breakdown, domain?.name ?? domainId, domain?.mods);
+  }
+  return breakdown;
 };
 
 export const visionRadiusBonusForPlayer = (
@@ -387,7 +426,11 @@ export const chooseDomainForPlayer = (
   return { ok: true };
 };
 
-export const buildTechUpdatePayload = (player: DomainPlayer, tiles: Iterable<DomainTileState>) => {
+export const buildTechUpdatePayload = (
+  player: DomainPlayer,
+  tiles: Iterable<DomainTileState>,
+  options?: { incomePerMinute?: number }
+) => {
   const techIds = [...player.techIds];
   const domainIds = [...(player.domainIds ?? [])];
   const techChoices = reachableTechChoices(techIds);
@@ -409,7 +452,8 @@ export const buildTechUpdatePayload = (player: DomainPlayer, tiles: Iterable<Dom
     nextChoices: techChoices,
     availableTechPicks: techChoices.length > 0 ? 1 : 0,
     mods: player.mods ?? { attack: 1, defense: 1, income: 1, vision: 1 },
-    incomePerMinute: estimateIncomePerMinuteFromTiles(player.id, tiles),
+    modBreakdown: buildModBreakdownForPlayer(player),
+    incomePerMinute: options?.incomePerMinute ?? estimateIncomePerMinuteFromTiles(player.id, tiles),
     missions: [],
     gold: player.points,
     strategicResources,
@@ -452,8 +496,12 @@ export const buildTechUpdatePayload = (player: DomainPlayer, tiles: Iterable<Dom
   };
 };
 
-export const buildDomainUpdatePayload = (player: DomainPlayer, tiles: Iterable<DomainTileState>) => {
-  const techPayload = buildTechUpdatePayload(player, tiles);
+export const buildDomainUpdatePayload = (
+  player: DomainPlayer,
+  tiles: Iterable<DomainTileState>,
+  options?: { incomePerMinute?: number }
+) => {
+  const techPayload = buildTechUpdatePayload(player, tiles, options);
   return {
     domainIds: techPayload.domainIds,
     domainChoices: techPayload.domainChoices,
@@ -461,6 +509,7 @@ export const buildDomainUpdatePayload = (player: DomainPlayer, tiles: Iterable<D
     revealCapacity: techPayload.revealCapacity,
     activeRevealTargets: techPayload.activeRevealTargets,
     mods: techPayload.mods,
+    modBreakdown: techPayload.modBreakdown,
     incomePerMinute: techPayload.incomePerMinute,
     missions: techPayload.missions,
     gold: techPayload.gold,

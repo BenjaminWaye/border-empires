@@ -6,6 +6,17 @@ type PlayerStateSnapshot = NonNullable<PlayerSubscriptionSnapshot["player"]>;
 
 const tileKeyFor = (x: number, y: number): string => `${x},${y}`;
 
+const playerProgressionFieldsFromPayload = (
+  payload: Record<string, unknown>
+): Partial<Pick<PlayerStateSnapshot, "techIds" | "domainIds" | "mods" | "modBreakdown">> => ({
+  ...(Array.isArray(payload.techIds) ? { techIds: payload.techIds as string[] } : {}),
+  ...(Array.isArray(payload.domainIds) ? { domainIds: payload.domainIds as string[] } : {}),
+  ...(payload.mods && typeof payload.mods === "object" ? { mods: payload.mods as NonNullable<PlayerStateSnapshot["mods"]> } : {}),
+  ...(payload.modBreakdown && typeof payload.modBreakdown === "object"
+    ? { modBreakdown: payload.modBreakdown as NonNullable<PlayerStateSnapshot["modBreakdown"]> }
+    : {})
+});
+
 export const applyTileDeltasToSnapshot = (
   snapshot: PlayerSubscriptionSnapshot,
   tileDeltas: TileDelta[]
@@ -81,8 +92,22 @@ export const applyPlayerMessageToSnapshot = (
               pendingSettlements: payload.pendingSettlements as PlayerStateSnapshot["pendingSettlements"]
             }
           : {}),
-        ...(Array.isArray(payload.techIds) ? { techIds: payload.techIds as string[] } : {}),
-        ...(Array.isArray(payload.domainIds) ? { domainIds: payload.domainIds as string[] } : {})
+        ...playerProgressionFieldsFromPayload(payload)
+      }
+    };
+  }
+
+  if ((payload.type === "TECH_UPDATE" || payload.type === "DOMAIN_UPDATE") && snapshot.player) {
+    return {
+      ...snapshot,
+      player: {
+        ...snapshot.player,
+        ...(typeof payload.gold === "number" ? { gold: payload.gold } : {}),
+        ...(payload.strategicResources && typeof payload.strategicResources === "object"
+          ? { strategicResources: payload.strategicResources as PlayerStateSnapshot["strategicResources"] }
+          : {}),
+        ...(typeof payload.incomePerMinute === "number" ? { incomePerMinute: payload.incomePerMinute } : {}),
+        ...playerProgressionFieldsFromPayload(payload)
       }
     };
   }
