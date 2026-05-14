@@ -284,6 +284,12 @@ type SimulationRuntimeOptions = {
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
+  onCaptureRevealBuilt?: (sample: {
+    commandId: string;
+    playerId: string;
+    tileCount: number;
+    durationMs: number;
+  }) => void;
 };
 
 export type VisibilityAuditSample = {
@@ -624,6 +630,9 @@ export class SimulationRuntime {
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
+  private readonly onCaptureRevealBuilt:
+    | ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void)
+    | undefined;
   private readonly onQueueDrain:
     | ((sample: {
         durationMs: number;
@@ -671,6 +680,7 @@ export class SimulationRuntime {
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onVisibilityAudit = options.onVisibilityAudit;
+    this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.players =
       createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
       (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
@@ -5560,10 +5570,22 @@ export class SimulationRuntime {
         ownershipState: "FRONTIER"
       };
       this.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
-      const tileDeltas =
-        attacker?.isAi
-          ? [this.tileDeltaFromState(resolvedTarget)]
-          : this.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY);
+      let tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[];
+      if (attacker?.isAi) {
+        tileDeltas = [this.tileDeltaFromState(resolvedTarget)];
+      } else {
+        const measure = Boolean(this.onCaptureRevealBuilt);
+        const startedAt = measure ? this.now() : 0;
+        tileDeltas = this.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY);
+        if (measure) {
+          this.onCaptureRevealBuilt?.({
+            commandId: lock.commandId,
+            playerId: lock.playerId,
+            tileCount: tileDeltas.length,
+            durationMs: Math.max(0, this.now() - startedAt)
+          });
+        }
+      }
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
         commandId: lock.commandId,
