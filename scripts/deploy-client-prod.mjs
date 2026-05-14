@@ -94,17 +94,21 @@ if (project.projectName !== vercelClientProject.projectName) {
 }
 
 run("pnpm", ["--filter", "@border-empires/shared", "build"]);
-// Inject prod runtime env into the Vite build so the bundle hardcodes the
-// rewrite-gateway URL. Without these, the client falls back to the legacy
-// monolith URL (border-empires.fly.dev) for non-staging hostnames — see
-// packages/client/src/client-app-runtime-env.ts.
+// Local pnpm build is a smoke test — Vercel reruns the build remotely from
+// the uploaded tarball using its own env. We forward VITE_* env vars to
+// both: the local build (so build failures surface early) and the remote
+// Vercel build via --build-env (so the bundle bakes the prod gateway URL).
+// Without --build-env, the client falls back to wss://border-empires.fly.dev/ws
+// for non-staging hostnames — see packages/client/src/client-app-runtime-env.ts.
+const viteBuildEnvKeys = ["VITE_GATEWAY_WS_URL", "VITE_WS_URL", "VITE_BACKEND_DEFAULT"];
 const clientBuildEnv = {
   ...process.env,
-  ...(process.env.VITE_GATEWAY_WS_URL ? { VITE_GATEWAY_WS_URL: process.env.VITE_GATEWAY_WS_URL } : {}),
-  ...(process.env.VITE_WS_URL ? { VITE_WS_URL: process.env.VITE_WS_URL } : {}),
-  ...(process.env.VITE_BACKEND_DEFAULT ? { VITE_BACKEND_DEFAULT: process.env.VITE_BACKEND_DEFAULT } : {})
+  ...Object.fromEntries(viteBuildEnvKeys.filter((key) => process.env[key]).map((key) => [key, process.env[key]]))
 };
 run("pnpm", ["--filter", "@border-empires/client", "build"], { env: clientBuildEnv });
+const vercelBuildEnvArgs = viteBuildEnvKeys
+  .filter((key) => process.env[key])
+  .flatMap((key) => ["--build-env", `${key}=${process.env[key]}`]);
 const deploymentUrl = normalizeDeploymentUrl(
   run(
     "npx",
@@ -115,7 +119,8 @@ const deploymentUrl = normalizeDeploymentUrl(
       "--yes",
       "--archive=tgz",
       "--scope",
-      vercelClientProject.scope
+      vercelClientProject.scope,
+      ...vercelBuildEnvArgs
     ],
     { env: vercelClientEnv() }
   )
