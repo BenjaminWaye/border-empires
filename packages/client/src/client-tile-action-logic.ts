@@ -129,6 +129,7 @@ type TileActionLogicDeps = {
       | "ASTRAL_DOCK_PART"
   ) => boolean;
   activeTruceWithPlayer: (playerId?: string | null) => ActiveTruceView | undefined;
+  pendingTruceWithPlayer: (playerId?: string | null) => "incoming" | "outgoing" | undefined;
   ownerSpawnShieldActive: (ownerId: string) => boolean;
 };
 
@@ -2199,6 +2200,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   }
   if (tile.ownerId && tile.ownerId !== state.me && tile.ownerId !== "barbarian") {
     const activeTruce = deps.activeTruceWithPlayer(tile.ownerId);
+    const pendingTruce = deps.pendingTruceWithPlayer(tile.ownerId);
+    const hasOutgoingPendingTruce = state.outgoingTruceRequests.some((request) => request.expiresAt > Date.now());
     if (activeTruce) {
       out.push({
         id: "break_truce",
@@ -2206,15 +2209,31 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailability(true, "", "Break current truce")
       });
     } else {
+      const pendingTruceReason =
+        pendingTruce === "outgoing"
+          ? "Truce offer already pending"
+          : pendingTruce === "incoming"
+            ? "Incoming truce offer pending"
+            : hasOutgoingPendingTruce
+              ? "You already have a pending truce offer"
+              : undefined;
+      const truceOfferAvailable = state.activeTruces.length < 1 && !pendingTruce && !hasOutgoingPendingTruce;
+      const truceOfferBlocker = pendingTruceReason ?? "You already have an active truce";
+      const pendingCost = pendingTruce || hasOutgoingPendingTruce ? "Pending" : undefined;
       out.push({
         id: "offer_truce_12h",
-        label: "Offer Truce 12h",
-        ...tileActionAvailability(state.activeTruces.length < 1, "You already have an active truce", "12h")
+        label:
+          pendingTruce === "outgoing" || hasOutgoingPendingTruce
+            ? "Truce Offer Pending"
+            : pendingTruce === "incoming"
+              ? "Respond in Social Panel"
+              : "Offer Truce 12h",
+        ...tileActionAvailability(truceOfferAvailable, truceOfferBlocker, pendingCost ?? "12h")
       });
       out.push({
         id: "offer_truce_24h",
-        label: "Offer Truce 24h",
-        ...tileActionAvailability(state.activeTruces.length < 1, "You already have an active truce", "24h")
+        label: pendingTruce || hasOutgoingPendingTruce ? "Truce Already Pending" : "Offer Truce 24h",
+        ...tileActionAvailability(truceOfferAvailable, truceOfferBlocker, pendingCost ?? "24h")
       });
     }
     const revealCost = 20;
