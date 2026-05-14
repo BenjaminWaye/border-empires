@@ -121,6 +121,40 @@ describe("client gateway sync", () => {
     );
   });
 
+  it("applies pressed-tile detail metadata from gateway tile delta batches", () => {
+    const deps = createDeps();
+
+    deps.state.tiles.set("49,219", {
+      x: 49,
+      y: 219,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fogged: false,
+      detailLevel: "summary"
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 49,
+        y: 219,
+        detailLevel: "full",
+        upkeepEntries: [{ label: "Wooden Fort", perMinute: { GOLD: 0.05 } }],
+        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["WOODEN_FORT"] },
+        economicStructureJson: JSON.stringify({ ownerId: "me", type: "WOODEN_FORT", status: "active" })
+      }
+    ]);
+
+    expect(deps.state.tiles.get("49,219")).toEqual(
+      expect.objectContaining({
+        detailLevel: "full",
+        upkeepEntries: [{ label: "Wooden Fort", perMinute: { GOLD: 0.05 } }],
+        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["WOODEN_FORT"] },
+        economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" }
+      })
+    );
+  });
+
   it("accepts town summaries once population clears the renderable threshold", () => {
     // The old behavior rejected any town summary missing owner-only economy
     // fields, which silently dropped foreign towns under satellite reveal.

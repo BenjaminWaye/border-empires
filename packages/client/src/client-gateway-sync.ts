@@ -4,6 +4,7 @@ import type { Tile } from "./client-types.js";
 type TownSummary = NonNullable<Tile["town"]>;
 type PartialTownSummary = Partial<TownSummary>;
 type NormalizedGatewayTileUpdate = {
+  detailLevel?: Tile["detailLevel"];
   terrain?: Tile["terrain"];
   resource?: Tile["resource"] | undefined;
   dockId?: string | undefined;
@@ -23,6 +24,8 @@ type NormalizedGatewayTileUpdate = {
   yield?: Tile["yield"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
   yieldCap?: Tile["yieldCap"] | undefined;
+  upkeepEntries?: Tile["upkeepEntries"] | undefined;
+  history?: Tile["history"] | undefined;
   landBiome?: Tile["landBiome"] | undefined;
   regionType?: Tile["regionType"] | undefined;
 };
@@ -31,6 +34,7 @@ export type GatewayTileUpdate = {
   x: number;
   y: number;
   terrain?: Tile["terrain"];
+  detailLevel?: Tile["detailLevel"];
   resource?: string;
   dockId?: string;
   ownerId?: string | null;
@@ -48,6 +52,8 @@ export type GatewayTileUpdate = {
   yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
   yieldCap?: Tile["yieldCap"];
+  upkeepEntries?: Tile["upkeepEntries"];
+  history?: Tile["history"];
   landBiome?: Tile["landBiome"];
   regionType?: Tile["regionType"];
 };
@@ -229,6 +235,7 @@ export const normalizeGatewayTileUpdate = (
   }
 ): NormalizedGatewayTileUpdate => {
   const normalized: NormalizedGatewayTileUpdate = {};
+  if (update.detailLevel) normalized.detailLevel = update.detailLevel;
   if (update.terrain) normalized.terrain = update.terrain;
   if ("resource" in update) normalized.resource = update.resource;
   if ("dockId" in update) normalized.dockId = update.dockId;
@@ -257,6 +264,8 @@ export const normalizeGatewayTileUpdate = (
   if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("yieldCap" in update) normalized.yieldCap = update.yieldCap;
+  if ("upkeepEntries" in update) normalized.upkeepEntries = update.upkeepEntries;
+  if ("history" in update) normalized.history = update.history;
   if ("landBiome" in update) normalized.landBiome = update.landBiome;
   if ("regionType" in update) normalized.regionType = update.regionType;
   return normalized;
@@ -301,6 +310,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   });
 
   if (normalizedGateway.terrain) merged.terrain = normalizedGateway.terrain;
+  if (normalizedGateway.detailLevel) merged.detailLevel = normalizedGateway.detailLevel;
   const terrainChanged = previousTerrain !== merged.terrain;
   if (merged.terrain !== "LAND") {
     delete merged.landBiome;
@@ -389,6 +399,14 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("yieldCap" in normalizedGateway) {
     if (normalizedGateway.yieldCap) merged.yieldCap = normalizedGateway.yieldCap;
     else delete merged.yieldCap;
+  }
+  if ("upkeepEntries" in normalizedGateway) {
+    if (normalizedGateway.upkeepEntries) merged.upkeepEntries = normalizedGateway.upkeepEntries;
+    else delete merged.upkeepEntries;
+  }
+  if ("history" in normalizedGateway) {
+    if (normalizedGateway.history) merged.history = normalizedGateway.history;
+    else delete merged.history;
   }
   if ("landBiome" in normalizedGateway) {
     if (normalizedGateway.landBiome) merged.landBiome = normalizedGateway.landBiome;

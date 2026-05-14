@@ -1196,7 +1196,7 @@ describe("rewrite stack integration", () => {
     );
   });
 
-  it("refreshes the simulation snapshot before answering pressed tile details", async () => {
+  it("answers pressed tile details from cache and follows with a fresh simulation snapshot", async () => {
     const subscriptionTriggers: string[] = [];
     const gateway = await createRealtimeGatewayApp({
       host: "127.0.0.1",
@@ -1244,6 +1244,21 @@ describe("rewrite stack integration", () => {
     expect(init).toEqual(expect.objectContaining({ type: "INIT" }));
 
     socket.socket.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x: 10, y: 10 }));
+    const cachedDetail = await nextNonBootstrapMessage(socket, "cached tile detail result");
+    expect(cachedDetail).toEqual(
+      expect.objectContaining({
+        type: "TILE_DELTA",
+        updates: expect.arrayContaining([
+          expect.objectContaining({
+            x: 10,
+            y: 10,
+            detailLevel: "full"
+          })
+        ])
+      })
+    );
+    expect(JSON.stringify(cachedDetail)).not.toContain("fortJson");
+
     const detail = await nextNonBootstrapMessage(socket, "fresh tile detail result");
     expect(subscriptionTriggers).toContain("gateway_tile_detail_refresh");
     expect(detail).toEqual(
