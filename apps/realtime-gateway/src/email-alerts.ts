@@ -71,6 +71,7 @@ type EmailAlertServiceOptions = EmailAlertConfig & {
 };
 
 const DEFAULT_DAILY_LIMIT = 3;
+const MIN_SEND_INTERVAL_MS = 60 * 60 * 1_000;
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const POST_TIMEOUT_MS = 5_000;
 
@@ -228,7 +229,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
   const now = options.now ?? (() => Date.now());
   const dailyLimit = clampDailyLimit(options.dailyLimit);
   const appUrl = baseUrl(options.appUrl);
-  const countersByEmail = new Map<string, { day: string; sent: number }>();
+  const countersByEmail = new Map<string, { day: string; sent: number; lastSentAt: number }>();
 
   const send = async (recipientPlayerId: string, build: (email: string) => EmailMessage): Promise<EmailAlertOutcome> => {
     if (!transport) return "disabled";
@@ -236,17 +237,23 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     const email = normalizeEmail(binding?.email);
     if (!email) return "recipient_missing";
 
-    const today = dayKey(now());
+    const sentAt = now();
+    const today = dayKey(sentAt);
     const counter = countersByEmail.get(email);
     const sentToday = counter?.day === today ? counter.sent : 0;
     if (sentToday >= dailyLimit) return "throttled";
-    countersByEmail.set(email, { day: today, sent: sentToday + 1 });
+    if (counter && sentAt - counter.lastSentAt < MIN_SEND_INTERVAL_MS) return "throttled";
+    countersByEmail.set(email, { day: today, sent: sentToday + 1, lastSentAt: sentAt });
 
     try {
       await transport.send(build(email));
       return "sent";
     } catch (error) {
-      countersByEmail.set(email, { day: today, sent: sentToday });
+      if (counter) {
+        countersByEmail.set(email, counter);
+      } else {
+        countersByEmail.delete(email);
+      }
       options.log?.error?.(
         { err: error instanceof Error ? error.message : String(error), recipientPlayerId },
         "failed to send gameplay email alert"
