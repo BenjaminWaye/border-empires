@@ -80,6 +80,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     playerNameForOwner,
     applyOptimisticTileState
   } = deps;
+  let emptyServerErrorWarned = false;
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -2401,6 +2402,21 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "ERROR") {
+      // Defense-in-depth against upstream labeling bugs (see #233 / the
+      // TILE_YIELD_ANCHOR_UPDATED fallthrough). Every legitimate rejection
+      // emitter sets a non-empty code, so an ERROR with both code and
+      // message empty is by construction a proto3-default leak from an
+      // event the gateway mis-tagged. Drop it, but log the first occurrence
+      // per session at warn level so a fresh upstream bug isn't silent.
+      const rawCode = typeof msg.code === "string" ? msg.code : "";
+      const rawMessage = typeof msg.message === "string" ? msg.message : "";
+      if (rawCode.length === 0 && rawMessage.length === 0) {
+        if (!emptyServerErrorWarned) {
+          emptyServerErrorWarned = true;
+          console.warn("[server-error] dropping empty ERROR (likely upstream labeling bug)", { msg });
+        }
+        return;
+      }
       if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
         state.pendingCollectVisibleKeys.clear();
         revertOptimisticVisibleCollectDelta();
