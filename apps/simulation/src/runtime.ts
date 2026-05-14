@@ -15,6 +15,7 @@ import {
 } from "@border-empires/game-domain";
 import {
   ATTACK_MANPOWER_MIN,
+  BARBARIAN_MULTIPLY_THRESHOLD,
   DEVELOPMENT_PROCESS_LIMIT,
   FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
@@ -671,6 +672,7 @@ export class SimulationRuntime {
     pendingSettlementTileKeys: string[];
   }>();
   private readonly locksByTile: Map<string, LockRecord>;
+  private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
@@ -1258,6 +1260,7 @@ export class SimulationRuntime {
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
+    if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
     const summary = this.summaryForPlayer(player.id);
     let cap = 0;
     for (const tier of summary.ownedTownTierByTile.values()) {
@@ -2787,7 +2790,7 @@ export class SimulationRuntime {
       originLockOwnerId: originLock?.playerId,
       targetLockedUntil: targetLock?.resolvesAt,
       targetLockOwnerId: targetLock?.playerId,
-      actionGoldCost: FRONTIER_CLAIM_COST,
+      actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
       isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
       isDockCrossing,
       isBridgeCrossing: false,
@@ -5937,6 +5940,11 @@ export class SimulationRuntime {
         playerId: lock.playerId,
         tileDeltas
       });
+      if (lock.playerId === "barbarian-1") {
+        this.applyBarbarianWalkOrMultiply(lock, previousTarget);
+      } else if (previousTarget?.ownerId === "barbarian-1") {
+        this.barbarianTileProgress.delete(lock.targetKey);
+      }
     } else if (originLost && previousOwnerId) {
       const previousOrigin = this.tiles.get(lock.originKey);
       if (previousOrigin) {
@@ -5963,6 +5971,40 @@ export class SimulationRuntime {
     if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
     if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
     if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) this.respawnIfEliminated(previousOwnerId, lock.commandId);
+  }
+
+  private barbarianProgressGain(target: DomainTileState | undefined): number {
+    if (!target) return 1;
+    return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
+  }
+
+  private applyBarbarianWalkOrMultiply(lock: LockRecord, previousTarget: DomainTileState | undefined): void {
+    const gain = this.barbarianProgressGain(previousTarget);
+    const sourceProgress = this.barbarianTileProgress.get(lock.originKey) ?? 0;
+    const newProgress = sourceProgress + gain;
+    if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD) {
+      this.barbarianTileProgress.set(lock.originKey, 0);
+      this.barbarianTileProgress.set(lock.targetKey, 0);
+      return;
+    }
+    this.barbarianTileProgress.delete(lock.originKey);
+    this.barbarianTileProgress.set(lock.targetKey, newProgress);
+    const previousOrigin = this.tiles.get(lock.originKey);
+    if (!previousOrigin || previousOrigin.ownerId !== "barbarian-1") return;
+    const releasedOrigin: DomainTileState = {
+      x: previousOrigin.x,
+      y: previousOrigin.y,
+      terrain: previousOrigin.terrain,
+      ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
+      ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {})
+    };
+    this.replaceTileState(lock.originKey, releasedOrigin);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: lock.commandId,
+      playerId: lock.playerId,
+      tileDeltas: [this.tileDeltaFromState(releasedOrigin)]
+    });
   }
 
   private previewSettledCapturePlunder(input: {

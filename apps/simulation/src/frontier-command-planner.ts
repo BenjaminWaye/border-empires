@@ -251,7 +251,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
       if (target.ownerId) {
         enemyTargets.add(targetKey);
-        if (target.ownerId === "barbarian" || target.ownershipState === "BARBARIAN") {
+        if (target.ownerId === "barbarian-1" || target.ownershipState === "BARBARIAN") {
           barbarianTargets.add(targetKey);
         } else {
           enemyPlayerTargets.add(targetKey);
@@ -267,7 +267,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
         scoreByTargetKey.set(targetKey, score);
         const candidate = { from, target, score };
         if (isBetterSelection(candidate, bestAttack)) bestAttack = candidate;
-        if (target.ownerId === "barbarian" || target.ownershipState === "BARBARIAN") {
+        if (target.ownerId === "barbarian-1" || target.ownershipState === "BARBARIAN") {
           if (isBetterSelection(candidate, bestBarbarianAttack)) bestBarbarianAttack = candidate;
         } else if (isBetterSelection(candidate, bestEnemyAttack)) {
           bestEnemyAttack = candidate;
