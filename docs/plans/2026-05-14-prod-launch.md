@@ -14,7 +14,7 @@ Updated 2026-05-14 after the combined-arch perf push. Plan reflects current real
 - Combined-staging running `195fc32`, RSS 327 MB, heap 173 MB, event-loop p99 167 ms, snapshot 3 MB. Login is working.
 - Combined-staging running at 2 GB (the OOM-era band-aid). **Now overprovisioned** — pre-perf fixes it OOM'd at 850 MB; post-fixes it's idling at 327 MB.
 - Staging Fly secrets present: `ADMIN_API_TOKEN`, `GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK`. No Firebase server-side secrets needed (gateway uses Firebase JWKS, public keys).
-- `chore/remove-legacy-server` exists locally, never pushed. Drops `packages/server`, `Dockerfile.server`, `fly.server.toml`, plus migrates the canonical `tech-tree.json` and `domain-tree.json` from `packages/server/data/` into `packages/game-domain/data/`. Half-done.
+- `chore/remove-legacy-server` exists locally, never pushed. Drops `packages/server`, `Dockerfile.server`, `fly.server.toml`, plus migrates the canonical `tech-tree.json` and `domain-tree.json` from `packages/server/data/` into `packages/game-domain/data/`. Half-done. **Do not delete `packages/server/data` until its current catalogs are byte-preserved or deliberately reconciled in `packages/game-domain/data`.**
 - **Vercel API token is `invalidToken: true`** — blocks `deploy-client-staging.mjs` / `deploy-client-prod.mjs` until refreshed. This is the single blocker for any Vercel work.
 - `play.borderempires.com` is on a Vercel deployment from `e4c9f5c9` (2026-05-02) with the bundle hardcoded to `wss://border-empires.fly.dev/ws` (the legacy app).
 - `borderempires.com` is a separate Vercel project from repo `BenjaminWaye/border-empires-hq` — reads `/hq/summary` and `/hq/archives` from `VITE_API_BASE_URL`. Coordination required.
@@ -45,13 +45,24 @@ Branch `chore/remove-legacy-server` is already half-done locally. Pick it up.
 
 1. From the existing worktree (`.codex-worktrees/...`), rebase onto current `main`.
 2. Resolve any merge conflicts from PRs that landed since (Dockerfile.combined got modified by several recent perf PRs).
-3. Run `pnpm ci:local` — must be clean.
-4. Push, open PR, merge.
-5. After merge: deploy combined-staging via `scripts/deploy-staging-all.mjs` (Fly side will succeed even if Vercel step fails on the token).
-6. Verify staging still works end-to-end:
+3. Preserve production gameplay catalogs before deleting legacy:
+   - Treat `packages/server/data/tech-tree.json` as the current canonical tech tree unless a separate design review says otherwise. It contains current production names/costs and late-game techs such as `census-records`, `aegis-dome`, `world-engine`, and `astral-dock`.
+   - Copy the current server tech tree into `packages/game-domain/data/tech-tree.json`, including the Aether Moorings fix: `unlockCustomsHouse: true` and `unlockAetherWall: true`.
+   - Add/keep regressions that byte-compare `packages/game-domain/data/tech-tree.json` and `packages/game-domain/data/domain-tree.json` to the current canonical catalogs before `packages/server` is removed.
+   - Preserve `domain-tree.json` production behavior deliberately. `crystal-network` should stay on the current unified `observatoryRangeBonus` effect unless a separate design review intentionally changes observatory protection/cast radius balance.
+4. After the catalog copy is complete, update the progression resolvers:
+   - Before `packages/server` deletion, gateway/simulation can still prefer `packages/server/data` with `packages/game-domain/data` as fallback.
+   - In the legacy-removal PR itself, remove server-data candidates only after tests prove `packages/game-domain/data` contains the current catalogs.
+   - Keep resolver tests for both gateway and simulation so they fail if the packaged game-domain catalogs drop Aether Moorings' Aether Wall unlock or lose sync with the current catalogs.
+5. Run `pnpm ci:local` — must be clean.
+6. Push, open PR, merge.
+7. After merge: deploy combined-staging via `scripts/deploy-staging-all.mjs` (Fly side will succeed even if Vercel step fails on the token).
+8. Verify staging still works end-to-end:
    - `/healthz` reports sim connected
    - `/hq/summary` returns leaderboard with `seasonId`
    - Real login completes in <5 s
+   - Tech panel shows Aether Moorings with both Harbor Exchange and Aether Wall
+   - Late-game tech cards still exist for `census-records`, `aegis-dome`, `world-engine`, and `astral-dock`
    - 30 min soak — no Slack slow-login alerts
 
 **Gate**: staging green for 30 min. If anything fails, revert PR before moving on.
@@ -156,7 +167,8 @@ Roll forward if a real bug surfaces: hot-patch via the standard `deploy-prod-all
 
 | Phase | Failure | Rollback |
 |---|---|---|
-| 1 | legacy-removal breaks staging | revert PR; the data-resolver candidates fall back to `packages/server/data` |
+| 1 | legacy-removal breaks staging | revert PR; before retry, verify `packages/game-domain/data` still contains the production tech/domain catalogs |
+| 1 | tech/domain catalog drift during legacy deletion | stop deletion; restore from the pre-removal `packages/server/data` copy, then rerun gateway/simulation resolver tests |
 | 2 | combined-prod won't start | `fly apps destroy border-empires-combined`, fix, retry |
 | 3 | deploy script broken | revert script PR, fix |
 | 4 | client cutover bad | `vercel alias set <old-deployment> play.borderempires.com` (≤ 2 min) |
