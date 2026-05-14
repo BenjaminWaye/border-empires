@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.14.6",
+  version: "2026.05.14.7",
   title: "What's New",
-  summary: "Diplomacy errors and truce results now open visible popups, outgoing truce offers stay visible in the Social panel and tile action menu, and seeded AI empires can accept or decline truce offers automatically. Aether Moorings now shows and grants its Aether Wall unlock on rewrite staging again, and pressed tile details refresh more reliably.",
+  summary: "The true-3D renderer now draws selected observatory range borders and fills on the terrain instead of as a flat screen rectangle. Diplomacy errors and truce results still open visible popups, and outgoing truce offers stay visible.",
   entries: [
+    {
+      introducedIn: "2026.05.14.7",
+      title: "Observatory range borders follow 3D terrain",
+      why: "Selecting an observatory in true-3D mode still used the old canvas strokeRect range preview, so the vision border floated as a flat screen-space box instead of tracking the angled, terrain-following map.",
+      changes: [
+        "Selected observatory vision and protection borders now render as Three.js line geometry anchored to heightfield corners.",
+        "The soft vision and protection area fills now use terrain-following 3D meshes too, preserving the old range-preview tint without flattening it over the map.",
+        "The old flat canvas observatory range overlay is now limited to 2D mode, so 3D no longer draws a mismatched rectangle on top of the scene.",
+        "Regression coverage now checks the wrapped range geometry and guards against routing the 3D observatory range back through the canvas overlay."
+      ]
+    },
     {
       introducedIn: "2026.05.14.6",
       title: "Truce offers report failures clearly",
