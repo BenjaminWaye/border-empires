@@ -184,6 +184,33 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     return undefined;
   };
 
+  // Visual-only demo: ?structuredemo=1 fakes a row of structures two
+  // tiles north of the camera so you can eyeball each mesh side-by-side
+  // without building them in-game. The MINE appears twice — once with
+  // an IRON load and once with a GEMS load — so the resource-aware
+  // mine variant is visible. Spaced one tile apart.
+  const structureDemoEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("structuredemo") === "1";
+  type StructureDemoEntry = { kind: StructureKind; resource?: "IRON" | "GEMS" };
+  const STRUCTURE_DEMO_ENTRIES: ReadonlyArray<StructureDemoEntry> = [
+    { kind: "FARMSTEAD" },
+    { kind: "WATERWORKS" },
+    { kind: "CAMP" },
+    { kind: "MINE", resource: "IRON" },
+    { kind: "MINE", resource: "GEMS" },
+    { kind: "IRONWORKS" },
+    { kind: "MARKET" },
+    { kind: "OBSERVATORY" }
+  ];
+  const structureDemoEntryFor = (wx: number, wy: number): StructureDemoEntry | undefined => {
+    if (!structureDemoEnabled) return undefined;
+    if (wy !== deps.state.camY - 2) return undefined;
+    const dx = wx - deps.state.camX;
+    if (dx < 0 || dx >= STRUCTURE_DEMO_ENTRIES.length) return undefined;
+    return STRUCTURE_DEMO_ENTRIES[dx];
+  };
+
   // A bending tile-outline marker: 4 line segments connecting the four
   // tile corners with each corner's actual rendered Y, so the outline
   // bows along with the heightfield surface instead of floating as a
@@ -796,6 +823,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (tile && ownerId === "barbarian" && terrain === "LAND") {
           barbarianOverlay.addInstance(x, z, surfaceY);
         }
+        // Resolve the underlying resource once per tile — used by the
+        // resource overlay (for the icon) AND by the structure overlay
+        // (so a MINE on a GEMS tile loads its cart with blue crystals
+        // instead of grey iron ore, keeping the resource readable).
+        let tileResource: ResourceKind | undefined;
         if (terrain === "LAND") {
           // Use the same resource source as the 2D path (`resourceFor3DPopulation`).
           // When ?reveal=1, this synthesises a resource on land tiles that
@@ -806,7 +838,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           if (resolvedResource) {
             const validResources: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR", "OIL"];
             if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
-              resourceOverlay.addInstance(x, z, surfaceY, resolvedResource as ResourceKind, wx, wy);
+              tileResource = resolvedResource as ResourceKind;
+              resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy);
             }
           }
         }
@@ -817,8 +850,27 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (tile?.economicStructure && terrain === "LAND") {
           const structureType = tile.economicStructure.type as string;
           if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
-            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind);
+            const mineResourceHint =
+              structureType === "MINE" && (tileResource === "IRON" || tileResource === "GEMS")
+                ? tileResource
+                : undefined;
+            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHint);
           }
+        }
+        // Observatory lives on its own tile field, not `economicStructure`.
+        // Render its mesh for any tile carrying an observatory record so
+        // under-construction and active states both show up — visual
+        // status differentiation can come later.
+        if (tile?.observatory && terrain === "LAND") {
+          structureOverlay.addInstance(x, z, surfaceY, "OBSERVATORY");
+        }
+        // ?structuredemo=1: drop each structure kind on a fake row two
+        // tiles north of the camera. Only fires when the URL flag is
+        // set, so it's harmless in production. The MINE entry passes a
+        // resource hint so the iron/crystal variant is exercised.
+        const demoStructureEntry = structureDemoEntryFor(wx, wy);
+        if (demoStructureEntry && terrain === "LAND") {
+          structureOverlay.addInstance(x, z, surfaceY, demoStructureEntry.kind, demoStructureEntry.resource);
         }
         const settleProgress = deps.settlementProgressForTile(wx, wy);
         if (settleProgress && terrain === "LAND") {

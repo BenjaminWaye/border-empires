@@ -392,7 +392,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
       }
-      if (t && vis === "visible" && t.observatory) {
+      if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
+        // 2D-only: 3D renderer paints the observatory mesh (stone drum +
+        // dome + telescope + blue crystal) via structureOverlay.
         const overlay = deps.structureOverlayImages.OBSERVATORY;
         if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
         else {
@@ -436,7 +438,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             structure3DType === "WATERWORKS" ||
             structure3DType === "CAMP" ||
             structure3DType === "MINE" ||
-            structure3DType === "IRONWORKS"
+            structure3DType === "IRONWORKS" ||
+            structure3DType === "MARKET"
           );
         if (fortificationKind || handled3DStructure) {
           // 3D-rendered (fortifications + Tier-1 economic structures);
@@ -967,7 +970,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const dot = Math.max(3, Math.floor(size * 0.25));
           deps.ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
         }
-        if (t && vis === "visible" && t.observatory) {
+        if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
+          // 2D-only: 3D renderer paints the observatory mesh via
+          // structureOverlay; see client-map-3d-structure-overlay.ts.
           const overlay = deps.structureOverlayImages.OBSERVATORY;
           if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
           else {
@@ -992,7 +997,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
               structure3DType2 === "WATERWORKS" ||
               structure3DType2 === "CAMP" ||
               structure3DType2 === "MINE" ||
-              structure3DType2 === "IRONWORKS"
+              structure3DType2 === "IRONWORKS" ||
+              structure3DType2 === "MARKET"
             );
           if (handled3DStructure2) {
             // 3D-rendered Tier-1 structure; skip the 2D fallbacks.
