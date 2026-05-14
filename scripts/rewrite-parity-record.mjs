@@ -55,7 +55,7 @@ const resolveRecordWsUrl = (raw) => {
     return "wss://border-empires.fly.dev/ws?channel=control";
   }
   if (normalized === "staging") {
-    return "wss://border-empires-gateway-staging.fly.dev/ws";
+    return "wss://border-empires-combined-staging.fly.dev/ws";
   }
   return raw;
 };

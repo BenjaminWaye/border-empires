@@ -8,12 +8,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 export const stagingFlyApps = [
   {
-    app: "border-empires-gateway-staging",
-    configPath: "fly.gateway.staging.toml"
-  },
-  {
-    app: "border-empires-simulation-staging",
-    configPath: "fly.simulation.staging.toml"
+    app: "border-empires-combined-staging",
+    configPath: "fly.combined.staging.toml"
   }
 ];
 

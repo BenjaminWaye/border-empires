@@ -100,7 +100,7 @@ EXPAND/SETTLE. In that case, either:
 
 ```bash
 LEGACY_WS_URL=wss://border-empires.fly.dev/ws \
-REWRITE_WS_URL=wss://border-empires-gateway-staging.fly.dev/ws \
+REWRITE_WS_URL=wss://border-empires-combined-staging.fly.dev/ws \
 node scripts/rewrite-parity-replay.mjs docs/parity-traces/real-20260421.json
 ```
 
