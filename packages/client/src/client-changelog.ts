@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.15.2",
+  version: "2026.05.15.3",
   title: "What's New",
-  summary: "Selecting a town next to a finished or in-progress Astral Dock Part no longer crashes the tile menu. Build Market and Build Caravanary now reflect their real rewrite-stack costs so the actions no longer fail silently with a server-side gold rejection, and a proper Insufficient Gold notification now fires for build failures instead of staying console-only.",
+  summary: "Gameplay email alerts now have an hourly cooldown as well as the daily cap, so repeated attacks or diplomacy requests cannot burn through several messages at once. Selecting towns near Astral Dock Parts no longer crashes the tile menu, and Market/Caravanary build actions now reflect their rewrite-stack costs.",
   entries: [
+    {
+      introducedIn: "2026.05.15.3",
+      title: "Email alerts are capped hourly and daily",
+      why: "Attack alerts can arrive in bursts. A daily-only cap could send several emails back-to-back, which made alerting noisier than intended.",
+      changes: [
+        "Gameplay email alerts now send at most one email per recipient per hour.",
+        "The existing cap of three alert emails per recipient per UTC day still applies.",
+        "Throttled attempts do not consume the hourly cooldown or daily quota, and failed sends roll the quota state back."
+      ]
+    },
     {
       introducedIn: "2026.05.15.2",
       title: "Town tile menu survives Astral Dock Parts",
