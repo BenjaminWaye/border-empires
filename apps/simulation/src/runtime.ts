@@ -596,6 +596,15 @@ export class SimulationRuntime {
     buildCandidateTileKeys: string[];
     pendingSettlementTileKeys: string[];
   }>();
+  // Per-player "tile is within radius of any owned tile" set, memoized by
+  // territory version + radius. Lets filterTileDeltasForPlayer answer the
+  // visibility question with a single Set.has instead of an O(territory)
+  // scan per delta per subscriber — the hot path under heavy combat.
+  private readonly playerRadiusVisionCacheByPlayer = new Map<string, {
+    tileCollectionVersion: number;
+    radius: number;
+    keys: Set<string>;
+  }>();
   private readonly locksByTile: Map<string, LockRecord>;
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
@@ -957,6 +966,7 @@ export class SimulationRuntime {
     const nextVersion = (this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, nextVersion);
     this.plannerPlayerTileKeyCacheByPlayer.delete(playerId);
+    this.playerRadiusVisionCacheByPlayer.delete(playerId);
   }
 
   private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
@@ -2046,25 +2056,24 @@ export class SimulationRuntime {
     const primaryPlayer = this.players.get(playerId);
     if (!primaryPlayer) return [];
 
-    // Gather per-player vision inputs once, then check each delta lazily.
-    // Eager materialisation (classifyVisibilityForPlayer) would expand O(territory × R²)
-    // visible keys for the whole world per subscriber per event — at staging load that
-    // burns ~1.6M Set ops/sec across subscribers. With typical delta batches of 1–3 tiles
-    // the lazy check is O(deltas × territory), ~10× cheaper for the same correctness.
-    const playerSummary = this.summaryForPlayer(playerId);
+    // Per-player radius-vision sets are memoized by territory version + radius
+    // in radiusVisionKeysForPlayer, so the per-event work here is O(deltas + allies)
+    // Set lookups instead of O(deltas × territory) string-parsed scans. The cache
+    // rebuilds only when an owner's territory or vision radius changes.
     const playerVisionRadius = Math.max(
       1,
       Math.floor(VISION_RADIUS * (primaryPlayer.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(primaryPlayer)
     );
-    const allyVision: Array<{ allyId: string; territory: ReadonlySet<string>; radius: number }> = [];
+    const playerRadiusKeys = this.radiusVisionKeysForPlayer(playerId, playerVisionRadius);
+    const allyVision: Array<{ allyId: string; radiusKeys: ReadonlySet<string> }> = [];
     for (const allyId of primaryPlayer.allies) {
       const ally = this.players.get(allyId);
       if (!ally) continue;
-      allyVision.push({
-        allyId,
-        territory: this.summaryForPlayer(allyId).territoryTileKeys,
-        radius: Math.max(1, Math.floor(VISION_RADIUS * (ally.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(ally))
-      });
+      const allyRadius = Math.max(
+        1,
+        Math.floor(VISION_RADIUS * (ally.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(ally)
+      );
+      allyVision.push({ allyId, radiusKeys: this.radiusVisionKeysForPlayer(allyId, allyRadius) });
     }
     const allyAndSelfIds = new Set<string>([playerId, ...primaryPlayer.allies]);
     const lockOriginKeys = new Set<string>();
@@ -2095,13 +2104,13 @@ export class SimulationRuntime {
       let viaLockTargetOnly = false;
       const reasons: string[] = [];
 
-      if (this.isTileWithinTerritoryRadius(delta.x, delta.y, playerSummary.territoryTileKeys, playerVisionRadius)) {
+      if (playerRadiusKeys.has(tileKey)) {
         visible = true;
         if (auditEnabled) reasons.push("radius:self");
       }
       if (auditEnabled || !visible) {
-        for (const { allyId, territory, radius } of allyVision) {
-          if (this.isTileWithinTerritoryRadius(delta.x, delta.y, territory, radius)) {
+        for (const { allyId, radiusKeys } of allyVision) {
+          if (radiusKeys.has(tileKey)) {
             visible = true;
             if (auditEnabled) reasons.push(`radius:ally:${allyId}`);
             else break;
@@ -2157,27 +2166,30 @@ export class SimulationRuntime {
     return filtered;
   }
 
-  private isTileWithinTerritoryRadius(
-    x: number,
-    y: number,
-    territoryTileKeys: Iterable<string>,
-    radius: number
-  ): boolean {
-    for (const tileKey of territoryTileKeys) {
+  private radiusVisionKeysForPlayer(playerId: string, radius: number): ReadonlySet<string> {
+    const version = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
+    const cached = this.playerRadiusVisionCacheByPlayer.get(playerId);
+    if (cached && cached.tileCollectionVersion === version && cached.radius === radius) {
+      return cached.keys;
+    }
+    const summary = this.summaryForPlayer(playerId);
+    const keys = new Set<string>();
+    for (const tileKey of summary.territoryTileKeys) {
       const separator = tileKey.indexOf(",");
       if (separator < 0) continue;
       const tx = Number(tileKey.slice(0, separator));
       const ty = Number(tileKey.slice(separator + 1));
       if (!Number.isInteger(tx) || !Number.isInteger(ty)) continue;
-      const dxRaw = Math.abs(x - tx);
-      const dyRaw = Math.abs(y - ty);
-      const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
-      if (dx > radius) continue;
-      const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
-      if (dy > radius) continue;
-      return true;
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        const wy = (((ty + dy) % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          const wx = (((tx + dx) % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
+          keys.add(simulationTileKey(wx, wy));
+        }
+      }
     }
-    return false;
+    this.playerRadiusVisionCacheByPlayer.set(playerId, { tileCollectionVersion: version, radius, keys });
+    return keys;
   }
 
   private settledTileCountForPlayer(playerId: string): number {
