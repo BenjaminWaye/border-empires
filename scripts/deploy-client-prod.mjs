@@ -94,7 +94,17 @@ if (project.projectName !== vercelClientProject.projectName) {
 }
 
 run("pnpm", ["--filter", "@border-empires/shared", "build"]);
-run("pnpm", ["--filter", "@border-empires/client", "build"]);
+// Inject prod runtime env into the Vite build so the bundle hardcodes the
+// rewrite-gateway URL. Without these, the client falls back to the legacy
+// monolith URL (border-empires.fly.dev) for non-staging hostnames — see
+// packages/client/src/client-app-runtime-env.ts.
+const clientBuildEnv = {
+  ...process.env,
+  ...(process.env.VITE_GATEWAY_WS_URL ? { VITE_GATEWAY_WS_URL: process.env.VITE_GATEWAY_WS_URL } : {}),
+  ...(process.env.VITE_WS_URL ? { VITE_WS_URL: process.env.VITE_WS_URL } : {}),
+  ...(process.env.VITE_BACKEND_DEFAULT ? { VITE_BACKEND_DEFAULT: process.env.VITE_BACKEND_DEFAULT } : {})
+};
+run("pnpm", ["--filter", "@border-empires/client", "build"], { env: clientBuildEnv });
 const deploymentUrl = normalizeDeploymentUrl(
   run(
     "npx",
