@@ -200,8 +200,10 @@ const applyTileDeltaToRecoveredAccumulator = (
     terrain: tileDelta.terrain ?? existing?.terrain ?? "LAND",
     ...(tileDelta.resource ? { resource: tileDelta.resource as DomainTileState["resource"] } : existing?.resource ? { resource: existing.resource } : {}),
     ...(tileDelta.dockId ? { dockId: tileDelta.dockId } : existing?.dockId ? { dockId: existing.dockId } : {}),
-    ...(tileDelta.shardSiteJson
-      ? { shardSite: parseOptionalJson<DomainTileState["shardSite"]>(tileDelta.shardSiteJson) }
+    ...("shardSiteJson" in tileDelta
+      ? (tileDelta.shardSiteJson
+          ? { shardSite: parseOptionalJson<DomainTileState["shardSite"]>(tileDelta.shardSiteJson) }
+          : {})
       : existing?.shardSite
         ? { shardSite: existing.shardSite }
         : {}),

@@ -1059,6 +1059,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let pendingGlobalStatusCommandId: string | undefined;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
+  let shardRainTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -1752,6 +1753,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             deleteCachedSnapshot(call.request.player_id);
             log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
           }
+          try {
+            runtime.emitShardRainHelloFor(call.request.player_id);
+          } catch (error) {
+            log.error({ err: error, playerId: call.request.player_id }, "shard rain hello failed");
+          }
         }
         const prepareDurationMs = Date.now() - prepareStartedAt;
         simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
@@ -1988,6 +1994,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       boundPort = port;
       server.start();
+      shardRainTicker = setInterval(() => {
+        try {
+          runtime.tickShardRain(Date.now());
+        } catch (error) {
+          log.error({ err: error }, "shard rain tick failed");
+        }
+      }, 60_000);
       eventLoopSampler = setInterval(() => {
         const now = Date.now();
         const lagMs = Math.max(0, now - expectedEventLoopTickAt);
@@ -2152,6 +2165,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       clearSeasonVictoryTimer();
       if (metricsTicker) clearInterval(metricsTicker);
       if (eventLoopSampler) clearInterval(eventLoopSampler);
+      if (shardRainTicker) clearInterval(shardRainTicker);
       gcObserver?.disconnect();
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
