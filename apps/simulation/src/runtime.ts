@@ -141,6 +141,11 @@ import {
 } from "./automation-command-planner.js";
 import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
+import {
+  AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS,
+  selectSpatialFocus,
+  type AiSpatialFocus
+} from "./ai-spatial-focus.js";
 
 const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {
   const scopedKeys = new Set<string>();
@@ -662,6 +667,11 @@ export class SimulationRuntime {
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
+  // Bounded per-AI focus front (BFS of owned tiles around a persistent
+  // hot-frontier origin) used to cap planner CPU. Refreshed each tick from
+  // refreshSpatialFocusForPlayer; cleared automatically when the player owns
+  // no territory.
+  private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>();
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, {
     tileCollectionVersion: number;
     territoryTileKeys: string[];
@@ -722,6 +732,32 @@ export class SimulationRuntime {
     | undefined;
   private drainScheduled = false;
   private draining = false;
+
+  private refreshSpatialFocusForPlayer(playerId: string, now: number): AiSpatialFocus | undefined {
+    const summary = this.summaryForPlayer(playerId);
+    if (summary.territoryTileKeys.size <= 0) {
+      this.aiSpatialFocusByPlayer.delete(playerId);
+      return undefined;
+    }
+    const prior = this.aiSpatialFocusByPlayer.get(playerId);
+    // Random jitter spreads meta-replans across AIs so they do not co-fire on
+    // the same tick. AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS is fixed; the actual
+    // jitter per refresh is uniform in [0, jitter).
+    const jitterMs = Math.floor(Math.random() * AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS);
+    const focus = selectSpatialFocus({
+      prior,
+      hotFrontierTileKeys: summary.hotFrontierTileKeys,
+      ownedTileKeys: summary.territoryTileKeys,
+      now,
+      jitterMs
+    });
+    if (focus) {
+      this.aiSpatialFocusByPlayer.set(playerId, focus);
+    } else {
+      this.aiSpatialFocusByPlayer.delete(playerId);
+    }
+    return focus;
+  }
 
   private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
     const counts: Partial<Record<AutomationVictoryPath, number>> = {
@@ -1721,10 +1757,12 @@ export class SimulationRuntime {
     const summary = this.summaryForPlayer(playerId);
     if (summary.territoryTileKeys.size <= 0) {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
+      this.aiSpatialFocusByPlayer.delete(playerId);
     }
     const ownedTiles = [...summary.territoryTileKeys]
       .map((tileKey) => this.tiles.get(tileKey))
       .filter((tile): tile is DomainTileState => tile !== undefined);
+    const spatialFocus = this.refreshSpatialFocusForPlayer(playerId, this.now());
     const hasActiveLock = [...this.locksByTile.values()].some((lock) => lock.playerId === playerId);
     let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
     if (!options?.skipPreplan) {
@@ -1785,6 +1823,7 @@ export class SimulationRuntime {
       },
       ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
       ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
+      ...(spatialFocus ? { spatialFocusFront: spatialFocus.primaryFront } : {}),
       clientSeq,
       issuedAt,
       sessionPrefix
