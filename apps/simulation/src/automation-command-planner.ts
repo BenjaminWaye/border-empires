@@ -186,6 +186,10 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   onStrategicSnapshot?: (snapshot: AutomationStrategicSnapshot) => void;
   preplanProgressState?: AutomationPreplanProgressState | undefined;
   collectVisibleOnCooldown?: boolean;
+  // Tile keys this player has been pounding without breakthrough — the
+  // attack gates below skip targets in this set so the planner falls through
+  // to SETTLE/EXPAND/BUILD. See ai-attack-stalemate.ts for the policy.
+  attackStalemateTargetTileKeys?: ReadonlySet<string>;
 };
 
 export type AutomationPlannerResult = {
@@ -264,10 +268,15 @@ const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
   actionableFallbackSettlementCandidate: TTile | undefined,
   economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined,
   fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined,
-  siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined
+  siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined,
+  attackStalemateTargetTileKeys: ReadonlySet<string> | undefined
 ): AutomationPlannerResult | undefined => {
-  const hasBarbarianAttackTarget = frontierAnalysis.frontierBarbarianTargetCount > 0;
-  const hasWeakEnemyBorder = frontierAnalysis.frontierEnemyPlayerTargetCount > 0;
+  const isStalemated = (selection: FrontierAnalysis["attack"] | undefined): boolean =>
+    Boolean(selection && attackStalemateTargetTileKeys?.has(`${selection.target.x},${selection.target.y}`));
+  const hasBarbarianAttackTarget =
+    frontierAnalysis.frontierBarbarianTargetCount > 0 && !isStalemated(frontierAnalysis.barbarianAttack);
+  const hasWeakEnemyBorder =
+    frontierAnalysis.frontierEnemyPlayerTargetCount > 0 && !isStalemated(frontierAnalysis.enemyAttack);
   const goapDecision = chooseAutomationGoapDecision({
     hasNeutralLandOpportunity: Boolean(frontierAnalysis.economicExpand && frontierAnalysis.frontierOpportunityEconomic > 0),
     hasScoutOpportunity: Boolean(frontierAnalysis.scoutExpand),
@@ -607,8 +616,15 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   });
   input.onStrategicSnapshot?.(strategic);
 
+  const isStalematedAttackTarget = (selection: typeof preferredEnemyAttack): boolean =>
+    Boolean(
+      selection &&
+      input.attackStalemateTargetTileKeys?.has(`${selection.target.x},${selection.target.y}`)
+    );
+
   if (
     preferredEnemyAttack &&
+    !isStalematedAttackTarget(preferredEnemyAttack) &&
     strategic.attackReady &&
     strategic.frontPosture === "BREAK" &&
     strategic.pressureThreatensCore &&
@@ -740,7 +756,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     actionableFallbackSettlementCandidate,
     economicBuild,
     fortBuild,
-    siegeOutpostBuild
+    siegeOutpostBuild,
+    input.attackStalemateTargetTileKeys
   );
   if (goapFallbackResult) {
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
@@ -814,6 +831,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
 
   if (
     preferredEnemyAttack &&
+    !isStalematedAttackTarget(preferredEnemyAttack) &&
     strategic.attackReady &&
     frontierAnalysis.frontierEnemyTargetCount > 0 &&
     (frontierAnalysis.frontierNeutralTargetCount === 0 ||
@@ -825,6 +843,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
 
   if (
     preferredEnemyAttack &&
+    !isStalematedAttackTarget(preferredEnemyAttack) &&
     !(
       strategic.frontPosture === "CONTAIN" &&
       frontierAnalysis.frontierNeutralTargetCount > 0 &&
