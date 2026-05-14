@@ -646,6 +646,9 @@ export class SimulationRuntime {
   private lastShardRainSpawnSlotKey: string | undefined;
   private lastShardRainWarningSlotKey: string | undefined;
   private shardRainTickCounter = 0;
+  private currentShardRainExpiresAt: number | undefined;
+  private currentShardRainSiteCount = 0;
+  private readonly lastShardRainHelloByPlayer = new Map<string, number>();
   private readonly terminalReplayCommandIds = new Map<string, true>();
   private readonly terminalOnlyReplayCommandIds = new Set<string>();
   private readonly maxTerminalCommandReplayHistory: number;
@@ -726,6 +729,14 @@ export class SimulationRuntime {
     }
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
+      const site = tile.shardSite;
+      if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
+        this.currentShardRainSiteCount += 1;
+        this.currentShardRainExpiresAt =
+          typeof this.currentShardRainExpiresAt === "number"
+            ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
+            : site.expiresAt;
+      }
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
@@ -812,6 +823,9 @@ export class SimulationRuntime {
     if (player.isAi) return;
     const notice = this.computeShardRainNotice(nowMs);
     if (!notice) return;
+    const dedupKey = notice.phase === "started" ? (notice.expiresAt as number) : (notice.startsAt as number);
+    if (this.lastShardRainHelloByPlayer.get(playerId) === dedupKey) return;
+    this.lastShardRainHelloByPlayer.set(playerId, dedupKey);
     this.emitEvent({
       eventType: "PLAYER_MESSAGE",
       commandId: this.nextShardRainCommandId("hello"),
@@ -822,22 +836,17 @@ export class SimulationRuntime {
   }
 
   private computeShardRainNotice(nowMs: number): Record<string, unknown> | undefined {
-    let latestExpiresAt = 0;
-    let siteCount = 0;
-    for (const tile of this.tiles.values()) {
-      const site = tile.shardSite;
-      if (!site || site.kind !== "FALL") continue;
-      if (typeof site.expiresAt !== "number" || site.expiresAt <= nowMs) continue;
-      siteCount += 1;
-      if (site.expiresAt > latestExpiresAt) latestExpiresAt = site.expiresAt;
-    }
-    if (siteCount > 0) {
+    if (
+      this.currentShardRainSiteCount > 0 &&
+      typeof this.currentShardRainExpiresAt === "number" &&
+      this.currentShardRainExpiresAt > nowMs
+    ) {
       return {
         type: "SHARD_RAIN_EVENT",
         phase: "started",
-        startsAt: latestExpiresAt - SHARD_RAIN_TTL_MS,
-        expiresAt: latestExpiresAt,
-        siteCount
+        startsAt: this.currentShardRainExpiresAt - SHARD_RAIN_TTL_MS,
+        expiresAt: this.currentShardRainExpiresAt,
+        siteCount: this.currentShardRainSiteCount
       };
     }
     const nextStart = nextShardRainStartAt(nowMs);
@@ -903,7 +912,6 @@ export class SimulationRuntime {
   }
 
   private spawnShardRain(nowMs: number): void {
-    if (this.players.size === 0) return;
     const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
     const expiresAt = nowMs + SHARD_RAIN_TTL_MS;
     const startsAt = nowMs;
@@ -922,6 +930,11 @@ export class SimulationRuntime {
       placed.push({ tileKey, tile: updated });
     }
     if (placed.length === 0) return;
+    this.currentShardRainExpiresAt =
+      typeof this.currentShardRainExpiresAt === "number"
+        ? Math.max(this.currentShardRainExpiresAt, expiresAt)
+        : expiresAt;
+    this.currentShardRainSiteCount += placed.length;
     const commandId = this.nextShardRainCommandId("spawn");
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
@@ -949,6 +962,8 @@ export class SimulationRuntime {
       expired.push({ tileKey, tile: updated });
     }
     if (expired.length === 0) return;
+    this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - expired.length);
+    if (this.currentShardRainSiteCount === 0) this.currentShardRainExpiresAt = undefined;
     const commandId = this.nextShardRainCommandId("expire");
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
@@ -4107,6 +4122,10 @@ export class SimulationRuntime {
       return;
     }
     this.addStrategicResource(actor, "SHARD", amount);
+    if (target.shardSite?.kind === "FALL") {
+      this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
+      if (this.currentShardRainSiteCount === 0) this.currentShardRainExpiresAt = undefined;
+    }
     const updatedTile: DomainTileState = { ...target, shardSite: undefined };
     this.replaceTileState(targetKey, updatedTile);
     this.emitEvent({

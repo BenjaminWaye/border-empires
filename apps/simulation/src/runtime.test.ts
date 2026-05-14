@@ -5657,6 +5657,29 @@ describe("simulation runtime — shard rain", () => {
     );
   });
 
+  it("emitShardRainHelloFor only sends one hello per player per rain window", () => {
+    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 15),
+      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [{ x: 0, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 1, expiresAt } }],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
+    runtime.emitShardRainHelloFor("human-1", localTime(12, 20));
+
+    const notices = seen.filter(
+      (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+    );
+    expect(notices).toHaveLength(1);
+  });
+
   it("emitShardRainHelloFor stays silent when no FALL sites are active and rain is not imminent", () => {
     const runtime = new SimulationRuntime({
       now: () => localTime(9, 0),
