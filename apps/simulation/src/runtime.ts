@@ -1819,7 +1819,16 @@ export class SimulationRuntime {
     };
   }
 
-  exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
+  private classifyVisibilityForPlayer(playerId: string): {
+    radiusSelfKeys: Set<string>;
+    radiusAllyKeys: Map<string, Set<string>>;
+    lockOriginKeys: Set<string>;
+    dockRevealKeys: Set<string>;
+    lockTargetOnlyKeys: Set<string>;
+    fullVisionKeys: Set<string>;
+    visibleKeys: Set<string>;
+    allyAndSelfIds: Set<string>;
+  } {
     const keyFor = (x: number, y: number): string => simulationTileKey(((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH, ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT);
     const parseKey = (tileKey: string): { x: number; y: number } | undefined => {
       const [rawX, rawY] = tileKey.split(",");
@@ -1903,28 +1912,51 @@ export class SimulationRuntime {
 
     const allyAndSelfIds = new Set<string>([playerId, ...(primaryPlayer?.allies ?? [])]);
     const visibleKeys = new Set<string>([...fullVisionKeys, ...lockTargetOnlyKeys]);
-    const onVisibilityAudit = this.onVisibilityAudit;
-    const auditOpponentTile = (tile: DomainTileState, tileKey: string, redacted: boolean): void => {
-      if (!onVisibilityAudit) return;
-      if (!tile.ownerId || allyAndSelfIds.has(tile.ownerId)) return;
-      const reasons: string[] = [];
-      if (radiusSelfKeys.has(tileKey)) reasons.push("radius:self");
-      for (const [allyId, set] of radiusAllyKeys) {
-        if (set.has(tileKey)) reasons.push(`radius:ally:${allyId}`);
-      }
-      if (lockOriginKeys.has(tileKey)) reasons.push("lock-origin");
-      if (dockRevealKeys.has(tileKey)) reasons.push("dock-reveal");
-      if (lockTargetOnlyKeys.has(tileKey)) reasons.push("lock-target");
-      onVisibilityAudit({
-        playerId,
-        tileKey,
-        x: tile.x,
-        y: tile.y,
-        ownerId: tile.ownerId,
-        reasons,
-        redacted
-      });
+
+    return {
+      radiusSelfKeys,
+      radiusAllyKeys,
+      lockOriginKeys,
+      dockRevealKeys,
+      lockTargetOnlyKeys,
+      fullVisionKeys,
+      visibleKeys,
+      allyAndSelfIds
     };
+  }
+
+  private emitVisibilityAudit(
+    playerId: string,
+    tile: { x: number; y: number; ownerId?: string | undefined },
+    tileKey: string,
+    redacted: boolean,
+    classification: ReturnType<SimulationRuntime["classifyVisibilityForPlayer"]>
+  ): void {
+    const onVisibilityAudit = this.onVisibilityAudit;
+    if (!onVisibilityAudit) return;
+    if (!tile.ownerId || classification.allyAndSelfIds.has(tile.ownerId)) return;
+    const reasons: string[] = [];
+    if (classification.radiusSelfKeys.has(tileKey)) reasons.push("radius:self");
+    for (const [allyId, set] of classification.radiusAllyKeys) {
+      if (set.has(tileKey)) reasons.push(`radius:ally:${allyId}`);
+    }
+    if (classification.lockOriginKeys.has(tileKey)) reasons.push("lock-origin");
+    if (classification.dockRevealKeys.has(tileKey)) reasons.push("dock-reveal");
+    if (classification.lockTargetOnlyKeys.has(tileKey)) reasons.push("lock-target");
+    onVisibilityAudit({
+      playerId,
+      tileKey,
+      x: tile.x,
+      y: tile.y,
+      ownerId: tile.ownerId,
+      reasons,
+      redacted
+    });
+  }
+
+  exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
+    const classification = this.classifyVisibilityForPlayer(playerId);
+    const { lockTargetOnlyKeys, visibleKeys, allyAndSelfIds } = classification;
 
     return {
       tiles: [...visibleKeys]
@@ -1935,10 +1967,10 @@ export class SimulationRuntime {
           const isLockTargetOnly = lockTargetOnlyKeys.has(tileKey);
           const ownedByOther = Boolean(tile.ownerId) && !allyAndSelfIds.has(tile.ownerId as string);
           if (isLockTargetOnly && ownedByOther) {
-            auditOpponentTile(tile, tileKey, true);
+            this.emitVisibilityAudit(playerId, tile, tileKey, true, classification);
             return { x: tile.x, y: tile.y, terrain: tile.terrain };
           }
-          if (ownedByOther) auditOpponentTile(tile, tileKey, false);
+          if (ownedByOther) this.emitVisibilityAudit(playerId, tile, tileKey, false, classification);
           return {
             x: tile.x,
             y: tile.y,
@@ -2004,6 +2036,148 @@ export class SimulationRuntime {
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
     };
+  }
+
+  filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }>(
+    tileDeltas: readonly TDelta[],
+    playerId: string
+  ): TDelta[] {
+    if (tileDeltas.length === 0) return [];
+    const primaryPlayer = this.players.get(playerId);
+    if (!primaryPlayer) return [];
+
+    // Gather per-player vision inputs once, then check each delta lazily.
+    // Eager materialisation (classifyVisibilityForPlayer) would expand O(territory × R²)
+    // visible keys for the whole world per subscriber per event — at staging load that
+    // burns ~1.6M Set ops/sec across subscribers. With typical delta batches of 1–3 tiles
+    // the lazy check is O(deltas × territory), ~10× cheaper for the same correctness.
+    const playerSummary = this.summaryForPlayer(playerId);
+    const playerVisionRadius = Math.max(
+      1,
+      Math.floor(VISION_RADIUS * (primaryPlayer.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(primaryPlayer)
+    );
+    const allyVision: Array<{ allyId: string; territory: ReadonlySet<string>; radius: number }> = [];
+    for (const allyId of primaryPlayer.allies) {
+      const ally = this.players.get(allyId);
+      if (!ally) continue;
+      allyVision.push({
+        allyId,
+        territory: this.summaryForPlayer(allyId).territoryTileKeys,
+        radius: Math.max(1, Math.floor(VISION_RADIUS * (ally.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(ally))
+      });
+    }
+    const allyAndSelfIds = new Set<string>([playerId, ...primaryPlayer.allies]);
+    const lockOriginKeys = new Set<string>();
+    const lockTargetKeys = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      if (lock.playerId !== playerId) continue;
+      lockOriginKeys.add(lock.originKey);
+      lockTargetKeys.add(lock.targetKey);
+    }
+    const visibilityOwnerIds = new Set<string>([playerId, ...primaryPlayer.allies]);
+    const dockRevealKeys = collectLinkedDockRevealKeysForOwners(
+      visibilityOwnerIds,
+      this.docks,
+      (tileKey) => {
+        const tile = this.tiles.get(tileKey);
+        return tile?.ownershipState === "SETTLED" ? tile.ownerId : undefined;
+      },
+      this.dockLinksByDockTileKey,
+      WORLD_WIDTH,
+      WORLD_HEIGHT
+    );
+    const auditEnabled = Boolean(this.onVisibilityAudit);
+
+    const filtered: TDelta[] = [];
+    for (const delta of tileDeltas) {
+      const tileKey = simulationTileKey(delta.x, delta.y);
+      let visible = false;
+      let viaLockTargetOnly = false;
+      const reasons: string[] = [];
+
+      if (this.isTileWithinTerritoryRadius(delta.x, delta.y, playerSummary.territoryTileKeys, playerVisionRadius)) {
+        visible = true;
+        if (auditEnabled) reasons.push("radius:self");
+      }
+      if (auditEnabled || !visible) {
+        for (const { allyId, territory, radius } of allyVision) {
+          if (this.isTileWithinTerritoryRadius(delta.x, delta.y, territory, radius)) {
+            visible = true;
+            if (auditEnabled) reasons.push(`radius:ally:${allyId}`);
+            else break;
+          }
+        }
+      }
+      if ((auditEnabled || !visible) && lockOriginKeys.has(tileKey)) {
+        visible = true;
+        if (auditEnabled) reasons.push("lock-origin");
+      }
+      if ((auditEnabled || !visible) && dockRevealKeys.has(tileKey)) {
+        visible = true;
+        if (auditEnabled) reasons.push("dock-reveal");
+      }
+      if (lockTargetKeys.has(tileKey)) {
+        if (!visible) {
+          visible = true;
+          viaLockTargetOnly = true;
+          if (auditEnabled) reasons.push("lock-target");
+        }
+      }
+      if (!visible) continue;
+
+      const ownedByOther = Boolean(delta.ownerId) && !allyAndSelfIds.has(delta.ownerId as string);
+      if (viaLockTargetOnly && ownedByOther) {
+        if (auditEnabled && this.onVisibilityAudit) {
+          this.onVisibilityAudit({
+            playerId,
+            tileKey,
+            x: delta.x,
+            y: delta.y,
+            ownerId: delta.ownerId as string,
+            reasons,
+            redacted: true
+          });
+        }
+        filtered.push({ x: delta.x, y: delta.y, ...(delta.terrain ? { terrain: delta.terrain } : {}) } as TDelta);
+        continue;
+      }
+      if (ownedByOther && auditEnabled && this.onVisibilityAudit) {
+        this.onVisibilityAudit({
+          playerId,
+          tileKey,
+          x: delta.x,
+          y: delta.y,
+          ownerId: delta.ownerId as string,
+          reasons,
+          redacted: false
+        });
+      }
+      filtered.push(delta);
+    }
+    return filtered;
+  }
+
+  private isTileWithinTerritoryRadius(
+    x: number,
+    y: number,
+    territoryTileKeys: Iterable<string>,
+    radius: number
+  ): boolean {
+    for (const tileKey of territoryTileKeys) {
+      const separator = tileKey.indexOf(",");
+      if (separator < 0) continue;
+      const tx = Number(tileKey.slice(0, separator));
+      const ty = Number(tileKey.slice(separator + 1));
+      if (!Number.isInteger(tx) || !Number.isInteger(ty)) continue;
+      const dxRaw = Math.abs(x - tx);
+      const dyRaw = Math.abs(y - ty);
+      const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
+      if (dx > radius) continue;
+      const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
+      if (dy > radius) continue;
+      return true;
+    }
+    return false;
   }
 
   private settledTileCountForPlayer(playerId: string): number {

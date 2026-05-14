@@ -124,7 +124,7 @@ const waitForStreamEvent = async (
   });
 };
 
-describe("simulation streams TILE_DELTA_BATCH from unsubscribed actors", () => {
+describe("simulation streams TILE_DELTA_BATCH per subscribed player with visibility filtering", () => {
   const cleanup: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
@@ -133,7 +133,7 @@ describe("simulation streams TILE_DELTA_BATCH from unsubscribed actors", () => {
     }
   });
 
-  it("forwards TILE_DELTA_BATCH events caused by an unsubscribed actor so observers see live tile flips", async () => {
+  it("emits a per-player TILE_DELTA_BATCH addressed to the actor when they have vision of their own tile flip", async () => {
     const service = await createSimulationService({
       host: "127.0.0.1",
       port: 0,
@@ -186,10 +186,15 @@ describe("simulation streams TILE_DELTA_BATCH from unsubscribed actors", () => {
     expect(expandTarget, "expected an unowned LAND target adjacent to the actor's tile").toBeDefined();
     if (!actorId || !ownedOrigin || !expandTarget) return;
 
-    const commandId = "unsubscribed-actor-expand";
+    // Per-player visibility means the simulation only emits a TILE_DELTA_BATCH
+    // for subscribed players whose visible-tile set includes the flipped tile.
+    // Subscribe the actor so we can assert they receive their own flip.
+    await subscribePlayer(client, actorId);
+
+    const commandId = "actor-expand-self-visible";
     const tileFlipped = waitForStreamEvent(
       client,
-      (event) => event.event_type === "TILE_DELTA_BATCH" && event.command_id === commandId
+      (event) => event.event_type === "TILE_DELTA_BATCH" && event.command_id === commandId && event.player_id === actorId
     );
 
     await submitCommand(client, {
