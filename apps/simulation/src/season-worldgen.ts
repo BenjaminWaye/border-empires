@@ -39,17 +39,22 @@ const SEASONAL_AI_NAMES = [
   "Bryn Holt"
 ] as const;
 
-const seasonalAiNameForId = (id: string): string | undefined => {
+export const seasonalAiNameForId = (id: string): string | undefined => {
   const match = /^ai-(\d+)$/.exec(id);
   if (!match) return undefined;
   const index = Number(match[1]) - 1;
   return SEASONAL_AI_NAMES[index];
 };
 
+export const seasonalPlayerNameForId = (id: string): string => {
+  if (id === "barbarian-1") return "Barbarians";
+  return seasonalAiNameForId(id) ?? id;
+};
+
 const createRuntimePlayer = (id: string): DomainPlayer => ({
   id,
   isAi: false,
-  name: id === "barbarian-1" ? "Barbarians" : seasonalAiNameForId(id) ?? id,
+  name: seasonalPlayerNameForId(id),
   points: 100,
   manpower: MANPOWER_BASE_CAP,
   techIds: new Set<string>(),
