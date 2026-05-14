@@ -57,7 +57,8 @@ describe("aether wall targeting", () => {
       formatCooldownShort: () => "",
       abilityCooldownRemainingMs: () => 0,
       chebyshevDistanceClient: () => 0,
-      activeTruceWithPlayer: () => undefined
+      activeTruceWithPlayer: () => undefined,
+      pendingTruceWithPlayer: () => undefined
     } as never);
 
     expect(actions.some((action) => action.id === "aether_wall")).toBe(true);

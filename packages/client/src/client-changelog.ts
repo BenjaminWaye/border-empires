@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.14.5",
+  version: "2026.05.14.6",
   title: "What's New",
-  summary: "Aether Moorings now shows and grants its Aether Wall unlock on rewrite staging again. Pressed tile details now open from cached data immediately, then refresh from the rewrite simulation as soon as the fresh tile snapshot returns.",
+  summary: "Diplomacy errors and truce results now open visible popups, outgoing truce offers stay visible in the Social panel and tile action menu, and seeded AI empires can accept or decline truce offers automatically. Aether Moorings now shows and grants its Aether Wall unlock on rewrite staging again, and pressed tile details refresh more reliably.",
   entries: [
+    {
+      introducedIn: "2026.05.14.6",
+      title: "Truce offers report failures clearly",
+      why: "Sending a truce from the tile action menu could fail with a feed-only `TRUCE_TARGET` error, and successful outgoing truce offers could disappear from the pending truce list after the gateway update.",
+      changes: [
+        "Diplomacy failures now open the warning popup with readable truce/alliance copy instead of only adding a generic feed error.",
+        "Accepted or declined truce results now open a visible truce popup and still land in the diplomacy feed.",
+        "Outgoing truce requests from rewrite gateway updates now stay visible under Pending Truce Requests.",
+        "Tile action menus now show pending truce status for the selected empire and disable duplicate truce offers.",
+        "Rewrite gateway social state now knows seeded AI players, and seeded AI empires automatically accept pressured border truces or decline offers when no truce pressure exists."
+      ]
+    },
     {
       introducedIn: "2026.05.14.5",
       title: "Aether Moorings shows Aether Wall again",
