@@ -4718,8 +4718,7 @@ describe("simulation runtime", () => {
         points: 77,
         manpower: 123,
         techIds: ["agriculture"],
-        domainIds: ["river-kingdoms"],
-        incomeMultiplier: 1.25
+        domainIds: ["river-kingdoms"]
       })
     );
     expect(recoveredState.pendingSettlements).toEqual([
