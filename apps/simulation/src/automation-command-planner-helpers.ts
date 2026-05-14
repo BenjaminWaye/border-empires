@@ -126,7 +126,13 @@ export const evaluateSettleCandidateDecision = <TTile extends AutomationPlannerT
     return { ...base, shouldSettle: false, reason: "skip_scaffold_or_scout_fallback" };
   }
   if (context.needsFood || context.needsEconomy) {
-    const ok = evaluation.defensivelyCompact || evaluation.score >= 45;
+    // Staging diagnostic (PR #240 + #242): post-cooldown-fix this branch
+    // dominated as `skip_needs_economy_or_food_score_low` with p50 top_score
+    // = 43 — AIs stuck on candidates 1-2 points under the wall. Dropping
+    // the floor 45→40 releases them without opening it to pure filler: the
+    // surplus-path floor of 30 still gates that, and `defensivelyCompact`
+    // is a stricter parallel gate (requires settledNeighbors >= 2).
+    const ok = evaluation.defensivelyCompact || evaluation.score >= 40;
     return {
       ...base,
       shouldSettle: ok,
