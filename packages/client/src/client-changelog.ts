@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.14.9",
+  version: "2026.05.15.1",
   title: "What's New",
-  summary: "Seasonal AI empires now resolve correctly when you offer a truce from the tile menu. Gameplay email alerts can notify you about diplomacy requests and incoming attacks, with per-recipient daily throttling.",
+  summary: "True-3D renderer adds proper meshes for Market and Observatory structures: Market gets a striped-awning stall with a counter, posts, and crates of produce; Observatory is a stone drum with a half-sphere dome, brass telescope poking through a dark slit, and a glowing blue power crystal jutting from the side. The MINE mesh now varies its cart load based on the underlying resource — grey iron ore on IRON tiles, blue crystals on GEMS tiles — so the resource stays readable even after a mine is built on top. Plus seasonal AI truce resolution and the gameplay email alerts.",
   entries: [
+    {
+      introducedIn: "2026.05.15.1",
+      title: "True-3D Market & Observatory meshes + resource-aware Mine cart",
+      why: "The true-3D renderer (?renderer=3d) was missing dedicated meshes for two common structures — MARKET and OBSERVATORY — so a player on the 3D path saw the 2D fallback icon stamped onto the canvas instead of a proper 3D building. The MINE mesh also looked identical on IRON and GEMS tiles, so once a mine was built the underlying resource was no longer visually distinguishable.",
+      changes: [
+        "MARKET: an open-air stall with a long wooden counter, two front support posts, a striped red/white awning leaning forward, and two crates of produce along the back edge. Wired through the existing economic-structure overlay so anything with `economicStructure.type === 'MARKET'` picks it up automatically.",
+        "OBSERVATORY: a round stone drum topped by a half-sphere dome with a dark recessed slit and a brass telescope barrel angled up through the slit, plus a tall glowing blue power crystal jutting from the dome's back-left at an outward lean. Drives off the per-tile `tile.observatory` field, not `economicStructure`, so under-construction and active states both render.",
+        "MINE: the cart now loads grey iron-ore octahedrons on IRON tiles (unchanged) and three glowing blue crystal spikes on GEMS tiles. The resource hint is resolved once per tile by the orchestrator and threaded through `structureOverlay.addInstance` so other kinds remain unaffected.",
+        "2D canvas suppression: when the 3D renderer is active, the 2D loop no longer stamps the legacy SVG fallback over the 3D scene for MARKET or OBSERVATORY tiles (matches how FARMSTEAD/WATERWORKS/CAMP/MINE/IRONWORKS already worked).",
+        "Visual-only demo: ?renderer=3d&structuredemo=1 lays the 7 structure kinds (plus both MINE variants) in a row two tiles north of the camera so you can eyeball each mesh side-by-side."
+      ]
+    },
     {
       introducedIn: "2026.05.14.9",
       title: "Seasonal AI truce targets resolve",
