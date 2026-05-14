@@ -1196,8 +1196,8 @@ describe("rewrite stack integration", () => {
     );
   });
 
-  it("answers pressed tile details from cache and follows with a fresh simulation snapshot", async () => {
-    const subscriptionTriggers: string[] = [];
+  it("answers pressed tile details from cache and follows with a fresh narrow tile fetch", async () => {
+    const fetchTileDetailCalls: Array<{ playerId: string; x: number; y: number; fullVisibility?: boolean }> = [];
     const gateway = await createRealtimeGatewayApp({
       host: "127.0.0.1",
       port: 0,
@@ -1207,12 +1207,24 @@ describe("rewrite stack integration", () => {
       simulationClient: {
         preparePlayer: async (playerId) => ({ playerId, spawned: false }),
         submitCommand: async () => undefined,
-        subscribePlayer: async (playerId, subscriptionJson = "{}") => {
-          const parsed = JSON.parse(subscriptionJson) as { trigger?: string };
-          subscriptionTriggers.push(parsed.trigger ?? "");
-          const hasFreshTileDetail = parsed.trigger === "gateway_tile_detail_refresh";
+        subscribePlayer: async (playerId) => ({
+          playerId,
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED"
+            }
+          ]
+        }),
+        fetchTileDetail: async (playerId, x, y, fullVisibility) => {
+          fetchTileDetailCalls.push({ playerId, x, y, fullVisibility });
           return {
             playerId,
+            x,
+            y,
             tiles: [
               {
                 x: 10,
@@ -1220,7 +1232,7 @@ describe("rewrite stack integration", () => {
                 terrain: "LAND",
                 ownerId: "player-1",
                 ownershipState: "SETTLED",
-                ...(hasFreshTileDetail ? { fortJson: JSON.stringify({ ownerId: "player-1", status: "active" }) } : {})
+                fortJson: JSON.stringify({ ownerId: "player-1", status: "active" })
               }
             ]
           };
@@ -1260,7 +1272,9 @@ describe("rewrite stack integration", () => {
     expect(JSON.stringify(cachedDetail)).not.toContain("fortJson");
 
     const detail = await nextNonBootstrapMessage(socket, "fresh tile detail result");
-    expect(subscriptionTriggers).toContain("gateway_tile_detail_refresh");
+    expect(fetchTileDetailCalls).toEqual([
+      expect.objectContaining({ playerId: "player-1", x: 10, y: 10 })
+    ]);
     expect(detail).toEqual(
       expect.objectContaining({
         type: "TILE_DELTA",
