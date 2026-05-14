@@ -1287,7 +1287,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     const selectedWorld = deps.selectedTile();
-    if (selectedWorld && selectedWorld.observatory) {
+    if (!isTrue3DRendererActive() && selectedWorld && selectedWorld.observatory) {
       const selectedVisibility = deps.tileVisibilityStateAt(selectedWorld.x, selectedWorld.y, selectedWorld);
       if (selectedVisibility === "visible") {
         const center = deps.worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
