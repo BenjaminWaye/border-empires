@@ -8,6 +8,9 @@ import {
   DOMAIN_TREE_RELATIVE_CANDIDATES,
   TECH_TREE_PATH,
   TECH_TREE_RELATIVE_CANDIDATES,
+  buildDomainUpdatePayload,
+  buildModBreakdownForPlayer,
+  recomputeMods,
   resolveDataPath
 } from "./tech-domain-bridge.js";
 
@@ -44,5 +47,33 @@ describe("tech-domain bridge progression sources", () => {
     });
 
     expect(resolved).toBe(FALLBACK_DOMAIN_TREE_PATH);
+  });
+
+  it("recomputes active stat mods and source labels from unlocked techs", () => {
+    const player = {
+      techIds: new Set<string>(["tribal-warfare"]),
+      domainIds: new Set<string>()
+    };
+
+    expect(recomputeMods(player)).toEqual({ attack: 1.05, defense: 1.05, income: 1, vision: 1 });
+    expect(buildModBreakdownForPlayer(player).attack).toEqual([
+      { label: "Base", mult: 1 },
+      { label: "Warbands", mult: 1.05 }
+    ]);
+  });
+
+  it("uses authoritative income when building domain update payloads", () => {
+    const player = {
+      id: "player-1",
+      isAi: false,
+      points: 0,
+      manpower: 0,
+      techIds: new Set<string>(["trade"]),
+      domainIds: new Set<string>(["mercantile-charter"]),
+      allies: new Set<string>(),
+      strategicResources: {}
+    };
+
+    expect(buildDomainUpdatePayload(player, [], { incomePerMinute: 15.4 }).incomePerMinute).toBe(15.4);
   });
 });

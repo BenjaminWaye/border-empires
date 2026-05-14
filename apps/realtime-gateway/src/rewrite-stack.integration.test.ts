@@ -316,6 +316,71 @@ describe("rewrite stack integration", () => {
     );
   });
 
+  it("keeps tech modifiers in the cached init for another socket on the same player", async () => {
+    const snapshotStore = await createStartupSnapshotStore({
+      tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+      activeLocks: [],
+      players: [
+        {
+          id: "player-1",
+          points: 5_000,
+          manpower: 10_000,
+          strategicResources: { IRON: 25 }
+        }
+      ]
+    });
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog,
+      snapshotStore,
+      requireDurableStartupState: true
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      simulationAddress: simulationAddress.address,
+      commandStore: new InMemoryGatewayCommandStore(),
+      defaultHumanPlayerId: "player-1"
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const firstSocket = await openSocket(gatewayAddress.wsUrl);
+    cleanup.push(() => closeSocket(firstSocket.socket));
+    firstSocket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    expect((await nextTypedMessage(firstSocket, "first init", "INIT")).type).toBe("INIT");
+
+    firstSocket.socket.send(JSON.stringify({ type: "CHOOSE_TECH", techId: "tribal-warfare" }));
+    const techUpdate = await nextTypedMessage(firstSocket, "warbands tech update", "TECH_UPDATE");
+    expect(techUpdate).toEqual(
+      expect.objectContaining({
+        techIds: expect.arrayContaining(["tribal-warfare"]),
+        mods: expect.objectContaining({ attack: 1.05, defense: 1.05 })
+      })
+    );
+
+    const secondSocket = await openSocket(gatewayAddress.wsUrl);
+    cleanup.push(() => closeSocket(secondSocket.socket));
+    secondSocket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    const cachedInit = await nextTypedMessage(secondSocket, "cached init", "INIT");
+    expect(cachedInit).toEqual(
+      expect.objectContaining({
+        player: expect.objectContaining({
+          techIds: expect.arrayContaining(["tribal-warfare"]),
+          mods: expect.objectContaining({ attack: 1.05, defense: 1.05 }),
+          modBreakdown: expect.objectContaining({
+            attack: expect.arrayContaining([expect.objectContaining({ label: "Warbands", mult: 1.05 })])
+          })
+        })
+      })
+    );
+  }, 15_000);
+
   it("persists profile setup state across gateway restarts", async () => {
     const simulation = await createSimulationService({
       host: "127.0.0.1",
