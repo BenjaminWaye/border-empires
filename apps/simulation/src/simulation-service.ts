@@ -1379,7 +1379,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 simulationMetrics.observeSimAiSettleDecision(
                   diagnostic.settleDecisionReason,
                   diagnostic.playerId,
-                  diagnostic.settleDecisionTopScore
+                  diagnostic.settleDecisionTopScore,
+                  diagnostic.settleDecisionTileKey
                 );
               }
             },
@@ -1423,7 +1424,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 simulationMetrics.observeSimAiSettleDecision(
                   diagnostic.settleDecisionReason,
                   diagnostic.playerId,
-                  diagnostic.settleDecisionTopScore
+                  diagnostic.settleDecisionTopScore,
+                  diagnostic.settleDecisionTileKey
                 );
               }
             },
