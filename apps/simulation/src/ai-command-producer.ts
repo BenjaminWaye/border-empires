@@ -27,6 +27,7 @@ type AiCommandProducerOptions = {
       sessionPrefix: "ai-runtime" | "system-runtime",
       options?: {
         skipPreplan?: boolean;
+        collectVisibleOnCooldown?: boolean;
       }
     ) => { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic };
   };
@@ -220,8 +221,15 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         for (let pass = 0; pass < 2; pass += 1) {
           const issuedAt = now();
           const plannerStartedAt = now();
+          const collectVisibleOnCooldown = (collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0) > issuedAt;
           const plan = options.runtime.explainNextAutomationCommand
-            ? options.runtime.explainNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime", { skipPreplan })
+            ? options.runtime.explainNextAutomationCommand(
+                playerId,
+                nextClientSeq,
+                issuedAt,
+                "ai-runtime",
+                collectVisibleOnCooldown ? { skipPreplan, collectVisibleOnCooldown: true } : { skipPreplan }
+              )
             : { command: options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime") };
           const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
           const breached = plannerDurationMs > plannerBreachThresholdMs;

@@ -1401,6 +1401,7 @@ export class SimulationRuntime {
     sessionPrefix: "ai-runtime" | "system-runtime",
     options?: {
       skipPreplan?: boolean;
+      collectVisibleOnCooldown?: boolean;
     }
   ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
     const player = this.players.get(playerId);
@@ -1432,7 +1433,8 @@ export class SimulationRuntime {
         ownedTiles,
         clientSeq,
         issuedAt,
-        sessionPrefix
+        sessionPrefix,
+        ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {})
       });
       preplanDiagnostic = preplan.diagnostic;
       if (preplan.command) return preplan;
@@ -1474,6 +1476,7 @@ export class SimulationRuntime {
         this.rememberedAutomationVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
       },
       ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
+      ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
       clientSeq,
       issuedAt,
       sessionPrefix
