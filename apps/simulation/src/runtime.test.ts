@@ -642,6 +642,222 @@ describe("simulation runtime", () => {
     expect(audits.every((entry) => entry.reasons.length > 0)).toBe(true);
   });
 
+  it("filterTileDeltasForPlayer drops opponent tiles outside the viewer's vision", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const deltas = [
+      // Player-2 settled a fort on a tile far from player-1's territory.
+      {
+        x: 50,
+        y: 50,
+        terrain: "LAND" as const,
+        ownerId: "player-2",
+        ownershipState: "SETTLED",
+        fortJson: JSON.stringify({ ownerId: "player-2", status: "active" })
+      },
+      // Player-2 captured a tile inside player-1's vision radius.
+      {
+        x: 12,
+        y: 10,
+        terrain: "LAND" as const,
+        ownerId: "player-2",
+        ownershipState: "SETTLED",
+        townJson: JSON.stringify({ type: "MARKET", populationTier: "SETTLEMENT" })
+      },
+      // Player-1's own tile yield update.
+      {
+        x: 10,
+        y: 10,
+        terrain: "LAND" as const,
+        ownerId: "player-1",
+        ownershipState: "SETTLED"
+      }
+    ];
+
+    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+
+    expect(filtered.map((delta) => `${delta.x},${delta.y}`).sort()).toEqual(["10,10", "12,10"]);
+    expect(filtered.some((delta) => delta.x === 50 && delta.y === 50)).toBe(false);
+    const ownDelta = filtered.find((delta) => delta.x === 10 && delta.y === 10);
+    expect(ownDelta?.ownerId).toBe("player-1");
+    const visibleOpponent = filtered.find((delta) => delta.x === 12 && delta.y === 10);
+    expect(visibleOpponent?.townJson).toEqual(expect.any(String));
+  });
+
+  it("filterTileDeltasForPlayer redacts lock-target opponent deltas to terrain-only stubs", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: [
+          {
+            commandId: "lock-1",
+            playerId: "player-1",
+            actionType: "ATTACK",
+            originX: 10,
+            originY: 10,
+            targetX: 50,
+            targetY: 50,
+            originKey: "10,10",
+            targetKey: "50,50",
+            resolvesAt: 120_000
+          }
+        ]
+      }
+    });
+
+    const deltas = [
+      {
+        x: 50,
+        y: 50,
+        terrain: "LAND" as const,
+        ownerId: "player-2",
+        ownershipState: "SETTLED",
+        townJson: JSON.stringify({ type: "MARKET", populationTier: "SETTLEMENT" }),
+        fortJson: JSON.stringify({ ownerId: "player-2", status: "active" })
+      }
+    ];
+
+    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+
+    expect(filtered).toHaveLength(1);
+    const stub = filtered[0];
+    expect(stub).toEqual({ x: 50, y: 50, terrain: "LAND" });
+    expect(stub).not.toHaveProperty("ownerId");
+    expect(stub).not.toHaveProperty("townJson");
+    expect(stub).not.toHaveProperty("fortJson");
+  });
+
+  it("filterTileDeltasForPlayer returns disjoint visible sets for three subscribers viewing the same delta batch", () => {
+    const makePlayer = (id: string) => ({
+      id,
+      isAi: false,
+      points: 100,
+      manpower: 100,
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(),
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      techRootId: "rewrite-local",
+      allies: new Set<string>()
+    });
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")],
+        ["player-3", makePlayer("player-3")]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          // Each player owns one isolated tile so their vision radius is
+          // confined to that region. Crucially, no player owns anything in
+          // another region, so cross-region tile activity should be invisible.
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 100, y: 100, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 200, y: 200, terrain: "LAND", ownerId: "player-3", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    // Three hypothetical opponent settlements, one in each region. The
+    // classifier reads simulator state (which says each player owns only
+    // their own region), so the post-flip ownerId attached to each delta
+    // doesn't grant retroactive vision.
+    const deltas = [
+      { x: 12, y: 10, terrain: "LAND" as const, ownerId: "player-3", ownershipState: "SETTLED", townJson: "{}" },
+      { x: 102, y: 100, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED", townJson: "{}" },
+      { x: 202, y: 200, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED", townJson: "{}" }
+    ];
+
+    const p1Filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+    const p2Filtered = runtime.filterTileDeltasForPlayer(deltas, "player-2");
+    const p3Filtered = runtime.filterTileDeltasForPlayer(deltas, "player-3");
+
+    // Each subscriber sees exactly the one delta in their vision radius and
+    // no others — proving the leak from cross-region opponent activity is
+    // closed even with multiple subscribers in a single batch.
+    expect(p1Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["12,10"]);
+    expect(p2Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["102,100"]);
+    expect(p3Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["202,200"]);
+  });
+
   it("does not redact lock-target tiles already covered by territory vision", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,

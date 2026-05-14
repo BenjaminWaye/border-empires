@@ -1475,21 +1475,43 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }
         }
       }
+      // TILE_DELTA_BATCH events describe authoritative tile changes. Each
+      // subscribed player only sees the subset of tiles they have vision of,
+      // so we fan out one event per subscribed player with their filtered
+      // (and where required, redacted) deltas — instead of a single global
+      // broadcast that would leak opponent tile state outside fog of war.
+      // The same filter is applied to each player's cached snapshot so the
+      // server-held cache stays consistent with what the player can actually see.
+      //
+      // Trade-off: we lose the gateway's preSerializeBroadcast optimisation
+      // (each subscriber now gets their own JSON.stringify) and the simulation
+      // emits N proto events per command instead of one. With the lazy filter
+      // (runtime.filterTileDeltasForPlayer) the added sim cost is roughly
+      // O(N_subscribed × deltas × territory) — at staging load ~1% of one
+      // core on top of the existing snapshot-cache rebuild that was already
+      // O(N_subscribed × snapshot_size). If subscriber count grows large
+      // enough that gateway per-player serialisation becomes the hot spot,
+      // group subscribers by identical filtered tile-sets and stringify once
+      // per group, or maintain a per-player incremental visible-tile set so
+      // the filter is O(deltas) instead of O(deltas × territory).
       if (event.eventType === "TILE_DELTA_BATCH") {
         for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
+          const filteredDeltas = runtime.filterTileDeltasForPlayer(event.tileDeltas, subscribedPlayerId);
           const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-          if (!cachedSnapshot) continue;
-          setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, event.tileDeltas));
+          if (cachedSnapshot && filteredDeltas.length > 0) {
+            setCachedSnapshot(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, filteredDeltas));
+          }
+          if (filteredDeltas.length === 0) continue;
+          const perPlayerEvent = toProtoEvent({
+            ...event,
+            playerId: subscribedPlayerId,
+            tileDeltas: filteredDeltas
+          });
+          for (const stream of eventStreams) stream.write(perPlayerEvent);
         }
+        return;
       }
-      // TILE_DELTA_BATCH events describe authoritative tile changes that
-      // every subscribed player needs in real time, regardless of which
-      // player triggered them. The gateway fans these out to allSockets()
-      // and applies them to per-player snapshots, so a human watching their
-      // border get captured by an AI must see the flip live — not only
-      // after a snapshot refetch.
-      const isWorldVisibleBroadcast = event.eventType === "TILE_DELTA_BATCH";
-      if (!isWorldVisibleBroadcast && !subscriptionRegistry.isSubscribed(event.playerId)) return;
+      if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
       const protoEvent = toProtoEvent(event);
       for (const stream of eventStreams) stream.write(protoEvent);
     });
