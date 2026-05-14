@@ -5657,6 +5657,64 @@ describe("simulation runtime — shard rain", () => {
     );
   });
 
+  it("clears the rain hello cache after FALL sites are fully collected", async () => {
+    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const runtime = new SimulationRuntime({
+      now: () => localTime(12, 15),
+      initialPlayers: new Map([
+        [
+          "human-1",
+          {
+            ...humanPlayer("human-1"),
+            strategicResources: { SHARD: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 0,
+            y: 0,
+            terrain: "LAND" as const,
+            ownerId: "human-1",
+            ownershipState: "SETTLED" as const,
+            shardSite: { kind: "FALL", amount: 1, expiresAt }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.submitCommand({
+      commandId: "collect-rain-1",
+      sessionId: "session-1",
+      playerId: "human-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "COLLECT_SHARD",
+      payloadJson: JSON.stringify({ x: 0, y: 0 })
+    });
+    await Promise.resolve();
+
+    expect(
+      seen.some(
+        (event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "collect-rain-1"
+      )
+    ).toBe(false);
+
+    const helloBefore = seen.length;
+    runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
+    const helloNotices = seen
+      .slice(helloBefore)
+      .filter(
+        (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
+      );
+    expect(helloNotices).toHaveLength(0);
+  });
+
   it("emitShardRainHelloFor only sends one hello per player per rain window", () => {
     const expiresAt = localTime(12, 0) + 30 * 60_000;
     const runtime = new SimulationRuntime({

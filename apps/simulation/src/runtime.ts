@@ -963,7 +963,10 @@ export class SimulationRuntime {
     }
     if (expired.length === 0) return;
     this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - expired.length);
-    if (this.currentShardRainSiteCount === 0) this.currentShardRainExpiresAt = undefined;
+    if (this.currentShardRainSiteCount === 0) {
+      this.currentShardRainExpiresAt = undefined;
+      this.lastShardRainHelloByPlayer.clear();
+    }
     const commandId = this.nextShardRainCommandId("expire");
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
@@ -4124,7 +4127,10 @@ export class SimulationRuntime {
     this.addStrategicResource(actor, "SHARD", amount);
     if (target.shardSite?.kind === "FALL") {
       this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
-      if (this.currentShardRainSiteCount === 0) this.currentShardRainExpiresAt = undefined;
+      if (this.currentShardRainSiteCount === 0) {
+      this.currentShardRainExpiresAt = undefined;
+      this.lastShardRainHelloByPlayer.clear();
+    }
     }
     const updatedTile: DomainTileState = { ...target, shardSite: undefined };
     this.replaceTileState(targetKey, updatedTile);
