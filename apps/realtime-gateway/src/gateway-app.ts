@@ -345,6 +345,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   });
   const slowGatewaySubmitWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_SUBMIT_WARN_MS ?? 1_000));
   const slowGatewayRpcWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_RPC_WARN_MS ?? 1_000));
+  // Threshold for "single processSimulationEvent handler took too long" warning.
+  // The gateway serializes all sim events through a single Promise chain
+  // (simulationEventChain), so any slow handler stalls every subsequent event.
+  // Set 0 to disable. Captures wait time in the chain queue separately from
+  // run time so we can tell whether this event was slow or just blocked by
+  // the previous one.
+  const slowGatewaySimEventWarnMs = Math.max(0, Number(process.env.GATEWAY_SLOW_SIM_EVENT_WARN_MS ?? 100));
   let gatewayMetricsTimer: ReturnType<typeof setInterval> | undefined;
   let gatewayEventLoopTimer: ReturnType<typeof setInterval> | undefined;
   let gatewayEventLoopWindowMaxMs = 0;
@@ -953,6 +960,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   };
 
   let simulationEventChain = Promise.resolve();
+  let simulationEventChainPending = 0;
   const processSimulationEvent = async (event: SimulationClientEvent): Promise<void> => {
       markSimulationReady();
       if (!event.commandId.startsWith("bootstrap:")) {
@@ -1214,10 +1222,39 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     if (eventStreamShuttingDown) return;
     eventStreamCancel = simulationClient.streamEvents(
       (event: SimulationClientEvent) => {
+        const enqueuedAt = slowGatewaySimEventWarnMs > 0 ? Date.now() : 0;
+        const chainDepthAtEnqueue = simulationEventChainPending;
+        simulationEventChainPending += 1;
         simulationEventChain = simulationEventChain
-          .then(() => processSimulationEvent(event))
+          .then(async () => {
+            if (slowGatewaySimEventWarnMs <= 0) {
+              await processSimulationEvent(event);
+              return;
+            }
+            const startedAt = Date.now();
+            const waitMs = startedAt - enqueuedAt;
+            try {
+              await processSimulationEvent(event);
+            } finally {
+              const runMs = Date.now() - startedAt;
+              if (runMs >= slowGatewaySimEventWarnMs || waitMs >= slowGatewaySimEventWarnMs) {
+                recordGatewayEvent("warn", "gateway_sim_event_handler_slow", {
+                  commandId: event.commandId,
+                  playerId: event.playerId,
+                  eventType: event.eventType,
+                  runMs,
+                  waitMs,
+                  chainDepthAtEnqueue,
+                  ...("tileDeltas" in event && Array.isArray(event.tileDeltas) ? { tileDeltaCount: event.tileDeltas.length } : {})
+                });
+              }
+            }
+          })
           .catch((error) => {
             app.log.error({ err: error, commandId: event.commandId, playerId: event.playerId, eventType: event.eventType }, "simulation event processing failed");
+          })
+          .finally(() => {
+            simulationEventChainPending -= 1;
           });
       },
       {
