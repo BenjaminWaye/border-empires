@@ -13,6 +13,14 @@ import type { GatewayAuthBindingStore } from "./auth-binding-store.js";
 import { createGatewayAuthBindingStore } from "./auth-binding-store-factory.js";
 import type { GatewayCommandStore } from "./command-store.js";
 import { createGatewayCommandStore } from "./command-store-factory.js";
+import {
+  createEmailAlertService,
+  readAttackAlert,
+  readIncomingAllianceRequestAlert,
+  readIncomingTruceRequestAlert,
+  type EmailAlertConfig,
+  type EmailAlertOutcome
+} from "./email-alerts.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "./frontier-submit.js";
 import { registerGatewayHttpRoutes } from "./http-routes.js";
 import { createGatewayMetrics } from "./metrics.js";
@@ -74,6 +82,7 @@ type RealtimeGatewayAppOptions = {
   simulationRpcRetryAttempts?: number;
   adminApiToken?: string;
   fogAdminEmail?: string;
+  emailAlerts?: EmailAlertConfig;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -631,6 +640,36 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const authBindingStore =
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
+  const emailAlerts = createEmailAlertService({
+    authBindingStore,
+    ...(options.emailAlerts ?? {}),
+    log: {
+      error: (payload, message) => app.log.error(payload, message)
+    }
+  });
+  const recordEmailAlertOutcome = (
+    kind: "alliance_request" | "truce_request" | "attack",
+    recipientPlayerId: string,
+    outcome: EmailAlertOutcome
+  ): void => {
+    if (outcome === "disabled" || outcome === "recipient_missing") return;
+    const level = outcome === "send_failed" ? "warn" : "info";
+    recordGatewayEvent(level, "gateway_email_alert_result", { kind, recipientPlayerId, outcome });
+  };
+  const sendGameplayEmailAlert = (
+    kind: "alliance_request" | "truce_request" | "attack",
+    recipientPlayerId: string,
+    send: () => Promise<EmailAlertOutcome>
+  ): void => {
+    void send()
+      .then((outcome) => recordEmailAlertOutcome(kind, recipientPlayerId, outcome))
+      .catch((error) => {
+        app.log.error(
+          { err: error instanceof Error ? error.message : String(error), kind, recipientPlayerId },
+          "gameplay email alert failed"
+        );
+      });
+  };
 
   const authIdentityCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_AUTH_IDENTITY_CACHE_TTL_MS ?? 300_000));
   const profileCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_PROFILE_CACHE_TTL_MS ?? 300_000));
@@ -1151,6 +1190,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       if (typeof submittedAt === "number") {
         gatewayMetrics.observeGatewayInputToStateUpdateLatencyMs(Date.now() - submittedAt);
         pendingInputToStateByCommandId.delete(event.commandId);
+      }
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "ATTACK_ALERT") {
+        const attackAlert = readAttackAlert(event.payload);
+        if (attackAlert) {
+          sendGameplayEmailAlert("attack", event.playerId, () =>
+            emailAlerts.sendAttackAlert({
+              defenderPlayerId: event.playerId,
+              attackerName: attackAlert.attackerName,
+              x: attackAlert.x,
+              y: attackAlert.y
+            })
+          );
+        }
       }
       const sockets = playerSubscriptions.socketsForPlayer(event.playerId);
       if (sockets.size === 0) {
@@ -2009,6 +2061,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
               return;
             }
+            const alert = readIncomingAllianceRequestAlert(result.payloadsByPlayerId);
+            if (alert) {
+              sendGameplayEmailAlert("alliance_request", alert.recipientPlayerId, () =>
+                emailAlerts.sendAllianceRequestAlert({
+                  recipientPlayerId: alert.recipientPlayerId,
+                  senderName: alert.senderName
+                })
+              );
+            }
             fanoutPlayerPayloads(result.payloadsByPlayerId);
             return;
           }
@@ -2058,6 +2119,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             if (!result.ok) {
               sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
               return;
+            }
+            const alert = readIncomingTruceRequestAlert(result.payloadsByPlayerId);
+            if (alert) {
+              sendGameplayEmailAlert("truce_request", alert.recipientPlayerId, () =>
+                emailAlerts.sendTruceRequestAlert({
+                  recipientPlayerId: alert.recipientPlayerId,
+                  senderName: alert.senderName,
+                  durationHours: alert.durationHours
+                })
+              );
             }
             fanoutPlayerPayloads(result.payloadsByPlayerId);
             await maybeAutoRespondToSeededAiTruce(extractTruceRequestFromPayloads(result.payloadsByPlayerId, session.playerId));

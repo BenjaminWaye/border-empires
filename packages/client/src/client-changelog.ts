@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.14.7",
+  version: "2026.05.14.8",
   title: "What's New",
-  summary: "The true-3D renderer now draws selected observatory range borders and fills on the terrain instead of as a flat screen rectangle. Diplomacy errors and truce results still open visible popups, and outgoing truce offers stay visible.",
+  summary: "Gameplay email alerts can now notify you when another empire sends an alliance request, offers a truce, or attacks your territory. The gateway throttles alerts per recipient each day so email stays useful instead of noisy.",
   entries: [
+    {
+      introducedIn: "2026.05.14.8",
+      title: "Email alerts cover requests and incoming attacks",
+      why: "Diplomacy offers and attacks can happen while a player is away from the browser. Without email alerts, important alliance, truce, and defense decisions were easy to miss until the next login.",
+      changes: [
+        "The rewrite gateway can send email alerts for incoming alliance requests, incoming truce offers, and attack alerts.",
+        "Alerts are resolved from the player's bound auth email, so they can still be delivered when the player has no active socket.",
+        "Email delivery is throttled per recipient per day, with a default cap of three alerts."
+      ]
+    },
     {
       introducedIn: "2026.05.14.7",
       title: "Observatory range borders follow 3D terrain",

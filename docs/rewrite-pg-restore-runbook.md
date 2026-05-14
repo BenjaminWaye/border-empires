@@ -34,19 +34,14 @@ fly postgres connect -a border-empires-postgres << SQL
 ALTER ROLE be_staging WITH PASSWORD '${STAGING_PASSWORD}';
 SQL
 
-# 3. Update the DATABASE_URL secret on both staging apps to use the new password.
+# 3. Update the DATABASE_URL secret on the combined staging app to use the new password.
 #    The URL format is: postgres://be_staging:PASSWORD@border-empires-postgres.flycast:5432/border_empires_staging
 fly secrets set \
   DATABASE_URL="postgres://be_staging:${STAGING_PASSWORD}@border-empires-postgres.flycast:5432/border_empires_staging" \
-  --app border-empires-gateway-staging
+  --app border-empires-combined-staging
 
-fly secrets set \
-  DATABASE_URL="postgres://be_staging:${STAGING_PASSWORD}@border-empires-postgres.flycast:5432/border_empires_staging" \
-  --app border-empires-simulation-staging
-
-# 4. Restart staging apps to pick up new credential.
-fly machines restart --app border-empires-gateway-staging
-fly machines restart --app border-empires-simulation-staging
+# 4. Restart staging to pick up new credential.
+fly machines restart --app border-empires-combined-staging
 ```
 
 After rotation, there should be no committed file in the repo containing `staging_changeme` as a real credential. A CI guard checks for this — see `.github/workflows/ci.yml`.
