@@ -241,8 +241,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
     Boolean(tile.town) &&
     tile.town?.populationTier !== "SETTLEMENT" &&
     state.techIds.includes("trade") &&
-    state.gold >= 1200 &&
-    (state.strategicResources.CRYSTAL ?? 0) >= 40;
+    state.gold >= 2200;
   const canBuildGranary =
     tile.ownershipState === "SETTLED" &&
     !hasBlockingStructure &&
@@ -281,7 +280,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
       </button>
       <button class="hold-menu-btn" data-build="market" ${canBuildMarket ? "" : "disabled"}>
         <span>Market</span>
-        <small>1200 gold + 40 CRYSTAL • +50% fed town gold • +50% town cap • 0.05 crystal / min${queueableWhenBusy && canBuildMarket ? " • queues" : ""}</small>
+        <small>2200 gold • +50% fed town gold • +50% town cap • 0.05 crystal / min${queueableWhenBusy && canBuildMarket ? " • queues" : ""}</small>
       </button>
       <button class="hold-menu-btn" data-build="granary" ${canBuildGranary ? "" : "disabled"}>
         <span>Granary</span>

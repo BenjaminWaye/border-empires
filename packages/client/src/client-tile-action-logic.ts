@@ -1634,17 +1634,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           label: "Build Market",
           detail: deps.buildDetailTextForAction("build_market", tile, townBuildSource),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked && !townHasMarket && state.techIds.includes("trade") && state.gold >= 1200 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
+            !supportPlacementBlocked && !townHasMarket && state.techIds.includes("trade") && state.gold >= deps.structureGoldCost("MARKET"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasMarket
                 ? "Nearby town already has Market"
                 : !state.techIds.includes("trade")
                   ? "Requires Trade"
-                  : state.gold < 1200
-                    ? "Need 1200 gold"
-                    : "Need 40 CRYSTAL",
-            `1200 gold + 40 CRYSTAL • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold • +50% storage cap`,
+                  : `Need ${deps.structureGoldCost("MARKET")} gold`,
+            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold • +50% storage cap`,
             slots,
             deps
           )
@@ -1732,9 +1730,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           label: "Build Caravanary",
           detail: deps.buildDetailTextForAction("build_caravanary", tile, townBuildSource),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked && !townHasCaravanary && state.techIds.includes("ledger-keeping") && state.gold >= 1800 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
-            supportPlacementBlocked ? "Tile already has structure" : townHasCaravanary ? "Nearby town already has Caravanary" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : state.gold < 1800 ? "Need 1800 gold" : "Need 60 CRYSTAL",
-            `1800 gold + 60 CRYSTAL • ${Math.round(economicStructureBuildMs("CARAVANARY") / 60000)}m • +25% connected-town bonus • 1.5 gold / minute`,
+            !supportPlacementBlocked && !townHasCaravanary && state.techIds.includes("ledger-keeping") && state.gold >= deps.structureGoldCost("CARAVANARY"),
+            supportPlacementBlocked ? "Tile already has structure" : townHasCaravanary ? "Nearby town already has Caravanary" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : `Need ${deps.structureGoldCost("CARAVANARY")} gold`,
+            `${deps.structureCostText("CARAVANARY")} • ${Math.round(economicStructureBuildMs("CARAVANARY") / 60000)}m • +25% connected-town bonus • 1.5 gold / minute`,
             slots,
             deps
           )

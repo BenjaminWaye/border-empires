@@ -291,6 +291,76 @@ describe("client network regression guards", () => {
     }
   });
 
+  it("routes INSUFFICIENT_GOLD build rejections to the capture alert (not the frontier notifier) and rolls back the optimistic build", () => {
+    const state = createState();
+    state.gold = 1500;
+    state.lastDevelopmentAttempt = {
+      kind: "BUILD",
+      x: 14,
+      y: 299,
+      tileKey: "14,299",
+      label: "Build Market",
+      payload: { type: "BUILD_ECONOMIC_STRUCTURE", x: 14, y: 299, structureType: "MARKET" },
+      optimisticKind: "MARKET"
+    };
+    state.queuedDevelopmentDispatchPending = true;
+    const showCaptureAlert = vi.fn();
+    const notifyInsufficientGoldForFrontierAction = vi.fn();
+    const ws = new FakeWebSocket();
+    const { clearOptimisticTileState } = bindWithDeps(state, ws, {
+      showCaptureAlert,
+      notifyInsufficientGoldForFrontierAction
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for market" })
+      });
+      expect(notifyInsufficientGoldForFrontierAction).not.toHaveBeenCalled();
+      expect(showCaptureAlert).toHaveBeenCalledTimes(1);
+      const captureArgs = showCaptureAlert.mock.calls[0] ?? [];
+      expect(captureArgs[0]).toBe("Insufficient gold");
+      expect(captureArgs[1]).toContain("Insufficient gold for market");
+      expect(captureArgs[1]).toContain("1500.00");
+      expect(captureArgs[2]).toBe("warn");
+      expect(clearOptimisticTileState).toHaveBeenCalledWith("14,299", true);
+      expect(state.lastDevelopmentAttempt).toBeUndefined();
+      expect(state.queuedDevelopmentDispatchPending).toBe(false);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("still uses the frontier notifier for INSUFFICIENT_GOLD on frontier claim and attack", () => {
+    const state = createState();
+    state.gold = 25;
+    const showCaptureAlert = vi.fn();
+    const notifyInsufficientGoldForFrontierAction = vi.fn();
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws, {
+      showCaptureAlert,
+      notifyInsufficientGoldForFrontierAction
+    });
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for frontier claim" })
+      });
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for attack" })
+      });
+      expect(notifyInsufficientGoldForFrontierAction).toHaveBeenCalledTimes(2);
+      expect(notifyInsufficientGoldForFrontierAction.mock.calls[0]?.[0]).toBe("claim");
+      expect(notifyInsufficientGoldForFrontierAction.mock.calls[1]?.[0]).toBe("attack");
+      const captureAlertCalls = showCaptureAlert.mock.calls.filter(([title]) => title === "Insufficient gold");
+      expect(captureAlertCalls).toHaveLength(0);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("preserves shard sites when a frontier tile delta explicitly clears shard detail during claim confirmation", () => {
     const state = createState();
     state.tiles.set("60,302", {

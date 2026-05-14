@@ -15,7 +15,8 @@ export type SupportTownStructureKey =
   | "RAIL_DEPOT"
   | "IMPERIAL_EXCHANGE_PART"
   | "WORLD_ENGINE_PART"
-  | "AEGIS_DOME_PART";
+  | "AEGIS_DOME_PART"
+  | "ASTRAL_DOCK_PART";
 
 const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<NonNullable<Tile["economicStructure"]>["type"]>> = {
   MARKET: ["MARKET"],
@@ -32,7 +33,8 @@ const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<Non
   RAIL_DEPOT: ["RAIL_DEPOT"],
   IMPERIAL_EXCHANGE_PART: ["IMPERIAL_EXCHANGE_PART"],
   WORLD_ENGINE_PART: ["WORLD_ENGINE_PART"],
-  AEGIS_DOME_PART: ["AEGIS_DOME_PART"]
+  AEGIS_DOME_PART: ["AEGIS_DOME_PART"],
+  ASTRAL_DOCK_PART: ["ASTRAL_DOCK_PART"]
 };
 
 const isTownSupportNeighbor = (town: Tile, tile: Tile): boolean => {

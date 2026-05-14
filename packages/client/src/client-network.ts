@@ -1,4 +1,5 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { formatGoldAmount } from "./client-constants.js";
 import type { ClientState } from "./client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import {
@@ -2447,6 +2448,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const serverErrorContext = {
         code: msg.code,
         message: msg.message,
+        playerGold: state.gold,
+        playerStrategicResources: { ...state.strategicResources },
         actionInFlight: state.actionInFlight,
         actionTargetKey: failedTargetKey,
         actionTargetTile: failedTargetTile
@@ -2627,8 +2630,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
       if (maybeRecoverTransientSettlementAttempt(errorCode, errorMessage, errorTileKey)) return;
-      if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
-        notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
+      if (errorCode === "INSUFFICIENT_GOLD") {
+        if (errorMessage === "insufficient gold for frontier claim" || errorMessage === "insufficient gold for attack") {
+          notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
+        } else {
+          // Roll back the optimistic build/settle attempt so the tile menu doesn't
+          // keep showing a phantom under-construction structure on a gold rejection
+          // (INSUFFICIENT_GOLD does not match isStructureActionError below, so the
+          // generic rollback branch never runs for it).
+          const attempt = state.lastDevelopmentAttempt;
+          if (attempt?.tileKey) {
+            clearOptimisticTileStateSafely(attempt.tileKey, true);
+            if (attempt.kind === "SETTLE") clearSettlementProgressSafely(attempt.tileKey);
+            state.lastDevelopmentAttempt = undefined;
+          }
+          state.queuedDevelopmentDispatchPending = false;
+          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} gold.`;
+          showCaptureAlertSafely("Insufficient gold", goldDetail, "warn");
+        }
       } else if (errorCode === "SETTLE_INVALID") {
         clearOptimisticTileStateSafely(errorTileKey, true);
         clearSettlementProgressSafely(errorTileKey);

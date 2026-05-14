@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.15.1",
+  version: "2026.05.15.2",
   title: "What's New",
-  summary: "True-3D renderer adds proper meshes for Market and Observatory structures: Market gets a striped-awning stall with a counter, posts, and crates of produce; Observatory is a stone drum with a half-sphere dome, brass telescope poking through a dark slit, and a glowing blue power crystal jutting from the side. The MINE mesh now varies its cart load based on the underlying resource — grey iron ore on IRON tiles, blue crystals on GEMS tiles — so the resource stays readable even after a mine is built on top. Plus seasonal AI truce resolution and the gameplay email alerts.",
+  summary: "Selecting a town next to a finished or in-progress Astral Dock Part no longer crashes the tile menu. Build Market and Build Caravanary now reflect their real rewrite-stack costs so the actions no longer fail silently with a server-side gold rejection, and a proper Insufficient Gold notification now fires for build failures instead of staying console-only.",
   entries: [
+    {
+      introducedIn: "2026.05.15.2",
+      title: "Town tile menu survives Astral Dock Parts",
+      why: "townHasSupportStructure looked up ASTRAL_DOCK_PART in a support-structure map that never had an entry for it, so the .includes() lookup blew up the moment any neighbor of the selected town owned an Astral Dock Part. The whole tile menu pipeline threw, leaving the player unable to act on the town.",
+      changes: [
+        "Astral Dock Part is now a recognized support structure on the client, so tile menus next to in-progress or finished parts compute without crashing.",
+        "Build Market and Build Caravanary now read their costs from the shared structure-cost table (2200 gold / 2600 gold, no crystal) instead of the stale hardcoded gates (1200 gold + 40 CRYSTAL, 1800 gold + 60 CRYSTAL). The buttons correctly stay disabled until the player can actually afford the rewrite-stack price.",
+        "INSUFFICIENT_GOLD now raises an on-screen \"Insufficient gold\" capture alert for every kind of action (build, settle, etc.), not just frontier claim/attack. The alert reports the rejection message and the player's current gold so it is clear why the server refused.",
+        "A gold-rejected build no longer leaves a phantom under-construction structure on the optimistic tile state — the build's optimistic state is rolled back when the server returns INSUFFICIENT_GOLD, so retrying once gold is available works cleanly.",
+        "Server-error console logs now include the player's current gold and strategic resources, so insufficient-resource rejections are diagnosable without re-running the action."
+      ]
+    },
     {
       introducedIn: "2026.05.15.1",
       title: "True-3D Market & Observatory meshes + resource-aware Mine cart",
