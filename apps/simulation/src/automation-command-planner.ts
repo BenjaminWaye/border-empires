@@ -190,6 +190,12 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   // attack gates below skip targets in this set so the planner falls through
   // to SETTLE/EXPAND/BUILD. See ai-attack-stalemate.ts for the policy.
   attackStalemateTargetTileKeys?: ReadonlySet<string>;
+  // Bounded BFS front of owned tile keys for this AI's current spatial focus.
+  // When provided, frontier candidate enumeration is restricted to origins
+  // inside this set, capping per-tick CPU regardless of empire size. See
+  // ai-spatial-focus.ts for selection. Optional so test inputs and the no-AI
+  // system planner keep working unchanged.
+  spatialFocusFront?: ReadonlySet<string>;
 };
 
 export type AutomationPlannerResult = {
@@ -452,10 +458,24 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     const { supportMax, supportCurrent } = computeTownSupport(input.playerId, tile.x, tile.y, input.tilesByKey);
     return supportMax > supportCurrent;
   });
-  const narrowFrontierOrigins =
+  const unfilteredNarrowOrigins =
     dockOrigins.length > 0 || townSupportOrigins.length > 0
       ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
       : baseFrontierOrigins;
+  const spatialFocusFront = input.spatialFocusFront;
+  // Restrict candidate enumeration to the spatial focus front when present.
+  // If the focus excludes every narrow origin, fall back to the unfiltered
+  // set rather than going noop — the meta-planner's expiry tick will pick a
+  // fresh origin next pass, and the unfiltered set is still bounded by the
+  // existing summary indexes (hot/strategic frontier tile keys).
+  const narrowFrontierOrigins = spatialFocusFront
+    ? (() => {
+        const filtered = unfilteredNarrowOrigins.filter(
+          (tile) => spatialFocusFront.has(`${tile.x},${tile.y}`)
+        );
+        return filtered.length > 0 ? filtered : unfilteredNarrowOrigins;
+      })()
+    : unfilteredNarrowOrigins;
   // Fold the per-state counts into a single owned-tiles sweep. Previously
   // three separate `.filter(...)` walks ran per plan (settled, controlled,
   // towns); at 1000+ owned tiles per AI × 5 AIs that allocated three
@@ -490,11 +510,23 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         })
       : emptyFrontierAnalysis();
   if ((canAttack || canExpand) && !hasActionableFrontierAnalysis(frontierAnalysis) && input.frontierTiles.length > 0) {
-    const broadFrontierOrigins = dedupeTiles([
+    const broadFrontierOriginsAll = dedupeTiles([
       ...narrowFrontierOrigins,
       ...input.frontierTiles,
       ...ownedFrontierTiles
     ]);
+    // The broad fallback also respects the spatial focus front so a large
+    // empire cannot blow up planner CPU through the fallback path. As with
+    // the narrow case, fall back to the unfiltered broad set if the focus
+    // happens to exclude everything.
+    const broadFrontierOrigins = spatialFocusFront
+      ? (() => {
+          const filtered = broadFrontierOriginsAll.filter(
+            (tile) => spatialFocusFront.has(`${tile.x},${tile.y}`)
+          );
+          return filtered.length > 0 ? filtered : broadFrontierOriginsAll;
+        })()
+      : broadFrontierOriginsAll;
     if (broadFrontierOrigins.length > frontierOrigins.length) {
       const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
         canAttack,
