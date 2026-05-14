@@ -1,6 +1,6 @@
 # Border Empires — Game Mechanics Reference
 
-Canonical "how the game actually works" reference for agents working on AI, gameplay, balance, or anything that needs grounded knowledge of the rules. Surveyed 2026-05-14 against the rewrite stack (`apps/simulation`, `apps/realtime-gateway`, `packages/shared`, `packages/game-domain`). Legacy `packages/server` is out of scope; if a fact below diverges from legacy, the rewrite is authoritative.
+Canonical "how the game actually works" reference for agents working on AI, gameplay, balance, or anything that needs grounded knowledge of the rules. Surveyed 2026-05-14 against the rewrite stack (`apps/simulation`, `apps/realtime-gateway`, `packages/shared`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`, `packages/client`). The legacy `packages/server` stack was removed in commit `ec4614d` (PR #264); only the rewrite is authoritative.
 
 When something here drifts from code, fix the code reference and update this doc in the same branch. Cite file:line for every non-obvious claim.
 
@@ -19,8 +19,11 @@ When something here drifts from code, fix the code reference and update this doc
 
 - **Player count**: no hard limit. AI players are flagged `isAi: true` in the player definition. Prod first season is seeded island-heavy with 5 AI players. `packages/shared/src/types.ts:376-413`
 - **No civ/faction asymmetry**. Every player shares the same stat-mod fields (`attack`, `defense`, `income`, `vision`), the same tech tree, and the same ability catalog. Differentiation is per-player via tech progress and strategic-resource control, not faction baselines. `packages/shared/src/types.ts:387-388`
-- **Barbarians**: pseudo-player with `ownerId = "barbarian"`. Spawn as `BarbarianAgent` records (position, progress, action timing). Maintenance keeps a target of `MIN_ACTIVE_BARBARIAN_AGENTS = 80` agents; spawn tick `BARBARIAN_TICK_MS = 5000`, maintenance interval `BARBARIAN_MAINTENANCE_INTERVAL_MS = 10000`. Barbarians attack owned tiles; if a counter-attack fails, the origin tile reverts to barbarian control. `packages/game-domain/src/server-game-constants.ts:9-10, 35-37`, `packages/shared/src/types.ts:458-465`
-- **Barbarian frontier tiles** (post-`f8a2455`, 2026-05-14): ~80 barbarian-1 FRONTIER tiles are seeded across the map at world gen. Treat as a permanent feature unless that commit is reverted; AI candidate enumeration must assume their presence.
+- **Barbarians (rewrite model, post-`f5ba210` / PR #256)**: not dynamic agents. Implemented as **tiles owned by player `"barbarian-1"`**, with 80 FRONTIER tiles seeded at world gen far from player spawns (`apps/simulation/src/season-seed-world.ts`, `seed-state.ts:183`). Behavior:
+  - **Proximity activation**: a barb tile is only active when adjacent to a non-barb owner. Idle frontier barbs cost ~nothing. Per-tile 15s activation cooldown enforced in `system-job-worker.ts:48` via `barbarianCooldownByTileKey`.
+  - **Walk / multiply**: when a barb tile wins an ATTACK/EXPAND (vs a player), per-tile progress accumulates in `SimulationRuntime.barbarianTileProgress` (`runtime.ts:675`). Progress gain: +2 if the target tile held a resource / town / fort / dock / siege, otherwise +1 (`runtime.ts:5976` `barbarianProgressGain`). At threshold 3 the source tile stays barb (multiply); below threshold it releases to neutral (walk). Progress is cleared when a player recaptures a barb tile (`runtime.ts:5946`).
+  - **Combat economics**: barbarians bypass gold and manpower gates (`runtime.ts:1263, 2793`) and are treated as a system actor by the planner.
+- **Legacy constants still present, mostly unused by the rewrite**: `BARBARIAN_OWNER_ID`, `BARBARIAN_TICK_MS`, `MIN_ACTIVE_BARBARIAN_AGENTS`, `BARBARIAN_MAINTENANCE_INTERVAL_MS`, `BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS` (`packages/game-domain/src/server-game-constants.ts:9-37`) and the `BarbarianAgent` type (`packages/shared/src/types.ts:458-465`) are legacy-flavored. Treat them as stale unless you find an active call site.
 
 ## 3. Resources and economy
 
@@ -61,7 +64,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 - **Effects**: each tech can unlock structures, grant stat mods (`attack`, `defense`, `income`, `vision` multipliers), or grant ability access.
 - **Research**: one tech at a time per player. Cost in gold + strategic resources + time; time scales with the player's `researchTimeMult`.
 - "Domination income" is a misnomer in earlier docs — there is no income mechanic tied to domination. Town Control is a victory *path*, not an income modifier.
-- References: `packages/server/src/tech-tree.ts:8-122, 124-144` (legacy file; the rewrite uses the same tree definition via shared config), `packages/shared/src/types.ts:389`.
+- References: tech tree data lives at `packages/game-domain/data/tech-tree.json`; the bridge that scores tech selection in the AI lives at `apps/simulation/src/tech-domain-bridge.ts`. Player-stat type: `packages/shared/src/types.ts:389`.
 
 ## 7. Victory conditions
 
@@ -130,12 +133,12 @@ All actions are defined in `AI_EMPIRE_ACTIONS` at `apps/simulation/src/automatio
 
 For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are the points where state mutates:
 
-- **Ownership change**: routed through `validateFrontierCommand()` (`packages/game-domain/src/index.ts:180-257`) then applied server-side as a single transactional event. Exposure metrics (T, E) recompute after the delta.
-- **Structure construction / removal**: one structure per tile; transactional start/complete/remove.
-- **Yield mutation**: tied to ownership change and structure lifecycle; collected per tick into player reserves.
-- **Barbarian spawn / despawn**: maintenance tick (see §2).
-- **Shard rain spawn**: scheduled global event (see §9).
-- **No batched / chunked mutations**. Every change is per-tile transactional. There is no event-bus abstraction yet; new indexes should hook the chokepoints above directly.
+- **Single tile-state chokepoint**: `SimulationRuntime.replaceTileState()` (`apps/simulation/src/runtime.ts:1539`). ~25 call sites across the runtime funnel through this method. Every authoritative change to ownership, ownershipState, structure, fort, observatory, siegeOutpost, shardSite, and yield-anchor goes through here.
+- **Validation gate** for player-initiated mutations: `validateFrontierCommand()` (`packages/game-domain/src/index.ts:180-257`).
+- **Existing event hooks at the chokepoint**: emits `TILE_YIELD_ANCHOR_UPDATED` via `setTileYieldCollectedAt` (`runtime.ts:1585`); updates player ownership summaries (`runtime.ts:1550-1574`). No general "tile state mutated" event yet — adding one at this point would catch every relevant change in a single emit.
+- **Worker tile caches** (`system-job-worker.ts`, `ai-planner-worker.ts`, `ai-command-producer-worker.ts`, `system-command-producer-worker.ts`) maintain their own replicas of tile state. These are downstream of canonical mutations and should not be hooked for aggregation; subscribe to the runtime emit instead.
+- **Shard rain mutations** (`runtime.tickShardRain`) also pass through `replaceTileState`, so the same hook covers them. Shard rain *also* emits per-player `PLAYER_MESSAGE` events with `messageType: "SHARD_RAIN_EVENT"` for the client banner.
+- **Barbarian state changes** (walk/multiply) are tile-state mutations + a side-channel `barbarianTileProgress` Map in `SimulationRuntime`. The tile-state part is covered by the chokepoint; progress is internal to the runtime.
 
 ## 13. Performance constraints
 
@@ -158,6 +161,7 @@ For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are
 - `apps/simulation/src/structure-command-planner.ts` — structure selection scoring.
 - `packages/game-domain/src/server-game-constants.ts` — tunables (truce, barbarian, shard, victory).
 - `packages/game-domain/src/index.ts` — frontier command validation, ownership transitions.
+- `packages/game-domain/data/tech-tree.json` — tech tree data.
 - `packages/shared/src/types.ts` — core type definitions.
 - `packages/shared/src/exposure.ts` — neighbor and wrap helpers.
-- `docs/ai-goap-plan.md` — original (pre-rewrite) GOAP design intent. Historical context; some details (3 victory paths, `packages/server` paths) are out of date.
+- `docs/ai-goap-plan.md` — original (pre-rewrite) GOAP design intent. Historical context; some details (3 victory paths, `packages/server` paths) are out of date — the legacy stack was deleted in PR #264.
