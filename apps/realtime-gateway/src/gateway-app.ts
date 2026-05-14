@@ -1665,29 +1665,50 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "REQUEST_TILE_DETAIL") {
-            const cachedSnapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
-            let snapshot = cachedSnapshot;
-            if (simulationHealth.connected) {
-              try {
-                snapshot = await refreshPlayerTileDetailSnapshot(session.playerId, session.fogDisabled);
-              } catch (error) {
-                if (cachedSnapshot) {
-                  playerSubscriptions.seedSnapshot(session.playerId, cachedSnapshot);
-                  syncGatewaySnapshotMetricsFromCache(session.playerId);
-                }
-                recordGatewayEvent("warn", "gateway_tile_detail_refresh_failed", {
-                  playerId: session.playerId,
-                  x: message.x,
-                  y: message.y,
-                  error: error instanceof Error ? error.message : String(error)
-                });
-              }
-            }
-            const tileDetail = buildSnapshotTileDetail(snapshot, session.playerId, message.x, message.y);
-            if (tileDetail) {
+            const playerId = session.playerId;
+            const cachedSnapshot = playerSubscriptions.snapshotForPlayer(playerId);
+            const cachedTileDetail = buildSnapshotTileDetail(cachedSnapshot, playerId, message.x, message.y);
+            if (cachedTileDetail) {
               sendJson(socket, {
                 type: "TILE_DELTA",
-                updates: [tileDetail]
+                updates: [cachedTileDetail]
+              });
+            }
+            if (simulationHealth.connected) {
+              void refreshPlayerTileDetailSnapshot(playerId, session.fogDisabled)
+                .then((snapshot) => {
+                  const freshTileDetail = buildSnapshotTileDetail(snapshot, playerId, message.x, message.y);
+                  if (freshTileDetail) {
+                    sendJson(socket, {
+                      type: "TILE_DELTA",
+                      updates: [freshTileDetail]
+                    });
+                  }
+                })
+                .catch((error) => {
+                  if (cachedSnapshot) {
+                    playerSubscriptions.seedSnapshot(playerId, cachedSnapshot);
+                    syncGatewaySnapshotMetricsFromCache(playerId);
+                  }
+                  recordGatewayEvent("warn", "gateway_tile_detail_refresh_failed", {
+                    playerId,
+                    x: message.x,
+                    y: message.y,
+                    error: error instanceof Error ? error.message : String(error)
+                  });
+                  if (!cachedTileDetail) {
+                    sendJson(socket, {
+                      type: "ERROR",
+                      code: "TILE_DETAIL_UNAVAILABLE",
+                      message: "Tile detail is temporarily unavailable."
+                    });
+                  }
+                });
+            } else if (!cachedTileDetail) {
+              sendJson(socket, {
+                type: "ERROR",
+                code: "SERVER_STARTING",
+                message: "Realtime simulation is temporarily unavailable. Retry shortly."
               });
             }
             return;

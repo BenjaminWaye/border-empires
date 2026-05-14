@@ -849,7 +849,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     const visibleTile = tileWithVisibleShardSite(tile, state.shardRainPingsByTile);
-    const view = tileMenuViewForTileFromModule(visibleTile ?? tile, {
+    const menuTile = visibleTile ?? tile;
+    requestTileDetailIfNeeded(menuTile);
+    const view = tileMenuViewForTileFromModule(menuTile, {
       menuActionsForSingleTile,
       splitTileActionsIntoTabs,
       settlementProgressForTile: (x, y) => {
