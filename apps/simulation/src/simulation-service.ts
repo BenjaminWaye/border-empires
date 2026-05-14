@@ -1914,6 +1914,78 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       deleteCachedSnapshot(call.request.player_id);
       callback(null, { ok: true });
     },
+    FetchTileDetail(
+      call: { request: { player_id: string; x: number; y: number; full_visibility?: boolean } },
+      callback: (
+        error: Error | null,
+        response: {
+          ok: boolean;
+          player_id: string;
+          playerId?: string;
+          x: number;
+          y: number;
+          tiles: Array<{
+            x: number;
+            y: number;
+            terrain?: string;
+            resource?: string;
+            dock_id?: string;
+            owner_id?: string;
+            ownership_state?: string;
+            town_json?: string;
+            town_type?: string;
+            town_name?: string;
+            town_population_tier?: string;
+            fort_json?: string;
+            observatory_json?: string;
+            siege_outpost_json?: string;
+            economic_structure_json?: string;
+            sabotage_json?: string;
+            shard_site_json?: string;
+          }>;
+          player_upkeep_json?: string;
+        }
+      ) => void
+    ) {
+      const seasonEnded = currentSeasonState.status === "ended";
+      const fullVisibility = call.request.full_visibility === true || seasonEnded;
+      const tiles = runtime.exportTilesInAreaForPlayer(
+        call.request.player_id,
+        Math.floor(Number(call.request.x) || 0),
+        Math.floor(Number(call.request.y) || 0),
+        1,
+        { fullVisibility }
+      );
+      const cached = snapshotCacheByPlayerId.get(call.request.player_id);
+      const upkeep = cached?.player?.upkeepLastTick;
+      callback(null, {
+        ok: true,
+        player_id: call.request.player_id,
+        playerId: call.request.player_id,
+        x: call.request.x,
+        y: call.request.y,
+        tiles: tiles.map((tile) => ({
+          x: tile.x,
+          y: tile.y,
+          ...(tile.terrain ? { terrain: tile.terrain } : {}),
+          ...(tile.resource ? { resource: tile.resource } : {}),
+          ...(tile.dockId ? { dock_id: tile.dockId } : {}),
+          ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
+          ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
+          ...(tile.townJson ? { town_json: tile.townJson } : {}),
+          ...(tile.townType ? { town_type: tile.townType } : {}),
+          ...(tile.townName ? { town_name: tile.townName } : {}),
+          ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
+          ...(tile.fortJson ? { fort_json: tile.fortJson } : {}),
+          ...(tile.observatoryJson ? { observatory_json: tile.observatoryJson } : {}),
+          ...(tile.siegeOutpostJson ? { siege_outpost_json: tile.siegeOutpostJson } : {}),
+          ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
+          ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
+          ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {})
+        })),
+        ...(upkeep ? { player_upkeep_json: JSON.stringify(upkeep) } : {})
+      });
+    },
     GetSubscriptionNamespace(
       _call: { request: Record<string, never> },
       callback: (error: Error | null, response: { ok: boolean; namespace: string }) => void
