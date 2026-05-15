@@ -1,7 +1,9 @@
 import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile } from "./client-constants.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
-import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import { isTrue3DRendererActive, prefersTrue3DRendererMode, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor.js";
+import { isMobileDevice } from "./client-panel-nav.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
 import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import {
@@ -137,6 +139,8 @@ type StartClientRuntimeLoopDeps = {
 
 export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRuntimeLoopDeps): void => {
   let lastDrawAt = 0;
+  let lastFpsPaintAt = 0;
+  let lowFpsRendererHudPinged = false;
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
@@ -155,6 +159,28 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       return;
     }
     lastDrawAt = nowMs;
+    recordFpsFrame(nowMs);
+    if (nowMs - lastFpsPaintAt > 500) {
+      lastFpsPaintAt = nowMs;
+      const fps = getCurrentFps();
+      const readouts = document.querySelectorAll<HTMLElement>("[data-fps-readout]");
+      if (readouts.length > 0) {
+        const label = fps === undefined ? "—" : Math.round(fps).toString();
+        readouts.forEach((el) => {
+          if (el.textContent !== label) el.textContent = label;
+        });
+      }
+      if (
+        !lowFpsRendererHudPinged &&
+        prefersTrue3DRendererMode &&
+        isMobileDevice() &&
+        !state.rendererPrompt.dismissed &&
+        hasSustainedLowFps(25, 5000, nowMs)
+      ) {
+        lowFpsRendererHudPinged = true;
+        deps.renderHud();
+      }
+    }
 
     if (isTrue3DRendererActive()) deps.ctx.clearRect(0, 0, deps.canvas.width, deps.canvas.height);
     else {
