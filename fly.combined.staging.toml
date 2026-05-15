@@ -56,8 +56,8 @@ primary_region = "arn"
   internal_port = 8080
   force_https = true
   auto_start_machines = true
-  auto_stop_machines = "off"
-  min_machines_running = 1
+  auto_stop_machines = "suspend"
+  min_machines_running = 0
   processes = ["app"]
 
 [mounts]
@@ -67,4 +67,4 @@ primary_region = "arn"
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory = "2048mb"
+  memory = "1024mb"
