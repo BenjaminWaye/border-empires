@@ -820,7 +820,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             unfedBadgeOverlay.addInstance(x, z, surfaceY);
           }
         }
-        if (tile && ownerId === "barbarian" && terrain === "LAND") {
+        if (tile && ownerId === "barbarian-1" && terrain === "LAND") {
           barbarianOverlay.addInstance(x, z, surfaceY);
         }
         // Resolve the underlying resource once per tile — used by the
