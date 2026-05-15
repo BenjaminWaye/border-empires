@@ -60,6 +60,20 @@ primary_region = "arn"
   min_machines_running = 1
   processes = ["app"]
 
+# Healthcheck that hits the gateway /healthz endpoint. The gateway and
+# simulation share a Node event loop, so if planner / snapshot work blocks
+# the loop for ~5s+, /healthz cannot respond and Fly counts this as a
+# failure. After 3 consecutive failures (~45s of unresponsive loop) Fly
+# restarts the machine, clearing heap fragmentation and GC pressure until
+# we have a proper structural fix. Tune the timeout/interval down once the
+# long-tail of AI tick duration is reliably <1s.
+[[http_service.checks]]
+  grace_period = "60s"
+  interval = "15s"
+  method = "GET"
+  timeout = "5s"
+  path = "/healthz"
+
 [mounts]
   source = "be_combined_data"
   destination = "/data"
