@@ -62,6 +62,19 @@ primary_region = "arn"
   min_machines_running = 1
   processes = ["app"]
 
+# Healthcheck that hits the gateway /healthz endpoint. The gateway and
+# simulation share a Node event loop, so if planner / snapshot work blocks
+# the loop for ~5s+, /healthz cannot respond. Prod uses a more conservative
+# threshold than staging (interval 30s, timeout 10s, ~2 min before restart
+# kicks in) to avoid restarting healthy machines on transient spikes.
+# Tune down once the AI tick long-tail is reliably <1s.
+[[http_service.checks]]
+  grace_period = "120s"
+  interval = "30s"
+  method = "GET"
+  timeout = "10s"
+  path = "/healthz"
+
 [mounts]
   source = "be_combined_prod_data"
   destination = "/data"
