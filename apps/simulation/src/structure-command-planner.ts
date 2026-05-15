@@ -64,6 +64,39 @@ const ownedStructureCount = (
   return count;
 };
 
+// Single-pass counter for every owned structure type. Replaces repeated calls
+// to ownedStructureCount inside hot per-tile loops — those were O(N) per
+// candidate, turning the surrounding selector into O(N^2) and producing
+// multi-second AI ticks on empires with ~1000 owned tiles.
+type OwnedStructureCounts = {
+  FORT: number;
+  SIEGE_OUTPOST: number;
+  economic: Map<EconomicStructureType, number>;
+};
+
+const tallyOwnedStructures = (
+  playerId: string,
+  tiles: Iterable<StructurePlannerTile>
+): OwnedStructureCounts => {
+  const counts: OwnedStructureCounts = {
+    FORT: 0,
+    SIEGE_OUTPOST: 0,
+    economic: new Map()
+  };
+  for (const tile of tiles) {
+    if (tile.fort?.ownerId === playerId) counts.FORT += 1;
+    if (tile.siegeOutpost?.ownerId === playerId) counts.SIEGE_OUTPOST += 1;
+    const econ = tile.economicStructure;
+    if (econ?.ownerId === playerId && econ.type) {
+      counts.economic.set(econ.type, (counts.economic.get(econ.type) ?? 0) + 1);
+    }
+  }
+  return counts;
+};
+
+const economicCount = (counts: OwnedStructureCounts, type: EconomicStructureType): number =>
+  counts.economic.get(type) ?? 0;
+
 const supportedTownCount = (playerId: string, tile: StructurePlannerTile, tilesByKey: TileLookup): number =>
   frontierNeighborKeys(tile.x, tile.y).reduce((count, neighborKey) => {
     const neighbor = tilesByKey.get(neighborKey);
@@ -129,12 +162,18 @@ const economyWeak = (player: StructurePlannerPlayer): boolean =>
 export const chooseBestEconomicBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
-  tilesByKey: TileLookup
+  tilesByKey: TileLookup,
+  candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): { tile: StructurePlannerTile; structureType: EconomicStructureType } | undefined => {
   let best: { tile: StructurePlannerTile; structureType: EconomicStructureType; score: number } | undefined;
   const foodLow = foodCoverageLow(player);
   const econWeak = economyWeak(player);
-  for (const tile of ownedTiles) {
+  // Single tally over the full owned set so per-candidate affordability checks
+  // are O(1). Without this, the inner candidate loop was calling
+  // ownedStructureCount per kind per tile (O(N^2)) on empires with hundreds
+  // of owned tiles.
+  const counts = tallyOwnedStructures(player.id, ownedTiles);
+  for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;
     const candidates: Array<{ type: EconomicStructureType; score: number }> = [];
@@ -153,7 +192,7 @@ export const chooseBestEconomicBuild = (
       candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
     }
     for (const candidate of candidates) {
-      const existingOwnedCount = ownedStructureCount(player.id, ownedTiles, candidate.type);
+      const existingOwnedCount = economicCount(counts, candidate.type);
       if (!canAffordStructure(player, candidate.type, existingOwnedCount)) continue;
       if (!structureVisibleOnTile(candidate.type, player.id, tile, tilesByKey)) continue;
       const next = { tile, structureType: candidate.type, score: candidate.score };
@@ -166,14 +205,15 @@ export const chooseBestEconomicBuild = (
 export const chooseBestFortBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
-  tilesByKey: TileLookup
+  tilesByKey: TileLookup,
+  candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("masonry")) return undefined;
   if (resourceStock(player, "IRON") < 45) return undefined;
   if (!canAffordGold(player, structureBuildGoldCost("FORT", ownedStructureCount(player.id, ownedTiles, "FORT")))) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
-  for (const tile of ownedTiles) {
+  for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;
     if (!structureVisibleOnTile("FORT", player.id, tile, tilesByKey)) continue;
@@ -204,14 +244,15 @@ export const chooseBestFortBuild = (
 export const chooseBestSiegeOutpostBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
-  tilesByKey: TileLookup
+  tilesByKey: TileLookup,
+  candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("leatherworking")) return undefined;
   if (resourceStock(player, "SUPPLY") < 45) return undefined;
   if (!canAffordGold(player, structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCount(player.id, ownedTiles, "SIEGE_OUTPOST")))) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
-  for (const tile of ownedTiles) {
+  for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.terrain !== "LAND") continue;
     if (tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) continue;
     if (!structureVisibleOnTile("SIEGE_OUTPOST", player.id, tile, tilesByKey)) continue;
