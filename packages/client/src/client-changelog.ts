@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.15.3",
+  version: "2026.05.15.4",
   title: "What's New",
-  summary: "Gameplay email alerts now have an hourly cooldown as well as the daily cap, so repeated attacks or diplomacy requests cannot burn through several messages at once. Selecting towns near Astral Dock Parts no longer crashes the tile menu, and Market/Caravanary build actions now reflect their rewrite-stack costs.",
+  summary: "Barbarian-held tiles now show their 3D skull marker, and the proximity-activated barbarian cascade no longer rips through a player's frontier the instant they breach a cluster.",
   entries: [
+    {
+      introducedIn: "2026.05.15.4",
+      title: "Barbarian 3D overlay paints + cascade fixed",
+      why: "The 3D scene gated the skull-on-a-spike mesh on ownerId === \"barbarian\", but the actual player id is barbarian-1, so the marker never rendered. Separately, the system worker only stamped the 15s per-tile cooldown on the SOURCE of a barbarian action — but a walk releases the source to neutral and the freshly-spawned barb at the target had no cooldown, so adjacent barbs would chain-fire on the very next tick whenever a player breached a cluster.",
+      changes: [
+        "Barbarian-held land tiles now correctly render the 3D skull-on-a-spike overlay in true-3D mode.",
+        "Barbarian per-tile cooldown is stamped on BOTH the source and the target of a successful walk/multiply, so a freshly-spawned barbarian tile genuinely has to wait 15s before acting and can't cascade into a player's frontier."
+      ]
+    },
     {
       introducedIn: "2026.05.15.3",
       title: "Email alerts are capped hourly and daily",
