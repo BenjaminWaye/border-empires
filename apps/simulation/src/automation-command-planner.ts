@@ -401,18 +401,37 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const ownedFrontierTiles = input.ownedTiles.filter(
     (tile) => tile.terrain === "LAND" && tile.ownerId === input.playerId && tile.ownershipState === "FRONTIER"
   ) as readonly TTile[];
-  const settlementSources = (input.strategicFrontierTiles?.length
-    ? input.strategicFrontierTiles
-    : input.hotFrontierTiles?.length
+  // Restrict per-AI candidate sets to the spatial focus front when present.
+  // Without this, large empires made per-tick selectors (settle priority,
+  // structure build) iterate the full owned/frontier set every tick — the
+  // settle priority evaluator alone is O(neighborhood) per candidate, so
+  // unbounded inputs produced multi-second AI ticks even after the frontier
+  // candidate enumeration was bounded. Fall back to the unfiltered list when
+  // the focus excludes everything, so the AI never starves on a bad focus.
+  const focusFront = input.spatialFocusFront;
+  const restrictToFocus = <T extends AutomationPlannerTile>(
+    tiles: readonly T[]
+  ): readonly T[] => {
+    if (!focusFront || tiles.length === 0) return tiles;
+    const filtered = tiles.filter((tile) => focusFront.has(`${tile.x},${tile.y}`));
+    return filtered.length > 0 ? (filtered as readonly T[]) : tiles;
+  };
+  const settlementSources = (restrictToFocus(
+    input.strategicFrontierTiles?.length
+      ? input.strategicFrontierTiles
+      : input.hotFrontierTiles?.length
+        ? input.hotFrontierTiles
+        : input.frontierTiles.length > 0
+          ? input.frontierTiles
+          : ownedFrontierTiles
+  ) as readonly TTile[]) as unknown as Iterable<DomainTileState>;
+  const fallbackSettlementSources = (restrictToFocus(
+    input.hotFrontierTiles?.length
       ? input.hotFrontierTiles
       : input.frontierTiles.length > 0
         ? input.frontierTiles
-        : ownedFrontierTiles) as unknown as Iterable<DomainTileState>;
-  const fallbackSettlementSources = (input.hotFrontierTiles?.length
-    ? input.hotFrontierTiles
-    : input.frontierTiles.length > 0
-      ? input.frontierTiles
-      : ownedFrontierTiles) as unknown as Iterable<DomainTileState>;
+        : ownedFrontierTiles
+  ) as readonly TTile[]) as unknown as Iterable<DomainTileState>;
   const settlementCandidate = settlementEligible
     ? chooseBestStrategicSettlementTile(
         input.playerId,
@@ -462,20 +481,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     dockOrigins.length > 0 || townSupportOrigins.length > 0
       ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
       : baseFrontierOrigins;
-  const spatialFocusFront = input.spatialFocusFront;
-  // Restrict candidate enumeration to the spatial focus front when present.
-  // If the focus excludes every narrow origin, fall back to the unfiltered
-  // set rather than going noop — the meta-planner's expiry tick will pick a
-  // fresh origin next pass, and the unfiltered set is still bounded by the
-  // existing summary indexes (hot/strategic frontier tile keys).
-  const narrowFrontierOrigins = spatialFocusFront
-    ? (() => {
-        const filtered = unfilteredNarrowOrigins.filter(
-          (tile) => spatialFocusFront.has(`${tile.x},${tile.y}`)
-        );
-        return filtered.length > 0 ? filtered : unfilteredNarrowOrigins;
-      })()
-    : unfilteredNarrowOrigins;
+  const narrowFrontierOrigins = restrictToFocus(unfilteredNarrowOrigins);
   // Fold the per-state counts into a single owned-tiles sweep. Previously
   // three separate `.filter(...)` walks ran per plan (settled, controlled,
   // towns); at 1000+ owned tiles per AI × 5 AIs that allocated three
@@ -516,17 +522,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       ...ownedFrontierTiles
     ]);
     // The broad fallback also respects the spatial focus front so a large
-    // empire cannot blow up planner CPU through the fallback path. As with
-    // the narrow case, fall back to the unfiltered broad set if the focus
-    // happens to exclude everything.
-    const broadFrontierOrigins = spatialFocusFront
-      ? (() => {
-          const filtered = broadFrontierOriginsAll.filter(
-            (tile) => spatialFocusFront.has(`${tile.x},${tile.y}`)
-          );
-          return filtered.length > 0 ? filtered : broadFrontierOriginsAll;
-        })()
-      : broadFrontierOriginsAll;
+    // empire cannot blow up planner CPU through the fallback path.
+    const broadFrontierOrigins = restrictToFocus(broadFrontierOriginsAll);
     if (broadFrontierOrigins.length > frontierOrigins.length) {
       const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
         canAttack,
@@ -618,9 +615,14 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       incomePerMinute
     };
     const buildTiles = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
-    economicBuild = chooseBestEconomicBuild(structurePlayer, buildTiles, input.tilesByKey);
-    fortBuild = chooseBestFortBuild(structurePlayer, buildTiles, input.tilesByKey);
-    siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, buildTiles, input.tilesByKey);
+    // Restrict structure candidate sites to the spatial focus front. Structure
+    // selectors still need the full owned-tile set to tally existing
+    // structures correctly (cost scales with count), so buildTiles stays the
+    // canonical inventory and a separate candidate slice limits per-tick work.
+    const buildCandidates = restrictToFocus(buildTiles);
+    economicBuild = chooseBestEconomicBuild(structurePlayer, buildTiles, input.tilesByKey, buildCandidates);
+    fortBuild = chooseBestFortBuild(structurePlayer, buildTiles, input.tilesByKey, buildCandidates);
+    siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, buildTiles, input.tilesByKey, buildCandidates);
   }
   const strategic = buildAutomationStrategicSnapshot({
     playerId: input.playerId,
