@@ -19,10 +19,24 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.9",
+  version: "2026.05.17.1",
   title: "What's New",
-  summary: "Rally links now let signed-in players invite friends to spawn near their empire through the play client.",
+  summary: "Selecting a town now floats gold/grey coins over the 8 adjacent tiles so you can see at a glance which neighbors feed its gold income — gold = settled (contributing), grey = unsettled (settle it to unlock more income). Settlement-tier towns don't use support, so the ring is hidden and the sim now rejects build orders that would target a settlement.",
   entries: [
+    {
+      introducedIn: "2026.05.17.1",
+      title: "Coins show which adjacent tiles feed a town's gold",
+      why: "Players settled a town, saw it fed, and wondered why no gold came in — without realizing town gold scales linearly with adjacent SETTLED tiles. The 8-tile colored ring was already drawn but it conveyed ownership, not income.",
+      changes: [
+        "Selecting one of your towns (City and above) now floats a coin over each of its 8 adjacent land tiles.",
+        "Gold coin = that neighbor is settled by you and is currently contributing to the town's gold income.",
+        "Grey coin = that neighbor is land but isn't settled by you yet; settling it will increase the town's gold; grey coins are translucent so they clearly read as inactive.",
+        "Each coin is drawn as a stylized tilted disk with a visible metallic side and a recessed inner face, and casts a soft circular shadow on the tile beneath it.",
+        "Selecting a coin tile (to settle it) keeps the overlay visible by anchoring it to the nearest player-owned non-Settlement town.",
+        "Settlement-tier towns hide both the support ring and the coins — settlements pay a flat base income and don't use adjacent tiles.",
+        "Trying to build an economic structure (Farmstead, Market, Mine, etc.) on a Settlement-tier town is now rejected by the sim with a clearer message instead of silently failing."
+      ]
+    },
     {
       introducedIn: "2026.05.16.9",
       title: "Rally links for friend spawns",
