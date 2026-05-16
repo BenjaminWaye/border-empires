@@ -3269,6 +3269,17 @@ export class SimulationRuntime {
       });
       return;
     }
+    const summary = this.summaryForPlayer(command.playerId);
+    if (summary.ownedTownTierByTile.size <= 1 && summary.ownedTownTierByTile.has(targetKey)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "UNCAPTURE_LAST_TOWN",
+        message: "cannot abandon your last town"
+      });
+      return;
+    }
     if (this.locksByTile.has(targetKey)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -6067,7 +6078,7 @@ export class SimulationRuntime {
     if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
     if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) {
       // If we captured the previous owner's SETTLEMENT and they still have other territory,
-      // re-root a fresh SETTLEMENT town on one of their remaining settled tiles. If they have
+      // re-root a fresh SETTLEMENT town on one of their remaining tiles. If they have
       // no territory left, respawnIfEliminated places a settlement on unowned land instead.
       if (settlementCaptureRelocationPopulation !== undefined) {
         this.relocateSettlementForPlayer(
@@ -6077,6 +6088,7 @@ export class SimulationRuntime {
         );
       }
       this.respawnIfEliminated(previousOwnerId, lock.commandId);
+      this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
     }
   }
 
@@ -6087,22 +6099,30 @@ export class SimulationRuntime {
   ): void {
     const summary = this.summaryForPlayer(playerId);
     if (summary.territoryTileKeys.size === 0) return; // respawnIfEliminated handles full eliminations.
-    // Only relocate onto a remaining SETTLED tile that does NOT already have a town.
-    // Overwriting an existing higher-tier town (CITY/METROPOLIS) would silently downgrade it.
+    if (summary.ownedTownTierByTile.size > 0) return;
+    // Prefer a remaining SETTLED tile that does NOT already have a town.
+    // If none exists, fall back to any owned land tile and settle it. This prevents
+    // a player from keeping territory but losing all town income after their home
+    // SETTLEMENT is captured.
     let targetKey: string | undefined;
+    let fallbackKey: string | undefined;
     for (const tileKey of summary.territoryTileKeys) {
       const tile = this.tiles.get(tileKey);
       if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
-      if (tile.ownershipState !== "SETTLED") continue;
       if (tile.town) continue;
-      targetKey = tileKey;
-      break;
+      if (!fallbackKey) fallbackKey = tileKey;
+      if (tile.ownershipState === "SETTLED") {
+        targetKey = tileKey;
+        break;
+      }
     }
+    targetKey ??= fallbackKey;
     if (!targetKey) return;
     const target = this.tiles.get(targetKey);
     if (!target) return;
     const relocated: DomainTileState = {
       ...target,
+      ownershipState: "SETTLED",
       town: {
         name: `Refuge ${target.x},${target.y}`,
         type: "FARMING",
