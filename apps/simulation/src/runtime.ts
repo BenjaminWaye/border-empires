@@ -198,14 +198,6 @@ type LockedCombatResolution = {
   defenderGoldLoss: number;
 };
 
-type CrystalAbilityId =
-  | "aether_bridge"
-  | "aether_wall"
-  | "siphon"
-  | "reveal_empire_stats"
-  | "create_mountain"
-  | "remove_mountain";
-
 type AetherWallDirection = "N" | "E" | "S" | "W";
 
 type ActiveAetherBridgeView = {
@@ -690,7 +682,6 @@ export class SimulationRuntime {
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
-  private readonly abilityCooldownsByPlayer = new Map<string, Partial<Record<CrystalAbilityId, number>>>();
   private readonly activeAetherBridgesByPlayer = new Map<string, ActiveAetherBridgeView[]>();
   private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>();
   private readonly pendingSettlementsByTile = new Map<string, PendingSettlementRecord>();
@@ -4387,22 +4378,6 @@ export class SimulationRuntime {
     return player.techIds.has("cryptography") || this.revealTargetsForPlayer(player.id).size > 0 ? 1 : 0;
   }
 
-  private abilityCooldownUntil(playerId: string, abilityId: CrystalAbilityId): number {
-    return this.abilityCooldownsByPlayer.get(playerId)?.[abilityId] ?? 0;
-  }
-
-  private abilityOnCooldown(playerId: string, abilityId: CrystalAbilityId): boolean {
-    return this.abilityCooldownUntil(playerId, abilityId) > this.now();
-  }
-
-  private startAbilityCooldown(playerId: string, abilityId: CrystalAbilityId, durationMs: number): void {
-    const existing = this.abilityCooldownsByPlayer.get(playerId) ?? {};
-    this.abilityCooldownsByPlayer.set(playerId, {
-      ...existing,
-      [abilityId]: this.now() + durationMs
-    });
-  }
-
   private ownedLandWithinRange(playerId: string, x: number, y: number, range: number): boolean {
     for (let dy = -range; dy <= range; dy += 1) {
       for (let dx = -range; dx <= range; dx += 1) {
@@ -4446,7 +4421,10 @@ export class SimulationRuntime {
    * caller can stamp the cooldown on it; overlapping observatories therefore let the
    * player chain casts.
    *
-   * Returns the soonest-ready (lowest cooldownUntil) off-cooldown match, or undefined.
+   * Tie-break: among off-cooldown candidates, prefer the closest observatory to the
+   * target (wrapped Chebyshev). This avoids burning a long-range observatory's slot
+   * when a nearer one is available, and yields stable UX (same target picks the same
+   * observatory). Ties on distance fall back to Map iteration order (deterministic).
    */
   private pickReadyOwnedObservatoryForTarget(
     playerId: string,
@@ -4456,16 +4434,17 @@ export class SimulationRuntime {
     range = OBSERVATORY_CAST_RADIUS
   ): string | undefined {
     let bestKey: string | undefined;
-    let bestCooldownUntil = Number.POSITIVE_INFINITY;
+    let bestDistance = Number.POSITIVE_INFINITY;
     for (const [tileKey, tile] of this.tiles) {
       if (tile.ownerId !== playerId) continue;
       const obs = tile.observatory;
       if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
-      if (this.wrappedChebyshev(tile.x, tile.y, targetX, targetY) > range) continue;
+      const distance = this.wrappedChebyshev(tile.x, tile.y, targetX, targetY);
+      if (distance > range) continue;
       const cooldownUntil = obs.cooldownUntil ?? 0;
       if (cooldownUntil > now) continue;
-      if (cooldownUntil < bestCooldownUntil) {
-        bestCooldownUntil = cooldownUntil;
+      if (distance < bestDistance) {
+        bestDistance = distance;
         bestKey = tileKey;
       }
     }
