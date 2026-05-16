@@ -701,6 +701,13 @@ export class SimulationRuntime {
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
+  // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
+  // inside replaceTileState; consumed by tickTileShedding to shed newest-first
+  // when a player is broke (points <= 0 and net gold/min <= 0). Not persisted —
+  // tiles recovered from the event log have no entry and tie at -Infinity, so
+  // they're shed last (which matches the intent: an empire that survived
+  // restart shouldn't have its core tiles shed before its newer expansions).
+  private readonly tileSettledAtByKey = new Map<string, number>();
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
@@ -912,6 +919,75 @@ export class SimulationRuntime {
   onEvent(listener: (event: SimulationEvent) => void): () => void {
     this.events.on("event", listener);
     return () => this.events.off("event", listener);
+  }
+
+  // Universal tile-shedding: every minute, for each player whose treasury is
+  // empty AND net gold/min is non-positive, shed their most-recently-settled
+  // owned SETTLED tile. Strips town + all per-tile structures so the next
+  // capturer doesn't inherit the upkeep ghost. Skips locked tiles so the shed
+  // never races a combat resolution. One tile per player per call.
+  tickTileShedding(nowMs: number = this.now()): void {
+    for (const player of this.players.values()) {
+      if (player.id.startsWith("barbarian-")) continue;
+      // Make sure points/upkeep reflect the current time before the gate test.
+      this.applyEconomyAccrual(player, nowMs);
+      if ((player.points ?? 0) > 0) continue;
+      const summary = this.summaryForPlayer(player.id);
+      const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
+        dockLinksByDockTileKey: this.dockLinksByDockTileKey
+      });
+      const netGoldPerMinute = economy.incomePerMinute - Math.max(0, economy.upkeepPerMinute.gold);
+      if (netGoldPerMinute > 0) continue;
+
+      let shedTileKey: string | undefined;
+      let shedTile: DomainTileState | undefined;
+      let shedStamp = -Infinity;
+      for (const tileKey of summary.territoryTileKeys) {
+        const tile = this.tiles.get(tileKey);
+        if (!tile) continue;
+        if (tile.ownerId !== player.id) continue;
+        if (tile.ownershipState !== "SETTLED") continue;
+        if (this.locksByTile.has(tileKey)) continue;
+        const stamp = this.tileSettledAtByKey.get(tileKey) ?? -Infinity;
+        if (stamp > shedStamp) {
+          shedStamp = stamp;
+          shedTileKey = tileKey;
+          shedTile = tile;
+        }
+      }
+      if (!shedTileKey || !shedTile) continue;
+
+      const commandId = `tile-shed:${player.id}:${shedTileKey}:${nowMs}`;
+      const shedState: DomainTileState = {
+        ...shedTile,
+        ownerId: undefined,
+        ownershipState: undefined,
+        town: undefined,
+        fort: undefined,
+        observatory: undefined,
+        siegeOutpost: undefined,
+        economicStructure: undefined
+      };
+      this.replaceTileState(shedTileKey, shedState, commandId);
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId,
+        playerId: player.id,
+        tileDeltas: [
+          {
+            ...this.tileDeltaFromState(shedState),
+            ownerId: "",
+            ownershipState: "",
+            townJson: "",
+            fortJson: "",
+            observatoryJson: "",
+            siegeOutpostJson: "",
+            economicStructureJson: ""
+          }
+        ]
+      });
+      this.emitPlayerStateUpdate({ commandId, playerId: player.id });
+    }
   }
 
   tickShardRain(nowMs: number = this.now()): void {
@@ -1596,6 +1672,19 @@ export class SimulationRuntime {
   private replaceTileState(tileKey: string, tile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
     const previous = this.tiles.get(tileKey);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
+    // Maintain settledAt timestamp for the tile-shedding ticker:
+    //   - newly SETTLED (previously not, or new owner) → stamp `now`
+    //   - leaves SETTLED → clear
+    //   - stays SETTLED for the same owner → preserve existing stamp
+    const wasSettledForSameOwner =
+      sameOwner && previous?.ownershipState === "SETTLED" && tile.ownershipState === "SETTLED";
+    if (tile.ownershipState === "SETTLED" && tile.ownerId) {
+      if (!wasSettledForSameOwner) {
+        this.tileSettledAtByKey.set(tileKey, this.now());
+      }
+    } else {
+      this.tileSettledAtByKey.delete(tileKey);
+    }
     const previousOwnerTileOrder =
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).territoryTileKeys]

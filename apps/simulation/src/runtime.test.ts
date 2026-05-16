@@ -6676,3 +6676,78 @@ describe("simulation runtime — shard rain", () => {
     });
   });
 });
+
+describe("simulation runtime — tile shedding", () => {
+  it("does not shed when the player has positive treasury", () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        [
+          "ai-1",
+          {
+            id: "ai-1",
+            isAi: true,
+            points: 10_000,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    now = 60_000;
+    runtime.tickTileShedding(60_000);
+
+    const state = runtime.exportState();
+    expect(state.tiles.filter((tile) => tile.ownerId === "ai-1").length).toBe(2);
+  });
+
+  it("never sheds barbarian tiles", () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        [
+          "barbarian-1",
+          {
+            id: "barbarian-1",
+            isAi: false,
+            points: 0,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    now = 60_000;
+    runtime.tickTileShedding(60_000);
+
+    const state = runtime.exportState();
+    expect(state.tiles.find((tile) => tile.x === 0 && tile.y === 0)?.ownerId).toBe("barbarian-1");
+  });
+});
