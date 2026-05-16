@@ -9,6 +9,7 @@ import { exposedSidesForTile, isOwnedSettledLandTile } from "./client-defensibil
 import type { initClientDom } from "./client-dom.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
+import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "./client-diagnostics.js";
 import { buildMapLoadingView } from "./client-map-loading-view.js";
 import { renderRespawnOverlay } from "./client-respawn-overlay.js";
 import { effectiveFogDisabled, setStagingMapRevealEnabled, stagingMapRevealAvailable } from "./client-staging-map-reveal.js";
@@ -537,11 +538,17 @@ export const renderClientHud = (deps: HudDeps): void => {
     dom.mapLoadingOverlayEl.dataset.tone = loadingView.tone;
     dom.mapLoadingTitleEl.textContent = loadingView.title;
     dom.mapLoadingMetaEl.textContent = loadingView.meta;
-    dom.mapLoadingActionsEl.dataset.visible = loadingView.showRetry || loadingView.showReload ? "true" : "false";
+    const anyAction = loadingView.showRetry || loadingView.showReload || loadingView.showDiagnostics;
+    dom.mapLoadingActionsEl.dataset.visible = anyAction ? "true" : "false";
     dom.mapLoadingRetryBtn.style.display = loadingView.showRetry ? "" : "none";
     dom.mapLoadingReloadBtn.style.display = loadingView.showReload ? "" : "none";
+    dom.mapLoadingDiagnosticsBtn.style.display = loadingView.showDiagnostics ? "" : "none";
     dom.mapLoadingRetryBtn.onclick = () => retryBootstrapNow();
     dom.mapLoadingReloadBtn.onclick = () => window.location.reload();
+    dom.mapLoadingDiagnosticsBtn.onclick = () => {
+      const bundle = buildDiagnosticsBundle(state, wsUrl);
+      downloadDiagnosticsBundle(bundle);
+    };
   } else {
     dom.mapLoadingOverlayEl.style.display = "none";
     dom.mapLoadingOverlayEl.dataset.tone = "normal";
