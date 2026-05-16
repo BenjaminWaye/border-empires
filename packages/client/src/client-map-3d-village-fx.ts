@@ -22,6 +22,20 @@ const SMOKE_BASE_Y = 0.35;
 // Slower cycle so each puff drifts upward at a calmer pace.
 const SMOKE_CYCLE_MS = 8500;
 
+// Three dark grey smoke columns for recently captured towns. Distinct mesh so
+// the material/opacity can read as "burning / unstable" without affecting the
+// pale owned-village puffs.
+const MAX_CAPTURED_TOWNS = 512;
+const CAPTURED_COLUMNS_PER_TOWN = 3;
+const CAPTURED_PUFFS_PER_COLUMN = 6;
+const CAPTURED_PUFFS_PER_TOWN = CAPTURED_COLUMNS_PER_TOWN * CAPTURED_PUFFS_PER_COLUMN;
+const MAX_CAPTURED_PUFFS = MAX_CAPTURED_TOWNS * CAPTURED_PUFFS_PER_TOWN;
+const CAPTURED_PUFF_RADIUS = 0.075;
+const CAPTURED_RISE_HEIGHT = 2.6;
+const CAPTURED_BASE_Y = 0.32;
+const CAPTURED_CYCLE_MS = 6500;
+const CAPTURED_COLUMN_RADIUS = 0.22;
+
 const MAX_CAPITAL_BANNERS = 256;
 const BANNER_POLE_HEIGHT = 1.55;
 const BANNER_POLE_BASE_Y = 0.1;
@@ -36,8 +50,15 @@ export type VillageEffects = {
   readonly smokeMesh: InstancedMesh;
   readonly bannerMesh: InstancedMesh;
   readonly poleMesh: InstancedMesh;
+  readonly capturedSmokeMesh: InstancedMesh;
   readonly clear: () => void;
   readonly addOwnedVillage: (
+    worldX: number,
+    worldZ: number,
+    surfaceY: number,
+    seed: number
+  ) => void;
+  readonly addCapturedTownSmoke: (
     worldX: number,
     worldZ: number,
     surfaceY: number,
@@ -82,6 +103,19 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
   smokeMesh.frustumCulled = false;
   smokeMesh.count = 0;
 
+  // Captured-town smoke: darker, more opaque, no additive blend so columns
+  // read as solid soot against the sky rather than the wispy pale puffs above.
+  const capturedSmokeGeometry = new SphereGeometry(CAPTURED_PUFF_RADIUS, 8, 6);
+  const capturedSmokeMaterial = new MeshBasicMaterial({
+    color: "#3a3a3a",
+    transparent: true,
+    opacity: 0.7,
+    depthWrite: false
+  });
+  const capturedSmokeMesh = new InstancedMesh(capturedSmokeGeometry, capturedSmokeMaterial, MAX_CAPTURED_PUFFS);
+  capturedSmokeMesh.frustumCulled = false;
+  capturedSmokeMesh.count = 0;
+
   const poleGeometry = new CylinderGeometry(0.025, 0.03, BANNER_POLE_HEIGHT, 5);
   const poleMaterial = new MeshStandardMaterial({
     color: "#3a2c20",
@@ -117,9 +151,10 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
   bannerMesh.frustumCulled = false;
   bannerMesh.count = 0;
 
-  scene.add(poleMesh, bannerMesh, smokeMesh);
+  scene.add(poleMesh, bannerMesh, smokeMesh, capturedSmokeMesh);
 
   const villages: SmokeRecord[] = [];
+  const capturedTowns: SmokeRecord[] = [];
   const banners: Array<BannerRecord & { color: Color }> = [];
 
   const tempMatrix = new Matrix4();
@@ -127,12 +162,18 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
 
   const clear = (): void => {
     villages.length = 0;
+    capturedTowns.length = 0;
     banners.length = 0;
   };
 
   const addOwnedVillage = (worldX: number, worldZ: number, surfaceY: number, seed: number): void => {
     if (villages.length >= MAX_SMOKE_VILLAGES) return;
     villages.push({ worldX, worldZ, surfaceY, seed });
+  };
+
+  const addCapturedTownSmoke = (worldX: number, worldZ: number, surfaceY: number, seed: number): void => {
+    if (capturedTowns.length >= MAX_CAPTURED_TOWNS) return;
+    capturedTowns.push({ worldX, worldZ, surfaceY, seed });
   };
 
   const addCapitalBanner = (
@@ -195,6 +236,38 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
     smokeMesh.instanceMatrix.needsUpdate = true;
     if (smokeMesh.instanceColor) smokeMesh.instanceColor.needsUpdate = true;
 
+    let capturedPuff = 0;
+    for (const town of capturedTowns) {
+      for (let col = 0; col < CAPTURED_COLUMNS_PER_TOWN; col += 1) {
+        const columnAngle = (col / CAPTURED_COLUMNS_PER_TOWN) * Math.PI * 2 + town.seed * 0.13;
+        const columnX = town.worldX + Math.cos(columnAngle) * CAPTURED_COLUMN_RADIUS;
+        const columnZ = town.worldZ + Math.sin(columnAngle) * CAPTURED_COLUMN_RADIUS;
+        for (let i = 0; i < CAPTURED_PUFFS_PER_COLUMN; i += 1) {
+          if (capturedPuff >= MAX_CAPTURED_PUFFS) break;
+          const phaseOffset = (town.seed * 53 + col * 1900 + i * 1100) % CAPTURED_CYCLE_MS;
+          const phase = ((nowMs + phaseOffset) % CAPTURED_CYCLE_MS) / CAPTURED_CYCLE_MS;
+          const rise = phase * CAPTURED_RISE_HEIGHT;
+          const drift = Math.sin(phase * Math.PI * 2 + town.seed + col) * 0.12 * phase;
+          const driftZ = Math.cos(phase * Math.PI * 2 + town.seed * 1.3 + col) * 0.10 * phase;
+          const fade = 0.85 * (1 - phase * 0.7);
+          const scale = 0.7 + phase * 1.4;
+          tempMatrix.makeScale(scale, scale, scale);
+          tempMatrix.setPosition(
+            columnX + drift,
+            town.surfaceY + CAPTURED_BASE_Y + rise,
+            columnZ + driftZ
+          );
+          capturedSmokeMesh.setMatrixAt(capturedPuff, tempMatrix);
+          tempColor.copy(capturedSmokeMaterial.color).multiplyScalar(fade);
+          capturedSmokeMesh.setColorAt(capturedPuff, tempColor);
+          capturedPuff += 1;
+        }
+      }
+    }
+    capturedSmokeMesh.count = capturedPuff;
+    capturedSmokeMesh.instanceMatrix.needsUpdate = true;
+    if (capturedSmokeMesh.instanceColor) capturedSmokeMesh.instanceColor.needsUpdate = true;
+
     if (bannerPositionAttr && bannerBaseXY) {
       const arr = bannerPositionAttr.array as Float32Array;
       const t = nowMs * 0.0028;
@@ -224,9 +297,11 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
   };
 
   const dispose = (): void => {
-    scene.remove(poleMesh, bannerMesh, smokeMesh);
+    scene.remove(poleMesh, bannerMesh, smokeMesh, capturedSmokeMesh);
     smokeGeometry.dispose();
     smokeMaterial.dispose();
+    capturedSmokeGeometry.dispose();
+    capturedSmokeMaterial.dispose();
     poleGeometry.dispose();
     poleMaterial.dispose();
     bannerGeometry.dispose();
@@ -237,8 +312,10 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
     smokeMesh,
     bannerMesh,
     poleMesh,
+    capturedSmokeMesh,
     clear,
     addOwnedVillage,
+    addCapturedTownSmoke,
     addCapitalBanner,
     commit,
     update,

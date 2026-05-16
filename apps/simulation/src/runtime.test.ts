@@ -6124,4 +6124,157 @@ describe("simulation runtime — shard rain", () => {
       )
     ).toBe(false);
   });
+
+  describe("SETTLEMENT capture evacuation", () => {
+    const winningAttacker = (id: string) => ({
+      id,
+      isAi: false,
+      points: 1_000,
+      manpower: 10_000,
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(),
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      techRootId: "rewrite-local",
+      allies: new Set<string>()
+    });
+    const weakDefender = (id: string) => ({
+      id,
+      isAi: true,
+      points: 100,
+      manpower: 1,
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(),
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      techRootId: "rewrite-local",
+      allies: new Set<string>()
+    });
+
+    it("evacuates a captured SETTLEMENT onto a remaining town-less SETTLED tile of the previous owner", async () => {
+      vi.useFakeTimers();
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      try {
+        const runtime = new SimulationRuntime({
+          now: () => 1_000,
+          initialPlayers: new Map([
+            ["player-1", winningAttacker("player-1")],
+            ["player-2", weakDefender("player-2")]
+          ]),
+          seedTiles: new Map(),
+          initialState: {
+            tiles: [
+              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 11,
+                terrain: "LAND",
+                ownerId: "player-2",
+                ownershipState: "SETTLED",
+                town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
+              },
+              { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+            ],
+            activeLocks: []
+          }
+        });
+
+        runtime.submitCommand({
+          commandId: "settlement-capture-1",
+          sessionId: "session-1",
+          playerId: "player-1",
+          clientSeq: 1,
+          issuedAt: 1_000,
+          type: "ATTACK",
+          payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+        });
+
+        await Promise.resolve();
+        vi.advanceTimersByTime(3_100);
+
+        const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
+        expect(captured?.ownerId).toBe("player-1");
+        expect(captured?.ownershipState).toBe("FRONTIER");
+        // SETTLEMENT town has been stripped off the captured tile.
+        expect(captured).not.toHaveProperty("townJson");
+        expect(captured?.townPopulationTier).toBeUndefined();
+
+        // Town re-rooted on the previous owner's remaining settled tile, at the shocked population.
+        const refuge = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 20);
+        expect(refuge?.ownerId).toBe("player-2");
+        expect(refuge?.townPopulationTier).toBe("SETTLEMENT");
+        const refugeTown = refuge?.townJson ? JSON.parse(refuge.townJson) as { population?: number } : undefined;
+        const refugePop = refugeTown?.population ?? 0;
+        expect(refugePop).toBeGreaterThan(0);
+        expect(refugePop).toBeLessThan(800);
+      } finally {
+        randomSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it("does not relocate when the previous owner has no eligible town-less SETTLED tile", async () => {
+      vi.useFakeTimers();
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      try {
+        const runtime = new SimulationRuntime({
+          now: () => 1_000,
+          initialPlayers: new Map([
+            ["player-1", winningAttacker("player-1")],
+            ["player-2", weakDefender("player-2")]
+          ]),
+          seedTiles: new Map(),
+          initialState: {
+            tiles: [
+              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 11,
+                terrain: "LAND",
+                ownerId: "player-2",
+                ownershipState: "SETTLED",
+                town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
+              },
+              // Remaining tile already has a CITY — must NOT be overwritten/downgraded.
+              {
+                x: 20,
+                y: 20,
+                terrain: "LAND",
+                ownerId: "player-2",
+                ownershipState: "SETTLED",
+                town: { name: "Capital", type: "FARMING", populationTier: "CITY", population: 5_000 }
+              }
+            ],
+            activeLocks: []
+          }
+        });
+
+        runtime.submitCommand({
+          commandId: "settlement-capture-2",
+          sessionId: "session-1",
+          playerId: "player-1",
+          clientSeq: 1,
+          issuedAt: 1_000,
+          type: "ATTACK",
+          payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+        });
+
+        await Promise.resolve();
+        vi.advanceTimersByTime(3_100);
+
+        // Captured tile still loses its SETTLEMENT town (evacuation attempted).
+        const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
+        expect(captured?.ownerId).toBe("player-1");
+        expect(captured).not.toHaveProperty("townJson");
+        expect(captured?.townPopulationTier).toBeUndefined();
+
+        // The pre-existing CITY is preserved — no silent downgrade to SETTLEMENT.
+        const city = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 20);
+        expect(city?.townPopulationTier).toBe("CITY");
+        const cityTown = city?.townJson ? JSON.parse(city.townJson) as { population?: number } : undefined;
+        expect(cityTown?.population).toBe(5_000);
+      } finally {
+        randomSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+  });
 });
