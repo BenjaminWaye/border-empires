@@ -434,38 +434,47 @@ const supportSummaryForTown = (
   return { supportCurrent, supportMax };
 };
 
-const isKeyWithinTownWarRange = (townKey: string, tileKey: string): boolean => {
-  const [rawTownX, rawTownY] = townKey.split(",");
-  const [rawTileX, rawTileY] = tileKey.split(",");
-  const townX = Number(rawTownX);
-  const townY = Number(rawTownY);
-  const tileX = Number(rawTileX);
-  const tileY = Number(rawTileY);
-  if (![townX, townY, tileX, tileY].every(Number.isInteger)) return false;
-  return Math.max(Math.abs(townX - tileX), Math.abs(townY - tileY)) <= 1;
-};
+const EMPTY_TOWN_KEY_SET: ReadonlySet<string> = new Set<string>();
+const nearbyWarTownKeysCache: WeakMap<RuntimeState, ReadonlySet<string>> = new WeakMap();
 
-const townKeysWithNearbyWar = (runtimeState: RuntimeState): Set<string> => {
-  const lockedKeys = new Set<string>();
+const computeTownKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> => {
+  const lockedCoords: number[] = [];
   for (const lock of runtimeState.activeLocks ?? []) {
     if (lock.actionType !== "ATTACK") continue;
-    lockedKeys.add(lock.originKey);
-    lockedKeys.add(lock.targetKey);
+    for (const rawKey of [lock.originKey, lock.targetKey]) {
+      const comma = rawKey.indexOf(",");
+      if (comma <= 0) continue;
+      const x = Number(rawKey.slice(0, comma));
+      const y = Number(rawKey.slice(comma + 1));
+      if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+      lockedCoords.push(x, y);
+    }
   }
-  if (lockedKeys.size === 0) return new Set<string>();
+  if (lockedCoords.length === 0) return EMPTY_TOWN_KEY_SET;
 
   const result = new Set<string>();
   for (const tile of runtimeState.tiles) {
     if (tile.ownershipState !== "SETTLED" || (!tile.townJson && !tile.townType)) continue;
-    const townKey = keyFor(tile.x, tile.y);
-    for (const lockedKey of lockedKeys) {
-      if (isKeyWithinTownWarRange(townKey, lockedKey)) {
-        result.add(townKey);
+    for (let i = 0; i < lockedCoords.length; i += 2) {
+      const lockedX = lockedCoords[i] as number;
+      const lockedY = lockedCoords[i + 1] as number;
+      const dx = tile.x - lockedX;
+      const dy = tile.y - lockedY;
+      if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1) {
+        result.add(keyFor(tile.x, tile.y));
         break;
       }
     }
   }
   return result;
+};
+
+const townKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> => {
+  const cached = nearbyWarTownKeysCache.get(runtimeState);
+  if (cached) return cached;
+  const fresh = computeTownKeysWithNearbyWar(runtimeState);
+  nearbyWarTownKeysCache.set(runtimeState, fresh);
+  return fresh;
 };
 
 const hasSupportedStructure = (
