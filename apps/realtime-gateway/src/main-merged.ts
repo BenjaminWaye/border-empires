@@ -8,10 +8,13 @@ import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env.js";
 
-// Boot the event-loop watchdog FIRST so a stall during sim replay or gateway
-// bootstrap still triggers a process restart instead of leaving the machine
-// wedged for the Fly grace_period window.
-startEventLoopWatchdog({ label: "combined" });
+// Boot the event-loop watchdog FIRST so it can observe boot itself, but
+// leave it DISARMED — sim replay legitimately blocks the main thread for
+// 30-90s during startup. We arm it after `gateway.start()` returns, which
+// is the point at which any sustained block is a real bug, not boot work.
+// A worker-side failsafe arms after WATCHDOG_BOOT_GRACE_MS (default 5 min)
+// so the watchdog still catches a "stuck booting forever" regression.
+const watchdog = startEventLoopWatchdog({ label: "combined" });
 
 const simEnv = parseSimulationRuntimeEnv(process.env);
 
@@ -117,6 +120,7 @@ const gateway = await createRealtimeGatewayApp({
 
 await gateway.start();
 console.log(`[merged] gateway listening on ${gatewayEnv.host}:${gatewayEnv.port}`);
+watchdog?.arm();
 
 const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   console.log(`[merged] caught ${signal}; shutting down`);
