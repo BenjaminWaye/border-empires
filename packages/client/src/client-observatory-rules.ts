@@ -1,7 +1,8 @@
+import { OBSERVATORY_CAST_RADIUS, OBSERVATORY_PROTECTION_RADIUS } from "./client-constants.js";
 import type { DomainInfo, TechInfo } from "./client-types.js";
 
-const BASE_OBSERVATORY_CAST_RADIUS = 30;
-const BASE_OBSERVATORY_PROTECTION_RADIUS = 10;
+const BASE_OBSERVATORY_CAST_RADIUS = OBSERVATORY_CAST_RADIUS;
+const BASE_OBSERVATORY_PROTECTION_RADIUS = OBSERVATORY_PROTECTION_RADIUS;
 
 type ObservatoryProgressionState = {
   techIds: string[];
