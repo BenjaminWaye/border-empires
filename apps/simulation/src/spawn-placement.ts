@@ -18,7 +18,10 @@ export type LegacySpawnPlacementInput = {
   playerId: string;
   tiles: Iterable<DomainTileState>;
   blockedTileKeys?: ReadonlySet<string>;
+  rallyAnchor?: { x: number; y: number };
 };
+
+const RALLY_SPAWN_RADIUS = 24;
 
 const LEGACY_SPAWN_SEARCH_ORDER: readonly SpawnSearchPass[] = [
   { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50 } },
@@ -118,6 +121,18 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
     if (requirements.needsFood && !hasNearbyFood(x, y, 10)) return false;
     return true;
   };
+
+  if (input.rallyAnchor) {
+    const nearbyCandidates = spawnCandidates
+      .filter((tile) => chebyshevDistance(tile.x, tile.y, input.rallyAnchor!.x, input.rallyAnchor!.y) <= RALLY_SPAWN_RADIUS)
+      .sort((left, right) => {
+        const leftDistance = chebyshevDistance(left.x, left.y, input.rallyAnchor!.x, input.rallyAnchor!.y);
+        const rightDistance = chebyshevDistance(right.x, right.y, input.rallyAnchor!.x, input.rallyAnchor!.y);
+        return (leftDistance - rightDistance) || (left.y - right.y) || (left.x - right.x);
+      });
+    const rallySpawn = nearbyCandidates[hashString(input.playerId) % Math.max(1, Math.min(nearbyCandidates.length, 8))];
+    if (rallySpawn) return { x: rallySpawn.x, y: rallySpawn.y };
+  }
 
   let seed = hashString(input.playerId);
   for (const pass of LEGACY_SPAWN_SEARCH_ORDER) {

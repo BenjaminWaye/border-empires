@@ -19,6 +19,7 @@ message SubscribePlayerRequest {
 
 message PreparePlayerRequest {
   string player_id = 1;
+  string rally_anchor_json = 2;
 }
 
 message UnsubscribePlayerRequest {

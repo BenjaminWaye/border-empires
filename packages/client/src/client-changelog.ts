@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.8",
+  version: "2026.05.16.9",
   title: "What's New",
-  summary: "Crystal abilities now always show up in the tile menu with a clear reason when you cannot cast — no more silent disappearance. All crystal casts share a per-observatory cooldown gated by observatory range, so overlapping observatories let you chain casts until each covering one is on cooldown.",
+  summary: "Rally links now let signed-in players invite friends to spawn near their empire through the play client.",
   entries: [
+    {
+      introducedIn: "2026.05.16.9",
+      title: "Rally links for friend spawns",
+      why: "The HQ Create Rally Link button needed a real authenticated handoff without teaching the HQ site to own game auth or cross-subdomain sessions.",
+      changes: [
+        "The play client now handles /rally/new, mints authenticated rally links, and shows a copyable /r/<code> share URL.",
+        "Joining through a rally URL sends the code during control-channel AUTH so fresh empires try to spawn near the link owner's active settlement.",
+        "Existing empires are not moved, bulk sockets cannot spend invite uses, and if no nearby open land is available the simulation falls back to the normal spawn picker."
+      ]
+    },
     {
       introducedIn: "2026.05.16.8",
       title: "Crystal abilities show why they are unavailable",
