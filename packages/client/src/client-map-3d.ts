@@ -33,7 +33,7 @@ import { createForest } from "./client-map-3d-forest.js";
 import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
-import { shouldShowTownUnfedWarning } from "./client-town-growth.js";
+import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "./client-town-growth.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
 import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
@@ -808,10 +808,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
           townOverlay.addInstance(x, z, surfaceY, renderedTier);
-          // Smoke column over the town. Capital banners stay off for now;
-          // re-enable by adding villageEffects.addCapitalBanner if wanted.
-          const tileSeed = wx * 17 + wy * 31;
-          villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
+          if (tile && shouldShowTownSmoke(tile)) {
+            // Smoke marks active settled town growth. Capital banners stay off for now;
+            // re-enable by adding villageEffects.addCapitalBanner if wanted.
+            const tileSeed = wx * 17 + wy * 31;
+            villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
+          }
           // Mirror the "Town is unfed" line in the tile-menu: badge only
           // paints when clicking the town would also show the unfed warning.
           // Gates out neutral, foreign, unsettled, and SETTLEMENT-tier towns
