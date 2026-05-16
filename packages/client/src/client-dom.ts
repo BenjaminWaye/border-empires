@@ -72,6 +72,7 @@ const hudMarkup = `
     <div id="map-loading-actions">
       <button id="map-loading-retry" class="panel-btn map-loading-btn" type="button">Retry now</button>
       <button id="map-loading-reload" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Reload</button>
+      <button id="map-loading-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Download diagnostics</button>
     </div>
   </div>
 
@@ -369,6 +370,7 @@ export const initClientDom = () => {
   const mapLoadingActionsEl = requireElement<HTMLDivElement>("#map-loading-actions");
   const mapLoadingRetryBtn = requireElement<HTMLButtonElement>("#map-loading-retry");
   const mapLoadingReloadBtn = requireElement<HTMLButtonElement>("#map-loading-reload");
+  const mapLoadingDiagnosticsBtn = requireElement<HTMLButtonElement>("#map-loading-diagnostics");
   const authOverlayEl = requireElement<HTMLDivElement>("#auth-overlay");
   const authDisplayNameEl = requireElement<HTMLInputElement>("#auth-display-name");
   const authEmailEl = requireElement<HTMLInputElement>("#auth-email");
@@ -530,6 +532,7 @@ export const initClientDom = () => {
     mapLoadingMetaEl,
     mapLoadingOverlayEl,
     mapLoadingActionsEl,
+    mapLoadingDiagnosticsBtn,
     mapLoadingReloadBtn,
     mapLoadingRowEl,
     mapLoadingRetryBtn,
