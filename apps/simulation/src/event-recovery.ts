@@ -166,6 +166,14 @@ const recoverTownState = (
   tileDelta: TileDelta,
   existing?: RecoveredTileState
 ): DomainTileState["town"] | undefined => {
+  // `townJson: ""` is an explicit clear (mirrors the shardSiteJson pattern).
+  // Without this check the tile-shedding ticker (and any future "destroy
+  // town" command) couldn't replay correctly — the recovered state would
+  // keep the prior town because parseOptionalJson("") returns undefined and
+  // we'd fall through to the existing-town preservation branch below.
+  if ("townJson" in tileDelta && !tileDelta.townJson) {
+    return undefined;
+  }
   const parsedTown = parseOptionalJson<DomainTileState["town"]>(tileDelta.townJson);
   if (parsedTown) {
     return hydrateRecoveredTown({
@@ -207,30 +215,47 @@ const applyTileDeltaToRecoveredAccumulator = (
       : existing?.shardSite
         ? { shardSite: existing.shardSite }
         : {}),
-    ...(tileDelta.ownerId ? { ownerId: tileDelta.ownerId } : existing?.ownerId ? { ownerId: existing.ownerId } : {}),
-    ...(tileDelta.ownershipState
-      ? { ownershipState: tileDelta.ownershipState as DomainTileState["ownershipState"] }
+    // For ownership + per-tile-structure fields, an empty-string delta value
+    // means "explicit clear" (mirrors the existing shardSiteJson pattern just
+    // above). Without the `in` check, a clearing event emitted by the
+    // tile-shedding ticker (or by UNCAPTURE_TILE) wouldn't replay correctly
+    // and the recovered state would preserve the prior owner/structures.
+    ...("ownerId" in tileDelta
+      ? (tileDelta.ownerId ? { ownerId: tileDelta.ownerId } : {})
+      : existing?.ownerId ? { ownerId: existing.ownerId } : {}),
+    ...("ownershipState" in tileDelta
+      ? (tileDelta.ownershipState
+          ? { ownershipState: tileDelta.ownershipState as DomainTileState["ownershipState"] }
+          : {})
       : existing?.ownershipState
         ? { ownershipState: existing.ownershipState }
         : {}),
     ...(recoveredTown ? { town: recoveredTown } : {}),
-    ...(tileDelta.fortJson
-      ? { fort: parseOptionalJson<DomainTileState["fort"]>(tileDelta.fortJson) }
+    ...("fortJson" in tileDelta
+      ? (tileDelta.fortJson
+          ? { fort: parseOptionalJson<DomainTileState["fort"]>(tileDelta.fortJson) }
+          : {})
       : existing?.fort
         ? { fort: existing.fort }
         : {}),
-    ...(tileDelta.observatoryJson
-      ? { observatory: parseOptionalJson<DomainTileState["observatory"]>(tileDelta.observatoryJson) }
+    ...("observatoryJson" in tileDelta
+      ? (tileDelta.observatoryJson
+          ? { observatory: parseOptionalJson<DomainTileState["observatory"]>(tileDelta.observatoryJson) }
+          : {})
       : existing?.observatory
         ? { observatory: existing.observatory }
         : {}),
-    ...(tileDelta.siegeOutpostJson
-      ? { siegeOutpost: parseOptionalJson<DomainTileState["siegeOutpost"]>(tileDelta.siegeOutpostJson) }
+    ...("siegeOutpostJson" in tileDelta
+      ? (tileDelta.siegeOutpostJson
+          ? { siegeOutpost: parseOptionalJson<DomainTileState["siegeOutpost"]>(tileDelta.siegeOutpostJson) }
+          : {})
       : existing?.siegeOutpost
         ? { siegeOutpost: existing.siegeOutpost }
         : {}),
-    ...(tileDelta.economicStructureJson
-      ? { economicStructure: parseOptionalJson<DomainTileState["economicStructure"]>(tileDelta.economicStructureJson) }
+    ...("economicStructureJson" in tileDelta
+      ? (tileDelta.economicStructureJson
+          ? { economicStructure: parseOptionalJson<DomainTileState["economicStructure"]>(tileDelta.economicStructureJson) }
+          : {})
       : existing?.economicStructure
         ? { economicStructure: existing.economicStructure }
         : {}),

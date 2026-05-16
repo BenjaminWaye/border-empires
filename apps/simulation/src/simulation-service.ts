@@ -1072,6 +1072,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
+  let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -2089,6 +2090,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "shard rain tick failed");
         }
       }, 60_000);
+      tileSheddingTicker = setInterval(() => {
+        try {
+          runtime.tickTileShedding(Date.now());
+        } catch (error) {
+          log.error({ err: error }, "tile shedding tick failed");
+        }
+      }, 60_000);
       eventLoopSampler = setInterval(() => {
         const now = Date.now();
         const lagMs = Math.max(0, now - expectedEventLoopTickAt);
@@ -2255,6 +2263,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (metricsTicker) clearInterval(metricsTicker);
       if (eventLoopSampler) clearInterval(eventLoopSampler);
       if (shardRainTicker) clearInterval(shardRainTicker);
+      if (tileSheddingTicker) clearInterval(tileSheddingTicker);
       gcObserver?.disconnect();
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
