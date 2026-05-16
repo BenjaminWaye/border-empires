@@ -19,10 +19,23 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.5",
+  version: "2026.05.16.6",
   title: "What's New",
-  summary: "Stuck \"Securing session\" no longer leaves you guessing. After 8s the overlay tells you login is slow; after 25s it offers Retry, Reload, and a Download diagnostics button that exports a JSON bundle for triage.",
+  summary: "Captured observatories and other non-siege buildings now survive combat capture and transfer to the winner instead of disappearing.",
   entries: [
+    {
+      introducedIn: "2026.05.16.6",
+      title: "Captured observatories survive",
+      why: "Combat capture rebuilt the captured tile from a narrow allowlist and accidentally dropped observatories, forts, and economic buildings. Siege outposts are supposed to be destroyed on capture, but ordinary buildings should change hands.",
+      changes: [
+        "Hostile capture now transfers completed forts, observatories, and economic buildings to the capturing player.",
+        "Structures that are still under construction are destroyed on capture, including wooden forts.",
+        "Wooden Fort upgrades now work on the rewrite simulation path: the wooden fort stays in place while the full fort is under construction, then is consumed when the upgrade completes.",
+        "If a tile is captured during a Wooden Fort upgrade, the unfinished full fort is destroyed but the Wooden Fort survives and transfers to the capturer.",
+        "Siege outposts are still removed on capture.",
+        "Regression coverage now captures tiles with mixed structures and verifies completed observatories and wooden forts survive while siege outposts and unfinished buildings do not."
+      ]
+    },
     {
       introducedIn: "2026.05.16.5",
       title: "Escalating feedback when login is slow",
