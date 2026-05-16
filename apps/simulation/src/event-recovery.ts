@@ -317,6 +317,8 @@ export const applySimulationEventsToRecoveredAccumulator = (
               ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
               ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
               ...(previousOrigin.sabotage ? { sabotage: previousOrigin.sabotage } : {}),
+              // Town survives the flip — mirrors the attacker-wins branch above and the runtime resolveLock path.
+              ...(previousOrigin.town ? { town: previousOrigin.town } : {}),
               ownerId: event.combatResult.defenderOwnerId,
               ownershipState: "FRONTIER"
             });

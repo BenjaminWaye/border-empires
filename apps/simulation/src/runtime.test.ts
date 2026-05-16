@@ -2786,6 +2786,191 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("preserves the town on the origin tile when a failed attack flips it to the defender", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "player-2",
+            {
+              id: "player-2",
+              isAi: true,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: {
+                name: "Kettlecorner",
+                type: "FARMING",
+                populationTier: "TOWN",
+                population: 19_699,
+                maxPopulation: 10_000_000,
+                connectedTownCount: 0,
+                connectedTownBonus: 0
+              }
+            },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "lose-origin-town-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      const flipped = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      expect(flipped).toEqual(
+        expect.objectContaining({
+          ownerId: "player-2",
+          ownershipState: "FRONTIER",
+          townName: "Kettlecorner",
+          townType: "FARMING",
+          townPopulationTier: "TOWN"
+        })
+      );
+      expect(flipped?.townJson ? JSON.parse(flipped.townJson) : undefined).toEqual(
+        expect.objectContaining({ name: "Kettlecorner", population: 19_699 })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("preserves a freshly-captured town when the captor fails an outward attack and loses the origin back", async () => {
+    // Models the staging incident: ai-4 captured user's settled town, attacked
+    // outward, lost, and the original owner reclaimed the tile — town must survive.
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "captor",
+            {
+              id: "captor",
+              isAi: true,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "reclaimer",
+            {
+              id: "reclaimer",
+              isAi: false,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            // Captor sits on a FRONTIER tile that still carries the captured town record.
+            {
+              x: 14,
+              y: 273,
+              terrain: "LAND",
+              ownerId: "captor",
+              ownershipState: "FRONTIER",
+              town: {
+                name: "Kettlecorner",
+                type: "FARMING",
+                populationTier: "TOWN",
+                population: 19_699,
+                maxPopulation: 10_000_000,
+                connectedTownCount: 0,
+                connectedTownBonus: 0
+              }
+            },
+            { x: 15, y: 274, terrain: "LAND", ownerId: "reclaimer", ownershipState: "SETTLED" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "captor-attacks-out-1",
+        sessionId: "session-captor",
+        playerId: "captor",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 14, fromY: 273, toX: 15, toY: 274 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      const reclaimed = runtime.exportState().tiles.find((tile) => tile.x === 14 && tile.y === 273);
+      expect(reclaimed).toEqual(
+        expect.objectContaining({
+          ownerId: "reclaimer",
+          ownershipState: "FRONTIER",
+          townName: "Kettlecorner"
+        })
+      );
+      expect(reclaimed?.townJson ? JSON.parse(reclaimed.townJson) : undefined).toEqual(
+        expect.objectContaining({ name: "Kettlecorner", population: 19_699 })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the origin tile when a failed attack starts from an active fort", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
