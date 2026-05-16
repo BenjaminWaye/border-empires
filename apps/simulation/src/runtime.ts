@@ -6057,11 +6057,11 @@ export class SimulationRuntime {
     } else if (originLost && previousOwnerId) {
       const previousOrigin = this.tiles.get(lock.originKey);
       if (previousOrigin) {
+        // Town is a worldgen entity tied to the tile — mirror the attacker-wins branch (~6008) which preserves it.
         const resolvedOrigin: DomainTileState = {
           ...previousOrigin,
           ownerId: previousOwnerId,
           ownershipState: "FRONTIER",
-          town: undefined,
           ...capturedStructureFields(previousOrigin, previousOwnerId)
         };
         this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
