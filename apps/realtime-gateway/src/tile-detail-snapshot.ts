@@ -19,6 +19,7 @@ import {
   LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
+  POPULATION_GROWTH_BASE_RATE,
   RADAR_SYSTEM_GOLD_UPKEEP,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
@@ -115,6 +116,26 @@ const snapshotFoodCoverage = (snapshot: PlayerSubscriptionSnapshot | undefined):
   return typeof foodCoverage === "number" && Number.isFinite(foodCoverage) ? foodCoverage : undefined;
 };
 
+const townPopulationGrowthPerMinute = (input: {
+  isFed: boolean;
+  population: number | undefined;
+  maxPopulation: number | undefined;
+  populationTier: string;
+  hasGranary: boolean;
+}): number | undefined => {
+  if (!input.isFed) return 0;
+  if (typeof input.population !== "number" || typeof input.maxPopulation !== "number") return undefined;
+  const logisticFactor = 1 - input.population / Math.max(1, input.maxPopulation);
+  if (logisticFactor <= 0) return 0;
+  const growth =
+    input.population *
+    POPULATION_GROWTH_BASE_RATE *
+    (input.populationTier === "SETTLEMENT" ? 4 : 1) *
+    (input.hasGranary ? 1.15 : 1) *
+    logisticFactor;
+  return Number(growth.toFixed(4));
+};
+
 const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "OIL", number>> => {
   switch (structureType) {
     case "FARMSTEAD": return { GOLD: FARMSTEAD_GOLD_UPKEEP / 10 };
@@ -182,6 +203,19 @@ export const buildSnapshotTileDetail = (
           (supportStructures.hasMarket ? 1.5 : 1) *
           (supportStructures.hasBank ? 1.5 : 1)
         : 0;
+  const populationGrowthPerMinute =
+    townPopulationGrowthPerMinute({
+      isFed,
+      population: parsedTown?.population,
+      maxPopulation: parsedTown?.maxPopulation,
+      populationTier,
+      hasGranary: supportStructures.hasGranary
+    }) ?? parsedTown?.populationGrowthPerMinute;
+  const growthModifiers =
+    parsedTown?.growthModifiers ??
+    (typeof populationGrowthPerMinute === "number" && populationGrowthPerMinute > 0
+      ? [{ label: "Long time peace" as const, deltaPerMinute: populationGrowthPerMinute }]
+      : undefined);
   const town = tile.townType || parsedTown
     ? {
         ...(parsedTown ?? {}),
@@ -198,7 +232,9 @@ export const buildSnapshotTileDetail = (
         bankActive: supportStructures.hasBank,
         baseGoldPerMinute,
         goldPerMinute,
-        cap: Math.max(0, goldPerMinute) * 60 * 8 * (supportStructures.hasMarket ? 1.5 : 1)
+        cap: Math.max(0, goldPerMinute) * 60 * 8 * (supportStructures.hasMarket ? 1.5 : 1),
+        ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
+        ...(growthModifiers ? { growthModifiers } : {})
       }
     : undefined;
   if (town) update.townJson = JSON.stringify(town);
