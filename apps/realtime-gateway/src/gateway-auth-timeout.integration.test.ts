@@ -46,6 +46,25 @@ const connectedStream = (_listener?: unknown, options?: { onConnect?: () => void
   return () => undefined;
 };
 
+const waitFor = async (label: string, predicate: () => boolean, timeoutMs = 1_500): Promise<void> => {
+  let intervalId: ReturnType<typeof setInterval> | undefined;
+  try {
+    await withTimeout(
+      label,
+      new Promise<void>((resolve) => {
+        intervalId = setInterval(() => {
+          if (!predicate()) return;
+          if (intervalId) clearInterval(intervalId);
+          resolve();
+        }, 10);
+      }),
+      timeoutMs
+    );
+  } finally {
+    if (intervalId) clearInterval(intervalId);
+  }
+};
+
 describe("gateway auth timeout", () => {
   const openApps: Array<{ close: () => Promise<void> }> = [];
   const envBackup = {
@@ -310,6 +329,95 @@ describe("gateway auth timeout", () => {
     expect(bootstrapCalls).toEqual(["player-1", "player-1"]);
     expect(liveSubscribeCalls).toEqual(["player-1"]);
     expect(callOrder).toEqual(["prepare:player-1", "bootstrap:player-1", "live-subscribe:player-1", "prepare:player-1", "bootstrap:player-1"]);
+  });
+
+  it("keeps one net rally use when control and bulk authenticate with the same invite", async () => {
+    const prepareCallsByPlayer = new Map<string, number>();
+    const app = await createRealtimeGatewayApp({
+      logger: false,
+      port: 0,
+      defaultHumanPlayerId: "owner-1",
+      commandStore: new InMemoryGatewayCommandStore(),
+      simulationClient: {
+        preparePlayer: async (playerId, rallyAnchor) => {
+          const count = (prepareCallsByPlayer.get(playerId) ?? 0) + 1;
+          prepareCallsByPlayer.set(playerId, count);
+          if (playerId === "friend-1") {
+            if (count === 1) expect(rallyAnchor).toEqual({ x: 12, y: 34, island: "tile:12,34" });
+            else expect(rallyAnchor).toBeUndefined();
+            return { playerId, spawned: count === 1 };
+          }
+          return { playerId, spawned: false };
+        },
+        submitCommand: async () => undefined,
+        subscribePlayer: async (playerId) => ({
+          playerId,
+          tiles:
+            playerId === "owner-1"
+              ? [{ x: 12, y: 34, ownerId: "owner-1", ownershipState: "SETTLED" }]
+              : [{ x: 40, y: 41, ownerId: "friend-1", ownershipState: "SETTLED" }]
+        }),
+        unsubscribePlayer: async () => undefined,
+        getSubscriptionNamespace: async () => "1",
+        ping: async () => undefined,
+        getCurrentSeasonSummary: async () => ({
+          season: "season-1",
+          seasonId: "season-1",
+          seasonSequence: 1,
+          status: "active",
+          startedAt: 1_000,
+          worldSeed: 42,
+          rulesetId: "seasonal-default",
+          leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] },
+          overall: [],
+          byTiles: [],
+          byIncome: [],
+          byTechs: [],
+          seasonVictory: [],
+          onlinePlayers: 0,
+          totalPlayers: 0,
+          townCount: 0,
+          updatedAt: 1_100
+        }),
+        listSeasonArchives: async () => [],
+        startNextSeason: async () => ({ seasonId: "season-2" }),
+        streamEvents: connectedStream
+      }
+    });
+    const started = await app.start();
+    openApps.push(app);
+
+    const createResponse = await fetch(`${started.address}/rally/links`, {
+      method: "POST",
+      headers: { Authorization: "Bearer owner-1", "Content-Type": "application/json" },
+      body: JSON.stringify({ maxUses: 2 })
+    });
+    expect(createResponse.status).toBe(200);
+    const created = (await createResponse.json()) as { code: string };
+
+    const controlSocket = await openSocket(`${started.wsUrl}?channel=control`);
+    const bulkSocket = await openSocket(`${started.wsUrl}?channel=bulk`);
+    controlSocket.send(JSON.stringify({ type: "AUTH", token: "friend-1", rallyCode: created.code }));
+    await expect(
+      withTimeout(
+        "control rally init",
+        new Promise<Record<string, unknown>>((resolve) => {
+          controlSocket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), { once: true });
+        }),
+        2_000
+      )
+    ).resolves.toMatchObject({ type: "INIT" });
+
+    bulkSocket.send(JSON.stringify({ type: "AUTH", token: "friend-1", rallyCode: created.code }));
+    await waitFor("bulk rally auth", () => prepareCallsByPlayer.get("friend-1") === 2, 2_000);
+
+    const publicResponse = await fetch(`${started.address}/rally/links/${created.code}`);
+    expect(publicResponse.status).toBe(200);
+    await expect(publicResponse.json()).resolves.toEqual(expect.objectContaining({ usesRemaining: 1 }));
+    expect(prepareCallsByPlayer.get("friend-1")).toBe(2);
+
+    controlSocket.close();
+    bulkSocket.close();
   });
 
   it("sends INIT from the bootstrap snapshot and suppresses duplicate bootstrap tile batches", async () => {

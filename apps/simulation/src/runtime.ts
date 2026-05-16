@@ -1138,7 +1138,7 @@ export class SimulationRuntime {
     }
   }
 
-  ensurePlayerHasSpawnTerritory(playerId: string): boolean {
+  ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
     let player = this.players.get(playerId);
     if (!player) {
       player = createHumanRuntimePlayer(playerId);
@@ -1168,7 +1168,8 @@ export class SimulationRuntime {
     const spawn = chooseLegacySpawnPlacement({
       playerId,
       tiles: this.tiles.values(),
-      blockedTileKeys
+      blockedTileKeys,
+      ...(rallyAnchor ? { rallyAnchor } : {})
     });
     if (!spawn) return false;
     const tileKey = simulationTileKey(spawn.x, spawn.y);
