@@ -92,4 +92,23 @@ describe("chooseLegacySpawnPlacement", () => {
 
     expect(spawn).toEqual({ x: 1, y: 1 });
   });
+
+  it("prefers open land near a rally anchor before default spawn placement", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 140; y += 1) {
+      for (let x = 0; x < 140; x += 1) {
+        tiles.push({ x, y, terrain: "LAND" });
+      }
+    }
+    tiles.push({ x: 70, y: 70, terrain: "LAND", ownerId: "owner", ownershipState: "SETTLED" });
+
+    const spawn = chooseLegacySpawnPlacement({
+      playerId: "friend",
+      tiles,
+      rallyAnchor: { x: 70, y: 70 }
+    });
+
+    expect(spawn).toBeDefined();
+    expect(Math.max(Math.abs(spawn!.x - 70), Math.abs(spawn!.y - 70))).toBeLessThanOrEqual(24);
+  });
 });
