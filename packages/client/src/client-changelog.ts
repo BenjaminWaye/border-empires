@@ -19,10 +19,23 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.7",
+  version: "2026.05.16.8",
   title: "What's New",
-  summary: "Players can no longer be left with territory, upkeep, and no town income after SETTLEMENT capture fallout or accidental last-town abandonment.",
+  summary: "Crystal abilities now always show up in the tile menu with a clear reason when you cannot cast — no more silent disappearance. All crystal casts share a per-observatory cooldown gated by observatory range, so overlapping observatories let you chain casts until each covering one is on cooldown.",
   entries: [
+    {
+      introducedIn: "2026.05.16.8",
+      title: "Crystal abilities show why they are unavailable",
+      why: "Aether Lance, EMP, Wall, Bridge and the terrain-shaping casts used to vanish from the tile menu whenever any precondition failed (wrong target, out of range, cooldown), making it impossible to tell whether the ability was researched, on cooldown, or simply unavailable on that tile.",
+      changes: [
+        "Lance, EMP, Wall, Bridge, Create/Remove Mountain and Retort Recast always appear as disabled rows once their tech is researched, with a priority-ordered reason ladder explaining the first failing gate.",
+        "All crystal casts share a single observatory-range gate plus a per-observatory cooldown; with multiple covering observatories you can chain casts until every one of them is on cooldown.",
+        "Create/Remove Mountain are now gated by observatory range (not adjacency to your land), matching the other crystal abilities.",
+        "Lance disabled reasons now distinguish own-tile, frontier, town, and monument targets so the menu tells you what to do next.",
+        "Observatory cast radius now correctly factors in observatoryRangeBonus and observatoryCastRadiusBonus from techs and domains on both client and sim, so menu enablement no longer drifts from sim authority for any range-extending tech.",
+        "Observatory constants (cast radius, protection radius, vision bonus) now live in @border-empires/shared with single-source re-exports in game-domain and client; dead OBSERVATORY_BUILD_COST and OBSERVATORY_BUILD_CRYSTAL_COST constants were removed."
+      ]
+    },
     {
       introducedIn: "2026.05.16.7",
       title: "Starting settlement income survives capture and abandon edge cases",
