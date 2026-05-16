@@ -66,6 +66,7 @@ export const AUTOMATION_PREPLAN_REASONS = [
   "collect_for_active_lock",
   "collect_for_unaffordable_progression",
   "collect_for_economic_recovery",
+  "collect_heartbeat",
   "choose_tech",
   "choose_domain",
   "defer_no_reachable_progression",
