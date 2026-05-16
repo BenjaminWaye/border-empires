@@ -97,6 +97,113 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(town.goldPerMinute).toBeGreaterThan(0);
   });
 
+  it("marks live rewrite towns with a nearby-war growth modifier when combat is on their support ring", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Warwick",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 25_000,
+            maxPopulation: 100_000
+          }),
+          townType: "MARKET",
+          townName: "Warwick",
+          townPopulationTier: "TOWN"
+        },
+        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+      ],
+      players: [
+        {
+          id: "player-1",
+          strategicResources: { FOOD: 3 },
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10", "11,10"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: [
+        {
+          commandId: "attack-1",
+          playerId: "player-2",
+          actionType: "ATTACK",
+          originKey: "12,10",
+          targetKey: "11,10",
+          resolvesAt: Date.now() + 30_000
+        }
+      ]
+    });
+
+    const townTile = snapshot.tiles.find((tile) => tile.x === 10 && tile.y === 10);
+    const town = townTile?.townJson ? JSON.parse(townTile.townJson) : undefined;
+    expect(town.growthModifiers).toEqual([
+      expect.objectContaining({ label: "Nearby war", deltaPerMinute: expect.any(Number) })
+    ]);
+    expect(town.growthModifiers[0].deltaPerMinute).toBeLessThan(0);
+  });
+
+  it("does not mark nearby expansion locks as nearby war", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Quietwick",
+            type: "MARKET",
+            populationTier: "TOWN",
+            population: 25_000,
+            maxPopulation: 100_000
+          }),
+          townType: "MARKET",
+          townName: "Quietwick",
+          townPopulationTier: "TOWN"
+        },
+        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+      ],
+      players: [
+        {
+          id: "player-1",
+          strategicResources: { FOOD: 3 },
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10", "11,10"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: [
+        {
+          commandId: "expand-1",
+          playerId: "player-1",
+          actionType: "EXPAND",
+          originKey: "10,10",
+          targetKey: "11,10",
+          resolvesAt: Date.now() + 30_000
+        }
+      ]
+    });
+
+    const townTile = snapshot.tiles.find((tile) => tile.x === 10 && tile.y === 10);
+    const town = townTile?.townJson ? JSON.parse(townTile.townJson) : undefined;
+    expect(town.growthModifiers).toEqual([
+      expect.objectContaining({ label: "Long time peace", deltaPerMinute: expect.any(Number) })
+    ]);
+    expect(town.growthModifiers[0].deltaPerMinute).toBeGreaterThan(0);
+  });
+
   it("limits the bootstrap snapshot to owned tiles and nearby frontier visibility", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [

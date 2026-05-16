@@ -2084,6 +2084,7 @@ export class SimulationRuntime {
     activeLocks: Array<{
       commandId: string;
       playerId: string;
+      actionType: FrontierCommandType;
       originKey: string;
       targetKey: string;
       resolvesAt: number;
@@ -2156,6 +2157,7 @@ export class SimulationRuntime {
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
+          actionType: lock.actionType,
           originKey: lock.originKey,
           targetKey: lock.targetKey,
           resolvesAt: lock.resolvesAt,
@@ -2376,6 +2378,7 @@ export class SimulationRuntime {
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
+          actionType: lock.actionType,
           originKey: lock.originKey,
           targetKey: lock.targetKey,
           resolvesAt: lock.resolvesAt,
