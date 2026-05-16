@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.5",
+  version: "2026.05.16.6",
   title: "What's New",
-  summary: "Stuck \"Securing session\" no longer leaves you guessing. After 8s the overlay tells you login is slow; after 25s it offers Retry, Reload, and a Download diagnostics button that exports a JSON bundle for triage.",
+  summary: "Selecting a town now floats gold/grey coins over the 8 adjacent tiles so you can see at a glance which neighbors feed its gold income — gold = settled (contributing), grey = unsettled (settle it to unlock more income). Settlement-tier towns don't use support, so the ring is hidden and the sim now rejects build orders that would target a settlement.",
   entries: [
+    {
+      introducedIn: "2026.05.16.6",
+      title: "Coins show which adjacent tiles feed a town's gold",
+      why: "Players settled a town, saw it fed, and wondered why no gold came in — without realizing town gold scales linearly with adjacent SETTLED tiles. The 8-tile colored ring was already drawn but it conveyed ownership, not income.",
+      changes: [
+        "Selecting one of your towns (City and above) now floats a coin over each of its 8 adjacent land tiles.",
+        "Gold coin = that neighbor is settled by you and is currently contributing to the town's gold income.",
+        "Grey coin = that neighbor is land but isn't settled by you yet; settling it will increase the town's gold.",
+        "Settlement-tier towns hide both the support ring and the coins — settlements pay a flat base income and don't use adjacent tiles.",
+        "Trying to build an economic structure (Farmstead, Market, Mine, etc.) on a Settlement-tier town is now rejected by the sim with a clearer message instead of silently failing."
+      ]
+    },
     {
       introducedIn: "2026.05.16.5",
       title: "Escalating feedback when login is slow",

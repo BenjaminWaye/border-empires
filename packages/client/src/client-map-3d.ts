@@ -30,6 +30,7 @@ import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "./client-map-3d-water-surface.js";
 import { createVillageEffects } from "./client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "./client-map-3d-floating-text.js";
+import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "./client-map-3d-town-support-coins.js";
 import { createForest } from "./client-map-3d-forest.js";
 import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
@@ -106,6 +107,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
+  const townSupportCoins = createTownSupportCoinLayer(scene);
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns
   // (capture event) so the floating "-pop" indicator fires once per capture.
   const lastSeenCaptureShockByTile = new Map<string, number>();
@@ -467,6 +469,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (!selectedCoord) return;
     const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
     if (!selected?.town) return;
+    // SETTLEMENT-tier towns do not project a support area: their gold is a flat
+    // base income and adjacent settled tiles do nothing for them. Drawing the
+    // 8-tile ring was misleading users into thinking it mattered.
+    if (selected.town.populationTier === "SETTLEMENT") return;
     let markerIndex = 0;
     for (let dy = -1; dy <= 1; dy += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
@@ -508,6 +514,50 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         markerIndex += 1;
       }
     }
+  };
+  const syncTownSupportCoins = (): void => {
+    const selectedCoord = deps.state.selected;
+    if (!selectedCoord) { townSupportCoins.clear(); return; }
+    const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
+    if (!selected?.town || selected.town.populationTier === "SETTLEMENT") {
+      townSupportCoins.clear();
+      return;
+    }
+    // Only show the coin teach when the town belongs to the local player —
+    // showing it on enemy towns would suggest you can develop them.
+    if (selected.ownerId !== deps.state.me) { townSupportCoins.clear(); return; }
+    const entries: TownSupportCoinEntry[] = [];
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const wx = deps.wrapX(selected.x + dx);
+        const wy = deps.wrapY(selected.y + dy);
+        if (!isTownSupportHighlightableAt(wx, wy)) continue;
+        const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+        // Gold coin = this tile currently contributes to the town's gold
+        // (player-owned + SETTLED). Grey coin = it could, if you settled it.
+        // Other-player tiles and frontier (unsettled) own tiles get a grey
+        // coin too: they don't contribute, but the player can act on them.
+        const contributes = tile?.ownerId === deps.state.me && tile.ownershipState === "SETTLED";
+        const sx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH);
+        const sy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT);
+        const wxNext = deps.wrapX(wx + 1);
+        const wyNext = deps.wrapY(wy + 1);
+        const surfaceY = Math.max(
+          heightfield.cornerYAt(wx, wy),
+          heightfield.cornerYAt(wxNext, wy),
+          heightfield.cornerYAt(wx, wyNext),
+          heightfield.cornerYAt(wxNext, wyNext)
+        ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+        entries.push({
+          worldX: sx + TILE_CENTER_OFFSET,
+          worldZ: sy + TILE_CENTER_OFFSET,
+          surfaceY,
+          kind: contributes ? "gold" : "grey"
+        });
+      }
+    }
+    townSupportCoins.sync(entries);
   };
   const hideLineMarkerPool = (pool: Array<{ marker: LineSegments }>): void => {
     for (const { marker } of pool) marker.visible = false;
@@ -1027,6 +1077,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
+    syncTownSupportCoins();
     syncQueueMarkers();
     syncObservatoryRangeMarkers();
     villageEffects.update(nowMs);
@@ -1092,6 +1143,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     forest.dispose();
     villageEffects.dispose();
     floatingText.dispose();
+    townSupportCoins.dispose();
     waterSurface.dispose();
     mountainMassifs.dispose();
     heightfield.dispose();
