@@ -1,5 +1,6 @@
 import { defensivenessMultiplier } from "@border-empires/shared";
 import { currentDomainChoiceTier, formatTechBenefitSummary } from "./client-tech-html.js";
+import { getCurrentFps } from "./client-fps-monitor.js";
 import {
   renderDomainChoiceGrid as renderDomainChoiceGridFromModule,
   renderDomainDetailCard as renderDomainDetailCardFromModule,
@@ -252,7 +253,8 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       shardStock: state.strategicResources.SHARD ?? 0,
       domainCatalog: state.domainCatalog,
       domainChoices: state.domainChoices,
-      domainIds: state.domainIds
+      domainIds: state.domainIds,
+      fps: getCurrentFps()
     });
 
   const renderTechDetailOverlay = (): string => {

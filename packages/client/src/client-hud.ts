@@ -13,7 +13,8 @@ import { buildMapLoadingView } from "./client-map-loading-view.js";
 import { renderRespawnOverlay } from "./client-respawn-overlay.js";
 import { effectiveFogDisabled, setStagingMapRevealEnabled, stagingMapRevealAvailable } from "./client-staging-map-reveal.js";
 import { isMobileDevice } from "./client-panel-nav.js";
-import { prefersTrue3DRendererMode } from "./client-renderer-mode.js";
+import { isTrue3DRendererActive } from "./client-renderer-mode.js";
+import { hasSustainedLowFps } from "./client-fps-monitor.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import { refreshLiveTechRequirements } from "./client-tech-live-requirements.js";
@@ -1198,8 +1199,9 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const canShowRendererPrompt =
     !state.rendererPrompt.dismissed &&
-    prefersTrue3DRendererMode &&
+    isTrue3DRendererActive() &&
     isMobileDevice() &&
+    hasSustainedLowFps(25, 5000, performance.now()) &&
     state.connection === "initialized" &&
     state.authSessionReady &&
     !state.profileSetupRequired &&
@@ -1211,8 +1213,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       <div class="guide-backdrop" id="renderer-prompt-backdrop"></div>
       <div class="guide-modal card" role="dialog" aria-modal="true" aria-labelledby="renderer-prompt-title">
         <div class="guide-modal-scroll">
-          <h2 id="renderer-prompt-title" class="guide-title">Running in 3D mode</h2>
-          <p class="guide-body">The 3D terrain renderer can be demanding on mobile devices. Switch to the lighter 2D version for smoother performance?</p>
+          <h2 id="renderer-prompt-title" class="guide-title">3D is running slow on this device</h2>
+          <p class="guide-body">Your device is rendering the 3D map at a low frame rate. Switch to the lighter 2D version for smoother performance?</p>
           <div class="guide-actions">
             <button id="renderer-prompt-keep" class="panel-btn guide-secondary-btn" type="button">Keep 3D</button>
             <button id="renderer-prompt-switch" class="panel-btn guide-primary-btn" type="button">Switch to 2D</button>
