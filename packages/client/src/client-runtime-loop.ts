@@ -153,13 +153,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
   const draw = (): void => {
     const nowMs = performance.now();
+    // Sample rAF cadence (not throttled draw cadence) so the counter reflects real device load.
+    recordFpsFrame(nowMs);
     const minFrameGap = deps.isMobile() ? 40 : 24;
     if (nowMs - lastDrawAt < minFrameGap) {
       requestAnimationFrame(draw);
       return;
     }
     lastDrawAt = nowMs;
-    recordFpsFrame(nowMs);
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
       const fps = getCurrentFps();
