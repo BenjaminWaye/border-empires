@@ -8,6 +8,7 @@ import {
   restorePersistedDevelopmentQueueForPlayer
 } from "./client-development-queue.js";
 import { developmentSlotSummary, processDevelopmentQueue, requestSettlement } from "./client-queue-logic.js";
+import type { TechInfo } from "./client-types.js";
 
 const installSessionStorageMock = () => {
   let values = new Map<string, string>();
@@ -222,6 +223,56 @@ describe("development queue helpers", () => {
     expect(queued).toBe(true);
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
     expect(state.settleProgressByTile.size).toBe(0);
+  });
+
+  it("uses settlement speed effects for optimistic settlement progress", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 999;
+    state.techIds = ["toolmaking"];
+    state.techCatalog = [
+      {
+        id: "toolmaking",
+        name: "Workshop Standards",
+        tier: 1,
+        description: "Faster settlement.",
+        mods: {},
+        effects: { settlementSpeedMult: 1.05 },
+        requirements: { gold: 0, resources: {} }
+      } satisfies TechInfo
+    ];
+    state.tiles.set("2,2", {
+      x: 2,
+      y: 2,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER"
+    } as any);
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(10_000);
+    try {
+      const sent = requestSettlement(state, 2, 2, {
+        keyFor: (x, y) => `${x},${y}`,
+        developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+        developmentSlotReason: () => "busy",
+        queueDevelopmentAction: vi.fn(() => false),
+        pushFeed: vi.fn(),
+        renderHud: vi.fn(),
+        sendGameMessage: vi.fn(() => true),
+        syncOptimisticSettlementTile: vi.fn(),
+        opts: {}
+      });
+
+      expect(sent).toBe(true);
+      expect(state.settleProgressByTile.get("2,2")).toEqual(
+        expect.objectContaining({
+          startAt: 10_000,
+          resolvesAt: 10_000 + Math.round(60_000 / 1.05),
+          target: { x: 2, y: 2 }
+        })
+      );
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it("keeps a queued settlement waiting while the tile is still syncing from combat", () => {
