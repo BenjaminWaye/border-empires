@@ -1,11 +1,19 @@
-import { FRONTIER_CLAIM_COST, FRONTIER_CLAIM_MS, SETTLE_MS, grassShadeAt, landBiomeAt } from "@border-empires/shared";
+import {
+  FRONTIER_CLAIM_COST,
+  FRONTIER_CLAIM_MS,
+  OBSERVATORY_CAST_RADIUS as SHARED_OBSERVATORY_CAST_RADIUS,
+  OBSERVATORY_PROTECTION_RADIUS as SHARED_OBSERVATORY_PROTECTION_RADIUS,
+  SETTLE_MS,
+  grassShadeAt,
+  landBiomeAt
+} from "@border-empires/shared";
 
 import type { GuideStep } from "./client-types.js";
 
 export const OBSERVATORY_BUILD_COST = 800;
 export const OBSERVATORY_VISION_BONUS = 5;
-export const OBSERVATORY_PROTECTION_RADIUS = 10;
-export const OBSERVATORY_CAST_RADIUS = 30;
+export const OBSERVATORY_PROTECTION_RADIUS = SHARED_OBSERVATORY_PROTECTION_RADIUS;
+export const OBSERVATORY_CAST_RADIUS = SHARED_OBSERVATORY_CAST_RADIUS;
 export const AIRPORT_BOMBARD_RADIUS = 30;
 export const MIN_ZOOM = 10;
 export const MAX_ZOOM = 192;

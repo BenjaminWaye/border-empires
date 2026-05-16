@@ -1,4 +1,12 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, structureBaseGoldCost, type PopulationTier, type TileKey } from "@border-empires/shared";
+import {
+  OBSERVATORY_CAST_RADIUS as SHARED_OBSERVATORY_CAST_RADIUS,
+  OBSERVATORY_PROTECTION_RADIUS as SHARED_OBSERVATORY_PROTECTION_RADIUS,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  structureBaseGoldCost,
+  type PopulationTier,
+  type TileKey
+} from "@border-empires/shared";
 import type { AbilityDefinition, MissionDef, StrategicResource, VictoryPressureDefinition } from "./server-shared-types.js";
 
 export const key = (x: number, y: number): TileKey => `${x},${y}`;
@@ -48,8 +56,8 @@ export const CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 10;
 export const OBSERVATORY_BUILD_COST = structureBaseGoldCost("OBSERVATORY");
 export const OBSERVATORY_VISION_BONUS = 5;
 export const OBSERVATORY_BUILD_CRYSTAL_COST = 45;
-export const OBSERVATORY_PROTECTION_RADIUS = 10;
-export const OBSERVATORY_CAST_RADIUS = 30;
+export const OBSERVATORY_PROTECTION_RADIUS = SHARED_OBSERVATORY_PROTECTION_RADIUS;
+export const OBSERVATORY_CAST_RADIUS = SHARED_OBSERVATORY_CAST_RADIUS;
 export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 export const FARMSTEAD_BUILD_GOLD_COST = structureBaseGoldCost("FARMSTEAD");
 export const FARMSTEAD_BUILD_FOOD_COST = 20;
