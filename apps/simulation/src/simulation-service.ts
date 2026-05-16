@@ -44,7 +44,7 @@ import { createStartupReplayCompactionRunner } from "./startup-replay-compaction
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { personalizeSeasonVictoryObjectives } from "./personalized-season-victory.js";
 import { laneForCommand } from "./command-lane.js";
-import { createSimulationMetrics } from "./metrics.js";
+import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "./metrics.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import { createSeasonSummaryStore } from "./season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "./season-summary-store.js";
@@ -1384,6 +1384,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               }
             },
             onDiagnostic: (sample) => {
+              if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
+                simulationMetrics.observeSimAiPlannerPhaseMs(sample.phase as AiPlannerPhase, sample.durationMs);
+              }
               if (sample.durationMs < slowAiSyncWarnMs) return;
               recordLagDiagnostic("warn", "simulation_ai_worker_slow", sample);
             },
@@ -2171,6 +2174,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_ai_settle_decision_total: sample.simAiSettleDecisionTotalByReason,
             sim_ai_settle_decision_recent: sample.simAiSettleDecisionRecent,
             sim_ai_settle_decision_top_score: sample.simAiSettleDecisionTopScore,
+            sim_ai_planner_phase_ms: sample.simAiPlannerPhaseMs,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
             sim_cpu_percent: sample.simCpuPercent,
             sim_rss_mb: toMbRounded(memory.rss),

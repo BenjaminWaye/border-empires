@@ -45,6 +45,19 @@ type TickSource = "ai" | "system";
 type PrepareMetricSource = "prepare" | "spawn";
 type DurableCommandType = CommandEnvelope["type"];
 
+// Phases emitted from ai-planner-worker.ts. Tracking these per-phase lets us
+// localise where AI tick p99 goes: typically all 5s of "ai p99" lives inside
+// planner_choose_settlement (settle priority scorer is O(neighborhood) per
+// candidate) or planner_summarize_frontier (frontier analysis per origin tile).
+export const AI_PLANNER_PHASES = [
+  "resolve_player_tiles",
+  "planner_choose_settlement",
+  "planner_choose_frontier",
+  "planner_summarize_frontier",
+  "planner_total"
+] as const;
+export type AiPlannerPhase = (typeof AI_PLANNER_PHASES)[number];
+
 export type SimulationSnapshotMetricSample = {
   trigger: string;
   playerId: string;
@@ -81,6 +94,7 @@ export type SimulationMetricsSnapshot = {
   simAiSettleDecisionTotalByReason: Record<AutomationSettleDecisionReason, number>;
   simAiSettleDecisionRecent: string[];
   simAiSettleDecisionTopScore: QuantileSample;
+  simAiPlannerPhaseMs: Record<AiPlannerPhase, QuantileSample>;
   simCheckpointRssMb: number;
   simCpuPercent: number;
   simHeapUsedMb: number;
@@ -137,6 +151,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   );
   const simAiSettleDecisionRecent: string[] = [];
   const simAiSettleDecisionTopScore: number[] = [];
+  const simAiPlannerPhaseMs = new Map<AiPlannerPhase, number[]>(
+    AI_PLANNER_PHASES.map((phase) => [phase, []])
+  );
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
   let simAiAutopilotEnabled = 0;
@@ -192,6 +209,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     ) as Record<AutomationSettleDecisionReason, number>,
     simAiSettleDecisionRecent: [...simAiSettleDecisionRecent],
     simAiSettleDecisionTopScore: quantileSample(simAiSettleDecisionTopScore),
+    simAiPlannerPhaseMs: Object.fromEntries(
+      AI_PLANNER_PHASES.map((phase) => [phase, quantileSample(simAiPlannerPhaseMs.get(phase) ?? [])])
+    ) as Record<AiPlannerPhase, QuantileSample>,
     simCheckpointRssMb,
     simCpuPercent,
     simHeapUsedMb,
@@ -260,6 +280,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       const rounded = Math.round(topScore);
       appendRecent(simAiSettleDecisionRecent, `${playerId}:${reason}:${rounded}`, 12);
       appendSample(simAiSettleDecisionTopScore, topScore, limit);
+    },
+    observeSimAiPlannerPhaseMs(phase: AiPlannerPhase, value: number): void {
+      const target = simAiPlannerPhaseMs.get(phase);
+      if (!target) return;
+      appendSample(target, value, limit);
     },
     setSimCheckpointRssMb(value: number): void {
       simCheckpointRssMb = clampMetric(value);
