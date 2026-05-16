@@ -348,6 +348,54 @@ describe("simulation runtime", () => {
     expect(secondPayload.manpower - payload.manpower).toBe(20);
   });
 
+  it("does not grant town manpower boosts while a claimed town tile is still frontier", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 0,
+            manpowerUpdatedAt: 0,
+            manpowerCapSnapshot: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            town: { name: "Claimed", type: "MARKET", populationTier: "TOWN", goldPerMinute: 2 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
+
+    expect(player?.manpowerCap).toBe(150);
+    expect(player?.manpowerRegenPerMinute).toBe(10);
+    expect(player?.manpowerBreakdown).toEqual({
+      cap: [{ label: "Base minimum", amount: 150 }],
+      regen: [{ label: "Base minimum", amount: 10 }]
+    });
+    expect(player?.ownedTownTileKeys).toEqual([]);
+    expect(player?.townCount).toBe(0);
+  });
+
   it("uses explicit plural labels for high-tier manpower breakdown groups", async () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
