@@ -19,30 +19,138 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.4",
+  version: "2026.05.16.8",
   title: "What's New",
   summary: "Crystal abilities now always show up in the tile menu with a clear reason when you cannot cast — no more silent disappearance. All crystal casts share a per-observatory cooldown gated by observatory range, so overlapping observatories let you chain casts until each covering one is on cooldown.",
   entries: [
     {
-      introducedIn: "2026.05.16.4",
-      title: "Observatory constants share a single source of truth",
-      why: "Observatory cast/protection radii and vision bonus were duplicated as raw literals across shared, game-domain, and client. Any future balance change would have required updating all three places, and silent drift between client menu enablement and sim authority would surface as actions that show enabled but reject on cast.",
-      changes: [
-        "Moved OBSERVATORY_CAST_RADIUS, OBSERVATORY_PROTECTION_RADIUS, and OBSERVATORY_VISION_BONUS into the shared package; game-domain and client now re-export from there.",
-        "Removed dead OBSERVATORY_BUILD_COST and OBSERVATORY_BUILD_CRYSTAL_COST constants (defined in up to three places, used in zero). The costs come from the structure-cost table everywhere it matters.",
-        "client-observatory-rules now reads the radii directly from @border-empires/shared instead of routing through client-constants, so the origin is one grep away.",
-        "No behavior change — radii stay 30/10 and vision bonus stays 5."
-      ]
-    },
-    {
-      introducedIn: "2026.05.16.1",
+      introducedIn: "2026.05.16.8",
       title: "Crystal abilities show why they are unavailable",
       why: "Aether Lance, EMP, Wall, Bridge and the terrain-shaping casts used to vanish from the tile menu whenever any precondition failed (wrong target, out of range, cooldown), making it impossible to tell whether the ability was researched, on cooldown, or simply unavailable on that tile.",
       changes: [
         "Lance, EMP, Wall, Bridge, Create/Remove Mountain and Retort Recast always appear as disabled rows once their tech is researched, with a priority-ordered reason ladder explaining the first failing gate.",
         "All crystal casts share a single observatory-range gate plus a per-observatory cooldown; with multiple covering observatories you can chain casts until every one of them is on cooldown.",
         "Create/Remove Mountain are now gated by observatory range (not adjacency to your land), matching the other crystal abilities.",
-        "Lance disabled reasons now distinguish own-tile, frontier, town, and monument targets so the menu tells you what to do next."
+        "Lance disabled reasons now distinguish own-tile, frontier, town, and monument targets so the menu tells you what to do next.",
+        "Observatory cast radius now correctly factors in observatoryRangeBonus and observatoryCastRadiusBonus from techs and domains on both client and sim, so menu enablement no longer drifts from sim authority for any range-extending tech.",
+        "Observatory constants (cast radius, protection radius, vision bonus) now live in @border-empires/shared with single-source re-exports in game-domain and client; dead OBSERVATORY_BUILD_COST and OBSERVATORY_BUILD_CRYSTAL_COST constants were removed."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.7",
+      title: "Starting settlement income survives capture and abandon edge cases",
+      why: "A captured SETTLEMENT could be stripped from the home tile while the previous owner still had only frontier land left. Separately, abandonment needed a server-side last-town guard so a stale or accidental action could not leave a player with upkeep and no town income.",
+      changes: [
+        "When a captured SETTLEMENT has to evacuate, it now re-roots onto remaining owned land even if that tile is still frontier, and makes that refuge tile SETTLED.",
+        "The relocation still refuses to overwrite an existing town, so higher-tier cities are not downgraded.",
+        "Abandon Territory now rejects the player's last owned town on the server, regardless of town tier.",
+        "The defender now receives a fresh PLAYER_UPDATE after the capture path so income and upkeep correct immediately."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.6",
+      title: "Captured observatories survive",
+      why: "Combat capture rebuilt the captured tile from a narrow allowlist and accidentally dropped observatories, forts, and economic buildings. Siege outposts are supposed to be destroyed on capture, but ordinary buildings should change hands.",
+      changes: [
+        "Hostile capture now transfers completed forts, observatories, and economic buildings to the capturing player.",
+        "Structures that are still under construction are destroyed on capture, including wooden forts.",
+        "Wooden Fort upgrades now work on the rewrite simulation path: the wooden fort stays in place while the full fort is under construction, then is consumed when the upgrade completes.",
+        "If a tile is captured during a Wooden Fort upgrade, the unfinished full fort is destroyed but the Wooden Fort survives and transfers to the capturer.",
+        "Siege outposts are still removed on capture.",
+        "Regression coverage now captures tiles with mixed structures and verifies completed observatories and wooden forts survive while siege outposts and unfinished buildings do not."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.5",
+      title: "Escalating feedback when login is slow",
+      why: "When the server's event loop stalled, the auth ACK was just delayed rather than failing — so the existing retry-on-error path never triggered and users were stuck on \"Securing session\" for 80s+ with no feedback or recovery affordance.",
+      changes: [
+        "At 8s elapsed without an auth response, the overlay shows \"Login is taking longer than usual\" so you know it's not just your imagination.",
+        "At 25s elapsed, the overlay switches to a warn tone and exposes Retry now, Reload, and Download diagnostics buttons.",
+        "Download diagnostics emits a JSON file with connection state, recent client debug events, and an incident ID — paste it into a bug report to triage stuck logins quickly.",
+        "These thresholds are pure client-side UX and are decoupled from the server-side event-loop watchdog (which restarts the machine at 30s of total main-thread block)."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.4",
+      title: "Fed town growth recovers from stale detail data",
+      why: "A pressed town could show Support 5/5 and fed Market production while still displaying Growth 0.00/m and an unexplained paused next-size line. The tile-detail fallback recomputed fed state, support, and gold from the fresh snapshot but kept stale or missing population-growth fields from cached town data.",
+      changes: [
+        "REQUEST_TILE_DETAIL now recomputes population growth for owned settled towns when the town is fed and below its population cap.",
+        "Fresh fed town details include a positive Long time peace growth modifier when no blocking growth modifier is present.",
+        "Regression coverage now matches a fed, supported town whose cached growth was 0.00/m and verifies the refreshed detail returns positive growth."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.3",
+      title: "Capturing a SETTLEMENT evacuates it off the captured tile",
+      why: "Before this change, capturing another player's home settlement transferred ownership of the tile and left the town intact under the new ruler. That made capturing a home tile indistinguishable from capturing any other town, and the previous owner only got a respawn elsewhere if you had wiped out their last tile. It also clashed with the legacy behaviour where a captured settlement evacuates and re-roots on the previous owner's remaining territory.",
+      changes: [
+        "Capturing a SETTLEMENT-tier town from another player now strips the town off the captured tile (you take only the land, FRONTIER-locked as usual).",
+        "If the previous owner still has territory, the displaced settlement re-roots on one of their remaining settled tiles (preferring a tile with no town) with the shocked post-capture population.",
+        "If the previous owner has no territory left, the existing eliminate-and-respawn path still places a fresh settlement on unowned land — no behaviour change for full eliminations.",
+        "Capturing any non-settlement town (TOWN / CITY / GREAT_CITY / METROPOLIS) is unchanged: ownership transfers, capture-shock + smoke columns still apply."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.3",
+      title: "Town capture: population shock + visible smoke columns",
+      why: "The rewrite stack stopped applying the legacy capture-shock effects, so towns flipping between players grew immediately under the new ruler with no visible disruption. That made captures feel weightless and gave no on-map signal that a town was still recovering. Pop loss + smoke columns restore the cost and make the cooldown legible.",
+      changes: [
+        "Capturing a town from another player now multiplies its population by 0.95, matching the legacy 5% population loss. Capturing a neutral (unowned) town is unchanged — no shock applied.",
+        "While the 10-minute capture-shock window is active, the town's growth modifier reads \"Recently captured\" and population growth is held at zero.",
+        "Three dark grey smoke columns drift up from any town inside its capture-shock window so flipped towns are visible at a glance on the 3D map.",
+        "A floating \"-N pop\" red indicator rises briefly over the town the first time the client sees it enter capture shock, making the population loss obvious in the moment."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.2",
+      title: "Town manpower waits for settlement",
+      why: "Frontier expansion could claim a neutral town tile and immediately add its town tier to manpower cap and regeneration, even though the tile had not been settled yet.",
+      changes: [
+        "Owned town tiles only count toward manpower cap, manpower regeneration, and active town counts after their ownership state is SETTLED.",
+        "Frontier town claims still show as controlled territory, but they no longer provide town boosts until the settle action completes.",
+        "Regression coverage now checks an owned frontier town tile and expects base-only manpower values."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.1",
+      title: "Render FPS in the Sharding panel + smarter 2D switch prompt",
+      why: "We needed a way to tell whether visible lag is a client render stall or a server/network problem. The previous 2D-switch prompt also appeared to every mobile user on first 3D run, regardless of how their device actually performed.",
+      changes: [
+        "Sharding panel debug section now shows live Render FPS (rolling 1s average), sampled on every rAF callback so it reflects real device load rather than the throttled draw cap.",
+        "The \"switch to 2D\" prompt for mobile users now triggers only after the renderer has stayed at or below 25 FPS for 5 seconds straight, and only when the 3D renderer is actually active — users whose 3D init failed and fell back to 2D no longer get nagged.",
+        "Prompt copy reflects the new trigger: it now says \"3D is running slow on this device\" instead of \"Running in 3D mode\"."
+      ]
+    },
+    {
+      introducedIn: "2026.05.15.6",
+      title: "Technology vision stats match the real radius",
+      why: "Vision upgrades in the rewrite stack add tile radius, but the Active Bonuses card only displayed the generic VIS multiplier. That made Cartography and later scouting techs look like they did nothing.",
+      changes: [
+        "The Vision chip now displays the effective empire vision radius in tiles.",
+        "Tapping Vision shows the tech/domain sources that add radius, such as Cartography's +1.",
+        "The redundant Income chip was removed from Active Bonuses because economy is already shown in the main toolbar.",
+        "Settlement speed effects now apply to the authoritative settle timer and to the settle action's duration estimate."
+      ]
+    },
+    {
+      introducedIn: "2026.05.15.5",
+      title: "Town war pressure and smoke are clearer",
+      why: "Rewrite snapshots knew about active combat locks, but town growth modifiers did not turn those locks into the negative nearby-war row. The 3D renderer also emitted smoke for any rendered town shape, including unsettled, unfed, or paused-growth towns.",
+      changes: [
+        "Fed settled towns now show a negative Nearby war population-growth modifier when active combat touches the town or its support ring.",
+        "Growth ETA copy treats negative growth modifiers as paused growth, so nearby-war pressure reads as a blocker even while the underlying base-growth value is present.",
+        "3D town smoke now only appears for real settled towns that are fed and not growth-paused."
+      ]
+    },
+    {
+      introducedIn: "2026.05.15.4",
+      title: "Barbarian 3D overlay paints + cascade fixed",
+      why: "The 3D scene gated the skull-on-a-spike mesh on ownerId === \"barbarian\", but the actual player id is barbarian-1, so the marker never rendered. Separately, the system worker only stamped the 15s per-tile cooldown on the SOURCE of a barbarian action — but a walk releases the source to neutral and the freshly-spawned barb at the target had no cooldown, so adjacent barbs would chain-fire on the very next tick whenever a player breached a cluster.",
+      changes: [
+        "Barbarian-held land tiles now correctly render the 3D skull-on-a-spike overlay in true-3D mode.",
+        "Barbarian per-tile cooldown is stamped on BOTH the source and the target of a successful walk/multiply, so a freshly-spawned barbarian tile genuinely has to wait 15s before acting and can't cascade into a player's frontier."
       ]
     },
     {

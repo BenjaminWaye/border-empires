@@ -82,7 +82,16 @@ type RuntimeState = {
     incomePerMinute?: number;
     incomeMultiplier?: number;
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
-  activeDevelopmentProcessCount?: number;
+    activeDevelopmentProcessCount?: number;
+  }>;
+  activeLocks?: Array<{
+    commandId: string;
+    playerId: string;
+    actionType?: "ATTACK" | "EXPAND";
+    originKey: string;
+    targetKey: string;
+    resolvesAt: number;
+    combatResolutionJson?: string;
   }>;
   docks?: Array<{ dockId: string; tileKey: string; pairedDockId: string; connectedDockIds?: readonly string[] }>;
   tileYieldCollectedAtByTile?: Array<{ tileKey: string; collectedAt: number }>;
@@ -425,6 +434,49 @@ const supportSummaryForTown = (
   return { supportCurrent, supportMax };
 };
 
+const EMPTY_TOWN_KEY_SET: ReadonlySet<string> = new Set<string>();
+const nearbyWarTownKeysCache: WeakMap<RuntimeState, ReadonlySet<string>> = new WeakMap();
+
+const computeTownKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> => {
+  const lockedCoords: number[] = [];
+  for (const lock of runtimeState.activeLocks ?? []) {
+    if (lock.actionType !== "ATTACK") continue;
+    for (const rawKey of [lock.originKey, lock.targetKey]) {
+      const comma = rawKey.indexOf(",");
+      if (comma <= 0) continue;
+      const x = Number(rawKey.slice(0, comma));
+      const y = Number(rawKey.slice(comma + 1));
+      if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+      lockedCoords.push(x, y);
+    }
+  }
+  if (lockedCoords.length === 0) return EMPTY_TOWN_KEY_SET;
+
+  const result = new Set<string>();
+  for (const tile of runtimeState.tiles) {
+    if (tile.ownershipState !== "SETTLED" || (!tile.townJson && !tile.townType)) continue;
+    for (let i = 0; i < lockedCoords.length; i += 2) {
+      const lockedX = lockedCoords[i] as number;
+      const lockedY = lockedCoords[i + 1] as number;
+      const dx = tile.x - lockedX;
+      const dy = tile.y - lockedY;
+      if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1) {
+        result.add(keyFor(tile.x, tile.y));
+        break;
+      }
+    }
+  }
+  return result;
+};
+
+const townKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> => {
+  const cached = nearbyWarTownKeysCache.get(runtimeState);
+  if (cached) return cached;
+  const fresh = computeTownKeysWithNearbyWar(runtimeState);
+  nearbyWarTownKeysCache.set(runtimeState, fresh);
+  return fresh;
+};
+
 const hasSupportedStructure = (
   tileKey: string,
   ownerId: string,
@@ -503,7 +555,8 @@ const buildTownSummary = (
   fedTownKeys: ReadonlySet<string>,
   refreshCompleteTownSummary: boolean,
   townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>,
-  firstThreeTownKeys?: ReadonlySet<string>
+  firstThreeTownKeys?: ReadonlySet<string>,
+  nearbyWarTownKeys?: ReadonlySet<string>
 ): Tile["town"] | undefined => {
   const partial = parseTown(tile);
   const townType = partial?.type ?? tile.townType;
@@ -559,7 +612,7 @@ const buildTownSummary = (
   const population = populationView?.population ?? townPartial.population!;
   const maxPopulation = populationView?.maxPopulation ?? townPartial.maxPopulation!;
   const logisticFactor = 1 - population / Math.max(1, maxPopulation);
-  const baseGrowth =
+  const naturalGrowth =
     !tile.ownerId || tile.ownershipState !== "SETTLED" || !isFed || logisticFactor <= 0
       ? 0
       : population *
@@ -567,7 +620,23 @@ const buildTownSummary = (
         (populationTier === "SETTLEMENT" ? 4 : 1) *
         (hasGranary ? 1.15 : 1) *
         logisticFactor;
-  const growthModifiers = baseGrowth > 0 ? [{ label: "Long time peace" as const, deltaPerMinute: Number(baseGrowth.toFixed(4)) }] : [];
+  const captureShockUntil = typeof townPartial.captureShockUntil === "number" ? townPartial.captureShockUntil : undefined;
+  const isInCaptureShock = typeof captureShockUntil === "number" && captureShockUntil > Date.now();
+  const baseGrowth = isInCaptureShock ? 0 : naturalGrowth;
+  const hasNearbyWar = nearbyWarTownKeys?.has(tileKey) ?? false;
+  // Modifier precedence:
+  //   1. Recently captured (only after the tile is settled — FRONTIER tiles already
+  //      have naturalGrowth=0 so the modifier is intentionally a no-op until settle).
+  //   2. Nearby war (negative — active combat near a fed settled town).
+  //   3. Long time peace (positive baseline growth).
+  const growthModifiers = isInCaptureShock && naturalGrowth > 0
+    ? [{ label: "Recently captured" as const, deltaPerMinute: -Number(naturalGrowth.toFixed(4)) }]
+    : baseGrowth > 0
+      ? [{
+          label: hasNearbyWar ? "Nearby war" as const : "Long time peace" as const,
+          deltaPerMinute: Number((hasNearbyWar ? -baseGrowth : baseGrowth).toFixed(4))
+        }]
+      : [];
   const cap = isSettlement
     ? goldPerMinute * 60 * 8
     : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
@@ -594,6 +663,8 @@ const buildTownSummary = (
     hasBank,
     bankActive: hasBank,
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
+    ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
+    ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
     ...(growthModifiers.length > 0 ? { growthModifiers } : {})
   };
 };
@@ -610,6 +681,7 @@ export const buildLivePlayerEconomySnapshot = (
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
   const townNetwork = economyPlayer ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? []) : undefined;
   const firstThreeTownKeys = buildFirstThreeTownKeysByPlayer(runtimeState).get(playerId);
+  const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
@@ -642,7 +714,7 @@ export const buildLivePlayerEconomySnapshot = (
         oilSources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : tile.resource === "OIL" ? "Oil" : "Supply", resourceRate, { count: 1, resourceKey });
     }
-    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys);
+    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys);
     if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
@@ -795,6 +867,7 @@ export const enrichSnapshotTilesForGlobalVisibility = (
     ] as const)
   );
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
+  const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
   return [...runtimeState.tiles]
@@ -810,7 +883,8 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         fedTownKeys,
         true,
         tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
-        tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined
+        tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
+        nearbyWarTownKeys
       );
       const town = toSharedVisibilityTownSummary(fullTown);
       const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, fullTown, {
@@ -851,6 +925,7 @@ export const enrichSnapshotTilesForPlayer = (
     ] as const)
   );
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
+  const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const fedTownKeysByPlayer = playerEconomy.fedTownKeysByPlayer;
   return visibleTiles.map((tile) => {
     const player = runtimeState.players.find((entry) => entry.id === tile.ownerId);
@@ -862,7 +937,8 @@ export const enrichSnapshotTilesForPlayer = (
       tile.ownerId === playerId ? playerEconomy.fedTownKeys : (tile.ownerId ? (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) : new Set<string>()),
       tile.ownerId === playerId,
       tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
-      tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined
+      tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
+      nearbyWarTownKeys
     );
     const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, town, {
       ...(economyPlayer ? { player: economyPlayer } : {}),

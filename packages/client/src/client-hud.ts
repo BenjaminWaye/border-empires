@@ -9,11 +9,13 @@ import { exposedSidesForTile, isOwnedSettledLandTile } from "./client-defensibil
 import type { initClientDom } from "./client-dom.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
+import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "./client-diagnostics.js";
 import { buildMapLoadingView } from "./client-map-loading-view.js";
 import { renderRespawnOverlay } from "./client-respawn-overlay.js";
 import { effectiveFogDisabled, setStagingMapRevealEnabled, stagingMapRevealAvailable } from "./client-staging-map-reveal.js";
 import { isMobileDevice } from "./client-panel-nav.js";
-import { prefersTrue3DRendererMode } from "./client-renderer-mode.js";
+import { isTrue3DRendererActive } from "./client-renderer-mode.js";
+import { hasSustainedLowFps } from "./client-fps-monitor.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import { refreshLiveTechRequirements } from "./client-tech-live-requirements.js";
@@ -77,7 +79,17 @@ type HudDeps = {
   effectiveOwnedTechIds: () => string[];
   isPendingTechUnlock: (techId: string) => boolean;
   renderTechChoiceDetails: () => string;
-  techCurrentModsHtml: (mods: ClientState["mods"], expandedKey: ClientState["expandedModKey"], breakdown: ClientState["modBreakdown"]) => string;
+  techCurrentModsHtml: (
+    mods: ClientState["mods"],
+    expandedKey: ClientState["expandedModKey"],
+    breakdown: ClientState["modBreakdown"],
+    activeBonusContext?: {
+      techCatalog: TechInfo[];
+      ownedTechIds: string[];
+      domainCatalog: DomainInfo[];
+      domainIds: string[];
+    }
+  ) => string;
   bindTechTreeDragScroll: () => void;
   chooseTech: (techIdRaw?: string) => void;
   chooseDomain: (domainIdRaw?: string) => void;
@@ -526,11 +538,17 @@ export const renderClientHud = (deps: HudDeps): void => {
     dom.mapLoadingOverlayEl.dataset.tone = loadingView.tone;
     dom.mapLoadingTitleEl.textContent = loadingView.title;
     dom.mapLoadingMetaEl.textContent = loadingView.meta;
-    dom.mapLoadingActionsEl.dataset.visible = loadingView.showRetry || loadingView.showReload ? "true" : "false";
+    const anyAction = loadingView.showRetry || loadingView.showReload || loadingView.showDiagnostics;
+    dom.mapLoadingActionsEl.dataset.visible = anyAction ? "true" : "false";
     dom.mapLoadingRetryBtn.style.display = loadingView.showRetry ? "" : "none";
     dom.mapLoadingReloadBtn.style.display = loadingView.showReload ? "" : "none";
+    dom.mapLoadingDiagnosticsBtn.style.display = loadingView.showDiagnostics ? "" : "none";
     dom.mapLoadingRetryBtn.onclick = () => retryBootstrapNow();
     dom.mapLoadingReloadBtn.onclick = () => window.location.reload();
+    dom.mapLoadingDiagnosticsBtn.onclick = () => {
+      const bundle = buildDiagnosticsBundle(state, wsUrl);
+      downloadDiagnosticsBundle(bundle);
+    };
   } else {
     dom.mapLoadingOverlayEl.style.display = "none";
     dom.mapLoadingOverlayEl.dataset.tone = "normal";
@@ -582,7 +600,13 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.techCurrentModsEl.innerHTML = safeValue(
     "techCurrentModsHtml",
     fallbackCard("Technology modifiers"),
-    () => deps.techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown)
+    () =>
+      deps.techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown, {
+        techCatalog: state.techCatalog,
+        ownedTechIds: deps.effectiveOwnedTechIds(),
+        domainCatalog: state.domainCatalog,
+        domainIds: state.domainIds
+      })
   );
   dom.mobileTechCurrentModsEl.innerHTML = dom.techCurrentModsEl.innerHTML;
   dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Technology choices"), () => renderTechChoiceGrid());
@@ -1182,8 +1206,9 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const canShowRendererPrompt =
     !state.rendererPrompt.dismissed &&
-    prefersTrue3DRendererMode &&
+    isTrue3DRendererActive() &&
     isMobileDevice() &&
+    hasSustainedLowFps(25, 5000, performance.now()) &&
     state.connection === "initialized" &&
     state.authSessionReady &&
     !state.profileSetupRequired &&
@@ -1195,8 +1220,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       <div class="guide-backdrop" id="renderer-prompt-backdrop"></div>
       <div class="guide-modal card" role="dialog" aria-modal="true" aria-labelledby="renderer-prompt-title">
         <div class="guide-modal-scroll">
-          <h2 id="renderer-prompt-title" class="guide-title">Running in 3D mode</h2>
-          <p class="guide-body">The 3D terrain renderer can be demanding on mobile devices. Switch to the lighter 2D version for smoother performance?</p>
+          <h2 id="renderer-prompt-title" class="guide-title">3D is running slow on this device</h2>
+          <p class="guide-body">Your device is rendering the 3D map at a low frame rate. Switch to the lighter 2D version for smoother performance?</p>
           <div class="guide-actions">
             <button id="renderer-prompt-keep" class="panel-btn guide-secondary-btn" type="button">Keep 3D</button>
             <button id="renderer-prompt-switch" class="panel-btn guide-primary-btn" type="button">Switch to 2D</button>

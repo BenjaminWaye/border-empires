@@ -4,8 +4,17 @@
 import { createServer } from "node:http";
 import { createSimulationService } from "../../simulation/src/simulation-service.js";
 import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env.js";
+import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env.js";
+
+// Boot the event-loop watchdog FIRST so it can observe boot itself, but
+// leave it DISARMED — sim replay legitimately blocks the main thread for
+// 30-90s during startup. We arm it after `gateway.start()` returns, which
+// is the point at which any sustained block is a real bug, not boot work.
+// A worker-side failsafe arms after WATCHDOG_BOOT_GRACE_MS (default 5 min)
+// so the watchdog still catches a "stuck booting forever" regression.
+const watchdog = startEventLoopWatchdog({ label: "combined" });
 
 const simEnv = parseSimulationRuntimeEnv(process.env);
 
@@ -75,6 +84,13 @@ const simMetricsServer = createServer((request, response) => {
     response.end(`${JSON.stringify(health.body)}\n`);
     return;
   }
+  if (request.url && request.url.startsWith("/debug/players")) {
+    const aiOnly = /[?&]ai=(true|1)\b/.test(request.url);
+    const players = simService.playerDebugSnapshot();
+    response.setHeader("Content-Type", "application/json; charset=utf-8");
+    response.end(`${JSON.stringify({ players: aiOnly ? players.filter((p) => p.isAi) : players })}\n`);
+    return;
+  }
   response.statusCode = 404;
   response.end("not found");
 });
@@ -111,6 +127,7 @@ const gateway = await createRealtimeGatewayApp({
 
 await gateway.start();
 console.log(`[merged] gateway listening on ${gatewayEnv.host}:${gatewayEnv.port}`);
+watchdog?.arm();
 
 const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   console.log(`[merged] caught ${signal}; shutting down`);

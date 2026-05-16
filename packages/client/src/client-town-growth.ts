@@ -44,6 +44,25 @@ const townGrowthPauseReason = (
   return undefined;
 };
 
+export const isTownGrowthPaused = (
+  town: NonNullable<Tile["town"]>,
+  options?: { explainUnfed?: boolean }
+): boolean => {
+  if (town.growthModifiers?.some((modifier) => modifier.deltaPerMinute < 0)) return true;
+  if (options?.explainUnfed && town.isFed === false) return true;
+  return (town.populationGrowthPerMinute ?? 0) <= 0;
+};
+
+export const shouldShowTownSmoke = (tile: Tile): boolean => {
+  const town = tile.town;
+  if (!town) return false;
+  if (!tile.ownerId) return false;
+  if (tile.terrain !== "LAND") return false;
+  if (tile.ownershipState !== "SETTLED") return false;
+  if (town.isFed === false) return false;
+  return !isTownGrowthPaused(town);
+};
+
 // Mirror of the "Town is unfed" line in client-tile-menu-view.ts. The 2D and
 // 3D map badges must only paint when the tile-menu would also show the
 // unfed warning — otherwise neutral, foreign, or unsettled towns light up
@@ -69,7 +88,7 @@ export const townNextGrowthEtaLabel = (
   const milestone = townNextPopulationMilestone(town);
   if (!milestone) return "Max tier reached";
   const growth = town.populationGrowthPerMinute ?? 0;
-  if (growth <= 0) {
+  if (isTownGrowthPaused(town, options)) {
     const pauseReason = townGrowthPauseReason(town, options);
     return pauseReason ? `${milestone.label} growth paused (${pauseReason})` : `${milestone.label} growth paused`;
   }
