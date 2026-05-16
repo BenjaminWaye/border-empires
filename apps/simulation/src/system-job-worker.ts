@@ -137,7 +137,13 @@ const chooseSystemCommand = (
   if (player.hasActiveLock) return null;
 
   if (playerId === BARBARIAN_PLAYER_ID) {
-    return barbarianPlanner.choose(player, clientSeq, issuedAt);
+    // Diagnostic short-circuit (#256 fallout): staging shows a 2.5s sim
+    // event-loop block in the AI tick path even after the snapshot scan
+    // was fixed (#277). The barbarian planner runs over up to 80 seeded
+    // frontier tiles per system tick and is the next suspect. Returning
+    // null leaves the world geometry intact (barb tiles remain) but
+    // emits no commands, isolating its per-tick CPU cost from the trace.
+    return null;
   }
 
   const ownedTiles = resolveOwnedTiles(player);
