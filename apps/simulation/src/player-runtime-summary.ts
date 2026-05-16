@@ -194,7 +194,7 @@ export const applyTileToPlayerSummary = (
     const resourceKey = strategicResourceForTile(tile.resource);
     if (resourceKey) summary.strategicProductionPerMinute[resourceKey] += strategicProductionPerMinuteForResource(tile.resource);
   }
-  if (hasTownOnTile(tile)) {
+  if (tile.ownershipState === "SETTLED" && hasTownOnTile(tile)) {
     summary.townCount += 1;
     const tier = townPopulationTierForTile(tile) ?? "SETTLEMENT";
     summary.ownedTownTierByTile.set(tileKey, tier);
@@ -221,7 +221,7 @@ export const removeTileFromPlayerSummary = (
       );
     }
   }
-  if (hasTownOnTile(tile)) {
+  if (tile.ownershipState === "SETTLED" && hasTownOnTile(tile)) {
     summary.townCount = Math.max(0, summary.townCount - 1);
     summary.ownedTownTierByTile.delete(tileKey);
   }
