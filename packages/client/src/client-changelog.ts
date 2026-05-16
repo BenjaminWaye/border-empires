@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.3",
+  version: "2026.05.16.4",
   title: "What's New",
-  summary: "Capturing a town from another player now visibly costs them: the town drops 5% population on capture (matching the legacy behaviour), a floating \"-N pop\" indicator flashes over the town, and three dark grey smoke columns drift from any town still inside its 10-minute capture-shock cooldown so you can spot recently flipped towns at a glance. Capturing the previous owner's SETTLEMENT (their home tile) now also evacuates that settlement off the captured tile and re-roots it on one of their remaining tiles (or, if they have none, on a fresh tile elsewhere).",
+  summary: "Fed town tile-detail refreshes no longer leave population growth stuck at 0.00/m when cached town data is stale.",
   entries: [
+    {
+      introducedIn: "2026.05.16.4",
+      title: "Fed town growth recovers from stale detail data",
+      why: "A pressed town could show Support 5/5 and fed Market production while still displaying Growth 0.00/m and an unexplained paused next-size line. The tile-detail fallback recomputed fed state, support, and gold from the fresh snapshot but kept stale or missing population-growth fields from cached town data.",
+      changes: [
+        "REQUEST_TILE_DETAIL now recomputes population growth for owned settled towns when the town is fed and below its population cap.",
+        "Fresh fed town details include a positive Long time peace growth modifier when no blocking growth modifier is present.",
+        "Regression coverage now matches a fed, supported town whose cached growth was 0.00/m and verifies the refreshed detail returns positive growth."
+      ]
+    },
     {
       introducedIn: "2026.05.16.3",
       title: "Capturing a SETTLEMENT evacuates it off the captured tile",
