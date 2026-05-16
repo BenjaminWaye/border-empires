@@ -98,6 +98,13 @@ const metricsServer = createServer((request, response) => {
     response.end(`${JSON.stringify(health.body)}\n`);
     return;
   }
+  if (request.url && request.url.startsWith("/debug/players")) {
+    const aiOnly = /[?&]ai=(true|1)\b/.test(request.url);
+    const players = service.playerDebugSnapshot();
+    response.setHeader("Content-Type", "application/json; charset=utf-8");
+    response.end(`${JSON.stringify({ players: aiOnly ? players.filter((p) => p.isAi) : players })}\n`);
+    return;
+  }
   response.statusCode = 404;
   response.end("not found");
 });
