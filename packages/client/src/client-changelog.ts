@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.15.5",
+  version: "2026.05.15.6",
   title: "What's New",
-  summary: "Town panels now show the nearby-war growth penalty during active combat, and 3D town smoke only appears over settled towns that are fed and actively growing.",
+  summary: "The technology panel now shows real empire vision radius instead of a misleading VIS percentage, no longer shows the redundant Income tech stat chip, and settlement-speed techs now shorten settlement timers.",
   entries: [
+    {
+      introducedIn: "2026.05.15.6",
+      title: "Technology vision stats match the real radius",
+      why: "Vision upgrades in the rewrite stack add tile radius, but the Active Bonuses card only displayed the generic VIS multiplier. That made Cartography and later scouting techs look like they did nothing.",
+      changes: [
+        "The Vision chip now displays the effective empire vision radius in tiles.",
+        "Tapping Vision shows the tech/domain sources that add radius, such as Cartography's +1.",
+        "The redundant Income chip was removed from Active Bonuses because economy is already shown in the main toolbar.",
+        "Settlement speed effects now apply to the authoritative settle timer and to the settle action's duration estimate."
+      ]
+    },
     {
       introducedIn: "2026.05.15.5",
       title: "Town war pressure and smoke are clearer",

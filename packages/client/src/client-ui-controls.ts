@@ -11,12 +11,12 @@ import {
   structureShowsOnTile,
   type ResourceType
 } from "@border-empires/shared";
-import { canAffordCost, isForestTile, settleDurationMsForTile } from "./client-constants.js";
+import { canAffordCost, isForestTile } from "./client-constants.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
 import type { initClientDom } from "./client-dom.js";
 import { closeActivePanel, setActivePanel } from "./client-panel-nav.js";
 import type { ClientState } from "./client-state.js";
-import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
+import { settleDurationMsForState, type DevelopmentSlotSummary } from "./client-queue-logic.js";
 import type { OptimisticStructureKind } from "./client-types.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
@@ -256,7 +256,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
       <div class="hold-menu-title">Build on (${x}, ${y})</div>
       <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && canAffordCost(state.gold, SETTLE_COST) && !settlementQueued ? "" : "disabled"}>
         <span>Settle Tile</span>
-        <small>${SETTLE_COST} gold • ${(settleDurationMsForTile(x, y) / 1000).toFixed(0)}s${isForestTile(x, y) ? " (Forest)" : ""} • converts frontier to settled${settlementQueued ? " • already queued" : queueableWhenBusy && tile.ownershipState === "FRONTIER" ? " • queues" : ""}</small>
+        <small>${SETTLE_COST} gold • ${(settleDurationMsForState(state, { x, y }) / 1000).toFixed(0)}s${isForestTile(x, y) ? " (Forest)" : ""} • converts frontier to settled${settlementQueued ? " • already queued" : queueableWhenBusy && tile.ownershipState === "FRONTIER" ? " • queues" : ""}</small>
       </button>
       <button class="hold-menu-btn" data-build="fort" ${canAffordFort ? "" : "disabled"}>
         <span>${tile.fort || canUpgradeWoodenFort ? `Upgrade to ${fortVariant?.label ?? "Fort"}` : state.techIds.includes("masonry") ? fortVariant?.label ?? "Fort" : "Wooden Fort"}</span>
