@@ -5529,6 +5529,16 @@ export class SimulationRuntime {
     }
 
     if (structurePlacementMetadata(payload.structureType).placementMode === "town_support" && target.town) {
+      if (target.town.populationTier === "SETTLEMENT") {
+        this.emitEvent({
+          eventType: "COMMAND_REJECTED",
+          commandId: command.commandId,
+          playerId: command.playerId,
+          code: "BUILD_INVALID",
+          message: "settlements cannot support economic structures — grow this town first"
+        });
+        return;
+      }
       const supportTarget = this.firstAvailableTownSupportTile(command.playerId, simulationTileKey(target.x, target.y), payload.structureType);
       if (!supportTarget) {
         this.emitEvent({
