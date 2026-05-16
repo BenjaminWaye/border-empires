@@ -25,32 +25,63 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   entries: [
     {
       introducedIn: "2026.05.17.1",
-      title: "Coin shadows land on the tile + grey coins fade",
-      why: "The drop shadow was baked into the coin sprite, so it floated with the coin instead of grounding it on the tile. Grey coins also needed to read as faded/inactive.",
-      changes: [
-        "Each coin now casts a soft circular shadow on the tile beneath it, drawn as a flat plane on the ground rather than baked into the sprite.",
-        "Grey (unsettled) coins are now more clearly translucent so they read as inactive next to the solid gold coins."
-      ]
-    },
-    {
-      introducedIn: "2026.05.16.8",
-      title: "Town support coins redrawn as stylized 3D coins",
-      why: "Earlier passes read as a bubble or a flat sticker. Coins in modern game UIs are drawn as tilted disks with visible edge thickness and a recessed face.",
-      changes: [
-        "Coins are now tilted ellipses with a visible metallic side/edge underneath, a recessed inner face, and a bright bevel ring — the shape that game players actually recognise as a coin.",
-        "Drop shadow retained underneath so each coin reads as floating above its tile."
-      ]
-    },
-    {
-      introducedIn: "2026.05.16.6",
       title: "Coins show which adjacent tiles feed a town's gold",
       why: "Players settled a town, saw it fed, and wondered why no gold came in — without realizing town gold scales linearly with adjacent SETTLED tiles. The 8-tile colored ring was already drawn but it conveyed ownership, not income.",
       changes: [
         "Selecting one of your towns (City and above) now floats a coin over each of its 8 adjacent land tiles.",
         "Gold coin = that neighbor is settled by you and is currently contributing to the town's gold income.",
-        "Grey coin = that neighbor is land but isn't settled by you yet; settling it will increase the town's gold.",
+        "Grey coin = that neighbor is land but isn't settled by you yet; settling it will increase the town's gold; grey coins are translucent so they clearly read as inactive.",
+        "Each coin is drawn as a stylized tilted disk with a visible metallic side and a recessed inner face, and casts a soft circular shadow on the tile beneath it.",
+        "Selecting a coin tile (to settle it) keeps the overlay visible by anchoring it to the nearest player-owned non-Settlement town.",
         "Settlement-tier towns hide both the support ring and the coins — settlements pay a flat base income and don't use adjacent tiles.",
         "Trying to build an economic structure (Farmstead, Market, Mine, etc.) on a Settlement-tier town is now rejected by the sim with a clearer message instead of silently failing."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.9",
+      title: "Rally links for friend spawns",
+      why: "The HQ Create Rally Link button needed a real authenticated handoff without teaching the HQ site to own game auth or cross-subdomain sessions.",
+      changes: [
+        "The play client now handles /rally/new, mints authenticated rally links, and shows a copyable /r/<code> share URL.",
+        "Joining through a rally URL sends the code during control-channel AUTH so fresh empires try to spawn near the link owner's active settlement.",
+        "Existing empires are not moved, bulk sockets cannot spend invite uses, and if no nearby open land is available the simulation falls back to the normal spawn picker."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.8",
+      title: "Crystal abilities show why they are unavailable",
+      why: "Aether Lance, EMP, Wall, Bridge and the terrain-shaping casts used to vanish from the tile menu whenever any precondition failed (wrong target, out of range, cooldown), making it impossible to tell whether the ability was researched, on cooldown, or simply unavailable on that tile.",
+      changes: [
+        "Lance, EMP, Wall, Bridge, Create/Remove Mountain and Retort Recast always appear as disabled rows once their tech is researched, with a priority-ordered reason ladder explaining the first failing gate.",
+        "All crystal casts share a single observatory-range gate plus a per-observatory cooldown; with multiple covering observatories you can chain casts until every one of them is on cooldown.",
+        "Create/Remove Mountain are now gated by observatory range (not adjacency to your land), matching the other crystal abilities.",
+        "Lance disabled reasons now distinguish own-tile, frontier, town, and monument targets so the menu tells you what to do next.",
+        "Observatory cast radius now correctly factors in observatoryRangeBonus and observatoryCastRadiusBonus from techs and domains on both client and sim, so menu enablement no longer drifts from sim authority for any range-extending tech.",
+        "Observatory constants (cast radius, protection radius, vision bonus) now live in @border-empires/shared with single-source re-exports in game-domain and client; dead OBSERVATORY_BUILD_COST and OBSERVATORY_BUILD_CRYSTAL_COST constants were removed."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.7",
+      title: "Starting settlement income survives capture and abandon edge cases",
+      why: "A captured SETTLEMENT could be stripped from the home tile while the previous owner still had only frontier land left. Separately, abandonment needed a server-side last-town guard so a stale or accidental action could not leave a player with upkeep and no town income.",
+      changes: [
+        "When a captured SETTLEMENT has to evacuate, it now re-roots onto remaining owned land even if that tile is still frontier, and makes that refuge tile SETTLED.",
+        "The relocation still refuses to overwrite an existing town, so higher-tier cities are not downgraded.",
+        "Abandon Territory now rejects the player's last owned town on the server, regardless of town tier.",
+        "The defender now receives a fresh PLAYER_UPDATE after the capture path so income and upkeep correct immediately."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.6",
+      title: "Captured observatories survive",
+      why: "Combat capture rebuilt the captured tile from a narrow allowlist and accidentally dropped observatories, forts, and economic buildings. Siege outposts are supposed to be destroyed on capture, but ordinary buildings should change hands.",
+      changes: [
+        "Hostile capture now transfers completed forts, observatories, and economic buildings to the capturing player.",
+        "Structures that are still under construction are destroyed on capture, including wooden forts.",
+        "Wooden Fort upgrades now work on the rewrite simulation path: the wooden fort stays in place while the full fort is under construction, then is consumed when the upgrade completes.",
+        "If a tile is captured during a Wooden Fort upgrade, the unfinished full fort is destroyed but the Wooden Fort survives and transfers to the capturer.",
+        "Siege outposts are still removed on capture.",
+        "Regression coverage now captures tiles with mixed structures and verifies completed observatories and wooden forts survive while siege outposts and unfinished buildings do not."
       ]
     },
     {

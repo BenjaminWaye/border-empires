@@ -44,7 +44,7 @@ import { createStartupReplayCompactionRunner } from "./startup-replay-compaction
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { personalizeSeasonVictoryObjectives } from "./personalized-season-victory.js";
 import { laneForCommand } from "./command-lane.js";
-import { createSimulationMetrics } from "./metrics.js";
+import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "./metrics.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import { createSeasonSummaryStore } from "./season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "./season-summary-store.js";
@@ -52,6 +52,18 @@ import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "./season-lifecycle.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "./season-worldgen.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
+
+const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as { x?: unknown; y?: unknown };
+    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return undefined;
+    if (!Number.isInteger(parsed.x) || !Number.isInteger(parsed.y)) return undefined;
+    return { x: parsed.x, y: parsed.y };
+  } catch {
+    return undefined;
+  }
+};
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -1060,6 +1072,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
+  let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -1384,6 +1397,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               }
             },
             onDiagnostic: (sample) => {
+              if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
+                simulationMetrics.observeSimAiPlannerPhaseMs(sample.phase as AiPlannerPhase, sample.durationMs);
+              }
               if (sample.durationMs < slowAiSyncWarnMs) return;
               recordLagDiagnostic("warn", "simulation_ai_worker_slow", sample);
             },
@@ -1739,7 +1755,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       })();
     },
     PreparePlayer(
-      call: { request: { player_id: string } },
+      call: { request: { player_id: string; rally_anchor_json?: string } },
       callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean }) => void
     ) {
       const prepareStartedAt = Date.now();
@@ -1747,7 +1763,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       try {
         if (currentSeasonState.status !== "ended") {
           const spawnStartedAt = Date.now();
-          spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id);
+          const rallyAnchor = parseRallyAnchor(call.request.rally_anchor_json);
+          spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id, rallyAnchor);
           simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
           if (spawned) {
             deleteCachedSnapshot(call.request.player_id);
@@ -2073,6 +2090,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "shard rain tick failed");
         }
       }, 60_000);
+      tileSheddingTicker = setInterval(() => {
+        try {
+          runtime.tickTileShedding(Date.now());
+        } catch (error) {
+          log.error({ err: error }, "tile shedding tick failed");
+        }
+      }, 60_000);
       eventLoopSampler = setInterval(() => {
         const now = Date.now();
         const lagMs = Math.max(0, now - expectedEventLoopTickAt);
@@ -2171,6 +2195,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_ai_settle_decision_total: sample.simAiSettleDecisionTotalByReason,
             sim_ai_settle_decision_recent: sample.simAiSettleDecisionRecent,
             sim_ai_settle_decision_top_score: sample.simAiSettleDecisionTopScore,
+            sim_ai_planner_phase_ms: sample.simAiPlannerPhaseMs,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
             sim_cpu_percent: sample.simCpuPercent,
             sim_rss_mb: toMbRounded(memory.rss),
@@ -2238,6 +2263,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (metricsTicker) clearInterval(metricsTicker);
       if (eventLoopSampler) clearInterval(eventLoopSampler);
       if (shardRainTicker) clearInterval(shardRainTicker);
+      if (tileSheddingTicker) clearInterval(tileSheddingTicker);
       gcObserver?.disconnect();
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
@@ -2290,6 +2316,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     metricsSnapshot() {
       return simulationMetrics.snapshot();
+    },
+    playerDebugSnapshot() {
+      return runtime.exportPlayerDebugSnapshot();
     }
   };
 };

@@ -10,16 +10,34 @@
  * past ~250 owned tiles each). 256 is ~4x cheaper and still gives BFS a
  * radius of ~8 tiles in each direction from a hot-frontier origin — enough
  * to plan a meaningful local action without scanning interior territory the
- * AI isn't acting on this tick. If 256 still produces a long tail, drop to
- * 128 next; if AI behaviour degrades visibly, raise back toward 512.
+ * AI isn't acting on this tick.
+ *
+ * Origin rotation: a single hot-frontier origin biases the front toward the
+ * border and hides interior decisions (settling owned FRONTIER tiles deep
+ * inside the empire, building structures on settled tiles far from contact).
+ * To fix that, the origin category rotates on every refresh: hot_frontier →
+ * build_candidate → settle_pending → ... back to hot_frontier. Each
+ * category's tile set comes from the runtime player summary. Empty
+ * categories are skipped. Cycle period is ~3x the focus expiry (60s ±
+ * 15s × 3 categories ≈ 3 min), so over a few minutes the AI sees every
+ * activity-relevant region of its empire.
  */
 
 export const AI_SPATIAL_FOCUS_MAX_OWNED_TILES = 256;
 export const AI_SPATIAL_FOCUS_EXPIRY_MS = 60_000;
 export const AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS = 15_000;
 
+export type AiSpatialFocusCategory = "hot_frontier" | "build_candidate" | "settle_pending";
+
+export const AI_SPATIAL_FOCUS_CATEGORY_CYCLE: ReadonlyArray<AiSpatialFocusCategory> = [
+  "hot_frontier",
+  "build_candidate",
+  "settle_pending"
+];
+
 export type AiSpatialFocus = {
   readonly originTileKey: string;
+  readonly originCategory: AiSpatialFocusCategory;
   readonly primaryFront: ReadonlySet<string>;
   readonly computedAt: number;
   readonly expiresAt: number;
@@ -75,38 +93,65 @@ export const expandFocusFront = (
   return front;
 };
 
-/**
- * Pick a focus origin from the player's hot-frontier tiles (owned tiles
- * touching contested borders). Falls back to the first owned tile if the hot
- * set is empty. Returns undefined if the player owns nothing.
- *
- * Iteration order of the input Sets is the insertion order, which the runtime
- * maintains as territory ownership stabilizes — so the same hot frontier tile
- * tends to be picked across ticks when no state has changed.
- */
-export const pickFocusOrigin = (
-  hotFrontierTileKeys: ReadonlySet<string>,
+const nextCategoryAfter = (prior: AiSpatialFocusCategory | undefined): AiSpatialFocusCategory => {
+  if (prior === undefined) return AI_SPATIAL_FOCUS_CATEGORY_CYCLE[0]!;
+  const idx = AI_SPATIAL_FOCUS_CATEGORY_CYCLE.indexOf(prior);
+  if (idx < 0) return AI_SPATIAL_FOCUS_CATEGORY_CYCLE[0]!;
+  return AI_SPATIAL_FOCUS_CATEGORY_CYCLE[(idx + 1) % AI_SPATIAL_FOCUS_CATEGORY_CYCLE.length]!;
+};
+
+const firstOwnedTileIn = (
+  candidates: ReadonlySet<string>,
   ownedTileKeys: ReadonlySet<string>
 ): string | undefined => {
-  for (const tileKey of hotFrontierTileKeys) {
+  for (const tileKey of candidates) {
     if (ownedTileKeys.has(tileKey)) return tileKey;
   }
+  return undefined;
+};
+
+/**
+ * Pick a focus origin by cycling through category-specific tile sets starting
+ * at `startCategory`. Returns the first owned tile from the first non-empty
+ * category, along with the category that produced it. Falls back to the first
+ * owned tile if every category is empty/unowned. Returns undefined only when
+ * the player owns nothing.
+ *
+ * Iteration order of the input Sets is the insertion order, which the runtime
+ * maintains as territory ownership stabilises — so the same origin tends to be
+ * picked across refreshes when no state has changed, which keeps the BFS front
+ * stable and lets downstream identity checks short-circuit.
+ */
+export const pickFocusOriginForCategory = (
+  startCategory: AiSpatialFocusCategory,
+  sources: Readonly<Record<AiSpatialFocusCategory, ReadonlySet<string>>>,
+  ownedTileKeys: ReadonlySet<string>
+): { originTileKey: string; originCategory: AiSpatialFocusCategory } | undefined => {
+  for (let attempt = 0; attempt < AI_SPATIAL_FOCUS_CATEGORY_CYCLE.length; attempt += 1) {
+    const idx = (AI_SPATIAL_FOCUS_CATEGORY_CYCLE.indexOf(startCategory) + attempt) % AI_SPATIAL_FOCUS_CATEGORY_CYCLE.length;
+    const category = AI_SPATIAL_FOCUS_CATEGORY_CYCLE[idx]!;
+    const candidate = firstOwnedTileIn(sources[category], ownedTileKeys);
+    if (candidate) return { originTileKey: candidate, originCategory: category };
+  }
   for (const tileKey of ownedTileKeys) {
-    return tileKey;
+    return { originTileKey: tileKey, originCategory: startCategory };
   }
   return undefined;
 };
 
 /**
  * Compute or refresh the AI's spatial focus. Reuses the prior origin when it
- * is still owned and the focus has not expired; otherwise picks a fresh origin
- * from the hot-frontier tiles. When the front grown from the prior origin is
- * identical to the cached one, the prior focus object is returned unchanged so
- * downstream identity checks remain cheap.
+ * is still owned and the focus has not expired; otherwise rotates to the next
+ * category in AI_SPATIAL_FOCUS_CATEGORY_CYCLE and picks a fresh origin from
+ * that category (or the next non-empty one). When the rebuilt front from the
+ * prior origin is identical to the cached one, the prior focus object is
+ * returned unchanged so downstream identity checks stay cheap.
  */
 export const selectSpatialFocus = (params: {
   prior: AiSpatialFocus | undefined;
   hotFrontierTileKeys: ReadonlySet<string>;
+  buildCandidateTileKeys?: ReadonlySet<string>;
+  settlePendingTileKeys?: ReadonlySet<string>;
   ownedTileKeys: ReadonlySet<string>;
   now: number;
   jitterMs?: number;
@@ -114,6 +159,8 @@ export const selectSpatialFocus = (params: {
   expiryMs?: number;
 }): AiSpatialFocus | undefined => {
   const { prior, hotFrontierTileKeys, ownedTileKeys, now } = params;
+  const buildCandidateTileKeys = params.buildCandidateTileKeys ?? new Set<string>();
+  const settlePendingTileKeys = params.settlePendingTileKeys ?? new Set<string>();
   const jitterMs = params.jitterMs ?? 0;
   const maxOwnedTiles = params.maxOwnedTiles ?? AI_SPATIAL_FOCUS_MAX_OWNED_TILES;
   const expiryMs = params.expiryMs ?? AI_SPATIAL_FOCUS_EXPIRY_MS;
@@ -125,15 +172,34 @@ export const selectSpatialFocus = (params: {
   const priorNotExpired = prior !== undefined && now < prior.expiresAt;
   const reusePriorOrigin = priorOriginStillOwned && priorNotExpired;
 
-  const originTileKey = reusePriorOrigin
-    ? prior!.originTileKey
-    : pickFocusOrigin(hotFrontierTileKeys, ownedTileKeys);
+  const sources: Record<AiSpatialFocusCategory, ReadonlySet<string>> = {
+    hot_frontier: hotFrontierTileKeys,
+    build_candidate: buildCandidateTileKeys,
+    settle_pending: settlePendingTileKeys
+  };
+
+  let originTileKey: string | undefined;
+  let originCategory: AiSpatialFocusCategory;
+  if (reusePriorOrigin) {
+    originTileKey = prior!.originTileKey;
+    originCategory = prior!.originCategory;
+  } else {
+    const startCategory = nextCategoryAfter(prior?.originCategory);
+    const picked = pickFocusOriginForCategory(startCategory, sources, ownedTileKeys);
+    if (!picked) return undefined;
+    originTileKey = picked.originTileKey;
+    originCategory = picked.originCategory;
+  }
   if (!originTileKey) return undefined;
 
   const primaryFront = expandFocusFront(originTileKey, ownedTileKeys, maxOwnedTiles);
   if (primaryFront.size === 0) return undefined;
 
-  if (reusePriorOrigin && prior!.primaryFront.size === primaryFront.size) {
+  if (
+    reusePriorOrigin &&
+    prior!.primaryFront.size === primaryFront.size &&
+    prior!.originCategory === originCategory
+  ) {
     let identical = true;
     for (const key of primaryFront) {
       if (!prior!.primaryFront.has(key)) {
@@ -146,6 +212,7 @@ export const selectSpatialFocus = (params: {
 
   return {
     originTileKey,
+    originCategory,
     primaryFront,
     computedAt: now,
     expiresAt: now + expiryMs + jitterMs

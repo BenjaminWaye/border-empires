@@ -175,6 +175,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
+  // Tracks the last issuedAt for each AI's COLLECT_VISIBLE so the preplan
+  // can force a heartbeat collect once per minute (see ai-preplan-command.ts
+  // COLLECT_HEARTBEAT_INTERVAL_MS). Distinct from the cooldown map because
+  // the cooldown stores `issuedAt + 20s` and we don't want to back-derive.
+  const lastCollectVisibleAtByPlayer = new Map<string, number>();
   const urgentByPlayerId = new Set<string>();
   const intentLatchState = createAiIntentLatchState();
   const attackStalemate = createAttackStalemateTracker();
@@ -592,6 +597,16 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     return new Promise((resolve) => {
       pendingRequests.set(playerId, resolve);
       const stalemateTargets = attackStalemate.stalemateTargetsForPlayer(playerId);
+      // Lazy-init so the heartbeat fires 60s after a player's first tick even
+      // if they never run an organic COLLECT_VISIBLE — otherwise an AI that
+      // gets stuck before its first collect (the stuck case the heartbeat is
+      // meant to break) would have `lastCollectVisibleAtMs === undefined` and
+      // never trigger the heartbeat branch in preplan.
+      let lastCollectVisibleAtMs = lastCollectVisibleAtByPlayer.get(playerId);
+      if (lastCollectVisibleAtMs === undefined) {
+        lastCollectVisibleAtMs = issuedAt;
+        lastCollectVisibleAtByPlayer.set(playerId, lastCollectVisibleAtMs);
+      }
       worker.postMessage({
         type: "plan",
         playerId,
@@ -600,6 +615,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         sessionPrefix: "ai-runtime",
         ...(options?.skipPreplan ? { skipPreplan: true } : {}),
         ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
+        ...(typeof lastCollectVisibleAtMs === "number"
+          ? { lastCollectVisibleAtMs }
+          : {}),
         ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {})
       });
     });
@@ -724,6 +742,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               options.onCommand?.({ playerId, commandType: plan.command.type });
               if (plan.command.type === "COLLECT_VISIBLE") {
                 backOffCollectVisible(playerId, issuedAt);
+                lastCollectVisibleAtByPlayer.set(playerId, issuedAt);
               }
               options.onDiagnostic?.({
                 phase: "submit_command",

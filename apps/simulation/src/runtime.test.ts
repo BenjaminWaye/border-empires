@@ -2238,10 +2238,12 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
+        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
     } finally {
@@ -2784,6 +2786,191 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("preserves the town on the origin tile when a failed attack flips it to the defender", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "player-2",
+            {
+              id: "player-2",
+              isAi: true,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: {
+                name: "Kettlecorner",
+                type: "FARMING",
+                populationTier: "TOWN",
+                population: 19_699,
+                maxPopulation: 10_000_000,
+                connectedTownCount: 0,
+                connectedTownBonus: 0
+              }
+            },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "lose-origin-town-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      const flipped = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      expect(flipped).toEqual(
+        expect.objectContaining({
+          ownerId: "player-2",
+          ownershipState: "FRONTIER",
+          townName: "Kettlecorner",
+          townType: "FARMING",
+          townPopulationTier: "TOWN"
+        })
+      );
+      expect(flipped?.townJson ? JSON.parse(flipped.townJson) : undefined).toEqual(
+        expect.objectContaining({ name: "Kettlecorner", population: 19_699 })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("preserves a freshly-captured town when the captor fails an outward attack and loses the origin back", async () => {
+    // Models the staging incident: ai-4 captured user's settled town, attacked
+    // outward, lost, and the original owner reclaimed the tile — town must survive.
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "captor",
+            {
+              id: "captor",
+              isAi: true,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ],
+          [
+            "reclaimer",
+            {
+              id: "reclaimer",
+              isAi: false,
+              points: 1_000,
+              manpower: 10_000,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            // Captor sits on a FRONTIER tile that still carries the captured town record.
+            {
+              x: 14,
+              y: 273,
+              terrain: "LAND",
+              ownerId: "captor",
+              ownershipState: "FRONTIER",
+              town: {
+                name: "Kettlecorner",
+                type: "FARMING",
+                populationTier: "TOWN",
+                population: 19_699,
+                maxPopulation: 10_000_000,
+                connectedTownCount: 0,
+                connectedTownBonus: 0
+              }
+            },
+            { x: 15, y: 274, terrain: "LAND", ownerId: "reclaimer", ownershipState: "SETTLED" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "captor-attacks-out-1",
+        sessionId: "session-captor",
+        playerId: "captor",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 14, fromY: 273, toX: 15, toY: 274 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      const reclaimed = runtime.exportState().tiles.find((tile) => tile.x === 14 && tile.y === 273);
+      expect(reclaimed).toEqual(
+        expect.objectContaining({
+          ownerId: "reclaimer",
+          ownershipState: "FRONTIER",
+          townName: "Kettlecorner"
+        })
+      );
+      expect(reclaimed?.townJson ? JSON.parse(reclaimed.townJson) : undefined).toEqual(
+        expect.objectContaining({ name: "Kettlecorner", population: 19_699 })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the origin tile when a failed attack starts from an active fort", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
@@ -3027,6 +3214,68 @@ describe("simulation runtime", () => {
       const exported = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
       expect(exported?.fortJson).toContain("\"status\":\"active\"");
       expect(seen).toContain("fort");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps an active wooden fort until its full fort upgrade completes", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 150,
+              techIds: new Set<string>(["masonry"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { IRON: 100 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              economicStructure: { ownerId: "player-1", type: "WOODEN_FORT", status: "active" }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "fort-upgrade-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_FORT",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+
+      await Promise.resolve();
+      const buildingTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      expect(buildingTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active" }));
+      expect(buildingTile?.fortJson).toContain("\"status\":\"under_construction\"");
+
+      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+
+      const completedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      expect(completedTile?.economicStructureJson).toBeUndefined();
+      expect(completedTile?.fortJson).toContain("\"status\":\"active\"");
     } finally {
       vi.useRealTimers();
     }
@@ -3379,6 +3628,64 @@ describe("simulation runtime", () => {
     expect(uncaptureTileDelta?.ownershipState).toBeUndefined();
   });
 
+  it("rejects abandoning the last owned town so upkeep cannot continue with zero town income", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialState: {
+        tiles: [
+          {
+            x: 20,
+            y: 20,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Only Town", type: "FARMING", populationTier: "TOWN" }
+          },
+          {
+            x: 21,
+            y: 20,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER"
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      events.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "uncapture-last-town",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "UNCAPTURE_TILE",
+      payloadJson: JSON.stringify({ x: 20, y: 20 })
+    });
+
+    await Promise.resolve();
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_REJECTED",
+        commandId: "uncapture-last-town",
+        code: "UNCAPTURE_LAST_TOWN"
+      })
+    );
+    const exportedTile = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 20);
+    expect(exportedTile).toEqual(
+      expect.objectContaining({
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        townPopulationTier: "TOWN"
+      })
+    );
+  });
+
   it("overloads a ready synthesizer through the rewrite simulation path", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -3534,10 +3841,12 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
+        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
       randomSpy.mockRestore();
@@ -5006,7 +5315,8 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } },
-          { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          { x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } }
         ],
         activeLocks: []
       }
@@ -5086,6 +5396,22 @@ describe("simulation runtime", () => {
         tiles: [
           {
             x: 0,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            observatory: { ownerId: "player-1", status: "active" }
+          },
+          {
+            x: 5,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            observatory: { ownerId: "player-1", status: "active" }
+          },
+          {
+            x: 6,
             y: 0,
             terrain: "LAND",
             ownerId: "player-1",
@@ -5313,13 +5639,13 @@ describe("simulation runtime", () => {
       ]),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
           { x: 0, y: 3, terrain: "SEA" },
           { x: 0, y: 4, terrain: "SEA" },
           { x: 0, y: 5, terrain: "LAND" },
-          { x: 2, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 2, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
           { x: 3, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
         ],
         activeLocks: []
@@ -6276,5 +6602,152 @@ describe("simulation runtime — shard rain", () => {
         vi.useRealTimers();
       }
     });
+
+    it("re-roots onto owned frontier land when capture would otherwise leave the previous owner with no town income", async () => {
+      vi.useFakeTimers();
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      try {
+        const runtime = new SimulationRuntime({
+          now: () => 1_000,
+          initialPlayers: new Map([
+            ["player-1", winningAttacker("player-1")],
+            ["player-2", weakDefender("player-2")]
+          ]),
+          seedTiles: new Map(),
+          initialState: {
+            tiles: [
+              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 11,
+                terrain: "LAND",
+                ownerId: "player-2",
+                ownershipState: "SETTLED",
+                town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
+              },
+              { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+            ],
+            activeLocks: []
+          }
+        });
+        const seen: SimulationRuntimeEventShape[] = [];
+        runtime.onEvent((event) => {
+          seen.push(event);
+        });
+
+        runtime.submitCommand({
+          commandId: "settlement-capture-frontier-refuge",
+          sessionId: "session-1",
+          playerId: "player-1",
+          clientSeq: 1,
+          issuedAt: 1_000,
+          type: "ATTACK",
+          payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+        });
+
+        await Promise.resolve();
+        vi.advanceTimersByTime(3_100);
+
+        const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
+        expect(captured?.ownerId).toBe("player-1");
+        expect(captured).not.toHaveProperty("townJson");
+
+        const refuge = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 20);
+        expect(refuge).toEqual(
+          expect.objectContaining({
+            ownerId: "player-2",
+            ownershipState: "SETTLED",
+            townPopulationTier: "SETTLEMENT"
+          })
+        );
+
+        const defenderUpdate = seen.find(
+          (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+            event.eventType === "PLAYER_MESSAGE" &&
+            event.messageType === "PLAYER_UPDATE" &&
+            event.playerId === "player-2"
+        );
+        const payload = defenderUpdate?.payloadJson ? JSON.parse(defenderUpdate.payloadJson) as { incomePerMinute?: number } : {};
+        expect(payload.incomePerMinute).toBeGreaterThan(0);
+      } finally {
+        randomSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+  });
+});
+
+describe("simulation runtime — tile shedding", () => {
+  it("does not shed when the player has positive treasury", () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        [
+          "ai-1",
+          {
+            id: "ai-1",
+            isAi: true,
+            points: 10_000,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    now = 60_000;
+    runtime.tickTileShedding(60_000);
+
+    const state = runtime.exportState();
+    expect(state.tiles.filter((tile) => tile.ownerId === "ai-1").length).toBe(2);
+  });
+
+  it("never sheds barbarian tiles", () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        [
+          "barbarian-1",
+          {
+            id: "barbarian-1",
+            isAi: false,
+            points: 0,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    now = 60_000;
+    runtime.tickTileShedding(60_000);
+
+    const state = runtime.exportState();
+    expect(state.tiles.find((tile) => tile.x === 0 && tile.y === 0)?.ownerId).toBe("barbarian-1");
   });
 });

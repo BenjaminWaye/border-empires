@@ -278,6 +278,20 @@ export const effectiveVisionRadiusForPlayer = (
   player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds">
 ): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player));
 
+/**
+ * Effective crystal-observatory cast radius for a player, mirroring the client's
+ * `ownObservatoryCastRadius`: BASE + sum(observatoryRangeBonus) + sum(observatoryCastRadiusBonus)
+ * across the player's techs and domains. The client menu and the sim authority must agree
+ * on this radius, otherwise actions can show enabled but reject at execution (or vice versa).
+ */
+export const observatoryCastRadiusForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">,
+  baseRadius: number
+): number =>
+  baseRadius +
+  additiveEffectForPlayer(player, "observatoryRangeBonus") +
+  additiveEffectForPlayer(player, "observatoryCastRadiusBonus");
+
 export const chooseAiTechChoiceForPlayer = (
   player: AiProgressionPlayer,
   tiles: Iterable<AiProgressionPlannerTile>

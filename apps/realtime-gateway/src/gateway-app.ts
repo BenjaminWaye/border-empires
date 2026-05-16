@@ -28,6 +28,10 @@ import { createPlayerSubscriptions } from "./player-subscriptions.js";
 import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
 import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "./player-profile-store.js";
 import { createGatewayPlayerProfileStore } from "./player-profile-store-factory.js";
+import { reserveRallyLinkForAuth } from "./rally-link-auth.js";
+import { rallyAnchorFromTiles } from "./rally-link-anchor.js";
+import { createGatewayRallyLinkStore } from "./rally-link-store-factory.js";
+import type { RallyAnchor } from "./rally-link-store.js";
 import { withTimeout } from "./promise-timeout.js";
 import { retryStartup } from "./startup-retry.js";
 import { resolveInitialState } from "./initial-state.js";
@@ -84,6 +88,7 @@ type RealtimeGatewayAppOptions = {
   adminApiToken?: string;
   fogAdminEmail?: string;
   emailAlerts?: EmailAlertConfig;
+  playOrigin?: string;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -643,6 +648,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const authBindingStore =
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
+  const rallyLinkStore = await createGatewayRallyLinkStore(commandStoreFactoryOptions);
   const emailAlerts = createEmailAlertService({
     authBindingStore,
     ...(options.emailAlerts ?? {}),
@@ -702,6 +708,31 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   };
   const invalidateProfileCache = (playerId: string): void => {
     profileCache.delete(playerId);
+  };
+  const resolveHttpBearerIdentity = async (authorizationHeader: string | undefined): Promise<ResolvedGatewayAuthBinding | undefined> => {
+    const token = authorizationHeader?.startsWith("Bearer ") ? authorizationHeader.slice("Bearer ".length).trim() : "";
+    if (!token) return undefined;
+    const resolved = resolveGatewayAuthIdentity(token, {
+      allowDirectPlayerIdToken: Boolean(options.defaultHumanPlayerId),
+      ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
+      ...(legacySnapshotBootstrap ? { authIdentities: legacySnapshotBootstrap.authIdentities } : {})
+    });
+    if (!resolved) return undefined;
+    return cachedReconcileGatewayAuthBinding(resolved);
+  };
+  const activeRallyAnchorForOwner = async (ownerPlayerId: string): Promise<RallyAnchor | undefined> => {
+    const snapshot = await simulationClient.subscribePlayer(
+      ownerPlayerId,
+      JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false, trigger: "gateway_rally_auth_anchor" })
+    );
+    return rallyAnchorFromTiles(ownerPlayerId, snapshot.tiles);
+  };
+  const rallySeasonIsActive = async (): Promise<boolean> => {
+    try {
+      return (await simulationClient.getCurrentSeasonSummary()).status === "active";
+    } catch {
+      return false;
+    }
   };
 
   const simulationRpcRetryAttempts = Math.max(
@@ -1037,6 +1068,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
     listSeasonArchives: () => simulationClient.listSeasonArchives(),
     startNextSeason: (force?: boolean) => simulationClient.startNextSeason(force),
+    ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
+    authenticateBearer: resolveHttpBearerIdentity,
+    rallyLinkStore,
+    preparePlayer: (playerId: string) => simulationClient.preparePlayer(playerId),
+    subscribePlayer: (playerId: string) =>
+      simulationClient.subscribePlayer(
+        playerId,
+        JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false, trigger: "gateway_rally_link" })
+      ),
     ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {})
   });
 
@@ -1735,6 +1775,25 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               playerIdentity.playerId,
               persistedProfile?.name ?? playerIdentity.playerName
             );
+            let rallyAnchor: { x: number; y: number; island?: string } | undefined;
+            let acceptedRallyCode: string | undefined;
+            if (message.rallyCode) {
+              const rallyReservation = await reserveRallyLinkForAuth(message.rallyCode, channel, {
+                rallyLinkStore,
+                activeOwnerAnchor: activeRallyAnchorForOwner,
+                seasonIsActive: rallySeasonIsActive
+              });
+              if (rallyReservation.accepted) {
+                acceptedRallyCode = rallyReservation.code;
+                rallyAnchor = rallyReservation.anchor;
+              }
+              recordGatewayEvent(rallyReservation.accepted ? "info" : channel === "control" ? "warn" : "info", "gateway_auth_rally_link", {
+                playerId: playerIdentity.playerId,
+                channel,
+                rallyCode: message.rallyCode,
+                accepted: rallyReservation.accepted
+              });
+            }
             const prepareStartedAt = Date.now();
             authTrace.startStep("prepare_player");
             try {
@@ -1744,7 +1803,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
               const prepareResult = await retrySimulationRpc(
                 "gateway prepare player",
-                () => simulationClient.preparePlayer(playerIdentity.playerId),
+                () => simulationClient.preparePlayer(playerIdentity.playerId, rallyAnchor),
                 simulationPrepareTimeoutMs,
                 (error, attempt) => {
                   recordGatewayEvent("warn", "gateway_auth_prepare_retry", {
@@ -1755,6 +1814,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   });
                 }
               );
+              if (acceptedRallyCode && !prepareResult.spawned) {
+                await rallyLinkStore.releaseUse(acceptedRallyCode);
+                acceptedRallyCode = undefined;
+              }
               const prepareDurationMs = Date.now() - prepareStartedAt;
               recordGatewayEvent(
                 prepareResult.spawned || prepareDurationMs >= 250 ? "warn" : "info",
@@ -1780,6 +1843,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 code: "SERVER_STARTING",
                 message: "Realtime simulation is temporarily unavailable. Retry shortly."
               });
+              if (acceptedRallyCode) await rallyLinkStore.releaseUse(acceptedRallyCode);
               authTrace.endStep("prepare_player", false);
               authTrace.complete("rejected", "prepare_failed");
               return;

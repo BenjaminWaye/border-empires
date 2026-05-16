@@ -61,6 +61,7 @@ import {
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   IRONWORKS_OVERLOAD_IRON,
   IRONWORKS_GOLD_UPKEEP,
+  OBSERVATORY_CAST_RADIUS,
   REVEAL_EMPIRE_ACTIVATION_COST,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
   REVEAL_EMPIRE_STATS_CRYSTAL_COST,
@@ -116,6 +117,7 @@ import {
   buildStrategicProductionForSettledTiles
 } from "./player-update-economy.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
+import { capturedStructureFields } from "./capture-structures.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { RecoveredCommandHistory } from "./command-recovery.js";
@@ -128,6 +130,7 @@ import {
   chooseTechForPlayer,
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
+  observatoryCastRadiusForPlayer,
   recomputeMods,
   visionRadiusBonusForPlayer
 } from "./tech-domain-bridge.js";
@@ -197,14 +200,6 @@ type LockedCombatResolution = {
   result: LockedFrontierCombatResult;
   defenderGoldLoss: number;
 };
-
-type CrystalAbilityId =
-  | "aether_bridge"
-  | "aether_wall"
-  | "siphon"
-  | "reveal_empire_stats"
-  | "create_mountain"
-  | "remove_mountain";
 
 type AetherWallDirection = "N" | "E" | "S" | "W";
 
@@ -706,11 +701,17 @@ export class SimulationRuntime {
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
+  // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
+  // inside replaceTileState; consumed by tickTileShedding to shed newest-first
+  // when a player is broke (points <= 0 and net gold/min <= 0). Not persisted —
+  // tiles recovered from the event log have no entry and tie at -Infinity, so
+  // they're shed last (which matches the intent: an empire that survived
+  // restart shouldn't have its core tiles shed before its newer expansions).
+  private readonly tileSettledAtByKey = new Map<string, number>();
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
-  private readonly abilityCooldownsByPlayer = new Map<string, Partial<Record<CrystalAbilityId, number>>>();
   private readonly activeAetherBridgesByPlayer = new Map<string, ActiveAetherBridgeView[]>();
   private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>();
   private readonly pendingSettlementsByTile = new Map<string, PendingSettlementRecord>();
@@ -768,6 +769,8 @@ export class SimulationRuntime {
     const focus = selectSpatialFocus({
       prior,
       hotFrontierTileKeys: summary.hotFrontierTileKeys,
+      buildCandidateTileKeys: summary.buildCandidateTileKeys,
+      settlePendingTileKeys: summary.frontierTileKeys,
       ownedTileKeys: summary.territoryTileKeys,
       now,
       jitterMs
@@ -916,6 +919,75 @@ export class SimulationRuntime {
   onEvent(listener: (event: SimulationEvent) => void): () => void {
     this.events.on("event", listener);
     return () => this.events.off("event", listener);
+  }
+
+  // Universal tile-shedding: every minute, for each player whose treasury is
+  // empty AND net gold/min is non-positive, shed their most-recently-settled
+  // owned SETTLED tile. Strips town + all per-tile structures so the next
+  // capturer doesn't inherit the upkeep ghost. Skips locked tiles so the shed
+  // never races a combat resolution. One tile per player per call.
+  tickTileShedding(nowMs: number = this.now()): void {
+    for (const player of this.players.values()) {
+      if (player.id.startsWith("barbarian-")) continue;
+      // Make sure points/upkeep reflect the current time before the gate test.
+      this.applyEconomyAccrual(player, nowMs);
+      if ((player.points ?? 0) > 0) continue;
+      const summary = this.summaryForPlayer(player.id);
+      const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
+        dockLinksByDockTileKey: this.dockLinksByDockTileKey
+      });
+      const netGoldPerMinute = economy.incomePerMinute - Math.max(0, economy.upkeepPerMinute.gold);
+      if (netGoldPerMinute > 0) continue;
+
+      let shedTileKey: string | undefined;
+      let shedTile: DomainTileState | undefined;
+      let shedStamp = -Infinity;
+      for (const tileKey of summary.territoryTileKeys) {
+        const tile = this.tiles.get(tileKey);
+        if (!tile) continue;
+        if (tile.ownerId !== player.id) continue;
+        if (tile.ownershipState !== "SETTLED") continue;
+        if (this.locksByTile.has(tileKey)) continue;
+        const stamp = this.tileSettledAtByKey.get(tileKey) ?? -Infinity;
+        if (stamp > shedStamp) {
+          shedStamp = stamp;
+          shedTileKey = tileKey;
+          shedTile = tile;
+        }
+      }
+      if (!shedTileKey || !shedTile) continue;
+
+      const commandId = `tile-shed:${player.id}:${shedTileKey}:${nowMs}`;
+      const shedState: DomainTileState = {
+        ...shedTile,
+        ownerId: undefined,
+        ownershipState: undefined,
+        town: undefined,
+        fort: undefined,
+        observatory: undefined,
+        siegeOutpost: undefined,
+        economicStructure: undefined
+      };
+      this.replaceTileState(shedTileKey, shedState, commandId);
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId,
+        playerId: player.id,
+        tileDeltas: [
+          {
+            ...this.tileDeltaFromState(shedState),
+            ownerId: "",
+            ownershipState: "",
+            townJson: "",
+            fortJson: "",
+            observatoryJson: "",
+            siegeOutpostJson: "",
+            economicStructureJson: ""
+          }
+        ]
+      });
+      this.emitPlayerStateUpdate({ commandId, playerId: player.id });
+    }
   }
 
   tickShardRain(nowMs: number = this.now()): void {
@@ -1142,7 +1214,7 @@ export class SimulationRuntime {
     }
   }
 
-  ensurePlayerHasSpawnTerritory(playerId: string): boolean {
+  ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
     let player = this.players.get(playerId);
     if (!player) {
       player = createHumanRuntimePlayer(playerId);
@@ -1172,7 +1244,8 @@ export class SimulationRuntime {
     const spawn = chooseLegacySpawnPlacement({
       playerId,
       tiles: this.tiles.values(),
-      blockedTileKeys
+      blockedTileKeys,
+      ...(rallyAnchor ? { rallyAnchor } : {})
     });
     if (!spawn) return false;
     const tileKey = simulationTileKey(spawn.x, spawn.y);
@@ -1599,6 +1672,19 @@ export class SimulationRuntime {
   private replaceTileState(tileKey: string, tile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
     const previous = this.tiles.get(tileKey);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
+    // Maintain settledAt timestamp for the tile-shedding ticker:
+    //   - newly SETTLED (previously not, or new owner) → stamp `now`
+    //   - leaves SETTLED → clear
+    //   - stays SETTLED for the same owner → preserve existing stamp
+    const wasSettledForSameOwner =
+      sameOwner && previous?.ownershipState === "SETTLED" && tile.ownershipState === "SETTLED";
+    if (tile.ownershipState === "SETTLED" && tile.ownerId) {
+      if (!wasSettledForSameOwner) {
+        this.tileSettledAtByKey.set(tileKey, this.now());
+      }
+    } else {
+      this.tileSettledAtByKey.delete(tileKey);
+    }
     const previousOwnerTileOrder =
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).territoryTileKeys]
@@ -2046,6 +2132,61 @@ export class SimulationRuntime {
       });
     }
     return players;
+  }
+
+  // Minimal per-player snapshot for the /debug/players HTTP route. Mirrors
+  // exportState().players but skips the O(world-tile) tile projection so a
+  // debug scrape never disturbs hot-path latency. Uses the manpower-only
+  // refresh for the same reason exportPlannerPlayerViews does — economy
+  // accrual catches up on the next real command tick.
+  exportPlayerDebugSnapshot(): Array<{
+    id: string;
+    name?: string;
+    isAi: boolean;
+    points: number;
+    manpower: number;
+    manpowerCap: number;
+    manpowerRegenPerMinute: number;
+    techIds: string[];
+    domainIds: string[];
+    strategicResources: Partial<Record<StrategicResourceKey, number>>;
+    settledTileCount: number;
+    townCount: number;
+    incomePerMinute: number;
+    strategicProductionPerMinute: Record<StrategicResourceKey, number>;
+    activeDevelopmentProcessCount: number;
+    hasActiveLock: boolean;
+    allies: string[];
+  }> {
+    const lockPlayerIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      lockPlayerIds.add(lock.playerId);
+    }
+    return [...this.players.values()]
+      .map((player) => {
+        this.refreshManpowerOnly(player);
+        const summary = this.summaryForPlayer(player.id);
+        return {
+          id: player.id,
+          ...(player.name ? { name: player.name } : {}),
+          isAi: player.isAi === true,
+          points: player.points,
+          manpower: player.manpower,
+          manpowerCap: this.playerManpowerCap(player),
+          manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+          techIds: [...player.techIds].sort(),
+          domainIds: [...(player.domainIds ?? [])].sort(),
+          strategicResources: { ...(player.strategicResources ?? {}) },
+          settledTileCount: summary.settledTileCount,
+          townCount: summary.townCount,
+          incomePerMinute: this.estimatedIncomePerMinuteForPlayer(player.id),
+          strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
+          activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+          hasActiveLock: lockPlayerIds.has(player.id),
+          allies: [...player.allies].sort()
+        };
+      })
+      .sort((left, right) => left.id.localeCompare(right.id));
   }
 
   exportTilesForKeys(tileKeys: Iterable<string>): PlannerTileView[] {
@@ -3268,6 +3409,17 @@ export class SimulationRuntime {
       });
       return;
     }
+    const summary = this.summaryForPlayer(command.playerId);
+    if (summary.ownedTownTierByTile.size <= 1 && summary.ownedTownTierByTile.has(targetKey)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "UNCAPTURE_LAST_TOWN",
+        message: "cannot abandon your last town"
+      });
+      return;
+    }
     if (this.locksByTile.has(targetKey)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -3625,13 +3777,15 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "reveal_empire_stats")) {
+    const revealNow = this.now();
+    const revealObservatoryKey = this.pickReadyOwnedObservatoryAny(actor.id, revealNow);
+    if (!revealObservatoryKey) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "REVEAL_EMPIRE_STATS_INVALID",
-        message: "reveal empire stats is cooling down"
+        message: "no ready observatory available"
       });
       return;
     }
@@ -3645,7 +3799,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.startAbilityCooldown(actor.id, "reveal_empire_stats", REVEAL_EMPIRE_STATS_COOLDOWN_MS);
+    this.stampObservatoryCooldown(revealObservatoryKey, REVEAL_EMPIRE_STATS_COOLDOWN_MS, revealNow, command.commandId, command.playerId);
     this.emitPlayerMessage(command, {
       type: "REVEAL_EMPIRE_STATS_RESULT",
       stats: this.buildRevealEmpireStats(target)
@@ -3676,16 +3830,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "aether_bridge")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_BRIDGE_INVALID",
-        message: "aether bridge is cooling down"
-      });
-      return;
-    }
     if (!target || !this.isCoastalLand(target.x, target.y)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -3707,6 +3851,18 @@ export class SimulationRuntime {
       });
       return;
     }
+    const bridgeNow = this.now();
+    const bridgeObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, bridgeNow);
+    if (!bridgeObservatoryKey) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_BRIDGE_INVALID",
+        message: "no ready observatory in range"
+      });
+      return;
+    }
     if (!this.spendStrategicResource(actor, "CRYSTAL", AETHER_BRIDGE_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -3717,7 +3873,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.startAbilityCooldown(actor.id, "aether_bridge", AETHER_BRIDGE_COOLDOWN_MS);
+    this.stampObservatoryCooldown(bridgeObservatoryKey, AETHER_BRIDGE_COOLDOWN_MS, bridgeNow, command.commandId, command.playerId);
     const active = this.activeAetherBridgesForPlayer(actor.id);
     active.push({
       bridgeId: `${command.commandId}:bridge`,
@@ -3757,13 +3913,15 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "aether_wall")) {
+    const wallNow = this.now();
+    const wallObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, payload.x, payload.y, wallNow);
+    if (!wallObservatoryKey) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "AETHER_WALL_INVALID",
-        message: "aether wall is cooling down"
+        message: "no ready observatory in range"
       });
       return;
     }
@@ -3812,7 +3970,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.startAbilityCooldown(actor.id, "aether_wall", AETHER_WALL_COOLDOWN_MS);
+    this.stampObservatoryCooldown(wallObservatoryKey, AETHER_WALL_COOLDOWN_MS, wallNow, command.commandId, command.playerId);
     const active = this.activeAetherWallsForPlayer(actor.id);
     active.push({
       wallId: `${command.commandId}:wall`,
@@ -3855,16 +4013,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "siphon")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIPHON_INVALID",
-        message: "siphon is cooling down"
-      });
-      return;
-    }
     if (!target || target.terrain !== "LAND" || !target.ownerId || target.ownerId === actor.id || actor.allies.has(target.ownerId)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -3885,13 +4033,15 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.ownedActiveObservatoryWithinRange(actor.id, target.x, target.y)) {
+    const siphonNow = this.now();
+    const siphonObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, siphonNow);
+    if (!siphonObservatoryKey) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "SIPHON_INVALID",
-        message: "target must be within 30 tiles of your observatory"
+        message: "no ready observatory within 30 tiles of target"
       });
       return;
     }
@@ -3915,7 +4065,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.startAbilityCooldown(actor.id, "siphon", SIPHON_COOLDOWN_MS);
+    this.stampObservatoryCooldown(siphonObservatoryKey, SIPHON_COOLDOWN_MS, siphonNow, command.commandId, command.playerId);
     const updatedTile: DomainTileState = {
       ...target,
       sabotage: {
@@ -4003,16 +4153,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "create_mountain")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CREATE_MOUNTAIN_INVALID",
-        message: "create mountain is cooling down"
-      });
-      return;
-    }
     if (
       !target ||
       target.terrain !== "LAND" ||
@@ -4042,6 +4182,18 @@ export class SimulationRuntime {
       });
       return;
     }
+    const createMountainNow = this.now();
+    const createMountainObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, createMountainNow);
+    if (!createMountainObservatoryKey) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "CREATE_MOUNTAIN_INVALID",
+        message: "no ready observatory in range"
+      });
+      return;
+    }
     if (actor.points < TERRAIN_SHAPING_GOLD_COST || !this.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -4053,7 +4205,7 @@ export class SimulationRuntime {
       return;
     }
     actor.points -= TERRAIN_SHAPING_GOLD_COST;
-    this.startAbilityCooldown(actor.id, "create_mountain", TERRAIN_SHAPING_COOLDOWN_MS);
+    this.stampObservatoryCooldown(createMountainObservatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, createMountainNow, command.commandId, command.playerId);
     const updatedTile: DomainTileState = {
       ...target,
       terrain: "MOUNTAIN",
@@ -4099,16 +4251,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "remove_mountain")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REMOVE_MOUNTAIN_INVALID",
-        message: "remove mountain is cooling down"
-      });
-      return;
-    }
     if (!target || target.terrain !== "MOUNTAIN") {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -4119,13 +4261,15 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.ownedLandWithinRange(actor.id, target.x, target.y, 2)) {
+    const removeMountainNow = this.now();
+    const removeMountainObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, removeMountainNow);
+    if (!removeMountainObservatoryKey) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "REMOVE_MOUNTAIN_INVALID",
-        message: "target must be within 2 tiles of your land"
+        message: "no ready observatory in range"
       });
       return;
     }
@@ -4140,7 +4284,7 @@ export class SimulationRuntime {
       return;
     }
     actor.points -= TERRAIN_SHAPING_GOLD_COST;
-    this.startAbilityCooldown(actor.id, "remove_mountain", TERRAIN_SHAPING_COOLDOWN_MS);
+    this.stampObservatoryCooldown(removeMountainObservatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, removeMountainNow, command.commandId, command.playerId);
     const updatedTile: DomainTileState = { ...target, terrain: "LAND" };
     this.replaceTileState(targetKey, updatedTile);
     this.emitEvent({
@@ -4419,22 +4563,6 @@ export class SimulationRuntime {
     return player.techIds.has("cryptography") || this.revealTargetsForPlayer(player.id).size > 0 ? 1 : 0;
   }
 
-  private abilityCooldownUntil(playerId: string, abilityId: CrystalAbilityId): number {
-    return this.abilityCooldownsByPlayer.get(playerId)?.[abilityId] ?? 0;
-  }
-
-  private abilityOnCooldown(playerId: string, abilityId: CrystalAbilityId): boolean {
-    return this.abilityCooldownUntil(playerId, abilityId) > this.now();
-  }
-
-  private startAbilityCooldown(playerId: string, abilityId: CrystalAbilityId, durationMs: number): void {
-    const existing = this.abilityCooldownsByPlayer.get(playerId) ?? {};
-    this.abilityCooldownsByPlayer.set(playerId, {
-      ...existing,
-      [abilityId]: this.now() + durationMs
-    });
-  }
-
   private ownedLandWithinRange(playerId: string, x: number, y: number, range: number): boolean {
     for (let dy = -range; dy <= range; dy += 1) {
       for (let dx = -range; dx <= range; dx += 1) {
@@ -4445,18 +4573,113 @@ export class SimulationRuntime {
     return false;
   }
 
-  private ownedActiveObservatoryWithinRange(playerId: string, x: number, y: number, range = 30): boolean {
-    for (const tile of this.tiles.values()) {
-      if (
-        tile.ownerId === playerId &&
-        tile.observatory?.ownerId === playerId &&
-        tile.observatory.status === "active" &&
-        Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y)) <= range
-      ) {
-        return true;
+  /**
+   * Wrapped chebyshev distance honoring world-map cylindrical wrap.
+   * Mirrors `chebyshevDistanceWrapped` on the client.
+   */
+  private wrappedChebyshev(ax: number, ay: number, bx: number, by: number): number {
+    const dxRaw = Math.abs(ax - bx);
+    const dyRaw = Math.abs(ay - by);
+    const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
+    const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
+    return Math.max(dx, dy);
+  }
+
+  /**
+   * Effective observatory cast radius for a player: BASE constant plus
+   * observatoryRangeBonus + observatoryCastRadiusBonus from techs/domains. Mirrors
+   * the client's `ownObservatoryCastRadius` so menu enablement and sim authority
+   * agree on which observatories can reach a target.
+   */
+  private observatoryCastRadiusFor(playerId: string): number {
+    const player = this.players.get(playerId);
+    if (!player) return OBSERVATORY_CAST_RADIUS;
+    return observatoryCastRadiusForPlayer(player, OBSERVATORY_CAST_RADIUS);
+  }
+
+  /**
+   * Crystal-ability cooldowns are stored per-observatory. To cast, the player must
+   * own an active observatory within the player's effective cast radius of the
+   * target tile whose cooldownUntil has elapsed. The chosen observatory's tile key
+   * is returned so the caller can stamp the cooldown on it; overlapping observatories
+   * therefore let the player chain casts.
+   *
+   * Tie-break: among off-cooldown candidates, prefer the closest observatory to the
+   * target (wrapped Chebyshev). This avoids burning a long-range observatory's slot
+   * when a nearer one is available, and yields stable UX (same target picks the same
+   * observatory). Ties on distance fall back to Map iteration order (deterministic).
+   */
+  private pickReadyOwnedObservatoryForTarget(
+    playerId: string,
+    targetX: number,
+    targetY: number,
+    now: number,
+    range = this.observatoryCastRadiusFor(playerId)
+  ): string | undefined {
+    let bestKey: string | undefined;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const [tileKey, tile] of this.tiles) {
+      if (tile.ownerId !== playerId) continue;
+      const obs = tile.observatory;
+      if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
+      const distance = this.wrappedChebyshev(tile.x, tile.y, targetX, targetY);
+      if (distance > range) continue;
+      const cooldownUntil = obs.cooldownUntil ?? 0;
+      if (cooldownUntil > now) continue;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestKey = tileKey;
       }
     }
-    return false;
+    return bestKey;
+  }
+
+  /**
+   * Variant for abilities with no spatial target (e.g. reveal_empire_stats targets a
+   * player). Returns any owned, active, off-cooldown observatory, soonest-ready first.
+   */
+  private pickReadyOwnedObservatoryAny(playerId: string, now: number): string | undefined {
+    let bestKey: string | undefined;
+    let bestCooldownUntil = Number.POSITIVE_INFINITY;
+    for (const [tileKey, tile] of this.tiles) {
+      if (tile.ownerId !== playerId) continue;
+      const obs = tile.observatory;
+      if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
+      const cooldownUntil = obs.cooldownUntil ?? 0;
+      if (cooldownUntil > now) continue;
+      if (cooldownUntil < bestCooldownUntil) {
+        bestCooldownUntil = cooldownUntil;
+        bestKey = tileKey;
+      }
+    }
+    return bestKey;
+  }
+
+  /**
+   * Stamp cooldownUntil = now + durationMs onto the observatory at `tileKey`.
+   * Updates the canonical tile state and emits a tile delta so clients see the new
+   * cooldown via `tile.observatory.cooldownUntil`.
+   */
+  private stampObservatoryCooldown(
+    tileKey: string,
+    durationMs: number,
+    now: number,
+    commandId: string,
+    playerId: string
+  ): void {
+    const tile = this.tiles.get(tileKey);
+    if (!tile?.observatory) return;
+    const updatedTile: DomainTileState = {
+      ...tile,
+      observatory: { ...tile.observatory, cooldownUntil: now + durationMs }
+    };
+    this.replaceTileState(tileKey, updatedTile, commandId);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
   }
 
   private isCoastalLand(x: number, y: number): boolean {
@@ -4899,7 +5122,11 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (target.fort || target.observatory || target.siegeOutpost || target.economicStructure) {
+    const upgradingWoodenFort =
+      target.economicStructure?.ownerId === command.playerId &&
+      target.economicStructure.type === "WOODEN_FORT" &&
+      (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
+    if (target.fort || target.observatory || target.siegeOutpost || (target.economicStructure && !upgradingWoodenFort)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4956,6 +5183,7 @@ export class SimulationRuntime {
       const { completesAt: _ignoredCompletesAt, ...activeFort } = latest.fort;
       const completedTile: DomainTileState = {
         ...latest,
+        economicStructure: undefined,
         fort: { ...activeFort, status: "active" }
       };
       this.replaceTileState(targetKey, completedTile);
@@ -6012,6 +6240,7 @@ export class SimulationRuntime {
         ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
         ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
         ...(capturedTown ? { town: capturedTown } : {}),
+        ...capturedStructureFields(previousTarget, lock.playerId),
         ownerId: lock.playerId,
         // Barbarians have no settlement loop and would otherwise sit on
         // permanent FRONTIER tiles — fragile to retake and rendered with
@@ -6049,15 +6278,12 @@ export class SimulationRuntime {
     } else if (originLost && previousOwnerId) {
       const previousOrigin = this.tiles.get(lock.originKey);
       if (previousOrigin) {
+        // Town is a worldgen entity tied to the tile — mirror the attacker-wins branch (~6008) which preserves it.
         const resolvedOrigin: DomainTileState = {
           ...previousOrigin,
           ownerId: previousOwnerId,
           ownershipState: "FRONTIER",
-          town: undefined,
-          fort: undefined,
-          observatory: undefined,
-          siegeOutpost: undefined,
-          economicStructure: undefined
+          ...capturedStructureFields(previousOrigin, previousOwnerId)
         };
         this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
         this.emitEvent({
@@ -6073,7 +6299,7 @@ export class SimulationRuntime {
     if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
     if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) {
       // If we captured the previous owner's SETTLEMENT and they still have other territory,
-      // re-root a fresh SETTLEMENT town on one of their remaining settled tiles. If they have
+      // re-root a fresh SETTLEMENT town on one of their remaining tiles. If they have
       // no territory left, respawnIfEliminated places a settlement on unowned land instead.
       if (settlementCaptureRelocationPopulation !== undefined) {
         this.relocateSettlementForPlayer(
@@ -6083,6 +6309,7 @@ export class SimulationRuntime {
         );
       }
       this.respawnIfEliminated(previousOwnerId, lock.commandId);
+      this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
     }
   }
 
@@ -6093,22 +6320,30 @@ export class SimulationRuntime {
   ): void {
     const summary = this.summaryForPlayer(playerId);
     if (summary.territoryTileKeys.size === 0) return; // respawnIfEliminated handles full eliminations.
-    // Only relocate onto a remaining SETTLED tile that does NOT already have a town.
-    // Overwriting an existing higher-tier town (CITY/METROPOLIS) would silently downgrade it.
+    if (summary.ownedTownTierByTile.size > 0) return;
+    // Prefer a remaining SETTLED tile that does NOT already have a town.
+    // If none exists, fall back to any owned land tile and settle it. This prevents
+    // a player from keeping territory but losing all town income after their home
+    // SETTLEMENT is captured.
     let targetKey: string | undefined;
+    let fallbackKey: string | undefined;
     for (const tileKey of summary.territoryTileKeys) {
       const tile = this.tiles.get(tileKey);
       if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
-      if (tile.ownershipState !== "SETTLED") continue;
       if (tile.town) continue;
-      targetKey = tileKey;
-      break;
+      if (!fallbackKey) fallbackKey = tileKey;
+      if (tile.ownershipState === "SETTLED") {
+        targetKey = tileKey;
+        break;
+      }
     }
+    targetKey ??= fallbackKey;
     if (!targetKey) return;
     const target = this.tiles.get(targetKey);
     if (!target) return;
     const relocated: DomainTileState = {
       ...target,
+      ownershipState: "SETTLED",
       town: {
         name: `Refuge ${target.x},${target.y}`,
         type: "FARMING",
