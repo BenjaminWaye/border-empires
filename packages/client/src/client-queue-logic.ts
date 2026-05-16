@@ -18,6 +18,31 @@ type QueuedBuildPayload = Extract<QueuedDevelopmentAction, { kind: "BUILD" }>["p
 
 const SETTLEMENT_CONFIRM_REFRESH_MS = 4_000;
 const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 4_000;
+
+const numericEffect = (effects: Record<string, unknown> | undefined, key: string): number => {
+  const raw = effects?.[key];
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : 1;
+};
+
+export const settlementSpeedMultiplierForState = (
+  state: Pick<ClientState, "techIds" | "techCatalog" | "domainIds" | "domainCatalog">
+): number => {
+  let multiplier = 1;
+  for (const techId of state.techIds) {
+    const tech = state.techCatalog.find((entry) => entry.id === techId);
+    multiplier *= numericEffect(tech?.effects, "settlementSpeedMult");
+  }
+  for (const domainId of state.domainIds) {
+    const domain = state.domainCatalog.find((entry) => entry.id === domainId);
+    multiplier *= numericEffect(domain?.effects, "settlementSpeedMult");
+  }
+  return multiplier;
+};
+
+export const settleDurationMsForState = (
+  state: Pick<ClientState, "techIds" | "techCatalog" | "domainIds" | "domainCatalog">,
+  tile: { x: number; y: number }
+): number => Math.max(1, Math.round(settleDurationMsForTile(tile.x, tile.y) / settlementSpeedMultiplierForState(state)));
 const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
 const ATTACK_PREVIEW_CACHE_TTL_MS = 5_000;
 
@@ -423,7 +448,7 @@ export const requestSettlement = (
   }
   if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
-  const progress = { startAt, resolvesAt: startAt + settleDurationMsForTile(x, y), target: { x, y }, awaitingServerConfirm: false };
+  const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, { x, y }), target: { x, y }, awaitingServerConfirm: false };
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
