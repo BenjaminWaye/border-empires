@@ -1,9 +1,23 @@
-import { CanvasTexture, Scene, Sprite, SpriteMaterial } from "three";
+import {
+  CanvasTexture,
+  Mesh,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  Scene,
+  Sprite,
+  SpriteMaterial
+} from "three";
 
 const COIN_POOL_SIZE = 8;
 const COIN_TEXTURE_SIZE = 160;
 const COIN_SCALE = 0.55;
 const COIN_RISE_ABOVE_SURFACE = 0.95;
+const COIN_SHADOW_TEXTURE_SIZE = 128;
+const COIN_SHADOW_SCALE = 0.7;
+const COIN_SHADOW_LIFT = 0.05;
+const GREY_COIN_OPACITY = 0.55;
+const SHADOW_OPACITY_GOLD = 0.6;
+const SHADOW_OPACITY_GREY = 0.35;
 
 export type TownSupportCoinKind = "gold" | "grey";
 
@@ -20,17 +34,19 @@ export type TownSupportCoinLayer = {
   readonly dispose: () => void;
 };
 
-// Real gold coins read as gold because of these cues stacked together:
-//   1. A warm radial gradient (highlight upper-left, deep amber lower-right)
-//      that suggests 3D form lit from above.
-//   2. A dark rim outline + a thinner inner ring framing a recessed face.
-//   3. Tiny radial tick marks suggesting the milled/reeded edge.
-//   4. A soft specular highlight in the upper-left to sell the metallic shine.
-// No glyph or denomination on the face — the disk's metallic look is what
-// makes it read as a coin; adding a symbol clutters the icon. The grey
-// coin uses the same construction with desaturated silvery tones so
-// "not yet contributing" reads as a tarnished/empty coin instead of a
-// different shape.
+// Stylized 3D coin in the same style as the reference: a slightly-tilted
+// disk drawn as an ellipse, with a visible edge thickness underneath
+// (the side of the coin) and a recessed inner face on top. Cues:
+//   1. Edge/side band — a darker copy of the top ellipse, offset down,
+//      with the gap between them filled by a vertical metallic gradient.
+//      This is what makes the coin read as a thick disk, not a flat sticker.
+//   2. Top face — bright ellipse with a smooth radial highlight on the
+//      upper-left, fading to a deeper tone at the lower-right.
+//   3. Inset inner ellipse forming the recessed face, ringed by a dark
+//      band (the recess shadow) and a thin bright bevel just inside it.
+// The ground shadow is NOT baked here — it's drawn on a separate flat
+// plane anchored to the tile so it stays on the ground while the coin
+// hovers above it (see buildShadowTexture / sync).
 const buildCoinTexture = (kind: TownSupportCoinKind): CanvasTexture => {
   const size = COIN_TEXTURE_SIZE;
   const canvas = document.createElement("canvas");
@@ -44,102 +60,122 @@ const buildCoinTexture = (kind: TownSupportCoinKind): CanvasTexture => {
   }
 
   const cx = size / 2;
-  const cy = size / 2;
-  const r = size * 0.44;
+  const cy = size * 0.48;
+  const rx = size * 0.42;
+  const ry = size * 0.34;
+  const edgeDepth = size * 0.10;
   ctx.clearRect(0, 0, size, size);
 
   const palette = kind === "gold"
     ? {
-        highlight: "#fff5c2",
-        midLight: "#ffdc5b",
-        mid: "#e8b923",
-        shadow: "#8b5a06",
-        rim: "#3a2204",
-        innerShadow: "rgba(60, 36, 4, 0.35)",
-        specular: "rgba(255, 252, 215, 0.55)"
+        faceHi: "#ffe27a",
+        faceMid: "#f5b827",
+        faceLo: "#b6790c",
+        recessRing: "#7a4d05",
+        bevel: "#fff1a8",
+        edgeHi: "#e7a91a",
+        edgeLo: "#7a4d05",
+        rim: "#2a1a02"
       }
     : {
-        highlight: "#f0f2f6",
-        midLight: "#cfd3da",
-        mid: "#9aa0ab",
-        shadow: "#52596a",
-        rim: "#23272f",
-        innerShadow: "rgba(34, 38, 46, 0.30)",
-        specular: "rgba(255, 255, 255, 0.40)"
+        faceHi: "#f1f3f7",
+        faceMid: "#b9bec7",
+        faceLo: "#6b7180",
+        recessRing: "#3d4250",
+        bevel: "#ffffff",
+        edgeHi: "#9aa0ab",
+        edgeLo: "#3d4250",
+        rim: "#1a1d24"
       };
 
-  // 1. Coin body — radial gradient offset toward upper-left so the form
-  // reads as a domed disk lit from above.
-  const bodyGradient = ctx.createRadialGradient(
-    cx - r * 0.35, cy - r * 0.4, r * 0.05,
-    cx + r * 0.15, cy + r * 0.2, r * 1.05
-  );
-  bodyGradient.addColorStop(0, palette.highlight);
-  bodyGradient.addColorStop(0.25, palette.midLight);
-  bodyGradient.addColorStop(0.65, palette.mid);
-  bodyGradient.addColorStop(1, palette.shadow);
+  // 1. Edge / side band — draw bottom ellipse (dark rim color) then fill
+  // the vertical band between the two ellipses with a metallic gradient.
+  // Build the band as a path: outer side of the top ellipse from left to
+  // right (going through the bottom), then outer side of the bottom
+  // ellipse from right to left (going through the top), closing back.
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = bodyGradient;
+  ctx.ellipse(cx, cy + edgeDepth, rx, ry, 0, Math.PI, Math.PI * 2);
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI, true);
+  ctx.closePath();
+  const edgeGrad = ctx.createLinearGradient(0, cy, 0, cy + edgeDepth);
+  edgeGrad.addColorStop(0, palette.edgeHi);
+  edgeGrad.addColorStop(0.5, palette.edgeLo);
+  edgeGrad.addColorStop(1, palette.edgeHi);
+  ctx.fillStyle = edgeGrad;
   ctx.fill();
-
-  // 2. Outer rim outline.
-  ctx.lineWidth = Math.max(3, size * 0.025);
+  // Dark outline around the side.
+  ctx.lineWidth = Math.max(2, size * 0.012);
   ctx.strokeStyle = palette.rim;
   ctx.stroke();
 
-  // 3. Milled (reeded) edge — short radial ticks just inside the rim.
-  const tickInner = r * 0.86;
-  const tickOuter = r * 0.95;
+  // 2. Top face — ellipse with a radial highlight upper-left → lower-right.
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  const faceGrad = ctx.createRadialGradient(
+    cx - rx * 0.35, cy - ry * 0.5, rx * 0.05,
+    cx + rx * 0.2, cy + ry * 0.35, rx * 1.1
+  );
+  faceGrad.addColorStop(0, palette.faceHi);
+  faceGrad.addColorStop(0.45, palette.faceMid);
+  faceGrad.addColorStop(1, palette.faceLo);
+  ctx.fillStyle = faceGrad;
+  ctx.fill();
+  ctx.lineWidth = Math.max(2, size * 0.014);
   ctx.strokeStyle = palette.rim;
-  ctx.lineWidth = Math.max(1.5, size * 0.011);
-  ctx.globalAlpha = 0.5;
-  const tickCount = 40;
-  for (let i = 0; i < tickCount; i += 1) {
-    const angle = (i / tickCount) * Math.PI * 2;
-    const ix = cx + Math.cos(angle) * tickInner;
-    const iy = cy + Math.sin(angle) * tickInner;
-    const ox = cx + Math.cos(angle) * tickOuter;
-    const oy = cy + Math.sin(angle) * tickOuter;
-    ctx.beginPath();
-    ctx.moveTo(ix, iy);
-    ctx.lineTo(ox, oy);
-    ctx.stroke();
+  ctx.stroke();
+
+  // 3. Recessed inner face — dark ring then a slightly-smaller inset
+  // ellipse with its own gradient. The ring sells the recess depth.
+  const innerRx = rx * 0.72;
+  const innerRy = ry * 0.7;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + ry * 0.06, innerRx, innerRy, 0, 0, Math.PI * 2);
+  ctx.fillStyle = palette.recessRing;
+  ctx.fill();
+  // Bright bevel ring sitting just inside the recess shadow.
+  ctx.lineWidth = Math.max(1.5, size * 0.010);
+  ctx.strokeStyle = palette.bevel;
+  ctx.globalAlpha = 0.85;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + ry * 0.04, innerRx * 0.97, innerRy * 0.97, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  // Inner face fill — slightly smaller, with its own subtle gradient,
+  // offset down a touch so the upper recess shadow is visible.
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + ry * 0.08, innerRx * 0.92, innerRy * 0.9, 0, 0, Math.PI * 2);
+  const innerGrad = ctx.createRadialGradient(
+    cx - innerRx * 0.3, cy - innerRy * 0.3, innerRx * 0.05,
+    cx + innerRx * 0.15, cy + innerRy * 0.25, innerRx * 1.1
+  );
+  innerGrad.addColorStop(0, palette.faceHi);
+  innerGrad.addColorStop(0.6, palette.faceMid);
+  innerGrad.addColorStop(1, palette.faceLo);
+  ctx.fillStyle = innerGrad;
+  ctx.fill();
+
+  const texture = new CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+};
+
+const buildShadowTexture = (): CanvasTexture => {
+  const size = COIN_SHADOW_TEXTURE_SIZE;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const cx = size / 2;
+    const cy = size / 2;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.5);
+    grad.addColorStop(0, "rgba(0,0,0,0.22)");
+    grad.addColorStop(0.35, "rgba(0,0,0,0.14)");
+    grad.addColorStop(0.7, "rgba(0,0,0,0.05)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
   }
-  ctx.globalAlpha = 1;
-
-  // 4. Inner ring framing a slightly recessed face. Soft inner-shadow
-  // gradient inside the ring sells the recess without requiring a glyph.
-  const innerRingRadius = r * 0.78;
-  const faceGradient = ctx.createRadialGradient(
-    cx - r * 0.18, cy - r * 0.2, r * 0.05,
-    cx + r * 0.1, cy + r * 0.15, innerRingRadius
-  );
-  faceGradient.addColorStop(0, "rgba(255, 255, 255, 0)");
-  faceGradient.addColorStop(0.7, "rgba(0, 0, 0, 0)");
-  faceGradient.addColorStop(1, palette.innerShadow);
-  ctx.beginPath();
-  ctx.arc(cx, cy, innerRingRadius, 0, Math.PI * 2);
-  ctx.fillStyle = faceGradient;
-  ctx.fill();
-  ctx.lineWidth = Math.max(1.5, size * 0.014);
-  ctx.strokeStyle = palette.rim;
-  ctx.globalAlpha = 0.55;
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  // 5. Soft specular highlight in the upper-left to sell the metallic shine.
-  const specGradient = ctx.createRadialGradient(
-    cx - r * 0.4, cy - r * 0.45, 0,
-    cx - r * 0.4, cy - r * 0.45, r * 0.55
-  );
-  specGradient.addColorStop(0, palette.specular);
-  specGradient.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.97, 0, Math.PI * 2);
-  ctx.fillStyle = specGradient;
-  ctx.fill();
-
   const texture = new CanvasTexture(canvas);
   texture.needsUpdate = true;
   return texture;
@@ -148,6 +184,8 @@ const buildCoinTexture = (kind: TownSupportCoinKind): CanvasTexture => {
 export const createTownSupportCoinLayer = (scene: Scene): TownSupportCoinLayer => {
   const goldTexture = buildCoinTexture("gold");
   const greyTexture = buildCoinTexture("grey");
+  const shadowTexture = buildShadowTexture();
+  const shadowGeometry = new PlaneGeometry(1, 1);
   const slots = Array.from({ length: COIN_POOL_SIZE }, () => {
     const material = new SpriteMaterial({
       map: goldTexture,
@@ -161,7 +199,22 @@ export const createTownSupportCoinLayer = (scene: Scene): TownSupportCoinLayer =
     sprite.renderOrder = 32;
     sprite.visible = false;
     scene.add(sprite);
-    return { sprite, material };
+
+    const shadowMaterial = new MeshBasicMaterial({
+      map: shadowTexture,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+      opacity: 1
+    });
+    const shadow = new Mesh(shadowGeometry, shadowMaterial);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.scale.set(COIN_SHADOW_SCALE, COIN_SHADOW_SCALE, 1);
+    shadow.renderOrder = 30;
+    shadow.visible = false;
+    scene.add(shadow);
+
+    return { sprite, material, shadow, shadowMaterial };
   });
 
   const sync = (entries: readonly TownSupportCoinEntry[]): void => {
@@ -170,28 +223,45 @@ export const createTownSupportCoinLayer = (scene: Scene): TownSupportCoinLayer =
       const entry = entries[i];
       if (!entry) {
         slot.sprite.visible = false;
+        slot.shadow.visible = false;
         continue;
       }
       const desiredMap = entry.kind === "gold" ? goldTexture : greyTexture;
+      const desiredOpacity = entry.kind === "gold" ? 1 : GREY_COIN_OPACITY;
       if (slot.material.map !== desiredMap) {
         slot.material.map = desiredMap;
-        slot.material.opacity = entry.kind === "gold" ? 1 : 0.78;
         slot.material.needsUpdate = true;
+      }
+      if (slot.material.opacity !== desiredOpacity) {
+        slot.material.opacity = desiredOpacity;
       }
       slot.sprite.position.set(entry.worldX, entry.surfaceY + COIN_RISE_ABOVE_SURFACE, entry.worldZ);
       slot.sprite.visible = true;
+      slot.shadow.position.set(entry.worldX, entry.surfaceY + COIN_SHADOW_LIFT, entry.worldZ);
+      const desiredShadowOpacity = entry.kind === "gold" ? SHADOW_OPACITY_GOLD : SHADOW_OPACITY_GREY;
+      if (slot.shadowMaterial.opacity !== desiredShadowOpacity) {
+        slot.shadowMaterial.opacity = desiredShadowOpacity;
+      }
+      slot.shadow.visible = true;
     }
   };
 
   const clear = (): void => {
-    for (const slot of slots) slot.sprite.visible = false;
+    for (const slot of slots) {
+      slot.sprite.visible = false;
+      slot.shadow.visible = false;
+    }
   };
 
   const dispose = (): void => {
     for (const slot of slots) {
       scene.remove(slot.sprite);
       slot.material.dispose();
+      scene.remove(slot.shadow);
+      slot.shadowMaterial.dispose();
     }
+    shadowGeometry.dispose();
+    shadowTexture.dispose();
     goldTexture.dispose();
     greyTexture.dispose();
   };

@@ -19,10 +19,28 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.6",
+  version: "2026.05.17.1",
   title: "What's New",
   summary: "Selecting a town now floats gold/grey coins over the 8 adjacent tiles so you can see at a glance which neighbors feed its gold income — gold = settled (contributing), grey = unsettled (settle it to unlock more income). Settlement-tier towns don't use support, so the ring is hidden and the sim now rejects build orders that would target a settlement.",
   entries: [
+    {
+      introducedIn: "2026.05.17.1",
+      title: "Coin shadows land on the tile + grey coins fade",
+      why: "The drop shadow was baked into the coin sprite, so it floated with the coin instead of grounding it on the tile. Grey coins also needed to read as faded/inactive.",
+      changes: [
+        "Each coin now casts a soft circular shadow on the tile beneath it, drawn as a flat plane on the ground rather than baked into the sprite.",
+        "Grey (unsettled) coins are now more clearly translucent so they read as inactive next to the solid gold coins."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.8",
+      title: "Town support coins redrawn as stylized 3D coins",
+      why: "Earlier passes read as a bubble or a flat sticker. Coins in modern game UIs are drawn as tilted disks with visible edge thickness and a recessed face.",
+      changes: [
+        "Coins are now tilted ellipses with a visible metallic side/edge underneath, a recessed inner face, and a bright bevel ring — the shape that game players actually recognise as a coin.",
+        "Drop shadow retained underneath so each coin reads as floating above its tile."
+      ]
+    },
     {
       introducedIn: "2026.05.16.6",
       title: "Coins show which adjacent tiles feed a town's gold",
