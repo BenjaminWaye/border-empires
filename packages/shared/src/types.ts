@@ -253,6 +253,8 @@ export interface Tile {
     hasBank: boolean;
     bankActive: boolean;
     foodUpkeepPerMinute?: number;
+    captureShockUntil?: number;
+    populationBeforeCapture?: number;
     growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
     nextPopulationTierUpgrade?: {
       targetTier: TownGrowthUpgradeTier;
