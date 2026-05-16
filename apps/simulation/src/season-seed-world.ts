@@ -604,7 +604,7 @@ export const createSeason20AiSeedWorld = (
         ...(cluster?.resourceType ? { resource: cluster.resourceType } : {}),
         ...(dock ? { dockId: dock.dockId } : {}),
         ...(shardSite ? { shardSite: { kind: shardSite.kind, amount: shardSite.amount, ...(shardSite.expiresAt ? { expiresAt: shardSite.expiresAt } : {}) } } : {}),
-        ...(ownerId ? { ownerId, ownershipState: barbarianTileKeys.has(tk) ? ("FRONTIER" as const) : ("SETTLED" as const) } : {}),
+        ...(ownerId ? { ownerId, ownershipState: "SETTLED" as const } : {}),
         ...(town ? { town: townStateFromDefinition(town) } : {})
       });
     }
