@@ -3032,6 +3032,68 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("keeps an active wooden fort until its full fort upgrade completes", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 150,
+              techIds: new Set<string>(["masonry"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { IRON: 100 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              economicStructure: { ownerId: "player-1", type: "WOODEN_FORT", status: "active" }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "fort-upgrade-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_FORT",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+
+      await Promise.resolve();
+      const buildingTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      expect(buildingTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active" }));
+      expect(buildingTile?.fortJson).toContain("\"status\":\"under_construction\"");
+
+      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+
+      const completedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      expect(completedTile?.economicStructureJson).toBeUndefined();
+      expect(completedTile?.fortJson).toContain("\"status\":\"active\"");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("removes an active fort through the rewrite simulation path and clears its tile state", async () => {
     vi.useFakeTimers();
     try {
