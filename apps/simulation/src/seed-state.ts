@@ -181,7 +181,7 @@ const createStressSeedWorld = (
         y,
         terrain: "LAND",
         ownerId: "barbarian-1",
-        ownershipState: "FRONTIER"
+        ownershipState: "SETTLED"
       });
     }
   }

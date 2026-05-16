@@ -73,7 +73,7 @@ describe("season worldgen", () => {
     const barbarianTiles = generated.initialState.tiles.filter((tile) => tile.ownerId === "barbarian-1");
     expect(barbarianTiles.length).toBeGreaterThanOrEqual(40);
     expect(barbarianTiles.length).toBeLessThanOrEqual(80);
-    expect(barbarianTiles.every((tile) => tile.ownershipState === "FRONTIER")).toBe(true);
+    expect(barbarianTiles.every((tile) => tile.ownershipState === "SETTLED")).toBe(true);
     expect(barbarianTiles.every((tile) => tile.terrain === "LAND")).toBe(true);
     expect(barbarianTiles.every((tile) => !tile.town && !tile.dockId)).toBe(true);
   });
