@@ -77,7 +77,17 @@ type HudDeps = {
   effectiveOwnedTechIds: () => string[];
   isPendingTechUnlock: (techId: string) => boolean;
   renderTechChoiceDetails: () => string;
-  techCurrentModsHtml: (mods: ClientState["mods"], expandedKey: ClientState["expandedModKey"], breakdown: ClientState["modBreakdown"]) => string;
+  techCurrentModsHtml: (
+    mods: ClientState["mods"],
+    expandedKey: ClientState["expandedModKey"],
+    breakdown: ClientState["modBreakdown"],
+    activeBonusContext?: {
+      techCatalog: TechInfo[];
+      ownedTechIds: string[];
+      domainCatalog: DomainInfo[];
+      domainIds: string[];
+    }
+  ) => string;
   bindTechTreeDragScroll: () => void;
   chooseTech: (techIdRaw?: string) => void;
   chooseDomain: (domainIdRaw?: string) => void;
@@ -582,7 +592,13 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.techCurrentModsEl.innerHTML = safeValue(
     "techCurrentModsHtml",
     fallbackCard("Technology modifiers"),
-    () => deps.techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown)
+    () =>
+      deps.techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown, {
+        techCatalog: state.techCatalog,
+        ownedTechIds: deps.effectiveOwnedTechIds(),
+        domainCatalog: state.domainCatalog,
+        domainIds: state.domainIds
+      })
   );
   dom.mobileTechCurrentModsEl.innerHTML = dom.techCurrentModsEl.innerHTML;
   dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Technology choices"), () => renderTechChoiceGrid());
