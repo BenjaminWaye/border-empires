@@ -19,11 +19,11 @@ import {
   structureShowsOnTile,
   terrainAt
 } from "@border-empires/shared";
-import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile, settleDurationMsForTile } from "./client-constants.js";
+import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "./client-constants.js";
 import { connectedEnemyRegionKeys } from "./client-connected-region.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
 import { economicStructureBuildMs, economicStructureName } from "./client-map-display.js";
-import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
+import { settleDurationMsForState, type DevelopmentSlotSummary } from "./client-queue-logic.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type {
@@ -1137,7 +1137,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           canAffordCost(state.gold, SETTLE_COST),
           `Need ${SETTLE_COST} gold`,
-          `${SETTLE_COST} gold • ${Math.round(settleDurationMsForTile(tile.x, tile.y) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`,
+          `${SETTLE_COST} gold • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`,
           slots,
           deps
         )
