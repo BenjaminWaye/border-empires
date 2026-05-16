@@ -15,49 +15,86 @@
 // We use SIGKILL deliberately: by the time we trigger, the main thread is
 // definitionally unresponsive, so SIGTERM cannot be handled cleanly.
 //
-// Disable with WATCHDOG_ENABLED=0 (e.g. in tests).
+// Boot grace: simulation startup replay legitimately blocks the main thread
+// for 30-90s while it rebuilds runtime state from the event store. The
+// watchdog starts DISARMED and only begins checking heartbeats once the
+// main thread calls `arm()` after gateway boot finishes. A failsafe auto-arm
+// after `bootGraceMs` (default 5 min) handles the case where boot crashes
+// silently — that way the watchdog still catches a "stuck booting forever"
+// regression, just less aggressively.
+//
+// Disable entirely with WATCHDOG_ENABLED=0.
 
 import { Worker } from "node:worker_threads";
 
 const DEFAULT_HEARTBEAT_MS = 1000;
 const DEFAULT_STALL_MS = 30_000;
+const DEFAULT_BOOT_GRACE_MS = 300_000;
 
 type WatchdogOptions = {
   heartbeatIntervalMs?: number;
   stallThresholdMs?: number;
+  bootGraceMs?: number;
   enabled?: boolean;
   label?: string;
 };
 
 type WatchdogHandle = {
+  arm: () => void;
   stop: () => Promise<void>;
 };
 
-const buildWorkerSource = (stallThresholdMs: number, label: string): string => `
+const buildWorkerSource = (stallThresholdMs: number, bootGraceMs: number, label: string): string => `
   const { parentPort } = require("node:worker_threads");
   const STALL_MS = ${stallThresholdMs};
+  const BOOT_GRACE_MS = ${bootGraceMs};
   const LABEL = ${JSON.stringify(label)};
+  const bootStartedAt = Date.now();
   let lastPingAt = Date.now();
+  let armed = false;
+  let armReason = "";
+  const armOnce = (reason) => {
+    if (armed) return;
+    armed = true;
+    armReason = reason;
+    lastPingAt = Date.now();
+    process.stderr.write(JSON.stringify({
+      level: 30,
+      time: Date.now(),
+      msg: "event_loop_watchdog_armed",
+      label: LABEL,
+      reason,
+      bootElapsedMs: Date.now() - bootStartedAt
+    }) + "\\n");
+  };
   parentPort.on("message", (msg) => {
-    if (msg && msg.type === "ping" && typeof msg.at === "number") {
+    if (!msg) return;
+    if (msg.type === "ping" && typeof msg.at === "number") {
       lastPingAt = msg.at;
-    } else if (msg && msg.type === "stop") {
+    } else if (msg.type === "arm") {
+      armOnce("main_signal");
+    } else if (msg.type === "stop") {
       process.exit(0);
     }
   });
   const probe = setInterval(() => {
+    if (!armed) {
+      if (Date.now() - bootStartedAt >= BOOT_GRACE_MS) {
+        armOnce("boot_grace_expired");
+      }
+      return;
+    }
     const stalledMs = Date.now() - lastPingAt;
     if (stalledMs > STALL_MS) {
-      // Pino-shaped line so the existing log aggregator picks it up.
-      const line = JSON.stringify({
+      process.stderr.write(JSON.stringify({
         level: 60,
         time: Date.now(),
         msg: "event_loop_watchdog_kill",
         label: LABEL,
+        armReason,
         stalledMs,
         stallThresholdMs: STALL_MS
-      });
-      process.stderr.write(line + "\\n");
+      }) + "\\n");
       // Force-kill the whole process group; the main thread is unresponsive
       // so a graceful signal can't be acknowledged.
       process.kill(process.pid, "SIGKILL");
@@ -89,9 +126,11 @@ export const startEventLoopWatchdog = (options: WatchdogOptions = {}): WatchdogH
     options.heartbeatIntervalMs ?? parseNumber(process.env.WATCHDOG_HEARTBEAT_MS, DEFAULT_HEARTBEAT_MS);
   const stallThresholdMs =
     options.stallThresholdMs ?? parseNumber(process.env.WATCHDOG_STALL_MS, DEFAULT_STALL_MS);
+  const bootGraceMs =
+    options.bootGraceMs ?? parseNumber(process.env.WATCHDOG_BOOT_GRACE_MS, DEFAULT_BOOT_GRACE_MS);
   const label = options.label ?? "combined";
 
-  const worker = new Worker(buildWorkerSource(stallThresholdMs, label), { eval: true });
+  const worker = new Worker(buildWorkerSource(stallThresholdMs, bootGraceMs, label), { eval: true });
   worker.unref();
   worker.on("error", (err) => {
     process.stderr.write(
@@ -104,10 +143,6 @@ export const startEventLoopWatchdog = (options: WatchdogOptions = {}): WatchdogH
   }, heartbeatIntervalMs);
   heartbeat.unref();
 
-  // Send the initial heartbeat immediately so the worker doesn't fire on
-  // its first probe (lastPingAt = worker boot time, which precedes any
-  // ping by ~10-50ms but with heartbeatIntervalMs=1000 we're well within
-  // the stall threshold anyway).
   worker.postMessage({ type: "ping", at: Date.now() });
 
   process.stderr.write(
@@ -117,11 +152,15 @@ export const startEventLoopWatchdog = (options: WatchdogOptions = {}): WatchdogH
       msg: "event_loop_watchdog_started",
       label,
       heartbeatIntervalMs,
-      stallThresholdMs
+      stallThresholdMs,
+      bootGraceMs
     })}\n`
   );
 
   return {
+    arm: () => {
+      worker.postMessage({ type: "arm" });
+    },
     stop: async () => {
       clearInterval(heartbeat);
       worker.postMessage({ type: "stop" });
