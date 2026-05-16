@@ -5885,7 +5885,7 @@ export class SimulationRuntime {
       target: { x: lock.targetX, y: lock.targetY },
       changes:
         combat.attackerWon
-          ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: "FRONTIER" }]
+          ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
           : defenderOwnerId && !originHeldByFort
             ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: "FRONTIER" }]
             : [],
@@ -5957,7 +5957,10 @@ export class SimulationRuntime {
         ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
         ...(previousTarget?.town ? { town: previousTarget.town } : {}),
         ownerId: lock.playerId,
-        ownershipState: "FRONTIER"
+        // Barbarians have no settlement loop and would otherwise sit on
+        // permanent FRONTIER tiles — fragile to retake and rendered with
+        // frontier opacity so the skull overlay reads as washed-out.
+        ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
       };
       this.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
       let tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[];
