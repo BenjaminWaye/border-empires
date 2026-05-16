@@ -42,7 +42,15 @@ export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
   // both planner passes without dispatching anything useful — exactly the
   // failure mode we saw on staging (58 dispatched + many silent ticks).
   collectVisibleOnCooldown?: boolean;
+  // Last time the producer issued a COLLECT_VISIBLE for this player (epoch ms).
+  // When the gap to `issuedAt` exceeds COLLECT_HEARTBEAT_INTERVAL_MS the
+  // preplan emits a heartbeat collect before the main planner runs — without
+  // this, upkeep accrual drains the treasury below SETTLE_COST/FRONTIER_CLAIM_COST
+  // and the main planner sits in `insufficient_points` for thousands of ticks.
+  lastCollectVisibleAtMs?: number;
 };
+
+export const COLLECT_HEARTBEAT_INTERVAL_MS = 60_000;
 
 const createDiagnostic = (
   playerId: string,
@@ -148,6 +156,36 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   } satisfies Partial<AutomationPlannerDiagnostic>;
 
   const canAffordExpansion = input.points >= FRONTIER_CLAIM_COST + SETTLE_COST;
+  // Heartbeat: force a COLLECT_VISIBLE before any other planning if the
+  // producer last collected for this player over a minute ago. Tile yield
+  // is netted against upkeep inside applyEconomyAccrual before it ever
+  // reaches player.points, so without a periodic collect the treasury bleeds
+  // below FRONTIER_CLAIM_COST and the main planner gets stuck noop'ing
+  // `insufficient_points`. Gated on `hasCollectibleSource` so we never spam
+  // empties at AI players that genuinely have no settled town/dock yet, and
+  // on `!collectVisibleOnCooldown` so the producer's 20s gate still wins
+  // when it's active (60s > 20s so they shouldn't collide).
+  if (
+    hasCollectibleSource &&
+    !input.collectVisibleOnCooldown &&
+    input.lastCollectVisibleAtMs !== undefined &&
+    input.issuedAt - input.lastCollectVisibleAtMs >= COLLECT_HEARTBEAT_INTERVAL_MS
+  ) {
+    return {
+      command: createAutomationCommand(
+        input.sessionPrefix,
+        input.playerId,
+        input.clientSeq,
+        input.issuedAt,
+        "COLLECT_VISIBLE",
+        {}
+      ),
+      diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, {
+        ...diagnosticBase,
+        preplanReason: "collect_heartbeat"
+      })
+    };
+  }
   // Suppress the COLLECT_VISIBLE preempt while it's on cooldown — otherwise we
   // emit COLLECT, the producer gates the dispatch, the same AI loops back into
   // preplan, and we get a silent tick. With cooldown respected here we fall
