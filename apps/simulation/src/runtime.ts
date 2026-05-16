@@ -2048,6 +2048,61 @@ export class SimulationRuntime {
     return players;
   }
 
+  // Minimal per-player snapshot for the /debug/players HTTP route. Mirrors
+  // exportState().players but skips the O(world-tile) tile projection so a
+  // debug scrape never disturbs hot-path latency. Uses the manpower-only
+  // refresh for the same reason exportPlannerPlayerViews does — economy
+  // accrual catches up on the next real command tick.
+  exportPlayerDebugSnapshot(): Array<{
+    id: string;
+    name?: string;
+    isAi: boolean;
+    points: number;
+    manpower: number;
+    manpowerCap: number;
+    manpowerRegenPerMinute: number;
+    techIds: string[];
+    domainIds: string[];
+    strategicResources: Partial<Record<StrategicResourceKey, number>>;
+    settledTileCount: number;
+    townCount: number;
+    incomePerMinute: number;
+    strategicProductionPerMinute: Record<StrategicResourceKey, number>;
+    activeDevelopmentProcessCount: number;
+    hasActiveLock: boolean;
+    allies: string[];
+  }> {
+    const lockPlayerIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      lockPlayerIds.add(lock.playerId);
+    }
+    return [...this.players.values()]
+      .map((player) => {
+        this.refreshManpowerOnly(player);
+        const summary = this.summaryForPlayer(player.id);
+        return {
+          id: player.id,
+          ...(player.name ? { name: player.name } : {}),
+          isAi: player.isAi === true,
+          points: player.points,
+          manpower: player.manpower,
+          manpowerCap: this.playerManpowerCap(player),
+          manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+          techIds: [...player.techIds].sort(),
+          domainIds: [...(player.domainIds ?? [])].sort(),
+          strategicResources: { ...(player.strategicResources ?? {}) },
+          settledTileCount: summary.settledTileCount,
+          townCount: summary.townCount,
+          incomePerMinute: this.estimatedIncomePerMinuteForPlayer(player.id),
+          strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
+          activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+          hasActiveLock: lockPlayerIds.has(player.id),
+          allies: [...player.allies].sort()
+        };
+      })
+      .sort((left, right) => left.id.localeCompare(right.id));
+  }
+
   exportTilesForKeys(tileKeys: Iterable<string>): PlannerTileView[] {
     const result: PlannerTileView[] = [];
     for (const tileKey of tileKeys) {
