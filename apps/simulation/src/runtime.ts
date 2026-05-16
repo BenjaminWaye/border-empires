@@ -762,6 +762,8 @@ export class SimulationRuntime {
     const focus = selectSpatialFocus({
       prior,
       hotFrontierTileKeys: summary.hotFrontierTileKeys,
+      buildCandidateTileKeys: summary.buildCandidateTileKeys,
+      settlePendingTileKeys: summary.frontierTileKeys,
       ownedTileKeys: summary.territoryTileKeys,
       now,
       jitterMs
