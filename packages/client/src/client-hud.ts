@@ -13,7 +13,7 @@ import { buildMapLoadingView } from "./client-map-loading-view.js";
 import { renderRespawnOverlay } from "./client-respawn-overlay.js";
 import { effectiveFogDisabled, setStagingMapRevealEnabled, stagingMapRevealAvailable } from "./client-staging-map-reveal.js";
 import { isMobileDevice } from "./client-panel-nav.js";
-import { prefersTrue3DRendererMode } from "./client-renderer-mode.js";
+import { isTrue3DRendererActive } from "./client-renderer-mode.js";
 import { hasSustainedLowFps } from "./client-fps-monitor.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
@@ -1199,7 +1199,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const canShowRendererPrompt =
     !state.rendererPrompt.dismissed &&
-    prefersTrue3DRendererMode &&
+    isTrue3DRendererActive() &&
     isMobileDevice() &&
     hasSustainedLowFps(25, 5000, performance.now()) &&
     state.connection === "initialized" &&

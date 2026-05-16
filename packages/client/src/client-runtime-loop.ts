@@ -1,7 +1,7 @@
 import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile } from "./client-constants.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
-import { isTrue3DRendererActive, prefersTrue3DRendererMode, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor.js";
 import { isMobileDevice } from "./client-panel-nav.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
@@ -173,7 +173,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
       if (
         !lowFpsRendererHudPinged &&
-        prefersTrue3DRendererMode &&
+        isTrue3DRendererActive() &&
         isMobileDevice() &&
         !state.rendererPrompt.dismissed &&
         hasSustainedLowFps(25, 5000, nowMs)
