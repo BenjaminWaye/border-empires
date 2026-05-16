@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.15.4",
+  version: "2026.05.15.5",
   title: "What's New",
-  summary: "Barbarian-held tiles now show their 3D skull marker, and the proximity-activated barbarian cascade no longer rips through a player's frontier the instant they breach a cluster.",
+  summary: "Town panels now show the nearby-war growth penalty during active combat, and 3D town smoke only appears over settled towns that are fed and actively growing.",
   entries: [
+    {
+      introducedIn: "2026.05.15.5",
+      title: "Town war pressure and smoke are clearer",
+      why: "Rewrite snapshots knew about active combat locks, but town growth modifiers did not turn those locks into the negative nearby-war row. The 3D renderer also emitted smoke for any rendered town shape, including unsettled, unfed, or paused-growth towns.",
+      changes: [
+        "Fed settled towns now show a negative Nearby war population-growth modifier when active combat touches the town or its support ring.",
+        "Growth ETA copy treats negative growth modifiers as paused growth, so nearby-war pressure reads as a blocker even while the underlying base-growth value is present.",
+        "3D town smoke now only appears for real settled towns that are fed and not growth-paused."
+      ]
+    },
     {
       introducedIn: "2026.05.15.4",
       title: "Barbarian 3D overlay paints + cascade fixed",
