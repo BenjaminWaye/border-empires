@@ -4,10 +4,17 @@ import {
   AI_SPATIAL_FOCUS_EXPIRY_MS,
   AI_SPATIAL_FOCUS_MAX_OWNED_TILES,
   expandFocusFront,
-  pickFocusOrigin,
+  pickFocusOriginForCategory,
   selectSpatialFocus,
-  type AiSpatialFocus
+  type AiSpatialFocus,
+  type AiSpatialFocusCategory
 } from "./ai-spatial-focus.js";
+
+const emptySources = (): Record<AiSpatialFocusCategory, ReadonlySet<string>> => ({
+  hot_frontier: new Set<string>(),
+  build_candidate: new Set<string>(),
+  settle_pending: new Set<string>()
+});
 
 const key = (x: number, y: number): string => `${x},${y}`;
 
@@ -61,21 +68,43 @@ describe("expandFocusFront", () => {
   });
 });
 
-describe("pickFocusOrigin", () => {
-  it("prefers hot-frontier tiles that are still owned", () => {
+describe("pickFocusOriginForCategory", () => {
+  it("returns first owned tile in the start category when non-empty", () => {
     const owned = ownedRect(0, 0, 3, 3);
-    const hot = new Set<string>([key(99, 99), key(2, 2), key(0, 0)]);
-    expect(pickFocusOrigin(hot, owned)).toBe(key(2, 2));
+    const sources = emptySources();
+    sources.hot_frontier = new Set<string>([key(99, 99), key(2, 2), key(0, 0)]);
+    const picked = pickFocusOriginForCategory("hot_frontier", sources, owned);
+    expect(picked).toEqual({ originTileKey: key(2, 2), originCategory: "hot_frontier" });
   });
 
-  it("falls back to first owned tile when no hot tile is owned", () => {
+  it("rotates to the next non-empty category when start category has no owned candidate", () => {
+    const owned = ownedRect(0, 0, 3, 3);
+    const sources = emptySources();
+    sources.hot_frontier = new Set<string>([key(99, 99)]); // unowned -> skip
+    sources.build_candidate = new Set<string>([key(1, 1)]);
+    const picked = pickFocusOriginForCategory("hot_frontier", sources, owned);
+    expect(picked).toEqual({ originTileKey: key(1, 1), originCategory: "build_candidate" });
+  });
+
+  it("starts from the requested category rather than always hot_frontier", () => {
+    const owned = ownedRect(0, 0, 3, 3);
+    const sources = emptySources();
+    sources.hot_frontier = new Set<string>([key(0, 0)]);
+    sources.build_candidate = new Set<string>([key(1, 1)]);
+    sources.settle_pending = new Set<string>([key(2, 2)]);
+    const picked = pickFocusOriginForCategory("settle_pending", sources, owned);
+    expect(picked).toEqual({ originTileKey: key(2, 2), originCategory: "settle_pending" });
+  });
+
+  it("falls back to the first owned tile when every category is empty or unowned", () => {
     const owned = new Set<string>([key(7, 7), key(8, 8)]);
-    const hot = new Set<string>([key(99, 99)]);
-    expect(pickFocusOrigin(hot, owned)).toBe(key(7, 7));
+    const picked = pickFocusOriginForCategory("hot_frontier", emptySources(), owned);
+    expect(picked).toEqual({ originTileKey: key(7, 7), originCategory: "hot_frontier" });
   });
 
   it("returns undefined when nothing is owned", () => {
-    expect(pickFocusOrigin(new Set(), new Set())).toBeUndefined();
+    const picked = pickFocusOriginForCategory("hot_frontier", emptySources(), new Set());
+    expect(picked).toBeUndefined();
   });
 });
 
@@ -126,6 +155,7 @@ describe("selectSpatialFocus", () => {
   it("rebuilds focus when prior origin is no longer owned", () => {
     const prior: AiSpatialFocus = {
       originTileKey: key(99, 99),
+      originCategory: "hot_frontier",
       primaryFront: new Set([key(99, 99)]),
       computedAt: 0,
       expiresAt: AI_SPATIAL_FOCUS_EXPIRY_MS
@@ -185,5 +215,88 @@ describe("selectSpatialFocus", () => {
       jitterMs: 7_500
     });
     expect(focus!.expiresAt).toBe(1_000 + AI_SPATIAL_FOCUS_EXPIRY_MS + 7_500);
+  });
+
+  it("rotates to build_candidate on the next refresh after an expired hot_frontier focus", () => {
+    const owned = ownedRect(0, 0, 5, 5);
+    const hot = new Set<string>([key(0, 0)]);
+    const buildCandidates = new Set<string>([key(2, 2)]);
+    const first = selectSpatialFocus({
+      prior: undefined,
+      hotFrontierTileKeys: hot,
+      buildCandidateTileKeys: buildCandidates,
+      ownedTileKeys: owned,
+      now: 1_000
+    })!;
+    expect(first.originCategory).toBe("hot_frontier");
+    expect(first.originTileKey).toBe(key(0, 0));
+
+    const second = selectSpatialFocus({
+      prior: first,
+      hotFrontierTileKeys: hot,
+      buildCandidateTileKeys: buildCandidates,
+      ownedTileKeys: owned,
+      now: 1_000 + AI_SPATIAL_FOCUS_EXPIRY_MS + 1
+    })!;
+    expect(second.originCategory).toBe("build_candidate");
+    expect(second.originTileKey).toBe(key(2, 2));
+  });
+
+  it("rotates build_candidate -> settle_pending -> hot_frontier across three refreshes", () => {
+    const owned = ownedRect(0, 0, 5, 5);
+    const hot = new Set<string>([key(0, 0)]);
+    const buildCandidates = new Set<string>([key(1, 1)]);
+    const settlePending = new Set<string>([key(2, 2)]);
+    let now = 1_000;
+    const params = (prior: AiSpatialFocus | undefined) => ({
+      prior,
+      hotFrontierTileKeys: hot,
+      buildCandidateTileKeys: buildCandidates,
+      settlePendingTileKeys: settlePending,
+      ownedTileKeys: owned,
+      now
+    });
+
+    const a = selectSpatialFocus(params(undefined))!;
+    expect(a.originCategory).toBe("hot_frontier");
+
+    now = a.expiresAt + 1;
+    const b = selectSpatialFocus(params(a))!;
+    expect(b.originCategory).toBe("build_candidate");
+
+    now = b.expiresAt + 1;
+    const c = selectSpatialFocus(params(b))!;
+    expect(c.originCategory).toBe("settle_pending");
+
+    now = c.expiresAt + 1;
+    const d = selectSpatialFocus(params(c))!;
+    expect(d.originCategory).toBe("hot_frontier");
+  });
+
+  it("skips an empty rotation target and lands on the next non-empty category", () => {
+    const owned = ownedRect(0, 0, 5, 5);
+    const hot = new Set<string>([key(0, 0)]);
+    // build_candidate is empty; settle_pending has a tile
+    const settlePending = new Set<string>([key(3, 3)]);
+    const first = selectSpatialFocus({
+      prior: undefined,
+      hotFrontierTileKeys: hot,
+      buildCandidateTileKeys: new Set(),
+      settlePendingTileKeys: settlePending,
+      ownedTileKeys: owned,
+      now: 1_000
+    })!;
+    expect(first.originCategory).toBe("hot_frontier");
+
+    const second = selectSpatialFocus({
+      prior: first,
+      hotFrontierTileKeys: hot,
+      buildCandidateTileKeys: new Set(),
+      settlePendingTileKeys: settlePending,
+      ownedTileKeys: owned,
+      now: 1_000 + AI_SPATIAL_FOCUS_EXPIRY_MS + 1
+    })!;
+    expect(second.originCategory).toBe("settle_pending");
+    expect(second.originTileKey).toBe(key(3, 3));
   });
 });
