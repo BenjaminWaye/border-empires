@@ -2290,6 +2290,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     metricsSnapshot() {
       return simulationMetrics.snapshot();
+    },
+    playerDebugSnapshot() {
+      return runtime.exportPlayerDebugSnapshot();
     }
   };
 };
