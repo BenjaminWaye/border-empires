@@ -552,6 +552,7 @@ export const createSeason20AiSeedWorld = (
   for (let index = 0; index < aiPlayerCount; index += 1) {
     spawnPlayerAt(`ai-${index + 1}`, true, humanPlayerCount + index);
   }
+
   assignMissingTownNames(townsByTile.values(), buildIslandMap(terrainRuntime.terrainAtRuntime).islandIdByTile, worldSeed);
 
   const barbarianTileKeys = new Set<TileKey>();

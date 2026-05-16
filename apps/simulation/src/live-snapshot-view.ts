@@ -612,7 +612,7 @@ const buildTownSummary = (
   const population = populationView?.population ?? townPartial.population!;
   const maxPopulation = populationView?.maxPopulation ?? townPartial.maxPopulation!;
   const logisticFactor = 1 - population / Math.max(1, maxPopulation);
-  const baseGrowth =
+  const naturalGrowth =
     !tile.ownerId || tile.ownershipState !== "SETTLED" || !isFed || logisticFactor <= 0
       ? 0
       : population *
@@ -620,13 +620,23 @@ const buildTownSummary = (
         (populationTier === "SETTLEMENT" ? 4 : 1) *
         (hasGranary ? 1.15 : 1) *
         logisticFactor;
+  const captureShockUntil = typeof townPartial.captureShockUntil === "number" ? townPartial.captureShockUntil : undefined;
+  const isInCaptureShock = typeof captureShockUntil === "number" && captureShockUntil > Date.now();
+  const baseGrowth = isInCaptureShock ? 0 : naturalGrowth;
   const hasNearbyWar = nearbyWarTownKeys?.has(tileKey) ?? false;
-  const growthModifiers = baseGrowth > 0
-    ? [{
-        label: hasNearbyWar ? "Nearby war" as const : "Long time peace" as const,
-        deltaPerMinute: Number((hasNearbyWar ? -baseGrowth : baseGrowth).toFixed(4))
-      }]
-    : [];
+  // Modifier precedence:
+  //   1. Recently captured (only after the tile is settled — FRONTIER tiles already
+  //      have naturalGrowth=0 so the modifier is intentionally a no-op until settle).
+  //   2. Nearby war (negative — active combat near a fed settled town).
+  //   3. Long time peace (positive baseline growth).
+  const growthModifiers = isInCaptureShock && naturalGrowth > 0
+    ? [{ label: "Recently captured" as const, deltaPerMinute: -Number(naturalGrowth.toFixed(4)) }]
+    : baseGrowth > 0
+      ? [{
+          label: hasNearbyWar ? "Nearby war" as const : "Long time peace" as const,
+          deltaPerMinute: Number((hasNearbyWar ? -baseGrowth : baseGrowth).toFixed(4))
+        }]
+      : [];
   const cap = isSettlement
     ? goldPerMinute * 60 * 8
     : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
@@ -653,6 +663,8 @@ const buildTownSummary = (
     hasBank,
     bankActive: hasBank,
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
+    ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
+    ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
     ...(growthModifiers.length > 0 ? { growthModifiers } : {})
   };
 };

@@ -635,6 +635,8 @@ const isSyntheticSettlementTown = (
   );
 
 const SYNTHETIC_SETTLEMENT_POPULATION = 800;
+const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
+const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;
 
 const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
 const SHARD_RAIN_TTL_MS = 30 * 60_000;
@@ -5968,14 +5970,38 @@ export class SimulationRuntime {
         defenderGoldLoss: combatResolution.defenderGoldLoss
       });
     }
+    // When the captured town is a SETTLEMENT (the previous owner's home), it evacuates:
+    // the town disappears from the captured tile and is re-rooted on one of the previous
+    // owner's remaining SETTLED tiles. If they have no remaining territory, the existing
+    // respawnIfEliminated() call below places a fresh settlement on unowned land.
+    let settlementCaptureRelocationPopulation: number | undefined;
     if (attackerWon) {
+      // Population shock: only when capturing a town from another player (skip neutral / unowned).
+      let capturedTown = previousTarget?.town;
+      const isSettlementCapture =
+        !!capturedTown
+        && capturedTown.populationTier === "SETTLEMENT"
+        && !!previousOwnerId
+        && previousOwnerId !== lock.playerId;
+      if (capturedTown && previousOwnerId && previousOwnerId !== lock.playerId) {
+        const popBefore = typeof capturedTown.population === "number" ? capturedTown.population : SYNTHETIC_SETTLEMENT_POPULATION;
+        const popAfter = Math.max(1, popBefore * TOWN_CAPTURE_POPULATION_LOSS_MULT);
+        const captureShockUntil = this.now() + TOWN_CAPTURE_SHOCK_MS;
+        if (isSettlementCapture) {
+          // Evacuate: strip the town entirely from the captured tile; we'll relocate it below.
+          settlementCaptureRelocationPopulation = popAfter;
+          capturedTown = undefined;
+        } else {
+          capturedTown = { ...capturedTown, population: popAfter, populationBeforeCapture: popBefore, captureShockUntil };
+        }
+      }
       const resolvedTarget: DomainTileState = {
         x: lock.targetX,
         y: lock.targetY,
         terrain: previousTarget?.terrain ?? "LAND",
         ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
         ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
-        ...(previousTarget?.town ? { town: previousTarget.town } : {}),
+        ...(capturedTown ? { town: capturedTown } : {}),
         ownerId: lock.playerId,
         // Barbarians have no settlement loop and would otherwise sit on
         // permanent FRONTIER tiles — fragile to retake and rendered with
@@ -6035,7 +6061,58 @@ export class SimulationRuntime {
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
     if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
     if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
-    if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) this.respawnIfEliminated(previousOwnerId, lock.commandId);
+    if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) {
+      // If we captured the previous owner's SETTLEMENT and they still have other territory,
+      // re-root a fresh SETTLEMENT town on one of their remaining settled tiles. If they have
+      // no territory left, respawnIfEliminated places a settlement on unowned land instead.
+      if (settlementCaptureRelocationPopulation !== undefined) {
+        this.relocateSettlementForPlayer(
+          previousOwnerId,
+          lock.commandId,
+          settlementCaptureRelocationPopulation
+        );
+      }
+      this.respawnIfEliminated(previousOwnerId, lock.commandId);
+    }
+  }
+
+  private relocateSettlementForPlayer(
+    playerId: string,
+    commandId: string,
+    population: number
+  ): void {
+    const summary = this.summaryForPlayer(playerId);
+    if (summary.territoryTileKeys.size === 0) return; // respawnIfEliminated handles full eliminations.
+    // Only relocate onto a remaining SETTLED tile that does NOT already have a town.
+    // Overwriting an existing higher-tier town (CITY/METROPOLIS) would silently downgrade it.
+    let targetKey: string | undefined;
+    for (const tileKey of summary.territoryTileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
+      if (tile.ownershipState !== "SETTLED") continue;
+      if (tile.town) continue;
+      targetKey = tileKey;
+      break;
+    }
+    if (!targetKey) return;
+    const target = this.tiles.get(targetKey);
+    if (!target) return;
+    const relocated: DomainTileState = {
+      ...target,
+      town: {
+        name: `Refuge ${target.x},${target.y}`,
+        type: "FARMING",
+        populationTier: "SETTLEMENT",
+        population
+      }
+    };
+    this.replaceTileState(targetKey, relocated, commandId);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(relocated)]
+    });
   }
 
   private barbarianProgressGain(target: DomainTileState | undefined): number {
