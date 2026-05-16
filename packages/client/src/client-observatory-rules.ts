@@ -1,4 +1,5 @@
-import { OBSERVATORY_CAST_RADIUS, OBSERVATORY_PROTECTION_RADIUS } from "./client-constants.js";
+import { OBSERVATORY_CAST_RADIUS, OBSERVATORY_PROTECTION_RADIUS } from "@border-empires/shared";
+
 import type { DomainInfo, TechInfo } from "./client-types.js";
 
 const BASE_OBSERVATORY_CAST_RADIUS = OBSERVATORY_CAST_RADIUS;

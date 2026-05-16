@@ -19,17 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.3",
+  version: "2026.05.16.4",
   title: "What's New",
   summary: "Crystal abilities now always show up in the tile menu with a clear reason when you cannot cast — no more silent disappearance. All crystal casts share a per-observatory cooldown gated by observatory range, so overlapping observatories let you chain casts until each covering one is on cooldown.",
   entries: [
     {
-      introducedIn: "2026.05.16.3",
+      introducedIn: "2026.05.16.4",
       title: "Observatory constants share a single source of truth",
       why: "Observatory cast/protection radii and vision bonus were duplicated as raw literals across shared, game-domain, and client. Any future balance change would have required updating all three places, and silent drift between client menu enablement and sim authority would surface as actions that show enabled but reject on cast.",
       changes: [
         "Moved OBSERVATORY_CAST_RADIUS, OBSERVATORY_PROTECTION_RADIUS, and OBSERVATORY_VISION_BONUS into the shared package; game-domain and client now re-export from there.",
-        "Removed dead OBSERVATORY_BUILD_COST constants (defined in three places, used in zero). The cost comes from the structure-cost table everywhere it matters.",
+        "Removed dead OBSERVATORY_BUILD_COST and OBSERVATORY_BUILD_CRYSTAL_COST constants (defined in up to three places, used in zero). The costs come from the structure-cost table everywhere it matters.",
+        "client-observatory-rules now reads the radii directly from @border-empires/shared instead of routing through client-constants, so the origin is one grep away.",
         "No behavior change — radii stay 30/10 and vision bonus stays 5."
       ]
     },
