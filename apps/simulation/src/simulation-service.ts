@@ -53,6 +53,18 @@ import { createInitialSeasonState, updateSeasonVictoryTrackers } from "./season-
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "./season-worldgen.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 
+const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as { x?: unknown; y?: unknown };
+    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return undefined;
+    if (!Number.isInteger(parsed.x) || !Number.isInteger(parsed.y)) return undefined;
+    return { x: parsed.x, y: parsed.y };
+  } catch {
+    return undefined;
+  }
+};
+
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
   seasonId: string;
@@ -1739,7 +1751,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       })();
     },
     PreparePlayer(
-      call: { request: { player_id: string } },
+      call: { request: { player_id: string; rally_anchor_json?: string } },
       callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean }) => void
     ) {
       const prepareStartedAt = Date.now();
@@ -1747,7 +1759,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       try {
         if (currentSeasonState.status !== "ended") {
           const spawnStartedAt = Date.now();
-          spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id);
+          const rallyAnchor = parseRallyAnchor(call.request.rally_anchor_json);
+          spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id, rallyAnchor);
           simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
           if (spawned) {
             deleteCachedSnapshot(call.request.player_id);

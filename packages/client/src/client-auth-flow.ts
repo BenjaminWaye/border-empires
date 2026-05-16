@@ -23,6 +23,7 @@ import {
 } from "./client-auth-ui.js";
 import { setDebugAuthEmail } from "./client-debug.js";
 import { getStagingMapRevealEnabled } from "./client-staging-map-reveal.js";
+import { rallyCodeFromLocation } from "./client-rally-links.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 
@@ -131,7 +132,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN) return;
     authSession.token = await firebaseAuth.currentUser.getIdToken(forceRefresh);
     authSession.uid = firebaseAuth.currentUser.uid;
-    ws.send(JSON.stringify({ type: "AUTH", token: authSession.token }));
+    const rallyCode = typeof window !== "undefined" ? rallyCodeFromLocation(window.location) : undefined;
+    ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, ...(rallyCode ? { rallyCode } : {}) }));
   };
 
   const setAuthBusy = (busy: boolean): void => {
@@ -349,7 +351,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           state.authBusyDetail = `Realtime connection open. Sending your Google session for ${state.authUserLabel}...`;
           setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel}...`);
           if (ws.readyState === ws.OPEN) {
-            ws.send(JSON.stringify({ type: "AUTH", token: authSession.token }));
+            const rallyCode = typeof window !== "undefined" ? rallyCodeFromLocation(window.location) : undefined;
+            ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, ...(rallyCode ? { rallyCode } : {}) }));
           } else {
             setAuthBusy(true);
             state.authBusyTitle = "Securing session";

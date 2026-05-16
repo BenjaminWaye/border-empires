@@ -22,6 +22,7 @@ type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?:
 type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
 type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
 type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean };
+export type PreparePlayerRallyAnchor = { x: number; y: number; island?: string };
 type ProtoTileDelta = {
   x: number;
   y: number;
@@ -149,7 +150,7 @@ type ProtoSimulationEvent = {
 type SimulationClientLike = {
   SubmitCommand: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoAck) => void) => void;
   PreparePlayer: (
-    request: { player_id: string },
+    request: { player_id: string; rally_anchor_json?: string },
     callback: (error: Error | null, response: ProtoPreparePlayerAck) => void
   ) => void;
   SubscribePlayer: (
@@ -750,7 +751,7 @@ export type FetchTileDetailResult = {
 
 export const createSimulationClientFromRpcClient = (client: SimulationClientLike): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
+  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
@@ -779,7 +780,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
-  preparePlayer(playerId) {
+  preparePlayer(playerId, rallyAnchor) {
     return new Promise<{ playerId: string; spawned: boolean }>((resolve, reject) => {
       const preparePlayerRpc =
         (typeof client.PreparePlayer === "function" ? client.PreparePlayer.bind(client) : undefined) ??
@@ -792,7 +793,9 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
         reject(new Error("simulation client preparePlayer RPC is unavailable"));
         return;
       }
-      preparePlayerRpc({ player_id: playerId }, (error, response) => {
+      preparePlayerRpc(
+        { player_id: playerId, ...(rallyAnchor ? { rally_anchor_json: JSON.stringify(rallyAnchor) } : {}) },
+        (error, response) => {
         if (error) {
           reject(error);
           return;
@@ -946,7 +949,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
 
 export const createSimulationClient = (address: string): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
+  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
