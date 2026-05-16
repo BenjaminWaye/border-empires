@@ -597,7 +597,16 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     return new Promise((resolve) => {
       pendingRequests.set(playerId, resolve);
       const stalemateTargets = attackStalemate.stalemateTargetsForPlayer(playerId);
-      const lastCollectVisibleAtMs = lastCollectVisibleAtByPlayer.get(playerId);
+      // Lazy-init so the heartbeat fires 60s after a player's first tick even
+      // if they never run an organic COLLECT_VISIBLE — otherwise an AI that
+      // gets stuck before its first collect (the stuck case the heartbeat is
+      // meant to break) would have `lastCollectVisibleAtMs === undefined` and
+      // never trigger the heartbeat branch in preplan.
+      let lastCollectVisibleAtMs = lastCollectVisibleAtByPlayer.get(playerId);
+      if (lastCollectVisibleAtMs === undefined) {
+        lastCollectVisibleAtMs = issuedAt;
+        lastCollectVisibleAtByPlayer.set(playerId, lastCollectVisibleAtMs);
+      }
       worker.postMessage({
         type: "plan",
         playerId,
