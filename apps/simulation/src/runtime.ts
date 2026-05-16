@@ -116,6 +116,7 @@ import {
   buildStrategicProductionForSettledTiles
 } from "./player-update-economy.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
+import { capturedStructureFields } from "./capture-structures.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { RecoveredCommandHistory } from "./command-recovery.js";
@@ -4899,7 +4900,11 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (target.fort || target.observatory || target.siegeOutpost || target.economicStructure) {
+    const upgradingWoodenFort =
+      target.economicStructure?.ownerId === command.playerId &&
+      target.economicStructure.type === "WOODEN_FORT" &&
+      (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
+    if (target.fort || target.observatory || target.siegeOutpost || (target.economicStructure && !upgradingWoodenFort)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4956,6 +4961,7 @@ export class SimulationRuntime {
       const { completesAt: _ignoredCompletesAt, ...activeFort } = latest.fort;
       const completedTile: DomainTileState = {
         ...latest,
+        economicStructure: undefined,
         fort: { ...activeFort, status: "active" }
       };
       this.replaceTileState(targetKey, completedTile);
@@ -6002,6 +6008,7 @@ export class SimulationRuntime {
         ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
         ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
         ...(capturedTown ? { town: capturedTown } : {}),
+        ...capturedStructureFields(previousTarget, lock.playerId),
         ownerId: lock.playerId,
         // Barbarians have no settlement loop and would otherwise sit on
         // permanent FRONTIER tiles — fragile to retake and rendered with
@@ -6044,10 +6051,7 @@ export class SimulationRuntime {
           ownerId: previousOwnerId,
           ownershipState: "FRONTIER",
           town: undefined,
-          fort: undefined,
-          observatory: undefined,
-          siegeOutpost: undefined,
-          economicStructure: undefined
+          ...capturedStructureFields(previousOrigin, previousOwnerId)
         };
         this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
         this.emitEvent({
