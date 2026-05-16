@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.6",
+  version: "2026.05.16.7",
   title: "What's New",
-  summary: "Captured observatories and other non-siege buildings now survive combat capture and transfer to the winner instead of disappearing.",
+  summary: "Players can no longer be left with territory, upkeep, and no town income after SETTLEMENT capture fallout or accidental last-town abandonment.",
   entries: [
+    {
+      introducedIn: "2026.05.16.7",
+      title: "Starting settlement income survives capture and abandon edge cases",
+      why: "A captured SETTLEMENT could be stripped from the home tile while the previous owner still had only frontier land left. Separately, abandonment needed a server-side last-town guard so a stale or accidental action could not leave a player with upkeep and no town income.",
+      changes: [
+        "When a captured SETTLEMENT has to evacuate, it now re-roots onto remaining owned land even if that tile is still frontier, and makes that refuge tile SETTLED.",
+        "The relocation still refuses to overwrite an existing town, so higher-tier cities are not downgraded.",
+        "Abandon Territory now rejects the player's last owned town on the server, regardless of town tier.",
+        "The defender now receives a fresh PLAYER_UPDATE after the capture path so income and upkeep correct immediately."
+      ]
+    },
     {
       introducedIn: "2026.05.16.6",
       title: "Captured observatories survive",
