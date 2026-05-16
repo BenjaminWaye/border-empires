@@ -24,6 +24,7 @@ describe("buildMapLoadingView", () => {
       meta: "The game server is still starting. Retrying sign-in shortly...",
       showRetry: true,
       showReload: true,
+      showDiagnostics: true,
       tone: "warn"
     });
   });
@@ -48,6 +49,7 @@ describe("buildMapLoadingView", () => {
     expect(view.meta).toBe("Elapsed 3.5s · chunks 2");
     expect(view.showRetry).toBe(false);
     expect(view.showReload).toBe(false);
+    expect(view.showDiagnostics).toBe(false);
   });
 
   it("surfaces a stalled no-chunk init as a retryable outage instead of indefinite chunk loading", () => {
@@ -71,7 +73,78 @@ describe("buildMapLoadingView", () => {
       meta: "Your session initialized, but nearby land has not arrived from the server. Retry now or reload the client.",
       showRetry: true,
       showReload: true,
+      showDiagnostics: true,
       tone: "warn"
     });
+  });
+
+  it("escalates to a soft hint at ~8s when connected but auth has not landed", () => {
+    const view = buildMapLoadingView(
+      {
+        connection: "connected",
+        firstChunkAt: 0,
+        mapLoadStartedAt: 1,
+        chunkFullCount: 0,
+        authSessionReady: false,
+        authRetrying: false,
+        authBusyTitle: "Securing session",
+        authBusyDetail: ""
+      },
+      "ws://localhost:3001/ws",
+      9_000
+    );
+
+    expect(view.title).toBe("Securing session");
+    expect(view.meta).toContain("longer than usual");
+    expect(view.tone).toBe("normal");
+    expect(view.showRetry).toBe(false);
+    expect(view.showReload).toBe(false);
+    expect(view.showDiagnostics).toBe(false);
+  });
+
+  it("exposes retry/reload/diagnostics at ~25s when connected but auth still has not landed", () => {
+    const view = buildMapLoadingView(
+      {
+        connection: "connected",
+        firstChunkAt: 0,
+        mapLoadStartedAt: 1,
+        chunkFullCount: 0,
+        authSessionReady: false,
+        authRetrying: false,
+        authBusyTitle: "Securing session",
+        authBusyDetail: ""
+      },
+      "ws://localhost:3001/ws",
+      26_000
+    );
+
+    expect(view.title).toBe("Securing session");
+    expect(view.meta).toContain("hasn't acknowledged sign-in in 26.0s");
+    expect(view.tone).toBe("warn");
+    expect(view.showRetry).toBe(true);
+    expect(view.showReload).toBe(true);
+    expect(view.showDiagnostics).toBe(true);
+  });
+
+  it("does not escalate before the soft-hint threshold even on a slow start", () => {
+    const view = buildMapLoadingView(
+      {
+        connection: "connected",
+        firstChunkAt: 0,
+        mapLoadStartedAt: 1,
+        chunkFullCount: 0,
+        authSessionReady: false,
+        authRetrying: false,
+        authBusyTitle: "",
+        authBusyDetail: ""
+      },
+      "ws://localhost:3001/ws",
+      7_500
+    );
+
+    expect(view.title).toBe("Syncing empire...");
+    expect(view.tone).toBe("normal");
+    expect(view.showRetry).toBe(false);
+    expect(view.showDiagnostics).toBe(false);
   });
 });

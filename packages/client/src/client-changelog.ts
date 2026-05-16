@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.4",
+  version: "2026.05.16.5",
   title: "What's New",
-  summary: "Fed town tile-detail refreshes no longer leave population growth stuck at 0.00/m when cached town data is stale.",
+  summary: "Stuck \"Securing session\" no longer leaves you guessing. After 8s the overlay tells you login is slow; after 25s it offers Retry, Reload, and a Download diagnostics button that exports a JSON bundle for triage.",
   entries: [
+    {
+      introducedIn: "2026.05.16.5",
+      title: "Escalating feedback when login is slow",
+      why: "When the server's event loop stalled, the auth ACK was just delayed rather than failing — so the existing retry-on-error path never triggered and users were stuck on \"Securing session\" for 80s+ with no feedback or recovery affordance.",
+      changes: [
+        "At 8s elapsed without an auth response, the overlay shows \"Login is taking longer than usual\" so you know it's not just your imagination.",
+        "At 25s elapsed, the overlay switches to a warn tone and exposes Retry now, Reload, and Download diagnostics buttons.",
+        "Download diagnostics emits a JSON file with connection state, recent client debug events, and an incident ID — paste it into a bug report to triage stuck logins quickly.",
+        "These thresholds are pure client-side UX and are decoupled from the server-side event-loop watchdog (which restarts the machine at 30s of total main-thread block)."
+      ]
+    },
     {
       introducedIn: "2026.05.16.4",
       title: "Fed town growth recovers from stale detail data",
