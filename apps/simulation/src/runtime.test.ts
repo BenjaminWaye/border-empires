@@ -2238,10 +2238,12 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
+        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
     } finally {
@@ -3441,6 +3443,64 @@ describe("simulation runtime", () => {
     expect(uncaptureTileDelta?.ownershipState).toBeUndefined();
   });
 
+  it("rejects abandoning the last owned town so upkeep cannot continue with zero town income", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialState: {
+        tiles: [
+          {
+            x: 20,
+            y: 20,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Only Town", type: "FARMING", populationTier: "TOWN" }
+          },
+          {
+            x: 21,
+            y: 20,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER"
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      events.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "uncapture-last-town",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "UNCAPTURE_TILE",
+      payloadJson: JSON.stringify({ x: 20, y: 20 })
+    });
+
+    await Promise.resolve();
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_REJECTED",
+        commandId: "uncapture-last-town",
+        code: "UNCAPTURE_LAST_TOWN"
+      })
+    );
+    const exportedTile = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 20);
+    expect(exportedTile).toEqual(
+      expect.objectContaining({
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        townPopulationTier: "TOWN"
+      })
+    );
+  });
+
   it("overloads a ready synthesizer through the rewrite simulation path", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -3596,10 +3656,12 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
+        "PLAYER_MESSAGE:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
+        "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
       randomSpy.mockRestore();
@@ -6333,6 +6395,78 @@ describe("simulation runtime — shard rain", () => {
         expect(city?.townPopulationTier).toBe("CITY");
         const cityTown = city?.townJson ? JSON.parse(city.townJson) as { population?: number } : undefined;
         expect(cityTown?.population).toBe(5_000);
+      } finally {
+        randomSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it("re-roots onto owned frontier land when capture would otherwise leave the previous owner with no town income", async () => {
+      vi.useFakeTimers();
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      try {
+        const runtime = new SimulationRuntime({
+          now: () => 1_000,
+          initialPlayers: new Map([
+            ["player-1", winningAttacker("player-1")],
+            ["player-2", weakDefender("player-2")]
+          ]),
+          seedTiles: new Map(),
+          initialState: {
+            tiles: [
+              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+              {
+                x: 10,
+                y: 11,
+                terrain: "LAND",
+                ownerId: "player-2",
+                ownershipState: "SETTLED",
+                town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
+              },
+              { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+            ],
+            activeLocks: []
+          }
+        });
+        const seen: SimulationRuntimeEventShape[] = [];
+        runtime.onEvent((event) => {
+          seen.push(event);
+        });
+
+        runtime.submitCommand({
+          commandId: "settlement-capture-frontier-refuge",
+          sessionId: "session-1",
+          playerId: "player-1",
+          clientSeq: 1,
+          issuedAt: 1_000,
+          type: "ATTACK",
+          payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+        });
+
+        await Promise.resolve();
+        vi.advanceTimersByTime(3_100);
+
+        const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
+        expect(captured?.ownerId).toBe("player-1");
+        expect(captured).not.toHaveProperty("townJson");
+
+        const refuge = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 20);
+        expect(refuge).toEqual(
+          expect.objectContaining({
+            ownerId: "player-2",
+            ownershipState: "SETTLED",
+            townPopulationTier: "SETTLEMENT"
+          })
+        );
+
+        const defenderUpdate = seen.find(
+          (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+            event.eventType === "PLAYER_MESSAGE" &&
+            event.messageType === "PLAYER_UPDATE" &&
+            event.playerId === "player-2"
+        );
+        const payload = defenderUpdate?.payloadJson ? JSON.parse(defenderUpdate.payloadJson) as { incomePerMinute?: number } : {};
+        expect(payload.incomePerMinute).toBeGreaterThan(0);
       } finally {
         randomSpy.mockRestore();
         vi.useRealTimers();
