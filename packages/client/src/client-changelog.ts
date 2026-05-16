@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.15.6",
+  version: "2026.05.16.1",
   title: "What's New",
-  summary: "The technology panel now shows real empire vision radius instead of a misleading VIS percentage, no longer shows the redundant Income tech stat chip, and settlement-speed techs now shorten settlement timers.",
+  summary: "The Sharding panel now shows render FPS so you can tell client-side stalls apart from server lag, and the mobile \"switch to 2D\" prompt now only appears when we actually detect the 3D renderer running slowly on this device — no more upfront nag on phones that handle 3D fine.",
   entries: [
+    {
+      introducedIn: "2026.05.16.1",
+      title: "Render FPS in the Sharding panel + smarter 2D switch prompt",
+      why: "We needed a way to tell whether visible lag is a client render stall or a server/network problem. The previous 2D-switch prompt also appeared to every mobile user on first 3D run, regardless of how their device actually performed.",
+      changes: [
+        "Sharding panel debug section now shows live Render FPS (rolling 1s average), sampled on every rAF callback so it reflects real device load rather than the throttled draw cap.",
+        "The \"switch to 2D\" prompt for mobile users now triggers only after the renderer has stayed at or below 25 FPS for 5 seconds straight, and only when the 3D renderer is actually active — users whose 3D init failed and fell back to 2D no longer get nagged.",
+        "Prompt copy reflects the new trigger: it now says \"3D is running slow on this device\" instead of \"Running in 3D mode\"."
+      ]
+    },
     {
       introducedIn: "2026.05.15.6",
       title: "Technology vision stats match the real radius",
