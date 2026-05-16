@@ -10,7 +10,12 @@ const toggleExpandedModKey = (
   modKey: "attack" | "defense" | "income" | "vision"
 ): void => {
   state.expandedModKey = state.expandedModKey === modKey ? null : modKey;
-  const modsHtml = techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown);
+  const modsHtml = techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown, {
+    techCatalog: state.techCatalog,
+    ownedTechIds: state.techIds,
+    domainCatalog: state.domainCatalog,
+    domainIds: state.domainIds
+  });
   dom.techCurrentModsEl.innerHTML = modsHtml;
   dom.mobileTechCurrentModsEl.innerHTML = modsHtml;
 };

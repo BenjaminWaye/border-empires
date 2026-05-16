@@ -127,6 +127,7 @@ import {
   chooseDomainForPlayer,
   chooseTechForPlayer,
   effectiveVisionRadiusForPlayer,
+  multiplicativeEffectForPlayer,
   recomputeMods,
   visionRadiusBonusForPlayer
 } from "./tech-domain-bridge.js";
@@ -392,7 +393,25 @@ const createPlayersFromRecoveredState = (
 
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 export const SETTLE_DURATION_MS = 60_000;
+export const FOREST_SETTLEMENT_MULT = 2;
+export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+
+const isForestSettlementTile = (x: number, y: number): boolean =>
+  terrainAt(x, y) === "LAND" &&
+  landBiomeAt(x, y) === "GRASS" &&
+  grassShadeAt(x, y) === "DARK";
+
+export const settlementBaseDurationMsForTile = (tile: Pick<DomainTileState, "x" | "y">): number =>
+  isForestSettlementTile(tile.x, tile.y) ? SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT : SETTLE_DURATION_MS;
+
+export const settlementDurationMsForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">,
+  baseDurationMs = SETTLE_DURATION_MS
+): number => {
+  const speedMultiplier = multiplicativeEffectForPlayer(player, "settlementSpeedMult");
+  return Math.max(1, Math.round(baseDurationMs / speedMultiplier));
+};
 
 const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   id: playerId,
@@ -3013,7 +3032,8 @@ export class SimulationRuntime {
 
     actor.points -= SETTLE_COST;
     const startedAt = this.now();
-    const resolvesAt = startedAt + SETTLE_DURATION_MS;
+    const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(target));
+    const resolvesAt = startedAt + settleDurationMs;
     this.addPendingSettlement({
       ownerId: command.playerId,
       tileKey: targetKey,
@@ -3023,7 +3043,7 @@ export class SimulationRuntime {
     });
     this.emitPlayerStateUpdate(command);
 
-    this.scheduleAfter(SETTLE_DURATION_MS, () => {
+    this.scheduleAfter(settleDurationMs, () => {
       const expectedSettlement = {
         ownerId: command.playerId,
         tileKey: targetKey,

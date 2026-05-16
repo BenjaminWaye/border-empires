@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { settleDurationMsForTile } from "./client-constants.js";
+import { settleDurationMsForState, settlementSpeedMultiplierForState } from "./client-queue-logic.js";
 import { tileActionAvailabilityWithDevelopmentSlot } from "./client-tile-action-logic.js";
 import { ownedActiveObservatoryWithinRange, shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
@@ -8,6 +10,41 @@ const state = {
   techIds: ["navigation", "trade", "coinage", "industrial-extraction", "masonry", "cartography", "leatherworking"],
   localhostDevAetherWall: false
 };
+
+describe("settlement speed effects", () => {
+  it("uses owned tech and domain settlement speed effects for settle duration labels", () => {
+    const progressionState = {
+      techIds: ["toolmaking"],
+      techCatalog: [
+        {
+          id: "toolmaking",
+          name: "Workshop Standards",
+          tier: 1,
+          description: "Faster settlement.",
+          mods: {},
+          effects: { settlementSpeedMult: 1.05 },
+          requirements: { gold: 0, resources: {} }
+        }
+      ],
+      domainIds: ["fast-frontier"],
+      domainCatalog: [
+        {
+          id: "fast-frontier",
+          tier: 1,
+          name: "Fast Frontier",
+          description: "Even faster settlement.",
+          requiresTechId: "toolmaking",
+          mods: {},
+          effects: { settlementSpeedMult: 1.1 },
+          requirements: { gold: 0, resources: {} }
+        }
+      ]
+    };
+
+    expect(settlementSpeedMultiplierForState(progressionState)).toBeCloseTo(1.155);
+    expect(settleDurationMsForState(progressionState, { x: 10, y: 10 })).toBe(Math.round(settleDurationMsForTile(10, 10) / 1.155));
+  });
+});
 
 describe("splitTileActionsIntoTabs", () => {
   it("keeps crystal-only menu content visible", () => {

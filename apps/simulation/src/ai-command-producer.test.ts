@@ -1,8 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createAiCommandProducer } from "./ai-command-producer.js";
+import { SETTLE_INTENT_WAKE_MS, wakeWindowMsForCommand } from "./ai-intent-latch-helpers.js";
+import { MAX_SETTLE_DURATION_MS } from "./runtime.js";
 
 describe("ai command producer", () => {
+  it("keeps the settle intent fallback long enough for forest settlement duration", () => {
+    expect(wakeWindowMsForCommand("SETTLE")).toBe(SETTLE_INTENT_WAKE_MS);
+    expect(SETTLE_INTENT_WAKE_MS).toBe(MAX_SETTLE_DURATION_MS + 1_000);
+  });
+
   it("submits AI frontier commands through the same durable envelope path", async () => {
     const submitted: Array<{ playerId: string; type: string; payloadJson: string; clientSeq: number }> = [];
     const producer = createAiCommandProducer({

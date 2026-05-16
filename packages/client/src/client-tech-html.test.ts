@@ -1,8 +1,54 @@
 import { describe, expect, it } from "vitest";
-import { formatTechBenefitSummary } from "./client-tech-html.js";
+import { formatTechBenefitSummary, techCurrentModsHtml } from "./client-tech-html.js";
 import type { TechInfo } from "./client-types.js";
 
 describe("tech benefit summaries", () => {
+  it("shows actual vision radius instead of the generic vision multiplier percentage", () => {
+    const cartography: TechInfo = {
+      id: "cartography",
+      tier: 1,
+      name: "Cartography",
+      description: "Unlocks observatories.",
+      mods: {},
+      effects: {
+        unlockObservatory: true,
+        visionRadiusBonus: 1
+      },
+      requirements: {
+        gold: 2500,
+        resources: {
+          CRYSTAL: 25
+        },
+        canResearch: true,
+        checklist: []
+      }
+    };
+
+    const html = techCurrentModsHtml(
+      { attack: 1, defense: 1, income: 1, vision: 1 },
+      "vision",
+      {
+        attack: [{ label: "Base", mult: 1 }],
+        defense: [{ label: "Base", mult: 1 }],
+        income: [{ label: "Base", mult: 1 }],
+        vision: [{ label: "Base", mult: 1 }]
+      },
+      {
+        techCatalog: [cartography],
+        ownedTechIds: ["cartography"],
+        domainCatalog: [],
+        domainIds: []
+      }
+    );
+
+    expect(html).toContain("<span>Vision</span>");
+    expect(html).toContain("<strong>5 tiles</strong>");
+    expect(html).toContain("<span>Cartography</span>");
+    expect(html).toContain("+1 radius");
+    expect(html).not.toContain("<span>Income</span>");
+    expect(html).not.toContain("<span>Economy</span>");
+  });
+
   it("uses the Aether Bridge label for the navigation unlock effect", () => {
     const tech: TechInfo = {
       id: "navigation",

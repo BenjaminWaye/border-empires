@@ -13,13 +13,13 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 
 import type { AiLatchedIntentKind } from "./ai-intent-latch.js";
-import { SETTLE_DURATION_MS } from "./runtime.js";
+import { MAX_SETTLE_DURATION_MS } from "./runtime.js";
 
 const FRONTIER_LATCH_GRACE_MS = 500;
 const SETTLE_LATCH_GRACE_MS = 1_000;
 
 export const FRONTIER_INTENT_WAKE_MS = COMBAT_LOCK_MS + FRONTIER_LATCH_GRACE_MS;
-export const SETTLE_INTENT_WAKE_MS = SETTLE_DURATION_MS + SETTLE_LATCH_GRACE_MS;
+export const SETTLE_INTENT_WAKE_MS = MAX_SETTLE_DURATION_MS + SETTLE_LATCH_GRACE_MS;
 
 export const intentKindForCommand = (commandType: CommandEnvelope["type"]): AiLatchedIntentKind | undefined => {
   // BUILD_* commands intentionally not latched — their resolution timing
