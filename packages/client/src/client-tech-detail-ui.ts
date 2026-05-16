@@ -520,12 +520,14 @@ export const renderDomainProgressCard = (deps: {
   domainCatalog: DomainInfo[];
   domainChoices: string[];
   domainIds: string[];
+  fps?: number | undefined;
 }): string =>
   renderDomainProgressCardHtml({
     visibleShardCacheCount: visibleShardCacheCount(deps.tiles),
     shardStock: deps.shardStock,
     currentTier: currentDomainChoiceTier(deps.domainCatalog, deps.domainChoices),
-    chosenDomainCount: deps.domainIds.length
+    chosenDomainCount: deps.domainIds.length,
+    fps: deps.fps
   });
 
 export const renderDomainDetailCard = (deps: {

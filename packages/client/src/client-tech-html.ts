@@ -1,8 +1,24 @@
 import type { DomainInfo, TechInfo } from "./client-types.js";
 import { isTechHighlightEffectKey } from "./client-tech-payoffs.js";
 
+const BASE_EMPIRE_VISION_RADIUS = 4;
 type ModKey = "attack" | "defense" | "income" | "vision";
 type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
+type ActiveBonusContext = {
+  techCatalog: TechInfo[];
+  ownedTechIds: string[];
+  domainCatalog: DomainInfo[];
+  domainIds: string[];
+};
+type StatChipKey = ModKey;
+type ActiveBonusBreakdownEntry =
+  | { label: string; kind: "mult"; mult: number }
+  | { label: string; kind: "radius"; amount: number };
+
+const formatSignedPercent = (mult: number): string => {
+  const pct = Math.round((mult - 1) * 100);
+  return `${pct >= 0 ? "+" : ""}${pct}%`;
+};
 
 const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads";
@@ -267,25 +283,79 @@ export const domainOwnedHtml = (domainCatalog: DomainInfo[], domainIds: string[]
 export const techCurrentModsHtml = (
   mods: Record<ModKey, number>,
   expandedModKey: ModKey | null,
-  modBreakdown: ModBreakdown
+  modBreakdown: ModBreakdown,
+  activeBonusContext?: ActiveBonusContext
 ): string => {
+  const ownedTechs = activeBonusContext
+    ? activeBonusContext.ownedTechIds
+        .map((id) => activeBonusContext.techCatalog.find((tech) => tech.id === id))
+        .filter((tech): tech is TechInfo => Boolean(tech))
+    : [];
+  const ownedDomains = activeBonusContext
+    ? activeBonusContext.domainIds
+        .map((id) => activeBonusContext.domainCatalog.find((domain) => domain.id === id))
+        .filter((domain): domain is DomainInfo => Boolean(domain))
+    : [];
+  const ownedProgression = [...ownedTechs, ...ownedDomains];
+  const radiusEntries = ownedProgression
+    .map((entry) => {
+      const amount = entry.effects?.visionRadiusBonus;
+      return typeof amount === "number" && Number.isFinite(amount) && amount !== 0
+        ? { label: entry.name, kind: "radius" as const, amount }
+        : undefined;
+    })
+    .filter((entry): entry is Extract<ActiveBonusBreakdownEntry, { kind: "radius" }> => Boolean(entry));
+  const visionRadiusBonus = radiusEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const effectiveVisionRadius = Math.max(1, Math.floor(BASE_EMPIRE_VISION_RADIUS * (mods.vision ?? 1)) + visionRadiusBonus);
+
   const statDefs = [
-    { key: "attack", label: "Attack", short: "ATK", icon: "△", value: mods.attack, tone: "attack" },
-    { key: "defense", label: "Defense", short: "DEF", icon: "⬡", value: mods.defense, tone: "defense" },
-    { key: "income", label: "Income", short: "INC", icon: "↗", value: mods.income, tone: "income" },
-    { key: "vision", label: "Vision", short: "VIS", icon: "◉", value: mods.vision, tone: "vision" }
+    {
+      key: "attack",
+      label: "Attack",
+      short: "ATK",
+      icon: "△",
+      valueLabel: formatSignedPercent(mods.attack),
+      tone: "attack",
+      entries: undefined
+    },
+    {
+      key: "defense",
+      label: "Defense",
+      short: "DEF",
+      icon: "⬡",
+      valueLabel: formatSignedPercent(mods.defense),
+      tone: "defense",
+      entries: undefined
+    },
+    {
+      key: "vision",
+      label: "Vision",
+      short: "VIS",
+      icon: "◉",
+      valueLabel: `${effectiveVisionRadius} tiles`,
+      tone: "vision",
+      entries: [
+        ...(mods.vision !== 1
+          ? (modBreakdown.vision ?? [])
+              .filter((entry) => entry.label.trim().toLowerCase() !== "base")
+              .map((entry): ActiveBonusBreakdownEntry => ({ label: `${entry.label}: radius multiplier`, kind: "mult", mult: entry.mult }))
+          : []),
+        ...radiusEntries
+      ]
+    }
   ] as const;
+  const effectiveExpandedModKey = statDefs.some((entry) => entry.key === expandedModKey) ? expandedModKey : null;
   const chips = statDefs
-    .map(({ key, label, short, icon, value, tone }) => {
-      const pct = Math.round((value - 1) * 100);
-      const pctLabel = `${pct >= 0 ? "+" : ""}${pct}%`;
-      const sources = (modBreakdown[key] ?? []).filter((entry) => entry.label.trim().toLowerCase() !== "base");
+    .map(({ key, label, short, icon, valueLabel, tone, entries }) => {
+      const sources = entries ?? (modBreakdown[key] ?? [])
+        .filter((entry) => entry.label.trim().toLowerCase() !== "base")
+        .map((entry): ActiveBonusBreakdownEntry => ({ label: entry.label, kind: "mult", mult: entry.mult }));
       const inspectable = sources.length > 0;
-      const expanded = expandedModKey === key;
+      const expanded = effectiveExpandedModKey === key;
       const chipClass = `panel-btn tech-mod-chip tech-mod-chip-${tone}${expanded ? " selected" : ""}${inspectable ? "" : " is-static"}`;
       const chipBody = `<div class="tech-mod-chip-main">
           <span class="tech-mod-chip-label"><span class="tech-mod-chip-icon" aria-hidden="true">${icon}</span><span>${label}</span></span>
-          <strong>${pctLabel}</strong>
+          <strong>${valueLabel}</strong>
         </div>
         <div class="tech-mod-chip-meta"><span>${short}</span><span class="tech-mod-chip-expand">${inspectable ? (expanded ? "Hide details" : "Tap to inspect") : "No extra sources"}${inspectable ? " ▾" : ""}</span></div>`;
       if (!inspectable) {
@@ -294,7 +364,7 @@ export const techCurrentModsHtml = (
       return `<button class="${chipClass}" data-mod-chip="${key}" aria-expanded="${expanded ? "true" : "false"}">
         <div class="tech-mod-chip-main">
           <span class="tech-mod-chip-label"><span class="tech-mod-chip-icon" aria-hidden="true">${icon}</span><span>${label}</span></span>
-          <strong>${pctLabel}</strong>
+          <strong>${valueLabel}</strong>
         </div>
         <div class="tech-mod-chip-meta"><span>${short}</span><span class="tech-mod-chip-expand">${expanded ? "Hide details" : "Tap to inspect"} ▾</span></div>
       </button>`;
@@ -311,13 +381,28 @@ export const techCurrentModsHtml = (
       tone: rounded > 0 ? "positive" : "negative"
     };
   };
+  const formatBreakdownEntry = (entry: ActiveBonusBreakdownEntry): { text: string; tone: "positive" | "negative" | "neutral" } => {
+    if (entry.kind === "radius") {
+      return {
+        text: `${entry.amount >= 0 ? "+" : ""}${entry.amount} radius`,
+        tone: entry.amount > 0 ? "positive" : entry.amount < 0 ? "negative" : "neutral"
+      };
+    }
+    return formatTechModDelta(entry.mult);
+  };
+  const breakdownEntriesForExpandedKey = (key: StatChipKey): ActiveBonusBreakdownEntry[] => {
+    const statDef = statDefs.find((entry) => entry.key === key);
+    if (statDef?.entries) return [...statDef.entries];
+    return (modBreakdown[key] ?? [])
+      .filter((entry) => entry.label.trim().toLowerCase() !== "base")
+      .map((entry): ActiveBonusBreakdownEntry => ({ label: entry.label, kind: "mult", mult: entry.mult }));
+  };
   const breakdown =
-    expandedModKey === null
+    effectiveExpandedModKey === null
       ? ""
-      : `<div class="tech-mod-breakdown">${(modBreakdown[expandedModKey] ?? [])
-          .filter((entry) => entry.label.trim().toLowerCase() !== "base")
+      : `<div class="tech-mod-breakdown">${breakdownEntriesForExpandedKey(effectiveExpandedModKey)
           .map((entry) => {
-            const delta = formatTechModDelta(entry.mult);
+            const delta = formatBreakdownEntry(entry);
             return `<div class="tech-mod-breakdown-row"><span>${entry.label}</span><strong class="tech-mod-delta ${delta.tone}">${delta.text}</strong></div>`;
           })
           .join("")}</div>`;
@@ -325,7 +410,7 @@ export const techCurrentModsHtml = (
     <div class="card tech-mod-card">
       <div class="tech-mod-card-head">
         <div class="tech-mod-card-title">Active Bonuses</div>
-        <div class="tech-mod-card-hint">${expandedModKey === null ? "Tap a bonus to inspect its sources" : "Bonus source breakdown below"}</div>
+        <div class="tech-mod-card-hint">${effectiveExpandedModKey === null ? "Tap a bonus to inspect its sources" : "Bonus source breakdown below"}</div>
       </div>
       <div class="tech-mod-strip">${chips}</div>
       ${breakdown}
@@ -394,8 +479,10 @@ export const renderDomainProgressCardHtml = (args: {
   shardStock: number;
   currentTier: number | undefined;
   chosenDomainCount: number;
+  fps?: number | undefined;
 }): string => {
-  const { visibleShardCacheCount, shardStock, currentTier, chosenDomainCount } = args;
+  const { visibleShardCacheCount, shardStock, currentTier, chosenDomainCount, fps } = args;
+  const fpsLabel = fps === undefined ? "—" : Math.round(fps).toString();
   const statusLine =
     currentTier !== undefined
       ? `Tier ${currentTier} is open for your next doctrine shift. Explore for shard caches to build toward your next doctrine pick.`
@@ -417,6 +504,10 @@ export const renderDomainProgressCardHtml = (args: {
       <div class="domain-progress-metric">
         <span>Shard stock</span>
         <strong>${shardStock.toFixed(1)}</strong>
+      </div>
+      <div class="domain-progress-metric">
+        <span>Render FPS</span>
+        <strong data-fps-readout>${fpsLabel}</strong>
       </div>
     </div>
     <p class="domain-progress-note">${scoutingLine}</p>

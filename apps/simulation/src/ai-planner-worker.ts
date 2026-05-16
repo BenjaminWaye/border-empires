@@ -303,6 +303,7 @@ const choosePlannerCommand = (
   options?: {
     skipPreplan?: boolean;
     collectVisibleOnCooldown?: boolean;
+    lastCollectVisibleAtMs?: number;
     attackStalemateTargetTileKeys?: ReadonlySet<string>;
   }
 ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
@@ -342,7 +343,10 @@ const choosePlannerCommand = (
       clientSeq,
       issuedAt,
       sessionPrefix: "ai-runtime",
-      ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {})
+      ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
+      ...(typeof options?.lastCollectVisibleAtMs === "number"
+        ? { lastCollectVisibleAtMs: options.lastCollectVisibleAtMs }
+        : {})
     });
     preplanDiagnostic = preplan.diagnostic;
     if (preplan.command) {
@@ -510,6 +514,9 @@ parentPort.on("message", (msg: unknown) => {
           {
             skipPreplan: message.skipPreplan === true,
             collectVisibleOnCooldown: message.collectVisibleOnCooldown === true,
+            ...(typeof message.lastCollectVisibleAtMs === "number"
+              ? { lastCollectVisibleAtMs: message.lastCollectVisibleAtMs as number }
+              : {}),
             ...(stalemateSet ? { attackStalemateTargetTileKeys: stalemateSet } : {})
           }
         );

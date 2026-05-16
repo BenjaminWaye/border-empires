@@ -117,6 +117,7 @@ import {
   buildStrategicProductionForSettledTiles
 } from "./player-update-economy.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
+import { capturedStructureFields } from "./capture-structures.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { RecoveredCommandHistory } from "./command-recovery.js";
@@ -128,6 +129,7 @@ import {
   chooseDomainForPlayer,
   chooseTechForPlayer,
   effectiveVisionRadiusForPlayer,
+  multiplicativeEffectForPlayer,
   observatoryCastRadiusForPlayer,
   recomputeMods,
   visionRadiusBonusForPlayer
@@ -386,7 +388,25 @@ const createPlayersFromRecoveredState = (
 
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 export const SETTLE_DURATION_MS = 60_000;
+export const FOREST_SETTLEMENT_MULT = 2;
+export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+
+const isForestSettlementTile = (x: number, y: number): boolean =>
+  terrainAt(x, y) === "LAND" &&
+  landBiomeAt(x, y) === "GRASS" &&
+  grassShadeAt(x, y) === "DARK";
+
+export const settlementBaseDurationMsForTile = (tile: Pick<DomainTileState, "x" | "y">): number =>
+  isForestSettlementTile(tile.x, tile.y) ? SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT : SETTLE_DURATION_MS;
+
+export const settlementDurationMsForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">,
+  baseDurationMs = SETTLE_DURATION_MS
+): number => {
+  const speedMultiplier = multiplicativeEffectForPlayer(player, "settlementSpeedMult");
+  return Math.max(1, Math.round(baseDurationMs / speedMultiplier));
+};
 
 const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   id: playerId,
@@ -610,6 +630,8 @@ const isSyntheticSettlementTown = (
   );
 
 const SYNTHETIC_SETTLEMENT_POPULATION = 800;
+const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
+const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;
 
 const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
 const SHARD_RAIN_TTL_MS = 30 * 60_000;
@@ -2020,6 +2042,61 @@ export class SimulationRuntime {
     return players;
   }
 
+  // Minimal per-player snapshot for the /debug/players HTTP route. Mirrors
+  // exportState().players but skips the O(world-tile) tile projection so a
+  // debug scrape never disturbs hot-path latency. Uses the manpower-only
+  // refresh for the same reason exportPlannerPlayerViews does — economy
+  // accrual catches up on the next real command tick.
+  exportPlayerDebugSnapshot(): Array<{
+    id: string;
+    name?: string;
+    isAi: boolean;
+    points: number;
+    manpower: number;
+    manpowerCap: number;
+    manpowerRegenPerMinute: number;
+    techIds: string[];
+    domainIds: string[];
+    strategicResources: Partial<Record<StrategicResourceKey, number>>;
+    settledTileCount: number;
+    townCount: number;
+    incomePerMinute: number;
+    strategicProductionPerMinute: Record<StrategicResourceKey, number>;
+    activeDevelopmentProcessCount: number;
+    hasActiveLock: boolean;
+    allies: string[];
+  }> {
+    const lockPlayerIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      lockPlayerIds.add(lock.playerId);
+    }
+    return [...this.players.values()]
+      .map((player) => {
+        this.refreshManpowerOnly(player);
+        const summary = this.summaryForPlayer(player.id);
+        return {
+          id: player.id,
+          ...(player.name ? { name: player.name } : {}),
+          isAi: player.isAi === true,
+          points: player.points,
+          manpower: player.manpower,
+          manpowerCap: this.playerManpowerCap(player),
+          manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+          techIds: [...player.techIds].sort(),
+          domainIds: [...(player.domainIds ?? [])].sort(),
+          strategicResources: { ...(player.strategicResources ?? {}) },
+          settledTileCount: summary.settledTileCount,
+          townCount: summary.townCount,
+          incomePerMinute: this.estimatedIncomePerMinuteForPlayer(player.id),
+          strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
+          activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+          hasActiveLock: lockPlayerIds.has(player.id),
+          allies: [...player.allies].sort()
+        };
+      })
+      .sort((left, right) => left.id.localeCompare(right.id));
+  }
+
   exportTilesForKeys(tileKeys: Iterable<string>): PlannerTileView[] {
     const result: PlannerTileView[] = [];
     for (const tileKey of tileKeys) {
@@ -2077,6 +2154,7 @@ export class SimulationRuntime {
     activeLocks: Array<{
       commandId: string;
       playerId: string;
+      actionType: FrontierCommandType;
       originKey: string;
       targetKey: string;
       resolvesAt: number;
@@ -2149,6 +2227,7 @@ export class SimulationRuntime {
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
+          actionType: lock.actionType,
           originKey: lock.originKey,
           targetKey: lock.targetKey,
           resolvesAt: lock.resolvesAt,
@@ -2369,6 +2448,7 @@ export class SimulationRuntime {
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
+          actionType: lock.actionType,
           originKey: lock.originKey,
           targetKey: lock.targetKey,
           resolvesAt: lock.resolvesAt,
@@ -3003,7 +3083,8 @@ export class SimulationRuntime {
 
     actor.points -= SETTLE_COST;
     const startedAt = this.now();
-    const resolvesAt = startedAt + SETTLE_DURATION_MS;
+    const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(target));
+    const resolvesAt = startedAt + settleDurationMs;
     this.addPendingSettlement({
       ownerId: command.playerId,
       tileKey: targetKey,
@@ -3013,7 +3094,7 @@ export class SimulationRuntime {
     });
     this.emitPlayerStateUpdate(command);
 
-    this.scheduleAfter(SETTLE_DURATION_MS, () => {
+    this.scheduleAfter(settleDurationMs, () => {
       const expectedSettlement = {
         ownerId: command.playerId,
         tileKey: targetKey,
@@ -3233,6 +3314,17 @@ export class SimulationRuntime {
         playerId: command.playerId,
         code: "UNCAPTURE_SETTLEMENT",
         message: "cannot abandon your settlement"
+      });
+      return;
+    }
+    const summary = this.summaryForPlayer(command.playerId);
+    if (summary.ownedTownTierByTile.size <= 1 && summary.ownedTownTierByTile.has(targetKey)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "UNCAPTURE_LAST_TOWN",
+        message: "cannot abandon your last town"
       });
       return;
     }
@@ -4938,7 +5030,11 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (target.fort || target.observatory || target.siegeOutpost || target.economicStructure) {
+    const upgradingWoodenFort =
+      target.economicStructure?.ownerId === command.playerId &&
+      target.economicStructure.type === "WOODEN_FORT" &&
+      (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
+    if (target.fort || target.observatory || target.siegeOutpost || (target.economicStructure && !upgradingWoodenFort)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4995,6 +5091,7 @@ export class SimulationRuntime {
       const { completesAt: _ignoredCompletesAt, ...activeFort } = latest.fort;
       const completedTile: DomainTileState = {
         ...latest,
+        economicStructure: undefined,
         fort: { ...activeFort, status: "active" }
       };
       this.replaceTileState(targetKey, completedTile);
@@ -5946,7 +6043,7 @@ export class SimulationRuntime {
       target: { x: lock.targetX, y: lock.targetY },
       changes:
         combat.attackerWon
-          ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: "FRONTIER" }]
+          ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
           : defenderOwnerId && !originHeldByFort
             ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: "FRONTIER" }]
             : [],
@@ -6009,16 +6106,44 @@ export class SimulationRuntime {
         defenderGoldLoss: combatResolution.defenderGoldLoss
       });
     }
+    // When the captured town is a SETTLEMENT (the previous owner's home), it evacuates:
+    // the town disappears from the captured tile and is re-rooted on one of the previous
+    // owner's remaining SETTLED tiles. If they have no remaining territory, the existing
+    // respawnIfEliminated() call below places a fresh settlement on unowned land.
+    let settlementCaptureRelocationPopulation: number | undefined;
     if (attackerWon) {
+      // Population shock: only when capturing a town from another player (skip neutral / unowned).
+      let capturedTown = previousTarget?.town;
+      const isSettlementCapture =
+        !!capturedTown
+        && capturedTown.populationTier === "SETTLEMENT"
+        && !!previousOwnerId
+        && previousOwnerId !== lock.playerId;
+      if (capturedTown && previousOwnerId && previousOwnerId !== lock.playerId) {
+        const popBefore = typeof capturedTown.population === "number" ? capturedTown.population : SYNTHETIC_SETTLEMENT_POPULATION;
+        const popAfter = Math.max(1, popBefore * TOWN_CAPTURE_POPULATION_LOSS_MULT);
+        const captureShockUntil = this.now() + TOWN_CAPTURE_SHOCK_MS;
+        if (isSettlementCapture) {
+          // Evacuate: strip the town entirely from the captured tile; we'll relocate it below.
+          settlementCaptureRelocationPopulation = popAfter;
+          capturedTown = undefined;
+        } else {
+          capturedTown = { ...capturedTown, population: popAfter, populationBeforeCapture: popBefore, captureShockUntil };
+        }
+      }
       const resolvedTarget: DomainTileState = {
         x: lock.targetX,
         y: lock.targetY,
         terrain: previousTarget?.terrain ?? "LAND",
         ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
         ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
-        ...(previousTarget?.town ? { town: previousTarget.town } : {}),
+        ...(capturedTown ? { town: capturedTown } : {}),
+        ...capturedStructureFields(previousTarget, lock.playerId),
         ownerId: lock.playerId,
-        ownershipState: "FRONTIER"
+        // Barbarians have no settlement loop and would otherwise sit on
+        // permanent FRONTIER tiles — fragile to retake and rendered with
+        // frontier opacity so the skull overlay reads as washed-out.
+        ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
       };
       this.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
       let tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[];
@@ -6051,15 +6176,12 @@ export class SimulationRuntime {
     } else if (originLost && previousOwnerId) {
       const previousOrigin = this.tiles.get(lock.originKey);
       if (previousOrigin) {
+        // Town is a worldgen entity tied to the tile — mirror the attacker-wins branch (~6008) which preserves it.
         const resolvedOrigin: DomainTileState = {
           ...previousOrigin,
           ownerId: previousOwnerId,
           ownershipState: "FRONTIER",
-          town: undefined,
-          fort: undefined,
-          observatory: undefined,
-          siegeOutpost: undefined,
-          economicStructure: undefined
+          ...capturedStructureFields(previousOrigin, previousOwnerId)
         };
         this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
         this.emitEvent({
@@ -6073,7 +6195,67 @@ export class SimulationRuntime {
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
     if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
     if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
-    if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) this.respawnIfEliminated(previousOwnerId, lock.commandId);
+    if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) {
+      // If we captured the previous owner's SETTLEMENT and they still have other territory,
+      // re-root a fresh SETTLEMENT town on one of their remaining tiles. If they have
+      // no territory left, respawnIfEliminated places a settlement on unowned land instead.
+      if (settlementCaptureRelocationPopulation !== undefined) {
+        this.relocateSettlementForPlayer(
+          previousOwnerId,
+          lock.commandId,
+          settlementCaptureRelocationPopulation
+        );
+      }
+      this.respawnIfEliminated(previousOwnerId, lock.commandId);
+      this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
+    }
+  }
+
+  private relocateSettlementForPlayer(
+    playerId: string,
+    commandId: string,
+    population: number
+  ): void {
+    const summary = this.summaryForPlayer(playerId);
+    if (summary.territoryTileKeys.size === 0) return; // respawnIfEliminated handles full eliminations.
+    if (summary.ownedTownTierByTile.size > 0) return;
+    // Prefer a remaining SETTLED tile that does NOT already have a town.
+    // If none exists, fall back to any owned land tile and settle it. This prevents
+    // a player from keeping territory but losing all town income after their home
+    // SETTLEMENT is captured.
+    let targetKey: string | undefined;
+    let fallbackKey: string | undefined;
+    for (const tileKey of summary.territoryTileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
+      if (tile.town) continue;
+      if (!fallbackKey) fallbackKey = tileKey;
+      if (tile.ownershipState === "SETTLED") {
+        targetKey = tileKey;
+        break;
+      }
+    }
+    targetKey ??= fallbackKey;
+    if (!targetKey) return;
+    const target = this.tiles.get(targetKey);
+    if (!target) return;
+    const relocated: DomainTileState = {
+      ...target,
+      ownershipState: "SETTLED",
+      town: {
+        name: `Refuge ${target.x},${target.y}`,
+        type: "FARMING",
+        populationTier: "SETTLEMENT",
+        population
+      }
+    };
+    this.replaceTileState(targetKey, relocated, commandId);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(relocated)]
+    });
   }
 
   private barbarianProgressGain(target: DomainTileState | undefined): number {
