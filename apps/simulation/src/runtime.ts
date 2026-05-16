@@ -61,6 +61,7 @@ import {
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   IRONWORKS_OVERLOAD_IRON,
   IRONWORKS_GOLD_UPKEEP,
+  OBSERVATORY_CAST_RADIUS,
   REVEAL_EMPIRE_ACTIVATION_COST,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
   REVEAL_EMPIRE_STATS_CRYSTAL_COST,
@@ -3600,13 +3601,15 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "reveal_empire_stats")) {
+    const revealNow = this.now();
+    const revealObservatoryKey = this.pickReadyOwnedObservatoryAny(actor.id, revealNow);
+    if (!revealObservatoryKey) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "REVEAL_EMPIRE_STATS_INVALID",
-        message: "reveal empire stats is cooling down"
+        message: "no ready observatory available"
       });
       return;
     }
@@ -3620,7 +3623,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.startAbilityCooldown(actor.id, "reveal_empire_stats", REVEAL_EMPIRE_STATS_COOLDOWN_MS);
+    this.stampObservatoryCooldown(revealObservatoryKey, REVEAL_EMPIRE_STATS_COOLDOWN_MS, revealNow, command.commandId, command.playerId);
     this.emitPlayerMessage(command, {
       type: "REVEAL_EMPIRE_STATS_RESULT",
       stats: this.buildRevealEmpireStats(target)
@@ -3651,16 +3654,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "aether_bridge")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_BRIDGE_INVALID",
-        message: "aether bridge is cooling down"
-      });
-      return;
-    }
     if (!target || !this.isCoastalLand(target.x, target.y)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -3682,6 +3675,18 @@ export class SimulationRuntime {
       });
       return;
     }
+    const bridgeNow = this.now();
+    const bridgeObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, bridgeNow);
+    if (!bridgeObservatoryKey) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_BRIDGE_INVALID",
+        message: "no ready observatory in range"
+      });
+      return;
+    }
     if (!this.spendStrategicResource(actor, "CRYSTAL", AETHER_BRIDGE_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -3692,7 +3697,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.startAbilityCooldown(actor.id, "aether_bridge", AETHER_BRIDGE_COOLDOWN_MS);
+    this.stampObservatoryCooldown(bridgeObservatoryKey, AETHER_BRIDGE_COOLDOWN_MS, bridgeNow, command.commandId, command.playerId);
     const active = this.activeAetherBridgesForPlayer(actor.id);
     active.push({
       bridgeId: `${command.commandId}:bridge`,
@@ -3732,13 +3737,15 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "aether_wall")) {
+    const wallNow = this.now();
+    const wallObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, payload.x, payload.y, wallNow);
+    if (!wallObservatoryKey) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "AETHER_WALL_INVALID",
-        message: "aether wall is cooling down"
+        message: "no ready observatory in range"
       });
       return;
     }
@@ -3787,7 +3794,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.startAbilityCooldown(actor.id, "aether_wall", AETHER_WALL_COOLDOWN_MS);
+    this.stampObservatoryCooldown(wallObservatoryKey, AETHER_WALL_COOLDOWN_MS, wallNow, command.commandId, command.playerId);
     const active = this.activeAetherWallsForPlayer(actor.id);
     active.push({
       wallId: `${command.commandId}:wall`,
@@ -3830,16 +3837,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "siphon")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIPHON_INVALID",
-        message: "siphon is cooling down"
-      });
-      return;
-    }
     if (!target || target.terrain !== "LAND" || !target.ownerId || target.ownerId === actor.id || actor.allies.has(target.ownerId)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -3860,13 +3857,15 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.ownedActiveObservatoryWithinRange(actor.id, target.x, target.y)) {
+    const siphonNow = this.now();
+    const siphonObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, siphonNow);
+    if (!siphonObservatoryKey) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "SIPHON_INVALID",
-        message: "target must be within 30 tiles of your observatory"
+        message: "no ready observatory within 30 tiles of target"
       });
       return;
     }
@@ -3890,7 +3889,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.startAbilityCooldown(actor.id, "siphon", SIPHON_COOLDOWN_MS);
+    this.stampObservatoryCooldown(siphonObservatoryKey, SIPHON_COOLDOWN_MS, siphonNow, command.commandId, command.playerId);
     const updatedTile: DomainTileState = {
       ...target,
       sabotage: {
@@ -3978,16 +3977,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "create_mountain")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CREATE_MOUNTAIN_INVALID",
-        message: "create mountain is cooling down"
-      });
-      return;
-    }
     if (
       !target ||
       target.terrain !== "LAND" ||
@@ -4017,6 +4006,18 @@ export class SimulationRuntime {
       });
       return;
     }
+    const createMountainNow = this.now();
+    const createMountainObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, createMountainNow);
+    if (!createMountainObservatoryKey) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "CREATE_MOUNTAIN_INVALID",
+        message: "no ready observatory in range"
+      });
+      return;
+    }
     if (actor.points < TERRAIN_SHAPING_GOLD_COST || !this.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -4028,7 +4029,7 @@ export class SimulationRuntime {
       return;
     }
     actor.points -= TERRAIN_SHAPING_GOLD_COST;
-    this.startAbilityCooldown(actor.id, "create_mountain", TERRAIN_SHAPING_COOLDOWN_MS);
+    this.stampObservatoryCooldown(createMountainObservatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, createMountainNow, command.commandId, command.playerId);
     const updatedTile: DomainTileState = {
       ...target,
       terrain: "MOUNTAIN",
@@ -4074,16 +4075,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.abilityOnCooldown(actor.id, "remove_mountain")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REMOVE_MOUNTAIN_INVALID",
-        message: "remove mountain is cooling down"
-      });
-      return;
-    }
     if (!target || target.terrain !== "MOUNTAIN") {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -4094,13 +4085,15 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.ownedLandWithinRange(actor.id, target.x, target.y, 2)) {
+    const removeMountainNow = this.now();
+    const removeMountainObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, removeMountainNow);
+    if (!removeMountainObservatoryKey) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "REMOVE_MOUNTAIN_INVALID",
-        message: "target must be within 2 tiles of your land"
+        message: "no ready observatory in range"
       });
       return;
     }
@@ -4115,7 +4108,7 @@ export class SimulationRuntime {
       return;
     }
     actor.points -= TERRAIN_SHAPING_GOLD_COST;
-    this.startAbilityCooldown(actor.id, "remove_mountain", TERRAIN_SHAPING_COOLDOWN_MS);
+    this.stampObservatoryCooldown(removeMountainObservatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, removeMountainNow, command.commandId, command.playerId);
     const updatedTile: DomainTileState = { ...target, terrain: "LAND" };
     this.replaceTileState(targetKey, updatedTile);
     this.emitEvent({
@@ -4432,6 +4425,99 @@ export class SimulationRuntime {
       }
     }
     return false;
+  }
+
+  /**
+   * Wrapped chebyshev distance honoring world-map cylindrical wrap.
+   * Mirrors `chebyshevDistanceWrapped` on the client.
+   */
+  private wrappedChebyshev(ax: number, ay: number, bx: number, by: number): number {
+    const dxRaw = Math.abs(ax - bx);
+    const dyRaw = Math.abs(ay - by);
+    const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
+    const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
+    return Math.max(dx, dy);
+  }
+
+  /**
+   * Crystal-ability cooldowns are stored per-observatory. To cast, the player must
+   * own an active observatory within OBSERVATORY_CAST_RADIUS of the target tile whose
+   * cooldownUntil has elapsed. The chosen observatory's tile key is returned so the
+   * caller can stamp the cooldown on it; overlapping observatories therefore let the
+   * player chain casts.
+   *
+   * Returns the soonest-ready (lowest cooldownUntil) off-cooldown match, or undefined.
+   */
+  private pickReadyOwnedObservatoryForTarget(
+    playerId: string,
+    targetX: number,
+    targetY: number,
+    now: number,
+    range = OBSERVATORY_CAST_RADIUS
+  ): string | undefined {
+    let bestKey: string | undefined;
+    let bestCooldownUntil = Number.POSITIVE_INFINITY;
+    for (const [tileKey, tile] of this.tiles) {
+      if (tile.ownerId !== playerId) continue;
+      const obs = tile.observatory;
+      if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
+      if (this.wrappedChebyshev(tile.x, tile.y, targetX, targetY) > range) continue;
+      const cooldownUntil = obs.cooldownUntil ?? 0;
+      if (cooldownUntil > now) continue;
+      if (cooldownUntil < bestCooldownUntil) {
+        bestCooldownUntil = cooldownUntil;
+        bestKey = tileKey;
+      }
+    }
+    return bestKey;
+  }
+
+  /**
+   * Variant for abilities with no spatial target (e.g. reveal_empire_stats targets a
+   * player). Returns any owned, active, off-cooldown observatory, soonest-ready first.
+   */
+  private pickReadyOwnedObservatoryAny(playerId: string, now: number): string | undefined {
+    let bestKey: string | undefined;
+    let bestCooldownUntil = Number.POSITIVE_INFINITY;
+    for (const [tileKey, tile] of this.tiles) {
+      if (tile.ownerId !== playerId) continue;
+      const obs = tile.observatory;
+      if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
+      const cooldownUntil = obs.cooldownUntil ?? 0;
+      if (cooldownUntil > now) continue;
+      if (cooldownUntil < bestCooldownUntil) {
+        bestCooldownUntil = cooldownUntil;
+        bestKey = tileKey;
+      }
+    }
+    return bestKey;
+  }
+
+  /**
+   * Stamp cooldownUntil = now + durationMs onto the observatory at `tileKey`.
+   * Updates the canonical tile state and emits a tile delta so clients see the new
+   * cooldown via `tile.observatory.cooldownUntil`.
+   */
+  private stampObservatoryCooldown(
+    tileKey: string,
+    durationMs: number,
+    now: number,
+    commandId: string,
+    playerId: string
+  ): void {
+    const tile = this.tiles.get(tileKey);
+    if (!tile?.observatory) return;
+    const updatedTile: DomainTileState = {
+      ...tile,
+      observatory: { ...tile.observatory, cooldownUntil: now + durationMs }
+    };
+    this.replaceTileState(tileKey, updatedTile, commandId);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
   }
 
   private isCoastalLand(x: number, y: number): boolean {

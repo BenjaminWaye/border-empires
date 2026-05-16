@@ -4854,7 +4854,8 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } },
-          { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          { x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } }
         ],
         activeLocks: []
       }
@@ -4934,6 +4935,22 @@ describe("simulation runtime", () => {
         tiles: [
           {
             x: 0,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            observatory: { ownerId: "player-1", status: "active" }
+          },
+          {
+            x: 5,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            observatory: { ownerId: "player-1", status: "active" }
+          },
+          {
+            x: 6,
             y: 0,
             terrain: "LAND",
             ownerId: "player-1",
@@ -5161,13 +5178,13 @@ describe("simulation runtime", () => {
       ]),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
           { x: 0, y: 3, terrain: "SEA" },
           { x: 0, y: 4, terrain: "SEA" },
           { x: 0, y: 5, terrain: "LAND" },
-          { x: 2, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 2, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
           { x: 3, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
         ],
         activeLocks: []
