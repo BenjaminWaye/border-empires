@@ -144,7 +144,7 @@ describe("recoverSimulationStateFromEvents", () => {
     expect(origin?.ownershipState).toBe("FRONTIER");
     expect(origin?.terrain).toBe("FOREST");
     expect(origin?.resource).toBe("FOOD");
-    expect(origin?.town).toBeUndefined();
+    expect(origin?.town).toEqual(expect.objectContaining({ name: "ATTACKER_HOME", populationTier: "TOWN" }));
   });
 
   it("keeps unresolved accepted locks in recovered state", () => {

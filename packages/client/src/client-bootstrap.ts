@@ -18,6 +18,7 @@ import {
   setTrue3DRendererActive
 } from "./client-renderer-mode.js";
 import { startClientRuntimeLoop } from "./client-runtime-loop.js";
+import { mountRallyInvitePanel, mountRallyNewPanel } from "./client-rally-links.js";
 
 type BootstrapDeps = Record<string, any>;
 
@@ -195,6 +196,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   });
 
   const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket } = authFlow;
+  mountRallyNewPanel({ firebaseAuth, wsUrl });
+  mountRallyInvitePanel({ firebaseAuth, wsUrl });
 
   const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
     if (ws.readyState !== ws.OPEN) {
