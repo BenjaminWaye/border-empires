@@ -20,15 +20,16 @@ export type TownSupportCoinLayer = {
   readonly dispose: () => void;
 };
 
-// Real gold coins read as gold because of four cues stacked together:
+// Real gold coins read as gold because of these cues stacked together:
 //   1. A warm radial gradient (highlight upper-left, deep amber lower-right)
 //      that suggests 3D form lit from above.
-//   2. A dark rim outline + a thinner inner ring framing the face.
+//   2. A dark rim outline + a thinner inner ring framing a recessed face.
 //   3. Tiny radial tick marks suggesting the milled/reeded edge.
-//   4. An embossed face glyph — dark shadow offset down-right, bright
-//      highlight offset up-left, mid-tone fill in the middle.
-// The grey coin uses the same construction with desaturated silvery tones
-// so "not yet contributing" reads as a tarnished/empty coin instead of a
+//   4. A soft specular highlight in the upper-left to sell the metallic shine.
+// No glyph or denomination on the face — the disk's metallic look is what
+// makes it read as a coin; adding a symbol clutters the icon. The grey
+// coin uses the same construction with desaturated silvery tones so
+// "not yet contributing" reads as a tarnished/empty coin instead of a
 // different shape.
 const buildCoinTexture = (kind: TownSupportCoinKind): CanvasTexture => {
   const size = COIN_TEXTURE_SIZE;
@@ -54,9 +55,7 @@ const buildCoinTexture = (kind: TownSupportCoinKind): CanvasTexture => {
         mid: "#e8b923",
         shadow: "#8b5a06",
         rim: "#3a2204",
-        faceFill: "#caa320",
-        faceHighlight: "#fff4b8",
-        faceShadow: "#5a3a04",
+        innerShadow: "rgba(60, 36, 4, 0.35)",
         specular: "rgba(255, 252, 215, 0.55)"
       }
     : {
@@ -65,9 +64,7 @@ const buildCoinTexture = (kind: TownSupportCoinKind): CanvasTexture => {
         mid: "#9aa0ab",
         shadow: "#52596a",
         rim: "#23272f",
-        faceFill: "#aab0bb",
-        faceHighlight: "#eceff4",
-        faceShadow: "#3a3e48",
+        innerShadow: "rgba(34, 38, 46, 0.30)",
         specular: "rgba(255, 255, 255, 0.40)"
       };
 
@@ -111,10 +108,20 @@ const buildCoinTexture = (kind: TownSupportCoinKind): CanvasTexture => {
   }
   ctx.globalAlpha = 1;
 
-  // 4. Inner ring framing the face.
+  // 4. Inner ring framing a slightly recessed face. Soft inner-shadow
+  // gradient inside the ring sells the recess without requiring a glyph.
   const innerRingRadius = r * 0.78;
+  const faceGradient = ctx.createRadialGradient(
+    cx - r * 0.18, cy - r * 0.2, r * 0.05,
+    cx + r * 0.1, cy + r * 0.15, innerRingRadius
+  );
+  faceGradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+  faceGradient.addColorStop(0.7, "rgba(0, 0, 0, 0)");
+  faceGradient.addColorStop(1, palette.innerShadow);
   ctx.beginPath();
   ctx.arc(cx, cy, innerRingRadius, 0, Math.PI * 2);
+  ctx.fillStyle = faceGradient;
+  ctx.fill();
   ctx.lineWidth = Math.max(1.5, size * 0.014);
   ctx.strokeStyle = palette.rim;
   ctx.globalAlpha = 0.55;
@@ -122,7 +129,6 @@ const buildCoinTexture = (kind: TownSupportCoinKind): CanvasTexture => {
   ctx.globalAlpha = 1;
 
   // 5. Soft specular highlight in the upper-left to sell the metallic shine.
-  // Drawn before the glyph so the $ stays crisp on top.
   const specGradient = ctx.createRadialGradient(
     cx - r * 0.4, cy - r * 0.45, 0,
     cx - r * 0.4, cy - r * 0.45, r * 0.55
@@ -133,25 +139,6 @@ const buildCoinTexture = (kind: TownSupportCoinKind): CanvasTexture => {
   ctx.arc(cx, cy, r * 0.97, 0, Math.PI * 2);
   ctx.fillStyle = specGradient;
   ctx.fill();
-
-  // 6. Embossed $ glyph: shadow offset down-right, then mid-tone fill,
-  // then bright highlight offset up-left, then a thin rim outline.
-  const fontSize = Math.round(r * 1.25);
-  ctx.font = `900 ${fontSize}px Georgia, "Times New Roman", serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const glyphBaseY = cy + size * 0.005;
-  ctx.fillStyle = palette.faceShadow;
-  ctx.fillText("$", cx + size * 0.018, glyphBaseY + size * 0.022);
-  ctx.fillStyle = palette.faceFill;
-  ctx.fillText("$", cx, glyphBaseY);
-  ctx.globalAlpha = 0.85;
-  ctx.fillStyle = palette.faceHighlight;
-  ctx.fillText("$", cx - size * 0.012, glyphBaseY - size * 0.014);
-  ctx.globalAlpha = 1;
-  ctx.lineWidth = Math.max(1.5, size * 0.012);
-  ctx.strokeStyle = palette.rim;
-  ctx.strokeText("$", cx, glyphBaseY);
 
   const texture = new CanvasTexture(canvas);
   texture.needsUpdate = true;

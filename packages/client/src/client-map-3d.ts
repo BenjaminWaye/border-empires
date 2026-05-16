@@ -515,23 +515,49 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
     }
   };
+  // Find the player's anchor town for the support-coin overlay: either the
+  // selected tile itself (when the player selects one of their own non-
+  // settlement towns) or, if the selected tile is a support tile adjacent
+  // to such a town, that adjacent town. The second case keeps the coin
+  // overlay visible after the player clicks a coin tile to settle it.
+  const supportCoinAnchorTown = (selectedTile: Tile | undefined): Tile | undefined => {
+    if (!selectedTile) return undefined;
+    if (selectedTile.town && selectedTile.town.populationTier !== "SETTLEMENT" && selectedTile.ownerId === deps.state.me) {
+      return selectedTile;
+    }
+    // Walk the 8 neighbors looking for one of the player's non-settlement
+    // towns. If multiple match, pick the deterministic lowest (x,y) so the
+    // overlay stays stable as the user drags the selection around.
+    let best: Tile | undefined;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = deps.wrapX(selectedTile.x + dx);
+        const ny = deps.wrapY(selectedTile.y + dy);
+        const neighbor = deps.state.tiles.get(deps.keyFor(nx, ny));
+        if (!neighbor?.town) continue;
+        if (neighbor.town.populationTier === "SETTLEMENT") continue;
+        if (neighbor.ownerId !== deps.state.me) continue;
+        if (neighbor.ownershipState !== "SETTLED") continue;
+        if (!best || neighbor.x < best.x || (neighbor.x === best.x && neighbor.y < best.y)) {
+          best = neighbor;
+        }
+      }
+    }
+    return best;
+  };
   const syncTownSupportCoins = (): void => {
     const selectedCoord = deps.state.selected;
     if (!selectedCoord) { townSupportCoins.clear(); return; }
     const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
-    if (!selected?.town || selected.town.populationTier === "SETTLEMENT") {
-      townSupportCoins.clear();
-      return;
-    }
-    // Only show the coin teach when the town belongs to the local player —
-    // showing it on enemy towns would suggest you can develop them.
-    if (selected.ownerId !== deps.state.me) { townSupportCoins.clear(); return; }
+    const anchor = supportCoinAnchorTown(selected);
+    if (!anchor) { townSupportCoins.clear(); return; }
     const entries: TownSupportCoinEntry[] = [];
     for (let dy = -1; dy <= 1; dy += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
         if (dx === 0 && dy === 0) continue;
-        const wx = deps.wrapX(selected.x + dx);
-        const wy = deps.wrapY(selected.y + dy);
+        const wx = deps.wrapX(anchor.x + dx);
+        const wy = deps.wrapY(anchor.y + dy);
         if (!isTownSupportHighlightableAt(wx, wy)) continue;
         const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
         // Gold coin = this tile currently contributes to the town's gold
