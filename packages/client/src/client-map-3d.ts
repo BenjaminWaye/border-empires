@@ -29,6 +29,7 @@ import { createHeightfield, type HeightfieldTerrainKind } from "./client-map-3d-
 import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "./client-map-3d-water-surface.js";
 import { createVillageEffects } from "./client-map-3d-village-fx.js";
+import { createFloatingTextLayer } from "./client-map-3d-floating-text.js";
 import { createForest } from "./client-map-3d-forest.js";
 import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
@@ -104,6 +105,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
   const villageEffects = createVillageEffects(scene);
+  const floatingText = createFloatingTextLayer(scene);
+  // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns
+  // (capture event) so the floating "-pop" indicator fires once per capture.
+  const lastSeenCaptureShockByTile = new Map<string, number>();
   const forest = createForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
@@ -662,6 +667,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     mountainMassifs.clear();
     villageEffects.clear();
+    floatingText.clear();
+    lastSeenCaptureShockByTile.clear();
     forest.clear();
     ownershipOverlay.clear();
     townOverlay.clear();
@@ -808,11 +815,32 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
           townOverlay.addInstance(x, z, surfaceY, renderedTier);
+          const tileSeed = wx * 17 + wy * 31;
           if (tile && shouldShowTownSmoke(tile)) {
-            // Smoke marks active settled town growth. Capital banners stay off for now;
-            // re-enable by adding villageEffects.addCapitalBanner if wanted.
-            const tileSeed = wx * 17 + wy * 31;
+            // Pale owned-village smoke marks active settled town growth. Capital banners stay
+            // off for now; re-enable by adding villageEffects.addCapitalBanner if wanted.
             villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
+          }
+          // Capture-shock smoke + floating "-N pop" indicator are independent of the
+          // owned-village smoke gate: a recently captured FRONTIER tile is intentionally
+          // alarmed even though it doesn't qualify for the pale growth-smoke above.
+          const captureShockUntil = tile?.town?.captureShockUntil;
+          const tileKey = deps.keyFor(wx, wy);
+          if (typeof captureShockUntil === "number" && captureShockUntil > Date.now()) {
+            villageEffects.addCapturedTownSmoke(x, z, surfaceY, tileSeed);
+            const previousShock = lastSeenCaptureShockByTile.get(tileKey) ?? 0;
+            if (captureShockUntil > previousShock) {
+              const popBefore = tile?.town?.populationBeforeCapture;
+              const popAfter = tile?.town?.population;
+              if (typeof popBefore === "number" && typeof popAfter === "number" && popBefore > popAfter) {
+                const popLoss = Math.max(1, Math.round(popBefore - popAfter));
+                floatingText.spawn(x, z, surfaceY, `-${popLoss} pop`);
+              }
+              lastSeenCaptureShockByTile.set(tileKey, captureShockUntil);
+            }
+          } else if (lastSeenCaptureShockByTile.has(tileKey)) {
+            // Shock expired or town cleared: drop the entry so the map can't grow unbounded.
+            lastSeenCaptureShockByTile.delete(tileKey);
           }
           // Mirror the "Town is unfed" line in the tile-menu: badge only
           // paints when clicking the town would also show the unfed warning.
@@ -1002,6 +1030,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncQueueMarkers();
     syncObservatoryRangeMarkers();
     villageEffects.update(nowMs);
+    floatingText.update(nowMs);
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
@@ -1062,6 +1091,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     defensibilityOverlay.dispose();
     forest.dispose();
     villageEffects.dispose();
+    floatingText.dispose();
     waterSurface.dispose();
     mountainMassifs.dispose();
     heightfield.dispose();

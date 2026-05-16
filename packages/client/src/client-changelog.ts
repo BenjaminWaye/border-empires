@@ -19,10 +19,32 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.2",
+  version: "2026.05.16.3",
   title: "What's New",
-  summary: "Claiming a neutral town as frontier no longer grants town manpower cap or regen before you settle it. Settlement is now required before town boosts activate.",
+  summary: "Capturing a town from another player now visibly costs them: the town drops 5% population on capture (matching the legacy behaviour), a floating \"-N pop\" indicator flashes over the town, and three dark grey smoke columns drift from any town still inside its 10-minute capture-shock cooldown so you can spot recently flipped towns at a glance. Capturing the previous owner's SETTLEMENT (their home tile) now also evacuates that settlement off the captured tile and re-roots it on one of their remaining tiles (or, if they have none, on a fresh tile elsewhere).",
   entries: [
+    {
+      introducedIn: "2026.05.16.3",
+      title: "Capturing a SETTLEMENT evacuates it off the captured tile",
+      why: "Before this change, capturing another player's home settlement transferred ownership of the tile and left the town intact under the new ruler. That made capturing a home tile indistinguishable from capturing any other town, and the previous owner only got a respawn elsewhere if you had wiped out their last tile. It also clashed with the legacy behaviour where a captured settlement evacuates and re-roots on the previous owner's remaining territory.",
+      changes: [
+        "Capturing a SETTLEMENT-tier town from another player now strips the town off the captured tile (you take only the land, FRONTIER-locked as usual).",
+        "If the previous owner still has territory, the displaced settlement re-roots on one of their remaining settled tiles (preferring a tile with no town) with the shocked post-capture population.",
+        "If the previous owner has no territory left, the existing eliminate-and-respawn path still places a fresh settlement on unowned land — no behaviour change for full eliminations.",
+        "Capturing any non-settlement town (TOWN / CITY / GREAT_CITY / METROPOLIS) is unchanged: ownership transfers, capture-shock + smoke columns still apply."
+      ]
+    },
+    {
+      introducedIn: "2026.05.16.3",
+      title: "Town capture: population shock + visible smoke columns",
+      why: "The rewrite stack stopped applying the legacy capture-shock effects, so towns flipping between players grew immediately under the new ruler with no visible disruption. That made captures feel weightless and gave no on-map signal that a town was still recovering. Pop loss + smoke columns restore the cost and make the cooldown legible.",
+      changes: [
+        "Capturing a town from another player now multiplies its population by 0.95, matching the legacy 5% population loss. Capturing a neutral (unowned) town is unchanged — no shock applied.",
+        "While the 10-minute capture-shock window is active, the town's growth modifier reads \"Recently captured\" and population growth is held at zero.",
+        "Three dark grey smoke columns drift up from any town inside its capture-shock window so flipped towns are visible at a glance on the 3D map.",
+        "A floating \"-N pop\" red indicator rises briefly over the town the first time the client sees it enter capture shock, making the population loss obvious in the moment."
+      ]
+    },
     {
       introducedIn: "2026.05.16.2",
       title: "Town manpower waits for settlement",

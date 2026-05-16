@@ -82,6 +82,8 @@ export type DomainTileState = {
             | "hasBank"
             | "bankActive"
             | "foodUpkeepPerMinute"
+            | "captureShockUntil"
+            | "populationBeforeCapture"
             | "growthModifiers"
           >
         >)
