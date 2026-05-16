@@ -299,7 +299,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
           ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
           ...(previousTarget?.town ? { town: previousTarget.town } : {}),
           ownerId: event.playerId,
-          ownershipState: "FRONTIER"
+          ownershipState: event.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
         });
       } else if (event.combatResult?.defenderOwnerId) {
         const originLost = event.combatResult.changes.some(

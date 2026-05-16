@@ -61,7 +61,7 @@ describe("simulation seed state", () => {
     expect(world.tiles.get("2,4")).toMatchObject({ ownerId: "player-1", town: { name: "Nauticus", type: "FARMING" } });
     expect(world.tiles.get("4,4")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
     expect(world.tiles.get("5,4")).toMatchObject({ ownerId: "ai-1", ownershipState: "SETTLED" });
-    expect(world.tiles.get("25,1")).toMatchObject({ ownerId: "barbarian-1", ownershipState: "FRONTIER" });
+    expect(world.tiles.get("25,1")).toMatchObject({ ownerId: "barbarian-1", ownershipState: "SETTLED" });
     expect(world.tiles.get("9,12")).toMatchObject({ terrain: "SEA" });
   });
 
@@ -94,7 +94,7 @@ describe("simulation seed state", () => {
     expect(world.summary.totalTownTiles).toBe(403);
     expect(world.tiles.get("4,4")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
     expect(world.tiles.get("5,4")).toMatchObject({ ownerId: "ai-1", ownershipState: "SETTLED" });
-    expect(world.tiles.get("25,1")).toMatchObject({ ownerId: "barbarian-1", ownershipState: "FRONTIER" });
+    expect(world.tiles.get("25,1")).toMatchObject({ ownerId: "barbarian-1", ownershipState: "SETTLED" });
     expect(world.tiles.get("101,98")).toMatchObject({ ownerId: "ai-40", ownershipState: "SETTLED" });
   });
 
@@ -111,7 +111,7 @@ describe("simulation seed state", () => {
       if (tile.dockId) dockCount += 1;
       if (tile.shardSite) shardSiteCount += 1;
       if (tile.town && !tile.ownerId) neutralTownCount += 1;
-      if (tile.ownerId && tile.ownershipState === "SETTLED") {
+      if (tile.ownerId && tile.ownerId !== "barbarian-1" && tile.ownershipState === "SETTLED") {
         ownedHomeTiles.push({ playerId: tile.ownerId, x: tile.x, y: tile.y });
       }
     }
