@@ -3,9 +3,18 @@
  * around a persistent focus origin tile. Large empires would otherwise blow
  * planner CPU on the main event loop (prod observed 30-45s synchronous stalls
  * pre-fix, all inside frontier-command-planner.ts candidate enumeration).
+ *
+ * Cap rationale: the per-AI per-tick cost is roughly
+ * `frontSize × ~15 candidates × ~50 tile-map lookups`. The initial #269 cap
+ * of 1024 still produced 7s AI tick p99 on a 4h staging soak (5 AIs growing
+ * past ~250 owned tiles each). 256 is ~4x cheaper and still gives BFS a
+ * radius of ~8 tiles in each direction from a hot-frontier origin — enough
+ * to plan a meaningful local action without scanning interior territory the
+ * AI isn't acting on this tick. If 256 still produces a long tail, drop to
+ * 128 next; if AI behaviour degrades visibly, raise back toward 512.
  */
 
-export const AI_SPATIAL_FOCUS_MAX_OWNED_TILES = 1024;
+export const AI_SPATIAL_FOCUS_MAX_OWNED_TILES = 256;
 export const AI_SPATIAL_FOCUS_EXPIRY_MS = 60_000;
 export const AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS = 15_000;
 
