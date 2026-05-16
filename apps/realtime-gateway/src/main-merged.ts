@@ -4,8 +4,14 @@
 import { createServer } from "node:http";
 import { createSimulationService } from "../../simulation/src/simulation-service.js";
 import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env.js";
+import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env.js";
+
+// Boot the event-loop watchdog FIRST so a stall during sim replay or gateway
+// bootstrap still triggers a process restart instead of leaving the machine
+// wedged for the Fly grace_period window.
+startEventLoopWatchdog({ label: "combined" });
 
 const simEnv = parseSimulationRuntimeEnv(process.env);
 
