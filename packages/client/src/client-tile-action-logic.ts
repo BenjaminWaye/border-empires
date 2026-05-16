@@ -35,6 +35,7 @@ import type {
   TileActionDef
 } from "./client-types.js";
 import { ownedActiveObservatoryWithinRange } from "./client-tile-action-support.js";
+import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -681,8 +682,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.fogged) return [];
   if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA") return [];
   if (tile.terrain === "MOUNTAIN") {
-    const removeCooldown = deps.abilityCooldownRemainingMs("remove_mountain");
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
+    const inObsRange = ownedActiveObservatoryWithinRange(state, tile);
+    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now());
+    const removeCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("remove_mountain"));
     return [
       {
         id: "remove_mountain",
@@ -690,7 +693,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailability(
           hasTerrainShapingCapability(state) &&
             !observatoryProtection &&
-            hasOwnedLandWithinClientRange(state, tile.x, tile.y, 2, deps) &&
+            inObsRange &&
             removeCooldown <= 0 &&
             state.gold >= 8000 &&
             (state.strategicResources.CRYSTAL ?? 0) >= 400,
@@ -698,8 +701,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             ? "Requires Aether Moorings"
             : observatoryProtection
               ? "Blocked by observatory field"
-              : !hasOwnedLandWithinClientRange(state, tile.x, tile.y, 2, deps)
-                ? "Must be within 2 tiles of your land"
+              : !inObsRange
+                ? "Need active observatory in range"
                 : removeCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(removeCooldown)}`
                   : state.gold < 8000
@@ -713,9 +716,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.terrain !== "LAND") return [];
   const queuedSettlement = hasQueuedSettlementForTile(state.developmentQueue, deps.keyFor(tile.x, tile.y));
   const createMountainAction = (): TileActionDef => {
-    const createCooldown = deps.abilityCooldownRemainingMs("create_mountain");
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
-    const hasRange = hasOwnedLandWithinClientRange(state, tile.x, tile.y, 2, deps);
+    const inObsRange = ownedActiveObservatoryWithinRange(state, tile);
+    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now());
+    const createCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("create_mountain"));
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     return {
       id: "create_mountain",
@@ -723,7 +727,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       ...tileActionAvailability(
         hasTerrainShapingCapability(state) &&
           !observatoryProtection &&
-          hasRange &&
+          inObsRange &&
           !blockedBySite &&
           createCooldown <= 0 &&
           state.gold >= 8000 &&
@@ -732,8 +736,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ? "Requires Aether Moorings"
           : observatoryProtection
             ? "Blocked by observatory field"
-            : !hasRange
-              ? "Must be within 2 tiles of your land"
+            : !inObsRange
+              ? "Need active observatory in range"
               : blockedBySite
                 ? "Town, dock, or structure blocks terrain shaping"
                 : createCooldown > 0
@@ -751,7 +755,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const inObservatoryRange = ownedActiveObservatoryWithinRange(state, tile);
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
-    const cooldown = deps.abilityCooldownRemainingMs("retort_recasting");
+    const cooldown = Math.max(
+      readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now()),
+      deps.abilityCooldownRemainingMs("retort_recasting")
+    );
     const canCast =
       hasRetortRecastingCapability(state) &&
       inObservatoryRange &&
@@ -787,6 +794,155 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailability(canCast, reason, target.summary)
       }));
   };
+  // Lance/EMP/Wall/Bridge: always emit a row when the player has the tech, with a
+  // priority-ordered disabledReason ladder. Observatory range + per-observatory cooldown
+  // are the universal first gates per design.
+  const crystalCoreActions = (): TileActionDef[] => {
+    const out: TileActionDef[] = [];
+    const now = Date.now();
+    const obsInRange = ownedActiveObservatoryWithinRange(state, tile);
+    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now);
+    const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
+    const crystalAmt = state.strategicResources.CRYSTAL ?? 0;
+    const isOwnTile = Boolean(tile.ownerId && tile.ownerId === state.me);
+    const isFrontier = !tile.ownerId;
+    const economicStructureType = tile.economicStructure?.type;
+    const isMonumentType =
+      economicStructureType === "IMPERIAL_EXCHANGE" ||
+      economicStructureType === "WORLD_ENGINE" ||
+      economicStructureType === "AEGIS_DOME" ||
+      economicStructureType === "ASTRAL_DOCK";
+    const isMonumentPartType =
+      economicStructureType === "IMPERIAL_EXCHANGE_PART" ||
+      economicStructureType === "WORLD_ENGINE_PART" ||
+      economicStructureType === "AEGIS_DOME_PART" ||
+      economicStructureType === "ASTRAL_DOCK_PART";
+
+    // Aether Lance
+    if (state.techIds.includes("signal-fires")) {
+      const lanceCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_lance"));
+      const hasTargetStructure =
+        !tile.town &&
+        !tile.dockId &&
+        (Boolean(tile.fort) ||
+          Boolean(tile.observatory) ||
+          Boolean(tile.siegeOutpost) ||
+          (economicStructureType !== undefined && !isMonumentType && !isMonumentPartType));
+      const targetsMonument = isMonumentType;
+      const lanceCost = 3000;
+      const lanceCrystal = 100;
+      const reason =
+        !obsInRange
+          ? "Need active observatory in range"
+          : isOwnTile
+            ? "Cannot lance your own tiles"
+            : isFrontier
+              ? "Cannot lance unclaimed land"
+              : tile.town
+                ? "Target a structure, not a town"
+                : targetsMonument
+                  ? "Monuments require Aether EMP"
+                  : !hasTargetStructure
+                    ? "No hostile structure here"
+                    : observatoryProtection
+                      ? "Blocked by observatory field"
+                      : lanceCooldown > 0
+                        ? `Cooldown ${deps.formatCooldownShort(lanceCooldown)}`
+                        : state.gold < lanceCost
+                          ? `Need ${lanceCost} gold`
+                          : crystalAmt < lanceCrystal
+                            ? `Need ${lanceCrystal} CRYSTAL`
+                            : "";
+      out.push({
+        id: "aether_lance",
+        label: "Aether Lance",
+        ...tileActionAvailability(reason === "", reason, "3000 gold + 100 CRYSTAL • destroy one hostile structure")
+      });
+    }
+
+    // Aether EMP
+    if (state.techIds.includes("cryptography")) {
+      const empCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_emp"));
+      const empCrystal = 160;
+      const reason =
+        !obsInRange
+          ? "Need active observatory in range"
+          : isOwnTile
+            ? "Cannot EMP your own tiles"
+            : isFrontier
+              ? "Cannot EMP unclaimed land"
+              : !isMonumentType &&
+                economicStructureType !== "AETHER_TOWER" &&
+                economicStructureType !== "AIRPORT" &&
+                economicStructureType !== "RADAR_SYSTEM"
+                ? "Target a powered structure or monument"
+                : observatoryProtection
+                  ? "Blocked by observatory field"
+                  : empCooldown > 0
+                    ? `Cooldown ${deps.formatCooldownShort(empCooldown)}`
+                    : crystalAmt < empCrystal
+                      ? `Need ${empCrystal} CRYSTAL`
+                      : "";
+      out.push({
+        id: "aether_emp",
+        label: "Aether EMP",
+        ...tileActionAvailability(reason === "", reason, "160 CRYSTAL • disable one powered enemy structure for 20m")
+      });
+    }
+
+    // Aether Wall
+    if (hasAetherWallCapability(state)) {
+      const devOverride = hasLocalDevAetherWallOverride(state);
+      const wallCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_wall"));
+      const wallCrystal = 25;
+      const reason = devOverride
+        ? ""
+        : !obsInRange
+          ? "Need active observatory in range"
+          : wallCooldown > 0
+            ? `Cooldown ${deps.formatCooldownShort(wallCooldown)}`
+            : crystalAmt < wallCrystal
+              ? `Need ${wallCrystal} CRYSTAL`
+              : "";
+      out.push({
+        id: "aether_wall",
+        label: "Aether Wall",
+        ...tileActionAvailability(reason === "", reason, "25 CRYSTAL • 20m duration • up to 3 borders")
+      });
+    }
+
+    // Aether Bridge
+    if (hasAetherBridgeCapability(state)) {
+      const bridgeCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_bridge"));
+      const adjacentTerrains = [
+        deps.terrainAt(tile.x, tile.y - 1),
+        deps.terrainAt(tile.x + 1, tile.y),
+        deps.terrainAt(tile.x, tile.y + 1),
+        deps.terrainAt(tile.x - 1, tile.y)
+      ];
+      const hasSeaNeighbor = adjacentTerrains.some((t) => t === "SEA" || t === "COASTAL_SEA");
+      const bridgeCrystal = 30;
+      const reason =
+        !obsInRange
+          ? "Need active observatory in range"
+          : tile.terrain !== "LAND" || !hasSeaNeighbor
+            ? "Target must be coastal land"
+            : tile.ownerId && tile.ownerId !== state.me && observatoryProtection
+              ? "Landing blocked by enemy observatory"
+              : bridgeCooldown > 0
+                ? `Cooldown ${deps.formatCooldownShort(bridgeCooldown)}`
+                : crystalAmt < bridgeCrystal
+                  ? `Need ${bridgeCrystal} CRYSTAL`
+                  : "";
+      out.push({
+        id: "aether_bridge",
+        label: "Aether Bridge",
+        ...tileActionAvailability(reason === "", reason, "30 CRYSTAL • crosses up to 4 sea tiles")
+      });
+    }
+
+    return out;
+  };
   if (tile.shardSite) {
     const ownsShardTile =
       tile.ownerId === state.me &&
@@ -802,6 +958,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} recovered from this cache`
         },
         ...retortRecastActions(),
+        ...crystalCoreActions(),
         createMountainAction()
       ];
     }
@@ -840,6 +997,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       )
     });
     out.push(...retortRecastActions());
+    out.push(...crystalCoreActions());
     out.push(createMountainAction());
     return out;
   }
@@ -2003,27 +2161,12 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       }
     }
     out.push(...retortRecastActions());
-    out.push({
-      id: "aether_wall",
-      label: "Aether Wall",
-      ...tileActionAvailability(
-        hasAetherWallCapability(state) &&
-          (hasLocalDevAetherWallOverride(state) || (deps.abilityCooldownRemainingMs("aether_wall") <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25)),
-        !hasAetherWallCapability(state)
-          ? "Requires Terrain Engineering"
-          : !hasLocalDevAetherWallOverride(state) && deps.abilityCooldownRemainingMs("aether_wall") > 0
-            ? `Cooldown ${deps.formatCooldownShort(deps.abilityCooldownRemainingMs("aether_wall"))}`
-            : !hasLocalDevAetherWallOverride(state) && (state.strategicResources.CRYSTAL ?? 0) < 25
-              ? "Need 25 CRYSTAL"
-              : "",
-        "25 CRYSTAL • 20m duration • up to 3 borders"
-      )
-    });
+    out.push(...crystalCoreActions());
     out.push(createMountainAction());
     if (tile.town?.populationTier !== "SETTLEMENT") out.push({ id: "abandon_territory", label: "Abandon Territory" });
     return out;
   }
-  if (deps.isTileOwnedByAlly(tile)) return [];
+  if (deps.isTileOwnedByAlly(tile)) return [...crystalCoreActions(), createMountainAction()];
   if (tile.ownerId === "barbarian") {
     const previewDetail = deps.attackPreviewDetailForTarget(tile);
     const previewPending = deps.attackPreviewPendingForTarget(tile);
@@ -2041,6 +2184,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       }
     ];
     actions.push(...retortRecastActions());
+    actions.push(...crystalCoreActions());
     actions.push(createMountainAction());
     return actions;
   }
@@ -2079,123 +2223,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     });
   }
   const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
-  out.push({
-    id: "aether_wall",
-    label: "Aether Wall",
-    ...tileActionAvailability(
-      hasAetherWallCapability(state) &&
-        (hasLocalDevAetherWallOverride(state) || (deps.abilityCooldownRemainingMs("aether_wall") <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25)),
-      !hasAetherWallCapability(state)
-        ? "Requires Aether Moorings"
-        : !hasLocalDevAetherWallOverride(state) && deps.abilityCooldownRemainingMs("aether_wall") > 0
-          ? `Cooldown ${deps.formatCooldownShort(deps.abilityCooldownRemainingMs("aether_wall"))}`
-          : !hasLocalDevAetherWallOverride(state) && (state.strategicResources.CRYSTAL ?? 0) < 25
-            ? "Need 25 CRYSTAL"
-            : "",
-      "25 CRYSTAL • 20m duration • up to 3 borders"
-    )
-  });
-  out.push({
-    id: "aether_bridge",
-    label: "Aether Bridge",
-    ...tileActionAvailability(
-      hasAetherBridgeCapability(state) &&
-        tile.terrain === "LAND" &&
-        [
-          deps.terrainAt(tile.x, tile.y - 1),
-          deps.terrainAt(tile.x + 1, tile.y),
-          deps.terrainAt(tile.x, tile.y + 1),
-          deps.terrainAt(tile.x - 1, tile.y)
-        ].some((terrain) => terrain === "SEA" || terrain === "COASTAL_SEA") &&
-        (!tile.ownerId || !observatoryProtection) &&
-        deps.abilityCooldownRemainingMs("aether_bridge") <= 0 &&
-        (state.strategicResources.CRYSTAL ?? 0) >= 30,
-      !hasAetherBridgeCapability(state)
-        ? "Requires Aether Bridge"
-        : tile.terrain !== "LAND" || ![
-              deps.terrainAt(tile.x, tile.y - 1),
-              deps.terrainAt(tile.x + 1, tile.y),
-              deps.terrainAt(tile.x, tile.y + 1),
-              deps.terrainAt(tile.x - 1, tile.y)
-            ].some((terrain) => terrain === "SEA" || terrain === "COASTAL_SEA")
-          ? "Target must be coastal land"
-          : tile.ownerId && observatoryProtection
-            ? "Landing blocked by enemy observatory"
-            : deps.abilityCooldownRemainingMs("aether_bridge") > 0
-              ? `Cooldown ${deps.formatCooldownShort(deps.abilityCooldownRemainingMs("aether_bridge"))}`
-              : "Need 30 CRYSTAL",
-      "30 CRYSTAL • crosses up to 4 sea tiles"
-    )
-  });
-  const economicStructureType = tile.economicStructure?.type;
-  const hasTargetableAetherLanceStructure =
-    !tile.town &&
-    !tile.dockId &&
-    (Boolean(tile.fort) ||
-      Boolean(tile.observatory) ||
-      Boolean(tile.siegeOutpost) ||
-      (economicStructureType !== undefined &&
-        economicStructureType !== "IMPERIAL_EXCHANGE_PART" &&
-        economicStructureType !== "WORLD_ENGINE_PART" &&
-        economicStructureType !== "IMPERIAL_EXCHANGE" &&
-        economicStructureType !== "WORLD_ENGINE" &&
-        economicStructureType !== "AEGIS_DOME_PART" &&
-        economicStructureType !== "AEGIS_DOME" &&
-        economicStructureType !== "ASTRAL_DOCK_PART" &&
-        economicStructureType !== "ASTRAL_DOCK"));
-  if (tile.ownerId && tile.ownerId !== state.me && hasTargetableAetherLanceStructure) {
-    const lanceCooldown = deps.abilityCooldownRemainingMs("aether_lance");
-    out.push({
-      id: "aether_lance",
-      label: "Aether Lance",
-      ...tileActionAvailability(
-        state.techIds.includes("signal-fires") &&
-          !observatoryProtection &&
-          lanceCooldown <= 0 &&
-          state.gold >= 3000 &&
-          (state.strategicResources.CRYSTAL ?? 0) >= 100,
-        !state.techIds.includes("signal-fires")
-          ? "Requires Signal Fires"
-          : observatoryProtection
-            ? "Blocked by observatory field"
-            : lanceCooldown > 0
-              ? `Cooldown ${deps.formatCooldownShort(lanceCooldown)}`
-              : state.gold < 3000
-                ? "Need 3000 gold"
-                : "Need 100 CRYSTAL",
-        "3000 gold + 100 CRYSTAL • destroy one hostile structure"
-      )
-    });
-  }
-  const hasTargetableEmpStructure =
-    economicStructureType === "AETHER_TOWER" ||
-    economicStructureType === "AIRPORT" ||
-    economicStructureType === "RADAR_SYSTEM" ||
-    economicStructureType === "IMPERIAL_EXCHANGE" ||
-    economicStructureType === "WORLD_ENGINE" ||
-    economicStructureType === "AEGIS_DOME" ||
-    economicStructureType === "ASTRAL_DOCK";
-  if (tile.ownerId && tile.ownerId !== state.me && hasTargetableEmpStructure) {
-    const empCooldown = deps.abilityCooldownRemainingMs("aether_emp");
-    out.push({
-      id: "aether_emp",
-      label: "Aether EMP",
-      ...tileActionAvailability(
-        state.techIds.includes("cryptography") &&
-          !observatoryProtection &&
-          empCooldown <= 0 &&
-          (state.strategicResources.CRYSTAL ?? 0) >= 160,
-        !state.techIds.includes("cryptography")
-          ? "Requires Cipher Bureaus"
-          : observatoryProtection
-            ? "Blocked by observatory field"
-            : empCooldown > 0
-              ? `Cooldown ${deps.formatCooldownShort(empCooldown)}`
-              : "Need 160 CRYSTAL",
-        "160 CRYSTAL • disable one powered enemy structure for 20m"
-      )
-    });
-  }
+  out.push(...crystalCoreActions());
   if (tile.ownerId && tile.ownerId !== state.me && tile.ownerId !== "barbarian") {
     const activeTruce = deps.activeTruceWithPlayer(tile.ownerId);
     const pendingTruce = deps.pendingTruceWithPlayer(tile.ownerId);
@@ -2248,7 +2276,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         revealActive ? "Cancel current reveal" : "20 CRYSTAL • 0.15 / 10m"
       )
     });
-    const revealStatsCooldown = deps.abilityCooldownRemainingMs("reveal_empire_stats");
+    const obsCooldownForOther = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now());
+    const revealStatsCooldown = Math.max(obsCooldownForOther, deps.abilityCooldownRemainingMs("reveal_empire_stats"));
     out.push({
       id: "reveal_empire_stats",
       label: "Reveal Empire Stats",
@@ -2267,7 +2296,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         "15 CRYSTAL • one-shot empire intel"
       )
     });
-    const sabotageCooldown = deps.abilityCooldownRemainingMs("siphon");
+    const sabotageCooldown = Math.max(obsCooldownForOther, deps.abilityCooldownRemainingMs("siphon"));
     out.push({
       id: "siphon_tile",
       label: "Siphon",

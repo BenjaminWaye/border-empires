@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.15.3",
+  version: "2026.05.16.1",
   title: "What's New",
-  summary: "Gameplay email alerts now have an hourly cooldown as well as the daily cap, so repeated attacks or diplomacy requests cannot burn through several messages at once. Selecting towns near Astral Dock Parts no longer crashes the tile menu, and Market/Caravanary build actions now reflect their rewrite-stack costs.",
+  summary: "Crystal abilities now always show up in the tile menu with a clear reason when you cannot cast — no more silent disappearance. All crystal casts share a per-observatory cooldown gated by observatory range, so overlapping observatories let you chain casts until each covering one is on cooldown.",
   entries: [
+    {
+      introducedIn: "2026.05.16.1",
+      title: "Crystal abilities show why they are unavailable",
+      why: "Aether Lance, EMP, Wall, Bridge and the terrain-shaping casts used to vanish from the tile menu whenever any precondition failed (wrong target, out of range, cooldown), making it impossible to tell whether the ability was researched, on cooldown, or simply unavailable on that tile.",
+      changes: [
+        "Lance, EMP, Wall, Bridge, Create/Remove Mountain and Retort Recast always appear as disabled rows once their tech is researched, with a priority-ordered reason ladder explaining the first failing gate.",
+        "All crystal casts share a single observatory-range gate plus a per-observatory cooldown; with multiple covering observatories you can chain casts until every one of them is on cooldown.",
+        "Create/Remove Mountain are now gated by observatory range (not adjacency to your land), matching the other crystal abilities.",
+        "Lance disabled reasons now distinguish own-tile, frontier, town, and monument targets so the menu tells you what to do next."
+      ]
+    },
     {
       introducedIn: "2026.05.15.3",
       title: "Email alerts are capped hourly and daily",
