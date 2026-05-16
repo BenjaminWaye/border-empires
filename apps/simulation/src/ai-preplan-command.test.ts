@@ -216,6 +216,92 @@ describe("automation preplan command", () => {
     expect(result.diagnostic.preplanReason).toBe("collect_for_economic_recovery");
   });
 
+  it("emits a heartbeat COLLECT_VISIBLE when the producer hasn't collected for over a minute", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Affluent", populationTier: "TOWN" }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 10_000,
+      techIds: techCatalog.techs.map((tech) => tech.id),
+      domainIds: domainCatalog.domains.map((domain) => domain.id),
+      strategicResources: { FOOD: 500, IRON: 500, CRYSTAL: 500, SUPPLY: 500 },
+      settledTileCount: 20,
+      townCount: 5,
+      incomePerMinute: 200,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 7,
+      issuedAt: 1_000_000,
+      sessionPrefix: "ai-runtime",
+      lastCollectVisibleAtMs: 1_000_000 - 60_000
+    });
+
+    expect(result.command).toMatchObject({
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
+    });
+    expect(result.diagnostic.preplanReason).toBe("collect_heartbeat");
+  });
+
+  it("does not emit a heartbeat collect before the interval has elapsed", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Recent", populationTier: "TOWN" }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 10_000,
+      techIds: techCatalog.techs.map((tech) => tech.id),
+      domainIds: domainCatalog.domains.map((domain) => domain.id),
+      strategicResources: { FOOD: 500, IRON: 500, CRYSTAL: 500, SUPPLY: 500 },
+      settledTileCount: 20,
+      townCount: 5,
+      incomePerMinute: 200,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 8,
+      issuedAt: 1_000_000,
+      sessionPrefix: "ai-runtime",
+      lastCollectVisibleAtMs: 1_000_000 - 30_000
+    });
+
+    expect(result.diagnostic.preplanReason).not.toBe("collect_heartbeat");
+  });
+
+  it("suppresses the heartbeat collect while the producer cooldown is active", () => {
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Cooldown", populationTier: "TOWN" }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 10_000,
+      techIds: techCatalog.techs.map((tech) => tech.id),
+      domainIds: domainCatalog.domains.map((domain) => domain.id),
+      strategicResources: { FOOD: 500, IRON: 500, CRYSTAL: 500, SUPPLY: 500 },
+      settledTileCount: 20,
+      townCount: 5,
+      incomePerMinute: 200,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 9,
+      issuedAt: 1_000_000,
+      sessionPrefix: "ai-runtime",
+      lastCollectVisibleAtMs: 1_000_000 - 90_000,
+      collectVisibleOnCooldown: true
+    });
+
+    expect(result.diagnostic.preplanReason).not.toBe("collect_heartbeat");
+  });
+
   it("reports missing progression reachability when there is nothing legal to pick", () => {
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",
