@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.16.1",
+  version: "2026.05.16.2",
   title: "What's New",
-  summary: "The Sharding panel now shows render FPS so you can tell client-side stalls apart from server lag, and the mobile \"switch to 2D\" prompt now only appears when we actually detect the 3D renderer running slowly on this device — no more upfront nag on phones that handle 3D fine.",
+  summary: "Claiming a neutral town as frontier no longer grants town manpower cap or regen before you settle it. Settlement is now required before town boosts activate.",
   entries: [
+    {
+      introducedIn: "2026.05.16.2",
+      title: "Town manpower waits for settlement",
+      why: "Frontier expansion could claim a neutral town tile and immediately add its town tier to manpower cap and regeneration, even though the tile had not been settled yet.",
+      changes: [
+        "Owned town tiles only count toward manpower cap, manpower regeneration, and active town counts after their ownership state is SETTLED.",
+        "Frontier town claims still show as controlled territory, but they no longer provide town boosts until the settle action completes.",
+        "Regression coverage now checks an owned frontier town tile and expects base-only manpower values."
+      ]
+    },
     {
       introducedIn: "2026.05.16.1",
       title: "Render FPS in the Sharding panel + smarter 2D switch prompt",
