@@ -128,6 +128,7 @@ import {
   chooseDomainForPlayer,
   chooseTechForPlayer,
   effectiveVisionRadiusForPlayer,
+  observatoryCastRadiusForPlayer,
   recomputeMods,
   visionRadiusBonusForPlayer
 } from "./tech-domain-bridge.js";
@@ -4388,20 +4389,6 @@ export class SimulationRuntime {
     return false;
   }
 
-  private ownedActiveObservatoryWithinRange(playerId: string, x: number, y: number, range = 30): boolean {
-    for (const tile of this.tiles.values()) {
-      if (
-        tile.ownerId === playerId &&
-        tile.observatory?.ownerId === playerId &&
-        tile.observatory.status === "active" &&
-        Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y)) <= range
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /**
    * Wrapped chebyshev distance honoring world-map cylindrical wrap.
    * Mirrors `chebyshevDistanceWrapped` on the client.
@@ -4415,11 +4402,23 @@ export class SimulationRuntime {
   }
 
   /**
+   * Effective observatory cast radius for a player: BASE constant plus
+   * observatoryRangeBonus + observatoryCastRadiusBonus from techs/domains. Mirrors
+   * the client's `ownObservatoryCastRadius` so menu enablement and sim authority
+   * agree on which observatories can reach a target.
+   */
+  private observatoryCastRadiusFor(playerId: string): number {
+    const player = this.players.get(playerId);
+    if (!player) return OBSERVATORY_CAST_RADIUS;
+    return observatoryCastRadiusForPlayer(player, OBSERVATORY_CAST_RADIUS);
+  }
+
+  /**
    * Crystal-ability cooldowns are stored per-observatory. To cast, the player must
-   * own an active observatory within OBSERVATORY_CAST_RADIUS of the target tile whose
-   * cooldownUntil has elapsed. The chosen observatory's tile key is returned so the
-   * caller can stamp the cooldown on it; overlapping observatories therefore let the
-   * player chain casts.
+   * own an active observatory within the player's effective cast radius of the
+   * target tile whose cooldownUntil has elapsed. The chosen observatory's tile key
+   * is returned so the caller can stamp the cooldown on it; overlapping observatories
+   * therefore let the player chain casts.
    *
    * Tie-break: among off-cooldown candidates, prefer the closest observatory to the
    * target (wrapped Chebyshev). This avoids burning a long-range observatory's slot
@@ -4431,7 +4430,7 @@ export class SimulationRuntime {
     targetX: number,
     targetY: number,
     now: number,
-    range = OBSERVATORY_CAST_RADIUS
+    range = this.observatoryCastRadiusFor(playerId)
   ): string | undefined {
     let bestKey: string | undefined;
     let bestDistance = Number.POSITIVE_INFINITY;
