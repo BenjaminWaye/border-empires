@@ -173,6 +173,11 @@ export const openSingleTileActionMenu = (
   state.tileActionMenu.scrollTopByTab = {};
   state.tileActionMenu.renderSignature = "";
   const view = deps.tileMenuViewForTile(tile);
+  const waypoint = state.waypoint;
+  if (waypoint && waypoint.target.x === tile.x && waypoint.target.y === tile.y) {
+    view.actions = [{ id: "cancel_waypoint", label: "Cancel Waypoint" }, ...view.actions];
+    if (!view.tabs.includes("actions")) view.tabs = ["actions", ...view.tabs];
+  }
   state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
   renderTileActionMenu(state, view, clientX, clientY, deps);
 };

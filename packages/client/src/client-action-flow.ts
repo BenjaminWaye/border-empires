@@ -111,6 +111,7 @@ import {
 } from "./client-tile-menu-view.js";
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
+import { planWaypoint } from "./client-waypoint-planner.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
@@ -1057,6 +1058,17 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
 
+    if (actionId === "cancel_waypoint") {
+      if (state.waypoint) {
+        const target = state.waypoint.target;
+        state.waypoint = undefined;
+        pushFeed(`Waypoint at (${target.x}, ${target.y}) cancelled.`, "info", "info");
+      }
+      hideTileActionMenu();
+      renderHud();
+      return;
+    }
+
     if (actionId === "settle_land") {
       if (fromBulk) {
         const neutralTargets = targets.filter((k) => {
@@ -1729,6 +1741,28 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       requestAttackPreviewForHover();
       renderHud();
       return;
+    }
+    // Distant tap: no adjacent/dock origin, but a reachable LAND tile
+    // not owned by the player → place an expansion waypoint. The
+    // pathfinder validates reachability and reports a block reason
+    // when it can't route; in that case fall through to the tile
+    // action menu so the player can see why.
+    const isOwnTile = to.ownerId === state.me;
+    if (!frontierOrigin && !isOwnTile && to.terrain === "LAND" && !to.fogged) {
+      const plan = planWaypoint(
+        { x: to.x, y: to.y },
+        { state, keyFor }
+      );
+      if (plan.reachable) {
+        state.waypoint = { target: { x: to.x, y: to.y }, plan };
+        const summary = plan.attackCount > 0
+          ? `${plan.expandCount} expand + ${plan.attackCount} attack`
+          : `${plan.expandCount} expand`;
+        pushFeed(`Waypoint set at (${to.x}, ${to.y}) — ${summary}.`, "info", "info");
+        requestAttackPreviewForHover();
+        renderHud();
+        return;
+      }
     }
     if (to.terrain === "LAND" && !to.fogged) {
       openSingleTileActionMenu(to, clientX, clientY);
