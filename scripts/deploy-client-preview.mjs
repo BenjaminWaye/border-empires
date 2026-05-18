@@ -102,7 +102,9 @@ const deploymentUrl = normalizeDeploymentUrl(
       "vercel",
       "deploy",
       "--yes",
-      "--archive=tgz",
+      // No --archive=tgz — see comment in deploy-client-prod.mjs. The archive
+      // mode bundled the whole repo into a ~2.4 GB tarball that Vercel's API
+      // rejected. Per-file uploads honor .vercelignore and stay small.
       "--scope",
       vercelClientProject.scope,
       "--build-env",
