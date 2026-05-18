@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.4",
+  version: "2026.05.18.5",
   title: "What's New",
-  summary: "Forts, towns, and siege outposts now automate low-value border work so conquest is driven by strategic anchors instead of repetitive tile clicks.",
+  summary: "Low-FPS 3D warnings now appear on any sluggish device, not just mobile, with a one-click switch to the lighter 2D renderer.",
   entries: [
+    {
+      introducedIn: "2026.05.18.5",
+      title: "Low-FPS 3D warning works on desktop too",
+      why: "The render FPS monitor could show desktop players stuck around 8-16 FPS, but the switch-to-2D prompt was still guarded by the old mobile-only check.",
+      changes: [
+        "Sustained 3D rendering at or below 25 FPS for 5 seconds now wakes the 2D switch prompt on desktop and mobile.",
+        "The prompt still waits until the game HUD is initialized and stays hidden if you already dismissed it or are already using the 2D renderer.",
+        "Added regression coverage for the prompt eligibility rules so the desktop path does not get gated out again."
+      ]
+    },
     {
       introducedIn: "2026.05.18.4",
       title: "Border anchors automate frontier work",
