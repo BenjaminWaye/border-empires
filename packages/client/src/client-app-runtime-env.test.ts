@@ -86,4 +86,36 @@ describe("client app runtime env", () => {
     expect(state.bridgeDebugWsUrl).toBe("wss://border-empires-combined-staging.fly.dev/ws");
     expect(state.bridgeDebugMode).toBe("rewrite-gateway");
   });
+
+  it("defaults play.borderempires.com websocket traffic to the prod combined gateway when no baked gateway env var is present", () => {
+    // Regression: the legacy `border-empires.fly.dev` Fly app was retired and
+    // its DNS record stopped resolving. Before this guard, prod clients fell
+    // through to the dead legacy URL whenever VITE_GATEWAY_WS_URL was missing
+    // from the Vercel build env, hanging every login on "Securing session".
+    vi.stubGlobal("window", {
+      location: {
+        hostname: "play.borderempires.com",
+        protocol: "https:"
+      }
+    });
+
+    const state = {
+      localhostDevAetherWall: false,
+      bridgeDebugWsUrl: "",
+      bridgeDebugMode: "unknown"
+    };
+    const socket = { close: () => undefined };
+    const createMultiplexWebSocket = vi.spyOn(
+      multiplexWebSocketModule,
+      "createMultiplexWebSocket"
+    ).mockReturnValue(socket as ReturnType<typeof multiplexWebSocketModule.createMultiplexWebSocket>);
+
+    const setup = createClientSocketSetup(state as never);
+
+    expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://border-empires-combined.fly.dev/ws");
+    expect(setup.wsUrl).toBe("wss://border-empires-combined.fly.dev/ws");
+    expect(state.localhostDevAetherWall).toBe(false);
+    expect(state.bridgeDebugWsUrl).toBe("wss://border-empires-combined.fly.dev/ws");
+    expect(state.bridgeDebugMode).toBe("rewrite-gateway");
+  });
 });

@@ -45,20 +45,24 @@ export const createClientSocketSetup = (
     hostname === "0.0.0.0";
   const isStagingHost = isStagingHostname(hostname);
 
-  // Legacy monolith URL — prod default stays wss://border-empires.fly.dev/ws until Phase 6.
+  // Legacy monolith URL — retained for explicit ?backend=legacy / be-backend=legacy
+  // overrides only. The legacy `border-empires.fly.dev` Fly app has been retired
+  // and no longer resolves; nothing should reach it via the default path.
   const legacyDefault = isLocalHost
     ? `${window.location.protocol === "https:" ? "wss" : "ws"}://127.0.0.1:3001/ws`
     : "wss://border-empires.fly.dev/ws";
   const legacyWsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? legacyDefault;
 
-  // Rewrite gateway URL — VITE_GATEWAY_WS_URL is undefined in prod until Phase 6.
+  // Rewrite gateway URL. Every non-local hostname now has a baked default so
+  // the prod client (play.borderempires.com) cannot fall through to the dead
+  // legacy URL when VITE_GATEWAY_WS_URL is missing from the Vercel build env.
   const gatewayDefault = isLocalHost
     ? `${window.location.protocol === "https:" ? "wss" : "ws"}://127.0.0.1:3101/ws`
     : isStagingHost
       ? "wss://border-empires-combined-staging.fly.dev/ws"
-      : undefined;
+      : "wss://border-empires-combined.fly.dev/ws";
   const gatewayWsUrl =
-    (import.meta.env.VITE_GATEWAY_WS_URL as string | undefined) ?? gatewayDefault ?? legacyWsUrl;
+    (import.meta.env.VITE_GATEWAY_WS_URL as string | undefined) ?? gatewayDefault;
 
   const envDefaultBackendRaw = (import.meta.env.VITE_BACKEND_DEFAULT as string | undefined)?.toLowerCase();
   const envDefaultBackend =

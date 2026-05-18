@@ -29,44 +29,44 @@ const stagingCustomDomainCtx = (cookieStr = ""): BrowserCtx => ({
 });
 
 describe("backend cookie mid-session toggle", () => {
-  it("starts on legacy by default in prod", () => {
+  it("starts on gateway by default in prod (legacy retired)", () => {
     const result = selectBackend({ legacyWsUrl: LEGACY, gatewayWsUrl: GATEWAY, ctx: prodCtx() });
-    expect(result.backend).toBe("legacy");
+    expect(result.backend).toBe("gateway");
+    expect(result.wsUrl).toBe(GATEWAY);
+    expect(result.source).toBe("env-default");
   });
 
-  it("after setting cookie to gateway, next selection is gateway", () => {
-    // First call: no cookie → legacy
+  it("explicit be-backend=legacy still selects legacy for forensic comparison", () => {
     const first = selectBackend({ legacyWsUrl: LEGACY, gatewayWsUrl: GATEWAY, ctx: prodCtx() });
-    expect(first.backend).toBe("legacy");
+    expect(first.backend).toBe("gateway");
+    expect(first.source).toBe("env-default");
 
-    // Simulate cookie being written (e.g. via persistBackendCookie("gateway"))
     const second = selectBackend({
       legacyWsUrl: LEGACY,
       gatewayWsUrl: GATEWAY,
-      ctx: prodCtx("be-backend=gateway")
+      ctx: prodCtx("be-backend=legacy")
     });
-    expect(second.backend).toBe("gateway");
+    expect(second.backend).toBe("legacy");
     expect(second.source).toBe("cookie");
-    expect(second.wsUrl).toBe(GATEWAY);
+    expect(second.wsUrl).toBe(LEGACY);
   });
 
-  it("after clearing the cookie, falls back to env default (legacy in prod)", () => {
-    // With gateway cookie
+  it("after clearing the cookie, falls back to env default (gateway)", () => {
     const before = selectBackend({
       legacyWsUrl: LEGACY,
       gatewayWsUrl: GATEWAY,
-      ctx: prodCtx("be-backend=gateway")
+      ctx: prodCtx("be-backend=legacy")
     });
-    expect(before.backend).toBe("gateway");
+    expect(before.backend).toBe("legacy");
 
-    // After clearing: no cookie → prod default = legacy
     const after = selectBackend({
       legacyWsUrl: LEGACY,
       gatewayWsUrl: GATEWAY,
       ctx: prodCtx("")
     });
-    expect(after.backend).toBe("legacy");
+    expect(after.backend).toBe("gateway");
     expect(after.source).toBe("env-default");
+    expect(after.wsUrl).toBe(GATEWAY);
   });
 
   it("URL param takes precedence over gateway cookie on prod hostname", () => {
