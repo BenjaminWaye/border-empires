@@ -704,7 +704,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const waypoint = deps.state.waypoint;
     if (!waypoint) return;
     const blocked = !waypoint.plan.reachable;
-    const pending = waypoint.status === "PENDING";
     // Halt color: muted amber so a blocked waypoint reads as a warning
     // rather than another empire-colored flag.
     const HALT_COLOR = "#f59e0b";
@@ -714,13 +713,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const haloColor = blocked ? HALT_COLOR : lightenHex(empireColor, haloMix);
     const pathColor = blocked ? HALT_COLOR : empireColor;
     waypointFlagMaterial.color.set(flagColor);
-    waypointFlagMaterial.opacity = pending ? 0.55 : 0.98;
+    waypointFlagMaterial.opacity = 0.98;
     waypointFlagHaloMaterial.color.set(haloColor);
-    waypointFlagHaloMaterial.opacity = blocked ? 0.75 : pending ? 0.35 : 0.55;
-    const pathOpacity = pending ? 0.28 : 0.5;
+    waypointFlagHaloMaterial.opacity = blocked ? 0.75 : 0.55;
     for (const { material } of waypointPathMarkers) {
       material.color.set(pathColor);
-      material.opacity = pathOpacity;
+      material.opacity = 0.5;
     }
     const pathTiles: Array<{ x: number; y: number }> = [];
     for (const step of waypoint.plan.steps) {

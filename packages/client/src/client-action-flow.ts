@@ -1031,7 +1031,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     renderHud,
     requestAttackPreviewForTarget,
     keyFor,
-    isTileOwnedByAlly
+    isTileOwnedByAlly,
+    pickOriginForTarget
   });
 
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
@@ -1068,15 +1069,22 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    if (actionId === "confirm_waypoint") {
-      if (state.waypoint && state.waypoint.status === "PENDING") {
-        state.waypoint.status = "CONFIRMED";
-        const plan = state.waypoint.plan;
-        const summary = plan.attackCount > 0
-          ? `${plan.expandCount} expand + ${plan.attackCount} attack`
-          : `${plan.expandCount} expand`;
-        pushFeed(`Waypoint confirmed — ${summary}.`, "info", "info");
+    if (actionId === "expand_here" && selected) {
+      const plan = planWaypoint(
+        { x: selected.x, y: selected.y },
+        { state, keyFor }
+      );
+      if (!plan.reachable) {
+        pushFeed("No expansion path to that tile.", "combat", "warn");
+        hideTileActionMenu();
+        renderHud();
+        return;
       }
+      state.waypoint = { target: { x: selected.x, y: selected.y }, plan };
+      const summary = plan.attackCount > 0
+        ? `${plan.expandCount} expand + ${plan.attackCount} attack`
+        : `${plan.expandCount} expand`;
+      pushFeed(`Waypoint set at (${selected.x}, ${selected.y}) — ${summary}.`, "info", "info");
       hideTileActionMenu();
       renderHud();
       return;
@@ -1754,35 +1762,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       requestAttackPreviewForHover();
       renderHud();
       return;
-    }
-    // Distant tap: no adjacent/dock origin, but a reachable LAND tile
-    // not owned by the player → place an expansion waypoint. The
-    // pathfinder validates reachability and reports a block reason
-    // when it can't route; in that case fall through to the tile
-    // action menu so the player can see why.
-    const isOwnTile = to.ownerId === state.me;
-    if (!frontierOrigin && !isOwnTile && to.terrain === "LAND" && !to.fogged) {
-      const plan = planWaypoint(
-        { x: to.x, y: to.y },
-        { state, keyFor }
-      );
-      if (plan.reachable) {
-        const manpowerCovered = state.manpower >= plan.totalManpower;
-        const skipConfirm = (plan.attackCount === 0 || plan.firstAttackFromExistingFrontier === true) && manpowerCovered;
-        const status: "PENDING" | "CONFIRMED" = skipConfirm ? "CONFIRMED" : "PENDING";
-        state.waypoint = { target: { x: to.x, y: to.y }, plan, status };
-        if (status === "CONFIRMED") {
-          const summary = plan.attackCount > 0
-            ? `${plan.expandCount} expand + ${plan.attackCount} attack`
-            : `${plan.expandCount} expand`;
-          pushFeed(`Waypoint set at (${to.x}, ${to.y}) — ${summary}.`, "info", "info");
-        } else {
-          openSingleTileActionMenu(to, clientX, clientY);
-        }
-        requestAttackPreviewForHover();
-        renderHud();
-        return;
-      }
     }
     if (to.terrain === "LAND" && !to.fogged) {
       openSingleTileActionMenu(to, clientX, clientY);
