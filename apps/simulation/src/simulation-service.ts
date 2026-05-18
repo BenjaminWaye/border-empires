@@ -518,6 +518,15 @@ const createRecoveredActivePlayerIdentityMap = (
   );
 };
 
+const zeroGrossIncomeRepairCandidateIds = (initialState: RecoveredSimulationState | undefined): string[] => {
+  const ids = new Set<string>();
+  for (const player of initialState?.players ?? []) ids.add(player.id);
+  for (const tile of initialState?.tiles ?? []) {
+    if (tile.ownerId) ids.add(tile.ownerId);
+  }
+  return [...ids];
+};
+
 const normalizeAutopilotEnabled = (value: boolean | string | number | undefined): boolean =>
   value === true || value === 1 || value === "1" || value === "true";
 
@@ -813,6 +822,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       })
     : startupRecovery;
+  const shouldRepairZeroGrossIncomeSettlements =
+    isDbBackedStartup ||
+    Boolean(legacySnapshotBootstrap) ||
+    effectiveStartupRecovery.recoveredCommandCount > 0 ||
+    effectiveStartupRecovery.recoveredEventCount > 0;
   let currentSeasonState =
     effectiveStartupRecovery.initialState.season ??
     bootstrappedSeasonState ??
@@ -1604,6 +1618,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
   };
   attachRuntimeEventHandlers();
+  if (shouldRepairZeroGrossIncomeSettlements) {
+    runtime.repairZeroGrossIncomeSettlements(zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState));
+  }
   startAutopilots();
   const replaceRuntime = ({
     nextRuntime,
@@ -1622,6 +1639,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     runtimeSeededTileCount = nextSeededTileCount;
     clearCachedSnapshots();
     attachRuntimeEventHandlers();
+    runtime.repairZeroGrossIncomeSettlements([...nextPlayers.keys()]);
     startAutopilots();
   };
   const readCurrentSummary = async (): Promise<CurrentSeasonSummary> => {
