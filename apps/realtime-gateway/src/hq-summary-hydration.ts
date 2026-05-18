@@ -1,8 +1,7 @@
 import type {
   CurrentSeasonSummary,
-  LeaderboardMetricEntry,
-  LeaderboardOverallEntry,
-  SeasonArchiveRow
+  SeasonArchiveRow,
+  SeasonVictoryObjectiveSnapshot
 } from "@border-empires/sim-protocol";
 
 import type { GatewayPlayerProfileStore } from "./player-profile-store.js";
@@ -31,6 +30,9 @@ const collectIds = (summary: CurrentSeasonSummary): Set<string> => {
   addEntries(summary.byIncome);
   addEntries(summary.byTechs);
   if (summary.seasonWinner) ids.add(summary.seasonWinner.playerId);
+  for (const objective of summary.seasonVictory) {
+    if (objective.leaderPlayerId) ids.add(objective.leaderPlayerId);
+  }
   return ids;
 };
 
@@ -66,6 +68,24 @@ const overrideEntryName = <T extends { id: string; name: string }>(entry: T, loo
 const overrideEntryNames = <T extends { id: string; name: string }>(entries: T[], lookup: ProfileNameLookup): T[] =>
   entries.map((entry) => overrideEntryName(entry, lookup));
 
+const overrideWinnerName = <T extends { playerId: string; playerName: string }>(
+  winner: T,
+  lookup: ProfileNameLookup
+): T => {
+  const name = lookup.get(winner.playerId);
+  return name ? { ...winner, playerName: name } : winner;
+};
+
+const overrideSeasonVictoryLeaderNames = (
+  objectives: SeasonVictoryObjectiveSnapshot[],
+  lookup: ProfileNameLookup
+): SeasonVictoryObjectiveSnapshot[] =>
+  objectives.map((objective) => {
+    if (!objective.leaderPlayerId) return objective;
+    const name = lookup.get(objective.leaderPlayerId);
+    return name ? { ...objective, leaderName: name } : objective;
+  });
+
 export const hydrateCurrentSeasonSummaryDisplayNames = async (
   summary: CurrentSeasonSummary,
   profileStore: GatewayPlayerProfileStore
@@ -73,10 +93,10 @@ export const hydrateCurrentSeasonSummaryDisplayNames = async (
   const lookup = await buildNameLookup(collectIds(summary), profileStore);
   if (lookup.size === 0) return summary;
 
-  const overall: LeaderboardOverallEntry[] = overrideEntryNames(summary.leaderboard.overall, lookup);
-  const byTiles: LeaderboardMetricEntry[] = overrideEntryNames(summary.leaderboard.byTiles, lookup);
-  const byIncome: LeaderboardMetricEntry[] = overrideEntryNames(summary.leaderboard.byIncome, lookup);
-  const byTechs: LeaderboardMetricEntry[] = overrideEntryNames(summary.leaderboard.byTechs, lookup);
+  const overall = overrideEntryNames(summary.leaderboard.overall, lookup);
+  const byTiles = overrideEntryNames(summary.leaderboard.byTiles, lookup);
+  const byIncome = overrideEntryNames(summary.leaderboard.byIncome, lookup);
+  const byTechs = overrideEntryNames(summary.leaderboard.byTechs, lookup);
 
   const leaderboard: CurrentSeasonSummary["leaderboard"] = {
     overall,
@@ -97,13 +117,8 @@ export const hydrateCurrentSeasonSummaryDisplayNames = async (
       : {})
   };
 
-  const originalWinner = summary.seasonWinner;
-  const seasonWinner = originalWinner
-    ? (() => {
-        const overriddenName = lookup.get(originalWinner.playerId);
-        return overriddenName ? { ...originalWinner, playerName: overriddenName } : originalWinner;
-      })()
-    : undefined;
+  const seasonWinner = summary.seasonWinner ? overrideWinnerName(summary.seasonWinner, lookup) : undefined;
+  const seasonVictory = overrideSeasonVictoryLeaderNames(summary.seasonVictory, lookup);
 
   return {
     ...summary,
@@ -112,6 +127,7 @@ export const hydrateCurrentSeasonSummaryDisplayNames = async (
     byTiles,
     byIncome,
     byTechs,
+    seasonVictory,
     ...(seasonWinner ? { seasonWinner } : {})
   };
 };
@@ -133,13 +149,7 @@ export const hydrateSeasonArchiveDisplayNames = async (
   const lookup = await buildNameLookup(collectArchiveIds(rows), profileStore);
   if (lookup.size === 0) return rows;
   return rows.map((row) => {
-    const originalWinner = row.winner;
-    const winner = originalWinner
-      ? (() => {
-          const overriddenName = lookup.get(originalWinner.playerId);
-          return overriddenName ? { ...originalWinner, playerName: overriddenName } : originalWinner;
-        })()
-      : undefined;
+    const winner = row.winner ? overrideWinnerName(row.winner, lookup) : undefined;
     return {
       ...row,
       ...(winner ? { winner } : {}),
