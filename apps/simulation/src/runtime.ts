@@ -937,7 +937,13 @@ export class SimulationRuntime {
         dockLinksByDockTileKey: this.dockLinksByDockTileKey
       });
       const netGoldPerMinute = economy.incomePerMinute - Math.max(0, economy.upkeepPerMinute.gold);
-      if (netGoldPerMinute > 0) continue;
+      // Threshold > 1 (was > 0): bare SETTLED tiles produce small positive
+      // base yield, so a strictly-broke AI like ai-2 (treasury stuck at 0
+      // because upkeep eats yield in-place before COLLECT_VISIBLE can move
+      // it to the treasury) can still report a small positive net here. A
+      // player whose net gold/min is under 1 is materially broke regardless
+      // — they can't afford SETTLE_COST=4 in any reasonable horizon.
+      if (netGoldPerMinute > 1) continue;
 
       let shedTileKey: string | undefined;
       let shedTile: DomainTileState | undefined;
