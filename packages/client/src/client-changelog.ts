@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.17.1",
+  version: "2026.05.17.2",
   title: "What's New",
-  summary: "Selecting a town now floats gold/grey coins over the 8 adjacent tiles so you can see at a glance which neighbors feed its gold income — gold = settled (contributing), grey = unsettled (settle it to unlock more income). Settlement-tier towns don't use support, so the ring is hidden and the sim now rejects build orders that would target a settlement.",
+  summary: "The live Render FPS diagnostic now lives with the auth/backend debug details instead of the Shard Network gameplay card, so sharding stays about shards while performance troubleshooting remains available when needed.",
   entries: [
+    {
+      introducedIn: "2026.05.17.2",
+      title: "Render FPS moved into debug details",
+      why: "The FPS counter is useful when diagnosing slow 3D rendering, but showing it inside the Shard Network card made a debug metric look like part of the sharding game loop.",
+      changes: [
+        "Shard Network now only shows shard gameplay information.",
+        "Render FPS moved into the auth/backend debug card alongside build, backend, bridge, and account diagnostics.",
+        "Copy Auth Debug now includes the current Render FPS value so performance reports keep the same signal without cluttering the gameplay card."
+      ]
+    },
     {
       introducedIn: "2026.05.17.1",
       title: "Coins show which adjacent tiles feed a town's gold",
