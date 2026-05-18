@@ -117,6 +117,11 @@ export type SimulationMetricsSnapshot = {
   simRuntimeDrainMs: QuantileSample;
   simRuntimeDrainJobsPerCall: QuantileSample;
   simRuntimeDrainMsByLane: Record<QueueLane, QuantileSample>;
+  // Per-command-type apply latency. The drain processes 1 job per call,
+  // so this is effectively the cost of one apply (apply_attack, apply_settle,
+  // etc.). Only command types we've actually seen get an entry — saves the
+  // histogram from carrying ~30 zero-valued types on every metrics sample.
+  simRuntimeApplyMsByCommandType: Record<string, QuantileSample>;
   simCheckpointRssMb: number;
   simCpuPercent: number;
   simHeapUsedMb: number;
@@ -179,6 +184,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simRuntimeDrainMs: number[] = [];
   const simRuntimeDrainJobsPerCall: number[] = [];
   const simRuntimeDrainMsByLane = new Map<QueueLane, number[]>(LANES.map((lane) => [lane, []]));
+  const simRuntimeApplyMsByCommandType = new Map<string, number[]>();
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
   let simAiAutopilotEnabled = 0;
@@ -242,6 +248,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simRuntimeDrainMsByLane: Object.fromEntries(
       LANES.map((lane) => [lane, quantileSample(simRuntimeDrainMsByLane.get(lane) ?? [])])
     ) as Record<QueueLane, QuantileSample>,
+    simRuntimeApplyMsByCommandType: Object.fromEntries(
+      [...simRuntimeApplyMsByCommandType.entries()].map(([type, samples]) => [type, quantileSample(samples)])
+    ),
     simCheckpointRssMb,
     simCpuPercent,
     simHeapUsedMb,
@@ -315,6 +324,19 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       const target = simAiPlannerPhaseMs.get(phase);
       if (!target) return;
       appendSample(target, value, limit);
+    },
+    observeSimRuntimeApply(sample: {
+      lane: QueueLane;
+      durationMs: number;
+      commandType?: string;
+    }): void {
+      if (!sample.commandType) return;
+      let series = simRuntimeApplyMsByCommandType.get(sample.commandType);
+      if (!series) {
+        series = [];
+        simRuntimeApplyMsByCommandType.set(sample.commandType, series);
+      }
+      appendSample(series, sample.durationMs, limit);
     },
     observeSimRuntimeDrain(sample: {
       durationMs: number;
