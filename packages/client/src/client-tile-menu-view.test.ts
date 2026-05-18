@@ -1012,6 +1012,57 @@ describe("menuOverviewForTile", () => {
     expect(menu.statusTone).toBe("warning");
   });
 
+  it("adds a recent-capture timer to the tile heading when a town is in capture shock", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-10T10:00:00.000Z"));
+    const now = Date.now();
+    const menu = tileMenuViewForTile(
+      {
+        x: 18,
+        y: 42,
+        terrain: "LAND",
+        ownerId: "ai-1",
+        ownershipState: "FRONTIER",
+        town: {
+          name: "Aetherwick",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 0,
+          supportMax: 0,
+          goldPerMinute: 0,
+          cap: 0,
+          isFed: false,
+          population: 22_037,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 0,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false,
+          captureShockUntil: now + 119_000
+        }
+      },
+      {
+        ...deps,
+        menuActionsForSingleTile: () => [],
+        splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
+        settlementProgressForTile: () => undefined,
+        queuedSettlementProgressForTile: () => undefined,
+        queuedBuildProgressForTile: () => undefined,
+        constructionProgressForTile: () => undefined,
+        menuOverviewForTile: () => []
+      }
+    );
+
+    expect(menu.statusText).toBe("Recently captured 01:59");
+    expect(menu.statusTone).toBe("warning");
+  });
+
   it("uses the generated town name in the pressed-town title", () => {
     const menu = tileMenuViewForTile(
       {
