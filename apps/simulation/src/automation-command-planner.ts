@@ -41,8 +41,8 @@ const mapVictoryPathForGoap = (
   switch (path) {
     case "RESOURCE_MONOPOLY":
       return "ECONOMIC_HEGEMONY";
-    case "CONTINENT_FOOTPRINT":
-      return "SETTLED_TERRITORY";
+    case "MARITIME_SUPREMACY":
+      return "DIPLOMATIC_DOMINANCE";
     default:
       return path;
   }

@@ -10,22 +10,24 @@ import {
   type SeasonVictoryObjectiveView,
   type SeasonVictoryPathId,
   type ResourceType,
-  type Terrain,
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "@border-empires/shared";
 import type { LeaderboardMetricEntry, LeaderboardOverallEntry, ManpowerBreakdown, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import {
-  SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE,
+  SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE,
   SEASON_VICTORY_ECONOMY_LEAD_MULT,
   SEASON_VICTORY_ECONOMY_MIN_INCOME,
+  SEASON_VICTORY_MARITIME_DOCK_SHARE,
+  SEASON_VICTORY_MARITIME_MIN_DOCKS,
   SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE,
-  SEASON_VICTORY_TERRITORIAL_CONTROL_SHARE,
   SEASON_VICTORY_TOWN_CONTROL_SHARE,
   VICTORY_PRESSURE_DEFS,
   VICTORY_RESOURCE_TYPES,
-  continentFootprintProgressLabel,
-  continentFootprintThresholdLabel,
+  diplomaticDominanceProgressLabel,
+  diplomaticDominanceThresholdLabel,
+  maritimeSupremacyProgressLabel,
+  maritimeSupremacyThresholdLabel,
   resourceMonopolyConditionMet,
   resourceMonopolyLeader,
   resourceMonopolyProgressLabel,
@@ -160,12 +162,6 @@ type GatewayInitPayload = {
     townCount: number;
     dockPairs: Array<{ ax: number; ay: number; bx: number; by: number }>;
   };
-};
-
-type SeedTileState = {
-  x: number;
-  y: number;
-  terrain: Terrain;
 };
 
 export const resolveDataPath = (
@@ -407,8 +403,6 @@ const visibleLeaderboardEntries = (
   return [...visible.entries()].map(([id, name]) => ({ id, name }));
 };
 
-const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
-
 const exportDockPairs = (
   docks: ReadonlyArray<{ dockId: string; tileKey: string; pairedDockId?: string; connectedDockIds?: readonly string[] }>
 ): Array<{ ax: number; ay: number; bx: number; by: number }> => {
@@ -441,53 +435,101 @@ const exportDockPairs = (
   return pairs;
 };
 
-const buildIslandMap = (seedTiles: Map<string, SeedTileState>): Map<string, number> => {
-  const islandByTile = new Map<string, number>();
-  let nextIslandId = 1;
-  const neighbors = [
-    [-1, 0],
-    [1, 0],
-    [0, -1],
-    [0, 1]
-  ] as const;
-  for (const tile of seedTiles.values()) {
-    const key = tileKeyOf(tile.x, tile.y);
-    if (tile.terrain !== "LAND" || islandByTile.has(key)) continue;
-    const queue: Array<{ x: number; y: number }> = [{ x: tile.x, y: tile.y }];
-    islandByTile.set(key, nextIslandId);
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      for (const [dx, dy] of neighbors) {
-        const nx = current.x + dx;
-        const ny = current.y + dy;
-        const neighborKey = tileKeyOf(nx, ny);
-        if (islandByTile.has(neighborKey)) continue;
-        const neighbor = seedTiles.get(neighborKey);
-        if (!neighbor || neighbor.terrain !== "LAND") continue;
-        islandByTile.set(neighborKey, nextIslandId);
-        queue.push({ x: nx, y: ny });
+type VictoryMetrics = {
+  towns: number;
+  settledTiles: number;
+  controlledTiles: number;
+  dockTiles: number;
+  incomePerMinute: number;
+  name: string;
+};
+
+const allianceBlocForPlayer = (
+  playerId: string,
+  playerAlliesById: ReadonlyMap<string, ReadonlySet<string>>,
+  competitivePlayerIds: ReadonlySet<string>
+): Set<string> => {
+  const bloc = new Set<string>([playerId]);
+  const queue = [playerId];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const allyId of playerAlliesById.get(current) ?? []) {
+      if (!competitivePlayerIds.has(allyId) || bloc.has(allyId)) continue;
+      if (!(playerAlliesById.get(allyId)?.has(current) ?? false)) continue;
+      bloc.add(allyId);
+      queue.push(allyId);
+    }
+  }
+  return bloc;
+};
+
+const diplomaticDominanceLeader = (
+  metricsByPlayerId: ReadonlyMap<string, VictoryMetrics>,
+  playerAlliesById: ReadonlyMap<string, ReadonlySet<string>>,
+  competitivePlayerIds: ReadonlySet<string>
+): { leaderPlayerId?: string; blocControlledTiles: number; leaderControlledTiles: number; blocMemberCount: number } => {
+  let bestLeaderPlayerId: string | undefined;
+  let bestBlocControlledTiles = 0;
+  let bestLeaderControlledTiles = 0;
+  let bestBlocMemberCount = 0;
+  const seenBlocKeys = new Set<string>();
+  for (const candidatePlayerId of competitivePlayerIds) {
+    const bloc = allianceBlocForPlayer(candidatePlayerId, playerAlliesById, competitivePlayerIds);
+    const members = [...bloc];
+    const blocKey = members.sort().join("|");
+    if (seenBlocKeys.has(blocKey)) continue;
+    seenBlocKeys.add(blocKey);
+    const blocControlledTiles = members.reduce((sum, memberId) => sum + (metricsByPlayerId.get(memberId)?.controlledTiles ?? 0), 0);
+    let leaderPlayerId: string | undefined;
+    let leaderControlledTiles = -1;
+    let tiedLargest = false;
+    for (const memberId of members) {
+      const controlledTiles = metricsByPlayerId.get(memberId)?.controlledTiles ?? 0;
+      if (controlledTiles > leaderControlledTiles) {
+        leaderPlayerId = memberId;
+        leaderControlledTiles = controlledTiles;
+        tiedLargest = false;
+      } else if (controlledTiles === leaderControlledTiles) {
+        tiedLargest = true;
       }
     }
-    nextIslandId += 1;
+    if (!leaderPlayerId || tiedLargest) continue;
+    if (
+      blocControlledTiles > bestBlocControlledTiles ||
+      (
+        blocControlledTiles === bestBlocControlledTiles &&
+        (leaderControlledTiles > bestLeaderControlledTiles || (leaderControlledTiles === bestLeaderControlledTiles && leaderPlayerId < (bestLeaderPlayerId ?? "~")))
+      )
+    ) {
+      bestLeaderPlayerId = leaderPlayerId;
+      bestBlocControlledTiles = blocControlledTiles;
+      bestLeaderControlledTiles = leaderControlledTiles;
+      bestBlocMemberCount = members.length;
+    }
   }
-  return islandByTile;
+  return {
+    ...(bestLeaderPlayerId ? { leaderPlayerId: bestLeaderPlayerId } : {}),
+    blocControlledTiles: bestBlocControlledTiles,
+    leaderControlledTiles: bestLeaderControlledTiles,
+    blocMemberCount: bestBlocMemberCount
+  };
 };
 
 const objectiveSelfProgressLabel = (
   objectiveId: SeasonVictoryPathId,
   playerId: string,
-  metricsByPlayerId: Map<string, { towns: number; settledTiles: number; controlledTiles: number; incomePerMinute: number; name: string }>,
+  metricsByPlayerId: Map<string, VictoryMetrics>,
   townTarget: number,
-  territorialControlTarget: number,
+  maritimeDockTarget: number,
+  diplomaticControlTarget: number,
   totalResourceCounts: Record<ResourceType, number>,
   ownedResourceCountsByPlayerId: Map<string, Record<ResourceType, number>>,
-  islandTotals: Map<number, number>,
-  settledIslandCountsByPlayerId: Map<string, Map<number, number>>
+  playerAlliesById: ReadonlyMap<string, ReadonlySet<string>>,
+  competitivePlayerIds: ReadonlySet<string>
 ): string | undefined => {
   const metric = metricsByPlayerId.get(playerId);
   if (!metric) return undefined;
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
-  if (objectiveId === "SETTLED_TERRITORY") return `${metric.controlledTiles}/${territorialControlTarget} controlled land`;
   if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
     const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0, OIL: 0 };
@@ -506,33 +548,10 @@ const objectiveSelfProgressLabel = (
     }
     return bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource control";
   }
-  const settledByIsland = settledIslandCountsByPlayerId.get(playerId) ?? new Map<number, number>();
-  const totalIslands = Math.max(1, islandTotals.size);
-  let qualifiedCount = 0;
-  let weakestQualifiedRatio = 0;
-  let weakestQualifiedOwned = 0;
-  let weakestQualifiedTotal = 0;
-  for (const [islandId, islandTotal] of islandTotals) {
-    if (islandTotal <= 0) continue;
-    const owned = settledByIsland.get(islandId) ?? 0;
-    const ratio = owned / islandTotal;
-    if (ratio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE) {
-      qualifiedCount += 1;
-      if (weakestQualifiedTotal === 0 || ratio < weakestQualifiedRatio) {
-        weakestQualifiedRatio = ratio;
-        weakestQualifiedOwned = owned;
-        weakestQualifiedTotal = islandTotal;
-      }
-    }
-  }
-  return continentFootprintProgressLabel({
-    qualifiedCount,
-    totalIslands,
-    weakestRatio: weakestQualifiedRatio,
-    weakestOwned: weakestQualifiedOwned,
-    weakestTotal: weakestQualifiedTotal,
-    requiredShare: SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE
-  });
+  if (objectiveId === "MARITIME_SUPREMACY") return `${metric.dockTiles}/${maritimeDockTarget} docks`;
+  const bloc = allianceBlocForPlayer(playerId, playerAlliesById, competitivePlayerIds);
+  const blocControlledTiles = [...bloc].reduce((sum, memberId) => sum + (metricsByPlayerId.get(memberId)?.controlledTiles ?? 0), 0);
+  return `${blocControlledTiles}/${diplomaticControlTarget} alliance-controlled land`;
 };
 
 const buildSeasonVictoryObjectives = (
@@ -543,35 +562,34 @@ const buildSeasonVictoryObjectives = (
 ): SeasonVictoryObjectiveView[] => {
   if (!snapshotBootstrap || !initialState) return [];
   const worldTiles = snapshotBootstrap.initialState.tiles;
+  const competitivePlayerIds = new Set(leaderboardOverall.map((entry) => entry.id));
+  const playerAlliesById = new Map<string, ReadonlySet<string>>();
+  for (const playerId of competitivePlayerIds) {
+    const player = snapshotBootstrap.players.get(playerId);
+    playerAlliesById.set(playerId, new Set(player?.allies ?? []));
+  }
   const townCountByPlayerId = new Map<string, number>();
   const settledCountByPlayerId = new Map<string, number>();
   const controlledCountByPlayerId = new Map<string, number>();
-  const metricsByPlayerId = new Map<string, { towns: number; settledTiles: number; controlledTiles: number; incomePerMinute: number; name: string }>();
+  const dockCountByPlayerId = new Map<string, number>();
+  const metricsByPlayerId = new Map<string, VictoryMetrics>();
   const totalResourceCounts: Record<ResourceType, number> = { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0, OIL: 0 };
   const ownedResourceCountsByPlayerId = new Map<string, Record<ResourceType, number>>();
-  const islandByTile = buildIslandMap(snapshotBootstrap.seedTiles);
-  const islandTotals = new Map<number, number>();
-  const settledIslandCountsByPlayerId = new Map<string, Map<number, number>>();
-  for (const [key, islandId] of islandByTile) islandTotals.set(islandId, (islandTotals.get(islandId) ?? 0) + 1);
   for (const tile of worldTiles) {
-    const key = tileKeyOf(tile.x, tile.y);
-    if (tile.ownerId && tile.town?.type) townCountByPlayerId.set(tile.ownerId, (townCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
-    if (tile.ownerId && (tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER")) {
+    if (tile.ownerId && tile.town?.type && competitivePlayerIds.has(tile.ownerId)) {
+      townCountByPlayerId.set(tile.ownerId, (townCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
+    }
+    if (tile.ownerId && competitivePlayerIds.has(tile.ownerId) && (tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER")) {
       controlledCountByPlayerId.set(tile.ownerId, (controlledCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
     }
-    if (tile.ownerId && tile.ownershipState === "SETTLED") {
+    if (tile.ownerId && competitivePlayerIds.has(tile.ownerId) && tile.ownershipState === "SETTLED") {
       settledCountByPlayerId.set(tile.ownerId, (settledCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
-      const islandId = islandByTile.get(key);
-      if (islandId !== undefined) {
-        const settledByIsland = settledIslandCountsByPlayerId.get(tile.ownerId) ?? new Map<number, number>();
-        settledByIsland.set(islandId, (settledByIsland.get(islandId) ?? 0) + 1);
-        settledIslandCountsByPlayerId.set(tile.ownerId, settledByIsland);
-      }
+      if (tile.dockId) dockCountByPlayerId.set(tile.ownerId, (dockCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
     }
     if (tile.resource) {
       const resource = tile.resource as ResourceType;
       totalResourceCounts[resource] += 1;
-      if (tile.ownerId) {
+      if (tile.ownerId && competitivePlayerIds.has(tile.ownerId)) {
         const owned = ownedResourceCountsByPlayerId.get(tile.ownerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0, OIL: 0 };
         owned[resource] = (owned[resource] ?? 0) + 1;
         ownedResourceCountsByPlayerId.set(tile.ownerId, owned);
@@ -583,6 +601,7 @@ const buildSeasonVictoryObjectives = (
       towns: townCountByPlayerId.get(entry.id) ?? 0,
       settledTiles: settledCountByPlayerId.get(entry.id) ?? 0,
       controlledTiles: controlledCountByPlayerId.get(entry.id) ?? 0,
+      dockTiles: dockCountByPlayerId.get(entry.id) ?? 0,
       incomePerMinute: entry.incomePerMinute,
       name: entry.name
     });
@@ -590,7 +609,9 @@ const buildSeasonVictoryObjectives = (
   const totalTownCount = Math.max(1, [...snapshotBootstrap.seedTiles.values()].filter((tile) => Boolean(tile.town)).length);
   const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
   const totalLandTiles = Math.max(1, [...snapshotBootstrap.seedTiles.values()].filter((tile) => tile.terrain === "LAND").length);
-  const territorialControlTarget = Math.max(1, Math.ceil(totalLandTiles * SEASON_VICTORY_TERRITORIAL_CONTROL_SHARE));
+  const totalDocks = Math.max(1, worldTiles.filter((tile) => Boolean(tile.dockId)).length);
+  const maritimeDockTarget = Math.max(SEASON_VICTORY_MARITIME_MIN_DOCKS, Math.ceil(totalDocks * SEASON_VICTORY_MARITIME_DOCK_SHARE));
+  const diplomaticControlTarget = Math.max(1, Math.ceil(totalLandTiles * SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE));
   const trackers = new Map(snapshotBootstrap.seasonVictory ?? []);
   return VICTORY_PRESSURE_DEFS.map((def) => {
     let leaderPlayerId: string | undefined;
@@ -607,14 +628,6 @@ const buildSeasonVictoryObjectives = (
       progressLabel = `${leaderValue}/${townTarget} towns`;
       thresholdLabel = `Need ${townTarget} towns`;
       conditionMet = Boolean(leaderPlayerId && leaderValue >= townTarget);
-    } else if (def.id === "SETTLED_TERRITORY") {
-      const ranked = [...metricsByPlayerId.entries()].sort((a, b) => (b[1].controlledTiles - a[1].controlledTiles) || a[0].localeCompare(b[0]));
-      leaderPlayerId = ranked[0]?.[0];
-      leaderValue = ranked[0]?.[1].controlledTiles ?? 0;
-      leaderName = ranked[0]?.[1].name ?? "No leader";
-      progressLabel = `${leaderValue}/${territorialControlTarget} controlled land`;
-      thresholdLabel = `Need ${territorialControlTarget} controlled land tiles`;
-      conditionMet = Boolean(leaderPlayerId && leaderValue >= territorialControlTarget);
     } else if (def.id === "ECONOMIC_HEGEMONY") {
       const ranked = leaderboardOverall.slice().sort((a, b) => (b.incomePerMinute - a.incomePerMinute) || a.id.localeCompare(b.id));
       const leader = ranked[0];
@@ -639,53 +652,27 @@ const buildSeasonVictoryObjectives = (
       progressLabel = resourceMonopolyProgressLabel(monopoly);
       thresholdLabel = resourceMonopolyThresholdLabel(SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE);
       conditionMet = resourceMonopolyConditionMet(monopoly, SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE);
+    } else if (def.id === "MARITIME_SUPREMACY") {
+      const ranked = [...metricsByPlayerId.entries()].sort((a, b) => (b[1].dockTiles - a[1].dockTiles) || a[0].localeCompare(b[0]));
+      leaderPlayerId = ranked[0]?.[0];
+      leaderValue = ranked[0]?.[1].dockTiles ?? 0;
+      leaderName = ranked[0]?.[1].name ?? "No leader";
+      progressLabel = maritimeSupremacyProgressLabel(leaderValue, maritimeDockTarget);
+      thresholdLabel = maritimeSupremacyThresholdLabel(SEASON_VICTORY_MARITIME_DOCK_SHARE, maritimeDockTarget);
+      conditionMet = Boolean(leaderPlayerId && leaderValue >= maritimeDockTarget);
     } else {
-      const totalIslands = Math.max(1, islandTotals.size);
-      let bestQualifiedCount = 0;
-      let bestWeakestRatio = -1;
-      let bestWeakestOwned = 0;
-      let bestWeakestTotal = 0;
-      for (const [candidatePlayerId, settledByIsland] of settledIslandCountsByPlayerId) {
-        let qualifiedCount = 0;
-        let weakestRatio = 0;
-        let weakestOwned = 0;
-        let weakestTotal = 0;
-        for (const [islandId, islandTotal] of islandTotals) {
-          if (islandTotal <= 0) continue;
-          const owned = settledByIsland.get(islandId) ?? 0;
-          const ratio = owned / islandTotal;
-          if (ratio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE) {
-            qualifiedCount += 1;
-            if (weakestTotal === 0 || ratio < weakestRatio) {
-              weakestRatio = ratio;
-              weakestOwned = owned;
-              weakestTotal = islandTotal;
-            }
-          }
-        }
-        if (
-          qualifiedCount > bestQualifiedCount ||
-          (qualifiedCount === bestQualifiedCount && (weakestRatio > bestWeakestRatio || (weakestRatio === bestWeakestRatio && candidatePlayerId < (leaderPlayerId ?? "~"))))
-        ) {
-          leaderPlayerId = candidatePlayerId;
-          bestQualifiedCount = qualifiedCount;
-          bestWeakestRatio = weakestRatio;
-          bestWeakestOwned = weakestOwned;
-          bestWeakestTotal = weakestTotal;
-        }
-      }
-      leaderValue = bestQualifiedCount;
+      const diplomatic = diplomaticDominanceLeader(metricsByPlayerId, playerAlliesById, competitivePlayerIds);
+      leaderPlayerId = diplomatic.leaderPlayerId;
+      leaderValue = diplomatic.blocControlledTiles;
       leaderName = leaderPlayerId ? (metricsByPlayerId.get(leaderPlayerId)?.name ?? leaderPlayerId) : "No leader";
-      progressLabel = continentFootprintProgressLabel({
-        qualifiedCount: bestQualifiedCount,
-        totalIslands,
-        weakestRatio: bestWeakestRatio,
-        weakestOwned: bestWeakestOwned,
-        weakestTotal: bestWeakestTotal,
-        requiredShare: SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE
+      progressLabel = diplomaticDominanceProgressLabel({
+        blocControlledTiles: diplomatic.blocControlledTiles,
+        targetTiles: diplomaticControlTarget,
+        leaderControlledTiles: diplomatic.leaderControlledTiles,
+        blocMemberCount: diplomatic.blocMemberCount
       });
-      thresholdLabel = continentFootprintThresholdLabel(SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE);
-      conditionMet = Boolean(leaderPlayerId && bestQualifiedCount >= totalIslands && totalIslands > 0);
+      thresholdLabel = diplomaticDominanceThresholdLabel(SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE, diplomaticControlTarget);
+      conditionMet = Boolean(leaderPlayerId && diplomatic.blocControlledTiles >= diplomaticControlTarget);
     }
     const tracker = trackers.get(def.id);
     const holdRemainingSeconds =
@@ -724,11 +711,12 @@ const buildSeasonVictoryObjectives = (
       playerId,
       metricsByPlayerId,
       townTarget,
-      territorialControlTarget,
+      maritimeDockTarget,
+      diplomaticControlTarget,
       totalResourceCounts,
       ownedResourceCountsByPlayerId,
-      islandTotals,
-      settledIslandCountsByPlayerId
+      playerAlliesById,
+      competitivePlayerIds
     );
     if (selfProgressLabel && objective.leaderPlayerId !== playerId) objective.selfProgressLabel = selfProgressLabel;
     return objective;
