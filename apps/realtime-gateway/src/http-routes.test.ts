@@ -57,6 +57,7 @@ describe("gateway http routes", () => {
         townCount: 0,
         updatedAt: 1_200
       }),
+      getCurrentSeasonStatus: async () => "active",
       listSeasonArchives: async () => [],
       startNextSeason: async () => ({ seasonId: "season-2" })
     });
@@ -142,6 +143,7 @@ describe("gateway http routes", () => {
         townCount: 0,
         updatedAt: 1_100
       }),
+      getCurrentSeasonStatus: async () => "active",
       listSeasonArchives: async () => [],
       startNextSeason: async () => ({ seasonId: "season-2" })
     });
@@ -209,6 +211,7 @@ describe("gateway http routes", () => {
         townCount: 0,
         updatedAt: 1_100
       }),
+      getCurrentSeasonStatus: async () => "active",
       listSeasonArchives: async () => [],
       startNextSeason: async () => ({ seasonId: "season-2" })
     });
@@ -274,6 +277,7 @@ describe("gateway http routes", () => {
         townCount: 12,
         updatedAt: 2_000
       }),
+      getCurrentSeasonStatus: async () => "ended",
       listSeasonArchives: async () => [
         {
           seasonId: "season-8",
@@ -357,6 +361,7 @@ describe("gateway http routes", () => {
         townCount: 0,
         updatedAt: 1_100
       }),
+      getCurrentSeasonStatus: async () => seasonStatus,
       listSeasonArchives: async () => [],
       startNextSeason: async () => ({ seasonId: "season-2" }),
       playOrigin: "https://play.example.test",
