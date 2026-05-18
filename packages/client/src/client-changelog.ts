@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.1",
+  version: "2026.05.18.2",
   title: "What's New",
-  summary: "The minimap now frames just the land you've discovered (with a small padding margin) instead of squeezing the entire 450×450 world into a tiny panel — the rendered area grows steadily as you explore.",
+  summary: "Recovered empires with territory but zero gross gold income now regain a settlement automatically, so stale state cannot leave a player alive with no settlement economy.",
   entries: [
+    {
+      introducedIn: "2026.05.18.2",
+      title: "Zero-income empires regain a settlement",
+      why: "In the rewrite economy, a real settlement always pays positive gross gold income. A recovered player with owned land but zero gross income has therefore lost the settlement invariant and should not remain alive with no settlement economy.",
+      changes: [
+        "Simulation startup now treats zero gross income as a settlement-recovery signal for non-barbarian players who still own territory.",
+        "Live settlement capture now runs the same repair immediately when the defender's only remaining town is not a settlement.",
+        "The repair respawns the player onto a fresh unowned settlement tile instead of overwriting any existing town they still control.",
+        "Added simulation regressions for sparse startup recovery, zero-income recovery, and live settlement capture with stranded town territory."
+      ]
+    },
     {
       introducedIn: "2026.05.18.1",
       title: "Minimap zooms to your discovered region",
