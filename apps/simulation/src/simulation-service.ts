@@ -883,6 +883,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       simulationMetrics.observeSimCollectVisible({
         yieldMs: sample.yieldMs,
         deltaMs: sample.deltaMs,
+        tileDeltaBatchEmitMs: sample.tileDeltaBatchEmitMs,
+        collectResultEmitMs: sample.collectResultEmitMs,
+        playerStateUpdateMs: sample.playerStateUpdateMs,
         tilesConsidered: sample.tilesConsidered,
         tilesTouched: sample.tilesTouched
       });
@@ -2252,6 +2255,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_runtime_apply_ms_by_command: sample.simRuntimeApplyMsByCommandType,
             sim_collect_visible_yield_ms: sample.simCollectVisibleYieldMs,
             sim_collect_visible_delta_ms: sample.simCollectVisibleDeltaMs,
+            sim_collect_visible_tile_delta_batch_emit_ms: sample.simCollectVisibleTileDeltaBatchEmitMs,
+            sim_collect_visible_collect_result_emit_ms: sample.simCollectVisibleCollectResultEmitMs,
+            sim_collect_visible_player_state_update_ms: sample.simCollectVisiblePlayerStateUpdateMs,
             sim_collect_visible_tiles_considered: sample.simCollectVisibleTilesConsidered,
             sim_collect_visible_tiles_touched: sample.simCollectVisibleTilesTouched,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
