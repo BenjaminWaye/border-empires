@@ -175,11 +175,18 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
-  // Tracks the last issuedAt for each AI's COLLECT_VISIBLE so the preplan
-  // can force a heartbeat collect once per minute (see ai-preplan-command.ts
-  // COLLECT_HEARTBEAT_INTERVAL_MS). Distinct from the cooldown map because
-  // the cooldown stores `issuedAt + 20s` and we don't want to back-derive.
-  const lastCollectVisibleAtByPlayer = new Map<string, number>();
+  // Tracks the last time a HEARTBEAT collect fired for each AI (NOT organic
+  // collects). The preplan uses this to gate the 60s heartbeat — if we
+  // shared this with organic collects (collect_for_unaffordable_progression,
+  // collect_for_active_lock, collect_for_economic_recovery), then any AI
+  // already firing organic collects every 20–40s would keep resetting the
+  // gap below 60s and the heartbeat would never fire. The heartbeat is
+  // specifically for AIs that don't trigger organic collects (e.g.,
+  // canAffordExpansion=true → preplan defers → no collect), so they need
+  // their own clock independent of organic activity. Lazy-initialised to
+  // first-tick time so an AI that never fires a heartbeat still has the
+  // gap grow from process-start.
+  const lastHeartbeatAtByPlayer = new Map<string, number>();
   const urgentByPlayerId = new Set<string>();
   const intentLatchState = createAiIntentLatchState();
   const attackStalemate = createAttackStalemateTracker();
@@ -598,14 +605,13 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       pendingRequests.set(playerId, resolve);
       const stalemateTargets = attackStalemate.stalemateTargetsForPlayer(playerId);
       // Lazy-init so the heartbeat fires 60s after a player's first tick even
-      // if they never run an organic COLLECT_VISIBLE — otherwise an AI that
-      // gets stuck before its first collect (the stuck case the heartbeat is
-      // meant to break) would have `lastCollectVisibleAtMs === undefined` and
-      // never trigger the heartbeat branch in preplan.
-      let lastCollectVisibleAtMs = lastCollectVisibleAtByPlayer.get(playerId);
-      if (lastCollectVisibleAtMs === undefined) {
-        lastCollectVisibleAtMs = issuedAt;
-        lastCollectVisibleAtByPlayer.set(playerId, lastCollectVisibleAtMs);
+      // if they never run a heartbeat — otherwise an AI that gets stuck
+      // before its first heartbeat would have `lastHeartbeatAtMs === undefined`
+      // and never trigger the heartbeat branch in preplan.
+      let lastHeartbeatAtMs = lastHeartbeatAtByPlayer.get(playerId);
+      if (lastHeartbeatAtMs === undefined) {
+        lastHeartbeatAtMs = issuedAt;
+        lastHeartbeatAtByPlayer.set(playerId, lastHeartbeatAtMs);
       }
       worker.postMessage({
         type: "plan",
@@ -615,8 +621,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         sessionPrefix: "ai-runtime",
         ...(options?.skipPreplan ? { skipPreplan: true } : {}),
         ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
-        ...(typeof lastCollectVisibleAtMs === "number"
-          ? { lastCollectVisibleAtMs }
+        ...(typeof lastHeartbeatAtMs === "number"
+          ? { lastHeartbeatAtMs }
           : {}),
         ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {})
       });
@@ -742,7 +748,12 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               options.onCommand?.({ playerId, commandType: plan.command.type });
               if (plan.command.type === "COLLECT_VISIBLE") {
                 backOffCollectVisible(playerId, issuedAt);
-                lastCollectVisibleAtByPlayer.set(playerId, issuedAt);
+                // Only stamp the heartbeat clock when this collect WAS the
+                // heartbeat. Organic preplan collects must not reset the
+                // heartbeat clock — see the comment on lastHeartbeatAtByPlayer.
+                if (plan.diagnostic?.preplanReason === "collect_heartbeat") {
+                  lastHeartbeatAtByPlayer.set(playerId, issuedAt);
+                }
               }
               options.onDiagnostic?.({
                 phase: "submit_command",
