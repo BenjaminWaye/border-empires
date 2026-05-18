@@ -301,6 +301,22 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     marker.visible = false;
     return { marker, material };
   });
+  // The empire-colored flag at the waypoint destination. A second
+  // concentric outline (waypointFlagHaloMarker) reinforces contrast
+  // against owned territory rendered in the same color.
+  const waypointFlagMaterial = new LineBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointFlagMarker = new LineSegments(createBendingMarkerGeometry(), waypointFlagMaterial);
+  const waypointFlagHaloMaterial = new LineBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.55, depthTest: false, depthWrite: false });
+  const waypointFlagHaloMarker = new LineSegments(createBendingMarkerGeometry(), waypointFlagHaloMaterial);
+  // Path tiles between the player's territory and the waypoint
+  // destination. Dimmer empire color so they read as "from you" without
+  // overpowering the destination flag.
+  const waypointPathMarkers = Array.from({ length: 96 }, () => {
+    const material = new LineBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.5, depthTest: false, depthWrite: false });
+    const marker = new LineSegments(createBendingMarkerGeometry(), material);
+    marker.visible = false;
+    return { marker, material };
+  });
   const observatoryRangeMaxSegments = observatoryRangeBorderSegmentCount(OBSERVATORY_PROTECTION_RADIUS);
   const observatoryRangeMaxFillVertices = observatoryRangeFillVertexCount(OBSERVATORY_PROTECTION_RADIUS);
   const observatoryVisionRangeMaterial = new LineBasicMaterial({
@@ -365,6 +381,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
+  for (const { marker } of waypointPathMarkers) marker.renderOrder = 29;
+  waypointFlagHaloMarker.renderOrder = 31;
+  waypointFlagMarker.renderOrder = 32;
+  waypointFlagMarker.visible = false;
+  waypointFlagHaloMarker.visible = false;
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
   observatoryVisionRangeMarker.frustumCulled = false;
@@ -375,6 +396,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
+  for (const { marker } of waypointPathMarkers) marker.frustumCulled = false;
+  waypointFlagMarker.frustumCulled = false;
+  waypointFlagHaloMarker.frustumCulled = false;
 
   scene.add(
     selectedMarker,
@@ -386,7 +410,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...townSupportMarkers.map(({ marker }) => marker),
     ...queuedActionMarkers.map(({ marker }) => marker),
     ...queuedSettlementMarkers.map(({ marker }) => marker),
-    ...queuedBuildMarkers.map(({ marker }) => marker)
+    ...queuedBuildMarkers.map(({ marker }) => marker),
+    ...waypointPathMarkers.map(({ marker }) => marker),
+    waypointFlagHaloMarker,
+    waypointFlagMarker
   );
 
   const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0 };
@@ -645,6 +672,63 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     placeLineMarkers(queuedSettlementMarkers, settlementTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
     placeLineMarkers(queuedBuildMarkers, buildTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
+  };
+  // Lighten a hex color by mixing toward white. Used for the waypoint
+  // flag so its empire-color outline pops against owned territory
+  // rendered in the same hue at lower brightness.
+  const lightenHex = (hex: string, amount: number): string => {
+    const trimmed = hex.trim().replace(/^#/, "");
+    let r: number;
+    let g: number;
+    let b: number;
+    if (/^[0-9a-fA-F]{3}$/.test(trimmed)) {
+      r = parseInt(trimmed[0]! + trimmed[0]!, 16);
+      g = parseInt(trimmed[1]! + trimmed[1]!, 16);
+      b = parseInt(trimmed[2]! + trimmed[2]!, 16);
+    } else if (/^[0-9a-fA-F]{6}$/.test(trimmed)) {
+      const value = parseInt(trimmed, 16);
+      r = (value >> 16) & 0xff;
+      g = (value >> 8) & 0xff;
+      b = value & 0xff;
+    } else {
+      return hex;
+    }
+    const k = Math.max(0, Math.min(1, amount));
+    const mix = (channel: number): number => Math.round(channel + (255 - channel) * k);
+    return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+  };
+  const syncWaypointMarkers = (): void => {
+    hideLineMarkerPool(waypointPathMarkers);
+    waypointFlagMarker.visible = false;
+    waypointFlagHaloMarker.visible = false;
+    const waypoint = deps.state.waypoint;
+    if (!waypoint) return;
+    const blocked = !waypoint.plan.reachable;
+    // Halt color: muted amber so a blocked waypoint reads as a warning
+    // rather than another empire-colored flag.
+    const HALT_COLOR = "#f59e0b";
+    const haloMix = 0.45;
+    const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#d5ecff";
+    const flagColor = blocked ? HALT_COLOR : lightenHex(empireColor, 0.35);
+    const haloColor = blocked ? HALT_COLOR : lightenHex(empireColor, haloMix);
+    const pathColor = blocked ? HALT_COLOR : empireColor;
+    waypointFlagMaterial.color.set(flagColor);
+    waypointFlagMaterial.opacity = 0.98;
+    waypointFlagHaloMaterial.color.set(haloColor);
+    waypointFlagHaloMaterial.opacity = blocked ? 0.75 : 0.55;
+    for (const { material } of waypointPathMarkers) {
+      material.color.set(pathColor);
+      material.opacity = 0.5;
+    }
+    const pathTiles: Array<{ x: number; y: number }> = [];
+    for (const step of waypoint.plan.steps) {
+      // Skip the final step; that tile is the flag.
+      if (step.target.x === waypoint.target.x && step.target.y === waypoint.target.y) continue;
+      pathTiles.push(step.target);
+    }
+    placeLineMarkers(waypointPathMarkers, pathTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
+    syncHighlightMarker(waypointFlagMarker, waypoint.target, MARKER_RISE_ABOVE_HEIGHTFIELD);
+    syncHighlightMarker(waypointFlagHaloMarker, waypoint.target, MARKER_RISE_ABOVE_HEIGHTFIELD);
   };
   const writeObservatoryRangeGeometry = (
     lineMarker: LineSegments,
@@ -1105,6 +1189,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncTownSupportMarkers();
     syncTownSupportCoins();
     syncQueueMarkers();
+    syncWaypointMarkers();
     syncObservatoryRangeMarkers();
     villageEffects.update(nowMs);
     floatingText.update(nowMs);
@@ -1155,6 +1240,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       marker.geometry.dispose();
       material.dispose();
     }
+    for (const { marker, material } of waypointPathMarkers) {
+      marker.geometry.dispose();
+      material.dispose();
+    }
+    waypointFlagMarker.geometry.dispose();
+    waypointFlagHaloMarker.geometry.dispose();
+    waypointFlagMaterial.dispose();
+    waypointFlagHaloMaterial.dispose();
     townOverlay.dispose();
     roadOverlay.dispose();
     unfedBadgeOverlay.dispose();
