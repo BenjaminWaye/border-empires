@@ -64,15 +64,17 @@ primary_region = "arn"
 
 # Healthcheck that hits the gateway /healthz endpoint. The gateway and
 # simulation share a Node event loop, so if planner / snapshot work blocks
-# the loop for ~5s+, /healthz cannot respond. Prod uses a more conservative
-# threshold than staging (interval 30s, timeout 10s, ~2 min before restart
-# kicks in) to avoid restarting healthy machines on transient spikes.
-# Tune down once the AI tick long-tail is reliably <1s.
+# the loop for ~5s+, /healthz cannot respond and Fly counts this as a
+# failure. After 3 consecutive failures (~45s of unresponsive loop) Fly
+# restarts the machine. Matches staging — the 2026-05-18 v6 outage stalled
+# prod for 37 minutes because the previous 120s grace + 30s interval + 10s
+# timeout tolerated 28s-spike flapping without ever accumulating 3
+# consecutive criticals. Tighter values catch this class of stall.
 [[http_service.checks]]
-  grace_period = "120s"
-  interval = "30s"
+  grace_period = "60s"
+  interval = "15s"
   method = "GET"
-  timeout = "10s"
+  timeout = "5s"
   path = "/healthz"
 
 [mounts]
