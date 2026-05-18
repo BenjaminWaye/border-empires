@@ -57,6 +57,7 @@ export type RecoveredSimulationState = {
     allies?: string[];
     vision?: number;
     incomeMultiplier?: number;
+    incomePerMinute?: number;
     ownedTownTileKeys?: string[];
   }>;
   pendingSettlements?: PendingSettlementRecord[];
