@@ -226,6 +226,11 @@ type SimulationJob = {
   lane: QueueLane;
   run: () => void;
   enqueuedAt: number;
+  // Set when the job was enqueued via queueCommandForProcessing; lets the
+  // drain emit per-command-type apply-time metrics. Background jobs
+  // (enqueueBackgroundJob) leave this undefined; their apply time is still
+  // counted in the overall drain duration but not attributed to a type.
+  commandType?: CommandEnvelope["type"];
 };
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -285,6 +290,15 @@ type SimulationRuntimeOptions = {
     processedByLane: Record<QueueLane, number>;
     queueDepthsBefore: Record<QueueLane, number>;
     queueDepthsAfter: Record<QueueLane, number>;
+  }) => void;
+  // Fires once per processed job inside drainQueues with the wall-clock cost
+  // of its run() and (when the job was enqueued via queueCommandForProcessing)
+  // the originating command type. Lets us see which apply path dominates the
+  // drain (likely ATTACK with combat resolution).
+  onJobApplied?: (sample: {
+    lane: QueueLane;
+    durationMs: number;
+    commandType?: CommandEnvelope["type"];
   }) => void;
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
@@ -752,6 +766,9 @@ export class SimulationRuntime {
         queueDepthsAfter: Record<QueueLane, number>;
       }) => void)
     | undefined;
+  private readonly onJobApplied:
+    | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"] }) => void)
+    | undefined;
   private drainScheduled = false;
   private draining = false;
 
@@ -815,6 +832,7 @@ export class SimulationRuntime {
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
+    this.onJobApplied = options.onJobApplied;
     this.onVisibilityAudit = options.onVisibilityAudit;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.players =
@@ -2849,8 +2867,10 @@ export class SimulationRuntime {
     return true;
   }
 
-  private enqueueJob(lane: QueueLane, run: () => void): void {
-    this.jobsByLane[lane].push({ lane, run, enqueuedAt: this.now() });
+  private enqueueJob(lane: QueueLane, run: () => void, commandType?: CommandEnvelope["type"]): void {
+    const job: SimulationJob = { lane, run, enqueuedAt: this.now() };
+    if (commandType !== undefined) job.commandType = commandType;
+    this.jobsByLane[lane].push(job);
     this.scheduleDrain();
   }
 
@@ -2885,7 +2905,16 @@ export class SimulationRuntime {
           shouldYieldForBackground = true;
           break;
         }
+        const jobStartedAt = this.now();
         next.run();
+        if (this.onJobApplied) {
+          const jobDurationMs = Math.max(0, this.now() - jobStartedAt);
+          this.onJobApplied({
+            lane: next.lane,
+            durationMs: jobDurationMs,
+            ...(next.commandType ? { commandType: next.commandType } : {})
+          });
+        }
         processedJobs += 1;
         processedByLane[next.lane] += 1;
         if (next.lane === "system" || next.lane === "ai") {
@@ -6670,7 +6699,7 @@ export class SimulationRuntime {
       }
 
       this.handleFrontierCommand(command, command.type);
-    });
+    }, command.type);
   }
 }
 
