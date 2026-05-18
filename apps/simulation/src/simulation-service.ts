@@ -871,6 +871,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (sample.durationMs < slowQueueDrainWarnMs) return;
       recordLagDiagnostic("warn", "runtime_queue_drain_slow", sample);
     },
+    onJobApplied: (sample) => {
+      simulationMetrics.observeSimRuntimeApply({
+        lane: sample.lane,
+        durationMs: sample.durationMs,
+        ...(sample.commandType ? { commandType: sample.commandType } : {})
+      });
+    },
     onVisibilityAudit: handleVisibilityAudit,
     onCaptureRevealBuilt: captureRevealBuildSample,
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
@@ -2222,6 +2229,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_runtime_drain_ms: sample.simRuntimeDrainMs,
             sim_runtime_drain_jobs_per_call: sample.simRuntimeDrainJobsPerCall,
             sim_runtime_drain_ms_by_lane: sample.simRuntimeDrainMsByLane,
+            sim_runtime_apply_ms_by_command: sample.simRuntimeApplyMsByCommandType,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
             sim_cpu_percent: sample.simCpuPercent,
             sim_rss_mb: toMbRounded(memory.rss),
