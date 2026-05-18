@@ -32,10 +32,13 @@ describe("domain panel detail layout regression guard", () => {
     const hudSource = sourceFor("./client-hud.ts");
 
     expect(hudSource).toContain("const authDebugHtml = (): string => {");
+    expect(hudSource).toContain("Render FPS");
+    expect(hudSource).toContain("data-fps-readout");
     expect(hudSource).toContain("data-copy-auth-debug");
     expect(hudSource).toContain("Copy Auth Debug");
-    expect(hudSource).toContain("Auth uid ${authUid}");
-    expect(hudSource).toContain("Game playerId ${playerId}");
+    expect(hudSource).toContain("Auth uid ${details.authUid}");
+    expect(hudSource).toContain("Game playerId ${details.playerId}");
+    expect(hudSource).toContain("const authDebugCopyPayload = (): string => {");
     expect(hudSource).toContain("const authDebugCopyButtons = dom.hud.querySelectorAll(\"[data-copy-auth-debug]\")");
   });
 
