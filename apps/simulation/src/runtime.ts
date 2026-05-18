@@ -952,7 +952,12 @@ export class SimulationRuntime {
         if (tile.ownershipState !== "SETTLED") continue;
         if (this.locksByTile.has(tileKey)) continue;
         const stamp = this.tileSettledAtByKey.get(tileKey) ?? -Infinity;
-        if (stamp > shedStamp) {
+        // Use >= so the very first eligible tile always wins, even when its
+        // stamp is -Infinity (which is the case for every tile recovered
+        // from the event log — tileSettledAtByKey is in-memory only). Map
+        // iteration is insertion order, so on ties the last-inserted tile
+        // wins — a reasonable "newest" proxy when stamps are missing.
+        if (stamp >= shedStamp) {
           shedStamp = stamp;
           shedTileKey = tileKey;
           shedTile = tile;
