@@ -1068,6 +1068,19 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
+    if (actionId === "confirm_waypoint") {
+      if (state.waypoint && state.waypoint.status === "PENDING") {
+        state.waypoint.status = "CONFIRMED";
+        const plan = state.waypoint.plan;
+        const summary = plan.attackCount > 0
+          ? `${plan.expandCount} expand + ${plan.attackCount} attack`
+          : `${plan.expandCount} expand`;
+        pushFeed(`Waypoint confirmed — ${summary}.`, "info", "info");
+      }
+      hideTileActionMenu();
+      renderHud();
+      return;
+    }
 
     if (actionId === "settle_land") {
       if (fromBulk) {
@@ -1754,11 +1767,18 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         { state, keyFor }
       );
       if (plan.reachable) {
-        state.waypoint = { target: { x: to.x, y: to.y }, plan };
-        const summary = plan.attackCount > 0
-          ? `${plan.expandCount} expand + ${plan.attackCount} attack`
-          : `${plan.expandCount} expand`;
-        pushFeed(`Waypoint set at (${to.x}, ${to.y}) — ${summary}.`, "info", "info");
+        const manpowerCovered = state.manpower >= plan.totalManpower;
+        const skipConfirm = (plan.attackCount === 0 || plan.firstAttackFromExistingFrontier === true) && manpowerCovered;
+        const status: "PENDING" | "CONFIRMED" = skipConfirm ? "CONFIRMED" : "PENDING";
+        state.waypoint = { target: { x: to.x, y: to.y }, plan, status };
+        if (status === "CONFIRMED") {
+          const summary = plan.attackCount > 0
+            ? `${plan.expandCount} expand + ${plan.attackCount} attack`
+            : `${plan.expandCount} expand`;
+          pushFeed(`Waypoint set at (${to.x}, ${to.y}) — ${summary}.`, "info", "info");
+        } else {
+          openSingleTileActionMenu(to, clientX, clientY);
+        }
         requestAttackPreviewForHover();
         renderHud();
         return;

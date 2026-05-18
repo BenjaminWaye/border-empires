@@ -35,6 +35,7 @@ import type { WaypointPlan } from "./client-waypoint-planner.js";
 export type ClientWaypoint = {
   target: { x: number; y: number };
   plan: WaypointPlan;
+  status: "PENDING" | "CONFIRMED";
 };
 
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];

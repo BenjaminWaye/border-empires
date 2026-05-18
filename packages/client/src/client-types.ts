@@ -619,7 +619,8 @@ export type TileActionDef = {
     | "purge_siphon"
     | "create_mountain"
     | "remove_mountain"
-    | "cancel_waypoint";
+    | "cancel_waypoint"
+    | "confirm_waypoint";
   label: string;
   cost?: string;
   detail?: string | undefined;
