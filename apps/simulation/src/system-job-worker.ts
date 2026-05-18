@@ -9,6 +9,7 @@
  *   { type: "init"; worldView: PlannerWorldView }
  *   { type: "sync_players"; players: PlannerPlayerView[] }
  *   { type: "tile_deltas"; tileDeltas: SimulationTileDelta[] }
+ *   { type: "vision_union"; keys: string[]; version: number }
  *   { type: "plan"; playerId: string; clientSeq: number; issuedAt: number;
  *     sessionPrefix: "system-runtime" }
  *   { type: "pause" }
@@ -23,8 +24,7 @@
 import { parentPort } from "node:worker_threads";
 import {
   ATTACK_MANPOWER_MIN,
-  FRONTIER_CLAIM_COST
-,
+  FRONTIER_CLAIM_COST,
   type Terrain
 } from "@border-empires/shared";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
@@ -43,6 +43,11 @@ const playerTileCacheById = new Map<string, {
   tileCollectionVersion: number;
   ownedTiles: PlannerTileView[];
 }>();
+
+// Union of tile keys currently inside at least one non-barb player's fog.
+// Computed and shipped by the main process via `vision_union` — the worker
+// is a passive consumer because it does not receive non-barb player views.
+let visibleToAnyNonBarbPlayer: ReadonlySet<string> = new Set();
 
 type SimulationTileDelta = {
   x: number;
@@ -122,7 +127,8 @@ const barbarianPlanner = createBarbarianPlanner({
   tilesByKey,
   resolveOwnedTiles,
   // dockLinksByDockTileKey is replaced on every `init` — read it fresh per plan.
-  getDockLinksByDockTileKey: () => dockLinksByDockTileKey
+  getDockLinksByDockTileKey: () => dockLinksByDockTileKey,
+  getVisibleToAnyNonBarbPlayer: () => visibleToAnyNonBarbPlayer
 });
 
 // ─── Planning logic ───────────────────────────────────────────────────────────
@@ -204,6 +210,7 @@ parentPort.on("message", (msg: unknown) => {
       tilesByKey.clear();
       playersById.clear();
       playerTileCacheById.clear();
+      visibleToAnyNonBarbPlayer = new Set();
       for (const tile of worldView.tiles) {
         tilesByKey.set(`${tile.x},${tile.y}`, tile);
       }
@@ -231,6 +238,12 @@ parentPort.on("message", (msg: unknown) => {
       for (const tileDelta of tileDeltas) {
         applyTileDelta(tileDelta);
       }
+      break;
+    }
+
+    case "vision_union": {
+      const keys = (message.keys as string[]) ?? [];
+      visibleToAnyNonBarbPlayer = new Set(keys);
       break;
     }
   }
