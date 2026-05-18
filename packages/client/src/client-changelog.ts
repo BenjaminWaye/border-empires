@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.3",
+  version: "2026.05.18.4",
   title: "What's New",
-  summary: "Tap a distant land tile and choose Expand Here to drop a waypoint — your queue chips away at the path tile-by-tile, attacks bridge enemy gaps, and routes re-plan automatically as fog clears.",
+  summary: "Forts, towns, and siege outposts now automate low-value border work so conquest is driven by strategic anchors instead of repetitive tile clicks.",
   entries: [
+    {
+      introducedIn: "2026.05.18.4",
+      title: "Border anchors automate frontier work",
+      why: "Expanding through enemy land and then settling every claimed tile created too much repetitive clicking after the strategic decision had already been made.",
+      changes: [
+        "Active forts now automatically frontier-claim unowned land in their surrounding 3x3 ring, spending the normal frontier-claim gold per tile.",
+        "Settled towns now automatically frontier-claim adjacent unowned land, also paying the normal frontier-claim gold per tile.",
+        "Settled towns automatically start settlement on adjacent owned frontier tiles only when those tiles contain a town, resource, or dock and gold/development slots are available.",
+        "Active siege outposts now launch one adjacent attack per automation tick when their owner has enough gold and manpower, prioritizing weaker frontier targets."
+      ]
+    },
     {
       introducedIn: "2026.05.18.3",
       title: "Distant-tap expansion waypoints",
