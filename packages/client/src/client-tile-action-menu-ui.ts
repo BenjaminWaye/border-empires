@@ -175,7 +175,20 @@ export const openSingleTileActionMenu = (
   const view = deps.tileMenuViewForTile(tile);
   const waypoint = state.waypoint;
   if (waypoint && waypoint.target.x === tile.x && waypoint.target.y === tile.y) {
-    view.actions = [{ id: "cancel_waypoint", label: "Cancel Waypoint" }, ...view.actions];
+    const plan = waypoint.plan;
+    const seconds = Math.max(1, Math.round(plan.totalDurationMs / 1000));
+    const summaryParts: string[] = [];
+    if (plan.expandCount > 0) summaryParts.push(`${plan.expandCount} expand`);
+    if (plan.attackCount > 0) summaryParts.push(`${plan.attackCount} attack`);
+    const costParts: string[] = [`${plan.totalGold} gold`];
+    if (plan.totalManpower > 0) costParts.push(`${plan.totalManpower} manpower`);
+    costParts.push(`~${seconds}s`);
+    const summary = `${summaryParts.join(" + ")} — ${costParts.join(", ")}`;
+    const cancelAction: TileActionDef = { id: "cancel_waypoint", label: "Cancel Waypoint" };
+    const injected: TileActionDef[] = waypoint.status === "PENDING"
+      ? [{ id: "confirm_waypoint", label: "Confirm Waypoint", detail: summary }, cancelAction]
+      : [{ ...cancelAction, detail: summary }];
+    view.actions = [...injected, ...view.actions];
     if (!view.tabs.includes("actions")) view.tabs = ["actions", ...view.tabs];
   }
   state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
