@@ -21,7 +21,7 @@ const makeTile = (
 });
 
 describe("automation strategic snapshot", () => {
-  it("chooses territorial-control island focus for dock-cross growth positions", () => {
+  it("chooses diplomatic-dominance island focus for dock-cross growth positions", () => {
     const ownedDock = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-a" });
     const remoteDock = makeTile(50, 50, { dockId: "dock-b" });
     const snapshot = buildAutomationStrategicSnapshot({
@@ -60,12 +60,12 @@ describe("automation strategic snapshot", () => {
       siegeOutpostBuildAvailable: false
     });
 
-    expect(snapshot.primaryVictoryPath).toBe("SETTLED_TERRITORY");
+    expect(snapshot.primaryVictoryPath).toBe("DIPLOMATIC_DOMINANCE");
     expect(snapshot.strategicFocus).toBe("ISLAND_FOOTPRINT");
     expect(snapshot.islandExpandAvailable).toBe(true);
   });
 
-  it("treats frontier holdings as territorial-control progress", () => {
+  it("treats frontier holdings as diplomatic-dominance progress", () => {
     const town = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Core" } });
     const frontierTiles = Array.from({ length: 5 }, (_, index) =>
       makeTile(index + 1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" })
@@ -108,7 +108,7 @@ describe("automation strategic snapshot", () => {
       siegeOutpostBuildAvailable: false
     });
 
-    expect(snapshot.primaryVictoryPath).toBe("SETTLED_TERRITORY");
+    expect(snapshot.primaryVictoryPath).toBe("DIPLOMATIC_DOMINANCE");
     expect(snapshot.victoryPathContender).toBe(true);
   });
 
@@ -250,7 +250,7 @@ describe("automation strategic snapshot", () => {
       economicBuildAvailable: true,
       fortBuildAvailable: true,
       siegeOutpostBuildAvailable: false,
-      previousVictoryPath: "SETTLED_TERRITORY"
+      previousVictoryPath: "DIPLOMATIC_DOMINANCE"
     });
 
     expect(snapshot.pressureThreatensCore).toBe(false);
@@ -297,7 +297,7 @@ describe("automation strategic snapshot", () => {
       pathPopulationCounts: {
         TOWN_CONTROL: 6,
         ECONOMIC_HEGEMONY: 0,
-        SETTLED_TERRITORY: 0
+        DIPLOMATIC_DOMINANCE: 0
       }
     });
 
@@ -385,7 +385,7 @@ describe("automation strategic snapshot", () => {
     expect(snapshot.primaryVictoryPath).toBe("RESOURCE_MONOPOLY");
   });
 
-  it("selects CONTINENT_FOOTPRINT when AI has multiple docks and dock-cross expansion is reachable", () => {
+  it("selects MARITIME_SUPREMACY when AI has multiple docks and dock-cross expansion is reachable", () => {
     const dockA = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-a" });
     const dockB = makeTile(20, 0, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-b" });
     const remoteDock = makeTile(50, 50, { dockId: "dock-c" });
@@ -422,7 +422,7 @@ describe("automation strategic snapshot", () => {
       siegeOutpostBuildAvailable: false
     });
 
-    expect(snapshot.primaryVictoryPath).toBe("CONTINENT_FOOTPRINT");
+    expect(snapshot.primaryVictoryPath).toBe("MARITIME_SUPREMACY");
     expect(snapshot.islandExpandAvailable).toBe(true);
   });
 
