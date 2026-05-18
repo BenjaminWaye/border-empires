@@ -237,7 +237,7 @@ describe("automation preplan command", () => {
       clientSeq: 7,
       issuedAt: 1_000_000,
       sessionPrefix: "ai-runtime",
-      lastCollectVisibleAtMs: 1_000_000 - 60_000
+      lastHeartbeatAtMs: 1_000_000 - 60_000
     });
 
     expect(result.command).toMatchObject({
@@ -268,7 +268,7 @@ describe("automation preplan command", () => {
       clientSeq: 8,
       issuedAt: 1_000_000,
       sessionPrefix: "ai-runtime",
-      lastCollectVisibleAtMs: 1_000_000 - 30_000
+      lastHeartbeatAtMs: 1_000_000 - 30_000
     });
 
     expect(result.diagnostic.preplanReason).not.toBe("collect_heartbeat");
@@ -295,7 +295,7 @@ describe("automation preplan command", () => {
       clientSeq: 9,
       issuedAt: 1_000_000,
       sessionPrefix: "ai-runtime",
-      lastCollectVisibleAtMs: 1_000_000 - 90_000,
+      lastHeartbeatAtMs: 1_000_000 - 90_000,
       collectVisibleOnCooldown: true
     });
 
