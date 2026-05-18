@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.6",
+  version: "2026.05.18.7",
   title: "What's New",
-  summary: "Season victory now adds dock control and alliance-map dominance as real win paths, replacing solo land control and continent footprint.",
+  summary: "Production login restored: the client now points play.borderempires.com at the live gateway after the legacy server hostname was retired.",
   entries: [
+    {
+      introducedIn: "2026.05.18.7",
+      title: "Production login restored after legacy host retirement",
+      why: "The legacy `border-empires.fly.dev` server was retired and its DNS record stopped resolving, but the prod client's default still dialed that hostname whenever the Vercel build was missing VITE_GATEWAY_WS_URL — so every play.borderempires.com login completed Google sign-in and then hung on \"Securing session\" against a dead WebSocket.",
+      changes: [
+        "play.borderempires.com (and every other non-localhost, non-staging hostname) now defaults to the live combined gateway at wss://border-empires-combined.fly.dev/ws, with no reliance on a baked Vercel env var.",
+        "The implicit env-default backend is now always the gateway; only an explicit ?backend=legacy URL param or be-backend=legacy cookie still selects the retired legacy stack, kept for forensic comparison.",
+        "Added a regression test pinning play.borderempires.com to the prod gateway URL so a future env-var drift can't silently route prod into the dead legacy host again."
+      ]
+    },
     {
       introducedIn: "2026.05.18.6",
       title: "Season victory adds maritime and diplomatic wins",

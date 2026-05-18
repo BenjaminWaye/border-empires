@@ -121,14 +121,14 @@ describe("selectBackend — cookie", () => {
 });
 
 describe("selectBackend — env default", () => {
-  it("prod hostname with no overrides defaults to legacy", () => {
+  it("prod hostname with no overrides defaults to gateway (legacy retired)", () => {
     const result = selectBackend({
       legacyWsUrl: LEGACY_URL,
       gatewayWsUrl: GATEWAY_URL,
       ctx: prodCtx()
     });
-    expect(result.backend).toBe("legacy");
-    expect(result.wsUrl).toBe(LEGACY_URL);
+    expect(result.backend).toBe("gateway");
+    expect(result.wsUrl).toBe(GATEWAY_URL);
     expect(result.source).toBe("env-default");
   });
 
