@@ -119,6 +119,58 @@ describe("hydrateCurrentSeasonSummaryDisplayNames", () => {
 
     expect(hydrated.leaderboard.overall[1].name).toBe(anonymizedEmpireNameForId(opaqueIdB));
   });
+
+  it("overrides seasonVictory objective leaderName when profile is set", async () => {
+    const store = new InMemoryGatewayPlayerProfileStore();
+    await store.setProfile(opaqueIdA, "Benjamin", "#abcdef");
+
+    const summary = buildSummary();
+    summary.seasonVictory = [
+      {
+        id: "TOWN_CONTROL",
+        name: "Town Control",
+        description: "Hold a majority of towns",
+        leaderPlayerId: opaqueIdA,
+        leaderName: anonymizedEmpireNameForId(opaqueIdA),
+        progressLabel: "3/4",
+        thresholdLabel: "4",
+        holdDurationSeconds: 300,
+        statusLabel: "Leading",
+        conditionMet: false
+      }
+    ];
+
+    const hydrated = await hydrateCurrentSeasonSummaryDisplayNames(summary, store);
+
+    expect(hydrated.seasonVictory[0].leaderName).toBe("Benjamin");
+    expect(hydrated.seasonVictory[0].leaderPlayerId).toBe(opaqueIdA);
+  });
+
+  it("leaves seasonVictory objective leaderName unchanged when no profile exists for the leader", async () => {
+    const store = new InMemoryGatewayPlayerProfileStore();
+    // Profile exists for opaqueIdA so the hydrator runs its override pass, but the objective leader is opaqueIdB.
+    await store.setProfile(opaqueIdA, "Benjamin", "#abcdef");
+
+    const summary = buildSummary();
+    summary.seasonVictory = [
+      {
+        id: "TOWN_CONTROL",
+        name: "Town Control",
+        description: "Hold a majority of towns",
+        leaderPlayerId: opaqueIdB,
+        leaderName: anonymizedEmpireNameForId(opaqueIdB),
+        progressLabel: "1/4",
+        thresholdLabel: "4",
+        holdDurationSeconds: 300,
+        statusLabel: "Trailing",
+        conditionMet: false
+      }
+    ];
+
+    const hydrated = await hydrateCurrentSeasonSummaryDisplayNames(summary, store);
+
+    expect(hydrated.seasonVictory[0].leaderName).toBe(anonymizedEmpireNameForId(opaqueIdB));
+  });
 });
 
 describe("hydrateSeasonArchiveDisplayNames", () => {
@@ -161,6 +213,31 @@ describe("hydrateSeasonArchiveDisplayNames", () => {
     expect(hydrated[0].mostTerritory[1].playerName).toBe(anonymizedEmpireNameForId(opaqueIdB));
     expect(hydrated[0].mostPoints[0].playerName).toBe("Caesar");
     expect(hydrated[0].longestSurvivalMs[0].playerName).toBe("Benjamin");
+  });
+
+  it("keeps winner undefined when the archive row has no winner", async () => {
+    const store = new InMemoryGatewayPlayerProfileStore();
+    await store.setProfile(opaqueIdA, "Benjamin", "#abcdef");
+
+    const rows: SeasonArchiveRow[] = [
+      {
+        seasonId: "season-2",
+        seasonSequence: 2,
+        endedAt: 3_000,
+        updatedAt: 3_000,
+        mostTerritory: [
+          { playerId: opaqueIdA, playerName: anonymizedEmpireNameForId(opaqueIdA), value: 7 }
+        ],
+        mostPoints: [],
+        longestSurvivalMs: [],
+        replayEvents: []
+      }
+    ];
+
+    const hydrated = await hydrateSeasonArchiveDisplayNames(rows, store);
+
+    expect(hydrated[0].winner).toBeUndefined();
+    expect(hydrated[0].mostTerritory[0].playerName).toBe("Benjamin");
   });
 
   it("returns rows untouched when no profiles match", async () => {
