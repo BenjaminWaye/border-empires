@@ -13,6 +13,9 @@ const multiplierPercentLabel = (value: number): string => percentLabel((value - 
 
 const connectedLabel = (count: number): string => `${count} connected ${count === 1 ? "town" : "towns"}`;
 
+const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
+  typeof tile.town?.captureShockUntil === "number" && tile.town.captureShockUntil > nowMs;
+
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
   if (tile.hasMarket && tile.marketActive) {
@@ -48,6 +51,14 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   const nowMs = Date.now();
 
   if (tile.town) {
+    const inCaptureShock = hasActiveTownCaptureShock(tile, nowMs);
+    if (inCaptureShock) {
+      modifiers.push({
+        reason: "Recently captured",
+        effect: tile.ownershipState === "SETTLED" ? "population growth paused" : "town manpower and production paused until settled",
+        tone: "negative"
+      });
+    }
     if (tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0 && tile.town.connectedTownBonus !== 0) {
       modifiers.push({
         reason: connectedLabel(tile.town.connectedTownCount),
@@ -56,6 +67,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
       });
     }
     for (const growth of tile.town.growthModifiers ?? []) {
+      if (inCaptureShock) continue;
       modifiers.push({
         reason: growth.label === "Long time peace" ? "Long-term peace" : growth.label,
         effect: `${growth.label === "Long time peace" ? "+100%" : "-100%"} population growth`,
