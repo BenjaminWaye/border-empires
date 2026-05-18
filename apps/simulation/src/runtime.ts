@@ -93,6 +93,16 @@ import {
 } from "./dock-network.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
 import { frontierNeighborCoords } from "./frontier-topology.js";
+import {
+  coordsInChebyshevRadius,
+  FORT_AUTO_FRONTIER_RADIUS,
+  isActiveFortAnchor,
+  isAutoClaimTarget,
+  isSettledTownAnchor,
+  isValuableAutoSettlementTarget,
+  siegeAutoAttackCandidates,
+  TOWN_AUTO_FRONTIER_RADIUS
+} from "./territory-automation.js";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import {
   candidateIndexKeysAroundTileKey,
@@ -745,6 +755,7 @@ export class SimulationRuntime {
   private readonly lastShardRainHelloByPlayer = new Map<string, number>();
   private readonly terminalReplayCommandIds = new Map<string, true>();
   private readonly terminalOnlyReplayCommandIds = new Set<string>();
+  private territoryAutomationCounter = 0;
   private readonly maxTerminalCommandReplayHistory: number;
   private readonly maxPlayerSeqReplayEntries: number;
   private readonly backgroundBatchSize: number;
@@ -1020,6 +1031,141 @@ export class SimulationRuntime {
     this.expireShardFallSites(nowMs);
     this.maybeBroadcastShardRainWarning(nowMs);
     this.maybeSpawnScheduledShardRain(nowMs);
+  }
+
+  tickTerritoryAutomation(nowMs: number = this.now()): void {
+    const autoClaimedKeys = new Set<string>();
+    const autoSettlingKeys = new Set<string>();
+    const startedSettlementUpdatesByPlayer = new Map<string, string>();
+
+    for (const playerId of this.players.keys()) {
+      if (playerId.startsWith("barbarian-")) continue;
+      const summary = this.summaryForPlayer(playerId);
+      const actor = this.players.get(playerId);
+      if (!actor) continue;
+      this.applyEconomyAccrual(actor, nowMs);
+      const ownedTileKeys = [...summary.territoryTileKeys];
+      const claimDeltas: Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> = [];
+      let claimCommandId: string | undefined;
+
+      for (const anchorKey of ownedTileKeys) {
+        const anchor = this.tiles.get(anchorKey);
+        if (!anchor) continue;
+        const radius = isActiveFortAnchor(anchor, playerId, nowMs)
+          ? FORT_AUTO_FRONTIER_RADIUS
+          : isSettledTownAnchor(anchor, playerId)
+            ? TOWN_AUTO_FRONTIER_RADIUS
+            : 0;
+        if (radius <= 0) continue;
+        for (const coords of coordsInChebyshevRadius(anchor.x, anchor.y, radius)) {
+          if (actor.points < FRONTIER_CLAIM_COST) break;
+          const targetKey = simulationTileKey(coords.x, coords.y);
+          if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || this.locksByTile.has(targetKey)) continue;
+          const target = this.tiles.get(targetKey);
+          if (!isAutoClaimTarget(target)) continue;
+          autoClaimedKeys.add(targetKey);
+          actor.points -= FRONTIER_CLAIM_COST;
+          claimCommandId ??= this.nextTerritoryAutomationCommandId("frontier", playerId, "batch", nowMs);
+          const claimedTile: DomainTileState = {
+            ...target,
+            ownerId: playerId,
+            ownershipState: "FRONTIER"
+          };
+          this.replaceTileState(targetKey, claimedTile, claimCommandId);
+          claimDeltas.push(this.tileDeltaFromState(claimedTile));
+        }
+      }
+
+      if (claimCommandId && claimDeltas.length > 0) {
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: claimCommandId,
+          playerId,
+          goldCost: FRONTIER_CLAIM_COST * claimDeltas.length,
+          tileDeltas: claimDeltas
+        });
+        this.emitPlayerStateUpdate({ commandId: claimCommandId, playerId });
+      }
+    }
+
+    for (const playerId of this.players.keys()) {
+      if (playerId.startsWith("barbarian-")) continue;
+      const actor = this.players.get(playerId);
+      if (!actor) continue;
+      const summary = this.summaryForPlayer(playerId);
+      this.applyEconomyAccrual(actor, nowMs);
+      for (const anchorKey of [...summary.ownedTownTierByTile.keys()]) {
+        const anchor = this.tiles.get(anchorKey);
+        if (!anchor || !isSettledTownAnchor(anchor, playerId)) continue;
+        for (const coords of coordsInChebyshevRadius(anchor.x, anchor.y, TOWN_AUTO_FRONTIER_RADIUS)) {
+          if (this.activeDevelopmentProcessCountForPlayer(playerId) >= DEVELOPMENT_PROCESS_LIMIT) break;
+          if (actor.points < SETTLE_COST) break;
+          const targetKey = simulationTileKey(coords.x, coords.y);
+          if (autoSettlingKeys.has(targetKey) || this.locksByTile.has(targetKey) || this.pendingSettlementsByTile.has(targetKey)) continue;
+          const target = this.tiles.get(targetKey);
+          if (!isValuableAutoSettlementTarget(target, playerId)) continue;
+          autoSettlingKeys.add(targetKey);
+          const commandId = this.nextTerritoryAutomationCommandId("settle", playerId, targetKey, nowMs);
+          this.startSettlementProcess({
+            commandId,
+            playerId,
+            targetKey,
+            target,
+            startedAt: nowMs,
+            emitStartedUpdate: false
+          });
+          startedSettlementUpdatesByPlayer.set(playerId, commandId);
+        }
+      }
+    }
+
+    for (const [playerId, commandId] of startedSettlementUpdatesByPlayer.entries()) {
+      this.emitPlayerStateUpdate({ commandId, playerId });
+    }
+
+    for (const playerId of this.players.keys()) {
+      if (playerId.startsWith("barbarian-")) continue;
+      const actor = this.players.get(playerId);
+      if (!actor) continue;
+      this.applyManpowerRegen(actor, nowMs);
+      let availableSiegeManpower = actor.manpower;
+      let availableSiegeGold = actor.points;
+      if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) continue;
+      const summary = this.summaryForPlayer(playerId);
+      for (const tileKey of [...summary.territoryTileKeys]) {
+        const outpost = this.tiles.get(tileKey);
+        if (
+          !outpost ||
+          outpost.siegeOutpost?.ownerId !== playerId ||
+          outpost.siegeOutpost.status !== "active"
+        ) {
+          continue;
+        }
+        if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) break;
+        if (this.locksByTile.has(tileKey)) continue;
+        const target = siegeAutoAttackCandidates(outpost, playerId, (x, y) => this.tiles.get(simulationTileKey(x, y)))
+          .find((candidate) => {
+            const targetKey = simulationTileKey(candidate.x, candidate.y);
+            return !this.locksByTile.has(targetKey) && !actor.allies.has(candidate.ownerId ?? "");
+          });
+        if (!target) continue;
+        const commandId = this.nextTerritoryAutomationCommandId("siege", playerId, simulationTileKey(target.x, target.y), nowMs);
+        this.handleFrontierCommand(
+          {
+            commandId,
+            sessionId: `system-runtime:territory-automation:${playerId}`,
+            playerId,
+            clientSeq: 0,
+            issuedAt: nowMs,
+            type: "ATTACK",
+            payloadJson: JSON.stringify({ fromX: outpost.x, fromY: outpost.y, toX: target.x, toY: target.y })
+          },
+          "ATTACK"
+        );
+        availableSiegeManpower -= ATTACK_MANPOWER_MIN;
+        availableSiegeGold -= FRONTIER_CLAIM_COST;
+      }
+    }
   }
 
   emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
@@ -3180,6 +3326,82 @@ export class SimulationRuntime {
     this.scheduleLockResolution(lock);
   }
 
+  private nextTerritoryAutomationCommandId(label: string, playerId: string, tileKey: string, nowMs: number): string {
+    this.territoryAutomationCounter += 1;
+    return `territory-auto:${label}:${playerId}:${tileKey}:${nowMs}:${this.territoryAutomationCounter}`;
+  }
+
+  private startSettlementProcess(input: {
+    commandId: string;
+    playerId: string;
+    targetKey: string;
+    target: DomainTileState;
+    startedAt: number;
+    emitStartedUpdate?: boolean;
+  }): void {
+    const actor = this.players.get(input.playerId);
+    if (!actor) return;
+    actor.points -= SETTLE_COST;
+    const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target));
+    const resolvesAt = input.startedAt + settleDurationMs;
+    this.addPendingSettlement({
+      ownerId: input.playerId,
+      tileKey: input.targetKey,
+      startedAt: input.startedAt,
+      resolvesAt,
+      goldCost: SETTLE_COST
+    });
+    this.emitEvent({
+      eventType: "SETTLEMENT_STARTED",
+      commandId: input.commandId,
+      playerId: input.playerId,
+      tileKey: input.targetKey,
+      startedAt: input.startedAt,
+      resolvesAt,
+      goldCost: SETTLE_COST
+    });
+    if (input.emitStartedUpdate !== false) {
+      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
+    }
+
+    this.scheduleAfter(settleDurationMs, () => {
+      const expectedSettlement = {
+        ownerId: input.playerId,
+        tileKey: input.targetKey,
+        startedAt: input.startedAt,
+        resolvesAt,
+        goldCost: SETTLE_COST
+      };
+      const currentSettlement = this.pendingSettlementsByTile.get(input.targetKey);
+      if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
+      this.removePendingSettlement(input.targetKey);
+      const latest = this.tiles.get(input.targetKey);
+      if (
+        !latest ||
+        latest.ownerId !== input.playerId ||
+        latest.ownershipState !== "FRONTIER"
+      ) {
+        this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
+        return;
+      }
+      const settledTile: DomainTileState = {
+        ...latest,
+        ownerId: input.playerId,
+        ownershipState: "SETTLED",
+        ...(latest.town ? { town: latest.town } : {})
+      };
+      this.setTileYieldCollectedAt(input.commandId, input.playerId, input.targetKey, this.now());
+      this.replaceTileState(input.targetKey, settledTile);
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: input.commandId,
+        playerId: input.playerId,
+        tileDeltas: [this.tileDeltaFromState(settledTile)]
+      });
+      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
+    });
+  }
+
   private handleSettleCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseSettlePayload(command.payloadJson);
@@ -3250,54 +3472,12 @@ export class SimulationRuntime {
       return;
     }
 
-    actor.points -= SETTLE_COST;
-    const startedAt = this.now();
-    const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(target));
-    const resolvesAt = startedAt + settleDurationMs;
-    this.addPendingSettlement({
-      ownerId: command.playerId,
-      tileKey: targetKey,
-      startedAt,
-      resolvesAt,
-      goldCost: SETTLE_COST
-    });
-    this.emitPlayerStateUpdate(command);
-
-    this.scheduleAfter(settleDurationMs, () => {
-      const expectedSettlement = {
-        ownerId: command.playerId,
-        tileKey: targetKey,
-        startedAt,
-        resolvesAt,
-        goldCost: SETTLE_COST
-      };
-      const currentSettlement = this.pendingSettlementsByTile.get(targetKey);
-      if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
-      this.removePendingSettlement(targetKey);
-      const latest = this.tiles.get(targetKey);
-      if (
-        !latest ||
-        latest.ownerId !== command.playerId ||
-        latest.ownershipState !== "FRONTIER"
-      ) {
-        this.emitPlayerStateUpdate(command);
-        return;
-      }
-      const settledTile: DomainTileState = {
-        ...latest,
-        ownerId: command.playerId,
-        ownershipState: "SETTLED",
-        ...(latest.town ? { town: latest.town } : {})
-      };
-      this.setTileYieldCollectedAt(command.commandId, command.playerId, targetKey, this.now());
-      this.replaceTileState(targetKey, settledTile);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        tileDeltas: [this.tileDeltaFromState(settledTile)]
-      });
-      this.emitPlayerStateUpdate(command);
+    this.startSettlementProcess({
+      commandId: command.commandId,
+      playerId: command.playerId,
+      targetKey,
+      target,
+      startedAt: this.now()
     });
   }
 
