@@ -632,12 +632,31 @@ export const topUpFromWaypoint = (
     return false;
   }
 
+  // If the previous step we asked the queue to claim is still not
+  // owned by us, ownership did not advance (likely a stale
+  // EXPAND_TARGET_OWNED reject). Halt rather than tight-looping; the
+  // amber flag prompts the player to cancel and re-target.
+  if (waypoint.lastEnqueuedKey) {
+    const lastTile = state.tiles.get(waypoint.lastEnqueuedKey);
+    if (!lastTile || lastTile.ownerId !== state.me) {
+      waypoint.plan = { ...waypoint.plan, reachable: false, blockReason: "NO_PATH" };
+      pushFeed(
+        `Waypoint halted at ${waypoint.lastEnqueuedKey}. Tap the flag to cancel.`,
+        "info",
+        "warn"
+      );
+      return false;
+    }
+  }
   const plan = planWaypoint(target, { state, keyFor });
   waypoint.plan = plan;
   if (!plan.reachable) return false;
   const firstStep = plan.steps[0];
   if (!firstStep) return false;
-  return enqueueTarget(state, firstStep.target.x, firstStep.target.y, keyFor);
+  const stepKey = keyFor(firstStep.target.x, firstStep.target.y);
+  const enqueued = enqueueTarget(state, firstStep.target.x, firstStep.target.y, keyFor);
+  if (enqueued) waypoint.lastEnqueuedKey = stepKey;
+  return enqueued;
 };
 
 export const enqueueTarget = (state: ClientState, x: number, y: number, keyFor: (x: number, y: number) => string): boolean => {
