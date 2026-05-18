@@ -271,7 +271,7 @@ export type Tile = {
 };
 
 export type SeasonVictoryObjectiveView = {
-  id: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "CONTINENT_FOOTPRINT";
+  id: "TOWN_CONTROL" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "MARITIME_SUPREMACY" | "DIPLOMATIC_DOMINANCE";
   name: string;
   description: string;
   leaderPlayerId?: string;
@@ -486,7 +486,7 @@ export type SeasonWinnerView = {
   playerId: string;
   playerName: string;
   crownedAt: number;
-  objectiveId: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "CONTINENT_FOOTPRINT";
+  objectiveId: "TOWN_CONTROL" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "MARITIME_SUPREMACY" | "DIPLOMATIC_DOMINANCE";
   objectiveName: string;
 };
 

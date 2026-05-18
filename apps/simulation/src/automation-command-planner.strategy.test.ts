@@ -28,7 +28,7 @@ const makeTile = (
 });
 
 describe("automation command planner strategic parity", () => {
-  it("prefers dock-cross island expansion over local scout churn on settled-territory paths", () => {
+  it("prefers dock-cross island expansion over local scout churn on diplomatic-dominance paths", () => {
     const ownedDock = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-a" });
     const localFrontier = makeTile(11, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const remoteDock = makeTile(50, 50, { dockId: "dock-b" });

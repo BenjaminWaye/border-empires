@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { chooseAutomationGoapDecision } from "./automation-goap.js";
 
 describe("automation goap", () => {
-  it("chooses scout expansion for territorial-control paths when stable exploration is available", () => {
+  it("chooses scout expansion for diplomatic-dominance paths when stable exploration is available", () => {
     const decision = chooseAutomationGoapDecision({
       hasNeutralLandOpportunity: false,
       hasScoutOpportunity: true,
@@ -26,10 +26,10 @@ describe("automation goap", () => {
       canBuildSiegeOutpost: false,
       goldHealthy: true,
       staminaHealthy: true
-    }, "SETTLED_TERRITORY");
+    }, "DIPLOMATIC_DOMINANCE");
 
     expect(decision).toMatchObject({
-      goalId: "season_settled_territory",
+      goalId: "season_diplomatic_dominance",
       actionKey: "claim_scout_border_tile"
     });
   });
@@ -88,7 +88,7 @@ describe("automation goap", () => {
       canBuildSiegeOutpost: false,
       goldHealthy: false,
       staminaHealthy: false
-    }, "SETTLED_TERRITORY");
+    }, "DIPLOMATIC_DOMINANCE");
 
     expect(decision).toMatchObject({
       goalId: "stabilize_reserves",

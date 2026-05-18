@@ -823,7 +823,7 @@ describe("automation command planner", () => {
         ["0,2", novelLand],
         ["1,1", coastline]
       ]),
-      previousVictoryPath: "SETTLED_TERRITORY",
+      previousVictoryPath: "DIPLOMATIC_DOMINANCE",
       clientSeq: 15,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"

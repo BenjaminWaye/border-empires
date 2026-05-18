@@ -437,9 +437,9 @@ describe("buildInitMessage", () => {
           thresholdLabel: "Need 80% control of one resource type"
         }),
         expect.objectContaining({
-          id: "CONTINENT_FOOTPRINT",
-          progressLabel: "2/2 islands at 5%+ settled · weakest island 25% (1/4)",
-          thresholdLabel: "Need 5% settled land on every island"
+          id: "MARITIME_SUPREMACY",
+          progressLabel: "0/3 docks",
+          thresholdLabel: "Need 3 settled docks (55% of world docks)"
         })
       ])
     );
