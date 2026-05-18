@@ -191,8 +191,7 @@ export const openSingleTileActionMenu = (
     return `${summaryParts.join(" + ")} — ${costParts.join(", ")}`;
   };
   const waypoint = state.waypoint;
-  const tileIsWaypointTarget = waypoint && waypoint.target.x === tile.x && waypoint.target.y === tile.y;
-  if (tileIsWaypointTarget && waypoint) {
+  if (waypoint && waypoint.target.x === tile.x && waypoint.target.y === tile.y) {
     const summary = formatWaypointSummary(waypoint.plan);
     view.actions = [{ id: "cancel_waypoint", label: "Cancel Waypoint", detail: summary }, ...view.actions];
     if (!view.tabs.includes("actions")) view.tabs = ["actions", ...view.tabs];
