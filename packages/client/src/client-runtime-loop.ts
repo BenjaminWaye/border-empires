@@ -3,7 +3,11 @@ import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity 
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor.js";
-import { isMobileDevice } from "./client-panel-nav.js";
+import {
+  RENDERER_PROMPT_FPS_THRESHOLD,
+  RENDERER_PROMPT_LOW_FPS_MS,
+  shouldShowRendererPrompt
+} from "./client-renderer-prompt.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
 import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import {
@@ -173,10 +177,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
       if (
         !lowFpsRendererHudPinged &&
-        isTrue3DRendererActive() &&
-        isMobileDevice() &&
-        !state.rendererPrompt.dismissed &&
-        hasSustainedLowFps(25, 5000, nowMs)
+        shouldShowRendererPrompt({
+          dismissed: state.rendererPrompt.dismissed,
+          true3DActive: isTrue3DRendererActive(),
+          sustainedLowFps: hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, nowMs),
+          connectionInitialized: state.connection === "initialized",
+          authSessionReady: state.authSessionReady,
+          profileSetupRequired: state.profileSetupRequired,
+          changelogOpen: state.changelog.open,
+          guideOpen: state.guide.open
+        })
       ) {
         lowFpsRendererHudPinged = true;
         deps.renderHud();

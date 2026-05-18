@@ -13,9 +13,13 @@ import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "./client-diag
 import { buildMapLoadingView } from "./client-map-loading-view.js";
 import { renderRespawnOverlay } from "./client-respawn-overlay.js";
 import { effectiveFogDisabled, setStagingMapRevealEnabled, stagingMapRevealAvailable } from "./client-staging-map-reveal.js";
-import { isMobileDevice } from "./client-panel-nav.js";
 import { isTrue3DRendererActive } from "./client-renderer-mode.js";
 import { getCurrentFps, hasSustainedLowFps } from "./client-fps-monitor.js";
+import {
+  RENDERER_PROMPT_FPS_THRESHOLD,
+  RENDERER_PROMPT_LOW_FPS_MS,
+  shouldShowRendererPrompt
+} from "./client-renderer-prompt.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import { refreshLiveTechRequirements } from "./client-tech-live-requirements.js";
@@ -1241,16 +1245,16 @@ export const renderClientHud = (deps: HudDeps): void => {
     dom.guideOverlayEl.innerHTML = "";
   }
 
-  const canShowRendererPrompt =
-    !state.rendererPrompt.dismissed &&
-    isTrue3DRendererActive() &&
-    isMobileDevice() &&
-    hasSustainedLowFps(25, 5000, performance.now()) &&
-    state.connection === "initialized" &&
-    state.authSessionReady &&
-    !state.profileSetupRequired &&
-    !state.changelog.open &&
-    !state.guide.open;
+  const canShowRendererPrompt = shouldShowRendererPrompt({
+    dismissed: state.rendererPrompt.dismissed,
+    true3DActive: isTrue3DRendererActive(),
+    sustainedLowFps: hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, performance.now()),
+    connectionInitialized: state.connection === "initialized",
+    authSessionReady: state.authSessionReady,
+    profileSetupRequired: state.profileSetupRequired,
+    changelogOpen: state.changelog.open,
+    guideOpen: state.guide.open
+  });
   dom.rendererPromptOverlayEl.style.display = canShowRendererPrompt ? "grid" : "none";
   if (canShowRendererPrompt) {
     dom.rendererPromptOverlayEl.innerHTML = `
