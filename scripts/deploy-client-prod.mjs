@@ -117,7 +117,11 @@ const deploymentUrl = normalizeDeploymentUrl(
       "deploy",
       "--prod",
       "--yes",
-      "--archive=tgz",
+      // No --archive=tgz: in May 2026 the archive mode started bundling the
+      // whole repo (worktrees, build outputs) into a ~2.4 GB tarball that
+      // Vercel's /v2/files endpoint rejected with a 5xx HTML page during the
+      // prod login outage. Per-file mode honors .vercelignore correctly and
+      // uploaded ~824 files. Keep this aligned with deploy-client-staging.mjs.
       "--scope",
       vercelClientProject.scope,
       ...vercelBuildEnvArgs
