@@ -2,12 +2,17 @@ import {
   BufferAttribute,
   BufferGeometry,
   Color,
+  ConeGeometry,
+  CylinderGeometry,
   DoubleSide,
+  Group,
   LineBasicMaterial,
   LineSegments,
   Mesh,
   MeshBasicMaterial,
+  PlaneGeometry,
   Scene,
+  TorusGeometry,
   WebGLRenderer
 } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
@@ -301,13 +306,59 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     marker.visible = false;
     return { marker, material };
   });
-  // The empire-colored flag at the waypoint destination. A second
-  // concentric outline (waypointFlagHaloMarker) reinforces contrast
-  // against owned territory rendered in the same color.
-  const waypointFlagMaterial = new LineBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
-  const waypointFlagMarker = new LineSegments(createBendingMarkerGeometry(), waypointFlagMaterial);
-  const waypointFlagHaloMaterial = new LineBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.55, depthTest: false, depthWrite: false });
-  const waypointFlagHaloMarker = new LineSegments(createBendingMarkerGeometry(), waypointFlagHaloMaterial);
+  // The waypoint flag is a brass-and-copper steampunk assembly: tapered
+  // pole with rivet bands, a horizontal cross-arm, a pennant in the
+  // player's empire color with a copper top stripe, a spire finial, and
+  // two counter-rotating cog rings around a soft empire-color glow disk
+  // at the base.
+  const BRASS_HI = "#d2a76a";
+  const BRASS_LO = "#8b6f47";
+  const COPPER = "#a85d36";
+  const waypointFlagGroup = new Group();
+  const waypointFlagPoleMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointFlagPole = new Mesh(new CylinderGeometry(0.035, 0.06, 1.5, 10), waypointFlagPoleMaterial);
+  waypointFlagPole.position.y = 0.75;
+  const waypointFlagBandMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+  const waypointFlagBandLow = new Mesh(new CylinderGeometry(0.06, 0.06, 0.05, 12), waypointFlagBandMaterial);
+  waypointFlagBandLow.position.y = 0.35;
+  const waypointFlagBandMid = new Mesh(new CylinderGeometry(0.055, 0.055, 0.05, 12), waypointFlagBandMaterial);
+  waypointFlagBandMid.position.y = 0.85;
+  const waypointFlagCrossArm = new Mesh(new CylinderGeometry(0.02, 0.02, 0.55, 8), waypointFlagPoleMaterial);
+  waypointFlagCrossArm.rotation.z = Math.PI / 2;
+  waypointFlagCrossArm.position.set(0.2, 1.35, 0);
+  const waypointFlagPennantMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.96, depthTest: false, depthWrite: false, side: DoubleSide });
+  const waypointFlagPennant = new Mesh(new PlaneGeometry(0.5, 0.36), waypointFlagPennantMaterial);
+  waypointFlagPennant.position.set(0.25, 1.15, 0);
+  const waypointFlagPennantStripeMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: DoubleSide });
+  const waypointFlagPennantStripe = new Mesh(new PlaneGeometry(0.5, 0.08), waypointFlagPennantStripeMaterial);
+  waypointFlagPennantStripe.position.set(0.25, 1.29, 0.001);
+  const waypointFlagFinialMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointFlagFinial = new Mesh(new ConeGeometry(0.05, 0.16, 10), waypointFlagFinialMaterial);
+  waypointFlagFinial.position.y = 1.58;
+  const waypointFlagGearOuterMaterial = new MeshBasicMaterial({ color: BRASS_LO, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+  const waypointFlagGearOuter = new Mesh(new TorusGeometry(0.3, 0.05, 6, 22), waypointFlagGearOuterMaterial);
+  waypointFlagGearOuter.rotation.x = Math.PI / 2;
+  waypointFlagGearOuter.position.y = 0.02;
+  const waypointFlagGearInnerMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+  const waypointFlagGearInner = new Mesh(new TorusGeometry(0.18, 0.04, 6, 18), waypointFlagGearInnerMaterial);
+  waypointFlagGearInner.rotation.x = Math.PI / 2;
+  waypointFlagGearInner.position.y = 0.06;
+  const waypointFlagBaseGlowMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.32, depthTest: false, depthWrite: false, side: DoubleSide });
+  const waypointFlagBaseGlow = new Mesh(new TorusGeometry(0.42, 0.08, 4, 24), waypointFlagBaseGlowMaterial);
+  waypointFlagBaseGlow.rotation.x = Math.PI / 2;
+  waypointFlagGroup.add(
+    waypointFlagBaseGlow,
+    waypointFlagGearOuter,
+    waypointFlagGearInner,
+    waypointFlagPole,
+    waypointFlagBandLow,
+    waypointFlagBandMid,
+    waypointFlagCrossArm,
+    waypointFlagPennant,
+    waypointFlagPennantStripe,
+    waypointFlagFinial
+  );
+  waypointFlagGroup.visible = false;
   // Path tiles between the player's territory and the waypoint
   // destination. Dimmer empire color so they read as "from you" without
   // overpowering the destination flag.
@@ -382,10 +433,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
   for (const { marker } of waypointPathMarkers) marker.renderOrder = 29;
-  waypointFlagHaloMarker.renderOrder = 31;
-  waypointFlagMarker.renderOrder = 32;
-  waypointFlagMarker.visible = false;
-  waypointFlagHaloMarker.visible = false;
+  waypointFlagBaseGlow.renderOrder = 30;
+  waypointFlagGearOuter.renderOrder = 31;
+  waypointFlagGearInner.renderOrder = 31;
+  waypointFlagPole.renderOrder = 32;
+  waypointFlagBandLow.renderOrder = 32;
+  waypointFlagBandMid.renderOrder = 32;
+  waypointFlagCrossArm.renderOrder = 32;
+  waypointFlagPennant.renderOrder = 33;
+  waypointFlagPennantStripe.renderOrder = 34;
+  waypointFlagFinial.renderOrder = 33;
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
   observatoryVisionRangeMarker.frustumCulled = false;
@@ -397,8 +454,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
   for (const { marker } of waypointPathMarkers) marker.frustumCulled = false;
-  waypointFlagMarker.frustumCulled = false;
-  waypointFlagHaloMarker.frustumCulled = false;
+  waypointFlagGroup.frustumCulled = false;
+  for (const child of waypointFlagGroup.children) child.frustumCulled = false;
 
   scene.add(
     selectedMarker,
@@ -412,8 +469,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...queuedSettlementMarkers.map(({ marker }) => marker),
     ...queuedBuildMarkers.map(({ marker }) => marker),
     ...waypointPathMarkers.map(({ marker }) => marker),
-    waypointFlagHaloMarker,
-    waypointFlagMarker
+    waypointFlagGroup
   );
 
   const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0 };
@@ -699,36 +755,48 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   };
   const syncWaypointMarkers = (): void => {
     hideLineMarkerPool(waypointPathMarkers);
-    waypointFlagMarker.visible = false;
-    waypointFlagHaloMarker.visible = false;
+    waypointFlagGroup.visible = false;
     const waypoint = deps.state.waypoint;
     if (!waypoint) return;
     const blocked = !waypoint.plan.reachable;
-    // Halt color: muted amber so a blocked waypoint reads as a warning
-    // rather than another empire-colored flag.
     const HALT_COLOR = "#f59e0b";
-    const haloMix = 0.45;
     const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#d5ecff";
-    const flagColor = blocked ? HALT_COLOR : lightenHex(empireColor, 0.35);
-    const haloColor = blocked ? HALT_COLOR : lightenHex(empireColor, haloMix);
+    const pennantColor = blocked ? HALT_COLOR : empireColor;
+    const glowColor = blocked ? HALT_COLOR : lightenHex(empireColor, 0.4);
     const pathColor = blocked ? HALT_COLOR : empireColor;
-    waypointFlagMaterial.color.set(flagColor);
-    waypointFlagMaterial.opacity = 0.98;
-    waypointFlagHaloMaterial.color.set(haloColor);
-    waypointFlagHaloMaterial.opacity = blocked ? 0.75 : 0.55;
+    waypointFlagPennantMaterial.color.set(pennantColor);
+    waypointFlagBaseGlowMaterial.color.set(glowColor);
+    waypointFlagBaseGlowMaterial.opacity = blocked ? 0.55 : 0.32;
     for (const { material } of waypointPathMarkers) {
       material.color.set(pathColor);
       material.opacity = 0.5;
     }
     const pathTiles: Array<{ x: number; y: number }> = [];
     for (const step of waypoint.plan.steps) {
-      // Skip the final step; that tile is the flag.
       if (step.target.x === waypoint.target.x && step.target.y === waypoint.target.y) continue;
       pathTiles.push(step.target);
     }
     placeLineMarkers(waypointPathMarkers, pathTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
-    syncHighlightMarker(waypointFlagMarker, waypoint.target, MARKER_RISE_ABOVE_HEIGHTFIELD);
-    syncHighlightMarker(waypointFlagHaloMarker, waypoint.target, MARKER_RISE_ABOVE_HEIGHTFIELD);
+    // Position the flag group at the destination tile's world-space
+    // center with a height derived from the bowed corner heights.
+    const dx = toroidDelta(deps.state.camX, waypoint.target.x, WORLD_WIDTH);
+    const dy = toroidDelta(deps.state.camY, waypoint.target.y, WORLD_HEIGHT);
+    const wxNext = deps.wrapX(waypoint.target.x + 1);
+    const wyNext = deps.wrapY(waypoint.target.y + 1);
+    const cornerYAvg =
+      (heightfield.cornerYAt(waypoint.target.x, waypoint.target.y) +
+        heightfield.cornerYAt(wxNext, waypoint.target.y) +
+        heightfield.cornerYAt(waypoint.target.x, wyNext) +
+        heightfield.cornerYAt(wxNext, wyNext)) /
+      4;
+    waypointFlagGroup.position.set(dx + TILE_CENTER_OFFSET, cornerYAvg + MARKER_RISE_ABOVE_HEIGHTFIELD, dy + TILE_CENTER_OFFSET);
+    const t = performance.now() / 1000;
+    waypointFlagGroup.position.y += Math.sin(t * 1.6) * 0.04;
+    waypointFlagPennant.rotation.y = Math.sin(t * 2.4) * 0.18;
+    waypointFlagPennantStripe.rotation.y = waypointFlagPennant.rotation.y;
+    waypointFlagGearOuter.rotation.z = t * 0.4;
+    waypointFlagGearInner.rotation.z = -t * 0.7;
+    waypointFlagGroup.visible = true;
   };
   const writeObservatoryRangeGeometry = (
     lineMarker: LineSegments,
@@ -1244,10 +1312,24 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       marker.geometry.dispose();
       material.dispose();
     }
-    waypointFlagMarker.geometry.dispose();
-    waypointFlagHaloMarker.geometry.dispose();
-    waypointFlagMaterial.dispose();
-    waypointFlagHaloMaterial.dispose();
+    waypointFlagPole.geometry.dispose();
+    waypointFlagBandLow.geometry.dispose();
+    waypointFlagBandMid.geometry.dispose();
+    waypointFlagCrossArm.geometry.dispose();
+    waypointFlagPennant.geometry.dispose();
+    waypointFlagPennantStripe.geometry.dispose();
+    waypointFlagFinial.geometry.dispose();
+    waypointFlagGearOuter.geometry.dispose();
+    waypointFlagGearInner.geometry.dispose();
+    waypointFlagBaseGlow.geometry.dispose();
+    waypointFlagPoleMaterial.dispose();
+    waypointFlagBandMaterial.dispose();
+    waypointFlagPennantMaterial.dispose();
+    waypointFlagPennantStripeMaterial.dispose();
+    waypointFlagFinialMaterial.dispose();
+    waypointFlagGearOuterMaterial.dispose();
+    waypointFlagGearInnerMaterial.dispose();
+    waypointFlagBaseGlowMaterial.dispose();
     townOverlay.dispose();
     roadOverlay.dispose();
     unfedBadgeOverlay.dispose();
