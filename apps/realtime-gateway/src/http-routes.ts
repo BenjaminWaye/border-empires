@@ -1,5 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
+import type {
+  CurrentSeasonSummary,
+  SeasonArchiveRow,
+  SeasonLifecycleStatus
+} from "@border-empires/sim-protocol";
 import { randomBytes } from "node:crypto";
 
 import type { GatewayResolvedIdentity } from "./auth-identity.js";
@@ -61,6 +65,7 @@ type RegisterGatewayHttpRoutesDeps = {
   attackTraces: () => GatewayAttackTrace[];
   metrics: () => string;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
+  getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   adminApiToken?: string;
@@ -192,7 +197,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   const seasonIsActive = async (): Promise<boolean> => {
     try {
-      return (await deps.getCurrentSeasonSummary()).status === "active";
+      return (await deps.getCurrentSeasonStatus()) === "active";
     } catch {
       return false;
     }

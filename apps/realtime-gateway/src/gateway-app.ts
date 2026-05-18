@@ -1071,6 +1071,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     metrics: () => gatewayMetrics.renderPrometheus(),
     getCurrentSeasonSummary: async () =>
       hydrateCurrentSeasonSummaryDisplayNames(await simulationClient.getCurrentSeasonSummary(), profileStore),
+    getCurrentSeasonStatus: () => simulationClient.getCurrentSeasonSummary().then((s) => s.status),
     listSeasonArchives: async () =>
       hydrateSeasonArchiveDisplayNames(await simulationClient.listSeasonArchives(), profileStore),
     startNextSeason: (force?: boolean) => simulationClient.startNextSeason(force),
