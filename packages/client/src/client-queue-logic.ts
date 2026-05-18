@@ -3,6 +3,7 @@ import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile 
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
 import { persistDevelopmentQueueForPlayer, queuedSettlementOrderForTile } from "./client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command.js";
+import { planWaypoint } from "./client-waypoint-planner.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "./client-types.js";
@@ -609,6 +610,36 @@ export const processDevelopmentQueue = (
   return started;
 };
 
+// Walk the active waypoint plan one tile forward into the action queue.
+// Called when the action queue is empty so manual taps always take
+// priority. Re-plans against current state on every call so fog reveals,
+// ownership changes, and dock activity feed back into routing.
+export const topUpFromWaypoint = (
+  state: ClientState,
+  keyFor: (x: number, y: number) => string,
+  pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void
+): boolean => {
+  const waypoint = state.waypoint;
+  if (!waypoint) return false;
+  if (state.actionQueue.length > 0) return false;
+  if (state.actionInFlight) return false;
+
+  const target = waypoint.target;
+  const targetTile = state.tiles.get(keyFor(target.x, target.y));
+  if (targetTile && targetTile.ownerId === state.me) {
+    pushFeed(`Waypoint reached at (${target.x}, ${target.y}).`, "info", "success");
+    state.waypoint = undefined;
+    return false;
+  }
+
+  const plan = planWaypoint(target, { state, keyFor });
+  waypoint.plan = plan;
+  if (!plan.reachable) return false;
+  const firstStep = plan.steps[0];
+  if (!firstStep) return false;
+  return enqueueTarget(state, firstStep.target.x, firstStep.target.y, keyFor);
+};
+
 export const enqueueTarget = (state: ClientState, x: number, y: number, keyFor: (x: number, y: number) => string): boolean => {
   const targetKey = keyFor(x, y);
   const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
@@ -845,6 +876,7 @@ export const processActionQueue = (
   }
 ): boolean => {
   if (state.actionInFlight || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
+  topUpFromWaypoint(state, deps.keyFor, deps.pushFeed);
   let deferredFrontierSyncTargets = 0;
   while (state.actionQueue.length > 0) {
     const next = state.actionQueue[0];
