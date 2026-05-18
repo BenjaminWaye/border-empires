@@ -303,7 +303,7 @@ const choosePlannerCommand = (
   options?: {
     skipPreplan?: boolean;
     collectVisibleOnCooldown?: boolean;
-    lastCollectVisibleAtMs?: number;
+    lastHeartbeatAtMs?: number;
     attackStalemateTargetTileKeys?: ReadonlySet<string>;
   }
 ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
@@ -344,8 +344,8 @@ const choosePlannerCommand = (
       issuedAt,
       sessionPrefix: "ai-runtime",
       ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
-      ...(typeof options?.lastCollectVisibleAtMs === "number"
-        ? { lastCollectVisibleAtMs: options.lastCollectVisibleAtMs }
+      ...(typeof options?.lastHeartbeatAtMs === "number"
+        ? { lastHeartbeatAtMs: options.lastHeartbeatAtMs }
         : {})
     });
     preplanDiagnostic = preplan.diagnostic;
@@ -514,8 +514,8 @@ parentPort.on("message", (msg: unknown) => {
           {
             skipPreplan: message.skipPreplan === true,
             collectVisibleOnCooldown: message.collectVisibleOnCooldown === true,
-            ...(typeof message.lastCollectVisibleAtMs === "number"
-              ? { lastCollectVisibleAtMs: message.lastCollectVisibleAtMs as number }
+            ...(typeof message.lastHeartbeatAtMs === "number"
+              ? { lastHeartbeatAtMs: message.lastHeartbeatAtMs as number }
               : {}),
             ...(stalemateSet ? { attackStalemateTargetTileKeys: stalemateSet } : {})
           }
