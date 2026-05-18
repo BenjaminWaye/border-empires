@@ -79,6 +79,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   let miniMapLastDrawCamY = Number.NaN;
   let miniMapLastDrawZoom = Number.NaN;
   let miniMapLastReplayIndex = Number.NaN;
+  let miniMapLastTileCount = -1;
   let miniMapLastDrawAt = 0;
   const TERRAIN_COLOR_CACHE_LIMIT = 120_000;
   const terrainColorCache = new Map<string, string>();
@@ -356,6 +357,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
         camY: miniMapLastDrawCamY,
         zoom: miniMapLastDrawZoom,
         replayIndex: miniMapLastReplayIndex,
+        tileCount: miniMapLastTileCount,
         drawAt: miniMapLastDrawAt
       },
       parseKey,
@@ -371,6 +373,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     miniMapLastDrawCamY = state.camY;
     miniMapLastDrawZoom = state.zoom;
     miniMapLastReplayIndex = state.replayActive ? state.replayIndex : Number.NaN;
+    miniMapLastTileCount = state.tiles.size;
     miniMapLastDrawAt = nowMs;
   };
 
