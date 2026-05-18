@@ -14,6 +14,8 @@ describe("domain card previews", () => {
     expect(html).toContain("Shard stock");
     expect(html).toContain("8.6");
     expect(html).toContain("No shard caches in view yet.");
+    expect(html).not.toContain("Render FPS");
+    expect(html).not.toContain("data-fps-readout");
     expect(html).not.toContain("Active shardfalls");
     expect(html).not.toContain("grab shardfalls before they fade");
   });
