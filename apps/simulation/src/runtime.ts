@@ -3333,8 +3333,16 @@ export class SimulationRuntime {
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
     const touchedTileDeltas: Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> = [];
     const yieldContext = this.tileYieldEconomyContextForPlayer(actor);
-    for (const tile of this.tiles.values()) {
-      if (tile.ownerId !== command.playerId || tile.ownershipState !== "SETTLED") continue;
+    // Iterate this player's owned tiles only (typically tens to a few
+    // hundred) rather than every tile on the map (~2095). Staging telemetry
+    // showed COLLECT_VISIBLE apply p99 = 286ms — the dominant cost in the
+    // runtime drain — almost entirely from the O(all-map-tiles) scan that
+    // rejected ~99% of iterations. summary.territoryTileKeys is maintained
+    // incrementally as ownership changes, so this is O(owned-tiles).
+    const summary = this.summaryForPlayer(command.playerId);
+    for (const tileKey of summary.territoryTileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (!tile || tile.ownershipState !== "SETTLED") continue;
       const collected = this.collectTileYield(tile, now, command, yieldContext);
       const touched = collected.gold > 0 || Object.values(collected.strategic).some((value) => Number(value) > 0);
       if (!touched) continue;
