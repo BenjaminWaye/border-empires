@@ -15,7 +15,7 @@ import { renderRespawnOverlay } from "./client-respawn-overlay.js";
 import { effectiveFogDisabled, setStagingMapRevealEnabled, stagingMapRevealAvailable } from "./client-staging-map-reveal.js";
 import { isMobileDevice } from "./client-panel-nav.js";
 import { isTrue3DRendererActive } from "./client-renderer-mode.js";
-import { hasSustainedLowFps } from "./client-fps-monitor.js";
+import { getCurrentFps, hasSustainedLowFps } from "./client-fps-monitor.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import { refreshLiveTechRequirements } from "./client-tech-live-requirements.js";
@@ -276,7 +276,20 @@ export const renderClientHud = (deps: HudDeps): void => {
     `;
   };
 
-  const authDebugHtml = (): string => {
+  const authDebugSnapshot = (): {
+    firebaseProjectId: string;
+    firebaseAuthDomain: string;
+    authUid: string;
+    authEmail: string;
+    providerLabel: string;
+    playerId: string;
+    playerName: string;
+    runtimeFingerprint: string;
+    seasonId: string;
+    bootstrapLabel: string;
+    wsLabel: string;
+    fpsLabel: string;
+  } => {
     const currentUser = firebaseAuth?.currentUser;
     const firebaseProjectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
     const firebaseAuthDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? "border-empires.firebaseapp.com";
@@ -297,38 +310,64 @@ export const renderClientHud = (deps: HudDeps): void => {
           ? "legacy-init"
           : "pending";
     const wsLabel = state.bridgeDebugWsUrl || wsUrl;
-    const copyPayload = encodeURIComponent(
+    const fps = getCurrentFps();
+    const fpsLabel = fps === undefined ? "—" : Math.round(fps).toString();
+    return {
+      firebaseProjectId,
+      firebaseAuthDomain,
+      authUid,
+      authEmail,
+      providerLabel,
+      playerId,
+      playerName,
+      runtimeFingerprint,
+      seasonId,
+      bootstrapLabel,
+      wsLabel,
+      fpsLabel
+    };
+  };
+
+  const authDebugCopyPayload = (): string => {
+    const details = authDebugSnapshot();
+    return encodeURIComponent(
       [
         `Client build ${CLIENT_BUILD_VERSION}`,
         `Host ${window.location.host}`,
         `Path ${window.location.pathname}${window.location.search}`,
-        `Firebase project ${firebaseProjectId}`,
-        `Firebase auth domain ${firebaseAuthDomain}`,
-        `Auth uid ${authUid}`,
-        `Auth email ${authEmail}`,
-        `Providers ${providerLabel}`,
-        `Game playerId ${playerId}`,
-        `Game playerName ${playerName}`,
+        `Firebase project ${details.firebaseProjectId}`,
+        `Firebase auth domain ${details.firebaseAuthDomain}`,
+        `Auth uid ${details.authUid}`,
+        `Auth email ${details.authEmail}`,
+        `Providers ${details.providerLabel}`,
+        `Game playerId ${details.playerId}`,
+        `Game playerName ${details.playerName}`,
         `Auth ready ${state.authReady}`,
         `Auth session ready ${state.authSessionReady}`,
         `Profile setup required ${state.profileSetupRequired}`,
         `Backend ${state.activeBackend}`,
         `Bridge ${state.bridgeDebugMode || "unknown"}`,
-        `Bootstrap ${bootstrapLabel}`,
-        `Season ${seasonId}`,
-        `Runtime ${runtimeFingerprint}`,
-        `WS ${wsLabel}`,
+        `Bootstrap ${details.bootstrapLabel}`,
+        `Render FPS ${details.fpsLabel}`,
+        `Season ${details.seasonId}`,
+        `Runtime ${details.runtimeFingerprint}`,
+        `WS ${details.wsLabel}`,
         `UA ${navigator.userAgent}`
       ].join("\n")
     );
+  };
+
+  const authDebugHtml = (): string => {
+    const details = authDebugSnapshot();
     return `
-      <div class="bridge-debug-status auth-debug-status" title="${authUid}">
-        <button type="button" class="bridge-debug-copy-btn" data-copy-auth-debug="${copyPayload}">Copy Auth Debug</button>
-        <div><strong>Firebase</strong> ${firebaseProjectId}</div>
-        <div><strong>UID</strong> ${authUid}</div>
-        <div><strong>Email</strong> ${authEmail}</div>
-        <div><strong>Providers</strong> ${providerLabel}</div>
-        <div><strong>Player</strong> ${playerId} · ${playerName}</div>
+      <div class="bridge-debug-status auth-debug-status" title="${details.authUid}">
+        <button type="button" class="bridge-debug-copy-btn" data-copy-auth-debug>Copy Auth Debug</button>
+        <div><strong>Firebase</strong> ${details.firebaseProjectId}</div>
+        <div><strong>UID</strong> ${details.authUid}</div>
+        <div><strong>Email</strong> ${details.authEmail}</div>
+        <div><strong>Providers</strong> ${details.providerLabel}</div>
+        <div><strong>Player</strong> ${details.playerId} · ${details.playerName}</div>
+        <div><strong>Render FPS</strong> <span data-fps-readout>${details.fpsLabel}</span></div>
       </div>
     `;
   };
@@ -867,10 +906,8 @@ export const renderClientHud = (deps: HudDeps): void => {
   const authDebugCopyButtons = dom.hud.querySelectorAll("[data-copy-auth-debug]") as NodeListOf<HTMLButtonElement>;
   authDebugCopyButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = async () => {
-      const encoded = btn.dataset.copyAuthDebug;
-      if (!encoded) return;
       try {
-        await navigator.clipboard.writeText(decodeURIComponent(encoded));
+        await navigator.clipboard.writeText(decodeURIComponent(authDebugCopyPayload()));
         pushFeed("Auth debug copied.", "info", "success");
       } catch {
         pushFeed("Could not copy auth debug.", "error", "warn");
