@@ -2,5 +2,9 @@
   "framework": "vite",
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @border-empires/shared build && pnpm --filter @border-empires/client build",
-  "outputDirectory": "packages/client/dist"
+  "outputDirectory": "packages/client/dist",
+  "rewrites": [
+    { "source": "/rally/new", "destination": "/" },
+    { "source": "/r/:code", "destination": "/" }
+  ]
 }
