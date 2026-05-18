@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.7",
+  version: "2026.05.18.8",
   title: "What's New",
-  summary: "Production login restored: the client now points play.borderempires.com at the live gateway after the legacy server hostname was retired.",
+  summary: "Expansion waypoints now actually work — the queue keeps marching forward, the tile-menu actions persist through server ticks, and the waypoint flag is a brass-and-copper steampunk assembly with spinning cogs.",
   entries: [
+    {
+      introducedIn: "2026.05.18.8",
+      title: "Expansion waypoints: chain runs, menu sticks, flag looks alive",
+      why: "Initial release of waypoints had three real bugs: the queue halted after one tile, the tile menu Cancel/Expand actions vanished on the first server tick, and the destination marker reused the same outline as the selection ring.",
+      changes: [
+        "Halt logic now checks whether the previously-enqueued tile is actually owned by you. A successful step always advances; a server reject (stale EXPAND_TARGET_OWNED, etc.) halts cleanly to amber instead of tight-looping.",
+        "The Cancel Waypoint and Expand Here tile-menu actions are now reinjected by renderTileActionMenu itself, so the HUD's per-tick re-render no longer wipes them. Injection is idempotent so duplicates can't stack.",
+        "The waypoint flag is now a brass-and-copper assembly: tapered pole with two copper rivet bands, horizontal cross-arm, empire-colored pennant with a copper top stripe, brass spire finial, and two counter-rotating cog rings around an empire-color glow disk at the base."
+      ]
+    },
     {
       introducedIn: "2026.05.18.7",
       title: "Production login restored after legacy host retirement",
