@@ -23,8 +23,12 @@
 import { parentPort } from "node:worker_threads";
 import {
   ATTACK_MANPOWER_MIN,
-  FRONTIER_CLAIM_COST
-,
+  FRONTIER_CLAIM_COST,
+  VISION_RADIUS,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  wrapX,
+  wrapY,
   type Terrain
 } from "@border-empires/shared";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
@@ -118,11 +122,97 @@ const resolveOwnedTiles = (player: PlannerPlayerView): PlannerTileView[] => {
   return ownedTiles;
 };
 
+// ─── Non-barb vision union (drives barbarian activation) ──────────────────────
+//
+// The barbarian planner activates a barb tile iff at least one non-barb player
+// can see it — same fog the player renders against. The union is the expensive
+// part (Chebyshev radius expansion around every non-barb owned tile), so it's
+// cached and only rebuilt when an input changes:
+//   • a non-barb player's territory shifts (tileCollectionVersion bump), or
+//   • a non-barb player's vision multiplier / radius bonus changes.
+// Dock-reveals and lock-reveals contribute to the player's render-side fog but
+// are intentionally excluded here — they're transient/sparse and not worth the
+// added porting + invalidation surface.
+
+type PlayerVisionCacheEntry = {
+  readonly tileCollectionVersion: number;
+  readonly vision: number;
+  readonly visionRadiusBonus: number;
+  readonly visibleKeys: Set<string>;
+};
+const playerVisionCacheById = new Map<string, PlayerVisionCacheEntry>();
+let cachedNonBarbVisionUnion: Set<string> | null = null;
+
+const invalidateNonBarbVisionUnion = (): void => {
+  cachedNonBarbVisionUnion = null;
+};
+
+const computePlayerVisibleKeys = (player: PlannerPlayerView): Set<string> => {
+  const visionMul = player.vision ?? 1;
+  const visionBonus = player.visionRadiusBonus ?? 0;
+  const radius = Math.max(1, Math.floor(VISION_RADIUS * visionMul) + visionBonus);
+  const visibleKeys = new Set<string>();
+  for (const ownedKey of player.territoryTileKeys) {
+    const [rawX, rawY] = ownedKey.split(",");
+    const x = Number(rawX);
+    const y = Number(rawY);
+    if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        visibleKeys.add(`${wrapX(x + dx, WORLD_WIDTH)},${wrapY(y + dy, WORLD_HEIGHT)}`);
+      }
+    }
+  }
+  return visibleKeys;
+};
+
+const ensurePlayerVisionCacheCurrent = (player: PlannerPlayerView): boolean => {
+  if (player.id === BARBARIAN_PLAYER_ID) return false;
+  const cached = playerVisionCacheById.get(player.id);
+  const vision = player.vision ?? 1;
+  const visionRadiusBonus = player.visionRadiusBonus ?? 0;
+  if (
+    cached &&
+    cached.tileCollectionVersion === player.tileCollectionVersion &&
+    cached.vision === vision &&
+    cached.visionRadiusBonus === visionRadiusBonus
+  ) {
+    return false;
+  }
+  playerVisionCacheById.set(player.id, {
+    tileCollectionVersion: player.tileCollectionVersion,
+    vision,
+    visionRadiusBonus,
+    visibleKeys: computePlayerVisibleKeys(player)
+  });
+  return true;
+};
+
+const getVisibleToAnyNonBarbPlayer = (): ReadonlySet<string> => {
+  // Drop stale per-player entries (player removed from world); the union below
+  // is the only consumer so an entry that no longer maps to a live player must
+  // not silently contribute keys.
+  for (const cachedId of [...playerVisionCacheById.keys()]) {
+    if (!playersById.has(cachedId)) {
+      playerVisionCacheById.delete(cachedId);
+      cachedNonBarbVisionUnion = null;
+    }
+  }
+  if (cachedNonBarbVisionUnion) return cachedNonBarbVisionUnion;
+  const union = new Set<string>();
+  for (const entry of playerVisionCacheById.values()) {
+    for (const key of entry.visibleKeys) union.add(key);
+  }
+  cachedNonBarbVisionUnion = union;
+  return union;
+};
+
 const barbarianPlanner = createBarbarianPlanner({
   tilesByKey,
   resolveOwnedTiles,
   // dockLinksByDockTileKey is replaced on every `init` — read it fresh per plan.
-  getDockLinksByDockTileKey: () => dockLinksByDockTileKey
+  getDockLinksByDockTileKey: () => dockLinksByDockTileKey,
+  getVisibleToAnyNonBarbPlayer
 });
 
 // ─── Planning logic ───────────────────────────────────────────────────────────
@@ -204,12 +294,15 @@ parentPort.on("message", (msg: unknown) => {
       tilesByKey.clear();
       playersById.clear();
       playerTileCacheById.clear();
+      playerVisionCacheById.clear();
+      invalidateNonBarbVisionUnion();
       for (const tile of worldView.tiles) {
         tilesByKey.set(`${tile.x},${tile.y}`, tile);
       }
       dockLinksByDockTileKey = buildDockLinksByDockTileKey((worldView.docks ?? []) as DockRouteDefinition[]);
       for (const player of worldView.players) {
         playersById.set(player.id, player);
+        if (ensurePlayerVisionCacheCurrent(player)) invalidateNonBarbVisionUnion();
       }
       break;
     }
@@ -222,6 +315,7 @@ parentPort.on("message", (msg: unknown) => {
           playerTileCacheById.delete(player.id);
         }
         playersById.set(player.id, player);
+        if (ensurePlayerVisionCacheCurrent(player)) invalidateNonBarbVisionUnion();
       }
       break;
     }

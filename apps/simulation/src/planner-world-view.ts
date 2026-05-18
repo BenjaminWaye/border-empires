@@ -53,6 +53,11 @@ export type PlannerPlayerView = {
   tileCollectionVersion: number;
   /** Whether this player currently holds any combat lock (origin or target). */
   hasActiveLock: boolean;
+  /** mods.vision multiplier (1 = unmodified). Used by the barbarian planner
+   *  to reproduce the player's fog radius without recomputing it in the worker. */
+  vision?: number;
+  /** Sum of tech/domain visionRadiusBonus effects for this player. */
+  visionRadiusBonus?: number;
   territoryTileKeys: string[];
   frontierTileKeys: string[];
   hotFrontierTileKeys: string[];

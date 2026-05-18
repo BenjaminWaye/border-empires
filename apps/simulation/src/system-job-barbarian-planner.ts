@@ -9,6 +9,11 @@ export type BarbarianPlannerDeps = {
   readonly tilesByKey: ReadonlyMap<string, PlannerTileView>;
   readonly resolveOwnedTiles: (player: PlannerPlayerView) => PlannerTileView[];
   readonly getDockLinksByDockTileKey: () => ReadonlyMap<string, readonly string[]>;
+  /** Set of tile keys currently visible to at least one non-barbarian player.
+   *  A barb tile is eligible to plan iff its tile key is in this set. Called
+   *  once per `choose()`; callers cache + invalidate the union themselves
+   *  (vision recomputation is the expensive part — keep it off this hot path). */
+  readonly getVisibleToAnyNonBarbPlayer: () => ReadonlySet<string>;
   readonly now?: () => number;
   readonly cooldownMs?: number;
 };
@@ -22,26 +27,10 @@ export type BarbarianPlanner = {
   readonly cooldownByTileKey: ReadonlyMap<string, number>;
 };
 
-const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number]> = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1]
-];
-
 export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPlanner => {
   const now = deps.now ?? (() => Date.now());
   const cooldownMs = deps.cooldownMs ?? BARBARIAN_TILE_COOLDOWN_MS;
   const cooldownByTileKey = new Map<string, number>();
-
-  const hasNonBarbarianNeighbor = (tile: PlannerTileView): boolean => {
-    for (const [dx, dy] of NEIGHBOR_OFFSETS) {
-      const neighbor = deps.tilesByKey.get(`${tile.x + dx},${tile.y + dy}`);
-      if (!neighbor) continue;
-      if (neighbor.ownerId && neighbor.ownerId !== BARBARIAN_PLAYER_ID) return true;
-    }
-    return false;
-  };
 
   const choose = (
     player: PlannerPlayerView,
@@ -51,13 +40,16 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     const ownedTiles = deps.resolveOwnedTiles(player);
     if (ownedTiles.length === 0) return null;
 
+    const visible = deps.getVisibleToAnyNonBarbPlayer();
+    if (visible.size === 0) return null;
+
     const t = now();
     const eligibleTiles: PlannerTileView[] = [];
     for (const tile of ownedTiles) {
       const tileKey = `${tile.x},${tile.y}`;
       const cooldownUntil = cooldownByTileKey.get(tileKey);
       if (cooldownUntil !== undefined && cooldownUntil > t) continue;
-      if (!hasNonBarbarianNeighbor(tile)) continue;
+      if (!visible.has(tileKey)) continue;
       eligibleTiles.push(tile);
     }
     if (eligibleTiles.length === 0) return null;
