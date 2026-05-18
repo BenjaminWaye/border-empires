@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.2",
+  version: "2026.05.18.3",
   title: "What's New",
-  summary: "Recovered empires with territory but zero gross gold income now regain a settlement automatically, so stale state cannot leave a player alive with no settlement economy.",
+  summary: "Tap a distant tile to set an expansion waypoint — your queue chips away at the path tile-by-tile, attacks bridge enemy gaps, and a confirm step shows the gold + manpower cost when you're opening a new front.",
   entries: [
+    {
+      introducedIn: "2026.05.18.3",
+      title: "Distant-tap expansion waypoints",
+      why: "Tapping every tile in a long expansion chain is exhausting on mobile. Setting a destination once and letting the queue chip away matches how RTS games handle move orders.",
+      changes: [
+        "Tap any reachable land tile that you can't currently border to drop an empire-colored waypoint flag at the destination. The planned route lights up in the same color so the path is legible against owned territory.",
+        "The planner routes around mountains and through dock pairs and folds enemy tiles into the queue as attacks rather than stopping at borders.",
+        "When the first attack in the queue would open a new front or your manpower can't cover the planned attacks, the tile action menu pops a Confirm dialog showing the total gold, manpower, and estimated seconds; otherwise the waypoint commits immediately.",
+        "Tap the waypoint flag and choose Cancel Waypoint to clear it. Unreachable plans switch the flag to an amber halt tint so you notice and can re-target."
+      ]
+    },
     {
       introducedIn: "2026.05.18.2",
       title: "Zero-income empires regain a settlement",
