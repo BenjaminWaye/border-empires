@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.17.2",
+  version: "2026.05.18.1",
   title: "What's New",
-  summary: "The live Render FPS diagnostic now lives with the auth/backend debug details instead of the Shard Network gameplay card, so sharding stays about shards while performance troubleshooting remains available when needed.",
+  summary: "The minimap now frames just the land you've discovered (with a small padding margin) instead of squeezing the entire 450×450 world into a tiny panel — the rendered area grows steadily as you explore.",
   entries: [
+    {
+      introducedIn: "2026.05.18.1",
+      title: "Minimap zooms to your discovered region",
+      why: "Drawing the full world made early-game exploration unreadable — your tiny known patch was a few pixels in the corner. The minimap had the data; it just wasn't framing it.",
+      changes: [
+        "The minimap view now computes a bounding box over the tiles you've discovered (visible or previously seen) with ~8 tiles of padding on each side.",
+        "The box is expanded to match the minimap canvas aspect ratio so things don't stretch, then clamped to world bounds.",
+        "As you discover new tiles the box expands, so the rendered area grows steadily instead of jumping.",
+        "Minimap clicks and drags still set the camera correctly — pointer positions invert through the same view box.",
+        "Camera viewport rect, player dot, town markers, dock pairs, replay overlays and shard pings all map through the new box, with off-frame markers culled."
+      ]
+    },
     {
       introducedIn: "2026.05.17.2",
       title: "Render FPS moved into debug details",
