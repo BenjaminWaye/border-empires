@@ -45,6 +45,10 @@ import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subsc
 import { supportedClientMessageTypes } from "./supported-client-messages.js";
 import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "./live-world-status-recovery.js";
+import {
+  hydrateCurrentSeasonSummaryDisplayNames,
+  hydrateSeasonArchiveDisplayNames
+} from "./hq-summary-hydration.js";
 import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../simulation/src/seed-state.js";
@@ -1065,8 +1069,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     attackDebug: buildAttackDebug,
     attackTraces: buildAttackTraces,
     metrics: () => gatewayMetrics.renderPrometheus(),
-    getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
-    listSeasonArchives: () => simulationClient.listSeasonArchives(),
+    getCurrentSeasonSummary: async () =>
+      hydrateCurrentSeasonSummaryDisplayNames(await simulationClient.getCurrentSeasonSummary(), profileStore),
+    getCurrentSeasonStatus: () => simulationClient.getCurrentSeasonSummary().then((s) => s.status),
+    listSeasonArchives: async () =>
+      hydrateSeasonArchiveDisplayNames(await simulationClient.listSeasonArchives(), profileStore),
     startNextSeason: (force?: boolean) => simulationClient.startNextSeason(force),
     ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
     authenticateBearer: resolveHttpBearerIdentity,
