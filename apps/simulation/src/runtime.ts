@@ -3049,7 +3049,7 @@ export class SimulationRuntime {
     const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
-    const metrics = buildPlayerDefensibilityMetrics(playerId, this.tiles);
+    const metrics = buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys);
     player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
     this.emitPlayerMessage(
       { commandId: command.commandId, playerId },

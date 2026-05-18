@@ -41,19 +41,38 @@ const exposedEdgesFor = (
 
 export const buildPlayerDefensibilityMetrics = (
   playerId: string,
-  tiles: ReadonlyMap<string, DomainTileState>
+  tiles: ReadonlyMap<string, DomainTileState>,
+  ownedTileKeys?: ReadonlySet<string>
 ): { T: number; E: number; Ts: number; Es: number } => {
   let T = 0;
   let E = 0;
   let Ts = 0;
   let Es = 0;
-  for (const tile of tiles.values()) {
-    if (!ownedTile(tile, playerId, false)) continue;
-    T += 1;
-    E += exposedEdgesFor(tile, playerId, tiles, false);
-    if (!ownedTile(tile, playerId, true)) continue;
-    Ts += 1;
-    Es += exposedEdgesFor(tile, playerId, tiles, true);
+  // Iterate the player's owned tiles only when the caller provides the
+  // index — O(owned-tiles) instead of O(all-map-tiles). The summary's
+  // territoryTileKeys is maintained incrementally as ownership changes, so
+  // this is the same data as filtering tiles.values() but ~10-30x cheaper
+  // for typical empires. Falls back to the full scan for callers that
+  // don't have the index handy.
+  if (ownedTileKeys) {
+    for (const tileKey of ownedTileKeys) {
+      const tile = tiles.get(tileKey);
+      if (!tile || !ownedTile(tile, playerId, false)) continue;
+      T += 1;
+      E += exposedEdgesFor(tile, playerId, tiles, false);
+      if (!ownedTile(tile, playerId, true)) continue;
+      Ts += 1;
+      Es += exposedEdgesFor(tile, playerId, tiles, true);
+    }
+  } else {
+    for (const tile of tiles.values()) {
+      if (!ownedTile(tile, playerId, false)) continue;
+      T += 1;
+      E += exposedEdgesFor(tile, playerId, tiles, false);
+      if (!ownedTile(tile, playerId, true)) continue;
+      Ts += 1;
+      Es += exposedEdgesFor(tile, playerId, tiles, true);
+    }
   }
   return {
     T: Math.max(1, T),
