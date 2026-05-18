@@ -310,16 +310,19 @@ type SimulationRuntimeOptions = {
     durationMs: number;
     commandType?: CommandEnvelope["type"];
   }) => void;
-  // Per-COLLECT_VISIBLE inner-loop telemetry. #310 cut the O(all-map-tiles)
-  // outer scan but the call p99 climbed because empires grew and the
-  // per-tile inner work (collectTileYield + tileDeltaFromState) is now the
-  // bottleneck. This callback splits that cost so we know which inner call
-  // to attack: cheapen the yield computation, or skip emitting deltas for
-  // zero-yield tiles, or maintain an incremental collectible-tile index.
+  // Per-COLLECT_VISIBLE phase telemetry. #317 split the inner loop and found
+  // it was only ~4% of the call cost — the remaining 96% lives in the three
+  // post-loop emits. Adds timing for each so we can localise the hot listener
+  // (almost certainly emitPlayerStateUpdate, which fires on every command
+  // apply across the runtime, not just COLLECT_VISIBLE — so fixing it once
+  // helps ATTACK / SETTLE / EXPAND too).
   onCollectVisibleSample?: (sample: {
     playerId: string;
     yieldMs: number;
     deltaMs: number;
+    tileDeltaBatchEmitMs: number;
+    collectResultEmitMs: number;
+    playerStateUpdateMs: number;
     tilesConsidered: number;
     tilesTouched: number;
   }) => void;
@@ -810,6 +813,9 @@ export class SimulationRuntime {
         playerId: string;
         yieldMs: number;
         deltaMs: number;
+        tileDeltaBatchEmitMs: number;
+        collectResultEmitMs: number;
+        playerStateUpdateMs: number;
         tilesConsidered: number;
         tilesTouched: number;
       }) => void)
@@ -3619,23 +3625,25 @@ export class SimulationRuntime {
         strategic[resource] = (strategic[resource] ?? 0) + amount;
       }
     }
-    this.onCollectVisibleSample?.({
-      playerId: command.playerId,
-      yieldMs,
-      deltaMs,
-      tilesConsidered,
-      tilesTouched: tiles
-    });
     actor.points += gold;
     this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
+    // Time each post-loop emit. The inner loop is only ~4% of COLLECT_VISIBLE
+    // p99 (per #317 telemetry); the rest lives in these three calls. The
+    // dominant one is almost certainly emitPlayerStateUpdate since it's
+    // shared across every command apply path — fixing it once helps every
+    // command, not just COLLECT_VISIBLE.
+    let tileDeltaBatchEmitMs = 0;
     if (touchedTileDeltas.length > 0) {
+      const startedAt = sampleNow();
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
         commandId: command.commandId,
         playerId: command.playerId,
         tileDeltas: touchedTileDeltas
       });
+      tileDeltaBatchEmitMs = sampleNow() - startedAt;
     }
+    const collectResultStartedAt = sampleNow();
     this.emitEvent({
       eventType: "COLLECT_RESULT",
       commandId: command.commandId,
@@ -3645,7 +3653,20 @@ export class SimulationRuntime {
       gold,
       strategic
     });
+    const collectResultEmitMs = sampleNow() - collectResultStartedAt;
+    const playerStateUpdateStartedAt = sampleNow();
     this.emitPlayerStateUpdate(command);
+    const playerStateUpdateMs = sampleNow() - playerStateUpdateStartedAt;
+    this.onCollectVisibleSample?.({
+      playerId: command.playerId,
+      yieldMs,
+      deltaMs,
+      tileDeltaBatchEmitMs,
+      collectResultEmitMs,
+      playerStateUpdateMs,
+      tilesConsidered,
+      tilesTouched: tiles
+    });
   }
 
   private handleCollectTileCommand(command: CommandEnvelope): void {
