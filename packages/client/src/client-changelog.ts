@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.9",
+  version: "2026.05.18.10",
   title: "What's New",
-  summary: "Setting a waypoint now starts the expansion chain immediately instead of waiting for some other action to kick the queue.",
+  summary: "Captured towns now show capture shock instead of stale long-peace modifiers while recovery smoke is active.",
   entries: [
+    {
+      introducedIn: "2026.05.18.10",
+      title: "Captured towns explain their recovery smoke",
+      why: "A town recently taken by another player could show black capture-shock smoke while the tile menu had no negative modifier, or could keep showing Long-term peace if that modifier was already present before the capture-shock payload was refreshed.",
+      changes: [
+        "Town capture shock now drives the tile heading's Recently captured countdown even when no captured structure is disabled.",
+        "Settled captured towns now list a negative Recently captured modifier that calls out paused population growth while the shock window is active.",
+        "Long-term peace and nearby-war growth rows are hidden while capture shock is active, and simulation snapshots recompute shocked town modifiers instead of preserving stale long-peace rows.",
+        "Captured frontier towns still call out that town manpower and production are paused until the tile is settled."
+      ]
+    },
     {
       introducedIn: "2026.05.18.9",
       title: "Waypoint starts expanding the moment you confirm it",
