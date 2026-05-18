@@ -347,6 +347,7 @@ const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
 // as empty-code COMMAND_REJECTED. Filter them at the wire boundary so the
 // gateway never sees them in the first place.
 export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
+  "SETTLEMENT_STARTED",
   "TILE_YIELD_ANCHOR_UPDATED"
 ]);
 
@@ -1099,6 +1100,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
   let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
+  let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -2127,6 +2129,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "tile shedding tick failed");
         }
       }, 60_000);
+      territoryAutomationTicker = setInterval(() => {
+        try {
+          runtime.tickTerritoryAutomation(Date.now());
+        } catch (error) {
+          log.error({ err: error }, "territory automation tick failed");
+        }
+      }, 15_000);
       eventLoopSampler = setInterval(() => {
         const now = Date.now();
         const lagMs = Math.max(0, now - expectedEventLoopTickAt);
@@ -2298,6 +2307,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (eventLoopSampler) clearInterval(eventLoopSampler);
       if (shardRainTicker) clearInterval(shardRainTicker);
       if (tileSheddingTicker) clearInterval(tileSheddingTicker);
+      if (territoryAutomationTicker) clearInterval(territoryAutomationTicker);
       gcObserver?.disconnect();
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
