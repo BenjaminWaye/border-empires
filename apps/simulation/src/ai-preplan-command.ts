@@ -42,12 +42,13 @@ export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
   // both planner passes without dispatching anything useful — exactly the
   // failure mode we saw on staging (58 dispatched + many silent ticks).
   collectVisibleOnCooldown?: boolean;
-  // Last time the producer issued a COLLECT_VISIBLE for this player (epoch ms).
+  // Last time the producer fired a HEARTBEAT collect for this player (epoch ms;
+  // NOT shared with organic collects — organic activity must not reset this).
   // When the gap to `issuedAt` exceeds COLLECT_HEARTBEAT_INTERVAL_MS the
   // preplan emits a heartbeat collect before the main planner runs — without
   // this, upkeep accrual drains the treasury below SETTLE_COST/FRONTIER_CLAIM_COST
   // and the main planner sits in `insufficient_points` for thousands of ticks.
-  lastCollectVisibleAtMs?: number;
+  lastHeartbeatAtMs?: number;
 };
 
 export const COLLECT_HEARTBEAT_INTERVAL_MS = 60_000;
@@ -168,8 +169,8 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   if (
     hasCollectibleSource &&
     !input.collectVisibleOnCooldown &&
-    input.lastCollectVisibleAtMs !== undefined &&
-    input.issuedAt - input.lastCollectVisibleAtMs >= COLLECT_HEARTBEAT_INTERVAL_MS
+    input.lastHeartbeatAtMs !== undefined &&
+    input.issuedAt - input.lastHeartbeatAtMs >= COLLECT_HEARTBEAT_INTERVAL_MS
   ) {
     return {
       command: createAutomationCommand(
