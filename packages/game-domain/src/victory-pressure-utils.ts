@@ -29,22 +29,22 @@ export const resourceMonopolyConditionMet = (leader: ResourceMonopolyLeader, req
       leader.bestOwned >= Math.ceil(leader.bestTotal * requiredShare)
   );
 
-export const continentFootprintProgressLabel = (input: {
-  qualifiedCount: number;
-  totalIslands: number;
-  weakestRatio: number;
-  weakestOwned: number;
-  weakestTotal: number;
-  requiredShare: number;
-}): string => {
-  const shareLabel = formatVictoryShare(input.requiredShare);
-  return input.qualifiedCount > 0 && input.weakestTotal > 0
-    ? `${input.qualifiedCount}/${input.totalIslands} islands at ${shareLabel}+ settled · weakest island ${Math.round(input.weakestRatio * 100)}% (${input.weakestOwned}/${input.weakestTotal})`
-    : `${input.qualifiedCount}/${input.totalIslands} islands at ${shareLabel}+ settled`;
-};
+export const maritimeSupremacyProgressLabel = (ownedDocks: number, targetDocks: number): string =>
+  `${ownedDocks}/${targetDocks} docks`;
 
-export const continentFootprintThresholdLabel = (requiredShare: number): string =>
-  `Need ${formatVictoryShare(requiredShare)} settled land on every island`;
+export const maritimeSupremacyThresholdLabel = (requiredShare: number, targetDocks: number): string =>
+  `Need ${targetDocks} settled docks (${formatVictoryShare(requiredShare)} of world docks)`;
+
+export const diplomaticDominanceProgressLabel = (input: {
+  blocControlledTiles: number;
+  targetTiles: number;
+  leaderControlledTiles: number;
+  blocMemberCount: number;
+}): string =>
+  `${input.blocControlledTiles}/${input.targetTiles} alliance-controlled land · leader ${input.leaderControlledTiles} tiles · ${input.blocMemberCount} member${input.blocMemberCount === 1 ? "" : "s"}`;
+
+export const diplomaticDominanceThresholdLabel = (requiredShare: number, targetTiles: number): string =>
+  `Need ${targetTiles} alliance-controlled land tiles (${formatVictoryShare(requiredShare)}) and largest member status`;
 
 export const resourceMonopolyLeader = (
   ownedResourceCountsByPlayerId: Map<string, Record<ResourceType, number>>,

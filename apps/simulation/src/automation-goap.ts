@@ -164,7 +164,7 @@ export interface AiEmpireGoapState {
   staminaHealthy: boolean;
 }
 
-export type AiSeasonVictoryPathId = "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY";
+export type AiSeasonVictoryPathId = "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY";
 
 export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
   {
@@ -200,7 +200,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["secure_high_value_frontier", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["secure_high_value_frontier", "season_town_control", "season_diplomatic_dominance", "season_economic_hegemony"],
       description: "Claim an adjacent neutral tile."
     }
   },
@@ -219,7 +219,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["expand_vision_for_value", "secure_high_value_frontier", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["expand_vision_for_value", "secure_high_value_frontier", "season_town_control", "season_diplomatic_dominance", "season_economic_hegemony"],
       description: "Probe outward to reveal promising land."
     }
   },
@@ -236,7 +236,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["settle_high_value_frontier", "secure_high_value_frontier", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["settle_high_value_frontier", "secure_high_value_frontier", "season_diplomatic_dominance", "season_economic_hegemony"],
       description: "Claim a border tile that sets up a strong settlement scaffold."
     }
   },
@@ -305,7 +305,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       foodCoverageLow: false
     },
     meta: {
-      goalIds: ["settle_high_value_frontier", "secure_food_supply", "secure_core_income", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["settle_high_value_frontier", "secure_food_supply", "secure_core_income", "season_diplomatic_dominance", "season_economic_hegemony"],
       description: "Convert frontier territory into durable settled land."
     }
   },
@@ -321,7 +321,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsFortifiedAnchor: false
     },
     meta: {
-      goalIds: ["fortify_core_chokepoint", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["fortify_core_chokepoint", "season_town_control", "season_diplomatic_dominance", "season_economic_hegemony"],
       description: "Place a fort to stabilize an exposed edge."
     }
   },
@@ -369,7 +369,7 @@ export type AiEmpireGoalId =
   | "secure_high_value_frontier"
   | "remove_core_threat"
   | "season_town_control"
-  | "season_settled_territory"
+  | "season_diplomatic_dominance"
   | "season_economic_hegemony";
 
 export const AI_EMPIRE_GOALS: readonly GoapGoal<AiEmpireGoapState>[] = [
@@ -426,8 +426,8 @@ const SEASON_GOAL_BY_VICTORY_PATH: Record<AiSeasonVictoryPathId, GoapGoal<AiEmpi
     priority: 12,
     desired: { hasWeakEnemyBorder: false, threatCritical: false }
   },
-  SETTLED_TERRITORY: {
-    id: "season_settled_territory",
+  DIPLOMATIC_DOMINANCE: {
+    id: "season_diplomatic_dominance",
     priority: 12,
     desired: { hasNeutralLandOpportunity: false, hasScoutOpportunity: false, hasScaffoldOpportunity: false }
   },
@@ -449,8 +449,8 @@ const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Recor
     fortify_core_chokepoint: 2,
     settle_high_value_frontier: 1
   },
-  SETTLED_TERRITORY: {
-    season_settled_territory: 5,
+  DIPLOMATIC_DOMINANCE: {
+    season_diplomatic_dominance: 5,
     secure_food_supply: 3,
     expand_vision_for_value: 4,
     secure_high_value_frontier: 4,

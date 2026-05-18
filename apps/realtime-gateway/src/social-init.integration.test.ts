@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { InMemoryGatewayCommandStore } from "./command-store.js";
@@ -119,6 +120,7 @@ describe("rewrite social integration", () => {
   });
 
   it("bootstraps and updates alliance/truce state over the rewrite gateway", async () => {
+    const submittedCommands: CommandEnvelope[] = [];
     const gateway = await createRealtimeGatewayApp({
       host: "127.0.0.1",
       port: 0,
@@ -126,7 +128,9 @@ describe("rewrite social integration", () => {
       defaultHumanPlayerId: "player-1",
       commandStore: new InMemoryGatewayCommandStore(),
       simulationClient: {
-        submitCommand: async () => undefined,
+        submitCommand: async (command) => {
+          submittedCommands.push(command);
+        },
         preparePlayer: async (playerId) => ({ playerId, spawned: false }),
         subscribePlayer: async (playerId) => ({
           playerId,
@@ -232,6 +236,13 @@ describe("rewrite social integration", () => {
     );
     expect(await nextTypedMessage(second, "alliance accepted second", "ALLIANCE_UPDATE")).toEqual(
       expect.objectContaining({ type: "ALLIANCE_UPDATE", allies: ["player-1"] })
+    );
+    expect(submittedCommands).toContainEqual(
+      expect.objectContaining({
+        type: "SYNC_ALLIANCE",
+        playerId: "player-2",
+        payloadJson: JSON.stringify({ targetPlayerId: "player-1", allied: true })
+      })
     );
 
     first.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "player-2", durationHours: 12 }));
