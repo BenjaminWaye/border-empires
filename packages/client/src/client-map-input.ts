@@ -1,8 +1,9 @@
 import { MAX_ZOOM, MIN_ZOOM } from "./client-constants.js";
 import type { initClientDom } from "./client-dom.js";
+import { computeMiniMapViewBox } from "./client-minimap-view-box.js";
+import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import type { ClientState } from "./client-state.js";
 import type { FeedSeverity, FeedType, Tile } from "./client-types.js";
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -64,8 +65,14 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     const py = Math.max(0, Math.min(rect.height, clientY - rect.top));
     const nx = rect.width <= 0 ? 0 : px / rect.width;
     const ny = rect.height <= 0 ? 0 : py / rect.height;
-    state.camX = deps.wrapX(Math.floor(nx * WORLD_WIDTH));
-    state.camY = deps.wrapY(Math.floor(ny * WORLD_HEIGHT));
+    const box = computeMiniMapViewBox({
+      tiles: state.tiles,
+      fogDisabled: effectiveFogDisabled(state),
+      canvasW: rect.width,
+      canvasH: rect.height
+    });
+    state.camX = deps.wrapX(Math.floor(box.x0 + nx * box.w));
+    state.camY = deps.wrapY(Math.floor(box.y0 + ny * box.h));
     deps.requestViewRefresh(2, true);
     window.setTimeout(() => deps.maybeRefreshForCamera(), 120);
   };
