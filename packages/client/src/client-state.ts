@@ -30,6 +30,12 @@ import type {
   TileTimedProgress,
   OptimisticStructureKind
 } from "./client-types.js";
+import type { WaypointPlan } from "./client-waypoint-planner.js";
+
+export type ClientWaypoint = {
+  target: { x: number; y: number };
+  plan: WaypointPlan;
+};
 
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 type QueuedOptimisticKind = OptimisticStructureKind;
@@ -270,6 +276,7 @@ export const createInitialState = () => ({
   techTreeScrollTop: 0,
   techTreeZoom: 1,
   actionQueue: [] as Array<{ x: number; y: number; retries?: number }>,
+  waypoint: undefined as ClientWaypoint | undefined,
   frontierLateAckUntilByTarget: new Map<string, number>(),
   developmentQueue: [] as Array<
     | { kind: "SETTLE"; x: number; y: number; tileKey: string; label: string }

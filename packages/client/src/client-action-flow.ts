@@ -111,6 +111,7 @@ import {
 } from "./client-tile-menu-view.js";
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
+import { planWaypoint } from "./client-waypoint-planner.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
@@ -1030,7 +1031,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     renderHud,
     requestAttackPreviewForTarget,
     keyFor,
-    isTileOwnedByAlly
+    isTileOwnedByAlly,
+    pickOriginForTarget
   });
 
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
@@ -1054,6 +1056,37 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const targets = fromBulk ? bulkKeys : selected ? [keyFor(selected.x, selected.y)] : [];
     if (targets.length === 0) {
       hideTileActionMenu();
+      return;
+    }
+
+    if (actionId === "cancel_waypoint") {
+      if (state.waypoint) {
+        const target = state.waypoint.target;
+        state.waypoint = undefined;
+        pushFeed(`Waypoint at (${target.x}, ${target.y}) cancelled.`, "info", "info");
+      }
+      hideTileActionMenu();
+      renderHud();
+      return;
+    }
+    if (actionId === "expand_here" && selected) {
+      const plan = planWaypoint(
+        { x: selected.x, y: selected.y },
+        { state, keyFor }
+      );
+      if (!plan.reachable) {
+        pushFeed("No expansion path to that tile.", "combat", "warn");
+        hideTileActionMenu();
+        renderHud();
+        return;
+      }
+      state.waypoint = { target: { x: selected.x, y: selected.y }, plan };
+      const summary = plan.attackCount > 0
+        ? `${plan.expandCount} expand + ${plan.attackCount} attack`
+        : `${plan.expandCount} expand`;
+      pushFeed(`Waypoint set at (${selected.x}, ${selected.y}) — ${summary}.`, "info", "info");
+      hideTileActionMenu();
+      renderHud();
       return;
     }
 
