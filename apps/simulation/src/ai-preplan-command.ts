@@ -156,35 +156,6 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   } satisfies Partial<AutomationPlannerDiagnostic>;
 
   const canAffordExpansion = input.points >= FRONTIER_CLAIM_COST + SETTLE_COST;
-  // TEMP DIAGNOSTIC (remove after staging shows `collect_heartbeat` firing):
-  // 1% sample of heartbeat-gate inputs so we can see in flyctl logs which
-  // gate is rejecting. Staging metric `collect_heartbeat = 0` since deploy
-  // means SOMETHING is wrong; the suspects are hasCollectibleSource (tile
-  // view excludes towns?), lastCollectVisibleAtMs (lazy-init not reaching
-  // worker?), or the gap (organic collects refreshing the stamp too often).
-  if (input.sessionPrefix === "ai-runtime" && Math.random() < 0.01) {
-    const gapMs =
-      input.lastCollectVisibleAtMs !== undefined
-        ? input.issuedAt - input.lastCollectVisibleAtMs
-        : null;
-    // eslint-disable-next-line no-console
-    console.log("[heartbeat-gate]", {
-      playerId: input.playerId,
-      hasCollectibleSource,
-      onCooldown: input.collectVisibleOnCooldown ?? false,
-      lastCollectVisibleAtMs: input.lastCollectVisibleAtMs ?? null,
-      gapMs,
-      settledTileCount: input.settledTileCount ?? null,
-      townCount: input.townCount ?? null,
-      ownedTileCount: input.ownedTiles.length,
-      ownedSettledLandWithTownOrDock: input.ownedTiles.filter(
-        (t) =>
-          t.ownershipState === "SETTLED" &&
-          t.terrain === "LAND" &&
-          (Boolean(t.town) || Boolean(t.dockId))
-      ).length
-    });
-  }
   // Heartbeat: force a COLLECT_VISIBLE before any other planning if the
   // producer last collected for this player over a minute ago. Tile yield
   // is netted against upkeep inside applyEconomyAccrual before it ever
