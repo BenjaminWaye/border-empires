@@ -4887,6 +4887,87 @@ describe("simulation runtime", () => {
     );
   });
 
+  it("respawns instead of overwriting the only town when recovered gross income is zero", () => {
+    const runtime = new SimulationRuntime({
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 12,
+            y: 18,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: {
+              name: "Starved Town",
+              type: "FARMING",
+              populationTier: "TOWN"
+            }
+          },
+          {
+            x: 13,
+            y: 18,
+            terrain: "LAND",
+            town: {
+              name: "Neutral Town",
+              type: "FARMING",
+              populationTier: "TOWN"
+            }
+          },
+          {
+            x: 14,
+            y: 18,
+            terrain: "LAND"
+          }
+        ],
+        activeLocks: [],
+        players: [
+          {
+            id: "player-1",
+            name: "Nauticus",
+            points: 0,
+            manpower: 100,
+            techIds: [],
+            domainIds: [],
+            allies: [],
+            incomePerMinute: 0,
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      }
+    });
+    expect(runtime.repairZeroGrossIncomeSettlements(["player-1"])).toBe(1);
+
+    const recoveredState = runtime.exportState();
+    const originalTown = recoveredState.tiles.find((tile) => tile.x === 12 && tile.y === 18);
+    expect(originalTown).toEqual(
+      expect.objectContaining({
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        townName: "Starved Town",
+        townPopulationTier: "TOWN"
+      })
+    );
+    const neutralTown = recoveredState.tiles.find((tile) => tile.x === 13 && tile.y === 18);
+    expect(neutralTown?.ownerId).toBeUndefined();
+    expect(neutralTown).toEqual(
+      expect.objectContaining({
+        townName: "Neutral Town",
+        townPopulationTier: "TOWN"
+      })
+    );
+    const respawnedSettlement = recoveredState.tiles.find((tile) => tile.x === 14 && tile.y === 18);
+    expect(respawnedSettlement).toEqual(
+      expect.objectContaining({
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        townName: "Respawn 14,18",
+        townPopulationTier: "SETTLEMENT"
+      })
+    );
+    expect(recoveredState.players.find((player) => player.id === "player-1")?.incomePerMinute).toBeGreaterThan(0);
+  });
+
   it("does not leak seed-only resources, towns, or structures back onto recovered tiles after restart", () => {
     const runtime = new SimulationRuntime({
       seedTiles: new Map([
@@ -6537,7 +6618,7 @@ describe("simulation runtime — shard rain", () => {
       }
     });
 
-    it("does not relocate when the previous owner has no eligible town-less SETTLED tile", async () => {
+    it("respawns on unowned land when the previous owner's only remaining town is not a SETTLEMENT", async () => {
       vi.useFakeTimers();
       const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
       try {
@@ -6567,7 +6648,8 @@ describe("simulation runtime — shard rain", () => {
                 ownerId: "player-2",
                 ownershipState: "SETTLED",
                 town: { name: "Capital", type: "FARMING", populationTier: "CITY", population: 5_000 }
-              }
+              },
+              { x: 21, y: 20, terrain: "LAND" }
             ],
             activeLocks: []
           }
@@ -6597,6 +6679,16 @@ describe("simulation runtime — shard rain", () => {
         expect(city?.townPopulationTier).toBe("CITY");
         const cityTown = city?.townJson ? JSON.parse(city.townJson) as { population?: number } : undefined;
         expect(cityTown?.population).toBe(5_000);
+
+        const respawnedSettlement = runtime.exportState().tiles.find((tile) => tile.x === 21 && tile.y === 20);
+        expect(respawnedSettlement).toEqual(
+          expect.objectContaining({
+            ownerId: "player-2",
+            ownershipState: "SETTLED",
+            townPopulationTier: "SETTLEMENT"
+          })
+        );
+        expect(runtime.exportState().players.find((player) => player.id === "player-2")?.incomePerMinute).toBeGreaterThan(0);
       } finally {
         randomSpy.mockRestore();
         vi.useRealTimers();
