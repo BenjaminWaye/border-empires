@@ -1287,6 +1287,21 @@ export class SimulationRuntime {
     this.enqueueJob("ai", job);
   }
 
+  repairZeroGrossIncomeSettlements(playerIds: Iterable<string>): number {
+    let repaired = 0;
+    for (const playerId of new Set(playerIds)) {
+      if (!this.players.has(playerId)) {
+        const recoveredSummary = this.playerSummaries.get(playerId);
+        if (!recoveredSummary || recoveredSummary.territoryTileKeys.size === 0) continue;
+        this.players.set(playerId, createHumanRuntimePlayer(playerId));
+      }
+      if (this.ensureGrossIncomeSettlementForPlayer(playerId, `startup-gross-income-settlement:${playerId}`)) {
+        repaired += 1;
+      }
+    }
+    return repaired;
+  }
+
   queueDepths(): Record<QueueLane, number> {
     return {
       human_interactive: this.jobsByLane.human_interactive.length,
@@ -2060,6 +2075,7 @@ export class SimulationRuntime {
             vision: player.mods?.vision ?? 1,
             visionRadiusBonus: visionRadiusBonusForPlayer(player),
             incomeMultiplier: player.mods?.income ?? 1,
+            incomePerMinute: this.incomePerMinuteForPlayer(player.id),
             ownedTownTileKeys: [...this.summaryForPlayer(player.id).ownedTownTierByTile.keys()]
           }))
           .sort((left, right) => left.id.localeCompare(right.id)),
@@ -2776,6 +2792,30 @@ export class SimulationRuntime {
     return buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(playerId), this.tiles, {
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     }).incomePerMinute;
+  }
+
+  private hasActiveSettlementTownForPlayer(playerId: string): boolean {
+    for (const tileKey of this.summaryForPlayer(playerId).ownedTownTierByTile.keys()) {
+      const tile = this.tiles.get(tileKey);
+      if (
+        tile?.ownerId === playerId &&
+        tile.ownershipState === "SETTLED" &&
+        tile.town?.populationTier === "SETTLEMENT"
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private ensureGrossIncomeSettlementForPlayer(playerId: string, commandId: string): boolean {
+    const player = this.players.get(playerId);
+    if (!player || player.id.startsWith("barbarian-")) return false;
+    const summary = this.summaryForPlayer(playerId);
+    if (summary.territoryTileKeys.size === 0) return false;
+    if (this.hasActiveSettlementTownForPlayer(playerId)) return false;
+    if (this.incomePerMinuteForPlayer(playerId) > 0) return false;
+    return this.respawnPlayerOnUnownedLand(playerId, commandId);
   }
 
   private estimatedIncomePerMinuteForPlayer(playerId: string): number {
@@ -6315,6 +6355,7 @@ export class SimulationRuntime {
         );
       }
       this.respawnIfEliminated(previousOwnerId, lock.commandId);
+      this.ensureGrossIncomeSettlementForPlayer(previousOwnerId, lock.commandId);
       this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
     }
   }
@@ -6323,14 +6364,24 @@ export class SimulationRuntime {
     playerId: string,
     commandId: string,
     population: number
-  ): void {
+  ): boolean {
     const summary = this.summaryForPlayer(playerId);
-    if (summary.territoryTileKeys.size === 0) return; // respawnIfEliminated handles full eliminations.
-    if (summary.ownedTownTierByTile.size > 0) return;
-    // Prefer a remaining SETTLED tile that does NOT already have a town.
-    // If none exists, fall back to any owned land tile and settle it. This prevents
-    // a player from keeping territory but losing all town income after their home
-    // SETTLEMENT is captured.
+    if (summary.territoryTileKeys.size === 0) return false; // respawnIfEliminated handles full eliminations.
+    if (summary.ownedTownTierByTile.size > 0) return false;
+    return this.placeSettlementOnOwnedLandForPlayer(playerId, commandId, population, {
+      namePrefix: "Refuge"
+    });
+  }
+
+  private placeSettlementOnOwnedLandForPlayer(
+    playerId: string,
+    commandId: string,
+    population: number,
+    options: { namePrefix: string }
+  ): boolean {
+    const summary = this.summaryForPlayer(playerId);
+    // Prefer a remaining SETTLED tile that does NOT already have a town. If none
+    // exists, fall back to any owned land tile without overwriting world towns.
     let targetKey: string | undefined;
     let fallbackKey: string | undefined;
     for (const tileKey of summary.territoryTileKeys) {
@@ -6338,20 +6389,19 @@ export class SimulationRuntime {
       if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
       if (tile.town) continue;
       if (!fallbackKey) fallbackKey = tileKey;
-      if (tile.ownershipState === "SETTLED") {
+      if (tile.ownershipState === "SETTLED" && !targetKey) {
         targetKey = tileKey;
-        break;
       }
     }
     targetKey ??= fallbackKey;
-    if (!targetKey) return;
+    if (!targetKey) return false;
     const target = this.tiles.get(targetKey);
-    if (!target) return;
+    if (!target) return false;
     const relocated: DomainTileState = {
       ...target,
       ownershipState: "SETTLED",
       town: {
-        name: `Refuge ${target.x},${target.y}`,
+        name: `${options.namePrefix} ${target.x},${target.y}`,
         type: "FARMING",
         populationTier: "SETTLEMENT",
         population
@@ -6364,6 +6414,50 @@ export class SimulationRuntime {
       playerId,
       tileDeltas: [this.tileDeltaFromState(relocated)]
     });
+    return true;
+  }
+
+  private respawnPlayerOnUnownedLand(playerId: string, commandId: string): boolean {
+    const actor = this.players.get(playerId);
+    if (!actor) return false;
+    if (!actor.isAi && !this.pendingRespawnNoticeByPlayerId.has(playerId)) {
+      this.preparePlayerRespawnNotice(playerId, "auth_recovery", commandId, { wasOnline: true });
+    }
+    const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
+    const spawn = chooseLegacySpawnPlacement({
+      playerId,
+      tiles: this.tiles.values(),
+      blockedTileKeys
+    });
+    if (!spawn) return false;
+    const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
+    const tile = this.tiles.get(respawnedTileKey);
+    if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
+    const respawnedTile: DomainTileState = {
+      ...tile,
+      ownerId: playerId,
+      ownershipState: "SETTLED",
+      town: {
+        name: `Respawn ${tile.x},${tile.y}`,
+        type: "FARMING",
+        populationTier: "SETTLEMENT",
+        population: SYNTHETIC_SETTLEMENT_POPULATION,
+        maxPopulation: POPULATION_MAX
+      }
+    };
+    actor.manpower = Math.max(actor.manpower, 100);
+    const respawnCommandId = `${commandId}:respawn:${playerId}`;
+    this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
+    this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
+    this.finalizeRespawnNotice(playerId, respawnedTileKey);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: respawnCommandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(respawnedTile)]
+    });
+    this.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
+    return true;
   }
 
   private barbarianProgressGain(target: DomainTileState | undefined): number {
