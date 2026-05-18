@@ -7,13 +7,15 @@ import {
   RESTART_PARITY_COMMAND_TYPES as RESTART_PARITY_COMMAND_TYPES_UNTYPED
 } from "./command-coverage-sets.js";
 
+const SimulationCommandTypeSchema = z.union([DurableCommandTypeSchema, z.literal("SYNC_ALLIANCE")]);
+
 export const CommandEnvelopeSchema = z.object({
   commandId: z.string().min(1),
   sessionId: z.string().min(1),
   playerId: z.string().min(1),
   clientSeq: z.number().int().nonnegative(),
   issuedAt: z.number().int().nonnegative(),
-  type: DurableCommandTypeSchema,
+  type: SimulationCommandTypeSchema,
   payloadJson: z.string()
 });
 
@@ -85,10 +87,10 @@ export type SeasonLifecycleStatus = "active" | "ended";
 
 type SeasonVictoryPathId =
   | "TOWN_CONTROL"
-  | "SETTLED_TERRITORY"
   | "ECONOMIC_HEGEMONY"
   | "RESOURCE_MONOPOLY"
-  | "CONTINENT_FOOTPRINT";
+  | "MARITIME_SUPREMACY"
+  | "DIPLOMATIC_DOMINANCE";
 
 export type SeasonVictoryObjectiveSnapshot = {
   id: SeasonVictoryPathId;

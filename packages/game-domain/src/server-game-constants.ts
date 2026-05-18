@@ -184,24 +184,18 @@ export const RESOURCE_CHAIN_BUFF_MS = 24 * 60 * 60 * 1000;
 export const RESOURCE_CHAIN_MULT = 1.4;
 export const SEASON_VICTORY_HOLD_MS = 24 * 60 * 60_000;
 export const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
-export const SEASON_VICTORY_TERRITORIAL_CONTROL_SHARE = 0.66;
-export const SEASON_VICTORY_SETTLED_TERRITORY_SHARE = SEASON_VICTORY_TERRITORIAL_CONTROL_SHARE;
 export const SEASON_VICTORY_ECONOMY_MIN_INCOME = 200;
 export const SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33;
 export const SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE = 0.8;
-export const SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE = 0.05;
+export const SEASON_VICTORY_MARITIME_DOCK_SHARE = 0.55;
+export const SEASON_VICTORY_MARITIME_MIN_DOCKS = 3;
+export const SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE = 0.66;
 export const VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS = 2 * 60 * 60_000;
 export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "TOWN_CONTROL",
     name: "Town Control",
     description: "Control 50% of all towns in the world.",
-    holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
-  },
-  {
-    id: "SETTLED_TERRITORY",
-    name: "Territorial Control",
-    description: "Control at least 66% of all claimable land in the world.",
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   },
   {
@@ -217,9 +211,15 @@ export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   },
   {
-    id: "CONTINENT_FOOTPRINT",
-    name: "Continental Footprint",
-    description: "Settle at least 5% of claimable land on every island.",
+    id: "MARITIME_SUPREMACY",
+    name: "Maritime Supremacy",
+    description: "Control 55% of the world's docks.",
+    holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
+  },
+  {
+    id: "DIPLOMATIC_DOMINANCE",
+    name: "Diplomatic Dominance",
+    description: "Your alliance controls 66% of claimable land, and you are the largest empire in that alliance.",
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   }
 ];

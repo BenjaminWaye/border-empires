@@ -532,7 +532,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(snapshot.worldStatus?.seasonVictory).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "TOWN_CONTROL" }),
-        expect.objectContaining({ id: "SETTLED_TERRITORY" })
+        expect.objectContaining({ id: "DIPLOMATIC_DOMINANCE" })
       ])
     );
   });
@@ -609,11 +609,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         thresholdLabel: "Need 2 towns"
       })
     );
-    expect(snapshot.worldStatus?.seasonVictory.find((objective) => objective.id === "SETTLED_TERRITORY")).toEqual(
+    expect(snapshot.worldStatus?.seasonVictory.find((objective) => objective.id === "DIPLOMATIC_DOMINANCE")).toEqual(
       expect.objectContaining({
-        name: "Territorial Control",
-        progressLabel: "3/4 controlled land",
-        thresholdLabel: "Need 4 controlled land tiles"
+        name: "Diplomatic Dominance",
+        progressLabel: "3/4 alliance-controlled land · leader 3 tiles · 1 member",
+        thresholdLabel: "Need 4 alliance-controlled land tiles (66%) and largest member status"
       })
     );
   });

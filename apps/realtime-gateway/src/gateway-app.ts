@@ -53,7 +53,7 @@ import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapsho
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../simulation/src/seed-state.js";
 import { seasonalPlayerNameForId } from "../../simulation/src/season-worldgen.js";
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -569,6 +569,40 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     simulationRpcConnected = false;
     simulationHealth.connected = false;
     simulationHealth.lastError = error instanceof Error ? error.message : String(error);
+  };
+  const syncAllianceToSimulation = async (input: { playerId: string; targetPlayerId: string; allied: boolean }): Promise<void> => {
+    if (!simulationHealth.connected) {
+      recordGatewayEvent("warn", "gateway_social_simulation_sync_skipped", {
+        playerId: input.playerId,
+        targetPlayerId: input.targetPlayerId,
+        allied: input.allied,
+        simulationLastError: simulationHealth.lastError ?? ""
+      });
+      return;
+    }
+
+    const command: CommandEnvelope = {
+      commandId: `social:${input.allied ? "ally" : "break"}:${input.playerId}:${input.targetPlayerId}:${crypto.randomUUID()}`,
+      clientSeq: 0,
+      issuedAt: Date.now(),
+      type: "SYNC_ALLIANCE",
+      sessionId: "system-runtime:social",
+      playerId: input.playerId,
+      payloadJson: JSON.stringify({ targetPlayerId: input.targetPlayerId, allied: input.allied })
+    };
+    try {
+      await withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, "gateway sync alliance");
+      markSimulationReady();
+    } catch (error) {
+      markSimulationUnavailable(error);
+      recordGatewayEvent("warn", "gateway_social_simulation_sync_failed", {
+        commandId: command.commandId,
+        playerId: input.playerId,
+        targetPlayerId: input.targetPlayerId,
+        allied: input.allied,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   };
   const markSimulationEventStreamConnected = (): void => {
     simulationEventStreamConnected = true;
@@ -1458,6 +1492,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           continue;
         }
         if (event.eventType === "PLAYER_MESSAGE") {
+          if (event.messageType === "SOCIAL_STATE_SYNCED") {
+            continue;
+          }
           // ATTACK_ALERT is an acceptance-time side-event addressed to the
           // defender; it shares the attacker's commandId so it lives in the
           // same replay bucket, but it must NOT close the attacker's
@@ -2165,6 +2202,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
               return;
             }
+            const allyPlayerId = result.notifyPlayerIds.find((playerId) => playerId !== session.playerId);
+            if (allyPlayerId) void syncAllianceToSimulation({ playerId: session.playerId, targetPlayerId: allyPlayerId, allied: true });
             fanoutPlayerPayloads(result.payloadsByPlayerId);
             return;
           }
@@ -2195,6 +2234,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
               return;
             }
+            void syncAllianceToSimulation({ playerId: session.playerId, targetPlayerId: message.targetPlayerId, allied: false });
             fanoutPlayerPayloads(result.payloadsByPlayerId);
             return;
           }

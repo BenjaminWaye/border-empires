@@ -98,12 +98,13 @@ describe("buildWorldStatusSnapshot", () => {
     expect(townControl).toEqual(expect.objectContaining({ progressLabel: "1/1 towns", thresholdLabel: "Need 1 towns" }));
   });
 
-  it("uses configured resource and continent thresholds for season victory status", () => {
+  it("uses configured resource and maritime thresholds for season victory status", () => {
     const tiles = Array.from({ length: 10 }, (_, x) => ({
       x,
       y: 0,
       terrain: "LAND",
       resource: "IRON",
+      ...(x < 5 ? { dockId: `dock-${x}` } : {}),
       ...(x < 8 ? { ownerId: "player-1", ownershipState: "SETTLED" } : {})
     }));
     const runtimeState = {
@@ -130,7 +131,7 @@ describe("buildWorldStatusSnapshot", () => {
 
     const snapshot = buildWorldStatusSnapshot("player-1", runtimeState);
     const resourceMonopoly = snapshot.seasonVictory.find((objective) => objective.id === "RESOURCE_MONOPOLY");
-    const continentFootprint = snapshot.seasonVictory.find((objective) => objective.id === "CONTINENT_FOOTPRINT");
+    const maritimeSupremacy = snapshot.seasonVictory.find((objective) => objective.id === "MARITIME_SUPREMACY");
 
     expect(resourceMonopoly).toEqual(
       expect.objectContaining({
@@ -139,10 +140,82 @@ describe("buildWorldStatusSnapshot", () => {
         conditionMet: true
       })
     );
-    expect(continentFootprint).toEqual(
+    expect(maritimeSupremacy).toEqual(
       expect.objectContaining({
-        progressLabel: "1/1 islands at 5%+ settled · weakest island 80% (8/10)",
-        thresholdLabel: "Need 5% settled land on every island",
+        progressLabel: "5/3 docks",
+        thresholdLabel: "Need 3 settled docks (55% of world docks)",
+        conditionMet: true
+      })
+    );
+  });
+
+  it("counts alliance-bloc land for diplomatic dominance and awards the largest bloc member", () => {
+    const tiles = Array.from({ length: 10 }, (_, x) => ({
+      x,
+      y: 0,
+      terrain: "LAND",
+      ownerId: x < 4 ? "player-1" : x < 7 ? "player-2" : "ai-1",
+      ownershipState: x === 9 ? "FRONTIER" : "SETTLED"
+    }));
+    const runtimeState = {
+      tiles,
+      players: [
+        {
+          id: "player-1",
+          name: "Nauticus",
+          points: 100,
+          incomePerMinute: 2,
+          settledTileCount: 4,
+          techIds: [],
+          domainIds: [],
+          strategicResources: {},
+          allies: ["player-2"],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["0,0", "1,0", "2,0", "3,0"]
+        },
+        {
+          id: "player-2",
+          name: "Ally",
+          points: 80,
+          incomePerMinute: 2,
+          settledTileCount: 3,
+          techIds: [],
+          domainIds: [],
+          strategicResources: {},
+          allies: ["player-1"],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["4,0", "5,0", "6,0"]
+        },
+        {
+          id: "ai-1",
+          name: "AI 1",
+          points: 60,
+          incomePerMinute: 1,
+          settledTileCount: 3,
+          techIds: [],
+          domainIds: [],
+          strategicResources: {},
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["7,0", "8,0", "9,0"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    } as ReturnType<SimulationRuntime["exportState"]>;
+
+    const snapshot = buildWorldStatusSnapshot("player-2", runtimeState);
+    const diplomaticDominance = snapshot.seasonVictory.find((objective) => objective.id === "DIPLOMATIC_DOMINANCE");
+
+    expect(diplomaticDominance).toEqual(
+      expect.objectContaining({
+        leaderPlayerId: "player-1",
+        leaderName: "Nauticus",
+        progressLabel: "7/7 alliance-controlled land · leader 4 tiles · 2 members",
+        selfProgressLabel: "7/7 alliance-controlled land",
         conditionMet: true
       })
     );
