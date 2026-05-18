@@ -618,7 +618,8 @@ export type TileActionDef = {
     | "astral_dock_launch"
     | "purge_siphon"
     | "create_mountain"
-    | "remove_mountain";
+    | "remove_mountain"
+    | "cancel_waypoint";
   label: string;
   cost?: string;
   detail?: string | undefined;
