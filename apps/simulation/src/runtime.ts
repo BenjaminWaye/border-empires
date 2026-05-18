@@ -2164,6 +2164,8 @@ export class SimulationRuntime {
         incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
         tileCollectionVersion: tileKeys.tileCollectionVersion,
         hasActiveLock: lockPlayerIds.has(player.id),
+        vision: player.mods?.vision ?? 1,
+        visionRadiusBonus: visionRadiusBonusForPlayer(player),
         territoryTileKeys: tileKeys.territoryTileKeys,
         frontierTileKeys: tileKeys.frontierTileKeys,
         hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
