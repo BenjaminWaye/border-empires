@@ -108,6 +108,22 @@ type WorkerAiCommandProducerOptions = {
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
+  // Fires when a single ai tick exceeds slowTickThresholdMs. The histograms
+  // capture per-call stats but the rare 5s ai tick p99 hasn't been explained
+  // by any single phase. This callback captures the tick-level context so we
+  // can see which combination of work made up an outlier tick.
+  onSlowTick?: (sample: {
+    durationMs: number;
+    planRequestCount: number;
+    submitCount: number;
+    preplanWaitMs: number;
+    queueDepthAiAtStart: number;
+    pendingPlayerSyncAtStart: boolean;
+    pendingTileDeltasAtStart: number;
+    iterationOrderLength: number;
+    lastPlayerId?: string;
+    lastCommandType?: string;
+  }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
   onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
@@ -142,6 +158,10 @@ const resolveWorkerScript = (given?: string): string | URL =>
 const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean =>
   queueDepths.human_interactive > 0;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+// Tick duration that triggers the onSlowTick context emit. Steady-state ticks
+// are p50=2ms / p95=5ms; p99=5000ms+ is a rare outlier we want to capture.
+// 1s threshold catches the outliers without flooding logs with normal ticks.
+const AI_TICK_SLOW_THRESHOLD_MS = 1_000;
 const isAutomationPreplanCommand = (type: CommandEnvelope["type"]): boolean =>
   type === "COLLECT_VISIBLE" || type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
 const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
@@ -648,6 +668,19 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
     tickInFlight = true;
     const tickStartedAt = now();
+    // Slow-tick capture: most ticks return in <5ms but rare ticks hit 5s+.
+    // Per-call histograms show every phase under 200ms, so the outlier must
+    // be a combination — capture context per tick and emit when threshold
+    // is crossed.
+    let planRequestCount = 0;
+    let submitCount = 0;
+    let preplanWaitMs = 0;
+    let lastPlayerId: string | undefined;
+    let lastCommandType: string | undefined;
+    const queueDepthAiAtStart = queueDepths.ai;
+    const pendingPlayerSyncAtStart = pendingPlayerSyncIds.size > 0;
+    const pendingTileDeltasAtStart = pendingTileDeltasByKey.size;
+    let iterationOrderLength = 0;
     try {
       if (options.aiPlayerIds.length === 0) return;
 
@@ -682,6 +715,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           seenIndices.add(playerIndex);
         }
       }
+      iterationOrderLength = iterationOrder.length;
       for (const playerIndex of iterationOrder) {
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
@@ -704,6 +738,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             const issuedAt = now();
             const plannerStartedAt = now();
             const collectVisibleOnCooldown = (collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0) > issuedAt;
+            planRequestCount += 1;
+            lastPlayerId = playerId;
             const plan = await requestPlan(playerId, clientSeq, issuedAt, {
               skipPreplan,
               collectVisibleOnCooldown
@@ -743,6 +779,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
               activePreplanCommandId = plan.command.commandId;
               const submitStartedAt = now();
+              submitCount += 1;
+              lastCommandType = plan.command.type;
               await options.submitCommand(plan.command);
               nextClientSeqByPlayer.set(playerId, clientSeq + 1);
               options.onCommand?.({ playerId, commandType: plan.command.type });
@@ -760,7 +798,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
                 durationMs: Math.max(0, now() - submitStartedAt),
                 playerId
               });
+              const preplanWaitStartedAt = now();
               const preplanOutcome = await waitForPreplanOutcome(playerId, plan.command.commandId);
+              preplanWaitMs += Math.max(0, now() - preplanWaitStartedAt);
               activePreplanCommandId = undefined;
               if (preplanOutcome === "timed_out" || preplanOutcome === "rejected") {
                 break;
@@ -810,6 +850,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               }
             }
             const submitStartedAt = now();
+            submitCount += 1;
+            lastCommandType = plan.command.type;
             await options.submitCommand(plan.command);
             options.onCommand?.({ playerId, commandType: plan.command.type });
             if (plan.command.type === "ATTACK" && targetTileKey) {
@@ -839,7 +881,22 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         return; // one player per tick
       }
     } finally {
-      options.onTick?.({ durationMs: Math.max(0, now() - tickStartedAt) });
+      const tickDurationMs = Math.max(0, now() - tickStartedAt);
+      options.onTick?.({ durationMs: tickDurationMs });
+      if (options.onSlowTick && tickDurationMs >= AI_TICK_SLOW_THRESHOLD_MS) {
+        options.onSlowTick({
+          durationMs: tickDurationMs,
+          planRequestCount,
+          submitCount,
+          preplanWaitMs,
+          queueDepthAiAtStart,
+          pendingPlayerSyncAtStart,
+          pendingTileDeltasAtStart,
+          iterationOrderLength,
+          ...(lastPlayerId ? { lastPlayerId } : {}),
+          ...(lastCommandType ? { lastCommandType } : {})
+        });
+      }
       tickInFlight = false;
     }
   };

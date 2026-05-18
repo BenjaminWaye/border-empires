@@ -1445,6 +1445,24 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
             },
+            onSlowTick: (sample) => {
+              // Rare-event diagnostic: a single ai tick that crossed the
+              // 1s threshold. Per-phase histograms aren't enough — the
+              // sample is what each outlier tick was actually doing.
+              emitLog("warn", "simulation ai tick slow", {
+                phase: "ai_tick_slow",
+                durationMs: sample.durationMs,
+                planRequestCount: sample.planRequestCount,
+                submitCount: sample.submitCount,
+                preplanWaitMs: sample.preplanWaitMs,
+                queueDepthAiAtStart: sample.queueDepthAiAtStart,
+                pendingPlayerSyncAtStart: sample.pendingPlayerSyncAtStart,
+                pendingTileDeltasAtStart: sample.pendingTileDeltasAtStart,
+                iterationOrderLength: sample.iterationOrderLength,
+                lastPlayerId: sample.lastPlayerId,
+                lastCommandType: sample.lastCommandType
+              });
+            },
             onNoCommand: (diagnostic) => {
               if (diagnostic.noCommandReason) {
                 simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
