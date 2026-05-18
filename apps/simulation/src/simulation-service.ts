@@ -849,6 +849,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       : {}),
     onQueueDrain: (sample) => {
+      simulationMetrics.observeSimRuntimeDrain({
+        durationMs: sample.durationMs,
+        processedJobs: sample.processedJobs,
+        processedByLane: sample.processedByLane
+      });
       if (sample.durationMs < slowQueueDrainWarnMs) return;
       recordLagDiagnostic("warn", "runtime_queue_drain_slow", sample);
     },
@@ -2196,6 +2201,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_ai_settle_decision_recent: sample.simAiSettleDecisionRecent,
             sim_ai_settle_decision_top_score: sample.simAiSettleDecisionTopScore,
             sim_ai_planner_phase_ms: sample.simAiPlannerPhaseMs,
+            sim_runtime_drain_ms: sample.simRuntimeDrainMs,
+            sim_runtime_drain_jobs_per_call: sample.simRuntimeDrainJobsPerCall,
+            sim_runtime_drain_ms_by_lane: sample.simRuntimeDrainMsByLane,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
             sim_cpu_percent: sample.simCpuPercent,
             sim_rss_mb: toMbRounded(memory.rss),

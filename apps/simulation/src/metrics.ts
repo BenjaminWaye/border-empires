@@ -108,6 +108,15 @@ export type SimulationMetricsSnapshot = {
   simAiSettleDecisionRecent: string[];
   simAiSettleDecisionTopScore: QuantileSample;
   simAiPlannerPhaseMs: Record<AiPlannerPhase, QuantileSample>;
+  // Per-runtime-drain histogram. submit_command on the bridge measured 92-319ms
+  // p99, which we now know was the drain that runs as a microtask after each
+  // submitDurableCommand. This histogram measures the drain directly:
+  // durationMs is total wall clock for the drain; jobsPerCall is how many
+  // command-runs were processed in that drain (so ms/job ≈ durationMs/jobs).
+  // Per-lane breakdown reveals which lane's command-apply work dominates.
+  simRuntimeDrainMs: QuantileSample;
+  simRuntimeDrainJobsPerCall: QuantileSample;
+  simRuntimeDrainMsByLane: Record<QueueLane, QuantileSample>;
   simCheckpointRssMb: number;
   simCpuPercent: number;
   simHeapUsedMb: number;
@@ -167,6 +176,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simAiPlannerPhaseMs = new Map<AiPlannerPhase, number[]>(
     AI_PLANNER_PHASES.map((phase) => [phase, []])
   );
+  const simRuntimeDrainMs: number[] = [];
+  const simRuntimeDrainJobsPerCall: number[] = [];
+  const simRuntimeDrainMsByLane = new Map<QueueLane, number[]>(LANES.map((lane) => [lane, []]));
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
   let simAiAutopilotEnabled = 0;
@@ -225,6 +237,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiPlannerPhaseMs: Object.fromEntries(
       AI_PLANNER_PHASES.map((phase) => [phase, quantileSample(simAiPlannerPhaseMs.get(phase) ?? [])])
     ) as Record<AiPlannerPhase, QuantileSample>,
+    simRuntimeDrainMs: quantileSample(simRuntimeDrainMs),
+    simRuntimeDrainJobsPerCall: quantileSample(simRuntimeDrainJobsPerCall),
+    simRuntimeDrainMsByLane: Object.fromEntries(
+      LANES.map((lane) => [lane, quantileSample(simRuntimeDrainMsByLane.get(lane) ?? [])])
+    ) as Record<QueueLane, QuantileSample>,
     simCheckpointRssMb,
     simCpuPercent,
     simHeapUsedMb,
@@ -298,6 +315,27 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       const target = simAiPlannerPhaseMs.get(phase);
       if (!target) return;
       appendSample(target, value, limit);
+    },
+    observeSimRuntimeDrain(sample: {
+      durationMs: number;
+      processedJobs: number;
+      processedByLane: Record<QueueLane, number>;
+    }): void {
+      appendSample(simRuntimeDrainMs, sample.durationMs, limit);
+      appendSample(simRuntimeDrainJobsPerCall, sample.processedJobs, limit);
+      if (sample.processedJobs <= 0) return;
+      // Attribute drain time proportionally per lane based on jobs processed.
+      // Per-lane wall-clock isn't directly measured (drain runs jobs across
+      // lanes in priority order), but proportional split is good enough to
+      // tell us which lane's apply path dominates.
+      for (const lane of LANES) {
+        const laneJobs = sample.processedByLane[lane];
+        if (!laneJobs || laneJobs <= 0) continue;
+        const target = simRuntimeDrainMsByLane.get(lane);
+        if (!target) continue;
+        const laneDurationMs = (sample.durationMs * laneJobs) / sample.processedJobs;
+        appendSample(target, laneDurationMs, limit);
+      }
     },
     setSimCheckpointRssMb(value: number): void {
       simCheckpointRssMb = clampMetric(value);
