@@ -933,17 +933,14 @@ export class SimulationRuntime {
       this.applyEconomyAccrual(player, nowMs);
       if ((player.points ?? 0) > 0) continue;
       const summary = this.summaryForPlayer(player.id);
-      const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
-        dockLinksByDockTileKey: this.dockLinksByDockTileKey
-      });
-      const netGoldPerMinute = economy.incomePerMinute - Math.max(0, economy.upkeepPerMinute.gold);
-      // Threshold > 1 (was > 0): bare SETTLED tiles produce small positive
-      // base yield, so a strictly-broke AI like ai-2 (treasury stuck at 0
-      // because upkeep eats yield in-place before COLLECT_VISIBLE can move
-      // it to the treasury) can still report a small positive net here. A
-      // player whose net gold/min is under 1 is materially broke regardless
-      // — they can't afford SETTLE_COST=4 in any reasonable horizon.
-      if (netGoldPerMinute > 1) continue;
+      // Gate is purely treasury==0 after applyEconomyAccrual. We dropped the
+      // `net <= threshold` check because `economy.upkeepPerMinute.gold`
+      // diverges from the realized treasury drain: upkeep is consumed from
+      // tile yield in-place inside consumeUpkeepFromTileYield BEFORE the
+      // residual is subtracted from player.points, so a player whose tile
+      // yield is fully eaten in-place can show `net = gross - upkeep > 0`
+      // while their treasury is still strictly zero. If treasury is zero
+      // after accrual, the player is broke regardless of theoretical net.
 
       let shedTileKey: string | undefined;
       let shedTile: DomainTileState | undefined;
