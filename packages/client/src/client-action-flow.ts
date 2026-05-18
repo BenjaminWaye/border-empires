@@ -1086,6 +1086,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         : `${plan.expandCount} expand`;
       pushFeed(`Waypoint set at (${selected.x}, ${selected.y}) — ${summary}.`, "info", "info");
       hideTileActionMenu();
+      // Kick the action queue so topUpFromWaypoint enqueues the first
+      // step immediately. Without this, the waypoint sits idle until
+      // some unrelated action pokes processActionQueue.
+      processActionQueue();
       renderHud();
       return;
     }

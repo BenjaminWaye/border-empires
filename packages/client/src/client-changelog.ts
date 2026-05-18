@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.8",
+  version: "2026.05.18.9",
   title: "What's New",
-  summary: "Expansion waypoints now actually work — the queue keeps marching forward, the tile-menu actions persist through server ticks, and the waypoint flag is a brass-and-copper steampunk assembly with spinning cogs.",
+  summary: "Setting a waypoint now starts the expansion chain immediately instead of waiting for some other action to kick the queue.",
   entries: [
+    {
+      introducedIn: "2026.05.18.9",
+      title: "Waypoint starts expanding the moment you confirm it",
+      why: "Placing a waypoint set state.waypoint and hid the menu, but never called processActionQueue, so the first step did not enqueue until the player did some unrelated action that happened to poke the queue.",
+      changes: [
+        "Tile-action dispatch for Expand Here now calls processActionQueue() immediately after setting the waypoint, so the first step queues on the same frame.",
+        "No change to halt or re-plan behaviour — only the kick that was missing."
+      ]
+    },
     {
       introducedIn: "2026.05.18.8",
       title: "Expansion waypoints: chain runs, menu sticks, flag looks alive",
