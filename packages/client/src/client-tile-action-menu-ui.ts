@@ -39,6 +39,19 @@ export const renderTileActionMenu = (
   clientY: number,
   deps: TileActionMenuUiDeps
 ): void => {
+  // Injection lives here (not in openSingleTileActionMenu) because
+  // renderHud re-renders the open menu on every server tick with a
+  // fresh, non-injected view — anchoring the inject here keeps the
+  // waypoint actions sticky across those re-renders.
+  if (state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
+    const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
+    if (menuTile) {
+      injectWaypointActions(view, menuTile, state, {
+        keyFor: deps.keyFor,
+        pickOriginForTarget: deps.pickOriginForTarget
+      });
+    }
+  }
   const previousScrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
   if (previousScrollBody) {
     state.tileActionMenu.scrollTopByTab = rememberTileMenuScrollTop(state.tileActionMenu, previousScrollBody.scrollTop);
