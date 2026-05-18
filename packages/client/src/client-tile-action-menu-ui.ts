@@ -2,6 +2,7 @@ import { SETTLE_COST } from "@border-empires/shared";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import { tileMenuRenderSignature } from "./client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "./client-tile-menu-scroll.js";
+import { injectWaypointActions } from "./client-waypoint-menu-actions.js";
 import type { initClientDom } from "./client-dom.js";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "./client-types.js";
@@ -23,6 +24,12 @@ type TileActionMenuUiDeps = {
   requestAttackPreviewForTarget: (tile: Tile) => void;
   keyFor: (x: number, y: number) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
+  pickOriginForTarget: (
+    tx: number,
+    ty: number,
+    allowAdjacentToDock?: boolean,
+    allowOptimisticExpandOrigin?: boolean
+  ) => Tile | undefined;
 };
 
 export const renderTileActionMenu = (
@@ -173,6 +180,10 @@ export const openSingleTileActionMenu = (
   state.tileActionMenu.scrollTopByTab = {};
   state.tileActionMenu.renderSignature = "";
   const view = deps.tileMenuViewForTile(tile);
+  injectWaypointActions(view, tile, state, {
+    keyFor: deps.keyFor,
+    pickOriginForTarget: deps.pickOriginForTarget
+  });
   state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
   renderTileActionMenu(state, view, clientX, clientY, deps);
 };
