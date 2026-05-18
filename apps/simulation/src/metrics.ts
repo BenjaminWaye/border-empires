@@ -129,6 +129,9 @@ export type SimulationMetricsSnapshot = {
   // or maintain-collectible-index.
   simCollectVisibleYieldMs: QuantileSample;
   simCollectVisibleDeltaMs: QuantileSample;
+  simCollectVisibleTileDeltaBatchEmitMs: QuantileSample;
+  simCollectVisibleCollectResultEmitMs: QuantileSample;
+  simCollectVisiblePlayerStateUpdateMs: QuantileSample;
   simCollectVisibleTilesConsidered: QuantileSample;
   simCollectVisibleTilesTouched: QuantileSample;
   simCheckpointRssMb: number;
@@ -196,6 +199,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simRuntimeApplyMsByCommandType = new Map<string, number[]>();
   const simCollectVisibleYieldMs: number[] = [];
   const simCollectVisibleDeltaMs: number[] = [];
+  const simCollectVisibleTileDeltaBatchEmitMs: number[] = [];
+  const simCollectVisibleCollectResultEmitMs: number[] = [];
+  const simCollectVisiblePlayerStateUpdateMs: number[] = [];
   const simCollectVisibleTilesConsidered: number[] = [];
   const simCollectVisibleTilesTouched: number[] = [];
   let simEventLoopMaxMs = 0;
@@ -266,6 +272,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     ),
     simCollectVisibleYieldMs: quantileSample(simCollectVisibleYieldMs),
     simCollectVisibleDeltaMs: quantileSample(simCollectVisibleDeltaMs),
+    simCollectVisibleTileDeltaBatchEmitMs: quantileSample(simCollectVisibleTileDeltaBatchEmitMs),
+    simCollectVisibleCollectResultEmitMs: quantileSample(simCollectVisibleCollectResultEmitMs),
+    simCollectVisiblePlayerStateUpdateMs: quantileSample(simCollectVisiblePlayerStateUpdateMs),
     simCollectVisibleTilesConsidered: quantileSample(simCollectVisibleTilesConsidered),
     simCollectVisibleTilesTouched: quantileSample(simCollectVisibleTilesTouched),
     simCheckpointRssMb,
@@ -345,11 +354,17 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     observeSimCollectVisible(sample: {
       yieldMs: number;
       deltaMs: number;
+      tileDeltaBatchEmitMs: number;
+      collectResultEmitMs: number;
+      playerStateUpdateMs: number;
       tilesConsidered: number;
       tilesTouched: number;
     }): void {
       appendSample(simCollectVisibleYieldMs, sample.yieldMs, limit);
       appendSample(simCollectVisibleDeltaMs, sample.deltaMs, limit);
+      appendSample(simCollectVisibleTileDeltaBatchEmitMs, sample.tileDeltaBatchEmitMs, limit);
+      appendSample(simCollectVisibleCollectResultEmitMs, sample.collectResultEmitMs, limit);
+      appendSample(simCollectVisiblePlayerStateUpdateMs, sample.playerStateUpdateMs, limit);
       appendSample(simCollectVisibleTilesConsidered, sample.tilesConsidered, limit);
       appendSample(simCollectVisibleTilesTouched, sample.tilesTouched, limit);
     },
