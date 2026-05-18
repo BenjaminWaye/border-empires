@@ -2,7 +2,7 @@ import { SETTLE_COST } from "@border-empires/shared";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import { tileMenuRenderSignature } from "./client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "./client-tile-menu-scroll.js";
-import { planWaypoint } from "./client-waypoint-planner.js";
+import { injectWaypointActions } from "./client-waypoint-menu-actions.js";
 import type { initClientDom } from "./client-dom.js";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "./client-types.js";
@@ -180,34 +180,10 @@ export const openSingleTileActionMenu = (
   state.tileActionMenu.scrollTopByTab = {};
   state.tileActionMenu.renderSignature = "";
   const view = deps.tileMenuViewForTile(tile);
-  const formatWaypointSummary = (plan: { totalGold: number; totalManpower: number; totalDurationMs: number; expandCount: number; attackCount: number }): string => {
-    const seconds = Math.max(1, Math.round(plan.totalDurationMs / 1000));
-    const summaryParts: string[] = [];
-    if (plan.expandCount > 0) summaryParts.push(`${plan.expandCount} expand`);
-    if (plan.attackCount > 0) summaryParts.push(`${plan.attackCount} attack`);
-    const costParts: string[] = [`${plan.totalGold} gold`];
-    if (plan.totalManpower > 0) costParts.push(`${plan.totalManpower} manpower`);
-    costParts.push(`~${seconds}s`);
-    return `${summaryParts.join(" + ")} — ${costParts.join(", ")}`;
-  };
-  const waypoint = state.waypoint;
-  if (waypoint && waypoint.target.x === tile.x && waypoint.target.y === tile.y) {
-    const summary = formatWaypointSummary(waypoint.plan);
-    view.actions = [{ id: "cancel_waypoint", label: "Cancel Waypoint", detail: summary }, ...view.actions];
-    if (!view.tabs.includes("actions")) view.tabs = ["actions", ...view.tabs];
-  } else if (!waypoint && tile.terrain === "LAND" && !tile.fogged && tile.ownerId !== state.me) {
-    const adjacentOrigin = deps.pickOriginForTarget(tile.x, tile.y, false) ?? deps.pickOriginForTarget(tile.x, tile.y, false, true);
-    if (!adjacentOrigin) {
-      const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor });
-      if (plan.reachable) {
-        view.actions = [
-          { id: "expand_here", label: "Expand Here", detail: formatWaypointSummary(plan) },
-          ...view.actions
-        ];
-        if (!view.tabs.includes("actions")) view.tabs = ["actions", ...view.tabs];
-      }
-    }
-  }
+  injectWaypointActions(view, tile, state, {
+    keyFor: deps.keyFor,
+    pickOriginForTarget: deps.pickOriginForTarget
+  });
   state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
   renderTileActionMenu(state, view, clientX, clientY, deps);
 };
