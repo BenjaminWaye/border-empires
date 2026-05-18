@@ -7,10 +7,11 @@
  *   1. URL param  ?backend=gateway|legacy     — highest, overrides everything
  *   2. Staging host hard-default              — gateway (cookie ignored)
  *   3. Cookie     be-backend=gateway|legacy   — per-session override (non-staging)
- *   4. Environment default                    — localhost/staging → gateway, prod → legacy
+ *   4. Environment default                    — gateway everywhere
  *
- * Production stays "legacy" by default unless explicitly overridden, while
- * localhost and staging hostnames default to gateway.
+ * The legacy monolith has been retired and its hostname no longer resolves,
+ * so every implicit default now points at the gateway. Only an explicit
+ * URL param or cookie still selects "legacy" (kept for forensic comparison).
  *
  * Browser globals (window, document) are read lazily and can be overridden via
  * the `ctx` parameter for unit testing without a DOM environment.
@@ -44,10 +45,6 @@ function readCookie(cookieStr: string): BackendChoice | null {
   const v = match.trim().slice(COOKIE_NAME.length + 1);
   if (v === "gateway" || v === "legacy") return v;
   return null;
-}
-
-function isLocalhostHostname(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
 }
 
 export function isStagingHostname(hostname: string): boolean {
@@ -117,14 +114,14 @@ export function selectBackend(opts: {
     };
   }
 
-  // Environment default: VITE_BACKEND_DEFAULT > localhost/staging → gateway;
-  // everywhere else → legacy (production safety).
+  // Environment default: VITE_BACKEND_DEFAULT wins when set; otherwise gateway.
+  // The legacy monolith Fly app has been retired, so the implicit prod-host
+  // fallback to "legacy" can no longer point at a live backend. Only an
+  // explicit ?backend=legacy or be-backend=legacy override still selects it.
   const defaultBackend: BackendChoice =
     envDefaultBackend === "gateway" || envDefaultBackend === "legacy"
       ? envDefaultBackend
-      : isLocalhostHostname(hostname) || isStagingHostname(hostname)
-        ? "gateway"
-        : "legacy";
+      : "gateway";
   return {
     backend: defaultBackend,
     wsUrl: defaultBackend === "gateway" ? gatewayWsUrl : legacyWsUrl,
