@@ -45,16 +45,29 @@ type TickSource = "ai" | "system";
 type PrepareMetricSource = "prepare" | "spawn";
 type DurableCommandType = CommandEnvelope["type"];
 
-// Phases emitted from ai-planner-worker.ts. Tracking these per-phase lets us
-// localise where AI tick p99 goes: typically all 5s of "ai p99" lives inside
-// planner_choose_settlement (settle priority scorer is O(neighborhood) per
-// candidate) or planner_summarize_frontier (frontier analysis per origin tile).
+// Phases emitted by both the AI worker AND the bridge in ai-command-producer-
+// worker.ts. After surfacing the planner_* phases first, the staging soak
+// showed planner_total p99 = 4ms while sim_tick_duration_ms.ai p99 = 5,000ms+.
+// The 5s is therefore in the BRIDGE (per-player request_plan_round_trip,
+// sync_players_*, tile_delta_*, submit_command) not the planner itself.
+// We surface all phases so we can localise the remaining cost precisely.
 export const AI_PLANNER_PHASES = [
+  // Worker-side (inside the planner thread).
   "resolve_player_tiles",
   "planner_choose_settlement",
   "planner_choose_frontier",
   "planner_summarize_frontier",
-  "planner_total"
+  "planner_total",
+  // Bridge-side (main thread, wrapping each worker round-trip).
+  "request_plan_round_trip",
+  "sync_players_export",
+  "sync_players_relevance",
+  "sync_players_post",
+  "sync_players_total",
+  "tile_delta_merge",
+  "tile_delta_post",
+  "tile_delta_sync",
+  "submit_command"
 ] as const;
 export type AiPlannerPhase = (typeof AI_PLANNER_PHASES)[number];
 
