@@ -103,8 +103,10 @@ The planner should score goals from the current snapshot, then search only the t
 The current branch treats these as the explicit season victory routes the AI should reason about:
 
 - `TOWN_CONTROL`: control 50% of world towns and hold it for 24 hours
-- `SETTLED_TERRITORY`: control 66% of all claimable land as settled or frontier territory and hold it for 24 hours
 - `ECONOMIC_HEGEMONY`: reach at least 200 gold per minute while staying 33% ahead of second place for 24 hours
+- `RESOURCE_MONOPOLY`: control 80% of one world resource type and hold it for 24 hours
+- `MARITIME_SUPREMACY`: control 55% of world docks, with a minimum target of 3 docks, and hold it for 24 hours
+- `DIPLOMATIC_DOMINANCE`: your alliance bloc controls 66% of claimable land while you are its largest member, and hold it for 24 hours
 
 These are implemented through the existing timed-objective framework, but presented to players as season victory paths rather than generic pressure rewards.
 

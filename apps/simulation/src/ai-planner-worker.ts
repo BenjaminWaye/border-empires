@@ -60,9 +60,9 @@ const rememberedVictoryPathCounts = (): Partial<Record<AutomationVictoryPath, nu
   const counts: Partial<Record<AutomationVictoryPath, number>> = {
     TOWN_CONTROL: 0,
     ECONOMIC_HEGEMONY: 0,
-    SETTLED_TERRITORY: 0,
     RESOURCE_MONOPOLY: 0,
-    CONTINENT_FOOTPRINT: 0
+    MARITIME_SUPREMACY: 0,
+    DIPLOMATIC_DOMINANCE: 0
   };
   for (const [playerId, victoryPath] of rememberedVictoryPathByPlayer.entries()) {
     const player = playersById.get(playerId);

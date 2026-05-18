@@ -61,10 +61,10 @@ export type TownGrowthUpgradeTier = "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type ShardSiteKind = "CACHE" | "FALL";
 export type SeasonVictoryPathId =
   | "TOWN_CONTROL"
-  | "SETTLED_TERRITORY"
   | "ECONOMIC_HEGEMONY"
   | "RESOURCE_MONOPOLY"
-  | "CONTINENT_FOOTPRINT";
+  | "MARITIME_SUPREMACY"
+  | "DIPLOMATIC_DOMINANCE";
 
 export interface EmpireVisualStyle {
   primaryOverlay: string;

@@ -560,6 +560,18 @@ const parseRevealPayload = (payloadJson: string): { targetPlayerId: string } | n
   }
 };
 
+const parseAllianceSyncPayload = (payloadJson: string): { targetPlayerId: string; allied: boolean } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.targetPlayerId !== "string" || parsed.targetPlayerId.length === 0 || typeof parsed.allied !== "boolean") {
+      return null;
+    }
+    return { targetPlayerId: parsed.targetPlayerId, allied: parsed.allied };
+  } catch {
+    return null;
+  }
+};
+
 const parseAetherWallPayload = (
   payloadJson: string
 ): { x: number; y: number; direction: AetherWallDirection; length: 1 | 2 | 3 } | null => {
@@ -837,9 +849,9 @@ export class SimulationRuntime {
     const counts: Partial<Record<AutomationVictoryPath, number>> = {
       TOWN_CONTROL: 0,
       ECONOMIC_HEGEMONY: 0,
-      SETTLED_TERRITORY: 0,
       RESOURCE_MONOPOLY: 0,
-      CONTINENT_FOOTPRINT: 0
+      MARITIME_SUPREMACY: 0,
+      DIPLOMATIC_DOMINANCE: 0
     };
     for (const [playerId, victoryPath] of this.rememberedAutomationVictoryPathByPlayer.entries()) {
       if ((this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0) <= 0) continue;
@@ -2190,19 +2202,21 @@ export class SimulationRuntime {
       return;
     }
 
-    const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
-    const existingCommandId = this.commandIdsByPlayerSeq.get(playerSeqKey);
-    if (existingCommandId) {
-      if (this.terminalOnlyReplayCommandIds.has(existingCommandId)) return;
-      const replayEvents = this.recordedEventsByCommandId.get(existingCommandId);
-      if (replayEvents) {
-        for (const event of replayEvents) this.events.emit("event", event);
-        return;
+    if (command.type !== "SYNC_ALLIANCE") {
+      const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
+      const existingCommandId = this.commandIdsByPlayerSeq.get(playerSeqKey);
+      if (existingCommandId) {
+        if (this.terminalOnlyReplayCommandIds.has(existingCommandId)) return;
+        const replayEvents = this.recordedEventsByCommandId.get(existingCommandId);
+        if (replayEvents) {
+          for (const event of replayEvents) this.events.emit("event", event);
+          return;
+        }
+        this.commandIdsByPlayerSeq.delete(playerSeqKey);
       }
-      this.commandIdsByPlayerSeq.delete(playerSeqKey);
-    }
 
-    this.commandIdsByPlayerSeq.set(playerSeqKey, command.commandId);
+      this.commandIdsByPlayerSeq.set(playerSeqKey, command.commandId);
+    }
     this.persistence.recordCommand(command);
     this.queueCommandForProcessing(command);
   }
@@ -3062,6 +3076,40 @@ export class SimulationRuntime {
         pendingSettlements: this.pendingSettlementsForPlayer(playerId),
         developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
         activeDevelopmentProcessCount: this.activeDevelopmentProcessCountForPlayer(playerId)
+      }
+    );
+  }
+
+  private handleSyncAllianceCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseAllianceSyncPayload(command.payloadJson);
+    const target = payload ? this.players.get(payload.targetPlayerId) : undefined;
+    if (!actor || !payload || !target || target.id === actor.id) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid alliance sync payload"
+      });
+      return;
+    }
+
+    if (payload.allied) {
+      actor.allies.add(target.id);
+      target.allies.add(actor.id);
+    } else {
+      actor.allies.delete(target.id);
+      target.allies.delete(actor.id);
+    }
+
+    this.emitPlayerMessage(
+      { commandId: command.commandId, playerId: actor.id },
+      {
+        type: "SOCIAL_STATE_SYNCED",
+        playerId: actor.id,
+        targetPlayerId: target.id,
+        allied: payload.allied
       }
     );
   }
@@ -6878,7 +6926,8 @@ export class SimulationRuntime {
         command.type !== "CREATE_MOUNTAIN" &&
         command.type !== "REMOVE_MOUNTAIN" &&
         command.type !== "AIRPORT_BOMBARD" &&
-        command.type !== "COLLECT_SHARD"
+        command.type !== "COLLECT_SHARD" &&
+        command.type !== "SYNC_ALLIANCE"
       ) {
         this.emitEvent({
           eventType: "COMMAND_REJECTED",
@@ -7025,6 +7074,11 @@ export class SimulationRuntime {
         return;
       }
 
+      if (command.type === "SYNC_ALLIANCE") {
+        this.handleSyncAllianceCommand(command);
+        return;
+      }
+
       this.handleFrontierCommand(command, command.type);
     }, command.type);
   }
@@ -7149,6 +7203,7 @@ const hydrateCommandHistory = ({
   if (!recoveredCommandHistory) return;
 
   for (const command of recoveredCommandHistory.commands) {
+    if (command.type === "SYNC_ALLIANCE") continue;
     commandIdsByPlayerSeq.set(`${command.playerId}:${command.clientSeq}`, command.commandId);
   }
   for (const [commandId, events] of recoveredCommandHistory.eventsByCommandId.entries()) {
