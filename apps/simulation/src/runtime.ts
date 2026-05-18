@@ -2670,6 +2670,61 @@ export class SimulationRuntime {
     };
   }
 
+  // ─── Barbarian activation: union of non-barb fog ────────────────────────────
+  // The system-job worker can't compute this itself (it only sees the
+  // barbarian player), so the main process owns the cache and ships the keys
+  // via `vision_union` messages. Signature is per-(player, tileCollectionVersion,
+  // vision, visionRadiusBonus) — covers territory changes and vision-mod
+  // unlocks (tech/domain) without per-event subscription wiring.
+
+  private cachedBarbActivationUnion: Set<string> | null = null;
+  private cachedBarbActivationSignature = "";
+
+  getBarbActivationVisionSignature(): string {
+    const parts: string[] = [];
+    for (const player of this.players.values()) {
+      if (player.id.startsWith("barbarian-")) continue;
+      const tcv = this.plannerPlayerTileCollectionVersionByPlayer.get(player.id) ?? 0;
+      const v = player.mods?.vision ?? 1;
+      const vrb = visionRadiusBonusForPlayer(player);
+      parts.push(`${player.id}:${tcv}:${v}:${vrb}`);
+    }
+    parts.sort();
+    return parts.join("|");
+  }
+
+  exportBarbActivationVisibleUnion(): { keys: string[]; signature: string } {
+    const signature = this.getBarbActivationVisionSignature();
+    if (this.cachedBarbActivationUnion && this.cachedBarbActivationSignature === signature) {
+      return { keys: [...this.cachedBarbActivationUnion], signature };
+    }
+    const union = new Set<string>();
+    for (const player of this.players.values()) {
+      if (player.id.startsWith("barbarian-")) continue;
+      const summary = this.summaryForPlayer(player.id);
+      const radius = Math.max(
+        1,
+        Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player)
+      );
+      for (const tileKey of summary.territoryTileKeys) {
+        const [rawX, rawY] = tileKey.split(",");
+        const x = Number(rawX);
+        const y = Number(rawY);
+        if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+        for (let dy = -radius; dy <= radius; dy += 1) {
+          for (let dx = -radius; dx <= radius; dx += 1) {
+            const wx = ((x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+            const wy = ((y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
+            union.add(`${wx},${wy}`);
+          }
+        }
+      }
+    }
+    this.cachedBarbActivationUnion = union;
+    this.cachedBarbActivationSignature = signature;
+    return { keys: [...union], signature };
+  }
+
   private emitVisibilityAudit(
     playerId: string,
     tile: { x: number; y: number; ownerId?: string | undefined },
