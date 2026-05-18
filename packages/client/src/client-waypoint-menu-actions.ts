@@ -34,13 +34,18 @@ export const injectWaypointActions = (
   state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "activeTruces" | "waypoint">,
   deps: WaypointMenuDeps
 ): void => {
+  // Idempotent: renderTileActionMenu fires repeatedly for the same
+  // tile (initial open + HUD re-render on every server tick), and we
+  // must not stack duplicate waypoint actions on the view each time.
+  const firstActionId = view.actions[0]?.id;
+  if (firstActionId === "expand_here" || firstActionId === "cancel_waypoint") return;
   const waypoint = state.waypoint;
   if (waypoint && waypoint.target.x === tile.x && waypoint.target.y === tile.y) {
     view.actions = [
       { id: "cancel_waypoint", label: "Cancel Waypoint", detail: formatWaypointSummary(waypoint.plan) },
       ...view.actions
     ];
-    if (!view.tabs.includes("actions")) view.tabs = ["actions", ...view.tabs];
+    view.tabs = ["actions", ...view.tabs.filter((tab) => tab !== "actions")];
     return;
   }
   if (waypoint) return;
@@ -57,5 +62,5 @@ export const injectWaypointActions = (
     detail: formatWaypointSummary(plan)
   };
   view.actions = [expandHere, ...view.actions];
-  if (!view.tabs.includes("actions")) view.tabs = ["actions", ...view.tabs];
+  view.tabs = ["actions", ...view.tabs.filter((tab) => tab !== "actions")];
 };
