@@ -479,10 +479,8 @@ export const renderDomainProgressCardHtml = (args: {
   shardStock: number;
   currentTier: number | undefined;
   chosenDomainCount: number;
-  fps?: number | undefined;
 }): string => {
-  const { visibleShardCacheCount, shardStock, currentTier, chosenDomainCount, fps } = args;
-  const fpsLabel = fps === undefined ? "—" : Math.round(fps).toString();
+  const { visibleShardCacheCount, shardStock, currentTier, chosenDomainCount } = args;
   const statusLine =
     currentTier !== undefined
       ? `Tier ${currentTier} is open for your next doctrine shift. Explore for shard caches to build toward your next doctrine pick.`
@@ -504,10 +502,6 @@ export const renderDomainProgressCardHtml = (args: {
       <div class="domain-progress-metric">
         <span>Shard stock</span>
         <strong>${shardStock.toFixed(1)}</strong>
-      </div>
-      <div class="domain-progress-metric">
-        <span>Render FPS</span>
-        <strong data-fps-readout>${fpsLabel}</strong>
       </div>
     </div>
     <p class="domain-progress-note">${scoutingLine}</p>
