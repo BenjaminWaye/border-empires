@@ -21,16 +21,16 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.05.18.3",
   title: "What's New",
-  summary: "Tap a distant tile to set an expansion waypoint — your queue chips away at the path tile-by-tile, attacks bridge enemy gaps, and a confirm step shows the gold + manpower cost when you're opening a new front.",
+  summary: "Tap a distant land tile and choose Expand Here to drop a waypoint — your queue chips away at the path tile-by-tile, attacks bridge enemy gaps, and routes re-plan automatically as fog clears.",
   entries: [
     {
       introducedIn: "2026.05.18.3",
       title: "Distant-tap expansion waypoints",
       why: "Tapping every tile in a long expansion chain is exhausting on mobile. Setting a destination once and letting the queue chip away matches how RTS games handle move orders.",
       changes: [
-        "Tap any reachable land tile that you can't currently border to drop an empire-colored waypoint flag at the destination. The planned route lights up in the same color so the path is legible against owned territory.",
+        "Tap any reachable land tile that you can't currently border to open the tile action menu. The new Expand Here action shows the total gold, manpower, and estimated time before you commit, then drops an empire-colored waypoint flag at the destination with the planned route lit up in the same color.",
         "The planner routes around mountains and through dock pairs and folds enemy tiles into the queue as attacks rather than stopping at borders.",
-        "When the first attack in the queue would open a new front or your manpower can't cover the planned attacks, the tile action menu pops a Confirm dialog showing the total gold, manpower, and estimated seconds; otherwise the waypoint commits immediately.",
+        "Once placed, the action queue chips away at the route one tile at a time and re-plans on every step, so fog reveals, ownership changes, and freshly captured tiles all feed back into routing.",
         "Tap the waypoint flag and choose Cancel Waypoint to clear it. Unreachable plans switch the flag to an amber halt tint so you notice and can re-target."
       ]
     },
