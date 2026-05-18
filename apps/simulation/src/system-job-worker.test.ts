@@ -78,7 +78,10 @@ const makeRuntime = (depths: {
     onEvent: (listener: (event: { playerId: string; eventType: string }) => void) => {
       eventEmitter.on("event", listener);
       return () => eventEmitter.off("event", listener);
-    }
+    },
+    exportPlannerPlayerViews: () => [],
+    getBarbActivationVisionSignature: () => "",
+    exportBarbActivationVisibleUnion: () => ({ keys: [], signature: "" })
   };
 };
 
