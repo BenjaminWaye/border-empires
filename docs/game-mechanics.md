@@ -13,7 +13,7 @@ When something here drifts from code, fix the code reference and update this doc
 - **No chunk/region grid exists.** The world operates per-tile. Tile metadata can carry cluster tags (`FERTILE_PLAINS`, `IRON_HILLS`) but those are not aggregation structures. `packages/shared/src/types.ts:7, 439-444`
 - **Terrain types**: `LAND` (claimable, passable), `SEA` / `COASTAL_SEA` (barrier, not claimable; combat blocked except via dock links/aether bridges), `MOUNTAIN` (barrier, mutable via aether abilities). Only `LAND` is claimable. `packages/shared/src/types.ts:1, 15, 200`
 - **Fog of war**: per-player visibility. Tiles carry an optional `fogged` flag. Observatory structures extend vision radius and provide a 10-tile passive protection bubble against some aether abilities. `packages/shared/src/types.ts:203`, `packages/game-domain/src/server-game-constants.ts:49-51`
-- **Islands / continents**: a continent footprint victory path requires presence on each. Island identity is computable from the terrain map; see CONTINENT_FOOTPRINT scoring code if reusing island IDs.
+- **Docks**: Maritime Supremacy counts settled dock tiles. Docks are also used for cross-island movement and linked-dock vision.
 
 ## 2. Players and factions
 
@@ -68,15 +68,15 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 ## 7. Victory conditions
 
-Five concurrent victory paths, all per-season, all with a long hold requirement (currently 50 hours unless tuned per season):
+Five concurrent victory paths, all per-season, all with a 24-hour hold requirement:
 
 | Path | Trigger | Hold |
 |---|---|---|
-| `TOWN_CONTROL` | Control ≥50% of towns | 50h |
-| `SETTLED_TERRITORY` | Control ≥66% of claimable land | 50h |
-| `ECONOMIC_HEGEMONY` | Lead world income/min by ≥33% **and** produce ≥200 gold/min | 50h |
-| `RESOURCE_MONOPOLY` | Control ≥80% of tiles of one resource type | 50h |
-| `CONTINENT_FOOTPRINT` | Settle ≥5% of claimable land on every island/continent | 50h |
+| `TOWN_CONTROL` | Control ≥50% of towns | 24h |
+| `ECONOMIC_HEGEMONY` | Lead world income/min by ≥33% **and** produce ≥200 gold/min | 24h |
+| `RESOURCE_MONOPOLY` | Control ≥80% of tiles of one resource type | 24h |
+| `MARITIME_SUPREMACY` | Control ≥55% of world docks, with a minimum target of 3 docks | 24h |
+| `DIPLOMATIC_DOMINANCE` | Your alliance bloc controls ≥66% of claimable land, and you are its largest member | 24h |
 
 Strategic phases that emerge from the AI planner: opening expansion, mid-game economy, late-game warfare or path pivot. AI may switch primary path mid-game if a better one scores high enough. `packages/game-domain/src/server-game-constants.ts:187-218`, `apps/simulation/src/automation-strategic-snapshot.ts:305-322`
 

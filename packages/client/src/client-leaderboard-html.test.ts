@@ -43,13 +43,13 @@ describe("leaderboard and season victory rendering", () => {
           conditionMet: false
         },
         {
-          id: "CONTINENT_FOOTPRINT",
-          name: "Continental Footprint",
-          description: "Hold islands.",
+          id: "MARITIME_SUPREMACY",
+          name: "Maritime Supremacy",
+          description: "Hold docks.",
           leaderName: "Ivan",
-          progressLabel: "4/6 islands at 5%+ settled · weakest island 5% (55/1100)",
-          selfProgressLabel: "1/6 islands at 5%+ settled",
-          thresholdLabel: "Need 5% settled land on every island",
+          progressLabel: "4/6 docks",
+          selfProgressLabel: "1/6 docks",
+          thresholdLabel: "Need 6 settled docks (55% of world docks)",
           holdDurationSeconds: 86400,
           statusLabel: "Pressure building",
           conditionMet: false
@@ -65,7 +65,7 @@ describe("leaderboard and season victory rendering", () => {
 
     expect(html).toContain("You: 3/87 towns");
     expect(html).toContain("You: 12.0 gold/m");
-    expect(html).toContain("You: 1/6 islands at 5%+ settled");
+    expect(html).toContain("You: 1/6 docks");
     expect(html).toContain("44. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> | score 1.0 | settled 1 | income 1.0 | tech 1");
     expect(html).toContain("11. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (7.0)");
     expect(html).toContain("8. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (3.5)");
