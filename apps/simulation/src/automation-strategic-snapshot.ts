@@ -37,10 +37,10 @@ type StrategicTile = {
 
 export type AutomationVictoryPath =
   | "TOWN_CONTROL"
-  | "SETTLED_TERRITORY"
   | "ECONOMIC_HEGEMONY"
   | "RESOURCE_MONOPOLY"
-  | "CONTINENT_FOOTPRINT";
+  | "MARITIME_SUPREMACY"
+  | "DIPLOMATIC_DOMINANCE";
 export type AutomationStrategicFocus =
   | "BALANCED"
   | "ECONOMIC_RECOVERY"
@@ -177,10 +177,10 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     Boolean(input.fallbackSettlementCandidate?.dockId);
   const townsTarget = Math.max(2, Math.ceil(Math.max(1, input.settledTileCount) / 5));
   const controlledTileCount = input.controlledTileCount;
-  const territorialControlTarget = Math.max(4, input.townCount * 3);
+  const diplomaticControlTarget = Math.max(4, input.townCount * 3);
   const economyTarget = Math.max(8, input.settledTileCount * 0.55);
   const townProgress = input.townCount / townsTarget;
-  const territorialControlProgress = controlledTileCount / territorialControlTarget;
+  const diplomaticControlProgress = controlledTileCount / diplomaticControlTarget;
   const economyProgress = input.incomePerMinute / economyTarget;
 
   const resourceCounts = ownedResourceTileCounts(input.playerId, input.ownedTiles);
@@ -200,11 +200,10 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
   const resourceMonopolyTarget = 6;
   const resourceMonopolyProgress = topResourceCount / resourceMonopolyTarget;
 
-  // CONTINENT_FOOTPRINT progress approximated by dock count + whether
-  // cross-island expansion is currently reachable. Real progress needs island
-  // map access which the snapshot doesn't have.
-  const continentFootprintTarget = 3;
-  const continentFootprintProgress = dockCount / continentFootprintTarget;
+  // MARITIME_SUPREMACY progress is approximated by settled dock count. The
+  // authoritative world dock target only exists in the status scorer.
+  const maritimeSupremacyTarget = 3;
+  const maritimeSupremacyProgress = dockCount / maritimeSupremacyTarget;
 
   const townControlScore =
     input.townCount * 140 +
@@ -217,7 +216,7 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     input.frontierAnalysis.frontierOpportunityEconomic * 44 +
     (!input.needsFood ? 18 : -24) +
     (input.needsEconomy ? -12 : 0);
-  const territorialControlScore =
+  const diplomaticDominanceScore =
     controlledTileCount * 18 +
     input.frontierAnalysis.frontierNeutralTargetCount * 18 +
     input.frontierAnalysis.frontierOpportunityScout * 10 +
@@ -231,12 +230,10 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     input.frontierAnalysis.frontierOpportunityEconomic * 22 +
     (input.economicBuildAvailable ? 40 : 0) +
     (!input.needsFood && !input.needsEconomy ? 16 : -20);
-  // CONTINENT_FOOTPRINT is the multi-island spread path. A single dock is still
-  // SETTLED_TERRITORY territory ("I'm a land empire that happens to own one
-  // dock"). Require ≥2 docks before the big island-growth bonus kicks in, so
-  // the path only dominates once the AI is genuinely committed to the continental
-  // strategy.
-  const continentFootprintScore =
+  // MARITIME_SUPREMACY is the multi-dock naval path. A single dock is still
+  // broad diplomatic expansion; require at least two docks before naval growth
+  // dominates path choice.
+  const maritimeSupremacyScore =
     dockCount * 60 +
     (dockCount >= 2 && islandGrowthAvailable ? 160 : 0) +
     (dockCount >= 2 && input.fallbackSettlementCandidate?.dockId ? 60 : 0) +
@@ -245,16 +242,16 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
   const populationCounts = {
     TOWN_CONTROL: input.pathPopulationCounts?.TOWN_CONTROL ?? 0,
     ECONOMIC_HEGEMONY: input.pathPopulationCounts?.ECONOMIC_HEGEMONY ?? 0,
-    SETTLED_TERRITORY: input.pathPopulationCounts?.SETTLED_TERRITORY ?? 0,
     RESOURCE_MONOPOLY: input.pathPopulationCounts?.RESOURCE_MONOPOLY ?? 0,
-    CONTINENT_FOOTPRINT: input.pathPopulationCounts?.CONTINENT_FOOTPRINT ?? 0
+    MARITIME_SUPREMACY: input.pathPopulationCounts?.MARITIME_SUPREMACY ?? 0,
+    DIPLOMATIC_DOMINANCE: input.pathPopulationCounts?.DIPLOMATIC_DOMINANCE ?? 0
   };
   const minimumPopulation = Math.min(
     populationCounts.TOWN_CONTROL,
     populationCounts.ECONOMIC_HEGEMONY,
-    populationCounts.SETTLED_TERRITORY,
     populationCounts.RESOURCE_MONOPOLY,
-    populationCounts.CONTINENT_FOOTPRINT
+    populationCounts.MARITIME_SUPREMACY,
+    populationCounts.DIPLOMATIC_DOMINANCE
   );
   const crowdingPenalty = (path: AutomationVictoryPath, contender: boolean, softContender: boolean): number => {
     const overMinimum = Math.max(0, populationCounts[path] - minimumPopulation);
@@ -266,12 +263,12 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
   const townControlSoftContender = townProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
   const economicContender = economyProgress >= VICTORY_PATH_CONTENDER_ECONOMY_RATIO;
   const economicSoftContender = economyProgress >= VICTORY_PATH_SOFT_CONTENDER_ECONOMY_RATIO;
-  const territorialControlContender = territorialControlProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
-  const territorialControlSoftContender = territorialControlProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
+  const diplomaticDominanceContender = diplomaticControlProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
+  const diplomaticDominanceSoftContender = diplomaticControlProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
   const resourceMonopolyContender = resourceMonopolyProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
   const resourceMonopolySoftContender = resourceMonopolyProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
-  const continentFootprintContender = continentFootprintProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
-  const continentFootprintSoftContender = continentFootprintProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
+  const maritimeSupremacyContender = maritimeSupremacyProgress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
+  const maritimeSupremacySoftContender = maritimeSupremacyProgress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
 
   return {
     TOWN_CONTROL: {
@@ -284,20 +281,20 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
       contender: economicContender,
       softContender: economicSoftContender
     },
-    SETTLED_TERRITORY: {
-      score: territorialControlScore - crowdingPenalty("SETTLED_TERRITORY", territorialControlContender, territorialControlSoftContender),
-      contender: territorialControlContender,
-      softContender: territorialControlSoftContender
-    },
     RESOURCE_MONOPOLY: {
       score: resourceMonopolyScore - crowdingPenalty("RESOURCE_MONOPOLY", resourceMonopolyContender, resourceMonopolySoftContender),
       contender: resourceMonopolyContender,
       softContender: resourceMonopolySoftContender
     },
-    CONTINENT_FOOTPRINT: {
-      score: continentFootprintScore - crowdingPenalty("CONTINENT_FOOTPRINT", continentFootprintContender, continentFootprintSoftContender),
-      contender: continentFootprintContender,
-      softContender: continentFootprintSoftContender
+    MARITIME_SUPREMACY: {
+      score: maritimeSupremacyScore - crowdingPenalty("MARITIME_SUPREMACY", maritimeSupremacyContender, maritimeSupremacySoftContender),
+      contender: maritimeSupremacyContender,
+      softContender: maritimeSupremacySoftContender
+    },
+    DIPLOMATIC_DOMINANCE: {
+      score: diplomaticDominanceScore - crowdingPenalty("DIPLOMATIC_DOMINANCE", diplomaticDominanceContender, diplomaticDominanceSoftContender),
+      contender: diplomaticDominanceContender,
+      softContender: diplomaticDominanceSoftContender
     }
   };
 };
@@ -308,7 +305,7 @@ const chooseVictoryPath = <TTile extends StrategicTile>(input: StrategicSnapshot
     (left, right) => right[1].score - left[1].score
   )[0];
   const previous = input.previousVictoryPath;
-  if (!previous) return best?.[0] ?? "SETTLED_TERRITORY";
+  if (!previous) return best?.[0] ?? "DIPLOMATIC_DOMINANCE";
 
   const previousScore = scores[previous];
   if (previousScore.contender) return previous;
@@ -388,11 +385,10 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     !input.needsFood &&
     input.frontierAnalysis.frontierOpportunityTownSupport > 0 &&
     Boolean(input.frontierAnalysis.townSupportExpand);
-  // CONTINENT_FOOTPRINT shares the dock-crossing preference with SETTLED_TERRITORY:
-  // both win conditions reward spreading across islands. Until the planner has
-  // path-specific frontier scoring, both paths route through the same gate.
+  // Diplomatic and maritime wins both reward reach. Diplomatic wants broad
+  // territorial pressure, while maritime specifically favors dock-crossing.
   const islandFocusedPath =
-    primaryVictoryPath === "SETTLED_TERRITORY" || primaryVictoryPath === "CONTINENT_FOOTPRINT";
+    primaryVictoryPath === "DIPLOMATIC_DOMINANCE" || primaryVictoryPath === "MARITIME_SUPREMACY";
   const islandExpandAvailable =
     islandFocusedPath &&
     input.canExpand &&
@@ -438,7 +434,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
 
   let strategicFocus: AutomationStrategicFocus = "BALANCED";
   if (
-    primaryVictoryPath === "SETTLED_TERRITORY" &&
+    primaryVictoryPath === "DIPLOMATIC_DOMINANCE" &&
     (islandExpandAvailable || islandSettlementAvailable) &&
     growthFoundationEstablished &&
     !pressureThreatensCore
@@ -466,7 +462,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
         ? input.incomePerMinute >= Math.max(8, input.settledTileCount * 0.55)
         : primaryVictoryPath === "RESOURCE_MONOPOLY"
           ? resourcePathContender
-          : primaryVictoryPath === "CONTINENT_FOOTPRINT"
+          : primaryVictoryPath === "MARITIME_SUPREMACY"
             ? ownedDockTileCount(input.playerId, input.ownedTiles) >= 3
             : controlledTileCount >= Math.max(4, input.townCount * 3);
 

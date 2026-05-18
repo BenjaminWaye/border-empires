@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.5",
+  version: "2026.05.18.6",
   title: "What's New",
-  summary: "Low-FPS 3D warnings now appear on any sluggish device, not just mobile, with a one-click switch to the lighter 2D renderer.",
+  summary: "Season victory now adds dock control and alliance-map dominance as real win paths, replacing solo land control and continent footprint.",
   entries: [
+    {
+      introducedIn: "2026.05.18.6",
+      title: "Season victory adds maritime and diplomatic wins",
+      why: "The old land-control and continent-footprint paths overlapped with basic expansion and were harder to read than the strategic pressure players actually create through docks and alliances.",
+      changes: [
+        "Maritime Supremacy now starts a 24-hour victory hold when one empire controls 55% of world docks, with a minimum target of 3 settled docks.",
+        "Diplomatic Dominance now starts a 24-hour victory hold when a player's alliance bloc controls 66% of claimable land and that player is the largest individual empire in the bloc.",
+        "Territorial Control and Continental Footprint were removed from the active season-victory set, and AI path selection now treats diplomatic growth and maritime dock control as first-class strategies."
+      ]
+    },
     {
       introducedIn: "2026.05.18.5",
       title: "Low-FPS 3D warning works on desktop too",

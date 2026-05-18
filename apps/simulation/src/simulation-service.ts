@@ -1543,7 +1543,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         });
       }
       const shouldBroadcastGlobalStatus =
-        event.eventType === "TILE_DELTA_BATCH" || event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE";
+        event.eventType === "TILE_DELTA_BATCH" ||
+        event.eventType === "TECH_UPDATE" ||
+        event.eventType === "DOMAIN_UPDATE" ||
+        (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED");
       persistenceQueue.enqueueEvent(event);
       if (shouldBroadcastGlobalStatus) scheduleGlobalStatusBroadcast(event.commandId);
       if (event.eventType === "PLAYER_MESSAGE") {

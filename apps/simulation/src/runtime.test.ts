@@ -6,6 +6,88 @@ import { SimulationRuntime } from "./runtime.js";
 type SimulationRuntimeEventShape = SimulationEvent;
 
 describe("simulation runtime", () => {
+  it("syncs gateway alliance changes into runtime player state", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event);
+    });
+
+    runtime.submitCommand({
+      commandId: "sync-alliance-1",
+      sessionId: "system-runtime:social",
+      playerId: "player-1",
+      clientSeq: 0,
+      issuedAt: 1_000,
+      type: "SYNC_ALLIANCE",
+      payloadJson: JSON.stringify({ targetPlayerId: "player-2", allied: true })
+    });
+    await Promise.resolve();
+
+    expect(runtime.exportState().players.find((player) => player.id === "player-1")?.allies).toEqual(["player-2"]);
+    expect(runtime.exportState().players.find((player) => player.id === "player-2")?.allies).toEqual(["player-1"]);
+    expect(seen).toContainEqual(
+      expect.objectContaining({
+        eventType: "PLAYER_MESSAGE",
+        messageType: "SOCIAL_STATE_SYNCED"
+      })
+    );
+
+    runtime.submitCommand({
+      commandId: "sync-alliance-2",
+      sessionId: "system-runtime:social",
+      playerId: "player-1",
+      clientSeq: 0,
+      issuedAt: 2_000,
+      type: "SYNC_ALLIANCE",
+      payloadJson: JSON.stringify({ targetPlayerId: "player-2", allied: false })
+    });
+    await Promise.resolve();
+
+    expect(runtime.exportState().players.find((player) => player.id === "player-1")?.allies).toEqual([]);
+    expect(runtime.exportState().players.find((player) => player.id === "player-2")?.allies).toEqual([]);
+  });
+
   it("spawns a settled tile for unknown subscribed players", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -160,7 +242,7 @@ describe("simulation runtime", () => {
 
     (
       runtime as unknown as {
-        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY">;
+        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
       }
     ).rememberedAutomationVictoryPathByPlayer.set("player-1", "TOWN_CONTROL");
 
@@ -168,7 +250,7 @@ describe("simulation runtime", () => {
     expect(
       (
         runtime as unknown as {
-          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY">;
+          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
         }
       ).rememberedAutomationVictoryPathByPlayer.get("player-1")
     ).toBeUndefined();
@@ -202,7 +284,7 @@ describe("simulation runtime", () => {
 
     (
       runtime as unknown as {
-        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY">;
+        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
       }
     ).rememberedAutomationVictoryPathByPlayer.set("player-1", "ECONOMIC_HEGEMONY");
 
@@ -211,7 +293,7 @@ describe("simulation runtime", () => {
     expect(
       (
         runtime as unknown as {
-          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY">;
+          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
         }
       ).rememberedAutomationVictoryPathByPlayer.get("player-1")
     ).toBeUndefined();
