@@ -879,6 +879,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(sample.commandType ? { commandType: sample.commandType } : {})
       });
     },
+    onCollectVisibleSample: (sample) => {
+      simulationMetrics.observeSimCollectVisible({
+        yieldMs: sample.yieldMs,
+        deltaMs: sample.deltaMs,
+        tilesConsidered: sample.tilesConsidered,
+        tilesTouched: sample.tilesTouched
+      });
+    },
     onVisibilityAudit: handleVisibilityAudit,
     onCaptureRevealBuilt: captureRevealBuildSample,
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
@@ -2239,6 +2247,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_runtime_drain_jobs_per_call: sample.simRuntimeDrainJobsPerCall,
             sim_runtime_drain_ms_by_lane: sample.simRuntimeDrainMsByLane,
             sim_runtime_apply_ms_by_command: sample.simRuntimeApplyMsByCommandType,
+            sim_collect_visible_yield_ms: sample.simCollectVisibleYieldMs,
+            sim_collect_visible_delta_ms: sample.simCollectVisibleDeltaMs,
+            sim_collect_visible_tiles_considered: sample.simCollectVisibleTilesConsidered,
+            sim_collect_visible_tiles_touched: sample.simCollectVisibleTilesTouched,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
             sim_cpu_percent: sample.simCpuPercent,
             sim_rss_mb: toMbRounded(memory.rss),

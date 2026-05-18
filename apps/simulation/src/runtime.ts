@@ -310,6 +310,19 @@ type SimulationRuntimeOptions = {
     durationMs: number;
     commandType?: CommandEnvelope["type"];
   }) => void;
+  // Per-COLLECT_VISIBLE inner-loop telemetry. #310 cut the O(all-map-tiles)
+  // outer scan but the call p99 climbed because empires grew and the
+  // per-tile inner work (collectTileYield + tileDeltaFromState) is now the
+  // bottleneck. This callback splits that cost so we know which inner call
+  // to attack: cheapen the yield computation, or skip emitting deltas for
+  // zero-yield tiles, or maintain an incremental collectible-tile index.
+  onCollectVisibleSample?: (sample: {
+    playerId: string;
+    yieldMs: number;
+    deltaMs: number;
+    tilesConsidered: number;
+    tilesTouched: number;
+  }) => void;
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
@@ -780,6 +793,15 @@ export class SimulationRuntime {
   private readonly onJobApplied:
     | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"] }) => void)
     | undefined;
+  private readonly onCollectVisibleSample:
+    | ((sample: {
+        playerId: string;
+        yieldMs: number;
+        deltaMs: number;
+        tilesConsidered: number;
+        tilesTouched: number;
+      }) => void)
+    | undefined;
   private drainScheduled = false;
   private draining = false;
 
@@ -844,6 +866,7 @@ export class SimulationRuntime {
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
+    this.onCollectVisibleSample = options.onCollectVisibleSample;
     this.onVisibilityAudit = options.onVisibilityAudit;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.players =
@@ -3520,21 +3543,41 @@ export class SimulationRuntime {
     // rejected ~99% of iterations. summary.territoryTileKeys is maintained
     // incrementally as ownership changes, so this is O(owned-tiles).
     const summary = this.summaryForPlayer(command.playerId);
+    // Split the inner-loop cost into yield-computation vs delta-build so we
+    // can target the right optimisation when this apply is slow on big
+    // empires. The whole-loop wall clock is already tracked via the
+    // onJobApplied callback; this adds the per-phase breakdown.
+    let yieldMs = 0;
+    let deltaMs = 0;
+    let tilesConsidered = 0;
+    const sampleNow = this.now.bind(this);
     for (const tileKey of summary.territoryTileKeys) {
       const tile = this.tiles.get(tileKey);
       if (!tile || tile.ownershipState !== "SETTLED") continue;
+      tilesConsidered += 1;
+      const yieldStartedAt = sampleNow();
       const collected = this.collectTileYield(tile, now, command, yieldContext);
+      yieldMs += sampleNow() - yieldStartedAt;
       const touched = collected.gold > 0 || Object.values(collected.strategic).some((value) => Number(value) > 0);
       if (!touched) continue;
       tiles += 1;
       gold += collected.gold;
+      const deltaStartedAt = sampleNow();
       touchedTileDeltas.push(this.tileDeltaFromState(tile, yieldContext));
+      deltaMs += sampleNow() - deltaStartedAt;
       for (const [resource, amount] of Object.entries(collected.strategic) as Array<
         ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number]
       >) {
         strategic[resource] = (strategic[resource] ?? 0) + amount;
       }
     }
+    this.onCollectVisibleSample?.({
+      playerId: command.playerId,
+      yieldMs,
+      deltaMs,
+      tilesConsidered,
+      tilesTouched: tiles
+    });
     actor.points += gold;
     this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
     if (touchedTileDeltas.length > 0) {
