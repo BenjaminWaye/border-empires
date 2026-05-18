@@ -35,6 +35,20 @@ describe("isWireInternalEvent", () => {
     ).toBe(true);
   });
 
+  it("flags SETTLEMENT_STARTED so replay bookkeeping never reaches the gateway stream", () => {
+    expect(
+      isWireInternalEvent({
+        eventType: "SETTLEMENT_STARTED",
+        commandId: "territory-auto:settle:human-1:12,34:1700000000000:1",
+        playerId: "human-1",
+        tileKey: "12,34",
+        startedAt: 1700000000000,
+        resolvesAt: 1700000060000,
+        goldCost: 4
+      })
+    ).toBe(true);
+  });
+
   it("does not flag client-bound rejection events", () => {
     expect(
       isWireInternalEvent({
