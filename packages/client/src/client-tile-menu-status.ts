@@ -10,6 +10,9 @@ export type TileMenuHeaderStatus = {
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 
 export const captureRecoveryRemainingMsForTile = (tile: Tile, nowMs = Date.now()): number | undefined => {
+  const townShockUntil = tile.town?.captureShockUntil;
+  if (typeof townShockUntil === "number" && townShockUntil > nowMs) return Math.max(0, townShockUntil - nowMs);
+
   const disabledUntil = disabledUntilForTileStructure(tile);
   const lastCapturedAt = tile.history?.lastCapturedAt;
   if (typeof disabledUntil !== "number" || disabledUntil <= nowMs || typeof lastCapturedAt !== "number") return undefined;
