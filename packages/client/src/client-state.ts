@@ -35,6 +35,11 @@ import type { WaypointPlan } from "./client-waypoint-planner.js";
 export type ClientWaypoint = {
   target: { x: number; y: number };
   plan: WaypointPlan;
+  // Last tile-key the waypoint asked the action queue to claim. On the
+  // next top-up we check whether that tile is now owned by us; if it
+  // is not, the previous step did not move ownership (server reject,
+  // snapshot revert, etc.) and we halt instead of tight-looping.
+  lastEnqueuedKey?: string;
 };
 
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
