@@ -238,6 +238,7 @@ export type SimulationEvent =
       eventType: "TILE_DELTA_BATCH";
       commandId: string;
       playerId: string;
+      goldCost?: number;
       tileDeltas: Array<{
         x: number;
         y: number;
@@ -267,6 +268,15 @@ export type SimulationEvent =
       playerId: string;
       tileKey: string;
       collectedAt: number;
+    }
+  | {
+      eventType: "SETTLEMENT_STARTED";
+      commandId: string;
+      playerId: string;
+      tileKey: string;
+      startedAt: number;
+      resolvesAt: number;
+      goldCost: number;
     }
   | {
       eventType: "TECH_UPDATE";
