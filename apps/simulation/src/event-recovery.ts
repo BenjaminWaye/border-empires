@@ -111,7 +111,16 @@ export const createRecoveredSimulationAccumulator = (
     docks: baseState.docks ? baseState.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) : [],
     activeLocks,
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker) => ({ ...tracker })) } } : {}),
-    players: baseState.players ? [...baseState.players] : [],
+    players: baseState.players
+      ? baseState.players.map((player) => ({
+          ...player,
+          ...(player.techIds ? { techIds: [...player.techIds] } : {}),
+          ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
+          ...(player.strategicResources ? { strategicResources: { ...player.strategicResources } } : {}),
+          ...(player.allies ? { allies: [...player.allies] } : {}),
+          ...(player.ownedTownTileKeys ? { ownedTownTileKeys: [...player.ownedTownTileKeys] } : {})
+        }))
+      : [],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     tileYieldCollectedAtByTile: new Map(
       (baseState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt])
@@ -268,20 +277,83 @@ const applyTileDeltaToRecoveredAccumulator = (
   });
 };
 
+const spendRecoveredPlayerGold = (
+  accumulator: RecoveredSimulationAccumulator,
+  playerId: string,
+  goldCost: number | undefined
+): void => {
+  if (typeof goldCost !== "number" || goldCost <= 0) return;
+  const player = accumulator.players.find((entry) => entry.id === playerId);
+  if (!player || typeof player.points !== "number") return;
+  player.points -= goldCost;
+};
+
+const removeRecoveredPendingSettlement = (
+  accumulator: RecoveredSimulationAccumulator,
+  tileKey: string
+): void => {
+  accumulator.pendingSettlements = accumulator.pendingSettlements.filter(
+    (settlement) => settlement.tileKey !== tileKey
+  );
+};
+
+const removeRecoveredPendingSettlementIfOwnerChanged = (
+  accumulator: RecoveredSimulationAccumulator,
+  tileKey: string,
+  nextOwnerId: string | undefined
+): void => {
+  const pendingSettlement = accumulator.pendingSettlements.find(
+    (settlement) => settlement.tileKey === tileKey
+  );
+  if (!pendingSettlement || pendingSettlement.ownerId === nextOwnerId) return;
+  removeRecoveredPendingSettlement(accumulator, tileKey);
+};
+
+const shouldTileDeltaRemovePendingSettlement = (
+  pendingSettlement: PendingSettlementRecord | undefined,
+  tileDelta: TileDelta
+): boolean => {
+  if (!pendingSettlement) return false;
+  if ("ownerId" in tileDelta && tileDelta.ownerId !== pendingSettlement.ownerId) return true;
+  if ("ownershipState" in tileDelta && tileDelta.ownershipState !== "FRONTIER") return true;
+  return false;
+};
+
 export const applySimulationEventsToRecoveredAccumulator = (
   accumulator: RecoveredSimulationAccumulator,
   events: SimulationEvent[]
 ): void => {
   for (const event of events) {
     if (event.eventType === "TILE_DELTA_BATCH") {
+      spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
       for (const tileDelta of event.tileDeltas) {
+        const tileKey = simulationTileKey(tileDelta.x, tileDelta.y);
+        const pendingSettlement = accumulator.pendingSettlements.find(
+          (settlement) => settlement.tileKey === tileKey
+        );
         applyTileDeltaToRecoveredAccumulator(accumulator, tileDelta);
+        if (shouldTileDeltaRemovePendingSettlement(pendingSettlement, tileDelta)) {
+          removeRecoveredPendingSettlement(accumulator, tileKey);
+        }
       }
       continue;
     }
 
     if (event.eventType === "TILE_YIELD_ANCHOR_UPDATED") {
       accumulator.tileYieldCollectedAtByTile.set(event.tileKey, event.collectedAt);
+      continue;
+    }
+
+    if (event.eventType === "SETTLEMENT_STARTED") {
+      spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
+      removeRecoveredPendingSettlement(accumulator, event.tileKey);
+      accumulator.pendingSettlements.push({
+        ownerId: event.playerId,
+        tileKey: event.tileKey,
+        startedAt: event.startedAt,
+        resolvesAt: event.resolvesAt,
+        goldCost: event.goldCost
+      });
       continue;
     }
 
@@ -327,6 +399,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
           ownerId: event.playerId,
           ownershipState: event.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
         });
+        removeRecoveredPendingSettlementIfOwnerChanged(accumulator, targetKey, event.playerId);
       } else if (event.combatResult?.defenderOwnerId) {
         const originLost = event.combatResult.changes.some(
           (change) => change.x === event.originX && change.y === event.originY
@@ -348,6 +421,11 @@ export const applySimulationEventsToRecoveredAccumulator = (
               ownerId: event.combatResult.defenderOwnerId,
               ownershipState: "FRONTIER"
             });
+            removeRecoveredPendingSettlementIfOwnerChanged(
+              accumulator,
+              originKey,
+              event.combatResult.defenderOwnerId
+            );
           }
         }
       }
