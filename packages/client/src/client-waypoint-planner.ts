@@ -292,6 +292,8 @@ export const planWaypoint = (
       if (tentative >= existing) continue;
       gScore.set(neighborIdx, tentative);
       cameFrom.set(neighborIdx, current);
+      // Clear any dock flag a prior iteration recorded for this tile,
+      // since the cheaper path we just found is an 8-way step.
       viaDock.delete(neighborIdx);
       heap.push(tentative + h(neighborIdx), neighborIdx);
     }
