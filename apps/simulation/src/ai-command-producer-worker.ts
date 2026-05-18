@@ -778,6 +778,17 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               trackedPreplanByCommandId.set(plan.command.commandId, { playerId, trackedAt: issuedAt });
               pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
               activePreplanCommandId = plan.command.commandId;
+              // Register the preplan-outcome resolver BEFORE submitting. The
+              // runtime drain emits COLLECT_RESULT synchronously during the
+              // awaited submit's microtask phase; if the resolver were
+              // registered AFTER `await submitCommand` resolves (the previous
+              // ordering), the runtime event listener would fire first, find
+              // pendingPreplanOutcomeByCommandId empty, and the outcome
+              // signal would be lost — leading to a 5s wall every
+              // COLLECT_VISIBLE per the PREPLAN_OUTCOME_TIMEOUT_MS timeout.
+              // Pre-registering eliminates the race.
+              const preplanWaitStartedAt = now();
+              const outcomePromise = waitForPreplanOutcome(playerId, plan.command.commandId);
               const submitStartedAt = now();
               submitCount += 1;
               lastCommandType = plan.command.type;
@@ -798,8 +809,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
                 durationMs: Math.max(0, now() - submitStartedAt),
                 playerId
               });
-              const preplanWaitStartedAt = now();
-              const preplanOutcome = await waitForPreplanOutcome(playerId, plan.command.commandId);
+              const preplanOutcome = await outcomePromise;
               preplanWaitMs += Math.max(0, now() - preplanWaitStartedAt);
               activePreplanCommandId = undefined;
               if (preplanOutcome === "timed_out" || preplanOutcome === "rejected") {
@@ -866,7 +876,16 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           }
         } catch {
           pendingCommandByPlayer.delete(playerId);
-          if (activePreplanCommandId) trackedPreplanByCommandId.delete(activePreplanCommandId);
+          if (activePreplanCommandId) {
+            trackedPreplanByCommandId.delete(activePreplanCommandId);
+            // The outcome resolver is now registered BEFORE submitCommand, so
+            // a thrown submit leaves a pending entry with a 5s timer attached.
+            // Resolve it immediately as "rejected" to clear the entry + timer
+            // (otherwise the still-awaited outcomePromise blocks the pass
+            // until the 5s timeout, which we just diagnosed as the AI tick
+            // p99 wall).
+            resolvePendingPreplanOutcome(activePreplanCommandId, "rejected");
+          }
           releaseAiLatchedIntent(intentLatchState, playerId);
           // Restore urgency on failed submit so the defender doesn't lose its
           // priority slot to a transient command-store error.
