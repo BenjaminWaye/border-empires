@@ -118,10 +118,42 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
     deps.pushFeed("That domain is no longer available.", "tech", "warn");
     return;
   }
+  // Some domains (e.g. Clockwork Stipend) require a sub-choice — the player
+  // picks one resource that will trickle forever. The catalog effect carries
+  // the offered { RESOURCE: ratePerMinute } map; if the option list is
+  // present the server will reject the command unless `chosenTrickleResource`
+  // is included in the payload, so we must collect it here.
+  const trickleOptionsRaw = (domain.effects?.chosenResourceTrickleOptions ?? null) as Record<string, unknown> | null;
+  let chosenTrickleResource: string | undefined;
+  if (trickleOptionsRaw && typeof trickleOptionsRaw === "object") {
+    const offered = Object.entries(trickleOptionsRaw)
+      .filter(([, rate]) => typeof rate === "number" && (rate as number) > 0)
+      .map(([resource, rate]) => ({ resource: resource.toUpperCase(), rate: rate as number }));
+    if (offered.length > 0) {
+      const promptFn = typeof window !== "undefined" ? window.prompt : undefined;
+      if (!promptFn) {
+        deps.pushFeed("This domain needs a resource pick — open the game in a browser to confirm.", "tech", "warn");
+        return;
+      }
+      const summary = offered.map(({ resource, rate }) => `${resource} (+${rate.toFixed(2)}/min)`).join("  ·  ");
+      const defaultPick = offered[0]?.resource ?? "IRON";
+      const raw = promptFn(`${domain.name}: pick a resource to trickle forever.\n\nOptions: ${summary}\n\nType IRON, SUPPLY, or CRYSTAL.`, defaultPick);
+      const normalized = (raw ?? "").trim().toUpperCase();
+      const match = offered.find((option) => option.resource === normalized);
+      if (!match) {
+        deps.pushFeed("Domain pick cancelled — no resource selected.", "tech", "warn");
+        return;
+      }
+      chosenTrickleResource = match.resource;
+    }
+  }
   deps.state.domainUiSelectedId = domainId;
   deps.state.pendingDomainUnlockId = domainId;
-  deps.ws.send(JSON.stringify({ type: "CHOOSE_DOMAIN", domainId }));
-  deps.pushFeed(`Choosing domain: ${domain.name}.`, "tech", "info");
+  const payload: { type: "CHOOSE_DOMAIN"; domainId: string; chosenTrickleResource?: string } = { type: "CHOOSE_DOMAIN", domainId };
+  if (chosenTrickleResource) payload.chosenTrickleResource = chosenTrickleResource;
+  deps.ws.send(JSON.stringify(payload));
+  const trickleSuffix = chosenTrickleResource ? ` (${chosenTrickleResource} trickle)` : "";
+  deps.pushFeed(`Choosing domain: ${domain.name}${trickleSuffix}.`, "tech", "info");
   deps.renderHud();
 };
 
