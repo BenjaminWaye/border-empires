@@ -40,7 +40,8 @@ import { buildInitMessage } from "./reconnect-recovery.js";
 import { type SimulationSeedProfile } from "./seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "./sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "./socket-routing.js";
-import { createSocialState, type SocialTruceRequest } from "./social-state.js";
+import { createSocialState, type SocialStateSink, type SocialTruceRequest } from "./social-state.js";
+import { createGatewaySocialStore } from "./social-store-factory.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "./supported-client-messages.js";
 import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
@@ -76,6 +77,7 @@ type RealtimeGatewayAppOptions = {
   commandStore?: GatewayCommandStore;
   profileStore?: GatewayPlayerProfileStore;
   authBindingStore?: GatewayAuthBindingStore;
+  socialStore?: import("./social-store.js").GatewaySocialStore;
   databaseUrl?: string;
   sqlitePath?: string;
   applySchema?: boolean;
@@ -930,10 +932,34 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       initialSocialPlayerNamesById.set(playerId, seasonalPlayerNameForId(playerId));
     }
   }
+  for (const profile of await profileStore.listAllNamed()) {
+    if (profile.name && !initialSocialPlayerNamesById.has(profile.playerId)) {
+      initialSocialPlayerNamesById.set(profile.playerId, profile.name);
+    }
+  }
   const initialSocialPlayers = [...initialSocialPlayerNamesById].map(([id, name]) => ({ id, name }));
+  const socialStore =
+    options.socialStore ?? (await createGatewaySocialStore(commandStoreFactoryOptions));
+  const persistedSocialSnapshot = socialStore.loadSnapshot();
+  if (options.now) socialStore.pruneExpired(options.now());
+  else socialStore.pruneExpired(Date.now());
+  const socialStateSink: SocialStateSink = {
+    upsertPlayer: (playerId, name) => socialStore.upsertPlayer(playerId, name),
+    saveAllianceRequest: (request) => socialStore.saveAllianceRequest(request),
+    deleteAllianceRequest: (requestId) => socialStore.deleteAllianceRequest(requestId),
+    saveTruceRequest: (request) => socialStore.saveTruceRequest(request),
+    deleteTruceRequest: (requestId) => socialStore.deleteTruceRequest(requestId),
+    addAlliance: (playerAId, playerBId, createdAt) => socialStore.addAlliance(playerAId, playerBId, createdAt),
+    removeAlliance: (playerAId, playerBId) => socialStore.removeAlliance(playerAId, playerBId),
+    saveActiveTruce: (truce) => socialStore.saveActiveTruce(truce),
+    removeActiveTruce: (playerAId, playerBId) => socialStore.removeActiveTruce(playerAId, playerBId),
+    pruneExpired: (now) => socialStore.pruneExpired(now)
+  };
   const socialState = createSocialState({
     ...(options.now ? { now: options.now } : {}),
-    players: initialSocialPlayers
+    players: initialSocialPlayers,
+    initial: persistedSocialSnapshot,
+    sink: socialStateSink
   });
   const fallbackTileDeltasByCommandId = new Map<
     string,
