@@ -396,6 +396,9 @@ describe("rewrite gateway world-status stream", () => {
         if (ids.includes(benjaminId)) throw new Error("profile store offline");
         return [];
       },
+      async listAllNamed() {
+        return [];
+      },
       async setTileColor() {
         throw new Error("not used in test");
       },
@@ -546,6 +549,9 @@ describe("rewrite gateway world-status stream", () => {
         const ids = [...playerIds];
         if (!ids.includes(benjaminId)) return [];
         return await new Promise<never[]>(() => undefined);
+      },
+      async listAllNamed() {
+        return [];
       },
       async setTileColor() {
         throw new Error("not used in test");
