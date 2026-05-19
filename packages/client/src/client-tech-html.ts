@@ -279,14 +279,27 @@ export const techOwnedHtml = (
     .join("");
 };
 
-// A domain "offers a trickle pick" only if its effects table actually carries
-// at least one valid { resource: positive-rate } entry. Guarding against the
-// shape being present-but-empty so a future data-edit bug can't render a
-// misleading suffix.
-const domainOffersTrickleOptions = (domain: DomainInfo | undefined): boolean => {
+// Returns the set of valid trickle resource keys offered by this domain's
+// chosenResourceTrickleOptions effect, or null if the effect is absent /
+// malformed / present-but-empty. Validation mirrors the server-side
+// chosenTrickleOptionsForDomain helper in tech-domain-bridge.ts: keys must be
+// IRON / SUPPLY / CRYSTAL, rates must be positive finite numbers. The two
+// validators MUST agree on the contract — anything the client treats as a
+// real option must also be honored by the sim.
+const VALID_TRICKLE_KEYS = new Set<"IRON" | "SUPPLY" | "CRYSTAL">(["IRON", "SUPPLY", "CRYSTAL"]);
+
+const domainTrickleOptionKeys = (
+  domain: DomainInfo | undefined
+): ReadonlySet<"IRON" | "SUPPLY" | "CRYSTAL"> | null => {
   const raw = domain?.effects?.chosenResourceTrickleOptions;
-  if (!raw || typeof raw !== "object") return false;
-  return Object.values(raw as Record<string, unknown>).some((rate) => typeof rate === "number" && rate > 0);
+  if (!raw || typeof raw !== "object") return null;
+  const keys = new Set<"IRON" | "SUPPLY" | "CRYSTAL">();
+  for (const [key, rate] of Object.entries(raw as Record<string, unknown>)) {
+    if (!VALID_TRICKLE_KEYS.has(key as "IRON" | "SUPPLY" | "CRYSTAL")) continue;
+    if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) continue;
+    keys.add(key as "IRON" | "SUPPLY" | "CRYSTAL");
+  }
+  return keys.size > 0 ? keys : null;
 };
 
 export const domainOwnedHtml = (
@@ -299,11 +312,14 @@ export const domainOwnedHtml = (
   return domainIds
     .map((id) => {
       const domain = catalogById.get(id);
-      // If this domain offered a trickle-resource sub-choice (currently only
-      // Clockwork Stipend), surface the player's locked pick so the card
-      // doesn't just say "pick a resource" forever.
+      // Surface the player's locked resource on the owned card ONLY when this
+      // specific domain's options table actually offered that resource. This
+      // prevents a future trickle-offering domain with a narrower table (e.g.
+      // only IRON) from misleadingly displaying "(SUPPLY trickle)" because the
+      // player happens to have locked SUPPLY on a different domain.
+      const offeredKeys = domainTrickleOptionKeys(domain);
       const trickleSuffix =
-        domainOffersTrickleOptions(domain) && chosenTrickleResource
+        offeredKeys && chosenTrickleResource && offeredKeys.has(chosenTrickleResource)
           ? ` <em>(${chosenTrickleResource} trickle)</em>`
           : "";
       return `<article class="card"><strong>${domain?.name ?? id}${trickleSuffix}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
