@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.3",
+  version: "2026.05.19.4",
   title: "What's New",
-  summary: "Tier-1 domains are now identity-shaping picks, every tooltip effect actually runs in the sim, and Clockwork Stipend's pick-a-resource modal replaces the placeholder browser prompt.",
+  summary: "Tier-1 domains are now identity-shaping picks, every tooltip effect runs in the sim, and your Clockwork Stipend choice now survives reconnects.",
   entries: [
+    {
+      introducedIn: "2026.05.19.4",
+      title: "Clockwork Stipend pick survives reconnects, modal stack-proofed, combat code tidied",
+      why: "The locked Clockwork Stipend resource lived only in the sim — after a refresh the client had no idea which resource you'd picked, and the modal could stack on a rapid double-click. Fixing both, plus a few code-smell touch-ups.",
+      changes: [
+        "Your locked Clockwork Stipend resource now travels with every TECH_UPDATE / DOMAIN_UPDATE and on the initial INIT payload, so HUD copy and the pick modal both stay correct across reconnects and snapshot replays.",
+        "The pick modal sets the pending-domain guard *before* opening, so a rapid double-click can no longer stack two modals on top of each other. Cancel clears the guard so you can try again.",
+        "If you've already locked a trickle resource on a previous domain, picking another domain that offers a compatible trickle reuses your locked pick instead of re-prompting.",
+        "Modal styling: added max-height with overflow-y so the card never clips off small viewports, added -webkit-backdrop-filter for older Safari, validated the data-resource CSS selector input against a strict regex, dropped the dead panel-btn class that inline styles were already overriding.",
+        "Combat resolution code de-duplicated — defenderOwnerId/defender were being computed twice from the same source."
+      ]
+    },
     {
       introducedIn: "2026.05.19.3",
       title: "Clockwork Stipend pick modal, smarter AI choice, hardened combat plumbing",

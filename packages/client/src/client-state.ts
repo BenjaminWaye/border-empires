@@ -154,6 +154,9 @@ export const createInitialState = () => ({
   techRootId: undefined as string | undefined,
   techIds: [] as string[],
   domainIds: [] as string[],
+  // Locked sub-choice for Clockwork Stipend (or any future domain that asks
+  // the player to pick a resource on confirm). Undefined when not picked.
+  chosenTrickleResource: undefined as "IRON" | "SUPPLY" | "CRYSTAL" | undefined,
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
   currentResearch: undefined as PendingResearch | undefined,

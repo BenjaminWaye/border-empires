@@ -6535,19 +6535,19 @@ export class SimulationRuntime {
     const previousTarget = this.tiles.get(lock.targetKey);
     const attackerOutpostMult = this.attackerOutpostMult(lock.playerId, lock.originX, lock.originY);
     const attacker = this.players.get(lock.playerId);
-    const defenderOwnerIdForMods = previousTarget?.ownerId;
-    const defenderForMods = defenderOwnerIdForMods ? this.players.get(defenderOwnerIdForMods) : undefined;
+    const defenderOwnerId = previousTarget?.ownerId;
+    const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
     const targetHasActiveFort =
       Boolean(
         previousTarget?.fort &&
         previousTarget.fort.status === "active" &&
-        previousTarget.fort.ownerId === defenderOwnerIdForMods
+        previousTarget.fort.ownerId === defenderOwnerId
       );
     const combatModifiers = {
       attackerOutpostMult,
       attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
       attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
-      fortDefenseMult: defenderForMods ? multiplicativeEffectForPlayer(defenderForMods, "fortDefenseMult") : 1
+      fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1
     };
     const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
       ? {
@@ -6565,8 +6565,6 @@ export class SimulationRuntime {
             attackerWon: true
           }
         : rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers);
-    const defenderOwnerId = previousTarget?.ownerId;
-    const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
     const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, this.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
     const plunder =
