@@ -27,8 +27,7 @@ const LEGACY_SPAWN_SEARCH_ORDER: readonly SpawnSearchPass[] = [
   { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50 } },
   { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50 } },
   { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50 } },
-  { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50 } },
-  { tries: -1, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 35 } }
+  { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50 } }
 ];
 
 const manhattanDistance = (ax: number, ay: number, bx: number, by: number): number => Math.abs(ax - bx) + Math.abs(ay - by);
@@ -92,7 +91,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   const blocked = input.blockedTileKeys ?? new Set<string>();
   const coastalLandKeys = computeCoastalLandKeys(tileList);
   const settledCoords = tileList
-    .filter((tile) => tile.ownerId && tile.ownershipState === "SETTLED")
+    .filter((tile) => tile.ownerId && tile.ownershipState && tile.ownershipState !== "BARBARIAN")
     .map((tile) => ({ x: tile.x, y: tile.y }));
   const townCoords = tileList.filter((tile) => tile.town).map((tile) => ({ x: tile.x, y: tile.y }));
   const foodCoords = tileList
@@ -136,11 +135,6 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
 
   let seed = hashString(input.playerId);
   for (const pass of LEGACY_SPAWN_SEARCH_ORDER) {
-    if (pass.tries < 0) {
-      const fallback = spawnCandidates.find((tile) => canSpawnAt(tile.x, tile.y, pass.requirements));
-      if (fallback) return { x: fallback.x, y: fallback.y };
-      continue;
-    }
     for (let attempt = 0; attempt < pass.tries; attempt += 1) {
       seed = nextSeed(seed + attempt);
       const candidate = spawnCandidates[seed % spawnCandidates.length];
@@ -149,5 +143,24 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
     }
   }
 
-  return spawnCandidates[0] ? { x: spawnCandidates[0].x, y: spawnCandidates[0].y } : undefined;
+  if (settledCoords.length === 0) {
+    return spawnCandidates[0] ? { x: spawnCandidates[0].x, y: spawnCandidates[0].y } : undefined;
+  }
+  const MAX_FALLBACK_CANDIDATES = 2_000;
+  const candidateStride = Math.max(1, Math.floor(spawnCandidates.length / MAX_FALLBACK_CANDIDATES));
+  let bestCandidate: { x: number; y: number } | undefined;
+  let bestDistance = -1;
+  for (let candidateIndex = 0; candidateIndex < spawnCandidates.length; candidateIndex += candidateStride) {
+    const candidate = spawnCandidates[candidateIndex]!;
+    let nearest = Number.POSITIVE_INFINITY;
+    for (const spawn of settledCoords) {
+      const distance = chebyshevDistance(candidate.x, candidate.y, spawn.x, spawn.y);
+      if (distance < nearest) nearest = distance;
+    }
+    if (nearest > bestDistance) {
+      bestDistance = nearest;
+      bestCandidate = { x: candidate.x, y: candidate.y };
+    }
+  }
+  return bestCandidate;
 };
