@@ -36,7 +36,7 @@ describe("email alerts", () => {
     ]);
   });
 
-  it("throttles alerts per recipient by hour and by day", async () => {
+  it("throttles attack alerts per recipient by hour and by day", async () => {
     let currentTime = Date.UTC(2026, 4, 14, 12);
     const authBindingStore = new InMemoryGatewayAuthBindingStore(() => currentTime);
     await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
@@ -54,11 +54,11 @@ describe("email alerts", () => {
 
     await expect(alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Valka", x: 1, y: 2 })).resolves.toBe("sent");
     currentTime += 59 * 60 * 1_000;
-    await expect(alerts.sendTruceRequestAlert({ recipientPlayerId: "player-1", senderName: "Valka", durationHours: 12 })).resolves.toBe("throttled");
+    await expect(alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Valka", x: 1, y: 2 })).resolves.toBe("throttled");
     currentTime += 60 * 1_000;
-    await expect(alerts.sendTruceRequestAlert({ recipientPlayerId: "player-1", senderName: "Valka", durationHours: 12 })).resolves.toBe("sent");
+    await expect(alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Valka", x: 1, y: 2 })).resolves.toBe("sent");
     currentTime += 60 * 60 * 1_000;
-    await expect(alerts.sendAllianceRequestAlert({ recipientPlayerId: "player-1", senderName: "Beejac" })).resolves.toBe("sent");
+    await expect(alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Valka", x: 1, y: 2 })).resolves.toBe("sent");
     currentTime += 60 * 60 * 1_000;
     await expect(alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "IronFist", x: 3, y: 4 })).resolves.toBe("throttled");
     expect(sent).toBe(3);
@@ -66,6 +66,42 @@ describe("email alerts", () => {
     currentTime = Date.UTC(2026, 4, 15, 1);
     await expect(alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "IronFist", x: 3, y: 4 })).resolves.toBe("sent");
     expect(sent).toBe(4);
+  });
+
+  it("bypasses rate limits for alliance and truce requests and does not consume the attack budget", async () => {
+    let currentTime = Date.UTC(2026, 4, 14, 12);
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => currentTime);
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
+    let sent = 0;
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      transport: {
+        send: async () => {
+          sent += 1;
+        }
+      },
+      dailyLimit: 3,
+      now: () => currentTime
+    });
+
+    for (let index = 0; index < 6; index += 1) {
+      await expect(
+        alerts.sendAllianceRequestAlert({ recipientPlayerId: "player-1", senderName: `Sender${index}` })
+      ).resolves.toBe("sent");
+      await expect(
+        alerts.sendTruceRequestAlert({ recipientPlayerId: "player-1", senderName: `Sender${index}`, durationHours: 12 })
+      ).resolves.toBe("sent");
+    }
+    expect(sent).toBe(12);
+
+    await expect(
+      alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Valka", x: 1, y: 2 })
+    ).resolves.toBe("sent");
+    expect(sent).toBe(13);
+    await expect(
+      alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Valka", x: 1, y: 2 })
+    ).resolves.toBe("throttled");
+    expect(sent).toBe(13);
   });
 
   it("skips delivery when alerts are disabled or no recipient email is known", async () => {
