@@ -544,7 +544,12 @@ export const buildTechUpdatePayload = (
       }
     })),
     revealCapacity: 0,
-    activeRevealTargets: []
+    activeRevealTargets: [],
+    // Echo the player's locked sub-choice (Clockwork Stipend) so the client
+    // can render "Clockwork Stipend (IRON)" after a reconnect and skip the
+    // pick modal when the player tries to re-confirm an already-locked
+    // domain. Field is omitted when the player has never picked.
+    ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {})
   };
 };
 
@@ -565,6 +570,7 @@ export const buildDomainUpdatePayload = (
     incomePerMinute: techPayload.incomePerMinute,
     missions: techPayload.missions,
     gold: techPayload.gold,
-    strategicResources: techPayload.strategicResources
+    strategicResources: techPayload.strategicResources,
+    ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {})
   };
 };

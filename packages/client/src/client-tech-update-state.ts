@@ -51,6 +51,10 @@ export const applyTechUpdateToState = (
   state.missions = msg.missions ?? state.missions;
   state.techCatalog = normalizeTechCatalog(msg.techCatalog) ?? state.techCatalog;
   state.domainIds = msg.domainIds ?? state.domainIds;
+  const incomingTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
+  if (incomingTrickle === "IRON" || incomingTrickle === "SUPPLY" || incomingTrickle === "CRYSTAL") {
+    state.chosenTrickleResource = incomingTrickle;
+  }
   state.domainChoices = msg.domainChoices ?? state.domainChoices;
   state.domainCatalog = msg.domainCatalog ?? state.domainCatalog;
   state.revealCapacity = msg.revealCapacity ?? state.revealCapacity;
