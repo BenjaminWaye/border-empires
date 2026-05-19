@@ -1866,6 +1866,12 @@ export class SimulationRuntime {
     let economyContext: RuntimeTileYieldEconomyContext | undefined;
     const tileKeys = [...summary.territoryTileKeys].sort();
     const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
+    // Collect anchor updates locally and emit ONE batch event at the end of
+    // the loop. Pre-batch, each updated tile fired a TILE_YIELD_ANCHOR_UPDATED
+    // event → separate SQLite appendEvent each. At ~2,000 owned tiles staging
+    // observed 84 pending appendEvents from a single upkeep tick, blocking
+    // the main event loop for 25s+. One batch event = one appendEvent.
+    const batchedAnchors: Array<{ tileKey: string; collectedAt: number }> = [];
     for (const tileKey of tileKeys) {
       if (!hasOutstandingUpkeepNeed(need)) return;
       const tile = this.tiles.get(tileKey);
@@ -1914,8 +1920,21 @@ export class SimulationRuntime {
         }
       }
       if (candidateAnchorMs > anchorWas) {
-        this.setTileYieldCollectedAt(syntheticCommandId, player.id, tileKey, Math.min(nowMs, candidateAnchorMs));
+        const collectedAt = Math.min(nowMs, candidateAnchorMs);
+        // Update the in-memory map immediately so subsequent tiles in this
+        // loop see fresh anchor state. Defer the event emission until after
+        // the loop so we can emit one batch event instead of N singletons.
+        this.tileYieldCollectedAtByTile.set(tileKey, collectedAt);
+        batchedAnchors.push({ tileKey, collectedAt });
       }
+    }
+    if (batchedAnchors.length > 0) {
+      this.emitEvent({
+        eventType: "TILE_YIELD_ANCHOR_BATCH",
+        commandId: syntheticCommandId,
+        playerId: player.id,
+        anchors: batchedAnchors
+      });
     }
     // Drop the synthetic commandId from the in-memory replay cache. The
     // anchor events are already durably persisted via emitEvent →
