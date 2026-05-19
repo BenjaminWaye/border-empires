@@ -300,4 +300,36 @@ describe("domainOwnedHtml — trickle suffix", () => {
     const html = domainOwnedHtml([clockworkStipend], ["clockwork-stipend"], "CRYSTAL");
     expect(html).toContain("Clockwork Stipend <em>(CRYSTAL trickle)</em>");
   });
+
+  it("ignores non-IRON/SUPPLY/CRYSTAL keys in the options table", () => {
+    // Server-side chosenTrickleOptionsForDomain only honors IRON/SUPPLY/CRYSTAL;
+    // the client gate must agree so a future data-edit bug shipping
+    // { SHARD: 0.5 } doesn't render a misleading suffix client-side while the
+    // sim silently ignores the entry.
+    const stipendWithBogusKey: DomainInfo = {
+      ...clockworkStipend,
+      effects: { chosenResourceTrickleOptions: { SHARD: 0.5 } }
+    };
+    const html = domainOwnedHtml([stipendWithBogusKey], ["clockwork-stipend"], "IRON");
+    expect(html).not.toContain("trickle)</em>");
+  });
+
+  it("does not render the suffix when the locked resource is not in this domain's offered options", () => {
+    // Hypothetical second trickle domain that offers IRON only; player has
+    // locked SUPPLY on a different domain. The narrower domain's card must
+    // NOT claim SUPPLY is trickling — it only ever offered IRON.
+    const narrowTrickleDomain: DomainInfo = {
+      id: "future-narrow-trickle",
+      tier: 2,
+      name: "Iron Tributaries",
+      description: "Hypothetical iron-only trickle.",
+      requiresTechId: "masonry",
+      mods: {},
+      effects: { chosenResourceTrickleOptions: { IRON: 0.1 } },
+      requirements: { gold: 0, resources: {}, canResearch: false }
+    };
+    const html = domainOwnedHtml([narrowTrickleDomain], ["future-narrow-trickle"], "SUPPLY");
+    expect(html).toContain("<strong>Iron Tributaries</strong>");
+    expect(html).not.toContain("trickle)</em>");
+  });
 });
