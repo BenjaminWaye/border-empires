@@ -254,6 +254,14 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   }
 
   if (progressionChoice?.type === "CHOOSE_DOMAIN") {
+    // Clockwork Stipend asks for a per-resource sub-choice; the AI defaults to
+    // IRON because it's the most universally useful for fort/outpost upkeep.
+    const aiDomainPayload: { domainId: string; chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL" } = {
+      domainId: progressionChoice.id
+    };
+    if (progressionChoice.id === "clockwork-stipend") {
+      aiDomainPayload.chosenTrickleResource = "IRON";
+    }
     return {
       command: createAutomationCommand(
         input.sessionPrefix,
@@ -261,7 +269,7 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
         input.clientSeq,
         input.issuedAt,
         "CHOOSE_DOMAIN",
-        { domainId: progressionChoice.id }
+        aiDomainPayload
       ),
       diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, {
         ...diagnosticBase,

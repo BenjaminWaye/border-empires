@@ -2611,13 +2611,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               )
             );
           } else if (message.type === "CHOOSE_DOMAIN") {
+            const trickleResource = (message as { chosenTrickleResource?: unknown }).chosenTrickleResource;
+            const validTrickle =
+              trickleResource === "IRON" || trickleResource === "SUPPLY" || trickleResource === "CRYSTAL"
+                ? trickleResource
+                : undefined;
             await trackSubmitLatency(() =>
               submitDurableCommand(
                 authedSession,
                 {
                   type: "CHOOSE_DOMAIN",
                   payload: {
-                    domainId: message.domainId
+                    domainId: message.domainId,
+                    ...(validTrickle ? { chosenTrickleResource: validTrickle } : {})
                   }
                 },
                 submitDeps

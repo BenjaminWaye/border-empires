@@ -411,10 +411,40 @@ export const chooseTechForPlayer = (
   return { ok: true };
 };
 
+export type ChosenTrickleResource = "IRON" | "SUPPLY" | "CRYSTAL";
+
+export const chosenTrickleOptionsForDomain = (
+  domainId: string
+): Record<ChosenTrickleResource, number> | undefined => {
+  const domain = domainEntryById.get(domainId);
+  const raw = domain?.effects?.chosenResourceTrickleOptions;
+  if (!raw || typeof raw !== "object") return undefined;
+  const options: Partial<Record<ChosenTrickleResource, number>> = {};
+  for (const key of ["IRON", "SUPPLY", "CRYSTAL"] as const) {
+    const rate = (raw as Record<string, unknown>)[key];
+    if (typeof rate === "number" && Number.isFinite(rate) && rate > 0) options[key] = rate;
+  }
+  return Object.keys(options).length > 0 ? (options as Record<ChosenTrickleResource, number>) : undefined;
+};
+
+export const chosenTrickleRateForPlayer = (
+  player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource">
+): { resource: ChosenTrickleResource; ratePerMinute: number } | undefined => {
+  const chosen = player.chosenTrickleResource;
+  if (chosen !== "IRON" && chosen !== "SUPPLY" && chosen !== "CRYSTAL") return undefined;
+  for (const domainId of player.domainIds ?? []) {
+    const options = chosenTrickleOptionsForDomain(domainId);
+    const rate = options?.[chosen];
+    if (typeof rate === "number") return { resource: chosen, ratePerMinute: rate };
+  }
+  return undefined;
+};
+
 export const chooseDomainForPlayer = (
   player: DomainPlayer,
   domainId: string,
-  _tiles: Iterable<DomainTileState>
+  _tiles: Iterable<DomainTileState>,
+  options?: { chosenTrickleResource?: ChosenTrickleResource }
 ): { ok: true } | { ok: false; reason: string } => {
   const domain = domainTree.domains.find((entry) => entry.id === domainId);
   if (!domain) return { ok: false, reason: "domain not found" };
@@ -426,10 +456,24 @@ export const chooseDomainForPlayer = (
   if (player.points < (domain.cost?.gold ?? 0) || !hasResources(required, available)) {
     return { ok: false, reason: "requirements not met" };
   }
+  // Domains that ask the player to pick a resource (Clockwork Stipend) require
+  // the sub-choice up front, and the choice must be one of the offered keys.
+  const trickleOptions = chosenTrickleOptionsForDomain(domainId);
+  if (trickleOptions) {
+    const picked = options?.chosenTrickleResource;
+    if (!picked || !(picked in trickleOptions)) {
+      return { ok: false, reason: "trickle resource choice required" };
+    }
+  }
   player.points = Math.max(0, player.points - (domain.cost?.gold ?? 0));
   spendStrategicResources(player, required);
   if (!player.domainIds) player.domainIds = new Set<string>();
   player.domainIds.add(domainId);
+  if (trickleOptions && options?.chosenTrickleResource) {
+    // Locked forever: once a trickle resource is chosen, it does not change
+    // even if another domain later offers a different option set.
+    if (!player.chosenTrickleResource) player.chosenTrickleResource = options.chosenTrickleResource;
+  }
   player.mods = recomputeMods(player);
   return { ok: true };
 };

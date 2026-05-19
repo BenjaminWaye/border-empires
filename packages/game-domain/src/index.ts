@@ -41,6 +41,9 @@ export type DomainPlayer = {
   allies: Set<string>;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
+  // Persistent sub-choice for domains that ask the player to pick a resource
+  // (Clockwork Stipend). Locked on pick; null/undefined means no choice yet.
+  chosenTrickleResource?: DomainStrategicResourceKey | undefined;
 };
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;

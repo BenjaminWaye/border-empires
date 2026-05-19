@@ -137,6 +137,8 @@ import {
   buildDomainUpdatePayload,
   buildTechUpdatePayload,
   chooseDomainForPlayer,
+  type ChosenTrickleResource,
+  chosenTrickleRateForPlayer,
   chooseTechForPlayer,
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
@@ -1764,6 +1766,20 @@ export class SimulationRuntime {
     const summary = this.summaryForPlayer(player.id);
     const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles);
     const elapsedMinutes = elapsedMs / 60_000;
+    // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
+    // upkeep drain, so the trickle helps cover upkeep on a starved empire
+    // instead of being instantly clawed back.
+    const trickle = chosenTrickleRateForPlayer(player);
+    if (trickle && trickle.ratePerMinute > 0) {
+      const credit = trickle.ratePerMinute * elapsedMinutes;
+      if (credit > 0) {
+        const current = player.strategicResources ?? {};
+        player.strategicResources = {
+          ...current,
+          [trickle.resource]: (current[trickle.resource] ?? 0) + credit
+        };
+      }
+    }
     const need: UpkeepNeed = {
       gold: Math.max(0, economy.upkeepPerMinute.gold) * elapsedMinutes,
       FOOD: Math.max(0, economy.upkeepPerMinute.food) * elapsedMinutes,
@@ -4881,9 +4897,13 @@ export class SimulationRuntime {
       return;
     }
     let domainId = "";
+    let chosenTrickleResource: ChosenTrickleResource | undefined;
     try {
-      const parsed = JSON.parse(command.payloadJson) as { domainId?: unknown };
+      const parsed = JSON.parse(command.payloadJson) as { domainId?: unknown; chosenTrickleResource?: unknown };
       if (typeof parsed.domainId === "string") domainId = parsed.domainId;
+      if (parsed.chosenTrickleResource === "IRON" || parsed.chosenTrickleResource === "SUPPLY" || parsed.chosenTrickleResource === "CRYSTAL") {
+        chosenTrickleResource = parsed.chosenTrickleResource;
+      }
     } catch {
       domainId = "";
     }
@@ -4897,7 +4917,12 @@ export class SimulationRuntime {
       });
       return;
     }
-    const outcome = chooseDomainForPlayer(actor, domainId, this.tiles.values());
+    const outcome = chooseDomainForPlayer(
+      actor,
+      domainId,
+      this.tiles.values(),
+      chosenTrickleResource ? { chosenTrickleResource } : undefined
+    );
     if (!outcome.ok) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
