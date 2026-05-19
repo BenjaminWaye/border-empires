@@ -28,7 +28,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       title: "Tier-1 domains: imba on purpose, and the dead effects are alive",
       why: "Most tier-1 modifiers (10–20%) were small enough that picking a domain barely registered, and several keys (fortIronUpkeepMult, fortBuildGoldCostMult, outpostSupplyUpkeepMult, firstThreeTownsPopulationGrowthMult) lived only in tooltips — the sim never read them. Domains should feel like an identity choice from the first pick.",
       changes: [
-        "Frontier Doctrine: settlement speed +50% (was +20%); the redundant dev-slot bonus is removed since the speed alone is the headline.",
+        "Frontier Doctrine: settlement speed +50% (was +20%), still grants +1 development slot — the speed is what you feel first, the parallel slot is what keeps the realm moving.",
         "Iron Bastions reworked: forts build +50% faster (new effect, now wired in the sim), and both fort iron upkeep and fort gold upkeep are -40%. The old +20% fort defense is dropped — Stone Curtain and Fortress Realm still own defense scaling at higher tiers.",
         "Supply Raiding reworked: outpost deployment +50% faster and outpost supply upkeep -30% — raiders are about being everywhere, not one-shotting things.",
         "Mercantile Charter: first-three-towns population growth bonus raised to +25% (was +15%) and now actually applies to the growth tick.",
