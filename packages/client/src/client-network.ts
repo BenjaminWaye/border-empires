@@ -738,7 +738,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.pendingCombatReveal.detail === resultAlert.detail) ||
         (resultTargetKey && wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
     );
-    if (!predictedAlreadyShown) {
+    // Silent waypoint EXPAND on neutral: state.capture.silent is set
+    // and the result is a "Territory Claimed" success. Skip both the
+    // feed entry and the captureAlert popup. Anything else (attack
+    // results, settle results, the lost-territory tone) still surfaces.
+    const silentExpandSuccess = Boolean(state.capture?.silent && msg.attackType === "EXPAND" && resultAlert.tone === "success");
+    if (!predictedAlreadyShown && !silentExpandSuccess) {
       appendFeedEntry({
         title: resultAlert.title,
         text: resultAlert.detail,
@@ -1580,10 +1585,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionAcceptedAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
       state.actionInFlight = true;
+      // Preserve the silent flag set at dispatch time so the
+      // waypoint-driven neutral EXPAND does not pop the big overlay
+      // when the server confirms acceptance.
+      const wasSilent = Boolean(state.capture?.silent && state.capture.target.x === target.x && state.capture.target.y === target.y);
       state.capture = {
         startAt: state.actionStartedAt || Date.now(),
         resolvesAt: msg.resolvesAt as number,
-        target
+        target,
+        ...(wasSilent ? { silent: true } : {})
       };
       state.actionTargetKey = targetKey;
       if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
@@ -1631,17 +1641,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         tone: "success" as const,
         ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {})
       };
-      appendFeedEntry({
-        title: resultAlert.title,
-        text: resultAlert.detail,
-        type: "combat",
-        severity: "success",
-        at: Date.now(),
-        ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
-          ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
-          : {})
-      });
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
+      // Waypoint-driven neutral EXPAND: skip both the popup and the
+      // feed entry. The user already opted into the chain via Expand
+      // Here; per-tile completion noise was the point of the silent
+      // flow. Errors still surface via the captureAlert path above.
+      const silentSuccess = Boolean(state.capture?.silent);
+      if (!silentSuccess) {
+        appendFeedEntry({
+          title: resultAlert.title,
+          text: resultAlert.detail,
+          type: "combat",
+          severity: "success",
+          at: Date.now(),
+          ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
+            ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
+            : {})
+        });
+        showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
+      }
       state.capture = undefined;
       frontierQueueDebug("frontier_result_received", {
         actionType: msg.actionType,
@@ -1759,7 +1776,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
       const startAt = existingCapture?.startAt ?? Date.now();
       const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
-      state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };
+      const preservedSilent = Boolean(existingCapture?.silent);
+      state.capture = {
+        startAt,
+        resolvesAt: resolvesAtForCapture,
+        target,
+        ...(preservedSilent ? { silent: true } : {})
+      };
       const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
       if (lockedCombatResult) {
         const predictedAlert = combatResolutionAlert(lockedCombatResult, {

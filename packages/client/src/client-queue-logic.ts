@@ -632,34 +632,46 @@ export const topUpFromWaypoint = (
     return false;
   }
 
-  // If the previous step we asked the queue to claim is still not
-  // owned by us, ownership did not advance (likely a stale
-  // EXPAND_TARGET_OWNED reject). Halt rather than tight-looping; the
-  // amber flag prompts the player to cancel and re-target.
-  if (waypoint.lastEnqueuedKey) {
-    const lastTile = state.tiles.get(waypoint.lastEnqueuedKey);
-    if (!lastTile || lastTile.ownerId !== state.me) {
-      waypoint.plan = { ...waypoint.plan, reachable: false, blockReason: "NO_PATH" };
-      pushFeed(
-        `Waypoint halted at ${waypoint.lastEnqueuedKey}. Tap the flag to cancel.`,
-        "info",
-        "warn"
-      );
-      return false;
-    }
-  }
   const plan = planWaypoint(target, { state, keyFor });
   waypoint.plan = plan;
   if (!plan.reachable) return false;
   const firstStep = plan.steps[0];
   if (!firstStep) return false;
   const stepKey = keyFor(firstStep.target.x, firstStep.target.y);
-  const enqueued = enqueueTarget(state, firstStep.target.x, firstStep.target.y, keyFor);
+  // If the planner re-emits the exact step we just enqueued, ownership
+  // has not advanced yet. Two common causes: (a) FRONTIER_RESULT arrives
+  // before the TILE_DELTA that flips ownerId, so the next top-up sees a
+  // stale neutral tile; (b) the server is actively rejecting (e.g.,
+  // EXPAND_TARGET_OWNED). Tolerate a few ticks for (a) before halting
+  // on (b) — the next top-up that sees fresh state advances naturally.
+  const MAX_CONSECUTIVE_RETRIES = 4;
+  if (waypoint.lastEnqueuedKey === stepKey) {
+    const retries = (waypoint.consecutiveRetries ?? 0) + 1;
+    if (retries > MAX_CONSECUTIVE_RETRIES) {
+      waypoint.plan = { ...plan, reachable: false, blockReason: "NO_PATH" };
+      pushFeed(
+        `Waypoint halted at ${stepKey}. Tap the flag to cancel.`,
+        "info",
+        "warn"
+      );
+      return false;
+    }
+    waypoint.consecutiveRetries = retries;
+    return false;
+  }
+  waypoint.consecutiveRetries = 0;
+  const enqueued = enqueueTarget(state, firstStep.target.x, firstStep.target.y, keyFor, { fromWaypoint: true });
   if (enqueued) waypoint.lastEnqueuedKey = stepKey;
   return enqueued;
 };
 
-export const enqueueTarget = (state: ClientState, x: number, y: number, keyFor: (x: number, y: number) => string): boolean => {
+export const enqueueTarget = (
+  state: ClientState,
+  x: number,
+  y: number,
+  keyFor: (x: number, y: number) => string,
+  options: { fromWaypoint?: boolean } = {}
+): boolean => {
   const targetKey = keyFor(x, y);
   const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
   if (frontierSyncWaitUntil > Date.now()) return false;
@@ -669,7 +681,9 @@ export const enqueueTarget = (state: ClientState, x: number, y: number, keyFor: 
     if (!stillQueued && !currentlyExecuting) state.queuedTargetKeys.delete(targetKey);
   }
   if (state.queuedTargetKeys.has(targetKey)) return false;
-  state.actionQueue.push({ x, y, retries: 0 });
+  const entry: { x: number; y: number; retries: number; fromWaypoint?: boolean } = { x, y, retries: 0 };
+  if (options.fromWaypoint) entry.fromWaypoint = true;
+  state.actionQueue.push(entry);
   state.queuedTargetKeys.add(targetKey);
   return true;
 };
@@ -1098,7 +1112,13 @@ export const processActionQueue = (
     const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
     const existingCapture =
       state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y ? state.capture : undefined;
-    state.capture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    // Suppress the big "Capturing Territory..." overlay only for
+    // waypoint-driven EXPANDs on a neutral tile. Attacks and any error
+    // path still surface their popups; manual one-tap expands still get
+    // the overlay as their only feedback signal.
+    const silent = Boolean(next.fromWaypoint) && !to.ownerId;
+    const baseCapture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    state.capture = silent ? { ...baseCapture, silent: true } : baseCapture;
     const actionType = !to.ownerId ? "EXPAND" : "ATTACK";
     attackSyncLog("queue-dispatch", {
       actionType,

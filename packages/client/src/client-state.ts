@@ -35,11 +35,14 @@ import type { WaypointPlan } from "./client-waypoint-planner.js";
 export type ClientWaypoint = {
   target: { x: number; y: number };
   plan: WaypointPlan;
-  // Last tile-key the waypoint asked the action queue to claim. On the
-  // next top-up we check whether that tile is now owned by us; if it
-  // is not, the previous step did not move ownership (server reject,
-  // snapshot revert, etc.) and we halt instead of tight-looping.
+  // Last tile-key the waypoint asked the action queue to claim. The
+  // next top-up compares the planner's new first step against it: a
+  // match means ownership has not advanced (either a stale-snapshot
+  // race or a real reject), so we wait a few ticks before halting.
   lastEnqueuedKey?: string;
+  // Consecutive top-ups where the planner re-emitted the same step we
+  // just enqueued. Resets to 0 the moment the plan advances.
+  consecutiveRetries?: number;
 };
 
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
@@ -210,7 +213,7 @@ export const createInitialState = () => ({
   replayOwnershipByTile: new Map<string, { ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }>(),
   socialInspectPlayerId: "" as string,
   feed: [] as FeedEntry[],
-  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
+  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean } | undefined,
   pendingCombatReveal: undefined as
     | {
         targetKey: string;
@@ -280,7 +283,7 @@ export const createInitialState = () => ({
   techTreeScrollLeft: 0,
   techTreeScrollTop: 0,
   techTreeZoom: 1,
-  actionQueue: [] as Array<{ x: number; y: number; retries?: number }>,
+  actionQueue: [] as Array<{ x: number; y: number; retries?: number; fromWaypoint?: boolean }>,
   waypoint: undefined as ClientWaypoint | undefined,
   frontierLateAckUntilByTarget: new Map<string, number>(),
   developmentQueue: [] as Array<
