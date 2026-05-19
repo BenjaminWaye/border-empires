@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.2",
+  version: "2026.05.19.3",
   title: "What's New",
-  summary: "Waypoint chains now march all the way through, the big capture overlay stays out of the way during waypoint expansion, and the destination flag is a proper steampunk tower.",
+  summary: "Incoming alliance and truce requests now raise a visible alert, summarize on login, and reliably email you regardless of the standard daily cap.",
   entries: [
+    {
+      introducedIn: "2026.05.19.3",
+      title: "Diplomacy requests are visible on login and always email",
+      why: "Alliance and truce offers already appeared in the Alliances panel, but players who were offline when a request arrived could log in without any clear alert that a response was waiting, and email notifications could be silently dropped by the per-recipient daily cap or hourly spacing.",
+      changes: [
+        "Incoming alliance requests now open a visible alert and add a diplomacy feed entry when they arrive live.",
+        "Incoming truce offers now open the same visible alert path with the proposed truce duration.",
+        "Login INIT now checks pending incoming alliance and truce requests and summarizes any new waiting diplomacy requests without repeating the same request on reconnect.",
+        "Email alerts for alliance and truce requests now bypass the per-recipient daily cap and hourly spacing, so every diplomacy offer reliably reaches your inbox."
+      ]
+    },
     {
       introducedIn: "2026.05.19.2",
       title: "Quieter, smoother waypoint expansion",
