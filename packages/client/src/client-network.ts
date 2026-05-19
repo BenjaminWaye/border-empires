@@ -15,6 +15,11 @@ import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 import { restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
+import {
+  notifyIncomingAllianceRequest,
+  notifyIncomingDiplomacyRequestsOnInit,
+  notifyIncomingTruceRequest
+} from "./client-diplomacy-notifications.js";
 import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import { tileHasTownIdentity } from "./client-town-identity.js";
 
@@ -1358,6 +1363,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           "warn"
         );
       }
+      notifyIncomingDiplomacyRequestsOnInit(state, state.incomingAllianceRequests, state.incomingTruceRequests, {
+        pushFeed,
+        showCaptureAlert: showCaptureAlertSafely
+      });
       if (shardRainNotice?.phase === "upcoming" && typeof shardRainNotice.startsAt === "number") {
         showShardAlert({
           key: shardAlertKeyForPayload("upcoming", shardRainNotice.startsAt),
@@ -2299,7 +2308,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (fromName) request.fromName = fromName;
         state.incomingAllianceRequests.push(request);
       }
-      pushFeed(`Incoming alliance request${request?.fromName ? ` from ${request.fromName}` : ""}`, "alliance", "info");
+      notifyIncomingAllianceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
       renderHud();
       return;
     }
@@ -2334,7 +2343,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (fromName) request.fromName = fromName;
         state.incomingTruceRequests = [...state.incomingTruceRequests.filter((entry: any) => entry.id !== request.id), request];
       }
-      pushFeed(`Incoming truce offer${request?.fromName ? ` from ${request.fromName}` : ""}.`, "alliance", "info");
+      notifyIncomingTruceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
       renderHud();
       return;
     }
