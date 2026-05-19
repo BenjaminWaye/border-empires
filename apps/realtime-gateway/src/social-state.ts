@@ -136,11 +136,34 @@ export type SocialState = {
   breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
 };
 
+export type SocialStateSink = {
+  upsertPlayer: (playerId: string, name: string) => void;
+  saveAllianceRequest: (request: SocialAllianceRequest) => void;
+  deleteAllianceRequest: (requestId: string) => void;
+  saveTruceRequest: (request: SocialTruceRequest) => void;
+  deleteTruceRequest: (requestId: string) => void;
+  addAlliance: (playerAId: string, playerBId: string, createdAt: number) => void;
+  removeAlliance: (playerAId: string, playerBId: string) => void;
+  saveActiveTruce: (truce: SocialActiveTruce) => void;
+  removeActiveTruce: (playerAId: string, playerBId: string) => void;
+  pruneExpired: (now: number) => void;
+};
+
+export type SocialStateInitial = {
+  players?: Array<{ id: string; name: string; allies?: string[] }>;
+  allianceRequests?: SocialAllianceRequest[];
+  truceRequests?: SocialTruceRequest[];
+  activeTruces?: SocialActiveTruce[];
+};
+
 export const createSocialState = (options: {
   now?: () => number;
   players?: Array<{ id: string; name: string }>;
+  initial?: SocialStateInitial;
+  sink?: SocialStateSink;
 } = {}): SocialState => {
   const now = options.now ?? (() => Date.now());
+  const sink = options.sink;
   const playersById = new Map<string, SocialPlayerRecord>();
   const allianceRequests = new Map<string, SocialAllianceRequest>();
   const truceRequests = new Map<string, SocialTruceRequest>();
@@ -169,12 +192,20 @@ export const createSocialState = (options: {
 
   const sweepExpired = (): void => {
     const current = now();
+    let pruned = false;
     for (const [requestId, request] of truceRequests) {
-      if (request.expiresAt <= current) truceRequests.delete(requestId);
+      if (request.expiresAt <= current) {
+        truceRequests.delete(requestId);
+        pruned = true;
+      }
     }
     for (const [key, truce] of trucesByPair) {
-      if (truce.endsAt <= current) trucesByPair.delete(key);
+      if (truce.endsAt <= current) {
+        trucesByPair.delete(key);
+        pruned = true;
+      }
     }
+    if (pruned) sink?.pruneExpired(current);
   };
 
   const snapshotForPlayer = (playerId: string): SocialSnapshot => {
@@ -232,19 +263,44 @@ export const createSocialState = (options: {
 
   for (const player of options.players ?? []) ensurePlayer(player.id, player.name);
 
+  if (options.initial) {
+    for (const player of options.initial.players ?? []) {
+      const record = ensurePlayer(player.id, player.name);
+      record.name = player.name;
+      for (const allyId of player.allies ?? []) record.allies.add(allyId);
+    }
+    for (const request of options.initial.allianceRequests ?? []) {
+      allianceRequests.set(request.id, { ...request });
+    }
+    for (const request of options.initial.truceRequests ?? []) {
+      truceRequests.set(request.id, { ...request });
+    }
+    for (const truce of options.initial.activeTruces ?? []) {
+      trucesByPair.set(pairKey(truce.playerAId, truce.playerBId), { ...truce });
+    }
+  }
+
   return {
     registerPlayer(playerId, name) {
       ensurePlayer(playerId, name).name = name;
+      sink?.upsertPlayer(playerId, name);
     },
     renamePlayer(playerId, name) {
       ensurePlayer(playerId, name).name = name;
+      sink?.upsertPlayer(playerId, name);
       for (const request of allianceRequests.values()) {
         if (request.fromPlayerId === playerId) request.fromName = name;
         if (request.toPlayerId === playerId) request.toName = name;
+        if (request.fromPlayerId === playerId || request.toPlayerId === playerId) {
+          sink?.saveAllianceRequest(request);
+        }
       }
       for (const request of truceRequests.values()) {
         if (request.fromPlayerId === playerId) request.fromName = name;
         if (request.toPlayerId === playerId) request.toName = name;
+        if (request.fromPlayerId === playerId || request.toPlayerId === playerId) {
+          sink?.saveTruceRequest(request);
+        }
       }
     },
     snapshotForPlayer,
@@ -272,6 +328,7 @@ export const createSocialState = (options: {
         toName: target.name
       };
       allianceRequests.set(request.id, request);
+      sink?.saveAllianceRequest(request);
       const payloads = updatePayloadsFor([actor.id, target.id]);
       payloads.get(actor.id)?.push({ type: "ALLIANCE_REQUESTED", request, targetName: target.name });
       payloads.get(target.id)?.push({ type: "ALLIANCE_REQUEST_INCOMING", request, fromName: actor.name });
@@ -285,11 +342,14 @@ export const createSocialState = (options: {
       const from = playersById.get(request.fromPlayerId);
       if (!from) {
         allianceRequests.delete(requestId);
+        sink?.deleteAllianceRequest(requestId);
         return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request sender offline/unknown" };
       }
       actor.allies.add(from.id);
       from.allies.add(actor.id);
       allianceRequests.delete(requestId);
+      sink?.deleteAllianceRequest(requestId);
+      sink?.addAlliance(actor.id, from.id, now());
       return ok([actor.id, from.id]);
     },
     rejectAlliance(playerId, requestId) {
@@ -297,6 +357,7 @@ export const createSocialState = (options: {
       const request = allianceRequests.get(requestId);
       if (!request || request.toPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
       allianceRequests.delete(requestId);
+      sink?.deleteAllianceRequest(requestId);
       return ok([playerId, request.fromPlayerId]);
     },
     cancelAlliance(playerId, requestId) {
@@ -304,6 +365,7 @@ export const createSocialState = (options: {
       const request = allianceRequests.get(requestId);
       if (!request || request.fromPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
       allianceRequests.delete(requestId);
+      sink?.deleteAllianceRequest(requestId);
       return ok([playerId, request.toPlayerId]);
     },
     breakAlliance(playerId, targetPlayerId) {
@@ -313,6 +375,7 @@ export const createSocialState = (options: {
       if (!target || !actor.allies.has(target.id)) return { ok: false, code: "ALLIANCE_BREAK_INVALID", message: "not allied with target" };
       actor.allies.delete(target.id);
       target.allies.delete(actor.id);
+      sink?.removeAlliance(actor.id, target.id);
       return ok([actor.id, target.id]);
     },
     requestTruce(fromPlayerId, targetPlayerName, durationHours) {
@@ -343,6 +406,7 @@ export const createSocialState = (options: {
         toName: target.name
       };
       truceRequests.set(request.id, request);
+      sink?.saveTruceRequest(request);
       const payloads = updatePayloadsFor([actor.id, target.id]);
       payloads.get(actor.id)?.push({ type: "TRUCE_REQUESTED", request, targetName: target.name });
       payloads.get(target.id)?.push({ type: "TRUCE_REQUEST_INCOMING", request, fromName: actor.name });
@@ -358,10 +422,12 @@ export const createSocialState = (options: {
       const from = playersById.get(request.fromPlayerId);
       if (!from) {
         truceRequests.delete(requestId);
+        sink?.deleteTruceRequest(requestId);
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request sender offline/unknown" };
       }
       if (playerHasActiveTruce(actor.id, trucesByPair, now()) || playerHasActiveTruce(from.id, trucesByPair, now())) {
         truceRequests.delete(requestId);
+        sink?.deleteTruceRequest(requestId);
         return { ok: false, code: "TRUCE_EXISTS", message: "one player already has an active truce" };
       }
       const truce: SocialActiveTruce = {
@@ -373,6 +439,8 @@ export const createSocialState = (options: {
       };
       truceRequests.delete(requestId);
       trucesByPair.set(pairKey(actor.id, from.id), truce);
+      sink?.deleteTruceRequest(requestId);
+      sink?.saveActiveTruce(truce);
       const announcement = `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
       return ok([actor.id, from.id], { [actor.id]: announcement, [from.id]: announcement });
     },
@@ -383,6 +451,7 @@ export const createSocialState = (options: {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
       truceRequests.delete(requestId);
+      sink?.deleteTruceRequest(requestId);
       return ok([playerId, request.fromPlayerId], announcementByPlayerId);
     },
     cancelTruce(playerId, requestId) {
@@ -392,6 +461,7 @@ export const createSocialState = (options: {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
       truceRequests.delete(requestId);
+      sink?.deleteTruceRequest(requestId);
       return ok([playerId, request.toPlayerId]);
     },
     breakTruce(playerId, targetPlayerId) {
@@ -401,6 +471,7 @@ export const createSocialState = (options: {
       const truce = target ? activeTruceBetween(actor.id, target.id, trucesByPair, now()) : undefined;
       if (!target || !truce) return { ok: false, code: "TRUCE_BREAK_INVALID", message: "no active truce with target" };
       trucesByPair.delete(pairKey(actor.id, target.id));
+      sink?.removeActiveTruce(actor.id, target.id);
       const announcement = `${actor.name} broke the truce with ${target.name}.`;
       return ok([actor.id, target.id], { [actor.id]: announcement, [target.id]: announcement });
     }
