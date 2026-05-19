@@ -19,14 +19,99 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.4",
+  version: "2026.05.19.5",
   title: "What's New",
-  summary: "Granaries now render as 3D wooden barns in true-3D mode, and the Seed Granary upgrade has its own distinct silhouette — three tall stone silos with copper caps and a green-glowing seed lab — so the two structures never get confused at a glance.",
+  summary: "Frontier automation now reduces repeated border cleanup: forts project tiered frontier control, unsupported frontier decays, valuable/support tiles enter a cancellable settlement queue, and siege/fort pressure respects manpower.",
   entries: [
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Fort frontier control scales by tier",
+      why: "Higher-tier forts should project a stronger border without making fresh staging frontier disappear before the player can act.",
+      changes: [
+        "Wooden forts project frontier control 1 tile, full forts 2 tiles, Iron Bastions 3 tiles, and Thunder Bastions 4 tiles.",
+        "Newly claimed or captured frontier gets 20 seconds of protection from enemy fort patrol attacks.",
+        "Launching an attack against a fort extends that staging protection by another 20 seconds.",
+        "Queued or actively settling frontier no longer decays while it is waiting for settlement."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Forts now patrol nearby enemy frontier",
+      why: "A border fort should reduce the repetitive work of clearing small enemy frontier patches around it.",
+      changes: [
+        "Active forts now automatically attack adjacent enemy frontier tiles when the player has enough gold and manpower.",
+        "Fort patrol attacks skip settled enemy tiles and fortified frontier tiles, so core assaults still require an intentional player attack.",
+        "Fort patrol attacks use the normal frontier attack lock and resource costs."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Unsupported frontier now decays",
+      why: "Frontier should be quick to claim, but it should not leave permanent cleanup work when no fort is holding that border.",
+      changes: [
+        "Owned frontier tiles outside active fort support now start a 10 minute decay timer.",
+        "Unsupported frontier returns to neutral when the timer expires, while resources, towns, and docks remain on the tile.",
+        "Tiles in their final 60 seconds use a slow 2 second blink so the warning is visible without being noisy."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Fort assaults require larger manpower commitments",
+      why: "Fortified tiles should feel like real campaign objectives instead of ordinary attacks with a small extra manpower cost.",
+      changes: [
+        "Attacking an active fort now requires and commits 300 manpower.",
+        "Attacking an Iron Bastion now requires and commits 600 manpower, and attacking a Thunder Bastion requires and commits 1200 manpower.",
+        "Building a full fort now requires 300 manpower; starter wooden forts keep their lighter manpower footprint."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Starter settlements no longer auto-claim frontier",
+      why: "A fresh settlement should not spend gold expanding its surrounding frontier before the player has grown it into a real town.",
+      changes: [
+        "Settlement-tier towns no longer auto-claim adjacent unowned frontier tiles.",
+        "Town-driven auto frontier expansion now starts only after the town grows beyond settlement tier.",
+        "Fort auto frontier expansion and high-value auto-settlement behavior are unchanged."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Settlement-tier towns no longer auto-settle support tiles",
+      why: "A new settlement should not automatically commit its plain surrounding support tiles before the player has had time to grow it into a real town.",
+      changes: [
+        "Settlement-tier towns no longer put plain adjacent support tiles in the auto-settlement queue.",
+        "Plain adjacent support tiles now wait until the nearby town grows beyond settlement tier before entering the auto-settlement queue.",
+        "High-value frontier tiles with resources, towns, or docks still auto-queue regardless of nearby town tier."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Sieges now respect manpower and outpost control",
+      why: "Outpost automation should reduce repeated attack clicks without taking control away from the player, and fortified targets should demand a real manpower commitment.",
+      changes: [
+        "Active siege outposts now expose a menu action to cancel or re-enable their automatic attacks.",
+        "Cancelling outpost auto-attack disables future attacks from that outpost and cancels its active outpost-launched attack lock.",
+        "Building forts, siege outposts, wooden forts, and light outposts now spends manpower when construction starts.",
+        "Attacks against active forts now require and commit more manpower based on fort strength, so failed fort assaults cause much heavier manpower losses."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "High-value and town-support tiles auto-queue settlement",
+      why: "Resources, towns, docks, and town-support tiles should enter the settle queue after you claim them instead of requiring another manual click, while still leaving players the existing cancel control.",
+      changes: [
+        "Owned frontier tiles with a resource, town, or dock now automatically enter the settlement queue when gold is available.",
+        "Owned frontier tiles adjacent to one of your settled towns now also auto-queue as town-support tiles.",
+        "Eligible auto-settlement tiles follow frontier expansion order instead of a special priority sort.",
+        "Eligible frontier tiles waiting for a settlement slot now use the same numbered settlement queue badge as manually queued settlements.",
+        "Cancel queued settlement now keeps a cancelled auto-settlement tile from immediately returning to the queue.",
+        "Remote plain frontier tiles still stay frontier-only, so automation remains limited to valuable and support tiles."
+      ]
+    },
     {
       introducedIn: "2026.05.19.4",
       title: "3D meshes for Granary and Seed Granary",
-      why: "Granaries had no 3D representation, so true-3D players saw the 2D SVG floating in place over the heightfield instead of an in-world structure. Seed Granary — the granary upgrade with stronger growth and lower food upkeep — needed a distinct silhouette so it would never get confused with the regular granary or with the existing Farmstead's wooden silo.",
+      why: "Granaries had no 3D representation, so true-3D players saw the 2D SVG floating in place over the heightfield instead of an in-world structure. Seed Granary — the granary upgrade with stronger growth and lower food upkeep — needed a distinct silhouette so it would never get confused with the regular Granary or with the existing Farmstead's wooden silo.",
       changes: [
         "Granary now renders as a cream-walled wooden barn with a golden gable roof, three horizontal grain bands, a small grey-roofed side annex, a cupola/ventilator on top, and two grain sacks out front — colors and silhouette drawn from the granary-overlay.svg so 2D and 3D read as the same structure.",
         "Seed Granary now renders as a cluster of three tall stone silos with copper conical caps plus a small seed-lab annex with a green-glowing window, giving it a vertical, agronomy-lab silhouette that's clearly distinct from the squat wooden Granary barn and from the Farmstead's single silo. Seed Granary placement on tiles is not yet wired server-side, so the mesh currently shows only in the ?structuredemo=1 design row.",

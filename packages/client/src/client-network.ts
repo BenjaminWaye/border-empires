@@ -14,7 +14,7 @@ import { applyRespawnNoticeToState, normalizeRespawnNotice } from "./client-resp
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
-import { restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
+import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
 import {
   notifyIncomingAllianceRequest,
   notifyIncomingDiplomacyRequestsOnInit,
@@ -701,7 +701,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return origin ? state.tiles.get(keyFor(origin.x, origin.y)) : undefined;
     })();
     const changes =
-      (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>) ??
+      (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number; frontierDecayAt?: number | null }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
     for (const change of changes) {
@@ -720,6 +720,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else if (!change.ownerId) delete incoming.ownershipState;
       if (typeof change.breachShockUntil === "number") incoming.breachShockUntil = change.breachShockUntil;
       else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
+      if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
+      else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
@@ -1234,6 +1236,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           new Set(state.settleProgressByTile.keys())
         );
       }
+      applyAutoSettlementQueueFromServer(
+        state,
+        player.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
+        { keyFor }
+      );
       state.allies = (player.allies as string[]) ?? [];
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
       const myTileColor = player.tileColor as string | undefined;
@@ -1438,6 +1445,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if ("pendingSettlements" in msg) {
         applyPendingSettlementsFromServer(
           msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
+        );
+      }
+      if ("autoSettlementQueue" in msg) {
+        applyAutoSettlementQueueFromServer(
+          state,
+          msg.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
+          { keyFor }
         );
       }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
@@ -2063,6 +2077,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if ("breachShockUntil" in normalizedUpdate) {
           if (typeof normalizedUpdate.breachShockUntil === "number") merged.breachShockUntil = normalizedUpdate.breachShockUntil;
           else delete merged.breachShockUntil;
+        }
+        if ("frontierDecayAt" in normalizedUpdate) {
+          if (typeof normalizedUpdate.frontierDecayAt === "number") merged.frontierDecayAt = normalizedUpdate.frontierDecayAt;
+          else delete merged.frontierDecayAt;
         }
         if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
         if (normalizedUpdate.clusterId !== undefined) merged.clusterId = normalizedUpdate.clusterId;

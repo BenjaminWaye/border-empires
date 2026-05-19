@@ -1,13 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "./client-state.js";
 import {
+  AUTO_SETTLEMENT_QUEUE_VISIBLE_MS,
+  applyAutoSettlementQueueFromServer,
   busyDevelopmentProcessCount,
   hasQueuedSettlementForTile,
   persistDevelopmentQueueForPlayer,
+  persistSkippedAutoSettlementTileKeysForPlayer,
+  pruneExpiredAutoSettlementQueueVisibleHolds,
   queuedSettlementOrderForTile,
+  restoreSkippedAutoSettlementTileKeysForPlayer,
   restorePersistedDevelopmentQueueForPlayer
 } from "./client-development-queue.js";
-import { developmentSlotSummary, processDevelopmentQueue, requestSettlement } from "./client-queue-logic.js";
+import { cancelQueuedSettlement, developmentSlotSummary, processDevelopmentQueue, queueDevelopmentAction, requestSettlement } from "./client-queue-logic.js";
 import type { TechInfo } from "./client-types.js";
 
 const installSessionStorageMock = () => {
@@ -87,6 +92,150 @@ describe("development queue helpers", () => {
     ];
     expect(hasQueuedSettlementForTile(queue, "2,2")).toBe(true);
     expect(hasQueuedSettlementForTile(queue, "9,9")).toBe(false);
+  });
+
+  it("appends server-ordered auto settlements to the cancellable development queue", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 1_000;
+    state.tiles.set("9,10", { x: 9, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as never);
+    state.tiles.set("30,30", { x: 30, y: 30, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as never);
+    state.tiles.set("40,40", { x: 40, y: 40, terrain: "LAND", ownerId: "other", ownershipState: "FRONTIER" } as never);
+
+    const added = applyAutoSettlementQueueFromServer(
+      state,
+      [
+        { x: 9, y: 10 },
+        { x: 30, y: 30 },
+        { x: 40, y: 40 }
+      ],
+      { keyFor: (x, y) => `${x},${y}` }
+    );
+
+    expect(added).toBe(2);
+    expect(state.developmentQueue).toEqual([
+      { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Settlement at (9, 10)" },
+      { kind: "SETTLE", x: 30, y: 30, tileKey: "30,30", label: "Settlement at (30, 30)" }
+    ]);
+    expect(state.autoSettlementQueueVisibleUntilByTile.get("9,10")).toBeGreaterThan(Date.now());
+  });
+
+  it("does not re-add cancelled auto settlements", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 1_000;
+    state.tiles.set("9,10", { x: 9, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as never);
+    state.skippedAutoSettlementTileKeys.add("9,10");
+    persistSkippedAutoSettlementTileKeysForPlayer("me", state.skippedAutoSettlementTileKeys);
+
+    const added = applyAutoSettlementQueueFromServer(state, [{ x: 9, y: 10 }], { keyFor: (x, y) => `${x},${y}` });
+
+    expect(added).toBe(0);
+    expect(state.developmentQueue).toEqual([]);
+  });
+
+  it("marks cancelled auto-settlement queue entries as skipped", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    const state = createInitialState();
+    state.me = "me";
+    state.autoSettlementQueue = [{ x: 9, y: 10 }];
+    state.developmentQueue = [{ kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Settlement at (9, 10)" }];
+
+    const cancelled = cancelQueuedSettlement(state, "9,10", {
+      pushFeed: () => {},
+      renderHud: () => {}
+    });
+
+    expect(cancelled).toBe(true);
+    expect(state.skippedAutoSettlementTileKeys.has("9,10")).toBe(true);
+    expect(restoreSkippedAutoSettlementTileKeysForPlayer("me").has("9,10")).toBe(true);
+  });
+
+  it("manual settlement queueing clears a persisted auto-settle skip after refresh", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    persistSkippedAutoSettlementTileKeysForPlayer("me", new Set(["9,10"]));
+    const state = createInitialState();
+    state.me = "me";
+
+    const queued = queueDevelopmentAction(state, { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Settlement at (9, 10)" }, {
+      pushFeed: () => {},
+      renderHud: () => {}
+    });
+
+    expect(queued).toBe(true);
+    expect(state.skippedAutoSettlementTileKeys.has("9,10")).toBe(false);
+    expect(restoreSkippedAutoSettlementTileKeysForPlayer("me").has("9,10")).toBe(false);
+  });
+
+  it("keeps newly auto-queued settlements visible before dispatching them", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 1_000;
+    state.authSessionReady = true;
+    state.developmentProcessLimit = 4;
+    state.activeDevelopmentProcessCount = 0;
+    state.tiles.set("9,10", { x: 9, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as never);
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(10_000);
+    try {
+      applyAutoSettlementQueueFromServer(state, [{ x: 9, y: 10 }], { keyFor: (x, y) => `${x},${y}` });
+      const requestSettlementSpy = vi.fn(() => true);
+      const ws = { readyState: 1, OPEN: 1 } as WebSocket;
+
+      expect(
+        processDevelopmentQueue(state, {
+          ws,
+          authSessionReady: true,
+          developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+          requestSettlement: requestSettlementSpy,
+          sendDevelopmentBuild: vi.fn(() => true),
+          applyOptimisticStructureBuild: vi.fn(),
+          applyOptimisticStructureRemoval: vi.fn(),
+          pushFeed: vi.fn(),
+          renderHud: vi.fn()
+        })
+      ).toBe(false);
+      expect(requestSettlementSpy).not.toHaveBeenCalled();
+
+      nowSpy.mockReturnValue(10_000 + AUTO_SETTLEMENT_QUEUE_VISIBLE_MS + 1);
+      expect(
+        processDevelopmentQueue(state, {
+          ws,
+          authSessionReady: true,
+          developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+          requestSettlement: requestSettlementSpy,
+          sendDevelopmentBuild: vi.fn(() => true),
+          applyOptimisticStructureBuild: vi.fn(),
+          applyOptimisticStructureRemoval: vi.fn(),
+          pushFeed: vi.fn(),
+          renderHud: vi.fn()
+        })
+      ).toBe(true);
+      expect(requestSettlementSpy).toHaveBeenCalledTimes(1);
+      expect(state.autoSettlementQueueVisibleUntilByTile.has("9,10")).toBe(false);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("prunes expired auto-settle visible holds even when the tile is not first in queue", () => {
+    const state = createInitialState();
+    state.developmentQueue = [
+      { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build at (1, 1)", payload: { type: "BUILD_FORT", x: 1, y: 1 }, optimisticKind: "FORT" },
+      { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Settlement at (9, 10)" }
+    ];
+    state.autoSettlementQueueVisibleUntilByTile.set("9,10", 9_000);
+
+    pruneExpiredAutoSettlementQueueVisibleHolds(state, 10_000);
+
+    expect(state.autoSettlementQueueVisibleUntilByTile.has("9,10")).toBe(false);
   });
 
   it("counts removing structures as busy development processes", () => {
