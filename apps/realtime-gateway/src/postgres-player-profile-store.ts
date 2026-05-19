@@ -68,6 +68,17 @@ export class PostgresGatewayPlayerProfileStore implements GatewayPlayerProfileSt
     return result.rows.map((row) => toStoredPlayerProfile(row));
   }
 
+  async listAllNamed(): Promise<StoredPlayerProfile[]> {
+    const result = await this.db.query<PlayerProfileRow>(
+      `
+      SELECT player_id, display_name, tile_color, profile_complete, updated_at
+      FROM player_profiles
+      WHERE display_name IS NOT NULL AND length(display_name) > 0
+      `
+    );
+    return result.rows.map((row) => toStoredPlayerProfile(row));
+  }
+
   async setTileColor(playerId: string, tileColor: string): Promise<StoredPlayerProfile> {
     const now = this.now();
     const result = await this.db.query<PlayerProfileRow>(
