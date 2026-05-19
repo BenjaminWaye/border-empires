@@ -10,6 +10,10 @@ import {
   TECH_TREE_RELATIVE_CANDIDATES,
   buildDomainUpdatePayload,
   buildModBreakdownForPlayer,
+  chooseDomainForPlayer,
+  chosenTrickleOptionsForDomain,
+  chosenTrickleRateForPlayer,
+  multiplicativeEffectForPlayer,
   recomputeMods,
   resolveDataPath
 } from "./tech-domain-bridge.js";
@@ -84,5 +88,98 @@ describe("tech-domain bridge progression sources", () => {
     };
 
     expect(buildDomainUpdatePayload(player, [], { incomePerMinute: 15.4 }).incomePerMinute).toBe(15.4);
+  });
+});
+
+describe("tier-1 domain effects are wired", () => {
+  it("Iron Bastions exposes fortBuildSpeedMult / fortIronUpkeepMult / fortGoldUpkeepMult to the multiplicative resolver", () => {
+    const player = {
+      techIds: new Set<string>(["masonry"]),
+      domainIds: new Set<string>(["iron-bastions"])
+    };
+    expect(multiplicativeEffectForPlayer(player, "fortBuildSpeedMult")).toBeCloseTo(1.5, 6);
+    expect(multiplicativeEffectForPlayer(player, "fortIronUpkeepMult")).toBeCloseTo(0.6, 6);
+    expect(multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult")).toBeCloseTo(0.6, 6);
+  });
+
+  it("Supply Raiding exposes outpostDeploymentSpeedMult / outpostSupplyUpkeepMult", () => {
+    const player = {
+      techIds: new Set<string>(["leatherworking"]),
+      domainIds: new Set<string>(["supply-raiding"])
+    };
+    expect(multiplicativeEffectForPlayer(player, "outpostDeploymentSpeedMult")).toBeCloseTo(1.5, 6);
+    expect(multiplicativeEffectForPlayer(player, "outpostSupplyUpkeepMult")).toBeCloseTo(0.7, 6);
+  });
+
+  it("Mercantile Charter exposes firstThreeTownsPopulationGrowthMult at 1.25", () => {
+    const player = {
+      techIds: new Set<string>(["trade"]),
+      domainIds: new Set<string>(["mercantile-charter"])
+    };
+    expect(multiplicativeEffectForPlayer(player, "firstThreeTownsPopulationGrowthMult")).toBeCloseTo(1.25, 6);
+  });
+});
+
+describe("Clockwork Stipend trickle resource choice", () => {
+  const baseClockworkPlayer = () => ({
+    id: "player-1",
+    isAi: false,
+    points: 10_000,
+    manpower: 0,
+    techIds: new Set<string>(["agriculture"]),
+    domainIds: new Set<string>(),
+    allies: new Set<string>(),
+    strategicResources: { FOOD: 500 } as Record<string, number>
+  });
+
+  it("publishes the offered per-resource trickle rates", () => {
+    const options = chosenTrickleOptionsForDomain("clockwork-stipend");
+    expect(options).toEqual({ IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 });
+  });
+
+  it("rejects CHOOSE_DOMAIN for clockwork-stipend without a sub-choice", () => {
+    const player = baseClockworkPlayer();
+    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", []);
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toMatch(/trickle resource choice required/);
+    expect(player.domainIds.has("clockwork-stipend")).toBe(false);
+  });
+
+  it("rejects unsupported sub-choices (e.g. SHARD)", () => {
+    const player = baseClockworkPlayer();
+    // SHARD is a strategic resource but not in the offered table.
+    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], {
+      chosenTrickleResource: "SHARD" as unknown as "IRON"
+    });
+    expect(outcome.ok).toBe(false);
+  });
+
+  it("accepts a valid sub-choice and locks the chosen resource on the player", () => {
+    const player = baseClockworkPlayer();
+    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "CRYSTAL" });
+    expect(outcome.ok).toBe(true);
+    expect(player.domainIds.has("clockwork-stipend")).toBe(true);
+    expect(player.chosenTrickleResource).toBe("CRYSTAL");
+  });
+
+  it("chosenTrickleRateForPlayer returns the rate matching the locked pick", () => {
+    const player = {
+      domainIds: new Set<string>(["clockwork-stipend"]),
+      chosenTrickleResource: "IRON" as const
+    };
+    expect(chosenTrickleRateForPlayer(player)).toEqual({ resource: "IRON", ratePerMinute: 0.2 });
+  });
+
+  it("chosenTrickleRateForPlayer returns undefined when no resource is locked", () => {
+    const player = { domainIds: new Set<string>(["clockwork-stipend"]) };
+    expect(chosenTrickleRateForPlayer(player)).toBeUndefined();
+  });
+
+  it("locks the chosen resource forever once it is set", () => {
+    const player = baseClockworkPlayer();
+    chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "IRON" });
+    // Even if we somehow try to override with a second valid pick, the locked
+    // value should not change. (Future domains may offer their own tables.)
+    expect(player.chosenTrickleResource).toBe("IRON");
   });
 });
