@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.1",
+  version: "2026.05.19.3",
   title: "What's New",
   summary: "Incoming alliance and truce requests now raise a visible alert, summarize on login, and reliably email you regardless of the standard daily cap.",
   entries: [
     {
-      introducedIn: "2026.05.19.1",
+      introducedIn: "2026.05.19.3",
       title: "Diplomacy requests are visible on login and always email",
       why: "Alliance and truce offers already appeared in the Alliances panel, but players who were offline when a request arrived could log in without any clear alert that a response was waiting, and email notifications could be silently dropped by the per-recipient daily cap or hourly spacing.",
       changes: [
@@ -32,6 +32,17 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Incoming truce offers now open the same visible alert path with the proposed truce duration.",
         "Login INIT now checks pending incoming alliance and truce requests and summarizes any new waiting diplomacy requests without repeating the same request on reconnect.",
         "Email alerts for alliance and truce requests now bypass the per-recipient daily cap and hourly spacing, so every diplomacy offer reliably reaches your inbox."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.2",
+      title: "Quieter, smoother waypoint expansion",
+      why: "Initial waypoint release halted after one tile (the next top-up saw a stale neutral target before the ownership tile-delta arrived), and every step popped the full Capturing Territory overlay — so a four-tile chain stacked four pop-ups in a row on top of the existing waypoint visuals.",
+      changes: [
+        "topUpFromWaypoint tolerates up to four consecutive replans on the same step before halting, so a brief stale-snapshot window no longer aborts the chain. A 500ms heartbeat kicks processActionQueue while a waypoint is active so late ownership updates always get a fresh top-up.",
+        "Waypoint-driven neutral expansions are now silent end-to-end: no Capturing Territory overlay, no Territory Claimed popup, no feed entry per tile. The target tile fills empire-color left to right at the standard frontier opacity (0.32) so the tile itself is the progress indicator.",
+        "Errors, attack results on enemy tiles, and manual one-tap expands still surface every popup and feed entry exactly as before.",
+        "Destination flag rebuilt as a steampunk tower: brass pedestal with two side cannons, copper rivet bands on the tower trunk, vertical empire-color banner with copper top stripe, winged gear medallion, brass dome and spire, glowing empire-color hex base, gently drifting smoke wisps, rotating gear rings."
       ]
     },
     {

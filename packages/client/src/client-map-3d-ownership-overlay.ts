@@ -16,7 +16,10 @@ const INDICES_PER_TILE = 6;
 // detail (grass blades, sand ripples, tile-edge AO) shows through and the
 // two ownership states are clearly distinct.
 const SETTLED_OPACITY = 0.85;
-const FRONTIER_OPACITY = 0.32;
+// Exported so the waypoint claim-sweep in client-map-3d.ts matches the
+// real ownership tint exactly — any drift would show as a visible pop
+// the moment the sweep hands off to the ownership overlay.
+export const FRONTIER_OPACITY = 0.32;
 
 export type OwnershipOverlay = {
   readonly settledMesh: Mesh;

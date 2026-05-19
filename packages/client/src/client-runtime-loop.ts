@@ -1732,6 +1732,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 20_000) deps.requestViewRefresh(2, true);
   }, deps.isMobile() ? 8_000 : 5_000);
 
+  // Waypoint heartbeat: re-poke processActionQueue while a waypoint is
+  // active and the queue is idle. The message-driven kicks
+  // (FRONTIER_RESULT, TILE_DELTA, etc.) sometimes fire BEFORE the
+  // ownership-flipping tile_delta arrives, so the late delta would
+  // otherwise leave the chain stalled with an idle queue.
+  setInterval(() => {
+    if (state.connection !== "initialized") return;
+    if (!state.waypoint) return;
+    if (state.actionInFlight || state.actionQueue.length > 0) return;
+    deps.processActionQueue();
+  }, 500);
+
   setInterval(() => {
     const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
     if (!loadingActive) return;
