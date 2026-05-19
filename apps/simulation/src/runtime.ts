@@ -5515,7 +5515,11 @@ export class SimulationRuntime {
     }
     if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
 
-    const goldCost = structureBuildGoldCost("FORT", this.ownedStructureCountForPlayer(command.playerId, "FORT"));
+    const fortGoldCostMult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
+    const goldCost = Math.max(
+      0,
+      Math.round(structureBuildGoldCost("FORT", this.ownedStructureCountForPlayer(command.playerId, "FORT")) * fortGoldCostMult)
+    );
     if (actor.points < goldCost) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -5538,12 +5542,14 @@ export class SimulationRuntime {
     }
 
     actor.points -= goldCost;
+    const fortBuildSpeedMult = multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult");
+    const fortBuildDurationMs = Math.max(1, Math.round(structureBuildDurationMs("FORT") / Math.max(fortBuildSpeedMult, 0.01)));
     const startedTile: DomainTileState = {
       ...target,
       fort: {
         ownerId: command.playerId,
         status: "under_construction",
-        completesAt: this.now() + structureBuildDurationMs("FORT")
+        completesAt: this.now() + fortBuildDurationMs
       }
     };
     this.replaceTileState(targetKey, startedTile);
@@ -5554,7 +5560,7 @@ export class SimulationRuntime {
       tileDeltas: [this.tileDeltaFromState(startedTile)]
     });
     this.emitPlayerStateUpdate(command);
-    this.scheduleAfter(structureBuildDurationMs("FORT"), () => {
+    this.scheduleAfter(fortBuildDurationMs, () => {
       const latest = this.tiles.get(targetKey);
       if (!latest || latest.ownerId !== command.playerId || !latest.fort || latest.fort.ownerId !== command.playerId) return;
       const { completesAt: _ignoredCompletesAt, ...activeFort } = latest.fort;
