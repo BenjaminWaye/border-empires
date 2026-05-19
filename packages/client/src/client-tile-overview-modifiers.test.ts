@@ -59,6 +59,55 @@ describe("tileOverviewModifiersForTile", () => {
     vi.useRealTimers();
   });
 
+  it("shows the active fort defense modifier from the real fort multiplier", () => {
+    expect(
+      tileOverviewModifiersForTile({
+        x: 10,
+        y: 12,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "FRONTIER",
+        fort: {
+          ownerId: "me",
+          status: "active",
+          variant: "FORT"
+        }
+      } satisfies Tile)
+    ).toContainEqual({ reason: "Fort", effect: "2.5x defense", tone: "positive" });
+  });
+
+  it("labels upgraded fort defense modifiers by variant", () => {
+    expect(
+      tileOverviewModifiersForTile({
+        x: 10,
+        y: 12,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "FRONTIER",
+        fort: {
+          ownerId: "me",
+          status: "active",
+          variant: "IRON_BASTION"
+        }
+      } satisfies Tile)
+    ).toContainEqual({ reason: "Iron Bastion", effect: "4x defense", tone: "positive" });
+
+    expect(
+      tileOverviewModifiersForTile({
+        x: 10,
+        y: 12,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "FRONTIER",
+        fort: {
+          ownerId: "me",
+          status: "active",
+          variant: "THUNDER_BASTION"
+        }
+      } satisfies Tile)
+    ).toContainEqual({ reason: "Thunder Bastion", effect: "8x defense", tone: "positive" });
+  });
+
   it("shows recently captured frontier towns as paused until settled", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-09T12:00:00Z"));
