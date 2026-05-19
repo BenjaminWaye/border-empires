@@ -20,10 +20,10 @@ import {
 export type StructureResourceHint = "IRON" | "GEMS" | undefined;
 
 // 3D economic-structure overlay (Tier 1): FARMSTEAD, WATERWORKS, CAMP,
-// MINE, IRONWORKS, MARKET, OBSERVATORY. Each structure is a small
-// composition of primitive pieces — one design per type (no per-tile
-// variants), so adjacent same-type structures look identical, mirroring
-// the 2D SVG overlays.
+// MINE, IRONWORKS, MARKET, OBSERVATORY, GRANARY, SEED_GRANARY. Each
+// structure is a small composition of primitive pieces — one design per
+// type (no per-tile variants), so adjacent same-type structures look
+// identical, mirroring the 2D SVG overlays.
 //
 // Status states (active / under_construction / inactive / removing) are
 // not yet differentiated in 3D; for now every state renders fully — we
@@ -40,7 +40,9 @@ export type StructureKind =
   | "MINE"
   | "IRONWORKS"
   | "MARKET"
-  | "OBSERVATORY";
+  | "OBSERVATORY"
+  | "GRANARY"
+  | "SEED_GRANARY";
 
 export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set([
   "FARMSTEAD",
@@ -49,7 +51,9 @@ export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set
   "MINE",
   "IRONWORKS",
   "MARKET",
-  "OBSERVATORY"
+  "OBSERVATORY",
+  "GRANARY",
+  "SEED_GRANARY"
 ]);
 
 export type StructureOverlay = {
@@ -126,6 +130,31 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     emissive: "#2a6fae",
     emissiveIntensity: 0.55
   });
+  // Granary: wooden barn with cream slatted walls, golden gable roof,
+  // grey-roofed side annex, and a small white cupola — colors drawn from
+  // granary-overlay.svg so 2D ↔ 3D read as the same structure.
+  const granaryWallMaterial = new MeshStandardMaterial({ color: "#dccaa8", roughness: 0.9, metalness: 0, flatShading: true });
+  const granaryRoofMaterial = new MeshStandardMaterial({ color: "#d7a64a", roughness: 0.85, metalness: 0, flatShading: true });
+  const granaryAnnexRoofMaterial = new MeshStandardMaterial({ color: "#9a9388", roughness: 0.9, metalness: 0, flatShading: true });
+  const granaryBandMaterial = new MeshStandardMaterial({ color: "#a77836", roughness: 0.88, metalness: 0, flatShading: true });
+  const granaryCupolaMaterial = new MeshStandardMaterial({ color: "#e3d7c6", roughness: 0.9, metalness: 0, flatShading: true });
+  const granarySackMaterial = new MeshStandardMaterial({ color: "#b58541", roughness: 0.92, metalness: 0, flatShading: true });
+  // Seed granary: cluster of stone silos with copper conical caps + a
+  // small seed-lab annex with a green-glowing window — reads as advanced
+  // agronomy, completely distinct from the wooden barn granary.
+  const seedSiloMaterial = new MeshStandardMaterial({ color: "#cfc4ac", roughness: 0.88, metalness: 0, flatShading: true });
+  const seedSiloBandMaterial = new MeshStandardMaterial({ color: "#8a7e6a", roughness: 0.92, metalness: 0, flatShading: true });
+  const seedSiloCapMaterial = new MeshStandardMaterial({ color: "#b0683a", roughness: 0.55, metalness: 0.5, flatShading: true });
+  const seedLabWallMaterial = new MeshStandardMaterial({ color: "#7a6a52", roughness: 0.9, metalness: 0, flatShading: true });
+  const seedLabRoofMaterial = new MeshStandardMaterial({ color: "#3a2e26", roughness: 0.92, metalness: 0, flatShading: true });
+  const seedLabGlowMaterial = new MeshStandardMaterial({
+    color: "#7ad26a",
+    roughness: 0.4,
+    metalness: 0,
+    flatShading: true,
+    emissive: "#3aa648",
+    emissiveIntensity: 0.6
+  });
 
   // ─── Geometries ─────────────────────────────────────────────────────
   // Farmstead barn
@@ -180,6 +209,27 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   // crystal on the observatory and the crystals in the mine cart read
   // as the same material.
   const blueCrystalGeo = new OctahedronGeometry(0.045, 0);
+  // Granary: wider boxier barn than the farmstead's, three horizontal
+  // grain bands across the front face, a hipped golden roof, plus a
+  // small grey-roofed annex and a cupola on top.
+  const granaryBodyGeo = new BoxGeometry(0.34, 0.22, 0.24);
+  const granaryRoofGeo = new ConeGeometry(0.26, 0.14, 4);
+  const granaryBandGeo = new BoxGeometry(0.32, 0.018, 0.018);
+  const granaryAnnexBodyGeo = new BoxGeometry(0.14, 0.18, 0.20);
+  const granaryAnnexRoofGeo = new ConeGeometry(0.13, 0.07, 4);
+  const granaryCupolaGeo = new BoxGeometry(0.05, 0.07, 0.05);
+  const granaryCupolaRoofGeo = new ConeGeometry(0.045, 0.04, 4);
+  const granarySackGeo = new BoxGeometry(0.06, 0.05, 0.05);
+  // Seed granary: three stout stone silos in a row with copper conical
+  // caps and a single dark band, plus a small lab annex with a green
+  // glowing window. Silos are noticeably taller than they are wide so
+  // the silhouette reads vertical from any orbit angle.
+  const seedSiloBodyGeo = new CylinderGeometry(0.06, 0.065, 0.30, 12);
+  const seedSiloBandGeo = new CylinderGeometry(0.064, 0.068, 0.022, 12);
+  const seedSiloCapGeo = new ConeGeometry(0.07, 0.07, 12);
+  const seedLabBodyGeo = new BoxGeometry(0.18, 0.14, 0.14);
+  const seedLabRoofGeo = new ConeGeometry(0.13, 0.07, 4);
+  const seedLabWindowGeo = new BoxGeometry(0.012, 0.06, 0.08);
 
   type Slot = { mesh: InstancedMesh; count: number; cap: number };
   const slots = new Map<string, Slot>();
@@ -248,6 +298,23 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   // Crystal load for the MINE cart when the underlying resource is
   // GEMS — replaces the grey iron ore octahedrons on those tiles.
   make("mineCrystal", blueCrystalGeo, blueCrystalMaterial, C * 3);
+  // Granary — barn + 3 grain bands + annex + cupola + 2 sacks
+  make("granaryBody", granaryBodyGeo, granaryWallMaterial, C);
+  make("granaryRoof", granaryRoofGeo, granaryRoofMaterial, C);
+  make("granaryBand", granaryBandGeo, granaryBandMaterial, C * 3);
+  make("granaryAnnexBody", granaryAnnexBodyGeo, granaryAnnexRoofMaterial, C);
+  make("granaryAnnexRoof", granaryAnnexRoofGeo, granaryAnnexRoofMaterial, C);
+  make("granaryCupola", granaryCupolaGeo, granaryCupolaMaterial, C);
+  make("granaryCupolaRoof", granaryCupolaRoofGeo, granaryAnnexRoofMaterial, C);
+  make("granarySack", granarySackGeo, granarySackMaterial, C * 2);
+  // Seed granary — 3 silos (body + band + cap each) + lab annex (body +
+  // roof + glowing window).
+  make("seedSiloBody", seedSiloBodyGeo, seedSiloMaterial, C * 3);
+  make("seedSiloBand", seedSiloBandGeo, seedSiloBandMaterial, C * 3);
+  make("seedSiloCap", seedSiloCapGeo, seedSiloCapMaterial, C * 3);
+  make("seedLabBody", seedLabBodyGeo, seedLabWallMaterial, C);
+  make("seedLabRoof", seedLabRoofGeo, seedLabRoofMaterial, C);
+  make("seedLabWindow", seedLabWindowGeo, seedLabGlowMaterial, C);
 
   // ─── Helpers ────────────────────────────────────────────────────────
   const matrix = new Matrix4();
@@ -422,6 +489,57 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     );
   };
 
+  const addGranary = (sx: number, sy: number, sz: number): void => {
+    // Wide cream-walled barn body with a pyramidal gold roof, three
+    // horizontal grain bands wrapping the front face, a small grey side
+    // annex with its own little roof, a cupola/ventilator on the main
+    // roof, and a couple of grain sacks at the front. This silhouette is
+    // squat and barn-shaped — taller than the farmstead barn but with no
+    // silo — so it never gets confused with FARMSTEAD or SEED_GRANARY.
+    addPiece("granaryBody", sx, sy, sz, -0.06, 0.11, 0);
+    addPiece("granaryRoof", sx, sy, sz, -0.06, 0.29, 0, 1, 1, 1, Math.PI * 0.25);
+    // Three bands stacked across the front (slightly forward of the wall
+    // so they read as raised slats rather than painted lines).
+    addPiece("granaryBand", sx, sy, sz, -0.06, 0.09, 0.125);
+    addPiece("granaryBand", sx, sy, sz, -0.06, 0.13, 0.125);
+    addPiece("granaryBand", sx, sy, sz, -0.06, 0.17, 0.125);
+    // Side annex on the right with its own pyramidal roof.
+    addPiece("granaryAnnexBody", sx, sy, sz, 0.18, 0.09, 0);
+    addPiece("granaryAnnexRoof", sx, sy, sz, 0.18, 0.215, 0, 1, 1, 1, Math.PI * 0.25);
+    // Cupola: small box + tiny pyramidal roof sitting on top of the main
+    // roof, slightly offset toward the front.
+    addPiece("granaryCupola", sx, sy, sz, -0.06, 0.385, 0.03);
+    addPiece("granaryCupolaRoof", sx, sy, sz, -0.06, 0.44, 0.03, 1, 1, 1, Math.PI * 0.25);
+    // Two grain sacks out front at slight offsets.
+    addPiece("granarySack", sx, sy, sz, -0.18, 0.025, 0.18);
+    addPiece("granarySack", sx, sy, sz, -0.10, 0.025, 0.20);
+  };
+
+  const addSeedGranary = (sx: number, sy: number, sz: number): void => {
+    // Three tall stone silos with copper conical caps arranged in a
+    // shallow arc across the back of the tile, plus a small seed-lab
+    // annex with a green-glowing window at the front. The vertical silo
+    // cluster + glowing green window read as advanced agronomy — clearly
+    // different silhouette from the squat wooden granary.
+    const silos: Array<readonly [number, number]> = [
+      [-0.18, -0.08],
+      [0.00, -0.10],
+      [0.18, -0.08]
+    ];
+    for (const [ox, oz] of silos) {
+      addPiece("seedSiloBody", sx, sy, sz, ox, 0.15, oz);
+      addPiece("seedSiloBand", sx, sy, sz, ox, 0.22, oz);
+      addPiece("seedSiloCap", sx, sy, sz, ox, 0.335, oz);
+    }
+    // Seed lab annex out front: small dark-roofed shed with a glowing
+    // green window facing the camera.
+    addPiece("seedLabBody", sx, sy, sz, 0, 0.07, 0.16);
+    addPiece("seedLabRoof", sx, sy, sz, 0, 0.175, 0.16, 1, 1, 1, Math.PI * 0.25);
+    // Window sits just outside the front wall so its emissive face isn't
+    // co-planar with the wall (avoids z-fighting flicker).
+    addPiece("seedLabWindow", sx, sy, sz, 0, 0.07, 0.235);
+  };
+
   // ─── Public API ─────────────────────────────────────────────────────
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
@@ -441,6 +559,8 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     else if (kind === "IRONWORKS") addIronworks(sceneX, surfaceY, sceneZ);
     else if (kind === "MARKET") addMarket(sceneX, surfaceY, sceneZ);
     else if (kind === "OBSERVATORY") addObservatory(sceneX, surfaceY, sceneZ);
+    else if (kind === "GRANARY") addGranary(sceneX, surfaceY, sceneZ);
+    else if (kind === "SEED_GRANARY") addSeedGranary(sceneX, surfaceY, sceneZ);
   };
 
   const commit = (): void => {
@@ -460,7 +580,9 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
       forgeBaseGeo, forgeRoofGeo, forgeStoneFurnaceGeo, forgeChimneyGeo, forgeGlowGeo, anvilTopGeo, anvilBaseGeo,
       marketCounterGeo, marketAwningGeo, marketPostGeo, marketCrateGeo, marketProduceGeo,
       observatoryBaseGeo, observatoryDomeGeo, observatorySlitGeo, observatoryTelescopeGeo,
-      blueCrystalGeo
+      blueCrystalGeo,
+      granaryBodyGeo, granaryRoofGeo, granaryBandGeo, granaryAnnexBodyGeo, granaryAnnexRoofGeo, granaryCupolaGeo, granaryCupolaRoofGeo, granarySackGeo,
+      seedSiloBodyGeo, seedSiloBandGeo, seedSiloCapGeo, seedLabBodyGeo, seedLabRoofGeo, seedLabWindowGeo
     ].forEach((g) => g.dispose());
     [
       barnRedMaterial, barnRoofMaterial, siloMaterial, woodFenceMaterial,
@@ -470,7 +592,9 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
       forgeBaseMaterial, forgeStoneMaterial, forgeChimneyMaterial, forgeGlowMaterial, anvilMaterial,
       marketCounterMaterial, marketAwningRedMaterial, marketAwningWhiteMaterial, marketPostMaterial, marketCrateMaterial, marketProduceMaterial,
       observatoryStoneMaterial, observatoryDomeMaterial, observatorySlitMaterial, observatoryTelescopeMaterial,
-      blueCrystalMaterial
+      blueCrystalMaterial,
+      granaryWallMaterial, granaryRoofMaterial, granaryAnnexRoofMaterial, granaryBandMaterial, granaryCupolaMaterial, granarySackMaterial,
+      seedSiloMaterial, seedSiloBandMaterial, seedSiloCapMaterial, seedLabWallMaterial, seedLabRoofMaterial, seedLabGlowMaterial
     ].forEach((m) => m.dispose());
   };
 
