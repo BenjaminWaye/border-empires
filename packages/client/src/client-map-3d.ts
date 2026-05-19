@@ -214,7 +214,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     { kind: "MINE", resource: "GEMS" },
     { kind: "IRONWORKS" },
     { kind: "MARKET" },
-    { kind: "OBSERVATORY" }
+    { kind: "OBSERVATORY" },
+    { kind: "GRANARY" },
+    { kind: "SEED_GRANARY" }
   ];
   const structureDemoEntryFor = (wx: number, wy: number): StructureDemoEntry | undefined => {
     if (!structureDemoEnabled) return undefined;
