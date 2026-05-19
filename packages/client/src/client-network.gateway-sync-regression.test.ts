@@ -100,8 +100,14 @@ const bind = (state: any, ws: FakeWebSocket) => {
 
 const createRuntimeStyleShowCaptureAlert =
   (state: any) =>
-  (title: string, detail: string, tone: "success" | "error" | "warn" = "error", manpowerLoss?: number): void => {
-    showCaptureAlert(state, title, detail, tone, manpowerLoss);
+  (
+    title: string,
+    detail: string,
+    tone: "success" | "error" | "warn" = "error",
+    manpowerLoss?: number,
+    action?: { label: string; panel: any }
+  ): void => {
+    showCaptureAlert(state, title, detail, tone, manpowerLoss, action);
   };
 
 describe("client gateway sync regression", () => {
@@ -144,12 +150,13 @@ describe("client gateway sync regression", () => {
     expect(state.captureAlert).toEqual(
       expect.objectContaining({
         title: "Diplomacy requests waiting",
-        detail: "You have 1 alliance request and 1 truce offer. Open Alliances to respond.",
-        tone: "warn"
+        detail: "You have 1 alliance request and 1 truce offer.",
+        tone: "warn",
+        action: { label: "Open Alliances", panel: "alliance" }
       })
     );
-    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request. Open Alliances to accept or reject.", "alliance", "warn");
-    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 12h truce. Open Alliances to accept or reject.", "alliance", "warn");
+    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request.", "alliance", "warn");
+    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 12h truce.", "alliance", "warn");
     expect(renderHud).toHaveBeenCalled();
 
     const feedCallCount = pushFeed.mock.calls.length;
@@ -188,11 +195,12 @@ describe("client gateway sync regression", () => {
     expect(state.captureAlert).toEqual(
       expect.objectContaining({
         title: "Alliance request received",
-        detail: "Valka sent an alliance request. Open Alliances to accept or reject.",
-        tone: "warn"
+        detail: "Valka sent an alliance request.",
+        tone: "warn",
+        action: { label: "Open Alliances", panel: "alliance" }
       })
     );
-    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request. Open Alliances to accept or reject.", "alliance", "warn");
+    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request.", "alliance", "warn");
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -212,11 +220,12 @@ describe("client gateway sync regression", () => {
     expect(state.captureAlert).toEqual(
       expect.objectContaining({
         title: "Truce offer received",
-        detail: "Beejac offered a 24h truce. Open Alliances to accept or reject.",
-        tone: "warn"
+        detail: "Beejac offered a 24h truce.",
+        tone: "warn",
+        action: { label: "Open Alliances", panel: "alliance" }
       })
     );
-    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 24h truce. Open Alliances to accept or reject.", "alliance", "warn");
+    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 24h truce.", "alliance", "warn");
   });
 
   it("resolves an in-flight attack from post-combat tile sync even when the target stays barbarian", () => {

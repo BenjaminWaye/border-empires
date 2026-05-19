@@ -2371,7 +2371,6 @@ body {
   display: none;
   align-items: center;
   justify-content: center;
-  justify-self: start;
   min-height: 34px;
   padding: 6px 12px;
   border-radius: 999px;
@@ -2385,6 +2384,33 @@ body {
 
 .capture-debug-btn:hover {
   background: rgba(27, 45, 68, 0.8);
+}
+
+#capture-action-row {
+  display: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.capture-action-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 209, 102, 0.55);
+  background: linear-gradient(180deg, rgba(255, 209, 102, 0.22), rgba(255, 165, 50, 0.18));
+  color: #fff7e0;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.capture-action-btn:hover {
+  background: linear-gradient(180deg, rgba(255, 209, 102, 0.32), rgba(255, 165, 50, 0.28));
 }
 
 #tile-action-menu {

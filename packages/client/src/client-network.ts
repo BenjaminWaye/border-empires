@@ -344,9 +344,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     title: string,
     detail: string,
     tone: "info" | "success" | "warn" | "error",
-    manpowerLoss?: number
+    manpowerLoss?: number,
+    action?: { label: string; panel: string }
   ): void => {
     if (typeof showCaptureAlert !== "function") return;
+    if (action) {
+      showCaptureAlert(title, detail, tone, manpowerLoss, action);
+      return;
+    }
     showCaptureAlert(title, detail, tone, manpowerLoss);
   };
 

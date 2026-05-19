@@ -2,7 +2,7 @@ import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { formatGoldAmount } from "./client-constants.js";
 import { resourceIconForKey } from "./client-map-display.js";
 import { maybeRegisterShardRainPing } from "./client-shard-rain-pings.js";
-import type { ClientState } from "./client-state.js";
+import type { ClientActivePanel, ClientState } from "./client-state.js";
 import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type { FeedEntry, FeedSeverity, FeedType, Tile } from "./client-types.js";
 
@@ -47,14 +47,16 @@ export const showCaptureAlert = (
   title: string,
   detail: string,
   tone: "success" | "error" | "warn" = "error",
-  manpowerLoss?: number
+  manpowerLoss?: number,
+  action?: { label: string; panel: ClientActivePanel }
 ): void => {
   state.captureAlert = {
     title,
     detail,
     until: Date.now() + 12_000,
     tone,
-    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
+    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {}),
+    ...(action ? { action } : {})
   };
 };
 

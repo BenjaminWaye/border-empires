@@ -32,6 +32,17 @@ import type {
 } from "./client-types.js";
 import type { WaypointPlan } from "./client-waypoint-planner.js";
 
+export type ClientActivePanel =
+  | "missions"
+  | "tech"
+  | "domains"
+  | "alliance"
+  | "economy"
+  | "defensibility"
+  | "leaderboard"
+  | "feed"
+  | "manpower";
+
 export type ClientWaypoint = {
   target: { x: number; y: number };
   plan: WaypointPlan;
@@ -230,7 +241,16 @@ export const createInitialState = () => ({
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-  captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number } | undefined,
+  captureAlert: undefined as
+    | {
+        title: string;
+        detail: string;
+        until: number;
+        tone: "success" | "error" | "warn";
+        manpowerLoss?: number;
+        action?: { label: string; panel: ClientActivePanel };
+      }
+    | undefined,
   settlementRepairDiagnosticKey: "" as string,
   collectVisibleCooldownUntil: 0,
   pendingCollectVisibleKeys: new Set<string>(),
@@ -260,7 +280,7 @@ export const createInitialState = () => ({
   seasonWinner: undefined as SeasonWinnerView | undefined,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "missions" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower",
-  activePanel: null as "missions" | "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | null,
+  activePanel: null as ClientActivePanel | null,
   showWeakDefensibility: false,
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,

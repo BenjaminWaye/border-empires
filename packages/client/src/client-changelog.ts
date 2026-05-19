@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.4",
+  version: "2026.05.19.5",
   title: "What's New",
-  summary: "Granaries now render as 3D wooden barns in true-3D mode, and the Seed Granary upgrade has its own distinct silhouette — three tall stone silos with copper caps and a green-glowing seed lab — so the two structures never get confused at a glance.",
+  summary: "Diplomacy alerts now include an Open Alliances button that jumps you straight to the Alliances tab instead of just telling you to go there.",
   entries: [
+    {
+      introducedIn: "2026.05.19.5",
+      title: "One-click Open Alliances on diplomacy alerts",
+      why: "The alliance and truce request alert told players to 'Open Alliances to accept or reject' but did not give them a way to do that without hunting for the side tab.",
+      changes: [
+        "Alliance request, truce offer, and login summary alerts now show an Open Alliances button that opens the Alliances panel and dismisses the alert.",
+        "Trimmed the redundant 'Open Alliances to respond' line from the alert and feed copy since the button now provides the action."
+      ]
+    },
     {
       introducedIn: "2026.05.19.4",
       title: "3D meshes for Granary and Seed Granary",

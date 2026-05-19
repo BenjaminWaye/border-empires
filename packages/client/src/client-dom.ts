@@ -45,7 +45,10 @@ const hudMarkup = `
           <div id="capture-bar"></div>
         </div>
         <div id="capture-target"></div>
-        <button id="capture-download-debug" class="capture-debug-btn" type="button">Download debug log</button>
+        <div id="capture-action-row">
+          <button id="capture-action" class="capture-action-btn" type="button"></button>
+          <button id="capture-download-debug" class="capture-debug-btn" type="button">Download debug log</button>
+        </div>
       </div>
       <button id="capture-cancel" class="capture-cancel-btn" title="Cancel capture">Cancel</button>
     </div>
@@ -351,6 +354,8 @@ export const initClientDom = () => {
   const captureCancelBtn = requireElement<HTMLButtonElement>("#capture-cancel");
   const captureCloseBtn = requireElement<HTMLButtonElement>("#capture-close");
   const captureDownloadDebugBtn = requireElement<HTMLButtonElement>("#capture-download-debug");
+  const captureActionBtn = requireElement<HTMLButtonElement>("#capture-action");
+  const captureActionRowEl = requireElement<HTMLDivElement>("#capture-action-row");
   const captureCardEl = requireElement<HTMLDivElement>("#capture-card");
   const captureWrapEl = requireElement<HTMLDivElement>("#capture-wrap");
   const captureBarEl = requireElement<HTMLDivElement>("#capture-bar");
@@ -510,6 +515,8 @@ export const initClientDom = () => {
     captureCancelBtn,
     captureCloseBtn,
     captureDownloadDebugBtn,
+    captureActionBtn,
+    captureActionRowEl,
     captureCardEl,
     captureTargetEl,
     captureTimeEl,
