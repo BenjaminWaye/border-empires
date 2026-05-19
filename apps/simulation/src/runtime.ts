@@ -5837,13 +5837,18 @@ export class SimulationRuntime {
     }
 
     actor.points -= goldCost;
+    const outpostDeploymentSpeedMult = multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult");
+    const siegeOutpostBuildDurationMs = Math.max(
+      1,
+      Math.round(structureBuildDurationMs("SIEGE_OUTPOST") / Math.max(outpostDeploymentSpeedMult, 0.01))
+    );
     const startedTile: DomainTileState = {
       ...target,
       ...(upgradingLightOutpost ? { economicStructure: undefined } : {}),
       siegeOutpost: {
         ownerId: command.playerId,
         status: "under_construction",
-        completesAt: this.now() + structureBuildDurationMs("SIEGE_OUTPOST")
+        completesAt: this.now() + siegeOutpostBuildDurationMs
       }
     };
     this.replaceTileState(targetKey, startedTile);
@@ -5854,7 +5859,7 @@ export class SimulationRuntime {
       tileDeltas: [this.tileDeltaFromState(startedTile)]
     });
     this.emitPlayerStateUpdate(command);
-    this.scheduleAfter(structureBuildDurationMs("SIEGE_OUTPOST"), () => {
+    this.scheduleAfter(siegeOutpostBuildDurationMs, () => {
       const latest = this.tiles.get(targetKey);
       if (!latest || latest.ownerId !== command.playerId || !latest.siegeOutpost || latest.siegeOutpost.ownerId !== command.playerId) return;
       const { completesAt: _ignoredCompletesAt, ...activeSiegeOutpost } = latest.siegeOutpost;
@@ -6499,13 +6504,37 @@ export class SimulationRuntime {
   private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
     const previousTarget = this.tiles.get(lock.targetKey);
     const attackerOutpostMult = this.attackerOutpostMult(lock.playerId, lock.originX, lock.originY);
+    const attacker = this.players.get(lock.playerId);
+    const defenderOwnerIdForMods = previousTarget?.ownerId;
+    const defenderForMods = defenderOwnerIdForMods ? this.players.get(defenderOwnerIdForMods) : undefined;
+    const targetHasActiveFort =
+      Boolean(
+        previousTarget?.fort &&
+        previousTarget.fort.status === "active" &&
+        previousTarget.fort.ownerId === defenderOwnerIdForMods
+      );
+    const combatModifiers = {
+      attackerOutpostMult,
+      attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
+      attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
+      fortDefenseMult: defenderForMods ? multiplicativeEffectForPlayer(defenderForMods, "fortDefenseMult") : 1
+    };
+    const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
+      ? {
+          terrain: previousTarget.terrain,
+          ownershipState: previousTarget.ownershipState,
+          dockId: previousTarget.dockId,
+          townType: previousTarget.town?.type,
+          hasFort: targetHasActiveFort
+        }
+      : { terrain: "LAND" };
     const combat =
       lock.actionType === "EXPAND"
         ? {
-            ...rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType, undefined, { attackerOutpostMult }),
+            ...rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers),
             attackerWon: true
           }
-        : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType, undefined, { attackerOutpostMult });
+        : rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers);
     const defenderOwnerId = previousTarget?.ownerId;
     const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
