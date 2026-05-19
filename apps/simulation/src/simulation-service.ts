@@ -2175,6 +2175,28 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         eventLoopWindowMaxMs = Math.max(eventLoopWindowMaxMs, lagMs);
         simulationMetrics.observeSimEventLoopDelayMs(lagMs);
         expectedEventLoopTickAt = now + 100;
+        // Focused warn whenever a 5s+ block is detected. Otherwise the spike
+        // is silently rolled into sim_event_loop_max_ms in the 1Hz dump and
+        // we lose the exact moment to correlate with other logs. Block was
+        // detected just NOW (the sampler is `lagMs` ms late firing), so the
+        // block started at `now - lagMs`. Includes runtime + memory context
+        // so we can localise what was running.
+        if (lagMs >= 5_000) {
+          const memory = process.memoryUsage();
+          emitLog("warn", "simulation event loop blocked", {
+            phase: "event_loop_blocked",
+            lagMs,
+            detectedAtMs: now,
+            blockStartedAtMs: now - lagMs,
+            queueDepths: runtime.queueDepths(),
+            heapUsedMb: memory.heapUsed / (1024 * 1024),
+            heapTotalMb: memory.heapTotal / (1024 * 1024),
+            rssMb: memory.rss / (1024 * 1024),
+            persistencePendingCount: persistenceQueue.pendingCount(),
+            persistenceDegraded: persistenceQueue.isDegraded(),
+            activePlayerCount: activePlayers.size
+          });
+        }
       }, 100);
       metricsTicker = setInterval(() => {
         simulationMetrics.setSimEventLoopMaxMs(eventLoopWindowMaxMs);
