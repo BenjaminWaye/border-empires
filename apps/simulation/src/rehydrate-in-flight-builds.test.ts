@@ -186,6 +186,38 @@ describe("in-flight structure-build rehydration on sim startup", () => {
     }
   });
 
+  it("does not crash or attempt completion when an under_construction structure is missing completesAt", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 100_000,
+        initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+        initialState: {
+          tiles: [
+            {
+              x: 4,
+              y: 4,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              fort: { ownerId: "player-1", status: "under_construction" }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(60_000);
+
+      expect(tileAt(runtime, 4, 4)?.fortJson).toBe(
+        JSON.stringify({ ownerId: "player-1", status: "under_construction" })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("frees development slots so settle is no longer rejected after three stuck builds resolve", async () => {
     vi.useFakeTimers();
     try {
