@@ -5567,8 +5567,11 @@ export class SimulationRuntime {
     }
 
     actor.points -= goldCost;
+    // multiplicativeEffectForPlayer enforces value > 0 when multiplying, so the
+    // result is always strictly positive (defaulting to 1 when no domain or
+    // tech configures the key). Divide directly — no floor guard needed.
     const fortBuildSpeedMult = multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult");
-    const fortBuildDurationMs = Math.max(1, Math.round(structureBuildDurationMs("FORT") / Math.max(fortBuildSpeedMult, 0.01)));
+    const fortBuildDurationMs = Math.max(1, Math.round(structureBuildDurationMs("FORT") / fortBuildSpeedMult));
     const startedTile: DomainTileState = {
       ...target,
       fort: {
@@ -5862,10 +5865,12 @@ export class SimulationRuntime {
     }
 
     actor.points -= goldCost;
+    // See fort-build path for the divide-without-guard rationale: the helper
+    // already filters out zero/negative effect values before multiplying.
     const outpostDeploymentSpeedMult = multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult");
     const siegeOutpostBuildDurationMs = Math.max(
       1,
-      Math.round(structureBuildDurationMs("SIEGE_OUTPOST") / Math.max(outpostDeploymentSpeedMult, 0.01))
+      Math.round(structureBuildDurationMs("SIEGE_OUTPOST") / outpostDeploymentSpeedMult)
     );
     const startedTile: DomainTileState = {
       ...target,
