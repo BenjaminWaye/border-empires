@@ -299,6 +299,9 @@ export const createInitialState = () => ({
         optimisticKind: QueuedOptimisticKind;
       }
   >,
+  autoSettlementQueue: [] as Array<{ x: number; y: number }>,
+  skippedAutoSettlementTileKeys: new Set<string>(),
+  autoSettlementQueueVisibleUntilByTile: new Map<string, number>(),
   lastDevelopmentAttempt: undefined as
     | { kind: "SETTLE"; x: number; y: number; tileKey: string; label: string }
     | {

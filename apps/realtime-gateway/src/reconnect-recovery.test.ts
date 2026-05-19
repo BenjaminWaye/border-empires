@@ -43,6 +43,7 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "CHOOSE_DOMAIN":
       return { domainId: "frontier-doctrine" };
     case "SET_CONVERTER_STRUCTURE_ENABLED":
+    case "SET_SIEGE_OUTPOST_AUTO_ATTACK":
       return { x: 10, y: 10, enabled: index % 2 === 0 };
     case "REVEAL_EMPIRE":
     case "REVEAL_EMPIRE_STATS":

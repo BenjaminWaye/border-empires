@@ -206,6 +206,7 @@ export interface Tile {
   ownershipState?: OwnershipState;
   capital?: boolean | undefined;
   breachShockUntil?: number;
+  frontierDecayAt?: number;
   continentId?: number;
   clusterId?: string;
   clusterType?: ClusterType;
@@ -276,7 +277,7 @@ export interface Tile {
     strategicEach: number;
   };
   fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; disabledUntil?: number };
-  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number };
+  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; autoAttackEnabled?: boolean; completesAt?: number };
   observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; cooldownUntil?: number };
   economicStructure?: {
     ownerId: PlayerId;
