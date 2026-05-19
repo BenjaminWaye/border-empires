@@ -476,7 +476,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             structure3DType === "CAMP" ||
             structure3DType === "MINE" ||
             structure3DType === "IRONWORKS" ||
-            structure3DType === "MARKET"
+            structure3DType === "MARKET" ||
+            structure3DType === "GRANARY"
           );
         if (fortificationKind || handled3DStructure) {
           // 3D-rendered (fortifications + Tier-1 economic structures);
