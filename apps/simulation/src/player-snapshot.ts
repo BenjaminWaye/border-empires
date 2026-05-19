@@ -16,6 +16,7 @@ import { buildLivePlayerEconomySnapshot, enrichSnapshotTilesForPlayer } from "./
 import { buildDockLinksByDockTileKey, collectLinkedDockRevealKeysForOwners } from "./dock-network.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge.js";
+import { frontierNeighborCoords } from "./frontier-topology.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 
@@ -44,6 +45,7 @@ export const buildPlayerSubscriptionSnapshot = (
             ...(tile.dockId ? { dockId: tile.dockId } : {}),
             ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
             ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
             ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
             ...(tile.town?.type ? { townType: tile.town.type } : {}),
             ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -150,7 +152,29 @@ export const buildPlayerSubscriptionSnapshot = (
     })
       .filter((settlement): settlement is NonNullable<typeof settlement> => Boolean(settlement))
       .sort((left, right) => (left.resolvesAt - right.resolvesAt) || (left.x - right.x) || (left.y - right.y));
+  const tileByKey = new Map(sourceTiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
   const livePlayer = playersById.get(playerId);
+  const pendingSettlementTileKeys = new Set(
+    runtimeState.pendingSettlements
+      .filter((settlement) => settlement.ownerId === playerId)
+      .map((settlement) => settlement.tileKey)
+  );
+  const activeLockTileKeys = new Set(runtimeState.activeLocks?.map((lock) => lock.targetKey) ?? []);
+  const autoSettlementQueue = livePlayer
+    ? (livePlayer.territoryTileKeys ?? [])
+        .map((tileKey) => {
+          if (pendingSettlementTileKeys.has(tileKey) || activeLockTileKeys.has(tileKey)) return undefined;
+          const tile = tileByKey.get(tileKey);
+          if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId || tile.ownershipState !== "FRONTIER") return undefined;
+          const hasTownSupport = frontierNeighborCoords(tile.x, tile.y).some((coords) => {
+            const neighbor = tileByKey.get(keyFor(coords.x, coords.y));
+            return Boolean(neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.townJson);
+          });
+          if (!tile.resource && !tile.townJson && !tile.dockId && !hasTownSupport) return undefined;
+          return { x: tile.x, y: tile.y };
+        })
+        .filter((tile): tile is { x: number; y: number } => Boolean(tile))
+    : [];
   const hasLivePlayerState = livePlayer && typeof livePlayer.points === "number" && typeof livePlayer.manpower === "number";
   const liveEconomy = buildLivePlayerEconomySnapshot(playerId, runtimeState);
   const liveProgressionPlayer = livePlayer
@@ -230,6 +254,7 @@ export const buildPlayerSubscriptionSnapshot = (
             developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
             activeDevelopmentProcessCount,
             pendingSettlements,
+            autoSettlementQueue,
             techIds: [...livePlayer.techIds],
             domainIds: [...livePlayer.domainIds],
             mods: liveProgressionPlayer ? recomputeMods(liveProgressionPlayer) : { attack: 1, defense: 1, income: 1, vision: 1 },

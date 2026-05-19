@@ -8,6 +8,7 @@ import {
 } from "./player-respawn-notice.js";
 import {
   validateFrontierCommand,
+  fortAttackManpowerMultiplier,
   type DomainPlayer,
   type DomainStrategicResourceKey,
   type DomainTileState,
@@ -15,6 +16,7 @@ import {
 } from "@border-empires/game-domain";
 import {
   ATTACK_MANPOWER_MIN,
+  ATTACK_MANPOWER_COST,
   BARBARIAN_MULTIPLY_THRESHOLD,
   DEVELOPMENT_PROCESS_LIMIT,
   FOREST_FRONTIER_CLAIM_MULT,
@@ -37,6 +39,7 @@ import {
   rollFrontierCombat,
   structureBuildDurationMs,
   structureBuildGoldCost,
+  structureBuildManpowerCost,
   structureCostDefinition,
   structurePlacementMetadata,
   structureShowsOnTile,
@@ -95,11 +98,15 @@ import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-pla
 import { frontierNeighborCoords } from "./frontier-topology.js";
 import {
   coordsInChebyshevRadius,
+  FRONTIER_DECAY_MS,
   FORT_AUTO_FRONTIER_RADIUS,
-  isActiveFortAnchor,
+  fortAutoAttackCandidates,
+  fortAutoFrontierRadiusForTile,
+  FORT_PATROL_GRACE_MS,
   isAutoClaimTarget,
   isSettledTownAnchor,
-  isValuableAutoSettlementTarget,
+  MAX_FORT_AUTO_FRONTIER_RADIUS,
+  orderedAutoSettlementTileKeys,
   siegeAutoAttackCandidates,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "./territory-automation.js";
@@ -355,6 +362,7 @@ export type SimulationTileWireDelta = {
   dockId?: string;
   ownerId?: string;
   ownershipState?: string;
+  frontierDecayAt?: number;
   townJson?: string;
   townType?: string;
   townName?: string;
@@ -375,6 +383,7 @@ const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWireDelta =
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+  ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
   ...(tile.town?.type ? { townType: tile.town.type } : {}),
   ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -538,6 +547,8 @@ const parseConverterTogglePayload = (payloadJson: string): { x: number; y: numbe
     return null;
   }
 };
+
+const parseSiegeOutpostAutoAttackPayload = parseConverterTogglePayload;
 
 const parseEconomicStructurePayload = (payloadJson: string): { x: number; y: number; structureType: EconomicStructureType } | null => {
   try {
@@ -753,6 +764,7 @@ export class SimulationRuntime {
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
+  private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
   // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
   // inside replaceTileState; consumed by tickTileShedding to shed newest-first
   // when a player is broke (points <= 0 and net gold/min <= 0). Not persisted —
@@ -1118,8 +1130,6 @@ export class SimulationRuntime {
 
   tickTerritoryAutomation(nowMs: number = this.now()): void {
     const autoClaimedKeys = new Set<string>();
-    const autoSettlingKeys = new Set<string>();
-    const startedSettlementUpdatesByPlayer = new Map<string, string>();
 
     for (const playerId of this.players.keys()) {
       if (playerId.startsWith("barbarian-")) continue;
@@ -1134,8 +1144,9 @@ export class SimulationRuntime {
       for (const anchorKey of ownedTileKeys) {
         const anchor = this.tiles.get(anchorKey);
         if (!anchor) continue;
-        const radius = isActiveFortAnchor(anchor, playerId, nowMs)
-          ? FORT_AUTO_FRONTIER_RADIUS
+        const fortRadius = fortAutoFrontierRadiusForTile(anchor, playerId, nowMs);
+        const radius = fortRadius > 0
+          ? fortRadius
           : isSettledTownAnchor(anchor, playerId)
             ? TOWN_AUTO_FRONTIER_RADIUS
             : 0;
@@ -1155,6 +1166,7 @@ export class SimulationRuntime {
             ownershipState: "FRONTIER"
           };
           this.replaceTileState(targetKey, claimedTile, claimCommandId);
+          this.extendFortPatrolGrace(targetKey, nowMs + FORT_PATROL_GRACE_MS);
           claimDeltas.push(this.tileDeltaFromState(claimedTile));
         }
       }
@@ -1171,39 +1183,15 @@ export class SimulationRuntime {
       }
     }
 
-    for (const playerId of this.players.keys()) {
-      if (playerId.startsWith("barbarian-")) continue;
-      const actor = this.players.get(playerId);
-      if (!actor) continue;
-      const summary = this.summaryForPlayer(playerId);
-      this.applyEconomyAccrual(actor, nowMs);
-      for (const anchorKey of [...summary.ownedTownTierByTile.keys()]) {
-        const anchor = this.tiles.get(anchorKey);
-        if (!anchor || !isSettledTownAnchor(anchor, playerId)) continue;
-        for (const coords of coordsInChebyshevRadius(anchor.x, anchor.y, TOWN_AUTO_FRONTIER_RADIUS)) {
-          if (this.activeDevelopmentProcessCountForPlayer(playerId) >= DEVELOPMENT_PROCESS_LIMIT) break;
-          if (actor.points < SETTLE_COST) break;
-          const targetKey = simulationTileKey(coords.x, coords.y);
-          if (autoSettlingKeys.has(targetKey) || this.locksByTile.has(targetKey) || this.pendingSettlementsByTile.has(targetKey)) continue;
-          const target = this.tiles.get(targetKey);
-          if (!isValuableAutoSettlementTarget(target, playerId)) continue;
-          autoSettlingKeys.add(targetKey);
-          const commandId = this.nextTerritoryAutomationCommandId("settle", playerId, targetKey, nowMs);
-          this.startSettlementProcess({
-            commandId,
-            playerId,
-            targetKey,
-            target,
-            startedAt: nowMs,
-            emitStartedUpdate: false
-          });
-          startedSettlementUpdatesByPlayer.set(playerId, commandId);
-        }
-      }
-    }
+    this.updateFrontierDecay(nowMs);
 
-    for (const [playerId, commandId] of startedSettlementUpdatesByPlayer.entries()) {
-      this.emitPlayerStateUpdate({ commandId, playerId });
+    for (const playerId of this.players.keys()) {
+      if (!playerId.startsWith("barbarian-") && this.autoSettlementQueueForPlayer(playerId).length > 0) {
+        this.emitPlayerStateUpdate({
+          commandId: this.nextTerritoryAutomationCommandId("settle-queue", playerId, "batch", nowMs),
+          playerId
+        });
+      }
     }
 
     for (const playerId of this.players.keys()) {
@@ -1216,11 +1204,44 @@ export class SimulationRuntime {
       if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) continue;
       const summary = this.summaryForPlayer(playerId);
       for (const tileKey of [...summary.territoryTileKeys]) {
+        const fortTile = this.tiles.get(tileKey);
+        const fortRadius = fortTile ? fortAutoFrontierRadiusForTile(fortTile, playerId, nowMs) : 0;
+        if (!fortTile || fortRadius <= 0) continue;
+        if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) break;
+        if (this.locksByTile.has(tileKey)) continue;
+        const target = fortAutoAttackCandidates(fortTile, playerId, FORT_AUTO_FRONTIER_RADIUS, (x, y) => this.tiles.get(simulationTileKey(x, y)))
+          .find((candidate) => {
+            const targetKey = simulationTileKey(candidate.x, candidate.y);
+            return (
+              !this.locksByTile.has(targetKey) &&
+              !actor.allies.has(candidate.ownerId ?? "") &&
+              !this.tileHasActiveFortPatrolGrace(targetKey, nowMs)
+            );
+          });
+        if (!target) continue;
+        const commandId = this.nextTerritoryAutomationCommandId("fort", playerId, simulationTileKey(target.x, target.y), nowMs);
+        this.handleFrontierCommand(
+          {
+            commandId,
+            sessionId: `system-runtime:territory-automation:${playerId}`,
+            playerId,
+            clientSeq: 0,
+            issuedAt: nowMs,
+            type: "ATTACK",
+            payloadJson: JSON.stringify({ fromX: fortTile.x, fromY: fortTile.y, toX: target.x, toY: target.y })
+          },
+          "ATTACK"
+        );
+        availableSiegeManpower -= ATTACK_MANPOWER_COST;
+        availableSiegeGold -= FRONTIER_CLAIM_COST;
+      }
+      for (const tileKey of [...summary.territoryTileKeys]) {
         const outpost = this.tiles.get(tileKey);
         if (
           !outpost ||
           outpost.siegeOutpost?.ownerId !== playerId ||
-          outpost.siegeOutpost.status !== "active"
+          outpost.siegeOutpost.status !== "active" ||
+          outpost.siegeOutpost.autoAttackEnabled === false
         ) {
           continue;
         }
@@ -1229,9 +1250,15 @@ export class SimulationRuntime {
         const target = siegeAutoAttackCandidates(outpost, playerId, (x, y) => this.tiles.get(simulationTileKey(x, y)))
           .find((candidate) => {
             const targetKey = simulationTileKey(candidate.x, candidate.y);
-            return !this.locksByTile.has(targetKey) && !actor.allies.has(candidate.ownerId ?? "");
+            const targetManpowerCost = ATTACK_MANPOWER_COST * fortAttackManpowerMultiplier(candidate);
+            return (
+              availableSiegeManpower >= targetManpowerCost &&
+              !this.locksByTile.has(targetKey) &&
+              !actor.allies.has(candidate.ownerId ?? "")
+            );
           });
         if (!target) continue;
+        const targetManpowerCost = ATTACK_MANPOWER_COST * fortAttackManpowerMultiplier(target);
         const commandId = this.nextTerritoryAutomationCommandId("siege", playerId, simulationTileKey(target.x, target.y), nowMs);
         this.handleFrontierCommand(
           {
@@ -1245,7 +1272,7 @@ export class SimulationRuntime {
           },
           "ATTACK"
         );
-        availableSiegeManpower -= ATTACK_MANPOWER_MIN;
+        availableSiegeManpower -= targetManpowerCost;
         availableSiegeGold -= FRONTIER_CLAIM_COST;
       }
     }
@@ -2305,6 +2332,7 @@ export class SimulationRuntime {
             ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
             ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
             ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
             ...(tile.town ? { town: tile.town } : {}),
             ...(tile.fort ? { fort: tile.fort } : {}),
             ...(tile.observatory ? { observatory: tile.observatory } : {}),
@@ -2563,6 +2591,7 @@ export class SimulationRuntime {
           ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
           ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
           ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+          ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
           ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
           ...(tile.town?.type ? { townType: tile.town.type } : {}),
           ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -2841,6 +2870,7 @@ export class SimulationRuntime {
             ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
             ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
             ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
             ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
             ...(tile.town?.type ? { townType: tile.town.type } : {}),
             ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -3157,6 +3187,26 @@ export class SimulationRuntime {
     return this.pendingSettlementsSnapshotForPlayer(playerId);
   }
 
+  private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
+    const summary = this.summaryForPlayer(playerId);
+    return orderedAutoSettlementTileKeys(playerId, summary.territoryTileKeys, {
+      getTile: (tileKey) => this.tiles.get(tileKey),
+      isBlocked: (tileKey) => this.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
+      hasTownSupport: (tile) =>
+        this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
+          const town = this.tiles.get(townKey)?.town;
+          return Boolean(town && town.populationTier !== "SETTLEMENT");
+        })
+    })
+      .map((tileKey) => {
+        const [rawX, rawY] = tileKey.split(",");
+        const x = Number(rawX);
+        const y = Number(rawY);
+        return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+      })
+      .filter((tile): tile is { x: number; y: number } => Boolean(tile));
+  }
+
   private emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId = command.playerId): void {
     const player = this.players.get(playerId);
     if (!player) return;
@@ -3196,6 +3246,7 @@ export class SimulationRuntime {
         Ts: metrics.Ts,
         Es: metrics.Es,
         pendingSettlements: this.pendingSettlementsForPlayer(playerId),
+        autoSettlementQueue: this.autoSettlementQueueForPlayer(playerId),
         developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
         activeDevelopmentProcessCount: this.activeDevelopmentProcessCountForPlayer(playerId)
       }
@@ -3461,6 +3512,15 @@ export class SimulationRuntime {
       ...baseLock,
       ...(combatResolution ? { combatResolution } : {})
     };
+    if (
+      actionType === "ATTACK" &&
+      from.ownershipState === "FRONTIER" &&
+      to.ownerId &&
+      to.ownerId !== command.playerId &&
+      fortAutoFrontierRadiusForTile(to, to.ownerId, this.now()) > 0
+    ) {
+      this.extendFortPatrolGrace(lock.originKey, validation.resolvesAt + FORT_PATROL_GRACE_MS);
+    }
     this.locksByTile.set(lock.originKey, lock);
     this.locksByTile.set(lock.targetKey, lock);
     this.commandTrace?.({
@@ -3608,8 +3668,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.applyManpowerRegen(actor);
-
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
     if (!target) {
@@ -3859,7 +3917,6 @@ export class SimulationRuntime {
       });
       return;
     }
-
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
     if (!target) {
@@ -3956,7 +4013,6 @@ export class SimulationRuntime {
       });
       return;
     }
-
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
     const structure = target?.economicStructure;
@@ -4071,7 +4127,6 @@ export class SimulationRuntime {
       });
       return;
     }
-
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
     const structure = target?.economicStructure;
@@ -5360,19 +5415,20 @@ export class SimulationRuntime {
     shardSiteJson?: string;
     ownerId?: string | undefined;
     ownershipState?: string | undefined;
-      townJson?: string;
-      townType?: "MARKET" | "FARMING";
-      townName?: string;
-      townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-      fortJson?: string | undefined;
-      observatoryJson?: string | undefined;
-      siegeOutpostJson?: string | undefined;
-      economicStructureJson?: string | undefined;
-      sabotageJson?: string | undefined;
-      yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
-      yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
-      yieldCap?: { gold: number; strategicEach: number } | undefined;
-    } {
+    frontierDecayAt?: number | undefined;
+    townJson?: string;
+    townType?: "MARKET" | "FARMING";
+    townName?: string;
+    townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+    fortJson?: string | undefined;
+    observatoryJson?: string | undefined;
+    siegeOutpostJson?: string | undefined;
+    economicStructureJson?: string | undefined;
+    sabotageJson?: string | undefined;
+    yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
+    yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
+    yieldCap?: { gold: number; strategicEach: number } | undefined;
+  } {
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext ? { ...tile, town: enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork) } : tile;
@@ -5392,6 +5448,7 @@ export class SimulationRuntime {
       ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
       ownerId: tile.ownerId ?? undefined,
       ownershipState: tile.ownershipState ?? undefined,
+      frontierDecayAt: tile.frontierDecayAt ?? undefined,
       ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
       ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
       ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
@@ -5479,6 +5536,118 @@ export class SimulationRuntime {
       .filter((tile): tile is DomainTileState => tile !== undefined);
   }
 
+  private extendFortPatrolGrace(tileKey: string, graceUntil: number): void {
+    this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil));
+  }
+
+  private tileHasActiveFortPatrolGrace(tileKey: string, nowMs: number): boolean {
+    const graceUntil = this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0;
+    if (graceUntil <= nowMs) {
+      if (graceUntil > 0) this.fortPatrolGraceUntilByTile.delete(tileKey);
+      return false;
+    }
+    return true;
+  }
+
+  private frontierDecayPausedForTile(playerId: string, tileKey: string, tile: DomainTileState): boolean {
+    if (this.pendingSettlementsByTile.has(tileKey)) return true;
+    if (tile.resource || tile.town || tile.dockId) return true;
+    return this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
+      const town = this.tiles.get(townKey)?.town;
+      return Boolean(town && town.populationTier !== "SETTLEMENT");
+    });
+  }
+
+  private frontierSupportedByActiveFort(tile: DomainTileState, playerId: string, nowMs: number): boolean {
+    if (fortAutoFrontierRadiusForTile(tile, playerId, nowMs) > 0) return true;
+    for (const coords of coordsInChebyshevRadius(tile.x, tile.y, MAX_FORT_AUTO_FRONTIER_RADIUS)) {
+      const anchor = this.tiles.get(simulationTileKey(coords.x, coords.y));
+      if (!anchor) continue;
+      const radius = fortAutoFrontierRadiusForTile(anchor, playerId, nowMs);
+      if (radius <= 0) continue;
+      const dx = Math.abs(anchor.x - tile.x);
+      const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
+      const dy = Math.abs(anchor.y - tile.y);
+      const wrappedDy = Math.min(dy, WORLD_HEIGHT - dy);
+      if (Math.max(wrappedDx, wrappedDy) <= radius) return true;
+    }
+    return false;
+  }
+
+  private updateFrontierDecay(nowMs: number): void {
+    const changedDeltasByOwner = new Map<string, Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>>>();
+    const addChangedDelta = (playerId: string, delta: ReturnType<SimulationRuntime["tileDeltaFromState"]>): void => {
+      const existing = changedDeltasByOwner.get(playerId);
+      if (existing) existing.push(delta);
+      else changedDeltasByOwner.set(playerId, [delta]);
+    };
+
+    for (const [tileKey, tile] of this.tiles) {
+      if (this.locksByTile.has(tileKey)) continue;
+      if (tile.ownershipState !== "FRONTIER" || !tile.ownerId || tile.ownerId.startsWith("barbarian-")) continue;
+      const ownerId = tile.ownerId;
+      if (this.frontierDecayPausedForTile(ownerId, tileKey, tile)) {
+        if (tile.frontierDecayAt === undefined) continue;
+        const queuedTile: DomainTileState = {
+          ...tile,
+          frontierDecayAt: undefined
+        };
+        this.replaceTileState(tileKey, queuedTile, `frontier-decay-paused:${ownerId}:${tileKey}:${nowMs}`);
+        addChangedDelta(ownerId, this.tileDeltaFromState(queuedTile));
+        continue;
+      }
+      if (this.frontierSupportedByActiveFort(tile, ownerId, nowMs)) {
+        if (tile.frontierDecayAt === undefined) continue;
+        const supportedTile: DomainTileState = {
+          ...tile,
+          frontierDecayAt: undefined
+        };
+        this.replaceTileState(tileKey, supportedTile, `frontier-decay-supported:${ownerId}:${tileKey}:${nowMs}`);
+        addChangedDelta(ownerId, this.tileDeltaFromState(supportedTile));
+        continue;
+      }
+
+      const decayAt = tile.frontierDecayAt ?? nowMs + FRONTIER_DECAY_MS;
+      if (decayAt <= nowMs) {
+        const expiredTile: DomainTileState = {
+          ...tile,
+          ownerId: undefined,
+          ownershipState: undefined,
+          frontierDecayAt: undefined,
+          fort: undefined,
+          observatory: undefined,
+          siegeOutpost: undefined,
+          economicStructure: undefined,
+          sabotage: undefined
+        };
+        this.replaceTileState(tileKey, expiredTile, `frontier-decay-expired:${ownerId}:${tileKey}:${nowMs}`);
+        this.fortPatrolGraceUntilByTile.delete(tileKey);
+        addChangedDelta(ownerId, this.tileDeltaFromState(expiredTile));
+        continue;
+      }
+
+      if (tile.frontierDecayAt !== decayAt) {
+        const decayingTile: DomainTileState = {
+          ...tile,
+          frontierDecayAt: decayAt
+        };
+        this.replaceTileState(tileKey, decayingTile, `frontier-decay-started:${ownerId}:${tileKey}:${nowMs}`);
+        addChangedDelta(ownerId, this.tileDeltaFromState(decayingTile));
+      }
+    }
+
+    for (const [playerId, tileDeltas] of changedDeltasByOwner) {
+      const commandId = this.nextTerritoryAutomationCommandId("frontier-decay", playerId, "batch", nowMs);
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId,
+        playerId,
+        tileDeltas
+      });
+      this.emitPlayerStateUpdate({ commandId, playerId });
+    }
+  }
+
   private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
     if (!from.dockId) return false;
     return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey);
@@ -5555,6 +5724,7 @@ export class SimulationRuntime {
       });
       return;
     }
+    this.applyManpowerRegen(actor);
 
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
@@ -5632,6 +5802,7 @@ export class SimulationRuntime {
     if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
 
     const goldCost = structureBuildGoldCost("FORT", this.ownedStructureCountForPlayer(command.playerId, "FORT"));
+    const manpowerCost = structureBuildManpowerCost("FORT");
     if (actor.points < goldCost) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -5639,6 +5810,16 @@ export class SimulationRuntime {
         playerId: command.playerId,
         code: "INSUFFICIENT_GOLD",
         message: "insufficient gold for fort"
+      });
+      return;
+    }
+    if (actor.manpower < manpowerCost) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "INSUFFICIENT_MANPOWER",
+        message: `need ${manpowerCost.toFixed(0)} manpower to build fort`
       });
       return;
     }
@@ -5654,6 +5835,7 @@ export class SimulationRuntime {
     }
 
     actor.points -= goldCost;
+    actor.manpower = Math.max(0, actor.manpower - manpowerCost);
     const startedTile: DomainTileState = {
       ...target,
       fort: {
@@ -5856,6 +6038,7 @@ export class SimulationRuntime {
       });
       return;
     }
+    this.applyManpowerRegen(actor);
 
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
@@ -5935,6 +6118,7 @@ export class SimulationRuntime {
     if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
 
     const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", this.ownedStructureCountForPlayer(command.playerId, "SIEGE_OUTPOST"));
+    const manpowerCost = structureBuildManpowerCost("SIEGE_OUTPOST");
     if (actor.points < goldCost) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -5942,6 +6126,16 @@ export class SimulationRuntime {
         playerId: command.playerId,
         code: "INSUFFICIENT_GOLD",
         message: "insufficient gold for siege outpost"
+      });
+      return;
+    }
+    if (actor.manpower < manpowerCost) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "INSUFFICIENT_MANPOWER",
+        message: `need ${manpowerCost.toFixed(0)} manpower to build siege outpost`
       });
       return;
     }
@@ -5957,6 +6151,7 @@ export class SimulationRuntime {
     }
 
     actor.points -= goldCost;
+    actor.manpower = Math.max(0, actor.manpower - manpowerCost);
     const startedTile: DomainTileState = {
       ...target,
       ...(upgradingLightOutpost ? { economicStructure: undefined } : {}),
@@ -5998,6 +6193,73 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   }
 
+  private cancelActiveOutpostAttackLocks(playerId: string, originKey: string): string[] {
+    const cancelled: string[] = [];
+    const lock = this.locksByTile.get(originKey);
+    if (!lock || lock.playerId !== playerId || lock.actionType !== "ATTACK") return cancelled;
+    this.locksByTile.delete(lock.originKey);
+    this.locksByTile.delete(lock.targetKey);
+    cancelled.push(lock.commandId);
+    return cancelled;
+  }
+
+  private handleSetSiegeOutpostAutoAttackCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseSiegeOutpostAutoAttackPayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+    const target = this.tiles.get(targetKey);
+    if (
+      !target ||
+      target.ownerId !== command.playerId ||
+      target.siegeOutpost?.ownerId !== command.playerId ||
+      target.siegeOutpost.status !== "active"
+    ) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BUILD_INVALID",
+        message: "active owned siege outpost required"
+      });
+      return;
+    }
+    const updatedTile: DomainTileState = {
+      ...target,
+      siegeOutpost: {
+        ...target.siegeOutpost,
+        autoAttackEnabled: payload.enabled
+      }
+    };
+    this.replaceTileState(targetKey, updatedTile, command.commandId);
+    const cancelledCommandIds = payload.enabled ? [] : this.cancelActiveOutpostAttackLocks(command.playerId, targetKey);
+    if (cancelledCommandIds.length > 0) {
+      this.emitEvent({
+        eventType: "COMBAT_CANCELLED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        count: cancelledCommandIds.length,
+        cancelledCommandIds
+      });
+    }
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+    this.emitPlayerStateUpdate(command);
+  }
+
   private handleBuildEconomicStructureCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseEconomicStructurePayload(command.payloadJson);
@@ -6011,6 +6273,7 @@ export class SimulationRuntime {
       });
       return;
     }
+    this.applyManpowerRegen(actor);
 
     let target = this.tiles.get(simulationTileKey(payload.x, payload.y));
     if (!target) {
@@ -6131,6 +6394,7 @@ export class SimulationRuntime {
     if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
 
     const goldCost = structureBuildGoldCost(payload.structureType, this.ownedStructureCountForPlayer(command.playerId, payload.structureType));
+    const manpowerCost = structureBuildManpowerCost(payload.structureType);
     if (actor.points < goldCost) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -6138,6 +6402,16 @@ export class SimulationRuntime {
         playerId: command.playerId,
         code: "INSUFFICIENT_GOLD",
         message: `insufficient gold for ${payload.structureType.toLowerCase().replaceAll("_", " ")}`
+      });
+      return;
+    }
+    if (actor.manpower < manpowerCost) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "INSUFFICIENT_MANPOWER",
+        message: `need ${manpowerCost.toFixed(0)} manpower for ${payload.structureType.toLowerCase().replaceAll("_", " ")}`
       });
       return;
     }
@@ -6154,6 +6428,7 @@ export class SimulationRuntime {
     }
 
     actor.points -= goldCost;
+    actor.manpower = Math.max(0, actor.manpower - manpowerCost);
     const startedTile: DomainTileState = {
       ...target,
       ...(upgradingBaseEconomic ? { economicStructure: undefined } : {}),
@@ -6222,7 +6497,6 @@ export class SimulationRuntime {
       });
       return;
     }
-
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
     if (!target?.fort || target.fort.ownerId !== command.playerId || target.fort.status !== "under_construction") {
@@ -6770,6 +7044,11 @@ export class SimulationRuntime {
         ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
       };
       this.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
+      if (resolvedTarget.ownershipState === "FRONTIER") {
+        this.extendFortPatrolGrace(lock.targetKey, this.now() + FORT_PATROL_GRACE_MS);
+      } else {
+        this.fortPatrolGraceUntilByTile.delete(lock.targetKey);
+      }
       let tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[];
       if (attacker?.isAi) {
         tileDeltas = [this.tileDeltaFromState(resolvedTarget)];
@@ -6808,6 +7087,7 @@ export class SimulationRuntime {
           ...capturedStructureFields(previousOrigin, previousOwnerId)
         };
         this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
+        this.extendFortPatrolGrace(lock.originKey, this.now() + FORT_PATROL_GRACE_MS);
         this.emitEvent({
           eventType: "TILE_DELTA_BATCH",
           commandId: lock.commandId,
@@ -7070,6 +7350,7 @@ export class SimulationRuntime {
         command.type !== "BUILD_FORT" &&
         command.type !== "BUILD_OBSERVATORY" &&
         command.type !== "BUILD_SIEGE_OUTPOST" &&
+        command.type !== "SET_SIEGE_OUTPOST_AUTO_ATTACK" &&
         command.type !== "BUILD_ECONOMIC_STRUCTURE" &&
         command.type !== "CANCEL_CAPTURE" &&
         command.type !== "CANCEL_FORT_BUILD" &&
@@ -7122,6 +7403,11 @@ export class SimulationRuntime {
 
       if (command.type === "BUILD_SIEGE_OUTPOST") {
         this.handleBuildSiegeOutpostCommand(command);
+        return;
+      }
+
+      if (command.type === "SET_SIEGE_OUTPOST_AUTO_ATTACK") {
+        this.handleSetSiegeOutpostAutoAttackCommand(command);
         return;
       }
 
@@ -7280,6 +7566,7 @@ const createTilesFromInitialState = (
       ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
       ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+      ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),

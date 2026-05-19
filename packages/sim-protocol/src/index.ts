@@ -249,6 +249,7 @@ export type SimulationEvent =
         dockId?: string | undefined;
         ownerId?: string | undefined;
         ownershipState?: string | undefined;
+        frontierDecayAt?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;
@@ -338,6 +339,7 @@ export type PlayerSubscriptionSnapshot = {
     developmentProcessLimit: number;
     activeDevelopmentProcessCount: number;
     pendingSettlements: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }>;
+    autoSettlementQueue?: Array<{ x: number; y: number }>;
     techIds: string[];
     domainIds: string[];
     mods?: Record<"attack" | "defense" | "income" | "vision", number>;
@@ -355,6 +357,7 @@ export type PlayerSubscriptionSnapshot = {
     dockId?: string | undefined;
     ownerId?: string | undefined;
     ownershipState?: string | undefined;
+    frontierDecayAt?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";
     townName?: string | undefined;

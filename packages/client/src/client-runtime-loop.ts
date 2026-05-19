@@ -841,6 +841,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now()) {
             ownerAlpha = Math.min(ownerAlpha, 0.62);
           }
+          if (t.ownershipState === "FRONTIER" && typeof t.frontierDecayAt === "number") {
+            const remainingMs = t.frontierDecayAt - Date.now();
+            if (remainingMs > 0 && remainingMs <= 60_000) {
+              const blink = 0.5 + 0.5 * Math.sin((Date.now() / 2_000) * Math.PI * 2);
+              ownerAlpha *= 0.55 + blink * 0.6;
+            }
+          }
           deps.ctx.globalAlpha = ownerAlpha;
           if (t.ownershipState === "SETTLED") deps.ctx.fillRect(px, py, size, size);
           else deps.ctx.fillRect(px, py, size - 1, size - 1);

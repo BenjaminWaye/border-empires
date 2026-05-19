@@ -14,6 +14,7 @@ import {
   WOODEN_FORT_BUILD_MS,
   WOODEN_FORT_DEFENSE_MULT,
   structureBuildGoldCost,
+  structureBuildManpowerCost,
   structureBuildDurationMs,
   structurePlacementMetadata,
   structureShowsOnTile,
@@ -274,12 +275,12 @@ const fortBuildVariantForState = (state: ClientState): {
   summary: string;
 } => {
   if (state.techIds.includes("steelworking")) {
-    return { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 180 IRON" };
+    return { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" };
   }
   if (state.techIds.includes("fortified-walls")) {
-    return { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 90 IRON" };
+    return { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" };
   }
-  return { label: "Fort", gold: structureBuildGoldCost("FORT", 0), iron: 45, defenseMult: FORT_DEFENSE_MULT, summary: "900 gold + 45 IRON" };
+  return { label: "Fort", gold: structureBuildGoldCost("FORT", 0), iron: 45, defenseMult: FORT_DEFENSE_MULT, summary: "900 gold + 300 manpower + 45 IRON" };
 };
 
 const nextFortVariantForTile = (
@@ -297,10 +298,10 @@ const nextFortVariantForTile = (
   if (tile.fort) {
     const current = tile.fort.variant ?? "FORT";
     if (current === "FORT" && state.techIds.includes("fortified-walls")) {
-      return { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 90 IRON" };
+      return { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" };
     }
     if (current === "IRON_BASTION" && state.techIds.includes("steelworking")) {
-      return { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 180 IRON" };
+      return { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" };
     }
     return undefined;
   }
@@ -316,10 +317,10 @@ const siegeBuildVariantForState = (state: ClientState): {
   summary: string;
 } => {
   if (state.techIds.includes("standing-army")) {
-    return { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 140 SUPPLY + 120 IRON" };
+    return { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 60 manpower + 140 SUPPLY + 120 IRON" };
   }
   if (state.techIds.includes("siegecraft")) {
-    return { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 90 SUPPLY + 60 IRON" };
+    return { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 60 manpower + 90 SUPPLY + 60 IRON" };
   }
   return {
     label: "Siege Outpost",
@@ -327,7 +328,7 @@ const siegeBuildVariantForState = (state: ClientState): {
     supply: 45,
     iron: 0,
     attackMult: SIEGE_OUTPOST_ATTACK_MULT,
-    summary: "900 gold + 45 SUPPLY"
+    summary: "900 gold + 60 manpower + 45 SUPPLY"
   };
 };
 
@@ -1287,6 +1288,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
+    if (tile.siegeOutpost?.ownerId === state.me && tile.siegeOutpost.status === "active") {
+      const autoAttackEnabled = tile.siegeOutpost.autoAttackEnabled !== false;
+      out.push({
+        id: autoAttackEnabled ? "disable_outpost_auto_attack" : "enable_outpost_auto_attack",
+        label: autoAttackEnabled ? "Cancel Auto Attack" : "Enable Auto Attack",
+        detail: autoAttackEnabled
+          ? "Stops this siege outpost from launching future automatic attacks and cancels its active auto attack."
+          : "Lets this siege outpost resume automatic adjacent attacks.",
+        ...tileActionAvailability(true, "", autoAttackEnabled ? "Outpost auto attack on" : "Outpost auto attack off")
+      });
+    }
     if (tile.ownershipState === "FRONTIER" && !queuedSettlement)
       out.push({
         id: "settle_land",
@@ -1318,8 +1330,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: "Build Wooden Fort",
         detail: deps.buildDetailTextForAction("build_wooden_fort", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          state.gold >= deps.structureGoldCost("WOODEN_FORT"),
-          `Need ${deps.structureGoldCost("WOODEN_FORT")} gold`,
+          state.gold >= deps.structureGoldCost("WOODEN_FORT") && state.manpower >= structureBuildManpowerCost("WOODEN_FORT"),
+          state.gold < deps.structureGoldCost("WOODEN_FORT")
+            ? `Need ${deps.structureGoldCost("WOODEN_FORT")} gold`
+            : `Need ${structureBuildManpowerCost("WOODEN_FORT")} manpower`,
           `${deps.structureCostText("WOODEN_FORT")} • ${Math.round(WOODEN_FORT_BUILD_MS / 60000)}m • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)}`,
           slots,
           deps
@@ -1338,19 +1352,22 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         const hasTech = tile.fort ? true : state.techIds.includes("masonry");
         const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasWoodenFort;
         const hasGold = state.gold >= fortVariant.gold;
+        const hasManpower = state.manpower >= structureBuildManpowerCost("FORT");
         const hasIron = (state.strategicResources.IRON ?? 0) >= fortVariant.iron;
         out.push({
           id: "build_fortification",
           label: tile.fort || hasWoodenFort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`,
           detail: deps.buildDetailTextForAction("build_fortification", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            hasTech && hasGold && hasIron && canUseTile,
+            hasTech && hasGold && hasManpower && hasIron && canUseTile,
             !hasTech
               ? "Requires Stoneworks"
               : !canUseTile
                   ? "Tile already has structure"
                   : !hasGold
                     ? `Need ${fortVariant.gold} gold`
+                    : !hasManpower
+                      ? `Need ${structureBuildManpowerCost("FORT")} manpower`
                     : !hasIron
                       ? `Need ${fortVariant.iron} IRON`
                       : "Unavailable",
@@ -1665,8 +1682,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: "Build Light Outpost",
         detail: deps.buildDetailTextForAction("build_light_outpost", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          state.gold >= deps.structureGoldCost("LIGHT_OUTPOST"),
-          `Need ${deps.structureGoldCost("LIGHT_OUTPOST")} gold`,
+          state.gold >= deps.structureGoldCost("LIGHT_OUTPOST") && state.manpower >= structureBuildManpowerCost("LIGHT_OUTPOST"),
+          state.gold < deps.structureGoldCost("LIGHT_OUTPOST")
+            ? `Need ${deps.structureGoldCost("LIGHT_OUTPOST")} gold`
+            : `Need ${structureBuildManpowerCost("LIGHT_OUTPOST")} manpower`,
           `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`,
           slots,
           deps
@@ -1685,6 +1704,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         const hasTech = tile.siegeOutpost ? true : state.techIds.includes("leatherworking");
         const canUseTile = Boolean(tile.siegeOutpost) || !tile.economicStructure || hasLightOutpost;
         const hasGold = state.gold >= siegeVariant.gold;
+        const hasManpower = state.manpower >= structureBuildManpowerCost("SIEGE_OUTPOST");
         const hasSupply = (state.strategicResources.SUPPLY ?? 0) >= siegeVariant.supply;
         const hasIron = (state.strategicResources.IRON ?? 0) >= siegeVariant.iron;
         out.push({
@@ -1692,13 +1712,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           label: tile.siegeOutpost || hasLightOutpost ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`,
           detail: deps.buildDetailTextForAction("build_siege_camp", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            hasTech && hasGold && hasSupply && hasIron && canUseTile,
+            hasTech && hasGold && hasManpower && hasSupply && hasIron && canUseTile,
             !hasTech
               ? "Requires Leatherworking"
               : !canUseTile
                   ? "Tile already has structure"
                   : !hasGold
                     ? `Need ${siegeVariant.gold} gold`
+                    : !hasManpower
+                      ? `Need ${structureBuildManpowerCost("SIEGE_OUTPOST")} manpower`
                     : !hasSupply
                       ? `Need ${siegeVariant.supply} SUPPLY`
                       : !hasIron
