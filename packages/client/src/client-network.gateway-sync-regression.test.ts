@@ -37,6 +37,7 @@ const bind = (state: any, ws: FakeWebSocket) => {
   const renderHud = vi.fn();
   const requestViewRefresh = vi.fn();
   const processActionQueue = vi.fn(() => false);
+  const pushFeed = vi.fn();
 
   bindClientNetwork({
     state,
@@ -47,7 +48,7 @@ const bind = (state: any, ws: FakeWebSocket) => {
     setAuthStatus: vi.fn(),
     syncAuthOverlay: vi.fn(),
     authenticateSocket: vi.fn(async () => {}),
-    pushFeed: vi.fn(),
+    pushFeed,
     pushFeedEntry: vi.fn(),
     clearOptimisticTileState: vi.fn(),
     requestViewRefresh,
@@ -94,7 +95,7 @@ const bind = (state: any, ws: FakeWebSocket) => {
     applyOptimisticTileState: vi.fn()
   } as any);
 
-  return { renderHud, requestViewRefresh, processActionQueue };
+  return { renderHud, requestViewRefresh, processActionQueue, pushFeed };
 };
 
 const createRuntimeStyleShowCaptureAlert =
@@ -104,6 +105,120 @@ const createRuntimeStyleShowCaptureAlert =
   };
 
 describe("client gateway sync regression", () => {
+  it("shows pending incoming alliance and truce requests when INIT arrives after login", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const { pushFeed, renderHud } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0 },
+        config: {},
+        recovery: { nextClientSeq: 1, pendingCommands: [] },
+        allianceRequests: [
+          {
+            id: "alliance-1",
+            fromPlayerId: "player-2",
+            toPlayerId: "player-1",
+            fromName: "Valka",
+            createdAt: 100
+          }
+        ],
+        truceRequests: [
+          {
+            id: "truce-1",
+            fromPlayerId: "player-3",
+            toPlayerId: "player-1",
+            fromName: "Beejac",
+            createdAt: 200,
+            expiresAt: 10_000,
+            durationHours: 12
+          }
+        ]
+      })
+    });
+
+    expect(state.incomingAllianceRequests).toEqual([expect.objectContaining({ id: "alliance-1", fromName: "Valka" })]);
+    expect(state.incomingTruceRequests).toEqual([expect.objectContaining({ id: "truce-1", fromName: "Beejac" })]);
+    expect(state.captureAlert).toEqual(
+      expect.objectContaining({
+        title: "Diplomacy requests waiting",
+        detail: "You have 1 alliance request and 1 truce offer. Open Alliances to respond.",
+        tone: "warn"
+      })
+    );
+    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request. Open Alliances to accept or reject.", "alliance", "warn");
+    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 12h truce. Open Alliances to accept or reject.", "alliance", "warn");
+    expect(renderHud).toHaveBeenCalled();
+
+    const feedCallCount = pushFeed.mock.calls.length;
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0 },
+        config: {},
+        recovery: { nextClientSeq: 2, pendingCommands: [] },
+        allianceRequests: state.incomingAllianceRequests,
+        truceRequests: state.incomingTruceRequests
+      })
+    });
+
+    expect(pushFeed.mock.calls.length).toBe(feedCallCount + 1);
+  });
+
+  it("shows a prominent alert for live incoming alliance and truce requests", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const { pushFeed } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ALLIANCE_REQUEST_INCOMING",
+        fromName: "Valka",
+        request: {
+          id: "alliance-1",
+          fromPlayerId: "player-2",
+          toPlayerId: "player-1",
+          createdAt: 100
+        }
+      })
+    });
+
+    expect(state.captureAlert).toEqual(
+      expect.objectContaining({
+        title: "Alliance request received",
+        detail: "Valka sent an alliance request. Open Alliances to accept or reject.",
+        tone: "warn"
+      })
+    );
+    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request. Open Alliances to accept or reject.", "alliance", "warn");
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TRUCE_REQUEST_INCOMING",
+        fromName: "Beejac",
+        request: {
+          id: "truce-1",
+          fromPlayerId: "player-3",
+          toPlayerId: "player-1",
+          createdAt: 200,
+          expiresAt: 10_000,
+          durationHours: 24
+        }
+      })
+    });
+
+    expect(state.captureAlert).toEqual(
+      expect.objectContaining({
+        title: "Truce offer received",
+        detail: "Beejac offered a 24h truce. Open Alliances to accept or reject.",
+        tone: "warn"
+      })
+    );
+    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 24h truce. Open Alliances to accept or reject.", "alliance", "warn");
+  });
+
   it("resolves an in-flight attack from post-combat tile sync even when the target stays barbarian", () => {
     vi.useFakeTimers();
     vi.setSystemTime(2_000);
