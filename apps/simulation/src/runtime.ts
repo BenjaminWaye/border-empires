@@ -969,6 +969,48 @@ export class SimulationRuntime {
         this.emitPlayerStateUpdate({ commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
       });
     }
+    // In-flight structure work (under_construction / removing) survives in tile
+    // state across restarts, but the setTimeout closure that completes it dies
+    // with the previous process. Without this, restarted structures stay stuck
+    // at 0:00 forever and permanently occupy development slots.
+    for (const [tileKey, tile] of this.tiles) {
+      const ownerId = tile.ownerId;
+      if (!ownerId) continue;
+      const recoveredCommandId = `recovered-build:${tileKey}`;
+      const scheduleStructureFinish = (completesAt: number | undefined, finish: () => void): void => {
+        if (completesAt == null) return;
+        this.scheduleAfter(Math.max(0, completesAt - this.now()), finish);
+      };
+      if (tile.fort?.ownerId === ownerId) {
+        if (tile.fort.status === "under_construction") {
+          scheduleStructureFinish(tile.fort.completesAt, () => this.completeFortBuild(tileKey, ownerId, recoveredCommandId));
+        } else if (tile.fort.status === "removing") {
+          scheduleStructureFinish(tile.fort.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
+        }
+      }
+      if (tile.observatory?.ownerId === ownerId) {
+        if (tile.observatory.status === "under_construction") {
+          scheduleStructureFinish(tile.observatory.completesAt, () => this.completeObservatoryBuild(tileKey, ownerId, recoveredCommandId));
+        } else if (tile.observatory.status === "removing") {
+          scheduleStructureFinish(tile.observatory.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
+        }
+      }
+      if (tile.siegeOutpost?.ownerId === ownerId) {
+        if (tile.siegeOutpost.status === "under_construction") {
+          scheduleStructureFinish(tile.siegeOutpost.completesAt, () => this.completeSiegeOutpostBuild(tileKey, ownerId, recoveredCommandId));
+        } else if (tile.siegeOutpost.status === "removing") {
+          scheduleStructureFinish(tile.siegeOutpost.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
+        }
+      }
+      if (tile.economicStructure?.ownerId === ownerId) {
+        if (tile.economicStructure.status === "under_construction") {
+          const structureType = tile.economicStructure.type;
+          scheduleStructureFinish(tile.economicStructure.completesAt, () => this.completeEconomicStructureBuild(tileKey, ownerId, structureType, recoveredCommandId));
+        } else if (tile.economicStructure.status === "removing") {
+          scheduleStructureFinish(tile.economicStructure.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
+        }
+      }
+    }
     const recoveredCommandHistory = options.initialCommandHistory;
     hydrateCommandHistory({
       commandIdsByPlayerSeq: this.commandIdsByPlayerSeq,
@@ -5610,23 +5652,28 @@ export class SimulationRuntime {
     });
     this.emitPlayerStateUpdate(command);
     this.scheduleAfter(structureBuildDurationMs("FORT"), () => {
-      const latest = this.tiles.get(targetKey);
-      if (!latest || latest.ownerId !== command.playerId || !latest.fort || latest.fort.ownerId !== command.playerId) return;
-      const { completesAt: _ignoredCompletesAt, ...activeFort } = latest.fort;
-      const completedTile: DomainTileState = {
-        ...latest,
-        economicStructure: undefined,
-        fort: { ...activeFort, status: "active" }
-      };
-      this.replaceTileState(targetKey, completedTile);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        tileDeltas: [this.tileDeltaFromState(completedTile)]
-      });
-      this.emitPlayerStateUpdate(command);
+      this.completeFortBuild(targetKey, command.playerId, command.commandId);
     });
+  }
+
+  private completeFortBuild(targetKey: string, ownerId: string, commandId: string): void {
+    const latest = this.tiles.get(targetKey);
+    if (!latest || latest.ownerId !== ownerId || !latest.fort || latest.fort.ownerId !== ownerId) return;
+    if (latest.fort.status !== "under_construction") return;
+    const { completesAt: _ignoredCompletesAt, ...activeFort } = latest.fort;
+    const completedTile: DomainTileState = {
+      ...latest,
+      economicStructure: undefined,
+      fort: { ...activeFort, status: "active" }
+    };
+    this.replaceTileState(targetKey, completedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId: ownerId,
+      tileDeltas: [this.tileDeltaFromState(completedTile)]
+    });
+    this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   }
 
   private handleBuildObservatoryCommand(command: CommandEnvelope): void {
@@ -5754,22 +5801,27 @@ export class SimulationRuntime {
     });
     this.emitPlayerStateUpdate(command);
     this.scheduleAfter(structureBuildDurationMs("OBSERVATORY"), () => {
-      const latest = this.tiles.get(targetKey);
-      if (!latest || latest.ownerId !== command.playerId || !latest.observatory || latest.observatory.ownerId !== command.playerId) return;
-      const { completesAt: _ignoredCompletesAt, ...activeObservatory } = latest.observatory;
-      const completedTile: DomainTileState = {
-        ...latest,
-        observatory: { ...activeObservatory, status: "active" }
-      };
-      this.replaceTileState(targetKey, completedTile);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        tileDeltas: [this.tileDeltaFromState(completedTile)]
-      });
-      this.emitPlayerStateUpdate(command);
+      this.completeObservatoryBuild(targetKey, command.playerId, command.commandId);
     });
+  }
+
+  private completeObservatoryBuild(targetKey: string, ownerId: string, commandId: string): void {
+    const latest = this.tiles.get(targetKey);
+    if (!latest || latest.ownerId !== ownerId || !latest.observatory || latest.observatory.ownerId !== ownerId) return;
+    if (latest.observatory.status !== "under_construction") return;
+    const { completesAt: _ignoredCompletesAt, ...activeObservatory } = latest.observatory;
+    const completedTile: DomainTileState = {
+      ...latest,
+      observatory: { ...activeObservatory, status: "active" }
+    };
+    this.replaceTileState(targetKey, completedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId: ownerId,
+      tileDeltas: [this.tileDeltaFromState(completedTile)]
+    });
+    this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   }
 
   private handleBuildSiegeOutpostCommand(command: CommandEnvelope): void {
@@ -5904,22 +5956,27 @@ export class SimulationRuntime {
     });
     this.emitPlayerStateUpdate(command);
     this.scheduleAfter(structureBuildDurationMs("SIEGE_OUTPOST"), () => {
-      const latest = this.tiles.get(targetKey);
-      if (!latest || latest.ownerId !== command.playerId || !latest.siegeOutpost || latest.siegeOutpost.ownerId !== command.playerId) return;
-      const { completesAt: _ignoredCompletesAt, ...activeSiegeOutpost } = latest.siegeOutpost;
-      const completedTile: DomainTileState = {
-        ...latest,
-        siegeOutpost: { ...activeSiegeOutpost, status: "active" }
-      };
-      this.replaceTileState(targetKey, completedTile);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        tileDeltas: [this.tileDeltaFromState(completedTile)]
-      });
-      this.emitPlayerStateUpdate(command);
+      this.completeSiegeOutpostBuild(targetKey, command.playerId, command.commandId);
     });
+  }
+
+  private completeSiegeOutpostBuild(targetKey: string, ownerId: string, commandId: string): void {
+    const latest = this.tiles.get(targetKey);
+    if (!latest || latest.ownerId !== ownerId || !latest.siegeOutpost || latest.siegeOutpost.ownerId !== ownerId) return;
+    if (latest.siegeOutpost.status !== "under_construction") return;
+    const { completesAt: _ignoredCompletesAt, ...activeSiegeOutpost } = latest.siegeOutpost;
+    const completedTile: DomainTileState = {
+      ...latest,
+      siegeOutpost: { ...activeSiegeOutpost, status: "active" }
+    };
+    this.replaceTileState(targetKey, completedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId: ownerId,
+      tileDeltas: [this.tileDeltaFromState(completedTile)]
+    });
+    this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   }
 
   private handleBuildEconomicStructureCommand(command: CommandEnvelope): void {
@@ -6097,30 +6154,40 @@ export class SimulationRuntime {
     });
     this.emitPlayerStateUpdate(command);
     this.scheduleAfter(structureBuildDurationMs(payload.structureType), () => {
-      const latest = this.tiles.get(targetKey);
-      if (
-        !latest ||
-        latest.ownerId !== command.playerId ||
-        !latest.economicStructure ||
-        latest.economicStructure.ownerId !== command.playerId ||
-        latest.economicStructure.type !== payload.structureType
-      ) {
-        return;
-      }
-      const { completesAt: _ignoredCompletesAt, ...activeStructure } = latest.economicStructure;
-      const completedTile: DomainTileState = {
-        ...latest,
-        economicStructure: { ...activeStructure, status: "active" }
-      };
-      this.replaceTileState(targetKey, completedTile);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        tileDeltas: [this.tileDeltaFromState(completedTile)]
-      });
-      this.emitPlayerStateUpdate(command);
+      this.completeEconomicStructureBuild(targetKey, command.playerId, payload.structureType, command.commandId);
     });
+  }
+
+  private completeEconomicStructureBuild(
+    targetKey: string,
+    ownerId: string,
+    expectedType: EconomicStructureType,
+    commandId: string
+  ): void {
+    const latest = this.tiles.get(targetKey);
+    if (
+      !latest ||
+      latest.ownerId !== ownerId ||
+      !latest.economicStructure ||
+      latest.economicStructure.ownerId !== ownerId ||
+      latest.economicStructure.type !== expectedType
+    ) {
+      return;
+    }
+    if (latest.economicStructure.status !== "under_construction") return;
+    const { completesAt: _ignoredCompletesAt, ...activeStructure } = latest.economicStructure;
+    const completedTile: DomainTileState = {
+      ...latest,
+      economicStructure: { ...activeStructure, status: "active" }
+    };
+    this.replaceTileState(targetKey, completedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId: ownerId,
+      tileDeltas: [this.tileDeltaFromState(completedTile)]
+    });
+    this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   }
 
   private handleCancelFortBuildCommand(command: CommandEnvelope): void {
@@ -6395,30 +6462,34 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate(command);
 
     this.scheduleAfter(removeDurationMs, () => {
-      const latest = this.tiles.get(targetKey);
-      if (!latest || latest.ownerId !== command.playerId) return;
-
-      let completedTile: DomainTileState | undefined;
-      if (latest.fort?.ownerId === command.playerId && latest.fort.status === "removing") {
-        completedTile = { ...latest, fort: undefined };
-      } else if (latest.observatory?.ownerId === command.playerId && latest.observatory.status === "removing") {
-        completedTile = { ...latest, observatory: undefined };
-      } else if (latest.siegeOutpost?.ownerId === command.playerId && latest.siegeOutpost.status === "removing") {
-        completedTile = { ...latest, siegeOutpost: undefined };
-      } else if (latest.economicStructure?.ownerId === command.playerId && latest.economicStructure.status === "removing") {
-        completedTile = { ...latest, economicStructure: undefined };
-      }
-      if (!completedTile) return;
-
-      this.replaceTileState(targetKey, completedTile);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        tileDeltas: [this.tileDeltaFromState(completedTile)]
-      });
-      this.emitPlayerStateUpdate(command);
+      this.completeStructureRemoval(targetKey, command.playerId, command.commandId);
     });
+  }
+
+  private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void {
+    const latest = this.tiles.get(targetKey);
+    if (!latest || latest.ownerId !== ownerId) return;
+
+    let completedTile: DomainTileState | undefined;
+    if (latest.fort?.ownerId === ownerId && latest.fort.status === "removing") {
+      completedTile = { ...latest, fort: undefined };
+    } else if (latest.observatory?.ownerId === ownerId && latest.observatory.status === "removing") {
+      completedTile = { ...latest, observatory: undefined };
+    } else if (latest.siegeOutpost?.ownerId === ownerId && latest.siegeOutpost.status === "removing") {
+      completedTile = { ...latest, siegeOutpost: undefined };
+    } else if (latest.economicStructure?.ownerId === ownerId && latest.economicStructure.status === "removing") {
+      completedTile = { ...latest, economicStructure: undefined };
+    }
+    if (!completedTile) return;
+
+    this.replaceTileState(targetKey, completedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId: ownerId,
+      tileDeltas: [this.tileDeltaFromState(completedTile)]
+    });
+    this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   }
 
   private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void {
