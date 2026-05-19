@@ -348,7 +348,8 @@ const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
 // gateway never sees them in the first place.
 export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
   "SETTLEMENT_STARTED",
-  "TILE_YIELD_ANCHOR_UPDATED"
+  "TILE_YIELD_ANCHOR_UPDATED",
+  "TILE_YIELD_ANCHOR_BATCH"
 ]);
 
 export const isWireInternalEvent = (event: SimulationEvent): boolean =>
