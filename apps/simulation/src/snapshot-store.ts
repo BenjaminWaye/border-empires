@@ -25,6 +25,7 @@ import type { ProjectionExportState } from "./postgres-projection-writer.js";
 const REDUNDANT_SNAPSHOT_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
   "PLAYER_MESSAGE",
   "TILE_YIELD_ANCHOR_UPDATED",
+  "TILE_YIELD_ANCHOR_BATCH",
   "TILE_DELTA_BATCH"
 ]);
 
