@@ -99,7 +99,7 @@ type HudDeps = {
   chooseDomain: (domainIdRaw?: string) => void;
   renderDomainProgressCard: () => string;
   renderDomainChoiceGrid: () => string;
-  domainOwnedHtml: (catalog: DomainInfo[], ownedIds: string[]) => string;
+  domainOwnedHtml: (catalog: DomainInfo[], ownedIds: string[], chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL") => string;
   renderDomainDetailCard: () => string;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   alliesHtml: typeof import("./client-panel-html.js").alliesHtml;
@@ -1067,7 +1067,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     <div id="domains-overview-content">
       ${safeValue("renderDomainProgressCard", fallbackCard("Sharding progress"), () => deps.renderDomainProgressCard())}
       ${safeValue("renderDomainChoiceGrid", fallbackCard("Sharding choices"), () => deps.renderDomainChoiceGrid())}
-      ${safeValue("domainOwnedHtml", fallbackCard("Owned shards"), () => deps.domainOwnedHtml(state.domainCatalog, state.domainIds))}
+      ${safeValue("domainOwnedHtml", fallbackCard("Owned shards"), () => deps.domainOwnedHtml(state.domainCatalog, state.domainIds, state.chosenTrickleResource))}
       <div class="card auth-settings-card">
         <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
         <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>

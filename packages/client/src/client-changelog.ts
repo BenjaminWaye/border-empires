@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.4",
+  version: "2026.05.19.5",
   title: "What's New",
-  summary: "Tier-1 domains are now identity-shaping picks, every tooltip effect runs in the sim, and your Clockwork Stipend choice now survives reconnects.",
+  summary: "Tier-1 domains are now identity-shaping picks, every tooltip effect runs in the sim, your Clockwork Stipend pick survives reconnects, and the owned-domain card now shows which resource you locked.",
   entries: [
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Owned Clockwork Stipend card shows your locked resource, dead-code cleanup",
+      why: "After the previous pass, state.chosenTrickleResource arrived on the client but no UI actually read it, and the chooseDomainFromUi function had a dead 'reuse already-locked pick' branch that could never execute under current data. Tightening both, plus two small code-quality nits flagged in the second review.",
+      changes: [
+        "The owned-domain card now appends '(IRON trickle)' (or SUPPLY / CRYSTAL) to Clockwork Stipend's title, so you can see at a glance which resource is ticking forward. domainOwnedHtml signature now takes the optional locked resource alongside the catalog and owned ids.",
+        "Removed the dead 'reuse already-locked trickle' branch in chooseDomainFromUi — only one domain currently offers a trickle table, and after picking it the domain is unreachable, so the branch could never execute. Add it back if/when a second trickle domain ships.",
+        "Annotated the duplicated pendingDomainUnlockId guard in chooseDomainFromUi: setting it before opening the modal stack-proofs against rapid double-click, and the re-set inside sendDomainCommand is intentional for the no-modal fast path.",
+        "Trickle modal now generates per-instance element IDs (title + cancel button) so a stray bug rendering two modals at once wouldn't break document-level ID uniqueness or aria-labelledby targeting.",
+        "Extracted coerceChosenTrickleResource helper in the gateway init-payload — replaces an ugly inline IIFE with a named one-liner."
+      ]
+    },
     {
       introducedIn: "2026.05.19.4",
       title: "Clockwork Stipend pick survives reconnects, modal stack-proofed, combat code tidied",

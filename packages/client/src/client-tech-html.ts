@@ -279,13 +279,22 @@ export const techOwnedHtml = (
     .join("");
 };
 
-export const domainOwnedHtml = (domainCatalog: DomainInfo[], domainIds: string[]): string => {
+export const domainOwnedHtml = (
+  domainCatalog: DomainInfo[],
+  domainIds: string[],
+  chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL"
+): string => {
   if (domainIds.length === 0) return `<article class="card"><p>No domains selected yet.</p></article>`;
   const catalogById = new Map(domainCatalog.map((domain) => [domain.id, domain]));
   return domainIds
     .map((id) => {
       const domain = catalogById.get(id);
-      return `<article class="card"><strong>${domain?.name ?? id}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
+      // If this domain offered a trickle-resource sub-choice (currently only
+      // Clockwork Stipend), surface the player's locked pick so the card
+      // doesn't just say "pick a resource" forever.
+      const offersTrickle = Boolean(domain?.effects?.chosenResourceTrickleOptions);
+      const trickleSuffix = offersTrickle && chosenTrickleResource ? ` <em>(${chosenTrickleResource} trickle)</em>` : "";
+      return `<article class="card"><strong>${domain?.name ?? id}${trickleSuffix}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
     })
     .join("");
 };
