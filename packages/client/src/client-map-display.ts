@@ -276,7 +276,7 @@ export const structureInfoForKey = (
     return [];
   };
   const effectsFor = (key: StructureInfoKey): string[] => {
-    if (key === "FORT") return ["+25% local defense", "Prevents failed attacks from immediately flipping the fortified origin tile"];
+    if (key === "FORT") return ["2.5x local defense", "Prevents failed attacks from immediately flipping the fortified origin tile"];
     if (key === "IRON_BASTION") return ["Upgrades Forts into Iron Bastions", "Raises Fort defense from 2.5x to 4x and keeps the +10% settled defense from Bastion Walls"];
     if (key === "THUNDER_BASTION") return ["Upgrades Iron Bastions into Thunder Bastions", "Raises Fort defense from 4x to 8x and improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return [`+${OBSERVATORY_VISION_BONUS} local vision`, `${OBSERVATORY_PROTECTION_RADIUS}-tile crystal protection field`, `${OBSERVATORY_CAST_RADIUS}-tile crystal action range`];
