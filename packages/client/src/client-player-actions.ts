@@ -156,19 +156,13 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
     return;
   }
 
-  // If the player already locked a trickle resource on a previous domain
-  // (or recovered the lock after a reconnect), skip the modal and reuse it.
-  // The server enforces the same locked-forever invariant.
-  const alreadyLocked = deps.state.chosenTrickleResource;
-  if (alreadyLocked && offered.some((option) => option.resource === alreadyLocked)) {
-    sendDomainCommand(deps, domain, alreadyLocked);
-    return;
-  }
-
-  // Set pendingDomainUnlockId *before* opening the modal to prevent a rapid
-  // double-click from stacking two modals on top of each other. We clear it
-  // on cancel so the player can try again; on confirm sendDomainCommand
-  // re-sets it as the canonical mid-flight indicator.
+  // Stack-proof the modal: rapid double-click of the same confirm button
+  // would otherwise see pendingDomainUnlockId still falsy (sendDomainCommand
+  // only sets it after the modal resolves) and open a second modal on top
+  // of the first. Setting the guard here blocks the second call at the
+  // pendingDomainUnlockId check above. Cleared on cancel/disconnect; the
+  // duplicate set inside sendDomainCommand is intentional for the no-modal
+  // path and a harmless no-op here.
   deps.state.pendingDomainUnlockId = domainId;
   deps.renderHud();
 

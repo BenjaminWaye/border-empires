@@ -199,6 +199,11 @@ const domainTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as { domai
 const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
 const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
 
+type ChosenTrickleResource = "IRON" | "SUPPLY" | "CRYSTAL";
+
+const coerceChosenTrickleResource = (raw: unknown): ChosenTrickleResource | undefined =>
+  raw === "IRON" || raw === "SUPPLY" || raw === "CRYSTAL" ? raw : undefined;
+
 const recomputeMods = (techIds: readonly string[], domainIds: readonly string[]): StatMods => {
   const next: StatMods = { attack: 1, defense: 1, income: 1, vision: 1 };
   for (const techId of techIds) {
@@ -895,13 +900,12 @@ export const buildGatewayInitPayload = (
       ),
       techIds: liveSnapshotPlayer?.techIds ?? techIds,
       domainIds: liveSnapshotPlayer?.domainIds ?? domainIds,
-      ...((() => {
-        const trickle = (liveSnapshotPlayer as { chosenTrickleResource?: unknown } | undefined)?.chosenTrickleResource
-          ?? (bootstrapProfile as { chosenTrickleResource?: unknown } | undefined)?.chosenTrickleResource;
-        return trickle === "IRON" || trickle === "SUPPLY" || trickle === "CRYSTAL"
-          ? { chosenTrickleResource: trickle }
-          : {};
-      })()),
+      ...((): { chosenTrickleResource?: ChosenTrickleResource } => {
+        const chosenTrickleResource =
+          coerceChosenTrickleResource((liveSnapshotPlayer as { chosenTrickleResource?: unknown } | undefined)?.chosenTrickleResource) ??
+          coerceChosenTrickleResource((bootstrapProfile as { chosenTrickleResource?: unknown } | undefined)?.chosenTrickleResource);
+        return chosenTrickleResource ? { chosenTrickleResource } : {};
+      })(),
       mods: liveSnapshotPlayer?.mods ?? recomputeMods(liveSnapshotPlayer?.techIds ?? techIds, liveSnapshotPlayer?.domainIds ?? domainIds),
       modBreakdown: liveSnapshotPlayer?.modBreakdown ?? buildModBreakdown(liveSnapshotPlayer?.techIds ?? techIds, liveSnapshotPlayer?.domainIds ?? domainIds),
       availableTechPicks: techChoices.length,

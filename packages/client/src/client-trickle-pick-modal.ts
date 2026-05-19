@@ -26,6 +26,12 @@ const resourceFlavor: Record<string, string> = {
   CRYSTAL: "Research, observatories, shards"
 };
 
+// Per-instance suffix so element IDs (aria-labelledby targets, cancel button)
+// never collide if a stray bug ever managed to render two modals at once.
+// Avoid crypto.randomUUID because the modal also runs in older test environments.
+let modalInstanceSequence = 0;
+const nextModalInstanceId = (): string => `trickle-pick-${++modalInstanceSequence}`;
+
 export const promptForTrickleResource = (
   options: { domainName: string; offered: TrickleOption[]; defaultResource?: string }
 ): Promise<string | null> => {
@@ -62,11 +68,15 @@ export const promptForTrickleResource = (
       "backdrop-filter:blur(2px)"
     ].join(";");
 
+    const instanceId = nextModalInstanceId();
+    const titleId = `${instanceId}-title`;
+    const cancelId = `${instanceId}-cancel`;
+
     const card = document.createElement("div");
     card.className = "trickle-pick-card";
     card.setAttribute("role", "dialog");
     card.setAttribute("aria-modal", "true");
-    card.setAttribute("aria-labelledby", "trickle-pick-title");
+    card.setAttribute("aria-labelledby", titleId);
     card.style.cssText = [
       "max-width:480px",
       "width:calc(100% - 32px)",
@@ -109,7 +119,7 @@ export const promptForTrickleResource = (
       .join("");
 
     card.innerHTML = `
-      <h2 id="trickle-pick-title" style="margin:0 0 6px;font-size:18px;letter-spacing:0.01em;">
+      <h2 id="${titleId}" style="margin:0 0 6px;font-size:18px;letter-spacing:0.01em;">
         ${escapeHtml(options.domainName)}
       </h2>
       <p style="margin:0 0 10px;color:#9aa6c2;font-size:13px;line-height:1.4;">
@@ -119,7 +129,7 @@ export const promptForTrickleResource = (
         ${offeredHtml}
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;">
-        <button type="button" id="trickle-pick-cancel" style="padding:8px 14px;background:transparent;border:1px solid #2a3247;color:#9aa6c2;border-radius:6px;cursor:pointer;">Cancel</button>
+        <button type="button" id="${cancelId}" style="padding:8px 14px;background:transparent;border:1px solid #2a3247;color:#9aa6c2;border-radius:6px;cursor:pointer;">Cancel</button>
       </div>
     `;
 
@@ -133,7 +143,7 @@ export const promptForTrickleResource = (
         finish(picked);
       });
     });
-    const cancelBtn = card.querySelector<HTMLButtonElement>("#trickle-pick-cancel");
+    const cancelBtn = card.querySelector<HTMLButtonElement>(`#${cancelId}`);
     if (cancelBtn) cancelBtn.addEventListener("click", () => finish(null));
 
     document.addEventListener("keydown", onKey);
