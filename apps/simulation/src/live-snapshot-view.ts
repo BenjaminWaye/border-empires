@@ -37,6 +37,7 @@ import {
   dockBaseGoldPerMinuteForPlayer,
   enrichTownWithConnectedNetwork,
   firstThreeTownsGoldOutputMultiplierForPlayer,
+  firstThreeTownsPopulationGrowthMultiplierForPlayer,
   type ConnectedTownNetworkEntry,
   type EconomyPlayer
 } from "./economy-network.js";
@@ -588,6 +589,10 @@ const buildTownSummary = (
     economyPlayer && firstThreeTownKeys?.has(tileKey)
       ? firstThreeTownsGoldOutputMultiplierForPlayer(economyPlayer)
       : 1;
+  const firstThreeTownPopGrowthMult =
+    economyPlayer && firstThreeTownKeys?.has(tileKey)
+      ? firstThreeTownsPopulationGrowthMultiplierForPlayer(economyPlayer)
+      : 1;
   const baseGoldPerMinute = isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN;
   const goldPerMinute =
     !tile.ownerId || tile.ownershipState !== "SETTLED"
@@ -619,6 +624,7 @@ const buildTownSummary = (
         POPULATION_GROWTH_BASE_RATE *
         (populationTier === "SETTLEMENT" ? 4 : 1) *
         (hasGranary ? 1.15 : 1) *
+        firstThreeTownPopGrowthMult *
         logisticFactor;
   const captureShockUntil = typeof townPartial.captureShockUntil === "number" ? townPartial.captureShockUntil : undefined;
   const isInCaptureShock = typeof captureShockUntil === "number" && captureShockUntil > Date.now();
