@@ -1,6 +1,7 @@
 import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
+import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
 import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
 
 type PlayerActionDeps = {
@@ -93,6 +94,32 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
   deps.renderHud();
 };
 
+const sendDomainCommand = (
+  deps: PlayerActionDeps,
+  domain: { id: string; name: string },
+  chosenTrickleResource: string | undefined
+): void => {
+  deps.state.domainUiSelectedId = domain.id;
+  deps.state.pendingDomainUnlockId = domain.id;
+  const payload: { type: "CHOOSE_DOMAIN"; domainId: string; chosenTrickleResource?: string } = {
+    type: "CHOOSE_DOMAIN",
+    domainId: domain.id
+  };
+  if (chosenTrickleResource) payload.chosenTrickleResource = chosenTrickleResource;
+  deps.ws.send(JSON.stringify(payload));
+  const trickleSuffix = chosenTrickleResource ? ` (${chosenTrickleResource} trickle)` : "";
+  deps.pushFeed(`Choosing domain: ${domain.name}${trickleSuffix}.`, "tech", "info");
+  deps.renderHud();
+};
+
+const offeredTrickleOptions = (effects: Record<string, unknown> | undefined): TrickleOption[] => {
+  const raw = (effects?.chosenResourceTrickleOptions ?? null) as Record<string, unknown> | null;
+  if (!raw || typeof raw !== "object") return [];
+  return Object.entries(raw)
+    .filter(([, rate]) => typeof rate === "number" && (rate as number) > 0)
+    .map(([resource, rate]) => ({ resource: resource.toUpperCase(), ratePerMinute: rate as number }));
+};
+
 export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: PlayerActionDeps): void => {
   const websocketOpenReadyState = typeof WebSocket !== "undefined" ? WebSocket.OPEN : 1;
   const domainId = (domainIdRaw ?? "").trim() || deps.state.domainUiSelectedId?.trim() || deps.state.domainChoices[0] || "";
@@ -122,39 +149,37 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
   // picks one resource that will trickle forever. The catalog effect carries
   // the offered { RESOURCE: ratePerMinute } map; if the option list is
   // present the server will reject the command unless `chosenTrickleResource`
-  // is included in the payload, so we must collect it here.
-  const trickleOptionsRaw = (domain.effects?.chosenResourceTrickleOptions ?? null) as Record<string, unknown> | null;
-  let chosenTrickleResource: string | undefined;
-  if (trickleOptionsRaw && typeof trickleOptionsRaw === "object") {
-    const offered = Object.entries(trickleOptionsRaw)
-      .filter(([, rate]) => typeof rate === "number" && (rate as number) > 0)
-      .map(([resource, rate]) => ({ resource: resource.toUpperCase(), rate: rate as number }));
-    if (offered.length > 0) {
-      const promptFn = typeof window !== "undefined" ? window.prompt : undefined;
-      if (!promptFn) {
-        deps.pushFeed("This domain needs a resource pick — open the game in a browser to confirm.", "tech", "warn");
-        return;
-      }
-      const summary = offered.map(({ resource, rate }) => `${resource} (+${rate.toFixed(2)}/min)`).join("  ·  ");
-      const defaultPick = offered[0]?.resource ?? "IRON";
-      const raw = promptFn(`${domain.name}: pick a resource to trickle forever.\n\nOptions: ${summary}\n\nType IRON, SUPPLY, or CRYSTAL.`, defaultPick);
-      const normalized = (raw ?? "").trim().toUpperCase();
-      const match = offered.find((option) => option.resource === normalized);
-      if (!match) {
-        deps.pushFeed("Domain pick cancelled — no resource selected.", "tech", "warn");
-        return;
-      }
-      chosenTrickleResource = match.resource;
-    }
+  // is included in the payload, so we have to collect it here before sending.
+  const offered = offeredTrickleOptions(domain.effects);
+  if (offered.length === 0) {
+    sendDomainCommand(deps, domain, undefined);
+    return;
   }
-  deps.state.domainUiSelectedId = domainId;
-  deps.state.pendingDomainUnlockId = domainId;
-  const payload: { type: "CHOOSE_DOMAIN"; domainId: string; chosenTrickleResource?: string } = { type: "CHOOSE_DOMAIN", domainId };
-  if (chosenTrickleResource) payload.chosenTrickleResource = chosenTrickleResource;
-  deps.ws.send(JSON.stringify(payload));
-  const trickleSuffix = chosenTrickleResource ? ` (${chosenTrickleResource} trickle)` : "";
-  deps.pushFeed(`Choosing domain: ${domain.name}${trickleSuffix}.`, "tech", "info");
-  deps.renderHud();
+
+  const defaultResource = offered[0]?.resource;
+  void promptForTrickleResource({
+    domainName: domain.name,
+    offered,
+    ...(defaultResource ? { defaultResource } : {})
+  }).then((picked) => {
+    if (!picked) {
+      deps.pushFeed("Domain pick cancelled — no resource selected.", "tech", "warn");
+      return;
+    }
+    // Guard against a renderer race: another domain command may have flown
+    // off while the modal was open. If we're now mid-flight, skip silently.
+    if (deps.state.pendingDomainUnlockId) {
+      deps.pushFeed("Already sending a domain choice. Waiting for server confirmation...", "tech", "warn");
+      return;
+    }
+    // Recheck the socket and auth state — the user may have been disconnected
+    // while the modal was open.
+    if (deps.ws.readyState !== websocketOpenReadyState) {
+      deps.pushFeed("Cannot choose a domain while disconnected.", "tech", "error");
+      return;
+    }
+    sendDomainCommand(deps, domain, picked);
+  });
 };
 
 export const explainActionFailureFromServer = (

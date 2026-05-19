@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.2",
+  version: "2026.05.19.3",
   title: "What's New",
-  summary: "Tier-1 domains are now identity-shaping picks, and every effect that had a tooltip — fort defense, fort build speed and upkeep, outpost deploy and supply, attack vs settled/forts, first-three-towns growth — actually runs in the sim now. Clockwork Stipend asks you to pick a resource that ticks forward forever.",
+  summary: "Tier-1 domains are now identity-shaping picks, every tooltip effect actually runs in the sim, and Clockwork Stipend's pick-a-resource modal replaces the placeholder browser prompt.",
   entries: [
+    {
+      introducedIn: "2026.05.19.3",
+      title: "Clockwork Stipend pick modal, smarter AI choice, hardened combat plumbing",
+      why: "The placeholder window.prompt for the Clockwork Stipend resource pick was functional but ugly, the AI was hard-coded to IRON, and a handful of divide-by-zero guards on multiplier helpers were defensive against a case the helper already filters out. Tightening all three.",
+      changes: [
+        "Clockwork Stipend now shows a proper in-game modal when you confirm it — three resource buttons with rate + flavor (Forge & fort upkeep / Outpost upkeep & army logistics / Research, observatories, shards), Esc/backdrop to cancel, default focus on the first option.",
+        "AI players picking Clockwork Stipend now pick whichever offered resource they are currently most stockpile-starved on, weighted by trickle rate so CRYSTAL's lower 0.1/min doesn't pull them away from a more impactful IRON/SUPPLY choice.",
+        "Removed defensive Math.max(mult, 0.01) floors in fortBuildSpeedMult / outpostDeploymentSpeedMult divisions — multiplicativeEffectForPlayer already filters out zero/negative values before multiplying, so the result is guaranteed > 0.",
+        "Ten new unit tests cover Iron Bastions / Supply Raiding / Mercantile Charter multiplier wiring, Clockwork Stipend's offered table, the choose-domain sub-choice requirement, locked-forever semantics, and the trickle-rate lookup."
+      ]
+    },
     {
       introducedIn: "2026.05.19.2",
       title: "Combat math now reads defender domains, outpost deploy speed wired up, Clockwork Stipend goes live",
