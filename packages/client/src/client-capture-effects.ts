@@ -48,6 +48,21 @@ export const renderCaptureProgress = (
   delete deps.captureCardEl.dataset.state;
   state.captureAlert = undefined;
 
+  if (state.capture && state.capture.silent) {
+    // Silent capture (waypoint-driven neutral EXPAND): hide the big
+    // overlay; the tile itself signals progress. Errors and combat
+    // results will still surface via state.captureAlert above.
+    deps.captureCardEl.style.display = "none";
+    deps.captureWrapEl.style.display = "none";
+    deps.captureCancelBtn.style.display = "none";
+    deps.captureCloseBtn.style.display = "none";
+    deps.captureDownloadDebugBtn.style.display = "none";
+    deps.captureBarEl.style.width = "0%";
+    deps.captureTitleEl.textContent = "";
+    deps.captureTimeEl.textContent = "";
+    deps.captureTargetEl.textContent = "";
+    return;
+  }
   if (state.capture) {
     const captureTargetKey = deps.keyFor(state.capture.target.x, state.capture.target.y);
     deps.captureCardEl.dataset.state = "progress";
