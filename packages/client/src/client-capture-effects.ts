@@ -17,6 +17,8 @@ export const renderCaptureProgress = (
     captureCancelBtn: HTMLElement;
     captureCloseBtn: HTMLElement;
     captureDownloadDebugBtn: HTMLElement;
+    captureActionBtn: HTMLButtonElement;
+    captureActionRowEl: HTMLElement;
     captureBarEl: HTMLElement;
     captureTitleEl: HTMLElement;
     captureTimeEl: HTMLElement;
@@ -32,12 +34,24 @@ export const renderCaptureProgress = (
     }
   }
   if (state.captureAlert && state.captureAlert.until > Date.now()) {
+    const action = state.captureAlert.action;
     deps.captureCardEl.dataset.state = state.captureAlert.tone;
     deps.captureCardEl.style.display = "grid";
     deps.captureWrapEl.style.display = "block";
     deps.captureCancelBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "inline-flex";
-    deps.captureDownloadDebugBtn.style.display = state.captureAlert.tone === "success" ? "none" : "inline-flex";
+    const debugVisible = state.captureAlert.tone !== "success";
+    deps.captureDownloadDebugBtn.style.display = debugVisible ? "inline-flex" : "none";
+    if (action) {
+      deps.captureActionBtn.textContent = action.label;
+      deps.captureActionBtn.dataset.panel = action.panel;
+      deps.captureActionBtn.style.display = "inline-flex";
+    } else {
+      deps.captureActionBtn.textContent = "";
+      delete deps.captureActionBtn.dataset.panel;
+      deps.captureActionBtn.style.display = "none";
+    }
+    deps.captureActionRowEl.style.display = debugVisible || action ? "flex" : "none";
     deps.captureBarEl.style.width = "100%";
     deps.captureTitleEl.textContent = state.captureAlert.title;
     deps.captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
@@ -57,6 +71,8 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "none";
     deps.captureDownloadDebugBtn.style.display = "none";
+    deps.captureActionBtn.style.display = "none";
+    deps.captureActionRowEl.style.display = "none";
     deps.captureBarEl.style.width = "0%";
     deps.captureTitleEl.textContent = "";
     deps.captureTimeEl.textContent = "";
@@ -109,6 +125,8 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "inline-flex";
     deps.captureCloseBtn.style.display = "none";
     deps.captureDownloadDebugBtn.style.display = showDebugDownload ? "inline-flex" : "none";
+    deps.captureActionBtn.style.display = "none";
+    deps.captureActionRowEl.style.display = showDebugDownload ? "flex" : "none";
     deps.captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
     deps.captureTitleEl.textContent = awaitingResult
       ? "Resolving action..."
@@ -125,6 +143,8 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "none";
     deps.captureDownloadDebugBtn.style.display = "none";
+    deps.captureActionBtn.style.display = "none";
+    deps.captureActionRowEl.style.display = "none";
     deps.captureBarEl.style.width = "0%";
     deps.captureTitleEl.textContent = "";
     deps.captureTimeEl.textContent = "";

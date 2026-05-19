@@ -1,21 +1,29 @@
-import type { ClientState } from "./client-state.js";
+import type { ClientActivePanel, ClientState } from "./client-state.js";
 import type { AllianceRequest, TruceRequest } from "./client-types.js";
 
 type DiplomacyNotificationState = Pick<ClientState, "notifiedIncomingDiplomacyRequestIds">;
 
 type DiplomacyNotificationDeps = {
   pushFeed: (message: string, type: "alliance", severity: "info" | "success" | "warn" | "error") => void;
-  showCaptureAlert: (title: string, detail: string, tone: "success" | "error" | "warn") => void;
+  showCaptureAlert: (
+    title: string,
+    detail: string,
+    tone: "success" | "error" | "warn",
+    manpowerLoss: number | undefined,
+    action: { label: string; panel: ClientActivePanel }
+  ) => void;
 };
+
+const OPEN_ALLIANCES_ACTION = { label: "Open Alliances", panel: "alliance" as ClientActivePanel };
 
 const senderName = (request: { fromName?: string; fromPlayerId: string }): string =>
   request.fromName?.trim() || request.fromPlayerId.slice(0, 8);
 
 const allianceDetail = (request: AllianceRequest): string =>
-  `${senderName(request)} sent an alliance request. Open Alliances to accept or reject.`;
+  `${senderName(request)} sent an alliance request.`;
 
 const truceDetail = (request: TruceRequest): string =>
-  `${senderName(request)} offered a ${request.durationHours}h truce. Open Alliances to accept or reject.`;
+  `${senderName(request)} offered a ${request.durationHours}h truce.`;
 
 const markUnseenRequest = (state: DiplomacyNotificationState, kind: "alliance" | "truce", requestId: string): boolean => {
   const key = `${kind}:${requestId}`;
@@ -32,7 +40,7 @@ export const notifyIncomingAllianceRequest = (
   if (!request?.id || !markUnseenRequest(state, "alliance", request.id)) return;
   const detail = allianceDetail(request);
   deps.pushFeed(detail, "alliance", "warn");
-  deps.showCaptureAlert("Alliance request received", detail, "warn");
+  deps.showCaptureAlert("Alliance request received", detail, "warn", undefined, OPEN_ALLIANCES_ACTION);
 };
 
 export const notifyIncomingTruceRequest = (
@@ -43,7 +51,7 @@ export const notifyIncomingTruceRequest = (
   if (!request?.id || !markUnseenRequest(state, "truce", request.id)) return;
   const detail = truceDetail(request);
   deps.pushFeed(detail, "alliance", "warn");
-  deps.showCaptureAlert("Truce offer received", detail, "warn");
+  deps.showCaptureAlert("Truce offer received", detail, "warn", undefined, OPEN_ALLIANCES_ACTION);
 };
 
 export const notifyIncomingDiplomacyRequestsOnInit = (
@@ -64,10 +72,10 @@ export const notifyIncomingDiplomacyRequestsOnInit = (
     const allianceRequest = unseenAllianceRequests[0];
     const truceRequest = unseenTruceRequests[0];
     if (allianceRequest) {
-      deps.showCaptureAlert("Alliance request received", allianceDetail(allianceRequest), "warn");
+      deps.showCaptureAlert("Alliance request received", allianceDetail(allianceRequest), "warn", undefined, OPEN_ALLIANCES_ACTION);
       return;
     }
-    if (truceRequest) deps.showCaptureAlert("Truce offer received", truceDetail(truceRequest), "warn");
+    if (truceRequest) deps.showCaptureAlert("Truce offer received", truceDetail(truceRequest), "warn", undefined, OPEN_ALLIANCES_ACTION);
     return;
   }
 
@@ -76,7 +84,7 @@ export const notifyIncomingDiplomacyRequestsOnInit = (
   const truceText = unseenTruceRequests.length === 1 ? "1 truce offer" : `${unseenTruceRequests.length} truce offers`;
   const detail =
     unseenAllianceRequests.length > 0 && unseenTruceRequests.length > 0
-      ? `You have ${allianceText} and ${truceText}. Open Alliances to respond.`
-      : `You have ${unseenAllianceRequests.length > 0 ? allianceText : truceText}. Open Alliances to respond.`;
-  deps.showCaptureAlert("Diplomacy requests waiting", detail, "warn");
+      ? `You have ${allianceText} and ${truceText}.`
+      : `You have ${unseenAllianceRequests.length > 0 ? allianceText : truceText}.`;
+  deps.showCaptureAlert("Diplomacy requests waiting", detail, "warn", undefined, OPEN_ALLIANCES_ACTION);
 };

@@ -25,6 +25,8 @@ describe("renderCaptureProgress", () => {
     const captureCancelBtn = makeElement();
     const captureCloseBtn = makeElement();
     const captureDownloadDebugBtn = makeElement();
+    const captureActionBtn = makeElement() as unknown as HTMLButtonElement;
+    const captureActionRowEl = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -66,6 +68,8 @@ describe("renderCaptureProgress", () => {
         captureCancelBtn,
         captureCloseBtn,
         captureDownloadDebugBtn,
+        captureActionBtn,
+        captureActionRowEl,
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
@@ -88,6 +92,8 @@ describe("renderCaptureProgress", () => {
     const captureCancelBtn = makeElement();
     const captureCloseBtn = makeElement();
     const captureDownloadDebugBtn = makeElement();
+    const captureActionBtn = makeElement() as unknown as HTMLButtonElement;
+    const captureActionRowEl = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -117,6 +123,8 @@ describe("renderCaptureProgress", () => {
         captureCancelBtn,
         captureCloseBtn,
         captureDownloadDebugBtn,
+        captureActionBtn,
+        captureActionRowEl,
         captureBarEl,
         captureTitleEl,
         captureTimeEl,

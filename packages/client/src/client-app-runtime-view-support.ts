@@ -18,7 +18,7 @@ import {
   setActivePanel as setActivePanelFromModule,
   viewportSize as viewportSizeFromModule
 } from "./client-panel-nav.js";
-import type { ClientState } from "./client-state.js";
+import type { ClientActivePanel, ClientState } from "./client-state.js";
 import type { FeedEntry, FeedSeverity, FeedType, Tile } from "./client-types.js";
 import {
   centerOnOwnedTile as centerOnOwnedTileFromModule,
@@ -45,8 +45,13 @@ export const createClientViewSupport = (deps: {
     shardAlertKeyForPayloadFromModule(phase, startsAt);
   const showShardAlert = (alert: ClientShardRainAlert): void => showShardAlertFromModule(state, alert);
   const hideShardAlert = (): void => hideShardAlertFromModule(state);
-  const showCaptureAlert = (title: string, detail: string, tone: "success" | "error" | "warn" = "error", manpowerLoss?: number): void =>
-    showCaptureAlertFromModule(state, title, detail, tone, manpowerLoss);
+  const showCaptureAlert = (
+    title: string,
+    detail: string,
+    tone: "success" | "error" | "warn" = "error",
+    manpowerLoss?: number,
+    action?: { label: string; panel: ClientActivePanel }
+  ): void => showCaptureAlertFromModule(state, title, detail, tone, manpowerLoss, action);
   const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void =>
     notifyInsufficientGoldForFrontierActionFromModule(state, action);
   const showCollectVisibleCooldownAlert = (): void => showCollectVisibleCooldownAlertFromModule(state, formatCooldownShort);
