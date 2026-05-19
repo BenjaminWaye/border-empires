@@ -5,6 +5,8 @@ export type FrontierCombatPreviewTile = {
   ownershipState?: string | undefined;
   dockId?: string | undefined;
   townType?: string | undefined;
+  // True iff the target tile has an active (not under-construction) fort owned by the defender.
+  hasFort?: boolean | undefined;
 };
 
 export type FrontierCombatPreview = {
@@ -15,13 +17,22 @@ export type FrontierCombatPreview = {
   winChance: number;
 };
 
+// Attacker-side multipliers come from the attacker's tech/domain effects;
+// defender-side multipliers come from the defender's. The caller is expected
+// to resolve both and pass them in here together.
 export type FrontierCombatModifiers = {
   attackerOutpostMult?: number;
+  attackVsSettledMult?: number;
+  attackVsFortsMult?: number;
+  fortDefenseMult?: number;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
 
-const defenseMultiplierForTile = (target: FrontierCombatPreviewTile): number => {
+const defenseMultiplierForTile = (
+  target: FrontierCombatPreviewTile,
+  modifiers: FrontierCombatModifiers
+): number => {
   // Legacy parity: frontier tiles provide no defensive effective power.
   if (target.ownershipState === "FRONTIER") return 0;
   let defMult = 1;
@@ -29,6 +40,7 @@ const defenseMultiplierForTile = (target: FrontierCombatPreviewTile): number => 
   if (target.townType) defMult *= 1.2;
   if (target.dockId) defMult *= 1.1;
   if (target.terrain === "MOUNTAIN") defMult *= 1.15;
+  if (target.hasFort) defMult *= modifiers.fortDefenseMult ?? 1;
   return defMult;
 };
 
@@ -36,9 +48,11 @@ const buildFrontierCombatPreviewImpl = (
   target: FrontierCombatPreviewTile,
   modifiers: FrontierCombatModifiers = {}
 ): FrontierCombatPreview => {
-  const atkMult = modifiers.attackerOutpostMult ?? 1;
+  let atkMult = modifiers.attackerOutpostMult ?? 1;
+  if (target.ownershipState === "SETTLED") atkMult *= modifiers.attackVsSettledMult ?? 1;
+  if (target.hasFort) atkMult *= modifiers.attackVsFortsMult ?? 1;
   const atkEff = 10 * atkMult;
-  const defMult = defenseMultiplierForTile(target);
+  const defMult = defenseMultiplierForTile(target, modifiers);
   const defEff = 10 * defMult;
   return {
     atkEff,
