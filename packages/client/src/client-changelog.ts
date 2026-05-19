@@ -19,19 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.3",
+  version: "2026.05.19.4",
   title: "What's New",
-  summary: "Incoming alliance and truce requests now raise a visible alert, summarize on login, and reliably email you regardless of the standard daily cap.",
+  summary: "Granaries now render as 3D wooden barns in true-3D mode, and the Seed Granary upgrade has its own distinct silhouette — three tall stone silos with copper caps and a green-glowing seed lab — so the two structures never get confused at a glance.",
   entries: [
     {
-      introducedIn: "2026.05.19.3",
-      title: "Diplomacy requests are visible on login and always email",
-      why: "Alliance and truce offers already appeared in the Alliances panel, but players who were offline when a request arrived could log in without any clear alert that a response was waiting, and email notifications could be silently dropped by the per-recipient daily cap or hourly spacing.",
+      introducedIn: "2026.05.19.4",
+      title: "3D meshes for Granary and Seed Granary",
+      why: "Granaries had no 3D representation, so true-3D players saw the 2D SVG floating in place over the heightfield instead of an in-world structure. Seed Granary — the granary upgrade with stronger growth and lower food upkeep — needed a distinct silhouette so it would never get confused with the regular granary or with the existing Farmstead's wooden silo.",
       changes: [
-        "Incoming alliance requests now open a visible alert and add a diplomacy feed entry when they arrive live.",
-        "Incoming truce offers now open the same visible alert path with the proposed truce duration.",
-        "Login INIT now checks pending incoming alliance and truce requests and summarizes any new waiting diplomacy requests without repeating the same request on reconnect.",
-        "Email alerts for alliance and truce requests now bypass the per-recipient daily cap and hourly spacing, so every diplomacy offer reliably reaches your inbox."
+        "Granary now renders as a cream-walled wooden barn with a golden gable roof, three horizontal grain bands, a small grey-roofed side annex, a cupola/ventilator on top, and two grain sacks out front — colors and silhouette drawn from the granary-overlay.svg so 2D and 3D read as the same structure.",
+        "Seed Granary now renders as a cluster of three tall stone silos with copper conical caps plus a small seed-lab annex with a green-glowing window, giving it a vertical, agronomy-lab silhouette that's clearly distinct from the squat wooden Granary barn and from the Farmstead's single silo. Seed Granary placement on tiles is not yet wired server-side, so the mesh currently shows only in the ?structuredemo=1 design row.",
+        "Both meshes use instanced primitives consistent with the rest of the Tier-1 structure overlay (no new shader paths, no per-tile variants)."
       ]
     },
     {
