@@ -10,6 +10,7 @@ type StructureScaling =
 
 export type StructureCostDefinition = {
   baseGoldCost: number;
+  manpowerCost?: number;
   resourceCost?: { resource: StrategicResourceCostType; amount: number };
   resourceOptions?: readonly StrategicResourceCostType[];
   scaling?: StructureScaling;
@@ -18,6 +19,7 @@ export type StructureCostDefinition = {
 const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDefinition> = {
   FORT: {
     baseGoldCost: 900,
+    manpowerCost: 300,
     resourceCost: { resource: "IRON", amount: 45 },
     scaling: { kind: "incremental", rate: 0.1 }
   },
@@ -28,6 +30,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   },
   SIEGE_OUTPOST: {
     baseGoldCost: 900,
+    manpowerCost: 60,
     resourceCost: { resource: "SUPPLY", amount: 45 },
     scaling: { kind: "incremental", rate: 0.1 }
   },
@@ -52,10 +55,12 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   },
   WOODEN_FORT: {
     baseGoldCost: 75,
+    manpowerCost: 30,
     scaling: { kind: "incremental", rate: 0.1 }
   },
   LIGHT_OUTPOST: {
     baseGoldCost: 75,
+    manpowerCost: 30,
     scaling: { kind: "incremental", rate: 0.1 }
   },
   FUR_SYNTHESIZER: { baseGoldCost: 2_200 },
@@ -88,6 +93,9 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
 export const structureCostDefinition = (type: BuildableStructureType): StructureCostDefinition => STRUCTURE_COST_DEFINITIONS[type];
 
 export const structureBaseGoldCost = (type: BuildableStructureType): number => STRUCTURE_COST_DEFINITIONS[type].baseGoldCost;
+
+export const structureBuildManpowerCost = (type: BuildableStructureType): number =>
+  STRUCTURE_COST_DEFINITIONS[type].manpowerCost ?? 0;
 
 export const structureBuildGoldCost = (type: BuildableStructureType, existingCount: number): number => {
   const definition = STRUCTURE_COST_DEFINITIONS[type];

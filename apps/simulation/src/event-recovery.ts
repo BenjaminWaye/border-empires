@@ -16,6 +16,7 @@ type RecoveredTileState = {
   shardSite?: DomainTileState["shardSite"];
   ownerId?: DomainTileState["ownerId"];
   ownershipState?: DomainTileState["ownershipState"];
+  frontierDecayAt?: DomainTileState["frontierDecayAt"];
   town?: DomainTileState["town"];
   fort?: DomainTileState["fort"];
   observatory?: DomainTileState["observatory"];
@@ -87,6 +88,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+  ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   ...(tile.fort ? { fort: tile.fort } : {}),
   ...(tile.observatory ? { observatory: tile.observatory } : {}),
@@ -239,6 +241,13 @@ const applyTileDeltaToRecoveredAccumulator = (
           : {})
       : existing?.ownershipState
         ? { ownershipState: existing.ownershipState }
+        : {}),
+    ...("frontierDecayAt" in tileDelta
+      ? typeof tileDelta.frontierDecayAt === "number"
+        ? { frontierDecayAt: tileDelta.frontierDecayAt }
+        : {}
+      : typeof existing?.frontierDecayAt === "number"
+        ? { frontierDecayAt: existing.frontierDecayAt }
         : {}),
     ...(recoveredTown ? { town: recoveredTown } : {}),
     ...("fortJson" in tileDelta

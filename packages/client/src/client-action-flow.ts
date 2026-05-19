@@ -232,6 +232,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "CHOOSE_DOMAIN",
     "OVERLOAD_SYNTHESIZER",
     "SET_CONVERTER_STRUCTURE_ENABLED",
+    "SET_SIEGE_OUTPOST_AUTO_ATTACK",
     "REVEAL_EMPIRE",
     "REVEAL_EMPIRE_STATS",
     "CAST_AETHER_BRIDGE",
@@ -497,7 +498,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return origin ? state.tiles.get(keyFor(origin.x, origin.y)) : undefined;
     })();
     const changes =
-      (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>) ??
+      (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number; frontierDecayAt?: number | null }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
     for (const c of changes) {
@@ -516,6 +517,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       else if (!c.ownerId) delete incoming.ownershipState;
       if (typeof c.breachShockUntil === "number") incoming.breachShockUntil = c.breachShockUntil;
       else if ("breachShockUntil" in c && !c.breachShockUntil) delete incoming.breachShockUntil;
+      if (typeof c.frontierDecayAt === "number") incoming.frontierDecayAt = c.frontierDecayAt;
+      else if ("frontierDecayAt" in c && !c.frontierDecayAt) delete incoming.frontierDecayAt;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
@@ -1527,6 +1530,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "overload_crystal_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "enable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: true });
     if (actionId === "disable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: false });
+    if (actionId === "enable_outpost_auto_attack") sendGameMessage({ type: "SET_SIEGE_OUTPOST_AUTO_ATTACK", x: selected.x, y: selected.y, enabled: true });
+    if (actionId === "disable_outpost_auto_attack") sendGameMessage({ type: "SET_SIEGE_OUTPOST_AUTO_ATTACK", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });

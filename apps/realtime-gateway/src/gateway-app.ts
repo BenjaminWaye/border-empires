@@ -188,6 +188,7 @@ const playerSubscriptionSnapshotFromSeedWorld = (
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+    ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.town?.type ? { townType: tile.town.type } : {}),
     ...(tile.town?.name ? { townName: tile.town.name } : {}),
     ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {})
@@ -204,6 +205,7 @@ const jsonSafeTileDeltaBatch = (
     ...tileDelta,
     ...("ownerId" in tileDelta && tileDelta.ownerId === undefined ? { ownerId: null } : {}),
     ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
+    ...("frontierDecayAt" in tileDelta && tileDelta.frontierDecayAt === undefined ? { frontierDecayAt: null } : {}),
     ...("fortJson" in tileDelta && tileDelta.fortJson === undefined ? { fortJson: "" } : {}),
     ...("observatoryJson" in tileDelta && tileDelta.observatoryJson === undefined ? { observatoryJson: "" } : {}),
     ...("siegeOutpostJson" in tileDelta && tileDelta.siegeOutpostJson === undefined ? { siegeOutpostJson: "" } : {}),
@@ -1084,6 +1086,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         messageType !== "BUILD_FORT" &&
         messageType !== "BUILD_OBSERVATORY" &&
         messageType !== "BUILD_SIEGE_OUTPOST" &&
+        messageType !== "SET_SIEGE_OUTPOST_AUTO_ATTACK" &&
         messageType !== "BUILD_ECONOMIC_STRUCTURE" &&
         messageType !== "CANCEL_FORT_BUILD" &&
         messageType !== "CANCEL_STRUCTURE_BUILD" &&
@@ -2340,6 +2343,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "BUILD_FORT" &&
             message.type !== "BUILD_OBSERVATORY" &&
             message.type !== "BUILD_SIEGE_OUTPOST" &&
+            message.type !== "SET_SIEGE_OUTPOST_AUTO_ATTACK" &&
             message.type !== "BUILD_ECONOMIC_STRUCTURE" &&
             message.type !== "CANCEL_FORT_BUILD" &&
             message.type !== "CANCEL_STRUCTURE_BUILD" &&
@@ -2506,6 +2510,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   payload: {
                     x: message.x,
                     y: message.y
+                  }
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "SET_SIEGE_OUTPOST_AUTO_ATTACK") {
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "SET_SIEGE_OUTPOST_AUTO_ATTACK",
+                  payload: {
+                    x: message.x,
+                    y: message.y,
+                    enabled: message.enabled
                   }
                 },
                 submitDeps

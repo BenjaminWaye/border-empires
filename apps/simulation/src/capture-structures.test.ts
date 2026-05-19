@@ -29,6 +29,14 @@ describe("capture structure survival", () => {
         ]),
         initialState: {
           tiles: [
+            {
+              x: 9,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { type: "MARKET", name: "Attacker Town", populationTier: "TOWN" }
+            },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             {
               x: 10,
