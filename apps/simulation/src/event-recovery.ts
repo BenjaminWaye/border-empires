@@ -344,6 +344,13 @@ export const applySimulationEventsToRecoveredAccumulator = (
       continue;
     }
 
+    if (event.eventType === "TILE_YIELD_ANCHOR_BATCH") {
+      for (const anchor of event.anchors) {
+        accumulator.tileYieldCollectedAtByTile.set(anchor.tileKey, anchor.collectedAt);
+      }
+      continue;
+    }
+
     if (event.eventType === "SETTLEMENT_STARTED") {
       spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
       removeRecoveredPendingSettlement(accumulator, event.tileKey);
