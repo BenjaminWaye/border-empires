@@ -5,11 +5,12 @@
       "id": "frontier-doctrine",
       "tier": 1,
       "name": "Frontier Doctrine",
-      "description": "Settlers move out at breakneck pace.",
+      "description": "Settlers move out at breakneck pace, and the realm can coordinate one extra expansion at a time.",
       "requiresTechId": "toolmaking",
       "cost": { "gold": 6000, "food": 120 },
       "effects": {
-        "settlementSpeedMult": 1.5
+        "settlementSpeedMult": 1.5,
+        "developmentProcessCapacityAdd": 1
       }
     },
     {
