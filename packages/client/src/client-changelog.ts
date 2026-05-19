@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.5",
+  version: "2026.05.19.6",
   title: "What's New",
-  summary: "Tier-1 domains are now identity-shaping picks, every tooltip effect runs in the sim, your Clockwork Stipend pick survives reconnects, and the owned-domain card now shows which resource you locked.",
+  summary: "Owned-domain trickle suffix is now data-validated and test-covered.",
   entries: [
+    {
+      introducedIn: "2026.05.19.6",
+      title: "Trickle suffix only renders when the data is actually valid",
+      why: "The owned-domain trickle suffix gate was Boolean(effects.chosenResourceTrickleOptions), which evaluates true for present-but-empty {} or bogus non-numeric rates. A future data-edit bug could have rendered a misleading 'IRON trickle' label against an unusable options table.",
+      changes: [
+        "domainOwnedHtml's offers-trickle check now requires at least one numeric, positive rate inside chosenResourceTrickleOptions — empty objects and non-numeric rates no longer trigger the suffix.",
+        "Added five client tests around domainOwnedHtml: locked-suffix renders only on the domain that offered the pick, missing chosenTrickleResource hides the suffix, empty / bogus options tables are ignored, and CRYSTAL renders correctly."
+      ]
+    },
     {
       introducedIn: "2026.05.19.5",
       title: "Owned Clockwork Stipend card shows your locked resource, dead-code cleanup",
