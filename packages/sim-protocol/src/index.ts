@@ -328,6 +328,10 @@ export type PlayerSubscriptionSnapshot = {
     pendingSettlements: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }>;
     techIds: string[];
     domainIds: string[];
+    // Locked sub-choice for domains that ask the player to pick a resource
+    // (Clockwork Stipend). Persisted with the player snapshot so the choice
+    // survives reconnects and snapshot replays.
+    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
     mods?: Record<"attack" | "defense" | "income" | "vision", number>;
     modBreakdown?: Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>;
   };
