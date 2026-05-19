@@ -279,6 +279,16 @@ export const techOwnedHtml = (
     .join("");
 };
 
+// A domain "offers a trickle pick" only if its effects table actually carries
+// at least one valid { resource: positive-rate } entry. Guarding against the
+// shape being present-but-empty so a future data-edit bug can't render a
+// misleading suffix.
+const domainOffersTrickleOptions = (domain: DomainInfo | undefined): boolean => {
+  const raw = domain?.effects?.chosenResourceTrickleOptions;
+  if (!raw || typeof raw !== "object") return false;
+  return Object.values(raw as Record<string, unknown>).some((rate) => typeof rate === "number" && rate > 0);
+};
+
 export const domainOwnedHtml = (
   domainCatalog: DomainInfo[],
   domainIds: string[],
@@ -292,8 +302,10 @@ export const domainOwnedHtml = (
       // If this domain offered a trickle-resource sub-choice (currently only
       // Clockwork Stipend), surface the player's locked pick so the card
       // doesn't just say "pick a resource" forever.
-      const offersTrickle = Boolean(domain?.effects?.chosenResourceTrickleOptions);
-      const trickleSuffix = offersTrickle && chosenTrickleResource ? ` <em>(${chosenTrickleResource} trickle)</em>` : "";
+      const trickleSuffix =
+        domainOffersTrickleOptions(domain) && chosenTrickleResource
+          ? ` <em>(${chosenTrickleResource} trickle)</em>`
+          : "";
       return `<article class="card"><strong>${domain?.name ?? id}${trickleSuffix}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
     })
     .join("");

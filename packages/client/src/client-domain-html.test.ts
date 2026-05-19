@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DomainInfo } from "./client-types.js";
-import { renderDomainChoiceGridHtml, renderDomainDetailCardHtml, renderDomainProgressCardHtml } from "./client-tech-html.js";
+import { domainOwnedHtml, renderDomainChoiceGridHtml, renderDomainDetailCardHtml, renderDomainProgressCardHtml } from "./client-tech-html.js";
 
 describe("domain card previews", () => {
   it("keeps the sharding summary focused on shard stock and caches", () => {
@@ -232,5 +232,72 @@ describe("domain card previews", () => {
 
     expect(html).toContain("Choosing Tier 1...");
     expect(html).toContain("Sending your domain choice to the server...");
+  });
+});
+
+describe("domainOwnedHtml — trickle suffix", () => {
+  const clockworkStipend: DomainInfo = {
+    id: "clockwork-stipend",
+    tier: 1,
+    name: "Clockwork Stipend",
+    description: "Imperial machinery ticks forward a steady supply.",
+    requiresTechId: "agriculture",
+    mods: {},
+    effects: { chosenResourceTrickleOptions: { IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 } },
+    requirements: { gold: 6000, resources: { FOOD: 120 }, canResearch: false }
+  };
+
+  const ironBastions: DomainInfo = {
+    id: "iron-bastions",
+    tier: 1,
+    name: "Iron Bastions",
+    description: "Forts pop up overnight.",
+    requiresTechId: "masonry",
+    mods: {},
+    effects: { fortBuildSpeedMult: 1.5 },
+    requirements: { gold: 6000, resources: { IRON: 120 }, canResearch: false }
+  };
+
+  it("appends the locked trickle suffix only to the domain that offered the pick", () => {
+    const html = domainOwnedHtml(
+      [clockworkStipend, ironBastions],
+      ["clockwork-stipend", "iron-bastions"],
+      "IRON"
+    );
+    expect(html).toContain("Clockwork Stipend <em>(IRON trickle)</em>");
+    // Iron Bastions never offered a trickle table — must not get the suffix.
+    expect(html).toContain("<strong>Iron Bastions</strong>");
+    expect(html).not.toContain("Iron Bastions <em>(");
+  });
+
+  it("does not append a suffix when the player has not locked a resource", () => {
+    const html = domainOwnedHtml([clockworkStipend], ["clockwork-stipend"], undefined);
+    expect(html).toContain("<strong>Clockwork Stipend</strong>");
+    expect(html).not.toContain("trickle)</em>");
+  });
+
+  it("ignores a present-but-empty chosenResourceTrickleOptions object", () => {
+    const stipendWithEmptyOptions: DomainInfo = {
+      ...clockworkStipend,
+      effects: { chosenResourceTrickleOptions: {} }
+    };
+    const html = domainOwnedHtml([stipendWithEmptyOptions], ["clockwork-stipend"], "IRON");
+    // Empty options table means the domain doesn't actually offer a pick; the
+    // locked-resource suffix must not appear.
+    expect(html).not.toContain("trickle)</em>");
+  });
+
+  it("ignores a non-numeric rate in chosenResourceTrickleOptions", () => {
+    const stipendWithBogusRates: DomainInfo = {
+      ...clockworkStipend,
+      effects: { chosenResourceTrickleOptions: { IRON: "0.2" } }
+    };
+    const html = domainOwnedHtml([stipendWithBogusRates], ["clockwork-stipend"], "IRON");
+    expect(html).not.toContain("trickle)</em>");
+  });
+
+  it("renders the locked CRYSTAL suffix", () => {
+    const html = domainOwnedHtml([clockworkStipend], ["clockwork-stipend"], "CRYSTAL");
+    expect(html).toContain("Clockwork Stipend <em>(CRYSTAL trickle)</em>");
   });
 });
