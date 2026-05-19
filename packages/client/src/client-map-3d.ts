@@ -12,6 +12,7 @@ import {
   MeshBasicMaterial,
   PlaneGeometry,
   Scene,
+  SphereGeometry,
   TorusGeometry,
   WebGLRenderer
 } from "three";
@@ -37,7 +38,7 @@ import { createVillageEffects } from "./client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "./client-map-3d-floating-text.js";
 import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "./client-map-3d-town-support-coins.js";
 import { createForest } from "./client-map-3d-forest.js";
-import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
+import { createOwnershipOverlay, FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "./client-town-growth.js";
@@ -306,59 +307,151 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     marker.visible = false;
     return { marker, material };
   });
-  // The waypoint flag is a brass-and-copper steampunk assembly: tapered
-  // pole with rivet bands, a horizontal cross-arm, a pennant in the
-  // player's empire color with a copper top stripe, a spire finial, and
-  // two counter-rotating cog rings around a soft empire-color glow disk
-  // at the base.
+  // The waypoint flag is a full steampunk tower: octagonal glow base,
+  // wide brass pedestal with two side cannons, a banner-bearing trunk,
+  // a winged gear medallion, a brass dome, and a spire — anchored to
+  // the destination tile and tinted by the player's empire color.
   const BRASS_HI = "#d2a76a";
   const BRASS_LO = "#8b6f47";
   const COPPER = "#a85d36";
   const waypointFlagGroup = new Group();
-  const waypointFlagPoleMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
-  const waypointFlagPole = new Mesh(new CylinderGeometry(0.035, 0.06, 1.5, 10), waypointFlagPoleMaterial);
-  waypointFlagPole.position.y = 0.75;
-  const waypointFlagBandMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-  const waypointFlagBandLow = new Mesh(new CylinderGeometry(0.06, 0.06, 0.05, 12), waypointFlagBandMaterial);
-  waypointFlagBandLow.position.y = 0.35;
-  const waypointFlagBandMid = new Mesh(new CylinderGeometry(0.055, 0.055, 0.05, 12), waypointFlagBandMaterial);
-  waypointFlagBandMid.position.y = 0.85;
-  const waypointFlagCrossArm = new Mesh(new CylinderGeometry(0.02, 0.02, 0.55, 8), waypointFlagPoleMaterial);
-  waypointFlagCrossArm.rotation.z = Math.PI / 2;
-  waypointFlagCrossArm.position.set(0.2, 1.35, 0);
-  const waypointFlagPennantMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.96, depthTest: false, depthWrite: false, side: DoubleSide });
-  const waypointFlagPennant = new Mesh(new PlaneGeometry(0.5, 0.36), waypointFlagPennantMaterial);
-  waypointFlagPennant.position.set(0.25, 1.15, 0);
-  const waypointFlagPennantStripeMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: DoubleSide });
-  const waypointFlagPennantStripe = new Mesh(new PlaneGeometry(0.5, 0.08), waypointFlagPennantStripeMaterial);
-  waypointFlagPennantStripe.position.set(0.25, 1.29, 0.001);
-  const waypointFlagFinialMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
-  const waypointFlagFinial = new Mesh(new ConeGeometry(0.05, 0.16, 10), waypointFlagFinialMaterial);
-  waypointFlagFinial.position.y = 1.58;
-  const waypointFlagGearOuterMaterial = new MeshBasicMaterial({ color: BRASS_LO, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-  const waypointFlagGearOuter = new Mesh(new TorusGeometry(0.3, 0.05, 6, 22), waypointFlagGearOuterMaterial);
-  waypointFlagGearOuter.rotation.x = Math.PI / 2;
-  waypointFlagGearOuter.position.y = 0.02;
-  const waypointFlagGearInnerMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-  const waypointFlagGearInner = new Mesh(new TorusGeometry(0.18, 0.04, 6, 18), waypointFlagGearInnerMaterial);
-  waypointFlagGearInner.rotation.x = Math.PI / 2;
-  waypointFlagGearInner.position.y = 0.06;
-  const waypointFlagBaseGlowMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.32, depthTest: false, depthWrite: false, side: DoubleSide });
-  const waypointFlagBaseGlow = new Mesh(new TorusGeometry(0.42, 0.08, 4, 24), waypointFlagBaseGlowMaterial);
-  waypointFlagBaseGlow.rotation.x = Math.PI / 2;
+  // Octagonal hex glow ring at the base (the bright empire-colored
+  // outline that frames the tile in the reference image).
+  const waypointBaseHexMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.7, depthTest: false, depthWrite: false });
+  const waypointBaseHex = new Mesh(new TorusGeometry(0.55, 0.04, 4, 8), waypointBaseHexMaterial);
+  waypointBaseHex.rotation.x = Math.PI / 2;
+  waypointBaseHex.rotation.z = Math.PI / 8;
+  waypointBaseHex.position.y = 0.01;
+  // Wide octagonal brass pedestal sitting just inside the hex glow.
+  const waypointPedestalMaterial = new MeshBasicMaterial({ color: BRASS_LO, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointPedestal = new Mesh(new CylinderGeometry(0.42, 0.46, 0.16, 8), waypointPedestalMaterial);
+  waypointPedestal.position.y = 0.1;
+  // Inset glow ring on the pedestal's upper face — empire color, picks
+  // up the "energy core" feel from the reference image.
+  const waypointPedestalGlowMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false });
+  const waypointPedestalGlow = new Mesh(new TorusGeometry(0.28, 0.03, 4, 16), waypointPedestalGlowMaterial);
+  waypointPedestalGlow.rotation.x = Math.PI / 2;
+  waypointPedestalGlow.position.y = 0.19;
+  // Side cannons (two stubby copper barrels sticking out from the
+  // pedestal collar — the iconic "this is a war engine" silhouette).
+  const waypointCannonMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointCannonLeft = new Mesh(new CylinderGeometry(0.04, 0.05, 0.32, 10), waypointCannonMaterial);
+  waypointCannonLeft.rotation.z = Math.PI / 2;
+  waypointCannonLeft.position.set(-0.4, 0.24, 0);
+  const waypointCannonRight = new Mesh(new CylinderGeometry(0.04, 0.05, 0.32, 10), waypointCannonMaterial);
+  waypointCannonRight.rotation.z = Math.PI / 2;
+  waypointCannonRight.position.set(0.4, 0.24, 0);
+  // Main tower trunk — wider than a flagpole, brass-segmented feel
+  // achieved by stacking a band ring midway up.
+  const waypointTowerMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointTowerTrunk = new Mesh(new CylinderGeometry(0.075, 0.1, 1.1, 12), waypointTowerMaterial);
+  waypointTowerTrunk.position.y = 0.75;
+  const waypointTowerBandMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+  const waypointTowerBandLow = new Mesh(new CylinderGeometry(0.105, 0.105, 0.04, 12), waypointTowerBandMaterial);
+  waypointTowerBandLow.position.y = 0.4;
+  const waypointTowerBandHi = new Mesh(new CylinderGeometry(0.085, 0.085, 0.04, 12), waypointTowerBandMaterial);
+  waypointTowerBandHi.position.y = 1.05;
+  // Horizontal crossarm the banner hangs from, with knob caps at each end.
+  const waypointBannerArm = new Mesh(new CylinderGeometry(0.025, 0.025, 0.5, 8), waypointTowerMaterial);
+  waypointBannerArm.rotation.z = Math.PI / 2;
+  waypointBannerArm.position.y = 0.7;
+  const waypointBannerArmCapL = new Mesh(new SphereGeometry(0.04, 8, 6), waypointTowerMaterial);
+  waypointBannerArmCapL.position.set(-0.25, 0.7, 0);
+  const waypointBannerArmCapR = new Mesh(new SphereGeometry(0.04, 8, 6), waypointTowerMaterial);
+  waypointBannerArmCapR.position.set(0.25, 0.7, 0);
+  // The banner itself: vertical empire-color plane hanging down from
+  // the crossarm with a darker copper trim plane behind it for depth.
+  const waypointBannerBackingMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: DoubleSide });
+  const waypointBannerBacking = new Mesh(new PlaneGeometry(0.42, 0.7), waypointBannerBackingMaterial);
+  waypointBannerBacking.position.set(0, 0.36, -0.005);
+  const waypointBannerMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.97, depthTest: false, depthWrite: false, side: DoubleSide });
+  const waypointBanner = new Mesh(new PlaneGeometry(0.36, 0.62), waypointBannerMaterial);
+  waypointBanner.position.set(0, 0.38, 0);
+  // Emblem disc centered on the banner — a darker plate inside a
+  // thin brass ring, evoking the gear-with-wings crest.
+  const waypointBannerEmblemPlateMaterial = new MeshBasicMaterial({ color: BRASS_LO, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+  const waypointBannerEmblemPlate = new Mesh(new CylinderGeometry(0.1, 0.1, 0.005, 16), waypointBannerEmblemPlateMaterial);
+  waypointBannerEmblemPlate.rotation.x = Math.PI / 2;
+  waypointBannerEmblemPlate.position.set(0, 0.4, 0.01);
+  const waypointBannerEmblemRingMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointBannerEmblemRing = new Mesh(new TorusGeometry(0.1, 0.012, 6, 16), waypointBannerEmblemRingMaterial);
+  waypointBannerEmblemRing.position.set(0, 0.4, 0.015);
+  // Winged gear medallion crowning the tower.
+  const waypointMedallionFrameMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointMedallionFrame = new Mesh(new TorusGeometry(0.22, 0.025, 8, 24), waypointMedallionFrameMaterial);
+  waypointMedallionFrame.position.y = 1.35;
+  const waypointMedallionFaceMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.9, depthTest: false, depthWrite: false });
+  const waypointMedallionFace = new Mesh(new CylinderGeometry(0.2, 0.2, 0.025, 18), waypointMedallionFaceMaterial);
+  waypointMedallionFace.rotation.x = Math.PI / 2;
+  waypointMedallionFace.position.y = 1.35;
+  // Wings flanking the medallion — elongated cones laid flat. The
+  // pointy end faces outward so they read as swept-back wings.
+  const waypointWingMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+  const waypointWingLeft = new Mesh(new ConeGeometry(0.06, 0.3, 5), waypointWingMaterial);
+  waypointWingLeft.rotation.z = Math.PI / 2;
+  waypointWingLeft.position.set(-0.36, 1.35, 0);
+  const waypointWingRight = new Mesh(new ConeGeometry(0.06, 0.3, 5), waypointWingMaterial);
+  waypointWingRight.rotation.z = -Math.PI / 2;
+  waypointWingRight.position.set(0.36, 1.35, 0);
+  // Domed brass cap above the medallion.
+  const waypointDomeMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointDome = new Mesh(new SphereGeometry(0.12, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), waypointDomeMaterial);
+  waypointDome.position.y = 1.5;
+  // Slim spire crowning the dome.
+  const waypointSpireMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const waypointSpire = new Mesh(new ConeGeometry(0.025, 0.22, 8), waypointSpireMaterial);
+  waypointSpire.position.y = 1.72;
+  // Two purple smoke wisps drifting up from the pedestal collar near
+  // the cannons. Vertical planes with low opacity, swayed by the bob
+  // animation so they feel alive.
+  const waypointSmokeMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.18, depthTest: false, depthWrite: false, side: DoubleSide });
+  const waypointSmokeLeft = new Mesh(new PlaneGeometry(0.12, 0.5), waypointSmokeMaterial);
+  waypointSmokeLeft.position.set(-0.28, 0.5, 0);
+  const waypointSmokeRight = new Mesh(new PlaneGeometry(0.12, 0.5), waypointSmokeMaterial);
+  waypointSmokeRight.position.set(0.28, 0.5, 0);
   waypointFlagGroup.add(
-    waypointFlagBaseGlow,
-    waypointFlagGearOuter,
-    waypointFlagGearInner,
-    waypointFlagPole,
-    waypointFlagBandLow,
-    waypointFlagBandMid,
-    waypointFlagCrossArm,
-    waypointFlagPennant,
-    waypointFlagPennantStripe,
-    waypointFlagFinial
+    waypointBaseHex,
+    waypointPedestal,
+    waypointPedestalGlow,
+    waypointCannonLeft,
+    waypointCannonRight,
+    waypointSmokeLeft,
+    waypointSmokeRight,
+    waypointTowerTrunk,
+    waypointTowerBandLow,
+    waypointTowerBandHi,
+    waypointBannerArm,
+    waypointBannerArmCapL,
+    waypointBannerArmCapR,
+    waypointBannerBacking,
+    waypointBanner,
+    waypointBannerEmblemPlate,
+    waypointBannerEmblemRing,
+    waypointMedallionFrame,
+    waypointMedallionFace,
+    waypointWingLeft,
+    waypointWingRight,
+    waypointDome,
+    waypointSpire
   );
   waypointFlagGroup.visible = false;
+  // Frontier-claim fill: a single empire-color plate that ramps in
+  // opacity over the claim duration, used when state.capture.silent is
+  // set (waypoint-driven neutral EXPAND). Replaces the big "Capturing
+  // Territory..." overlay for that flow — the player sees the target
+  // tile filling in with their color instead.
+  const frontierClaimPlateGeometry = new PlaneGeometry(0.94, 0.94);
+  frontierClaimPlateGeometry.rotateX(-Math.PI * 0.5);
+  const frontierClaimPlateMaterial = new MeshBasicMaterial({
+    color: "#ffffff",
+    transparent: true,
+    opacity: 0,
+    depthTest: false,
+    depthWrite: false
+  });
+  const frontierClaimPlate = new Mesh(frontierClaimPlateGeometry, frontierClaimPlateMaterial);
+  frontierClaimPlate.visible = false;
+  frontierClaimPlate.frustumCulled = false;
   // Path tiles between the player's territory and the waypoint
   // destination. Dimmer empire color so they read as "from you" without
   // overpowering the destination flag.
@@ -433,16 +526,30 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
   for (const { marker } of waypointPathMarkers) marker.renderOrder = 29;
-  waypointFlagBaseGlow.renderOrder = 30;
-  waypointFlagGearOuter.renderOrder = 31;
-  waypointFlagGearInner.renderOrder = 31;
-  waypointFlagPole.renderOrder = 32;
-  waypointFlagBandLow.renderOrder = 32;
-  waypointFlagBandMid.renderOrder = 32;
-  waypointFlagCrossArm.renderOrder = 32;
-  waypointFlagPennant.renderOrder = 33;
-  waypointFlagPennantStripe.renderOrder = 34;
-  waypointFlagFinial.renderOrder = 33;
+  waypointBaseHex.renderOrder = 30;
+  waypointPedestal.renderOrder = 31;
+  waypointPedestalGlow.renderOrder = 31;
+  waypointCannonLeft.renderOrder = 31;
+  waypointCannonRight.renderOrder = 31;
+  waypointSmokeLeft.renderOrder = 30;
+  waypointSmokeRight.renderOrder = 30;
+  waypointTowerTrunk.renderOrder = 32;
+  waypointTowerBandLow.renderOrder = 32;
+  waypointTowerBandHi.renderOrder = 32;
+  waypointBannerArm.renderOrder = 32;
+  waypointBannerArmCapL.renderOrder = 32;
+  waypointBannerArmCapR.renderOrder = 32;
+  waypointBannerBacking.renderOrder = 32;
+  waypointBanner.renderOrder = 33;
+  waypointBannerEmblemPlate.renderOrder = 34;
+  waypointBannerEmblemRing.renderOrder = 35;
+  waypointMedallionFrame.renderOrder = 34;
+  waypointMedallionFace.renderOrder = 33;
+  waypointWingLeft.renderOrder = 33;
+  waypointWingRight.renderOrder = 33;
+  waypointDome.renderOrder = 34;
+  waypointSpire.renderOrder = 35;
+  frontierClaimPlate.renderOrder = 7;
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
   observatoryVisionRangeMarker.frustumCulled = false;
@@ -469,7 +576,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...queuedSettlementMarkers.map(({ marker }) => marker),
     ...queuedBuildMarkers.map(({ marker }) => marker),
     ...waypointPathMarkers.map(({ marker }) => marker),
-    waypointFlagGroup
+    waypointFlagGroup,
+    frontierClaimPlate
   );
 
   const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0 };
@@ -761,12 +869,20 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const blocked = !waypoint.plan.reachable;
     const HALT_COLOR = "#f59e0b";
     const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#d5ecff";
-    const pennantColor = blocked ? HALT_COLOR : empireColor;
-    const glowColor = blocked ? HALT_COLOR : lightenHex(empireColor, 0.4);
+    // Empire color drives the banner, the hex glow ring, the pedestal
+    // energy ring, the smoke wisps, and the path-tile outlines. The
+    // brass/copper mechanical bits stay metallic so the empire color
+    // reads as the "energy" of the assembly rather than a paint job.
+    const bannerColor = blocked ? HALT_COLOR : empireColor;
+    const glowColor = blocked ? HALT_COLOR : lightenHex(empireColor, 0.45);
     const pathColor = blocked ? HALT_COLOR : empireColor;
-    waypointFlagPennantMaterial.color.set(pennantColor);
-    waypointFlagBaseGlowMaterial.color.set(glowColor);
-    waypointFlagBaseGlowMaterial.opacity = blocked ? 0.55 : 0.32;
+    waypointBannerMaterial.color.set(bannerColor);
+    waypointBaseHexMaterial.color.set(glowColor);
+    waypointBaseHexMaterial.opacity = blocked ? 0.85 : 0.7;
+    waypointPedestalGlowMaterial.color.set(glowColor);
+    waypointPedestalGlowMaterial.opacity = blocked ? 0.95 : 0.8;
+    waypointMedallionFaceMaterial.color.set(glowColor);
+    waypointSmokeMaterial.color.set(glowColor);
     for (const { material } of waypointPathMarkers) {
       material.color.set(pathColor);
       material.opacity = 0.5;
@@ -777,8 +893,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       pathTiles.push(step.target);
     }
     placeLineMarkers(waypointPathMarkers, pathTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
-    // Position the flag group at the destination tile's world-space
-    // center with a height derived from the bowed corner heights.
+    // Anchor the flag group at the destination tile's world-space
+    // center, lifted to sit on the bowed heightfield surface.
     const dx = toroidDelta(deps.state.camX, waypoint.target.x, WORLD_WIDTH);
     const dy = toroidDelta(deps.state.camY, waypoint.target.y, WORLD_HEIGHT);
     const wxNext = deps.wrapX(waypoint.target.x + 1);
@@ -790,13 +906,68 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         heightfield.cornerYAt(wxNext, wyNext)) /
       4;
     waypointFlagGroup.position.set(dx + TILE_CENTER_OFFSET, cornerYAvg + MARKER_RISE_ABOVE_HEIGHTFIELD, dy + TILE_CENTER_OFFSET);
+    // Animation: subtle structural bob, slow medallion + ring rotation
+    // (one CW, one CCW so the mechanism reads as alive), banner ripple,
+    // and a vertical drift on the smoke wisps with sinusoidal opacity.
     const t = performance.now() / 1000;
-    waypointFlagGroup.position.y += Math.sin(t * 1.6) * 0.04;
-    waypointFlagPennant.rotation.y = Math.sin(t * 2.4) * 0.18;
-    waypointFlagPennantStripe.rotation.y = waypointFlagPennant.rotation.y;
-    waypointFlagGearOuter.rotation.z = t * 0.4;
-    waypointFlagGearInner.rotation.z = -t * 0.7;
+    waypointFlagGroup.position.y += Math.sin(t * 1.4) * 0.03;
+    waypointBaseHex.rotation.z = Math.PI / 8 + t * 0.15;
+    waypointPedestalGlow.rotation.z = -t * 0.25;
+    waypointMedallionFrame.rotation.z = t * 0.35;
+    waypointMedallionFace.rotation.z = -t * 0.5;
+    waypointBanner.rotation.y = Math.sin(t * 2.0) * 0.12;
+    waypointBannerBacking.rotation.y = waypointBanner.rotation.y;
+    waypointBannerEmblemPlate.rotation.y = waypointBanner.rotation.y;
+    waypointBannerEmblemRing.rotation.y = waypointBanner.rotation.y;
+    const smokeBaseY = 0.5;
+    const smokeWave = (Math.sin(t * 1.1) + 1) * 0.5;
+    waypointSmokeLeft.position.y = smokeBaseY + smokeWave * 0.18;
+    waypointSmokeRight.position.y = smokeBaseY + smokeWave * 0.18 + 0.06;
+    waypointSmokeMaterial.opacity = blocked ? 0.1 : 0.12 + smokeWave * 0.1;
     waypointFlagGroup.visible = true;
+  };
+  const syncFrontierClaimPlate = (): void => {
+    const capture = deps.state.capture;
+    if (!capture || !capture.silent) {
+      frontierClaimPlate.visible = false;
+      return;
+    }
+    // Sweep the empire-color plate in from the left edge of the tile
+    // to the right over the claim duration, at the same opacity the
+    // ownership overlay uses for FRONTIER tiles. Imported so any future
+    // change to that constant follows here automatically.
+    const TILE_WIDTH = 0.94;
+    const HALF_TILE = TILE_WIDTH * 0.5;
+    const total = Math.max(1, capture.resolvesAt - capture.startAt);
+    const elapsed = Date.now() - capture.startAt;
+    const t = Math.max(0, Math.min(1, elapsed / total));
+    const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#7dd3fc";
+    frontierClaimPlateMaterial.color.set(empireColor);
+    frontierClaimPlateMaterial.opacity = FRONTIER_OPACITY;
+    const dxw = toroidDelta(deps.state.camX, capture.target.x, WORLD_WIDTH);
+    const dyw = toroidDelta(deps.state.camY, capture.target.y, WORLD_HEIGHT);
+    const wxNext = deps.wrapX(capture.target.x + 1);
+    const wyNext = deps.wrapY(capture.target.y + 1);
+    const surfaceY =
+      (heightfield.cornerYAt(capture.target.x, capture.target.y) +
+        heightfield.cornerYAt(wxNext, capture.target.y) +
+        heightfield.cornerYAt(capture.target.x, wyNext) +
+        heightfield.cornerYAt(wxNext, wyNext)) /
+      4;
+    // Anchor the plate's LEFT edge at tile-center − HALF_TILE; scaling
+    // X by t grows the plate rightward from there. Mesh position is
+    // (left-edge + half-current-width) so the geometry's centered origin
+    // sits at the right place for the current scale.
+    const tileCenterX = dxw + TILE_CENTER_OFFSET;
+    const tileCenterZ = dyw + TILE_CENTER_OFFSET;
+    const leftEdgeX = tileCenterX - HALF_TILE;
+    frontierClaimPlate.scale.set(Math.max(0.001, t), 1, 1);
+    frontierClaimPlate.position.set(
+      leftEdgeX + (TILE_WIDTH * t) * 0.5,
+      surfaceY + MARKER_RISE_ABOVE_HEIGHTFIELD,
+      tileCenterZ
+    );
+    frontierClaimPlate.visible = true;
   };
   const writeObservatoryRangeGeometry = (
     lineMarker: LineSegments,
@@ -1258,6 +1429,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncTownSupportCoins();
     syncQueueMarkers();
     syncWaypointMarkers();
+    syncFrontierClaimPlate();
     syncObservatoryRangeMarkers();
     villageEffects.update(nowMs);
     floatingText.update(nowMs);
@@ -1312,24 +1484,47 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       marker.geometry.dispose();
       material.dispose();
     }
-    waypointFlagPole.geometry.dispose();
-    waypointFlagBandLow.geometry.dispose();
-    waypointFlagBandMid.geometry.dispose();
-    waypointFlagCrossArm.geometry.dispose();
-    waypointFlagPennant.geometry.dispose();
-    waypointFlagPennantStripe.geometry.dispose();
-    waypointFlagFinial.geometry.dispose();
-    waypointFlagGearOuter.geometry.dispose();
-    waypointFlagGearInner.geometry.dispose();
-    waypointFlagBaseGlow.geometry.dispose();
-    waypointFlagPoleMaterial.dispose();
-    waypointFlagBandMaterial.dispose();
-    waypointFlagPennantMaterial.dispose();
-    waypointFlagPennantStripeMaterial.dispose();
-    waypointFlagFinialMaterial.dispose();
-    waypointFlagGearOuterMaterial.dispose();
-    waypointFlagGearInnerMaterial.dispose();
-    waypointFlagBaseGlowMaterial.dispose();
+    waypointBaseHex.geometry.dispose();
+    waypointPedestal.geometry.dispose();
+    waypointPedestalGlow.geometry.dispose();
+    waypointCannonLeft.geometry.dispose();
+    waypointCannonRight.geometry.dispose();
+    waypointSmokeLeft.geometry.dispose();
+    waypointSmokeRight.geometry.dispose();
+    waypointTowerTrunk.geometry.dispose();
+    waypointTowerBandLow.geometry.dispose();
+    waypointTowerBandHi.geometry.dispose();
+    waypointBannerArm.geometry.dispose();
+    waypointBannerArmCapL.geometry.dispose();
+    waypointBannerArmCapR.geometry.dispose();
+    waypointBannerBacking.geometry.dispose();
+    waypointBanner.geometry.dispose();
+    waypointBannerEmblemPlate.geometry.dispose();
+    waypointBannerEmblemRing.geometry.dispose();
+    waypointMedallionFrame.geometry.dispose();
+    waypointMedallionFace.geometry.dispose();
+    waypointWingLeft.geometry.dispose();
+    waypointWingRight.geometry.dispose();
+    waypointDome.geometry.dispose();
+    waypointSpire.geometry.dispose();
+    waypointBaseHexMaterial.dispose();
+    waypointPedestalMaterial.dispose();
+    waypointPedestalGlowMaterial.dispose();
+    waypointCannonMaterial.dispose();
+    waypointSmokeMaterial.dispose();
+    waypointTowerMaterial.dispose();
+    waypointTowerBandMaterial.dispose();
+    waypointBannerBackingMaterial.dispose();
+    waypointBannerMaterial.dispose();
+    waypointBannerEmblemPlateMaterial.dispose();
+    waypointBannerEmblemRingMaterial.dispose();
+    waypointMedallionFrameMaterial.dispose();
+    waypointMedallionFaceMaterial.dispose();
+    waypointWingMaterial.dispose();
+    waypointDomeMaterial.dispose();
+    waypointSpireMaterial.dispose();
+    frontierClaimPlateGeometry.dispose();
+    frontierClaimPlateMaterial.dispose();
     townOverlay.dispose();
     roadOverlay.dispose();
     unfedBadgeOverlay.dispose();

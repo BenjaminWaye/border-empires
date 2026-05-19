@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.0",
+  version: "2026.05.19.2",
   title: "What's New",
-  summary: "Fort modifier text now reports the real defense multiplier instead of the stale +25% label.",
+  summary: "Waypoint chains now march all the way through, the big capture overlay stays out of the way during waypoint expansion, and the destination flag is a proper steampunk tower.",
   entries: [
+    {
+      introducedIn: "2026.05.19.2",
+      title: "Quieter, smoother waypoint expansion",
+      why: "Initial waypoint release halted after one tile (the next top-up saw a stale neutral target before the ownership tile-delta arrived), and every step popped the full Capturing Territory overlay — so a four-tile chain stacked four pop-ups in a row on top of the existing waypoint visuals.",
+      changes: [
+        "topUpFromWaypoint tolerates up to four consecutive replans on the same step before halting, so a brief stale-snapshot window no longer aborts the chain. A 500ms heartbeat kicks processActionQueue while a waypoint is active so late ownership updates always get a fresh top-up.",
+        "Waypoint-driven neutral expansions are now silent end-to-end: no Capturing Territory overlay, no Territory Claimed popup, no feed entry per tile. The target tile fills empire-color left to right at the standard frontier opacity (0.32) so the tile itself is the progress indicator.",
+        "Errors, attack results on enemy tiles, and manual one-tap expands still surface every popup and feed entry exactly as before.",
+        "Destination flag rebuilt as a steampunk tower: brass pedestal with two side cannons, copper rivet bands on the tower trunk, vertical empire-color banner with copper top stripe, winged gear medallion, brass dome and spire, glowing empire-color hex base, gently drifting smoke wisps, rotating gear rings."
+      ]
+    },
     {
       introducedIn: "2026.05.19.0",
       title: "Fort defense text matches the real bonus",
