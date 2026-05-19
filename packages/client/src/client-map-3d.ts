@@ -1041,6 +1041,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // Hoisted Color temps reused per rebuild to avoid per-tile allocation.
   const tmpSettleOwnerColor = new Color();
   const tmpOwnerColor = new Color();
+  const tmpWhite = new Color("#ffffff");
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
   const rebuildVisibleTerrain = (): void => {
@@ -1331,6 +1332,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // ownershipOverlay.addTile copies the colour, so we can reuse a
           // hoisted Color across tiles.
           const ownerColor = tmpOwnerColor.set(normalizedColor);
+          if (ownershipState === "FRONTIER" && typeof tile.frontierDecayAt === "number") {
+            const remainingMs = tile.frontierDecayAt - Date.now();
+            if (remainingMs > 0 && remainingMs <= 60_000) {
+              const blink = 0.5 + 0.5 * Math.sin((Date.now() / 2_000) * Math.PI * 2);
+              ownerColor.lerp(tmpWhite, blink * 0.35);
+            }
+          }
           const wxOwn = deps.wrapX(wx + 1);
           const wyOwn = deps.wrapY(wy + 1);
           // cornerYAt returns the heightfield's *rendered* Y for each

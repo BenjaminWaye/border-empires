@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { economicStructureBuildDurationMs, structureBuildDurationMs } from "./structure-costs.js";
+import { economicStructureBuildDurationMs, structureBuildDurationMs, structureBuildManpowerCost } from "./structure-costs.js";
 
 describe("economicStructureBuildDurationMs", () => {
   it("matches special-case build times for wooden forts and light outposts", () => {
@@ -17,5 +17,10 @@ describe("economicStructureBuildDurationMs", () => {
     expect(structureBuildDurationMs("FORT")).toBe(10 * 60_000);
     expect(structureBuildDurationMs("OBSERVATORY")).toBe(10 * 60_000);
     expect(structureBuildDurationMs("SIEGE_OUTPOST")).toBe(60_000);
+  });
+
+  it("requires a larger manpower reserve to build full forts than starter fortifications", () => {
+    expect(structureBuildManpowerCost("WOODEN_FORT")).toBe(30);
+    expect(structureBuildManpowerCost("FORT")).toBe(300);
   });
 });
