@@ -354,7 +354,7 @@ export const chooseAiDomainChoiceForPlayer = (
       if (domain.id === "frontier-doctrine" && settledTileCountForChoice < 20) score += 20;
       if (domain.id === "mercantile-charter" && flags.has("active_town")) score += 65;
       if (domain.id === "mercantile-charter" && flags.has("active_dock")) score += 35;
-      if (domain.id === "farmers-compact" && ((counts.FARM ?? 0) > 0 || (counts.FISH ?? 0) > 0)) score += 50;
+      if (domain.id === "clockwork-stipend") score += 30;
       if (domain.id === "iron-bastions" && flags.has("active_town")) score += 20;
       if (domain.id === "supply-raiding" && ((counts.WOOD ?? 0) > 0 || (counts.FUR ?? 0) > 0)) score += 18;
       const resourceCost = toResources(domain.cost);

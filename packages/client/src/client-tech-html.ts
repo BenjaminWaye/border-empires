@@ -145,6 +145,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "harvestCapMult" && typeof value === "number") return `Harvest cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "fortBuildSpeedMult" && typeof value === "number") return `Fort build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortIronUpkeepMult" && typeof value === "number") return `Fort iron upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortGoldUpkeepMult" && typeof value === "number") return `Fort gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "settledDefenseNearFortMult" && typeof value === "number")
@@ -152,6 +153,8 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostSupplyUpkeepMult" && typeof value === "number") return `Outpost supply upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "outpostDeploymentSpeedMult" && typeof value === "number") return `Outpost deployment speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "chosenResourceTrickleAdd" && typeof value === "number") return `Pick a resource: +${value}/min trickle (iron/supply ${value}/min, crystal ${(value / 2).toFixed(2)}/min)`;
   if (key === "revealUpkeepMult" && typeof value === "number") return `Reveal upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;
