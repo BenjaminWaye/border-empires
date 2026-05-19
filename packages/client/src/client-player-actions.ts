@@ -156,6 +156,22 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
     return;
   }
 
+  // If the player already locked a trickle resource on a previous domain
+  // (or recovered the lock after a reconnect), skip the modal and reuse it.
+  // The server enforces the same locked-forever invariant.
+  const alreadyLocked = deps.state.chosenTrickleResource;
+  if (alreadyLocked && offered.some((option) => option.resource === alreadyLocked)) {
+    sendDomainCommand(deps, domain, alreadyLocked);
+    return;
+  }
+
+  // Set pendingDomainUnlockId *before* opening the modal to prevent a rapid
+  // double-click from stacking two modals on top of each other. We clear it
+  // on cancel so the player can try again; on confirm sendDomainCommand
+  // re-sets it as the canonical mid-flight indicator.
+  deps.state.pendingDomainUnlockId = domainId;
+  deps.renderHud();
+
   const defaultResource = offered[0]?.resource;
   void promptForTrickleResource({
     domainName: domain.name,
@@ -163,19 +179,18 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
     ...(defaultResource ? { defaultResource } : {})
   }).then((picked) => {
     if (!picked) {
+      deps.state.pendingDomainUnlockId = "";
       deps.pushFeed("Domain pick cancelled — no resource selected.", "tech", "warn");
+      deps.renderHud();
       return;
     }
-    // Guard against a renderer race: another domain command may have flown
-    // off while the modal was open. If we're now mid-flight, skip silently.
-    if (deps.state.pendingDomainUnlockId) {
-      deps.pushFeed("Already sending a domain choice. Waiting for server confirmation...", "tech", "warn");
-      return;
-    }
-    // Recheck the socket and auth state — the user may have been disconnected
-    // while the modal was open.
+    // Recheck the socket — the user may have been disconnected while the
+    // modal was open. (No need to recheck pendingDomainUnlockId here, since
+    // we set it ourselves above.)
     if (deps.ws.readyState !== websocketOpenReadyState) {
+      deps.state.pendingDomainUnlockId = "";
       deps.pushFeed("Cannot choose a domain while disconnected.", "tech", "error");
+      deps.renderHud();
       return;
     }
     sendDomainCommand(deps, domain, picked);

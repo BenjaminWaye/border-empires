@@ -97,6 +97,7 @@ type GatewayInitPayload = {
     upkeepLastTick?: Record<string, unknown>;
     techIds: string[];
     domainIds: string[];
+    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
     mods: StatMods;
     modBreakdown: ModBreakdown;
     availableTechPicks: number;
@@ -894,6 +895,13 @@ export const buildGatewayInitPayload = (
       ),
       techIds: liveSnapshotPlayer?.techIds ?? techIds,
       domainIds: liveSnapshotPlayer?.domainIds ?? domainIds,
+      ...((() => {
+        const trickle = (liveSnapshotPlayer as { chosenTrickleResource?: unknown } | undefined)?.chosenTrickleResource
+          ?? (bootstrapProfile as { chosenTrickleResource?: unknown } | undefined)?.chosenTrickleResource;
+        return trickle === "IRON" || trickle === "SUPPLY" || trickle === "CRYSTAL"
+          ? { chosenTrickleResource: trickle }
+          : {};
+      })()),
       mods: liveSnapshotPlayer?.mods ?? recomputeMods(liveSnapshotPlayer?.techIds ?? techIds, liveSnapshotPlayer?.domainIds ?? domainIds),
       modBreakdown: liveSnapshotPlayer?.modBreakdown ?? buildModBreakdown(liveSnapshotPlayer?.techIds ?? techIds, liveSnapshotPlayer?.domainIds ?? domainIds),
       availableTechPicks: techChoices.length,

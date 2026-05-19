@@ -57,17 +57,23 @@ export const promptForTrickleResource = (
       "align-items:center",
       "justify-content:center",
       "background:rgba(8,10,18,0.72)",
+      // -webkit prefix kept for older Safari that needs the vendor name.
+      "-webkit-backdrop-filter:blur(2px)",
       "backdrop-filter:blur(2px)"
     ].join(";");
 
     const card = document.createElement("div");
-    card.className = "trickle-pick-card card";
+    card.className = "trickle-pick-card";
     card.setAttribute("role", "dialog");
     card.setAttribute("aria-modal", "true");
     card.setAttribute("aria-labelledby", "trickle-pick-title");
     card.style.cssText = [
       "max-width:480px",
       "width:calc(100% - 32px)",
+      // Cap at 90vh and let the body scroll so the modal never clips off the
+      // viewport on small phones or when a future domain offers many options.
+      "max-height:90vh",
+      "overflow-y:auto",
       "padding:20px 22px 18px",
       "background:#161b29",
       "color:#e6e9f2",
@@ -77,13 +83,20 @@ export const promptForTrickleResource = (
       "font-family:inherit"
     ].join(";");
 
+    // Validate the default-resource key against a strict regex before letting
+    // it back into a CSS selector below. Resource keys are always uppercase
+    // ASCII (IRON / SUPPLY / CRYSTAL), so the regex doubles as documentation.
+    const isValidResourceKey = (input: string | undefined): input is string =>
+      typeof input === "string" && /^[A-Z_]+$/.test(input);
+    const safeDefaultResource = isValidResourceKey(options.defaultResource) ? options.defaultResource : undefined;
+
     const offeredHtml = options.offered
       .map((option) => {
         const flavor = resourceFlavor[option.resource] ?? "";
-        const isDefault = option.resource === options.defaultResource;
+        const isDefault = option.resource === safeDefaultResource;
         return `
           <button type="button"
-                  class="trickle-pick-option panel-btn"
+                  class="trickle-pick-option"
                   data-resource="${escapeHtml(option.resource)}"
                   style="display:flex;flex-direction:column;align-items:flex-start;width:100%;padding:10px 12px;margin:6px 0;background:${isDefault ? "#23304a" : "#1c2335"};border:1px solid ${isDefault ? "#3a5286" : "#2a3247"};border-radius:8px;color:#e6e9f2;cursor:pointer;text-align:left;">
             <span style="font-weight:600;font-size:14px;letter-spacing:0.02em;">
@@ -106,7 +119,7 @@ export const promptForTrickleResource = (
         ${offeredHtml}
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;">
-        <button type="button" id="trickle-pick-cancel" class="panel-btn" style="padding:8px 14px;background:transparent;border:1px solid #2a3247;color:#9aa6c2;border-radius:6px;cursor:pointer;">Cancel</button>
+        <button type="button" id="trickle-pick-cancel" style="padding:8px 14px;background:transparent;border:1px solid #2a3247;color:#9aa6c2;border-radius:6px;cursor:pointer;">Cancel</button>
       </div>
     `;
 
@@ -127,9 +140,11 @@ export const promptForTrickleResource = (
     document.body.appendChild(overlay);
 
     // Focus the default option so keyboard users land somewhere sensible.
+    // The CSS selector is safe because safeDefaultResource passed the strict
+    // [A-Z_]+ regex above; no escaping needed.
     const defaultBtn = card.querySelector<HTMLButtonElement>(
-      options.defaultResource
-        ? `.trickle-pick-option[data-resource="${options.defaultResource}"]`
+      safeDefaultResource
+        ? `.trickle-pick-option[data-resource="${safeDefaultResource}"]`
         : ".trickle-pick-option"
     );
     if (defaultBtn) defaultBtn.focus();

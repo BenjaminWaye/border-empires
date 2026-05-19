@@ -121,7 +121,17 @@ describe("tier-1 domain effects are wired", () => {
 });
 
 describe("Clockwork Stipend trickle resource choice", () => {
-  const baseClockworkPlayer = () => ({
+  const baseClockworkPlayer = (): {
+    id: string;
+    isAi: boolean;
+    points: number;
+    manpower: number;
+    techIds: Set<string>;
+    domainIds: Set<string>;
+    allies: Set<string>;
+    strategicResources: Record<string, number>;
+    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
+  } => ({
     id: "player-1",
     isAi: false,
     points: 10_000,
@@ -175,11 +185,16 @@ describe("Clockwork Stipend trickle resource choice", () => {
     expect(chosenTrickleRateForPlayer(player)).toBeUndefined();
   });
 
-  it("locks the chosen resource forever once it is set", () => {
+  it("does not overwrite a previously-locked trickle resource even when a new pick is offered", () => {
+    // Simulate a player who already locked IRON on a prior run (e.g. snapshot
+    // recovery, or a future second-trickle domain). Calling chooseDomainForPlayer
+    // with a different valid sub-choice MUST NOT reassign the locked value.
     const player = baseClockworkPlayer();
-    chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "IRON" });
-    // Even if we somehow try to override with a second valid pick, the locked
-    // value should not change. (Future domains may offer their own tables.)
+    player.chosenTrickleResource = "IRON";
+    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "SUPPLY" });
+    expect(outcome.ok).toBe(true);
+    expect(player.domainIds.has("clockwork-stipend")).toBe(true);
+    // Locked forever — the SUPPLY pick we just passed in is ignored.
     expect(player.chosenTrickleResource).toBe("IRON");
   });
 });
