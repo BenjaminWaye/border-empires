@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.18.10",
+  version: "2026.05.19.0",
   title: "What's New",
-  summary: "Captured towns now show capture shock instead of stale long-peace modifiers while recovery smoke is active.",
+  summary: "Fort modifier text now reports the real defense multiplier instead of the stale +25% label.",
   entries: [
+    {
+      introducedIn: "2026.05.19.0",
+      title: "Fort defense text matches the real bonus",
+      why: "The tile menu's Modifiers section still said Fort: +25% defense even though active Forts defend at 2.5x, with stronger Iron and Thunder Bastion upgrades.",
+      changes: [
+        "Active Forts now show 2.5x defense in the tile Modifiers section.",
+        "Iron Bastions and Thunder Bastions now show their own modifier names with 4x and 8x defense.",
+        "The Fort structure detail panel now uses the same 2.5x local defense copy."
+      ]
+    },
     {
       introducedIn: "2026.05.18.10",
       title: "Captured towns explain their recovery smoke",
