@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.6",
+  version: "2026.05.19.7",
   title: "What's New",
-  summary: "Owned-domain trickle suffix is now data-validated and test-covered.",
+  summary: "Trickle suffix now aligns with the server's contract: only renders for IRON/SUPPLY/CRYSTAL keys, and only when this specific domain actually offered the locked resource.",
   entries: [
+    {
+      introducedIn: "2026.05.19.7",
+      title: "Trickle suffix gate aligned with server contract",
+      why: "Two forward-looking gaps: (1) the gate could render the suffix on a future trickle-offering domain even if that specific domain's options table didn't include the player's locked resource — misleading once a second trickle domain ever ships; (2) the client's options validator was looser than the server's, accepting any positive-rate entry while the sim only honors IRON / SUPPLY / CRYSTAL.",
+      changes: [
+        "domainOwnedHtml now uses domainTrickleOptionKeys that whitelists IRON/SUPPLY/CRYSTAL and requires positive finite numeric rates — matching the server's chosenTrickleOptionsForDomain contract.",
+        "Suffix only renders when the player's locked resource is *in* this specific domain's options set. A narrow future domain (e.g. IRON-only) won't display '(SUPPLY trickle)' just because the player locked SUPPLY elsewhere.",
+        "Added two more tests: SHARD entry is ignored (mirrors server behavior), and a narrow future-domain scenario verifies the suffix is correctly suppressed when this domain didn't offer the locked resource."
+      ]
+    },
     {
       introducedIn: "2026.05.19.6",
       title: "Trickle suffix only renders when the data is actually valid",
