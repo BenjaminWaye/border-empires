@@ -154,7 +154,14 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "outpostSupplyUpkeepMult" && typeof value === "number") return `Outpost supply upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostDeploymentSpeedMult" && typeof value === "number") return `Outpost deployment speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "chosenResourceTrickleAdd" && typeof value === "number") return `Pick a resource: +${value}/min trickle (iron/supply ${value}/min, crystal ${(value / 2).toFixed(2)}/min)`;
+  if (key === "chosenResourceTrickleOptions" && value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, rate]) => typeof rate === "number");
+    if (entries.length === 0) return null;
+    const summary = entries
+      .map(([resource, rate]) => `${String(resource).toLowerCase()} +${(rate as number).toFixed(2)}/min`)
+      .join(", ");
+    return `Pick one on confirm: ${summary}`;
+  }
   if (key === "revealUpkeepMult" && typeof value === "number") return `Reveal upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;

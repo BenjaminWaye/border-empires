@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.1",
+  version: "2026.05.19.2",
   title: "What's New",
-  summary: "Tier-1 domains now actually do what their tooltips claim — fort build speed, fort upkeep, outpost supply upkeep, settlement speed, and first-three-towns growth all hit harder, and several effects that were quietly inert before now run in the sim.",
+  summary: "Tier-1 domains are now identity-shaping picks, and every effect that had a tooltip — fort defense, fort build speed and upkeep, outpost deploy and supply, attack vs settled/forts, first-three-towns growth — actually runs in the sim now. Clockwork Stipend asks you to pick a resource that ticks forward forever.",
   entries: [
+    {
+      introducedIn: "2026.05.19.2",
+      title: "Combat math now reads defender domains, outpost deploy speed wired up, Clockwork Stipend goes live",
+      why: "Slice-1 brought the upkeep and build-speed effects to life. Combat-side modifiers (fortDefenseMult, attackVsSettledMult, attackVsFortsMult) and outpostDeploymentSpeedMult were still tooltip-only, and Clockwork Stipend showed in the catalog but had no resource trickle.",
+      changes: [
+        "Frontier combat now consumes defender-side fortDefenseMult and attacker-side attackVsSettledMult / attackVsFortsMult. Forts on the target tile are detected from the actual tile state, not derived after the fact, so the defender's domain effects influence both atkMult and defMult.",
+        "Outpost deployment time now divides by outpostDeploymentSpeedMult (Supply Raiding 1.5x deploy and Imperial Roads 1.1x deploy were both inert before; both are live).",
+        "Clockwork Stipend now actually trickles your chosen resource each accrual tick (iron/supply 0.2/min, crystal 0.1/min). The choice is locked forever on pick; the client prompts you for IRON/SUPPLY/CRYSTAL right when you confirm Clockwork Stipend. AI players default to IRON.",
+        "DomainPlayer carries a new chosenTrickleResource field so the pick survives reconnects and snapshots; the CHOOSE_DOMAIN command/gateway/handler accepts the sub-choice payload."
+      ]
+    },
     {
       introducedIn: "2026.05.19.1",
       title: "Tier-1 domains: imba on purpose, and the dead effects are alive",
