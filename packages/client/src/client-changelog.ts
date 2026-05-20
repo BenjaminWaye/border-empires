@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.3",
+  version: "2026.05.20.4",
   title: "What's New",
-  summary: "Development queue is now strict FIFO: clicking a new build while items are already waiting always appends to the back, instead of slipping into a freshly opened slot ahead of them.",
+  summary: "Ironworks and Aether Condenser now appear in the town build menu the moment you finish their research, instead of staying hidden until you also pick up Workshops.",
   entries: [
+    {
+      introducedIn: "2026.05.20.4",
+      title: "Ironworks and Aether Condenser unlock from their own techs",
+      why: "The menu's hide-locked filter was checking Workshops for all three synthesizer-family buildings, so researching Alchemy or Crystal Lattices alone left Ironworks and Aether Condenser invisible in the build list even though the action itself was already enabled.",
+      changes: [
+        "build_ironworks now reports Alchemy as its required tech (matches the in-action gate).",
+        "build_crystal_synthesizer now reports Crystal Lattices as its required tech.",
+        "build_fur_synthesizer is unchanged — it still requires Workshops."
+      ]
+    },
     {
       introducedIn: "2026.05.20.3",
       title: "Strict FIFO development queue",
