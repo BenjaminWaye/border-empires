@@ -63,7 +63,6 @@ import {
   WORLD_ENGINE_STRIKE_CRYSTAL_COST,
   WORLD_ENGINE_STRIKE_COOLDOWN_MS,
   WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO,
-  WORLD_ENGINE_STRIKE_POPULATION_LOSS_CAP,
   ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
@@ -5153,13 +5152,22 @@ export class SimulationRuntime {
       if (target.economicStructure && target.economicStructure.ownerId !== actor.id) {
         updated = { ...updated, economicStructure: undefined };
       }
-      // Reduce SETTLED town population.
+      // Reduce SETTLED town population. Demote tier based on new pop, floored at TOWN.
       if (target.town && (target.ownershipState === "SETTLED" || target.ownershipState === "FRONTIER") && target.ownerId !== actor.id) {
         const pop = typeof target.town.population === "number" ? target.town.population : 0;
         if (pop > 0) {
-          const loss = Math.min(Math.floor(pop * WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO), WORLD_ENGINE_STRIKE_POPULATION_LOSS_CAP);
+          const loss = Math.floor(pop * WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO);
           if (loss > 0) {
-            updated = { ...updated, town: { ...updated.town!, population: Math.max(1, pop - loss) } };
+            const newPop = Math.max(1, pop - loss);
+            const currentTier = updated.town!.populationTier;
+            let nextTier = currentTier;
+            if (currentTier !== "SETTLEMENT") {
+              if (newPop >= 5_000_000) nextTier = "METROPOLIS";
+              else if (newPop >= 1_000_000) nextTier = "GREAT_CITY";
+              else if (newPop >= 100_000) nextTier = "CITY";
+              else nextTier = "TOWN";
+            }
+            updated = { ...updated, town: { ...updated.town!, population: newPop, populationTier: nextTier } };
           }
         }
       }
