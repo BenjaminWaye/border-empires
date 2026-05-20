@@ -1,4 +1,4 @@
-import { OBSERVATORY_UPKEEP_PER_MIN, type Terrain, type Tile } from "@border-empires/shared";
+import { OBSERVATORY_UPKEEP_PER_MIN, WORLD_HEIGHT, WORLD_WIDTH, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import {
@@ -27,6 +27,8 @@ import {
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   RADAR_SYSTEM_GOLD_UPKEEP,
+  SEED_GRANARY_GROWTH_MULT,
+  SEED_GRANARY_SLOTS,
   POPULATION_MAX,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
@@ -480,23 +482,114 @@ const townKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> 
 const hasSupportedStructure = (
   tileKey: string,
   ownerId: string,
-  structureType: string,
+  structureType: string | readonly string[],
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
 ): boolean => {
   const [rawX, rawY] = tileKey.split(",");
   const x = Number(rawX);
   const y = Number(rawY);
   if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
+  const allowed = Array.isArray(structureType) ? new Set(structureType) : new Set([structureType as string]);
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const tile = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
       const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-      if (structure?.status === "active" && structure.type === structureType) return true;
+      if (structure?.status === "active" && structure.type && allowed.has(structure.type)) return true;
     }
   }
   return false;
+};
+
+const islandMapCache: WeakMap<RuntimeState, Map<string, number>> = new WeakMap();
+
+const computeIslandMap = (runtimeState: RuntimeState): Map<string, number> => {
+  const cached = islandMapCache.get(runtimeState);
+  if (cached) return cached;
+  const landKeys = new Set<string>();
+  for (const tile of runtimeState.tiles) {
+    if (tile.terrain === "LAND") landKeys.add(keyFor(tile.x, tile.y));
+  }
+  const islandIdByTile = new Map<string, number>();
+  let nextIslandId = 0;
+  const wrap = (v: number, m: number): number => ((v % m) + m) % m;
+  for (const startKey of landKeys) {
+    if (islandIdByTile.has(startKey)) continue;
+    const [sxRaw, syRaw] = startKey.split(",");
+    const sx = Number(sxRaw);
+    const sy = Number(syRaw);
+    const islandId = nextIslandId;
+    nextIslandId += 1;
+    const queue: Array<{ x: number; y: number }> = [{ x: sx, y: sy }];
+    islandIdByTile.set(startKey, islandId);
+    for (let i = 0; i < queue.length; i += 1) {
+      const cur = queue[i]!;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = wrap(cur.x + dx, WORLD_WIDTH);
+          const ny = wrap(cur.y + dy, WORLD_HEIGHT);
+          const nk = keyFor(nx, ny);
+          if (!landKeys.has(nk) || islandIdByTile.has(nk)) continue;
+          islandIdByTile.set(nk, islandId);
+          queue.push({ x: nx, y: ny });
+        }
+      }
+    }
+  }
+  islandMapCache.set(runtimeState, islandIdByTile);
+  return islandIdByTile;
+};
+
+const wrappedChebyshev = (ax: number, ay: number, bx: number, by: number): number => {
+  const dxRaw = Math.abs(ax - bx);
+  const dyRaw = Math.abs(ay - by);
+  const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
+  const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
+  return Math.max(dx, dy);
+};
+
+const seedGranaryBuffedCache: WeakMap<RuntimeState, Set<string>> = new WeakMap();
+
+export const computeSeedGranaryBuffedTileKeysForTest = (runtimeState: unknown): Set<string> =>
+  computeSeedGranaryBuffedTileKeys(runtimeState as RuntimeState);
+
+const computeSeedGranaryBuffedTileKeys = (runtimeState: RuntimeState): Set<string> => {
+  const cached = seedGranaryBuffedCache.get(runtimeState);
+  if (cached) return cached;
+  const buffed = new Set<string>();
+  const islandMap = computeIslandMap(runtimeState);
+  // For each player, find their SEED_GRANARY tiles, and for each, pick up to N
+  // closest owned active GRANARY/SEED_GRANARY tiles on the same island.
+  const ownedActiveGranariesByPlayer = new Map<string, Array<{ x: number; y: number; key: string; type: "GRANARY" | "SEED_GRANARY" }>>();
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const structure = parseStructure<{ type?: string; status?: string; ownerId?: string }>(tile.economicStructureJson);
+    if (!structure || structure.status !== "active") continue;
+    if (structure.ownerId && structure.ownerId !== tile.ownerId) continue;
+    if (structure.type !== "GRANARY" && structure.type !== "SEED_GRANARY") continue;
+    const list = ownedActiveGranariesByPlayer.get(tile.ownerId) ?? [];
+    list.push({ x: tile.x, y: tile.y, key: keyFor(tile.x, tile.y), type: structure.type });
+    ownedActiveGranariesByPlayer.set(tile.ownerId, list);
+  }
+  for (const [, list] of ownedActiveGranariesByPlayer) {
+    const seedGranaries = list.filter((entry) => entry.type === "SEED_GRANARY");
+    for (const sg of seedGranaries) {
+      const sgIsland = islandMap.get(sg.key);
+      if (sgIsland === undefined) continue;
+      const sameIsland = list.filter((entry) => islandMap.get(entry.key) === sgIsland);
+      sameIsland.sort((a, b) => {
+        const da = wrappedChebyshev(sg.x, sg.y, a.x, a.y);
+        const db = wrappedChebyshev(sg.x, sg.y, b.x, b.y);
+        if (da !== db) return da - db;
+        return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+      });
+      for (const entry of sameIsland.slice(0, SEED_GRANARY_SLOTS)) buffed.add(entry.key);
+    }
+  }
+  seedGranaryBuffedCache.set(runtimeState, buffed);
+  return buffed;
 };
 
 const buildFedTownKeysByPlayer = (
@@ -556,7 +649,8 @@ const buildTownSummary = (
   refreshCompleteTownSummary: boolean,
   townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>,
   firstThreeTownKeys?: ReadonlySet<string>,
-  nearbyWarTownKeys?: ReadonlySet<string>
+  nearbyWarTownKeys?: ReadonlySet<string>,
+  seedGranaryBuffedTileKeys?: ReadonlySet<string>
 ): Tile["town"] | undefined => {
   const partial = parseTown(tile);
   const townType = partial?.type ?? tile.townType;
@@ -582,7 +676,23 @@ const buildTownSummary = (
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const isFed = tile.ownerId ? fedTownKeys.has(tileKey) : false;
   const hasMarket = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "MARKET", tilesByKey));
-  const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey));
+  const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, ["GRANARY", "SEED_GRANARY"], tilesByKey));
+  const granaryGrowthMult = hasGranary
+    ? (seedGranaryBuffedTileKeys && (() => {
+        // Buffed if any neighbour-adjacent granary/seed-granary tile of this player is in buffed set.
+        for (let dy = -1; dy <= 1; dy += 1) {
+          for (let dx = -1; dx <= 1; dx += 1) {
+            if (dx === 0 && dy === 0) continue;
+            const nk = keyFor(tile.x + dx, tile.y + dy);
+            if (seedGranaryBuffedTileKeys.has(nk)) {
+              const nTile = tilesByKey.get(nk);
+              if (nTile?.ownerId === tile.ownerId) return true;
+            }
+          }
+        }
+        return false;
+      })() ? SEED_GRANARY_GROWTH_MULT : 1.15)
+    : 1;
   const hasBank = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "BANK", tilesByKey));
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
@@ -620,7 +730,7 @@ const buildTownSummary = (
       : population *
         POPULATION_GROWTH_BASE_RATE *
         (populationTier === "SETTLEMENT" ? 4 : 1) *
-        (hasGranary ? 1.15 : 1) *
+        granaryGrowthMult *
         logisticFactor;
   const baseGrowth = isInCaptureShock ? 0 : naturalGrowth;
   const hasNearbyWar = nearbyWarTownKeys?.has(tileKey) ?? false;
@@ -715,7 +825,7 @@ export const buildLivePlayerEconomySnapshot = (
         oilSources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : tile.resource === "OIL" ? "Oil" : "Supply", resourceRate, { count: 1, resourceKey });
     }
-    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys);
+    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys, computeSeedGranaryBuffedTileKeys(runtimeState));
     if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
@@ -885,7 +995,8 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         true,
         tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
         tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
-        nearbyWarTownKeys
+        nearbyWarTownKeys,
+        computeSeedGranaryBuffedTileKeys(runtimeState)
       );
       const town = toSharedVisibilityTownSummary(fullTown);
       const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, fullTown, {
@@ -939,7 +1050,8 @@ export const enrichSnapshotTilesForPlayer = (
       tile.ownerId === playerId,
       tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
       tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
-      nearbyWarTownKeys
+      nearbyWarTownKeys,
+      computeSeedGranaryBuffedTileKeys(runtimeState)
     );
     const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, town, {
       ...(economyPlayer ? { player: economyPlayer } : {}),

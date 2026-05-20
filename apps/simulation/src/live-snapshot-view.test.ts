@@ -1,6 +1,111 @@
 import { describe, expect, it } from "vitest";
 
-import { enrichSnapshotTilesForGlobalVisibility } from "./live-snapshot-view.js";
+import { computeSeedGranaryBuffedTileKeysForTest, enrichSnapshotTilesForGlobalVisibility } from "./live-snapshot-view.js";
+
+const landTile = (x: number, y: number, ownerId?: string, structureType?: string) => ({
+  x,
+  y,
+  terrain: "LAND" as const,
+  ...(ownerId ? { ownerId, ownershipState: "SETTLED" } : {}),
+  ...(structureType
+    ? { economicStructureJson: JSON.stringify({ type: structureType, status: "active", ownerId }) }
+    : {})
+});
+
+const seaTile = (x: number, y: number) => ({ x, y, terrain: "SEA" as const });
+
+const baseRuntime = (tiles: Array<Record<string, unknown>>) => ({
+  tiles,
+  players: [
+    {
+      id: "p1",
+      name: "p1",
+      points: 0,
+      manpower: 0,
+      techIds: [],
+      domainIds: [],
+      strategicResources: {},
+      allies: [],
+      vision: 1,
+      visionRadiusBonus: 0,
+      territoryTileKeys: tiles.filter((t) => (t as { ownerId?: string }).ownerId === "p1").map((t) => `${(t as { x: number }).x},${(t as { y: number }).y}`)
+    }
+  ]
+});
+
+describe("seed granary buff", () => {
+  it("returns empty set when no SEED_GRANARY exists", () => {
+    const tiles = [landTile(5, 5, "p1", "GRANARY"), landTile(6, 5, "p1")];
+    const buffed = computeSeedGranaryBuffedTileKeysForTest(baseRuntime(tiles));
+    expect(buffed.size).toBe(0);
+  });
+
+  it("a lone SEED_GRANARY buffs itself", () => {
+    const tiles = [landTile(5, 5, "p1", "SEED_GRANARY")];
+    const buffed = computeSeedGranaryBuffedTileKeysForTest(baseRuntime(tiles));
+    expect(buffed.has("5,5")).toBe(true);
+    expect(buffed.size).toBe(1);
+  });
+
+  it("1 SG + 4 G on same island, all 5 buffed", () => {
+    const tiles = [
+      landTile(5, 5, "p1", "SEED_GRANARY"),
+      landTile(6, 5, "p1", "GRANARY"),
+      landTile(7, 5, "p1", "GRANARY"),
+      landTile(5, 6, "p1", "GRANARY"),
+      landTile(5, 7, "p1", "GRANARY")
+    ];
+    const buffed = computeSeedGranaryBuffedTileKeysForTest(baseRuntime(tiles));
+    expect(buffed.size).toBe(5);
+    expect(buffed.has("5,5")).toBe(true);
+    expect(buffed.has("6,5")).toBe(true);
+    expect(buffed.has("7,5")).toBe(true);
+    expect(buffed.has("5,6")).toBe(true);
+    expect(buffed.has("5,7")).toBe(true);
+  });
+
+  it("1 SG + 10 G picks the 5 closest", () => {
+    // SG at (5,5); granaries placed at increasing chebyshev distances.
+    const ownedKeys: string[] = ["5,5"];
+    const tiles: Array<Record<string, unknown>> = [landTile(5, 5, "p1", "SEED_GRANARY")];
+    // 10 granaries along a line going east — distances 1..10.
+    for (let d = 1; d <= 10; d += 1) {
+      tiles.push(landTile(5 + d, 5, "p1", "GRANARY"));
+      ownedKeys.push(`${5 + d},5`);
+    }
+    // Provide intermediate LAND tiles to keep one island; already LAND because tiles above are LAND.
+    const buffed = computeSeedGranaryBuffedTileKeysForTest(baseRuntime(tiles));
+    // SG + 4 closest granaries
+    expect(buffed.size).toBe(5);
+    expect(buffed.has("5,5")).toBe(true);
+    expect(buffed.has("6,5")).toBe(true);
+    expect(buffed.has("7,5")).toBe(true);
+    expect(buffed.has("8,5")).toBe(true);
+    expect(buffed.has("9,5")).toBe(true);
+    expect(buffed.has("10,5")).toBe(false);
+  });
+
+  it("granaries on a different island are not buffed", () => {
+    // Island A: SG + G adjacent at (5,5)/(6,5). Surround by sea so the next granary at (20,20) is its own island.
+    const tiles: Array<Record<string, unknown>> = [
+      landTile(5, 5, "p1", "SEED_GRANARY"),
+      landTile(6, 5, "p1", "GRANARY"),
+      landTile(20, 20, "p1", "GRANARY")
+    ];
+    // Fill sea around the second island so it's truly disconnected (8-connected flood needs gap > 1).
+    for (let dy = -2; dy <= 2; dy += 1) {
+      for (let dx = -2; dx <= 2; dx += 1) {
+        if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1) continue;
+        tiles.push(seaTile(5 + dx, 5 + dy));
+        tiles.push(seaTile(20 + dx, 20 + dy));
+      }
+    }
+    const buffed = computeSeedGranaryBuffedTileKeysForTest(baseRuntime(tiles));
+    expect(buffed.has("5,5")).toBe(true);
+    expect(buffed.has("6,5")).toBe(true);
+    expect(buffed.has("20,20")).toBe(false);
+  });
+});
 
 describe("enrichSnapshotTilesForGlobalVisibility", () => {
   it("does not expose owner-only town economy fields in shared full-visibility tiles", () => {
