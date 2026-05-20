@@ -3,7 +3,7 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildTileYieldView } from "../../simulation/src/tile-yield-view.js";
 
 import {
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
@@ -158,7 +158,7 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" 
     case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
     case "GOVERNORS_OFFICE": return { GOLD: GOVERNORS_OFFICE_GOLD_UPKEEP / 10 };
     case "RADAR_SYSTEM": return { GOLD: RADAR_SYSTEM_GOLD_UPKEEP / 10 };
-    case "AIRPORT": return { OIL: AIRPORT_OIL_UPKEEP_PER_MIN };
+    case "AIRPORT": return { CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN };
     default: return {};
   }
 };

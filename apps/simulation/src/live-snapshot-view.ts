@@ -2,7 +2,7 @@ import { OBSERVATORY_UPKEEP_PER_MIN, type Terrain, type Tile } from "@border-emp
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import {
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
@@ -388,7 +388,7 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<Economy
     case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
     case "GOVERNORS_OFFICE": return { GOLD: GOVERNORS_OFFICE_GOLD_UPKEEP / 10 };
     case "RADAR_SYSTEM": return { GOLD: RADAR_SYSTEM_GOLD_UPKEEP / 10 };
-    case "AIRPORT": return { OIL: AIRPORT_OIL_UPKEEP_PER_MIN };
+    case "AIRPORT": return { CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN };
     default: return {};
   }
 };
