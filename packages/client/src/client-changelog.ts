@@ -19,16 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.4",
+  version: "2026.05.20.5",
   title: "What's New",
   summary: "Choose Tier buttons on the domain detail card now actually pick the domain — on desktop, clicking the button did nothing because the click handler was wiped out by the same render that drew the button.",
   entries: [
     {
-      introducedIn: "2026.05.20.4",
+      introducedIn: "2026.05.20.5",
       title: "Desktop Choose Tier button is no longer a no-op",
       why: "Per-button onclick handlers were bound before the domains panel innerHTML was rewritten, so the new buttons the user actually saw had no listeners. Mobile worked because clicks were caught by the overlay container handler, which survived the rewrite.",
       changes: [
         "Domain panel now uses event delegation on the panel container (same pattern as the mobile overlay), so unlock and close clicks fire regardless of how often the inner HTML is re-rendered."
+      ]
+    },
+    {
+      introducedIn: "2026.05.20.4",
+      title: "Ironworks and Aether Condenser unlock from their own techs",
+      why: "The menu's hide-locked filter was checking Workshops for all three synthesizer-family buildings, so researching Alchemy or Crystal Lattices alone left Ironworks and Aether Condenser invisible in the build list even though the action itself was already enabled.",
+      changes: [
+        "build_ironworks now reports Alchemy as its required tech (matches the in-action gate).",
+        "build_crystal_synthesizer now reports Crystal Lattices as its required tech.",
+        "build_fur_synthesizer is unchanged — it still requires Workshops."
       ]
     },
     {
