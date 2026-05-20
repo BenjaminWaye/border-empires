@@ -6315,6 +6315,43 @@ describe("simulation runtime", () => {
       randomSpy.mockRestore();
     });
 
+    it("walks instead of multiplying once barb population is at the cap", () => {
+      // Build 200 barb tiles so that capturing 1 more puts us at 201 — above
+      // the cap. Lay them in a long row to keep the setup simple.
+      const barbTiles: Array<{ x: number; y: number }> = [];
+      for (let i = 0; i < 200; i += 1) {
+        barbTiles.push({ x: 100 + (i % 20), y: 100 + Math.floor(i / 20) });
+      }
+      const { runtime, randomSpy, runResolve } = buildBarbRuntime({
+        barbTiles,
+        targetTile: { x: 50, y: 50 },
+        lockOrigin: { x: 100, y: 100 },
+        lockTarget: { x: 50, y: 50 },
+        attackerId: "barbarian-1"
+      });
+      // Stamp the origin with at-threshold progress so a normal world would
+      // multiply on this resolution.
+      readProgress(runtime).set("100,100", 2);
+
+      runResolve();
+
+      const state = runtime.exportState();
+      const origin = state.tiles.find((tile) => tile.x === 100 && tile.y === 100);
+      const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
+      // Cap held: source released (walk), target captured.
+      expect(origin?.ownerId).toBeUndefined();
+      expect(target?.ownerId).toBe("barbarian-1");
+      // Population is now 200 (199 carryover + 1 newly captured), not 201.
+      expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(200);
+      // The would-multiply progress is preserved on the target so as soon as
+      // the population drops below the cap, the next walk multiplies again.
+      const progress = readProgress(runtime);
+      expect(progress.get("100,100")).toBeUndefined();
+      expect(progress.get("50,50")).toBe(3);
+
+      randomSpy.mockRestore();
+    });
+
     it("awards a +2 progress gain for high-value captures (resource tile)", () => {
       const { runtime, randomSpy, runResolve } = buildBarbRuntime({
         barbTiles: [
