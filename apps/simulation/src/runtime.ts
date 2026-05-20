@@ -7153,11 +7153,34 @@ export class SimulationRuntime {
         };
         this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
         this.extendFortPatrolGrace(lock.originKey, this.now() + FORT_PATROL_GRACE_MS);
+        const tileDeltas = [this.tileDeltaFromState(resolvedOrigin)];
+
+        // Successful barb counter-attack: barb JUMPS from defender tile to the
+        // attacker's origin instead of growing its population. The defender
+        // tile releases to neutral so total barb tile count is unchanged.
+        // Without this, every failed player attack against a barb grows
+        // barbarian-1 by one tile (and spreads them across the map).
+        if (previousOwnerId === "barbarian-1") {
+          const defenderTile = this.tiles.get(lock.targetKey);
+          if (defenderTile?.ownerId === "barbarian-1" && !this.locksByTile.has(lock.targetKey)) {
+            const releasedDefender: DomainTileState = {
+              x: defenderTile.x,
+              y: defenderTile.y,
+              terrain: defenderTile.terrain,
+              ...(defenderTile.resource ? { resource: defenderTile.resource } : {}),
+              ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {})
+            };
+            this.replaceTileState(lock.targetKey, releasedDefender, lock.commandId);
+            this.barbarianTileProgress.delete(lock.targetKey);
+            tileDeltas.push(this.tileDeltaFromState(releasedDefender));
+          }
+        }
+
         this.emitEvent({
           eventType: "TILE_DELTA_BATCH",
           commandId: lock.commandId,
           playerId: lock.playerId,
-          tileDeltas: [this.tileDeltaFromState(resolvedOrigin)]
+          tileDeltas
         });
       }
     }
@@ -7282,7 +7305,12 @@ export class SimulationRuntime {
   }
 
   private barbarianProgressGain(target: DomainTileState | undefined): number {
-    if (!target) return 1;
+    // Multiply progress only accumulates when a barb actually CAPTURES a
+    // non-barb player's tile. Walking into neutral land or shuffling between
+    // own tiles contributes zero — otherwise barbs multiply every 3 steps
+    // even when no one's territory is being eaten, which is what was
+    // spreading them across the map.
+    if (!target?.ownerId || target.ownerId === "barbarian-1") return 0;
     return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
   }
 
