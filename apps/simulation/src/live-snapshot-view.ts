@@ -964,7 +964,6 @@ const buildEnrichmentContext = (
 
 const buildEnrichedTile = (
   playerId: string,
-  runtimeState: RuntimeState,
   tile: RuntimeState["tiles"][number],
   ctx: EnrichmentContext,
   playersById: Map<string, RuntimeState["players"][number]>
@@ -1010,7 +1009,7 @@ export const enrichSnapshotTilesForPlayer = (
 ): RuntimeState["tiles"] => {
   const ctx = buildEnrichmentContext(runtimeState, playerEconomy);
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
-  return visibleTiles.map((tile) => buildEnrichedTile(playerId, runtimeState, tile, ctx, playersById));
+  return visibleTiles.map((tile) => buildEnrichedTile(playerId, tile, ctx, playersById));
 };
 
 // Async variant that yields to the event loop every ENRICHMENT_YIELD_CHUNK
@@ -1030,7 +1029,7 @@ export const enrichSnapshotTilesForPlayerAsync = async (
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
   const out: RuntimeState["tiles"] = new Array(visibleTiles.length);
   for (let i = 0; i < visibleTiles.length; i += 1) {
-    out[i] = buildEnrichedTile(playerId, runtimeState, visibleTiles[i]!, ctx, playersById);
+    out[i] = buildEnrichedTile(playerId, visibleTiles[i]!, ctx, playersById);
     if (i > 0 && i % ENRICHMENT_YIELD_CHUNK === 0) {
       await yieldToEventLoop();
     }
