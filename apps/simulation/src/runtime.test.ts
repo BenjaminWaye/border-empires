@@ -7153,3 +7153,309 @@ describe("simulation runtime — tile shedding", () => {
     expect(state.tiles.find((tile) => tile.x === 0 && tile.y === 0)?.ownerId).toBe("barbarian-1");
   });
 });
+
+describe("imperial exchange levy", () => {
+  const buildLevyRuntime = (options: {
+    techIds?: string[];
+    crystal?: number;
+    omitTower?: boolean;
+    rivalStocks?: Record<string, Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>>>;
+  } = {}): SimulationRuntime => {
+    const tiles: Array<Record<string, unknown>> = [
+      {
+        x: 0,
+        y: 0,
+        terrain: "LAND",
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        economicStructure: { ownerId: "player-1", type: "IMPERIAL_EXCHANGE", status: "active" }
+      }
+    ];
+    if (!options.omitTower) {
+      tiles.push({
+        x: 1,
+        y: 0,
+        terrain: "LAND",
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+      });
+    }
+    const players = new Map<string, Record<string, unknown>>();
+    players.set("player-1", {
+      id: "player-1",
+      isAi: false,
+      points: 10_000,
+      manpower: 10_000,
+      techIds: new Set<string>(options.techIds ?? ["exchange-levy"]),
+      domainIds: new Set<string>(),
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      techRootId: "rewrite-local",
+      allies: new Set<string>(),
+      strategicResources: { CRYSTAL: options.crystal ?? 1_000 }
+    });
+    for (const [pid, stocks] of Object.entries(options.rivalStocks ?? {})) {
+      players.set(pid, {
+        id: pid,
+        isAi: true,
+        points: 100,
+        manpower: 100,
+        techIds: new Set<string>(),
+        domainIds: new Set<string>(),
+        mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+        techRootId: "rewrite-local",
+        allies: new Set<string>(),
+        strategicResources: stocks
+      });
+    }
+    return new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: players as never,
+      initialState: { tiles: tiles as never, activeLocks: [] }
+    });
+  };
+
+  it("rejects without exchange-levy tech", async () => {
+    const runtime = buildLevyRuntime({ techIds: [] });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "levy-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "IMPERIAL_EXCHANGE_LEVY",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      commandId: "levy-1",
+      code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+      message: "requires Exchange Levy Writs research"
+    }));
+  });
+
+  it("rejects without a powering Aether Tower", async () => {
+    const runtime = buildLevyRuntime({ omitTower: true });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "levy-2",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "IMPERIAL_EXCHANGE_LEVY",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+      message: "Imperial Exchange requires a nearby Aether Tower"
+    }));
+  });
+
+  it("transfers a quarter of each rival's stock and applies cooldown", async () => {
+    const runtime = buildLevyRuntime({
+      rivalStocks: {
+        "player-2": { FOOD: 100 },
+        "player-3": { FOOD: 40 }
+      }
+    });
+    runtime.submitCommand({
+      commandId: "levy-3",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "IMPERIAL_EXCHANGE_LEVY",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const p1 = state.players.find((p) => p.id === "player-1");
+    const p2 = state.players.find((p) => p.id === "player-2");
+    const p3 = state.players.find((p) => p.id === "player-3");
+    // 25% of 100 = 25; 25% of 40 = 10. Actor gets 35.
+    expect(p1?.strategicResources?.FOOD).toBe(35);
+    expect(p2?.strategicResources?.FOOD).toBe(75);
+    expect(p3?.strategicResources?.FOOD).toBe(30);
+    // Second invocation should be on cooldown.
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "levy-3b",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_000,
+      type: "IMPERIAL_EXCHANGE_LEVY",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      commandId: "levy-3b",
+      code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+      message: "ability on cooldown"
+    }));
+  });
+});
+
+describe("worldbreaker shot", () => {
+  const buildStrikeRuntime = (options: {
+    techIds?: string[];
+    crystal?: number;
+    omitTower?: boolean;
+    targetTown?: { population: number };
+    targetStructure?: { ownerId: string; type: string; status: string };
+  } = {}): SimulationRuntime => {
+    const tiles: Array<Record<string, unknown>> = [
+      {
+        x: 0,
+        y: 0,
+        terrain: "LAND",
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        economicStructure: { ownerId: "player-1", type: "WORLD_ENGINE", status: "active" }
+      }
+    ];
+    if (!options.omitTower) {
+      tiles.push({
+        x: 1,
+        y: 0,
+        terrain: "LAND",
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+      });
+    }
+    const target: Record<string, unknown> = {
+      x: 50,
+      y: 50,
+      terrain: "LAND",
+      ownerId: "player-2",
+      ownershipState: "SETTLED"
+    };
+    if (options.targetTown) {
+      target.town = { type: "MARKET", populationTier: "CITY", population: options.targetTown.population };
+    }
+    if (options.targetStructure) {
+      target.economicStructure = options.targetStructure;
+    }
+    tiles.push(target);
+    return new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", {
+          id: "player-1",
+          isAi: false,
+          points: 10_000,
+          manpower: 10_000,
+          techIds: new Set<string>(options.techIds ?? ["worldbreaker-fire"]),
+          domainIds: new Set<string>(),
+          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+          techRootId: "rewrite-local",
+          allies: new Set<string>(),
+          strategicResources: { CRYSTAL: options.crystal ?? 1_000 }
+        }],
+        ["player-2", {
+          id: "player-2",
+          isAi: true,
+          points: 100,
+          manpower: 100,
+          techIds: new Set<string>(),
+          domainIds: new Set<string>(),
+          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+          techRootId: "rewrite-local",
+          allies: new Set<string>()
+        }]
+      ]) as never,
+      initialState: { tiles: tiles as never, activeLocks: [] }
+    });
+  };
+
+  it("rejects without worldbreaker-fire tech", async () => {
+    const runtime = buildStrikeRuntime({ techIds: [] });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "strike-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      commandId: "strike-1",
+      code: "WORLD_ENGINE_STRIKE_INVALID",
+      message: "requires Worldbreaker Fire research"
+    }));
+  });
+
+  it("rejects without a powering Aether Tower", async () => {
+    const runtime = buildStrikeRuntime({ omitTower: true });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "strike-2",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      code: "WORLD_ENGINE_STRIKE_INVALID",
+      message: "World Engine requires a nearby Aether Tower"
+    }));
+  });
+
+  it("destroys an enemy economic structure on the target tile", async () => {
+    const runtime = buildStrikeRuntime({
+      targetStructure: { ownerId: "player-2", type: "GRANARY", status: "active" }
+    });
+    runtime.submitCommand({
+      commandId: "strike-3",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
+    expect(target?.economicStructureJson).toBeUndefined();
+  });
+
+  it("reduces town population by 30% capped at 200", async () => {
+    const runtime = buildStrikeRuntime({ targetTown: { population: 1_000 } });
+    runtime.submitCommand({
+      commandId: "strike-4",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
+    const town = target?.townJson ? JSON.parse(target.townJson) as { population?: number } : undefined;
+    // 30% of 1000 = 300, capped at 200.
+    expect(town?.population).toBe(800);
+  });
+});
