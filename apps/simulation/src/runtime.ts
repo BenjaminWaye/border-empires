@@ -2672,6 +2672,65 @@ export class SimulationRuntime {
     };
   }
 
+  // Cheap subset of exportState() — just { players, activeLocks } — used by
+  // the checkpoint manager's exportProjectionState callback, which only
+  // consumes those two fields. The full exportState() call also iterates
+  // and sorts ALL ~200k world tiles, materialising an array we'd then
+  // discard. On staging telemetry that materialise+sort was the dominant
+  // contributor to the 5-10s "simulation checkpoint phase" event-loop
+  // blocks; the projection callback hits the same path on every
+  // checkpointEveryEvents (5000) cycle. The player + lock projection here
+  // only iterates this.players (small) and this.locksByTile (small) — no
+  // O(world) work. Player shape MUST match exportState().players because
+  // the postgres projection writer relies on it.
+  exportProjectionPlayersAndLocks(): {
+    players: ReturnType<SimulationRuntime["exportState"]>["players"];
+    activeLocks: ReturnType<SimulationRuntime["exportState"]>["activeLocks"];
+  } {
+    const players = [...this.players.values()]
+      .map((player) => {
+        this.applyManpowerRegen(player);
+        const summary = this.summaryForPlayer(player.id);
+        return {
+          id: player.id,
+          ...(player.name ? { name: player.name } : {}),
+          points: player.points,
+          manpower: player.manpower,
+          manpowerCap: this.playerManpowerCap(player),
+          manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+          manpowerBreakdown: this.playerManpowerBreakdown(player),
+          ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
+          techIds: [...player.techIds].sort(),
+          domainIds: [...(player.domainIds ?? [])].sort(),
+          strategicResources: { ...(player.strategicResources ?? {}) },
+          allies: [...player.allies].sort(),
+          vision: player.mods?.vision ?? 1,
+          visionRadiusBonus: visionRadiusBonusForPlayer(player),
+          incomeMultiplier: player.mods?.income ?? 1,
+          territoryTileKeys: [...summary.territoryTileKeys],
+          ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
+          settledTileCount: summary.settledTileCount,
+          townCount: summary.townCount,
+          incomePerMinute: this.incomePerMinuteForPlayer(player.id),
+          strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
+          activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+        };
+      })
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const activeLocks = [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      .map((lock) => ({
+        commandId: lock.commandId,
+        playerId: lock.playerId,
+        actionType: lock.actionType,
+        originKey: lock.originKey,
+        targetKey: lock.targetKey,
+        resolvesAt: lock.resolvesAt,
+        ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
+      }))
+      .sort((left, right) => left.commandId.localeCompare(right.commandId));
+    return { players, activeLocks };
+  }
+
   private classifyVisibilityForPlayer(playerId: string): {
     radiusSelfKeys: Set<string>;
     radiusAllyKeys: Map<string, Set<string>>;
