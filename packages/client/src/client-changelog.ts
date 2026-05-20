@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.2",
+  version: "2026.05.20.3",
   title: "What's New",
-  summary: "Aether Towers now power Airports (Crystal, not Oil) and gate the new monument abilities. Tech-tree expansion for Seed Granary, Imperial Exchange Levy, and Worldbreaker Shot; removed eight dead unlock stubs including the unwired Lockworks Port and Chartered Port chain.",
+  summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live behind tech and Aether Tower powering.",
   entries: [
+    {
+      introducedIn: "2026.05.20.3",
+      title: "Seed Granary growth buff",
+      why: "Seed Granaries had no gameplay effect beyond the build prompt; they now apply a real growth multiplier to the closest 5 granaries on their island.",
+      changes: [
+        "Each Seed Granary buffs up to 5 closest owned Granary/Seed Granary tiles on the same island to 1.30x population growth.",
+        "The Seed Granary's own tile counts as slot 1; ties on distance break lexicographically by tile key.",
+        "Cross-island granaries are not buffed."
+      ]
+    },
+    {
+      introducedIn: "2026.05.20.3",
+      title: "Imperial Exchange Levy and Worldbreaker Shot",
+      why: "Both monuments existed without abilities; the levy seizes a quarter of each rival's stock and the shot razes a single target.",
+      changes: [
+        "Imperial Exchange Levy seizes 25% of every other player's chosen resource (FOOD, IRON, CRYSTAL, or SUPPLY) for 200 CRYSTAL on a 30 minute cooldown.",
+        "Worldbreaker Shot destroys the target tile's economic structure (if not yours) and removes up to 200 population from a settled town (30% of current) for 500 CRYSTAL on a 60 minute cooldown.",
+        "Both abilities require the matching tech (Exchange Levy Writs / Worldbreaker Fire) and an Aether Tower powering the monument."
+      ]
+    },
     {
       introducedIn: "2026.05.20.1",
       title: "Aether Towers power Airports",
