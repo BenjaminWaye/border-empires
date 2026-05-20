@@ -7241,7 +7241,12 @@ export class SimulationRuntime {
   }
 
   private barbarianProgressGain(target: DomainTileState | undefined): number {
-    if (!target) return 1;
+    // Multiply progress only accumulates when a barb actually CAPTURES a
+    // non-barb player's tile. Walking into neutral land or shuffling between
+    // own tiles contributes zero — otherwise barbs multiply every 3 steps
+    // even when no one's territory is being eaten, which is what was
+    // spreading them across the map.
+    if (!target?.ownerId || target.ownerId === "barbarian-1") return 0;
     return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
   }
 
