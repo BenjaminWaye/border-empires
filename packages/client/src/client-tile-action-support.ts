@@ -149,9 +149,11 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_caravanary":
       return "ledger-keeping";
     case "build_fur_synthesizer":
-    case "build_ironworks":
-    case "build_crystal_synthesizer":
       return "workshops";
+    case "build_ironworks":
+      return "alchemy";
+    case "build_crystal_synthesizer":
+      return "crystal-lattices";
     case "build_fuel_plant":
       return "plastics";
     case "build_customs_house":
