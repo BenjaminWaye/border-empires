@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.3",
+  version: "2026.05.20.4",
   title: "What's New",
-  summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live behind tech and Aether Tower powering.",
+  summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN).",
   entries: [
     {
-      introducedIn: "2026.05.20.3",
+      introducedIn: "2026.05.20.4",
       title: "Seed Granary growth buff",
       why: "Seed Granaries had no gameplay effect beyond the build prompt; they now apply a real growth multiplier to the closest 5 granaries on their island.",
       changes: [
@@ -34,12 +34,12 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.20.3",
+      introducedIn: "2026.05.20.4",
       title: "Imperial Exchange Levy and Worldbreaker Shot",
       why: "Both monuments existed without abilities; the levy seizes a quarter of each rival's stock and the shot razes a single target.",
       changes: [
         "Imperial Exchange Levy seizes 25% of every other player's chosen resource (FOOD, IRON, CRYSTAL, or SUPPLY) for 200 CRYSTAL on a 30 minute cooldown.",
-        "Worldbreaker Shot destroys the target tile's economic structure (if not yours) and removes up to 200 population from a settled town (30% of current) for 500 CRYSTAL on a 60 minute cooldown.",
+        "Worldbreaker Shot destroys the target tile's economic structure (if not yours) and removes 30% of a settled town's population — no cap, and demotes the city tier one step (floored at TOWN) — for 500 CRYSTAL on a 60 minute cooldown.",
         "Both abilities require the matching tech (Exchange Levy Writs / Worldbreaker Fire) and an Aether Tower powering the monument."
       ]
     },
