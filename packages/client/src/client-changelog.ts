@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.2",
+  version: "2026.05.20.3",
   title: "What's New",
-  summary: "Tier-1 domains are now identity-shaping picks: every tooltip-only effect (fort build speed, fort upkeep, outpost deploy and supply, attack vs settled/forts, fort defense, first-three-towns growth) actually runs in the sim, and Clockwork Stipend lets you lock a permanent resource trickle.",
+  summary: "Development queue is now strict FIFO: clicking a new build while items are already waiting always appends to the back, instead of slipping into a freshly opened slot ahead of them.",
   entries: [
+    {
+      introducedIn: "2026.05.20.3",
+      title: "Strict FIFO development queue",
+      why: "If you queued 20 settlements and then clicked a granary, the granary would sometimes start immediately by catching a slot that opened the instant a settlement finished, jumping ahead of the queue.",
+      changes: [
+        "Settle and build clicks now route to the end of the development queue whenever the queue is non-empty, regardless of available slots.",
+        "Queue processor still drains in order, so behavior matches what you see in the queue UI."
+      ]
+    },
     {
       introducedIn: "2026.05.20.2",
       title: "Tier-1 domains reworked + dead tooltip effects brought to life + Clockwork Stipend goes live",
