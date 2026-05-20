@@ -966,10 +966,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(options.writeCheckpointProjections === false
       ? {}
       : {
-          exportProjectionState: () => {
-            const state = runtime.exportState();
-            return { players: state.players, activeLocks: state.activeLocks };
-          }
+          // Previously called runtime.exportState() which materialises and
+          // sorts the full ~200k tile array (then we discarded it). That
+          // synchronous O(world) work was the dominant cost of the
+          // "simulation checkpoint phase" event-loop block — staging
+          // observed 5-10s spikes preceded by this log line. The dedicated
+          // projection method returns the same { players, activeLocks }
+          // shape without ever touching this.tiles.
+          exportProjectionState: () => runtime.exportProjectionPlayersAndLocks()
         }),
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
     ...(typeof options.checkpointForceAfterEvents === "number"
