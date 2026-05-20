@@ -803,7 +803,6 @@ export const renderClientHud = (deps: HudDeps): void => {
       const target = event.target as HTMLElement | null;
       const unlockTrigger = target?.closest<HTMLButtonElement>("[data-domain-unlock]");
       if (unlockTrigger) {
-        if (unlockTrigger.disabled) return;
         event.preventDefault();
         const id = unlockTrigger.dataset.domainUnlock;
         if (!id) return;
