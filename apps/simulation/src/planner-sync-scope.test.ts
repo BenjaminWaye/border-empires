@@ -75,11 +75,37 @@ describe("buildPlannerRelevantTileKeys", () => {
 
     expect(index.keys()).toEqual(new Set(["10,10", "50,50"]));
 
+    // Bump tileCollectionVersion: in production the runtime's
+    // markPlannerPlayerTileCollectionDirty increments this on any tile
+    // ownership / state change, which is the cache-invalidation signal
+    // for the relevance set. A test that mutated territory without
+    // bumping the version would represent a runtime bug, not a use case.
     index.replacePlayers(
-      [makePlayer({ id: "p1", territoryTileKeys: ["12,12"] })],
+      [makePlayer({ id: "p1", tileCollectionVersion: 2, territoryTileKeys: ["12,12"] })],
       new Map()
     );
 
     expect(index.keys()).toEqual(new Set(["12,12", "50,50"]));
+  });
+
+  it("skips the rebuild when tileCollectionVersion is unchanged", () => {
+    const player = makePlayer({ id: "p1", tileCollectionVersion: 7, territoryTileKeys: ["10,10"] });
+    const index = createPlannerRelevantTileKeyIndex({
+      players: [player],
+      tiles: [],
+      docks: []
+    }, 0);
+
+    expect(index.keys()).toEqual(new Set(["10,10"]));
+
+    // Same version → cache hit. Even if territoryTileKeys is mutated in the
+    // input (which would never happen in production without a version bump),
+    // the cache holds the previous result.
+    index.replacePlayers(
+      [makePlayer({ id: "p1", tileCollectionVersion: 7, territoryTileKeys: ["99,99"] })],
+      new Map()
+    );
+
+    expect(index.keys()).toEqual(new Set(["10,10"]));
   });
 });
