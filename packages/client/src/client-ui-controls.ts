@@ -8,6 +8,7 @@ import {
   SIEGE_OUTPOST_BUILD_MS,
   WOODEN_FORT_BUILD_MS,
   WOODEN_FORT_DEFENSE_MULT,
+  structureBuildManpowerCost,
   structureShowsOnTile,
   type ResourceType
 } from "@border-empires/shared";
@@ -122,30 +123,34 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   const canUpgradeLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST" && state.techIds.includes("leatherworking");
   const fortVariant =
     tile.fort?.variant === "FORT" && state.techIds.includes("fortified-walls")
-      ? { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 90 IRON" }
+      ? { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" }
       : tile.fort?.variant === "IRON_BASTION" && state.techIds.includes("steelworking")
-        ? { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 180 IRON" }
+        ? { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" }
     : tile.fort
       ? undefined
     : state.techIds.includes("steelworking")
-      ? { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 180 IRON" }
+      ? { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" }
       : state.techIds.includes("fortified-walls")
-        ? { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 90 IRON" }
+        ? { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" }
         : { label: "Fort", gold: structureGoldCost("FORT"), iron: 45, defenseMult: FORT_DEFENSE_MULT, summary: structureCostText("FORT") };
   const siegeVariant =
     tile.siegeOutpost?.variant === "SIEGE_OUTPOST" && state.techIds.includes("siegecraft")
-      ? { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 90 SUPPLY + 60 IRON" }
+      ? { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 60 manpower + 90 SUPPLY + 60 IRON" }
       : tile.siegeOutpost?.variant === "SIEGE_TOWER" && state.techIds.includes("standing-army")
-        ? { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 140 SUPPLY + 120 IRON" }
+        ? { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 60 manpower + 140 SUPPLY + 120 IRON" }
     : tile.siegeOutpost
       ? undefined
     : state.techIds.includes("standing-army")
-      ? { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 140 SUPPLY + 120 IRON" }
+      ? { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 60 manpower + 140 SUPPLY + 120 IRON" }
       : state.techIds.includes("siegecraft")
-        ? { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 90 SUPPLY + 60 IRON" }
+        ? { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 60 manpower + 90 SUPPLY + 60 IRON" }
         : { label: "Siege Outpost", gold: structureGoldCost("SIEGE_OUTPOST"), supply: 45, iron: 0, attackMult: SIEGE_OUTPOST_ATTACK_MULT, summary: structureCostText("SIEGE_OUTPOST") };
   const woodenFortGoldCost = structureGoldCost("WOODEN_FORT");
   const lightOutpostGoldCost = structureGoldCost("LIGHT_OUTPOST");
+  const woodenFortManpowerCost = structureBuildManpowerCost("WOODEN_FORT");
+  const lightOutpostManpowerCost = structureBuildManpowerCost("LIGHT_OUTPOST");
+  const fortManpowerCost = structureBuildManpowerCost("FORT");
+  const siegeManpowerCost = structureBuildManpowerCost("SIEGE_OUTPOST");
   const observatoryGoldCost = structureGoldCost("OBSERVATORY");
   const fortUpgradeVariant = fortVariant ?? null;
   const siegeUpgradeVariant = siegeVariant ?? null;
@@ -165,7 +170,8 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
     !tile.siegeOutpost &&
     !tile.observatory &&
     !tile.economicStructure &&
-    state.gold >= woodenFortGoldCost;
+    state.gold >= woodenFortGoldCost &&
+    state.manpower >= woodenFortManpowerCost;
   const canBuildAdvancedFort =
     tile.ownerId === state.me &&
     tile.ownershipState === "SETTLED" &&
@@ -177,6 +183,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
     Boolean(fortUpgradeVariant) &&
     state.techIds.includes("masonry") &&
     state.gold >= (fortUpgradeVariant?.gold ?? 0) &&
+    state.manpower >= fortManpowerCost &&
     (state.strategicResources.IRON ?? 0) >= (fortUpgradeVariant?.iron ?? 0);
   const canBuildStarterLightOutpost =
     tile.ownerId === state.me &&
@@ -187,7 +194,8 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
     !tile.siegeOutpost &&
     !tile.observatory &&
     !tile.economicStructure &&
-    state.gold >= lightOutpostGoldCost;
+    state.gold >= lightOutpostGoldCost &&
+    state.manpower >= lightOutpostManpowerCost;
   const canBuildAdvancedSiegeOutpost =
     tile.ownerId === state.me &&
     tile.ownershipState === "SETTLED" &&
@@ -200,6 +208,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
     Boolean(siegeUpgradeVariant) &&
     state.techIds.includes("leatherworking") &&
     state.gold >= (siegeUpgradeVariant?.gold ?? 0) &&
+    state.manpower >= siegeManpowerCost &&
     (state.strategicResources.SUPPLY ?? 0) >= (siegeUpgradeVariant?.supply ?? 0) &&
     (state.strategicResources.IRON ?? 0) >= (siegeUpgradeVariant?.iron ?? 0);
   const canAffordFort = canBuildStarterWoodenFort || canBuildAdvancedFort;

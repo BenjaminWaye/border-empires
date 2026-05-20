@@ -4,6 +4,9 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
 import { simulationTileKey } from "./seed-state.js";
 
+const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number =>
+  Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+
 describe("chooseLegacySpawnPlacement", () => {
   it("chooses a tile near food and town while respecting spawn distance", () => {
     const tiles: DomainTileState[] = [];
@@ -91,6 +94,53 @@ describe("chooseLegacySpawnPlacement", () => {
     });
 
     expect(spawn).toEqual({ x: 1, y: 1 });
+  });
+
+  it("treats FRONTIER tiles as occupied so new spawns stay clear of expanding territory", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 140; y += 1) {
+      for (let x = 0; x < 140; x += 1) {
+        tiles.push({ x, y, terrain: "LAND" });
+      }
+    }
+    const setOwned = (x: number, y: number, state: "SETTLED" | "FRONTIER"): void => {
+      const tile = tiles.find((entry) => entry.x === x && entry.y === y);
+      if (tile) {
+        tile.ownerId = "player-1";
+        tile.ownershipState = state;
+      }
+    };
+    setOwned(70, 70, "SETTLED");
+    for (let x = 71; x <= 90; x += 1) setOwned(x, 70, "FRONTIER");
+
+    const spawn = chooseLegacySpawnPlacement({ playerId: "newcomer", tiles });
+
+    expect(spawn).toBeDefined();
+    expect(chebyshevDistance(spawn!.x, spawn!.y, 90, 70)).toBeGreaterThanOrEqual(50);
+  });
+
+  it("maximizes distance from existing players when the map is too crowded for the minimum spacing", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 40; y += 1) {
+      for (let x = 0; x < 40; x += 1) {
+        tiles.push({ x, y, terrain: "LAND" });
+      }
+    }
+    const setOwned = (x: number, y: number): void => {
+      const tile = tiles.find((entry) => entry.x === x && entry.y === y);
+      if (tile) {
+        tile.ownerId = "player-1";
+        tile.ownershipState = "SETTLED";
+      }
+    };
+    for (let y = 0; y < 40; y += 1) {
+      for (let x = 0; x < 25; x += 1) setOwned(x, y);
+    }
+
+    const spawn = chooseLegacySpawnPlacement({ playerId: "newcomer", tiles });
+
+    expect(spawn).toBeDefined();
+    expect(spawn!.x).toBe(39);
   });
 
   it("prefers open land near a rally anchor before default spawn placement", () => {

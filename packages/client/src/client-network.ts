@@ -14,7 +14,12 @@ import { applyRespawnNoticeToState, normalizeRespawnNotice } from "./client-resp
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
-import { restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
+import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
+import {
+  notifyIncomingAllianceRequest,
+  notifyIncomingDiplomacyRequestsOnInit,
+  notifyIncomingTruceRequest
+} from "./client-diplomacy-notifications.js";
 import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import { tileHasTownIdentity } from "./client-town-identity.js";
 
@@ -696,7 +701,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return origin ? state.tiles.get(keyFor(origin.x, origin.y)) : undefined;
     })();
     const changes =
-      (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>) ??
+      (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number; frontierDecayAt?: number | null }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
     for (const change of changes) {
@@ -715,6 +720,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else if (!change.ownerId) delete incoming.ownershipState;
       if (typeof change.breachShockUntil === "number") incoming.breachShockUntil = change.breachShockUntil;
       else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
+      if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
+      else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
@@ -738,7 +745,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.pendingCombatReveal.detail === resultAlert.detail) ||
         (resultTargetKey && wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
     );
-    if (!predictedAlreadyShown) {
+    // Silent waypoint EXPAND on neutral: state.capture.silent is set
+    // and the result is a "Territory Claimed" success. Skip both the
+    // feed entry and the captureAlert popup. Anything else (attack
+    // results, settle results, the lost-territory tone) still surfaces.
+    const silentExpandSuccess = Boolean(state.capture?.silent && msg.attackType === "EXPAND" && resultAlert.tone === "success");
+    if (!predictedAlreadyShown && !silentExpandSuccess) {
       appendFeedEntry({
         title: resultAlert.title,
         text: resultAlert.detail,
@@ -1226,6 +1238,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           new Set(state.settleProgressByTile.keys())
         );
       }
+      applyAutoSettlementQueueFromServer(
+        state,
+        player.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
+        { keyFor }
+      );
       state.allies = (player.allies as string[]) ?? [];
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
       const myTileColor = player.tileColor as string | undefined;
@@ -1360,6 +1377,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           "warn"
         );
       }
+      notifyIncomingDiplomacyRequestsOnInit(state, state.incomingAllianceRequests, state.incomingTruceRequests, {
+        pushFeed,
+        showCaptureAlert: showCaptureAlertSafely
+      });
       if (shardRainNotice?.phase === "upcoming" && typeof shardRainNotice.startsAt === "number") {
         showShardAlert({
           key: shardAlertKeyForPayload("upcoming", shardRainNotice.startsAt),
@@ -1426,6 +1447,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if ("pendingSettlements" in msg) {
         applyPendingSettlementsFromServer(
           msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
+        );
+      }
+      if ("autoSettlementQueue" in msg) {
+        applyAutoSettlementQueueFromServer(
+          state,
+          msg.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
+          { keyFor }
         );
       }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
@@ -1584,10 +1612,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionAcceptedAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
       state.actionInFlight = true;
+      // Preserve the silent flag set at dispatch time so the
+      // waypoint-driven neutral EXPAND does not pop the big overlay
+      // when the server confirms acceptance.
+      const wasSilent = Boolean(state.capture?.silent && state.capture.target.x === target.x && state.capture.target.y === target.y);
       state.capture = {
         startAt: state.actionStartedAt || Date.now(),
         resolvesAt: msg.resolvesAt as number,
-        target
+        target,
+        ...(wasSilent ? { silent: true } : {})
       };
       state.actionTargetKey = targetKey;
       if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
@@ -1635,17 +1668,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         tone: "success" as const,
         ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {})
       };
-      appendFeedEntry({
-        title: resultAlert.title,
-        text: resultAlert.detail,
-        type: "combat",
-        severity: "success",
-        at: Date.now(),
-        ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
-          ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
-          : {})
-      });
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
+      // Waypoint-driven neutral EXPAND: skip both the popup and the
+      // feed entry. The user already opted into the chain via Expand
+      // Here; per-tile completion noise was the point of the silent
+      // flow. Errors still surface via the captureAlert path above.
+      const silentSuccess = Boolean(state.capture?.silent);
+      if (!silentSuccess) {
+        appendFeedEntry({
+          title: resultAlert.title,
+          text: resultAlert.detail,
+          type: "combat",
+          severity: "success",
+          at: Date.now(),
+          ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
+            ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
+            : {})
+        });
+        showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
+      }
       state.capture = undefined;
       frontierQueueDebug("frontier_result_received", {
         actionType: msg.actionType,
@@ -1763,7 +1803,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
       const startAt = existingCapture?.startAt ?? Date.now();
       const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
-      state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };
+      const preservedSilent = Boolean(existingCapture?.silent);
+      state.capture = {
+        startAt,
+        resolvesAt: resolvesAtForCapture,
+        target,
+        ...(preservedSilent ? { silent: true } : {})
+      };
       const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
       if (lockedCombatResult) {
         const predictedAlert = combatResolutionAlert(lockedCombatResult, {
@@ -2036,6 +2082,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (typeof normalizedUpdate.breachShockUntil === "number") merged.breachShockUntil = normalizedUpdate.breachShockUntil;
           else delete merged.breachShockUntil;
         }
+        if ("frontierDecayAt" in normalizedUpdate) {
+          if (typeof normalizedUpdate.frontierDecayAt === "number") merged.frontierDecayAt = normalizedUpdate.frontierDecayAt;
+          else delete merged.frontierDecayAt;
+        }
         if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
         if (normalizedUpdate.clusterId !== undefined) merged.clusterId = normalizedUpdate.clusterId;
         if (normalizedUpdate.clusterType !== undefined) merged.clusterType = normalizedUpdate.clusterType;
@@ -2305,7 +2355,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (fromName) request.fromName = fromName;
         state.incomingAllianceRequests.push(request);
       }
-      pushFeed(`Incoming alliance request${request?.fromName ? ` from ${request.fromName}` : ""}`, "alliance", "info");
+      notifyIncomingAllianceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
       renderHud();
       return;
     }
@@ -2340,7 +2390,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (fromName) request.fromName = fromName;
         state.incomingTruceRequests = [...state.incomingTruceRequests.filter((entry: any) => entry.id !== request.id), request];
       }
-      pushFeed(`Incoming truce offer${request?.fromName ? ` from ${request.fromName}` : ""}.`, "alliance", "info");
+      notifyIncomingTruceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
       renderHud();
       return;
     }

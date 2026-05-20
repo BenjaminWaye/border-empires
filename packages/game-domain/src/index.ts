@@ -18,6 +18,16 @@ import {
   type Tile
 } from "@border-empires/shared";
 
+export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" | "economicStructure">): number => {
+  if (tile.fort?.status === "active") {
+    if (tile.fort.variant === "THUNDER_BASTION") return 20;
+    if (tile.fort.variant === "IRON_BASTION") return 10;
+    return 5;
+  }
+  if (tile.economicStructure?.type === "WOODEN_FORT" && tile.economicStructure.status === "active") return 1.5;
+  return 1;
+};
+
 export type FrontierCommandType = "ATTACK" | "EXPAND";
 export type DomainStrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
 
@@ -60,6 +70,7 @@ export type DomainTileState = {
   shardSite?: { kind: "CACHE" | "FALL"; amount: number; expiresAt?: number | undefined } | undefined;
   ownerId?: string | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
+  frontierDecayAt?: number | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<
@@ -98,6 +109,7 @@ export type DomainTileState = {
     | {
         ownerId: string;
         status: NonNullable<Tile["fort"]>["status"];
+        variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
         completesAt?: number | undefined;
         disabledUntil?: number | undefined;
         previousStatus?: "active" | undefined;
@@ -116,6 +128,8 @@ export type DomainTileState = {
     | {
         ownerId: string;
         status: NonNullable<Tile["siegeOutpost"]>["status"];
+        variant?: NonNullable<Tile["siegeOutpost"]>["variant"] | undefined;
+        autoAttackEnabled?: boolean | undefined;
         completesAt?: number | undefined;
         previousStatus?: "active" | undefined;
       }
@@ -177,18 +191,20 @@ export type ValidateFrontierCommandResult =
     };
 
 const manpowerRequirements = (
-  actionType: FrontierCommandType
+  actionType: FrontierCommandType,
+  target: DomainTileState
 ): { manpowerMin: number; manpowerCost: number } => {
+  const attackMultiplier = actionType === "ATTACK" ? fortAttackManpowerMultiplier(target) : 1;
   return {
-    manpowerMin: actionType === "ATTACK" ? ATTACK_MANPOWER_MIN : 0,
-    manpowerCost: actionType === "ATTACK" ? ATTACK_MANPOWER_COST : 0
+    manpowerMin: actionType === "ATTACK" ? ATTACK_MANPOWER_MIN * attackMultiplier : 0,
+    manpowerCost: actionType === "ATTACK" ? ATTACK_MANPOWER_COST * attackMultiplier : 0
   };
 };
 
 export const validateFrontierCommand = (
   input: ValidateFrontierCommandInput
 ): ValidateFrontierCommandResult => {
-  const { manpowerMin, manpowerCost } = manpowerRequirements(input.actionType);
+  const { manpowerMin, manpowerCost } = manpowerRequirements(input.actionType, input.to);
   if (input.actionType === "EXPAND" && input.to.ownerId) {
     return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
   }

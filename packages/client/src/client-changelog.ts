@@ -21,105 +21,166 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.05.20.2",
   title: "What's New",
-  summary: "Trickle parity test now catches drift in both directions, and the sim imports the shared resource enum directly instead of hopping through game-domain.",
+  summary: "Tier-1 domains are now identity-shaping picks: every tooltip-only effect (fort build speed, fort upkeep, outpost deploy and supply, attack vs settled/forts, fort defense, first-three-towns growth) actually runs in the sim, and Clockwork Stipend lets you lock a permanent resource trickle.",
   entries: [
     {
       introducedIn: "2026.05.20.2",
-      title: "Bidirectional trickle parity test + dropped re-export hop",
-      why: "The previous parity test asserted the server filter's output equals TRICKLE_RESOURCE_KEYS, which caught 'widened shared list without updating data' but missed the reverse — a data file growing an extra rate would have silently no-op'd. The game-domain re-export of the trickle const/type was also a needless indirection: sim files imported it from game-domain while runtime.ts imported the same module's guard directly from shared, splitting one logical surface across two paths.",
+      title: "Tier-1 domains reworked + dead tooltip effects brought to life + Clockwork Stipend goes live",
+      why: "Most tier-1 modifiers were 10–20% — too small to feel decisive — and several effect keys (fortIronUpkeepMult, fortBuildGoldCostMult, fortDefenseMult, outpostSupplyUpkeepMult, outpostDeploymentSpeedMult, firstThreeTownsPopulationGrowthMult, attackVsSettledMult, attackVsFortsMult) only existed in tooltips; the sim never read them. Domains should feel like an identity choice from the first pick.",
       changes: [
-        "Parity test now reads packages/game-domain/data/domain-tree.json directly and asserts clockwork-stipend's chosenResourceTrickleOptions keys are exactly TRICKLE_RESOURCE_KEYS. Both 'shared widened without data' and 'data widened without shared' fail loud now.",
-        "Dropped the game-domain re-export of TRICKLE_RESOURCE_KEYS / ChosenTrickleResource. tech-domain-bridge.ts and runtime.ts both import directly from @border-empires/shared now; the module-doc comment is updated to reflect the single import path.",
-        "tech-domain-bridge.ts still re-exports the ChosenTrickleResource type for sim consumers that import the bridge for the helpers anyway — fewer changes to runtime.ts."
+        "Frontier Doctrine: settlement speed +50% (was +20%), keeps +1 development slot.",
+        "Iron Bastions reworked: forts build +50% faster (new effect, now wired in the sim), and both fort iron upkeep and fort gold upkeep are -40%.",
+        "Supply Raiding reworked: outpost deployment +50% faster and outpost supply upkeep -30%.",
+        "Mercantile Charter: first-three-towns population growth bonus raised to +25% (was +15%) and now actually applies to the growth tick.",
+        "Farmer's Compact retired; Clockwork Stipend takes its tier-1 slot — pick one resource (iron 0.2/min, supply 0.2/min, or crystal 0.1/min) for a permanent trickle. Choice is locked forever; an in-game modal lets you pick on confirm, the owned-domain card shows your locked pick after that. AI players pick whichever offered resource they are most stockpile-starved on.",
+        "Frontier combat now reads defender-side fortDefenseMult and attacker-side attackVsSettledMult / attackVsFortsMult; the runtime extends FrontierCombatPreviewTile with a hasFort flag derived from the actual tile state.",
+        "Single source of truth for the trickle resource list lives in @border-empires/shared (TRICKLE_RESOURCE_KEYS + isChosenTrickleResource guard); a parity test reads the raw domain-tree.json and fails loud on either-direction drift."
       ]
     },
     {
       introducedIn: "2026.05.20.1",
-      title: "Trickle resource enum unified across the stack",
-      why: "Up until now the IRON/SUPPLY/CRYSTAL list was duplicated in six places — sim helper, client gate, sim-protocol type, gateway init payload, runtime command parser, AI heuristic. A comment said 'these MUST agree' but nothing enforced it. Same drift hazard as before, just hidden in more files.",
+      title: "Barbarian population capped at 200",
+      why: "Unchecked barb multiplication was the underlying cause of late-game gateway slowdowns. The cap holds the population steady without disabling regrowth.",
       changes: [
-        "New @border-empires/shared/trickle-resources module exports TRICKLE_RESOURCE_KEYS, the ChosenTrickleResource type, and an isChosenTrickleResource type guard. All six prior duplicates now import from this single source.",
-        "DomainPlayer.chosenTrickleResource narrowed from DomainStrategicResourceKey (which included FOOD/SHARD/OIL) to ChosenTrickleResource (IRON/SUPPLY/CRYSTAL only) — the type now matches every runtime validator's behavior.",
-        "Server-side chosenTrickleOptionsForDomain iterates the shared TRICKLE_RESOURCE_KEYS const tuple; client-side domainTrickleOptionKeys does the same. Adding a fourth resource flips one constant and both validators pick it up.",
-        "New parity test in tech-domain-bridge.test.ts asserts the data file's options table matches the shared keys list — a future PR that widens one but forgets the other will fail loud."
-      ]
-    },
-    {
-      introducedIn: "2026.05.19.7",
-      title: "Trickle suffix gate aligned with server contract",
-      why: "Two forward-looking gaps: (1) the gate could render the suffix on a future trickle-offering domain even if that specific domain's options table didn't include the player's locked resource — misleading once a second trickle domain ever ships; (2) the client's options validator was looser than the server's, accepting any positive-rate entry while the sim only honors IRON / SUPPLY / CRYSTAL.",
-      changes: [
-        "domainOwnedHtml now uses domainTrickleOptionKeys that whitelists IRON/SUPPLY/CRYSTAL and requires positive finite numeric rates — matching the server's chosenTrickleOptionsForDomain contract.",
-        "Suffix only renders when the player's locked resource is *in* this specific domain's options set. A narrow future domain (e.g. IRON-only) won't display '(SUPPLY trickle)' just because the player locked SUPPLY elsewhere.",
-        "Added two more tests: SHARD entry is ignored (mirrors server behavior), and a narrow future-domain scenario verifies the suffix is correctly suppressed when this domain didn't offer the locked resource."
-      ]
-    },
-    {
-      introducedIn: "2026.05.19.6",
-      title: "Trickle suffix only renders when the data is actually valid",
-      why: "The owned-domain trickle suffix gate was Boolean(effects.chosenResourceTrickleOptions), which evaluates true for present-but-empty {} or bogus non-numeric rates. A future data-edit bug could have rendered a misleading 'IRON trickle' label against an unusable options table.",
-      changes: [
-        "domainOwnedHtml's offers-trickle check now requires at least one numeric, positive rate inside chosenResourceTrickleOptions — empty objects and non-numeric rates no longer trigger the suffix.",
-        "Added five client tests around domainOwnedHtml: locked-suffix renders only on the domain that offered the pick, missing chosenTrickleResource hides the suffix, empty / bogus options tables are ignored, and CRYSTAL renders correctly."
+        "Barbarian-1 stops multiplying once it owns 200 tiles.",
+        "An at-threshold walk on a capped population still walks (source releases, target captured) but carries the would-multiply progress to the target.",
+        "As soon as any barb dies, the next walk from a progress-loaded barb tile multiplies — replacement happens immediately, no compound growth."
       ]
     },
     {
       introducedIn: "2026.05.19.5",
-      title: "Owned Clockwork Stipend card shows your locked resource, dead-code cleanup",
-      why: "After the previous pass, state.chosenTrickleResource arrived on the client but no UI actually read it, and the chooseDomainFromUi function had a dead 'reuse already-locked pick' branch that could never execute under current data. Tightening both, plus two small code-quality nits flagged in the second review.",
+      title: "Fort frontier control scales by tier",
+      why: "Higher-tier forts should project a stronger border without making fresh staging frontier disappear before the player can act.",
       changes: [
-        "The owned-domain card now appends '(IRON trickle)' (or SUPPLY / CRYSTAL) to Clockwork Stipend's title, so you can see at a glance which resource is ticking forward. domainOwnedHtml signature now takes the optional locked resource alongside the catalog and owned ids.",
-        "Removed the dead 'reuse already-locked trickle' branch in chooseDomainFromUi — only one domain currently offers a trickle table, and after picking it the domain is unreachable, so the branch could never execute. Add it back if/when a second trickle domain ships.",
-        "Annotated the duplicated pendingDomainUnlockId guard in chooseDomainFromUi: setting it before opening the modal stack-proofs against rapid double-click, and the re-set inside sendDomainCommand is intentional for the no-modal fast path.",
-        "Trickle modal now generates per-instance element IDs (title + cancel button) so a stray bug rendering two modals at once wouldn't break document-level ID uniqueness or aria-labelledby targeting.",
-        "Extracted coerceChosenTrickleResource helper in the gateway init-payload — replaces an ugly inline IIFE with a named one-liner."
+        "Wooden forts project frontier control 1 tile, full forts 2 tiles, Iron Bastions 3 tiles, and Thunder Bastions 4 tiles.",
+        "Newly claimed or captured frontier gets 20 seconds of protection from enemy fort patrol attacks.",
+        "Launching an attack against a fort extends that staging protection by another 20 seconds.",
+        "Queued or actively settling frontier no longer decays while it is waiting for settlement."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Forts now patrol nearby enemy frontier",
+      why: "A border fort should reduce the repetitive work of clearing small enemy frontier patches around it.",
+      changes: [
+        "Active forts now automatically attack adjacent enemy frontier tiles when the player has enough gold and manpower.",
+        "Fort patrol attacks skip settled enemy tiles and fortified frontier tiles, so core assaults still require an intentional player attack.",
+        "Fort patrol attacks use the normal frontier attack lock and resource costs."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Unsupported frontier now decays",
+      why: "Frontier should be quick to claim, but it should not leave permanent cleanup work when no fort is holding that border.",
+      changes: [
+        "Owned frontier tiles outside active fort support now start a 10 minute decay timer.",
+        "Unsupported frontier returns to neutral when the timer expires, while resources, towns, and docks remain on the tile.",
+        "Tiles in their final 60 seconds use a slow 2 second blink so the warning is visible without being noisy."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Fort assaults require larger manpower commitments",
+      why: "Fortified tiles should feel like real campaign objectives instead of ordinary attacks with a small extra manpower cost.",
+      changes: [
+        "Attacking an active fort now requires and commits 300 manpower.",
+        "Attacking an Iron Bastion now requires and commits 600 manpower, and attacking a Thunder Bastion requires and commits 1200 manpower.",
+        "Building a full fort now requires 300 manpower; starter wooden forts keep their lighter manpower footprint."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Starter settlements no longer auto-claim frontier",
+      why: "A fresh settlement should not spend gold expanding its surrounding frontier before the player has grown it into a real town.",
+      changes: [
+        "Settlement-tier towns no longer auto-claim adjacent unowned frontier tiles.",
+        "Town-driven auto frontier expansion now starts only after the town grows beyond settlement tier.",
+        "Fort auto frontier expansion and high-value auto-settlement behavior are unchanged."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Settlement-tier towns no longer auto-settle support tiles",
+      why: "A new settlement should not automatically commit its plain surrounding support tiles before the player has had time to grow it into a real town.",
+      changes: [
+        "Settlement-tier towns no longer put plain adjacent support tiles in the auto-settlement queue.",
+        "Plain adjacent support tiles now wait until the nearby town grows beyond settlement tier before entering the auto-settlement queue.",
+        "High-value frontier tiles with resources, towns, or docks still auto-queue regardless of nearby town tier."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "Sieges now respect manpower and outpost control",
+      why: "Outpost automation should reduce repeated attack clicks without taking control away from the player, and fortified targets should demand a real manpower commitment.",
+      changes: [
+        "Active siege outposts now expose a menu action to cancel or re-enable their automatic attacks.",
+        "Cancelling outpost auto-attack disables future attacks from that outpost and cancels its active outpost-launched attack lock.",
+        "Building forts, siege outposts, wooden forts, and light outposts now spends manpower when construction starts.",
+        "Attacks against active forts now require and commit more manpower based on fort strength, so failed fort assaults cause much heavier manpower losses."
+      ]
+    },
+    {
+      introducedIn: "2026.05.19.5",
+      title: "High-value and town-support tiles auto-queue settlement",
+      why: "Resources, towns, docks, and town-support tiles should enter the settle queue after you claim them instead of requiring another manual click, while still leaving players the existing cancel control.",
+      changes: [
+        "Owned frontier tiles with a resource, town, or dock now automatically enter the settlement queue when gold is available.",
+        "Owned frontier tiles adjacent to one of your settled towns now also auto-queue as town-support tiles.",
+        "Eligible auto-settlement tiles follow frontier expansion order instead of a special priority sort.",
+        "Eligible frontier tiles waiting for a settlement slot now use the same numbered settlement queue badge as manually queued settlements.",
+        "Cancel queued settlement now keeps a cancelled auto-settlement tile from immediately returning to the queue.",
+        "Remote plain frontier tiles still stay frontier-only, so automation remains limited to valuable and support tiles."
       ]
     },
     {
       introducedIn: "2026.05.19.4",
-      title: "Clockwork Stipend pick survives reconnects, modal stack-proofed, combat code tidied",
-      why: "The locked Clockwork Stipend resource lived only in the sim — after a refresh the client had no idea which resource you'd picked, and the modal could stack on a rapid double-click. Fixing both, plus a few code-smell touch-ups.",
+      title: "3D meshes for Granary and Seed Granary",
+      why: "Granaries had no 3D representation, so true-3D players saw the 2D SVG floating in place over the heightfield instead of an in-world structure. Seed Granary — the granary upgrade with stronger growth and lower food upkeep — needed a distinct silhouette so it would never get confused with the regular Granary or with the existing Farmstead's wooden silo.",
       changes: [
-        "Your locked Clockwork Stipend resource now travels with every TECH_UPDATE / DOMAIN_UPDATE and on the initial INIT payload, so HUD copy and the pick modal both stay correct across reconnects and snapshot replays.",
-        "The pick modal sets the pending-domain guard *before* opening, so a rapid double-click can no longer stack two modals on top of each other. Cancel clears the guard so you can try again.",
-        "If you've already locked a trickle resource on a previous domain, picking another domain that offers a compatible trickle reuses your locked pick instead of re-prompting.",
-        "Modal styling: added max-height with overflow-y so the card never clips off small viewports, added -webkit-backdrop-filter for older Safari, validated the data-resource CSS selector input against a strict regex, dropped the dead panel-btn class that inline styles were already overriding.",
-        "Combat resolution code de-duplicated — defenderOwnerId/defender were being computed twice from the same source."
-      ]
-    },
-    {
-      introducedIn: "2026.05.19.3",
-      title: "Clockwork Stipend pick modal, smarter AI choice, hardened combat plumbing",
-      why: "The placeholder window.prompt for the Clockwork Stipend resource pick was functional but ugly, the AI was hard-coded to IRON, and a handful of divide-by-zero guards on multiplier helpers were defensive against a case the helper already filters out. Tightening all three.",
-      changes: [
-        "Clockwork Stipend now shows a proper in-game modal when you confirm it — three resource buttons with rate + flavor (Forge & fort upkeep / Outpost upkeep & army logistics / Research, observatories, shards), Esc/backdrop to cancel, default focus on the first option.",
-        "AI players picking Clockwork Stipend now pick whichever offered resource they are currently most stockpile-starved on, weighted by trickle rate so CRYSTAL's lower 0.1/min doesn't pull them away from a more impactful IRON/SUPPLY choice.",
-        "Removed defensive Math.max(mult, 0.01) floors in fortBuildSpeedMult / outpostDeploymentSpeedMult divisions — multiplicativeEffectForPlayer already filters out zero/negative values before multiplying, so the result is guaranteed > 0.",
-        "Ten new unit tests cover Iron Bastions / Supply Raiding / Mercantile Charter multiplier wiring, Clockwork Stipend's offered table, the choose-domain sub-choice requirement, locked-forever semantics, and the trickle-rate lookup."
+        "Granary now renders as a cream-walled wooden barn with a golden gable roof, three horizontal grain bands, a small grey-roofed side annex, a cupola/ventilator on top, and two grain sacks out front — colors and silhouette drawn from the granary-overlay.svg so 2D and 3D read as the same structure.",
+        "Seed Granary now renders as a cluster of three tall stone silos with copper conical caps plus a small seed-lab annex with a green-glowing window, giving it a vertical, agronomy-lab silhouette that's clearly distinct from the squat wooden Granary barn and from the Farmstead's single silo. Seed Granary placement on tiles is not yet wired server-side, so the mesh currently shows only in the ?structuredemo=1 design row.",
+        "Both meshes use instanced primitives consistent with the rest of the Tier-1 structure overlay (no new shader paths, no per-tile variants)."
       ]
     },
     {
       introducedIn: "2026.05.19.2",
-      title: "Combat math now reads defender domains, outpost deploy speed wired up, Clockwork Stipend goes live",
-      why: "Slice-1 brought the upkeep and build-speed effects to life. Combat-side modifiers (fortDefenseMult, attackVsSettledMult, attackVsFortsMult) and outpostDeploymentSpeedMult were still tooltip-only, and Clockwork Stipend showed in the catalog but had no resource trickle.",
+      title: "Quieter, smoother waypoint expansion",
+      why: "Initial waypoint release halted after one tile (the next top-up saw a stale neutral target before the ownership tile-delta arrived), and every step popped the full Capturing Territory overlay — so a four-tile chain stacked four pop-ups in a row on top of the existing waypoint visuals.",
       changes: [
-        "Frontier combat now consumes defender-side fortDefenseMult and attacker-side attackVsSettledMult / attackVsFortsMult. Forts on the target tile are detected from the actual tile state, not derived after the fact, so the defender's domain effects influence both atkMult and defMult.",
-        "Outpost deployment time now divides by outpostDeploymentSpeedMult (Supply Raiding 1.5x deploy and Imperial Roads 1.1x deploy were both inert before; both are live).",
-        "Clockwork Stipend now actually trickles your chosen resource each accrual tick (iron/supply 0.2/min, crystal 0.1/min). The choice is locked forever on pick; the client prompts you for IRON/SUPPLY/CRYSTAL right when you confirm Clockwork Stipend. AI players default to IRON.",
-        "DomainPlayer carries a new chosenTrickleResource field so the pick survives reconnects and snapshots; the CHOOSE_DOMAIN command/gateway/handler accepts the sub-choice payload."
+        "topUpFromWaypoint tolerates up to four consecutive replans on the same step before halting, so a brief stale-snapshot window no longer aborts the chain. A 500ms heartbeat kicks processActionQueue while a waypoint is active so late ownership updates always get a fresh top-up.",
+        "Waypoint-driven neutral expansions are now silent end-to-end: no Capturing Territory overlay, no Territory Claimed popup, no feed entry per tile. The target tile fills empire-color left to right at the standard frontier opacity (0.32) so the tile itself is the progress indicator.",
+        "Errors, attack results on enemy tiles, and manual one-tap expands still surface every popup and feed entry exactly as before.",
+        "Destination flag rebuilt as a steampunk tower: brass pedestal with two side cannons, copper rivet bands on the tower trunk, vertical empire-color banner with copper top stripe, winged gear medallion, brass dome and spire, glowing empire-color hex base, gently drifting smoke wisps, rotating gear rings."
       ]
     },
     {
-      introducedIn: "2026.05.19.1",
-      title: "Tier-1 domains: imba on purpose, and the dead effects are alive",
-      why: "Most tier-1 modifiers (10–20%) were small enough that picking a domain barely registered, and several keys (fortIronUpkeepMult, fortBuildGoldCostMult, outpostSupplyUpkeepMult, firstThreeTownsPopulationGrowthMult) lived only in tooltips — the sim never read them. Domains should feel like an identity choice from the first pick.",
+      introducedIn: "2026.05.19.0",
+      title: "Fort defense text matches the real bonus",
+      why: "The tile menu's Modifiers section still said Fort: +25% defense even though active Forts defend at 2.5x, with stronger Iron and Thunder Bastion upgrades.",
       changes: [
-        "Frontier Doctrine: settlement speed +50% (was +20%), still grants +1 development slot — the speed is what you feel first, the parallel slot is what keeps the realm moving.",
-        "Iron Bastions reworked: forts build +50% faster (new effect, now wired in the sim), and both fort iron upkeep and fort gold upkeep are -40%. The old +20% fort defense is dropped — Stone Curtain and Fortress Realm still own defense scaling at higher tiers.",
-        "Supply Raiding reworked: outpost deployment +50% faster and outpost supply upkeep -30% — raiders are about being everywhere, not one-shotting things.",
-        "Mercantile Charter: first-three-towns population growth bonus raised to +25% (was +15%) and now actually applies to the growth tick.",
-        "Farmer's Compact retired; Clockwork Stipend takes its tier-1 slot — picks one resource (iron / supply / crystal) for a permanent trickle. The pick UI lands in the next release.",
-        "Dead tooltip effects are now real: fortBuildGoldCostMult, fortIronUpkeepMult, outpostSupplyUpkeepMult, and firstThreeTownsPopulationGrowthMult all run in the sim. fortBuildSpeedMult and fortGoldUpkeepMult are new keys."
+        "Active Forts now show 2.5x defense in the tile Modifiers section.",
+        "Iron Bastions and Thunder Bastions now show their own modifier names with 4x and 8x defense.",
+        "The Fort structure detail panel now uses the same 2.5x local defense copy."
+      ]
+    },
+    {
+      introducedIn: "2026.05.18.10",
+      title: "Captured towns explain their recovery smoke",
+      why: "A town recently taken by another player could show black capture-shock smoke while the tile menu had no negative modifier, or could keep showing Long-term peace if that modifier was already present before the capture-shock payload was refreshed.",
+      changes: [
+        "Town capture shock now drives the tile heading's Recently captured countdown even when no captured structure is disabled.",
+        "Settled captured towns now list a negative Recently captured modifier that calls out paused population growth while the shock window is active.",
+        "Long-term peace and nearby-war growth rows are hidden while capture shock is active, and simulation snapshots recompute shocked town modifiers instead of preserving stale long-peace rows.",
+        "Captured frontier towns still call out that town manpower and production are paused until the tile is settled."
+      ]
+    },
+    {
+      introducedIn: "2026.05.18.9",
+      title: "Waypoint starts expanding the moment you confirm it",
+      why: "Placing a waypoint set state.waypoint and hid the menu, but never called processActionQueue, so the first step did not enqueue until the player did some unrelated action that happened to poke the queue.",
+      changes: [
+        "Tile-action dispatch for Expand Here now calls processActionQueue() immediately after setting the waypoint, so the first step queues on the same frame.",
+        "No change to halt or re-plan behaviour — only the kick that was missing."
       ]
     },
     {

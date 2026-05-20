@@ -40,7 +40,8 @@ import { buildInitMessage } from "./reconnect-recovery.js";
 import { type SimulationSeedProfile } from "./seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "./sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "./socket-routing.js";
-import { createSocialState, type SocialTruceRequest } from "./social-state.js";
+import { createSocialState, type SocialStateSink, type SocialTruceRequest } from "./social-state.js";
+import { createGatewaySocialStore } from "./social-store-factory.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "./supported-client-messages.js";
 import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
@@ -76,6 +77,7 @@ type RealtimeGatewayAppOptions = {
   commandStore?: GatewayCommandStore;
   profileStore?: GatewayPlayerProfileStore;
   authBindingStore?: GatewayAuthBindingStore;
+  socialStore?: import("./social-store.js").GatewaySocialStore;
   databaseUrl?: string;
   sqlitePath?: string;
   applySchema?: boolean;
@@ -186,6 +188,7 @@ const playerSubscriptionSnapshotFromSeedWorld = (
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+    ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.town?.type ? { townType: tile.town.type } : {}),
     ...(tile.town?.name ? { townName: tile.town.name } : {}),
     ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {})
@@ -202,6 +205,7 @@ const jsonSafeTileDeltaBatch = (
     ...tileDelta,
     ...("ownerId" in tileDelta && tileDelta.ownerId === undefined ? { ownerId: null } : {}),
     ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
+    ...("frontierDecayAt" in tileDelta && tileDelta.frontierDecayAt === undefined ? { frontierDecayAt: null } : {}),
     ...("fortJson" in tileDelta && tileDelta.fortJson === undefined ? { fortJson: "" } : {}),
     ...("observatoryJson" in tileDelta && tileDelta.observatoryJson === undefined ? { observatoryJson: "" } : {}),
     ...("siegeOutpostJson" in tileDelta && tileDelta.siegeOutpostJson === undefined ? { siegeOutpostJson: "" } : {}),
@@ -930,10 +934,34 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       initialSocialPlayerNamesById.set(playerId, seasonalPlayerNameForId(playerId));
     }
   }
+  for (const profile of await profileStore.listAllNamed()) {
+    if (profile.name && !initialSocialPlayerNamesById.has(profile.playerId)) {
+      initialSocialPlayerNamesById.set(profile.playerId, profile.name);
+    }
+  }
   const initialSocialPlayers = [...initialSocialPlayerNamesById].map(([id, name]) => ({ id, name }));
+  const socialStore =
+    options.socialStore ?? (await createGatewaySocialStore(commandStoreFactoryOptions));
+  const persistedSocialSnapshot = socialStore.loadSnapshot();
+  if (options.now) socialStore.pruneExpired(options.now());
+  else socialStore.pruneExpired(Date.now());
+  const socialStateSink: SocialStateSink = {
+    upsertPlayer: (playerId, name) => socialStore.upsertPlayer(playerId, name),
+    saveAllianceRequest: (request) => socialStore.saveAllianceRequest(request),
+    deleteAllianceRequest: (requestId) => socialStore.deleteAllianceRequest(requestId),
+    saveTruceRequest: (request) => socialStore.saveTruceRequest(request),
+    deleteTruceRequest: (requestId) => socialStore.deleteTruceRequest(requestId),
+    addAlliance: (playerAId, playerBId, createdAt) => socialStore.addAlliance(playerAId, playerBId, createdAt),
+    removeAlliance: (playerAId, playerBId) => socialStore.removeAlliance(playerAId, playerBId),
+    saveActiveTruce: (truce) => socialStore.saveActiveTruce(truce),
+    removeActiveTruce: (playerAId, playerBId) => socialStore.removeActiveTruce(playerAId, playerBId),
+    pruneExpired: (now) => socialStore.pruneExpired(now)
+  };
   const socialState = createSocialState({
     ...(options.now ? { now: options.now } : {}),
-    players: initialSocialPlayers
+    players: initialSocialPlayers,
+    initial: persistedSocialSnapshot,
+    sink: socialStateSink
   });
   const fallbackTileDeltasByCommandId = new Map<
     string,
@@ -1058,6 +1086,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         messageType !== "BUILD_FORT" &&
         messageType !== "BUILD_OBSERVATORY" &&
         messageType !== "BUILD_SIEGE_OUTPOST" &&
+        messageType !== "SET_SIEGE_OUTPOST_AUTO_ATTACK" &&
         messageType !== "BUILD_ECONOMIC_STRUCTURE" &&
         messageType !== "CANCEL_FORT_BUILD" &&
         messageType !== "CANCEL_STRUCTURE_BUILD" &&
@@ -2314,6 +2343,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "BUILD_FORT" &&
             message.type !== "BUILD_OBSERVATORY" &&
             message.type !== "BUILD_SIEGE_OUTPOST" &&
+            message.type !== "SET_SIEGE_OUTPOST_AUTO_ATTACK" &&
             message.type !== "BUILD_ECONOMIC_STRUCTURE" &&
             message.type !== "CANCEL_FORT_BUILD" &&
             message.type !== "CANCEL_STRUCTURE_BUILD" &&
@@ -2480,6 +2510,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   payload: {
                     x: message.x,
                     y: message.y
+                  }
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "SET_SIEGE_OUTPOST_AUTO_ATTACK") {
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "SET_SIEGE_OUTPOST_AUTO_ATTACK",
+                  payload: {
+                    x: message.x,
+                    y: message.y,
+                    enabled: message.enabled
                   }
                 },
                 submitDeps

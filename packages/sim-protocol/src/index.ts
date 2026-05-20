@@ -249,6 +249,7 @@ export type SimulationEvent =
         dockId?: string | undefined;
         ownerId?: string | undefined;
         ownershipState?: string | undefined;
+        frontierDecayAt?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;
@@ -270,6 +271,18 @@ export type SimulationEvent =
       playerId: string;
       tileKey: string;
       collectedAt: number;
+    }
+  | {
+      // Batched form for upkeep accrual: at non-trivial empire sizes the
+      // per-tile UPDATED variant emits dozens-to-hundreds of events per
+      // upkeep tick, each becoming a separate SQLite appendEvent. That
+      // queue backlog has been observed to block the main event loop for
+      // 25s+ at only ~2,000 owned tiles (well under 1% of the 450x450
+      // map). Single batch event = single appendEvent.
+      eventType: "TILE_YIELD_ANCHOR_BATCH";
+      commandId: string;
+      playerId: string;
+      anchors: Array<{ tileKey: string; collectedAt: number }>;
     }
   | {
       eventType: "SETTLEMENT_STARTED";
@@ -326,6 +339,7 @@ export type PlayerSubscriptionSnapshot = {
     developmentProcessLimit: number;
     activeDevelopmentProcessCount: number;
     pendingSettlements: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }>;
+    autoSettlementQueue?: Array<{ x: number; y: number }>;
     techIds: string[];
     domainIds: string[];
     // Locked sub-choice for domains that ask the player to pick a resource
@@ -349,6 +363,7 @@ export type PlayerSubscriptionSnapshot = {
     dockId?: string | undefined;
     ownerId?: string | undefined;
     ownershipState?: string | undefined;
+    frontierDecayAt?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";
     townName?: string | undefined;

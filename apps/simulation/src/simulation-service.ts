@@ -186,6 +186,7 @@ type ProtoSimulationEvent = {
     dock_id?: string | undefined;
     owner_id?: string | undefined;
     ownership_state?: string | undefined;
+    frontier_decay_at?: number | undefined;
     town_json?: string | undefined;
     town_type?: string | undefined;
     town_name?: string | undefined;
@@ -205,6 +206,7 @@ type ProtoSimulationEvent = {
     dockId?: string | undefined;
     ownerId?: string | null | undefined;
     ownershipState?: string | null | undefined;
+    frontierDecayAt?: number | null | undefined;
     townJson?: string | undefined;
     townType?: string | undefined;
     townName?: string | undefined;
@@ -273,6 +275,7 @@ type SimulationTileDelta = {
   dockId?: string | undefined;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
+  frontierDecayAt?: number | undefined;
   townJson?: string | undefined;
   townType?: "MARKET" | "FARMING";
   townName?: string | undefined;
@@ -296,6 +299,7 @@ const recoveredStateFromSeedWorld = (seedWorld: ReturnType<typeof createSeedWorl
       ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
       ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+      ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
       ...(tile.town ? { town: tile.town } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),
@@ -348,7 +352,8 @@ const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
 // gateway never sees them in the first place.
 export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
   "SETTLEMENT_STARTED",
-  "TILE_YIELD_ANCHOR_UPDATED"
+  "TILE_YIELD_ANCHOR_UPDATED",
+  "TILE_YIELD_ANCHOR_BATCH"
 ]);
 
 export const isWireInternalEvent = (event: SimulationEvent): boolean =>
@@ -401,6 +406,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.dockId ? { dock_id: tile.dockId } : {}),
           ...("ownerId" in tile ? { owner_id: tile.ownerId ?? "" } : {}),
           ...("ownershipState" in tile ? { ownership_state: tile.ownershipState ?? "" } : {}),
+          ...("frontierDecayAt" in tile ? { frontier_decay_at: tile.frontierDecayAt ?? 0 } : {}),
           ...(tile.townJson ? { town_json: tile.townJson } : {}),
           ...(tile.townType ? { town_type: tile.townType } : {}),
           ...(tile.townName ? { town_name: tile.townName } : {}),
@@ -427,6 +433,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.dockId ? { dockId: tile.dockId } : {}),
           ...("ownerId" in tile ? { ownerId: tile.ownerId ?? null } : {}),
           ...("ownershipState" in tile ? { ownershipState: tile.ownershipState ?? null } : {}),
+          ...("frontierDecayAt" in tile ? { frontierDecayAt: tile.frontierDecayAt ?? null } : {}),
           ...(tile.townJson ? { townJson: tile.townJson } : {}),
           ...(tile.townType ? { townType: tile.townType } : {}),
           ...(tile.townName ? { townName: tile.townName } : {}),
@@ -1899,6 +1906,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             dock_id?: string;
             owner_id?: string;
             ownership_state?: string;
+            frontier_decay_at?: number;
             town_json?: string;
             town_type?: string;
             town_name?: string;
@@ -1967,6 +1975,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           ...(tile.dockId ? { dock_id: tile.dockId } : {}),
           ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
           ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
+          ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
           ...(tile.townJson ? { town_json: tile.townJson } : {}),
           ...(tile.townType ? { town_type: tile.townType } : {}),
           ...(tile.townName ? { town_name: tile.townName } : {}),
@@ -2013,6 +2022,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             dock_id?: string;
             owner_id?: string;
             ownership_state?: string;
+            frontier_decay_at?: number;
             town_json?: string;
             town_type?: string;
             town_name?: string;
@@ -2053,6 +2063,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           ...(tile.dockId ? { dock_id: tile.dockId } : {}),
           ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
           ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
+          ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
           ...(tile.townJson ? { town_json: tile.townJson } : {}),
           ...(tile.townType ? { town_type: tile.townType } : {}),
           ...(tile.townName ? { town_name: tile.townName } : {}),
@@ -2175,6 +2186,28 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         eventLoopWindowMaxMs = Math.max(eventLoopWindowMaxMs, lagMs);
         simulationMetrics.observeSimEventLoopDelayMs(lagMs);
         expectedEventLoopTickAt = now + 100;
+        // Focused warn whenever a 5s+ block is detected. Otherwise the spike
+        // is silently rolled into sim_event_loop_max_ms in the 1Hz dump and
+        // we lose the exact moment to correlate with other logs. Block was
+        // detected just NOW (the sampler is `lagMs` ms late firing), so the
+        // block started at `now - lagMs`. Includes runtime + memory context
+        // so we can localise what was running.
+        if (lagMs >= 5_000) {
+          const memory = process.memoryUsage();
+          emitLog("warn", "simulation event loop blocked", {
+            phase: "event_loop_blocked",
+            lagMs,
+            detectedAtMs: now,
+            blockStartedAtMs: now - lagMs,
+            queueDepths: runtime.queueDepths(),
+            heapUsedMb: memory.heapUsed / (1024 * 1024),
+            heapTotalMb: memory.heapTotal / (1024 * 1024),
+            rssMb: memory.rss / (1024 * 1024),
+            persistencePendingCount: persistenceQueue.pendingCount(),
+            persistenceDegraded: persistenceQueue.isDegraded(),
+            activePlayerCount: activePlayers.size
+          });
+        }
       }, 100);
       metricsTicker = setInterval(() => {
         simulationMetrics.setSimEventLoopMaxMs(eventLoopWindowMaxMs);
