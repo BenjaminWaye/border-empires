@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "techs": [
     { "id": "agriculture", "tier": 1, "name": "Agriculture", "description": "Bread first; empires can quarrel about philosophy after supper.", "cost": { "gold": 2000, "food": 40 }, "researchTimeSeconds": 3600, "effects": { "unlockFarmstead": true, "resourceOutputMult": { "farm": 1.05, "fish": 1.05 }, "populationGrowthMult": 1.05 } },
     { "id": "toolmaking", "tier": 1, "name": "Workshop Standards", "description": "Gauges, braces, and cutter-sets stop frontier building from looking accidental.", "cost": { "gold": 2000 }, "researchTimeSeconds": 3600, "effects": { "settlementSpeedMult": 1.05 } },
@@ -51,6 +51,11 @@
     { "id": "plastics", "tier": 6, "name": "Aether Towers", "description": "Build enough of them and the empire starts sounding dangerous at night.", "prereqIds": ["industrial-extraction", "grand-cartography"], "cost": { "gold": 23000, "crystal": 260, "shard": 2 }, "researchTimeSeconds": 86400, "effects": { "unlockAetherTower": true } },
     { "id": "aegis-dome", "tier": 7, "name": "Aegis Dome", "description": "Nothing says enlightened government like a city under glass.", "prereqIds": ["imperial-roads", "radar", "plastics"], "cost": { "gold": 27000, "crystal": 300, "shard": 3 }, "researchTimeSeconds": 86400, "effects": { "unlockAegisDome": true, "unlockAegisLock": true } },
     { "id": "world-engine", "tier": 7, "name": "Worldbreaker Cannon", "description": "Why capture a district gracefully when you can simply remove it from geology?", "prereqIds": ["imperial-roads", "steelworking", "plastics"], "cost": { "gold": 27000, "iron": 260, "crystal": 280, "shard": 3 }, "researchTimeSeconds": 86400, "effects": { "unlockWorldEngine": true } },
-    { "id": "astral-dock", "tier": 7, "name": "Astral Dock", "description": "If the heavens will not visit the empire, the empire will launch a drydock at them.", "prereqIds": ["imperial-roads", "radar", "plastics"], "cost": { "gold": 27000, "crystal": 320, "shard": 3 }, "researchTimeSeconds": 86400, "effects": { "unlockAstralDock": true, "unlockAstralDockLaunch": true } }
+    { "id": "astral-dock", "tier": 7, "name": "Astral Dock", "description": "If the heavens will not visit the empire, the empire will launch a drydock at them.", "prereqIds": ["imperial-roads", "radar", "plastics"], "cost": { "gold": 27000, "crystal": 320, "shard": 3 }, "researchTimeSeconds": 86400, "effects": { "unlockAstralDock": true, "unlockAstralDockLaunch": true } },
+
+    { "id": "seed-granaries", "tier": 4, "name": "Seedline Granaries", "description": "Steam-pressed silos hum at night and the towns around them grow visibly before breakfast.", "requires": "pottery", "cost": { "gold": 11000, "food": 160 }, "researchTimeSeconds": 28800, "effects": { "unlockSeedGranaryUpgrade": true } },
+    { "id": "chartered-ports", "tier": 5, "name": "Chartered Ports", "description": "A proper charter turns a working harbor into a tariff engine that hums under its own brass plaque.", "requires": "port-infrastructure", "cost": { "gold": 15000, "supply": 160, "crystal": 140, "shard": 1 }, "researchTimeSeconds": 54000, "effects": { "unlockCharteredPortsUpgrade": true, "dockGoldCapMult": 1.1 } },
+    { "id": "exchange-levy", "tier": 8, "name": "Exchange Levy Writs", "description": "Once the Imperial Exchange learns to issue writs, the rest of the world becomes a tributary by accident.", "requires": "urban-markets", "cost": { "gold": 30000, "crystal": 400, "shard": 3 }, "researchTimeSeconds": 108000, "effects": { "unlockImperialExchangeLevy": true } },
+    { "id": "worldbreaker-fire", "tier": 8, "name": "Worldbreaker Ignition", "description": "Calibrating the cannon for a single shot took longer than building it.", "requires": "world-engine", "cost": { "gold": 30000, "iron": 320, "crystal": 360, "shard": 3 }, "researchTimeSeconds": 108000, "effects": { "unlockWorldEngineStrike": true } }
   ]
 }
