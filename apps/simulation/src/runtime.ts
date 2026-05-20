@@ -44,6 +44,7 @@ import {
   structureCostDefinition,
   structurePlacementMetadata,
   structureShowsOnTile,
+  isChosenTrickleResource,
   type BuildableStructureType,
   type EconomicStructureType
 } from "@border-empires/shared";
@@ -145,6 +146,8 @@ import {
   buildDomainUpdatePayload,
   buildTechUpdatePayload,
   chooseDomainForPlayer,
+  type ChosenTrickleResource,
+  chosenTrickleRateForPlayer,
   chooseTechForPlayer,
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
@@ -1834,6 +1837,20 @@ export class SimulationRuntime {
     const summary = this.summaryForPlayer(player.id);
     const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles);
     const elapsedMinutes = elapsedMs / 60_000;
+    // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
+    // upkeep drain, so the trickle helps cover upkeep on a starved empire
+    // instead of being instantly clawed back.
+    const trickle = chosenTrickleRateForPlayer(player);
+    if (trickle && trickle.ratePerMinute > 0) {
+      const credit = trickle.ratePerMinute * elapsedMinutes;
+      if (credit > 0) {
+        const current = player.strategicResources ?? {};
+        player.strategicResources = {
+          ...current,
+          [trickle.resource]: (current[trickle.resource] ?? 0) + credit
+        };
+      }
+    }
     const need: UpkeepNeed = {
       gold: Math.max(0, economy.upkeepPerMinute.gold) * elapsedMinutes,
       FOOD: Math.max(0, economy.upkeepPerMinute.food) * elapsedMinutes,
@@ -5053,9 +5070,13 @@ export class SimulationRuntime {
       return;
     }
     let domainId = "";
+    let chosenTrickleResource: ChosenTrickleResource | undefined;
     try {
-      const parsed = JSON.parse(command.payloadJson) as { domainId?: unknown };
+      const parsed = JSON.parse(command.payloadJson) as { domainId?: unknown; chosenTrickleResource?: unknown };
       if (typeof parsed.domainId === "string") domainId = parsed.domainId;
+      if (isChosenTrickleResource(parsed.chosenTrickleResource)) {
+        chosenTrickleResource = parsed.chosenTrickleResource;
+      }
     } catch {
       domainId = "";
     }
@@ -5069,7 +5090,12 @@ export class SimulationRuntime {
       });
       return;
     }
-    const outcome = chooseDomainForPlayer(actor, domainId, this.tiles.values());
+    const outcome = chooseDomainForPlayer(
+      actor,
+      domainId,
+      this.tiles.values(),
+      chosenTrickleResource ? { chosenTrickleResource } : undefined
+    );
     if (!outcome.ok) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -5802,7 +5828,11 @@ export class SimulationRuntime {
     }
     if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
 
-    const goldCost = structureBuildGoldCost("FORT", this.ownedStructureCountForPlayer(command.playerId, "FORT"));
+    const fortGoldCostMult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
+    const goldCost = Math.max(
+      0,
+      Math.round(structureBuildGoldCost("FORT", this.ownedStructureCountForPlayer(command.playerId, "FORT")) * fortGoldCostMult)
+    );
     const manpowerCost = structureBuildManpowerCost("FORT");
     if (actor.points < goldCost) {
       this.emitEvent({
@@ -5837,12 +5867,17 @@ export class SimulationRuntime {
 
     actor.points -= goldCost;
     actor.manpower = Math.max(0, actor.manpower - manpowerCost);
+    // multiplicativeEffectForPlayer enforces value > 0 when multiplying, so the
+    // result is always strictly positive (defaulting to 1 when no domain or
+    // tech configures the key). Divide directly — no floor guard needed.
+    const fortBuildSpeedMult = multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult");
+    const fortBuildDurationMs = Math.max(1, Math.round(structureBuildDurationMs("FORT") / fortBuildSpeedMult));
     const startedTile: DomainTileState = {
       ...target,
       fort: {
         ownerId: command.playerId,
         status: "under_construction",
-        completesAt: this.now() + structureBuildDurationMs("FORT")
+        completesAt: this.now() + fortBuildDurationMs
       }
     };
     this.replaceTileState(targetKey, startedTile);
@@ -5853,7 +5888,7 @@ export class SimulationRuntime {
       tileDeltas: [this.tileDeltaFromState(startedTile)]
     });
     this.emitPlayerStateUpdate(command);
-    this.scheduleAfter(structureBuildDurationMs("FORT"), () => {
+    this.scheduleAfter(fortBuildDurationMs, () => {
       this.completeFortBuild(targetKey, command.playerId, command.commandId);
     });
   }
@@ -6153,13 +6188,20 @@ export class SimulationRuntime {
 
     actor.points -= goldCost;
     actor.manpower = Math.max(0, actor.manpower - manpowerCost);
+    // See fort-build path for the divide-without-guard rationale: the helper
+    // already filters out zero/negative effect values before multiplying.
+    const outpostDeploymentSpeedMult = multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult");
+    const siegeOutpostBuildDurationMs = Math.max(
+      1,
+      Math.round(structureBuildDurationMs("SIEGE_OUTPOST") / outpostDeploymentSpeedMult)
+    );
     const startedTile: DomainTileState = {
       ...target,
       ...(upgradingLightOutpost ? { economicStructure: undefined } : {}),
       siegeOutpost: {
         ownerId: command.playerId,
         status: "under_construction",
-        completesAt: this.now() + structureBuildDurationMs("SIEGE_OUTPOST")
+        completesAt: this.now() + siegeOutpostBuildDurationMs
       }
     };
     this.replaceTileState(targetKey, startedTile);
@@ -6170,7 +6212,7 @@ export class SimulationRuntime {
       tileDeltas: [this.tileDeltaFromState(startedTile)]
     });
     this.emitPlayerStateUpdate(command);
-    this.scheduleAfter(structureBuildDurationMs("SIEGE_OUTPOST"), () => {
+    this.scheduleAfter(siegeOutpostBuildDurationMs, () => {
       this.completeSiegeOutpostBuild(targetKey, command.playerId, command.commandId);
     });
   }
@@ -6913,15 +6955,37 @@ export class SimulationRuntime {
   private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
     const previousTarget = this.tiles.get(lock.targetKey);
     const attackerOutpostMult = this.attackerOutpostMult(lock.playerId, lock.originX, lock.originY);
+    const attacker = this.players.get(lock.playerId);
+    const defenderOwnerId = previousTarget?.ownerId;
+    const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
+    const targetHasActiveFort =
+      Boolean(
+        previousTarget?.fort &&
+        previousTarget.fort.status === "active" &&
+        previousTarget.fort.ownerId === defenderOwnerId
+      );
+    const combatModifiers = {
+      attackerOutpostMult,
+      attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
+      attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
+      fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1
+    };
+    const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
+      ? {
+          terrain: previousTarget.terrain,
+          ownershipState: previousTarget.ownershipState,
+          dockId: previousTarget.dockId,
+          townType: previousTarget.town?.type,
+          hasFort: targetHasActiveFort
+        }
+      : { terrain: "LAND" };
     const combat =
       lock.actionType === "EXPAND"
         ? {
-            ...rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType, undefined, { attackerOutpostMult }),
+            ...rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers),
             attackerWon: true
           }
-        : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType, undefined, { attackerOutpostMult });
-    const defenderOwnerId = previousTarget?.ownerId;
-    const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
+        : rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers);
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
     const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, this.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
     const plunder =

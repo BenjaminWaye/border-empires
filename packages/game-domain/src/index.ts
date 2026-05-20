@@ -14,6 +14,7 @@ import {
   ATTACK_MANPOWER_MIN,
   COMBAT_LOCK_MS,
   FRONTIER_CLAIM_MS,
+  type ChosenTrickleResource,
   type Tile
 } from "@border-empires/shared";
 
@@ -51,6 +52,11 @@ export type DomainPlayer = {
   allies: Set<string>;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
+  // Persistent sub-choice for domains that ask the player to pick a resource
+  // (Clockwork Stipend). Locked on pick; null/undefined means no choice yet.
+  // Narrowed to the trickle subset (IRON / SUPPLY / CRYSTAL) — FOOD / SHARD /
+  // OIL are intentionally excluded because no trickle domain offers them.
+  chosenTrickleResource?: ChosenTrickleResource | undefined;
 };
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;
