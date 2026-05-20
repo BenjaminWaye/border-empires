@@ -1,3 +1,4 @@
+import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "./client-types.js";
 import { isTechHighlightEffectKey } from "./client-tech-payoffs.js";
 
@@ -145,6 +146,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "harvestCapMult" && typeof value === "number") return `Harvest cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "fortBuildSpeedMult" && typeof value === "number") return `Fort build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortIronUpkeepMult" && typeof value === "number") return `Fort iron upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortGoldUpkeepMult" && typeof value === "number") return `Fort gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "settledDefenseNearFortMult" && typeof value === "number")
@@ -152,6 +154,15 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostSupplyUpkeepMult" && typeof value === "number") return `Outpost supply upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "outpostDeploymentSpeedMult" && typeof value === "number") return `Outpost deployment speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "chosenResourceTrickleOptions" && value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, rate]) => typeof rate === "number");
+    if (entries.length === 0) return null;
+    const summary = entries
+      .map(([resource, rate]) => `${String(resource).toLowerCase()} +${(rate as number).toFixed(2)}/min`)
+      .join(", ");
+    return `Pick one on confirm: ${summary}`;
+  }
   if (key === "revealUpkeepMult" && typeof value === "number") return `Reveal upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;
@@ -269,13 +280,47 @@ export const techOwnedHtml = (
     .join("");
 };
 
-export const domainOwnedHtml = (domainCatalog: DomainInfo[], domainIds: string[]): string => {
+// Returns the set of valid trickle resource keys offered by this domain's
+// chosenResourceTrickleOptions effect, or null if the effect is absent /
+// malformed / present-but-empty. The TRICKLE_RESOURCE_KEYS list is the
+// shared contract with the sim's chosenTrickleOptionsForDomain — any change
+// to the offered resource set must flip a single constant in shared.
+const domainTrickleOptionKeys = (
+  domain: DomainInfo | undefined
+): ReadonlySet<ChosenTrickleResource> | null => {
+  const raw = domain?.effects?.chosenResourceTrickleOptions;
+  if (!raw || typeof raw !== "object") return null;
+  const rawRecord = raw as Record<string, unknown>;
+  const keys = new Set<ChosenTrickleResource>();
+  for (const candidate of TRICKLE_RESOURCE_KEYS) {
+    const rate = rawRecord[candidate];
+    if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) continue;
+    keys.add(candidate);
+  }
+  return keys.size > 0 ? keys : null;
+};
+
+export const domainOwnedHtml = (
+  domainCatalog: DomainInfo[],
+  domainIds: string[],
+  chosenTrickleResource?: ChosenTrickleResource
+): string => {
   if (domainIds.length === 0) return `<article class="card"><p>No domains selected yet.</p></article>`;
   const catalogById = new Map(domainCatalog.map((domain) => [domain.id, domain]));
   return domainIds
     .map((id) => {
       const domain = catalogById.get(id);
-      return `<article class="card"><strong>${domain?.name ?? id}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
+      // Surface the player's locked resource on the owned card ONLY when this
+      // specific domain's options table actually offered that resource. This
+      // prevents a future trickle-offering domain with a narrower table (e.g.
+      // only IRON) from misleadingly displaying "(SUPPLY trickle)" because the
+      // player happens to have locked SUPPLY on a different domain.
+      const offeredKeys = domainTrickleOptionKeys(domain);
+      const trickleSuffix =
+        offeredKeys && chosenTrickleResource && offeredKeys.has(chosenTrickleResource)
+          ? ` <em>(${chosenTrickleResource} trickle)</em>`
+          : "";
+      return `<article class="card"><strong>${domain?.name ?? id}${trickleSuffix}</strong><p>${domain?.description ?? id}</p><p>${domain ? formatDomainBenefitSummary(domain) : id}</p></article>`;
     })
     .join("");
 };
