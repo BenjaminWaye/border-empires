@@ -30,6 +30,8 @@ export const DurableCommandTypeSchema = z.enum([
   "CREATE_MOUNTAIN",
   "REMOVE_MOUNTAIN",
   "AIRPORT_BOMBARD",
+  "IMPERIAL_EXCHANGE_LEVY",
+  "WORLD_ENGINE_STRIKE",
   "COLLECT_SHARD"
 ]);
 

@@ -57,6 +57,13 @@ import {
   AIRPORT_BOMBARD_CRYSTAL_COST,
   AETHER_TOWER_RADIUS,
   AIRPORT_BOMBARD_RANGE,
+  IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
+  IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
+  IMPERIAL_EXCHANGE_LEVY_SHARE,
+  WORLD_ENGINE_STRIKE_CRYSTAL_COST,
+  WORLD_ENGINE_STRIKE_COOLDOWN_MS,
+  WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO,
+  WORLD_ENGINE_STRIKE_POPULATION_LOSS_CAP,
   ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
@@ -633,6 +640,33 @@ const parseAirportBombardPayload = (payloadJson: string): { fromX: number; fromY
   }
 };
 
+const parseImperialExchangeLevyPayload = (payloadJson: string): { fromX: number; fromY: number; resource: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (
+      typeof parsed.fromX !== "number" ||
+      typeof parsed.fromY !== "number" ||
+      typeof parsed.resource !== "string"
+    ) return null;
+    const resource = parsed.resource;
+    if (resource !== "FOOD" && resource !== "IRON" && resource !== "CRYSTAL" && resource !== "SUPPLY") return null;
+    return { fromX: parsed.fromX, fromY: parsed.fromY, resource };
+  } catch { return null; }
+};
+
+const parseWorldEngineStrikePayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (
+      typeof parsed.fromX !== "number" ||
+      typeof parsed.fromY !== "number" ||
+      typeof parsed.toX !== "number" ||
+      typeof parsed.toY !== "number"
+    ) return null;
+    return { fromX: parsed.fromX, fromY: parsed.fromY, toX: parsed.toX, toY: parsed.toY };
+  } catch { return null; }
+};
+
 const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, string>> = {
   FARMSTEAD: "agriculture",
   CAMP: "leatherworking",
@@ -766,6 +800,7 @@ export class SimulationRuntime {
   private readonly locksByTile: Map<string, LockRecord>;
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
+  private readonly abilityCooldowns = new Map<string, Map<string, number>>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
   private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
   // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
@@ -4935,6 +4970,212 @@ export class SimulationRuntime {
     });
   }
 
+  private getAbilityCooldownUntil(playerId: string, abilityKey: string): number {
+    return this.abilityCooldowns.get(playerId)?.get(abilityKey) ?? 0;
+  }
+
+  private setAbilityCooldownUntil(playerId: string, abilityKey: string, untilMs: number): void {
+    let map = this.abilityCooldowns.get(playerId);
+    if (!map) {
+      map = new Map();
+      this.abilityCooldowns.set(playerId, map);
+    }
+    map.set(abilityKey, untilMs);
+  }
+
+  private handleImperialExchangeLevyCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseImperialExchangeLevyPayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const tileKey = simulationTileKey(payload.fromX, payload.fromY);
+    const tile = this.tiles.get(tileKey);
+    if (
+      !tile ||
+      tile.ownerId !== actor.id ||
+      tile.economicStructure?.ownerId !== actor.id ||
+      tile.economicStructure.type !== "IMPERIAL_EXCHANGE" ||
+      tile.economicStructure.status !== "active"
+    ) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "select an active Imperial Exchange"
+      });
+      return;
+    }
+    if (!actor.techIds || !actor.techIds.has("exchange-levy")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "requires Exchange Levy Writs research"
+      });
+      return;
+    }
+    if (!this.isStructurePowered(actor.id, tileKey, "IMPERIAL_EXCHANGE")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "Imperial Exchange requires a nearby Aether Tower"
+      });
+      return;
+    }
+    const now = this.now();
+    const cooldownUntil = this.getAbilityCooldownUntil(actor.id, "imperial_exchange_levy");
+    if (cooldownUntil > now) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "ability on cooldown"
+      });
+      return;
+    }
+    if (!this.spendStrategicResource(actor, "CRYSTAL", IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "insufficient CRYSTAL"
+      });
+      return;
+    }
+    let totalTransferred = 0;
+    for (const other of this.players.values()) {
+      if (other.id === actor.id) continue;
+      const stock = this.strategicResourceAmount(other, payload.resource);
+      const take = Math.floor(stock * IMPERIAL_EXCHANGE_LEVY_SHARE);
+      if (take <= 0) continue;
+      other.strategicResources = {
+        ...(other.strategicResources ?? {}),
+        [payload.resource]: Math.max(0, stock - take)
+      };
+      totalTransferred += take;
+    }
+    if (totalTransferred > 0) this.addStrategicResource(actor, payload.resource, totalTransferred);
+    this.setAbilityCooldownUntil(actor.id, "imperial_exchange_levy", now + IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS);
+  }
+
+  private handleWorldEngineStrikeCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseWorldEngineStrikePayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const anchorKey = simulationTileKey(payload.fromX, payload.fromY);
+    const anchor = this.tiles.get(anchorKey);
+    if (
+      !anchor ||
+      anchor.ownerId !== actor.id ||
+      anchor.economicStructure?.ownerId !== actor.id ||
+      anchor.economicStructure.type !== "WORLD_ENGINE" ||
+      anchor.economicStructure.status !== "active"
+    ) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "select an active World Engine"
+      });
+      return;
+    }
+    if (!actor.techIds || !actor.techIds.has("worldbreaker-fire")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "requires Worldbreaker Fire research"
+      });
+      return;
+    }
+    if (!this.isStructurePowered(actor.id, anchorKey, "WORLD_ENGINE")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "World Engine requires a nearby Aether Tower"
+      });
+      return;
+    }
+    const now = this.now();
+    const cooldownUntil = this.getAbilityCooldownUntil(actor.id, "world_engine_strike");
+    if (cooldownUntil > now) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "ability on cooldown"
+      });
+      return;
+    }
+    if (!this.spendStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_STRIKE_CRYSTAL_COST)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "insufficient CRYSTAL"
+      });
+      return;
+    }
+    const targetKey = simulationTileKey(payload.toX, payload.toY);
+    const target = this.tiles.get(targetKey);
+    if (target) {
+      let updated: DomainTileState = target;
+      // Destroy non-actor economic structure on the target tile.
+      if (target.economicStructure && target.economicStructure.ownerId !== actor.id) {
+        updated = { ...updated, economicStructure: undefined };
+      }
+      // Reduce SETTLED town population.
+      if (target.town && (target.ownershipState === "SETTLED" || target.ownershipState === "FRONTIER") && target.ownerId !== actor.id) {
+        const pop = typeof target.town.population === "number" ? target.town.population : 0;
+        if (pop > 0) {
+          const loss = Math.min(Math.floor(pop * WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO), WORLD_ENGINE_STRIKE_POPULATION_LOSS_CAP);
+          if (loss > 0) {
+            updated = { ...updated, town: { ...updated.town!, population: Math.max(1, pop - loss) } };
+          }
+        }
+      }
+      if (updated !== target) {
+        this.replaceTileState(targetKey, updated, command.commandId);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: command.commandId,
+          playerId: command.playerId,
+          tileDeltas: [this.tileDeltaFromState(updated)]
+        });
+      }
+    }
+    this.setAbilityCooldownUntil(actor.id, "world_engine_strike", now + WORLD_ENGINE_STRIKE_COOLDOWN_MS);
+  }
+
   private handleCollectShardCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseTilePayload(command.payloadJson);
@@ -7399,6 +7640,8 @@ export class SimulationRuntime {
         command.type !== "CREATE_MOUNTAIN" &&
         command.type !== "REMOVE_MOUNTAIN" &&
         command.type !== "AIRPORT_BOMBARD" &&
+        command.type !== "IMPERIAL_EXCHANGE_LEVY" &&
+        command.type !== "WORLD_ENGINE_STRIKE" &&
         command.type !== "COLLECT_SHARD" &&
         command.type !== "SYNC_ALLIANCE"
       ) {
@@ -7544,6 +7787,16 @@ export class SimulationRuntime {
 
       if (command.type === "AIRPORT_BOMBARD") {
         this.handleAirportBombardCommand(command);
+        return;
+      }
+
+      if (command.type === "IMPERIAL_EXCHANGE_LEVY") {
+        this.handleImperialExchangeLevyCommand(command);
+        return;
+      }
+
+      if (command.type === "WORLD_ENGINE_STRIKE") {
+        this.handleWorldEngineStrikeCommand(command);
         return;
       }
 
