@@ -85,6 +85,12 @@ export const SEASON_LENGTH_DAYS = 30;
 
 export const BARBARIAN_ACTION_INTERVAL_MS = 15_000;
 export const BARBARIAN_MULTIPLY_THRESHOLD = 3;
+// Soft population cap. Once barbarian-1 owns this many tiles, multiplication
+// is suppressed (over-threshold walks behave as plain walks, carrying their
+// stored progress to the target so they immediately re-multiply once the
+// population drops below the cap). Prevents the unbounded growth that crushed
+// gateway event-loop fan-out during the PR #311 rollout.
+export const BARBARIAN_POPULATION_CAP = 200;
 export const BARBARIAN_CLEAR_GOLD_REWARD = 5;
 export const BARBARIAN_ATTACK_POWER = 1.0;
 export const BARBARIAN_DEFENSE_POWER = 0.67;
