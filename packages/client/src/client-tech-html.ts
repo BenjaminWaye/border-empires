@@ -1,3 +1,4 @@
+import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "./client-types.js";
 import { isTechHighlightEffectKey } from "./client-tech-payoffs.js";
 
@@ -281,23 +282,20 @@ export const techOwnedHtml = (
 
 // Returns the set of valid trickle resource keys offered by this domain's
 // chosenResourceTrickleOptions effect, or null if the effect is absent /
-// malformed / present-but-empty. Validation mirrors the server-side
-// chosenTrickleOptionsForDomain helper in tech-domain-bridge.ts: keys must be
-// IRON / SUPPLY / CRYSTAL, rates must be positive finite numbers. The two
-// validators MUST agree on the contract — anything the client treats as a
-// real option must also be honored by the sim.
-const VALID_TRICKLE_KEYS = new Set<"IRON" | "SUPPLY" | "CRYSTAL">(["IRON", "SUPPLY", "CRYSTAL"]);
-
+// malformed / present-but-empty. The TRICKLE_RESOURCE_KEYS list is the
+// shared contract with the sim's chosenTrickleOptionsForDomain — any change
+// to the offered resource set must flip a single constant in shared.
 const domainTrickleOptionKeys = (
   domain: DomainInfo | undefined
-): ReadonlySet<"IRON" | "SUPPLY" | "CRYSTAL"> | null => {
+): ReadonlySet<ChosenTrickleResource> | null => {
   const raw = domain?.effects?.chosenResourceTrickleOptions;
   if (!raw || typeof raw !== "object") return null;
-  const keys = new Set<"IRON" | "SUPPLY" | "CRYSTAL">();
-  for (const [key, rate] of Object.entries(raw as Record<string, unknown>)) {
-    if (!VALID_TRICKLE_KEYS.has(key as "IRON" | "SUPPLY" | "CRYSTAL")) continue;
+  const rawRecord = raw as Record<string, unknown>;
+  const keys = new Set<ChosenTrickleResource>();
+  for (const candidate of TRICKLE_RESOURCE_KEYS) {
+    const rate = rawRecord[candidate];
     if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) continue;
-    keys.add(key as "IRON" | "SUPPLY" | "CRYSTAL");
+    keys.add(candidate);
   }
   return keys.size > 0 ? keys : null;
 };
@@ -305,7 +303,7 @@ const domainTrickleOptionKeys = (
 export const domainOwnedHtml = (
   domainCatalog: DomainInfo[],
   domainIds: string[],
-  chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL"
+  chosenTrickleResource?: ChosenTrickleResource
 ): string => {
   if (domainIds.length === 0) return `<article class="card"><p>No domains selected yet.</p></article>`;
   const catalogById = new Map(domainCatalog.map((domain) => [domain.id, domain]));

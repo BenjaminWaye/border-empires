@@ -5,7 +5,9 @@ import {
   MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE,
   anonymizedEmpireNameForId,
+  isChosenTrickleResource,
   isOpaquePlayerId,
+  type ChosenTrickleResource,
   type PlayerRespawnNotice,
   type SeasonVictoryObjectiveView,
   type SeasonVictoryPathId,
@@ -97,7 +99,7 @@ type GatewayInitPayload = {
     upkeepLastTick?: Record<string, unknown>;
     techIds: string[];
     domainIds: string[];
-    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
+    chosenTrickleResource?: ChosenTrickleResource;
     mods: StatMods;
     modBreakdown: ModBreakdown;
     availableTechPicks: number;
@@ -199,10 +201,8 @@ const domainTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as { domai
 const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
 const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
 
-type ChosenTrickleResource = "IRON" | "SUPPLY" | "CRYSTAL";
-
 const coerceChosenTrickleResource = (raw: unknown): ChosenTrickleResource | undefined =>
-  raw === "IRON" || raw === "SUPPLY" || raw === "CRYSTAL" ? raw : undefined;
+  isChosenTrickleResource(raw) ? raw : undefined;
 
 const recomputeMods = (techIds: readonly string[], domainIds: readonly string[]): StatMods => {
   const next: StatMods = { attack: 1, defense: 1, income: 1, vision: 1 };

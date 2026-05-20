@@ -40,6 +40,7 @@ import {
   structureCostDefinition,
   structurePlacementMetadata,
   structureShowsOnTile,
+  isChosenTrickleResource,
   type BuildableStructureType,
   type EconomicStructureType
 } from "@border-empires/shared";
@@ -4901,7 +4902,7 @@ export class SimulationRuntime {
     try {
       const parsed = JSON.parse(command.payloadJson) as { domainId?: unknown; chosenTrickleResource?: unknown };
       if (typeof parsed.domainId === "string") domainId = parsed.domainId;
-      if (parsed.chosenTrickleResource === "IRON" || parsed.chosenTrickleResource === "SUPPLY" || parsed.chosenTrickleResource === "CRYSTAL") {
+      if (isChosenTrickleResource(parsed.chosenTrickleResource)) {
         chosenTrickleResource = parsed.chosenTrickleResource;
       }
     } catch {

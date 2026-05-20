@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import { VISION_RADIUS } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "./player-runtime-summary.js";
 
@@ -411,7 +411,10 @@ export const chooseTechForPlayer = (
   return { ok: true };
 };
 
-export type ChosenTrickleResource = "IRON" | "SUPPLY" | "CRYSTAL";
+// Re-exported so runtime.ts and other sim modules can import the type from
+// the bridge layer alongside the helper functions; the underlying type lives
+// in @border-empires/game-domain to keep the client and server aligned.
+export type { ChosenTrickleResource };
 
 export const chosenTrickleOptionsForDomain = (
   domainId: string
@@ -420,7 +423,7 @@ export const chosenTrickleOptionsForDomain = (
   const raw = domain?.effects?.chosenResourceTrickleOptions;
   if (!raw || typeof raw !== "object") return undefined;
   const options: Partial<Record<ChosenTrickleResource, number>> = {};
-  for (const key of ["IRON", "SUPPLY", "CRYSTAL"] as const) {
+  for (const key of TRICKLE_RESOURCE_KEYS) {
     const rate = (raw as Record<string, unknown>)[key];
     if (typeof rate === "number" && Number.isFinite(rate) && rate > 0) options[key] = rate;
   }
