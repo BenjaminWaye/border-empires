@@ -48,6 +48,11 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
+  "SEED_GRANARY": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
   "CENSUS_HALL": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",

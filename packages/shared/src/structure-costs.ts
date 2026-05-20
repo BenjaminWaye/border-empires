@@ -40,6 +40,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   MINE: { baseGoldCost: 800, resourceCost: { resource: "IRON", amount: 30 }, resourceOptions: ["IRON", "CRYSTAL"] },
   MARKET: { baseGoldCost: 2_200 },
   GRANARY: { baseGoldCost: 700, resourceCost: { resource: "FOOD", amount: 40 } },
+  SEED_GRANARY: { baseGoldCost: 1_400, resourceCost: { resource: "FOOD", amount: 80 } },
   CENSUS_HALL: { baseGoldCost: 900, resourceCost: { resource: "FOOD", amount: 30 } },
   BANK: { baseGoldCost: 3_200 },
   CLEARING_HOUSE: { baseGoldCost: 3_000, resourceCost: { resource: "CRYSTAL", amount: 80 } },
