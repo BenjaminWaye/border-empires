@@ -1,4 +1,4 @@
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
 import { formatGoldAmount } from "./client-constants.js";
 import type { ClientState } from "./client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
@@ -1217,6 +1217,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
       state.pendingTechUnlockId = "";
       state.domainIds = (player.domainIds as string[]) ?? [];
+      const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;
+      state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
       state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
       state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
       state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
@@ -1525,6 +1527,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.canToggleFog === "boolean") state.stagingMapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
+      const techMsgTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
+      if (isChosenTrickleResource(techMsgTrickle)) state.chosenTrickleResource = techMsgTrickle;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (
@@ -2305,6 +2309,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
+      const domainUpdateTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
+      if (isChosenTrickleResource(domainUpdateTrickle)) state.chosenTrickleResource = domainUpdateTrickle;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;

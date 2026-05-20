@@ -1,6 +1,6 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "./client-changelog.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "./client-constants.js";
-import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "./client-economy-model.js";
 import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type {
@@ -157,6 +157,11 @@ export const createInitialState = () => ({
   techRootId: undefined as string | undefined,
   techIds: [] as string[],
   domainIds: [] as string[],
+  // Locked sub-choice for Clockwork Stipend (or any future domain that asks
+  // the player to pick a resource on confirm). Undefined when not picked.
+  // The narrow type comes from @border-empires/shared so client and sim
+  // can't drift on which resources are valid trickle picks.
+  chosenTrickleResource: undefined as ChosenTrickleResource | undefined,
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
   currentResearch: undefined as PendingResearch | undefined,

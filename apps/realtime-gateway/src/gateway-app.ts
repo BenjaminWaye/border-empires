@@ -2,7 +2,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { buildFrontierCombatPreview, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
+import { buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "./broadcast-payload.js";
@@ -2656,13 +2656,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               )
             );
           } else if (message.type === "CHOOSE_DOMAIN") {
+            const trickleResource = (message as { chosenTrickleResource?: unknown }).chosenTrickleResource;
+            const validTrickle = isChosenTrickleResource(trickleResource) ? trickleResource : undefined;
             await trackSubmitLatency(() =>
               submitDurableCommand(
                 authedSession,
                 {
                   type: "CHOOSE_DOMAIN",
                   payload: {
-                    domainId: message.domainId
+                    domainId: message.domainId,
+                    ...(validTrickle ? { chosenTrickleResource: validTrickle } : {})
                   }
                 },
                 submitDeps

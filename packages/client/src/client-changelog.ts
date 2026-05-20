@@ -19,10 +19,24 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.1",
+  version: "2026.05.20.2",
   title: "What's New",
-  summary: "Barbarian population is now soft-capped at 200 tiles — once at the cap, would-multiply walks become plain walks that carry their progress, so culling barbs creates room for immediate regrowth.",
+  summary: "Tier-1 domains are now identity-shaping picks: every tooltip-only effect (fort build speed, fort upkeep, outpost deploy and supply, attack vs settled/forts, fort defense, first-three-towns growth) actually runs in the sim, and Clockwork Stipend lets you lock a permanent resource trickle.",
   entries: [
+    {
+      introducedIn: "2026.05.20.2",
+      title: "Tier-1 domains reworked + dead tooltip effects brought to life + Clockwork Stipend goes live",
+      why: "Most tier-1 modifiers were 10–20% — too small to feel decisive — and several effect keys (fortIronUpkeepMult, fortBuildGoldCostMult, fortDefenseMult, outpostSupplyUpkeepMult, outpostDeploymentSpeedMult, firstThreeTownsPopulationGrowthMult, attackVsSettledMult, attackVsFortsMult) only existed in tooltips; the sim never read them. Domains should feel like an identity choice from the first pick.",
+      changes: [
+        "Frontier Doctrine: settlement speed +50% (was +20%), keeps +1 development slot.",
+        "Iron Bastions reworked: forts build +50% faster (new effect, now wired in the sim), and both fort iron upkeep and fort gold upkeep are -40%.",
+        "Supply Raiding reworked: outpost deployment +50% faster and outpost supply upkeep -30%.",
+        "Mercantile Charter: first-three-towns population growth bonus raised to +25% (was +15%) and now actually applies to the growth tick.",
+        "Farmer's Compact retired; Clockwork Stipend takes its tier-1 slot — pick one resource (iron 0.2/min, supply 0.2/min, or crystal 0.1/min) for a permanent trickle. Choice is locked forever; an in-game modal lets you pick on confirm, the owned-domain card shows your locked pick after that. AI players pick whichever offered resource they are most stockpile-starved on.",
+        "Frontier combat now reads defender-side fortDefenseMult and attacker-side attackVsSettledMult / attackVsFortsMult; the runtime extends FrontierCombatPreviewTile with a hasFort flag derived from the actual tile state.",
+        "Single source of truth for the trickle resource list lives in @border-empires/shared (TRICKLE_RESOURCE_KEYS + isChosenTrickleResource guard); a parity test reads the raw domain-tree.json and fails loud on either-direction drift."
+      ]
+    },
     {
       introducedIn: "2026.05.20.1",
       title: "Barbarian population capped at 200",
