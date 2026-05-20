@@ -76,8 +76,6 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "GARRISON_HALL";
     case "build_customs_house":
       return "CUSTOMS_HOUSE";
-    case "build_lockworks_port":
-      return "LOCKWORKS_PORT";
     case "build_rail_depot":
       return "RAIL_DEPOT";
     case "build_exchange_house":

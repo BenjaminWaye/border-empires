@@ -640,8 +640,6 @@ const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, stri
   MARKET: "trade",
   GRANARY: "pottery",
   SEED_GRANARY: "seed-granaries",
-  LOCKWORKS_PORT: "port-infrastructure",
-  CHARTERED_PORT: "chartered-ports",
   BANK: "coinage",
   AIRPORT: "aeronautics",
   FUR_SYNTHESIZER: "workshops",
@@ -664,7 +662,6 @@ const upgradeBaseTypeForEconomicStructure = (type: EconomicStructureType): Econo
   if (type === "ADVANCED_IRONWORKS") return "IRONWORKS";
   if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
   if (type === "SEED_GRANARY") return "GRANARY";
-  if (type === "CHARTERED_PORT") return "LOCKWORKS_PORT";
   return undefined;
 };
 

@@ -1394,13 +1394,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         label: `Harbor Exchange at (${selected.x}, ${selected.y})`,
         optimisticKind: "CUSTOMS_HOUSE"
       });
-    if (actionId === "build_lockworks_port")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "LOCKWORKS_PORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "LOCKWORKS_PORT"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Lockworks Port at (${selected.x}, ${selected.y})`,
-        optimisticKind: "LOCKWORKS_PORT"
-      });
     if (actionId === "build_rail_depot")
       sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "RAIL_DEPOT" }, optimisticStructureBuildForAction(actionId, selected, "RAIL_DEPOT"), {
         x: selected.x,
