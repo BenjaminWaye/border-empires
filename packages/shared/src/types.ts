@@ -44,8 +44,6 @@ export type EconomicStructureType =
   | "EXCHANGE_HOUSE"
   | "GARRISON_HALL"
   | "CUSTOMS_HOUSE"
-  | "LOCKWORKS_PORT"
-  | "CHARTERED_PORT"
   | "RAIL_DEPOT"
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM"

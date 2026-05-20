@@ -72,8 +72,6 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
   if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
   if (key === "unlockWaterworksUpgrade" && value === true) return "Upgrades Farmstead to Waterworks";
-  if (key === "unlockHarborLocksUpgrade" && value === true) return "Upgrades Harbor Exchange to Lockworks Port";
-  if (key === "unlockCharteredPortsUpgrade" && value === true) return "Upgrades Lockworks Port to Chartered Port";
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;

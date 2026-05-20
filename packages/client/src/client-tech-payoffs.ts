@@ -63,9 +63,7 @@ const UPGRADE_UNLOCK_LABELS: Record<string, string> = {
   unlockThunderBastion: "Thunder Bastion",
   unlockDreadTower: "Dread Tower",
   unlockSeedGranaryUpgrade: "Seed Granary",
-  unlockWaterworksUpgrade: "Waterworks",
-  unlockHarborLocksUpgrade: "Lockworks Port",
-  unlockCharteredPortsUpgrade: "Chartered Port"
+  unlockWaterworksUpgrade: "Waterworks"
 };
 
 const addTag = (tags: TechHighlightTag[], label: string, tone: TechHighlightTone): void => {

@@ -157,30 +157,8 @@ describe("tech benefit summaries", () => {
         checklist: []
       }
     };
-    const portInfrastructure: TechInfo = {
-      id: "port-infrastructure",
-      tier: 4,
-      name: "Port Infrastructure",
-      description: "Unlocks Lockworks Port.",
-      mods: {},
-      effects: {
-        unlockHarborLocksUpgrade: true,
-        dockGoldCapMult: 1.25
-      },
-      requirements: {
-        gold: 10000,
-        resources: {
-          SUPPLY: 120,
-          CRYSTAL: 100
-        },
-        canResearch: true,
-        checklist: []
-      }
-    };
-
     expect(formatTechBenefitSummary(surveying)).toContain("Unlocks Survey Sweep");
     expect(formatTechBenefitSummary(logistics)).toContain("Unlocks Siphon");
-    expect(formatTechBenefitSummary(portInfrastructure)).toContain("Upgrades Harbor Exchange to Lockworks Port");
   });
 
   it("does not render dead tempo text for Organized Supply or Logistics", () => {

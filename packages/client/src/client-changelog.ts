@@ -19,9 +19,9 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.1",
+  version: "2026.05.20.2",
   title: "What's New",
-  summary: "Aether Towers now power Airports (Crystal, not Oil) and gate the new monument abilities. Tech-tree expansion for Seed Granary, Chartered Port, Imperial Exchange Levy, and Worldbreaker Shot; removed six dead unlock stubs.",
+  summary: "Aether Towers now power Airports (Crystal, not Oil) and gate the new monument abilities. Tech-tree expansion for Seed Granary, Imperial Exchange Levy, and Worldbreaker Shot; removed eight dead unlock stubs including the unwired Lockworks Port and Chartered Port chain.",
   entries: [
     {
       introducedIn: "2026.05.20.1",
@@ -34,13 +34,13 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.20.1",
+      introducedIn: "2026.05.20.2",
       title: "Tech-tree expansion and stub cleanup",
-      why: "Six dead unlock stubs were cluttering the tech tree with no backing mechanic; the four worth keeping now have real entries and the others are gone.",
+      why: "Eight dead unlock stubs were cluttering the tech tree with no backing mechanic; the three worth keeping now have real entries and the others are gone.",
       changes: [
-        "Added Seedline Granaries (tier 4), Chartered Ports (tier 5), Exchange Levy Writs (tier 8), and Worldbreaker Ignition (tier 8).",
-        "Removed Broker Market, Treasury House, Weather Engine, Advanced Foundry, Catalytic Refiner, and Refinery stubs.",
-        "Seed Granary and Chartered Port structure types are wired through shared types and the simulation runtime; gameplay effects land in follow-up work."
+        "Added Seedline Granaries (tier 4), Exchange Levy Writs (tier 8), and Worldbreaker Ignition (tier 8).",
+        "Removed Broker Market, Treasury House, Weather Engine, Advanced Foundry, Catalytic Refiner, Refinery, Lockworks Port, and Chartered Port stubs — none of those had any backing sim logic in the rewrite.",
+        "Seed Granary structure type is wired through shared types and the simulation runtime; gameplay effects land in follow-up work."
       ]
     },
     {
