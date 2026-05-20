@@ -76,8 +76,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   EXCHANGE_HOUSE: { baseGoldCost: 5_000, resourceCost: { resource: "CRYSTAL", amount: 120 } },
   GARRISON_HALL: { baseGoldCost: 2_200, resourceCost: { resource: "CRYSTAL", amount: 80 } },
   CUSTOMS_HOUSE: { baseGoldCost: 1_800, resourceCost: { resource: "CRYSTAL", amount: 60 } },
-  LOCKWORKS_PORT: { baseGoldCost: 900, resourceCost: { resource: "CRYSTAL", amount: 30 } },
-  CHARTERED_PORT: { baseGoldCost: 1_200, resourceCost: { resource: "CRYSTAL", amount: 40 } },
   RAIL_DEPOT: { baseGoldCost: 4_000, resourceCost: { resource: "CRYSTAL", amount: 100 } },
   GOVERNORS_OFFICE: { baseGoldCost: 2_600 },
   RADAR_SYSTEM: { baseGoldCost: 4_000, resourceCost: { resource: "CRYSTAL", amount: 120 } },

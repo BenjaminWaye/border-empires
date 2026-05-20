@@ -98,8 +98,6 @@ export const structureOverlayImages = {
   EXCHANGE_HOUSE: loadOverlayImage("exchange-house-overlay.svg"),
   GARRISON_HALL: loadOverlayImage("garrison-hall-overlay.svg"),
   CUSTOMS_HOUSE: loadOverlayImage("customs-house-overlay.svg"),
-  LOCKWORKS_PORT: loadOverlayImage("lockworks-port-overlay.svg"),
-  CHARTERED_PORT: loadOverlayImage("chartered-port-overlay.svg"),
   RAIL_DEPOT: loadOverlayImage("rail-depot-overlay.svg"),
   GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),
   RADAR_SYSTEM: loadOverlayImage("radar-system-overlay.svg"),

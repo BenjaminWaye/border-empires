@@ -2166,20 +2166,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             deps
           )
         });
-        if (tile.economicStructure?.type === "CUSTOMS_HOUSE") {
-          out.push({
-            id: "build_lockworks_port",
-            label: "Upgrade to Lockworks Port",
-            detail: deps.buildDetailTextForAction("build_lockworks_port", tile),
-            ...tileActionAvailabilityWithDevelopmentSlot(
-              state.techIds.includes("port-infrastructure") && state.gold >= 900 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
-              !state.techIds.includes("port-infrastructure") ? "Requires Port Infrastructure" : state.gold < 900 ? "Need 900 gold" : "Need 30 CRYSTAL",
-              `900 gold + 30 CRYSTAL • ${Math.round(economicStructureBuildMs("LOCKWORKS_PORT") / 60000)}m • stronger dock income and storage`,
-              slots,
-              deps
-            )
-          });
-        }
       }
     }
     out.push(...retortRecastActions());

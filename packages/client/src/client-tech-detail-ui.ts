@@ -112,12 +112,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockCustomsHouse":
         out.add("CUSTOMS_HOUSE");
         break;
-      case "unlockHarborLocksUpgrade":
-        out.add("LOCKWORKS_PORT");
-        break;
-      case "unlockCharteredPortsUpgrade":
-        out.add("CHARTERED_PORT");
-        break;
       case "unlockGovernorsOffice":
         out.add("GOVERNORS_OFFICE");
         break;
