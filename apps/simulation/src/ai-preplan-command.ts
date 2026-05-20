@@ -1,6 +1,6 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey } from "@border-empires/game-domain";
-import { FRONTIER_CLAIM_COST, SETTLE_COST, type Terrain } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, SETTLE_COST, type ChosenTrickleResource, type Terrain } from "@border-empires/shared";
 
 import { createAutomationCommand } from "./automation-command-factory.js";
 import type {
@@ -261,12 +261,12 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
     // stockpile / ratePerMinute (lower → starved relative to what this trickle
     // can repair). Ties break IRON > SUPPLY > CRYSTAL (most universally useful
     // for fort/outpost upkeep).
-    const aiDomainPayload: { domainId: string; chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL" } = {
+    const aiDomainPayload: { domainId: string; chosenTrickleResource?: ChosenTrickleResource } = {
       domainId: progressionChoice.id
     };
     if (progressionChoice.id === "clockwork-stipend") {
       const stockpile = input.strategicResources ?? {};
-      const candidates: Array<{ resource: "IRON" | "SUPPLY" | "CRYSTAL"; rate: number; stock: number }> = [
+      const candidates: Array<{ resource: ChosenTrickleResource; rate: number; stock: number }> = [
         { resource: "IRON", rate: 0.2, stock: stockpile.IRON ?? 0 },
         { resource: "SUPPLY", rate: 0.2, stock: stockpile.SUPPLY ?? 0 },
         { resource: "CRYSTAL", rate: 0.1, stock: stockpile.CRYSTAL ?? 0 }
