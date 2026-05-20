@@ -110,6 +110,88 @@ describe("game domain frontier validation", () => {
     expect(result).toMatchObject({ ok: false, code: "INSUFFICIENT_MANPOWER" });
   });
 
+  it("scales attack manpower by fortification strength", () => {
+    const cases = [
+      {
+        label: "wooden fort",
+        manpower: 90,
+        to: {
+          x: 10,
+          y: 11,
+          terrain: "LAND" as const,
+          ownerId: "p2",
+          ownershipState: "FRONTIER" as const,
+          economicStructure: { ownerId: "p2", type: "WOODEN_FORT" as const, status: "active" as const }
+        }
+      },
+      {
+        label: "active fort",
+        manpower: 300,
+        to: {
+          x: 10,
+          y: 11,
+          terrain: "LAND" as const,
+          ownerId: "p2",
+          ownershipState: "FRONTIER" as const,
+          fort: { ownerId: "p2", status: "active" as const }
+        }
+      },
+      {
+        label: "iron bastion",
+        manpower: 600,
+        to: {
+          x: 10,
+          y: 11,
+          terrain: "LAND" as const,
+          ownerId: "p2",
+          ownershipState: "FRONTIER" as const,
+          fort: { ownerId: "p2", status: "active" as const, variant: "IRON_BASTION" as const }
+        }
+      },
+      {
+        label: "thunder bastion",
+        manpower: 1_200,
+        to: {
+          x: 10,
+          y: 11,
+          terrain: "LAND" as const,
+          ownerId: "p2",
+          ownershipState: "FRONTIER" as const,
+          fort: { ownerId: "p2", status: "active" as const, variant: "THUNDER_BASTION" as const }
+        }
+      }
+    ];
+
+    for (const testCase of cases) {
+      const result = validateFrontierCommand({
+        now: 1_000,
+        actor: {
+          id: "p1",
+          isAi: false,
+          points: 100,
+          manpower: testCase.manpower,
+          techIds: new Set<string>(),
+          allies: new Set<string>()
+        },
+        actionType: "ATTACK",
+        from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+        to: testCase.to,
+        actionGoldCost: 10,
+        isAdjacent: true,
+        isDockCrossing: false,
+        isBridgeCrossing: false,
+        targetShielded: false,
+        defenderIsAlliedOrTruced: false
+      });
+
+      expect(result, testCase.label).toMatchObject({
+        ok: true,
+        manpowerMin: testCase.manpower,
+        manpowerCost: testCase.manpower
+      });
+    }
+  });
+
   it("returns LOCKED instead of ATTACK_COOLDOWN when origin lock belongs to another player", () => {
     const result = validateFrontierCommand({
       now: 1_000,

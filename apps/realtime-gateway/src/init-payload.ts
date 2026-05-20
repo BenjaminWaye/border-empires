@@ -916,6 +916,7 @@ export const buildGatewayInitPayload = (
         ? { activeDevelopmentProcessCount: liveSnapshotPlayer.activeDevelopmentProcessCount }
         : {}),
       ...(liveSnapshotPlayer?.pendingSettlements ? { pendingSettlements: liveSnapshotPlayer.pendingSettlements } : {}),
+      ...(liveSnapshotPlayer?.autoSettlementQueue ? { autoSettlementQueue: liveSnapshotPlayer.autoSettlementQueue } : {}),
       ...(homeTile ? { homeTile } : {}),
       tileColor: myTileColor
     },

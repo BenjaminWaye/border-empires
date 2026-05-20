@@ -1,4 +1,7 @@
 import type { ClientState } from "./client-state.js";
+import { SETTLE_COST } from "@border-empires/shared";
+
+export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
 
 export type QueuedDevelopmentActionLike =
   | { kind: "SETTLE"; tileKey: string; label?: string; optimisticKind?: string }
@@ -42,6 +45,52 @@ export const hasQueuedBuildForTile = (
   tileKey: string
 ): boolean => queuedBuildOrderForTile(queue, tileKey) !== -1;
 
+export const pruneExpiredAutoSettlementQueueVisibleHolds = (state: ClientState, nowMs: number = Date.now()): void => {
+  for (const [tileKey, visibleUntil] of state.autoSettlementQueueVisibleUntilByTile.entries()) {
+    if (visibleUntil <= nowMs) state.autoSettlementQueueVisibleUntilByTile.delete(tileKey);
+  }
+};
+
+export const applyAutoSettlementQueueFromServer = (
+  state: ClientState,
+  entries: Array<{ x: number; y: number }> | undefined,
+  deps: {
+    keyFor: (x: number, y: number) => string;
+  }
+): number => {
+  if (!entries) return 0;
+  state.skippedAutoSettlementTileKeys = restoreSkippedAutoSettlementTileKeysForPlayer(state.me);
+  state.autoSettlementQueue = entries;
+  pruneExpiredAutoSettlementQueueVisibleHolds(state);
+  let added = 0;
+  const pendingSettlementTileKeys = new Set(state.settleProgressByTile.keys());
+  const queuedSettlementTileKeys = new Set(
+    state.developmentQueue.filter((entry) => entry.kind === "SETTLE").map((entry) => entry.tileKey)
+  );
+  let settlementBudget = Math.max(0, state.gold - queuedSettlementTileKeys.size * SETTLE_COST);
+  for (const entry of entries) {
+    if (settlementBudget < SETTLE_COST) break;
+    const tileKey = deps.keyFor(entry.x, entry.y);
+    if (pendingSettlementTileKeys.has(tileKey) || queuedSettlementTileKeys.has(tileKey)) continue;
+    if (state.skippedAutoSettlementTileKeys.has(tileKey)) continue;
+    const tile = state.tiles.get(tileKey);
+    if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") continue;
+    state.developmentQueue.push({
+      kind: "SETTLE",
+      x: entry.x,
+      y: entry.y,
+      tileKey,
+      label: `Settlement at (${entry.x}, ${entry.y})`
+    });
+    state.autoSettlementQueueVisibleUntilByTile.set(tileKey, Date.now() + AUTO_SETTLEMENT_QUEUE_VISIBLE_MS);
+    queuedSettlementTileKeys.add(tileKey);
+    settlementBudget -= SETTLE_COST;
+    added += 1;
+  }
+  if (added > 0) persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  return added;
+};
+
 export const busyDevelopmentProcessCount = (
   tiles: Iterable<DevelopmentOwnedTileLike>,
   ownerId: string,
@@ -67,6 +116,7 @@ export const busyDevelopmentProcessCount = (
 };
 
 const DEVELOPMENT_QUEUE_SESSION_KEY = "border-empires-development-queue-v1";
+const AUTO_SETTLEMENT_SKIP_SESSION_KEY = "border-empires-auto-settlement-skips-v1";
 
 const readSessionStorage = (key: string): string | null => {
   try {
@@ -167,6 +217,47 @@ export const persistDevelopmentQueueForPlayer = (
       queue
     })
   );
+};
+
+export const persistSkippedAutoSettlementTileKeysForPlayer = (
+  playerId: string,
+  tileKeys: ReadonlySet<string>
+): void => {
+  if (!playerId || tileKeys.size === 0) {
+    removeSessionStorage(AUTO_SETTLEMENT_SKIP_SESSION_KEY);
+    return;
+  }
+  writeSessionStorage(
+    AUTO_SETTLEMENT_SKIP_SESSION_KEY,
+    JSON.stringify({
+      playerId,
+      tileKeys: [...tileKeys]
+    })
+  );
+};
+
+export const restoreSkippedAutoSettlementTileKeysForPlayer = (playerId: string): Set<string> => {
+  if (!playerId) return new Set();
+  const raw = readSessionStorage(AUTO_SETTLEMENT_SKIP_SESSION_KEY);
+  if (!raw) return new Set();
+  try {
+    const parsed = JSON.parse(raw) as { playerId?: unknown; tileKeys?: unknown };
+    if (parsed.playerId !== playerId || !Array.isArray(parsed.tileKeys)) {
+      removeSessionStorage(AUTO_SETTLEMENT_SKIP_SESSION_KEY);
+      return new Set();
+    }
+    return new Set(parsed.tileKeys.filter((tileKey): tileKey is string => typeof tileKey === "string"));
+  } catch {
+    removeSessionStorage(AUTO_SETTLEMENT_SKIP_SESSION_KEY);
+    return new Set();
+  }
+};
+
+export const clearSkippedAutoSettlementTileKeyForPlayer = (playerId: string, tileKey: string): Set<string> => {
+  const nextSkipped = restoreSkippedAutoSettlementTileKeysForPlayer(playerId);
+  nextSkipped.delete(tileKey);
+  persistSkippedAutoSettlementTileKeysForPlayer(playerId, nextSkipped);
+  return nextSkipped;
 };
 
 type QueueRestoreTileLike = {

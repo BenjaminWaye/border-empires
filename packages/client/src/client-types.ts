@@ -59,6 +59,7 @@ export type Tile = {
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
   capital?: boolean;
   breachShockUntil?: number;
+  frontierDecayAt?: number;
   clusterId?: string;
   clusterType?: string;
   landBiome?: "GRASS" | "SAND" | "COASTAL_SAND";
@@ -135,6 +136,7 @@ export type Tile = {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
     variant?: "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
+    autoAttackEnabled?: boolean;
     completesAt?: number;
   };
   economicStructure?: {
@@ -591,6 +593,8 @@ export type TileActionDef = {
     | "abandon_territory"
     | "build_siege_camp"
     | "build_light_outpost"
+    | "enable_outpost_auto_attack"
+    | "disable_outpost_auto_attack"
     | "overload_fur_synthesizer"
     | "overload_ironworks"
     | "overload_crystal_synthesizer"

@@ -121,6 +121,37 @@ describe("client gateway sync", () => {
     );
   });
 
+  it("applies and clears frontier decay timers from gateway tile deltas", () => {
+    const deps = createDeps();
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        {
+          x: 11,
+          y: 12,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "FRONTIER",
+          frontierDecayAt: 601_000
+        }
+      ]
+    });
+
+    expect(deps.state.tiles.get("11,12")?.frontierDecayAt).toBe(601_000);
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 11,
+        y: 12,
+        ownerId: "me",
+        ownershipState: "FRONTIER",
+        frontierDecayAt: null
+      }
+    ]);
+
+    expect(deps.state.tiles.get("11,12")?.frontierDecayAt).toBeUndefined();
+  });
+
   it("applies pressed-tile detail metadata from gateway tile delta batches", () => {
     const deps = createDeps();
 

@@ -1,4 +1,4 @@
-import { LIGHT_OUTPOST_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { FORT_DEFENSE_MULT, LIGHT_OUTPOST_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
 
 export type TileOverviewModifier = {
@@ -12,6 +12,15 @@ const percentLabel = (value: number): string => `${value >= 0 ? "+" : "-"}${Math
 const multiplierPercentLabel = (value: number): string => percentLabel((value - 1) * 100);
 
 const connectedLabel = (count: number): string => `${count} connected ${count === 1 ? "town" : "towns"}`;
+
+const fortModifierForTile = (tile: NonNullable<Tile["fort"]>): TileOverviewModifier => {
+  if (tile.variant === "THUNDER_BASTION") return { reason: "Thunder Bastion", effect: "8x defense", tone: "positive" };
+  if (tile.variant === "IRON_BASTION") return { reason: "Iron Bastion", effect: "4x defense", tone: "positive" };
+  return { reason: "Fort", effect: `${FORT_DEFENSE_MULT}x defense`, tone: "positive" };
+};
+
+const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
+  typeof tile.town?.captureShockUntil === "number" && tile.town.captureShockUntil > nowMs;
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
@@ -48,6 +57,14 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   const nowMs = Date.now();
 
   if (tile.town) {
+    const inCaptureShock = hasActiveTownCaptureShock(tile, nowMs);
+    if (inCaptureShock) {
+      modifiers.push({
+        reason: "Recently captured",
+        effect: tile.ownershipState === "SETTLED" ? "population growth paused" : "town manpower and production paused until settled",
+        tone: "negative"
+      });
+    }
     if (tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0 && tile.town.connectedTownBonus !== 0) {
       modifiers.push({
         reason: connectedLabel(tile.town.connectedTownCount),
@@ -56,6 +73,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
       });
     }
     for (const growth of tile.town.growthModifiers ?? []) {
+      if (inCaptureShock) continue;
       modifiers.push({
         reason: growth.label === "Long time peace" ? "Long-term peace" : growth.label,
         effect: `${growth.label === "Long time peace" ? "+100%" : "-100%"} population growth`,
@@ -74,7 +92,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   }
 
   if (tile.fort?.status === "active" && (tile.fort.disabledUntil ?? 0) <= nowMs) {
-    modifiers.push({ reason: "Fort", effect: "+25% defense", tone: "positive" });
+    modifiers.push(fortModifierForTile(tile.fort));
   }
   if (tile.siegeOutpost?.status === "active") modifiers.push({ reason: "Siege Outpost", effect: "+25% offense", tone: "positive" });
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
