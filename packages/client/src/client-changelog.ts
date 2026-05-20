@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.1",
+  version: "2026.05.20.2",
   title: "What's New",
-  summary: "Single source of truth for trickle resource keys — client and sim now share the same constant from @border-empires/shared, with a parity test that fails loud if they drift.",
+  summary: "Trickle parity test now catches drift in both directions, and the sim imports the shared resource enum directly instead of hopping through game-domain.",
   entries: [
+    {
+      introducedIn: "2026.05.20.2",
+      title: "Bidirectional trickle parity test + dropped re-export hop",
+      why: "The previous parity test asserted the server filter's output equals TRICKLE_RESOURCE_KEYS, which caught 'widened shared list without updating data' but missed the reverse — a data file growing an extra rate would have silently no-op'd. The game-domain re-export of the trickle const/type was also a needless indirection: sim files imported it from game-domain while runtime.ts imported the same module's guard directly from shared, splitting one logical surface across two paths.",
+      changes: [
+        "Parity test now reads packages/game-domain/data/domain-tree.json directly and asserts clockwork-stipend's chosenResourceTrickleOptions keys are exactly TRICKLE_RESOURCE_KEYS. Both 'shared widened without data' and 'data widened without shared' fail loud now.",
+        "Dropped the game-domain re-export of TRICKLE_RESOURCE_KEYS / ChosenTrickleResource. tech-domain-bridge.ts and runtime.ts both import directly from @border-empires/shared now; the module-doc comment is updated to reflect the single import path.",
+        "tech-domain-bridge.ts still re-exports the ChosenTrickleResource type for sim consumers that import the bridge for the helpers anyway — fewer changes to runtime.ts."
+      ]
+    },
     {
       introducedIn: "2026.05.20.1",
       title: "Trickle resource enum unified across the stack",

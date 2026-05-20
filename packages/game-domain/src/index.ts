@@ -21,12 +21,6 @@ import {
 export type FrontierCommandType = "ATTACK" | "EXPAND";
 export type DomainStrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
 
-// Re-exported from @border-empires/shared so sim consumers can keep their
-// import surface flat (everything trickle-related lives in tech-domain-bridge
-// re-exports). The underlying constant lives in shared because the client
-// also needs it but historically does not depend on game-domain.
-export { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
-
 export type DomainPlayer = {
   id: string;
   isAi: boolean;
