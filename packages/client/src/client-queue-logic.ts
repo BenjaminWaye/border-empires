@@ -448,8 +448,14 @@ export const requestSettlement = (
     return false;
   }
   const slots = deps.developmentSlotSummary();
+  const canQueue = deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue;
+  // FIFO: if anything is already waiting, this new click goes to the end of the line
+  // rather than racing into a slot that opened mid-dispatch.
+  if (canQueue && state.developmentQueue.length > 0) {
+    return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
+  }
   if (slots.available <= 0) {
-    if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
+    if (canQueue) {
       return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
     }
     if (!deps.opts?.suppressWarnings) deps.pushFeed(deps.developmentSlotReason(slots), "combat", "warn");
@@ -499,8 +505,22 @@ export const sendDevelopmentBuild = (
   }
 ): boolean => {
   const summary = deps.developmentSlotSummary();
+  const canQueue = opts.allowQueueWhenBusy !== false && !opts.fromQueue;
+  // FIFO: if anything is already waiting, this new click goes to the end of the line
+  // rather than racing into a slot that opened mid-dispatch.
+  if (canQueue && state.developmentQueue.length > 0) {
+    return deps.queueDevelopmentAction({
+      kind: "BUILD",
+      x: opts.x,
+      y: opts.y,
+      tileKey: deps.keyFor(opts.x, opts.y),
+      label: opts.label,
+      payload,
+      optimisticKind: opts.optimisticKind
+    });
+  }
   if (summary.available <= 0) {
-    if (opts.allowQueueWhenBusy !== false && !opts.fromQueue) {
+    if (canQueue) {
       return deps.queueDevelopmentAction({
         kind: "BUILD",
         x: opts.x,
