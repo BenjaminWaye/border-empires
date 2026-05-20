@@ -54,7 +54,8 @@ import {
   AETHER_WALL_COOLDOWN_MS,
   AETHER_WALL_CRYSTAL_COST,
   AETHER_WALL_DURATION_MS,
-  AIRPORT_BOMBARD_OIL_COST,
+  AIRPORT_BOMBARD_CRYSTAL_COST,
+  AETHER_TOWER_RADIUS,
   AIRPORT_BOMBARD_RANGE,
   ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
@@ -4883,13 +4884,23 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "OIL", AIRPORT_BOMBARD_OIL_COST)) {
+    if (!this.isStructurePowered(actor.id, simulationTileKey(payload.fromX, payload.fromY), "AIRPORT")) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "AIRPORT_BOMBARD_INVALID",
-        message: "insufficient OIL for bombardment"
+        message: "airport requires a nearby Aether Tower"
+      });
+      return;
+    }
+    if (!this.spendStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AIRPORT_BOMBARD_INVALID",
+        message: "insufficient CRYSTAL for bombardment"
       });
       return;
     }
@@ -5131,6 +5142,19 @@ export class SimulationRuntime {
     const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
     const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
     return Math.max(dx, dy);
+  }
+
+  isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
+    const tile = this.tiles.get(tileKey);
+    const structure = tile?.economicStructure;
+    if (!tile || !structure) return false;
+    if (structure.ownerId !== ownerId || structure.type !== structureType || structure.status !== "active") return false;
+    for (const candidate of this.tiles.values()) {
+      const tower = candidate.economicStructure;
+      if (!tower || tower.ownerId !== ownerId || tower.type !== "AETHER_TOWER" || tower.status !== "active") continue;
+      if (this.wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) <= AETHER_TOWER_RADIUS) return true;
+    }
+    return false;
   }
 
   /**
