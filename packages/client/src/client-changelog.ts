@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.5",
+  version: "2026.05.20.1",
   title: "What's New",
-  summary: "Frontier automation now reduces repeated border cleanup: forts project tiered frontier control, unsupported frontier decays, valuable/support tiles enter a cancellable settlement queue, and siege/fort pressure respects manpower.",
+  summary: "Barbarian population is now soft-capped at 200 tiles — once at the cap, would-multiply walks become plain walks that carry their progress, so culling barbs creates room for immediate regrowth.",
   entries: [
+    {
+      introducedIn: "2026.05.20.1",
+      title: "Barbarian population capped at 200",
+      why: "Unchecked barb multiplication was the underlying cause of late-game gateway slowdowns. The cap holds the population steady without disabling regrowth.",
+      changes: [
+        "Barbarian-1 stops multiplying once it owns 200 tiles.",
+        "An at-threshold walk on a capped population still walks (source releases, target captured) but carries the would-multiply progress to the target.",
+        "As soon as any barb dies, the next walk from a progress-loaded barb tile multiplies — replacement happens immediately, no compound growth."
+      ]
+    },
     {
       introducedIn: "2026.05.19.5",
       title: "Fort frontier control scales by tier",
