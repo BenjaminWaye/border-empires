@@ -84,6 +84,17 @@ export const createPlannerRelevantTileKeyIndex = (
   const relevantKeys = new Set<string>();
   const keyRefCount = new Map<string, number>();
   const keysByPlayerId = new Map<string, Set<string>>();
+  // Per-player tileCollectionVersion → relevance cache key. When the runtime
+  // hasn't touched a player's tile composition since the last sync, the
+  // relevance set can't have changed: we skip the O(empire) rebuild.
+  // markPlannerPlayerTileCollectionDirty bumps the version on any of:
+  //   - tile ownership add/remove
+  //   - tile state change for an owned tile (covers dockId on owned tiles)
+  //   - pending settlement add/remove
+  // which is the complete dependency set for buildPlannerRelevantTileKeysForPlayer.
+  // Pre-cache, this rebuilt 117k Set inserts per player per sync at 13k
+  // owned tiles — ~7s of main-thread block in prod-scale empires.
+  const versionByPlayerId = new Map<string, number>();
 
   const addKeys = (keys: ReadonlySet<string>): void => {
     for (const key of keys) {
@@ -110,11 +121,21 @@ export const createPlannerRelevantTileKeyIndex = (
     nextTilesByKey: ReadonlyMap<string, PlannerTileView>
   ): void => {
     for (const player of players) {
+      const nextVersion = player.tileCollectionVersion;
+      const cachedVersion = versionByPlayerId.get(player.id);
+      if (cachedVersion !== undefined && cachedVersion === nextVersion) {
+        // Cache hit: the runtime hasn't bumped this player's version since
+        // the last replacePlayers call. The previous relevance set is still
+        // accurate (its ref-counts in relevantKeys / keyRefCount also remain
+        // correct). Skip the rebuild entirely.
+        continue;
+      }
       const nextKeys = buildPlannerRelevantTileKeysForPlayer(player, nextTilesByKey, dockLinksByDockTileKey, safeRadius);
       const previousKeys = keysByPlayerId.get(player.id);
       if (previousKeys) removeKeys(previousKeys);
       addKeys(nextKeys);
       keysByPlayerId.set(player.id, nextKeys);
+      versionByPlayerId.set(player.id, nextVersion);
     }
   };
 
