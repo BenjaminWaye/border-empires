@@ -476,7 +476,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             structure3DType === "CAMP" ||
             structure3DType === "MINE" ||
             structure3DType === "IRONWORKS" ||
-            structure3DType === "MARKET"
+            structure3DType === "MARKET" ||
+            structure3DType === "GRANARY"
           );
         if (fortificationKind || handled3DStructure) {
           // 3D-rendered (fortifications + Tier-1 economic structures);
@@ -839,6 +840,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             : 0.92;
           if (typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now()) {
             ownerAlpha = Math.min(ownerAlpha, 0.62);
+          }
+          if (t.ownershipState === "FRONTIER" && typeof t.frontierDecayAt === "number") {
+            const remainingMs = t.frontierDecayAt - Date.now();
+            if (remainingMs > 0 && remainingMs <= 60_000) {
+              const blink = 0.5 + 0.5 * Math.sin((Date.now() / 2_000) * Math.PI * 2);
+              ownerAlpha *= 0.55 + blink * 0.6;
+            }
           }
           deps.ctx.globalAlpha = ownerAlpha;
           if (t.ownershipState === "SETTLED") deps.ctx.fillRect(px, py, size, size);
@@ -1731,6 +1739,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
     if (state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 20_000) deps.requestViewRefresh(2, true);
   }, deps.isMobile() ? 8_000 : 5_000);
+
+  // Waypoint heartbeat: re-poke processActionQueue while a waypoint is
+  // active and the queue is idle. The message-driven kicks
+  // (FRONTIER_RESULT, TILE_DELTA, etc.) sometimes fire BEFORE the
+  // ownership-flipping tile_delta arrives, so the late delta would
+  // otherwise leave the chain stalled with an idle queue.
+  setInterval(() => {
+    if (state.connection !== "initialized") return;
+    if (!state.waypoint) return;
+    if (state.actionInFlight || state.actionQueue.length > 0) return;
+    deps.processActionQueue();
+  }, 500);
 
   setInterval(() => {
     const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;

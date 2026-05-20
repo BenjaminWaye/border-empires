@@ -2593,7 +2593,7 @@ describe("simulation runtime", () => {
               id: "player-1",
               isAi: false,
               points: 100,
-              manpower: 150,
+              manpower: 300,
               techIds: new Set<string>(),
               domainIds: new Set<string>(),
               mods: { attack: 1, defense: 1, income: 1, vision: 1 },
@@ -2607,7 +2607,7 @@ describe("simulation runtime", () => {
               id: "player-2",
               isAi: true,
               points: 100,
-              manpower: 150,
+              manpower: 300,
               techIds: new Set<string>(),
               domainIds: new Set<string>(),
               mods: { attack: 1, defense: 1, income: 1, vision: 1 },
@@ -3290,6 +3290,7 @@ describe("simulation runtime", () => {
           fortJson: expect.any(String)
         })
       );
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(0);
 
       vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
 
@@ -3313,7 +3314,7 @@ describe("simulation runtime", () => {
               id: "player-1",
               isAi: false,
               points: 10_000,
-              manpower: 150,
+              manpower: 300,
               techIds: new Set<string>(["masonry"]),
               domainIds: new Set<string>(),
               mods: { attack: 1, defense: 1, income: 1, vision: 1 },
@@ -3331,6 +3332,7 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED",
+              town: { name: "Fort Upgrade Town", type: "FARMING", populationTier: "TOWN" },
               economicStructure: { ownerId: "player-1", type: "WOODEN_FORT", status: "active" }
             }
           ],
@@ -3565,6 +3567,7 @@ describe("simulation runtime", () => {
           siegeOutpostJson: expect.any(String)
         })
       );
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(90);
 
       vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
 
@@ -3573,6 +3576,83 @@ describe("simulation runtime", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("can disable a siege outpost auto attack and cancel its active attack lock", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 5_000,
+            manpower: 10_000,
+            techIds: new Set<string>(["leatherworking"]),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 5_000,
+            manpower: 10_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 14,
+            y: 14,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            siegeOutpost: { ownerId: "player-1", status: "active" }
+          },
+          { x: 15, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    runtime.submitCommand({
+      commandId: "siege-attack-1",
+      sessionId: "system-runtime:test",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 14, fromY: 14, toX: 15, toY: 14 })
+    });
+    await Promise.resolve();
+    expect(runtime.exportState().activeLocks).toHaveLength(1);
+
+    runtime.submitCommand({
+      commandId: "disable-auto-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_001,
+      type: "SET_SIEGE_OUTPOST_AUTO_ATTACK",
+      payloadJson: JSON.stringify({ x: 14, y: 14, enabled: false })
+    });
+    await Promise.resolve();
+
+    expect(runtime.exportState().activeLocks).toHaveLength(0);
+    const outpost = runtime.exportState().tiles.find((tile) => tile.x === 14 && tile.y === 14);
+    expect(outpost?.siegeOutpostJson).toContain("\"autoAttackEnabled\":false");
   });
 
   it("builds a market through the rewrite simulation path and places it on a supported town tile", async () => {
@@ -6231,6 +6311,43 @@ describe("simulation runtime", () => {
       const progress = readProgress(runtime);
       expect(progress.get("10,10")).toBe(0);
       expect(progress.get("10,11")).toBe(0);
+
+      randomSpy.mockRestore();
+    });
+
+    it("walks instead of multiplying once barb population is at the cap", () => {
+      // Build 200 barb tiles so that capturing 1 more puts us at 201 — above
+      // the cap. Lay them in a long row to keep the setup simple.
+      const barbTiles: Array<{ x: number; y: number }> = [];
+      for (let i = 0; i < 200; i += 1) {
+        barbTiles.push({ x: 100 + (i % 20), y: 100 + Math.floor(i / 20) });
+      }
+      const { runtime, randomSpy, runResolve } = buildBarbRuntime({
+        barbTiles,
+        targetTile: { x: 50, y: 50 },
+        lockOrigin: { x: 100, y: 100 },
+        lockTarget: { x: 50, y: 50 },
+        attackerId: "barbarian-1"
+      });
+      // Stamp the origin with at-threshold progress so a normal world would
+      // multiply on this resolution.
+      readProgress(runtime).set("100,100", 2);
+
+      runResolve();
+
+      const state = runtime.exportState();
+      const origin = state.tiles.find((tile) => tile.x === 100 && tile.y === 100);
+      const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
+      // Cap held: source released (walk), target captured.
+      expect(origin?.ownerId).toBeUndefined();
+      expect(target?.ownerId).toBe("barbarian-1");
+      // Population is now 200 (199 carryover + 1 newly captured), not 201.
+      expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(200);
+      // The would-multiply progress is preserved on the target so as soon as
+      // the population drops below the cap, the next walk multiplies again.
+      const progress = readProgress(runtime);
+      expect(progress.get("100,100")).toBeUndefined();
+      expect(progress.get("50,50")).toBe(3);
 
       randomSpy.mockRestore();
     });

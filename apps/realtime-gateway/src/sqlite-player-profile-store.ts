@@ -55,6 +55,17 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     return rows.map(toProfile);
   }
 
+  async listAllNamed(): Promise<StoredPlayerProfile[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT player_id, display_name, tile_color, profile_complete, updated_at
+         FROM player_profiles
+         WHERE display_name IS NOT NULL AND length(display_name) > 0`
+      )
+      .all() as Row[];
+    return rows.map(toProfile);
+  }
+
   async setTileColor(playerId: string, tileColor: string): Promise<StoredPlayerProfile> {
     const now = this.now();
     const row = this.db

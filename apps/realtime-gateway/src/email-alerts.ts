@@ -231,7 +231,11 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
   const appUrl = baseUrl(options.appUrl);
   const countersByEmail = new Map<string, { day: string; sent: number; lastSentAt: number }>();
 
-  const send = async (recipientPlayerId: string, build: (email: string) => EmailMessage): Promise<EmailAlertOutcome> => {
+  const send = async (
+    recipientPlayerId: string,
+    build: (email: string) => EmailMessage,
+    sendOptions?: { bypassRateLimit?: boolean }
+  ): Promise<EmailAlertOutcome> => {
     if (!transport) return "disabled";
     const binding = await options.authBindingStore.getByPlayerId(recipientPlayerId);
     const email = normalizeEmail(binding?.email);
@@ -240,19 +244,24 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     const sentAt = now();
     const today = dayKey(sentAt);
     const counter = countersByEmail.get(email);
-    const sentToday = counter?.day === today ? counter.sent : 0;
-    if (sentToday >= dailyLimit) return "throttled";
-    if (counter && sentAt - counter.lastSentAt < MIN_SEND_INTERVAL_MS) return "throttled";
-    countersByEmail.set(email, { day: today, sent: sentToday + 1, lastSentAt: sentAt });
+    const bypassRateLimit = sendOptions?.bypassRateLimit === true;
+    if (!bypassRateLimit) {
+      const sentToday = counter?.day === today ? counter.sent : 0;
+      if (sentToday >= dailyLimit) return "throttled";
+      if (counter && sentAt - counter.lastSentAt < MIN_SEND_INTERVAL_MS) return "throttled";
+      countersByEmail.set(email, { day: today, sent: sentToday + 1, lastSentAt: sentAt });
+    }
 
     try {
       await transport.send(build(email));
       return "sent";
     } catch (error) {
-      if (counter) {
-        countersByEmail.set(email, counter);
-      } else {
-        countersByEmail.delete(email);
+      if (!bypassRateLimit) {
+        if (counter) {
+          countersByEmail.set(email, counter);
+        } else {
+          countersByEmail.delete(email);
+        }
       }
       options.log?.error?.(
         { err: error instanceof Error ? error.message : String(error), recipientPlayerId },
@@ -276,23 +285,29 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
 
   return {
     sendAllianceRequestAlert(input) {
-      return send(input.recipientPlayerId, (to) =>
-        formatMessage({
-          to,
-          subject: `${input.senderName} sent you an alliance request`,
-          intro: `${input.senderName} sent your empire an alliance request.`,
-          detail: "Open Border Empires to accept or reject it."
-        })
+      return send(
+        input.recipientPlayerId,
+        (to) =>
+          formatMessage({
+            to,
+            subject: `${input.senderName} sent you an alliance request`,
+            intro: `${input.senderName} sent your empire an alliance request.`,
+            detail: "Open Border Empires to accept or reject it."
+          }),
+        { bypassRateLimit: true }
       );
     },
     sendTruceRequestAlert(input) {
-      return send(input.recipientPlayerId, (to) =>
-        formatMessage({
-          to,
-          subject: `${input.senderName} offered you a ${input.durationHours}h truce`,
-          intro: `${input.senderName} offered your empire a ${input.durationHours}h truce.`,
-          detail: "Open Border Empires to accept or reject it before the offer expires."
-        })
+      return send(
+        input.recipientPlayerId,
+        (to) =>
+          formatMessage({
+            to,
+            subject: `${input.senderName} offered you a ${input.durationHours}h truce`,
+            intro: `${input.senderName} offered your empire a ${input.durationHours}h truce.`,
+            detail: "Open Border Empires to accept or reject it before the offer expires."
+          }),
+        { bypassRateLimit: true }
       );
     },
     sendAttackAlert(input) {

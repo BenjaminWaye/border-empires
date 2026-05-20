@@ -9,6 +9,7 @@ export type StoredPlayerProfile = {
 export type GatewayPlayerProfileStore = {
   get(playerId: string): Promise<StoredPlayerProfile | undefined>;
   getMany(playerIds: Iterable<string>): Promise<StoredPlayerProfile[]>;
+  listAllNamed(): Promise<StoredPlayerProfile[]>;
   setTileColor(playerId: string, tileColor: string): Promise<StoredPlayerProfile>;
   setProfile(playerId: string, name: string, tileColor: string): Promise<StoredPlayerProfile>;
 };
@@ -31,6 +32,10 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       if (profile) profiles.push({ ...profile });
     }
     return profiles;
+  }
+
+  async listAllNamed(): Promise<StoredPlayerProfile[]> {
+    return [...this.profiles.values()].filter((p) => p.name && p.name.length > 0).map((p) => ({ ...p }));
   }
 
   async setTileColor(playerId: string, tileColor: string): Promise<StoredPlayerProfile> {
