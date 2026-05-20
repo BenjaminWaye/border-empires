@@ -7411,32 +7411,39 @@ export class SimulationRuntime {
       this.preparePlayerRespawnNotice(playerId, "eliminated", commandId, { wasOnline: true });
     }
 
-    for (const tile of this.tiles.values()) {
-      if (tile.terrain !== "LAND" || tile.ownerId) continue;
-      const respawnedTile: DomainTileState = {
-        ...tile,
-        ownerId: playerId,
-        ownershipState: "SETTLED",
-        town: tile.town ?? {
-          name: `Respawn ${tile.x},${tile.y}`,
-          type: "FARMING",
-          populationTier: "SETTLEMENT"
-        }
-      };
-      actor.manpower = Math.max(actor.manpower, 100);
-      const respawnedTileKey = simulationTileKey(tile.x, tile.y);
-      const respawnCommandId = `${commandId}:respawn:${playerId}`;
-      this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
-      this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
-      this.finalizeRespawnNotice(playerId, respawnedTileKey);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: respawnCommandId,
-        playerId,
-        tileDeltas: [this.tileDeltaFromState(respawnedTile)]
-      });
-      return;
-    }
+    const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
+    const spawn = chooseLegacySpawnPlacement({
+      playerId,
+      tiles: this.tiles.values(),
+      blockedTileKeys
+    });
+    if (!spawn) return;
+    const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
+    const tile = this.tiles.get(respawnedTileKey);
+    if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return;
+    const respawnedTile: DomainTileState = {
+      ...tile,
+      ownerId: playerId,
+      ownershipState: "SETTLED",
+      town: {
+        name: `Respawn ${tile.x},${tile.y}`,
+        type: "FARMING",
+        populationTier: "SETTLEMENT",
+        population: SYNTHETIC_SETTLEMENT_POPULATION,
+        maxPopulation: POPULATION_MAX
+      }
+    };
+    actor.manpower = Math.max(actor.manpower, 100);
+    const respawnCommandId = `${commandId}:respawn:${playerId}`;
+    this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
+    this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
+    this.finalizeRespawnNotice(playerId, respawnedTileKey);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: respawnCommandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(respawnedTile)]
+    });
   }
 
   private queueCommandForProcessing(command: CommandEnvelope): void {
