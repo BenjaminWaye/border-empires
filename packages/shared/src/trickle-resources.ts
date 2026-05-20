@@ -1,17 +1,21 @@
 // Single source of truth for the resource keys offerable as a domain "chosen
 // trickle" sub-choice (Clockwork Stipend today, possibly more later).
 //
-// This constant is the contract between three callers that MUST agree:
+// Imported directly by sim and client (no re-export hops) so changing the
+// list updates the contract everywhere:
 //   - apps/simulation/src/tech-domain-bridge.ts (chosenTrickleOptionsForDomain)
-//     decides which keys the sim accepts as valid trickle picks.
+//     iterates this list to decide which data keys the sim accepts.
 //   - packages/client/src/client-tech-html.ts (domainTrickleOptionKeys)
-//     decides which keys the owned-domain card recognises for the suffix.
-//   - packages/game-domain/src/index.ts re-exports both the const and the
-//     ChosenTrickleResource type so the DomainPlayer field stays narrow.
+//     does the same for the owned-domain suffix gate.
+//   - apps/simulation/src/runtime.ts, apps/realtime-gateway/* and
+//     packages/client/* call isChosenTrickleResource to validate payload
+//     fields at every network/storage boundary.
+//   - packages/game-domain narrows DomainPlayer.chosenTrickleResource to
+//     the derived ChosenTrickleResource type.
 //
-// Any client-side "valid option" that the sim ignores would let the player
-// pick a resource that never trickles, so changing this list must touch
-// both validators in the same commit.
+// Any addition or removal must touch this file. The parity test in
+// tech-domain-bridge.test.ts compares the raw domain-tree.json keys to
+// TRICKLE_RESOURCE_KEYS and fails loud on either-direction drift.
 export const TRICKLE_RESOURCE_KEYS = ["IRON", "SUPPLY", "CRYSTAL"] as const;
 export type ChosenTrickleResource = (typeof TRICKLE_RESOURCE_KEYS)[number];
 
