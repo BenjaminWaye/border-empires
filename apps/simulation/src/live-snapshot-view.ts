@@ -913,12 +913,27 @@ export const enrichSnapshotTilesForGlobalVisibility = (
     });
 };
 
-export const enrichSnapshotTilesForPlayer = (
-  playerId: string,
+// Per-tile builder shared by sync + async variants. The 2026-05-20 stall
+// traced into this map: `runtimeState.players.find` is O(P) per tile and
+// buildTownSummary/buildSnapshotTileYieldFields are non-trivial, so 2000+
+// visible tiles blocked the main thread for tens of seconds.
+type EnrichmentContext = {
+  collectedAtByTile: Map<string, number>;
+  tilesByKey: Map<string, RuntimeState["tiles"][number]>;
+  domainTilesByKey: Map<string, DomainTileState>;
+  dockLinksByDockTileKey: ReturnType<typeof buildDockLinksByDockTileKey>;
+  economyPlayersById: Map<string, NonNullable<ReturnType<typeof snapshotEconomyPlayer>>>;
+  townNetworksByPlayerId: Map<string, ReturnType<typeof buildConnectedTownNetworkForPlayer>>;
+  firstThreeTownKeysByPlayer: ReturnType<typeof buildFirstThreeTownKeysByPlayer>;
+  nearbyWarTownKeys: ReturnType<typeof townKeysWithNearbyWar>;
+  fedTownKeysByPlayer: LivePlayerEconomySnapshot["fedTownKeysByPlayer"];
+  fedTownKeys: LivePlayerEconomySnapshot["fedTownKeys"];
+};
+
+const buildEnrichmentContext = (
   runtimeState: RuntimeState,
-  visibleTiles: RuntimeState["tiles"],
   playerEconomy: LivePlayerEconomySnapshot
-): RuntimeState["tiles"] => {
+): EnrichmentContext => {
   const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
   const tilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), entry] as const));
   const domainTilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), toDomainTile(entry)] as const));
@@ -933,37 +948,92 @@ export const enrichSnapshotTilesForPlayer = (
   );
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
-  const fedTownKeysByPlayer = playerEconomy.fedTownKeysByPlayer;
-  return visibleTiles.map((tile) => {
-    const player = runtimeState.players.find((entry) => entry.id === tile.ownerId);
-    const economyPlayer = tile.ownerId ? economyPlayersById.get(tile.ownerId) : undefined;
-    const town = buildTownSummary(
-      tile,
-      player,
-      tilesByKey,
-      tile.ownerId === playerId ? playerEconomy.fedTownKeys : (tile.ownerId ? (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) : new Set<string>()),
-      tile.ownerId === playerId,
-      tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
-      tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
-      nearbyWarTownKeys
-    );
-    const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, town, {
-      ...(economyPlayer ? { player: economyPlayer } : {}),
-      ...(tile.ownerId
-        ? { fedTownKeys: tile.ownerId === playerId ? playerEconomy.fedTownKeys : (fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) }
-        : {}),
-      ...(tile.ownerId ? { firstThreeTownKeys: firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
-      tiles: domainTilesByKey,
-      dockLinksByDockTileKey
-    });
-    if (!town) return { ...tile, ...yieldFields };
-    return {
-      ...tile,
-      townJson: JSON.stringify(town),
-      townType: town.type,
-      ...(town.name ? { townName: town.name } : {}),
-      townPopulationTier: town.populationTier,
-      ...yieldFields
-    };
+  return {
+    collectedAtByTile,
+    tilesByKey,
+    domainTilesByKey,
+    dockLinksByDockTileKey,
+    economyPlayersById,
+    townNetworksByPlayerId,
+    firstThreeTownKeysByPlayer,
+    nearbyWarTownKeys,
+    fedTownKeysByPlayer: playerEconomy.fedTownKeysByPlayer,
+    fedTownKeys: playerEconomy.fedTownKeys
+  };
+};
+
+const buildEnrichedTile = (
+  playerId: string,
+  runtimeState: RuntimeState,
+  tile: RuntimeState["tiles"][number],
+  ctx: EnrichmentContext,
+  playersById: Map<string, RuntimeState["players"][number]>
+): RuntimeState["tiles"][number] => {
+  // Linear `players.find` was O(P) per tile; pre-indexed lookup is O(1).
+  const player = tile.ownerId ? playersById.get(tile.ownerId) : undefined;
+  const economyPlayer = tile.ownerId ? ctx.economyPlayersById.get(tile.ownerId) : undefined;
+  const town = buildTownSummary(
+    tile,
+    player,
+    ctx.tilesByKey,
+    tile.ownerId === playerId ? ctx.fedTownKeys : (tile.ownerId ? (ctx.fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) : new Set<string>()),
+    tile.ownerId === playerId,
+    tile.ownerId ? ctx.townNetworksByPlayerId.get(tile.ownerId) : undefined,
+    tile.ownerId ? ctx.firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
+    ctx.nearbyWarTownKeys
+  );
+  const yieldFields = buildSnapshotTileYieldFields(tile, ctx.collectedAtByTile, town, {
+    ...(economyPlayer ? { player: economyPlayer } : {}),
+    ...(tile.ownerId
+      ? { fedTownKeys: tile.ownerId === playerId ? ctx.fedTownKeys : (ctx.fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) }
+      : {}),
+    ...(tile.ownerId ? { firstThreeTownKeys: ctx.firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
+    tiles: ctx.domainTilesByKey,
+    dockLinksByDockTileKey: ctx.dockLinksByDockTileKey
   });
+  if (!town) return { ...tile, ...yieldFields };
+  return {
+    ...tile,
+    townJson: JSON.stringify(town),
+    townType: town.type,
+    ...(town.name ? { townName: town.name } : {}),
+    townPopulationTier: town.populationTier,
+    ...yieldFields
+  };
+};
+
+export const enrichSnapshotTilesForPlayer = (
+  playerId: string,
+  runtimeState: RuntimeState,
+  visibleTiles: RuntimeState["tiles"],
+  playerEconomy: LivePlayerEconomySnapshot
+): RuntimeState["tiles"] => {
+  const ctx = buildEnrichmentContext(runtimeState, playerEconomy);
+  const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
+  return visibleTiles.map((tile) => buildEnrichedTile(playerId, runtimeState, tile, ctx, playersById));
+};
+
+// Async variant that yields to the event loop every ENRICHMENT_YIELD_CHUNK
+// tiles so a multi-second per-player snapshot build no longer blocks the
+// main thread for its full duration. Output is identical to the sync version
+// for the same inputs (covered by a parity test).
+const ENRICHMENT_YIELD_CHUNK = 200;
+
+export const enrichSnapshotTilesForPlayerAsync = async (
+  playerId: string,
+  runtimeState: RuntimeState,
+  visibleTiles: RuntimeState["tiles"],
+  playerEconomy: LivePlayerEconomySnapshot,
+  yieldToEventLoop: () => Promise<void>
+): Promise<RuntimeState["tiles"]> => {
+  const ctx = buildEnrichmentContext(runtimeState, playerEconomy);
+  const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
+  const out: RuntimeState["tiles"] = new Array(visibleTiles.length);
+  for (let i = 0; i < visibleTiles.length; i += 1) {
+    out[i] = buildEnrichedTile(playerId, runtimeState, visibleTiles[i]!, ctx, playersById);
+    if (i > 0 && i % ENRICHMENT_YIELD_CHUNK === 0) {
+      await yieldToEventLoop();
+    }
+  }
+  return out;
 };
