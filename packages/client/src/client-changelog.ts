@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.7",
+  version: "2026.05.20.1",
   title: "What's New",
-  summary: "Trickle suffix now aligns with the server's contract: only renders for IRON/SUPPLY/CRYSTAL keys, and only when this specific domain actually offered the locked resource.",
+  summary: "Single source of truth for trickle resource keys — client and sim now share the same constant from @border-empires/shared, with a parity test that fails loud if they drift.",
   entries: [
+    {
+      introducedIn: "2026.05.20.1",
+      title: "Trickle resource enum unified across the stack",
+      why: "Up until now the IRON/SUPPLY/CRYSTAL list was duplicated in six places — sim helper, client gate, sim-protocol type, gateway init payload, runtime command parser, AI heuristic. A comment said 'these MUST agree' but nothing enforced it. Same drift hazard as before, just hidden in more files.",
+      changes: [
+        "New @border-empires/shared/trickle-resources module exports TRICKLE_RESOURCE_KEYS, the ChosenTrickleResource type, and an isChosenTrickleResource type guard. All six prior duplicates now import from this single source.",
+        "DomainPlayer.chosenTrickleResource narrowed from DomainStrategicResourceKey (which included FOOD/SHARD/OIL) to ChosenTrickleResource (IRON/SUPPLY/CRYSTAL only) — the type now matches every runtime validator's behavior.",
+        "Server-side chosenTrickleOptionsForDomain iterates the shared TRICKLE_RESOURCE_KEYS const tuple; client-side domainTrickleOptionKeys does the same. Adding a fourth resource flips one constant and both validators pick it up.",
+        "New parity test in tech-domain-bridge.test.ts asserts the data file's options table matches the shared keys list — a future PR that widens one but forgets the other will fail loud."
+      ]
+    },
     {
       introducedIn: "2026.05.19.7",
       title: "Trickle suffix gate aligned with server contract",

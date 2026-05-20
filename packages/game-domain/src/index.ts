@@ -14,11 +14,18 @@ import {
   ATTACK_MANPOWER_MIN,
   COMBAT_LOCK_MS,
   FRONTIER_CLAIM_MS,
+  type ChosenTrickleResource,
   type Tile
 } from "@border-empires/shared";
 
 export type FrontierCommandType = "ATTACK" | "EXPAND";
 export type DomainStrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
+
+// Re-exported from @border-empires/shared so sim consumers can keep their
+// import surface flat (everything trickle-related lives in tech-domain-bridge
+// re-exports). The underlying constant lives in shared because the client
+// also needs it but historically does not depend on game-domain.
+export { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
 
 export type DomainPlayer = {
   id: string;
@@ -43,7 +50,9 @@ export type DomainPlayer = {
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
   // Persistent sub-choice for domains that ask the player to pick a resource
   // (Clockwork Stipend). Locked on pick; null/undefined means no choice yet.
-  chosenTrickleResource?: DomainStrategicResourceKey | undefined;
+  // Narrowed to the trickle subset (IRON / SUPPLY / CRYSTAL) — FOOD / SHARD /
+  // OIL are intentionally excluded because no trickle domain offers them.
+  chosenTrickleResource?: ChosenTrickleResource | undefined;
 };
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;

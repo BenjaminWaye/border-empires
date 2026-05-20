@@ -1,4 +1,5 @@
 import { signOut, type Auth } from "firebase/auth";
+import type { ChosenTrickleResource } from "@border-empires/shared";
 import { CLIENT_BUILD_VERSION } from "./client-build-version.js";
 import { renderClientChangelogOverlay } from "./client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
@@ -99,7 +100,7 @@ type HudDeps = {
   chooseDomain: (domainIdRaw?: string) => void;
   renderDomainProgressCard: () => string;
   renderDomainChoiceGrid: () => string;
-  domainOwnedHtml: (catalog: DomainInfo[], ownedIds: string[], chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL") => string;
+  domainOwnedHtml: (catalog: DomainInfo[], ownedIds: string[], chosenTrickleResource?: ChosenTrickleResource) => string;
   renderDomainDetailCard: () => string;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   alliesHtml: typeof import("./client-panel-html.js").alliesHtml;
