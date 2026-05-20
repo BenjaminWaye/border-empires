@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.19.5",
+  version: "2026.05.20.1",
   title: "What's New",
-  summary: "Frontier automation now reduces repeated border cleanup: forts project tiered frontier control, unsupported frontier decays, valuable/support tiles enter a cancellable settlement queue, and siege/fort pressure respects manpower.",
+  summary: "Aether Towers now power Airports (Crystal, not Oil) and gate the new monument abilities. Tech-tree expansion for Seed Granary, Chartered Port, Imperial Exchange Levy, and Worldbreaker Shot; removed six dead unlock stubs.",
   entries: [
+    {
+      introducedIn: "2026.05.20.1",
+      title: "Aether Towers power Airports",
+      why: "Airports were free-standing and Oil had no producer; gating Airports on a nearby Aether Tower restores the design intent and moves the upkeep onto Crystal, which the empire can actually produce.",
+      changes: [
+        "Airports now require an active player-owned Aether Tower within 30 tiles to bombard.",
+        "Airport upkeep and bombard cost switched from Oil to Crystal.",
+        "New isStructurePowered helper gates future monument abilities on Aether Tower coverage."
+      ]
+    },
+    {
+      introducedIn: "2026.05.20.1",
+      title: "Tech-tree expansion and stub cleanup",
+      why: "Six dead unlock stubs were cluttering the tech tree with no backing mechanic; the four worth keeping now have real entries and the others are gone.",
+      changes: [
+        "Added Seedline Granaries (tier 4), Chartered Ports (tier 5), Exchange Levy Writs (tier 8), and Worldbreaker Ignition (tier 8).",
+        "Removed Broker Market, Treasury House, Weather Engine, Advanced Foundry, Catalytic Refiner, and Refinery stubs.",
+        "Seed Granary and Chartered Port structure types are wired through shared types and the simulation runtime; gameplay effects land in follow-up work."
+      ]
+    },
     {
       introducedIn: "2026.05.19.5",
       title: "Fort frontier control scales by tier",
