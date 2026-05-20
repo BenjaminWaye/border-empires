@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { PlayerRespawnNotice } from "@border-empires/shared";
+import type { ChosenTrickleResource, PlayerRespawnNotice } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -330,8 +330,10 @@ export type PlayerSubscriptionSnapshot = {
     domainIds: string[];
     // Locked sub-choice for domains that ask the player to pick a resource
     // (Clockwork Stipend). Persisted with the player snapshot so the choice
-    // survives reconnects and snapshot replays.
-    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
+    // survives reconnects and snapshot replays. Narrow type comes from
+    // @border-empires/shared so client and sim can't drift on which keys
+    // count as valid trickle picks.
+    chosenTrickleResource?: ChosenTrickleResource;
     mods?: Record<"attack" | "defense" | "income" | "vision", number>;
     modBreakdown?: Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>;
   };

@@ -1,3 +1,4 @@
+import { isChosenTrickleResource } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 type TileDelta = NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>;
@@ -17,7 +18,7 @@ const playerProgressionFieldsFromPayload = (
     ...(payload.modBreakdown && typeof payload.modBreakdown === "object"
       ? { modBreakdown: payload.modBreakdown as NonNullable<PlayerStateSnapshot["modBreakdown"]> }
       : {}),
-    ...(trickle === "IRON" || trickle === "SUPPLY" || trickle === "CRYSTAL" ? { chosenTrickleResource: trickle } : {})
+    ...(isChosenTrickleResource(trickle) ? { chosenTrickleResource: trickle } : {})
   };
 };
 

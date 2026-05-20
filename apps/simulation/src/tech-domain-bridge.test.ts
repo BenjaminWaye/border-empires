@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { TRICKLE_RESOURCE_KEYS, isChosenTrickleResource, type ChosenTrickleResource } from "@border-empires/shared";
+
 import {
   DOMAIN_TREE_PATH,
   DOMAIN_TREE_RELATIVE_CANDIDATES,
@@ -130,7 +132,7 @@ describe("Clockwork Stipend trickle resource choice", () => {
     domainIds: Set<string>;
     allies: Set<string>;
     strategicResources: Record<string, number>;
-    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
+    chosenTrickleResource?: ChosenTrickleResource;
   } => ({
     id: "player-1",
     isAi: false,
@@ -145,6 +147,32 @@ describe("Clockwork Stipend trickle resource choice", () => {
   it("publishes the offered per-resource trickle rates", () => {
     const options = chosenTrickleOptionsForDomain("clockwork-stipend");
     expect(options).toEqual({ IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 });
+  });
+
+  it("server validator honors exactly the shared TRICKLE_RESOURCE_KEYS list", () => {
+    // Parity guard: if a future PR adds a fourth resource to TRICKLE_RESOURCE_KEYS
+    // without also widening chosenTrickleOptionsForDomain (or vice versa), this
+    // test will fail loud. The contract between client and sim hinges on these
+    // two staying in lockstep.
+    const options = chosenTrickleOptionsForDomain("clockwork-stipend");
+    expect(options).toBeDefined();
+    expect(Object.keys(options!).sort()).toEqual([...TRICKLE_RESOURCE_KEYS].sort());
+    for (const key of Object.keys(options!)) {
+      expect(isChosenTrickleResource(key)).toBe(true);
+    }
+  });
+
+  it("isChosenTrickleResource rejects unrelated resource keys and non-strings", () => {
+    expect(isChosenTrickleResource("IRON")).toBe(true);
+    expect(isChosenTrickleResource("SUPPLY")).toBe(true);
+    expect(isChosenTrickleResource("CRYSTAL")).toBe(true);
+    expect(isChosenTrickleResource("FOOD")).toBe(false);
+    expect(isChosenTrickleResource("SHARD")).toBe(false);
+    expect(isChosenTrickleResource("OIL")).toBe(false);
+    expect(isChosenTrickleResource("iron")).toBe(false); // case-sensitive
+    expect(isChosenTrickleResource(undefined)).toBe(false);
+    expect(isChosenTrickleResource(null)).toBe(false);
+    expect(isChosenTrickleResource(42)).toBe(false);
   });
 
   it("rejects CHOOSE_DOMAIN for clockwork-stipend without a sub-choice", () => {
