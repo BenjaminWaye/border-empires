@@ -45,7 +45,15 @@ const mergePlannerTileDelta = (
 };
 
 type WorkerSystemCommandProducerOptions = {
-  runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews">;
+  runtime: Pick<
+    SimulationRuntime,
+    | "queueDepths"
+    | "onEvent"
+    | "exportPlannerWorldView"
+    | "exportPlannerPlayerViews"
+    | "getBarbActivationVisionSignature"
+    | "exportBarbActivationVisibleUnion"
+  >;
   systemPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   shouldRun?: () => boolean;
@@ -92,6 +100,11 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
 
   const pendingRequests = new Map<string, (command: CommandEnvelope | null) => void>();
   let closed = false;
+  // Barbarian activation needs the union of non-barb players' fog. The worker
+  // can't compute it (it doesn't receive non-barb player views), so we ship
+  // the union from here. Signature compare is cheap; the full key array is
+  // only allocated + posted when something actually moved.
+  let lastSentVisionSignature: string | null = null;
   const workerMetrics: WorkerMemoryMetrics = { respawnCount: 0 };
 
   let worker!: Worker;
@@ -183,6 +196,9 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     spawnWorker();
     plannerPlayersById.clear();
     plannerTilesByKey.clear();
+    // Force a fresh vision_union push after (re)spawn — the new worker has
+    // an empty default and the cached signature must not gate the first send.
+    lastSentVisionSignature = null;
     const worldView = options.runtime.exportPlannerWorldView(options.systemPlayerIds);
     for (const player of worldView.players) plannerPlayersById.set(player.id, player);
     for (const tile of worldView.tiles) {
@@ -297,6 +313,14 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     syncPlayersImmediately(playerIds);
   }, playerSyncIntervalMs);
 
+  const ensureVisionUnionFresh = (): void => {
+    const sig = options.runtime.getBarbActivationVisionSignature();
+    if (sig === lastSentVisionSignature) return;
+    const { keys, signature } = options.runtime.exportBarbActivationVisibleUnion();
+    worker.postMessage({ type: "vision_union", keys, version: signature });
+    lastSentVisionSignature = signature;
+  };
+
   const requestPlan = (
     playerId: string,
     clientSeq: number,
@@ -324,6 +348,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     tickInFlight = true;
     const tickStartedAt = now();
     try {
+      ensureVisionUnionFresh();
       for (const playerId of options.systemPlayerIds) {
         if (pendingPlayers.has(playerId)) continue;
         const clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;

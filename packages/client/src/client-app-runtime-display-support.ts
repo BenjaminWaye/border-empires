@@ -1,4 +1,4 @@
-import { landBiomeAt, structureBuildGoldCost, structureCostDefinition } from "@border-empires/shared";
+import { landBiomeAt, structureBuildGoldCost, structureBuildManpowerCost, structureCostDefinition } from "@border-empires/shared";
 import { isForestTile } from "./client-constants.js";
 import {
   structureInfoButtonHtml as structureInfoButtonHtmlFromModule,
@@ -36,9 +36,12 @@ export const createClientRuntimeDisplaySupport = (deps: {
   const structureCostText = (structureType: BuildableStructureId, resourceOverride?: string): string => {
     const def = structureCostDefinition(structureType);
     const goldCost = structureGoldCost(structureType);
-    if (resourceOverride) return `${goldCost} gold + ${resourceOverride}`;
-    if (def.resourceCost) return `${goldCost} gold + ${def.resourceCost.amount} ${def.resourceCost.resource}`;
-    return `${goldCost} gold`;
+    const parts = [`${goldCost} gold`];
+    const manpowerCost = structureBuildManpowerCost(structureType);
+    if (manpowerCost > 0) parts.push(`${manpowerCost} manpower`);
+    if (resourceOverride) parts.push(resourceOverride);
+    else if (def.resourceCost) parts.push(`${def.resourceCost.amount} ${def.resourceCost.resource}`);
+    return parts.join(" + ");
   };
 
   const structureInfoForKey = (type: StructureInfoKey): StructureInfoView =>

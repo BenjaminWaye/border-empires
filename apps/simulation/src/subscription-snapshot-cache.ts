@@ -99,6 +99,9 @@ export const applyPlayerMessageToSnapshot = (
         ...(Array.isArray(payload.pendingSettlements)
           ? { pendingSettlements: payload.pendingSettlements as PlayerStateSnapshot["pendingSettlements"] }
           : {}),
+        ...(Array.isArray(payload.autoSettlementQueue)
+          ? { autoSettlementQueue: payload.autoSettlementQueue as NonNullable<PlayerStateSnapshot["autoSettlementQueue"]> }
+          : {}),
         ...playerProgressionFieldsFromPayload(payload)
       }
     };

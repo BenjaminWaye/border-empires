@@ -57,14 +57,22 @@ describe("login and frontier retry regression guard", () => {
     const source = clientSource("./client-network.ts");
     expect(source).toMatch(/rebindLateFrontierAck\(\s*target,\s*"COMBAT_START"/);
     expect(source).toContain("const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;");
-    expect(source).toContain("state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };");
+    // The capture assignment lives across multiple lines now so it can
+    // spread the preserved `silent` flag for waypoint-driven neutral
+    // EXPANDs. The literal startAt/resolvesAt/target tuple is still the
+    // load-bearing part of the regression guard.
+    expect(source).toMatch(/state\.capture = \{\s*startAt,\s*resolvesAt: resolvesAtForCapture,\s*target,/);
   });
 
   it("preserves the existing optimistic frontier timer when retrying the same target", () => {
     const queueSource = clientSource("./client-queue-logic.ts");
     const runtimeSource = clientSource("./client-runtime-loop.ts");
     expect(queueSource).toContain("const existingCapture =");
-    expect(queueSource).toContain("state.capture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };");
+    // The `existingCapture ?? { ... }` fall-through was moved into a
+    // `baseCapture` local so the assignment can wrap it in a `silent`
+    // flag for waypoint-driven neutral EXPANDs. Guard the load-bearing
+    // expression here, not the assignment shape around it.
+    expect(queueSource).toContain("const baseCapture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };");
     expect(runtimeSource).toContain("const preservedCapture =");
     expect(runtimeSource).toContain("state.capture = preservedCapture;");
   });

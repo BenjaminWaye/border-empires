@@ -573,7 +573,9 @@ const buildTownSummary = (
   const networkTown = enrichTownWithConnectedNetwork(toDomainTile(tile, authoritativeTown), townNetwork);
   const townPartial = networkTown ? { ...authoritativeTown, ...networkTown } : authoritativeTown;
   const hasCompleteAuthoritativeTown = isCompleteTownSummary(townPartial);
-  if (!refreshCompleteTownSummary && hasCompleteAuthoritativeTown) return townPartial;
+  const captureShockUntil = typeof townPartial.captureShockUntil === "number" ? townPartial.captureShockUntil : undefined;
+  const isInCaptureShock = typeof captureShockUntil === "number" && captureShockUntil > Date.now();
+  if (!refreshCompleteTownSummary && hasCompleteAuthoritativeTown && !isInCaptureShock) return townPartial;
   const isSettlement = populationTier === "SETTLEMENT";
   const support = tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
     ? supportSummaryForTown(tileKey, tile.ownerId, tilesByKey)
@@ -626,16 +628,15 @@ const buildTownSummary = (
         (hasGranary ? 1.15 : 1) *
         firstThreeTownPopGrowthMult *
         logisticFactor;
-  const captureShockUntil = typeof townPartial.captureShockUntil === "number" ? townPartial.captureShockUntil : undefined;
-  const isInCaptureShock = typeof captureShockUntil === "number" && captureShockUntil > Date.now();
   const baseGrowth = isInCaptureShock ? 0 : naturalGrowth;
   const hasNearbyWar = nearbyWarTownKeys?.has(tileKey) ?? false;
   // Modifier precedence:
-  //   1. Recently captured (only after the tile is settled — FRONTIER tiles already
-  //      have naturalGrowth=0 so the modifier is intentionally a no-op until settle).
+  //   1. Recently captured (capture-shock smoke is active even when growth is
+  //      already zero, so surface the blocker explicitly instead of falling
+  //      through to stale long-peace copy).
   //   2. Nearby war (negative — active combat near a fed settled town).
   //   3. Long time peace (positive baseline growth).
-  const growthModifiers = isInCaptureShock && naturalGrowth > 0
+  const growthModifiers = isInCaptureShock
     ? [{ label: "Recently captured" as const, deltaPerMinute: -Number(naturalGrowth.toFixed(4)) }]
     : baseGrowth > 0
       ? [{
