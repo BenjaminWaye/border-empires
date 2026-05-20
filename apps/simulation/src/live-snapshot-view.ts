@@ -1016,7 +1016,12 @@ export const enrichSnapshotTilesForPlayer = (
 // tiles so a multi-second per-player snapshot build no longer blocks the
 // main thread for its full duration. Output is identical to the sync version
 // for the same inputs (covered by a parity test).
-const ENRICHMENT_YIELD_CHUNK = 200;
+//
+// Chunk size 100 chosen so each contiguous block (≈1.4s at 13.6ms/tile
+// observed in the 2026-05-20 prod outage) stays well under Fly's 5s healthz
+// timeout and the gateway sim-ping 10s budget. setImmediate overhead at this
+// scale (~20 extra hops per 2000-tile build) is negligible.
+const ENRICHMENT_YIELD_CHUNK = 100;
 
 export const enrichSnapshotTilesForPlayerAsync = async (
   playerId: string,
