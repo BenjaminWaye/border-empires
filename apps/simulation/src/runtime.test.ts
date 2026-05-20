@@ -7310,7 +7310,7 @@ describe("worldbreaker shot", () => {
     techIds?: string[];
     crystal?: number;
     omitTower?: boolean;
-    targetTown?: { population: number };
+    targetTown?: { population: number; populationTier?: string };
     targetStructure?: { ownerId: string; type: string; status: string };
   } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
@@ -7341,7 +7341,7 @@ describe("worldbreaker shot", () => {
       ownershipState: "SETTLED"
     };
     if (options.targetTown) {
-      target.town = { type: "MARKET", populationTier: "CITY", population: options.targetTown.population };
+      target.town = { type: "MARKET", populationTier: options.targetTown.populationTier ?? "CITY", population: options.targetTown.population };
     }
     if (options.targetStructure) {
       target.economicStructure = options.targetStructure;
@@ -7440,8 +7440,8 @@ describe("worldbreaker shot", () => {
     expect(target?.economicStructureJson).toBeUndefined();
   });
 
-  it("reduces town population by 30% capped at 200", async () => {
-    const runtime = buildStrikeRuntime({ targetTown: { population: 1_000 } });
+  it("reduces town population by 30% with no cap", async () => {
+    const runtime = buildStrikeRuntime({ targetTown: { population: 1_000_000, populationTier: "GREAT_CITY" } });
     runtime.submitCommand({
       commandId: "strike-4",
       sessionId: "session-1",
@@ -7454,8 +7454,27 @@ describe("worldbreaker shot", () => {
     await Promise.resolve();
     const state = runtime.exportState();
     const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
-    const town = target?.townJson ? JSON.parse(target.townJson) as { population?: number } : undefined;
-    // 30% of 1000 = 300, capped at 200.
-    expect(town?.population).toBe(800);
+    const town = target?.townJson ? JSON.parse(target.townJson) as { population?: number; populationTier?: string } : undefined;
+    expect(town?.population).toBe(700_000);
+    expect(town?.populationTier).toBe("CITY");
+  });
+
+  it("demotes tier on strike but floors at TOWN", async () => {
+    const runtime = buildStrikeRuntime({ targetTown: { population: 12_000, populationTier: "TOWN" } });
+    runtime.submitCommand({
+      commandId: "strike-5",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
+    const town = target?.townJson ? JSON.parse(target.townJson) as { population?: number; populationTier?: string } : undefined;
+    expect(town?.population).toBe(8_400);
+    expect(town?.populationTier).toBe("TOWN");
   });
 });
