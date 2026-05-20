@@ -2,7 +2,7 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   ADVANCED_IRONWORKS_IRON_PER_DAY,
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
@@ -553,8 +553,8 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
         addBucket(sinkBuckets.FOOD, `${structureLabel(structure.type)} upkeep`, foodUpkeep, { count: 1 });
       }
       if (structure.type === "AIRPORT") {
-        upkeep.oil += AIRPORT_OIL_UPKEEP_PER_MIN;
-        addBucket(sinkBuckets.OIL, "Airport upkeep", AIRPORT_OIL_UPKEEP_PER_MIN, { count: 1 });
+        upkeep.crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN;
+        addBucket(sinkBuckets.CRYSTAL, "Airport upkeep", AIRPORT_CRYSTAL_UPKEEP_PER_MIN, { count: 1 });
       }
     }
 

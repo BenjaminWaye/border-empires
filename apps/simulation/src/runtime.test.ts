@@ -5970,7 +5970,7 @@ describe("simulation runtime", () => {
             mods: { attack: 1, defense: 1, income: 1, vision: 1 },
             techRootId: "rewrite-local",
             allies: new Set<string>(),
-            strategicResources: { OIL: 10 }
+            strategicResources: { CRYSTAL: 10 }
           }
         ],
         [
@@ -5997,6 +5997,14 @@ describe("simulation runtime", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED",
             economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
+          },
+          {
+            x: 1,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
@@ -6029,6 +6037,146 @@ describe("simulation runtime", () => {
           expect.objectContaining({ x: 2, y: 2 }),
           expect.objectContaining({ x: 2, y: 3 })
         ])
+      })
+    );
+  });
+
+  const buildAetherTowerRuntime = (options: {
+    towerX?: number;
+    towerY?: number;
+    towerStatus?: "active" | "under_construction";
+    towerOwnerId?: string;
+    omitTower?: boolean;
+    resources?: { OIL?: number; CRYSTAL?: number };
+  } = {}): SimulationRuntime => {
+    const tiles: Array<Record<string, unknown>> = [
+      {
+        x: 0,
+        y: 0,
+        terrain: "LAND",
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
+      },
+      { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
+      { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+    ];
+    if (!options.omitTower) {
+      tiles.push({
+        x: options.towerX ?? 1,
+        y: options.towerY ?? 0,
+        terrain: "LAND",
+        ownerId: options.towerOwnerId ?? "player-1",
+        ownershipState: "SETTLED",
+        economicStructure: {
+          ownerId: options.towerOwnerId ?? "player-1",
+          type: "AETHER_TOWER",
+          status: options.towerStatus ?? "active"
+        }
+      });
+    }
+    return new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 20_000,
+            manpower: 10_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: options.resources ?? { CRYSTAL: 10, OIL: 10 }
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: true,
+            points: 1_000,
+            manpower: 10_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      initialState: { tiles: tiles as never, activeLocks: [] }
+    });
+  };
+
+  it("isStructurePowered: true when an active Aether Tower is in range", () => {
+    const runtime = buildAetherTowerRuntime({ towerX: 30, towerY: 0 });
+    expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(true);
+  });
+
+  it("isStructurePowered: false when Aether Tower is out of range", () => {
+    const runtime = buildAetherTowerRuntime({ towerX: 31, towerY: 0 });
+    expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(false);
+  });
+
+  it("isStructurePowered: false when Aether Tower is still under construction", () => {
+    const runtime = buildAetherTowerRuntime({ towerStatus: "under_construction" });
+    expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(false);
+  });
+
+  it("isStructurePowered: false when Aether Tower belongs to another player", () => {
+    const runtime = buildAetherTowerRuntime({ towerOwnerId: "player-2" });
+    expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(false);
+  });
+
+  it("rejects AIRPORT_BOMBARD without a powering Aether Tower", async () => {
+    const runtime = buildAetherTowerRuntime({ omitTower: true });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "bombard-unpowered",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "AIRPORT_BOMBARD",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_REJECTED",
+        commandId: "bombard-unpowered",
+        code: "AIRPORT_BOMBARD_INVALID",
+        message: "airport requires a nearby Aether Tower"
+      })
+    );
+    expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-unpowered")).toBe(false);
+  });
+
+  it("AIRPORT_BOMBARD consumes CRYSTAL and rejects when CRYSTAL is insufficient", async () => {
+    const runtime = buildAetherTowerRuntime({ resources: { CRYSTAL: 0, OIL: 99 } });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "bombard-no-crystal",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "AIRPORT_BOMBARD",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_REJECTED",
+        commandId: "bombard-no-crystal",
+        code: "AIRPORT_BOMBARD_INVALID",
+        message: "insufficient CRYSTAL for bombardment"
       })
     );
   });
