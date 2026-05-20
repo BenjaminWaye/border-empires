@@ -795,13 +795,33 @@ export const renderClientHud = (deps: HudDeps): void => {
     state.techDetailOpen = false;
     renderClientHud(deps);
   };
+  // Delegation lives on the panel container because panelDomainsContentEl's
+  // innerHTML is rewritten further down this function — any handlers we attach
+  // directly to inner buttons get wiped before the user can click them.
   const bindDomainPanelInteraction = (panel: HTMLElement): void => {
     panel.onclick = (event: MouseEvent) => {
-      const trigger = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-domain-card]");
-      const id = trigger?.dataset.domainCard;
-      if (!id) return;
+      const target = event.target as HTMLElement | null;
+      const unlockTrigger = target?.closest<HTMLButtonElement>("[data-domain-unlock]");
+      if (unlockTrigger) {
+        if (unlockTrigger.disabled) return;
+        event.preventDefault();
+        const id = unlockTrigger.dataset.domainUnlock;
+        if (!id) return;
+        chooseDomain(id);
+        return;
+      }
+      const closeTrigger = target?.closest<HTMLElement>("[data-domain-detail-close]");
+      if (closeTrigger) {
+        event.preventDefault();
+        state.domainDetailOpen = false;
+        renderClientHud(deps);
+        return;
+      }
+      const cardTrigger = target?.closest<HTMLElement>("[data-domain-card]");
+      const cardId = cardTrigger?.dataset.domainCard;
+      if (!cardId) return;
       event.preventDefault();
-      openDomainDetail(id);
+      openDomainDetail(cardId);
     };
     panel.onpointerup = (event: PointerEvent) => {
       const trigger = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-domain-card]");
@@ -813,25 +833,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   };
   bindDomainPanelInteraction(dom.panelDomainsContentEl);
   bindDomainPanelInteraction(dom.mobilePanelDomainsEl);
-  const domainDetailCloseButtons = dom.hud.querySelectorAll(
-    "#panel-domains [data-domain-detail-close], #mobile-panel-domains [data-domain-detail-close]"
-  ) as NodeListOf<HTMLElement>;
-  domainDetailCloseButtons.forEach((btn: HTMLElement) => {
-    btn.onclick = () => {
-      state.domainDetailOpen = false;
-      renderClientHud(deps);
-    };
-  });
-  const domainUnlockButtons = dom.hud.querySelectorAll(
-    "#panel-domains [data-domain-unlock], #mobile-panel-domains [data-domain-unlock]"
-  ) as NodeListOf<HTMLButtonElement>;
-  domainUnlockButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.domainUnlock;
-      if (!id) return;
-      chooseDomain(id);
-    };
-  });
   dom.techDetailOverlayEl.onclick = (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
     const domainCloseTrigger = target?.closest<HTMLElement>("[data-domain-detail-close]");
