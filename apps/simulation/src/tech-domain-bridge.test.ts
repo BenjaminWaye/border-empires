@@ -149,15 +149,32 @@ describe("Clockwork Stipend trickle resource choice", () => {
     expect(options).toEqual({ IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 });
   });
 
-  it("server validator honors exactly the shared TRICKLE_RESOURCE_KEYS list", () => {
-    // Parity guard: if a future PR adds a fourth resource to TRICKLE_RESOURCE_KEYS
-    // without also widening chosenTrickleOptionsForDomain (or vice versa), this
-    // test will fail loud. The contract between client and sim hinges on these
-    // two staying in lockstep.
-    const options = chosenTrickleOptionsForDomain("clockwork-stipend");
-    expect(options).toBeDefined();
-    expect(Object.keys(options!).sort()).toEqual([...TRICKLE_RESOURCE_KEYS].sort());
-    for (const key of Object.keys(options!)) {
+  it("data file's clockwork-stipend options match TRICKLE_RESOURCE_KEYS exactly", () => {
+    // Parity guard, both directions:
+    //
+    //   1. If TRICKLE_RESOURCE_KEYS is widened without updating the data file,
+    //      the raw-data subset check below fails because shared has extra keys
+    //      the data doesn't carry (the validator would silently return undefined
+    //      for those — a real correctness bug).
+    //   2. If the data file grows an extra rate (e.g. SHARD: 0.5) without
+    //      widening TRICKLE_RESOURCE_KEYS, the raw-data superset check below
+    //      fails because data has a key shared doesn't honor (the sim and
+    //      client would both silently ignore it — not a bug today but a
+    //      maintenance trap).
+    //
+    // We read the JSON directly rather than going through the bridge so we're
+    // checking the source data, not the already-filtered helper output.
+    const rawTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as {
+      domains: Array<{ id: string; effects?: Record<string, unknown> }>;
+    };
+    const clockwork = rawTree.domains.find((domain) => domain.id === "clockwork-stipend");
+    expect(clockwork).toBeDefined();
+    const rawOptions = clockwork!.effects?.chosenResourceTrickleOptions as Record<string, unknown> | undefined;
+    expect(rawOptions).toBeDefined();
+    expect(Object.keys(rawOptions!).sort()).toEqual([...TRICKLE_RESOURCE_KEYS].sort());
+
+    // Belt-and-braces: every data key passes the runtime guard.
+    for (const key of Object.keys(rawOptions!)) {
       expect(isChosenTrickleResource(key)).toBe(true);
     }
   });

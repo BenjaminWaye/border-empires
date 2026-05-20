@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { VISION_RADIUS } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "./player-runtime-summary.js";
 
@@ -411,9 +412,11 @@ export const chooseTechForPlayer = (
   return { ok: true };
 };
 
-// Re-exported so runtime.ts and other sim modules can import the type from
-// the bridge layer alongside the helper functions; the underlying type lives
-// in @border-empires/game-domain to keep the client and server aligned.
+// Re-exported so runtime.ts and other sim modules that already import this
+// bridge for chooseDomainForPlayer / chosenTrickleRateForPlayer don't need a
+// second import line. The canonical definition lives in
+// @border-empires/shared (trickle-resources.ts) so the client uses the same
+// type via its own shared-package import.
 export type { ChosenTrickleResource };
 
 export const chosenTrickleOptionsForDomain = (
