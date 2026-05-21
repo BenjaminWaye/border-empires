@@ -52,6 +52,7 @@ export const settleDurationMsForState = (
 ): number => Math.max(1, Math.round(settleDurationMsForTile(tile.x, tile.y) / settlementSpeedMultiplierForState(state)));
 const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
 const ATTACK_PREVIEW_CACHE_TTL_MS = 5_000;
+const ATTACK_PREVIEW_PENDING_TIMEOUT_MS = 4_000;
 
 type AttackPreview = NonNullable<ClientState["attackPreview"]>;
 
@@ -82,7 +83,7 @@ const requestAttackPreview = (
     toX: number;
     toY: number;
   },
-  deps: { ws: RealtimeSocket },
+  deps: { ws: RealtimeSocket; onPreviewTimeout?: () => void },
   options: { useCache?: boolean; throttle?: boolean } = {}
 ): void => {
   const useCache = options.useCache ?? true;
@@ -94,6 +95,7 @@ const requestAttackPreview = (
       state.attackPreview = cached;
       state.attackPreviewPendingKey = "";
       state.attackPreviewPendingRequestId = "";
+      state.attackPreviewPendingStartedAt = 0;
       return;
     }
   }
@@ -102,6 +104,7 @@ const requestAttackPreview = (
   if (throttle && nowMs - state.lastAttackPreviewAt < 120) return;
   state.lastAttackPreviewAt = nowMs;
   state.attackPreviewPendingKey = previewKey;
+  state.attackPreviewPendingStartedAt = nowMs;
   const requestId = nextAttackPreviewRequestId(state);
   state.attackPreviewPendingRequestId = requestId;
   if (!useCache) {
@@ -109,6 +112,21 @@ const requestAttackPreview = (
     if (state.attackPreview?.fromKey === args.fromKey && state.attackPreview.toKey === args.toKey) state.attackPreview = undefined;
   }
   deps.ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: args.fromX, fromY: args.fromY, toX: args.toX, toY: args.toY, requestId }));
+  globalThis.setTimeout(() => {
+    if (state.attackPreviewPendingKey !== previewKey) return;
+    if (state.attackPreviewPendingRequestId !== requestId) return;
+    if (Date.now() - state.attackPreviewPendingStartedAt < ATTACK_PREVIEW_PENDING_TIMEOUT_MS) return;
+    state.attackPreview = {
+      fromKey: args.fromKey,
+      toKey: args.toKey,
+      valid: false,
+      reason: "preview unavailable",
+      receivedAt: Date.now()
+    };
+    state.attackPreviewPendingKey = "";
+    state.attackPreviewPendingStartedAt = 0;
+    deps.onPreviewTimeout?.();
+  }, ATTACK_PREVIEW_PENDING_TIMEOUT_MS);
 };
 
 const resolvedAttackPreviewForTarget = (
@@ -446,6 +464,7 @@ export const requestSettlement = (
   state.attackPreview = undefined;
   state.attackPreviewPendingKey = "";
   state.attackPreviewPendingRequestId = "";
+  state.attackPreviewPendingStartedAt = 0;
   deps.renderHud();
   return true;
 };
@@ -1162,6 +1181,7 @@ export const processActionQueue = (
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
     state.attackPreviewPendingRequestId = "";
+    state.attackPreviewPendingStartedAt = 0;
     if (!to.ownerId) {
       if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         deps.notifyInsufficientGoldForFrontierAction("claim");
@@ -1293,6 +1313,7 @@ export const requestAttackPreviewForTarget = (
     authSessionReady: boolean;
     keyFor: (x: number, y: number) => string;
     pickOriginForTarget: (x: number, y: number) => Tile | undefined;
+    onPreviewTimeout?: () => void;
   }
 ): void => {
   if (deps.ws.readyState !== deps.ws.OPEN) return;
