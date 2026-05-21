@@ -85,6 +85,20 @@ describe("feedHtml", () => {
 
   it("renders active allies and truces in the new status-card format", () => {
     const alliesMarkup = alliesHtml(["player-42"], (id) => (id === "player-42" ? "SteamLord" : undefined));
+    const breakingAlliesMarkup = alliesHtml(
+      ["player-42"],
+      (id) => (id === "player-42" ? "SteamLord" : undefined),
+      [
+        {
+          otherPlayerId: "player-42",
+          otherPlayerName: "SteamLord",
+          startedAt: Date.UTC(2026, 3, 13, 8, 0, 0),
+          endsAt: Date.UTC(2026, 3, 14, 8, 0, 0),
+          createdByPlayerId: "me"
+        }
+      ],
+      Date.UTC(2026, 3, 13, 12, 0, 0)
+    );
     const trucesMarkup = activeTrucesHtml(
       [
         {
@@ -101,6 +115,27 @@ describe("feedHtml", () => {
 
     expect(alliesMarkup).toContain("SteamLord");
     expect(alliesMarkup).toContain("Active");
+    expect(alliesMarkup).toContain("Break Alliance");
+    expect(breakingAlliesMarkup).toContain("Breaking");
+    expect(breakingAlliesMarkup).toContain("20h notice");
+    expect(breakingAlliesMarkup).not.toContain("Break Alliance");
+    const finalizingAlliesMarkup = alliesHtml(
+      ["player-42"],
+      (id) => (id === "player-42" ? "SteamLord" : undefined),
+      [
+        {
+          otherPlayerId: "player-42",
+          otherPlayerName: "SteamLord",
+          startedAt: Date.UTC(2026, 3, 13, 8, 0, 0),
+          endsAt: Date.UTC(2026, 3, 14, 8, 0, 0),
+          createdByPlayerId: "me"
+        }
+      ],
+      Date.UTC(2026, 3, 14, 8, 0, 1)
+    );
+    expect(finalizingAlliesMarkup).toContain("Finalizing");
+    expect(finalizingAlliesMarkup).toContain("sync pending");
+    expect(finalizingAlliesMarkup).not.toContain("Break Alliance");
     expect(trucesMarkup).toContain("IronFist");
     expect(trucesMarkup).toContain("18h");
     expect(trucesMarkup).toContain("remaining");

@@ -48,12 +48,8 @@ type UiControlsDeps = {
   hud: ClientDom["hud"];
   allianceSendBtn: ClientDom["allianceSendBtn"];
   mobileAllianceSendBtn: ClientDom["mobileAllianceSendBtn"];
-  allianceBreakBtn: ClientDom["allianceBreakBtn"];
-  mobileAllianceBreakBtn: ClientDom["mobileAllianceBreakBtn"];
   allianceTargetEl: ClientDom["allianceTargetEl"];
   mobileAllianceTargetEl: ClientDom["mobileAllianceTargetEl"];
-  allianceBreakIdEl: ClientDom["allianceBreakIdEl"];
-  mobileAllianceBreakIdEl: ClientDom["mobileAllianceBreakIdEl"];
   techChooseBtn: ClientDom["techChooseBtn"];
   mobileTechChooseBtn: ClientDom["mobileTechChooseBtn"];
   techPickEl: ClientDom["techPickEl"];
@@ -76,7 +72,6 @@ type UiControlsDeps = {
   authProfileNameEl: ClientDom["authProfileNameEl"];
   authProfileSaveBtn: ClientDom["authProfileSaveBtn"];
   sendAllianceRequest: (target: string) => void;
-  breakAlliance: (target: string) => void;
   chooseTech: (techIdRaw?: string) => void;
   chooseDomain: (domainIdRaw?: string) => void;
   renderHud: () => void;
@@ -443,12 +438,8 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     hud,
     allianceSendBtn,
     mobileAllianceSendBtn,
-    allianceBreakBtn,
-    mobileAllianceBreakBtn,
     allianceTargetEl,
     mobileAllianceTargetEl,
-    allianceBreakIdEl,
-    mobileAllianceBreakIdEl,
     techChooseBtn,
     mobileTechChooseBtn,
     techPickEl,
@@ -471,7 +462,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     authProfileNameEl,
     authProfileSaveBtn,
     sendAllianceRequest,
-    breakAlliance,
     chooseTech,
     renderHud,
     centerOnOwnedTile,
@@ -491,12 +481,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
   };
   mobileAllianceSendBtn.onclick = () => {
     sendAllianceRequest(mobileAllianceTargetEl.value);
-  };
-  allianceBreakBtn.onclick = () => {
-    breakAlliance(allianceBreakIdEl.value);
-  };
-  mobileAllianceBreakBtn.onclick = () => {
-    breakAlliance(mobileAllianceBreakIdEl.value);
   };
   techChooseBtn.onclick = () => {
     chooseTech();
