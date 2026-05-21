@@ -1182,7 +1182,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
     const worldStatusRuntimeState = options?.includeWorldStatus === true || useFullVisibility ? runtime.exportState() : undefined;
-    const runtimeState = worldStatusRuntimeState ?? runtime.exportVisibleStateForPlayer(playerId);
+    // Route the per-player visible export through the async chunked path
+    // when we don't already have a full-world runtime state captured.
+    // exportVisibleStateForPlayer was the last contiguous sync block in
+    // the bootstrap snapshot pipeline after PR #343 made the downstream
+    // enrichment chunked — for a player with ~13k owned tiles the vision
+    // raster + visible-tile map was its own multi-second main-thread block.
+    const runtimeState =
+      worldStatusRuntimeState ?? (await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop));
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
     const snapshot = await buildPlayerSubscriptionSnapshotAsync(playerId, runtimeState, undefined, yieldToEventLoop, {
       includeWorldStatus: options?.includeWorldStatus === true,
@@ -2115,6 +2122,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             economic_structure_json?: string;
             sabotage_json?: string;
             shard_site_json?: string;
+            yield_json?: string;
+            yield_rate_json?: string;
+            yield_cap_json?: string;
           }>;
           player_upkeep_json?: string;
         }
@@ -2155,7 +2165,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           ...(tile.siegeOutpostJson ? { siege_outpost_json: tile.siegeOutpostJson } : {}),
           ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
           ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
-          ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {})
+          ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
+          ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
+          ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
+          ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
         })),
         ...(upkeep ? { player_upkeep_json: JSON.stringify(upkeep) } : {})
       });
