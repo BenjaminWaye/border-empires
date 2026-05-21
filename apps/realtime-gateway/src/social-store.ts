@@ -1,10 +1,12 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import type { SocialActiveTruce, SocialAllianceRequest, SocialTruceRequest } from "./social-state.js";
+import type { SocialActiveTruce, SocialAllianceBreak, SocialAllianceRequest, SocialCompletedAllianceBreak, SocialTruceRequest } from "./social-state.js";
 
 export type SocialStoreSnapshot = {
   players: Array<{ id: string; name: string; allies: string[] }>;
   allianceRequests: SocialAllianceRequest[];
+  activeAllianceBreaks: SocialAllianceBreak[];
+  completedAllianceBreaks: SocialCompletedAllianceBreak[];
   truceRequests: SocialTruceRequest[];
   activeTruces: SocialActiveTruce[];
 };
@@ -14,6 +16,10 @@ export type GatewaySocialStore = {
   upsertPlayer(playerId: string, name: string): void;
   saveAllianceRequest(request: SocialAllianceRequest): void;
   deleteAllianceRequest(requestId: string): void;
+  saveAllianceBreak(notice: SocialAllianceBreak): void;
+  removeAllianceBreak(playerAId: string, playerBId: string): void;
+  saveCompletedAllianceBreak(notice: SocialCompletedAllianceBreak): void;
+  removeCompletedAllianceBreak(playerAId: string, playerBId: string): void;
   saveTruceRequest(request: SocialTruceRequest): void;
   deleteTruceRequest(requestId: string): void;
   addAlliance(playerAId: string, playerBId: string, createdAt: number): void;
@@ -34,6 +40,8 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   private readonly players = new Map<string, { name: string; updatedAt: number }>();
   private readonly alliances = new Map<string, { aId: string; bId: string; createdAt: number }>();
   private readonly allianceRequests = new Map<string, SocialAllianceRequest>();
+  private readonly activeAllianceBreaks = new Map<string, SocialAllianceBreak>();
+  private readonly completedAllianceBreaks = new Map<string, SocialCompletedAllianceBreak>();
   private readonly truceRequests = new Map<string, SocialTruceRequest>();
   private readonly activeTruces = new Map<string, SocialActiveTruce>();
 
@@ -54,6 +62,8 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
         allies: [...(alliesByPlayer.get(id) ?? [])]
       })),
       allianceRequests: [...this.allianceRequests.values()].map((r) => ({ ...r })),
+      activeAllianceBreaks: [...this.activeAllianceBreaks.values()].map((notice) => ({ ...notice })),
+      completedAllianceBreaks: [...this.completedAllianceBreaks.values()].map((notice) => ({ ...notice })),
       truceRequests: [...this.truceRequests.values()].map((r) => ({ ...r })),
       activeTruces: [...this.activeTruces.values()].map((t) => ({ ...t }))
     };
@@ -69,6 +79,22 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
 
   deleteAllianceRequest(requestId: string): void {
     this.allianceRequests.delete(requestId);
+  }
+
+  saveAllianceBreak(notice: SocialAllianceBreak): void {
+    this.activeAllianceBreaks.set(pairKey(notice.playerAId, notice.playerBId), { ...notice });
+  }
+
+  removeAllianceBreak(playerAId: string, playerBId: string): void {
+    this.activeAllianceBreaks.delete(pairKey(playerAId, playerBId));
+  }
+
+  saveCompletedAllianceBreak(notice: SocialCompletedAllianceBreak): void {
+    this.completedAllianceBreaks.set(pairKey(notice.playerAId, notice.playerBId), { ...notice });
+  }
+
+  removeCompletedAllianceBreak(playerAId: string, playerBId: string): void {
+    this.completedAllianceBreaks.delete(pairKey(playerAId, playerBId));
   }
 
   saveTruceRequest(request: SocialTruceRequest): void {
@@ -103,11 +129,26 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     for (const [key, truce] of this.activeTruces) {
       if (truce.endsAt <= now) this.activeTruces.delete(key);
     }
+    for (const [key, notice] of this.completedAllianceBreaks) {
+      if (notice.notificationExpiresAt <= now) this.completedAllianceBreaks.delete(key);
+    }
   }
 }
 
 type PlayerRow = { player_id: string; name: string; updated_at: number };
 type AllianceRow = { player_a_id: string; player_b_id: string; created_at: number };
+type AllianceBreakRow = {
+  pair_key: string;
+  player_a_id: string;
+  player_b_id: string;
+  started_at: number;
+  ends_at: number;
+  created_by_player_id: string;
+};
+type CompletedAllianceBreakRow = AllianceBreakRow & {
+  finalized_at: number;
+  notification_expires_at: number;
+};
 type AllianceRequestRow = {
   id: string;
   from_player_id: string;
@@ -142,6 +183,20 @@ const allianceRequestFromRow = (row: AllianceRequestRow): SocialAllianceRequest 
   createdAt: row.created_at,
   ...(row.from_name ? { fromName: row.from_name } : {}),
   ...(row.to_name ? { toName: row.to_name } : {})
+});
+
+const allianceBreakFromRow = (row: AllianceBreakRow): SocialAllianceBreak => ({
+  playerAId: row.player_a_id,
+  playerBId: row.player_b_id,
+  startedAt: row.started_at,
+  endsAt: row.ends_at,
+  createdByPlayerId: row.created_by_player_id
+});
+
+const completedAllianceBreakFromRow = (row: CompletedAllianceBreakRow): SocialCompletedAllianceBreak => ({
+  ...allianceBreakFromRow(row),
+  finalizedAt: row.finalized_at,
+  notificationExpiresAt: row.notification_expires_at
 });
 
 const truceRequestFromRow = (row: TruceRequestRow): SocialTruceRequest => ({
@@ -189,6 +244,26 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       );
       CREATE INDEX IF NOT EXISTS social_alliance_requests_to_idx ON social_alliance_requests (to_player_id);
       CREATE INDEX IF NOT EXISTS social_alliance_requests_from_idx ON social_alliance_requests (from_player_id);
+      CREATE TABLE IF NOT EXISTS social_alliance_breaks (
+        pair_key TEXT PRIMARY KEY,
+        player_a_id TEXT NOT NULL,
+        player_b_id TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        ends_at INTEGER NOT NULL,
+        created_by_player_id TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS social_alliance_breaks_ends_idx ON social_alliance_breaks (ends_at);
+      CREATE TABLE IF NOT EXISTS social_completed_alliance_breaks (
+        pair_key TEXT PRIMARY KEY,
+        player_a_id TEXT NOT NULL,
+        player_b_id TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        ends_at INTEGER NOT NULL,
+        finalized_at INTEGER NOT NULL,
+        notification_expires_at INTEGER NOT NULL,
+        created_by_player_id TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS social_completed_alliance_breaks_expires_idx ON social_completed_alliance_breaks (notification_expires_at);
       CREATE TABLE IF NOT EXISTS social_truce_requests (
         id TEXT PRIMARY KEY,
         from_player_id TEXT NOT NULL,
@@ -222,6 +297,16 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         `SELECT id, from_player_id, to_player_id, created_at, from_name, to_name FROM social_alliance_requests`
       )
       .all() as AllianceRequestRow[];
+    const allianceBreakRows = this.db
+      .prepare(
+        `SELECT pair_key, player_a_id, player_b_id, started_at, ends_at, created_by_player_id FROM social_alliance_breaks`
+      )
+      .all() as AllianceBreakRow[];
+    const completedAllianceBreakRows = this.db
+      .prepare(
+        `SELECT pair_key, player_a_id, player_b_id, started_at, ends_at, finalized_at, notification_expires_at, created_by_player_id FROM social_completed_alliance_breaks`
+      )
+      .all() as CompletedAllianceBreakRow[];
     const truceRequestRows = this.db
       .prepare(
         `SELECT id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name FROM social_truce_requests`
@@ -248,6 +333,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         allies: [...(alliesByPlayer.get(row.player_id) ?? [])]
       })),
       allianceRequests: allianceRequestRows.map(allianceRequestFromRow),
+      activeAllianceBreaks: allianceBreakRows.map(allianceBreakFromRow),
+      completedAllianceBreaks: completedAllianceBreakRows.map(completedAllianceBreakFromRow),
       truceRequests: truceRequestRows.map(truceRequestFromRow),
       activeTruces: activeTruceRows.map(activeTruceFromRow)
     };
@@ -289,6 +376,64 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
 
   deleteAllianceRequest(requestId: string): void {
     this.db.prepare(`DELETE FROM social_alliance_requests WHERE id = ?`).run(requestId);
+  }
+
+  saveAllianceBreak(notice: SocialAllianceBreak): void {
+    this.db
+      .prepare(
+        `INSERT INTO social_alliance_breaks (pair_key, player_a_id, player_b_id, started_at, ends_at, created_by_player_id)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(pair_key) DO UPDATE SET
+           player_a_id = excluded.player_a_id,
+           player_b_id = excluded.player_b_id,
+           started_at = excluded.started_at,
+           ends_at = excluded.ends_at,
+           created_by_player_id = excluded.created_by_player_id`
+      )
+      .run(
+        pairKey(notice.playerAId, notice.playerBId),
+        notice.playerAId,
+        notice.playerBId,
+        notice.startedAt,
+        notice.endsAt,
+        notice.createdByPlayerId
+      );
+  }
+
+  removeAllianceBreak(playerAId: string, playerBId: string): void {
+    this.db.prepare(`DELETE FROM social_alliance_breaks WHERE pair_key = ?`).run(pairKey(playerAId, playerBId));
+  }
+
+  saveCompletedAllianceBreak(notice: SocialCompletedAllianceBreak): void {
+    this.db
+      .prepare(
+        `INSERT INTO social_completed_alliance_breaks (
+           pair_key, player_a_id, player_b_id, started_at, ends_at, finalized_at, notification_expires_at, created_by_player_id
+         )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(pair_key) DO UPDATE SET
+           player_a_id = excluded.player_a_id,
+           player_b_id = excluded.player_b_id,
+           started_at = excluded.started_at,
+           ends_at = excluded.ends_at,
+           finalized_at = excluded.finalized_at,
+           notification_expires_at = excluded.notification_expires_at,
+           created_by_player_id = excluded.created_by_player_id`
+      )
+      .run(
+        pairKey(notice.playerAId, notice.playerBId),
+        notice.playerAId,
+        notice.playerBId,
+        notice.startedAt,
+        notice.endsAt,
+        notice.finalizedAt,
+        notice.notificationExpiresAt,
+        notice.createdByPlayerId
+      );
+  }
+
+  removeCompletedAllianceBreak(playerAId: string, playerBId: string): void {
+    this.db.prepare(`DELETE FROM social_completed_alliance_breaks WHERE pair_key = ?`).run(pairKey(playerAId, playerBId));
   }
 
   saveTruceRequest(request: SocialTruceRequest): void {
@@ -366,5 +511,6 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   pruneExpired(now: number): void {
     this.db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_active_truces WHERE ends_at <= ?`).run(now);
+    this.db.prepare(`DELETE FROM social_completed_alliance_breaks WHERE notification_expires_at <= ?`).run(now);
   }
 }
