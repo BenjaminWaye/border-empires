@@ -45,8 +45,14 @@ const settledLandKeysForPlayer = (
   return out;
 };
 
+// Walk the owner's settled-land 8-adjacency component starting from the town
+// and record every other owned-town tile reachable through it. The walk does
+// NOT terminate at other town tiles — towns are normal settled-land nodes for
+// the purposes of connectivity. This matches the client road overlay's
+// component-based road drawing (see packages/client/src/client-road-network.ts)
+// so the bonus count and the rendered roads share one source of truth.
 const directlyConnectedTownKeysForTown = (
-  playerId: string,
+  _playerId: string,
   originTownKey: string,
   settledLand: ReadonlySet<string>,
   ownedTownKeys: ReadonlySet<string>
@@ -66,12 +72,8 @@ const directlyConnectedTownKeysForTown = (
         if (dx === 0 && dy === 0) continue;
         const nextKey = keyFor(cx + dx, cy + dy);
         if (!settledLand.has(nextKey) || visited.has(nextKey)) continue;
-        if (ownedTownKeys.has(nextKey) && nextKey !== originTownKey) {
-          connectedTowns.add(nextKey);
-          visited.add(nextKey);
-          continue;
-        }
         visited.add(nextKey);
+        if (ownedTownKeys.has(nextKey)) connectedTowns.add(nextKey);
         queue.push(nextKey);
       }
     }
