@@ -105,6 +105,55 @@ const createRuntimeStyleShowCaptureAlert =
   };
 
 describe("client gateway sync regression", () => {
+  it("ignores stale attack preview responses when a newer preview request is pending", () => {
+    const state = createState();
+    state.attackPreviewPendingKey = "4,7->5,7";
+    state.attackPreviewPendingRequestId = "attack-preview-2";
+    const ws = new FakeWebSocket();
+    const { renderHud } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ATTACK_PREVIEW_RESULT",
+        requestId: "attack-preview-1",
+        from: { x: 4, y: 7 },
+        to: { x: 5, y: 7 },
+        valid: true,
+        winChance: 0.43
+      })
+    });
+
+    expect(state.attackPreview).toBeUndefined();
+    expect(state.attackPreviewPendingKey).toBe("4,7->5,7");
+    expect(state.attackPreviewPendingRequestId).toBe("attack-preview-2");
+    expect(renderHud).not.toHaveBeenCalled();
+  });
+
+  it("accepts the current attack preview response and clears its pending request id", () => {
+    const state = createState();
+    state.attackPreviewPendingKey = "4,7->5,7";
+    state.attackPreviewPendingRequestId = "attack-preview-2";
+    const ws = new FakeWebSocket();
+    const { renderHud } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ATTACK_PREVIEW_RESULT",
+        requestId: "attack-preview-2",
+        from: { x: 4, y: 7 },
+        to: { x: 5, y: 7 },
+        valid: true,
+        winChance: 0.51
+      })
+    });
+
+    expect(state.attackPreview).toEqual(expect.objectContaining({ fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.51 }));
+    expect(state.attackPreviewCacheByKey.get("4,7->5,7")).toEqual(expect.objectContaining({ winChance: 0.51 }));
+    expect(state.attackPreviewPendingKey).toBe("");
+    expect(state.attackPreviewPendingRequestId).toBe("");
+    expect(renderHud).toHaveBeenCalled();
+  });
+
   it("shows pending incoming alliance and truce requests when INIT arrives after login", () => {
     const state = createState();
     const ws = new FakeWebSocket();
