@@ -38,7 +38,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       title: "Imperial Exchange Levy and Worldbreaker Shot",
       why: "Both monuments existed without abilities; the levy seizes a quarter of each rival's stock and the shot razes a single target.",
       changes: [
-        "Imperial Exchange Levy seizes 25% of every other player's chosen resource (FOOD, IRON, CRYSTAL, or SUPPLY) for 200 CRYSTAL on a 30 minute cooldown.",
+        "Imperial Exchange Levy seizes 25% of each non-allied rival's chosen resource (FOOD, IRON, CRYSTAL, or SUPPLY) for 200 CRYSTAL on a 30 minute cooldown — allies are spared.",
         "Worldbreaker Shot destroys the target tile's economic structure (if not yours) and removes 30% of a settled town's population — no cap, and demotes the city tier one step (floored at TOWN) — for 500 CRYSTAL on a 60 minute cooldown.",
         "Both abilities require the matching tech (Exchange Levy Writs / Worldbreaker Fire) and an Aether Tower powering the monument."
       ]

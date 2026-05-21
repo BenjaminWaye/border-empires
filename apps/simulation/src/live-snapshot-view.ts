@@ -677,23 +677,23 @@ const buildTownSummary = (
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const isFed = tile.ownerId ? fedTownKeys.has(tileKey) : false;
   const hasMarket = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "MARKET", tilesByKey));
-  const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, ["GRANARY", "SEED_GRANARY"], tilesByKey));
-  const granaryGrowthMult = hasGranary
-    ? (seedGranaryBuffedTileKeys && (() => {
-        // Buffed if any neighbour-adjacent granary/seed-granary tile of this player is in buffed set.
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dx = -1; dx <= 1; dx += 1) {
-            if (dx === 0 && dy === 0) continue;
-            const nk = keyFor(tile.x + dx, tile.y + dy);
-            if (seedGranaryBuffedTileKeys.has(nk)) {
-              const nTile = tilesByKey.get(nk);
-              if (nTile?.ownerId === tile.ownerId) return true;
-            }
-          }
+  const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey));
+  const hasSeedGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "SEED_GRANARY", tilesByKey));
+  const hasAnyGranary = hasGranary || hasSeedGranary;
+  const seedGranaryBuffed = hasAnyGranary && Boolean(seedGranaryBuffedTileKeys && tile.ownerId && (() => {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const nk = keyFor(tile.x + dx, tile.y + dy);
+        if (seedGranaryBuffedTileKeys.has(nk)) {
+          const nTile = tilesByKey.get(nk);
+          if (nTile?.ownerId === tile.ownerId) return true;
         }
-        return false;
-      })() ? SEED_GRANARY_GROWTH_MULT : 1.15)
-    : 1;
+      }
+    }
+    return false;
+  })());
+  const granaryGrowthMult = !hasAnyGranary ? 1 : seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1.15;
   const hasBank = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "BANK", tilesByKey));
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
@@ -777,6 +777,8 @@ const buildTownSummary = (
     marketActive: hasMarket && isFed,
     hasGranary,
     granaryActive: hasGranary,
+    ...(hasSeedGranary ? { hasSeedGranary: true, seedGranaryActive: true } : {}),
+    ...(seedGranaryBuffed ? { seedGranaryBuffed: true } : {}),
     hasBank,
     bankActive: hasBank,
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
