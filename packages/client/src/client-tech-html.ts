@@ -34,13 +34,11 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockBank" && value === true) return "Unlocks banks";
   if (key === "unlockClearingHouse" && value === true) return "Unlocks clearing houses";
   if (key === "unlockCaravanary" && value === true) return "Unlocks caravanaries";
-  if (key === "unlockTreasuryHouse" && value === true) return "Unlocks treasury houses";
   if (key === "unlockFurSynthesizer" && value === true) return "Unlocks fur synthesizers";
   if (key === "unlockIronworks" && value === true) return "Unlocks ironworks";
   if (key === "unlockCrystalSynthesizer" && value === true) return "Unlocks aether condensers";
   if (key === "unlockSynthOverload" && value === true) return "Unlocks synth overload";
   if (key === "unlockAdvancedSynthesizers" && value === true) return "Unlocks grand synthesis upgrades";
-  if (key === "unlockFuelPlant" && value === true) return "Unlocks refineries";
   if (key === "unlockFoundry" && value === true) return "Unlocks sky foundries";
   if (key === "unlockAetherTower" && value === true) return "Unlocks Aether Towers";
   if (key === "unlockExchangeHouse" && value === true) return "Unlocks Exchange Houses";
@@ -74,14 +72,8 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
   if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
-  if (key === "unlockBrokerageUpgrade" && value === true) return "Upgrades Market to Broker Market";
   if (key === "unlockWaterworksUpgrade" && value === true) return "Upgrades Farmstead to Waterworks";
-  if (key === "unlockHarborLocksUpgrade" && value === true) return "Upgrades Harbor Exchange to Lockworks Port";
-  if (key === "unlockCharteredPortsUpgrade" && value === true) return "Upgrades Lockworks Port to Chartered Port";
-  if (key === "unlockSkyFoundryUpgrade" && value === true) return "Unlocks Advanced Foundry upgrade";
-  if (key === "unlockAdvancedFuelPlant" && value === true) return "Unlocks Catalytic Refiner upgrade";
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
-  if (key === "unlockWeatherEngine" && value === true) return "Unlocks weather engines";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
   if (key === "dockGoldCapMult" && typeof value === "number") return `Dock cap +${Math.round((value - 1) * 100)}%`;

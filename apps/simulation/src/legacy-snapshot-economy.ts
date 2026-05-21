@@ -2,7 +2,7 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   ADVANCED_IRONWORKS_IRON_PER_DAY,
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
@@ -15,8 +15,6 @@ import {
   FOUNDRY_OUTPUT_MULT,
   FOUNDRY_RADIUS,
   FOUNDRY_GOLD_UPKEEP,
-  FUEL_PLANT_OIL_PER_DAY,
-  FUEL_PLANT_GOLD_UPKEEP,
   GARRISON_HALL_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
@@ -199,7 +197,6 @@ const converterStructureOutputFor = (
   if (structureType === "ADVANCED_IRONWORKS") return { IRON: ADVANCED_IRONWORKS_IRON_PER_DAY };
   if (structureType === "CRYSTAL_SYNTHESIZER") return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
   if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-  if (structureType === "FUEL_PLANT") return { OIL: FUEL_PLANT_OIL_PER_DAY };
   return undefined;
 };
 
@@ -223,7 +220,6 @@ const economicStructureOutputMultAt = (
     structure.type === "ADVANCED_IRONWORKS" ||
     structure.type === "CRYSTAL_SYNTHESIZER" ||
     structure.type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
-    structure.type === "FUEL_PLANT" ||
     structure.type === "FOUNDRY" ||
     structure.type === "GOVERNORS_OFFICE" ||
     structure.type === "RADAR_SYSTEM"
@@ -262,7 +258,6 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
     case "ADVANCED_IRONWORKS": return IRONWORKS_GOLD_UPKEEP / 10;
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10;
-    case "FUEL_PLANT": return FUEL_PLANT_GOLD_UPKEEP / 10;
     case "FOUNDRY": return FOUNDRY_GOLD_UPKEEP / 10;
     case "GARRISON_HALL": return GARRISON_HALL_GOLD_UPKEEP / 10;
     case "CUSTOMS_HOUSE": return CUSTOMS_HOUSE_GOLD_UPKEEP / 10;
@@ -553,8 +548,8 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
         addBucket(sinkBuckets.FOOD, `${structureLabel(structure.type)} upkeep`, foodUpkeep, { count: 1 });
       }
       if (structure.type === "AIRPORT") {
-        upkeep.oil += AIRPORT_OIL_UPKEEP_PER_MIN;
-        addBucket(sinkBuckets.OIL, "Airport upkeep", AIRPORT_OIL_UPKEEP_PER_MIN, { count: 1 });
+        upkeep.crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN;
+        addBucket(sinkBuckets.CRYSTAL, "Airport upkeep", AIRPORT_CRYSTAL_UPKEEP_PER_MIN, { count: 1 });
       }
     }
 

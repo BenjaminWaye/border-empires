@@ -3,14 +3,13 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildTileYieldView } from "../../simulation/src/tile-yield-view.js";
 
 import {
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
   FARMSTEAD_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
-  FUEL_PLANT_GOLD_UPKEEP,
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   GARRISON_HALL_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
@@ -152,13 +151,12 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" 
     case "ADVANCED_IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP / 10 };
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10 };
-    case "FUEL_PLANT": return { GOLD: FUEL_PLANT_GOLD_UPKEEP / 10 };
     case "FOUNDRY": return { GOLD: FOUNDRY_GOLD_UPKEEP / 10 };
     case "CUSTOMS_HOUSE": return { GOLD: CUSTOMS_HOUSE_GOLD_UPKEEP / 10 };
     case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
     case "GOVERNORS_OFFICE": return { GOLD: GOVERNORS_OFFICE_GOLD_UPKEEP / 10 };
     case "RADAR_SYSTEM": return { GOLD: RADAR_SYSTEM_GOLD_UPKEEP / 10 };
-    case "AIRPORT": return { OIL: AIRPORT_OIL_UPKEEP_PER_MIN };
+    case "AIRPORT": return { CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN };
     default: return {};
   }
 };

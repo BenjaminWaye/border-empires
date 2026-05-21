@@ -254,24 +254,6 @@ ${banner({ x: 93, y: 87, fill: "#D1B15B" })}
   <circle cx="18" cy="88" r="6" fill="#D8A53D"/>
   <circle cx="113" cy="80" r="6" fill="#D8A53D"/>
 `),
-  "lockworks-port-overlay.svg": svg(`
-${isoBase({ front: "#E3D8C9", side: "#A8ADB0", roof: "#C48B46", x: 30, y: 98, w: 42, h: 28, depth: 22 })}
-${mast({ x: 90, y: 96, h: 30, sail: "#F5E5BD" })}
-${gear({ cx: 28, cy: 89, r: 7, fill: "#6E7884" })}
-${crate({ x: 82, y: 95, body: "#C18F51", edge: "#7F5830" })}
-${wave({ x: 10, y: 108 })}
-  <path d="M84 65L96 58" stroke="#7B8896" stroke-width="4" stroke-linecap="round"/>
-  <path d="M79 70L91 63" stroke="#7B8896" stroke-width="4" stroke-linecap="round"/>
-`),
-  "chartered-port-overlay.svg": svg(`
-${isoBase({ front: "#E5DBCE", side: "#A4A9AF", roof: "#D0A05A", x: 30, y: 98, w: 42, h: 28, depth: 22 })}
-${mast({ x: 90, y: 96, h: 32, sail: "#F5E6C8" })}
-${gear({ cx: 30, cy: 89, r: 6, fill: "#778290" })}
-${coinStack({ x: 86, y: 84 })}
-${crate({ x: 78, y: 100, body: "#C99758", edge: "#855A32" })}
-${wave({ x: 10, y: 108, color: "#69C7EE" })}
-  <path d="M18 75C24 70, 33 70, 38 75" stroke="#F4DA82" stroke-width="4" stroke-linecap="round"/>
-`),
   "radar-system-overlay.svg": svg(`
 ${isoBase({ front: "#D0D6DE", side: "#97A3B3", roof: "#6D737D", x: 32, y: 100, w: 40, h: 22, depth: 22 })}
 ${antenna({ x: 72, y: 73, h: 34 })}
