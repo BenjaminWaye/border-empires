@@ -3,6 +3,17 @@ import { describe, expect, it } from "vitest";
 import { ClientMessageSchema } from "./messages.js";
 
 describe("ClientMessageSchema", () => {
+  it("accepts attack preview request ids", () => {
+    expect(ClientMessageSchema.parse({ type: "ATTACK_PREVIEW", fromX: 1, fromY: 2, toX: 3, toY: 4, requestId: "preview-1" })).toEqual({
+      type: "ATTACK_PREVIEW",
+      fromX: 1,
+      fromY: 2,
+      toX: 3,
+      toY: 4,
+      requestId: "preview-1"
+    });
+  });
+
   it("accepts grow-town messages", () => {
     expect(ClientMessageSchema.parse({ type: "GROW_TOWN", x: 4, y: 9 })).toEqual({
       type: "GROW_TOWN",
