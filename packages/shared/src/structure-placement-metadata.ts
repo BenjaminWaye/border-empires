@@ -92,11 +92,6 @@ export const structurePlacementMetadataData = {
     placementMode: "town_support",
     sortGroup: "support"
   },
-  FUEL_PLANT: {
-    showOn: ["town", "support"],
-    placementMode: "town_support",
-    sortGroup: "support"
-  },
   CARAVANARY: {
     showOn: ["town", "support"],
     placementMode: "town_support",

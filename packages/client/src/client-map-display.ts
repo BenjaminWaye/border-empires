@@ -35,8 +35,6 @@ export type StructureInfoKey =
   | "ADVANCED_IRONWORKS"
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
-  | "FUEL_PLANT"
-  | "ADVANCED_FUEL_PLANT"
   | "FOUNDRY"
   | "ADVANCED_FOUNDRY"
   | "EXCHANGE_HOUSE"
@@ -95,8 +93,6 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "ADVANCED_IRONWORKS") return "Advanced Ironworks";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Aether Condenser";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Aether Condenser";
-  if (kind === "FUEL_PLANT") return "Fuel Plant";
-  if (kind === "ADVANCED_FUEL_PLANT") return "Catalytic Refiner";
   if (kind === "FOUNDRY") return "Foundry";
   if (kind === "ADVANCED_FOUNDRY") return "Advanced Foundry";
   if (kind === "EXCHANGE_HOUSE") return "Exchange House";
@@ -137,8 +133,6 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "ADVANCED_IRONWORKS") return "Converts gold into 21.6 iron per day.";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Condenses gold into 12 crystal per day.";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Condenses gold into 14.4 crystal per day.";
-  if (kind === "FUEL_PLANT") return "Converts gold into 10 oil per day.";
-  if (kind === "ADVANCED_FUEL_PLANT") return "Upgrades a fuel plant into a catalytic refiner with 12 oil per day and 15 gold / m upkeep.";
   if (kind === "FOUNDRY") return "Doubles active mine output in a 10-tile radius.";
   if (kind === "ADVANCED_FOUNDRY") return "Upgrades a foundry into a radius-12 mine hub with +150% mine output.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
@@ -196,7 +190,6 @@ export const structureInfoForKey = (
     | "ADVANCED_IRONWORKS"
     | "CRYSTAL_SYNTHESIZER"
     | "ADVANCED_CRYSTAL_SYNTHESIZER"
-    | "FUEL_PLANT"
     | "FOUNDRY"
     | "EXCHANGE_HOUSE"
     | "GARRISON_HALL"
@@ -220,7 +213,6 @@ export const structureInfoForKey = (
     if (key === "BROKER_MARKET") return "MARKET";
     if (key === "SEED_GRANARY") return "GRANARY";
     if (key === "TREASURY_HOUSE") return "BANK";
-    if (key === "ADVANCED_FUEL_PLANT") return "FUEL_PLANT";
     if (key === "ADVANCED_FOUNDRY") return "FOUNDRY";
     if (key === "RAIL_DEPOT") return "RAIL_DEPOT";
     if (key === "WEATHER_ENGINE") return "RADAR_SYSTEM";
@@ -247,8 +239,6 @@ export const structureInfoForKey = (
     if (key === "FUR_SYNTHESIZER" || key === "ADVANCED_FUR_SYNTHESIZER") return ["12 gold / m"];
     if (key === "IRONWORKS" || key === "ADVANCED_IRONWORKS") return ["12 gold / m"];
     if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["16 gold / m"];
-    if (key === "FUEL_PLANT") return ["18 gold / m"];
-    if (key === "ADVANCED_FUEL_PLANT") return ["15 gold / m"];
     if (key === "FOUNDRY") return ["5 gold / m"];
     if (key === "ADVANCED_FOUNDRY") return ["7 gold / m"];
     if (key === "EXCHANGE_HOUSE") return ["6 gold / m", "0.10 crystal / m"];
@@ -295,8 +285,6 @@ export const structureInfoForKey = (
     if (key === "ADVANCED_IRONWORKS") return ["Produces 21.6 iron per day"];
     if (key === "CRYSTAL_SYNTHESIZER") return ["Produces 12 crystal per day"];
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Produces 14.4 crystal per day"];
-    if (key === "FUEL_PLANT") return ["Produces 10 oil per day"];
-    if (key === "ADVANCED_FUEL_PLANT") return ["+20% output compared with a Fuel Plant", "-16.7% upkeep compared with a Fuel Plant"];
     if (key === "FOUNDRY") return ["Doubles active Mine output within 10 tiles"];
     if (key === "ADVANCED_FOUNDRY") return ["+150% active Mine output within 12 tiles", "+2 tile industrial radius compared with a Foundry"];
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
@@ -331,7 +319,6 @@ export const structureInfoForKey = (
     if (key === "ADVANCED_IRONWORKS") return "/overlays/advanced-ironworks-overlay.svg";
     if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return "/overlays/advanced-crystal-synthesizer-overlay.svg";
-    if (key === "FUEL_PLANT") return "/overlays/fuel-plant-overlay.svg";
     if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
     if (key === "ADVANCED_FOUNDRY") return "/overlays/foundry-overlay.svg";
     if (key === "EXCHANGE_HOUSE") return "/overlays/exchange-house-overlay.svg";
@@ -590,16 +577,6 @@ export const structureInfoForKey = (
       detail: "Advanced Aether Condensers upgrade an existing Aether Condenser from 12 to 14.4 crystal per day.",
       glyph: "💠",
       placement: "Upgrade an existing Aether Condenser on its current support tile.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "FUEL_PLANT") {
-    return structure({
-      title: "Fuel Plant",
-      detail: "Fuel Plants convert gold upkeep into 10 oil per day on a support tile.",
-      glyph: "🛢",
-      placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

@@ -70,7 +70,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   ADVANCED_IRONWORKS: { baseGoldCost: 4_200, resourceCost: { resource: "IRON", amount: 40 } },
   CRYSTAL_SYNTHESIZER: { baseGoldCost: 2_800 },
   ADVANCED_CRYSTAL_SYNTHESIZER: { baseGoldCost: 4_800, resourceCost: { resource: "CRYSTAL", amount: 40 } },
-  FUEL_PLANT: { baseGoldCost: 3_200 },
   CARAVANARY: { baseGoldCost: 2_600 },
   FOUNDRY: { baseGoldCost: 4_500 },
   EXCHANGE_HOUSE: { baseGoldCost: 5_000, resourceCost: { resource: "CRYSTAL", amount: 120 } },
