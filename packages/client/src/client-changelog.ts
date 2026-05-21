@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.7",
+  version: "2026.05.21.1",
   title: "What's New",
-  summary: "Attack-menu win chances now wait for a fresh authoritative gateway preview and ignore stale preview responses, so nearby outpost bonuses can show correctly.",
+  summary: "Owned-town Production, gold cap, and connected-town count now reflect current state instead of whatever was persisted at the last snapshot, and the connected-town count matches the rendered roads.",
   entries: [
+    {
+      introducedIn: "2026.05.21.1",
+      title: "Town Production, gold cap, and connected-town count stop going stale",
+      why: "The displayed Production, gold cap, and the 'N connected towns' modifier on an owned town tile each came from townJson fields persisted only when a full snapshot rebuild ran. Between rebuilds, the freshly recomputed connectedTownBonus updated but the goldPerMinute/cap it should have flowed into did not, so the same panel could show 'Production: 2.00/m', '+50% gold production', and 'Stored yield: 2112.0 / 960' simultaneously — the buffer was the only number actually tracking the real production rate. Separately, the connected-town count used a BFS that terminated on neighboring owned towns, so a third town reachable only via another owned town never counted toward the bonus even though the road overlay drew a road to it.",
+      changes: [
+        "Runtime tile delta and per-tile upkeep collection now refresh the town's goldPerMinute and gold cap from live support/fed/market/bank/connected-town state before serializing the townJson, so the Production row, gold cap, and Stored yield/cap ratio in the action menu can no longer disagree with the active modifiers list. The refresh only fires on towns that already carry a full snapshot shape, so it leaves test fixtures and partial-shape stubs untouched.",
+        "Connected-town BFS now walks the owner's full settled-land 8-adjacency component instead of stopping at neighboring owned towns, matching the rule the client road overlay already uses to draw roads. Two towns sharing a settled-land blob now count as connected even when other owned towns sit on the path between them."
+      ]
+    },
     {
       introducedIn: "2026.05.20.7",
       title: "Attack previews wait for the real combat odds",
