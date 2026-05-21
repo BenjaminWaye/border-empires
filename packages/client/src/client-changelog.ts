@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.4",
+  version: "2026.05.21.5",
   title: "What's New",
-  summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN). Six dead tech stubs removed and the unwired Lockworks/Chartered Port chain dropped.",
+  summary: "Attack menu win chance no longer drops to \"preview unavailable\" when a hover preview races the menu's request for a different tile.",
   entries: [
+    {
+      introducedIn: "2026.05.21.5",
+      title: "Attack menu win chance survives hover-vs-menu races",
+      why: "Pending preview request ids were tracked globally, so a hover preview for one tile would overwrite the menu's pending id and cause the menu's gateway response to be silently dropped — leaving the 4 second watchdog to fall back to \"preview unavailable\" even though the gateway had returned the real odds.",
+      changes: [
+        "Pending attack preview request ids are now tracked per (from, to) attack key, so hover previews for one tile cannot invalidate the menu's request for a different tile.",
+        "Gateway responses are accepted as long as they match the latest request id for that specific attack key; only same-key superseded responses are dropped.",
+        "Added a regression test for the cross-target race the prior implementation dropped."
+      ]
+    },
     {
       introducedIn: "2026.05.21.4",
       title: "Seed Granary growth buff",

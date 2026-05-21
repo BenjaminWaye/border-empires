@@ -43,6 +43,7 @@ import {
   requestAttackPreviewForHover as requestAttackPreviewForHoverFromModule,
   requestAttackPreviewForTarget as requestAttackPreviewForTargetFromModule,
   requestSettlement as requestSettlementFromModule,
+  resetAttackPreviewState,
   sendDevelopmentBuild as sendDevelopmentBuildFromModule,
   settlementProgressForTile as settlementProgressForTileFromModule,
   syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
@@ -578,10 +579,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         clearSettlementProgressForTile(change.x, change.y);
       }
     }
-    state.attackPreview = undefined;
-    state.attackPreviewPendingKey = "";
-    state.attackPreviewPendingRequestId = "";
-    state.attackPreviewPendingStartedAt = 0;
+    resetAttackPreviewState(state);
     renderHud();
   };
 
@@ -1722,19 +1720,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (vis === "fogged") {
       state.selected = { x: wx, y: wy };
-      state.attackPreview = undefined;
-      state.attackPreviewPendingKey = "";
-      state.attackPreviewPendingRequestId = "";
-      state.attackPreviewPendingStartedAt = 0;
+      resetAttackPreviewState(state);
       renderHud();
       return;
     }
     if (!clicked) {
       state.selected = { x: wx, y: wy };
-      state.attackPreview = undefined;
-      state.attackPreviewPendingKey = "";
-      state.attackPreviewPendingRequestId = "";
-      state.attackPreviewPendingStartedAt = 0;
+      resetAttackPreviewState(state);
       if (revealWholeMapInTrue3DMode) {
         const placeholder: Tile = { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: false };
         openSingleTileActionMenu(placeholder, clientX, clientY);
