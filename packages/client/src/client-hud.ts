@@ -857,7 +857,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       const nowMs = Date.now();
       return `<section class="alliance-section-block">
         <h4 class="alliance-section-title">Current Allies</h4>
-        <div class="alliance-card-stack">${alliesHtml(state.allies, playerNameForOwner)}</div>
+        <div class="alliance-card-stack">${alliesHtml(state.allies, playerNameForOwner, state.activeAllianceBreaks, nowMs)}</div>
       </section>
       <section class="alliance-section-block">
         <h4 class="alliance-section-title">Active Truces</h4>
@@ -1106,6 +1106,14 @@ export const renderClientHud = (deps: HudDeps): void => {
       const id = btn.dataset.requestId;
       if (!id) return;
       sendGameMessage({ type: "ALLIANCE_CANCEL", requestId: id }, "Finish sign-in before changing alliance requests.");
+    };
+  });
+  const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
+  breakAllianceButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      const targetPlayerId = btn.dataset.allianceBreakPlayerId;
+      if (!targetPlayerId) return;
+      sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId }, "Finish sign-in before breaking alliances.");
     };
   });
   const acceptTruceButtons = dom.hud.querySelectorAll(".accept-truce") as NodeListOf<HTMLButtonElement>;

@@ -37,8 +37,9 @@ describe("social state", () => {
   });
 
   it("supports rejecting, cancelling, and breaking alliance requests", () => {
+    let nowMs = 1_000;
     const social = createSocialState({
-      now: () => 1_000,
+      now: () => nowMs,
       players: [
         { id: "player-1", name: "Nauticus" },
         { id: "player-2", name: "Valka" }
@@ -66,9 +67,62 @@ describe("social state", () => {
     expect(acceptedRequestId).toBeTruthy();
     expect(social.acceptAlliance("player-2", acceptedRequestId!).ok).toBe(true);
     expect(social.snapshotForPlayer("player-1").allies).toEqual(["player-2"]);
-    expect(social.breakAlliance("player-1", "player-2").ok).toBe(true);
+    const breakNotice = social.breakAlliance("player-1", "player-2");
+    expect(breakNotice.ok).toBe(true);
+    expect(breakNotice.ok ? breakNotice.payloadsByPlayerId.get("player-2") : []).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "ALLIANCE_UPDATE",
+          announcement: "Nauticus started a 24h notice to break your alliance."
+        })
+      ])
+    );
+    expect(social.snapshotForPlayer("player-1").allies).toEqual(["player-2"]);
+    expect(social.snapshotForPlayer("player-1").activeAllianceBreaks).toEqual([
+      expect.objectContaining({ otherPlayerId: "player-2", createdByPlayerId: "player-1" })
+    ]);
+    expect(social.breakAlliance("player-1", "player-2")).toEqual({
+      ok: false,
+      code: "ALLIANCE_BREAK_INVALID",
+      message: "alliance break notice already active"
+    });
+    nowMs += 24 * 60 * 60_000 + 1;
+    expect(social.expiredAllianceBreaks()).toEqual([
+      expect.objectContaining({ playerAId: "player-1", playerBId: "player-2", playerIds: ["player-1", "player-2"] })
+    ]);
+    expect(social.snapshotForPlayer("player-1").allies).toEqual(["player-2"]);
+    expect(social.snapshotForPlayer("player-1").activeAllianceBreaks).toEqual([
+      expect.objectContaining({ otherPlayerId: "player-2", createdByPlayerId: "player-1" })
+    ]);
+    const finalized = social.finalizeExpiredAllianceBreaks();
+    expect(finalized.expiredBreaks).toHaveLength(1);
+    expect(finalized.payloadsByPlayerId.get("player-2")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "ALLIANCE_UPDATE",
+          recentAllianceBreaks: [
+            expect.objectContaining({
+              otherPlayerId: "player-1",
+              finalizedAt: nowMs
+            })
+          ],
+          announcement: "Your alliance with Nauticus is now broken."
+        })
+      ])
+    );
     expect(social.snapshotForPlayer("player-1").allies).toEqual([]);
     expect(social.snapshotForPlayer("player-2").allies).toEqual([]);
+    expect(social.snapshotForPlayer("player-1").recentAllianceBreaks).toEqual([
+      expect.objectContaining({ otherPlayerId: "player-2", finalizedAt: nowMs })
+    ]);
+
+    const renewedRequest = social.requestAlliance("player-2", "Nauticus");
+    expect(renewedRequest.ok).toBe(true);
+    const renewedRequestId = social.snapshotForPlayer("player-1").incomingAllianceRequests[0]?.id;
+    expect(renewedRequestId).toBeTruthy();
+    expect(social.acceptAlliance("player-1", renewedRequestId!).ok).toBe(true);
+    expect(social.snapshotForPlayer("player-1").allies).toEqual(["player-2"]);
+    expect(social.snapshotForPlayer("player-1").recentAllianceBreaks).toEqual([]);
   });
 
   it("expires truce requests and supports cancelling and breaking active truces", () => {

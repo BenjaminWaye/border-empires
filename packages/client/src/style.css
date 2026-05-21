@@ -4386,6 +4386,11 @@ body {
   border-color: rgba(249, 115, 22, 0.7);
 }
 
+.alliance-reference-card-breaking {
+  border-color: rgba(239, 68, 68, 0.65);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.1), #161b22 46%);
+}
+
 .alliance-reference-top {
   display: flex;
   align-items: flex-start;
@@ -4440,6 +4445,10 @@ body {
 
 .alliance-reference-status-active {
   color: #34d399;
+}
+
+.alliance-reference-status-breaking {
+  color: #f87171;
 }
 
 .alliance-inline-icon {
@@ -4531,6 +4540,20 @@ body {
 #hud #mobile-panel-social .alliance-reference-action-cancel:hover:not(:disabled) {
   border-color: rgba(156, 163, 175, 0.65);
   background: rgba(107, 114, 128, 0.14);
+}
+
+#hud #panel-alliance .alliance-reference-action-break,
+#hud #mobile-panel-social .alliance-reference-action-break {
+  margin-top: 16px;
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+#hud #panel-alliance .alliance-reference-action-break:hover:not(:disabled),
+#hud #mobile-panel-social .alliance-reference-action-break:hover:not(:disabled) {
+  border-color: rgba(239, 68, 68, 0.65);
+  background: rgba(239, 68, 68, 0.16);
 }
 
 .alliance-empty-card {
