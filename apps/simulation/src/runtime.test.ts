@@ -7360,6 +7360,7 @@ describe("worldbreaker shot", () => {
     omitTower?: boolean;
     targetTown?: { population: number; populationTier?: string };
     targetStructure?: { ownerId: string; type: string; status: string };
+    enemyAegisDome?: boolean;
   } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
       {
@@ -7395,6 +7396,25 @@ describe("worldbreaker shot", () => {
       target.economicStructure = options.targetStructure;
     }
     tiles.push(target);
+    if (options.enemyAegisDome) {
+      // Place a powered Aegis Dome owned by player-2, two tiles from the target.
+      tiles.push({
+        x: 51,
+        y: 50,
+        terrain: "LAND",
+        ownerId: "player-2",
+        ownershipState: "SETTLED",
+        economicStructure: { ownerId: "player-2", type: "AEGIS_DOME", status: "active" }
+      });
+      tiles.push({
+        x: 52,
+        y: 50,
+        terrain: "LAND",
+        ownerId: "player-2",
+        ownershipState: "SETTLED",
+        economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
+      });
+    }
     return new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -7524,5 +7544,33 @@ describe("worldbreaker shot", () => {
     const town = target?.townJson ? JSON.parse(target.townJson) as { population?: number; populationTier?: string } : undefined;
     expect(town?.population).toBe(8_400);
     expect(town?.populationTier).toBe("TOWN");
+  });
+
+  it("rejects when target is shielded by an enemy Aegis Dome", async () => {
+    const runtime = buildStrikeRuntime({ enemyAegisDome: true, targetTown: { population: 1_000 } });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "strike-aegis",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      commandId: "strike-aegis",
+      code: "WORLD_ENGINE_STRIKE_INVALID",
+      message: "blocked by an Aegis Dome"
+    }));
+    // Population must be untouched and the actor's CRYSTAL must NOT be spent.
+    const state = runtime.exportState();
+    const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
+    const town = target?.townJson ? JSON.parse(target.townJson) as { population?: number } : undefined;
+    expect(town?.population).toBe(1_000);
+    expect(state.players.find((p) => p.id === "player-1")?.strategicResources?.CRYSTAL).toBe(1_000);
   });
 });
