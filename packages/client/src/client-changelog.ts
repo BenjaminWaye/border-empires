@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.3",
+  version: "2026.05.21.4",
   title: "What's New",
   summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN). Six dead tech stubs removed and the unwired Lockworks/Chartered Port chain dropped.",
   entries: [
     {
-      introducedIn: "2026.05.21.3",
+      introducedIn: "2026.05.21.4",
       title: "Seed Granary growth buff",
       why: "Seed Granaries had no gameplay effect beyond the build prompt; they now apply a real growth multiplier to the closest 5 granaries on their island.",
       changes: [
@@ -34,7 +34,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.3",
+      introducedIn: "2026.05.21.4",
       title: "Imperial Exchange Levy and Worldbreaker Shot",
       why: "Both monuments existed without abilities; the levy seizes a quarter of each rival's stock and the shot razes a single target.",
       changes: [
@@ -45,7 +45,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.3",
+      introducedIn: "2026.05.21.4",
       title: "Aether Towers power Airports",
       why: "Airports were free-standing and Oil had no producer; gating Airports on a nearby Aether Tower restores the design intent and moves the upkeep onto Crystal, which the empire can actually produce.",
       changes: [
@@ -55,7 +55,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.3",
+      introducedIn: "2026.05.21.4",
       title: "Tech-tree expansion and stub cleanup",
       why: "Eight dead unlock stubs were cluttering the tech tree with no backing mechanic; the three worth keeping now have real entries and the others are gone.",
       changes: [
@@ -65,13 +65,31 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.3",
+      introducedIn: "2026.05.21.4",
       title: "FUEL_PLANT structure removed",
       why: "Refinery (FUEL_PLANT) was the only producer of OIL, and the Refinery unlock stub was already deleted. Keeping the structure type and its OIL output wired created dead code with no path to be built.",
       changes: [
         "Removed FUEL_PLANT from shared types, costs, placement metadata, sim economy, gateway upkeep map, and all client build actions.",
         "Removed associated FUEL_PLANT_BUILD_GOLD_COST, FUEL_PLANT_GOLD_UPKEEP, and FUEL_PLANT_OIL_PER_DAY constants.",
         "OIL is now an unused strategic resource (no producers, no consumers) and is a candidate for removal in a follow-up."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.2",
+      title: "Attack win chance loading no longer gets stuck",
+      why: "The action menu now waits for fresh authoritative attack odds so outpost bonuses are accurate, but if the gateway preview response is stranded the menu could sit on 'Calculating win chance...' indefinitely.",
+      changes: [
+        "Fresh action-menu attack preview requests now have a watchdog that clears the loading state and re-renders the menu with a preview-unavailable message if the matching response does not arrive.",
+        "A late matching gateway response can still replace the timeout message with the real win chance, so transient network delay no longer leaves the menu permanently stuck."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.1",
+      title: "Town Production, gold cap, and connected-town count stop going stale",
+      why: "The displayed Production, gold cap, and the 'N connected towns' modifier on an owned town tile each came from townJson fields persisted only when a full snapshot rebuild ran. Between rebuilds, the freshly recomputed connectedTownBonus updated but the goldPerMinute/cap it should have flowed into did not, so the same panel could show 'Production: 2.00/m', '+50% gold production', and 'Stored yield: 2112.0 / 960' simultaneously — the buffer was the only number actually tracking the real production rate. Separately, the connected-town count used a BFS that terminated on neighboring owned towns, so a third town reachable only via another owned town never counted toward the bonus even though the road overlay drew a road to it.",
+      changes: [
+        "Runtime tile delta and per-tile upkeep collection now refresh the town's goldPerMinute and gold cap from live support/fed/market/bank/connected-town state before serializing the townJson, so the Production row, gold cap, and Stored yield/cap ratio in the action menu can no longer disagree with the active modifiers list. The refresh only fires on towns that already carry a full snapshot shape, so it leaves test fixtures and partial-shape stubs untouched.",
+        "Connected-town BFS now walks the owner's full settled-land 8-adjacency component instead of stopping at neighboring owned towns, matching the rule the client road overlay already uses to draw roads. Two towns sharing a settled-land blob now count as connected even when other owned towns sit on the path between them."
       ]
     },
     {

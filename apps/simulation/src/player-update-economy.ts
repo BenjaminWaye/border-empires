@@ -331,6 +331,39 @@ export const townGoldPerMinuteForPlayer = (
   ) + (hasBank ? 1 : 0);
 };
 
+// Refresh `town.goldPerMinute` and `town.cap` on a town that was originally
+// populated by buildTownSummary (i.e. carries the full snapshot shape — we
+// detect that by checking the snapshot-only `supportMax` field). Between full
+// snapshot rebuilds the connected-town bonus is re-enriched but goldPerMinute
+// is not, so a tile delta emitted in that window can carry a stale Production
+// row and gold cap while still claiming a fresh "+X% connected-town" modifier.
+// Test fixtures pass partial town stubs without supportMax/supportCurrent and
+// rely on their literal goldPerMinute being honored; the predicate keeps them
+// untouched.
+export const refreshTownEconomyFields = (
+  town: NonNullable<DomainTileState["town"]>,
+  tile: DomainTileState,
+  player: EconomyPlayer,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  fedTownKeys: ReadonlySet<string>,
+  firstThreeTownKeys?: ReadonlySet<string>
+): NonNullable<DomainTileState["town"]> => {
+  if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
+  if (tile.ownerId !== player.id) return town;
+  const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
+  const goldPerMinute = isSettlement
+    ? SETTLEMENT_BASE_GOLD_PER_MIN * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT
+    : townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys);
+  const hasMarket = !isSettlement && tile.ownerId
+    ? hasSupportedStructure(tile.ownerId, tile, "MARKET", tiles)
+    : false;
+  const cap = isSettlement
+    ? goldPerMinute * 60 * 8
+    : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
+  if (town.goldPerMinute === goldPerMinute && town.cap === cap) return town;
+  return { ...town, goldPerMinute, cap };
+};
+
 export const buildPlayerUpdateEconomySnapshot = (
   player: DomainPlayer,
   summary: PlayerRuntimeSummary,
