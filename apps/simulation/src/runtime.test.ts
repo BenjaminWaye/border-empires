@@ -7574,3 +7574,95 @@ describe("worldbreaker shot", () => {
     expect(state.players.find((p) => p.id === "player-1")?.strategicResources?.CRYSTAL).toBe(1_000);
   });
 });
+
+describe("simulation runtime — exportTilesInAreaForPlayer", () => {
+  it("ships freshly recomputed goldPerMinute and gold cap on owned-town tile-detail fetches", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            // Enough food to keep the TOWN-tier town fed for the refresh path.
+            strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          // Full snapshot-shape town JSON with a deliberately wrong persisted
+          // goldPerMinute / cap, so the test fails if exportTilesInAreaForPlayer
+          // just echoes the persisted values instead of recomputing them.
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: {
+              name: "Refreshville",
+              type: "FARMING",
+              populationTier: "TOWN",
+              baseGoldPerMinute: 2,
+              supportCurrent: 8,
+              supportMax: 8,
+              goldPerMinute: 0.5,
+              cap: 10,
+              isFed: true,
+              population: 5000,
+              maxPopulation: 25000,
+              connectedTownCount: 0,
+              connectedTownBonus: 0,
+              hasMarket: false,
+              marketActive: false,
+              hasGranary: false,
+              granaryActive: false,
+              hasBank: false,
+              bankActive: false
+            }
+          },
+          // Eight surrounding settled-land tiles so support stays at 8/8.
+          ...[
+            [4, 4], [5, 4], [6, 4],
+            [4, 5], [6, 5],
+            [4, 6], [5, 6], [6, 6]
+          ].map(([x, y]) => ({
+            x,
+            y,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const
+          }))
+        ],
+        activeLocks: []
+      }
+    });
+
+    const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 5, 5, 0, { fullVisibility: true });
+    expect(centerDelta).toBeDefined();
+    // The fix's whole point: the response carries the yield trio so the client
+    // does not have to fall back to its cached snapshot values.
+    expect(centerDelta?.yieldRate).toBeDefined();
+    expect(centerDelta?.yieldCap).toBeDefined();
+    // Persisted goldPerMinute was 0.5; live recompute must override it. Exact
+    // value depends on the gold formula, just assert it's the recomputed one
+    // (not the stale stub).
+    expect(centerDelta?.yieldRate?.goldPerMinute ?? 0).toBeGreaterThan(0.5);
+    expect(centerDelta?.yieldCap?.gold ?? 0).toBeGreaterThan(10);
+    // townJson must carry the same fresh numbers so the gateway-side fallback
+    // yield view in tile-detail-snapshot stays consistent with yieldRate.
+    const refreshedTown = centerDelta?.townJson ? JSON.parse(centerDelta.townJson) : undefined;
+    expect(refreshedTown?.goldPerMinute).toBe(centerDelta?.yieldRate?.goldPerMinute);
+    expect(refreshedTown?.cap).toBe(centerDelta?.yieldCap?.gold);
+  });
+});

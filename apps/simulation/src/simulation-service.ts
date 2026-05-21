@@ -2122,6 +2122,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             economic_structure_json?: string;
             sabotage_json?: string;
             shard_site_json?: string;
+            yield_json?: string;
+            yield_rate_json?: string;
+            yield_cap_json?: string;
           }>;
           player_upkeep_json?: string;
         }
@@ -2162,7 +2165,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           ...(tile.siegeOutpostJson ? { siege_outpost_json: tile.siegeOutpostJson } : {}),
           ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
           ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
-          ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {})
+          ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
+          ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
+          ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
+          ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
         })),
         ...(upkeep ? { player_upkeep_json: JSON.stringify(upkeep) } : {})
       });
