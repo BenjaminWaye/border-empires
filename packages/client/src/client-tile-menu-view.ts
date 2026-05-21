@@ -20,8 +20,7 @@ const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["
   type === "IRONWORKS" ||
   type === "ADVANCED_IRONWORKS" ||
   type === "CRYSTAL_SYNTHESIZER" ||
-  type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
-  type === "FUEL_PLANT";
+  type === "ADVANCED_CRYSTAL_SYNTHESIZER";
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "IRON_BASTION" ? "Iron Bastion" : "Fort";
@@ -79,7 +78,6 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "overload_crystal_synthesizer") return "Spend 12500 gold for an instant crystal burst, then shut this synthesizer down for 24 hours.";
   if (actionId === "enable_converter_structure") return "Resume this converter. It immediately pays the next upkeep tick, then starts producing again.";
   if (actionId === "disable_converter_structure") return "Pause this converter. It stops paying upkeep and stops producing until you enable it again.";
-  if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine output within 10 tiles.";
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1 gold / minute per connected owned dock.";

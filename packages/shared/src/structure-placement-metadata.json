@@ -48,6 +48,11 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
+  "SEED_GRANARY": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
   "CENSUS_HALL": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
@@ -113,11 +118,6 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "FUEL_PLANT": {
-    "showOn": ["town", "support"],
-    "placementMode": "town_support",
-    "sortGroup": "support"
-  },
   "CARAVANARY": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
@@ -139,16 +139,6 @@
     "sortGroup": "general"
   },
   "CUSTOMS_HOUSE": {
-    "showOn": ["dock"],
-    "placementMode": "same_tile",
-    "sortGroup": "general"
-  },
-  "LOCKWORKS_PORT": {
-    "showOn": ["dock"],
-    "placementMode": "same_tile",
-    "sortGroup": "general"
-  },
-  "CHARTERED_PORT": {
     "showOn": ["dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"

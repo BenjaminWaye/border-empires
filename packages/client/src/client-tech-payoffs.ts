@@ -20,11 +20,9 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockBank: "Bank",
   unlockClearingHouse: "Clearing House",
   unlockCaravanary: "Caravanary",
-  unlockTreasuryHouse: "Treasury House",
   unlockFurSynthesizer: "Fur Synth",
   unlockIronworks: "Ironworks",
   unlockCrystalSynthesizer: "Aether Condenser",
-  unlockFuelPlant: "Refinery",
   unlockFoundry: "Sky Foundry",
   unlockAetherTower: "Aether Tower",
   unlockExchangeHouse: "Exchange House",
@@ -35,7 +33,6 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockRadarSystem: "Resonance Grid",
   unlockAstralDock: "Astral Dock",
   unlockRailDepot: "Rail Depot",
-  unlockWeatherEngine: "Weather Engine",
   unlockImperialExchange: "Imperial Exchange",
   unlockWorldEngine: "Worldbreaker Cannon",
   unlockAegisDome: "Aegis Dome"
@@ -66,12 +63,7 @@ const UPGRADE_UNLOCK_LABELS: Record<string, string> = {
   unlockThunderBastion: "Thunder Bastion",
   unlockDreadTower: "Dread Tower",
   unlockSeedGranaryUpgrade: "Seed Granary",
-  unlockBrokerageUpgrade: "Broker Market",
-  unlockWaterworksUpgrade: "Waterworks",
-  unlockHarborLocksUpgrade: "Lockworks Port",
-  unlockCharteredPortsUpgrade: "Chartered Port",
-  unlockSkyFoundryUpgrade: "Advanced Foundry",
-  unlockAdvancedFuelPlant: "Catalytic Refiner"
+  unlockWaterworksUpgrade: "Waterworks"
 };
 
 const addTag = (tags: TechHighlightTag[], label: string, tone: TechHighlightTone): void => {
