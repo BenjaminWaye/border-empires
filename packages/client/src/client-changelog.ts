@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.4",
+  version: "2026.05.21.5",
   title: "What's New",
-  summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN). Six dead tech stubs removed and the unwired Lockworks/Chartered Port chain dropped.",
+  summary: "Domain and research rejections from the server now surface as a banner alert instead of a single feed line, so a failed Clockwork Stipend pick (or any other domain/tech rejection) is impossible to miss.",
   entries: [
+    {
+      introducedIn: "2026.05.21.5",
+      title: "Domain and tech rejections surface as banner alerts",
+      why: "When the server rejected a domain pick — for example Clockwork Stipend returning 'trickle resource choice required' — the only feedback was a single line in the activity feed. The button quietly reverted to 'Choose Tier N' and players assumed the click was broken. Frontier/diplomacy/build rejections already use banner alerts, so domain and tech now match that pattern.",
+      changes: [
+        "DOMAIN_INVALID and TECH_INVALID rejections now raise a 12-second 'Domain pick failed' / 'Research failed' banner alongside the existing feed entry.",
+        "The default 'Error CODE: message' fallback string is replaced with a friendlier 'Domain pick failed: …' / 'Research failed: …' for these codes."
+      ]
+    },
     {
       introducedIn: "2026.05.21.4",
       title: "Seed Granary growth buff",
