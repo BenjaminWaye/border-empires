@@ -12,6 +12,11 @@ const buildSink = (store: GatewaySocialStore) => ({
   deleteTruceRequest: (id: string) => store.deleteTruceRequest(id),
   addAlliance: (a: string, b: string, t: number) => store.addAlliance(a, b, t),
   removeAlliance: (a: string, b: string) => store.removeAlliance(a, b),
+  saveAllianceBreak: (notice: Parameters<GatewaySocialStore["saveAllianceBreak"]>[0]) => store.saveAllianceBreak(notice),
+  removeAllianceBreak: (a: string, b: string) => store.removeAllianceBreak(a, b),
+  saveCompletedAllianceBreak: (notice: Parameters<GatewaySocialStore["saveCompletedAllianceBreak"]>[0]) =>
+    store.saveCompletedAllianceBreak(notice),
+  removeCompletedAllianceBreak: (a: string, b: string) => store.removeCompletedAllianceBreak(a, b),
   saveActiveTruce: (truce: Parameters<GatewaySocialStore["saveActiveTruce"]>[0]) => store.saveActiveTruce(truce),
   removeActiveTruce: (a: string, b: string) => store.removeActiveTruce(a, b),
   pruneExpired: (now: number) => store.pruneExpired(now)
@@ -126,8 +131,9 @@ describe("InMemoryGatewaySocialStore + createSocialState", () => {
   it("removes alliance and prunes request rows", () => {
     const store = new InMemoryGatewaySocialStore();
     const sink = buildSink(store);
+    let nowMs = 1_000;
     const social = createSocialState({
-      now: () => 1_000,
+      now: () => nowMs,
       sink,
       initial: store.loadSnapshot()
     });
@@ -143,6 +149,39 @@ describe("InMemoryGatewaySocialStore + createSocialState", () => {
     expect(store.loadSnapshot().players.find((p) => p.id === "player-1")?.allies).toEqual(["player-2"]);
 
     social.breakAlliance("player-1", "player-2");
+    expect(store.loadSnapshot().activeAllianceBreaks).toEqual([
+      expect.objectContaining({ playerAId: "player-1", playerBId: "player-2" })
+    ]);
+    expect(store.loadSnapshot().players.find((p) => p.id === "player-1")?.allies).toEqual(["player-2"]);
+    nowMs += 24 * 60 * 60_000 + 1;
+    social.finalizeExpiredAllianceBreaks();
     expect(store.loadSnapshot().players.find((p) => p.id === "player-1")?.allies).toEqual([]);
+    expect(store.loadSnapshot().activeAllianceBreaks).toEqual([]);
+    expect(store.loadSnapshot().completedAllianceBreaks).toEqual([
+      expect.objectContaining({ playerAId: "player-1", playerBId: "player-2", finalizedAt: nowMs })
+    ]);
+
+    social.requestAlliance("player-2", "A");
+    const renewedRequestId = social.snapshotForPlayer("player-1").incomingAllianceRequests[0]?.id;
+    expect(renewedRequestId).toBeTruthy();
+    social.acceptAlliance("player-1", renewedRequestId!);
+    expect(store.loadSnapshot().players.find((p) => p.id === "player-1")?.allies).toEqual(["player-2"]);
+    expect(store.loadSnapshot().completedAllianceBreaks).toEqual([]);
+    const reloadedAfterRenewal = createSocialState({
+      now: () => nowMs,
+      sink,
+      initial: store.loadSnapshot()
+    });
+    expect(reloadedAfterRenewal.snapshotForPlayer("player-1").recentAllianceBreaks).toEqual([]);
+
+    social.breakAlliance("player-1", "player-2");
+    nowMs += 24 * 60 * 60_000 + 1;
+    social.finalizeExpiredAllianceBreaks();
+    expect(store.loadSnapshot().completedAllianceBreaks).toEqual([
+      expect.objectContaining({ playerAId: "player-1", playerBId: "player-2", finalizedAt: nowMs })
+    ]);
+    nowMs += 7 * 24 * 60 * 60_000 + 1;
+    social.snapshotForPlayer("player-1");
+    expect(store.loadSnapshot().completedAllianceBreaks).toEqual([]);
   });
 });

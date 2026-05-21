@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST, SETTLE_COST, buildFrontierCombatPreview } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "./client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
 import {
@@ -57,6 +57,11 @@ type AttackPreview = NonNullable<ClientState["attackPreview"]>;
 
 const attackPreviewKey = (fromKey: string, toKey: string): string => `${fromKey}->${toKey}`;
 
+const nextAttackPreviewRequestId = (state: ClientState): string => {
+  state.attackPreviewRequestSeq += 1;
+  return `attack-preview-${state.attackPreviewRequestSeq}`;
+};
+
 const freshCachedAttackPreview = (state: ClientState, previewKey: string): AttackPreview | undefined => {
   const preview = state.attackPreviewCacheByKey.get(previewKey);
   if (!preview) return undefined;
@@ -77,72 +82,33 @@ const requestAttackPreview = (
     toX: number;
     toY: number;
   },
-  deps: { ws: RealtimeSocket }
+  deps: { ws: RealtimeSocket },
+  options: { useCache?: boolean; throttle?: boolean } = {}
 ): void => {
+  const useCache = options.useCache ?? true;
+  const throttle = options.throttle ?? true;
   const previewKey = attackPreviewKey(args.fromKey, args.toKey);
-  const cached = freshCachedAttackPreview(state, previewKey);
-  if (cached) {
-    state.attackPreview = cached;
-    state.attackPreviewPendingKey = "";
-    return;
+  if (useCache) {
+    const cached = freshCachedAttackPreview(state, previewKey);
+    if (cached) {
+      state.attackPreview = cached;
+      state.attackPreviewPendingKey = "";
+      state.attackPreviewPendingRequestId = "";
+      return;
+    }
   }
-  if (state.attackPreviewPendingKey === previewKey) return;
+  if (useCache && state.attackPreviewPendingKey === previewKey) return;
   const nowMs = Date.now();
-  if (nowMs - state.lastAttackPreviewAt < 120) return;
+  if (throttle && nowMs - state.lastAttackPreviewAt < 120) return;
   state.lastAttackPreviewAt = nowMs;
   state.attackPreviewPendingKey = previewKey;
-  deps.ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: args.fromX, fromY: args.fromY, toX: args.toX, toY: args.toY }));
-};
-
-const localAttackPreview = (
-  state: ClientState,
-  args: {
-    fromKey: string;
-    toKey: string;
-    fromX: number;
-    fromY: number;
-    toX: number;
-    toY: number;
+  const requestId = nextAttackPreviewRequestId(state);
+  state.attackPreviewPendingRequestId = requestId;
+  if (!useCache) {
+    state.attackPreviewCacheByKey.delete(previewKey);
+    if (state.attackPreview?.fromKey === args.fromKey && state.attackPreview.toKey === args.toKey) state.attackPreview = undefined;
   }
-): AttackPreview | undefined => {
-  const origin = state.tiles.get(args.fromKey);
-  const target = state.tiles.get(args.toKey);
-  if (!target) return undefined;
-  const preview: AttackPreview = {
-    fromKey: args.fromKey,
-    toKey: args.toKey,
-    valid: false,
-    receivedAt: Date.now()
-  };
-  if (origin && origin.ownerId && origin.ownerId !== state.me) {
-    preview.reason = "origin not owned";
-    return preview;
-  }
-  if (!target.ownerId) {
-    preview.reason = "target not hostile";
-    return preview;
-  }
-  if (target.ownerId === state.me) {
-    preview.reason = "target not hostile";
-    return preview;
-  }
-  if (target.fogged) {
-    preview.reason = "target not visible";
-    return preview;
-  }
-  const sharedPreview = buildFrontierCombatPreview({
-    terrain: target.terrain,
-    ownershipState: target.ownershipState,
-    dockId: target.dockId,
-    townType: target.town?.type
-  });
-  preview.valid = true;
-  preview.winChance = sharedPreview.winChance;
-  preview.atkEff = sharedPreview.atkEff;
-  preview.defEff = sharedPreview.defEff;
-  preview.defenseEffPct = Math.max(0, Math.min(100, sharedPreview.defMult * 100));
-  delete preview.reason;
-  return preview;
+  deps.ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: args.fromX, fromY: args.fromY, toX: args.toX, toY: args.toY, requestId }));
 };
 
 const resolvedAttackPreviewForTarget = (
@@ -156,12 +122,14 @@ const resolvedAttackPreviewForTarget = (
   const currentPreview = state.attackPreview;
   if (args.fromKey) {
     const previewKey = attackPreviewKey(args.fromKey, args.toKey);
+    if (state.attackPreviewPendingKey === previewKey) return undefined;
     const currentMatches = currentPreview && currentPreview.toKey === args.toKey && currentPreview.fromKey === args.fromKey;
     if (currentMatches && Date.now() - currentPreview.receivedAt <= ATTACK_PREVIEW_CACHE_TTL_MS) return currentPreview;
     return freshCachedAttackPreview(state, previewKey);
   }
   if (!args.dockFallback) return undefined;
   const previewKey = attackPreviewKey(args.toKey, args.toKey);
+  if (state.attackPreviewPendingKey === previewKey) return undefined;
   const currentMatches = currentPreview && currentPreview.toKey === args.toKey;
   if (currentMatches && Date.now() - currentPreview.receivedAt <= ATTACK_PREVIEW_CACHE_TTL_MS) return currentPreview;
   return freshCachedAttackPreview(state, previewKey);
@@ -477,6 +445,7 @@ export const requestSettlement = (
   state.selected = { x, y };
   state.attackPreview = undefined;
   state.attackPreviewPendingKey = "";
+  state.attackPreviewPendingRequestId = "";
   deps.renderHud();
   return true;
 };
@@ -1192,6 +1161,7 @@ export const processActionQueue = (
     }
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
+    state.attackPreviewPendingRequestId = "";
     if (!to.ownerId) {
       if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         deps.notifyInsufficientGoldForFrontierAction("claim");
@@ -1313,19 +1283,6 @@ export const requestAttackPreviewForHover = (
     },
     deps
   );
-  const fallbackPreview = localAttackPreview(state, {
-    fromKey: deps.keyFor(from?.x ?? hoveredTile.x, from?.y ?? hoveredTile.y),
-    toKey: deps.keyFor(hoveredTile.x, hoveredTile.y),
-    fromX: from?.x ?? hoveredTile.x,
-    fromY: from?.y ?? hoveredTile.y,
-    toX: hoveredTile.x,
-    toY: hoveredTile.y
-  });
-  if (fallbackPreview) {
-    state.attackPreview = fallbackPreview;
-    state.attackPreviewCacheByKey.set(`${fallbackPreview.fromKey}->${fallbackPreview.toKey}`, fallbackPreview);
-    state.attackPreviewPendingKey = "";
-  }
 };
 
 export const requestAttackPreviewForTarget = (
@@ -1357,21 +1314,9 @@ export const requestAttackPreviewForTarget = (
       toX: to.x,
       toY: to.y
     },
-    deps
+    deps,
+    { useCache: false, throttle: false }
   );
-  const fallbackPreview = localAttackPreview(state, {
-    fromKey,
-    toKey,
-    fromX: from?.x ?? to.x,
-    fromY: from?.y ?? to.y,
-    toX: to.x,
-    toY: to.y
-  });
-  if (fallbackPreview) {
-    state.attackPreview = fallbackPreview;
-    state.attackPreviewCacheByKey.set(`${fallbackPreview.fromKey}->${fallbackPreview.toKey}`, fallbackPreview);
-    state.attackPreviewPendingKey = "";
-  }
 };
 
 export const attackPreviewDetailForTarget = (
@@ -1384,21 +1329,12 @@ export const attackPreviewDetailForTarget = (
 ): string | undefined => {
   const from = deps.pickOriginForTarget(to.x, to.y);
   const toKey = deps.keyFor(to.x, to.y);
-  const preview =
-    resolvedAttackPreviewForTarget(
-      state,
-      from
-        ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
-        : { toKey, dockFallback: Boolean(to.dockId) }
-    ) ??
-    localAttackPreview(state, {
-      fromKey: deps.keyFor(from?.x ?? to.x, from?.y ?? to.y),
-      toKey,
-      fromX: from?.x ?? to.x,
-      fromY: from?.y ?? to.y,
-      toX: to.x,
-      toY: to.y
-    });
+  const preview = resolvedAttackPreviewForTarget(
+    state,
+    from
+      ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
+      : { toKey, dockFallback: Boolean(to.dockId) }
+  );
   if (!preview) return undefined;
   if (!preview.valid) return preview.reason ? `Attack ${preview.reason}` : undefined;
   if (typeof preview.winChance === "number") return `${Math.round(preview.winChance * 100)}% win chance`;
@@ -1422,15 +1358,6 @@ export const attackPreviewPendingForTarget = (
       : { toKey, dockFallback: Boolean(to.dockId) }
   );
   if (preview) return false;
-  const fallbackPreview = localAttackPreview(state, {
-    fromKey: deps.keyFor(from?.x ?? to.x, from?.y ?? to.y),
-    toKey,
-    fromX: from?.x ?? to.x,
-    fromY: from?.y ?? to.y,
-    toX: to.x,
-    toY: to.y
-  });
-  if (fallbackPreview) return false;
   if (from) return state.attackPreviewPendingKey === attackPreviewKey(deps.keyFor(from.x, from.y), toKey);
   if (!to.dockId) return false;
   return state.attackPreviewPendingKey === attackPreviewKey(toKey, toKey);

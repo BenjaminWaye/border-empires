@@ -328,34 +328,33 @@ const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithA
 const attackPreviewResult = (
   playerId: string,
   tiles: PreviewTile[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number }
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
 ): Record<string, unknown> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
+  const responseBase = { type: "ATTACK_PREVIEW_RESULT", from, to, ...(message.requestId ? { requestId: message.requestId } : {}) };
   if (!tiles) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "preview unavailable" };
+    return { ...responseBase, valid: false, reason: "preview unavailable" };
   }
   const tileMap = buildPreviewTileMap(tiles);
   const origin = tileMap.get(previewTileKey(from.x, from.y));
   const target = tileMap.get(previewTileKey(to.x, to.y));
   if (!origin || origin.ownerId !== playerId) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "origin not owned" };
+    return { ...responseBase, valid: false, reason: "origin not owned" };
   }
   if (!target) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "target not visible" };
+    return { ...responseBase, valid: false, reason: "target not visible" };
   }
   if (!target.ownerId || target.ownerId === playerId) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "target not hostile" };
+    return { ...responseBase, valid: false, reason: "target not hostile" };
   }
   if (!isFrontierAdjacent(from.x, from.y, to.x, to.y)) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "target not adjacent" };
+    return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, from.x, from.y, (x, y) => tileMap.get(previewTileKey(x, y)));
   const preview = buildFrontierCombatPreview(target, { attackerOutpostMult });
   return {
-    type: "ATTACK_PREVIEW_RESULT",
-    from,
-    to,
+    ...responseBase,
     valid: true,
     winChance: preview.winChance,
     atkEff: preview.atkEff,
@@ -557,6 +556,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       .sort((left, right) => right.lastAt - left.lastAt);
   };
   let simulationHealthTimer: ReturnType<typeof setInterval> | undefined;
+  let allianceBreakFinalizeTimer: ReturnType<typeof setInterval> | undefined;
   const refreshCombinedSimulationHealth = (): void => {
     simulationHealth.connected = simulationRpcConnected && simulationEventStreamConnected;
     if (simulationHealth.connected) {
@@ -574,7 +574,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     simulationHealth.connected = false;
     simulationHealth.lastError = error instanceof Error ? error.message : String(error);
   };
-  const syncAllianceToSimulation = async (input: { playerId: string; targetPlayerId: string; allied: boolean }): Promise<void> => {
+  const syncAllianceToSimulation = async (input: { playerId: string; targetPlayerId: string; allied: boolean }): Promise<boolean> => {
     if (!simulationHealth.connected) {
       recordGatewayEvent("warn", "gateway_social_simulation_sync_skipped", {
         playerId: input.playerId,
@@ -582,7 +582,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         allied: input.allied,
         simulationLastError: simulationHealth.lastError ?? ""
       });
-      return;
+      return false;
     }
 
     const command: CommandEnvelope = {
@@ -597,6 +597,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     try {
       await withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, "gateway sync alliance");
       markSimulationReady();
+      return true;
     } catch (error) {
       markSimulationUnavailable(error);
       recordGatewayEvent("warn", "gateway_social_simulation_sync_failed", {
@@ -606,6 +607,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         allied: input.allied,
         error: error instanceof Error ? error.message : String(error)
       });
+      return false;
     }
   };
   const markSimulationEventStreamConnected = (): void => {
@@ -953,6 +955,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     deleteTruceRequest: (requestId) => socialStore.deleteTruceRequest(requestId),
     addAlliance: (playerAId, playerBId, createdAt) => socialStore.addAlliance(playerAId, playerBId, createdAt),
     removeAlliance: (playerAId, playerBId) => socialStore.removeAlliance(playerAId, playerBId),
+    saveAllianceBreak: (notice) => socialStore.saveAllianceBreak(notice),
+    removeAllianceBreak: (playerAId, playerBId) => socialStore.removeAllianceBreak(playerAId, playerBId),
+    saveCompletedAllianceBreak: (notice) => socialStore.saveCompletedAllianceBreak(notice),
+    removeCompletedAllianceBreak: (playerAId, playerBId) => socialStore.removeCompletedAllianceBreak(playerAId, playerBId),
     saveActiveTruce: (truce) => socialStore.saveActiveTruce(truce),
     removeActiveTruce: (playerAId, playerBId) => socialStore.removeActiveTruce(playerAId, playerBId),
     pruneExpired: (now) => socialStore.pruneExpired(now)
@@ -1173,6 +1179,29 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           queueOrSendSessionPayload(targetSocket, broadcast);
         }
       }
+    }
+  };
+
+  let allianceBreakFinalizerRunning = false;
+  const finalizeExpiredAllianceBreaks = async (): Promise<void> => {
+    if (allianceBreakFinalizerRunning) return;
+    allianceBreakFinalizerRunning = true;
+    try {
+      const expiredBreaks = socialState.expiredAllianceBreaks();
+      if (expiredBreaks.length === 0) return;
+      const syncedPairs: Array<[string, string]> = [];
+      for (const notice of expiredBreaks) {
+        const [playerId, targetPlayerId] = notice.playerIds;
+        if (await syncAllianceToSimulation({ playerId, targetPlayerId, allied: false })) {
+          syncedPairs.push([playerId, targetPlayerId]);
+        }
+      }
+      if (syncedPairs.length === 0) return;
+      const result = socialState.finalizeExpiredAllianceBreaks(syncedPairs);
+      if (result.expiredBreaks.length === 0) return;
+      fanoutPlayerPayloads(result.payloadsByPlayerId);
+    } finally {
+      allianceBreakFinalizerRunning = false;
     }
   };
 
@@ -1652,6 +1681,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   simulationHealthTimer = setInterval(() => {
     void refreshSimulationHealth();
   }, 2_000);
+  void finalizeExpiredAllianceBreaks();
+  allianceBreakFinalizeTimer = setInterval(() => void finalizeExpiredAllianceBreaks(), 60_000);
+  if (typeof allianceBreakFinalizeTimer.unref === "function") allianceBreakFinalizeTimer.unref();
 
   const databaseKeepAliveIntervalMs = Math.max(60_000, Number(process.env.GATEWAY_DATABASE_KEEPALIVE_MS ?? 6 * 60 * 60 * 1000));
   const pingDatabaseKeepAlive = (): void => {
@@ -1726,6 +1758,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
+    if (allianceBreakFinalizeTimer) clearInterval(allianceBreakFinalizeTimer);
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
     clearInterval(databaseKeepAliveTimer);
@@ -2265,7 +2298,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
               return;
             }
-            void syncAllianceToSimulation({ playerId: session.playerId, targetPlayerId: message.targetPlayerId, allied: false });
             fanoutPlayerPayloads(result.payloadsByPlayerId);
             return;
           }

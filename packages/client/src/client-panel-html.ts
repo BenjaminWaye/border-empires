@@ -1,5 +1,6 @@
 import type {
   ActiveTruceView,
+  ActiveAllianceBreakView,
   AllianceRequest,
   FeedEntry,
   FeedType,
@@ -108,6 +109,8 @@ const socialClockIcon = (): string => '<span class="alliance-inline-icon allianc
 
 const socialCheckIcon = (): string => '<span class="alliance-inline-icon alliance-inline-icon-check" aria-hidden="true">✓</span>';
 
+const socialBreakIcon = (): string => '<span class="alliance-inline-icon alliance-inline-icon-break" aria-hidden="true">!</span>';
+
 const socialMetaLineHtml = (sentBy: string, waitingOn: string): string =>
   `<div class="alliance-reference-meta">
     <span class="alliance-reference-meta-label">Sent by:</span>
@@ -161,22 +164,44 @@ export const allianceRequestsHtml = (
     .join("");
 };
 
-export const alliesHtml = (allies: string[], playerNameForOwner: (ownerId?: string | null) => string | undefined): string => {
+export const alliesHtml = (
+  allies: string[],
+  playerNameForOwner: (ownerId?: string | null) => string | undefined,
+  activeAllianceBreaks: ActiveAllianceBreakView[] = [],
+  nowMs = Date.now()
+): string => {
   if (allies.length === 0) return `<article class="card alliance-empty-card"><p>No allies.</p></article>`;
+  const activeBreakByPlayerId = new Map(activeAllianceBreaks.map((notice) => [notice.otherPlayerId, notice]));
   return allies
-    .map(
-      (id) => `<article class="card alliance-reference-card">
+    .map((id) => {
+      const notice = activeBreakByPlayerId.get(id);
+      const name = playerNameForOwner(id) ?? notice?.otherPlayerName ?? id.slice(0, 8);
+      const remainingLabel = notice ? socialRemainingLabel(notice.endsAt, nowMs) : "";
+      const finalizingBreak = notice ? notice.endsAt <= nowMs : false;
+      return `<article class="card alliance-reference-card${notice ? " alliance-reference-card-breaking" : ""}">
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
-          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${id}">${playerNameForOwner(id) ?? id.slice(0, 8)}</button>
+          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${id}">${name}</button>
           <div class="alliance-reference-id">${socialPlayerIdLabel(id)}</div>
         </div>
         <div class="alliance-reference-right">
-          <div class="alliance-reference-status alliance-reference-status-active">${socialCheckIcon()}<span>Active</span></div>
+          ${
+            notice
+              ? `<div class="alliance-reference-status alliance-reference-status-breaking">${socialBreakIcon()}<span>${finalizingBreak ? "Finalizing" : "Breaking"}</span></div>
+          <div class="alliance-reference-duration-note">${finalizingBreak ? "sync pending" : `${remainingLabel} notice`}</div>`
+              : `<div class="alliance-reference-status alliance-reference-status-active">${socialCheckIcon()}<span>Active</span></div>`
+          }
         </div>
       </div>
-    </article>`
-    )
+      ${
+        notice
+          ? `<div class="alliance-reference-meta">
+        <span class="alliance-reference-meta-label">${finalizingBreak ? "Notice elapsed; final break is syncing." : "Alliance remains active until notice ends."}</span>
+      </div>`
+          : `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-alliance" type="button" data-alliance-break-player-id="${id}">Break Alliance</button>`
+      }
+    </article>`;
+    })
     .join("");
 };
 

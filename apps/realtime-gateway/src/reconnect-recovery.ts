@@ -57,6 +57,8 @@ export const buildInitMessage = (
   domainCatalog: unknown[];
   allianceRequests: unknown[];
   outgoingAllianceRequests: unknown[];
+  activeAllianceBreaks: unknown[];
+  recentAllianceBreaks: unknown[];
   truceRequests: unknown[];
   outgoingTruceRequests: unknown[];
   activeTruces: unknown[];
@@ -169,6 +171,8 @@ export const buildInitMessage = (
       domainCatalog: bootstrap.domainCatalog,
       allianceRequests: socialSnapshot?.incomingAllianceRequests ?? [],
       outgoingAllianceRequests: socialSnapshot?.outgoingAllianceRequests ?? [],
+      activeAllianceBreaks: socialSnapshot?.activeAllianceBreaks ?? [],
+      recentAllianceBreaks: socialSnapshot?.recentAllianceBreaks ?? [],
       truceRequests: socialSnapshot?.incomingTruceRequests ?? [],
       outgoingTruceRequests: socialSnapshot?.outgoingTruceRequests ?? [],
       activeTruces: socialSnapshot?.activeTruces ?? [],

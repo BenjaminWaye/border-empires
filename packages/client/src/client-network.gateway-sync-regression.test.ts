@@ -105,6 +105,55 @@ const createRuntimeStyleShowCaptureAlert =
   };
 
 describe("client gateway sync regression", () => {
+  it("ignores stale attack preview responses when a newer preview request is pending", () => {
+    const state = createState();
+    state.attackPreviewPendingKey = "4,7->5,7";
+    state.attackPreviewPendingRequestId = "attack-preview-2";
+    const ws = new FakeWebSocket();
+    const { renderHud } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ATTACK_PREVIEW_RESULT",
+        requestId: "attack-preview-1",
+        from: { x: 4, y: 7 },
+        to: { x: 5, y: 7 },
+        valid: true,
+        winChance: 0.43
+      })
+    });
+
+    expect(state.attackPreview).toBeUndefined();
+    expect(state.attackPreviewPendingKey).toBe("4,7->5,7");
+    expect(state.attackPreviewPendingRequestId).toBe("attack-preview-2");
+    expect(renderHud).not.toHaveBeenCalled();
+  });
+
+  it("accepts the current attack preview response and clears its pending request id", () => {
+    const state = createState();
+    state.attackPreviewPendingKey = "4,7->5,7";
+    state.attackPreviewPendingRequestId = "attack-preview-2";
+    const ws = new FakeWebSocket();
+    const { renderHud } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ATTACK_PREVIEW_RESULT",
+        requestId: "attack-preview-2",
+        from: { x: 4, y: 7 },
+        to: { x: 5, y: 7 },
+        valid: true,
+        winChance: 0.51
+      })
+    });
+
+    expect(state.attackPreview).toEqual(expect.objectContaining({ fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.51 }));
+    expect(state.attackPreviewCacheByKey.get("4,7->5,7")).toEqual(expect.objectContaining({ winChance: 0.51 }));
+    expect(state.attackPreviewPendingKey).toBe("");
+    expect(state.attackPreviewPendingRequestId).toBe("");
+    expect(renderHud).toHaveBeenCalled();
+  });
+
   it("shows pending incoming alliance and truce requests when INIT arrives after login", () => {
     const state = createState();
     const ws = new FakeWebSocket();
@@ -217,6 +266,147 @@ describe("client gateway sync regression", () => {
       })
     );
     expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 24h truce. Open Alliances to accept or reject.", "alliance", "warn");
+  });
+
+  it("shows alliance break notices and keeps the active ally visible", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const { pushFeed } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ALLIANCE_UPDATE",
+        allies: ["player-2"],
+        activeAllianceBreaks: [
+          {
+            otherPlayerId: "player-2",
+            otherPlayerName: "Valka",
+            startedAt: 1_000,
+            endsAt: 86_401_000,
+            createdByPlayerId: "player-2"
+          }
+        ],
+        incomingAllianceRequests: [],
+        outgoingAllianceRequests: [],
+        announcement: "Valka started a 24h notice to break your alliance."
+      })
+    });
+
+    expect(state.allies).toEqual(["player-2"]);
+    expect(state.activeAllianceBreaks).toEqual([expect.objectContaining({ otherPlayerId: "player-2" })]);
+    expect(state.captureAlert).toEqual(
+      expect.objectContaining({
+        title: "Alliance break notice",
+        detail: "Valka started a 24h notice to break your alliance.",
+        tone: "info"
+      })
+    );
+    expect(pushFeed).toHaveBeenCalledWith("Valka started a 24h notice to break your alliance.", "alliance", "info");
+  });
+
+  it("notifies offline players about active alliance break notices on INIT", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const { pushFeed } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0 },
+        config: {},
+        recovery: { nextClientSeq: 1, pendingCommands: [] },
+        allianceRequests: [],
+        truceRequests: [],
+        recentAllianceBreaks: [],
+        activeAllianceBreaks: [
+          {
+            otherPlayerId: "player-2",
+            otherPlayerName: "Valka",
+            startedAt: 1_000,
+            endsAt: 86_401_000,
+            createdByPlayerId: "player-2"
+          }
+        ]
+      })
+    });
+
+    expect(state.captureAlert).toEqual(
+      expect.objectContaining({
+        title: "Alliance break notice",
+        detail: "Valka started a 24h notice to break your alliance.",
+        tone: "info"
+      })
+    );
+    expect(pushFeed).toHaveBeenCalledWith("Valka started a 24h notice to break your alliance.", "alliance", "info");
+    const feedCallCount = pushFeed.mock.calls.length;
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0 },
+        config: {},
+        recovery: { nextClientSeq: 2, pendingCommands: [] },
+        allianceRequests: [],
+        truceRequests: [],
+        recentAllianceBreaks: [],
+        activeAllianceBreaks: state.activeAllianceBreaks
+      })
+    });
+
+    expect(pushFeed.mock.calls.length).toBe(feedCallCount + 1);
+  });
+
+  it("notifies offline players about completed alliance breaks on INIT", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const { pushFeed } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0 },
+        config: {},
+        recovery: { nextClientSeq: 1, pendingCommands: [] },
+        allianceRequests: [],
+        truceRequests: [],
+        activeAllianceBreaks: [],
+        recentAllianceBreaks: [
+          {
+            otherPlayerId: "player-2",
+            otherPlayerName: "Valka",
+            startedAt: 1_000,
+            endsAt: 86_401_000,
+            finalizedAt: 86_402_000,
+            createdByPlayerId: "player-2"
+          }
+        ]
+      })
+    });
+
+    expect(state.captureAlert).toEqual(
+      expect.objectContaining({
+        title: "Alliance broken",
+        detail: "Your alliance with Valka is now broken.",
+        tone: "warn"
+      })
+    );
+    expect(pushFeed).toHaveBeenCalledWith("Your alliance with Valka is now broken.", "alliance", "warn");
+    const feedCallCount = pushFeed.mock.calls.length;
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0 },
+        config: {},
+        recovery: { nextClientSeq: 2, pendingCommands: [] },
+        allianceRequests: [],
+        truceRequests: [],
+        activeAllianceBreaks: [],
+        recentAllianceBreaks: state.recentAllianceBreaks
+      })
+    });
+
+    expect(pushFeed.mock.calls.length).toBe(feedCallCount + 1);
   });
 
   it("resolves an in-flight attack from post-combat tile sync even when the target stays barbarian", () => {
