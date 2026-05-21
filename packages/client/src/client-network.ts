@@ -393,7 +393,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const syncDesiredFogDisabled = (): void => {
     if (!state.authSessionReady) return;
     if (!state.stagingMapRevealEligible) return;
-    if (!state.serverSupportedMessageTypes.has("SET_FOG_DISABLED")) return;
+    if (!state.serverSupportedMessageTypes.has("REQUEST_REVEAL_MAP")) return;
     if (state.fogDisabled === state.stagingMapRevealEnabled) return;
     fogRevealLog("sync-send", {
       disabled: state.stagingMapRevealEnabled,
@@ -401,7 +401,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       eligible: state.stagingMapRevealEligible,
       fogDisabled: state.fogDisabled
     });
-    ws.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: state.stagingMapRevealEnabled }));
+    ws.send(JSON.stringify(state.stagingMapRevealEnabled ? { type: "REQUEST_REVEAL_MAP" } : { type: "SET_FOG_DISABLED", disabled: false }));
   };
 
   const shouldShowBackendUnavailableAlert = (): boolean => {
@@ -1033,6 +1033,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.recentTileMessages.splice(0, state.recentTileMessages.length - MAX_RECENT_TILE_MESSAGES);
     }
   };
+  let activeRevealMapSnapshotId = "";
+  let activeRevealMapChunkCount = 0;
+  let activeRevealMapChunksApplied = 0;
 
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
@@ -1906,6 +1909,47 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.fogDisabled = Boolean(msg.fogDisabled);
       pushFeed(`Fog of war ${state.fogDisabled ? "disabled" : "enabled"}.`, "info", "info");
       requestViewRefresh(2, true);
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "REVEAL_MAP_BEGIN") {
+      activeRevealMapSnapshotId = typeof msg.snapshotId === "string" ? msg.snapshotId : "";
+      activeRevealMapChunkCount = typeof msg.chunkCount === "number" ? msg.chunkCount : 0;
+      activeRevealMapChunksApplied = 0;
+      state.fogDisabled = true;
+      pushFeed("Full-map reveal started.", "info", "info");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "REVEAL_MAP_CHUNK") {
+      if (typeof msg.snapshotId === "string" && msg.snapshotId !== activeRevealMapSnapshotId) return;
+      const tileUpdates =
+        msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
+      applyGatewayTileDeltaBatch(
+        {
+          state,
+          keyFor,
+          mergeIncomingTileDetail,
+          mergeServerTileWithOptimisticState
+        },
+        tileUpdates
+      );
+      activeRevealMapChunksApplied += 1;
+      state.firstChunkAt = Date.now();
+      state.chunkFullCount = Math.max(state.chunkFullCount, activeRevealMapChunksApplied);
+      state.hasOwnedTileInCache = true;
+      if (activeRevealMapChunksApplied % 8 === 0 || activeRevealMapChunksApplied === activeRevealMapChunkCount) {
+        requestViewRefresh(2, true);
+      }
+      return;
+    }
+
+    if (msg.type === "REVEAL_MAP_END") {
+      if (typeof msg.snapshotId === "string" && msg.snapshotId !== activeRevealMapSnapshotId) return;
+      requestViewRefresh(2, true);
+      pushFeed("Full-map reveal loaded.", "info", "info");
       renderHud();
       return;
     }

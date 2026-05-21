@@ -1157,7 +1157,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       seasonState: currentSeasonState,
       ...(respawnNotice ? { respawnNotice } : {})
     });
-    setCachedSnapshot(playerId, snapshot);
+    if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
     recordSnapshotDiagnostics(playerId, snapshot, {
       trigger:
         options?.trigger ??
@@ -1199,7 +1199,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       seasonState: currentSeasonState,
       ...(respawnNotice ? { respawnNotice } : {})
     });
-    setCachedSnapshot(playerId, snapshot);
+    if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
     recordSnapshotDiagnostics(playerId, snapshot, {
       trigger:
         options?.trigger ??

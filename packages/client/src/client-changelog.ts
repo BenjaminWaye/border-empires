@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.6",
+  version: "2026.05.21.7",
   title: "What's New",
-  summary: "Attack menu win chance no longer drops to \"preview unavailable\" when a hover preview races the menu's request for a different tile.",
+  summary: "Full-map reveal now streams in reusable chunks instead of pushing one huge snapshot to every viewer, reducing gateway memory pressure when many players reveal the map.",
   entries: [
+    {
+      introducedIn: "2026.05.21.7",
+      title: "Full-map reveal is chunked for high-player fanout",
+      why: "The old reveal path sent one full tile snapshot per requester. When many players revealed the whole map, the gateway could retain and serialize many huge payloads at once, causing memory pressure.",
+      changes: [
+        "Reveal Full Map now requests a dedicated reveal stream and applies tile chunks incrementally, keeping the regular control websocket clear.",
+        "The gateway builds one reusable chunk payload set for concurrent reveal requests, pre-serializes each chunk once for fanout across all viewers, and clears the set when live tile deltas arrive instead of retaining full reveal snapshots per player.",
+        "Reveal requests are rate-limited per player and bounded by a hard concurrent-stream cap so a fanout wave can't saturate the gateway event loop, and reveal-map metrics (build time, payload bytes, active streams, chunks sent, cache entries) are exposed via /metrics.",
+        "The simulation no longer stores explicit full-visibility subscribe snapshots in its per-player snapshot cache."
+      ]
+    },
     {
       introducedIn: "2026.05.21.6",
       title: "Attack menu win chance survives hover-vs-menu races",
