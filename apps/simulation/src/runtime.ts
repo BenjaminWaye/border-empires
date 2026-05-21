@@ -58,6 +58,7 @@ import {
   AETHER_WALL_DURATION_MS,
   AIRPORT_BOMBARD_CRYSTAL_COST,
   AETHER_TOWER_RADIUS,
+  AEGIS_DOME_PROTECTION_RADIUS,
   AIRPORT_BOMBARD_RANGE,
   IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
   IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
@@ -5225,6 +5226,17 @@ export class SimulationRuntime {
       });
       return;
     }
+    const targetKey = simulationTileKey(payload.toX, payload.toY);
+    if (this.isTileShieldedByEnemyAegisDome(actor.id, payload.toX, payload.toY)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "blocked by an Aegis Dome"
+      });
+      return;
+    }
     if (!this.spendStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_STRIKE_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -5235,7 +5247,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    const targetKey = simulationTileKey(payload.toX, payload.toY);
     const target = this.tiles.get(targetKey);
     if (target) {
       let updated: DomainTileState = target;
@@ -5504,6 +5515,21 @@ export class SimulationRuntime {
       const tower = candidate.economicStructure;
       if (!tower || tower.ownerId !== ownerId || tower.type !== "AETHER_TOWER" || tower.status !== "active") continue;
       if (this.wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) <= AETHER_TOWER_RADIUS) return true;
+    }
+    return false;
+  }
+
+  // Aegis Dome shields tiles within AEGIS_DOME_PROTECTION_RADIUS for its
+  // owner. Worldbreaker Shot is the first ability that respects this — if an
+  // enemy player has an active, powered Aegis Dome within range of the target
+  // tile, the strike is blocked.
+  isTileShieldedByEnemyAegisDome(actorId: string, targetX: number, targetY: number): boolean {
+    for (const candidate of this.tiles.values()) {
+      const dome = candidate.economicStructure;
+      if (!dome || dome.type !== "AEGIS_DOME" || dome.status !== "active") continue;
+      if (!dome.ownerId || dome.ownerId === actorId) continue;
+      if (this.wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
+      if (this.isStructurePowered(dome.ownerId, simulationTileKey(candidate.x, candidate.y), "AEGIS_DOME")) return true;
     }
     return false;
   }

@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.1",
+  version: "2026.05.21.2",
   title: "What's New",
   summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN). Six dead tech stubs removed and the unwired Lockworks/Chartered Port chain dropped.",
   entries: [
     {
-      introducedIn: "2026.05.21.1",
+      introducedIn: "2026.05.21.2",
       title: "Seed Granary growth buff",
       why: "Seed Granaries had no gameplay effect beyond the build prompt; they now apply a real growth multiplier to the closest 5 granaries on their island.",
       changes: [
@@ -34,17 +34,18 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.1",
+      introducedIn: "2026.05.21.2",
       title: "Imperial Exchange Levy and Worldbreaker Shot",
       why: "Both monuments existed without abilities; the levy seizes a quarter of each rival's stock and the shot razes a single target.",
       changes: [
         "Imperial Exchange Levy seizes 25% of each non-allied rival's chosen resource (FOOD, IRON, CRYSTAL, or SUPPLY) for 200 CRYSTAL on a 30 minute cooldown — allies are spared.",
         "Worldbreaker Shot destroys the target tile's economic structure (if not yours) and removes 30% of a settled town's population — no cap, and demotes the city tier one step (floored at TOWN) — for 500 CRYSTAL on a 60 minute cooldown.",
+        "Worldbreaker Shot is blocked when the target tile is within 30 tiles of an enemy's active, powered Aegis Dome.",
         "Both abilities require the matching tech (Exchange Levy Writs / Worldbreaker Fire) and an Aether Tower powering the monument."
       ]
     },
     {
-      introducedIn: "2026.05.21.1",
+      introducedIn: "2026.05.21.2",
       title: "Aether Towers power Airports",
       why: "Airports were free-standing and Oil had no producer; gating Airports on a nearby Aether Tower restores the design intent and moves the upkeep onto Crystal, which the empire can actually produce.",
       changes: [
@@ -54,7 +55,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.1",
+      introducedIn: "2026.05.21.2",
       title: "Tech-tree expansion and stub cleanup",
       why: "Eight dead unlock stubs were cluttering the tech tree with no backing mechanic; the three worth keeping now have real entries and the others are gone.",
       changes: [
