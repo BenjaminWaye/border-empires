@@ -98,6 +98,7 @@ type RuntimeState = {
   }>;
   docks?: Array<{ dockId: string; tileKey: string; pairedDockId: string; connectedDockIds?: readonly string[] }>;
   tileYieldCollectedAtByTile?: Array<{ tileKey: string; collectedAt: number }>;
+  terrainEpoch?: number;
 };
 
 type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
@@ -503,10 +504,20 @@ const hasSupportedStructure = (
   return false;
 };
 
-const islandMapCache: WeakMap<RuntimeState, Map<string, number>> = new WeakMap();
+// Island map only changes when terrain changes (create_mountain / remove_mountain).
+// Runtime stamps a fresh terrainEpoch every time terrain mutates and at each
+// fresh runtime instance. We keep at most 2 recent epochs in-memory so a long-
+// running process never accumulates stale maps. With WORLD_WIDTH * WORLD_HEIGHT
+// up to ~256k tiles, recomputing per snapshot would be the dominant cost; this
+// turns it into a one-time amortised O(world) + O(1) lookup thereafter.
+const ISLAND_MAP_CACHE_LIMIT = 2;
+const islandMapByEpoch = new Map<number, ReadonlyMap<string, number>>();
 
-const computeIslandMap = (runtimeState: RuntimeState): Map<string, number> => {
-  const cached = islandMapCache.get(runtimeState);
+const computeIslandMap = (runtimeState: RuntimeState): ReadonlyMap<string, number> => {
+  // Fallback to a fixed epoch in synthetic test fixtures that omit terrainEpoch;
+  // the cache then degenerates to a single shared entry for the test process.
+  const epoch = runtimeState.terrainEpoch ?? 0;
+  const cached = islandMapByEpoch.get(epoch);
   if (cached) return cached;
   const landKeys = new Set<string>();
   for (const tile of runtimeState.tiles) {
@@ -539,7 +550,11 @@ const computeIslandMap = (runtimeState: RuntimeState): Map<string, number> => {
       }
     }
   }
-  islandMapCache.set(runtimeState, islandIdByTile);
+  if (islandMapByEpoch.size >= ISLAND_MAP_CACHE_LIMIT) {
+    const oldest = islandMapByEpoch.keys().next().value;
+    if (oldest !== undefined) islandMapByEpoch.delete(oldest);
+  }
+  islandMapByEpoch.set(epoch, islandIdByTile);
   return islandIdByTile;
 };
 

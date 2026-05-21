@@ -775,8 +775,16 @@ const hydrateSyntheticSettlementTown = (
   };
 };
 
+// Process-global monotonically increasing counter so each runtime instance
+// gets a unique starting epoch, and every terrain mutation gets a fresh number.
+// Consumers (e.g. live-snapshot-view) cache derived terrain structures (island
+// map) by this epoch; cache misses are O(world tiles) but happen only when
+// terrain actually changes, which is rare (only create_mountain / remove_mountain).
+let nextTerrainEpoch = 1;
+
 export class SimulationRuntime {
   private readonly events = new EventEmitter();
+  private terrainEpoch = nextTerrainEpoch++;
   private readonly persistence: SimulationPersistence;
   private readonly now: () => number;
   private readonly players: Map<string, RuntimePlayer>;
@@ -2634,6 +2642,7 @@ export class SimulationRuntime {
       connectedDockIds?: readonly string[];
     }>;
     tileYieldCollectedAtByTile: Array<{ tileKey: string; collectedAt: number }>;
+    terrainEpoch: number;
   } {
     return {
       tiles: [...this.tiles.values()]
@@ -2705,7 +2714,8 @@ export class SimulationRuntime {
       docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
+        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      terrainEpoch: this.terrainEpoch
     };
   }
 
@@ -3041,7 +3051,8 @@ export class SimulationRuntime {
       docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
+        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      terrainEpoch: this.terrainEpoch
     };
   }
 
@@ -4880,6 +4891,7 @@ export class SimulationRuntime {
       economicStructure: undefined
     };
     this.replaceTileState(targetKey, updatedTile);
+    this.terrainEpoch = nextTerrainEpoch++;
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,
@@ -4949,6 +4961,7 @@ export class SimulationRuntime {
     this.stampObservatoryCooldown(removeMountainObservatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, removeMountainNow, command.commandId, command.playerId);
     const updatedTile: DomainTileState = { ...target, terrain: "LAND" };
     this.replaceTileState(targetKey, updatedTile);
+    this.terrainEpoch = nextTerrainEpoch++;
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,

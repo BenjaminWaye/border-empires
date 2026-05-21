@@ -19,7 +19,11 @@ describe("runDeterministicReplay", () => {
     const firstRun = runDeterministicReplay(commands, { startTime: 1_000 });
     const secondRun = runDeterministicReplay(commands, { startTime: 1_000 });
 
-    expect(firstRun).toEqual(secondRun);
+    // terrainEpoch is a per-runtime-instance counter used for caching, not
+    // game state — different runtime instances naturally get different values.
+    const { terrainEpoch: _f, ...firstFinal } = firstRun.finalState;
+    const { terrainEpoch: _s, ...secondFinal } = secondRun.finalState;
+    expect({ ...firstRun, finalState: firstFinal }).toEqual({ ...secondRun, finalState: secondFinal });
     const eventTypes = firstRun.events.map((event) => event.eventType);
     expect(eventTypes[0]).toBe("COMMAND_ACCEPTED");
     expect(eventTypes).toContain("COMBAT_RESOLVED");
