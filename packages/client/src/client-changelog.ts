@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.2",
+  version: "2026.05.21.3",
   title: "What's New",
   summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN). Six dead tech stubs removed and the unwired Lockworks/Chartered Port chain dropped.",
   entries: [
     {
-      introducedIn: "2026.05.21.2",
+      introducedIn: "2026.05.21.3",
       title: "Seed Granary growth buff",
       why: "Seed Granaries had no gameplay effect beyond the build prompt; they now apply a real growth multiplier to the closest 5 granaries on their island.",
       changes: [
@@ -34,7 +34,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.2",
+      introducedIn: "2026.05.21.3",
       title: "Imperial Exchange Levy and Worldbreaker Shot",
       why: "Both monuments existed without abilities; the levy seizes a quarter of each rival's stock and the shot razes a single target.",
       changes: [
@@ -45,7 +45,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.2",
+      introducedIn: "2026.05.21.3",
       title: "Aether Towers power Airports",
       why: "Airports were free-standing and Oil had no producer; gating Airports on a nearby Aether Tower restores the design intent and moves the upkeep onto Crystal, which the empire can actually produce.",
       changes: [
@@ -55,13 +55,23 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.2",
+      introducedIn: "2026.05.21.3",
       title: "Tech-tree expansion and stub cleanup",
       why: "Eight dead unlock stubs were cluttering the tech tree with no backing mechanic; the three worth keeping now have real entries and the others are gone.",
       changes: [
         "Added Seedline Granaries (tier 4), Exchange Levy Writs (tier 8), and Worldbreaker Ignition (tier 8).",
         "Removed Broker Market, Treasury House, Weather Engine, Advanced Foundry, Catalytic Refiner, Refinery, Lockworks Port, and Chartered Port stubs — none of those had any backing sim logic in the rewrite.",
         "Seed Granary structure type is wired through shared types and the simulation runtime; gameplay effects land in follow-up work."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.3",
+      title: "FUEL_PLANT structure removed",
+      why: "Refinery (FUEL_PLANT) was the only producer of OIL, and the Refinery unlock stub was already deleted. Keeping the structure type and its OIL output wired created dead code with no path to be built.",
+      changes: [
+        "Removed FUEL_PLANT from shared types, costs, placement metadata, sim economy, gateway upkeep map, and all client build actions.",
+        "Removed associated FUEL_PLANT_BUILD_GOLD_COST, FUEL_PLANT_GOLD_UPKEEP, and FUEL_PLANT_OIL_PER_DAY constants.",
+        "OIL is now an unused strategic resource (no producers, no consumers) and is a candidate for removal in a follow-up."
       ]
     },
     {

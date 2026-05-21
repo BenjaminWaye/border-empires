@@ -69,7 +69,6 @@ import {
   ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
-  FUEL_PLANT_GOLD_UPKEEP,
   FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   IRONWORKS_OVERLOAD_IRON,
@@ -686,7 +685,6 @@ const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, stri
   ADVANCED_IRONWORKS: "advanced-synthetication",
   CRYSTAL_SYNTHESIZER: "crystal-lattices",
   ADVANCED_CRYSTAL_SYNTHESIZER: "advanced-synthetication",
-  FUEL_PLANT: "plastics",
   CARAVANARY: "ledger-keeping",
   FOUNDRY: "industrial-extraction",
   GARRISON_HALL: "organization",
@@ -709,15 +707,13 @@ const isConverterStructureType = (structureType: EconomicStructureType): boolean
   structureType === "IRONWORKS" ||
   structureType === "ADVANCED_IRONWORKS" ||
   structureType === "CRYSTAL_SYNTHESIZER" ||
-  structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
-  structureType === "FUEL_PLANT";
+  structureType === "ADVANCED_CRYSTAL_SYNTHESIZER";
 
 const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructureType): number => {
   const perMinute =
     structureType === "ADVANCED_FUR_SYNTHESIZER" || structureType === "FUR_SYNTHESIZER" ? FUR_SYNTHESIZER_GOLD_UPKEEP / 10
       : structureType === "IRONWORKS" || structureType === "ADVANCED_IRONWORKS" ? IRONWORKS_GOLD_UPKEEP / 10
       : structureType === "CRYSTAL_SYNTHESIZER" || structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10
-      : structureType === "FUEL_PLANT" ? FUEL_PLANT_GOLD_UPKEEP / 10
       : 0;
   return perMinute * (ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS / 60_000);
 };

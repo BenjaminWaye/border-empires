@@ -2,7 +2,6 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import {
   CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   DOCK_INCOME_PER_MIN,
-  FUEL_PLANT_OIL_PER_DAY,
   FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   IRONWORKS_IRON_PER_DAY,
   OFFLINE_YIELD_ACCUM_MAX_MS,
@@ -70,8 +69,6 @@ const converterDailyOutput = (
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-    case "FUEL_PLANT":
-      return { OIL: FUEL_PLANT_OIL_PER_DAY };
     default:
       return {};
   }
