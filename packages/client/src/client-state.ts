@@ -373,6 +373,7 @@ export const createInitialState = () => ({
   >(),
   attackPreviewPendingKey: "",
   attackPreviewPendingRequestId: "",
+  attackPreviewPendingStartedAt: 0,
   attackPreviewRequestSeq: 0,
   lastAttackPreviewAt: 0,
   dragPreviewKeys: new Set<string>(),
