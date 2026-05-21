@@ -63,6 +63,14 @@ const nextAttackPreviewRequestId = (state: ClientState): string => {
   return `attack-preview-${state.attackPreviewRequestSeq}`;
 };
 
+export const resetAttackPreviewState = (state: ClientState): void => {
+  state.attackPreview = undefined;
+  state.attackPreviewPendingKey = "";
+  state.attackPreviewPendingRequestId = "";
+  state.attackPreviewPendingStartedAt = 0;
+  state.attackPreviewLatestRequestIdByKey.clear();
+};
+
 const freshCachedAttackPreview = (state: ClientState, previewKey: string): AttackPreview | undefined => {
   const preview = state.attackPreviewCacheByKey.get(previewKey);
   if (!preview) return undefined;
@@ -96,6 +104,7 @@ const requestAttackPreview = (
       state.attackPreviewPendingKey = "";
       state.attackPreviewPendingRequestId = "";
       state.attackPreviewPendingStartedAt = 0;
+      state.attackPreviewLatestRequestIdByKey.delete(previewKey);
       return;
     }
   }
@@ -107,6 +116,7 @@ const requestAttackPreview = (
   state.attackPreviewPendingStartedAt = nowMs;
   const requestId = nextAttackPreviewRequestId(state);
   state.attackPreviewPendingRequestId = requestId;
+  state.attackPreviewLatestRequestIdByKey.set(previewKey, requestId);
   if (!useCache) {
     state.attackPreviewCacheByKey.delete(previewKey);
     if (state.attackPreview?.fromKey === args.fromKey && state.attackPreview.toKey === args.toKey) state.attackPreview = undefined;
@@ -461,10 +471,7 @@ export const requestSettlement = (
   state.latestSettleTargetKey = tileKey;
   deps.syncOptimisticSettlementTile(x, y, false);
   state.selected = { x, y };
-  state.attackPreview = undefined;
-  state.attackPreviewPendingKey = "";
-  state.attackPreviewPendingRequestId = "";
-  state.attackPreviewPendingStartedAt = 0;
+  resetAttackPreviewState(state);
   deps.renderHud();
   return true;
 };
@@ -1178,10 +1185,7 @@ export const processActionQueue = (
         }
       });
     }
-    state.attackPreview = undefined;
-    state.attackPreviewPendingKey = "";
-    state.attackPreviewPendingRequestId = "";
-    state.attackPreviewPendingStartedAt = 0;
+    resetAttackPreviewState(state);
     if (!to.ownerId) {
       if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         deps.notifyInsufficientGoldForFrontierAction("claim");
