@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { VISION_RADIUS } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "./player-runtime-summary.js";
@@ -354,7 +355,7 @@ export const chooseAiDomainChoiceForPlayer = (
       if (domain.id === "frontier-doctrine" && settledTileCountForChoice < 20) score += 20;
       if (domain.id === "mercantile-charter" && flags.has("active_town")) score += 65;
       if (domain.id === "mercantile-charter" && flags.has("active_dock")) score += 35;
-      if (domain.id === "farmers-compact" && ((counts.FARM ?? 0) > 0 || (counts.FISH ?? 0) > 0)) score += 50;
+      if (domain.id === "clockwork-stipend") score += 30;
       if (domain.id === "iron-bastions" && flags.has("active_town")) score += 20;
       if (domain.id === "supply-raiding" && ((counts.WOOD ?? 0) > 0 || (counts.FUR ?? 0) > 0)) score += 18;
       const resourceCost = toResources(domain.cost);
@@ -411,10 +412,45 @@ export const chooseTechForPlayer = (
   return { ok: true };
 };
 
+// Re-exported so runtime.ts and other sim modules that already import this
+// bridge for chooseDomainForPlayer / chosenTrickleRateForPlayer don't need a
+// second import line. The canonical definition lives in
+// @border-empires/shared (trickle-resources.ts) so the client uses the same
+// type via its own shared-package import.
+export type { ChosenTrickleResource };
+
+export const chosenTrickleOptionsForDomain = (
+  domainId: string
+): Record<ChosenTrickleResource, number> | undefined => {
+  const domain = domainEntryById.get(domainId);
+  const raw = domain?.effects?.chosenResourceTrickleOptions;
+  if (!raw || typeof raw !== "object") return undefined;
+  const options: Partial<Record<ChosenTrickleResource, number>> = {};
+  for (const key of TRICKLE_RESOURCE_KEYS) {
+    const rate = (raw as Record<string, unknown>)[key];
+    if (typeof rate === "number" && Number.isFinite(rate) && rate > 0) options[key] = rate;
+  }
+  return Object.keys(options).length > 0 ? (options as Record<ChosenTrickleResource, number>) : undefined;
+};
+
+export const chosenTrickleRateForPlayer = (
+  player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource">
+): { resource: ChosenTrickleResource; ratePerMinute: number } | undefined => {
+  const chosen = player.chosenTrickleResource;
+  if (chosen !== "IRON" && chosen !== "SUPPLY" && chosen !== "CRYSTAL") return undefined;
+  for (const domainId of player.domainIds ?? []) {
+    const options = chosenTrickleOptionsForDomain(domainId);
+    const rate = options?.[chosen];
+    if (typeof rate === "number") return { resource: chosen, ratePerMinute: rate };
+  }
+  return undefined;
+};
+
 export const chooseDomainForPlayer = (
   player: DomainPlayer,
   domainId: string,
-  _tiles: Iterable<DomainTileState>
+  _tiles: Iterable<DomainTileState>,
+  options?: { chosenTrickleResource?: ChosenTrickleResource }
 ): { ok: true } | { ok: false; reason: string } => {
   const domain = domainTree.domains.find((entry) => entry.id === domainId);
   if (!domain) return { ok: false, reason: "domain not found" };
@@ -426,10 +462,24 @@ export const chooseDomainForPlayer = (
   if (player.points < (domain.cost?.gold ?? 0) || !hasResources(required, available)) {
     return { ok: false, reason: "requirements not met" };
   }
+  // Domains that ask the player to pick a resource (Clockwork Stipend) require
+  // the sub-choice up front, and the choice must be one of the offered keys.
+  const trickleOptions = chosenTrickleOptionsForDomain(domainId);
+  if (trickleOptions) {
+    const picked = options?.chosenTrickleResource;
+    if (!picked || !(picked in trickleOptions)) {
+      return { ok: false, reason: "trickle resource choice required" };
+    }
+  }
   player.points = Math.max(0, player.points - (domain.cost?.gold ?? 0));
   spendStrategicResources(player, required);
   if (!player.domainIds) player.domainIds = new Set<string>();
   player.domainIds.add(domainId);
+  if (trickleOptions && options?.chosenTrickleResource) {
+    // Locked forever: once a trickle resource is chosen, it does not change
+    // even if another domain later offers a different option set.
+    if (!player.chosenTrickleResource) player.chosenTrickleResource = options.chosenTrickleResource;
+  }
   player.mods = recomputeMods(player);
   return { ok: true };
 };
@@ -500,7 +550,12 @@ export const buildTechUpdatePayload = (
       }
     })),
     revealCapacity: 0,
-    activeRevealTargets: []
+    activeRevealTargets: [],
+    // Echo the player's locked sub-choice (Clockwork Stipend) so the client
+    // can render "Clockwork Stipend (IRON)" after a reconnect and skip the
+    // pick modal when the player tries to re-confirm an already-locked
+    // domain. Field is omitted when the player has never picked.
+    ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {})
   };
 };
 
@@ -521,6 +576,7 @@ export const buildDomainUpdatePayload = (
     incomePerMinute: techPayload.incomePerMinute,
     missions: techPayload.missions,
     gold: techPayload.gold,
-    strategicResources: techPayload.strategicResources
+    strategicResources: techPayload.strategicResources,
+    ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {})
   };
 };

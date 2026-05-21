@@ -1,6 +1,7 @@
 import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
+import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
 import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
 
 type PlayerActionDeps = {
@@ -93,6 +94,32 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
   deps.renderHud();
 };
 
+const sendDomainCommand = (
+  deps: PlayerActionDeps,
+  domain: { id: string; name: string },
+  chosenTrickleResource: string | undefined
+): void => {
+  deps.state.domainUiSelectedId = domain.id;
+  deps.state.pendingDomainUnlockId = domain.id;
+  const payload: { type: "CHOOSE_DOMAIN"; domainId: string; chosenTrickleResource?: string } = {
+    type: "CHOOSE_DOMAIN",
+    domainId: domain.id
+  };
+  if (chosenTrickleResource) payload.chosenTrickleResource = chosenTrickleResource;
+  deps.ws.send(JSON.stringify(payload));
+  const trickleSuffix = chosenTrickleResource ? ` (${chosenTrickleResource} trickle)` : "";
+  deps.pushFeed(`Choosing domain: ${domain.name}${trickleSuffix}.`, "tech", "info");
+  deps.renderHud();
+};
+
+const offeredTrickleOptions = (effects: Record<string, unknown> | undefined): TrickleOption[] => {
+  const raw = (effects?.chosenResourceTrickleOptions ?? null) as Record<string, unknown> | null;
+  if (!raw || typeof raw !== "object") return [];
+  return Object.entries(raw)
+    .filter(([, rate]) => typeof rate === "number" && (rate as number) > 0)
+    .map(([resource, rate]) => ({ resource: resource.toUpperCase(), ratePerMinute: rate as number }));
+};
+
 export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: PlayerActionDeps): void => {
   const websocketOpenReadyState = typeof WebSocket !== "undefined" ? WebSocket.OPEN : 1;
   const domainId = (domainIdRaw ?? "").trim() || deps.state.domainUiSelectedId?.trim() || deps.state.domainChoices[0] || "";
@@ -118,11 +145,50 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
     deps.pushFeed("That domain is no longer available.", "tech", "warn");
     return;
   }
-  deps.state.domainUiSelectedId = domainId;
+  // Some domains (e.g. Clockwork Stipend) require a sub-choice — the player
+  // picks one resource that will trickle forever. The catalog effect carries
+  // the offered { RESOURCE: ratePerMinute } map; if the option list is
+  // present the server will reject the command unless `chosenTrickleResource`
+  // is included in the payload, so we have to collect it here before sending.
+  const offered = offeredTrickleOptions(domain.effects);
+  if (offered.length === 0) {
+    sendDomainCommand(deps, domain, undefined);
+    return;
+  }
+
+  // Stack-proof the modal: rapid double-click of the same confirm button
+  // would otherwise see pendingDomainUnlockId still falsy (sendDomainCommand
+  // only sets it after the modal resolves) and open a second modal on top
+  // of the first. Setting the guard here blocks the second call at the
+  // pendingDomainUnlockId check above. Cleared on cancel/disconnect; the
+  // duplicate set inside sendDomainCommand is intentional for the no-modal
+  // path and a harmless no-op here.
   deps.state.pendingDomainUnlockId = domainId;
-  deps.ws.send(JSON.stringify({ type: "CHOOSE_DOMAIN", domainId }));
-  deps.pushFeed(`Choosing domain: ${domain.name}.`, "tech", "info");
   deps.renderHud();
+
+  const defaultResource = offered[0]?.resource;
+  void promptForTrickleResource({
+    domainName: domain.name,
+    offered,
+    ...(defaultResource ? { defaultResource } : {})
+  }).then((picked) => {
+    if (!picked) {
+      deps.state.pendingDomainUnlockId = "";
+      deps.pushFeed("Domain pick cancelled — no resource selected.", "tech", "warn");
+      deps.renderHud();
+      return;
+    }
+    // Recheck the socket — the user may have been disconnected while the
+    // modal was open. (No need to recheck pendingDomainUnlockId here, since
+    // we set it ourselves above.)
+    if (deps.ws.readyState !== websocketOpenReadyState) {
+      deps.state.pendingDomainUnlockId = "";
+      deps.pushFeed("Cannot choose a domain while disconnected.", "tech", "error");
+      deps.renderHud();
+      return;
+    }
+    sendDomainCommand(deps, domain, picked);
+  });
 };
 
 export const explainActionFailureFromServer = (

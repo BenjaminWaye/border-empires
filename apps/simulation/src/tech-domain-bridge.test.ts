@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { TRICKLE_RESOURCE_KEYS, isChosenTrickleResource, type ChosenTrickleResource } from "@border-empires/shared";
+
 import {
   DOMAIN_TREE_PATH,
   DOMAIN_TREE_RELATIVE_CANDIDATES,
@@ -10,6 +12,10 @@ import {
   TECH_TREE_RELATIVE_CANDIDATES,
   buildDomainUpdatePayload,
   buildModBreakdownForPlayer,
+  chooseDomainForPlayer,
+  chosenTrickleOptionsForDomain,
+  chosenTrickleRateForPlayer,
+  multiplicativeEffectForPlayer,
   recomputeMods,
   resolveDataPath
 } from "./tech-domain-bridge.js";
@@ -84,5 +90,156 @@ describe("tech-domain bridge progression sources", () => {
     };
 
     expect(buildDomainUpdatePayload(player, [], { incomePerMinute: 15.4 }).incomePerMinute).toBe(15.4);
+  });
+});
+
+describe("tier-1 domain effects are wired", () => {
+  it("Iron Bastions exposes fortBuildSpeedMult / fortIronUpkeepMult / fortGoldUpkeepMult to the multiplicative resolver", () => {
+    const player = {
+      techIds: new Set<string>(["masonry"]),
+      domainIds: new Set<string>(["iron-bastions"])
+    };
+    expect(multiplicativeEffectForPlayer(player, "fortBuildSpeedMult")).toBeCloseTo(1.5, 6);
+    expect(multiplicativeEffectForPlayer(player, "fortIronUpkeepMult")).toBeCloseTo(0.6, 6);
+    expect(multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult")).toBeCloseTo(0.6, 6);
+  });
+
+  it("Supply Raiding exposes outpostDeploymentSpeedMult / outpostSupplyUpkeepMult", () => {
+    const player = {
+      techIds: new Set<string>(["leatherworking"]),
+      domainIds: new Set<string>(["supply-raiding"])
+    };
+    expect(multiplicativeEffectForPlayer(player, "outpostDeploymentSpeedMult")).toBeCloseTo(1.5, 6);
+    expect(multiplicativeEffectForPlayer(player, "outpostSupplyUpkeepMult")).toBeCloseTo(0.7, 6);
+  });
+
+  it("Mercantile Charter exposes firstThreeTownsPopulationGrowthMult at 1.25", () => {
+    const player = {
+      techIds: new Set<string>(["trade"]),
+      domainIds: new Set<string>(["mercantile-charter"])
+    };
+    expect(multiplicativeEffectForPlayer(player, "firstThreeTownsPopulationGrowthMult")).toBeCloseTo(1.25, 6);
+  });
+});
+
+describe("Clockwork Stipend trickle resource choice", () => {
+  const baseClockworkPlayer = (): {
+    id: string;
+    isAi: boolean;
+    points: number;
+    manpower: number;
+    techIds: Set<string>;
+    domainIds: Set<string>;
+    allies: Set<string>;
+    strategicResources: Record<string, number>;
+    chosenTrickleResource?: ChosenTrickleResource;
+  } => ({
+    id: "player-1",
+    isAi: false,
+    points: 10_000,
+    manpower: 0,
+    techIds: new Set<string>(["agriculture"]),
+    domainIds: new Set<string>(),
+    allies: new Set<string>(),
+    strategicResources: { FOOD: 500 } as Record<string, number>
+  });
+
+  it("publishes the offered per-resource trickle rates", () => {
+    const options = chosenTrickleOptionsForDomain("clockwork-stipend");
+    expect(options).toEqual({ IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 });
+  });
+
+  it("data file's clockwork-stipend options match TRICKLE_RESOURCE_KEYS exactly", () => {
+    // Parity guard, both directions:
+    //
+    //   1. If TRICKLE_RESOURCE_KEYS is widened without updating the data file,
+    //      the raw-data subset check below fails because shared has extra keys
+    //      the data doesn't carry (the validator would silently return undefined
+    //      for those — a real correctness bug).
+    //   2. If the data file grows an extra rate (e.g. SHARD: 0.5) without
+    //      widening TRICKLE_RESOURCE_KEYS, the raw-data superset check below
+    //      fails because data has a key shared doesn't honor (the sim and
+    //      client would both silently ignore it — not a bug today but a
+    //      maintenance trap).
+    //
+    // We read the JSON directly rather than going through the bridge so we're
+    // checking the source data, not the already-filtered helper output.
+    const rawTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as {
+      domains: Array<{ id: string; effects?: Record<string, unknown> }>;
+    };
+    const clockwork = rawTree.domains.find((domain) => domain.id === "clockwork-stipend");
+    expect(clockwork).toBeDefined();
+    const rawOptions = clockwork!.effects?.chosenResourceTrickleOptions as Record<string, unknown> | undefined;
+    expect(rawOptions).toBeDefined();
+    expect(Object.keys(rawOptions!).sort()).toEqual([...TRICKLE_RESOURCE_KEYS].sort());
+
+    // Belt-and-braces: every data key passes the runtime guard.
+    for (const key of Object.keys(rawOptions!)) {
+      expect(isChosenTrickleResource(key)).toBe(true);
+    }
+  });
+
+  it("isChosenTrickleResource rejects unrelated resource keys and non-strings", () => {
+    expect(isChosenTrickleResource("IRON")).toBe(true);
+    expect(isChosenTrickleResource("SUPPLY")).toBe(true);
+    expect(isChosenTrickleResource("CRYSTAL")).toBe(true);
+    expect(isChosenTrickleResource("FOOD")).toBe(false);
+    expect(isChosenTrickleResource("SHARD")).toBe(false);
+    expect(isChosenTrickleResource("OIL")).toBe(false);
+    expect(isChosenTrickleResource("iron")).toBe(false); // case-sensitive
+    expect(isChosenTrickleResource(undefined)).toBe(false);
+    expect(isChosenTrickleResource(null)).toBe(false);
+    expect(isChosenTrickleResource(42)).toBe(false);
+  });
+
+  it("rejects CHOOSE_DOMAIN for clockwork-stipend without a sub-choice", () => {
+    const player = baseClockworkPlayer();
+    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", []);
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toMatch(/trickle resource choice required/);
+    expect(player.domainIds.has("clockwork-stipend")).toBe(false);
+  });
+
+  it("rejects unsupported sub-choices (e.g. SHARD)", () => {
+    const player = baseClockworkPlayer();
+    // SHARD is a strategic resource but not in the offered table.
+    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], {
+      chosenTrickleResource: "SHARD" as unknown as "IRON"
+    });
+    expect(outcome.ok).toBe(false);
+  });
+
+  it("accepts a valid sub-choice and locks the chosen resource on the player", () => {
+    const player = baseClockworkPlayer();
+    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "CRYSTAL" });
+    expect(outcome.ok).toBe(true);
+    expect(player.domainIds.has("clockwork-stipend")).toBe(true);
+    expect(player.chosenTrickleResource).toBe("CRYSTAL");
+  });
+
+  it("chosenTrickleRateForPlayer returns the rate matching the locked pick", () => {
+    const player = {
+      domainIds: new Set<string>(["clockwork-stipend"]),
+      chosenTrickleResource: "IRON" as const
+    };
+    expect(chosenTrickleRateForPlayer(player)).toEqual({ resource: "IRON", ratePerMinute: 0.2 });
+  });
+
+  it("chosenTrickleRateForPlayer returns undefined when no resource is locked", () => {
+    const player = { domainIds: new Set<string>(["clockwork-stipend"]) };
+    expect(chosenTrickleRateForPlayer(player)).toBeUndefined();
+  });
+
+  it("does not overwrite a previously-locked trickle resource even when a new pick is offered", () => {
+    // Simulate a player who already locked IRON on a prior run (e.g. snapshot
+    // recovery, or a future second-trickle domain). Calling chooseDomainForPlayer
+    // with a different valid sub-choice MUST NOT reassign the locked value.
+    const player = baseClockworkPlayer();
+    player.chosenTrickleResource = "IRON";
+    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "SUPPLY" });
+    expect(outcome.ok).toBe(true);
+    expect(player.domainIds.has("clockwork-stipend")).toBe(true);
+    // Locked forever — the SUPPLY pick we just passed in is ignored.
+    expect(player.chosenTrickleResource).toBe("IRON");
   });
 });

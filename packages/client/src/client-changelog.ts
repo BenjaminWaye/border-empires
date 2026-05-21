@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.4",
+  version: "2026.05.21.1",
   title: "What's New",
-  summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN).",
+  summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN). Six dead tech stubs removed and the unwired Lockworks/Chartered Port chain dropped.",
   entries: [
     {
-      introducedIn: "2026.05.20.4",
+      introducedIn: "2026.05.21.1",
       title: "Seed Granary growth buff",
       why: "Seed Granaries had no gameplay effect beyond the build prompt; they now apply a real growth multiplier to the closest 5 granaries on their island.",
       changes: [
@@ -34,7 +34,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.20.4",
+      introducedIn: "2026.05.21.1",
       title: "Imperial Exchange Levy and Worldbreaker Shot",
       why: "Both monuments existed without abilities; the levy seizes a quarter of each rival's stock and the shot razes a single target.",
       changes: [
@@ -44,7 +44,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.20.1",
+      introducedIn: "2026.05.21.1",
       title: "Aether Towers power Airports",
       why: "Airports were free-standing and Oil had no producer; gating Airports on a nearby Aether Tower restores the design intent and moves the upkeep onto Crystal, which the empire can actually produce.",
       changes: [
@@ -54,13 +54,64 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.20.2",
+      introducedIn: "2026.05.21.1",
       title: "Tech-tree expansion and stub cleanup",
       why: "Eight dead unlock stubs were cluttering the tech tree with no backing mechanic; the three worth keeping now have real entries and the others are gone.",
       changes: [
         "Added Seedline Granaries (tier 4), Exchange Levy Writs (tier 8), and Worldbreaker Ignition (tier 8).",
         "Removed Broker Market, Treasury House, Weather Engine, Advanced Foundry, Catalytic Refiner, Refinery, Lockworks Port, and Chartered Port stubs — none of those had any backing sim logic in the rewrite.",
         "Seed Granary structure type is wired through shared types and the simulation runtime; gameplay effects land in follow-up work."
+      ]
+    },
+    {
+      introducedIn: "2026.05.20.5",
+      title: "Desktop Choose Tier button is no longer a no-op",
+      why: "Per-button onclick handlers were bound before the domains panel innerHTML was rewritten, so the new buttons the user actually saw had no listeners. Mobile worked because clicks were caught by the overlay container handler, which survived the rewrite.",
+      changes: [
+        "Domain panel now uses event delegation on the panel container (same pattern as the mobile overlay), so unlock and close clicks fire regardless of how often the inner HTML is re-rendered."
+      ]
+    },
+    {
+      introducedIn: "2026.05.20.4",
+      title: "Ironworks and Aether Condenser unlock from their own techs",
+      why: "The menu's hide-locked filter was checking Workshops for all three synthesizer-family buildings, so researching Alchemy or Crystal Lattices alone left Ironworks and Aether Condenser invisible in the build list even though the action itself was already enabled.",
+      changes: [
+        "build_ironworks now reports Alchemy as its required tech (matches the in-action gate).",
+        "build_crystal_synthesizer now reports Crystal Lattices as its required tech.",
+        "build_fur_synthesizer is unchanged — it still requires Workshops."
+      ]
+    },
+    {
+      introducedIn: "2026.05.20.3",
+      title: "Strict FIFO development queue",
+      why: "If you queued 20 settlements and then clicked a granary, the granary would sometimes start immediately by catching a slot that opened the instant a settlement finished, jumping ahead of the queue.",
+      changes: [
+        "Settle and build clicks now route to the end of the development queue whenever the queue is non-empty, regardless of available slots.",
+        "Queue processor still drains in order, so behavior matches what you see in the queue UI."
+      ]
+    },
+    {
+      introducedIn: "2026.05.20.2",
+      title: "Tier-1 domains reworked + dead tooltip effects brought to life + Clockwork Stipend goes live",
+      why: "Most tier-1 modifiers were 10–20% — too small to feel decisive — and several effect keys (fortIronUpkeepMult, fortBuildGoldCostMult, fortDefenseMult, outpostSupplyUpkeepMult, outpostDeploymentSpeedMult, firstThreeTownsPopulationGrowthMult, attackVsSettledMult, attackVsFortsMult) only existed in tooltips; the sim never read them. Domains should feel like an identity choice from the first pick.",
+      changes: [
+        "Frontier Doctrine: settlement speed +50% (was +20%), keeps +1 development slot.",
+        "Iron Bastions reworked: forts build +50% faster (new effect, now wired in the sim), and both fort iron upkeep and fort gold upkeep are -40%.",
+        "Supply Raiding reworked: outpost deployment +50% faster and outpost supply upkeep -30%.",
+        "Mercantile Charter: first-three-towns population growth bonus raised to +25% (was +15%) and now actually applies to the growth tick.",
+        "Farmer's Compact retired; Clockwork Stipend takes its tier-1 slot — pick one resource (iron 0.2/min, supply 0.2/min, or crystal 0.1/min) for a permanent trickle. Choice is locked forever; an in-game modal lets you pick on confirm, the owned-domain card shows your locked pick after that. AI players pick whichever offered resource they are most stockpile-starved on.",
+        "Frontier combat now reads defender-side fortDefenseMult and attacker-side attackVsSettledMult / attackVsFortsMult; the runtime extends FrontierCombatPreviewTile with a hasFort flag derived from the actual tile state.",
+        "Single source of truth for the trickle resource list lives in @border-empires/shared (TRICKLE_RESOURCE_KEYS + isChosenTrickleResource guard); a parity test reads the raw domain-tree.json and fails loud on either-direction drift."
+      ]
+    },
+    {
+      introducedIn: "2026.05.20.1",
+      title: "Barbarian population capped at 200",
+      why: "Unchecked barb multiplication was the underlying cause of late-game gateway slowdowns. The cap holds the population steady without disabling regrowth.",
+      changes: [
+        "Barbarian-1 stops multiplying once it owns 200 tiles.",
+        "An at-threshold walk on a capped population still walks (source releases, target captured) but carries the would-multiply progress to the target.",
+        "As soon as any barb dies, the next walk from a progress-loaded barb tile multiplies — replacement happens immediately, no compound growth."
       ]
     },
     {

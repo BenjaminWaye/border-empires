@@ -12,7 +12,7 @@ import {
   restoreSkippedAutoSettlementTileKeysForPlayer,
   restorePersistedDevelopmentQueueForPlayer
 } from "./client-development-queue.js";
-import { cancelQueuedSettlement, developmentSlotSummary, processDevelopmentQueue, queueDevelopmentAction, requestSettlement } from "./client-queue-logic.js";
+import { cancelQueuedSettlement, developmentSlotSummary, processDevelopmentQueue, queueDevelopmentAction, requestSettlement, sendDevelopmentBuild } from "./client-queue-logic.js";
 import type { TechInfo } from "./client-types.js";
 
 const installSessionStorageMock = () => {
@@ -372,6 +372,66 @@ describe("development queue helpers", () => {
     expect(queued).toBe(true);
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
     expect(state.settleProgressByTile.size).toBe(0);
+  });
+
+  it("queues a fresh settlement behind existing queue entries even when a slot is free", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 999;
+    state.developmentQueue = [{ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Settlement at (1, 1)" }];
+    state.tiles.set("2,2", { x: 2, y: 2, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as any);
+    const sendGameMessage = vi.fn(() => true);
+
+    const queued = requestSettlement(state, 2, 2, {
+      keyFor: (x, y) => `${x},${y}`,
+      developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+      developmentSlotReason: () => "busy",
+      queueDevelopmentAction: (entry) => {
+        state.developmentQueue.push(entry);
+        return true;
+      },
+      pushFeed: vi.fn(),
+      renderHud: vi.fn(),
+      sendGameMessage,
+      syncOptimisticSettlementTile: vi.fn(),
+      opts: {}
+    });
+
+    expect(queued).toBe(true);
+    expect(sendGameMessage).not.toHaveBeenCalled();
+    expect(state.developmentQueue.map((e) => e.tileKey)).toEqual(["1,1", "2,2"]);
+  });
+
+  it("queues a granary behind existing queue entries even when a slot is free", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.developmentQueue = [{ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Settlement at (1, 1)" }];
+    const sendGameMessage = vi.fn(() => true);
+    const optimistic = vi.fn();
+
+    const queued = sendDevelopmentBuild(
+      state,
+      { type: "BUILD_ECONOMIC_STRUCTURE", x: 2, y: 2, structureType: "GRANARY" },
+      optimistic,
+      { x: 2, y: 2, label: "Granary at (2, 2)", optimisticKind: "GRANARY" },
+      {
+        keyFor: (x, y) => `${x},${y}`,
+        queueDevelopmentAction: (entry) => {
+          state.developmentQueue.push(entry);
+          return true;
+        },
+        developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+        developmentSlotReason: () => "busy",
+        pushFeed: vi.fn(),
+        renderHud: vi.fn(),
+        sendGameMessage
+      }
+    );
+
+    expect(queued).toBe(true);
+    expect(sendGameMessage).not.toHaveBeenCalled();
+    expect(optimistic).not.toHaveBeenCalled();
+    expect(state.developmentQueue.map((e) => `${e.kind}:${e.tileKey}`)).toEqual(["SETTLE:1,1", "BUILD:2,2"]);
   });
 
   it("uses settlement speed effects for optimistic settlement progress", () => {

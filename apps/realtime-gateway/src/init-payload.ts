@@ -5,7 +5,9 @@ import {
   MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE,
   anonymizedEmpireNameForId,
+  isChosenTrickleResource,
   isOpaquePlayerId,
+  type ChosenTrickleResource,
   type PlayerRespawnNotice,
   type SeasonVictoryObjectiveView,
   type SeasonVictoryPathId,
@@ -97,6 +99,7 @@ type GatewayInitPayload = {
     upkeepLastTick?: Record<string, unknown>;
     techIds: string[];
     domainIds: string[];
+    chosenTrickleResource?: ChosenTrickleResource;
     mods: StatMods;
     modBreakdown: ModBreakdown;
     availableTechPicks: number;
@@ -197,6 +200,9 @@ const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: Te
 const domainTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as { domains: DomainCatalogEntry[] };
 const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
 const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
+
+const coerceChosenTrickleResource = (raw: unknown): ChosenTrickleResource | undefined =>
+  isChosenTrickleResource(raw) ? raw : undefined;
 
 const recomputeMods = (techIds: readonly string[], domainIds: readonly string[]): StatMods => {
   const next: StatMods = { attack: 1, defense: 1, income: 1, vision: 1 };
@@ -894,6 +900,12 @@ export const buildGatewayInitPayload = (
       ),
       techIds: liveSnapshotPlayer?.techIds ?? techIds,
       domainIds: liveSnapshotPlayer?.domainIds ?? domainIds,
+      ...((): { chosenTrickleResource?: ChosenTrickleResource } => {
+        const chosenTrickleResource =
+          coerceChosenTrickleResource((liveSnapshotPlayer as { chosenTrickleResource?: unknown } | undefined)?.chosenTrickleResource) ??
+          coerceChosenTrickleResource((bootstrapProfile as { chosenTrickleResource?: unknown } | undefined)?.chosenTrickleResource);
+        return chosenTrickleResource ? { chosenTrickleResource } : {};
+      })(),
       mods: liveSnapshotPlayer?.mods ?? recomputeMods(liveSnapshotPlayer?.techIds ?? techIds, liveSnapshotPlayer?.domainIds ?? domainIds),
       modBreakdown: liveSnapshotPlayer?.modBreakdown ?? buildModBreakdown(liveSnapshotPlayer?.techIds ?? techIds, liveSnapshotPlayer?.domainIds ?? domainIds),
       availableTechPicks: techChoices.length,
