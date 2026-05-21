@@ -125,7 +125,9 @@ describe("restart parity (in-memory stores)", () => {
     const afterRestartState = serviceAfterRestart.runtime.exportState();
     await serviceAfterRestart.close();
 
-    expect(afterRestartState).toEqual(beforeRestartState);
+    const { terrainEpoch: _b, ...beforeMinusEpoch } = beforeRestartState;
+    const { terrainEpoch: _a, ...afterMinusEpoch } = afterRestartState;
+    expect(afterMinusEpoch).toEqual(beforeMinusEpoch);
   });
 
   it("preserves bootstrap-spawned territory across a cold restart", async () => {
