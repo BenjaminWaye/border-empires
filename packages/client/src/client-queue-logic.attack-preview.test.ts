@@ -40,6 +40,7 @@ const expectAttackPreviewRequest = (
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("attack preview prefetch and cache", () => {
@@ -243,5 +244,41 @@ describe("attack preview prefetch and cache", () => {
         pickOriginForTarget: () => origin
       })
     ).toBeUndefined();
+  });
+
+  it("stops showing an infinite loading state when a fresh menu preview never returns", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    const origin = makeTile({ x: 4, y: 7, ownerId: "me" });
+    const target = makeTile({ x: 5, y: 7, ownerId: "enemy" });
+    const send = vi.fn();
+    const onPreviewTimeout = vi.fn();
+
+    requestAttackPreviewForTarget(state, target, {
+      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      pickOriginForTarget: () => origin,
+      onPreviewTimeout
+    });
+
+    const requestId = expectAttackPreviewRequest(send, { fromX: 4, fromY: 7, toX: 5, toY: 7 });
+    expect(state.attackPreviewPendingKey).toBe("4,7->5,7");
+    expect(state.attackPreviewPendingRequestId).toBe(requestId);
+
+    vi.advanceTimersByTime(3_999);
+    expect(attackPreviewPendingForTarget(state, target, { keyFor: (x, y) => `${x},${y}`, pickOriginForTarget: () => origin })).toBe(true);
+
+    vi.advanceTimersByTime(1);
+    expect(state.attackPreviewPendingKey).toBe("");
+    expect(state.attackPreviewPendingRequestId).toBe(requestId);
+    expect(attackPreviewPendingForTarget(state, target, { keyFor: (x, y) => `${x},${y}`, pickOriginForTarget: () => origin })).toBe(false);
+    expect(attackPreviewDetailForTarget(state, target, { keyFor: (x, y) => `${x},${y}`, pickOriginForTarget: () => origin })).toBe(
+      "Attack preview unavailable"
+    );
+    expect(onPreviewTimeout).toHaveBeenCalledTimes(1);
   });
 });
