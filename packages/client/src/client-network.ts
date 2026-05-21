@@ -16,9 +16,11 @@ import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordCli
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
 import {
+  notifyActiveAllianceBreaksOnInit,
   notifyIncomingAllianceRequest,
   notifyIncomingDiplomacyRequestsOnInit,
-  notifyIncomingTruceRequest
+  notifyIncomingTruceRequest,
+  notifyRecentAllianceBreaksOnInit
 } from "./client-diplomacy-notifications.js";
 import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import { tileHasTownIdentity } from "./client-town-identity.js";
@@ -1309,6 +1311,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (state.profileSetupRequired) setAuthStatus("Choose a display name and nation color to begin.");
       state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
+      state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? [];
+      state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? [];
       state.activeTruces = (msg.activeTruces as any[]) ?? [];
       state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
       state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? [];
@@ -1378,6 +1382,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         );
       }
       notifyIncomingDiplomacyRequestsOnInit(state, state.incomingAllianceRequests, state.incomingTruceRequests, {
+        pushFeed,
+        showCaptureAlert: showCaptureAlertSafely
+      });
+      notifyActiveAllianceBreaksOnInit(state, state.activeAllianceBreaks, {
+        pushFeed,
+        showCaptureAlert: showCaptureAlertSafely
+      });
+      notifyRecentAllianceBreaksOnInit(state, state.recentAllianceBreaks, {
         pushFeed,
         showCaptureAlert: showCaptureAlertSafely
       });
@@ -2376,8 +2388,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "ALLIANCE_UPDATE") {
       state.allies = (msg.allies as string[]) ?? [];
+      state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
+      state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
+      const announcement = msg.announcement as string | undefined;
+      if (announcement) {
+        const normalizedAnnouncement = announcement.toLocaleLowerCase();
+        const fullyBroken = normalizedAnnouncement.includes("now broken");
+        pushFeed(announcement, "alliance", fullyBroken ? "warn" : "info");
+        showCaptureAlertSafely(fullyBroken ? "Alliance broken" : "Alliance break notice", announcement, fullyBroken ? "warn" : "info");
+      }
       pushFeed(`Alliances updated (${state.allies.length})`, "alliance", "info");
       renderHud();
       return;
