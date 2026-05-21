@@ -385,6 +385,9 @@ export type SimulationTileWireDelta = {
   economicStructureJson?: string;
   sabotageJson?: string;
   shardSiteJson?: string;
+  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
+  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
+  yieldCap?: { gold: number; strategicEach: number };
 };
 
 const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWireDelta => ({
@@ -3069,6 +3072,12 @@ export class SimulationRuntime {
   ): SimulationTileWireDelta[] {
     const wrapX = (value: number): number => ((value % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
     const wrapY = (value: number): number => ((value % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
+    // Reuse the owner's economy context across all tiles in the request so the
+    // per-tile refresh inside tileDeltaFromState doesn't rebuild the same
+    // fed-town set / connected-town network 9× for a radius-1 fetch.
+    const tileOwner = this.tiles.get(simulationTileKey(wrapX(centerX), wrapY(centerY)))?.ownerId;
+    const ownerForContext = tileOwner ? this.players.get(tileOwner) : undefined;
+    const tileYieldContext = ownerForContext ? this.tileYieldEconomyContextForPlayer(ownerForContext) : undefined;
     const collected: SimulationTileWireDelta[] = [];
     const seen = new Set<string>();
     const r = Math.max(0, Math.floor(radius));
@@ -3081,7 +3090,8 @@ export class SimulationRuntime {
         seen.add(tileKey);
         const tile = this.tiles.get(tileKey);
         if (!tile) continue;
-        collected.push(domainTileToWireDelta(tile));
+        const delta = this.tileDeltaFromState(tile, tile.ownerId && ownerForContext && tile.ownerId === ownerForContext.id ? tileYieldContext : undefined);
+        collected.push(delta as SimulationTileWireDelta);
       }
     }
     if (options?.fullVisibility) return collected;
