@@ -372,19 +372,25 @@ export type SimulationTileWireDelta = {
   terrain?: Terrain;
   resource?: string;
   dockId?: string;
-  ownerId?: string;
-  ownershipState?: string;
-  frontierDecayAt?: number;
+  // Fields that flip to explicit `undefined` on uncapture / structure removal
+  // so subscribers can distinguish "field absent from delta" (no change) from
+  // "field cleared by this delta". Don't drop the `| undefined` union here.
+  ownerId?: string | undefined;
+  ownershipState?: string | undefined;
+  frontierDecayAt?: number | undefined;
+  fortJson?: string | undefined;
+  observatoryJson?: string | undefined;
+  siegeOutpostJson?: string | undefined;
+  economicStructureJson?: string | undefined;
+  sabotageJson?: string | undefined;
   townJson?: string;
-  townType?: string;
+  townType?: "MARKET" | "FARMING";
   townName?: string;
-  townPopulationTier?: string;
-  fortJson?: string;
-  observatoryJson?: string;
-  siegeOutpostJson?: string;
-  economicStructureJson?: string;
-  sabotageJson?: string;
+  townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   shardSiteJson?: string;
+  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
+  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
+  yieldCap?: { gold: number; strategicEach: number };
 };
 
 const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWireDelta => ({
@@ -3183,6 +3189,12 @@ export class SimulationRuntime {
   ): SimulationTileWireDelta[] {
     const wrapX = (value: number): number => ((value % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
     const wrapY = (value: number): number => ((value % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
+    // Reuse the owner's economy context across all tiles in the request so the
+    // per-tile refresh inside tileDeltaFromState doesn't rebuild the same
+    // fed-town set / connected-town network 9× for a radius-1 fetch.
+    const tileOwner = this.tiles.get(simulationTileKey(wrapX(centerX), wrapY(centerY)))?.ownerId;
+    const ownerForContext = tileOwner ? this.players.get(tileOwner) : undefined;
+    const tileYieldContext = ownerForContext ? this.tileYieldEconomyContextForPlayer(ownerForContext) : undefined;
     const collected: SimulationTileWireDelta[] = [];
     const seen = new Set<string>();
     const r = Math.max(0, Math.floor(radius));
@@ -3195,7 +3207,8 @@ export class SimulationRuntime {
         seen.add(tileKey);
         const tile = this.tiles.get(tileKey);
         if (!tile) continue;
-        collected.push(domainTileToWireDelta(tile));
+        const delta = this.tileDeltaFromState(tile, tile.ownerId && ownerForContext && tile.ownerId === ownerForContext.id ? tileYieldContext : undefined);
+        collected.push(delta);
       }
     }
     if (options?.fullVisibility) return collected;
@@ -5924,29 +5937,7 @@ export class SimulationRuntime {
     });
   }
 
-  private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext): {
-    x: number;
-    y: number;
-    terrain?: Terrain;
-    resource?: string;
-    dockId?: string;
-    shardSiteJson?: string;
-    ownerId?: string | undefined;
-    ownershipState?: string | undefined;
-    frontierDecayAt?: number | undefined;
-    townJson?: string;
-    townType?: "MARKET" | "FARMING";
-    townName?: string;
-    townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-    fortJson?: string | undefined;
-    observatoryJson?: string | undefined;
-    siegeOutpostJson?: string | undefined;
-    economicStructureJson?: string | undefined;
-    sabotageJson?: string | undefined;
-    yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
-    yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
-    yieldCap?: { gold: number; strategicEach: number } | undefined;
-  } {
+  private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext): SimulationTileWireDelta {
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext
@@ -5972,6 +5963,9 @@ export class SimulationRuntime {
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+      // Explicit `undefined` (rather than `...({})`) is load-bearing on these
+      // fields: subscribers diff by own-property existence to detect clears
+      // (uncapture, structure removal). See the uncapture regression test.
       ownerId: tile.ownerId ?? undefined,
       ownershipState: tile.ownershipState ?? undefined,
       frontierDecayAt: tile.frontierDecayAt ?? undefined,
