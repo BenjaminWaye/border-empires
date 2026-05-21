@@ -2,7 +2,7 @@ import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
 import {
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
@@ -12,8 +12,6 @@ import {
   DOCK_INCOME_PER_MIN,
   FARMSTEAD_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
-  FUEL_PLANT_GOLD_UPKEEP,
-  FUEL_PLANT_OIL_PER_DAY,
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   GARRISON_HALL_GOLD_UPKEEP,
@@ -157,8 +155,6 @@ const converterOutputPerMinute = (structureType: string): Partial<Record<Strateg
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY / 1440 };
-    case "FUEL_PLANT":
-      return { OIL: FUEL_PLANT_OIL_PER_DAY / 1440 };
     default:
       return {};
   }
@@ -181,13 +177,12 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<Economy
     case "ADVANCED_IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP / 10 };
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10 };
-    case "FUEL_PLANT": return { GOLD: FUEL_PLANT_GOLD_UPKEEP / 10 };
     case "FOUNDRY": return { GOLD: FOUNDRY_GOLD_UPKEEP / 10 };
     case "CUSTOMS_HOUSE": return { GOLD: CUSTOMS_HOUSE_GOLD_UPKEEP / 10 };
     case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
     case "GOVERNORS_OFFICE": return { GOLD: GOVERNORS_OFFICE_GOLD_UPKEEP / 10 };
     case "RADAR_SYSTEM": return { GOLD: RADAR_SYSTEM_GOLD_UPKEEP / 10 };
-    case "AIRPORT": return { OIL: AIRPORT_OIL_UPKEEP_PER_MIN };
+    case "AIRPORT": return { CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN };
     default: return {};
   }
 };

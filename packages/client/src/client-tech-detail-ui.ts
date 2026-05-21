@@ -65,9 +65,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockMarket":
         out.add("MARKET");
         break;
-      case "unlockBrokerageUpgrade":
-        out.add("BROKER_MARKET");
-        break;
       case "unlockGranary":
         out.add("GRANARY");
         break;
@@ -86,9 +83,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockCaravanary":
         out.add("CARAVANARY");
         break;
-      case "unlockTreasuryHouse":
-        out.add("TREASURY_HOUSE");
-        break;
       case "unlockFurSynthesizer":
         out.add("FUR_SYNTHESIZER");
         break;
@@ -102,12 +96,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         out.add("ADVANCED_FUR_SYNTHESIZER");
         out.add("ADVANCED_IRONWORKS");
         out.add("ADVANCED_CRYSTAL_SYNTHESIZER");
-        break;
-      case "unlockFuelPlant":
-        out.add("FUEL_PLANT");
-        break;
-      case "unlockAdvancedFuelPlant":
-        out.add("ADVANCED_FUEL_PLANT");
         break;
       case "unlockFoundry":
         out.add("FOUNDRY");
@@ -123,12 +111,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         break;
       case "unlockCustomsHouse":
         out.add("CUSTOMS_HOUSE");
-        break;
-      case "unlockHarborLocksUpgrade":
-        out.add("LOCKWORKS_PORT");
-        break;
-      case "unlockCharteredPortsUpgrade":
-        out.add("CHARTERED_PORT");
         break;
       case "unlockGovernorsOffice":
         out.add("GOVERNORS_OFFICE");

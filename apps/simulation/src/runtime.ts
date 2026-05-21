@@ -56,12 +56,19 @@ import {
   AETHER_WALL_COOLDOWN_MS,
   AETHER_WALL_CRYSTAL_COST,
   AETHER_WALL_DURATION_MS,
-  AIRPORT_BOMBARD_OIL_COST,
+  AIRPORT_BOMBARD_CRYSTAL_COST,
+  AETHER_TOWER_RADIUS,
+  AEGIS_DOME_PROTECTION_RADIUS,
   AIRPORT_BOMBARD_RANGE,
+  IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
+  IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
+  IMPERIAL_EXCHANGE_LEVY_SHARE,
+  WORLD_ENGINE_STRIKE_CRYSTAL_COST,
+  WORLD_ENGINE_STRIKE_COOLDOWN_MS,
+  WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO,
   ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
-  FUEL_PLANT_GOLD_UPKEEP,
   FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   IRONWORKS_OVERLOAD_IRON,
@@ -637,12 +644,40 @@ const parseAirportBombardPayload = (payloadJson: string): { fromX: number; fromY
   }
 };
 
+const parseImperialExchangeLevyPayload = (payloadJson: string): { fromX: number; fromY: number; resource: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (
+      typeof parsed.fromX !== "number" ||
+      typeof parsed.fromY !== "number" ||
+      typeof parsed.resource !== "string"
+    ) return null;
+    const resource = parsed.resource;
+    if (resource !== "FOOD" && resource !== "IRON" && resource !== "CRYSTAL" && resource !== "SUPPLY") return null;
+    return { fromX: parsed.fromX, fromY: parsed.fromY, resource };
+  } catch { return null; }
+};
+
+const parseWorldEngineStrikePayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (
+      typeof parsed.fromX !== "number" ||
+      typeof parsed.fromY !== "number" ||
+      typeof parsed.toX !== "number" ||
+      typeof parsed.toY !== "number"
+    ) return null;
+    return { fromX: parsed.fromX, fromY: parsed.fromY, toX: parsed.toX, toY: parsed.toY };
+  } catch { return null; }
+};
+
 const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, string>> = {
   FARMSTEAD: "agriculture",
   CAMP: "leatherworking",
   MINE: "mining",
   MARKET: "trade",
   GRANARY: "pottery",
+  SEED_GRANARY: "seed-granaries",
   BANK: "coinage",
   AIRPORT: "aeronautics",
   FUR_SYNTHESIZER: "workshops",
@@ -651,7 +686,6 @@ const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, stri
   ADVANCED_IRONWORKS: "advanced-synthetication",
   CRYSTAL_SYNTHESIZER: "crystal-lattices",
   ADVANCED_CRYSTAL_SYNTHESIZER: "advanced-synthetication",
-  FUEL_PLANT: "plastics",
   CARAVANARY: "ledger-keeping",
   FOUNDRY: "industrial-extraction",
   GARRISON_HALL: "organization",
@@ -664,6 +698,7 @@ const upgradeBaseTypeForEconomicStructure = (type: EconomicStructureType): Econo
   if (type === "ADVANCED_FUR_SYNTHESIZER") return "FUR_SYNTHESIZER";
   if (type === "ADVANCED_IRONWORKS") return "IRONWORKS";
   if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
+  if (type === "SEED_GRANARY") return "GRANARY";
   return undefined;
 };
 
@@ -673,15 +708,13 @@ const isConverterStructureType = (structureType: EconomicStructureType): boolean
   structureType === "IRONWORKS" ||
   structureType === "ADVANCED_IRONWORKS" ||
   structureType === "CRYSTAL_SYNTHESIZER" ||
-  structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
-  structureType === "FUEL_PLANT";
+  structureType === "ADVANCED_CRYSTAL_SYNTHESIZER";
 
 const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructureType): number => {
   const perMinute =
     structureType === "ADVANCED_FUR_SYNTHESIZER" || structureType === "FUR_SYNTHESIZER" ? FUR_SYNTHESIZER_GOLD_UPKEEP / 10
       : structureType === "IRONWORKS" || structureType === "ADVANCED_IRONWORKS" ? IRONWORKS_GOLD_UPKEEP / 10
       : structureType === "CRYSTAL_SYNTHESIZER" || structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10
-      : structureType === "FUEL_PLANT" ? FUEL_PLANT_GOLD_UPKEEP / 10
       : 0;
   return perMinute * (ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS / 60_000);
 };
@@ -740,8 +773,16 @@ const hydrateSyntheticSettlementTown = (
   };
 };
 
+// Process-global monotonically increasing counter so each runtime instance
+// gets a unique starting epoch, and every terrain mutation gets a fresh number.
+// Consumers (e.g. live-snapshot-view) cache derived terrain structures (island
+// map) by this epoch; cache misses are O(world tiles) but happen only when
+// terrain actually changes, which is rare (only create_mountain / remove_mountain).
+let nextTerrainEpoch = 1;
+
 export class SimulationRuntime {
   private readonly events = new EventEmitter();
+  private terrainEpoch = nextTerrainEpoch++;
   private readonly persistence: SimulationPersistence;
   private readonly now: () => number;
   private readonly players: Map<string, RuntimePlayer>;
@@ -768,6 +809,7 @@ export class SimulationRuntime {
   private readonly locksByTile: Map<string, LockRecord>;
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
+  private readonly abilityCooldowns = new Map<string, Map<string, number>>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
   private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
   // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
@@ -2604,6 +2646,7 @@ export class SimulationRuntime {
       connectedDockIds?: readonly string[];
     }>;
     tileYieldCollectedAtByTile: Array<{ tileKey: string; collectedAt: number }>;
+    terrainEpoch: number;
   } {
     return {
       tiles: [...this.tiles.values()]
@@ -2675,7 +2718,8 @@ export class SimulationRuntime {
       docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
+        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      terrainEpoch: this.terrainEpoch
     };
   }
 
@@ -3011,7 +3055,8 @@ export class SimulationRuntime {
       docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
+        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      terrainEpoch: this.terrainEpoch
     };
   }
 
@@ -4850,6 +4895,7 @@ export class SimulationRuntime {
       economicStructure: undefined
     };
     this.replaceTileState(targetKey, updatedTile);
+    this.terrainEpoch = nextTerrainEpoch++;
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,
@@ -4919,6 +4965,7 @@ export class SimulationRuntime {
     this.stampObservatoryCooldown(removeMountainObservatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, removeMountainNow, command.commandId, command.playerId);
     const updatedTile: DomainTileState = { ...target, terrain: "LAND" };
     this.replaceTileState(targetKey, updatedTile);
+    this.terrainEpoch = nextTerrainEpoch++;
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,
@@ -4967,13 +5014,23 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "OIL", AIRPORT_BOMBARD_OIL_COST)) {
+    if (!this.isStructurePowered(actor.id, simulationTileKey(payload.fromX, payload.fromY), "AIRPORT")) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "AIRPORT_BOMBARD_INVALID",
-        message: "insufficient OIL for bombardment"
+        message: "airport requires a nearby Aether Tower"
+      });
+      return;
+    }
+    if (!this.spendStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AIRPORT_BOMBARD_INVALID",
+        message: "insufficient CRYSTAL for bombardment"
       });
       return;
     }
@@ -5004,6 +5061,232 @@ export class SimulationRuntime {
       playerId: command.playerId,
       tileDeltas: changedTiles
     });
+  }
+
+  private getAbilityCooldownUntil(playerId: string, abilityKey: string): number {
+    return this.abilityCooldowns.get(playerId)?.get(abilityKey) ?? 0;
+  }
+
+  private setAbilityCooldownUntil(playerId: string, abilityKey: string, untilMs: number): void {
+    let map = this.abilityCooldowns.get(playerId);
+    if (!map) {
+      map = new Map();
+      this.abilityCooldowns.set(playerId, map);
+    }
+    map.set(abilityKey, untilMs);
+  }
+
+  private handleImperialExchangeLevyCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseImperialExchangeLevyPayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const tileKey = simulationTileKey(payload.fromX, payload.fromY);
+    const tile = this.tiles.get(tileKey);
+    if (
+      !tile ||
+      tile.ownerId !== actor.id ||
+      tile.economicStructure?.ownerId !== actor.id ||
+      tile.economicStructure.type !== "IMPERIAL_EXCHANGE" ||
+      tile.economicStructure.status !== "active"
+    ) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "select an active Imperial Exchange"
+      });
+      return;
+    }
+    if (!actor.techIds || !actor.techIds.has("exchange-levy")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "requires Exchange Levy Writs research"
+      });
+      return;
+    }
+    if (!this.isStructurePowered(actor.id, tileKey, "IMPERIAL_EXCHANGE")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "Imperial Exchange requires a nearby Aether Tower"
+      });
+      return;
+    }
+    const now = this.now();
+    const cooldownUntil = this.getAbilityCooldownUntil(actor.id, "imperial_exchange_levy");
+    if (cooldownUntil > now) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "ability on cooldown"
+      });
+      return;
+    }
+    if (!this.spendStrategicResource(actor, "CRYSTAL", IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+        message: "insufficient CRYSTAL"
+      });
+      return;
+    }
+    let totalTransferred = 0;
+    for (const other of this.players.values()) {
+      if (other.id === actor.id) continue;
+      if (actor.allies.has(other.id)) continue;
+      const stock = this.strategicResourceAmount(other, payload.resource);
+      const take = Math.floor(stock * IMPERIAL_EXCHANGE_LEVY_SHARE);
+      if (take <= 0) continue;
+      other.strategicResources = {
+        ...(other.strategicResources ?? {}),
+        [payload.resource]: Math.max(0, stock - take)
+      };
+      totalTransferred += take;
+    }
+    if (totalTransferred > 0) this.addStrategicResource(actor, payload.resource, totalTransferred);
+    this.setAbilityCooldownUntil(actor.id, "imperial_exchange_levy", now + IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS);
+  }
+
+  private handleWorldEngineStrikeCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseWorldEngineStrikePayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const anchorKey = simulationTileKey(payload.fromX, payload.fromY);
+    const anchor = this.tiles.get(anchorKey);
+    if (
+      !anchor ||
+      anchor.ownerId !== actor.id ||
+      anchor.economicStructure?.ownerId !== actor.id ||
+      anchor.economicStructure.type !== "WORLD_ENGINE" ||
+      anchor.economicStructure.status !== "active"
+    ) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "select an active World Engine"
+      });
+      return;
+    }
+    if (!actor.techIds || !actor.techIds.has("worldbreaker-fire")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "requires Worldbreaker Fire research"
+      });
+      return;
+    }
+    if (!this.isStructurePowered(actor.id, anchorKey, "WORLD_ENGINE")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "World Engine requires a nearby Aether Tower"
+      });
+      return;
+    }
+    const now = this.now();
+    const cooldownUntil = this.getAbilityCooldownUntil(actor.id, "world_engine_strike");
+    if (cooldownUntil > now) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "ability on cooldown"
+      });
+      return;
+    }
+    const targetKey = simulationTileKey(payload.toX, payload.toY);
+    if (this.isTileShieldedByEnemyAegisDome(actor.id, payload.toX, payload.toY)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "blocked by an Aegis Dome"
+      });
+      return;
+    }
+    if (!this.spendStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_STRIKE_CRYSTAL_COST)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "WORLD_ENGINE_STRIKE_INVALID",
+        message: "insufficient CRYSTAL"
+      });
+      return;
+    }
+    const target = this.tiles.get(targetKey);
+    if (target) {
+      let updated: DomainTileState = target;
+      // Destroy non-actor economic structure on the target tile.
+      if (target.economicStructure && target.economicStructure.ownerId !== actor.id) {
+        updated = { ...updated, economicStructure: undefined };
+      }
+      // Reduce SETTLED town population. Demote tier based on new pop, floored at TOWN.
+      if (target.town && (target.ownershipState === "SETTLED" || target.ownershipState === "FRONTIER") && target.ownerId !== actor.id) {
+        const pop = typeof target.town.population === "number" ? target.town.population : 0;
+        if (pop > 0) {
+          const loss = Math.floor(pop * WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO);
+          if (loss > 0) {
+            const newPop = Math.max(1, pop - loss);
+            const currentTier = updated.town!.populationTier;
+            let nextTier = currentTier;
+            if (currentTier !== "SETTLEMENT") {
+              if (newPop >= 5_000_000) nextTier = "METROPOLIS";
+              else if (newPop >= 1_000_000) nextTier = "GREAT_CITY";
+              else if (newPop >= 100_000) nextTier = "CITY";
+              else nextTier = "TOWN";
+            }
+            updated = { ...updated, town: { ...updated.town!, population: newPop, populationTier: nextTier } };
+          }
+        }
+      }
+      if (updated !== target) {
+        this.replaceTileState(targetKey, updated, command.commandId);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: command.commandId,
+          playerId: command.playerId,
+          tileDeltas: [this.tileDeltaFromState(updated)]
+        });
+      }
+    }
+    this.setAbilityCooldownUntil(actor.id, "world_engine_strike", now + WORLD_ENGINE_STRIKE_COOLDOWN_MS);
   }
 
   private handleCollectShardCommand(command: CommandEnvelope): void {
@@ -5224,6 +5507,34 @@ export class SimulationRuntime {
     const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
     const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
     return Math.max(dx, dy);
+  }
+
+  isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
+    const tile = this.tiles.get(tileKey);
+    const structure = tile?.economicStructure;
+    if (!tile || !structure) return false;
+    if (structure.ownerId !== ownerId || structure.type !== structureType || structure.status !== "active") return false;
+    for (const candidate of this.tiles.values()) {
+      const tower = candidate.economicStructure;
+      if (!tower || tower.ownerId !== ownerId || tower.type !== "AETHER_TOWER" || tower.status !== "active") continue;
+      if (this.wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) <= AETHER_TOWER_RADIUS) return true;
+    }
+    return false;
+  }
+
+  // Aegis Dome shields tiles within AEGIS_DOME_PROTECTION_RADIUS for its
+  // owner. Worldbreaker Shot is the first ability that respects this — if an
+  // enemy player has an active, powered Aegis Dome within range of the target
+  // tile, the strike is blocked.
+  isTileShieldedByEnemyAegisDome(actorId: string, targetX: number, targetY: number): boolean {
+    for (const candidate of this.tiles.values()) {
+      const dome = candidate.economicStructure;
+      if (!dome || dome.type !== "AEGIS_DOME" || dome.status !== "active") continue;
+      if (!dome.ownerId || dome.ownerId === actorId) continue;
+      if (this.wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
+      if (this.isStructurePowered(dome.ownerId, simulationTileKey(candidate.x, candidate.y), "AEGIS_DOME")) return true;
+    }
+    return false;
   }
 
   /**
@@ -7560,6 +7871,8 @@ export class SimulationRuntime {
         command.type !== "CREATE_MOUNTAIN" &&
         command.type !== "REMOVE_MOUNTAIN" &&
         command.type !== "AIRPORT_BOMBARD" &&
+        command.type !== "IMPERIAL_EXCHANGE_LEVY" &&
+        command.type !== "WORLD_ENGINE_STRIKE" &&
         command.type !== "COLLECT_SHARD" &&
         command.type !== "SYNC_ALLIANCE"
       ) {
@@ -7705,6 +8018,16 @@ export class SimulationRuntime {
 
       if (command.type === "AIRPORT_BOMBARD") {
         this.handleAirportBombardCommand(command);
+        return;
+      }
+
+      if (command.type === "IMPERIAL_EXCHANGE_LEVY") {
+        this.handleImperialExchangeLevyCommand(command);
+        return;
+      }
+
+      if (command.type === "WORLD_ENGINE_STRIKE") {
+        this.handleWorldEngineStrikeCommand(command);
         return;
       }
 

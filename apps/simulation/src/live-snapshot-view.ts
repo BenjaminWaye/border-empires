@@ -1,8 +1,8 @@
-import { OBSERVATORY_UPKEEP_PER_MIN, type Terrain, type Tile } from "@border-empires/shared";
+import { OBSERVATORY_UPKEEP_PER_MIN, WORLD_HEIGHT, WORLD_WIDTH, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import {
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
@@ -12,8 +12,6 @@ import {
   DOCK_INCOME_PER_MIN,
   FARMSTEAD_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
-  FUEL_PLANT_GOLD_UPKEEP,
-  FUEL_PLANT_OIL_PER_DAY,
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   GARRISON_HALL_GOLD_UPKEEP,
@@ -27,6 +25,8 @@ import {
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   RADAR_SYSTEM_GOLD_UPKEEP,
+  SEED_GRANARY_GROWTH_MULT,
+  SEED_GRANARY_SLOTS,
   POPULATION_MAX,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
@@ -96,6 +96,7 @@ type RuntimeState = {
   }>;
   docks?: Array<{ dockId: string; tileKey: string; pairedDockId: string; connectedDockIds?: readonly string[] }>;
   tileYieldCollectedAtByTile?: Array<{ tileKey: string; collectedAt: number }>;
+  terrainEpoch?: number;
 };
 
 type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
@@ -383,13 +384,12 @@ const structureUpkeepPerMinute = (structureType: string): Partial<Record<Economy
     case "ADVANCED_IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP / 10 };
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP / 10 };
-    case "FUEL_PLANT": return { GOLD: FUEL_PLANT_GOLD_UPKEEP / 10 };
     case "FOUNDRY": return { GOLD: FOUNDRY_GOLD_UPKEEP / 10 };
     case "CUSTOMS_HOUSE": return { GOLD: CUSTOMS_HOUSE_GOLD_UPKEEP / 10 };
     case "GARRISON_HALL": return { GOLD: GARRISON_HALL_GOLD_UPKEEP / 10 };
     case "GOVERNORS_OFFICE": return { GOLD: GOVERNORS_OFFICE_GOLD_UPKEEP / 10 };
     case "RADAR_SYSTEM": return { GOLD: RADAR_SYSTEM_GOLD_UPKEEP / 10 };
-    case "AIRPORT": return { OIL: AIRPORT_OIL_UPKEEP_PER_MIN };
+    case "AIRPORT": return { CRYSTAL: AIRPORT_CRYSTAL_UPKEEP_PER_MIN };
     default: return {};
   }
 };
@@ -405,8 +405,6 @@ const converterOutputPerMinute = (structureType: string): Partial<Record<Strateg
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY / 1440 };
-    case "FUEL_PLANT":
-      return { OIL: FUEL_PLANT_OIL_PER_DAY / 1440 };
     default:
       return {};
   }
@@ -481,23 +479,128 @@ const townKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> 
 const hasSupportedStructure = (
   tileKey: string,
   ownerId: string,
-  structureType: string,
+  structureType: string | readonly string[],
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
 ): boolean => {
   const [rawX, rawY] = tileKey.split(",");
   const x = Number(rawX);
   const y = Number(rawY);
   if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
+  const allowed = Array.isArray(structureType) ? new Set(structureType) : new Set([structureType as string]);
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const tile = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
       const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-      if (structure?.status === "active" && structure.type === structureType) return true;
+      if (structure?.status === "active" && structure.type && allowed.has(structure.type)) return true;
     }
   }
   return false;
+};
+
+// Island map only changes when terrain changes (create_mountain / remove_mountain).
+// Runtime stamps a fresh terrainEpoch every time terrain mutates and at each
+// fresh runtime instance. We keep at most 2 recent epochs in-memory so a long-
+// running process never accumulates stale maps. With WORLD_WIDTH * WORLD_HEIGHT
+// up to ~256k tiles, recomputing per snapshot would be the dominant cost; this
+// turns it into a one-time amortised O(world) + O(1) lookup thereafter.
+const ISLAND_MAP_CACHE_LIMIT = 2;
+const islandMapByEpoch = new Map<number, ReadonlyMap<string, number>>();
+
+const computeIslandMap = (runtimeState: RuntimeState): ReadonlyMap<string, number> => {
+  // Fallback to a fixed epoch in synthetic test fixtures that omit terrainEpoch;
+  // the cache then degenerates to a single shared entry for the test process.
+  const epoch = runtimeState.terrainEpoch ?? 0;
+  const cached = islandMapByEpoch.get(epoch);
+  if (cached) return cached;
+  const landKeys = new Set<string>();
+  for (const tile of runtimeState.tiles) {
+    if (tile.terrain === "LAND") landKeys.add(keyFor(tile.x, tile.y));
+  }
+  const islandIdByTile = new Map<string, number>();
+  let nextIslandId = 0;
+  const wrap = (v: number, m: number): number => ((v % m) + m) % m;
+  for (const startKey of landKeys) {
+    if (islandIdByTile.has(startKey)) continue;
+    const [sxRaw, syRaw] = startKey.split(",");
+    const sx = Number(sxRaw);
+    const sy = Number(syRaw);
+    const islandId = nextIslandId;
+    nextIslandId += 1;
+    const queue: Array<{ x: number; y: number }> = [{ x: sx, y: sy }];
+    islandIdByTile.set(startKey, islandId);
+    for (let i = 0; i < queue.length; i += 1) {
+      const cur = queue[i]!;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = wrap(cur.x + dx, WORLD_WIDTH);
+          const ny = wrap(cur.y + dy, WORLD_HEIGHT);
+          const nk = keyFor(nx, ny);
+          if (!landKeys.has(nk) || islandIdByTile.has(nk)) continue;
+          islandIdByTile.set(nk, islandId);
+          queue.push({ x: nx, y: ny });
+        }
+      }
+    }
+  }
+  if (islandMapByEpoch.size >= ISLAND_MAP_CACHE_LIMIT) {
+    const oldest = islandMapByEpoch.keys().next().value;
+    if (oldest !== undefined) islandMapByEpoch.delete(oldest);
+  }
+  islandMapByEpoch.set(epoch, islandIdByTile);
+  return islandIdByTile;
+};
+
+const wrappedChebyshev = (ax: number, ay: number, bx: number, by: number): number => {
+  const dxRaw = Math.abs(ax - bx);
+  const dyRaw = Math.abs(ay - by);
+  const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
+  const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
+  return Math.max(dx, dy);
+};
+
+const seedGranaryBuffedCache: WeakMap<RuntimeState, Set<string>> = new WeakMap();
+
+export const computeSeedGranaryBuffedTileKeysForTest = (runtimeState: unknown): Set<string> =>
+  computeSeedGranaryBuffedTileKeys(runtimeState as RuntimeState);
+
+const computeSeedGranaryBuffedTileKeys = (runtimeState: RuntimeState): Set<string> => {
+  const cached = seedGranaryBuffedCache.get(runtimeState);
+  if (cached) return cached;
+  const buffed = new Set<string>();
+  const islandMap = computeIslandMap(runtimeState);
+  // For each player, find their SEED_GRANARY tiles, and for each, pick up to N
+  // closest owned active GRANARY/SEED_GRANARY tiles on the same island.
+  const ownedActiveGranariesByPlayer = new Map<string, Array<{ x: number; y: number; key: string; type: "GRANARY" | "SEED_GRANARY" }>>();
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const structure = parseStructure<{ type?: string; status?: string; ownerId?: string }>(tile.economicStructureJson);
+    if (!structure || structure.status !== "active") continue;
+    if (structure.ownerId && structure.ownerId !== tile.ownerId) continue;
+    if (structure.type !== "GRANARY" && structure.type !== "SEED_GRANARY") continue;
+    const list = ownedActiveGranariesByPlayer.get(tile.ownerId) ?? [];
+    list.push({ x: tile.x, y: tile.y, key: keyFor(tile.x, tile.y), type: structure.type });
+    ownedActiveGranariesByPlayer.set(tile.ownerId, list);
+  }
+  for (const [, list] of ownedActiveGranariesByPlayer) {
+    const seedGranaries = list.filter((entry) => entry.type === "SEED_GRANARY");
+    for (const sg of seedGranaries) {
+      const sgIsland = islandMap.get(sg.key);
+      if (sgIsland === undefined) continue;
+      const sameIsland = list.filter((entry) => islandMap.get(entry.key) === sgIsland);
+      sameIsland.sort((a, b) => {
+        const da = wrappedChebyshev(sg.x, sg.y, a.x, a.y);
+        const db = wrappedChebyshev(sg.x, sg.y, b.x, b.y);
+        if (da !== db) return da - db;
+        return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+      });
+      for (const entry of sameIsland.slice(0, SEED_GRANARY_SLOTS)) buffed.add(entry.key);
+    }
+  }
+  seedGranaryBuffedCache.set(runtimeState, buffed);
+  return buffed;
 };
 
 const buildFedTownKeysByPlayer = (
@@ -557,7 +660,8 @@ const buildTownSummary = (
   refreshCompleteTownSummary: boolean,
   townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>,
   firstThreeTownKeys?: ReadonlySet<string>,
-  nearbyWarTownKeys?: ReadonlySet<string>
+  nearbyWarTownKeys?: ReadonlySet<string>,
+  seedGranaryBuffedTileKeys?: ReadonlySet<string>
 ): Tile["town"] | undefined => {
   const partial = parseTown(tile);
   const townType = partial?.type ?? tile.townType;
@@ -584,6 +688,22 @@ const buildTownSummary = (
   const isFed = tile.ownerId ? fedTownKeys.has(tileKey) : false;
   const hasMarket = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "MARKET", tilesByKey));
   const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey));
+  const hasSeedGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "SEED_GRANARY", tilesByKey));
+  const hasAnyGranary = hasGranary || hasSeedGranary;
+  const seedGranaryBuffed = hasAnyGranary && Boolean(seedGranaryBuffedTileKeys && tile.ownerId && (() => {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const nk = keyFor(tile.x + dx, tile.y + dy);
+        if (seedGranaryBuffedTileKeys.has(nk)) {
+          const nTile = tilesByKey.get(nk);
+          if (nTile?.ownerId === tile.ownerId) return true;
+        }
+      }
+    }
+    return false;
+  })());
+  const granaryGrowthMult = !hasAnyGranary ? 1 : seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1.15;
   const hasBank = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "BANK", tilesByKey));
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
@@ -625,7 +745,7 @@ const buildTownSummary = (
       : population *
         POPULATION_GROWTH_BASE_RATE *
         (populationTier === "SETTLEMENT" ? 4 : 1) *
-        (hasGranary ? 1.15 : 1) *
+        granaryGrowthMult *
         firstThreeTownPopGrowthMult *
         logisticFactor;
   const baseGrowth = isInCaptureShock ? 0 : naturalGrowth;
@@ -667,6 +787,8 @@ const buildTownSummary = (
     marketActive: hasMarket && isFed,
     hasGranary,
     granaryActive: hasGranary,
+    ...(hasSeedGranary ? { hasSeedGranary: true, seedGranaryActive: true } : {}),
+    ...(seedGranaryBuffed ? { seedGranaryBuffed: true } : {}),
     hasBank,
     bankActive: hasBank,
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
@@ -721,7 +843,7 @@ export const buildLivePlayerEconomySnapshot = (
         oilSources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : tile.resource === "OIL" ? "Oil" : "Supply", resourceRate, { count: 1, resourceKey });
     }
-    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys);
+    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys, computeSeedGranaryBuffedTileKeys(runtimeState));
     if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
@@ -891,7 +1013,8 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         true,
         tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
         tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
-        nearbyWarTownKeys
+        nearbyWarTownKeys,
+        computeSeedGranaryBuffedTileKeys(runtimeState)
       );
       const town = toSharedVisibilityTownSummary(fullTown);
       const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, fullTown, {
@@ -928,6 +1051,7 @@ type EnrichmentContext = {
   nearbyWarTownKeys: ReturnType<typeof townKeysWithNearbyWar>;
   fedTownKeysByPlayer: LivePlayerEconomySnapshot["fedTownKeysByPlayer"];
   fedTownKeys: LivePlayerEconomySnapshot["fedTownKeys"];
+  seedGranaryBuffedTileKeys: ReadonlySet<string>;
 };
 
 const buildEnrichmentContext = (
@@ -948,6 +1072,7 @@ const buildEnrichmentContext = (
   );
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
+  const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   return {
     collectedAtByTile,
     tilesByKey,
@@ -958,7 +1083,8 @@ const buildEnrichmentContext = (
     firstThreeTownKeysByPlayer,
     nearbyWarTownKeys,
     fedTownKeysByPlayer: playerEconomy.fedTownKeysByPlayer,
-    fedTownKeys: playerEconomy.fedTownKeys
+    fedTownKeys: playerEconomy.fedTownKeys,
+    seedGranaryBuffedTileKeys
   };
 };
 
@@ -979,7 +1105,8 @@ const buildEnrichedTile = (
     tile.ownerId === playerId,
     tile.ownerId ? ctx.townNetworksByPlayerId.get(tile.ownerId) : undefined,
     tile.ownerId ? ctx.firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
-    ctx.nearbyWarTownKeys
+    ctx.nearbyWarTownKeys,
+    ctx.seedGranaryBuffedTileKeys
   );
   const yieldFields = buildSnapshotTileYieldFields(tile, ctx.collectedAtByTile, town, {
     ...(economyPlayer ? { player: economyPlayer } : {}),

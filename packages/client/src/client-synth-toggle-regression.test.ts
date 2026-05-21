@@ -35,8 +35,6 @@ describe("converter toggle regression guard", () => {
       ["EXCHANGE_HOUSE", "exchange-house-overlay.svg"],
       ["GARRISON_HALL", "garrison-hall-overlay.svg"],
       ["CUSTOMS_HOUSE", "customs-house-overlay.svg"],
-      ["LOCKWORKS_PORT", "lockworks-port-overlay.svg"],
-      ["CHARTERED_PORT", "chartered-port-overlay.svg"],
       ["RAIL_DEPOT", "rail-depot-overlay.svg"],
       ["GOVERNORS_OFFICE", "governors-office-overlay.svg"],
       ["RADAR_SYSTEM", "radar-system-overlay.svg"],
