@@ -122,7 +122,6 @@ type TileActionLogicDeps = {
       | "FUR_SYNTHESIZER"
       | "IRONWORKS"
       | "CRYSTAL_SYNTHESIZER"
-      | "FUEL_PLANT"
       | "EXCHANGE_HOUSE"
       | "RAIL_DEPOT"
       | "IMPERIAL_EXCHANGE_PART"
@@ -668,8 +667,7 @@ const isConverterStructureType = (type: NonNullable<Tile["economicStructure"]>["
   type === "IRONWORKS" ||
   type === "ADVANCED_IRONWORKS" ||
   type === "CRYSTAL_SYNTHESIZER" ||
-  type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
-  type === "FUEL_PLANT";
+  type === "ADVANCED_CRYSTAL_SYNTHESIZER";
 
 const resourceClassForTile = (resource: Tile["resource"]): "food" | "supply" | "iron" | "crystal" | undefined => {
   if (resource === "FARM" || resource === "FISH") return "food";
@@ -1801,7 +1799,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         const townHasFurSynth = deps.townHasSupportStructure(townBuildSource, "FUR_SYNTHESIZER");
         const townHasIronworks = deps.townHasSupportStructure(townBuildSource, "IRONWORKS");
         const townHasCrystalSynth = deps.townHasSupportStructure(townBuildSource, "CRYSTAL_SYNTHESIZER");
-        const townHasFuelPlant = deps.townHasSupportStructure(townBuildSource, "FUEL_PLANT");
         const townHasExchangeHouse = deps.townHasSupportStructure(townBuildSource, "EXCHANGE_HOUSE");
         const townHasRailDepot = deps.townHasSupportStructure(townBuildSource, "RAIL_DEPOT");
         const townHasImperialExchangePart = deps.townHasSupportStructure(townBuildSource, "IMPERIAL_EXCHANGE_PART");
@@ -1949,18 +1946,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             !supportPlacementBlocked && !townHasCrystalSynth && state.techIds.includes("crystal-lattices") && state.gold >= 2800,
             supportPlacementBlocked ? "Tile already has structure" : townHasCrystalSynth ? "Nearby town already has Aether Condenser" : !state.techIds.includes("crystal-lattices") ? "Requires Crystal Lattices" : "Need 2800 gold",
             `2800 gold • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 16 gold / minute`,
-            slots,
-            deps
-          )
-        });
-        out.push({
-          id: "build_fuel_plant",
-          label: "Build Fuel Plant",
-          detail: deps.buildDetailTextForAction("build_fuel_plant", tile, townBuildSource),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked && !townHasFuelPlant && state.techIds.includes("plastics") && state.gold >= 3200,
-            supportPlacementBlocked ? "Tile already has structure" : townHasFuelPlant ? "Nearby town already has Fuel Plant" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 3200 gold",
-            `3200 gold • ${Math.round(economicStructureBuildMs("FUEL_PLANT") / 60000)}m • 10 OIL/day • 18 gold / minute`,
             slots,
             deps
           )
@@ -2145,7 +2130,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         out.push({ id: "build_fur_synthesizer", label: "Build Fur Synthesizer", disabled: true, disabledReason: "Support tile touches multiple towns" });
         out.push({ id: "build_ironworks", label: "Build Ironworks", disabled: true, disabledReason: "Support tile touches multiple towns" });
         out.push({ id: "build_crystal_synthesizer", label: "Build Aether Condenser", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_fuel_plant", label: "Build Fuel Plant", disabled: true, disabledReason: "Support tile touches multiple towns" });
         out.push({ id: "build_exchange_house", label: "Build Exchange House", disabled: true, disabledReason: "Support tile touches multiple towns" });
         out.push({ id: "build_rail_depot", label: "Build Rail Depot", disabled: true, disabledReason: "Support tile touches multiple towns" });
         out.push({ id: "build_imperial_exchange_part", label: "Build Imperial Exchange Part", disabled: true, disabledReason: "Support tile touches multiple towns" });
@@ -2166,20 +2150,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             deps
           )
         });
-        if (tile.economicStructure?.type === "CUSTOMS_HOUSE") {
-          out.push({
-            id: "build_lockworks_port",
-            label: "Upgrade to Lockworks Port",
-            detail: deps.buildDetailTextForAction("build_lockworks_port", tile),
-            ...tileActionAvailabilityWithDevelopmentSlot(
-              state.techIds.includes("port-infrastructure") && state.gold >= 900 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
-              !state.techIds.includes("port-infrastructure") ? "Requires Port Infrastructure" : state.gold < 900 ? "Need 900 gold" : "Need 30 CRYSTAL",
-              `900 gold + 30 CRYSTAL • ${Math.round(economicStructureBuildMs("LOCKWORKS_PORT") / 60000)}m • stronger dock income and storage`,
-              slots,
-              deps
-            )
-          });
-        }
       }
     }
     out.push(...retortRecastActions());

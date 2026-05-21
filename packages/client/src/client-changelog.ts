@@ -19,10 +19,61 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.2",
+  version: "2026.05.21.4",
   title: "What's New",
-  summary: "Attack preview loading can no longer get stuck forever, and owned-town Production, gold cap, and connected-town count now reflect current state instead of stale snapshot data.",
+  summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN). Six dead tech stubs removed and the unwired Lockworks/Chartered Port chain dropped.",
   entries: [
+    {
+      introducedIn: "2026.05.21.4",
+      title: "Seed Granary growth buff",
+      why: "Seed Granaries had no gameplay effect beyond the build prompt; they now apply a real growth multiplier to the closest 5 granaries on their island.",
+      changes: [
+        "Each Seed Granary buffs up to 5 closest owned Granary/Seed Granary tiles on the same island to 1.30x population growth.",
+        "The Seed Granary's own tile counts as slot 1; ties on distance break lexicographically by tile key.",
+        "Cross-island granaries are not buffed."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.4",
+      title: "Imperial Exchange Levy and Worldbreaker Shot",
+      why: "Both monuments existed without abilities; the levy seizes a quarter of each rival's stock and the shot razes a single target.",
+      changes: [
+        "Imperial Exchange Levy seizes 25% of each non-allied rival's chosen resource (FOOD, IRON, CRYSTAL, or SUPPLY) for 200 CRYSTAL on a 30 minute cooldown — allies are spared.",
+        "Worldbreaker Shot destroys the target tile's economic structure (if not yours) and removes 30% of a settled town's population — no cap, and demotes the city tier one step (floored at TOWN) — for 500 CRYSTAL on a 60 minute cooldown.",
+        "Worldbreaker Shot is blocked when the target tile is within 30 tiles of an enemy's active, powered Aegis Dome.",
+        "Both abilities require the matching tech (Exchange Levy Writs / Worldbreaker Fire) and an Aether Tower powering the monument."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.4",
+      title: "Aether Towers power Airports",
+      why: "Airports were free-standing and Oil had no producer; gating Airports on a nearby Aether Tower restores the design intent and moves the upkeep onto Crystal, which the empire can actually produce.",
+      changes: [
+        "Airports now require an active player-owned Aether Tower within 30 tiles to bombard.",
+        "Airport upkeep and bombard cost switched from Oil to Crystal.",
+        "New isStructurePowered helper gates future monument abilities on Aether Tower coverage."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.4",
+      title: "Tech-tree expansion and stub cleanup",
+      why: "Eight dead unlock stubs were cluttering the tech tree with no backing mechanic; the three worth keeping now have real entries and the others are gone.",
+      changes: [
+        "Added Seedline Granaries (tier 4), Exchange Levy Writs (tier 8), and Worldbreaker Ignition (tier 8).",
+        "Removed Broker Market, Treasury House, Weather Engine, Advanced Foundry, Catalytic Refiner, Refinery, Lockworks Port, and Chartered Port stubs — none of those had any backing sim logic in the rewrite.",
+        "Seed Granary structure type is wired through shared types and the simulation runtime; gameplay effects land in follow-up work."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.4",
+      title: "FUEL_PLANT structure removed",
+      why: "Refinery (FUEL_PLANT) was the only producer of OIL, and the Refinery unlock stub was already deleted. Keeping the structure type and its OIL output wired created dead code with no path to be built.",
+      changes: [
+        "Removed FUEL_PLANT from shared types, costs, placement metadata, sim economy, gateway upkeep map, and all client build actions.",
+        "Removed associated FUEL_PLANT_BUILD_GOLD_COST, FUEL_PLANT_GOLD_UPKEEP, and FUEL_PLANT_OIL_PER_DAY constants.",
+        "OIL is now an unused strategic resource (no producers, no consumers) and is a candidate for removal in a follow-up."
+      ]
+    },
     {
       introducedIn: "2026.05.21.2",
       title: "Attack win chance loading no longer gets stuck",

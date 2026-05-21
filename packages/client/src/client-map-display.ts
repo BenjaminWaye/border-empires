@@ -35,14 +35,10 @@ export type StructureInfoKey =
   | "ADVANCED_IRONWORKS"
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
-  | "FUEL_PLANT"
-  | "ADVANCED_FUEL_PLANT"
   | "FOUNDRY"
   | "ADVANCED_FOUNDRY"
   | "EXCHANGE_HOUSE"
   | "CUSTOMS_HOUSE"
-  | "LOCKWORKS_PORT"
-  | "CHARTERED_PORT"
   | "GOVERNORS_OFFICE"
   | "GARRISON_HALL"
   | "AIRPORT"
@@ -97,15 +93,11 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "ADVANCED_IRONWORKS") return "Advanced Ironworks";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Aether Condenser";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Aether Condenser";
-  if (kind === "FUEL_PLANT") return "Fuel Plant";
-  if (kind === "ADVANCED_FUEL_PLANT") return "Catalytic Refiner";
   if (kind === "FOUNDRY") return "Foundry";
   if (kind === "ADVANCED_FOUNDRY") return "Advanced Foundry";
   if (kind === "EXCHANGE_HOUSE") return "Exchange House";
   if (kind === "GARRISON_HALL") return "Garrison Hall";
   if (kind === "CUSTOMS_HOUSE") return "Harbor Exchange";
-  if (kind === "LOCKWORKS_PORT") return "Lockworks Port";
-  if (kind === "CHARTERED_PORT") return "Chartered Port";
   if (kind === "GOVERNORS_OFFICE") return "Ministry Hall";
   if (kind === "RADAR_SYSTEM") return "Resonance Grid";
   if (kind === "ASTRAL_DOCK_PART") return "Astral Dock Part";
@@ -141,15 +133,11 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "ADVANCED_IRONWORKS") return "Converts gold into 21.6 iron per day.";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Condenses gold into 12 crystal per day.";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Condenses gold into 14.4 crystal per day.";
-  if (kind === "FUEL_PLANT") return "Converts gold into 10 oil per day.";
-  if (kind === "ADVANCED_FUEL_PLANT") return "Upgrades a fuel plant into a catalytic refiner with 12 oil per day and 15 gold / m upkeep.";
   if (kind === "FOUNDRY") return "Doubles active mine output in a 10-tile radius.";
   if (kind === "ADVANCED_FOUNDRY") return "Upgrades a foundry into a radius-12 mine hub with +150% mine output.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
   if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius.";
   if (kind === "CUSTOMS_HOUSE") return "Adds +1 gold / m for each connected owned dock.";
-  if (kind === "LOCKWORKS_PORT") return "Upgrades a harbor exchange to +1.5 gold / m per connected owned dock and +25% dock storage cap.";
-  if (kind === "CHARTERED_PORT") return "Upgrades a lockworks port into +2 gold / m per connected owned dock and 3x connected-dock income.";
   if (kind === "GOVERNORS_OFFICE") return "Reduces local town food upkeep and cuts settled-tile upkeep by 20% in a 10-tile radius.";
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
   if (kind === "ASTRAL_DOCK_PART") return "One of three monument parts needed to assemble the Astral Dock.";
@@ -202,7 +190,6 @@ export const structureInfoForKey = (
     | "ADVANCED_IRONWORKS"
     | "CRYSTAL_SYNTHESIZER"
     | "ADVANCED_CRYSTAL_SYNTHESIZER"
-    | "FUEL_PLANT"
     | "FOUNDRY"
     | "EXCHANGE_HOUSE"
     | "GARRISON_HALL"
@@ -226,9 +213,7 @@ export const structureInfoForKey = (
     if (key === "BROKER_MARKET") return "MARKET";
     if (key === "SEED_GRANARY") return "GRANARY";
     if (key === "TREASURY_HOUSE") return "BANK";
-    if (key === "ADVANCED_FUEL_PLANT") return "FUEL_PLANT";
     if (key === "ADVANCED_FOUNDRY") return "FOUNDRY";
-    if (key === "LOCKWORKS_PORT" || key === "CHARTERED_PORT") return "CUSTOMS_HOUSE";
     if (key === "RAIL_DEPOT") return "RAIL_DEPOT";
     if (key === "WEATHER_ENGINE") return "RADAR_SYSTEM";
     return key;
@@ -254,14 +239,10 @@ export const structureInfoForKey = (
     if (key === "FUR_SYNTHESIZER" || key === "ADVANCED_FUR_SYNTHESIZER") return ["12 gold / m"];
     if (key === "IRONWORKS" || key === "ADVANCED_IRONWORKS") return ["12 gold / m"];
     if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["16 gold / m"];
-    if (key === "FUEL_PLANT") return ["18 gold / m"];
-    if (key === "ADVANCED_FUEL_PLANT") return ["15 gold / m"];
     if (key === "FOUNDRY") return ["5 gold / m"];
     if (key === "ADVANCED_FOUNDRY") return ["7 gold / m"];
     if (key === "EXCHANGE_HOUSE") return ["6 gold / m", "0.10 crystal / m"];
     if (key === "CUSTOMS_HOUSE") return ["0.50 gold / m"];
-    if (key === "LOCKWORKS_PORT") return ["0.75 gold / m"];
-    if (key === "CHARTERED_PORT") return ["1.00 gold / m"];
     if (key === "GARRISON_HALL") return ["2.50 gold / m"];
     if (key === "GOVERNORS_OFFICE") return ["3 gold / m"];
     if (key === "AIRPORT") return ["0.03 crystal / m"];
@@ -304,14 +285,10 @@ export const structureInfoForKey = (
     if (key === "ADVANCED_IRONWORKS") return ["Produces 21.6 iron per day"];
     if (key === "CRYSTAL_SYNTHESIZER") return ["Produces 12 crystal per day"];
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Produces 14.4 crystal per day"];
-    if (key === "FUEL_PLANT") return ["Produces 10 oil per day"];
-    if (key === "ADVANCED_FUEL_PLANT") return ["+20% output compared with a Fuel Plant", "-16.7% upkeep compared with a Fuel Plant"];
     if (key === "FOUNDRY") return ["Doubles active Mine output within 10 tiles"];
     if (key === "ADVANCED_FOUNDRY") return ["+150% active Mine output within 12 tiles", "+2 tile industrial radius compared with a Foundry"];
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
-    if (key === "LOCKWORKS_PORT") return ["+1.5 gold / m per connected owned dock", "+25% dock storage cap"];
-    if (key === "CHARTERED_PORT") return ["+2 gold / m per connected owned dock", "+200% connected-dock income and +25% dock storage cap"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "-20% settled-tile upkeep within 10 tiles"];
     if (key === "GARRISON_HALL") return ["+20% settled defense within 10 tiles"];
     if (key === "AIRPORT") return ["Bombards enemy territory within 30 tiles", "Requires nearby Aether Tower power"];
@@ -342,13 +319,10 @@ export const structureInfoForKey = (
     if (key === "ADVANCED_IRONWORKS") return "/overlays/advanced-ironworks-overlay.svg";
     if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return "/overlays/advanced-crystal-synthesizer-overlay.svg";
-    if (key === "FUEL_PLANT") return "/overlays/fuel-plant-overlay.svg";
     if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
     if (key === "ADVANCED_FOUNDRY") return "/overlays/foundry-overlay.svg";
     if (key === "EXCHANGE_HOUSE") return "/overlays/exchange-house-overlay.svg";
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
-    if (key === "LOCKWORKS_PORT") return "/overlays/lockworks-port-overlay.svg";
-    if (key === "CHARTERED_PORT") return "/overlays/chartered-port-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/bank-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
     if (key === "GARRISON_HALL") return "/overlays/garrison-hall-overlay.svg";
@@ -607,16 +581,6 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "FUEL_PLANT") {
-    return structure({
-      title: "Fuel Plant",
-      detail: "Fuel Plants convert gold upkeep into 10 oil per day on a support tile.",
-      glyph: "🛢",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
   if (type === "FOUNDRY") {
     return structure({
       title: "Foundry",
@@ -633,26 +597,6 @@ export const structureInfoForKey = (
       detail: "Harbor exchanges are built beside a dock and add +1 gold per minute for each connected owned dock.",
       glyph: "⚓",
       placement: "Build on a settled dock tile you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "LOCKWORKS_PORT") {
-    return structure({
-      title: "Lockworks Port",
-      detail: "Lockworks Ports upgrade Harbor Exchanges to +1.5 gold per minute per connected owned dock and +25% dock storage cap.",
-      glyph: "⚓",
-      placement: "Upgrade an existing Harbor Exchange on its dock tile.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "CHARTERED_PORT") {
-    return structure({
-      title: "Chartered Port",
-      detail: "Chartered Ports upgrade Lockworks Ports to +2 gold per minute per connected owned dock while keeping the +25% dock storage cap.",
-      glyph: "⚓",
-      placement: "Upgrade an existing Lockworks Port on its dock tile.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

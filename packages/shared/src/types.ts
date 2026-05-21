@@ -24,6 +24,7 @@ export type EconomicStructureType =
   | "MINE"
   | "MARKET"
   | "GRANARY"
+  | "SEED_GRANARY"
   | "CENSUS_HALL"
   | "BANK"
   | "CLEARING_HOUSE"
@@ -37,14 +38,11 @@ export type EconomicStructureType =
   | "ADVANCED_IRONWORKS"
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
-  | "FUEL_PLANT"
   | "CARAVANARY"
   | "FOUNDRY"
   | "EXCHANGE_HOUSE"
   | "GARRISON_HALL"
   | "CUSTOMS_HOUSE"
-  | "LOCKWORKS_PORT"
-  | "CHARTERED_PORT"
   | "RAIL_DEPOT"
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM"
@@ -251,6 +249,9 @@ export interface Tile {
     marketActive: boolean;
     hasGranary: boolean;
     granaryActive: boolean;
+    hasSeedGranary?: boolean;
+    seedGranaryActive?: boolean;
+    seedGranaryBuffed?: boolean;
     hasBank: boolean;
     bankActive: boolean;
     foodUpkeepPerMinute?: number;

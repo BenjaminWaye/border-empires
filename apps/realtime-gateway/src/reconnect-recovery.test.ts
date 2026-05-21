@@ -16,7 +16,10 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "CAST_AETHER_BRIDGE":
     case "CAST_AETHER_WALL":
     case "AIRPORT_BOMBARD":
+    case "WORLD_ENGINE_STRIKE":
       return { fromX: 10, fromY: 10, toX: 11, toY: 10 };
+    case "IMPERIAL_EXCHANGE_LEVY":
+      return { fromX: 10, fromY: 10, resource: "FOOD" };
     case "SETTLE":
     case "BUILD_FORT":
     case "BUILD_OBSERVATORY":

@@ -1115,6 +1115,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         messageType !== "CREATE_MOUNTAIN" &&
         messageType !== "REMOVE_MOUNTAIN" &&
         messageType !== "AIRPORT_BOMBARD" &&
+        messageType !== "IMPERIAL_EXCHANGE_LEVY" &&
+        messageType !== "WORLD_ENGINE_STRIKE" &&
         messageType !== "COLLECT_SHARD"
     )
   );
@@ -2398,6 +2400,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "CREATE_MOUNTAIN" &&
             message.type !== "REMOVE_MOUNTAIN" &&
             message.type !== "AIRPORT_BOMBARD" &&
+            message.type !== "IMPERIAL_EXCHANGE_LEVY" &&
+            message.type !== "WORLD_ENGINE_STRIKE" &&
             message.type !== "COLLECT_SHARD"
           ) {
             sendJson(socket, {
@@ -2882,6 +2886,41 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 authedSession,
                 {
                   type: "AIRPORT_BOMBARD",
+                  payload: {
+                    fromX: message.fromX,
+                    fromY: message.fromY,
+                    toX: message.toX,
+                    toY: message.toY
+                  },
+                  ...metadata
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "IMPERIAL_EXCHANGE_LEVY") {
+            const metadata = optionalCommandMetadata(message);
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "IMPERIAL_EXCHANGE_LEVY",
+                  payload: {
+                    fromX: message.fromX,
+                    fromY: message.fromY,
+                    resource: message.resource
+                  },
+                  ...metadata
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "WORLD_ENGINE_STRIKE") {
+            const metadata = optionalCommandMetadata(message);
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "WORLD_ENGINE_STRIKE",
                   payload: {
                     fromX: message.fromX,
                     fromY: message.fromY,

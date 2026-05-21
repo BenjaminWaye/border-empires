@@ -132,29 +132,7 @@ describe("tech detail crystal ability previews", () => {
         canResearch: true
       }
     };
-    const portInfrastructure: TechInfo = {
-      id: "port-infrastructure",
-      tier: 4,
-      name: "Port Infrastructure",
-      description: "Unlocks Lockworks Port.",
-      mods: {},
-      effects: {
-        unlockHarborLocksUpgrade: true,
-        dockGoldCapMult: 1.25
-      },
-      requirements: {
-        gold: 10000,
-        resources: {
-          SUPPLY: 120,
-          CRYSTAL: 100
-        },
-        checklist: [],
-        canResearch: true
-      }
-    };
-
     expect(relatedStructureTypesForTech(organizedSupply)).toEqual(["GARRISON_HALL"]);
-    expect(relatedStructureTypesForTech(portInfrastructure)).toEqual(["LOCKWORKS_PORT"]);
   });
 
   it("maps later structure unlocks to their real labels instead of stale legacy structures", () => {
@@ -243,7 +221,6 @@ describe("tech detail crystal ability previews", () => {
     };
 
     expect(structureInfoForKey("WATERWORKS", deps).title).toBe("Waterworks");
-    expect(structureInfoForKey("LOCKWORKS_PORT", deps).title).toBe("Lockworks Port");
     expect(structureInfoForKey("RAIL_DEPOT", deps).title).toBe("Rail Depot");
     expect(structureInfoForKey("GOVERNORS_OFFICE", deps).title).toBe("Ministry Hall");
     expect(structureInfoForKey("CRYSTAL_SYNTHESIZER", deps).title).toBe("Aether Condenser");
@@ -262,7 +239,6 @@ describe("tech detail crystal ability previews", () => {
     };
 
     expect(structureInfoForKey("WATERWORKS", deps).detail).toContain("+80%");
-    expect(structureInfoForKey("LOCKWORKS_PORT", deps).detail).toContain("+1.5 gold per minute");
     expect(structureInfoForKey("RAIL_DEPOT", deps).detail).toContain("20 tiles");
     expect(structureInfoForKey("AETHER_TOWER", deps).detail).toContain("30-tile");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).detail).toContain("60 minutes");
@@ -286,8 +262,6 @@ describe("tech detail crystal ability previews", () => {
     };
 
     expect(structureInfoForKey("EXCHANGE_HOUSE", deps).image).toBe("/overlays/exchange-house-overlay.svg");
-    expect(structureInfoForKey("LOCKWORKS_PORT", deps).image).toBe("/overlays/lockworks-port-overlay.svg");
-    expect(structureInfoForKey("CHARTERED_PORT", deps).image).toBe("/overlays/chartered-port-overlay.svg");
     expect(structureInfoForKey("RAIL_DEPOT", deps).image).toBe("/overlays/rail-depot-overlay.svg");
     expect(structureInfoForKey("AEGIS_DOME", deps).image).toBe("/overlays/aegis-dome-overlay.svg");
     expect(structureInfoForKey("ASTRAL_DOCK", deps).image).toBe("/overlays/astral-dock-overlay.svg");
