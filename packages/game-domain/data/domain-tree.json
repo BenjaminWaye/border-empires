@@ -5,11 +5,11 @@
       "id": "frontier-doctrine",
       "tier": 1,
       "name": "Frontier Doctrine",
-      "description": "Early expansion becomes a tempo play instead of a bottleneck.",
+      "description": "Settlers move out at breakneck pace, and the realm can coordinate one extra expansion at a time.",
       "requiresTechId": "toolmaking",
       "cost": { "gold": 6000, "food": 120 },
       "effects": {
-        "settlementSpeedMult": 1.2,
+        "settlementSpeedMult": 1.5,
         "developmentProcessCapacityAdd": 1
       }
     },
@@ -17,24 +17,25 @@
       "id": "iron-bastions",
       "tier": 1,
       "name": "Iron Bastions",
-      "description": "Forts become cheaper, tougher anchors for contested borders.",
+      "description": "Forts pop up overnight and cost a pittance to keep.",
       "requiresTechId": "masonry",
       "cost": { "gold": 6000, "iron": 120 },
       "effects": {
-        "fortDefenseMult": 1.2,
-        "fortBuildGoldCostMult": 0.9
+        "fortBuildSpeedMult": 1.5,
+        "fortIronUpkeepMult": 0.6,
+        "fortGoldUpkeepMult": 0.6
       }
     },
     {
       "id": "supply-raiding",
       "tier": 1,
       "name": "Supply Raiding",
-      "description": "Raiders gain sharper pressure against frontier holdings.",
+      "description": "Raiders deploy faster and cost less supply to keep in the field.",
       "requiresTechId": "leatherworking",
       "cost": { "gold": 6000, "supply": 120 },
       "effects": {
-        "outpostAttackMult": 1.15,
-        "attackVsSettledMult": 1.05
+        "outpostDeploymentSpeedMult": 1.5,
+        "outpostSupplyUpkeepMult": 0.7
       }
     },
     {
@@ -45,20 +46,19 @@
       "requiresTechId": "trade",
       "cost": { "gold": 6000, "crystal": 100 },
       "effects": {
-        "firstThreeTownsPopulationGrowthMult": 1.15,
+        "firstThreeTownsPopulationGrowthMult": 1.25,
         "firstThreeTownsGoldOutputMult": 1.5
       }
     },
     {
-      "id": "farmers-compact",
+      "id": "clockwork-stipend",
       "tier": 1,
-      "name": "Farmer's Compact",
-      "description": "A strong food base lets compact empires grow without strain.",
+      "name": "Clockwork Stipend",
+      "description": "Imperial machinery ticks forward a steady supply of one chosen resource (iron or supply at 0.2/min, crystal at 0.1/min), regardless of the map.",
       "requiresTechId": "agriculture",
       "cost": { "gold": 6000, "food": 120 },
       "effects": {
-        "townFoodUpkeepMult": 0.85,
-        "populationGrowthMult": 1.1
+        "chosenResourceTrickleOptions": { "IRON": 0.2, "SUPPLY": 0.2, "CRYSTAL": 0.1 }
       }
     },
     {

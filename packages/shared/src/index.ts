@@ -10,6 +10,7 @@ export * from "./math.js";
 export * from "./exposure.js";
 export * from "./structure-costs.js";
 export * from "./structure-placement.js";
+export * from "./trickle-resources.js";
 export * from "./worldgen.js";
 export * from "./frontier-combat.js";
 export * from "./outpost-aura.js";
