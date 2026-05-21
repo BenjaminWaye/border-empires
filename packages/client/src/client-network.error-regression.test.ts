@@ -50,6 +50,7 @@ const createState = () =>
     attackPreviewPendingKey: "60,302->61,302",
     attackPreview: { valid: true },
     attackPreviewCacheByKey: new Map<string, unknown>(),
+    attackPreviewLatestRequestIdByKey: new Map<string, string>(),
     tiles: new Map(),
     incomingAttacksByTile: new Map(),
     revealedPredictedCombatByKey: new Map(),
