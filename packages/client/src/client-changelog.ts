@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.1",
+  version: "2026.05.21.2",
   title: "What's New",
-  summary: "Owned-town Production, gold cap, and connected-town count now reflect current state instead of whatever was persisted at the last snapshot, and the connected-town count matches the rendered roads.",
+  summary: "Attack preview loading can no longer get stuck forever, and owned-town Production, gold cap, and connected-town count now reflect current state instead of stale snapshot data.",
   entries: [
+    {
+      introducedIn: "2026.05.21.2",
+      title: "Attack win chance loading no longer gets stuck",
+      why: "The action menu now waits for fresh authoritative attack odds so outpost bonuses are accurate, but if the gateway preview response is stranded the menu could sit on 'Calculating win chance...' indefinitely.",
+      changes: [
+        "Fresh action-menu attack preview requests now have a watchdog that clears the loading state and re-renders the menu with a preview-unavailable message if the matching response does not arrive.",
+        "A late matching gateway response can still replace the timeout message with the real win chance, so transient network delay no longer leaves the menu permanently stuck."
+      ]
+    },
     {
       introducedIn: "2026.05.21.1",
       title: "Town Production, gold cap, and connected-town count stop going stale",
