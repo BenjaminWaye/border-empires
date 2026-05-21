@@ -580,6 +580,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
+    state.attackPreviewPendingRequestId = "";
     renderHud();
   };
 
@@ -1724,6 +1725,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       state.selected = { x: wx, y: wy };
       state.attackPreview = undefined;
       state.attackPreviewPendingKey = "";
+      state.attackPreviewPendingRequestId = "";
       renderHud();
       return;
     }
@@ -1731,6 +1733,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       state.selected = { x: wx, y: wy };
       state.attackPreview = undefined;
       state.attackPreviewPendingKey = "";
+      state.attackPreviewPendingRequestId = "";
       if (revealWholeMapInTrue3DMode) {
         const placeholder: Tile = { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: false };
         openSingleTileActionMenu(placeholder, clientX, clientY);

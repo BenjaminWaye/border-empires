@@ -307,6 +307,18 @@ export type AllianceRequest = {
   toName?: string;
 };
 
+export type ActiveAllianceBreakView = {
+  otherPlayerId: string;
+  otherPlayerName: string;
+  startedAt: number;
+  endsAt: number;
+  createdByPlayerId: string;
+};
+
+export type RecentAllianceBreakView = ActiveAllianceBreakView & {
+  finalizedAt: number;
+};
+
 export type TruceRequest = {
   id: string;
   fromPlayerId: string;

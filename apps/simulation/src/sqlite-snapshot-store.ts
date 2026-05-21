@@ -89,6 +89,31 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
          SELECT snapshot_id FROM world_snapshots ORDER BY snapshot_id DESC LIMIT 3
        )`
     );
+    // Prune events at or before the oldest retained snapshot's
+    // last_applied_event_id. Recovery reads `loadEventsAfter(eventId)` —
+    // i.e. event_id > snapshot.last_applied_event_id — so anything at or
+    // below that point is dead weight regardless of which of the three
+    // retained snapshots we replay from.
+    //
+    // Without this, world_events was append-only forever: the 2026-05-21
+    // prod outage was a 901 MB DB on a 1 GB volume after 7 days of
+    // unpruned accumulation. SQLite hit "database or disk is full" and
+    // the sim exited cleanly with code 1 — the gateway event-loop
+    // watchdog can't catch that because it's a voluntary exit, not a
+    // stall.
+    //
+    // NULL on first save (no snapshots yet) is handled by SQL's
+    // three-valued logic: `event_id <= NULL` evaluates to NULL → not
+    // truthy → nothing deleted. Safe.
+    //
+    // Note this does not shrink the DB file. SQLite reuses freed pages
+    // but the high-water mark only drops on VACUUM (separate one-off
+    // maintenance). Future writes fit into the existing footprint, so
+    // growth stops.
+    this.db.exec(
+      `DELETE FROM world_events
+       WHERE event_id <= (SELECT MIN(last_applied_event_id) FROM world_snapshots)`
+    );
     this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
   }
 
