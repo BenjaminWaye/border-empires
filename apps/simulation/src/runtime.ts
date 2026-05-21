@@ -18,6 +18,7 @@ import {
   ATTACK_MANPOWER_MIN,
   ATTACK_MANPOWER_COST,
   BARBARIAN_MULTIPLY_THRESHOLD,
+  BARBARIAN_POPULATION_CAP,
   DEVELOPMENT_PROCESS_LIMIT,
   FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
@@ -43,6 +44,7 @@ import {
   structureCostDefinition,
   structurePlacementMetadata,
   structureShowsOnTile,
+  isChosenTrickleResource,
   type BuildableStructureType,
   type EconomicStructureType
 } from "@border-empires/shared";
@@ -151,6 +153,8 @@ import {
   buildDomainUpdatePayload,
   buildTechUpdatePayload,
   chooseDomainForPlayer,
+  type ChosenTrickleResource,
+  chosenTrickleRateForPlayer,
   chooseTechForPlayer,
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
@@ -1870,6 +1874,20 @@ export class SimulationRuntime {
     const summary = this.summaryForPlayer(player.id);
     const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles);
     const elapsedMinutes = elapsedMs / 60_000;
+    // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
+    // upkeep drain, so the trickle helps cover upkeep on a starved empire
+    // instead of being instantly clawed back.
+    const trickle = chosenTrickleRateForPlayer(player);
+    if (trickle && trickle.ratePerMinute > 0) {
+      const credit = trickle.ratePerMinute * elapsedMinutes;
+      if (credit > 0) {
+        const current = player.strategicResources ?? {};
+        player.strategicResources = {
+          ...current,
+          [trickle.resource]: (current[trickle.resource] ?? 0) + credit
+        };
+      }
+    }
     const need: UpkeepNeed = {
       gold: Math.max(0, economy.upkeepPerMinute.gold) * elapsedMinutes,
       FOOD: Math.max(0, economy.upkeepPerMinute.food) * elapsedMinutes,
@@ -2689,6 +2707,65 @@ export class SimulationRuntime {
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
     };
+  }
+
+  // Cheap subset of exportState() — just { players, activeLocks } — used by
+  // the checkpoint manager's exportProjectionState callback, which only
+  // consumes those two fields. The full exportState() call also iterates
+  // and sorts ALL ~200k world tiles, materialising an array we'd then
+  // discard. On staging telemetry that materialise+sort was the dominant
+  // contributor to the 5-10s "simulation checkpoint phase" event-loop
+  // blocks; the projection callback hits the same path on every
+  // checkpointEveryEvents (5000) cycle. The player + lock projection here
+  // only iterates this.players (small) and this.locksByTile (small) — no
+  // O(world) work. Player shape MUST match exportState().players because
+  // the postgres projection writer relies on it.
+  exportProjectionPlayersAndLocks(): {
+    players: ReturnType<SimulationRuntime["exportState"]>["players"];
+    activeLocks: ReturnType<SimulationRuntime["exportState"]>["activeLocks"];
+  } {
+    const players = [...this.players.values()]
+      .map((player) => {
+        this.applyManpowerRegen(player);
+        const summary = this.summaryForPlayer(player.id);
+        return {
+          id: player.id,
+          ...(player.name ? { name: player.name } : {}),
+          points: player.points,
+          manpower: player.manpower,
+          manpowerCap: this.playerManpowerCap(player),
+          manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+          manpowerBreakdown: this.playerManpowerBreakdown(player),
+          ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
+          techIds: [...player.techIds].sort(),
+          domainIds: [...(player.domainIds ?? [])].sort(),
+          strategicResources: { ...(player.strategicResources ?? {}) },
+          allies: [...player.allies].sort(),
+          vision: player.mods?.vision ?? 1,
+          visionRadiusBonus: visionRadiusBonusForPlayer(player),
+          incomeMultiplier: player.mods?.income ?? 1,
+          territoryTileKeys: [...summary.territoryTileKeys],
+          ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
+          settledTileCount: summary.settledTileCount,
+          townCount: summary.townCount,
+          incomePerMinute: this.incomePerMinuteForPlayer(player.id),
+          strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
+          activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+        };
+      })
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const activeLocks = [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      .map((lock) => ({
+        commandId: lock.commandId,
+        playerId: lock.playerId,
+        actionType: lock.actionType,
+        originKey: lock.originKey,
+        targetKey: lock.targetKey,
+        resolvesAt: lock.resolvesAt,
+        ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
+      }))
+      .sort((left, right) => left.commandId.localeCompare(right.commandId));
+    return { players, activeLocks };
   }
 
   private classifyVisibilityForPlayer(playerId: string): {
@@ -5314,9 +5391,13 @@ export class SimulationRuntime {
       return;
     }
     let domainId = "";
+    let chosenTrickleResource: ChosenTrickleResource | undefined;
     try {
-      const parsed = JSON.parse(command.payloadJson) as { domainId?: unknown };
+      const parsed = JSON.parse(command.payloadJson) as { domainId?: unknown; chosenTrickleResource?: unknown };
       if (typeof parsed.domainId === "string") domainId = parsed.domainId;
+      if (isChosenTrickleResource(parsed.chosenTrickleResource)) {
+        chosenTrickleResource = parsed.chosenTrickleResource;
+      }
     } catch {
       domainId = "";
     }
@@ -5330,7 +5411,12 @@ export class SimulationRuntime {
       });
       return;
     }
-    const outcome = chooseDomainForPlayer(actor, domainId, this.tiles.values());
+    const outcome = chooseDomainForPlayer(
+      actor,
+      domainId,
+      this.tiles.values(),
+      chosenTrickleResource ? { chosenTrickleResource } : undefined
+    );
     if (!outcome.ok) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -6076,7 +6162,11 @@ export class SimulationRuntime {
     }
     if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
 
-    const goldCost = structureBuildGoldCost("FORT", this.ownedStructureCountForPlayer(command.playerId, "FORT"));
+    const fortGoldCostMult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
+    const goldCost = Math.max(
+      0,
+      Math.round(structureBuildGoldCost("FORT", this.ownedStructureCountForPlayer(command.playerId, "FORT")) * fortGoldCostMult)
+    );
     const manpowerCost = structureBuildManpowerCost("FORT");
     if (actor.points < goldCost) {
       this.emitEvent({
@@ -6111,12 +6201,17 @@ export class SimulationRuntime {
 
     actor.points -= goldCost;
     actor.manpower = Math.max(0, actor.manpower - manpowerCost);
+    // multiplicativeEffectForPlayer enforces value > 0 when multiplying, so the
+    // result is always strictly positive (defaulting to 1 when no domain or
+    // tech configures the key). Divide directly — no floor guard needed.
+    const fortBuildSpeedMult = multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult");
+    const fortBuildDurationMs = Math.max(1, Math.round(structureBuildDurationMs("FORT") / fortBuildSpeedMult));
     const startedTile: DomainTileState = {
       ...target,
       fort: {
         ownerId: command.playerId,
         status: "under_construction",
-        completesAt: this.now() + structureBuildDurationMs("FORT")
+        completesAt: this.now() + fortBuildDurationMs
       }
     };
     this.replaceTileState(targetKey, startedTile);
@@ -6127,7 +6222,7 @@ export class SimulationRuntime {
       tileDeltas: [this.tileDeltaFromState(startedTile)]
     });
     this.emitPlayerStateUpdate(command);
-    this.scheduleAfter(structureBuildDurationMs("FORT"), () => {
+    this.scheduleAfter(fortBuildDurationMs, () => {
       this.completeFortBuild(targetKey, command.playerId, command.commandId);
     });
   }
@@ -6427,13 +6522,20 @@ export class SimulationRuntime {
 
     actor.points -= goldCost;
     actor.manpower = Math.max(0, actor.manpower - manpowerCost);
+    // See fort-build path for the divide-without-guard rationale: the helper
+    // already filters out zero/negative effect values before multiplying.
+    const outpostDeploymentSpeedMult = multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult");
+    const siegeOutpostBuildDurationMs = Math.max(
+      1,
+      Math.round(structureBuildDurationMs("SIEGE_OUTPOST") / outpostDeploymentSpeedMult)
+    );
     const startedTile: DomainTileState = {
       ...target,
       ...(upgradingLightOutpost ? { economicStructure: undefined } : {}),
       siegeOutpost: {
         ownerId: command.playerId,
         status: "under_construction",
-        completesAt: this.now() + structureBuildDurationMs("SIEGE_OUTPOST")
+        completesAt: this.now() + siegeOutpostBuildDurationMs
       }
     };
     this.replaceTileState(targetKey, startedTile);
@@ -6444,7 +6546,7 @@ export class SimulationRuntime {
       tileDeltas: [this.tileDeltaFromState(startedTile)]
     });
     this.emitPlayerStateUpdate(command);
-    this.scheduleAfter(structureBuildDurationMs("SIEGE_OUTPOST"), () => {
+    this.scheduleAfter(siegeOutpostBuildDurationMs, () => {
       this.completeSiegeOutpostBuild(targetKey, command.playerId, command.commandId);
     });
   }
@@ -7187,15 +7289,37 @@ export class SimulationRuntime {
   private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
     const previousTarget = this.tiles.get(lock.targetKey);
     const attackerOutpostMult = this.attackerOutpostMult(lock.playerId, lock.originX, lock.originY);
+    const attacker = this.players.get(lock.playerId);
+    const defenderOwnerId = previousTarget?.ownerId;
+    const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
+    const targetHasActiveFort =
+      Boolean(
+        previousTarget?.fort &&
+        previousTarget.fort.status === "active" &&
+        previousTarget.fort.ownerId === defenderOwnerId
+      );
+    const combatModifiers = {
+      attackerOutpostMult,
+      attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
+      attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
+      fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1
+    };
+    const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
+      ? {
+          terrain: previousTarget.terrain,
+          ownershipState: previousTarget.ownershipState,
+          dockId: previousTarget.dockId,
+          townType: previousTarget.town?.type,
+          hasFort: targetHasActiveFort
+        }
+      : { terrain: "LAND" };
     const combat =
       lock.actionType === "EXPAND"
         ? {
-            ...rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType, undefined, { attackerOutpostMult }),
+            ...rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers),
             attackerWon: true
           }
-        : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType, undefined, { attackerOutpostMult });
-    const defenderOwnerId = previousTarget?.ownerId;
-    const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
+        : rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers);
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
     const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, this.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
     const plunder =
@@ -7363,11 +7487,34 @@ export class SimulationRuntime {
         };
         this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
         this.extendFortPatrolGrace(lock.originKey, this.now() + FORT_PATROL_GRACE_MS);
+        const tileDeltas = [this.tileDeltaFromState(resolvedOrigin)];
+
+        // Successful barb counter-attack: barb JUMPS from defender tile to the
+        // attacker's origin instead of growing its population. The defender
+        // tile releases to neutral so total barb tile count is unchanged.
+        // Without this, every failed player attack against a barb grows
+        // barbarian-1 by one tile (and spreads them across the map).
+        if (previousOwnerId === "barbarian-1") {
+          const defenderTile = this.tiles.get(lock.targetKey);
+          if (defenderTile?.ownerId === "barbarian-1" && !this.locksByTile.has(lock.targetKey)) {
+            const releasedDefender: DomainTileState = {
+              x: defenderTile.x,
+              y: defenderTile.y,
+              terrain: defenderTile.terrain,
+              ...(defenderTile.resource ? { resource: defenderTile.resource } : {}),
+              ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {})
+            };
+            this.replaceTileState(lock.targetKey, releasedDefender, lock.commandId);
+            this.barbarianTileProgress.delete(lock.targetKey);
+            tileDeltas.push(this.tileDeltaFromState(releasedDefender));
+          }
+        }
+
         this.emitEvent({
           eventType: "TILE_DELTA_BATCH",
           commandId: lock.commandId,
           playerId: lock.playerId,
-          tileDeltas: [this.tileDeltaFromState(resolvedOrigin)]
+          tileDeltas
         });
       }
     }
@@ -7492,7 +7639,12 @@ export class SimulationRuntime {
   }
 
   private barbarianProgressGain(target: DomainTileState | undefined): number {
-    if (!target) return 1;
+    // Multiply progress only accumulates when a barb actually CAPTURES a
+    // non-barb player's tile. Walking into neutral land or shuffling between
+    // own tiles contributes zero — otherwise barbs multiply every 3 steps
+    // even when no one's territory is being eaten, which is what was
+    // spreading them across the map.
+    if (!target?.ownerId || target.ownerId === "barbarian-1") return 0;
     return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
   }
 
@@ -7500,7 +7652,12 @@ export class SimulationRuntime {
     const gain = this.barbarianProgressGain(previousTarget);
     const sourceProgress = this.barbarianTileProgress.get(lock.originKey) ?? 0;
     const newProgress = sourceProgress + gain;
-    if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD) {
+    // Population cap: at/over cap, an otherwise-multiplying walk becomes a
+    // plain walk that carries the over-threshold progress to the target,
+    // so the target re-attempts the multiply on its next action — natural
+    // "barbs pent up waiting for room to spawn" behavior once a barb dies.
+    const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
+    if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount < BARBARIAN_POPULATION_CAP) {
       this.barbarianTileProgress.set(lock.originKey, 0);
       this.barbarianTileProgress.set(lock.targetKey, 0);
       return;
@@ -7588,32 +7745,39 @@ export class SimulationRuntime {
       this.preparePlayerRespawnNotice(playerId, "eliminated", commandId, { wasOnline: true });
     }
 
-    for (const tile of this.tiles.values()) {
-      if (tile.terrain !== "LAND" || tile.ownerId) continue;
-      const respawnedTile: DomainTileState = {
-        ...tile,
-        ownerId: playerId,
-        ownershipState: "SETTLED",
-        town: tile.town ?? {
-          name: `Respawn ${tile.x},${tile.y}`,
-          type: "FARMING",
-          populationTier: "SETTLEMENT"
-        }
-      };
-      actor.manpower = Math.max(actor.manpower, 100);
-      const respawnedTileKey = simulationTileKey(tile.x, tile.y);
-      const respawnCommandId = `${commandId}:respawn:${playerId}`;
-      this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
-      this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
-      this.finalizeRespawnNotice(playerId, respawnedTileKey);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: respawnCommandId,
-        playerId,
-        tileDeltas: [this.tileDeltaFromState(respawnedTile)]
-      });
-      return;
-    }
+    const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
+    const spawn = chooseLegacySpawnPlacement({
+      playerId,
+      tiles: this.tiles.values(),
+      blockedTileKeys
+    });
+    if (!spawn) return;
+    const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
+    const tile = this.tiles.get(respawnedTileKey);
+    if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return;
+    const respawnedTile: DomainTileState = {
+      ...tile,
+      ownerId: playerId,
+      ownershipState: "SETTLED",
+      town: {
+        name: `Respawn ${tile.x},${tile.y}`,
+        type: "FARMING",
+        populationTier: "SETTLEMENT",
+        population: SYNTHETIC_SETTLEMENT_POPULATION,
+        maxPopulation: POPULATION_MAX
+      }
+    };
+    actor.manpower = Math.max(actor.manpower, 100);
+    const respawnCommandId = `${commandId}:respawn:${playerId}`;
+    this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
+    this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
+    this.finalizeRespawnNotice(playerId, respawnedTileKey);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: respawnCommandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(respawnedTile)]
+    });
   }
 
   private queueCommandForProcessing(command: CommandEnvelope): void {

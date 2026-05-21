@@ -32,7 +32,8 @@ import { createSystemCommandProducer } from "./system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "./system-command-producer-worker.js";
 import { loadLegacySnapshotBootstrap } from "./legacy-snapshot-bootstrap.js";
 import { buildNextClientSeqByPlayer } from "./next-client-seq.js";
-import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
+import { buildPlayerSubscriptionSnapshot, buildPlayerSubscriptionSnapshotAsync } from "./player-snapshot.js";
+import { yieldToEventLoop } from "./event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "./live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "./seed-state.js";
 import { createPlayerSubscriptionRegistry } from "./subscription-registry.js";
@@ -966,10 +967,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(options.writeCheckpointProjections === false
       ? {}
       : {
-          exportProjectionState: () => {
-            const state = runtime.exportState();
-            return { players: state.players, activeLocks: state.activeLocks };
-          }
+          // Previously called runtime.exportState() which materialises and
+          // sorts the full ~200k tile array (then we discarded it). That
+          // synchronous O(world) work was the dominant cost of the
+          // "simulation checkpoint phase" event-loop block — staging
+          // observed 5-10s spikes preceded by this log line. The dedicated
+          // projection method returns the same { players, activeLocks }
+          // shape without ever touching this.tiles.
+          exportProjectionState: () => runtime.exportProjectionPlayersAndLocks()
         }),
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
     ...(typeof options.checkpointForceAfterEvents === "number"
@@ -1167,6 +1172,51 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     return snapshot;
   };
+  // Async variant used by SubscribePlayer to interleave the heavy per-tile
+  // enrichment with grpc dispatch + watchdog heartbeats. See player-snapshot.ts
+  // for the duplication rationale.
+  const buildAndCachePlayerSnapshotAsync = async (
+    playerId: string,
+    options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
+  ): Promise<PlayerSubscriptionSnapshot> => {
+    const seasonEnded = currentSeasonState.status === "ended";
+    const useFullVisibility = options?.fullVisibility === true || seasonEnded;
+    const worldStatusRuntimeState = options?.includeWorldStatus === true || useFullVisibility ? runtime.exportState() : undefined;
+    const runtimeState = worldStatusRuntimeState ?? runtime.exportVisibleStateForPlayer(playerId);
+    const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
+    const snapshot = await buildPlayerSubscriptionSnapshotAsync(playerId, runtimeState, undefined, yieldToEventLoop, {
+      includeWorldStatus: options?.includeWorldStatus === true,
+      fullVisibility: useFullVisibility,
+      ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
+      ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
+      seasonState: currentSeasonState,
+      ...(respawnNotice ? { respawnNotice } : {})
+    });
+    setCachedSnapshot(playerId, snapshot);
+    recordSnapshotDiagnostics(playerId, snapshot, {
+      trigger:
+        options?.trigger ??
+        (seasonEnded && options?.fullVisibility !== true
+          ? "season_ended_full_visibility"
+          : options?.includeWorldStatus === true
+            ? "subscribe_with_world_status"
+            : "live_subscribe"),
+      fullVisibility: useFullVisibility,
+      seasonEnded,
+      worldTileCount: WORLD_WIDTH * WORLD_HEIGHT
+    });
+    return snapshot;
+  };
+  // Per-(player, mode) in-flight subscribe deduplication. Resolves the
+  // "thundering herd" of bootstrap retries that piled up sequentially in the
+  // 2026-05-20 outage: client gateway timed out at 10s and retried 4× while a
+  // single buildAndCachePlayerSnapshot was still running on the main thread,
+  // amplifying the stall to 100+ seconds. Sharing the in-flight promise means
+  // retry N+1 returns the same snapshot as N without rebuilding.
+  type InFlightSubscribeKey = string;
+  const inFlightSubscribeBuilds = new Map<InFlightSubscribeKey, Promise<PlayerSubscriptionSnapshot>>();
+  const buildSubscribeKey = (playerId: string, mode: string, fullVisibility: boolean): InFlightSubscribeKey =>
+    `${playerId}|${mode}|${fullVisibility ? "1" : "0"}`;
   const clearSeasonVictoryTimer = (): void => {
     if (!seasonVictoryTimer) return;
     clearTimeout(seasonVictoryTimer);
@@ -1928,73 +1978,105 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (subscribeOptions.mode !== "bootstrap-only") {
         subscriptionRegistry.subscribe(call.request.player_id, subscribeOptions.subscriptionKey);
       }
-      const snapshotPayload =
-        subscribeOptions.mode === "bootstrap-only"
-          ? buildAndCachePlayerSnapshot(call.request.player_id, {
-              includeWorldStatus: true,
-              fullVisibility: subscribeOptions.fullVisibility,
-              ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
-            })
-          : buildAndCachePlayerSnapshot(call.request.player_id, {
-              fullVisibility: subscribeOptions.fullVisibility,
-              ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
-            });
-      if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
-        log.info(
-          JSON.stringify({
-            type: "debug_subscribe_player",
-            playerId: call.request.player_id,
-            runtimeTiles: snapshotPayload.tiles.length,
-            snapshotTiles: snapshotPayload.tiles.length,
-            snapshotLength: JSON.stringify(snapshotPayload).length
-          })
+      // Dedupe concurrent subscribes for the same (player, mode, visibility).
+      // The bootstrap retry loop in the gateway can fire 3-4 RPCs while the
+      // first build is still running; sharing the in-flight promise prevents
+      // those retries from queuing new sync builds behind it.
+      const buildPromise = (() => {
+        const key = buildSubscribeKey(
+          call.request.player_id,
+          subscribeOptions.mode,
+          subscribeOptions.fullVisibility ?? false
         );
-      }
-      callback(null, {
-        ok: true,
-        player_id: snapshotPayload.playerId,
-        playerId: snapshotPayload.playerId,
-        ...(snapshotPayload.player ? { player_json: JSON.stringify(snapshotPayload.player) } : {}),
-        ...(snapshotPayload.worldStatus ? { world_status_json: JSON.stringify(snapshotPayload.worldStatus) } : {}),
-        ...(snapshotPayload.season ? { season_json: JSON.stringify(snapshotPayload.season) } : {}),
-        ...(snapshotPayload.docks?.length
-          ? {
-              docks: snapshotPayload.docks.map((dock) => ({
-                dock_id: dock.dockId,
-                tile_key: dock.tileKey,
-                paired_dock_id: dock.pairedDockId,
-                ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
-              }))
-            }
-          : {}),
-        tiles: snapshotPayload.tiles.map((tile) => ({
-          x: tile.x,
-          y: tile.y,
-          ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dock_id: tile.dockId } : {}),
-          ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
-          ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
-          ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
-          ...(tile.townJson ? { town_json: tile.townJson } : {}),
-          ...(tile.townType ? { town_type: tile.townType } : {}),
-          ...(tile.townName ? { town_name: tile.townName } : {}),
-          ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-          ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
-          ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-          ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
-        }))
-      });
-      if (!subscribeOptions.emitBootstrapEvent) return;
-      const bootstrapEvent = toProtoEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: `bootstrap:${call.request.player_id}:${Date.now()}`,
-        playerId: call.request.player_id,
-        tileDeltas: snapshotPayload.tiles
-      });
-      queueMicrotask(() => {
-        for (const stream of eventStreams) stream.write(bootstrapEvent);
-      });
+        const existing = inFlightSubscribeBuilds.get(key);
+        if (existing) return existing;
+        const promise = (async () => {
+          try {
+            return subscribeOptions.mode === "bootstrap-only"
+              ? await buildAndCachePlayerSnapshotAsync(call.request.player_id, {
+                  includeWorldStatus: true,
+                  fullVisibility: subscribeOptions.fullVisibility,
+                  ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
+                })
+              : await buildAndCachePlayerSnapshotAsync(call.request.player_id, {
+                  fullVisibility: subscribeOptions.fullVisibility,
+                  ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
+                });
+          } finally {
+            inFlightSubscribeBuilds.delete(key);
+          }
+        })();
+        inFlightSubscribeBuilds.set(key, promise);
+        return promise;
+      })();
+      void buildPromise.then(
+        (snapshotPayload) => {
+          if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
+            log.info(
+              JSON.stringify({
+                type: "debug_subscribe_player",
+                playerId: call.request.player_id,
+                runtimeTiles: snapshotPayload.tiles.length,
+                snapshotTiles: snapshotPayload.tiles.length,
+                snapshotLength: JSON.stringify(snapshotPayload).length
+              })
+            );
+          }
+          callback(null, {
+            ok: true,
+            player_id: snapshotPayload.playerId,
+            playerId: snapshotPayload.playerId,
+            ...(snapshotPayload.player ? { player_json: JSON.stringify(snapshotPayload.player) } : {}),
+            ...(snapshotPayload.worldStatus ? { world_status_json: JSON.stringify(snapshotPayload.worldStatus) } : {}),
+            ...(snapshotPayload.season ? { season_json: JSON.stringify(snapshotPayload.season) } : {}),
+            ...(snapshotPayload.docks?.length
+              ? {
+                  docks: snapshotPayload.docks.map((dock) => ({
+                    dock_id: dock.dockId,
+                    tile_key: dock.tileKey,
+                    paired_dock_id: dock.pairedDockId,
+                    ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
+                  }))
+                }
+              : {}),
+            tiles: snapshotPayload.tiles.map((tile) => ({
+              x: tile.x,
+              y: tile.y,
+              ...(tile.terrain ? { terrain: tile.terrain } : {}),
+              ...(tile.resource ? { resource: tile.resource } : {}),
+              ...(tile.dockId ? { dock_id: tile.dockId } : {}),
+              ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
+              ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
+              ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
+              ...(tile.townJson ? { town_json: tile.townJson } : {}),
+              ...(tile.townType ? { town_type: tile.townType } : {}),
+              ...(tile.townName ? { town_name: tile.townName } : {}),
+              ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
+              ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
+              ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
+              ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
+            }))
+          });
+          if (!subscribeOptions.emitBootstrapEvent) return;
+          const bootstrapEvent = toProtoEvent({
+            eventType: "TILE_DELTA_BATCH",
+            commandId: `bootstrap:${call.request.player_id}:${Date.now()}`,
+            playerId: call.request.player_id,
+            tileDeltas: snapshotPayload.tiles
+          });
+          queueMicrotask(() => {
+            for (const stream of eventStreams) stream.write(bootstrapEvent);
+          });
+        },
+        (error) => {
+          callback(error instanceof Error ? error : new Error(String(error)), {
+            ok: false,
+            player_id: call.request.player_id,
+            playerId: call.request.player_id,
+            tiles: []
+          });
+        }
+      );
     },
     UnsubscribePlayer(
       call: { request: { player_id: string; subscription_key?: string } },

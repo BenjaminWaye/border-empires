@@ -40,6 +40,7 @@ import {
   type EconomyPlayer
 } from "./economy-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import { multiplicativeEffectForPlayer } from "./tech-domain-bridge.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type EconomyResourceKey = StrategicResourceKey | "GOLD";
@@ -342,6 +343,9 @@ export const buildPlayerUpdateEconomySnapshot = (
   dockContext?: Pick<DockEconomyContext, "dockLinksByDockTileKey">
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
+  const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
+  const fortIronUpkeepMult = multiplicativeEffectForPlayer(player, "fortIronUpkeepMult");
+  const outpostSupplyUpkeepMult = multiplicativeEffectForPlayer(player, "outpostSupplyUpkeepMult");
   const settledTiles = [...summary.territoryTileKeys]
     .map((tileKey) => tiles.get(tileKey))
     .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === player.id && tile.ownershipState === "SETTLED"));
@@ -402,12 +406,12 @@ export const buildPlayerUpdateEconomySnapshot = (
       addBucket(goldSources, "Docks", dockGoldPerMinute > 0 ? dockGoldPerMinute : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });
     }
     if (tile.fort?.ownerId === player.id && tile.fort.status === "active") {
-      addBucket(goldSinks, "Fort", 1, { count: 1 });
-      addBucket(ironSinks, "Fort", 0.025, { count: 1 });
+      addBucket(goldSinks, "Fort", 1 * fortGoldUpkeepMult, { count: 1 });
+      addBucket(ironSinks, "Fort", 0.025 * fortIronUpkeepMult, { count: 1 });
     }
     if (tile.siegeOutpost?.ownerId === player.id && tile.siegeOutpost.status === "active") {
       addBucket(goldSinks, "Siege outpost", 1, { count: 1 });
-      addBucket(supplySinks, "Siege outpost", 0.025, { count: 1 });
+      addBucket(supplySinks, "Siege outpost", 0.025 * outpostSupplyUpkeepMult, { count: 1 });
     }
     if (tile.observatory?.ownerId === player.id && tile.observatory.status === "active") {
       addBucket(crystalSinks, "Observatory", OBSERVATORY_UPKEEP_PER_MIN, { count: 1 });

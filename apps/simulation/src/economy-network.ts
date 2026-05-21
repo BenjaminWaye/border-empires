@@ -142,6 +142,10 @@ export const firstThreeTownsGoldOutputMultiplierForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">
 ): number => multiplicativeEffectForPlayer(player, "firstThreeTownsGoldOutputMult");
 
+export const firstThreeTownsPopulationGrowthMultiplierForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => multiplicativeEffectForPlayer(player, "firstThreeTownsPopulationGrowthMult");
+
 export const dockConnectionBonusPerLinkForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">
 ): number => {
