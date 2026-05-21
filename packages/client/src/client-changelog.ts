@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.6",
+  version: "2026.05.20.7",
   title: "What's New",
-  summary: "Alliances now use a 24 hour break notice: allies stay active during the notice, both players are alerted, and the ally card shows the countdown until the alliance fully ends.",
+  summary: "Attack-menu win chances now wait for a fresh authoritative gateway preview and ignore stale preview responses, so nearby outpost bonuses can show correctly.",
   entries: [
+    {
+      introducedIn: "2026.05.20.7",
+      title: "Attack previews wait for the real combat odds",
+      why: "The action menu could cache or accept an older preview before the gateway returned fresh authoritative odds. That made nearby active outpost attack auras look like they were not changing the displayed win chance.",
+      changes: [
+        "Opening an enemy tile action menu now bypasses cached attack previews and shows a loading state while the gateway computes current odds.",
+        "Attack preview requests carry a request id, and stale preview responses are ignored if a newer menu refresh is pending.",
+        "Regression coverage verifies menu previews do not store unboosted local odds, supersede hover previews, and reject stale gateway responses."
+      ]
+    },
     {
       introducedIn: "2026.05.20.6",
       title: "Alliance breaks now give 24 hours of notice",
