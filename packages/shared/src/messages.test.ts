@@ -22,6 +22,12 @@ describe("ClientMessageSchema", () => {
     });
   });
 
+  it("accepts reveal-map snapshot requests", () => {
+    expect(ClientMessageSchema.parse({ type: "REQUEST_REVEAL_MAP" })).toEqual({
+      type: "REQUEST_REVEAL_MAP"
+    });
+  });
+
   it("accepts alliance and truce dismiss/cancel messages", () => {
     expect(ClientMessageSchema.parse({ type: "ALLIANCE_REJECT", requestId: "alliance-1" })).toEqual({
       type: "ALLIANCE_REJECT",

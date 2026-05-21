@@ -31,7 +31,8 @@ describe("client auth flow regression guard", () => {
     expect(source).toContain("state.stagingMapRevealEnabled = getStagingMapRevealEnabled({");
     expect(source).toContain("state.stagingMapRevealEligible = Boolean(player.canToggleFog);");
     expect(source).toContain("const syncDesiredFogDisabled = (): void => {");
-    expect(source).toContain('ws.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: state.stagingMapRevealEnabled }));');
+    expect(source).toContain('state.serverSupportedMessageTypes.has("REQUEST_REVEAL_MAP")');
+    expect(source).toContain('state.stagingMapRevealEnabled ? { type: "REQUEST_REVEAL_MAP" } : { type: "SET_FOG_DISABLED", disabled: false }');
     expect(source.indexOf("state.stagingMapRevealEligible = Boolean(player.canToggleFog);")).toBeLessThan(
       source.indexOf("syncDesiredFogDisabled();")
     );

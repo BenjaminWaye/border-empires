@@ -78,4 +78,30 @@ describe("gateway metrics", () => {
     expect(exposition).toContain('gateway_snapshot_json_bytes{quantile="p95"}');
     expect(exposition).toContain("gateway_snapshot_cache_bytes 8192");
   });
+
+  it("tracks reveal-map snapshot build, fanout, and active-stream counters", () => {
+    const metrics = createGatewayMetrics();
+    metrics.observeRevealSnapshotBuildMs(120);
+    metrics.observeRevealSnapshotBuildMs(180);
+    metrics.observeRevealSnapshotBytes(1_500_000);
+    metrics.observeRevealSnapshotBytes(1_800_000);
+    metrics.setRevealActiveStreams(3);
+    metrics.incrementRevealChunksSent(4);
+    metrics.incrementRevealChunksSent(2);
+    metrics.setRevealCacheEntries(1);
+
+    const sample = metrics.snapshot();
+    expect(sample.revealSnapshotBuildMs.p95).toBe(180);
+    expect(sample.revealSnapshotBytes.p95).toBe(1_800_000);
+    expect(sample.revealActiveStreams).toBe(3);
+    expect(sample.revealChunksSent).toBe(6);
+    expect(sample.revealCacheEntries).toBe(1);
+
+    const exposition = metrics.renderPrometheus();
+    expect(exposition).toContain('gateway_reveal_snapshot_build_ms{quantile="p95"} 180');
+    expect(exposition).toContain('gateway_reveal_snapshot_bytes{quantile="p95"} 1800000');
+    expect(exposition).toContain("gateway_reveal_active_streams 3");
+    expect(exposition).toContain("gateway_reveal_chunks_sent 6");
+    expect(exposition).toContain("gateway_reveal_cache_entries 1");
+  });
 });

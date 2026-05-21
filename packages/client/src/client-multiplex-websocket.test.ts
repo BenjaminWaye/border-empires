@@ -60,6 +60,7 @@ describe("client-multiplex-websocket", () => {
     socket.send(JSON.stringify({ type: "AUTH", token: "abc" }));
     socket.send(JSON.stringify({ type: "ATTACK", fromX: 1, fromY: 1, toX: 2, toY: 2 }));
     socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 1, cy: 2, radius: 3 }));
+    socket.send(JSON.stringify({ type: "REQUEST_REVEAL_MAP" }));
 
     expect(control?.url).toContain("channel=control");
     expect(bulk?.url).toContain("channel=bulk");
@@ -69,7 +70,8 @@ describe("client-multiplex-websocket", () => {
     ]);
     expect(bulk?.sent).toEqual([
       JSON.stringify({ type: "AUTH", token: "abc" }),
-      JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 1, cy: 2, radius: 3 })
+      JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 1, cy: 2, radius: 3 }),
+      JSON.stringify({ type: "REQUEST_REVEAL_MAP" })
     ]);
   });
 
