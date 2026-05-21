@@ -258,10 +258,6 @@ const hudMarkup = `
           <input id="alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
           <button id="alliance-send" class="panel-btn" type="button">Send</button>
         </div>
-        <div class="alliance-form-section">
-          <input id="alliance-break-id" placeholder="break by player id" />
-          <button id="alliance-break" class="panel-btn" type="button">Break</button>
-        </div>
         <datalist id="alliance-target-options"></datalist>
         <div id="allies-list" class="alliance-section-stack"></div>
         <div id="alliance-requests" class="alliance-section-stack"></div>
@@ -306,10 +302,6 @@ const hudMarkup = `
       <div class="alliance-form-section">
         <input id="mobile-alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
         <button id="mobile-alliance-send" class="panel-btn" type="button">Send</button>
-      </div>
-      <div class="alliance-form-section">
-        <input id="mobile-alliance-break-id" placeholder="break by player id" />
-        <button id="mobile-alliance-break" class="panel-btn" type="button">Break</button>
       </div>
       <div id="mobile-allies-list" class="alliance-section-stack"></div>
       <div id="mobile-alliance-requests" class="alliance-section-stack"></div>
@@ -419,14 +411,12 @@ export const initClientDom = () => {
   const techChoiceDetailsEl = requireElement<HTMLDivElement>("#tech-choice-details");
   const allianceTargetEl = requireElement<HTMLInputElement>("#alliance-target");
   const allianceTargetOptionsEl = requireElement<HTMLDataListElement>("#alliance-target-options");
-  const allianceBreakIdEl = requireElement<HTMLInputElement>("#alliance-break-id");
   const alliesListEl = requireElement<HTMLDivElement>("#allies-list");
   const allianceRequestsEl = requireElement<HTMLDivElement>("#alliance-requests");
   const alliancePlayerInspectEl = requireElement<HTMLDivElement>("#alliance-player-inspect");
   const missionsEl = requireElement<HTMLDivElement>("#panel-missions");
   const leaderboardEl = requireElement<HTMLDivElement>("#leaderboard");
   const allianceSendBtn = requireElement<HTMLButtonElement>("#alliance-send");
-  const allianceBreakBtn = requireElement<HTMLButtonElement>("#alliance-break");
   const techChooseBtn = requireElement<HTMLButtonElement>("#tech-choose");
   const techTreeExpandToggleEl = requireElement<HTMLButtonElement>("#tech-tree-expand-toggle");
   const mobileSheetEl = requireElement<HTMLDivElement>("#mobile-sheet");
@@ -454,9 +444,7 @@ export const initClientDom = () => {
   const mobileTechOwnedEl = requireElement<HTMLDivElement>("#mobile-tech-owned");
   const mobileTechChoiceDetailsEl = requireElement<HTMLDivElement>("#mobile-tech-choice-details");
   const mobileAllianceTargetEl = requireElement<HTMLInputElement>("#mobile-alliance-target");
-  const mobileAllianceBreakIdEl = requireElement<HTMLInputElement>("#mobile-alliance-break-id");
   const mobileAllianceSendBtn = requireElement<HTMLButtonElement>("#mobile-alliance-send");
-  const mobileAllianceBreakBtn = requireElement<HTMLButtonElement>("#mobile-alliance-break");
   const mobileAllianceRequestsEl = requireElement<HTMLDivElement>("#mobile-alliance-requests");
   const mobileAlliesListEl = requireElement<HTMLDivElement>("#mobile-allies-list");
   const mobileAlliancePlayerInspectEl = requireElement<HTMLDivElement>("#mobile-alliance-player-inspect");
@@ -477,8 +465,6 @@ export const initClientDom = () => {
   const miniMapBase = document.createElement("canvas");
 
   return {
-    allianceBreakBtn,
-    allianceBreakIdEl,
     alliancePlayerInspectEl,
     allianceRequestsEl,
     allianceSendBtn,
@@ -544,8 +530,6 @@ export const initClientDom = () => {
     miniMapLabelEl,
     miniMapWrapEl,
     missionsEl,
-    mobileAllianceBreakBtn,
-    mobileAllianceBreakIdEl,
     mobileAlliancePlayerInspectEl,
     mobileAllianceRequestsEl,
     mobileAllianceSendBtn,

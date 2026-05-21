@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.20.5",
+  version: "2026.05.20.6",
   title: "What's New",
-  summary: "Choose Tier buttons on the domain detail card now actually pick the domain — on desktop, clicking the button did nothing because the click handler was wiped out by the same render that drew the button.",
+  summary: "Alliances now use a 24 hour break notice: allies stay active during the notice, both players are alerted, and the ally card shows the countdown until the alliance fully ends.",
   entries: [
+    {
+      introducedIn: "2026.05.20.6",
+      title: "Alliance breaks now give 24 hours of notice",
+      why: "Diplomatic victory depends on alliance blocs, so leaving an alliance should not be an instant way to dodge a pending bloc win.",
+      changes: [
+        "Active ally cards now include a Break Alliance action; the old break-by-player-id form was removed.",
+        "Breaking an alliance starts a 24 hour notice instead of removing the ally immediately, and the card shows the remaining notice time.",
+        "The allied player gets an in-game alert when the break notice starts, and both players are notified when the alliance fully ends."
+      ]
+    },
     {
       introducedIn: "2026.05.20.5",
       title: "Desktop Choose Tier button is no longer a no-op",
