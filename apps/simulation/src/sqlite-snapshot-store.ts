@@ -95,25 +95,40 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     // below that point is dead weight regardless of which of the three
     // retained snapshots we replay from.
     //
-    // Without this, world_events was append-only forever: the 2026-05-21
-    // prod outage was a 901 MB DB on a 1 GB volume after 7 days of
-    // unpruned accumulation. SQLite hit "database or disk is full" and
-    // the sim exited cleanly with code 1 — the gateway event-loop
-    // watchdog can't catch that because it's a voluntary exit, not a
-    // stall.
+    // CHUNKED to keep each contiguous SQLite write under ~half a second.
+    // The single-DELETE form in PR #350 worked for steady-state pruning
+    // (1k events between snapshots) but the first save after deploying
+    // to a fat DB (~200k rows) ran the DELETE in one transaction. With
+    // node:sqlite's writer pinned to the main thread, that translated to
+    // multi-second event-loop blocks — `sim_event_store_write_ms` p99
+    // jumped from sub-ms to 79ms (write-queue wait behind the prune),
+    // `event_loop_blocked` lag samples crossed 16s, and a 30s spike
+    // tripped the gateway watchdog and SIGKILLed prod 2h32m after the
+    // PR #350 deploy. PRUNE_CHUNK rows per pass + setImmediate yield
+    // between passes lets metric ticks, grpc dispatch, and command
+    // append interleave between batches.
     //
-    // NULL on first save (no snapshots yet) is handled by SQL's
-    // three-valued logic: `event_id <= NULL` evaluates to NULL → not
-    // truthy → nothing deleted. Safe.
+    // NULL threshold (no snapshots yet on the very first save) — SQL
+    // three-valued logic makes the WHERE clause false, the LIMIT
+    // returns no rows, `result.changes` is 0, loop exits on first pass.
     //
     // Note this does not shrink the DB file. SQLite reuses freed pages
     // but the high-water mark only drops on VACUUM (separate one-off
     // maintenance). Future writes fit into the existing footprint, so
     // growth stops.
-    this.db.exec(
-      `DELETE FROM world_events
-       WHERE event_id <= (SELECT MIN(last_applied_event_id) FROM world_snapshots)`
+    const PRUNE_CHUNK = 5000;
+    const pruneStmt = this.db.prepare(
+      `DELETE FROM world_events WHERE event_id IN (
+         SELECT event_id FROM world_events
+         WHERE event_id <= (SELECT MIN(last_applied_event_id) FROM world_snapshots)
+         LIMIT ?
+       )`
     );
+    while (true) {
+      const result = pruneStmt.run(PRUNE_CHUNK);
+      if (!result.changes) break;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
     this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
   }
 

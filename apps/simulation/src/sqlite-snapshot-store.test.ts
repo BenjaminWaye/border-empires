@@ -124,4 +124,38 @@ describe("SqliteSimulationSnapshotStore event prune", () => {
     await snapshots.saveSnapshot({ lastAppliedEventId: 6, snapshotSections: emptySections(), createdAt: 4 });
     expect(eventIds(db)).toEqual([3, 4, 5, 6]);
   });
+
+  it("chunks a large backlog so each batch yields to the event loop", async () => {
+    const { db, snapshots } = await buildStores();
+    // Seed 12001 events. With PRUNE_CHUNK = 5000 the prune of the first
+    // 12001 events (≤ lastAppliedEventId=12001) takes 3 passes
+    // (5000 + 5000 + 2001 + a 0-change exit), yielding twice mid-loop.
+    // This is the regression-shape from 2026-05-21: ~200k unpruned
+    // rows in a single saveSnapshot blocked the main thread past the
+    // 30s watchdog threshold.
+    for (let i = 1; i <= 12001; i += 1) seedEvent(db, `cmd-${i}`);
+    let yields = 0;
+    const realSetImmediate = global.setImmediate;
+    (global as unknown as { setImmediate: typeof setImmediate }).setImmediate = ((
+      cb: (...args: unknown[]) => void,
+      ...args: unknown[]
+    ) => {
+      yields += 1;
+      return realSetImmediate(cb, ...args);
+    }) as typeof setImmediate;
+    try {
+      await snapshots.saveSnapshot({
+        lastAppliedEventId: 12001,
+        snapshotSections: emptySections(),
+        createdAt: 1000
+      });
+    } finally {
+      global.setImmediate = realSetImmediate;
+    }
+    // 12001 rows / 5000-per-chunk = 3 non-empty passes → 3 yields
+    // (one after each non-empty batch). Looser ≥2 to tolerate the
+    // SQL planner picking a slightly different batching strategy.
+    expect(yields).toBeGreaterThanOrEqual(2);
+    expect(eventIds(db)).toEqual([]);
+  });
 });
