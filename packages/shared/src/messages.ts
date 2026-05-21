@@ -26,7 +26,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     powerupId: z.string().optional(),
     ...FrontierCommandMetadataSchema
   }),
-  z.object({ type: z.literal("ATTACK_PREVIEW"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
+  z.object({
+    type: z.literal("ATTACK_PREVIEW"),
+    fromX: z.number().int(),
+    fromY: z.number().int(),
+    toX: z.number().int(),
+    toY: z.number().int(),
+    requestId: z.string().min(1).optional()
+  }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1) }),

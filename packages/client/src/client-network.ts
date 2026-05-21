@@ -16,9 +16,11 @@ import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordCli
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
 import {
+  notifyActiveAllianceBreaksOnInit,
   notifyIncomingAllianceRequest,
   notifyIncomingDiplomacyRequestsOnInit,
-  notifyIncomingTruceRequest
+  notifyIncomingTruceRequest,
+  notifyRecentAllianceBreaksOnInit
 } from "./client-diplomacy-notifications.js";
 import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
 import { tileHasTownIdentity } from "./client-town-identity.js";
@@ -808,6 +810,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
+    state.attackPreviewPendingRequestId = "";
     renderHud();
   };
 
@@ -1309,6 +1312,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (state.profileSetupRequired) setAuthStatus("Choose a display name and nation color to begin.");
       state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
+      state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? [];
+      state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? [];
       state.activeTruces = (msg.activeTruces as any[]) ?? [];
       state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
       state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? [];
@@ -1378,6 +1383,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         );
       }
       notifyIncomingDiplomacyRequestsOnInit(state, state.incomingAllianceRequests, state.incomingTruceRequests, {
+        pushFeed,
+        showCaptureAlert: showCaptureAlertSafely
+      });
+      notifyActiveAllianceBreaksOnInit(state, state.activeAllianceBreaks, {
+        pushFeed,
+        showCaptureAlert: showCaptureAlertSafely
+      });
+      notifyRecentAllianceBreaksOnInit(state, state.recentAllianceBreaks, {
         pushFeed,
         showCaptureAlert: showCaptureAlertSafely
       });
@@ -2376,8 +2389,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "ALLIANCE_UPDATE") {
       state.allies = (msg.allies as string[]) ?? [];
+      state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
+      state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
+      const announcement = msg.announcement as string | undefined;
+      if (announcement) {
+        const normalizedAnnouncement = announcement.toLocaleLowerCase();
+        const fullyBroken = normalizedAnnouncement.includes("now broken");
+        pushFeed(announcement, "alliance", fullyBroken ? "warn" : "info");
+        showCaptureAlertSafely(fullyBroken ? "Alliance broken" : "Alliance break notice", announcement, fullyBroken ? "warn" : "info");
+      }
       pushFeed(`Alliances updated (${state.allies.length})`, "alliance", "info");
       renderHud();
       return;
@@ -2807,6 +2829,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearOptimisticTileStateSafely(failedTargetKey, true);
       }
       state.attackPreviewPendingKey = "";
+      state.attackPreviewPendingRequestId = "";
       if (frontierActionError || !shouldResetFrontierAction) {
         state.lastSubAt = 0;
         requestViewRefreshSafely(2, true);
@@ -2828,6 +2851,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "ATTACK_PREVIEW_RESULT") {
       const from = msg.from as { x: number; y: number };
       const to = msg.to as { x: number; y: number };
+      const requestId = msg.requestId as string | undefined;
+      if (requestId && requestId !== state.attackPreviewPendingRequestId) return;
       const preview: {
         fromKey: string;
         toKey: string;
@@ -2857,6 +2882,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.attackPreview = preview;
       state.attackPreviewCacheByKey.set(`${preview.fromKey}->${preview.toKey}`, preview);
       state.attackPreviewPendingKey = "";
+      state.attackPreviewPendingRequestId = "";
       if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
         const selectedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
         if (selectedTile && selectedTile.ownerId && selectedTile.ownerId !== state.me && !isTileOwnedByAlly(selectedTile)) {
