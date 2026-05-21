@@ -3936,7 +3936,7 @@ describe("simulation runtime", () => {
             ownershipState: "SETTLED",
             economicStructure: {
               ownerId: "player-1",
-              type: "FUEL_PLANT",
+              type: "IRONWORKS",
               status: "inactive",
               inactiveReason: "manual"
             }

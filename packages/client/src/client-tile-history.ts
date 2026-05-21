@@ -59,10 +59,8 @@ export const tileHistoryLines = (
                                     ? "Former Aether Condenser site"
                                     : history.lastStructureType === "ADVANCED_CRYSTAL_SYNTHESIZER"
                                       ? "Former Advanced Aether Condenser site"
-                                      : history.lastStructureType === "FUEL_PLANT"
-                                        ? "Former Fuel Plant site"
-                                        : history.lastStructureType === "FOUNDRY"
-                                          ? "Former Foundry site"
+                                      : history.lastStructureType === "FOUNDRY"
+                                        ? "Former Foundry site"
                                           : history.lastStructureType === "GOVERNORS_OFFICE"
                                             ? "Former Ministry Hall site"
                                             : "Former Radar System site";

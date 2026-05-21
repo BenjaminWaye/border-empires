@@ -66,8 +66,6 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "IRONWORKS";
     case "build_crystal_synthesizer":
       return "CRYSTAL_SYNTHESIZER";
-    case "build_fuel_plant":
-      return "FUEL_PLANT";
     case "build_caravanary":
       return "CARAVANARY";
     case "build_foundry":
@@ -152,8 +150,6 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "alchemy";
     case "build_crystal_synthesizer":
       return "crystal-lattices";
-    case "build_fuel_plant":
-      return "plastics";
     case "build_customs_house":
       return "harborcraft";
     case "build_lockworks_port":
