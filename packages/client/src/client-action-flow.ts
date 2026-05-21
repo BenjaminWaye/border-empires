@@ -581,6 +581,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
     state.attackPreviewPendingRequestId = "";
+    state.attackPreviewPendingStartedAt = 0;
     renderHud();
   };
 
@@ -597,7 +598,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       ws,
       authSessionReady: state.authSessionReady,
       keyFor,
-      pickOriginForTarget
+      pickOriginForTarget,
+      onPreviewTimeout: () => {
+        if (!state.tileActionMenu.visible || state.tileActionMenu.mode !== "single") return;
+        if (state.tileActionMenu.currentTileKey !== keyFor(to.x, to.y)) return;
+        openSingleTileActionMenu(to, state.tileActionMenu.x, state.tileActionMenu.y);
+      }
     });
 
   const attackPreviewDetailForTarget = (to: Tile): string | undefined =>
@@ -1733,6 +1739,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       state.attackPreview = undefined;
       state.attackPreviewPendingKey = "";
       state.attackPreviewPendingRequestId = "";
+      state.attackPreviewPendingStartedAt = 0;
       renderHud();
       return;
     }
@@ -1741,6 +1748,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       state.attackPreview = undefined;
       state.attackPreviewPendingKey = "";
       state.attackPreviewPendingRequestId = "";
+      state.attackPreviewPendingStartedAt = 0;
       if (revealWholeMapInTrue3DMode) {
         const placeholder: Tile = { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: false };
         openSingleTileActionMenu(placeholder, clientX, clientY);

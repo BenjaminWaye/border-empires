@@ -811,6 +811,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
     state.attackPreviewPendingRequestId = "";
+    state.attackPreviewPendingStartedAt = 0;
     renderHud();
   };
 
@@ -2830,6 +2831,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.attackPreviewPendingKey = "";
       state.attackPreviewPendingRequestId = "";
+      state.attackPreviewPendingStartedAt = 0;
       if (frontierActionError || !shouldResetFrontierAction) {
         state.lastSubAt = 0;
         requestViewRefreshSafely(2, true);
@@ -2883,6 +2885,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.attackPreviewCacheByKey.set(`${preview.fromKey}->${preview.toKey}`, preview);
       state.attackPreviewPendingKey = "";
       state.attackPreviewPendingRequestId = "";
+      state.attackPreviewPendingStartedAt = 0;
       if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
         const selectedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
         if (selectedTile && selectedTile.ownerId && selectedTile.ownerId !== state.me && !isTileOwnedByAlly(selectedTile)) {
