@@ -64,6 +64,26 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
+      introducedIn: "2026.05.20.7",
+      title: "Attack previews wait for the real combat odds",
+      why: "The action menu could cache or accept an older preview before the gateway returned fresh authoritative odds. That made nearby active outpost attack auras look like they were not changing the displayed win chance.",
+      changes: [
+        "Opening an enemy tile action menu now bypasses cached attack previews and shows a loading state while the gateway computes current odds.",
+        "Attack preview requests carry a request id, and stale preview responses are ignored if a newer menu refresh is pending.",
+        "Regression coverage verifies menu previews do not store unboosted local odds, supersede hover previews, and reject stale gateway responses."
+      ]
+    },
+    {
+      introducedIn: "2026.05.20.6",
+      title: "Alliance breaks now give 24 hours of notice",
+      why: "Diplomatic victory depends on alliance blocs, so leaving an alliance should not be an instant way to dodge a pending bloc win.",
+      changes: [
+        "Active ally cards now include a Break Alliance action; the old break-by-player-id form was removed.",
+        "Breaking an alliance starts a 24 hour notice instead of removing the ally immediately, and the card shows the remaining notice time.",
+        "The allied player gets an in-game alert when the break notice starts, and both players are notified when the alliance fully ends."
+      ]
+    },
+    {
       introducedIn: "2026.05.20.5",
       title: "Desktop Choose Tier button is no longer a no-op",
       why: "Per-button onclick handlers were bound before the domains panel innerHTML was rewritten, so the new buttons the user actually saw had no listeners. Mobile worked because clicks were caught by the overlay container handler, which survived the rewrite.",
