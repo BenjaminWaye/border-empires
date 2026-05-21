@@ -133,7 +133,8 @@ import {
 import {
   buildFedTownKeys,
   buildPlayerUpdateEconomySnapshot,
-  buildStrategicProductionForSettledTiles
+  buildStrategicProductionForSettledTiles,
+  refreshTownEconomyFields
 } from "./player-update-economy.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
 import { capturedStructureFields } from "./capture-structures.js";
@@ -1923,7 +1924,13 @@ export class SimulationRuntime {
       if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
       if (!economyContext) economyContext = this.tileYieldEconomyContextForPlayer(player);
       const enrichedTile = tile.town
-        ? { ...tile, town: enrichTownWithConnectedNetwork(tile, economyContext.townNetwork) }
+        ? (() => {
+            const networkTown = enrichTownWithConnectedNetwork(tile, economyContext!.townNetwork);
+            const refreshedTown = networkTown
+              ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, economyContext!.fedTownKeys, economyContext!.firstThreeTownKeys)
+              : networkTown;
+            return { ...tile, town: refreshedTown };
+          })()
         : tile;
       const lastCollectedAt = this.tileYieldCollectedAtByTile.get(tileKey);
       const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, nowMs, {
@@ -5517,7 +5524,15 @@ export class SimulationRuntime {
   } {
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
-    const enrichedTile = tile.town && resolvedContext ? { ...tile, town: enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork) } : tile;
+    const enrichedTile = tile.town && resolvedContext
+      ? (() => {
+          const networkTown = enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork);
+          const refreshedTown = networkTown && player
+            ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, resolvedContext.fedTownKeys, resolvedContext.firstThreeTownKeys)
+            : networkTown;
+          return { ...tile, town: refreshedTown };
+        })()
+      : tile;
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(simulationTileKey(tile.x, tile.y)), this.now(), {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
@@ -5562,7 +5577,15 @@ export class SimulationRuntime {
     const tileKey = simulationTileKey(tile.x, tile.y);
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
-    const enrichedTile = tile.town && resolvedContext ? { ...tile, town: enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork) } : tile;
+    const enrichedTile = tile.town && resolvedContext
+      ? (() => {
+          const networkTown = enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork);
+          const refreshedTown = networkTown && player
+            ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, resolvedContext.fedTownKeys, resolvedContext.firstThreeTownKeys)
+            : networkTown;
+          return { ...tile, town: refreshedTown };
+        })()
+      : tile;
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(tileKey), now, {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
