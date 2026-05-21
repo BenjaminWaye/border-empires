@@ -375,6 +375,7 @@ export const createInitialState = () => ({
   attackPreviewPendingRequestId: "",
   attackPreviewPendingStartedAt: 0,
   attackPreviewRequestSeq: 0,
+  attackPreviewLatestRequestIdByKey: new Map<string, string>(),
   lastAttackPreviewAt: 0,
   dragPreviewKeys: new Set<string>(),
   boxSelectStart: undefined as { gx: number; gy: number } | undefined,

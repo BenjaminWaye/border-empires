@@ -109,6 +109,7 @@ describe("client gateway sync regression", () => {
     const state = createState();
     state.attackPreviewPendingKey = "4,7->5,7";
     state.attackPreviewPendingRequestId = "attack-preview-2";
+    state.attackPreviewLatestRequestIdByKey.set("4,7->5,7", "attack-preview-2");
     const ws = new FakeWebSocket();
     const { renderHud } = bind(state, ws);
 
@@ -129,10 +130,40 @@ describe("client gateway sync regression", () => {
     expect(renderHud).not.toHaveBeenCalled();
   });
 
+  it("accepts attack preview responses even when a newer request for a different target is pending", () => {
+    const state = createState();
+    state.attackPreviewPendingKey = "8,2->9,2";
+    state.attackPreviewPendingRequestId = "attack-preview-2";
+    state.attackPreviewLatestRequestIdByKey.set("4,7->5,7", "attack-preview-1");
+    state.attackPreviewLatestRequestIdByKey.set("8,2->9,2", "attack-preview-2");
+    const ws = new FakeWebSocket();
+    const { renderHud } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ATTACK_PREVIEW_RESULT",
+        requestId: "attack-preview-1",
+        from: { x: 4, y: 7 },
+        to: { x: 5, y: 7 },
+        valid: true,
+        winChance: 0.62
+      })
+    });
+
+    expect(state.attackPreviewCacheByKey.get("4,7->5,7")).toEqual(expect.objectContaining({ winChance: 0.62 }));
+    expect(state.attackPreview).toEqual(expect.objectContaining({ fromKey: "4,7", toKey: "5,7", winChance: 0.62 }));
+    expect(state.attackPreviewPendingKey).toBe("8,2->9,2");
+    expect(state.attackPreviewPendingRequestId).toBe("attack-preview-2");
+    expect(state.attackPreviewLatestRequestIdByKey.has("4,7->5,7")).toBe(false);
+    expect(state.attackPreviewLatestRequestIdByKey.get("8,2->9,2")).toBe("attack-preview-2");
+    expect(renderHud).toHaveBeenCalled();
+  });
+
   it("accepts the current attack preview response and clears its pending request id", () => {
     const state = createState();
     state.attackPreviewPendingKey = "4,7->5,7";
     state.attackPreviewPendingRequestId = "attack-preview-2";
+    state.attackPreviewLatestRequestIdByKey.set("4,7->5,7", "attack-preview-2");
     const ws = new FakeWebSocket();
     const { renderHud } = bind(state, ws);
 
