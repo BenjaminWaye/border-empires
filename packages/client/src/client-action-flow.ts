@@ -1367,13 +1367,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_CRYSTAL_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Advanced Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_CRYSTAL_SYNTHESIZER" }
       );
-    if (actionId === "build_fuel_plant")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUEL_PLANT" }, optimisticStructureBuildForAction(actionId, selected, "FUEL_PLANT"), {
-        x: selected.x,
-        y: selected.y,
-        label: `Fuel Plant at (${selected.x}, ${selected.y})`,
-        optimisticKind: "FUEL_PLANT"
-      });
     if (actionId === "build_foundry")
       sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FOUNDRY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FOUNDRY"), {
         x: selected.x,
