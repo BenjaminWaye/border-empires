@@ -14,7 +14,9 @@ const landTile = (x: number, y: number, ownerId?: string, structureType?: string
 
 const seaTile = (x: number, y: number) => ({ x, y, terrain: "SEA" as const });
 
+let nextTestEpoch = 1_000_000;
 const baseRuntime = (tiles: Array<Record<string, unknown>>) => ({
+  terrainEpoch: nextTestEpoch++,
   tiles,
   players: [
     {
