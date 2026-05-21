@@ -328,34 +328,33 @@ const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithA
 const attackPreviewResult = (
   playerId: string,
   tiles: PreviewTile[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number }
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
 ): Record<string, unknown> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
+  const responseBase = { type: "ATTACK_PREVIEW_RESULT", from, to, ...(message.requestId ? { requestId: message.requestId } : {}) };
   if (!tiles) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "preview unavailable" };
+    return { ...responseBase, valid: false, reason: "preview unavailable" };
   }
   const tileMap = buildPreviewTileMap(tiles);
   const origin = tileMap.get(previewTileKey(from.x, from.y));
   const target = tileMap.get(previewTileKey(to.x, to.y));
   if (!origin || origin.ownerId !== playerId) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "origin not owned" };
+    return { ...responseBase, valid: false, reason: "origin not owned" };
   }
   if (!target) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "target not visible" };
+    return { ...responseBase, valid: false, reason: "target not visible" };
   }
   if (!target.ownerId || target.ownerId === playerId) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "target not hostile" };
+    return { ...responseBase, valid: false, reason: "target not hostile" };
   }
   if (!isFrontierAdjacent(from.x, from.y, to.x, to.y)) {
-    return { type: "ATTACK_PREVIEW_RESULT", from, to, valid: false, reason: "target not adjacent" };
+    return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, from.x, from.y, (x, y) => tileMap.get(previewTileKey(x, y)));
   const preview = buildFrontierCombatPreview(target, { attackerOutpostMult });
   return {
-    type: "ATTACK_PREVIEW_RESULT",
-    from,
-    to,
+    ...responseBase,
     valid: true,
     winChance: preview.winChance,
     atkEff: preview.atkEff,
