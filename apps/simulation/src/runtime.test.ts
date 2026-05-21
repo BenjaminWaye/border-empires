@@ -7180,6 +7180,7 @@ describe("imperial exchange levy", () => {
     crystal?: number;
     omitTower?: boolean;
     rivalStocks?: Record<string, Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY", number>>>;
+    allies?: string[];
   } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
       {
@@ -7211,7 +7212,7 @@ describe("imperial exchange levy", () => {
       domainIds: new Set<string>(),
       mods: { attack: 1, defense: 1, income: 1, vision: 1 },
       techRootId: "rewrite-local",
-      allies: new Set<string>(),
+      allies: new Set<string>(options.allies ?? []),
       strategicResources: { CRYSTAL: options.crystal ?? 1_000 }
     });
     for (const [pid, stocks] of Object.entries(options.rivalStocks ?? {})) {
@@ -7322,6 +7323,33 @@ describe("imperial exchange levy", () => {
       code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
       message: "ability on cooldown"
     }));
+  });
+
+  it("does not seize from allies", async () => {
+    const runtime = buildLevyRuntime({
+      rivalStocks: {
+        "player-2": { FOOD: 100 },
+        "player-3": { FOOD: 100 }
+      },
+      allies: ["player-2"]
+    });
+    runtime.submitCommand({
+      commandId: "levy-ally",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "IMPERIAL_EXCHANGE_LEVY",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, resource: "FOOD" })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const p1 = state.players.find((p) => p.id === "player-1");
+    const p2 = state.players.find((p) => p.id === "player-2");
+    const p3 = state.players.find((p) => p.id === "player-3");
+    expect(p2?.strategicResources?.FOOD).toBe(100);
+    expect(p3?.strategicResources?.FOOD).toBe(75);
+    expect(p1?.strategicResources?.FOOD).toBe(25);
   });
 });
 

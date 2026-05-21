@@ -5135,6 +5135,7 @@ export class SimulationRuntime {
     let totalTransferred = 0;
     for (const other of this.players.values()) {
       if (other.id === actor.id) continue;
+      if (actor.allies.has(other.id)) continue;
       const stock = this.strategicResourceAmount(other, payload.resource);
       const take = Math.floor(stock * IMPERIAL_EXCHANGE_LEVY_SHARE);
       if (take <= 0) continue;
