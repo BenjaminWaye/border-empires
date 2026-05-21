@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.4",
+  version: "2026.05.21.5",
   title: "What's New",
-  summary: "Seed Granaries now buff up to 5 closest granaries on their island with 1.30x growth. Imperial Exchange Levy and Worldbreaker Shot abilities are live; Worldbreaker now scales by 30% with no cap and demotes city tier (floored at TOWN). Six dead tech stubs removed and the unwired Lockworks/Chartered Port chain dropped.",
+  summary: "Opening an owned-town inspector now fetches a freshly recomputed Production rate and gold cap from the simulation instead of returning the in-memory tile state untouched.",
   entries: [
+    {
+      introducedIn: "2026.05.21.5",
+      title: "Tile inspector refreshes Production and gold cap on open",
+      why: "REQUEST_TILE_DETAIL went through exportTilesInAreaForPlayer → domainTileToWireDelta, which serialized the in-memory tile state directly. Between full snapshot rebuilds the in-memory town.goldPerMinute and town.cap stayed at whatever the last rebuild had written, and this code path never touched buildTileYieldView or the connected-town refresh — so the owned-town inspector kept reporting a stale Production row and gold cap even after the previous fix to the event-driven tile delta emission. The response also didn't include yield_rate_json / yield_cap_json / yield_json at all, so the merged client snapshot fell back to whatever cached yield fields it had.",
+      changes: [
+        "FetchTileDetail now serializes its tiles through tileDeltaFromState, so the response carries refreshed town.goldPerMinute and town.cap plus the matching yield_rate_json, yield_cap_json, and yield_json. Opening an owned town's action menu now sees current support/fed/market/connected-town state without waiting for a full snapshot rebuild or an event-driven tile delta."
+      ]
+    },
     {
       introducedIn: "2026.05.21.4",
       title: "Seed Granary growth buff",
