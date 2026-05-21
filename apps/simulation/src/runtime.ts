@@ -3060,6 +3060,120 @@ export class SimulationRuntime {
     };
   }
 
+  // Async variant that yields to the event loop between heavy sections so
+  // a big-territory bootstrap snapshot build no longer blocks the main
+  // thread contiguously. PR #343 chunked the per-tile enrichment downstream
+  // of this function, but the upstream classifyVisibilityForPlayer (vision
+  // raster expansion, O(territory × radius²)) plus the visible-tile map
+  // here are themselves sync — for a player with ~13k owned tiles and
+  // vision radius 5 that's ~1.5M iterations purely in this function, which
+  // can graze the 30s gateway watchdog SIGKILL threshold on shared-cpu-1x.
+  //
+  // Output is identical to the sync version for the same inputs (parity
+  // test in runtime.export-visible-async.test.ts).
+  async exportVisibleStateForPlayerAsync(
+    playerId: string,
+    yieldToEventLoop: () => Promise<void>
+  ): Promise<ReturnType<SimulationRuntime["exportState"]>> {
+    const classification = this.classifyVisibilityForPlayer(playerId);
+    await yieldToEventLoop();
+    const { lockTargetOnlyKeys, visibleKeys, allyAndSelfIds } = classification;
+
+    const TILE_CHUNK = 500;
+    const tiles: ReturnType<SimulationRuntime["exportState"]>["tiles"] = [];
+    let idx = 0;
+    for (const tileKey of visibleKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (tile) {
+        const wrappedTileKey = simulationTileKey(tile.x, tile.y);
+        const isLockTargetOnly = lockTargetOnlyKeys.has(wrappedTileKey);
+        const ownedByOther = Boolean(tile.ownerId) && !allyAndSelfIds.has(tile.ownerId as string);
+        if (isLockTargetOnly && ownedByOther) {
+          this.emitVisibilityAudit(playerId, tile, wrappedTileKey, true, classification);
+          tiles.push({ x: tile.x, y: tile.y, terrain: tile.terrain });
+        } else {
+          if (ownedByOther) this.emitVisibilityAudit(playerId, tile, wrappedTileKey, false, classification);
+          tiles.push({
+            x: tile.x,
+            y: tile.y,
+            terrain: tile.terrain,
+            ...(tile.resource ? { resource: tile.resource } : {}),
+            ...(tile.dockId ? { dockId: tile.dockId } : {}),
+            ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+            ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
+            ...(tile.town?.type ? { townType: tile.town.type } : {}),
+            ...(tile.town?.name ? { townName: tile.town.name } : {}),
+            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
+            ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
+            ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
+            ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+            ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
+            ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {})
+          });
+        }
+      }
+      idx += 1;
+      if (idx % TILE_CHUNK === 0) await yieldToEventLoop();
+    }
+    tiles.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+    await yieldToEventLoop();
+
+    const players = [...this.players.values()]
+      .map((player) => {
+        this.applyManpowerRegen(player);
+        const summary = this.summaryForPlayer(player.id);
+        return {
+          id: player.id,
+          ...(player.name ? { name: player.name } : {}),
+          points: player.points,
+          manpower: player.manpower,
+          ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
+          techIds: [...player.techIds].sort(),
+          domainIds: [...(player.domainIds ?? [])].sort(),
+          strategicResources: { ...(player.strategicResources ?? {}) },
+          allies: [...player.allies].sort(),
+          vision: player.mods?.vision ?? 1,
+          visionRadiusBonus: visionRadiusBonusForPlayer(player),
+          incomeMultiplier: player.mods?.income ?? 1,
+          territoryTileKeys: [...summary.territoryTileKeys],
+          ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
+          settledTileCount: summary.settledTileCount,
+          townCount: summary.townCount,
+          incomePerMinute: this.incomePerMinuteForPlayer(player.id),
+          strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
+          activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+        };
+      })
+      .sort((left, right) => left.id.localeCompare(right.id));
+
+    return {
+      tiles,
+      players,
+      pendingSettlements: [...this.pendingSettlementsByTile.values()]
+        .map((settlement) => ({ ...settlement }))
+        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+        .map((lock) => ({
+          commandId: lock.commandId,
+          playerId: lock.playerId,
+          actionType: lock.actionType,
+          originKey: lock.originKey,
+          targetKey: lock.targetKey,
+          resolvesAt: lock.resolvesAt,
+          ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
+        }))
+        .sort((left, right) => left.commandId.localeCompare(right.commandId)),
+      docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
+      tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
+        .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
+        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      terrainEpoch: this.terrainEpoch
+    };
+  }
+
   exportTilesInAreaForPlayer(
     playerId: string,
     centerX: number,
