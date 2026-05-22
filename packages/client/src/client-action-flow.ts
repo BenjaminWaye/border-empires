@@ -304,14 +304,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         authSessionReady: state.authSessionReady,
         connection: state.connection,
         fogDisabled: state.fogDisabled,
-        eligible: state.stagingMapRevealEligible
+        eligible: state.mapRevealEligible
       });
       console.info("[fog-reveal] ws-send", {
         disabled: maybeRewritePayload.disabled === true,
         authSessionReady: state.authSessionReady,
         connection: state.connection,
         fogDisabled: state.fogDisabled,
-        eligible: state.stagingMapRevealEligible
+        eligible: state.mapRevealEligible
       });
     }
     ws.send(JSON.stringify(payload));
@@ -600,7 +600,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       onPreviewTimeout: () => {
         if (!state.tileActionMenu.visible || state.tileActionMenu.mode !== "single") return;
         if (state.tileActionMenu.currentTileKey !== keyFor(to.x, to.y)) return;
-        openSingleTileActionMenu(to, state.tileActionMenu.x, state.tileActionMenu.y);
+        openSingleTileActionMenu(to, state.tileActionMenu.x, state.tileActionMenu.y, { requestAttackPreview: false });
       }
     });
 
@@ -1046,8 +1046,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
     renderTileActionMenuFromModule(state, view, clientX, clientY, tileActionMenuUiDeps());
 
-  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number): void =>
-    openSingleTileActionMenuFromModule(state, tile, clientX, clientY, tileActionMenuUiDeps());
+  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean }): void =>
+    openSingleTileActionMenuFromModule(state, tile, clientX, clientY, tileActionMenuUiDeps(), options);
 
   const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: number): void =>
     openBulkTileActionMenuFromModule(state, targetKeys, clientX, clientY, tileActionMenuUiDeps());
