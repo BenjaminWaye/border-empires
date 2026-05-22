@@ -14,6 +14,7 @@ import {
   type TerrainDetailMaps
 } from "./client-map-3d-terrain-textures.js";
 import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
+import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
 
 export type HeightfieldTerrainKind = "GRASS" | "SAND" | "MOUNTAIN" | "COASTAL_SEA" | "SEA";
 
@@ -137,12 +138,17 @@ export const createHeightfield = (): Heightfield => {
   // surrounding tiles, so the boundary of the dark-grass zone fades over
   // ~1 tile through standard vertex interpolation in the rasterizer.
   const forestZones = new Float32Array(VERT_COUNT);
+  // Owned normal buffer so we can write face-accumulated normals directly
+  // and skip three.js's computeVertexNormals BufferAttribute round-trip
+  // (the per-frame hot spot in panning profiles).
+  const normals = new Float32Array(VERT_COUNT * 3);
   const indices = new Uint32Array(MAX_INDEX_COUNT);
 
   geometry.setAttribute("position", new BufferAttribute(positions, 3));
   geometry.setAttribute("color", new BufferAttribute(colors, 3));
   geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
   geometry.setAttribute("forestZone", new BufferAttribute(forestZones, 1));
+  geometry.setAttribute("normal", new BufferAttribute(normals, 3));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
 
@@ -394,14 +400,27 @@ varying float vForestZone;`
         const s10 = sampleTile(i, j - 1);
         const s01 = sampleTile(i - 1, j);
         const s11 = sampleTile(i, j);
-        const samples = [s00, s10, s01, s11].filter((s) => s.isExplored);
-        const landSamples = samples.filter((s) => !s.isSea);
+        // Count categories inline — the previous Array.filter chain ran
+        // three filters per vertex (3× allocations + 3× closures × VERT_COUNT)
+        // and dominated GC during pan. Same averaging semantics, no allocs.
+        const s00Land = s00.isExplored && !s00.isSea;
+        const s10Land = s10.isExplored && !s10.isSea;
+        const s01Land = s01.isExplored && !s01.isSea;
+        const s11Land = s11.isExplored && !s11.isSea;
+        const s00Sea = s00.isExplored && s00.isSea;
+        const s10Sea = s10.isExplored && s10.isSea;
+        const s01Sea = s01.isExplored && s01.isSea;
+        const s11Sea = s11.isExplored && s11.isSea;
+        const landCount =
+          (s00Land ? 1 : 0) + (s10Land ? 1 : 0) + (s01Land ? 1 : 0) + (s11Land ? 1 : 0);
+        const seaCount =
+          (s00Sea ? 1 : 0) + (s10Sea ? 1 : 0) + (s01Sea ? 1 : 0) + (s11Sea ? 1 : 0);
+        const exploredCount = landCount + seaCount;
         let elevation: number;
         let r: number;
         let g: number;
         let b: number;
-        const seaSamples = samples.filter((s) => s.isSea);
-        if (samples.length === 0 || landSamples.length === 0) {
+        if (exploredCount === 0 || landCount === 0) {
           // No explored land touches this corner; vertex won't be drawn
           // (all surrounding tiles are skipped in the index buffer), so
           // values here are placeholders.
@@ -409,19 +428,17 @@ varying float vForestZone;`
           r = (s00.r + s10.r + s01.r + s11.r) * 0.25;
           g = (s00.g + s10.g + s01.g + s11.g) * 0.25;
           b = (s00.b + s10.b + s01.b + s11.b) * 0.25;
-        } else if (seaSamples.length === 0) {
+        } else if (seaCount === 0) {
           // All explored neighbours are land — flat land top, no beach.
           let sumE = 0;
           let sumR = 0;
           let sumG = 0;
           let sumB = 0;
-          for (const sample of landSamples) {
-            sumE += sample.elevation;
-            sumR += sample.r;
-            sumG += sample.g;
-            sumB += sample.b;
-          }
-          const inv = 1 / landSamples.length;
+          if (s00Land) { sumE += s00.elevation; sumR += s00.r; sumG += s00.g; sumB += s00.b; }
+          if (s10Land) { sumE += s10.elevation; sumR += s10.r; sumG += s10.g; sumB += s10.b; }
+          if (s01Land) { sumE += s01.elevation; sumR += s01.r; sumG += s01.g; sumB += s01.b; }
+          if (s11Land) { sumE += s11.elevation; sumR += s11.r; sumG += s11.g; sumB += s11.b; }
+          const inv = 1 / landCount;
           elevation = sumE * inv;
           r = sumR * inv;
           g = sumG * inv;
@@ -430,16 +447,15 @@ varying float vForestZone;`
           // Coast corner: more (explored) sea around the corner ⇒ closer
           // to water and whiter (foam). Only explored sea contributes —
           // unexplored neighbours don't pull the edge into beach.
-          const beachMix = seaSamples.length / samples.length;
+          const beachMix = seaCount / exploredCount;
           let landSumR = 0;
           let landSumG = 0;
           let landSumB = 0;
-          for (const sample of landSamples) {
-            landSumR += sample.r;
-            landSumG += sample.g;
-            landSumB += sample.b;
-          }
-          const invLand = 1 / landSamples.length;
+          if (s00Land) { landSumR += s00.r; landSumG += s00.g; landSumB += s00.b; }
+          if (s10Land) { landSumR += s10.r; landSumG += s10.g; landSumB += s10.b; }
+          if (s01Land) { landSumR += s01.r; landSumG += s01.g; landSumB += s01.b; }
+          if (s11Land) { landSumR += s11.r; landSumG += s11.g; landSumB += s11.b; }
+          const invLand = 1 / landCount;
           const landR = landSumR * invLand;
           const landG = landSumG * invLand;
           const landB = landSumB * invLand;
@@ -507,12 +523,14 @@ varying float vForestZone;`
     const colorAttr = geometry.attributes.color;
     const uvAttr = geometry.attributes.uv;
     const forestAttr = geometry.attributes.forestZone;
+    const normalAttr = geometry.attributes.normal;
     if (positionAttr) positionAttr.needsUpdate = true;
     if (colorAttr) colorAttr.needsUpdate = true;
     if (uvAttr) uvAttr.needsUpdate = true;
     if (forestAttr) forestAttr.needsUpdate = true;
     geometry.setDrawRange(0, lastIndexCount);
-    geometry.computeVertexNormals();
+    accumulateHeightfieldNormals(positions, indices, lastIndexCount, normals, VERT_COUNT);
+    if (normalAttr) normalAttr.needsUpdate = true;
 
     if (gridlines.visible) {
       // Gridlines must mirror the heightfield's tile-skip rule — emit
