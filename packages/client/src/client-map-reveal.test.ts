@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   effectiveFogDisabled,
-  getStagingMapRevealEnabled,
-  setStagingMapRevealEnabled,
-  stagingMapRevealAvailable
-} from "./client-staging-map-reveal.js";
+  getMapRevealEnabled,
+  mapRevealAvailable,
+  setMapRevealEnabled
+} from "./client-map-reveal.js";
 
-describe("client staging map reveal", () => {
+describe("client map reveal", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("only exposes the toggle on staging hostnames for the debug account", () => {
+  it("exposes the toggle whenever the server allows it for this account, regardless of hostname", () => {
     const storage = new Map<string, string>();
     vi.stubGlobal("window", {
       location: { hostname: "staging.borderempires.com" },
@@ -22,18 +22,12 @@ describe("client staging map reveal", () => {
       }
     });
 
-    expect(stagingMapRevealAvailable({ hostname: "staging.borderempires.com", enabledForAccount: false })).toBe(false);
-    expect(stagingMapRevealAvailable({ hostname: "staging.borderempires.com", enabledForAccount: true })).toBe(true);
-    expect(
-      stagingMapRevealAvailable({
-        hostname: "border-empires-client-staging-benjaminwayes-projects.vercel.app",
-        enabledForAccount: true
-      })
-    ).toBe(true);
-    expect(stagingMapRevealAvailable({ hostname: "borderempires.com", enabledForAccount: true })).toBe(false);
+    expect(mapRevealAvailable({ enabledForAccount: false })).toBe(false);
+    expect(mapRevealAvailable({ enabledForAccount: true })).toBe(true);
+    // The per-account gate is the only gate now: `canToggleFog` (server) decides.
   });
 
-  it("reads and writes the staging reveal preference only for the debug account on staging", () => {
+  it("reads and writes the reveal preference per debug account", () => {
     const storage = new Map<string, string>();
     vi.stubGlobal("window", {
       location: { hostname: "staging.borderempires.com" },
@@ -45,20 +39,19 @@ describe("client staging map reveal", () => {
     });
 
     const options = {
-      hostname: "staging.borderempires.com",
       enabledForAccount: true,
       authEmail: "bw199005@gmail.com"
     };
 
-    expect(getStagingMapRevealEnabled(options)).toBe(false);
-    setStagingMapRevealEnabled(true, options);
-    expect(getStagingMapRevealEnabled(options)).toBe(true);
-    expect(storage.get("be-staging-map-reveal:bw199005@gmail.com")).toBe("1");
-    setStagingMapRevealEnabled(false, options);
-    expect(getStagingMapRevealEnabled(options)).toBe(false);
+    expect(getMapRevealEnabled(options)).toBe(false);
+    setMapRevealEnabled(true, options);
+    expect(getMapRevealEnabled(options)).toBe(true);
+    expect(storage.get("be-map-reveal:bw199005@gmail.com")).toBe("1");
+    setMapRevealEnabled(false, options);
+    expect(getMapRevealEnabled(options)).toBe(false);
   });
 
-  it("ignores stored reveal state for other accounts even on staging", () => {
+  it("ignores stored reveal state for accounts the server hasn't authorized", () => {
     vi.stubGlobal("window", {
       location: { hostname: "staging.borderempires.com" },
       localStorage: {
@@ -69,8 +62,7 @@ describe("client staging map reveal", () => {
     });
 
     expect(
-      getStagingMapRevealEnabled({
-        hostname: "staging.borderempires.com",
+      getMapRevealEnabled({
         enabledForAccount: false,
         authEmail: "someone@example.com"
       })
