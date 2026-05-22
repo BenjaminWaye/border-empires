@@ -251,6 +251,19 @@ export const renderClientHud = (deps: HudDeps): void => {
     const backendLabel = state.activeBackend;
     const acceptLatencyLabel =
       state.bridgeDebugAcceptLatencyP95Ms > 0 ? `${Math.round(state.bridgeDebugAcceptLatencyP95Ms)}ms` : "n/a";
+    // Show the first 8 chars of the gateway/sim build SHA next to the
+    // client's so the user can verify both ends shipped from the same commit.
+    // Empty server SHA (gateway started without BUILD_SHA in its env, e.g.
+    // local dev or an ad-hoc machine start without a deploy) renders as
+    // "dev". A non-empty SHA that does not match the client's prefix gets
+    // a ⚠ marker so a stale-server-vs-fresh-client deploy is obvious.
+    const clientBuildShortLabel = CLIENT_BUILD_VERSION.slice(0, 8);
+    const serverBuildLabel = state.bridgeDebugServerBuildSha ? state.bridgeDebugServerBuildSha.slice(0, 8) : "dev";
+    const buildMatch =
+      state.bridgeDebugServerBuildSha.length > 0 &&
+      state.bridgeDebugServerBuildSha.startsWith(CLIENT_BUILD_VERSION);
+    const buildMismatchLabel =
+      state.bridgeDebugServerBuildSha.length > 0 && !buildMatch ? " ⚠ mismatch" : "";
     const copyPayload = encodeURIComponent(
       [
         `Backend ${backendLabel}`,
@@ -262,6 +275,8 @@ export const renderClientHud = (deps: HudDeps): void => {
         `Snapshot ${snapshotLabel}`,
         `Tiles ${state.bridgeDebugInitialTileCount}`,
         `Msgs ${state.bridgeDebugSupportedMessageCount}`,
+        `Client build ${clientBuildShortLabel}`,
+        `Server build ${serverBuildLabel}${buildMismatchLabel}`,
         wsLabel
       ].join("\n")
     );
@@ -276,6 +291,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         <div><strong>Runtime</strong> ${runtimeFingerprint}</div>
         <div><strong>Snapshot</strong> ${snapshotLabel}</div>
         <div><strong>Tiles</strong> ${state.bridgeDebugInitialTileCount} · <strong>Msgs</strong> ${state.bridgeDebugSupportedMessageCount}</div>
+        <div><strong>Server build</strong> ${serverBuildLabel}${buildMismatchLabel}</div>
         <div class="bridge-debug-ws">${wsLabel}</div>
       </div>
     `;

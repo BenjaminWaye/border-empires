@@ -159,11 +159,17 @@ const main = async () => {
   run("git", ["push", "origin", releaseTag, "--force"]);
 
   log("Deploying merged sim+gateway to Fly (border-empires-combined)");
+  // BUILD_SHA is read by the gateway at startup and surfaced via the INIT
+  // payload so the client's bridge debug card can show client-vs-server SHA
+  // side by side. Fly persists --env across machine restarts, so a stop/start
+  // serves the same image with the same SHA — the only way it diverges from
+  // the live SHA is a re-deploy, which is exactly when we want it to change.
   run("fly", [
     "deploy",
     "--config", "fly.combined.toml",
     "--strategy", "rolling",
-    "--remote-only"
+    "--remote-only",
+    "--env", `BUILD_SHA=${targetSha}`
   ]);
 
   log(`Writing build SHA marker to ${buildShaArtifactPath}`);
