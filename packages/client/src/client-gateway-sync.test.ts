@@ -33,6 +33,48 @@ const createDeps = () => {
 };
 
 describe("client gateway sync", () => {
+  it("clears revealed tiles when TILE_SNAPSHOT_REPLACE comes back with an empty visible set after reveal", () => {
+    const deps = createDeps();
+
+    for (let x = 1; x <= 3; x += 1) {
+      deps.state.tiles.set(`${x},1`, {
+        x,
+        y: 1,
+        terrain: "LAND",
+        ownerId: `rival-${x}`,
+        ownershipState: "SETTLED",
+        fogged: false
+      });
+      deps.state.discoveredTiles.add(`${x},1`);
+    }
+
+    const applied = applyGatewayInitialState(deps, { tiles: [] });
+
+    expect(applied).toBe(0);
+    expect(deps.state.tiles.size).toBe(0);
+    expect(deps.state.discoveredTiles.size).toBe(0);
+  });
+
+  it("treats a missing tiles field as a no-op so partial INIT payloads do not wipe state", () => {
+    const deps = createDeps();
+
+    deps.state.tiles.set("4,4", {
+      x: 4,
+      y: 4,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fogged: false
+    });
+    deps.state.discoveredTiles.add("4,4");
+
+    const applied = applyGatewayInitialState(deps, {});
+
+    expect(applied).toBe(0);
+    expect(deps.state.tiles.has("4,4")).toBe(true);
+    expect(deps.state.discoveredTiles.has("4,4")).toBe(true);
+  });
+
   it("replaces stale local tiles when applying rewrite init state", () => {
     const deps = createDeps();
 

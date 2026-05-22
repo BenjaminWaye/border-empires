@@ -13,6 +13,7 @@ import {
   renderTechDetailCardHtml
 } from "./client-tech-html.js";
 import { renderCompactTechChoiceGridHtml, renderExpandedTechChoiceTreeHtml } from "./client-tech-tree-html.js";
+import type { ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "./client-types.js";
 import type { StructureInfoKey } from "./client-map-display.js";
 
@@ -516,6 +517,7 @@ export const renderDomainDetailCard = (deps: {
   domainIds: string[];
   domainChoices: string[];
   pendingDomainUnlockId: string;
+  chosenTrickleResource?: ChosenTrickleResource;
   techNameList: (ids: string[]) => string;
 }): string => {
   const domain = deps.domainCatalog.find((item) => item.id === deps.domainUiSelectedId);
@@ -527,7 +529,8 @@ export const renderDomainDetailCard = (deps: {
     chosenInTier: domain ? chosenByTier.get(domain.tier) : undefined,
     currentTier,
     requiresTechName: domain ? deps.techNameList([domain.requiresTechId]) : "",
-    pendingDomainUnlockId: deps.pendingDomainUnlockId
+    pendingDomainUnlockId: deps.pendingDomainUnlockId,
+    ...(deps.chosenTrickleResource ? { chosenTrickleResource: deps.chosenTrickleResource } : {})
   });
 };
 
@@ -537,6 +540,7 @@ export const renderDomainDetailOverlay = (deps: {
   domainIds: string[];
   domainChoices: string[];
   pendingDomainUnlockId: string;
+  chosenTrickleResource?: ChosenTrickleResource;
   techNameList: (ids: string[]) => string;
 }): string => {
   const domain = deps.domainCatalog.find((item) => item.id === deps.domainUiSelectedId);
@@ -551,6 +555,7 @@ export const renderDomainDetailOverlay = (deps: {
           domainIds: deps.domainIds,
           domainChoices: deps.domainChoices,
           pendingDomainUnlockId: deps.pendingDomainUnlockId,
+          ...(deps.chosenTrickleResource ? { chosenTrickleResource: deps.chosenTrickleResource } : {}),
           techNameList: deps.techNameList
         })}
       </div>

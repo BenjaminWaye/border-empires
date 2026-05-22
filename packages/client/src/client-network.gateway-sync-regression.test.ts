@@ -38,6 +38,7 @@ const bind = (state: any, ws: FakeWebSocket) => {
   const requestViewRefresh = vi.fn();
   const processActionQueue = vi.fn(() => false);
   const pushFeed = vi.fn();
+  const openSingleTileActionMenu = vi.fn();
 
   bindClientNetwork({
     state,
@@ -79,7 +80,7 @@ const bind = (state: any, ws: FakeWebSocket) => {
     settlementProgressForTile: vi.fn(() => false),
     terrainAt: vi.fn(() => "LAND"),
     requestAttackPreviewForTarget: vi.fn(),
-    openSingleTileActionMenu: vi.fn(),
+    openSingleTileActionMenu,
     isTileOwnedByAlly: vi.fn(() => false),
     hideShardAlert: vi.fn(),
     explainActionFailure: vi.fn(),
@@ -95,7 +96,7 @@ const bind = (state: any, ws: FakeWebSocket) => {
     applyOptimisticTileState: vi.fn()
   } as any);
 
-  return { renderHud, requestViewRefresh, processActionQueue, pushFeed };
+  return { renderHud, requestViewRefresh, processActionQueue, pushFeed, openSingleTileActionMenu };
 };
 
 const createRuntimeStyleShowCaptureAlert =
@@ -183,6 +184,39 @@ describe("client gateway sync regression", () => {
     expect(state.attackPreviewPendingKey).toBe("");
     expect(state.attackPreviewPendingRequestId).toBe("");
     expect(renderHud).toHaveBeenCalled();
+  });
+
+  it("re-renders an open enemy action menu without restarting the accepted attack preview", () => {
+    const state = createState();
+    state.me = "me";
+    state.attackPreviewPendingKey = "4,7->5,7";
+    state.attackPreviewPendingRequestId = "attack-preview-2";
+    state.attackPreviewLatestRequestIdByKey.set("4,7->5,7", "attack-preview-2");
+    const target = { x: 5, y: 7, terrain: "LAND", ownerId: "enemy", fogged: false };
+    state.tiles.set("5,7", target);
+    state.tileActionMenu.visible = true;
+    state.tileActionMenu.mode = "single";
+    state.tileActionMenu.currentTileKey = "5,7";
+    state.tileActionMenu.x = 100;
+    state.tileActionMenu.y = 120;
+    const ws = new FakeWebSocket();
+    const { openSingleTileActionMenu } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ATTACK_PREVIEW_RESULT",
+        requestId: "attack-preview-2",
+        from: { x: 4, y: 7 },
+        to: { x: 5, y: 7 },
+        valid: true,
+        winChance: 0.51
+      })
+    });
+
+    expect(openSingleTileActionMenu).toHaveBeenCalledWith(target, 100, 120, { requestAttackPreview: false });
+    expect(state.attackPreview).toEqual(expect.objectContaining({ fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.51 }));
+    expect(state.attackPreviewPendingKey).toBe("");
+    expect(state.attackPreviewPendingRequestId).toBe("");
   });
 
   it("shows pending incoming alliance and truce requests when INIT arrives after login", () => {

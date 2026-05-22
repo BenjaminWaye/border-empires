@@ -22,6 +22,12 @@ describe("ClientMessageSchema", () => {
     });
   });
 
+  it("accepts reveal-map snapshot requests", () => {
+    expect(ClientMessageSchema.parse({ type: "REQUEST_REVEAL_MAP" })).toEqual({
+      type: "REQUEST_REVEAL_MAP"
+    });
+  });
+
   it("accepts alliance and truce dismiss/cancel messages", () => {
     expect(ClientMessageSchema.parse({ type: "ALLIANCE_REJECT", requestId: "alliance-1" })).toEqual({
       type: "ALLIANCE_REJECT",
@@ -39,5 +45,25 @@ describe("ClientMessageSchema", () => {
       type: "TRUCE_CANCEL",
       requestId: "truce-2"
     });
+  });
+
+  it("preserves chosenTrickleResource on CHOOSE_DOMAIN messages", () => {
+    // Regression: prior to declaring chosenTrickleResource on the schema, Zod
+    // silently stripped the field, the gateway forwarded an empty payload and
+    // the sim rejected with `trickle resource choice required` even when the
+    // client had picked a valid resource.
+    expect(
+      ClientMessageSchema.parse({ type: "CHOOSE_DOMAIN", domainId: "clockwork-stipend", chosenTrickleResource: "SUPPLY" })
+    ).toEqual({
+      type: "CHOOSE_DOMAIN",
+      domainId: "clockwork-stipend",
+      chosenTrickleResource: "SUPPLY"
+    });
+  });
+
+  it("rejects unknown trickle resource keys on CHOOSE_DOMAIN", () => {
+    expect(() =>
+      ClientMessageSchema.parse({ type: "CHOOSE_DOMAIN", domainId: "clockwork-stipend", chosenTrickleResource: "PLUTONIUM" })
+    ).toThrow();
   });
 });

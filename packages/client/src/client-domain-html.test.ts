@@ -333,3 +333,66 @@ describe("domainOwnedHtml — trickle suffix", () => {
     expect(html).not.toContain("trickle)</em>");
   });
 });
+
+describe("renderDomainDetailCardHtml — locked trickle pick", () => {
+  const clockworkStipend: DomainInfo = {
+    id: "clockwork-stipend",
+    tier: 1,
+    name: "Clockwork Stipend",
+    description: "Imperial machinery ticks forward a steady supply.",
+    requiresTechId: "agriculture",
+    mods: {},
+    effects: { chosenResourceTrickleOptions: { IRON: 0.2, SUPPLY: 0.2, CRYSTAL: 0.1 } },
+    requirements: {
+      gold: 6000,
+      resources: { FOOD: 120 },
+      canResearch: false,
+      checklist: [{ label: "Requires tech agriculture", met: true }]
+    }
+  };
+
+  it("surfaces the locked resource and its per-minute rate on the owned detail card", () => {
+    // Regression: previously the detail card only showed "Chosen" with no hint
+    // of which resource the player had locked in, forcing them to dig into the
+    // owned-summary card for that information.
+    const html = renderDomainDetailCardHtml({
+      domain: clockworkStipend,
+      domainIds: ["clockwork-stipend"],
+      chosenInTier: clockworkStipend,
+      currentTier: 1,
+      requiresTechName: "Agriculture",
+      chosenTrickleResource: "SUPPLY"
+    });
+
+    expect(html).toContain("Your pick");
+    expect(html).toContain("SUPPLY (+0.20/min, locked)");
+  });
+
+  it("omits the locked-pick section when the player has not picked yet", () => {
+    const html = renderDomainDetailCardHtml({
+      domain: clockworkStipend,
+      domainIds: [],
+      chosenInTier: undefined,
+      currentTier: 1,
+      requiresTechName: "Agriculture"
+    });
+
+    expect(html).not.toContain("Your pick");
+  });
+
+  it("omits the locked-pick section for a domain the player does not own", () => {
+    // Player has locked SUPPLY on some other domain, but they are inspecting
+    // a non-owned domain — the detail card must not pretend SUPPLY belongs to
+    // the inspected domain.
+    const html = renderDomainDetailCardHtml({
+      domain: clockworkStipend,
+      domainIds: [],
+      chosenInTier: undefined,
+      currentTier: 1,
+      requiresTechName: "Agriculture",
+      chosenTrickleResource: "SUPPLY"
+    });
+
+    expect(html).not.toContain("Your pick");
+  });
+});

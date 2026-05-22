@@ -1,7 +1,7 @@
 import { MAX_ZOOM, MIN_ZOOM } from "./client-constants.js";
 import type { initClientDom } from "./client-dom.js";
 import { computeMiniMapViewBox } from "./client-minimap-view-box.js";
-import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
+import { effectiveFogDisabled } from "./client-map-reveal.js";
 import type { ClientState } from "./client-state.js";
 import type { FeedSeverity, FeedType, Tile } from "./client-types.js";
 
