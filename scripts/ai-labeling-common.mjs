@@ -89,6 +89,135 @@ export const teacherLabelSchema = {
   ]
 };
 
+const schemaEnumSet = (fieldName) => new Set(teacherLabelSchema.properties[fieldName].enum);
+
+const PHASES = schemaEnumSet("phase");
+const PRIMARY_GOALS = schemaEnumSet("primaryGoal");
+const FRONTIER_CLASSES = schemaEnumSet("frontierClass");
+const MOVE_QUALITIES = schemaEnumSet("moveQuality");
+const TRAINING_TARGET_KEYS = teacherLabelSchema.properties.trainingTargets.required;
+
+const fieldPath = (pathParts) => pathParts.join(".");
+
+const validateEnumField = (issues, label, fieldName, allowedValues) => {
+  const value = label?.[fieldName];
+  if (typeof value !== "string" || !allowedValues.has(value)) {
+    issues.push(`${fieldName} must be one of ${[...allowedValues].join("|")}`);
+  }
+};
+
+const validateStringArrayField = (issues, label, fieldName) => {
+  const value = label?.[fieldName];
+  if (!Array.isArray(value)) {
+    issues.push(`${fieldName} must be an array`);
+    return;
+  }
+  value.forEach((entry, index) => {
+    if (typeof entry !== "string") {
+      issues.push(`${fieldName}[${index}] must be a string`);
+    }
+  });
+};
+
+const validateExactKeys = (issues, value, allowedKeys, pathParts) => {
+  const extraKeys = Object.keys(value).filter((key) => !allowedKeys.includes(key));
+  for (const key of extraKeys) {
+    issues.push(`${fieldPath([...pathParts, key])} is not allowed`);
+  }
+};
+
+export const getTeacherLabelValidationIssues = (label) => {
+  const issues = [];
+  if (!label || typeof label !== "object" || Array.isArray(label)) {
+    return ["label must be an object"];
+  }
+
+  validateExactKeys(issues, label, teacherLabelSchema.required, ["label"]);
+  for (const requiredKey of teacherLabelSchema.required) {
+    if (!(requiredKey in label)) {
+      issues.push(`missing required label field ${requiredKey}`);
+    }
+  }
+
+  validateEnumField(issues, label, "phase", PHASES);
+  validateEnumField(issues, label, "primaryGoal", PRIMARY_GOALS);
+  validateEnumField(issues, label, "frontierClass", FRONTIER_CLASSES);
+  validateEnumField(issues, label, "moveQuality", MOVE_QUALITIES);
+  validateStringArrayField(issues, label, "hiddenMechanics");
+  validateStringArrayField(issues, label, "tacticalMotifs");
+
+  if (typeof label.strategicExplanation !== "string") {
+    issues.push("strategicExplanation must be a string");
+  }
+
+  if (label.betterAction !== null) {
+    if (!label.betterAction || typeof label.betterAction !== "object" || Array.isArray(label.betterAction)) {
+      issues.push("betterAction must be null or an object");
+    } else {
+      validateExactKeys(issues, label.betterAction, ["type", "reason"], ["betterAction"]);
+      if (typeof label.betterAction.type !== "string" || label.betterAction.type.trim().length === 0) {
+        issues.push("betterAction.type must be a non-empty string");
+      }
+      if (typeof label.betterAction.reason !== "string" || label.betterAction.reason.trim().length === 0) {
+        issues.push("betterAction.reason must be a non-empty string");
+      }
+    }
+  }
+
+  if (!label.trainingTargets || typeof label.trainingTargets !== "object" || Array.isArray(label.trainingTargets)) {
+    issues.push("trainingTargets must be an object");
+  } else {
+    validateExactKeys(issues, label.trainingTargets, TRAINING_TARGET_KEYS, ["trainingTargets"]);
+    for (const key of TRAINING_TARGET_KEYS) {
+      if (typeof label.trainingTargets[key] !== "boolean") {
+        issues.push(`trainingTargets.${key} must be a boolean`);
+      }
+    }
+  }
+
+  return issues;
+};
+
+export const validateTeacherLabel = (label) => {
+  const issues = getTeacherLabelValidationIssues(label);
+  if (issues.length > 0) {
+    throw new Error(`Invalid teacher label: ${issues.join("; ")}`);
+  }
+  return label;
+};
+
+export const explanationLooksThin = (value) =>
+  typeof value !== "string" || value.trim().length < 32 || value.trim().split(/\s+/).length < 6;
+
+export const getTeacherLabelQualityIssues = (label, record = undefined) => {
+  const issues = [];
+  const validationIssues = getTeacherLabelValidationIssues(label);
+  if (validationIssues.length > 0) return issues;
+
+  const chosenActionType = record?.chosenAction?.type ?? null;
+  if (label.moveQuality === "dubious") issues.push("move_quality_dubious");
+  if (label.moveQuality === "blunder") issues.push("move_quality_blunder");
+  if (label.betterAction) issues.push("has_better_action");
+  if (label.frontierClass === "waste") issues.push("frontier_class_waste");
+  if (
+    label.frontierClass === "scout" &&
+    label.trainingTargets.shouldPreferScoutShape !== true &&
+    chosenActionType === "EXPAND"
+  ) {
+    issues.push("scout_without_scout_shape_target");
+  }
+  if (
+    label.primaryGoal === "expand_frontier" &&
+    label.trainingTargets.shouldSettleSoon === true
+  ) {
+    issues.push("expand_goal_but_settle_soon");
+  }
+  if (label.hiddenMechanics.length === 0) issues.push("no_hidden_mechanics");
+  if (label.tacticalMotifs.length === 0) issues.push("no_tactical_motifs");
+  if (explanationLooksThin(label.strategicExplanation)) issues.push("thin_explanation");
+  return issues;
+};
+
 export const parseJsonLines = async (filePath) => {
   const raw = await readFile(filePath, "utf8");
   return raw

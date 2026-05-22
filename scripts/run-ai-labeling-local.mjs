@@ -15,7 +15,7 @@ import {
   parseNonNegativeIntegerEnv,
   parseJsonLines,
   summarizeTokenUsage,
-  teacherLabelSchema
+  validateTeacherLabel
 } from "./ai-labeling-common.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -153,20 +153,11 @@ const invokeVllm = async (prompt) => {
   return content;
 };
 
-const validateLabelShape = (label) => {
-  for (const requiredKey of teacherLabelSchema.required) {
-    if (!(requiredKey in label)) {
-      throw new Error(`Missing required label field "${requiredKey}"`);
-    }
-  }
-  return label;
-};
-
 const labelRecord = async (record, recordHash) => {
   const prompt = buildTeacherPrompt(record);
   const rawResponse =
     provider === "ollama" ? await invokeOllama(prompt) : await invokeVllm(prompt);
-  const label = validateLabelShape(extractFirstJsonObject(rawResponse));
+  const label = validateTeacherLabel(extractFirstJsonObject(rawResponse));
   return {
     recordId: record.recordId,
     recordHash,

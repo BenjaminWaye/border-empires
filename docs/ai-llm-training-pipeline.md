@@ -130,6 +130,8 @@ This is exactly what the new batch-builder script generates prompts for:
 - `pnpm ai:labeling:local`
 - `scripts/sample-ai-labeling-records.mjs`
 - `pnpm ai:labeling:sample`
+- `scripts/validate-ai-labels.mjs`
+- `pnpm ai:labeling:qa`
 - `scripts/build-ai-labeling-escalation-set.mjs`
 - `pnpm ai:labeling:triage`
 
@@ -228,6 +230,25 @@ Useful knobs:
 
 For low-cost local labeling, start with `Qwen2.5-7B-Instruct` and a small `AI_LABELING_MAX_RECORDS` cap, then only escalate ambiguous or low-quality labels to a stronger model. Local labels include a `recordHash`, and reruns reuse matching cached labels from the output file by default. The hash covers the prompt version plus the compact teacher context, so changing the record payload or label prompt version forces a new label instead of reusing a stale one.
 
+Before using labels for training or heuristic work, run the QA gate:
+
+```bash
+pnpm ai:labeling:qa
+```
+
+This reads:
+
+- `tmp/ai-training/records.sampled.jsonl`
+- `tmp/ai-training/labeled-records.local.jsonl`
+
+and writes:
+
+- `tmp/ai-training/labeled-records.accepted.jsonl`
+- `tmp/ai-training/records.qa-escalate.jsonl`
+- `tmp/ai-training/label-quality-report.json`
+
+The QA gate validates the full label contract, rejects labels with invalid enum values or malformed `trainingTargets`, and escalates labels that look too thin or strategically suspicious. Set `AI_LABELING_QA_ACCEPT_QUALITY_WARNINGS=1` only when you want schema-valid but low-signal labels to pass through with `qualityWarnings` attached.
+
 The worktree now includes an active-learning triage pass:
 
 ```bash
@@ -255,9 +276,10 @@ The current escalation rules are heuristic rather than model-probability based. 
 
 That gives you a practical low-cost loop:
 
-1. label everything cheaply with `pnpm ai:labeling:local`
-2. extract ambiguous cases with `pnpm ai:labeling:triage`
-3. send only `records.escalate.jsonl` to a stronger local or hosted teacher
+1. sample repeated states with `pnpm ai:labeling:sample`
+2. label the sampled corpus cheaply with `pnpm ai:labeling:local tmp/ai-training/records.sampled.jsonl`
+3. validate label quality with `pnpm ai:labeling:qa`
+4. send only `records.qa-escalate.jsonl` or `records.escalate.jsonl` to a stronger local or hosted teacher
 
 ### 3. Distill the labels into production-friendly targets
 
