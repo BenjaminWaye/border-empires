@@ -5,6 +5,7 @@ type Channel = "control" | "bulk";
 const bulkOnlyMessageTypes = new Set([
   "SUBSCRIBE_CHUNKS",
   "REQUEST_TILE_DETAIL",
+  "REQUEST_REVEAL_MAP",
   "SET_FOG_DISABLED"
 ]);
 
