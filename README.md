@@ -115,6 +115,12 @@ git branch -r --list 'origin/agent/<slug>'
 
 Do not rely on `gh pr merge --delete-branch` alone; verify the worktree and both branch refs are actually gone before reporting completion.
 
+## Agent Workflow Notes
+
+Codex agents should follow the token-budget workflow in `docs/agents/codex-token-budget.md`: start with narrow searches, read small file slices, keep command output capped, and run focused checks before full CI.
+
+Recurring work areas should get short runbooks under `docs/agents/topics/` using the template in `docs/agents/topic-runbooks.md`. These notes are intended to reduce repeated repo rediscovery across sessions.
+
 ## Staging Login SLO Probe
 
 To measure end-to-end staging login latency (AUTH -> INIT) and enforce the 5s target:
