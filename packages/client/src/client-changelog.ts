@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.6",
+  version: "2026.05.22.7",
   title: "What's New",
-  summary: "Clockwork Stipend (and any future pick-a-resource domain) now shows its locked resource on the detail card AND credits the trickle to the economy breakdown, so the +0.2/min SUPPLY (or IRON/CRYSTAL) is visible both as a domain pick and as an income source instead of just quietly increasing the stockpile.",
+  summary: "Attack win chance results now stay visible when the server returns them, and Clockwork Stipend income is easier to audit.",
   entries: [
+    {
+      introducedIn: "2026.05.22.7",
+      title: "Attack win chance result no longer reopens into loading",
+      why: "The client accepted ATTACK_PREVIEW_RESULT from the gateway, stored the authoritative win chance, then re-rendered the open enemy tile menu through the normal fresh-open path. That path immediately started another preview request and cleared the accepted result before it could render, so the action row stayed on \"Calculating win chance...\" even when production had answered.",
+      changes: [
+        "Network-driven action menu re-renders now reuse the just-accepted attack preview instead of starting a new request.",
+        "Added regression coverage for an open enemy action menu receiving a current attack preview result."
+      ]
+    },
     {
       introducedIn: "2026.05.22.6",
       title: "Clockwork Stipend trickle shows up in income sources",
