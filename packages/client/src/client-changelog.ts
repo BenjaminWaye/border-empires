@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.1",
+  version: "2026.05.22.2",
   title: "What's New",
-  summary: "Five late-game structures now have 3D models on the map: Bank, Aether Tower, Aegis Dome, World Engine, and Imperial Exchange.",
+  summary: "Every structure with a 2D SVG overlay now also has a hand-modeled 3D representation on the map — 15 more structures landed in this batch.",
   entries: [
+    {
+      introducedIn: "2026.05.22.2",
+      title: "3D models for the remaining civic, infrastructure, industrial, and arcane structures",
+      why: "Following the first batch (Bank/Aether Tower/Aegis Dome/World Engine/Imperial Exchange), 15 more structures still rendered only as 2D SVG overlays in the perspective camera. With this batch, every OptimisticStructureKind backed by an SVG overlay now has a procedurally-built 3D silhouette.",
+      changes: [
+        "Civic (5): Caravanary (sand-stone courtyard with central well and tents), Customs House (checkpoint with striped red/white gate), Exchange House (smaller cousin of the Imperial Exchange with a gold scale), Garrison Hall (olive barracks with sandbags and red banner), Governor's Office (tan civic building with red-tile roof and cupola flag).",
+        "Infrastructure (3): Airport (low hangar, tall control tower with dark glass cab, asphalt runway with painted stripes), Rail Depot (red-brick station with iron rails on wood sleepers and a red signal lamp), Radar System (control box, tall pylon, tilted shallow dish + antenna spike).",
+        "Industry (6): Foundry (bigger than ironworks, twin chimneys, glowing slag pile), Advanced Ironworks (taller furnace, twin chimneys, no slag), Fur Synthesizer + Advanced (industrial chamber with amber emissive window; advanced doubles the chambers), Crystal Synthesizer + Advanced (translucent cyan chamber housing a blue crystal core; advanced adds a central larger core).",
+        "Arcane (1): Astral Dock (dark aether-stone pad with a glowing cyan ring, four tilted arch buttresses, central spire, and a floating violet crystal core)."
+      ]
+    },
     {
       introducedIn: "2026.05.22.1",
       title: "3D models for Bank, Aether Tower, Aegis Dome, World Engine, Imperial Exchange",

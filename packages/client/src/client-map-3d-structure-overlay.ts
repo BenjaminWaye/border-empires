@@ -47,7 +47,22 @@ export type StructureKind =
   | "AETHER_TOWER"
   | "AEGIS_DOME"
   | "WORLD_ENGINE"
-  | "IMPERIAL_EXCHANGE";
+  | "IMPERIAL_EXCHANGE"
+  | "AIRPORT"
+  | "CARAVANARY"
+  | "CUSTOMS_HOUSE"
+  | "EXCHANGE_HOUSE"
+  | "GARRISON_HALL"
+  | "GOVERNORS_OFFICE"
+  | "RAIL_DEPOT"
+  | "RADAR_SYSTEM"
+  | "FOUNDRY"
+  | "ADVANCED_IRONWORKS"
+  | "FUR_SYNTHESIZER"
+  | "ADVANCED_FUR_SYNTHESIZER"
+  | "CRYSTAL_SYNTHESIZER"
+  | "ADVANCED_CRYSTAL_SYNTHESIZER"
+  | "ASTRAL_DOCK";
 
 export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set([
   "FARMSTEAD",
@@ -63,7 +78,22 @@ export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set
   "AETHER_TOWER",
   "AEGIS_DOME",
   "WORLD_ENGINE",
-  "IMPERIAL_EXCHANGE"
+  "IMPERIAL_EXCHANGE",
+  "AIRPORT",
+  "CARAVANARY",
+  "CUSTOMS_HOUSE",
+  "EXCHANGE_HOUSE",
+  "GARRISON_HALL",
+  "GOVERNORS_OFFICE",
+  "RAIL_DEPOT",
+  "RADAR_SYSTEM",
+  "FOUNDRY",
+  "ADVANCED_IRONWORKS",
+  "FUR_SYNTHESIZER",
+  "ADVANCED_FUR_SYNTHESIZER",
+  "CRYSTAL_SYNTHESIZER",
+  "ADVANCED_CRYSTAL_SYNTHESIZER",
+  "ASTRAL_DOCK"
 ]);
 
 export type StructureOverlay = {
@@ -240,6 +270,143 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     emissive: "#7a5210",
     emissiveIntensity: 0.18
   });
+  // Airport: low pale-grey hangar + tall white control tower with a
+  // dark glass cab + a strip of asphalt runway. Reads as modern
+  // transport infrastructure.
+  const airportHangarMaterial = new MeshStandardMaterial({ color: "#aab2b8", roughness: 0.78, metalness: 0.15, flatShading: true });
+  const airportRoofMaterial = new MeshStandardMaterial({ color: "#7e858a", roughness: 0.82, metalness: 0.18, flatShading: true });
+  const airportTowerMaterial = new MeshStandardMaterial({ color: "#e8ecef", roughness: 0.75, metalness: 0.08, flatShading: true });
+  const airportGlassMaterial = new MeshStandardMaterial({
+    color: "#3a6680",
+    roughness: 0.3,
+    metalness: 0.55,
+    flatShading: true,
+    emissive: "#0e2030",
+    emissiveIntensity: 0.25
+  });
+  const airportRunwayMaterial = new MeshStandardMaterial({ color: "#2a2a2e", roughness: 0.94, metalness: 0, flatShading: true });
+  const airportStripeMaterial = new MeshStandardMaterial({ color: "#e8e4d6", roughness: 0.88, metalness: 0, flatShading: true });
+  // Caravanary: warm sand-stone perimeter walls + central well +
+  // terracotta tents + brown cargo bundles. Desert trade post.
+  const caravanaryStoneMaterial = new MeshStandardMaterial({ color: "#c9a972", roughness: 0.92, metalness: 0, flatShading: true });
+  const caravanaryWellMaterial = new MeshStandardMaterial({ color: "#7a6a52", roughness: 0.92, metalness: 0, flatShading: true });
+  const caravanaryTentMaterial = new MeshStandardMaterial({ color: "#b5563a", roughness: 0.86, metalness: 0, flatShading: true });
+  const caravanaryCargoMaterial = new MeshStandardMaterial({ color: "#6a4a30", roughness: 0.9, metalness: 0, flatShading: true });
+  // Customs house: small cream stone hut with a striped red/white gate
+  // barrier and a couple of cargo bollards. Reads as a checkpoint.
+  const customsWallMaterial = new MeshStandardMaterial({ color: "#dccab0", roughness: 0.9, metalness: 0, flatShading: true });
+  const customsRoofMaterial = new MeshStandardMaterial({ color: "#7a3026", roughness: 0.88, metalness: 0, flatShading: true });
+  const customsGateRedMaterial = new MeshStandardMaterial({ color: "#c63a2c", roughness: 0.84, metalness: 0, flatShading: true });
+  const customsGateWhiteMaterial = new MeshStandardMaterial({ color: "#ece2cf", roughness: 0.84, metalness: 0, flatShading: true });
+  const customsBollardMaterial = new MeshStandardMaterial({ color: "#3a3530", roughness: 0.78, metalness: 0.2, flatShading: true });
+  // Exchange house: stone block with a small pediment + 2 front columns
+  // + a gold scale/sign hanging above the door. Smaller civic cousin of
+  // the Imperial Exchange.
+  const exchangeHouseWallMaterial = new MeshStandardMaterial({ color: "#d8cca8", roughness: 0.88, metalness: 0, flatShading: true });
+  const exchangeHouseTrimMaterial = new MeshStandardMaterial({ color: "#f0e6d0", roughness: 0.86, metalness: 0, flatShading: true });
+  const exchangeHouseSignMaterial = new MeshStandardMaterial({
+    color: "#e0b850",
+    roughness: 0.4,
+    metalness: 0.55,
+    flatShading: true,
+    emissive: "#7a5818",
+    emissiveIntensity: 0.2
+  });
+  // Garrison hall: olive-green stone barracks with dark steep roof,
+  // sandbag wall in front, and a red banner on a pole.
+  const garrisonWallMaterial = new MeshStandardMaterial({ color: "#5e6a52", roughness: 0.9, metalness: 0, flatShading: true });
+  const garrisonRoofMaterial = new MeshStandardMaterial({ color: "#3a342a", roughness: 0.92, metalness: 0, flatShading: true });
+  const garrisonSandbagMaterial = new MeshStandardMaterial({ color: "#a89878", roughness: 0.94, metalness: 0, flatShading: true });
+  const garrisonPoleMaterial = new MeshStandardMaterial({ color: "#3a3530", roughness: 0.78, metalness: 0.18, flatShading: true });
+  const garrisonBannerMaterial = new MeshStandardMaterial({ color: "#b22d2a", roughness: 0.82, metalness: 0, flatShading: true });
+  // Governor's office: warm tan civic building with a deep red tiled
+  // roof and a cupola topped with a small flag.
+  const governorWallMaterial = new MeshStandardMaterial({ color: "#cdb78a", roughness: 0.88, metalness: 0, flatShading: true });
+  const governorRoofMaterial = new MeshStandardMaterial({ color: "#9c4030", roughness: 0.88, metalness: 0, flatShading: true });
+  const governorCupolaMaterial = new MeshStandardMaterial({ color: "#e8dcc2", roughness: 0.88, metalness: 0, flatShading: true });
+  const governorFlagMaterial = new MeshStandardMaterial({ color: "#c83a2a", roughness: 0.82, metalness: 0, flatShading: true });
+  // Rail depot: red-brick station with grey-tile flat roof, a pair of
+  // dark iron rails set into wood sleepers, and a signal mast with a
+  // small red light.
+  const railWallMaterial = new MeshStandardMaterial({ color: "#8a4836", roughness: 0.9, metalness: 0, flatShading: true });
+  const railRoofMaterial = new MeshStandardMaterial({ color: "#4a4842", roughness: 0.88, metalness: 0, flatShading: true });
+  const railIronMaterial = new MeshStandardMaterial({ color: "#2a2c2e", roughness: 0.6, metalness: 0.5, flatShading: true });
+  const railSleeperMaterial = new MeshStandardMaterial({ color: "#3a2e22", roughness: 0.92, metalness: 0, flatShading: true });
+  const railSignalLightMaterial = new MeshStandardMaterial({
+    color: "#ff5a3a",
+    roughness: 0.4,
+    metalness: 0,
+    flatShading: true,
+    emissive: "#c2261a",
+    emissiveIntensity: 0.85
+  });
+  // Radar system: white-grey metal control box + tall pylon + tilted
+  // shallow dish with a thin antenna spike.
+  const radarBodyMaterial = new MeshStandardMaterial({ color: "#dde2e6", roughness: 0.6, metalness: 0.35, flatShading: true });
+  const radarPylonMaterial = new MeshStandardMaterial({ color: "#4a4e52", roughness: 0.5, metalness: 0.55, flatShading: true });
+  const radarDishMaterial = new MeshStandardMaterial({ color: "#e8ecf0", roughness: 0.4, metalness: 0.4, flatShading: true });
+  // Foundry & Advanced Ironworks share the ironworks palette plus a
+  // slag-pile material. Slag glows faintly so the silhouette reads as
+  // "hotter / more industrial" than the regular ironworks.
+  const slagMaterial = new MeshStandardMaterial({
+    color: "#5a3028",
+    roughness: 0.86,
+    metalness: 0.12,
+    flatShading: true,
+    emissive: "#ff4a12",
+    emissiveIntensity: 0.35
+  });
+  // Synthesizers (fur + crystal, basic + advanced): industrial chamber
+  // family. Dark steel base, brushed-steel chamber, translucent inner
+  // window with a glowing inner material (amber for fur, cyan for
+  // crystal). Tubes and tube caps are shared between all four variants.
+  const synthBaseMaterial = new MeshStandardMaterial({ color: "#3e4248", roughness: 0.7, metalness: 0.35, flatShading: true });
+  const synthChamberMaterial = new MeshStandardMaterial({ color: "#b6bcc0", roughness: 0.5, metalness: 0.55, flatShading: true });
+  const synthTubeMaterial = new MeshStandardMaterial({ color: "#5a5e62", roughness: 0.6, metalness: 0.5, flatShading: true });
+  const furGlowMaterial = new MeshStandardMaterial({
+    color: "#f0a662",
+    roughness: 0.35,
+    metalness: 0.1,
+    flatShading: true,
+    emissive: "#c95a18",
+    emissiveIntensity: 0.85
+  });
+  const crystalChamberMaterial = new MeshStandardMaterial({
+    color: "#9cd6e8",
+    roughness: 0.4,
+    metalness: 0.1,
+    flatShading: true,
+    transparent: true,
+    opacity: 0.55,
+    emissive: "#2a8eb8",
+    emissiveIntensity: 0.55,
+    depthWrite: false
+  });
+  // Reuse blueCrystalMaterial (defined earlier for OBSERVATORY/MINE)
+  // for the crystal-synthesizer cores so the visual language stays
+  // consistent across "blue power crystal" usages.
+  // Astral dock: aether-tinted launch platform. Dark stone pad with a
+  // glowing cyan ring, four tilted arch columns, a central spire, and
+  // a floating violet crystal core.
+  const astralPadMaterial = new MeshStandardMaterial({ color: "#221a2e", roughness: 0.84, metalness: 0.18, flatShading: true });
+  const astralRingMaterial = new MeshStandardMaterial({
+    color: "#88d8f0",
+    roughness: 0.4,
+    metalness: 0.15,
+    flatShading: true,
+    emissive: "#2a8ec0",
+    emissiveIntensity: 0.95
+  });
+  const astralArchMaterial = new MeshStandardMaterial({ color: "#3a3146", roughness: 0.7, metalness: 0.35, flatShading: true });
+  const astralSpireMaterial = new MeshStandardMaterial({ color: "#2c2438", roughness: 0.6, metalness: 0.55, flatShading: true });
+  const astralCoreMaterial = new MeshStandardMaterial({
+    color: "#c08aff",
+    roughness: 0.3,
+    metalness: 0.25,
+    flatShading: true,
+    emissive: "#7a3acc",
+    emissiveIntensity: 1.0
+  });
 
   // ─── Geometries ─────────────────────────────────────────────────────
   // Farmstead barn
@@ -345,6 +512,102 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   const exchangeDomeGeo = new SphereGeometry(0.16, 18, 9, 0, Math.PI * 2, 0, Math.PI * 0.5);
   const exchangeColumnGeo = new CylinderGeometry(0.020, 0.020, 0.18, 8);
   const exchangeFinialGeo = new ConeGeometry(0.030, 0.06, 12);
+  // Airport: low wide hangar + flat roof + tall control tower + glass
+  // cab + long runway strip + a few painted stripes.
+  const airportHangarGeo = new BoxGeometry(0.30, 0.10, 0.18);
+  const airportRoofGeo = new BoxGeometry(0.32, 0.025, 0.20);
+  const airportTowerGeo = new CylinderGeometry(0.035, 0.045, 0.32, 8);
+  const airportCabGeo = new BoxGeometry(0.07, 0.04, 0.07);
+  const airportRunwayGeo = new BoxGeometry(0.40, 0.008, 0.06);
+  const airportStripeGeo = new BoxGeometry(0.03, 0.010, 0.012);
+  // Caravanary: 1 wall geo used 4× per instance with rotation + a
+  // small stone well + 2 conical tents + 2 cargo boxes.
+  const caravanaryWallGeo = new BoxGeometry(0.32, 0.10, 0.025);
+  const caravanaryWellGeo = new CylinderGeometry(0.04, 0.045, 0.06, 10);
+  const caravanaryTentGeo = new ConeGeometry(0.08, 0.07, 4);
+  const caravanaryCargoGeo = new BoxGeometry(0.05, 0.05, 0.07);
+  // Customs house: stone hut + pyramidal roof + striped gate barrier
+  // (pole + red+white bar + small white stripe) + bollard.
+  const customsBodyGeo = new BoxGeometry(0.20, 0.13, 0.16);
+  const customsRoofGeo = new ConeGeometry(0.15, 0.08, 4);
+  const customsGatePoleGeo = new CylinderGeometry(0.011, 0.011, 0.14, 6);
+  const customsGateArmGeo = new BoxGeometry(0.22, 0.014, 0.014);
+  const customsGateStripeGeo = new BoxGeometry(0.055, 0.016, 0.016);
+  const customsBollardGeo = new CylinderGeometry(0.016, 0.018, 0.05, 6);
+  // Exchange house: stepped base + body + small pediment roof + 2
+  // front columns + gold scale/sign block.
+  const exchangeHouseStepGeo = new BoxGeometry(0.26, 0.04, 0.18);
+  const exchangeHouseBodyGeo = new BoxGeometry(0.22, 0.12, 0.16);
+  const exchangeHouseRoofGeo = new ConeGeometry(0.16, 0.08, 4);
+  const exchangeHouseColumnGeo = new CylinderGeometry(0.018, 0.018, 0.12, 8);
+  const exchangeHouseSignGeo = new OctahedronGeometry(0.025, 0);
+  // Garrison hall: long barracks + steep pitched roof + 3 sandbags
+  // along the front + flag pole + small red banner.
+  const garrisonBodyGeo = new BoxGeometry(0.34, 0.13, 0.18);
+  const garrisonRoofGeo = new ConeGeometry(0.22, 0.10, 4);
+  const garrisonSandbagGeo = new BoxGeometry(0.07, 0.035, 0.035);
+  const garrisonPoleGeo = new CylinderGeometry(0.007, 0.007, 0.22, 5);
+  const garrisonBannerGeo = new BoxGeometry(0.07, 0.05, 0.004);
+  // Governor's office: stepped base + body + roof + cupola + cupola
+  // roof + small flag on top.
+  const governorStepGeo = new BoxGeometry(0.32, 0.04, 0.16);
+  const governorBodyGeo = new BoxGeometry(0.28, 0.14, 0.20);
+  const governorRoofGeo = new ConeGeometry(0.22, 0.10, 4);
+  const governorCupolaGeo = new BoxGeometry(0.07, 0.08, 0.07);
+  const governorCupolaRoofGeo = new ConeGeometry(0.055, 0.05, 4);
+  const governorFlagGeo = new BoxGeometry(0.05, 0.035, 0.004);
+  // Rail depot: long station body + flat overhanging roof + 2 rails +
+  // 4 sleepers + signal mast + small red signal lamp.
+  const railBodyGeo = new BoxGeometry(0.30, 0.12, 0.16);
+  const railRoofGeo = new BoxGeometry(0.34, 0.025, 0.20);
+  const railRailGeo = new BoxGeometry(0.34, 0.008, 0.010);
+  const railSleeperGeo = new BoxGeometry(0.020, 0.005, 0.07);
+  const railSignalMastGeo = new CylinderGeometry(0.008, 0.008, 0.14, 5);
+  const railSignalLightGeo = new BoxGeometry(0.022, 0.022, 0.018);
+  // Radar system: control box + flat top + tall pylon + tilted shallow
+  // dish + thin antenna spike.
+  const radarBodyGeo = new BoxGeometry(0.12, 0.10, 0.12);
+  const radarTopGeo = new BoxGeometry(0.13, 0.02, 0.13);
+  const radarPylonGeo = new CylinderGeometry(0.012, 0.014, 0.22, 8);
+  // SphereGeometry top-cap clipped to a shallow bowl, rotated to face up.
+  const radarDishGeo = new SphereGeometry(0.10, 14, 7, 0, Math.PI * 2, 0, Math.PI * 0.42);
+  const radarAntennaGeo = new CylinderGeometry(0.0055, 0.0055, 0.08, 5);
+  // Foundry: bigger version of ironworks. Wider base + bigger roof +
+  // bigger furnace + bigger glow + 2 chimneys + slag pile.
+  const foundryBaseGeo = new BoxGeometry(0.40, 0.20, 0.30);
+  const foundryRoofGeo = new ConeGeometry(0.28, 0.10, 4);
+  const foundryFurnaceGeo = new BoxGeometry(0.20, 0.24, 0.18);
+  const foundryGlowGeo = new BoxGeometry(0.08, 0.08, 0.08);
+  const foundryChimneyGeo = new BoxGeometry(0.07, 0.34, 0.07);
+  const slagPileGeo = new ConeGeometry(0.08, 0.05, 6);
+  // Advanced ironworks: between ironworks and foundry. Reuses forge
+  // materials; new geos for a taller furnace + 2nd chimney.
+  const advIronBaseGeo = new BoxGeometry(0.36, 0.18, 0.26);
+  const advIronRoofGeo = new ConeGeometry(0.25, 0.10, 4);
+  const advIronFurnaceGeo = new BoxGeometry(0.18, 0.22, 0.16);
+  const advIronChimneyGeo = new BoxGeometry(0.06, 0.32, 0.06);
+  // Synthesizer family: shared chamber + cap + window-slit + tube +
+  // tube-cap pieces. Two base geos (basic + advanced) sized for 1-tank
+  // vs 2-tank layouts.
+  const synthBaseGeo = new BoxGeometry(0.20, 0.08, 0.16);
+  const synthAdvBaseGeo = new BoxGeometry(0.32, 0.10, 0.18);
+  const synthChamberGeo = new CylinderGeometry(0.07, 0.07, 0.18, 12);
+  const synthChamberCapGeo = new ConeGeometry(0.075, 0.04, 12);
+  const synthWindowGeo = new BoxGeometry(0.022, 0.10, 0.04);
+  const synthTubeGeo = new CylinderGeometry(0.010, 0.010, 0.10, 6);
+  const synthTubeCapGeo = new ConeGeometry(0.012, 0.022, 6);
+  // Crystal synthesizer chamber: translucent cylinder + an inner core
+  // octahedron (reuses blueCrystalGeo/blueCrystalMaterial). Same chamber
+  // shape as fur but with a different (translucent cyan) material.
+  const crystalChamberGeo = new CylinderGeometry(0.075, 0.075, 0.18, 12);
+  const crystalCoreGeo = new OctahedronGeometry(0.045, 0);
+  // Astral dock: flat dark pad + glowing ring + 4 tilted arch columns
+  // + central spire + floating crystal core.
+  const astralPadGeo = new CylinderGeometry(0.22, 0.24, 0.03, 20);
+  const astralRingGeo = new CylinderGeometry(0.18, 0.18, 0.014, 24);
+  const astralArchGeo = new CylinderGeometry(0.012, 0.012, 0.30, 6);
+  const astralSpireGeo = new ConeGeometry(0.040, 0.18, 8);
+  const astralCoreGeo = new OctahedronGeometry(0.05, 0);
 
   type Slot = { mesh: InstancedMesh; count: number; cap: number };
   const slots = new Map<string, Slot>();
@@ -459,6 +722,90 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   make("exchangeDome", exchangeDomeGeo, exchangeDomeMaterial, C);
   make("exchangeColumn", exchangeColumnGeo, exchangeColumnMaterial, C * 4);
   make("exchangeFinial", exchangeFinialGeo, exchangeDomeMaterial, C);
+  // Airport
+  make("airportHangar", airportHangarGeo, airportHangarMaterial, C);
+  make("airportRoof", airportRoofGeo, airportRoofMaterial, C);
+  make("airportTower", airportTowerGeo, airportTowerMaterial, C);
+  make("airportCab", airportCabGeo, airportGlassMaterial, C);
+  make("airportRunway", airportRunwayGeo, airportRunwayMaterial, C);
+  make("airportStripe", airportStripeGeo, airportStripeMaterial, C * 3);
+  // Caravanary
+  make("caravanaryWall", caravanaryWallGeo, caravanaryStoneMaterial, C * 4);
+  make("caravanaryWell", caravanaryWellGeo, caravanaryWellMaterial, C);
+  make("caravanaryTent", caravanaryTentGeo, caravanaryTentMaterial, C * 2);
+  make("caravanaryCargo", caravanaryCargoGeo, caravanaryCargoMaterial, C * 2);
+  // Customs house
+  make("customsBody", customsBodyGeo, customsWallMaterial, C);
+  make("customsRoof", customsRoofGeo, customsRoofMaterial, C);
+  make("customsGatePole", customsGatePoleGeo, customsBollardMaterial, C);
+  make("customsGateArm", customsGateArmGeo, customsGateRedMaterial, C);
+  make("customsGateStripe", customsGateStripeGeo, customsGateWhiteMaterial, C);
+  make("customsBollard", customsBollardGeo, customsBollardMaterial, C * 2);
+  // Exchange house (2 columns per instance)
+  make("exchangeHouseStep", exchangeHouseStepGeo, exchangeHouseTrimMaterial, C);
+  make("exchangeHouseBody", exchangeHouseBodyGeo, exchangeHouseWallMaterial, C);
+  make("exchangeHouseRoof", exchangeHouseRoofGeo, exchangeHouseTrimMaterial, C);
+  make("exchangeHouseColumn", exchangeHouseColumnGeo, exchangeHouseTrimMaterial, C * 2);
+  make("exchangeHouseSign", exchangeHouseSignGeo, exchangeHouseSignMaterial, C);
+  // Garrison hall (3 sandbags per instance)
+  make("garrisonBody", garrisonBodyGeo, garrisonWallMaterial, C);
+  make("garrisonRoof", garrisonRoofGeo, garrisonRoofMaterial, C);
+  make("garrisonSandbag", garrisonSandbagGeo, garrisonSandbagMaterial, C * 3);
+  make("garrisonPole", garrisonPoleGeo, garrisonPoleMaterial, C);
+  make("garrisonBanner", garrisonBannerGeo, garrisonBannerMaterial, C);
+  // Governor's office
+  make("governorStep", governorStepGeo, governorCupolaMaterial, C);
+  make("governorBody", governorBodyGeo, governorWallMaterial, C);
+  make("governorRoof", governorRoofGeo, governorRoofMaterial, C);
+  make("governorCupola", governorCupolaGeo, governorCupolaMaterial, C);
+  make("governorCupolaRoof", governorCupolaRoofGeo, governorRoofMaterial, C);
+  make("governorFlag", governorFlagGeo, governorFlagMaterial, C);
+  // Rail depot (2 rails + 4 sleepers per instance)
+  make("railBody", railBodyGeo, railWallMaterial, C);
+  make("railRoof", railRoofGeo, railRoofMaterial, C);
+  make("railRail", railRailGeo, railIronMaterial, C * 2);
+  make("railSleeper", railSleeperGeo, railSleeperMaterial, C * 4);
+  make("railSignalMast", railSignalMastGeo, railIronMaterial, C);
+  make("railSignalLight", railSignalLightGeo, railSignalLightMaterial, C);
+  // Radar system
+  make("radarBody", radarBodyGeo, radarBodyMaterial, C);
+  make("radarTop", radarTopGeo, radarPylonMaterial, C);
+  make("radarPylon", radarPylonGeo, radarPylonMaterial, C);
+  make("radarDish", radarDishGeo, radarDishMaterial, C);
+  make("radarAntenna", radarAntennaGeo, radarPylonMaterial, C);
+  // Foundry (2 chimneys per instance, shared forge palette + slag)
+  make("foundryBase", foundryBaseGeo, forgeBaseMaterial, C);
+  make("foundryRoof", foundryRoofGeo, barnRoofMaterial, C);
+  make("foundryFurnace", foundryFurnaceGeo, forgeStoneMaterial, C);
+  make("foundryGlow", foundryGlowGeo, forgeGlowMaterial, C);
+  make("foundryChimney", foundryChimneyGeo, forgeChimneyMaterial, C * 2);
+  make("slagPile", slagPileGeo, slagMaterial, C);
+  // Advanced ironworks (2 chimneys per instance, shared forge palette)
+  make("advIronBase", advIronBaseGeo, forgeBaseMaterial, C);
+  make("advIronRoof", advIronRoofGeo, barnRoofMaterial, C);
+  make("advIronFurnace", advIronFurnaceGeo, forgeStoneMaterial, C);
+  make("advIronGlow", foundryGlowGeo, forgeGlowMaterial, C);
+  make("advIronChimney", advIronChimneyGeo, forgeChimneyMaterial, C * 2);
+  // Synthesizer pieces — caps sized for advanced variants (2 chambers,
+  // 2 tubes, etc.). Materials are shared between basic and advanced.
+  make("synthBase", synthBaseGeo, synthBaseMaterial, C);
+  make("synthAdvBase", synthAdvBaseGeo, synthBaseMaterial, C);
+  make("synthChamber", synthChamberGeo, synthChamberMaterial, C * 2);
+  make("synthChamberCap", synthChamberCapGeo, synthChamberMaterial, C * 2);
+  make("furWindow", synthWindowGeo, furGlowMaterial, C * 2);
+  make("synthTube", synthTubeGeo, synthTubeMaterial, C * 3);
+  make("synthTubeCap", synthTubeCapGeo, synthTubeMaterial, C * 3);
+  // Crystal synthesizer chamber + core. Inner core uses the
+  // pre-existing blueCrystalGeo/Material so the "blue power crystal"
+  // material is consistent with observatory/mine.
+  make("crystalChamber", crystalChamberGeo, crystalChamberMaterial, C * 2);
+  make("crystalCore", crystalCoreGeo, blueCrystalMaterial, C * 3);
+  // Astral dock (4 arches per instance)
+  make("astralPad", astralPadGeo, astralPadMaterial, C);
+  make("astralRing", astralRingGeo, astralRingMaterial, C);
+  make("astralArch", astralArchGeo, astralArchMaterial, C * 4);
+  make("astralSpire", astralSpireGeo, astralSpireMaterial, C);
+  make("astralCore", astralCoreGeo, astralCoreMaterial, C);
 
   // ─── Helpers ────────────────────────────────────────────────────────
   const matrix = new Matrix4();
@@ -765,6 +1112,235 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     }
   };
 
+  const addAirport = (sx: number, sy: number, sz: number): void => {
+    // Low hangar at the back of the tile + thin flat roof + a tall
+    // control tower at the front-right with a dark glass cab. A long
+    // asphalt runway runs across the front with 3 painted centerline
+    // stripes for "active runway" read.
+    addPiece("airportHangar", sx, sy, sz, -0.04, 0.07, -0.10);
+    addPiece("airportRoof", sx, sy, sz, -0.04, 0.135, -0.10);
+    addPiece("airportTower", sx, sy, sz, 0.20, 0.18, -0.06);
+    addPiece("airportCab", sx, sy, sz, 0.20, 0.36, -0.06);
+    addPiece("airportRunway", sx, sy, sz, 0, 0.008, 0.18);
+    addPiece("airportStripe", sx, sy, sz, -0.12, 0.014, 0.18);
+    addPiece("airportStripe", sx, sy, sz, 0, 0.014, 0.18);
+    addPiece("airportStripe", sx, sy, sz, 0.12, 0.014, 0.18);
+  };
+
+  const addCaravanary = (sx: number, sy: number, sz: number): void => {
+    // 4 sand-stone walls form a courtyard. Walls on N/S keep default
+    // orientation; E/W walls rotate 90° around Y so the long axis points
+    // N-S. Central well + 2 conical tents inside the courtyard + 2
+    // cargo bundles flanking the entrance.
+    addPiece("caravanaryWall", sx, sy, sz, 0, 0.05, -0.16);
+    addPiece("caravanaryWall", sx, sy, sz, 0, 0.05, 0.16);
+    addPiece("caravanaryWall", sx, sy, sz, -0.16, 0.05, 0, 1, 1, 1, Math.PI * 0.5);
+    addPiece("caravanaryWall", sx, sy, sz, 0.16, 0.05, 0, 1, 1, 1, Math.PI * 0.5);
+    addPiece("caravanaryWell", sx, sy, sz, 0, 0.03, 0);
+    // Tents rotated to face the well, on slight diagonals from the well.
+    addPiece("caravanaryTent", sx, sy, sz, -0.09, 0.035, -0.06, 1, 1, 1, Math.PI * 0.25);
+    addPiece("caravanaryTent", sx, sy, sz, 0.09, 0.035, 0.06, 1, 1, 1, Math.PI * 0.25);
+    addPiece("caravanaryCargo", sx, sy, sz, -0.07, 0.025, 0.10);
+    addPiece("caravanaryCargo", sx, sy, sz, 0.07, 0.025, 0.10);
+  };
+
+  const addCustomsHouse = (sx: number, sy: number, sz: number): void => {
+    // Cream-stone hut with a deep-red pyramidal roof and a striped
+    // gate barrier across the front of the tile. The "stripe" is a
+    // small white block overlaid on the red bar so the silhouette
+    // reads as a checkpoint from any angle. Two bollards flank the
+    // approach.
+    addPiece("customsBody", sx, sy, sz, -0.06, 0.085, -0.04);
+    addPiece("customsRoof", sx, sy, sz, -0.06, 0.20, -0.04, 1, 1, 1, Math.PI * 0.25);
+    addPiece("customsGatePole", sx, sy, sz, 0.16, 0.07, 0.10);
+    // Gate arm extends across the road from the pole.
+    addPiece("customsGateArm", sx, sy, sz, 0.05, 0.14, 0.10);
+    addPiece("customsGateStripe", sx, sy, sz, 0.05, 0.14, 0.10);
+    addPiece("customsBollard", sx, sy, sz, -0.16, 0.025, 0.20);
+    addPiece("customsBollard", sx, sy, sz, 0.16, 0.025, 0.20);
+  };
+
+  const addExchangeHouse = (sx: number, sy: number, sz: number): void => {
+    // Small cream-stone block with a pyramidal cap roof, a front step,
+    // 2 columns flanking the door, and a small gold scale/sign
+    // octahedron mounted above the doorway. Reads as a smaller cousin
+    // of the Imperial Exchange — civic but not domed.
+    addPiece("exchangeHouseStep", sx, sy, sz, 0, 0.025, 0.12);
+    addPiece("exchangeHouseBody", sx, sy, sz, 0, 0.105, 0);
+    addPiece("exchangeHouseRoof", sx, sy, sz, 0, 0.21, 0, 1, 1, 1, Math.PI * 0.25);
+    addPiece("exchangeHouseColumn", sx, sy, sz, -0.08, 0.105, 0.10);
+    addPiece("exchangeHouseColumn", sx, sy, sz, 0.08, 0.105, 0.10);
+    // Sign elongated on Y for a "diamond" silhouette above the door.
+    addPiece("exchangeHouseSign", sx, sy, sz, 0, 0.17, 0.085, 1, 1.4, 1);
+  };
+
+  const addGarrisonHall = (sx: number, sy: number, sz: number): void => {
+    // Long olive-stone barracks with a steep dark roof, 3 sandbags
+    // arrayed in front, and a red banner on a tall pole at one side.
+    addPiece("garrisonBody", sx, sy, sz, 0, 0.085, -0.02);
+    addPiece("garrisonRoof", sx, sy, sz, 0, 0.21, -0.02, 1, 1, 1, Math.PI * 0.25);
+    addPiece("garrisonSandbag", sx, sy, sz, -0.12, 0.0175, 0.16);
+    addPiece("garrisonSandbag", sx, sy, sz, 0, 0.0175, 0.16);
+    addPiece("garrisonSandbag", sx, sy, sz, 0.12, 0.0175, 0.16);
+    addPiece("garrisonPole", sx, sy, sz, 0.18, 0.13, -0.16);
+    // Banner offset to one side of the pole so it reads as hanging.
+    addPiece("garrisonBanner", sx, sy, sz, 0.21, 0.20, -0.16);
+  };
+
+  const addGovernorsOffice = (sx: number, sy: number, sz: number): void => {
+    // Tan civic building with deep-red pyramidal roof, broad front step,
+    // small cream-cupola + tiny pyramidal cupola roof, and a red flag.
+    addPiece("governorStep", sx, sy, sz, 0, 0.025, 0.12);
+    addPiece("governorBody", sx, sy, sz, 0, 0.115, 0);
+    addPiece("governorRoof", sx, sy, sz, 0, 0.235, 0, 1, 1, 1, Math.PI * 0.25);
+    addPiece("governorCupola", sx, sy, sz, 0, 0.325, 0);
+    addPiece("governorCupolaRoof", sx, sy, sz, 0, 0.39, 0, 1, 1, 1, Math.PI * 0.25);
+    addPiece("governorFlag", sx, sy, sz, 0.025, 0.44, 0);
+  };
+
+  const addRailDepot = (sx: number, sy: number, sz: number): void => {
+    // Red-brick station body at the back with a flat grey overhanging
+    // roof. A pair of dark iron rails crosses the front of the tile,
+    // resting on 4 wooden sleepers. A short signal mast with a red
+    // emissive lamp sits at the front-right corner.
+    addPiece("railBody", sx, sy, sz, 0, 0.07, -0.10);
+    addPiece("railRoof", sx, sy, sz, 0, 0.143, -0.10);
+    addPiece("railRail", sx, sy, sz, 0, 0.012, 0.16);
+    addPiece("railRail", sx, sy, sz, 0, 0.012, 0.22);
+    addPiece("railSleeper", sx, sy, sz, -0.12, 0.005, 0.19);
+    addPiece("railSleeper", sx, sy, sz, -0.04, 0.005, 0.19);
+    addPiece("railSleeper", sx, sy, sz, 0.04, 0.005, 0.19);
+    addPiece("railSleeper", sx, sy, sz, 0.12, 0.005, 0.19);
+    addPiece("railSignalMast", sx, sy, sz, 0.18, 0.08, 0.10);
+    addPiece("railSignalLight", sx, sy, sz, 0.18, 0.16, 0.10);
+  };
+
+  const addRadarSystem = (sx: number, sy: number, sz: number): void => {
+    // Squat white-grey control box at ground level with a flat dark
+    // top; a tall metal pylon rises from beside it; a shallow tilted
+    // dish (sphere top-cap) is mounted at the pylon's tip with a thin
+    // antenna spike poking from its center.
+    addPiece("radarBody", sx, sy, sz, -0.08, 0.05, 0.05);
+    addPiece("radarTop", sx, sy, sz, -0.08, 0.11, 0.05);
+    addPiece("radarPylon", sx, sy, sz, 0.06, 0.13, -0.04);
+    // Dish tilted ~40° backward (rotX negative) and rotated to scan one
+    // direction. Y offset places it just above the pylon top.
+    addPiece("radarDish", sx, sy, sz, 0.06, 0.26, -0.04, 1, 1, 1, 0, -Math.PI * 0.22, 0);
+    addPiece("radarAntenna", sx, sy, sz, 0.06, 0.30, -0.04);
+  };
+
+  const addFoundry = (sx: number, sy: number, sz: number): void => {
+    // Bigger forge: wider stone base, taller roof, taller stone furnace
+    // with a strong glow, 2 chimneys side-by-side, and a glowing slag
+    // pile next to the structure. Visually heavier than IRONWORKS.
+    addPiece("foundryBase", sx, sy, sz, -0.08, 0.10, -0.04);
+    addPiece("foundryRoof", sx, sy, sz, -0.08, 0.27, -0.04, 1, 1, 1, Math.PI * 0.25);
+    addPiece("foundryFurnace", sx, sy, sz, 0.20, 0.12, -0.04);
+    addPiece("foundryGlow", sx, sy, sz, 0.20, 0.08, 0.06);
+    addPiece("foundryChimney", sx, sy, sz, 0.16, 0.34, -0.10);
+    addPiece("foundryChimney", sx, sy, sz, 0.24, 0.34, -0.10);
+    addPiece("slagPile", sx, sy, sz, -0.20, 0.025, 0.18);
+  };
+
+  const addAdvancedIronworks = (sx: number, sy: number, sz: number): void => {
+    // Step up from IRONWORKS: bigger base, taller chimney, plus a
+    // second chimney and a glow window on the furnace. No slag pile —
+    // that's reserved for FOUNDRY.
+    addPiece("advIronBase", sx, sy, sz, -0.06, 0.09, -0.04);
+    addPiece("advIronRoof", sx, sy, sz, -0.06, 0.245, -0.04, 1, 1, 1, Math.PI * 0.25);
+    addPiece("advIronFurnace", sx, sy, sz, 0.18, 0.11, -0.04);
+    addPiece("advIronGlow", sx, sy, sz, 0.18, 0.07, 0.05);
+    addPiece("advIronChimney", sx, sy, sz, 0.14, 0.32, -0.10);
+    addPiece("advIronChimney", sx, sy, sz, 0.22, 0.32, -0.10);
+  };
+
+  const addFurSynthesizer = (sx: number, sy: number, sz: number): void => {
+    // Single industrial chamber on a dark steel base. Brushed-steel
+    // cylinder with a domed cap, a glowing amber window strip facing
+    // the camera, and an exhaust tube + vent cap on top of the cap.
+    addPiece("synthBase", sx, sy, sz, 0, 0.04, 0);
+    addPiece("synthChamber", sx, sy, sz, 0, 0.17, 0);
+    addPiece("synthChamberCap", sx, sy, sz, 0, 0.28, 0);
+    addPiece("furWindow", sx, sy, sz, 0.05, 0.17, 0.05);
+    addPiece("synthTube", sx, sy, sz, 0, 0.35, 0);
+    addPiece("synthTubeCap", sx, sy, sz, 0, 0.41, 0);
+  };
+
+  const addAdvancedFurSynthesizer = (sx: number, sy: number, sz: number): void => {
+    // Wider base supporting 2 chambers side-by-side, each with its own
+    // dome cap and amber window. A pair of exhaust tubes vent upward
+    // and a third tube + cap sits between them as a central control
+    // vent. Reads clearly as "2× the production of basic" silhouette.
+    addPiece("synthAdvBase", sx, sy, sz, 0, 0.05, 0);
+    addPiece("synthChamber", sx, sy, sz, -0.08, 0.19, 0);
+    addPiece("synthChamberCap", sx, sy, sz, -0.08, 0.30, 0);
+    addPiece("furWindow", sx, sy, sz, -0.03, 0.19, 0.05);
+    addPiece("synthChamber", sx, sy, sz, 0.08, 0.19, 0);
+    addPiece("synthChamberCap", sx, sy, sz, 0.08, 0.30, 0);
+    addPiece("furWindow", sx, sy, sz, 0.13, 0.19, 0.05);
+    addPiece("synthTube", sx, sy, sz, -0.08, 0.37, 0);
+    addPiece("synthTubeCap", sx, sy, sz, -0.08, 0.43, 0);
+    addPiece("synthTube", sx, sy, sz, 0.08, 0.37, 0);
+    addPiece("synthTubeCap", sx, sy, sz, 0.08, 0.43, 0);
+    addPiece("synthTube", sx, sy, sz, 0, 0.32, 0.06, 0.8, 0.6, 0.8);
+  };
+
+  const addCrystalSynthesizer = (sx: number, sy: number, sz: number): void => {
+    // Translucent cyan chamber on a dark steel base with a single blue
+    // crystal core suspended inside. Steel cap above and a thin
+    // exhaust tube vent the chamber.
+    addPiece("synthBase", sx, sy, sz, 0, 0.04, 0);
+    addPiece("crystalChamber", sx, sy, sz, 0, 0.17, 0);
+    addPiece("synthChamberCap", sx, sy, sz, 0, 0.28, 0);
+    // Crystal core elongated to spike upward inside the chamber.
+    addPiece("crystalCore", sx, sy, sz, 0, 0.16, 0, 1, 1.8, 1);
+    addPiece("synthTube", sx, sy, sz, 0, 0.35, 0);
+    addPiece("synthTubeCap", sx, sy, sz, 0, 0.41, 0);
+  };
+
+  const addAdvancedCrystalSynthesizer = (sx: number, sy: number, sz: number): void => {
+    // Wider base with 2 translucent chambers + 2 crystal cores +
+    // central larger crystal between them (so the silhouette doesn't
+    // just read as "two basic synthesizers"). Two exhaust tubes vent
+    // upward.
+    addPiece("synthAdvBase", sx, sy, sz, 0, 0.05, 0);
+    addPiece("crystalChamber", sx, sy, sz, -0.08, 0.19, 0);
+    addPiece("synthChamberCap", sx, sy, sz, -0.08, 0.30, 0);
+    addPiece("crystalCore", sx, sy, sz, -0.08, 0.18, 0, 1, 1.6, 1);
+    addPiece("crystalChamber", sx, sy, sz, 0.08, 0.19, 0);
+    addPiece("synthChamberCap", sx, sy, sz, 0.08, 0.30, 0);
+    addPiece("crystalCore", sx, sy, sz, 0.08, 0.18, 0, 1, 1.6, 1);
+    // Central larger core sits higher and tilted for a distinctive
+    // multi-faceted silhouette between the two chambers.
+    addPiece("crystalCore", sx, sy, sz, 0, 0.36, 0, 1.4, 1.8, 1.4, Math.PI * 0.15, 0, 0);
+    addPiece("synthTube", sx, sy, sz, -0.08, 0.37, 0);
+    addPiece("synthTubeCap", sx, sy, sz, -0.08, 0.43, 0);
+    addPiece("synthTube", sx, sy, sz, 0.08, 0.37, 0);
+    addPiece("synthTubeCap", sx, sy, sz, 0.08, 0.43, 0);
+  };
+
+  const addAstralDock = (sx: number, sy: number, sz: number): void => {
+    // Dark aether-stone pad with a glowing cyan ring inset. Four arch
+    // columns at NE/SE/SW/NW tilt 20° inward so they read as buttresses
+    // arcing toward a central spire. The spire is a dark cone pointing
+    // up, and a floating violet crystal core sits at its tip.
+    addPiece("astralPad", sx, sy, sz, 0, 0.015, 0);
+    addPiece("astralRing", sx, sy, sz, 0, 0.034, 0);
+    const archOffsets: ReadonlyArray<readonly [number, number, number, number]> = [
+      // [ox, oz, rotX_lean, rotZ_lean] — leans toward the center.
+      [0.15, 0.15, -Math.PI * 0.11, -Math.PI * 0.11],
+      [-0.15, 0.15, -Math.PI * 0.11, Math.PI * 0.11],
+      [0.15, -0.15, Math.PI * 0.11, -Math.PI * 0.11],
+      [-0.15, -0.15, Math.PI * 0.11, Math.PI * 0.11]
+    ];
+    for (const [ox, oz, rotX, rotZ] of archOffsets) {
+      addPiece("astralArch", sx, sy, sz, ox, 0.18, oz, 1, 1, 1, 0, rotX, rotZ);
+    }
+    addPiece("astralSpire", sx, sy, sz, 0, 0.13, 0);
+    // Core floats just above the spire tip, slightly elongated.
+    addPiece("astralCore", sx, sy, sz, 0, 0.28, 0, 1, 1.4, 1);
+  };
+
   // ─── Public API ─────────────────────────────────────────────────────
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
@@ -791,6 +1367,21 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     else if (kind === "AEGIS_DOME") addAegisDome(sceneX, surfaceY, sceneZ);
     else if (kind === "WORLD_ENGINE") addWorldEngine(sceneX, surfaceY, sceneZ);
     else if (kind === "IMPERIAL_EXCHANGE") addImperialExchange(sceneX, surfaceY, sceneZ);
+    else if (kind === "AIRPORT") addAirport(sceneX, surfaceY, sceneZ);
+    else if (kind === "CARAVANARY") addCaravanary(sceneX, surfaceY, sceneZ);
+    else if (kind === "CUSTOMS_HOUSE") addCustomsHouse(sceneX, surfaceY, sceneZ);
+    else if (kind === "EXCHANGE_HOUSE") addExchangeHouse(sceneX, surfaceY, sceneZ);
+    else if (kind === "GARRISON_HALL") addGarrisonHall(sceneX, surfaceY, sceneZ);
+    else if (kind === "GOVERNORS_OFFICE") addGovernorsOffice(sceneX, surfaceY, sceneZ);
+    else if (kind === "RAIL_DEPOT") addRailDepot(sceneX, surfaceY, sceneZ);
+    else if (kind === "RADAR_SYSTEM") addRadarSystem(sceneX, surfaceY, sceneZ);
+    else if (kind === "FOUNDRY") addFoundry(sceneX, surfaceY, sceneZ);
+    else if (kind === "ADVANCED_IRONWORKS") addAdvancedIronworks(sceneX, surfaceY, sceneZ);
+    else if (kind === "FUR_SYNTHESIZER") addFurSynthesizer(sceneX, surfaceY, sceneZ);
+    else if (kind === "ADVANCED_FUR_SYNTHESIZER") addAdvancedFurSynthesizer(sceneX, surfaceY, sceneZ);
+    else if (kind === "CRYSTAL_SYNTHESIZER") addCrystalSynthesizer(sceneX, surfaceY, sceneZ);
+    else if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") addAdvancedCrystalSynthesizer(sceneX, surfaceY, sceneZ);
+    else if (kind === "ASTRAL_DOCK") addAstralDock(sceneX, surfaceY, sceneZ);
   };
 
   const commit = (): void => {
@@ -817,7 +1408,20 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
       aetherBaseGeo, aetherShaftGeo, aetherCrownGeo, aetherCrystalGeo,
       aegisBaseGeo, aegisCoreGeo, aegisDomeGeo, aegisPylonGeo, aegisPylonTipGeo,
       worldEngineTier1Geo, worldEngineTier2Geo, worldEngineTier3Geo, worldEngineSpireGeo, worldEngineCoreGeo,
-      exchangeBaseGeo, exchangeDrumGeo, exchangeDomeGeo, exchangeColumnGeo, exchangeFinialGeo
+      exchangeBaseGeo, exchangeDrumGeo, exchangeDomeGeo, exchangeColumnGeo, exchangeFinialGeo,
+      airportHangarGeo, airportRoofGeo, airportTowerGeo, airportCabGeo, airportRunwayGeo, airportStripeGeo,
+      caravanaryWallGeo, caravanaryWellGeo, caravanaryTentGeo, caravanaryCargoGeo,
+      customsBodyGeo, customsRoofGeo, customsGatePoleGeo, customsGateArmGeo, customsGateStripeGeo, customsBollardGeo,
+      exchangeHouseStepGeo, exchangeHouseBodyGeo, exchangeHouseRoofGeo, exchangeHouseColumnGeo, exchangeHouseSignGeo,
+      garrisonBodyGeo, garrisonRoofGeo, garrisonSandbagGeo, garrisonPoleGeo, garrisonBannerGeo,
+      governorStepGeo, governorBodyGeo, governorRoofGeo, governorCupolaGeo, governorCupolaRoofGeo, governorFlagGeo,
+      railBodyGeo, railRoofGeo, railRailGeo, railSleeperGeo, railSignalMastGeo, railSignalLightGeo,
+      radarBodyGeo, radarTopGeo, radarPylonGeo, radarDishGeo, radarAntennaGeo,
+      foundryBaseGeo, foundryRoofGeo, foundryFurnaceGeo, foundryGlowGeo, foundryChimneyGeo, slagPileGeo,
+      advIronBaseGeo, advIronRoofGeo, advIronFurnaceGeo, advIronChimneyGeo,
+      synthBaseGeo, synthAdvBaseGeo, synthChamberGeo, synthChamberCapGeo, synthWindowGeo, synthTubeGeo, synthTubeCapGeo,
+      crystalChamberGeo, crystalCoreGeo,
+      astralPadGeo, astralRingGeo, astralArchGeo, astralSpireGeo, astralCoreGeo
     ].forEach((g) => g.dispose());
     [
       barnRedMaterial, barnRoofMaterial, siloMaterial, woodFenceMaterial,
@@ -834,7 +1438,18 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
       aetherStoneMaterial, aetherCrownMaterial, aetherCrystalMaterial,
       aegisStoneMaterial, aegisCoreMaterial, aegisDomeMaterial, aegisCrystalMaterial,
       worldEngineStoneMaterial, worldEngineDarkMaterial, worldEngineCoreMaterial,
-      exchangeMarbleMaterial, exchangeColumnMaterial, exchangeDomeMaterial
+      exchangeMarbleMaterial, exchangeColumnMaterial, exchangeDomeMaterial,
+      airportHangarMaterial, airportRoofMaterial, airportTowerMaterial, airportGlassMaterial, airportRunwayMaterial, airportStripeMaterial,
+      caravanaryStoneMaterial, caravanaryWellMaterial, caravanaryTentMaterial, caravanaryCargoMaterial,
+      customsWallMaterial, customsRoofMaterial, customsGateRedMaterial, customsGateWhiteMaterial, customsBollardMaterial,
+      exchangeHouseWallMaterial, exchangeHouseTrimMaterial, exchangeHouseSignMaterial,
+      garrisonWallMaterial, garrisonRoofMaterial, garrisonSandbagMaterial, garrisonPoleMaterial, garrisonBannerMaterial,
+      governorWallMaterial, governorRoofMaterial, governorCupolaMaterial, governorFlagMaterial,
+      railWallMaterial, railRoofMaterial, railIronMaterial, railSleeperMaterial, railSignalLightMaterial,
+      radarBodyMaterial, radarPylonMaterial, radarDishMaterial,
+      slagMaterial,
+      synthBaseMaterial, synthChamberMaterial, synthTubeMaterial, furGlowMaterial, crystalChamberMaterial,
+      astralPadMaterial, astralRingMaterial, astralArchMaterial, astralSpireMaterial, astralCoreMaterial
     ].forEach((m) => m.dispose());
   };
 
