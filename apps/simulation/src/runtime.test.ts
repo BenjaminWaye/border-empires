@@ -7834,6 +7834,11 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             }
           },
           // Three more owned towns 8-adjacent to (5,5) so the BFS finds them.
+          // Only `ownerId === "player-1"` + `ownershipState === "SETTLED"` + a
+          // present `town` object matter for the connected-town count — the
+          // population / support / isFed fields are placeholders so these
+          // neighbors don't trigger unrelated guard paths (e.g. an unfed-town
+          // food-coverage cascade); they aren't read by the assertion below.
           {
             x: 6, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
             town: { name: "Velorreach", type: "FARMING", populationTier: "TOWN", supportCurrent: 4, supportMax: 8, population: 10000, maxPopulation: 10000000, isFed: true }
