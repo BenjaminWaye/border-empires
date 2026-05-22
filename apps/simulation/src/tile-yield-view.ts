@@ -154,7 +154,14 @@ export const buildTileYieldView = (
       gold: roundPositive(yieldCap.gold, 3),
       strategicEach: roundPositive(yieldCap.strategicEach, 3)
     },
-    ...(gold > 0.0001 || Object.keys(strategic).length > 0
+    // Always emit `yield` for yield-bearing tiles (any positive goldPerMinute
+    // or strategic potential), even when the live buffer is zero. Subscribers
+    // merge tile deltas into a cached snapshot with `{ ...cached, ...fresh }`,
+    // so a missing `yield` field preserves whatever the cache last saw — that
+    // strands stale buffer values on the client when an upkeep tick drains
+    // the live buffer to zero. Emitting an explicit `{ gold: 0, strategic: {} }`
+    // lets fresh responses (e.g. FetchTileDetail) authoritatively clear it.
+    ...(goldPerMinute > 0 || maxDaily > 0 || gold > 0.0001 || Object.keys(strategic).length > 0
       ? {
           yield: {
             gold: roundPositive(gold, 3),

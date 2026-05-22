@@ -7665,4 +7665,90 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(refreshedTown?.goldPerMinute).toBe(centerDelta?.yieldRate?.goldPerMinute);
     expect(refreshedTown?.cap).toBe(centerDelta?.yieldCap?.gold);
   });
+
+  it("emits an explicit zero yield buffer for yield-bearing tiles so fresh responses can clear stale cached buffers", () => {
+    // Repro for the post-PR-353 bug: a town's cached client snapshot kept
+    // `yield: { gold: 2105 }` from when the town had a market (cap ~2112), but
+    // after market loss + an upkeep tick that emptied the live buffer to 0,
+    // FetchTileDetail omitted the `yield` field entirely (because gold was
+    // ≤ 0.0001), and the gateway's shallow snapshot merge preserved the stale
+    // 2105. Verify the delta now carries `yield: { gold: 0 }` so the client
+    // can authoritatively clear stale buffers even when the live value is zero.
+    let nowMs = 1_000_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: {
+              name: "Drainville",
+              type: "FARMING",
+              populationTier: "TOWN",
+              baseGoldPerMinute: 2,
+              supportCurrent: 8,
+              supportMax: 8,
+              goldPerMinute: 2,
+              cap: 960,
+              isFed: true,
+              population: 5000,
+              maxPopulation: 25000,
+              connectedTownCount: 0,
+              connectedTownBonus: 0,
+              hasMarket: false,
+              marketActive: false,
+              hasGranary: false,
+              granaryActive: false,
+              hasBank: false,
+              bankActive: false
+            }
+          },
+          ...[
+            [4, 4], [5, 4], [6, 4],
+            [4, 5], [6, 5],
+            [4, 6], [5, 6], [6, 6]
+          ].map(([x, y]) => ({
+            x,
+            y,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const
+          }))
+        ],
+        // lastCollectedAt = now means zero elapsed time → live buffer = 0.
+        tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: nowMs }],
+        activeLocks: []
+      }
+    });
+
+    const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 5, 5, 0, { fullVisibility: true });
+    expect(centerDelta).toBeDefined();
+    // Tile is yield-bearing (gpm > 0), so yield must be present even though
+    // the buffer is 0 right now. If this assertion fails, the gateway's merge
+    // will preserve whatever stale value the client cached previously.
+    expect(centerDelta?.yield).toBeDefined();
+    expect(centerDelta?.yield?.gold ?? -1).toBe(0);
+  });
 });
