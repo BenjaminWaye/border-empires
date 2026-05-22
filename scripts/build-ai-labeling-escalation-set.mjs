@@ -3,7 +3,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertTrainingRecord, parseJsonLines } from "./ai-labeling-common.mjs";
+import {
+  assertTrainingRecord,
+  getTeacherLabelQualityIssues,
+  getTeacherLabelValidationIssues,
+  parseJsonLines
+} from "./ai-labeling-common.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -55,44 +60,15 @@ const labelsByRecordId = new Map(
   })
 );
 
-const explanationLooksThin = (value) =>
-  typeof value !== "string" || value.trim().length < 32 || value.trim().split(/\s+/).length < 6;
-
 const collectReasons = (record, labelEntry) => {
   if (!labelEntry) return ["missing_label"];
 
-  const reasons = [];
   const label = labelEntry.label;
-  const chosenActionType = record?.chosenAction?.type ?? null;
-
-  if (label.moveQuality === "dubious") reasons.push("move_quality_dubious");
-  if (label.moveQuality === "blunder") reasons.push("move_quality_blunder");
-  if (label.betterAction) reasons.push("has_better_action");
-  if (label.frontierClass === "waste") reasons.push("frontier_class_waste");
-  if (
-    label.frontierClass === "scout" &&
-    label.trainingTargets?.shouldPreferScoutShape !== true &&
-    chosenActionType === "EXPAND"
-  ) {
-    reasons.push("scout_without_scout_shape_target");
-  }
-  if (
-    label.primaryGoal === "expand_frontier" &&
-    label.trainingTargets?.shouldSettleSoon === true
-  ) {
-    reasons.push("expand_goal_but_settle_soon");
-  }
-  if (Array.isArray(label.hiddenMechanics) && label.hiddenMechanics.length === 0) {
-    reasons.push("no_hidden_mechanics");
-  }
-  if (Array.isArray(label.tacticalMotifs) && label.tacticalMotifs.length === 0) {
-    reasons.push("no_tactical_motifs");
-  }
-  if (explanationLooksThin(label.strategicExplanation)) {
-    reasons.push("thin_explanation");
-  }
-
-  return reasons;
+  const validationIssues = getTeacherLabelValidationIssues(label);
+  return [
+    ...validationIssues.map((issue) => `invalid_label:${issue}`),
+    ...getTeacherLabelQualityIssues(label, record)
+  ];
 };
 
 const triageEntries = records.map((record) => {
