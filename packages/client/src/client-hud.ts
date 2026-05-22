@@ -1168,7 +1168,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         fogDisabled: state.fogDisabled
       });
       sendGameMessage(
-        { type: "SET_FOG_DISABLED", disabled: nextEnabled },
+        nextEnabled ? { type: "REQUEST_REVEAL_MAP" } : { type: "SET_FOG_DISABLED", disabled: false },
         "Finish signing in before changing the staging map reveal."
       );
       requestViewRefresh(2, true);

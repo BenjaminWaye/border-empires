@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.5",
+  version: "2026.05.22.3",
   title: "What's New",
   summary: "Clockwork Stipend (and any future pick-a-resource domain) now actually unlocks instead of being silently rejected. The gateway was stripping the chosen resource off the wire because the schema didn't list it. Domain and research rejections also now surface as a banner alert instead of being buried in the activity feed.",
   entries: [
     {
-      introducedIn: "2026.05.21.5",
+      introducedIn: "2026.05.22.3",
       title: "Clockwork Stipend resource picks no longer dropped at the gateway",
       why: "ClientMessageSchema for CHOOSE_DOMAIN did not declare the chosenTrickleResource field. Zod's default object mode silently strips unknown keys, so the gateway parsed an empty payload, forwarded an empty payload, and the sim rejected with 'trickle resource choice required' even when the player had picked IRON/SUPPLY/CRYSTAL. The schema now declares the field as an optional TRICKLE_RESOURCE_KEYS enum, with a regression test that fails loud if it's removed.",
       changes: [
@@ -33,12 +33,59 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.21.5",
+      introducedIn: "2026.05.22.3",
       title: "Domain and tech rejections surface as banner alerts",
       why: "When the server rejected a domain pick — for example Clockwork Stipend returning 'trickle resource choice required' — the only feedback was a single line in the activity feed. The button quietly reverted to 'Choose Tier N' and players assumed the click was broken. Frontier/diplomacy/build rejections already use banner alerts, so domain and tech now match that pattern.",
       changes: [
         "DOMAIN_INVALID and TECH_INVALID rejections now raise a 12-second 'Domain pick failed' / 'Research failed' banner alongside the existing feed entry.",
         "The default 'Error CODE: message' fallback string is replaced with a friendlier 'Domain pick failed: …' / 'Research failed: …' for these codes."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.2",
+      title: "Stored yield can't get stranded above the cap anymore",
+      why: "After the prior fix routed FetchTileDetail through tileDeltaFromState, the on-open inspector still showed e.g. \"Stored yield: 2105 / 960\" on a town that no longer had a market. Root cause: buildTileYieldView omitted the `yield` field whenever the live buffer rounded to ≤ 0.0001 (the common case right after an upkeep tick drained the buffer). The gateway's shallow `{ ...cached, ...fresh }` merge then preserved whatever stale buffer the client had cached from when the town's cap was higher.",
+      changes: [
+        "buildTileYieldView now always emits `yield` (with `gold: 0` when the live buffer is empty) for any tile that can produce gold or strategic resources, so fresh tile-delta and FetchTileDetail responses authoritatively overwrite stale cached buffer values instead of leaving them untouched."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.1",
+      title: "Attack win chance loading stops retrying itself",
+      why: "The watchdog for stranded attack preview requests did fire, but its menu re-render reopened the same enemy tile through the normal fresh-preview path. That immediately started another request, cleared the timeout state, and put the row back into \"Calculating win chance...\".",
+      changes: [
+        "Timeout-driven action menu re-renders now reuse the computed preview-unavailable state instead of starting another fresh preview request.",
+        "Normal player-opened enemy tile menus still request fresh authoritative odds.",
+        "Added regression coverage that fails when the timeout re-render restarts the preview request loop."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.7",
+      title: "Full-map reveal is chunked for high-player fanout",
+      why: "The old reveal path sent one full tile snapshot per requester. When many players revealed the whole map, the gateway could retain and serialize many huge payloads at once, causing memory pressure.",
+      changes: [
+        "Reveal Full Map now requests a dedicated reveal stream and applies tile chunks incrementally, keeping the regular control websocket clear.",
+        "The gateway builds one reusable chunk payload set for concurrent reveal requests, pre-serializes each chunk once for fanout across all viewers, and clears the set when live tile deltas arrive instead of retaining full reveal snapshots per player.",
+        "Reveal requests are rate-limited per player and bounded by a hard concurrent-stream cap so a fanout wave can't saturate the gateway event loop, and reveal-map metrics (build time, payload bytes, active streams, chunks sent, cache entries) are exposed via /metrics.",
+        "The simulation no longer stores explicit full-visibility subscribe snapshots in its per-player snapshot cache."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.6",
+      title: "Attack menu win chance survives hover-vs-menu races",
+      why: "Pending preview request ids were tracked globally, so a hover preview for one tile would overwrite the menu's pending id and cause the menu's gateway response to be silently dropped — leaving the 4 second watchdog to fall back to \"preview unavailable\" even though the gateway had returned the real odds.",
+      changes: [
+        "Pending attack preview request ids are now tracked per (from, to) attack key, so hover previews for one tile cannot invalidate the menu's request for a different tile.",
+        "Gateway responses are accepted as long as they match the latest request id for that specific attack key; only same-key superseded responses are dropped.",
+        "Added a regression test for the cross-target race the prior implementation dropped."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.5",
+      title: "Tile inspector refreshes Production and gold cap on open",
+      why: "REQUEST_TILE_DETAIL went through exportTilesInAreaForPlayer → domainTileToWireDelta, which serialized the in-memory tile state directly. Between full snapshot rebuilds the in-memory town.goldPerMinute and town.cap stayed at whatever the last rebuild had written, and this code path never touched buildTileYieldView or the connected-town refresh — so the owned-town inspector kept reporting a stale Production row and gold cap even after the previous fix to the event-driven tile delta emission. The response also didn't include yield_rate_json / yield_cap_json / yield_json at all, so the merged client snapshot fell back to whatever cached yield fields it had.",
+      changes: [
+        "FetchTileDetail now serializes its tiles through tileDeltaFromState, so the response carries refreshed town.goldPerMinute and town.cap plus the matching yield_rate_json, yield_cap_json, and yield_json. Opening an owned town's action menu now sees current support/fed/market/connected-town state without waiting for a full snapshot rebuild or an event-driven tile delta."
       ]
     },
     {

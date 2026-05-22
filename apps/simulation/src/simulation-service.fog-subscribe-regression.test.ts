@@ -19,5 +19,6 @@ describe("simulation service fog subscribe regression", () => {
     expect(file).toContain('...(typeof parsed.trigger === "string" && parsed.trigger.length > 0 ? { trigger: parsed.trigger } : {})');
     expect(file).toContain('fullVisibility: subscribeOptions.fullVisibility,');
     expect(file).toContain('...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})');
+    expect(file.match(/if \(!useFullVisibility\) setCachedSnapshot\(playerId, snapshot\);/g)).toHaveLength(2);
   });
 });

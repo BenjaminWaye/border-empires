@@ -58,6 +58,11 @@ export type GatewayMetricsSnapshot = {
   gatewaySnapshotCacheEntries: number;
   gatewaySnapshotCacheBytes: number;
   gatewaySnapshotRecent: GatewaySnapshotMetricSample[];
+  revealSnapshotBuildMs: QuantileSample;
+  revealSnapshotBytes: QuantileSample;
+  revealActiveStreams: number;
+  revealChunksSent: number;
+  revealCacheEntries: number;
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
@@ -81,6 +86,11 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let gatewayHeapTotalMb = 0;
   let gatewaySnapshotCacheEntries = 0;
   let gatewaySnapshotCacheBytes = 0;
+  const revealSnapshotBuildMs: number[] = [];
+  const revealSnapshotBytes: number[] = [];
+  let revealActiveStreams = 0;
+  let revealChunksSent = 0;
+  let revealCacheEntries = 0;
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -106,7 +116,12 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     gatewaySnapshotTilesJsonBytes: quantileSample(gatewaySnapshotTilesJsonBytes),
     gatewaySnapshotCacheEntries,
     gatewaySnapshotCacheBytes,
-    gatewaySnapshotRecent: [...gatewaySnapshotRecent]
+    gatewaySnapshotRecent: [...gatewaySnapshotRecent],
+    revealSnapshotBuildMs: quantileSample(revealSnapshotBuildMs),
+    revealSnapshotBytes: quantileSample(revealSnapshotBytes),
+    revealActiveStreams,
+    revealChunksSent,
+    revealCacheEntries
   });
 
   return {
@@ -151,6 +166,21 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     setGatewaySnapshotCache(values: { entries: number; bytes: number }): void {
       gatewaySnapshotCacheEntries = clampMetric(values.entries);
       gatewaySnapshotCacheBytes = clampMetric(values.bytes);
+    },
+    observeRevealSnapshotBuildMs(value: number): void {
+      appendSample(revealSnapshotBuildMs, value, limit);
+    },
+    observeRevealSnapshotBytes(value: number): void {
+      appendSample(revealSnapshotBytes, value, limit);
+    },
+    setRevealActiveStreams(value: number): void {
+      revealActiveStreams = Math.max(0, Math.floor(clampMetric(value)));
+    },
+    incrementRevealChunksSent(count = 1): void {
+      revealChunksSent += Math.max(0, Math.floor(count));
+    },
+    setRevealCacheEntries(value: number): void {
+      revealCacheEntries = Math.max(0, Math.floor(clampMetric(value)));
     },
     snapshot,
     renderPrometheus(): string {
@@ -205,7 +235,21 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         "# TYPE gateway_snapshot_cache_entries gauge",
         `gateway_snapshot_cache_entries ${formatMetricValue(sample.gatewaySnapshotCacheEntries)}`,
         "# TYPE gateway_snapshot_cache_bytes gauge",
-        `gateway_snapshot_cache_bytes ${formatMetricValue(sample.gatewaySnapshotCacheBytes)}`
+        `gateway_snapshot_cache_bytes ${formatMetricValue(sample.gatewaySnapshotCacheBytes)}`,
+        "# TYPE gateway_reveal_snapshot_build_ms gauge",
+        `gateway_reveal_snapshot_build_ms{quantile=\"p50\"} ${formatMetricValue(sample.revealSnapshotBuildMs.p50)}`,
+        `gateway_reveal_snapshot_build_ms{quantile=\"p95\"} ${formatMetricValue(sample.revealSnapshotBuildMs.p95)}`,
+        `gateway_reveal_snapshot_build_ms{quantile=\"p99\"} ${formatMetricValue(sample.revealSnapshotBuildMs.p99)}`,
+        "# TYPE gateway_reveal_snapshot_bytes gauge",
+        `gateway_reveal_snapshot_bytes{quantile=\"p50\"} ${formatMetricValue(sample.revealSnapshotBytes.p50)}`,
+        `gateway_reveal_snapshot_bytes{quantile=\"p95\"} ${formatMetricValue(sample.revealSnapshotBytes.p95)}`,
+        `gateway_reveal_snapshot_bytes{quantile=\"p99\"} ${formatMetricValue(sample.revealSnapshotBytes.p99)}`,
+        "# TYPE gateway_reveal_active_streams gauge",
+        `gateway_reveal_active_streams ${formatMetricValue(sample.revealActiveStreams)}`,
+        "# TYPE gateway_reveal_chunks_sent counter",
+        `gateway_reveal_chunks_sent ${formatMetricValue(sample.revealChunksSent)}`,
+        "# TYPE gateway_reveal_cache_entries gauge",
+        `gateway_reveal_cache_entries ${formatMetricValue(sample.revealCacheEntries)}`
       ].join("\n");
     }
   };

@@ -43,6 +43,7 @@ import {
   requestAttackPreviewForHover as requestAttackPreviewForHoverFromModule,
   requestAttackPreviewForTarget as requestAttackPreviewForTargetFromModule,
   requestSettlement as requestSettlementFromModule,
+  resetAttackPreviewState,
   sendDevelopmentBuild as sendDevelopmentBuildFromModule,
   settlementProgressForTile as settlementProgressForTileFromModule,
   syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
@@ -578,10 +579,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         clearSettlementProgressForTile(change.x, change.y);
       }
     }
-    state.attackPreview = undefined;
-    state.attackPreviewPendingKey = "";
-    state.attackPreviewPendingRequestId = "";
-    state.attackPreviewPendingStartedAt = 0;
+    resetAttackPreviewState(state);
     renderHud();
   };
 
@@ -602,7 +600,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       onPreviewTimeout: () => {
         if (!state.tileActionMenu.visible || state.tileActionMenu.mode !== "single") return;
         if (state.tileActionMenu.currentTileKey !== keyFor(to.x, to.y)) return;
-        openSingleTileActionMenu(to, state.tileActionMenu.x, state.tileActionMenu.y);
+        openSingleTileActionMenu(to, state.tileActionMenu.x, state.tileActionMenu.y, { requestAttackPreview: false });
       }
     });
 
@@ -1048,8 +1046,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
     renderTileActionMenuFromModule(state, view, clientX, clientY, tileActionMenuUiDeps());
 
-  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number): void =>
-    openSingleTileActionMenuFromModule(state, tile, clientX, clientY, tileActionMenuUiDeps());
+  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean }): void =>
+    openSingleTileActionMenuFromModule(state, tile, clientX, clientY, tileActionMenuUiDeps(), options);
 
   const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: number): void =>
     openBulkTileActionMenuFromModule(state, targetKeys, clientX, clientY, tileActionMenuUiDeps());
@@ -1722,19 +1720,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (vis === "fogged") {
       state.selected = { x: wx, y: wy };
-      state.attackPreview = undefined;
-      state.attackPreviewPendingKey = "";
-      state.attackPreviewPendingRequestId = "";
-      state.attackPreviewPendingStartedAt = 0;
+      resetAttackPreviewState(state);
       renderHud();
       return;
     }
     if (!clicked) {
       state.selected = { x: wx, y: wy };
-      state.attackPreview = undefined;
-      state.attackPreviewPendingKey = "";
-      state.attackPreviewPendingRequestId = "";
-      state.attackPreviewPendingStartedAt = 0;
+      resetAttackPreviewState(state);
       if (revealWholeMapInTrue3DMode) {
         const placeholder: Tile = { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: false };
         openSingleTileActionMenu(placeholder, clientX, clientY);
