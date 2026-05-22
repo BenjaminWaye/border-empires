@@ -1,4 +1,5 @@
 import {
+  BoxGeometry,
   ConeGeometry,
   CylinderGeometry,
   Group,
@@ -10,39 +11,35 @@ import {
 
 // 3D parity for the 2D unfed-town badge painted in client-map-render.ts:
 // `tile.town && !tile.town.isFed` produces a downward-pointing red triangle
-// with a white "!" sitting in the corner of the town tile. In 3D we now
-// float a small empty wooden bowl above the town silhouette and place a
-// red downward chevron above it — the bowl says "this is about food" and
-// the empty interior + red chevron says "this town has none". Reads
-// instantly from any orbit angle as "hungry/unfed", which the prior
-// generic warning triangle did not.
+// with a white "!" sitting in the corner of the town tile. In 3D we float
+// a small golden wheat sheaf above the town and draw a red diagonal slash
+// across it — the universal "no grain / not enough food" pictogram. Reads
+// instantly as "this town is unfed" from any orbit angle.
 
-// Wooden bowl. Tapered cylinder (wider at top) so the silhouette looks
-// like a real bowl from a perspective camera rather than a coin.
-const BOWL_TOP_RADIUS = 0.13;
-const BOWL_BOTTOM_RADIUS = 0.08;
-const BOWL_HEIGHT = 0.06;
-const BOWL_HALF_HEIGHT = BOWL_HEIGHT * 0.5;
-// Darker interior disc sits just inside the bowl rim, suggesting an
-// empty cavity rather than a stuffed-full container.
-const BOWL_INTERIOR_TOP_RADIUS = 0.105;
-const BOWL_INTERIOR_BOTTOM_RADIUS = 0.07;
-const BOWL_INTERIOR_HEIGHT = 0.015;
-const BOWL_INTERIOR_INSET = 0.018;
+// Wheat sheaf: a short golden cylinder with a slightly fatter conical
+// grain head on top. Bound tightly so it reads as a sheaf, not a stalk.
+const SHEAF_RADIUS_TOP = 0.055;
+const SHEAF_RADIUS_BOTTOM = 0.045;
+const SHEAF_HEIGHT = 0.18;
+const SHEAF_HALF_HEIGHT = SHEAF_HEIGHT * 0.5;
 
-// Red urgency chevron above the bowl (3-sided cone rotated point-down).
-const CHEVRON_RADIUS = 0.075;
-const CHEVRON_HEIGHT = 0.12;
-const CHEVRON_HALF_HEIGHT = CHEVRON_HEIGHT * 0.5;
-const CHEVRON_GAP = 0.025;
+const GRAIN_RADIUS = 0.075;
+const GRAIN_HEIGHT = 0.12;
+const GRAIN_HALF_HEIGHT = GRAIN_HEIGHT * 0.5;
 
-// Lift above the town silhouette. METROPOLIS spire reaches
-// SPIRE_BASE_HEIGHT (0.34) + SPIRE_TIP_HEIGHT (0.78) = 1.12; we float at
-// 1.18 so the badge clears the spire on every tier.
+// Red diagonal slash: a long thin box rotated 45° around the Z axis so
+// it crosses the sheaf from lower-left to upper-right when viewed from
+// the front. Slash centered at sheaf mid-height.
+const SLASH_LENGTH = 0.28;
+const SLASH_THICKNESS = 0.022;
+const SLASH_ROTATION_Z = Math.PI * 0.25;
+
+// Float position. METROPOLIS spire reaches 1.12; float at 1.18 so the
+// badge clears every town tier from any orbit angle.
 const FLOAT_BASE = 1.18;
-const BOWL_Y_OFFSET = FLOAT_BASE + BOWL_HALF_HEIGHT;
-const BOWL_INTERIOR_Y_OFFSET = FLOAT_BASE + BOWL_HEIGHT - BOWL_INTERIOR_INSET;
-const CHEVRON_Y_OFFSET = FLOAT_BASE + BOWL_HEIGHT + CHEVRON_GAP + CHEVRON_HALF_HEIGHT;
+const SHEAF_Y_OFFSET = FLOAT_BASE + SHEAF_HALF_HEIGHT;
+const GRAIN_Y_OFFSET = FLOAT_BASE + SHEAF_HEIGHT + GRAIN_HALF_HEIGHT;
+const SLASH_Y_OFFSET = FLOAT_BASE + (SHEAF_HEIGHT + GRAIN_HEIGHT) * 0.5;
 
 export type UnfedBadgeOverlay = {
   readonly group: Group;
@@ -57,49 +54,51 @@ export const createUnfedBadgeOverlay = (scene: Scene, maxTiles: number): UnfedBa
   group.name = "unfed-badge-overlay";
   scene.add(group);
 
-  const bowlGeometry = new CylinderGeometry(BOWL_TOP_RADIUS, BOWL_BOTTOM_RADIUS, BOWL_HEIGHT, 14);
-  const bowlInteriorGeometry = new CylinderGeometry(BOWL_INTERIOR_TOP_RADIUS, BOWL_INTERIOR_BOTTOM_RADIUS, BOWL_INTERIOR_HEIGHT, 14);
-  // 3-segment cone → equilateral chevron silhouette from any yaw.
-  // openEnded:false keeps a flat base so the underside reads cleanly.
-  const chevronGeometry = new ConeGeometry(CHEVRON_RADIUS, CHEVRON_HEIGHT, 3, 1, false);
-  // Rotate so the tip points down — "decline / missing" cue.
-  chevronGeometry.rotateX(Math.PI);
+  const sheafGeometry = new CylinderGeometry(SHEAF_RADIUS_TOP, SHEAF_RADIUS_BOTTOM, SHEAF_HEIGHT, 10);
+  const grainGeometry = new ConeGeometry(GRAIN_RADIUS, GRAIN_HEIGHT, 10);
+  const slashGeometry = new BoxGeometry(SLASH_LENGTH, SLASH_THICKNESS, SLASH_THICKNESS);
+  // Rotate the slash geometry once at construction so addInstance's
+  // translation-only matrices land it diagonally without per-instance
+  // quaternion math.
+  slashGeometry.rotateZ(SLASH_ROTATION_Z);
 
-  const bowlMaterial = new MeshStandardMaterial({
-    color: "#9b6a36",
-    roughness: 0.86,
-    metalness: 0,
+  const sheafMaterial = new MeshStandardMaterial({
+    color: "#d4a838",
+    roughness: 0.78,
+    metalness: 0.04,
     flatShading: true,
-    emissive: "#3a200a",
-    emissiveIntensity: 0.25
+    emissive: "#5a3e10",
+    emissiveIntensity: 0.2
   });
-  const bowlInteriorMaterial = new MeshStandardMaterial({
-    color: "#2e1a0e",
-    roughness: 0.92,
-    metalness: 0,
-    flatShading: true
+  const grainMaterial = new MeshStandardMaterial({
+    color: "#b88224",
+    roughness: 0.82,
+    metalness: 0.04,
+    flatShading: true,
+    emissive: "#5a3e10",
+    emissiveIntensity: 0.18
   });
-  const chevronMaterial = new MeshStandardMaterial({
+  const slashMaterial = new MeshStandardMaterial({
     color: "#c94a38",
     emissive: "#c94a38",
-    emissiveIntensity: 0.75,
-    roughness: 0.55,
+    emissiveIntensity: 0.85,
+    roughness: 0.5,
     metalness: 0,
     flatShading: true
   });
 
-  const bowlMesh = new InstancedMesh(bowlGeometry, bowlMaterial, maxTiles);
-  const bowlInteriorMesh = new InstancedMesh(bowlInteriorGeometry, bowlInteriorMaterial, maxTiles);
-  const chevronMesh = new InstancedMesh(chevronGeometry, chevronMaterial, maxTiles);
+  const sheafMesh = new InstancedMesh(sheafGeometry, sheafMaterial, maxTiles);
+  const grainMesh = new InstancedMesh(grainGeometry, grainMaterial, maxTiles);
+  const slashMesh = new InstancedMesh(slashGeometry, slashMaterial, maxTiles);
 
-  for (const mesh of [bowlMesh, bowlInteriorMesh, chevronMesh]) {
+  for (const mesh of [sheafMesh, grainMesh, slashMesh]) {
     mesh.frustumCulled = false;
     mesh.count = 0;
     // Draw on top of town/forest silhouettes so the badge reads from any
     // angle without depth-fighting the spire roof.
     mesh.renderOrder = 7;
   }
-  group.add(bowlMesh, bowlInteriorMesh, chevronMesh);
+  group.add(sheafMesh, grainMesh, slashMesh);
 
   const tempMatrix = new Matrix4();
   let count = 0;
@@ -110,32 +109,32 @@ export const createUnfedBadgeOverlay = (scene: Scene, maxTiles: number): UnfedBa
 
   const addInstance = (centerX: number, centerZ: number, surfaceY: number): void => {
     if (count >= maxTiles) return;
-    tempMatrix.makeTranslation(centerX, surfaceY + BOWL_Y_OFFSET, centerZ);
-    bowlMesh.setMatrixAt(count, tempMatrix);
-    tempMatrix.makeTranslation(centerX, surfaceY + BOWL_INTERIOR_Y_OFFSET, centerZ);
-    bowlInteriorMesh.setMatrixAt(count, tempMatrix);
-    tempMatrix.makeTranslation(centerX, surfaceY + CHEVRON_Y_OFFSET, centerZ);
-    chevronMesh.setMatrixAt(count, tempMatrix);
+    tempMatrix.makeTranslation(centerX, surfaceY + SHEAF_Y_OFFSET, centerZ);
+    sheafMesh.setMatrixAt(count, tempMatrix);
+    tempMatrix.makeTranslation(centerX, surfaceY + GRAIN_Y_OFFSET, centerZ);
+    grainMesh.setMatrixAt(count, tempMatrix);
+    tempMatrix.makeTranslation(centerX, surfaceY + SLASH_Y_OFFSET, centerZ);
+    slashMesh.setMatrixAt(count, tempMatrix);
     count += 1;
   };
 
   const commit = (): void => {
-    bowlMesh.count = count;
-    bowlInteriorMesh.count = count;
-    chevronMesh.count = count;
-    bowlMesh.instanceMatrix.needsUpdate = true;
-    bowlInteriorMesh.instanceMatrix.needsUpdate = true;
-    chevronMesh.instanceMatrix.needsUpdate = true;
+    sheafMesh.count = count;
+    grainMesh.count = count;
+    slashMesh.count = count;
+    sheafMesh.instanceMatrix.needsUpdate = true;
+    grainMesh.instanceMatrix.needsUpdate = true;
+    slashMesh.instanceMatrix.needsUpdate = true;
   };
 
   const dispose = (): void => {
     scene.remove(group);
-    bowlGeometry.dispose();
-    bowlInteriorGeometry.dispose();
-    chevronGeometry.dispose();
-    bowlMaterial.dispose();
-    bowlInteriorMaterial.dispose();
-    chevronMaterial.dispose();
+    sheafGeometry.dispose();
+    grainGeometry.dispose();
+    slashGeometry.dispose();
+    sheafMaterial.dispose();
+    grainMaterial.dispose();
+    slashMaterial.dispose();
   };
 
   return { group, clear, addInstance, commit, dispose };

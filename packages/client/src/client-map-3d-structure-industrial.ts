@@ -57,16 +57,24 @@ export const registerIndustrialStructures = (
   const astralCoreMaterial = new MeshStandardMaterial({ color: "#c08aff", roughness: 0.3, metalness: 0.25, flatShading: true, emissive: "#7a3acc", emissiveIntensity: 1.0 });
 
   // ─── Geometries ─────────────────────────────────────────────────────
-  // ADV_IRONWORKS + FOUNDRY render as synthesizer chambers (same idiom
-  // as FUR/CRYSTAL synthesizers, since IRONWORKS is also a synthesizer
-  // in border-empires). Wider base supports 2 chambers; FOUNDRY adds a
-  // glowing slag pile to differentiate from plain ADV_IRONWORKS.
+  // ADV_IRONWORKS uses the synthesizer-chamber idiom (same as IRONWORKS
+  // in economic.ts and FUR/CRYSTAL synthesizers here) so the
+  // ironworks family stays visually coherent.
   const ironSynthAdvBaseGeo = new BoxGeometry(0.32, 0.10, 0.18);
   const ironSynthChamberGeo = new CylinderGeometry(0.07, 0.07, 0.18, 12);
   const ironSynthChamberCapGeo = new ConeGeometry(0.075, 0.04, 12);
   const ironSynthWindowGeo = new BoxGeometry(0.022, 0.10, 0.04);
   const ironSynthTubeGeo = new CylinderGeometry(0.010, 0.010, 0.10, 6);
   const ironSynthTubeCapGeo = new ConeGeometry(0.012, 0.022, 6);
+  // FOUNDRY keeps the original forge silhouette — wider stone base,
+  // pyramidal roof, tall stone furnace, twin chimneys, and a glowing
+  // slag pile. Foundry and ironworks are *not* the same thing: a
+  // foundry casts metal; ironworks (synthesizer) extracts/refines it.
+  const foundryBaseGeo = new BoxGeometry(0.40, 0.20, 0.30);
+  const foundryRoofGeo = new ConeGeometry(0.28, 0.10, 4);
+  const foundryFurnaceGeo = new BoxGeometry(0.20, 0.24, 0.18);
+  const foundryGlowGeo = new BoxGeometry(0.08, 0.08, 0.08);
+  const foundryChimneyGeo = new BoxGeometry(0.07, 0.34, 0.07);
   const slagPileGeo = new ConeGeometry(0.08, 0.05, 6);
   const synthBaseGeo = new BoxGeometry(0.20, 0.08, 0.16);
   const synthAdvBaseGeo = new BoxGeometry(0.32, 0.10, 0.18);
@@ -84,17 +92,20 @@ export const registerIndustrialStructures = (
   const astralCoreGeo = new OctahedronGeometry(0.05, 0);
 
   // ─── Slots ─────────────────────────────────────────────────────────
-  // Iron-synth family: ADV_IRONWORKS + FOUNDRY share these slots since
-  // a tile only ever has one of the two. Cap sized for 2 chambers per
-  // structure × maxTiles. Materials all come from the shared forge
-  // palette so the silhouette reads as the same family as IRONWORKS.
+  // ADV_IRONWORKS twin-chamber synthesizer slots.
   builder.makeSlot("ironSynthAdvBase", ironSynthAdvBaseGeo, shared.forgeBaseMaterial, C);
   builder.makeSlot("ironSynthChamber", ironSynthChamberGeo, shared.forgeStoneMaterial, C * 2);
   builder.makeSlot("ironSynthChamberCap", ironSynthChamberCapGeo, shared.forgeStoneMaterial, C * 2);
   builder.makeSlot("ironSynthWindow", ironSynthWindowGeo, shared.forgeGlowMaterial, C * 2);
   builder.makeSlot("ironSynthTube", ironSynthTubeGeo, shared.forgeChimneyMaterial, C * 3);
   builder.makeSlot("ironSynthTubeCap", ironSynthTubeCapGeo, shared.forgeChimneyMaterial, C * 3);
-  // Slag pile is FOUNDRY-only — differentiator from ADV_IRONWORKS.
+  // FOUNDRY forge-style slots — distinct silhouette from the iron-synth
+  // family. Uses shared forge palette but renders as a forge building.
+  builder.makeSlot("foundryBase", foundryBaseGeo, shared.forgeBaseMaterial, C);
+  builder.makeSlot("foundryRoof", foundryRoofGeo, shared.barnRoofMaterial, C);
+  builder.makeSlot("foundryFurnace", foundryFurnaceGeo, shared.forgeStoneMaterial, C);
+  builder.makeSlot("foundryGlow", foundryGlowGeo, shared.forgeGlowMaterial, C);
+  builder.makeSlot("foundryChimney", foundryChimneyGeo, shared.forgeChimneyMaterial, C * 2);
   builder.makeSlot("slagPile", slagPileGeo, slagMaterial, C);
   // Synthesizer family — caps sized for advanced (2× capacity for
   // shared pieces). Materials shared between basic and advanced.
@@ -141,10 +152,17 @@ export const registerIndustrialStructures = (
   };
 
   const addFoundry: IndustrialStructureLayout = (sx, sy, sz) => {
-    // Same twin-chamber silhouette as ADV_IRONWORKS plus a glowing slag
-    // pile, which is FOUNDRY's signature differentiator.
-    addIronSynthDual(sx, sy, sz);
-    builder.addPiece("slagPile", sx, sy, sz, -0.22, 0.025, 0.16);
+    // Classic forge: stone base + pyramidal roof + tall stone furnace
+    // with a hot glow window, twin chimneys at the back, and a glowing
+    // slag pile out front. Casting metal, not refining it — distinct
+    // silhouette from the synthesizer-style ironworks family.
+    builder.addPiece("foundryBase", sx, sy, sz, -0.08, 0.10, -0.04);
+    builder.addPiece("foundryRoof", sx, sy, sz, -0.08, 0.27, -0.04, 1, 1, 1, Math.PI * 0.25);
+    builder.addPiece("foundryFurnace", sx, sy, sz, 0.20, 0.12, -0.04);
+    builder.addPiece("foundryGlow", sx, sy, sz, 0.20, 0.08, 0.06);
+    builder.addPiece("foundryChimney", sx, sy, sz, 0.16, 0.34, -0.10);
+    builder.addPiece("foundryChimney", sx, sy, sz, 0.24, 0.34, -0.10);
+    builder.addPiece("slagPile", sx, sy, sz, -0.20, 0.025, 0.18);
   };
 
   const addFurSynthesizer: IndustrialStructureLayout = (sx, sy, sz) => {
