@@ -36,6 +36,7 @@ import { withTimeout } from "./promise-timeout.js";
 import { retryStartup } from "./startup-retry.js";
 import { resolveInitialState } from "./initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "./full-visibility-replacement-payload-cache.js";
+import { createRevealMapChunkCache, type RevealMapPayloadSet } from "./reveal-map-chunk-cache.js";
 import { buildInitMessage } from "./reconnect-recovery.js";
 import { type SimulationSeedProfile } from "./seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "./sim-client.js";
@@ -984,6 +985,17 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     jsonSafeTileDeltaBatch,
     jsonByteSize
   });
+  const revealMapChunkCache = createRevealMapChunkCache({
+    jsonSafeTileDeltaBatch
+  });
+  let revealMapPayloadBuild: Promise<RevealMapPayloadSet> | undefined;
+  // Bound how much reveal-map traffic the gateway can stream at once. A reveal wave from many
+  // players otherwise produces N parallel chunk streams that all share the event loop with
+  // gameplay messages; the cap keeps that fanout predictable.
+  const MAX_CONCURRENT_REVEAL_STREAMS = 24;
+  const REVEAL_REQUEST_COOLDOWN_MS = 5_000;
+  const activeRevealStreamSockets = new Set<import("ws").WebSocket>();
+  const lastRevealRequestMsByPlayerId = new Map<string, number>();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
   const gatewaySnapshotByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
   type GatewaySnapshotCacheSummary = {
@@ -1325,6 +1337,83 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
 
+  const revealMapPayloadSet = async (playerId: string): Promise<RevealMapPayloadSet> => {
+    const cachedPayloadSet = revealMapChunkCache.current();
+    if (cachedPayloadSet) return cachedPayloadSet;
+    if (!revealMapPayloadBuild) {
+      const buildStartedAt = Date.now();
+      revealMapPayloadBuild = (async () => {
+        const snapshot = await withTimeout(
+          simulationClient.subscribePlayer(
+            playerId,
+            JSON.stringify({
+              mode: "bootstrap-only",
+              fullVisibility: true,
+              emitBootstrapEvent: false,
+              trigger: "gateway_reveal_map"
+            })
+          ),
+          simulationSubscribeTimeoutMs,
+          "gateway reveal map snapshot"
+        );
+        const payloadSet = revealMapChunkCache.getOrCreate(snapshot);
+        const buildDurationMs = Date.now() - buildStartedAt;
+        gatewayMetrics.observeRevealSnapshotBuildMs(buildDurationMs);
+        gatewayMetrics.observeRevealSnapshotBytes(payloadSet.payloadJsonBytes);
+        gatewayMetrics.setRevealCacheEntries(1);
+        recordGatewayEvent("info", "gateway_reveal_map_snapshot_ready", {
+          playerId,
+          snapshotId: payloadSet.snapshotId,
+          totalTiles: payloadSet.totalTiles,
+          chunkCount: payloadSet.chunks.length,
+          payloadJsonBytes: payloadSet.payloadJsonBytes,
+          buildDurationMs
+        });
+        return payloadSet;
+      })().finally(() => {
+        revealMapPayloadBuild = undefined;
+      });
+    }
+    return revealMapPayloadBuild;
+  };
+
+  const streamRevealMapToSocket = async (socket: import("ws").WebSocket, playerId: string): Promise<void> => {
+    activeRevealStreamSockets.add(socket);
+    gatewayMetrics.setRevealActiveStreams(activeRevealStreamSockets.size);
+    try {
+      const payloadSet = await revealMapPayloadSet(playerId);
+      recordGatewayEvent("info", "gateway_reveal_map_stream_started", {
+        playerId,
+        snapshotId: payloadSet.snapshotId,
+        totalTiles: payloadSet.totalTiles,
+        chunkCount: payloadSet.chunks.length,
+        payloadJsonBytes: payloadSet.payloadJsonBytes,
+        activeStreams: activeRevealStreamSockets.size
+      });
+      queueOrSendSessionPayload(socket, payloadSet.begin);
+      for (let chunkIndex = 0; chunkIndex < payloadSet.chunks.length; chunkIndex += 1) {
+        while (socket.bufferedAmount > 2_000_000 && socket.readyState === socket.OPEN) {
+          await sleep(10);
+        }
+        if (socket.readyState !== socket.OPEN) return;
+        queueOrSendSessionPayload(socket, payloadSet.chunks[chunkIndex]);
+        gatewayMetrics.incrementRevealChunksSent(1);
+        if (chunkIndex % 4 === 3) await sleep(0);
+      }
+      if (socket.readyState !== socket.OPEN) return;
+      queueOrSendSessionPayload(socket, payloadSet.end);
+      recordGatewayEvent("info", "gateway_reveal_map_stream_completed", {
+        playerId,
+        snapshotId: payloadSet.snapshotId,
+        totalTiles: payloadSet.totalTiles,
+        chunkCount: payloadSet.chunks.length
+      });
+    } finally {
+      activeRevealStreamSockets.delete(socket);
+      gatewayMetrics.setRevealActiveStreams(activeRevealStreamSockets.size);
+    }
+  };
+
   let simulationEventChain = Promise.resolve();
   let simulationEventChainPending = 0;
   const processSimulationEvent = async (event: SimulationClientEvent): Promise<void> => {
@@ -1404,6 +1493,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       // once per command — dedup across the N per-player events that share a
       // commandId.
       if (event.eventType === "TILE_DELTA_BATCH") {
+        revealMapChunkCache.clear();
+        gatewayMetrics.setRevealCacheEntries(0);
         const tileDeltas = event.tileDeltas.length > 0 ? event.tileDeltas : (fallbackTileDeltasByCommandId.get(event.commandId) ?? []);
         if (!persistedTileDeltaCommandIds.has(event.commandId)) {
           persistedTileDeltaCommandIds.add(event.commandId);
@@ -2108,6 +2199,53 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "ATTACK_PREVIEW") {
             sendJson(socket, attackPreviewResult(session.playerId, playerSubscriptions.snapshotForPlayer(session.playerId)?.tiles, message));
+            return;
+          }
+
+          if (message.type === "REQUEST_REVEAL_MAP") {
+            if (!session.canToggleFog) {
+              recordGatewayEvent("warn", "gateway_reveal_map_forbidden", {
+                playerId: session.playerId,
+                channel: session.channel
+              });
+              sendJson(socket, { type: "ERROR", code: "FORBIDDEN", message: "reveal map unavailable" });
+              return;
+            }
+            const now = Date.now();
+            const lastRequestedAt = lastRevealRequestMsByPlayerId.get(session.playerId) ?? 0;
+            if (now - lastRequestedAt < REVEAL_REQUEST_COOLDOWN_MS) {
+              recordGatewayEvent("warn", "gateway_reveal_map_throttled", {
+                playerId: session.playerId,
+                channel: session.channel,
+                cooldownRemainingMs: REVEAL_REQUEST_COOLDOWN_MS - (now - lastRequestedAt)
+              });
+              sendJson(socket, { type: "ERROR", code: "REVEAL_MAP_THROTTLED", message: "reveal request rate limit" });
+              return;
+            }
+            if (activeRevealStreamSockets.size >= MAX_CONCURRENT_REVEAL_STREAMS) {
+              recordGatewayEvent("warn", "gateway_reveal_map_overloaded", {
+                playerId: session.playerId,
+                channel: session.channel,
+                activeStreams: activeRevealStreamSockets.size,
+                cap: MAX_CONCURRENT_REVEAL_STREAMS
+              });
+              sendJson(socket, { type: "ERROR", code: "REVEAL_MAP_BUSY", message: "reveal capacity exceeded" });
+              return;
+            }
+            lastRevealRequestMsByPlayerId.set(session.playerId, now);
+            void streamRevealMapToSocket(socket, session.playerId).catch((error) => {
+              recordGatewayEvent("error", "gateway_reveal_map_stream_failed", {
+                playerId: session.playerId,
+                error: error instanceof Error ? error.message : String(error)
+              });
+              if (socket.readyState === socket.OPEN) {
+                sendJson(socket, {
+                  type: "ERROR",
+                  code: "REVEAL_MAP_UNAVAILABLE",
+                  message: "Full-map reveal is temporarily unavailable."
+                });
+              }
+            });
             return;
           }
 
