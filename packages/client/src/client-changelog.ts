@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.23.3",
+  version: "2026.05.23.4",
   title: "What's New",
-  summary: "Bridge debug card now shows the gateway/sim build SHA alongside the client's, with a ⚠ if they don't match. Confirms at a glance that the client and server were built from the same commit.",
+  summary: "Smoother panning on the 3D map — the heightfield rebuild path now spends less time per frame, so dragging across the world feels less choppy on the same hardware.",
   entries: [
+    {
+      introducedIn: "2026.05.23.4",
+      title: "3D map pan is smoother",
+      why: "A Chrome performance trace of normal play showed the renderer main thread blocked ~89% of the time during pan, with three.js's computeVertexNormals (and its BufferAttribute.fromBufferAttribute read path) plus per-vertex Array.filter allocations dominating the heightfield rebuild. Together they accounted for ~3s of self-time across a 32s trace, and the filter chain churned ~30k array allocations per rebuild that fed back into GC.",
+      changes: [
+        "Heightfield rebuild now accumulates vertex normals by reading the positions Float32Array directly (same face-cross-product algorithm as three.js's computeVertexNormals, just without the BufferAttribute round-trip).",
+        "Per-vertex category counting in the rebuild loop replaces three chained Array.filter() calls (and their closures) with inline boolean math — no allocations per vertex, identical position/color outputs."
+      ]
+    },
     {
       introducedIn: "2026.05.23.3",
       title: "Server build SHA visible in the bridge debug card",
