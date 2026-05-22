@@ -11,7 +11,8 @@ type Args = {
 
 const KINDS: ReadonlyArray<StructureKind> = [
   "FARMSTEAD", "WATERWORKS", "CAMP", "MINE", "IRONWORKS",
-  "MARKET", "OBSERVATORY", "GRANARY", "SEED_GRANARY"
+  "MARKET", "OBSERVATORY", "GRANARY", "SEED_GRANARY",
+  "BANK", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"
 ];
 
 const render = (args: Args): HTMLElement => {
@@ -48,3 +49,9 @@ export const MineGems: Story = { args: { structures: ["MINE"], resourceHint: "GE
 export const Observatory: Story = { args: { structures: ["OBSERVATORY"], cameraDistance: 3 } };
 export const Market: Story = { args: { structures: ["MARKET"], cameraDistance: 3 } };
 export const Granary: Story = { args: { structures: ["GRANARY"], cameraDistance: 3 } };
+export const Bank: Story = { args: { structures: ["BANK"], cameraDistance: 3 } };
+export const AetherTower: Story = { args: { structures: ["AETHER_TOWER"], cameraDistance: 3.5 } };
+export const AegisDome: Story = { args: { structures: ["AEGIS_DOME"], cameraDistance: 3.5 } };
+export const WorldEngine: Story = { args: { structures: ["WORLD_ENGINE"], cameraDistance: 4 } };
+export const ImperialExchange: Story = { args: { structures: ["IMPERIAL_EXCHANGE"], cameraDistance: 4 } };
+export const NewBatch: Story = { args: { structures: ["BANK", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 8, spacing: 1.5 } };
