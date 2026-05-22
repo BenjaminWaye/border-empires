@@ -58,6 +58,7 @@ describe("domain panel detail layout regression guard", () => {
     expect(hudSource).toContain("stagingMapRevealCardHtml()");
     expect(hudSource).toContain("data-staging-map-reveal");
     expect(hudSource).toContain("const stagingMapRevealButtons = dom.hud.querySelectorAll(\"[data-staging-map-reveal]\")");
+    expect(hudSource).toContain('type: "REQUEST_REVEAL_MAP"');
     expect(hudSource).toContain('type: "SET_FOG_DISABLED"');
     expect(hudSource).toContain("Reveal Full Map");
     expect(hudSource).toContain("Restore Fog");
