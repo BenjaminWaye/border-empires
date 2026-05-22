@@ -4,7 +4,7 @@ import { resourceIconForKey } from "./client-map-display.js";
 import { computeMiniMapViewBox } from "./client-minimap-view-box.js";
 import { townIdentityForTile, tileHasTownIdentity } from "./client-town-identity.js";
 import { shardRainPingActiveAt, visibleShardSiteForTile, type ClientShardRainPing } from "./client-shard-rain-pings.js";
-import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
+import { effectiveFogDisabled } from "./client-map-reveal.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "./client-types.js";
 
 type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"] };

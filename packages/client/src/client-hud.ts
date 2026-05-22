@@ -13,7 +13,7 @@ import type { EconomyFocusKey } from "./client-economy-model.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "./client-diagnostics.js";
 import { buildMapLoadingView } from "./client-map-loading-view.js";
 import { renderRespawnOverlay } from "./client-respawn-overlay.js";
-import { effectiveFogDisabled, setStagingMapRevealEnabled, stagingMapRevealAvailable } from "./client-staging-map-reveal.js";
+import { effectiveFogDisabled, setMapRevealEnabled, mapRevealAvailable } from "./client-map-reveal.js";
 import { isTrue3DRendererActive } from "./client-renderer-mode.js";
 import { getCurrentFps, hasSustainedLowFps } from "./client-fps-monitor.js";
 import {
@@ -217,15 +217,15 @@ export const renderClientHud = (deps: HudDeps): void => {
   const fallbackCard = (label: string): string =>
     `<article class="card"><p>${label} is temporarily unavailable.</p></article>`;
 
-  const stagingMapRevealCardHtml = (): string => {
-    if (!stagingMapRevealAvailable({ hostname: window.location.hostname, enabledForAccount: state.stagingMapRevealEligible && state.authSessionReady })) return "";
-    const buttonLabel = state.stagingMapRevealEnabled ? "Restore Fog" : "Reveal Full Map";
+  const mapRevealCardHtml = (): string => {
+    if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return "";
+    const buttonLabel = state.mapRevealEnabled ? "Restore Fog" : "Reveal Full Map";
     const statusLabel = effectiveFogDisabled(state)
-      ? "Map reveal is on for this browser in staging."
+      ? "Map reveal is on for this browser."
       : "Map reveal is off.";
     return `
-      <div class="auth-staging-map-reveal">
-        <button type="button" class="panel-btn" data-staging-map-reveal>${buttonLabel}</button>
+      <div class="auth-map-reveal">
+        <button type="button" class="panel-btn" data-map-reveal>${buttonLabel}</button>
         <p>${statusLabel}</p>
       </div>
     `;
@@ -1073,7 +1073,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
         <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
         ${bridgeStatusHtml()}
-        ${stagingMapRevealCardHtml()}
+        ${mapRevealCardHtml()}
         <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
         ${authDebugHtml()}
       </div>
@@ -1149,27 +1149,26 @@ export const renderClientHud = (deps: HudDeps): void => {
       window.location.reload();
     };
   });
-  const stagingMapRevealButtons = dom.hud.querySelectorAll("[data-staging-map-reveal]") as NodeListOf<HTMLButtonElement>;
-  stagingMapRevealButtons.forEach((stagingMapRevealBtn: HTMLButtonElement) => {
-    stagingMapRevealBtn.onclick = () => {
-      if (!stagingMapRevealAvailable({ hostname: window.location.hostname, enabledForAccount: state.stagingMapRevealEligible && state.authSessionReady })) return;
-      const nextEnabled = !state.stagingMapRevealEnabled;
-      state.stagingMapRevealEnabled = nextEnabled;
-      setStagingMapRevealEnabled(nextEnabled, {
-        hostname: window.location.hostname,
-        enabledForAccount: state.stagingMapRevealEligible && state.authSessionReady,
+  const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
+  mapRevealButtons.forEach((mapRevealBtn: HTMLButtonElement) => {
+    mapRevealBtn.onclick = () => {
+      if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return;
+      const nextEnabled = !state.mapRevealEnabled;
+      state.mapRevealEnabled = nextEnabled;
+      setMapRevealEnabled(nextEnabled, {
+        enabledForAccount: state.mapRevealEligible && state.authSessionReady,
         authEmail: state.authEmail
       });
       fogRevealLog("button-click", {
         nextEnabled,
         authSessionReady: state.authSessionReady,
-        eligible: state.stagingMapRevealEligible,
+        eligible: state.mapRevealEligible,
         connection: state.connection,
         fogDisabled: state.fogDisabled
       });
       sendGameMessage(
         nextEnabled ? { type: "REQUEST_REVEAL_MAP" } : { type: "SET_FOG_DISABLED", disabled: false },
-        "Finish signing in before changing the staging map reveal."
+        "Finish signing in before changing the map reveal."
       );
       requestViewRefresh(2, true);
       renderClientHud(deps);
