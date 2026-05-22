@@ -19,10 +19,28 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.5",
+  version: "2026.05.22.6",
   title: "What's New",
-  summary: "Restoring fog after a full-map reveal now actually clears the revealed tiles instead of leaving them on screen.",
+  summary: "Clockwork Stipend (and any future pick-a-resource domain) now shows its locked resource on the detail card AND credits the trickle to the economy breakdown, so the +0.2/min SUPPLY (or IRON/CRYSTAL) is visible both as a domain pick and as an income source instead of just quietly increasing the stockpile.",
   entries: [
+    {
+      introducedIn: "2026.05.22.6",
+      title: "Clockwork Stipend trickle shows up in income sources",
+      why: "The trickle was already being applied to the stockpile each tick, but it was never folded into strategicProductionPerMinute or the economy breakdown, so the income panel showed 0/min for the resource even while the stockpile climbed. Players had no way to attribute the income to the domain.",
+      changes: [
+        "buildPlayerUpdateEconomySnapshot now reads chosenTrickleRateForPlayer and adds the rate to both strategicProductionPerMinute[resource] and a 'Clockwork Stipend' bucket under economyBreakdown[resource].sources.",
+        "Regression test pins the SUPPLY case and verifies the bucket isn't added to other resources."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.6",
+      title: "Locked trickle resource appears on the domain detail card",
+      why: "After picking SUPPLY (or IRON/CRYSTAL) for Clockwork Stipend, the detail card just showed 'Chosen' with no indication of which resource was locked. The owned-summary card carried the suffix but the detail card — the one you click into — did not, forcing a second navigation to confirm the pick.",
+      changes: [
+        "renderDomainDetailCardHtml now accepts chosenTrickleResource and renders a 'Your pick: SUPPLY (+0.20/min, locked)' section under the description when the player owns the domain and the resource is one this domain offered.",
+        "Same gate as the owned-summary card: a future narrower trickle table can't claim credit for a pick made on a different domain."
+      ]
+    },
     {
       introducedIn: "2026.05.22.5",
       title: "Restore Fog after reveal clears the revealed tiles",

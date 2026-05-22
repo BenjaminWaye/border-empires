@@ -38,7 +38,7 @@ import {
   type EconomyPlayer
 } from "./economy-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { multiplicativeEffectForPlayer } from "./tech-domain-bridge.js";
+import { chosenTrickleRateForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type EconomyResourceKey = StrategicResourceKey | "GOLD";
@@ -457,6 +457,19 @@ export const buildPlayerUpdateEconomySnapshot = (
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
       if (output.OIL) addBucket(oilSources, structure.type, output.OIL, { count: 1 });
     }
+  }
+
+  // Clockwork Stipend (and any future pick-a-resource domain) credits a flat
+  // trickle to the player each tick — fold it into the breakdown so the HUD
+  // explains where the income is coming from, not just where it landed.
+  const trickle = chosenTrickleRateForPlayer(player);
+  if (trickle && trickle.ratePerMinute > 0) {
+    const target =
+      trickle.resource === "IRON" ? ironSources :
+      trickle.resource === "SUPPLY" ? supplySources :
+      crystalSources;
+    addBucket(target, "Clockwork Stipend", trickle.ratePerMinute, { count: 1, resourceKey: trickle.resource });
+    strategicProductionPerMinute[trickle.resource] += trickle.ratePerMinute;
   }
 
   const upkeepPerMinute = {
