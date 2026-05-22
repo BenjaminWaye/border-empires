@@ -27,7 +27,8 @@
     "deploy:staging:all": "node ./scripts/deploy-staging-all.mjs",
     "deploy:prod:all": "node ./scripts/deploy-prod-all.mjs",
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "pnpm test:scripts && pnpm -r test",
+    "test:scripts": "node --test scripts/ai-labeling-common.test.mjs",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {

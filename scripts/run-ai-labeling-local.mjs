@@ -6,8 +6,13 @@ import { fileURLToPath } from "node:url";
 import {
   assertTrainingRecord,
   buildTeacherPrompt,
+  buildTokenUsageEntries,
   extractFirstJsonObject,
+  getMaxOutputTokens,
+  parseBooleanEnv,
+  parseNonNegativeIntegerEnv,
   parseJsonLines,
+  summarizeTokenUsage,
   teacherLabelSchema
 } from "./ai-labeling-common.mjs";
 
@@ -16,6 +21,7 @@ const rootDir = path.resolve(__dirname, "..");
 
 const defaultInput = path.resolve(rootDir, "tmp", "ai-training", "records.jsonl");
 const defaultOutput = path.resolve(rootDir, "tmp", "ai-training", "labeled-records.local.jsonl");
+const defaultReport = path.resolve(rootDir, "tmp", "ai-training", "token-usage-report.local.json");
 
 const normalizeProvider = (raw) => {
   const provider = (raw ?? "ollama").trim().toLowerCase();
@@ -37,6 +43,8 @@ const usage = () => {
       "  AI_LABELING_BASE_URL=<base-url>",
       "  AI_LABELING_CONCURRENCY=<n>",
       "  AI_LABELING_MAX_RECORDS=<n>",
+      "  AI_LABELING_MAX_OUTPUT_TOKENS=<n>",
+      "  AI_LABELING_DRY_RUN=1",
       "",
       "Defaults:",
       "  ollama: provider=ollama, base=http://127.0.0.1:11434, model=qwen2.5:7b-instruct",
@@ -60,10 +68,13 @@ const defaultModel =
 
 const inputPath = path.resolve(process.cwd(), process.argv[2] ?? defaultInput);
 const outputPath = path.resolve(process.cwd(), process.argv[3] ?? defaultOutput);
+const reportPath = path.resolve(process.cwd(), process.env.AI_LABELING_TOKEN_REPORT_PATH ?? defaultReport);
 const baseUrl = (process.env.AI_LABELING_BASE_URL ?? defaultBaseUrl).replace(/\/+$/, "");
 const model = process.env.AI_LABELING_MODEL?.trim() || defaultModel;
-const concurrency = Math.max(1, Number.parseInt(process.env.AI_LABELING_CONCURRENCY ?? "1", 10) || 1);
-const maxRecords = Math.max(0, Number.parseInt(process.env.AI_LABELING_MAX_RECORDS ?? "0", 10) || 0);
+const concurrency = parseNonNegativeIntegerEnv("AI_LABELING_CONCURRENCY", 1) || 1;
+const maxRecords = parseNonNegativeIntegerEnv("AI_LABELING_MAX_RECORDS", 0);
+const maxOutputTokens = getMaxOutputTokens();
+const dryRun = parseBooleanEnv("AI_LABELING_DRY_RUN", false);
 
 const invokeOllama = async (prompt) => {
   const response = await fetch(`${baseUrl}/api/chat`, {
@@ -75,7 +86,8 @@ const invokeOllama = async (prompt) => {
       model,
       stream: false,
       options: {
-        temperature: 0
+        temperature: 0,
+        num_predict: maxOutputTokens
       },
       format: "json",
       messages: [
@@ -109,6 +121,7 @@ const invokeVllm = async (prompt) => {
     body: JSON.stringify({
       model,
       temperature: 0,
+      max_tokens: maxOutputTokens,
       messages: [
         {
           role: "user",
@@ -156,6 +169,31 @@ const labelRecord = async (record) => {
 const records = await parseJsonLines(inputPath);
 records.forEach(assertTrainingRecord);
 const selectedRecords = maxRecords > 0 ? records.slice(0, maxRecords) : records;
+const usageEntries = buildTokenUsageEntries(selectedRecords, {
+  model,
+  pricing: { inputUsdPerMTok: 0, outputUsdPerMTok: 0 },
+  maxOutputTokens
+});
+const summary = {
+  generatedAt: new Date().toISOString(),
+  inputPath,
+  outputPath,
+  provider,
+  model,
+  dryRun,
+  selectedRecords: selectedRecords.length,
+  totalRecords: records.length,
+  ...summarizeTokenUsage(usageEntries)
+};
+await mkdir(path.dirname(reportPath), { recursive: true });
+await writeFile(reportPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+
+if (dryRun) {
+  console.log(
+    `Dry run complete for ${selectedRecords.length}/${records.length} local records. Wrote token usage report to ${reportPath}`
+  );
+  process.exit(0);
+}
 
 const results = new Array(selectedRecords.length);
 let cursor = 0;
