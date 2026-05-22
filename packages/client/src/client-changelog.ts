@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.3",
+  version: "2026.05.22.4",
   title: "What's New",
   summary: "Clockwork Stipend (and any future pick-a-resource domain) now actually unlocks instead of being silently rejected. The gateway was stripping the chosen resource off the wire because the schema didn't list it. Domain and research rejections also now surface as a banner alert instead of being buried in the activity feed.",
   entries: [
     {
-      introducedIn: "2026.05.22.3",
+      introducedIn: "2026.05.22.4",
       title: "Clockwork Stipend resource picks no longer dropped at the gateway",
       why: "ClientMessageSchema for CHOOSE_DOMAIN did not declare the chosenTrickleResource field. Zod's default object mode silently strips unknown keys, so the gateway parsed an empty payload, forwarded an empty payload, and the sim rejected with 'trickle resource choice required' even when the player had picked IRON/SUPPLY/CRYSTAL. The schema now declares the field as an optional TRICKLE_RESOURCE_KEYS enum, with a regression test that fails loud if it's removed.",
       changes: [
@@ -33,12 +33,22 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.05.22.3",
+      introducedIn: "2026.05.22.4",
       title: "Domain and tech rejections surface as banner alerts",
       why: "When the server rejected a domain pick — for example Clockwork Stipend returning 'trickle resource choice required' — the only feedback was a single line in the activity feed. The button quietly reverted to 'Choose Tier N' and players assumed the click was broken. Frontier/diplomacy/build rejections already use banner alerts, so domain and tech now match that pattern.",
       changes: [
         "DOMAIN_INVALID and TECH_INVALID rejections now raise a 12-second 'Domain pick failed' / 'Research failed' banner alongside the existing feed entry.",
         "The default 'Error CODE: message' fallback string is replaced with a friendlier 'Domain pick failed: …' / 'Research failed: …' for these codes."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.3",
+      title: "Fog admin map-reveal toggle works on production and is no longer named staging-only",
+      why: "The client suppressed the reveal-map toggle on production hostnames even when the server told the session it was allowed to toggle fog, which blocked screenshotting prod-only AI state. The server-side FOG_ADMIN_EMAIL gate already scopes the capability to a single account, so the client hostname check was redundant. While the gate was being removed, every staging-prefixed symbol around it was renamed to match the actual scope.",
+      changes: [
+        "Map reveal availability now relies solely on the server-issued canToggleFog flag and no longer checks the hostname.",
+        "Renamed the helper module, state fields, storage key, CSS class, and data attribute from the staging-only naming (stagingMapReveal*) to the hostname-agnostic name (mapReveal*) so the code matches the actual scope.",
+        "Existing fog admin browsers will see their staged toggle preference reset once (storage key changed from be-staging-map-reveal to be-map-reveal); re-toggling restores it."
       ]
     },
     {
