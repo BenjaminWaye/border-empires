@@ -182,7 +182,13 @@ describe("automation preplan command", () => {
       payloadJson: JSON.stringify({ domainId: "mercantile-charter" })
     });
     expect(result.diagnostic.preplanReason).toBe("choose_domain");
-    expect(result.diagnostic.preplanProgressState).toBe("domain_affordable");
+    // Both progression categories are now affordable: with the affordability-
+    // first sort in chooseAiTechChoiceForPlayer, the planner can find an
+    // affordable tech (e.g. cartography, gold + small crystal) even when the
+    // top-scored harborcraft is unaffordable. The state reflects that both a
+    // tech and a domain are payable; the planner still picks the higher-
+    // scoring CHOOSE_DOMAIN (mercantile-charter) as the command.
+    expect(result.diagnostic.preplanProgressState).toBe("tech_and_domain_affordable");
   });
 
   it("reports economic-recovery collection when progression is not available yet", () => {

@@ -1,5 +1,5 @@
 import { CHUNK_SIZE } from "@border-empires/shared";
-import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
+import { effectiveFogDisabled } from "./client-map-reveal.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 
@@ -21,7 +21,7 @@ export const requestViewRefresh = (
     ClientState,
     | "authSessionReady"
     | "fogDisabled"
-    | "stagingMapRevealEnabled"
+    | "mapRevealEnabled"
     | "camX"
     | "camY"
     | "lastSubCx"

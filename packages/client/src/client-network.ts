@@ -22,7 +22,7 @@ import {
   notifyIncomingTruceRequest,
   notifyRecentAllianceBreaksOnInit
 } from "./client-diplomacy-notifications.js";
-import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
+import { effectiveFogDisabled } from "./client-map-reveal.js";
 import { tileHasTownIdentity } from "./client-town-identity.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -392,16 +392,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   const syncDesiredFogDisabled = (): void => {
     if (!state.authSessionReady) return;
-    if (!state.stagingMapRevealEligible) return;
-    if (!state.serverSupportedMessageTypes.has("SET_FOG_DISABLED")) return;
-    if (state.fogDisabled === state.stagingMapRevealEnabled) return;
+    if (!state.mapRevealEligible) return;
+    if (!state.serverSupportedMessageTypes.has("REQUEST_REVEAL_MAP")) return;
+    if (state.fogDisabled === state.mapRevealEnabled) return;
     fogRevealLog("sync-send", {
-      disabled: state.stagingMapRevealEnabled,
+      disabled: state.mapRevealEnabled,
       authSessionReady: state.authSessionReady,
-      eligible: state.stagingMapRevealEligible,
+      eligible: state.mapRevealEligible,
       fogDisabled: state.fogDisabled
     });
-    ws.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: state.stagingMapRevealEnabled }));
+    ws.send(JSON.stringify(state.mapRevealEnabled ? { type: "REQUEST_REVEAL_MAP" } : { type: "SET_FOG_DISABLED", disabled: false }));
   };
 
   const shouldShowBackendUnavailableAlert = (): boolean => {
@@ -1033,6 +1033,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.recentTileMessages.splice(0, state.recentTileMessages.length - MAX_RECENT_TILE_MESSAGES);
     }
   };
+  let activeRevealMapSnapshotId = "";
+  let activeRevealMapChunkCount = 0;
+  let activeRevealMapChunksApplied = 0;
 
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
@@ -1169,7 +1172,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.meName = player.name as string;
       state.playerNames.set(state.me, state.meName);
       state.profileSetupRequired = Boolean(player.profileNeedsSetup);
-      state.stagingMapRevealEligible = Boolean(player.canToggleFog);
+      state.mapRevealEligible = Boolean(player.canToggleFog);
       syncDesiredFogDisabled();
       setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
       state.gold = (player.gold as number | undefined) ?? (player.points as number | undefined) ?? state.gold;
@@ -1535,7 +1538,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
       if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
-      if (typeof msg.canToggleFog === "boolean") state.stagingMapRevealEligible = msg.canToggleFog;
+      if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       const techMsgTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
@@ -1901,11 +1904,52 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       fogRevealLog("fog-update", {
         fogDisabled: msg.fogDisabled === true,
         authSessionReady: state.authSessionReady,
-        eligible: state.stagingMapRevealEligible
+        eligible: state.mapRevealEligible
       });
       state.fogDisabled = Boolean(msg.fogDisabled);
       pushFeed(`Fog of war ${state.fogDisabled ? "disabled" : "enabled"}.`, "info", "info");
       requestViewRefresh(2, true);
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "REVEAL_MAP_BEGIN") {
+      activeRevealMapSnapshotId = typeof msg.snapshotId === "string" ? msg.snapshotId : "";
+      activeRevealMapChunkCount = typeof msg.chunkCount === "number" ? msg.chunkCount : 0;
+      activeRevealMapChunksApplied = 0;
+      state.fogDisabled = true;
+      pushFeed("Full-map reveal started.", "info", "info");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "REVEAL_MAP_CHUNK") {
+      if (typeof msg.snapshotId === "string" && msg.snapshotId !== activeRevealMapSnapshotId) return;
+      const tileUpdates =
+        msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
+      applyGatewayTileDeltaBatch(
+        {
+          state,
+          keyFor,
+          mergeIncomingTileDetail,
+          mergeServerTileWithOptimisticState
+        },
+        tileUpdates
+      );
+      activeRevealMapChunksApplied += 1;
+      state.firstChunkAt = Date.now();
+      state.chunkFullCount = Math.max(state.chunkFullCount, activeRevealMapChunksApplied);
+      state.hasOwnedTileInCache = true;
+      if (activeRevealMapChunksApplied % 8 === 0 || activeRevealMapChunksApplied === activeRevealMapChunkCount) {
+        requestViewRefresh(2, true);
+      }
+      return;
+    }
+
+    if (msg.type === "REVEAL_MAP_END") {
+      if (typeof msg.snapshotId === "string" && msg.snapshotId !== activeRevealMapSnapshotId) return;
+      requestViewRefresh(2, true);
+      pushFeed("Full-map reveal loaded.", "info", "info");
       renderHud();
       return;
     }
@@ -1926,7 +1970,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         tileCount: Array.isArray(tileUpdates) ? tileUpdates.length : 0,
         appliedTileCount,
         fogDisabled: state.fogDisabled,
-        eligible: state.stagingMapRevealEligible
+        eligible: state.mapRevealEligible
       });
       if (appliedTileCount > 0) {
         state.firstChunkAt = Date.now();
@@ -2754,6 +2798,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
       } else if (isDiplomacyError) {
         showCaptureAlertSafely("Diplomacy failed", actionFailureExplanation, "warn");
+      } else if (errorCode.startsWith("DOMAIN_")) {
+        showCaptureAlertSafely("Domain pick failed", actionFailureExplanation, "warn");
+      } else if (errorCode.startsWith("TECH_")) {
+        showCaptureAlertSafely("Research failed", actionFailureExplanation, "warn");
       }
       if (errorCode === "COLLECT_EMPTY") {
         pushFeedSafely(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
@@ -2895,7 +2943,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
         const selectedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
         if (selectedTile && selectedTile.ownerId && selectedTile.ownerId !== state.me && !isTileOwnedByAlly(selectedTile)) {
-          openSingleTileActionMenu(selectedTile, state.tileActionMenu.x, state.tileActionMenu.y);
+          openSingleTileActionMenu(selectedTile, state.tileActionMenu.x, state.tileActionMenu.y, { requestAttackPreview: false });
         }
       }
       renderHud();

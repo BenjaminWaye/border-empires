@@ -28,4 +28,66 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain('await refreshPlayerFogSnapshot(playerId, true, { reason: "live-delta", commandId: event.commandId });');
     expect(source).not.toContain("session.authEmail");
   });
+
+  it("streams reveal-map snapshots through the chunk cache without retaining them as per-player diagnostics", () => {
+    const source = sourceFor("./gateway-app.ts");
+    const revealStart = source.indexOf("const revealMapPayloadSet = async");
+    const revealEnd = source.indexOf("const streamRevealMapToSocket = async");
+    const revealBuildSource = source.slice(revealStart, revealEnd);
+
+    expect(source).toContain("const revealMapChunkCache = createRevealMapChunkCache({");
+    expect(source).toContain("let revealMapPayloadBuild: Promise<RevealMapPayloadSet> | undefined;");
+    expect(revealBuildSource).toContain("const cachedPayloadSet = revealMapChunkCache.current();");
+    expect(revealBuildSource).toContain("if (cachedPayloadSet) return cachedPayloadSet;");
+    expect(revealBuildSource).toContain('trigger: "gateway_reveal_map"');
+    expect(revealBuildSource).toContain("const payloadSet = revealMapChunkCache.getOrCreate(snapshot);");
+    expect(revealBuildSource).not.toContain("recordGatewaySnapshotDiagnostics");
+    expect(source).toContain('if (message.type === "REQUEST_REVEAL_MAP") {');
+    expect(source).toContain("void streamRevealMapToSocket(socket, session.playerId).catch((error) => {");
+    expect(source).toContain("revealMapChunkCache.clear();");
+  });
+
+  it("gates REQUEST_REVEAL_MAP on the same fog-admin capability as SET_FOG_DISABLED", () => {
+    const source = sourceFor("./gateway-app.ts");
+    const revealHandlerStart = source.indexOf('if (message.type === "REQUEST_REVEAL_MAP") {');
+    const revealHandlerEnd = source.indexOf('if (message.type === "REQUEST_TILE_DETAIL") {');
+    const revealHandlerSource = source.slice(revealHandlerStart, revealHandlerEnd);
+
+    expect(revealHandlerSource).toContain("if (!session.canToggleFog) {");
+    expect(revealHandlerSource).toContain('"gateway_reveal_map_forbidden"');
+    expect(revealHandlerSource).toContain('code: "FORBIDDEN"');
+    expect(revealHandlerSource.indexOf("if (!session.canToggleFog) {")).toBeLessThan(
+      revealHandlerSource.indexOf("void streamRevealMapToSocket(")
+    );
+  });
+
+  it("emits reveal-map metrics for snapshot build, active streams, chunks sent, and cache entries", () => {
+    const source = sourceFor("./gateway-app.ts");
+
+    expect(source).toContain("gatewayMetrics.observeRevealSnapshotBuildMs(buildDurationMs);");
+    expect(source).toContain("gatewayMetrics.observeRevealSnapshotBytes(payloadSet.payloadJsonBytes);");
+    expect(source).toContain("gatewayMetrics.setRevealCacheEntries(1);");
+    expect(source).toContain("gatewayMetrics.setRevealCacheEntries(0);");
+    expect(source).toContain("gatewayMetrics.setRevealActiveStreams(activeRevealStreamSockets.size);");
+    expect(source).toContain("gatewayMetrics.incrementRevealChunksSent(1);");
+  });
+
+  it("rate-limits reveal requests per player and caps concurrent reveal streams", () => {
+    const source = sourceFor("./gateway-app.ts");
+    const revealHandlerStart = source.indexOf('if (message.type === "REQUEST_REVEAL_MAP") {');
+    const revealHandlerEnd = source.indexOf('if (message.type === "REQUEST_TILE_DETAIL") {');
+    const revealHandlerSource = source.slice(revealHandlerStart, revealHandlerEnd);
+
+    expect(source).toContain("const MAX_CONCURRENT_REVEAL_STREAMS =");
+    expect(source).toContain("const REVEAL_REQUEST_COOLDOWN_MS =");
+    expect(source).toContain("const activeRevealStreamSockets = new Set<");
+    expect(source).toContain("const lastRevealRequestMsByPlayerId = new Map<string, number>();");
+    expect(revealHandlerSource).toContain("lastRevealRequestMsByPlayerId.get(session.playerId)");
+    expect(revealHandlerSource).toContain('code: "REVEAL_MAP_THROTTLED"');
+    expect(revealHandlerSource).toContain("activeRevealStreamSockets.size >= MAX_CONCURRENT_REVEAL_STREAMS");
+    expect(revealHandlerSource).toContain('code: "REVEAL_MAP_BUSY"');
+    expect(revealHandlerSource).toContain("lastRevealRequestMsByPlayerId.set(session.playerId, now);");
+    expect(source).toContain("activeRevealStreamSockets.add(socket);");
+    expect(source).toContain("activeRevealStreamSockets.delete(socket);");
+  });
 });

@@ -21,18 +21,19 @@ describe("client auth flow regression guard", () => {
     expect(source).not.toContain("authSession.token = await user.getIdToken(true);");
   });
 
-  it("reloads the staging map reveal after the debug account signs in and clears it on sign-out", () => {
+  it("reloads the map reveal after the debug account signs in and clears it on sign-out", () => {
     const source = clientSource();
 
     expect(source).toContain('setDebugAuthEmail("");');
-    expect(source).toContain("state.stagingMapRevealEligible = false;");
-    expect(source).toContain("state.stagingMapRevealEnabled = false;");
+    expect(source).toContain("state.mapRevealEligible = false;");
+    expect(source).toContain("state.mapRevealEnabled = false;");
     expect(source).toContain("state.authEmail = authEmail ?? \"\";");
-    expect(source).toContain("state.stagingMapRevealEnabled = getStagingMapRevealEnabled({");
-    expect(source).toContain("state.stagingMapRevealEligible = Boolean(player.canToggleFog);");
+    expect(source).toContain("state.mapRevealEnabled = getMapRevealEnabled({");
+    expect(source).toContain("state.mapRevealEligible = Boolean(player.canToggleFog);");
     expect(source).toContain("const syncDesiredFogDisabled = (): void => {");
-    expect(source).toContain('ws.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: state.stagingMapRevealEnabled }));');
-    expect(source.indexOf("state.stagingMapRevealEligible = Boolean(player.canToggleFog);")).toBeLessThan(
+    expect(source).toContain('state.serverSupportedMessageTypes.has("REQUEST_REVEAL_MAP")');
+    expect(source).toContain('state.mapRevealEnabled ? { type: "REQUEST_REVEAL_MAP" } : { type: "SET_FOG_DISABLED", disabled: false }');
+    expect(source.indexOf("state.mapRevealEligible = Boolean(player.canToggleFog);")).toBeLessThan(
       source.indexOf("syncDesiredFogDisabled();")
     );
   });

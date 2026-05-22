@@ -12,6 +12,8 @@ import {
   TECH_TREE_RELATIVE_CANDIDATES,
   buildDomainUpdatePayload,
   buildModBreakdownForPlayer,
+  chooseAiDomainChoiceForPlayer,
+  chooseAiTechChoiceForPlayer,
   chooseDomainForPlayer,
   chosenTrickleOptionsForDomain,
   chosenTrickleRateForPlayer,
@@ -241,5 +243,95 @@ describe("Clockwork Stipend trickle resource choice", () => {
     expect(player.domainIds.has("clockwork-stipend")).toBe(true);
     // Locked forever — the SUPPLY pick we just passed in is ignored.
     expect(player.chosenTrickleResource).toBe("IRON");
+  });
+});
+
+describe("AI progression choice prefers affordable options over higher-scored unaffordable ones", () => {
+  // Reproduces the prod state where Freja Sund (ai-4) sat on 74k gold with
+  // zero IRON/CRYSTAL/SUPPLY and the preplan reported tech_unaffordable every
+  // tick: every higher-scored tier-1 tech (trade, cartography, tribal-warfare)
+  // needs a strategic resource she lacks, while toolmaking (gold-only) is
+  // strictly affordable but used to be hidden behind those higher scores.
+  const ownedSettledTown = {
+    x: 0,
+    y: 0,
+    ownerId: "ai-4",
+    ownershipState: "SETTLED" as const,
+    terrain: "LAND" as const,
+    town: { name: "Core", populationTier: "TOWN" as const }
+  };
+  const ownedSettledDock = {
+    x: 1,
+    y: 0,
+    ownerId: "ai-4",
+    ownershipState: "SETTLED" as const,
+    terrain: "LAND" as const,
+    dockId: "dock-a"
+  };
+
+  it("returns the gold-only toolmaking tech when crystal/iron-gated higher-scored techs are unaffordable", () => {
+    const choice = chooseAiTechChoiceForPlayer(
+      {
+        id: "ai-4",
+        points: 74_000,
+        techIds: [],
+        domainIds: [],
+        strategicResources: { FOOD: 5_000, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+      },
+      [ownedSettledTown, ownedSettledDock]
+    );
+
+    expect(choice).toBeDefined();
+    expect(choice!.affordable).toBe(true);
+    // toolmaking is the highest-scored tech among gold-only-affordable
+    // options when the player has a settled town + dock but no strategic
+    // resources.
+    expect(choice!.id).toBe("toolmaking");
+  });
+
+  it("still surfaces the highest-scored unaffordable tech when nothing is affordable", () => {
+    const choice = chooseAiTechChoiceForPlayer(
+      {
+        id: "ai-broke",
+        points: 100, // below every tier-1 tech's gold cost
+        techIds: [],
+        domainIds: [],
+        strategicResources: {}
+      },
+      [ownedSettledTown, ownedSettledDock]
+    );
+
+    expect(choice).toBeDefined();
+    expect(choice!.affordable).toBe(false);
+    // Diagnostic still gets the most-wanted tech so preplan can report
+    // tech_unaffordable accurately.
+    expect(choice!.score).toBeGreaterThan(0);
+  });
+
+  it("prefers an affordable lower-scored domain when the top-scored domain needs a missing resource", () => {
+    // mercantile-charter scores higher than clockwork-stipend when the player
+    // owns a town + dock, but it costs crystal. Without any crystal, the AI
+    // should pick clockwork-stipend (food-cost, +30 score) — the food-driven
+    // trickle domain that can produce the missing strategic resources.
+    // clockwork-stipend requires `agriculture` tech to unlock, so the
+    // scenario seeds it; the agriculture-less variant in Freja's actual prod
+    // state is fixed one step earlier by the tech-choice change above (the AI
+    // will pick toolmaking → agriculture → then clockwork-stipend becomes
+    // reachable on a later tick).
+    const choice = chooseAiDomainChoiceForPlayer(
+      {
+        id: "ai-4",
+        points: 74_000,
+        techIds: ["toolmaking", "agriculture", "trade"],
+        domainIds: [],
+        strategicResources: { FOOD: 5_000, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        settledTileCount: 315
+      },
+      [ownedSettledTown, ownedSettledDock]
+    );
+
+    expect(choice).toBeDefined();
+    expect(choice!.affordable).toBe(true);
+    expect(choice!.id).toBe("clockwork-stipend");
   });
 });
