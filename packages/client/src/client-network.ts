@@ -22,7 +22,7 @@ import {
   notifyIncomingTruceRequest,
   notifyRecentAllianceBreaksOnInit
 } from "./client-diplomacy-notifications.js";
-import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
+import { effectiveFogDisabled } from "./client-map-reveal.js";
 import { tileHasTownIdentity } from "./client-town-identity.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -392,16 +392,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   const syncDesiredFogDisabled = (): void => {
     if (!state.authSessionReady) return;
-    if (!state.stagingMapRevealEligible) return;
+    if (!state.mapRevealEligible) return;
     if (!state.serverSupportedMessageTypes.has("REQUEST_REVEAL_MAP")) return;
-    if (state.fogDisabled === state.stagingMapRevealEnabled) return;
+    if (state.fogDisabled === state.mapRevealEnabled) return;
     fogRevealLog("sync-send", {
-      disabled: state.stagingMapRevealEnabled,
+      disabled: state.mapRevealEnabled,
       authSessionReady: state.authSessionReady,
-      eligible: state.stagingMapRevealEligible,
+      eligible: state.mapRevealEligible,
       fogDisabled: state.fogDisabled
     });
-    ws.send(JSON.stringify(state.stagingMapRevealEnabled ? { type: "REQUEST_REVEAL_MAP" } : { type: "SET_FOG_DISABLED", disabled: false }));
+    ws.send(JSON.stringify(state.mapRevealEnabled ? { type: "REQUEST_REVEAL_MAP" } : { type: "SET_FOG_DISABLED", disabled: false }));
   };
 
   const shouldShowBackendUnavailableAlert = (): boolean => {
@@ -1172,7 +1172,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.meName = player.name as string;
       state.playerNames.set(state.me, state.meName);
       state.profileSetupRequired = Boolean(player.profileNeedsSetup);
-      state.stagingMapRevealEligible = Boolean(player.canToggleFog);
+      state.mapRevealEligible = Boolean(player.canToggleFog);
       syncDesiredFogDisabled();
       setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
       state.gold = (player.gold as number | undefined) ?? (player.points as number | undefined) ?? state.gold;
@@ -1538,7 +1538,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
       if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
-      if (typeof msg.canToggleFog === "boolean") state.stagingMapRevealEligible = msg.canToggleFog;
+      if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       const techMsgTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
@@ -1904,7 +1904,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       fogRevealLog("fog-update", {
         fogDisabled: msg.fogDisabled === true,
         authSessionReady: state.authSessionReady,
-        eligible: state.stagingMapRevealEligible
+        eligible: state.mapRevealEligible
       });
       state.fogDisabled = Boolean(msg.fogDisabled);
       pushFeed(`Fog of war ${state.fogDisabled ? "disabled" : "enabled"}.`, "info", "info");
@@ -1970,7 +1970,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         tileCount: Array.isArray(tileUpdates) ? tileUpdates.length : 0,
         appliedTileCount,
         fogDisabled: state.fogDisabled,
-        eligible: state.stagingMapRevealEligible
+        eligible: state.mapRevealEligible
       });
       if (appliedTileCount > 0) {
         state.firstChunkAt = Date.now();
