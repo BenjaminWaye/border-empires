@@ -245,6 +245,8 @@ export const explainActionFailureFromServer = (
   if (code === "ALLIANCE_REQUEST_INVALID") return `Cannot update alliance request: ${message}.`;
   if (code === "ALLIANCE_BREAK_INVALID") return `Cannot break alliance: ${message}.`;
   if (code === "EXPAND_TARGET_OWNED") return "Frontier claim failed: that tile is already owned.";
+  if (code === "DOMAIN_INVALID") return `Domain pick failed: ${message}.`;
+  if (code === "TECH_INVALID") return `Research failed: ${message}.`;
   if (message.includes("development slots are busy")) {
     return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
   }

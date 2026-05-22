@@ -19,10 +19,28 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.3",
+  version: "2026.05.22.4",
   title: "What's New",
-  summary: "The fog admin map-reveal toggle now works on production for the account permitted by FOG_ADMIN_EMAIL, and the staging-only naming around it has been retired.",
+  summary: "Clockwork Stipend (and any future pick-a-resource domain) now actually unlocks instead of being silently rejected. The gateway was stripping the chosen resource off the wire because the schema didn't list it. Domain and research rejections also now surface as a banner alert instead of being buried in the activity feed.",
   entries: [
+    {
+      introducedIn: "2026.05.22.4",
+      title: "Clockwork Stipend resource picks no longer dropped at the gateway",
+      why: "ClientMessageSchema for CHOOSE_DOMAIN did not declare the chosenTrickleResource field. Zod's default object mode silently strips unknown keys, so the gateway parsed an empty payload, forwarded an empty payload, and the sim rejected with 'trickle resource choice required' even when the player had picked IRON/SUPPLY/CRYSTAL. The schema now declares the field as an optional TRICKLE_RESOURCE_KEYS enum, with a regression test that fails loud if it's removed.",
+      changes: [
+        "ClientMessageSchema.CHOOSE_DOMAIN now declares chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional(), so the field survives the gateway's safeParse.",
+        "Regression test verifies the field round-trips and that unknown resource keys are rejected up front."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.4",
+      title: "Domain and tech rejections surface as banner alerts",
+      why: "When the server rejected a domain pick — for example Clockwork Stipend returning 'trickle resource choice required' — the only feedback was a single line in the activity feed. The button quietly reverted to 'Choose Tier N' and players assumed the click was broken. Frontier/diplomacy/build rejections already use banner alerts, so domain and tech now match that pattern.",
+      changes: [
+        "DOMAIN_INVALID and TECH_INVALID rejections now raise a 12-second 'Domain pick failed' / 'Research failed' banner alongside the existing feed entry.",
+        "The default 'Error CODE: message' fallback string is replaced with a friendlier 'Domain pick failed: …' / 'Research failed: …' for these codes."
+      ]
+    },
     {
       introducedIn: "2026.05.22.3",
       title: "Fog admin map-reveal toggle works on production and is no longer named staging-only",
