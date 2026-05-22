@@ -2798,6 +2798,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
       } else if (isDiplomacyError) {
         showCaptureAlertSafely("Diplomacy failed", actionFailureExplanation, "warn");
+      } else if (errorCode.startsWith("DOMAIN_")) {
+        showCaptureAlertSafely("Domain pick failed", actionFailureExplanation, "warn");
+      } else if (errorCode.startsWith("TECH_")) {
+        showCaptureAlertSafely("Research failed", actionFailureExplanation, "warn");
       }
       if (errorCode === "COLLECT_EMPTY") {
         pushFeedSafely(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
