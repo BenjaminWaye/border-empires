@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.6",
+  version: "2026.05.22.1",
   title: "What's New",
-  summary: "Attack menu win chance no longer drops to \"preview unavailable\" when a hover preview races the menu's request for a different tile.",
+  summary: "Five late-game structures now have 3D models on the map: Bank, Aether Tower, Aegis Dome, World Engine, and Imperial Exchange.",
   entries: [
+    {
+      introducedIn: "2026.05.22.1",
+      title: "3D models for Bank, Aether Tower, Aegis Dome, World Engine, Imperial Exchange",
+      why: "Until now only the early-tier economic structures (farmstead, market, observatory, granary, etc.) had hand-modeled 3D representations. The signature mid- and late-game civic and arcane structures were rendering only as 2D SVG overlays, which made them hard to read from the perspective camera.",
+      changes: [
+        "Bank: cream-stone civic block with front columns, pyramidal roof, and a gold coin stack on the step.",
+        "Aether Tower: slender dark-stone shaft topped by a glowing violet aether crystal spike.",
+        "Aegis Dome: stone foundation with a translucent cyan shield half-sphere and four cyan-tipped emitter pylons.",
+        "World Engine: three-tier ancient ziggurat with a central obsidian spire crowned by a massive golden core crystal.",
+        "Imperial Exchange: marble drum + four columns + golden dome + gold finial — the grandest of the civic silhouettes."
+      ]
+    },
     {
       introducedIn: "2026.05.21.6",
       title: "Attack menu win chance survives hover-vs-menu races",
