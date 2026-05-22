@@ -267,6 +267,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       domainIds: state.domainIds,
       domainChoices: state.domainChoices,
       pendingDomainUnlockId: state.pendingDomainUnlockId,
+      ...(state.chosenTrickleResource ? { chosenTrickleResource: state.chosenTrickleResource } : {}),
       techNameList
     });
 
@@ -277,6 +278,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       domainIds: state.domainIds,
       domainChoices: state.domainChoices,
       pendingDomainUnlockId: state.pendingDomainUnlockId,
+      ...(state.chosenTrickleResource ? { chosenTrickleResource: state.chosenTrickleResource } : {}),
       techNameList
     });
 
