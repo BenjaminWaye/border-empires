@@ -19,10 +19,40 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.4",
+  version: "2026.05.22.5",
   title: "What's New",
-  summary: "Foundry restored to its forge silhouette (it's not a synthesizer), unfed badge swapped to a wheat sheaf with red diagonal slash, and the Farmstead story now layers FARM resource fields under the barn so the in-game view is visible.",
+  summary: "Fur 3D is now a tepee tripod with a hanging pelt (matches the 2D overlay), and the unfed-town badge is the in-game 🍞 loaf icon with a red slash on a slowly bobbing+spinning shield.",
   entries: [
+    {
+      introducedIn: "2026.05.22.5",
+      title: "Fur 3D redesigned as tepee tripods with hanging pelts",
+      why: "The fur resource overlay was rendering as a rectangular drying frame; the 2D fur-overlay-N.svg shows leaning sticks forming a tripod with a skin stretched between them. The 3D tripod silhouette is more readable from the perspective camera and now matches the 2D pictogram.",
+      changes: [
+        "Three furPost cylinders lean to a common apex (atan(r/h) tilt, 120° spacing) instead of standing as parallel vertical posts.",
+        "One pelt (furBody) hangs draped across the front of the tripod, tilted slightly forward so its broad face reads as a skin from camera level.",
+        "Per-variant layout (0/1/2) preserved: 2 tripods, 2 tripods rotated, or 3 tripods."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.5",
+      title: "Unfed-town badge: 🍞 loaf on a bobbing shield",
+      why: "Earlier badge designs (warning triangle, empty bowl, wheat sheaf, 3D loaf) didn't read clearly at floating-badge scale. Drawing the in-game food icon (🍞 — the same glyph border-empires uses for FOOD in the resource panel) onto a shield-shaped canvas texture with a red diagonal slash makes the badge instantly familiar from any orbit angle.",
+      changes: [
+        "Single InstancedMesh of textured PlaneGeometry — canvas texture has the shield background + 🍞 emoji + red diagonal slash baked in.",
+        "Badge spins slowly around Y (one rotation every ~5.4s) and bobs up/down (±0.06 around the float center, ~2.6s period).",
+        "Per-instance phase offset on the bob so a cluster of unfed towns doesn't bob in lock-step.",
+        "Falls back to a textureless plane in Node test environments (no document) so unit tests still construct the overlay cleanly."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.5",
+      title: "Storybook ResourceOverlay catalog now shows all 3 variants per resource",
+      why: "Each resource has 3 layout variants (chosen by a worldTileX/Y hash) but Storybook only showed one of them, hidden behind whatever variant the hardcoded worldX happened to hash to.",
+      changes: [
+        "Added per-resource Variants stories (FarmVariants, WoodVariants, IronVariants, GemsVariants, FishVariants, FurVariants, OilVariants) that find a worldX hashing to each target variant and render the three side-by-side.",
+        "Added an AllVariants story rendering the full 7 resources × 3 variants grid in one view."
+      ]
+    },
     {
       introducedIn: "2026.05.22.4",
       title: "Foundry back to its forge silhouette",
