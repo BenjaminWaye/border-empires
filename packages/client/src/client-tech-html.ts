@@ -738,15 +738,32 @@ export const renderDomainDetailCardHtml = (args: {
   currentTier: number | undefined;
   requiresTechName: string;
   pendingDomainUnlockId?: string;
+  chosenTrickleResource?: ChosenTrickleResource;
   showInlineClose?: boolean;
 }): string => {
-  const { domain, domainIds, chosenInTier, currentTier, requiresTechName, pendingDomainUnlockId = "", showInlineClose = true } = args;
+  const { domain, domainIds, chosenInTier, currentTier, requiresTechName, pendingDomainUnlockId = "", chosenTrickleResource, showInlineClose = true } = args;
   if (!domain) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
   const checklist = effectiveRequirementChecklist(domain.requirements);
   const owned = domainIds.includes(domain.id);
   const pendingUnlock = pendingDomainUnlockId === domain.id;
   const blockedByPending = Boolean(pendingDomainUnlockId && pendingDomainUnlockId !== domain.id);
   const canUnlock = domain.requirements.canResearch && !owned && !pendingDomainUnlockId;
+  // Surface the locked resource on the detail card only when this specific
+  // domain offered it — same gate as the owned-summary card, so a
+  // future narrower-table domain doesn't claim credit for a pick made on
+  // another domain.
+  const detailOfferedKeys = domainTrickleOptionKeys(domain);
+  const detailTrickleRate =
+    owned && chosenTrickleResource && detailOfferedKeys?.has(chosenTrickleResource)
+      ? (domain.effects?.chosenResourceTrickleOptions as Record<string, number> | undefined)?.[chosenTrickleResource]
+      : undefined;
+  const trickleSection =
+    detailTrickleRate !== undefined && detailTrickleRate > 0
+      ? `<section class="structure-info-section">
+        <span class="structure-info-section-label">Your pick</span>
+        <strong>${chosenTrickleResource} (+${detailTrickleRate.toFixed(2)}/min, locked)</strong>
+      </section>`
+      : "";
   const tierRuleText =
     chosenInTier && chosenInTier.id !== domain.id
       ? `Tier ${domain.tier} is already filled by ${chosenInTier.name}.`
@@ -778,6 +795,7 @@ export const renderDomainDetailCardHtml = (args: {
       <p class="domain-detail-tier-rule">${tierRuleText}</p>
       ${statusText ? `<p class="muted">${statusText}</p>` : ""}
       <p>${domain.description}</p>
+      ${trickleSection}
       <section class="structure-info-section">
         <span class="structure-info-section-label">Benefits</span>
         <strong>${formatDomainBenefitSummary(domain)}</strong>

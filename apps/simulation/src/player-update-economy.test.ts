@@ -78,6 +78,30 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     );
   });
 
+  it("folds the Clockwork Stipend trickle into the matching strategic-resource source bucket", () => {
+    // Regression: the trickle was applied directly to player.strategicResources
+    // each tick but never appeared in strategicProductionPerMinute or the
+    // economyBreakdown sources, so players who picked SUPPLY (or IRON/CRYSTAL)
+    // saw their stockpile climb but no income line explaining where it came
+    // from.
+    const player = makePlayer();
+    player.domainIds = new Set<string>(["clockwork-stipend"]);
+    player.chosenTrickleResource = "SUPPLY";
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED" }]
+    ]);
+
+    const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
+
+    expect(economy.strategicProductionPerMinute.SUPPLY).toBeCloseTo(0.2);
+    expect(economy.economyBreakdown.SUPPLY.sources).toContainEqual(
+      expect.objectContaining({ label: "Clockwork Stipend", amountPerMinute: 0.2 })
+    );
+    expect(economy.economyBreakdown.IRON.sources).not.toContainEqual(
+      expect.objectContaining({ label: "Clockwork Stipend" })
+    );
+  });
+
   it("applies first-three-town gold output domains only to the first three settled towns by ownership order", () => {
     const player = makePlayer();
     player.techIds.add("trade");
