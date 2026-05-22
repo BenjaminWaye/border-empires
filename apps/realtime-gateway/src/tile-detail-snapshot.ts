@@ -213,7 +213,15 @@ export const buildSnapshotTileDetail = (
   const goldPerMinute =
     trustSimEconomy
       ? (simGoldPerMinute as number)
-      : populationTier === "SETTLEMENT"
+      : // TODO: this fallback is still incomplete — it omits connectedTownBonus,
+        // townPopulationMultiplier, firstThreeTownMult, incomeMultiplier,
+        // PASSIVE_INCOME_MULT, and the +1 bank flat. It only fires when the
+        // cached snapshot's isFed disagrees with the gateway's derived isFed,
+        // so in practice the sim's authoritative values cover the common case.
+        // Once that's confirmed stable in prod we can drop this branch entirely
+        // and rely on the sim, but until then this preserves the existing
+        // "thin town detail" stale-isFed correction behavior.
+        populationTier === "SETTLEMENT"
         ? baseGoldPerMinute
         : isFed
           ? baseGoldPerMinute *
