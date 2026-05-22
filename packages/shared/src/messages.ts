@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRICKLE_RESOURCE_KEYS } from "./trickle-resources.js";
 
 const FrontierCommandMetadataSchema = {
   commandId: z.string().min(1).optional(),
@@ -162,7 +163,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("COLLECT_VISIBLE") }),
   z.object({ type: z.literal("REQUEST_TILE_DETAIL"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("SET_FOG_DISABLED"), disabled: z.boolean() }),
-  z.object({ type: z.literal("CHOOSE_DOMAIN"), domainId: z.string().min(1) })
+  z.object({
+    type: z.literal("CHOOSE_DOMAIN"),
+    domainId: z.string().min(1),
+    // Without this field on the schema, Zod's default `.object` strip mode
+    // silently drops the resource key from the parsed message, so the
+    // gateway forwards an empty payload and the sim rejects with
+    // `trickle resource choice required` even when the client picked one.
+    chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional()
+  })
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;

@@ -21,8 +21,17 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.05.21.5",
   title: "What's New",
-  summary: "Domain and research rejections from the server now surface as a banner alert instead of a single feed line, so a failed Clockwork Stipend pick (or any other domain/tech rejection) is impossible to miss.",
+  summary: "Clockwork Stipend (and any future pick-a-resource domain) now actually unlocks instead of being silently rejected. The gateway was stripping the chosen resource off the wire because the schema didn't list it. Domain and research rejections also now surface as a banner alert instead of being buried in the activity feed.",
   entries: [
+    {
+      introducedIn: "2026.05.21.5",
+      title: "Clockwork Stipend resource picks no longer dropped at the gateway",
+      why: "ClientMessageSchema for CHOOSE_DOMAIN did not declare the chosenTrickleResource field. Zod's default object mode silently strips unknown keys, so the gateway parsed an empty payload, forwarded an empty payload, and the sim rejected with 'trickle resource choice required' even when the player had picked IRON/SUPPLY/CRYSTAL. The schema now declares the field as an optional TRICKLE_RESOURCE_KEYS enum, with a regression test that fails loud if it's removed.",
+      changes: [
+        "ClientMessageSchema.CHOOSE_DOMAIN now declares chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional(), so the field survives the gateway's safeParse.",
+        "Regression test verifies the field round-trips and that unknown resource keys are rejected up front."
+      ]
+    },
     {
       introducedIn: "2026.05.21.5",
       title: "Domain and tech rejections surface as banner alerts",
