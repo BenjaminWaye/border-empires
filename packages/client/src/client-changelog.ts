@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.21.7",
+  version: "2026.05.22.1",
   title: "What's New",
-  summary: "Full-map reveal now streams in reusable chunks instead of pushing one huge snapshot to every viewer, reducing gateway memory pressure when many players reveal the map.",
+  summary: "Attack menu win chance loading now exits cleanly when a fresh preview response never arrives.",
   entries: [
+    {
+      introducedIn: "2026.05.22.1",
+      title: "Attack win chance loading stops retrying itself",
+      why: "The watchdog for stranded attack preview requests did fire, but its menu re-render reopened the same enemy tile through the normal fresh-preview path. That immediately started another request, cleared the timeout state, and put the row back into \"Calculating win chance...\".",
+      changes: [
+        "Timeout-driven action menu re-renders now reuse the computed preview-unavailable state instead of starting another fresh preview request.",
+        "Normal player-opened enemy tile menus still request fresh authoritative odds.",
+        "Added regression coverage that fails when the timeout re-render restarts the preview request loop."
+      ]
+    },
     {
       introducedIn: "2026.05.21.7",
       title: "Full-map reveal is chunked for high-player fanout",
