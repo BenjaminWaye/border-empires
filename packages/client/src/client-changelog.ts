@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.4",
+  version: "2026.05.22.5",
   title: "What's New",
-  summary: "Clockwork Stipend (and any future pick-a-resource domain) now actually unlocks instead of being silently rejected. The gateway was stripping the chosen resource off the wire because the schema didn't list it. Domain and research rejections also now surface as a banner alert instead of being buried in the activity feed.",
+  summary: "Restoring fog after a full-map reveal now actually clears the revealed tiles instead of leaving them on screen.",
   entries: [
+    {
+      introducedIn: "2026.05.22.5",
+      title: "Restore Fog after reveal clears the revealed tiles",
+      why: "TILE_SNAPSHOT_REPLACE handling early-returned on an empty tiles array, so when the gateway sent the fog-on snapshot back after a reveal toggle, any visibility-zero slice left the previously revealed tiles in place and the map kept rendering them.",
+      changes: [
+        "applyGatewayInitialState now treats an empty tiles array as a valid replacement and clears state.tiles + discoveredTiles + incomingAttacksByTile + pendingCollectVisibleKeys, while still treating a missing tiles field as a no-op so partial INIT payloads do not wipe state.",
+        "Regression test covers both the empty-replacement case and the missing-field no-op."
+      ]
+    },
     {
       introducedIn: "2026.05.22.4",
       title: "Clockwork Stipend resource picks no longer dropped at the gateway",
