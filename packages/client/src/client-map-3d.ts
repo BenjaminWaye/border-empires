@@ -1446,6 +1446,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
+    unfedBadgeOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
