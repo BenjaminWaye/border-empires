@@ -167,9 +167,13 @@ Use provider current per-million-token prices for the two pricing variables. The
 - `AI_LABELING_MAX_INPUT_TOKENS=N`
 - `AI_LABELING_MAX_TOTAL_TOKENS=N`
 - `AI_LABELING_TOKEN_REPORT_PATH=/absolute/path/report.json`
+- `AI_LABELING_LABEL_CACHE_PATH=/absolute/path/labeled-records.jsonl`
+- `AI_LABELING_DISABLE_CACHE=1`
 - `AI_LABELING_PROMPT_CACHE_RETENTION=24h` for supported hosted models only
 
 The batch prompt puts stable instructions first and compact per-record JSON last so hosted provider prefix caching can work. It also sets a stable prompt cache key and caps output tokens. Extended `24h` cache retention is opt-in because not every hosted model supports it.
+
+Batch generation also checks the label cache before writing requests. By default it reads `tmp/ai-training/labeled-records.local.jsonl` and skips records whose exact `recordHash` is already labeled, so hosted escalation does not pay again for examples that a local teacher already covered.
 
 For local teacher runs, the worktree now also supports:
 
@@ -198,9 +202,11 @@ Useful knobs:
 - `AI_LABELING_CONCURRENCY=1..N`
 - `AI_LABELING_MAX_RECORDS=N`
 - `AI_LABELING_MAX_OUTPUT_TOKENS=N`
+- `AI_LABELING_LABEL_CACHE_PATH=/absolute/path/labeled-records.jsonl`
+- `AI_LABELING_DISABLE_CACHE=1`
 - `AI_LABELING_DRY_RUN=1`
 
-For low-cost local labeling, start with `Qwen2.5-7B-Instruct` and a small `AI_LABELING_MAX_RECORDS` cap, then only escalate ambiguous or low-quality labels to a stronger model.
+For low-cost local labeling, start with `Qwen2.5-7B-Instruct` and a small `AI_LABELING_MAX_RECORDS` cap, then only escalate ambiguous or low-quality labels to a stronger model. Local labels include a `recordHash`, and reruns reuse matching cached labels from the output file by default. The hash covers the prompt version plus the compact teacher context, so changing the record payload or label prompt version forces a new label instead of reusing a stale one.
 
 The worktree now includes an active-learning triage pass:
 
@@ -344,6 +350,8 @@ AI_LABELING_INPUT_USD_PER_MTOK=<current-input-price> \
 AI_LABELING_OUTPUT_USD_PER_MTOK=<current-output-price> \
 pnpm ai:labeling:batch tmp/ai-training/records.escalate.jsonl
 ```
+
+Both local and hosted scripts report `cachedRecords` and `uncachedRecords` in the token usage report. The estimated token and cost totals are for uncached work only. Set `AI_LABELING_DISABLE_CACHE=1` when intentionally regenerating labels.
 
 Then send the produced:
 
