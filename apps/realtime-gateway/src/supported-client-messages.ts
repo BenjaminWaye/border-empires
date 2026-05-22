@@ -40,6 +40,7 @@ export const supportedClientMessageTypes = [
   "SET_TILE_COLOR",
   "SET_PROFILE",
   "REQUEST_TILE_DETAIL",
+  "REQUEST_REVEAL_MAP",
   "SUBSCRIBE_CHUNKS",
   "PING",
   "SET_FOG_DISABLED",

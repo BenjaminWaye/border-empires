@@ -333,7 +333,18 @@ export const chooseAiTechChoiceForPlayer = (
         affordable: player.points >= (tech.cost?.gold ?? 0) && hasResources(resourceCost, available)
       };
     })
-    .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id))[0];
+    // Affordable techs win over unaffordable ones regardless of score, so a
+    // gold-only fallback is preferred over a higher-scored option the player
+    // can't actually pay for. Without this, an AI with 74k gold but zero
+    // IRON/CRYSTAL/SUPPLY locks at preplan=tech_unaffordable forever because
+    // the top-scored tech needs a strategic resource it lacks. When nothing is
+    // affordable, score order is preserved so the diagnostic still surfaces
+    // the most-wanted-but-blocked tech.
+    .sort((left, right) =>
+      Number(right.affordable) - Number(left.affordable) ||
+      right.score - left.score ||
+      left.id.localeCompare(right.id)
+    )[0];
 };
 
 export const chooseAiDomainChoiceForPlayer = (
@@ -367,7 +378,14 @@ export const chooseAiDomainChoiceForPlayer = (
         affordable: player.points >= (domain.cost?.gold ?? 0) && hasResources(resourceCost, available)
       };
     })
-    .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id))[0];
+    // Affordability dominates score so an AI starved of one resource still
+    // picks an affordable domain (e.g. clockwork-stipend, which trickles the
+    // missing resource) instead of being pinned to an unaffordable top score.
+    .sort((left, right) =>
+      Number(right.affordable) - Number(left.affordable) ||
+      right.score - left.score ||
+      left.id.localeCompare(right.id)
+    )[0];
 };
 
 const settledTileCount = (playerId: string, tiles: Iterable<DomainTileState>): number => {

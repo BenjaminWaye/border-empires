@@ -19,165 +19,114 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.7",
+  version: "2026.05.23.1",
   title: "What's New",
-  summary: "Tripod hide is now a stretched diamond (two triangles joined) instead of a flat box — reads as a real skin pulled taut between the posts.",
+  summary: "20 previously SVG-only structures now have hand-modeled 3D representations, fur tripods and the camp drying frame share a real tepee silhouette with a draped diamond hide, and the unfed-town badge floats a 🍞 shield with a red slash above hungry towns.",
   entries: [
     {
+      introducedIn: "2026.05.23.1",
+      title: "3D world fills out: late-game structures, fur tripods, unfed-town shield, and a Storybook asset viewer",
+      why: "Two gaps were visible to anyone playing on the 3D map: only 9 of the 38 structure kinds had hand-modeled 3D representations, and the unfed-town warning glyph didn't read as 'food problem'. The fur drying rack also didn't match its 2D pictogram. This batch closes the SVG↔3D gap across every kind, redesigns the fur tripod (and the matching camp drying frame) to look like a real tepee with a stretched hide, and replaces the floating warning triangle with a 🍞-on-a-shield badge so the meaning lands instantly.",
+      changes: [
+        "20 new 3D structures: Bank, Aether Tower, Aegis Dome, World Engine, Imperial Exchange, Airport, Caravanary, Customs House, Exchange House, Garrison Hall, Governor's Office, Rail Depot, Radar System, Foundry, Advanced Ironworks, Fur Synthesizer + Advanced, Crystal Synthesizer + Advanced, Astral Dock. Every OptimisticStructureKind backed by an SVG overlay now has a procedurally-built 3D silhouette in StructureOverlay.",
+        "IRONWORKS and ADVANCED_IRONWORKS redesigned as synthesizer chambers (chamber + iron-glow window + tubes) to match the FUR/CRYSTAL synthesizer family — ironworks is a synthesizer in border-empires, not a forge. FOUNDRY keeps its forge silhouette (twin chimneys + glowing slag pile) so the two read as distinct.",
+        "Fur resource 3D redesigned: rectangular drying frame replaced with a tepee tripod — three thicker posts leaning to a common apex with a small dark binding at the top and a stretched diamond hide (OctahedronGeometry scaled to a flat diamond) draped on the front. Camp structure's drying frame now uses the same tripod.",
+        "Unfed-town badge swapped from a generic warning triangle to a slowly-bobbing canvas-textured shield carrying the in-game 🍞 food glyph with a red diagonal slash drawn across it. Per-instance bob phase offset so a cluster of unfed towns doesn't lock-step.",
+        "Internal: structure-overlay refactored from 1457 lines into a per-family composition (builder + economic/late-game/civic/infrastructure/industrial files, each well under 500 lines).",
+        "Internal: a new @border-empires/storybook workspace package catalogs every 2D SVG and every 3D overlay layer in Storybook 10.4 with side-by-side variant comparisons — use `pnpm --filter @border-empires/storybook dev` to browse the catalog."
+      ]
+    },
+    {
       introducedIn: "2026.05.22.7",
-      title: "Tripod hide → stretched diamond silhouette",
-      why: "The box-shaped pelt on the FUR resource + CAMP tripods read as a board, not a draped skin. A skin stretched between leaning poles is closest to a flat diamond (two triangles joined along the middle edge) with a faint spine giving it just enough 3D depth not to disappear edge-on.",
+      title: "Attack win chance result no longer reopens into loading",
+      why: "The client accepted ATTACK_PREVIEW_RESULT from the gateway, stored the authoritative win chance, then re-rendered the open enemy tile menu through the normal fresh-open path. That path immediately started another preview request and cleared the accepted result before it could render, so the action row stayed on \"Calculating win chance...\" even when production had answered.",
       changes: [
-        "furTripodPeltGeo + campTripodPeltGeo are now OctahedronGeometry scaled non-uniformly (0.21 × 0.17 wide × 0.036 thin) — diamond shape from front, very flat from side, with a subtle ridge along the front/back axis so the skin still reads from oblique angles.",
-        "Camp and FUR tripods share the exact same geometry numbers so they stay one shape family."
+        "Network-driven action menu re-renders now reuse the just-accepted attack preview instead of starting a new request.",
+        "Added regression coverage for an open enemy action menu receiving a current attack preview result."
       ]
     },
     {
       introducedIn: "2026.05.22.6",
-      title: "Tripod silhouette improved — thicker posts, apex binding, larger draped hide",
-      why: "The first tripod pass had skinny posts (0.02 radius), no visible binding at the apex, and a small flat pelt that didn't read as a draped hide. Reworked to make the silhouette read clearly from the perspective camera.",
+      title: "Clockwork Stipend trickle shows up in income sources",
+      why: "The trickle was already being applied to the stockpile each tick, but it was never folded into strategicProductionPerMinute or the economy breakdown, so the income panel showed 0/min for the resource even while the stockpile climbed. Players had no way to attribute the income to the domain.",
       changes: [
-        "Dedicated furTripodPost geometry — thicker (0.028–0.034 radius) and longer (0.30) so the posts actually meet at the apex without overhang or scaling tricks.",
-        "Tripod scale bumped: base radius 0.09, apex height 0.26.",
-        "Small dark binding wrap (furTripodBinding) at the apex — visually anchors the three sticks together.",
-        "Wider hide (furTripodPelt 0.20 × 0.16) hangs on the front of the tripod with a forward drape tilt; reads as a stretched skin rather than a flat plate."
+        "buildPlayerUpdateEconomySnapshot now reads chosenTrickleRateForPlayer and adds the rate to both strategicProductionPerMinute[resource] and a 'Clockwork Stipend' bucket under economyBreakdown[resource].sources.",
+        "Regression test pins the SUPPLY case and verifies the bucket isn't added to other resources."
       ]
     },
     {
       introducedIn: "2026.05.22.6",
-      title: "Camp structure now uses the same drying tripod as the FUR resource",
-      why: "Camp was still rendering the legacy rectangular drying rack (two vertical posts + horizontal bar + two flat pelts). Replaced with the FUR-resource tripod so the camp and the fur resource read as the same shape family — three leaning sticks + apex binding + one stretched hide.",
+      title: "Locked trickle resource appears on the domain detail card",
+      why: "After picking SUPPLY (or IRON/CRYSTAL) for Clockwork Stipend, the detail card just showed 'Chosen' with no indication of which resource was locked. The owned-summary card carried the suffix but the detail card — the one you click into — did not, forcing a second navigation to confirm the pick.",
       changes: [
-        "addCamp: removed the rectangular drying rack from the layout; added a tripod at the back-centre of the tile (rotated π so its hide-bearing front faces +Z toward the default camera).",
-        "Tents + fire layout preserved unchanged."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.6",
-      title: "Unfed-town badge: bob only, no spin",
-      why: "Combining a Y-axis spin with the bobbing motion made the badge strobe edge-on every quarter rotation — too jarring. Dropped the spin and tilted the plane back ~28° around X so the badge faces the perspective camera at the default orbit angle, with the bob alone providing the eye-catching motion.",
-      changes: [
-        "Removed SPIN_PERIOD_MS; badge no longer rotates around Y.",
-        "Plane has a fixed back-tilt (rotX = -0.50 rad) so its face stays oriented toward the default camera's view direction.",
-        "Bob amplitude bumped slightly (0.07) and period shortened slightly (2400 ms) to compensate for the loss of the spin's motion cue."
+        "renderDomainDetailCardHtml now accepts chosenTrickleResource and renders a 'Your pick: SUPPLY (+0.20/min, locked)' section under the description when the player owns the domain and the resource is one this domain offered.",
+        "Same gate as the owned-summary card: a future narrower trickle table can't claim credit for a pick made on a different domain."
       ]
     },
     {
       introducedIn: "2026.05.22.5",
-      title: "Fur 3D redesigned as tepee tripods with hanging pelts",
-      why: "The fur resource overlay was rendering as a rectangular drying frame; the 2D fur-overlay-N.svg shows leaning sticks forming a tripod with a skin stretched between them. The 3D tripod silhouette is more readable from the perspective camera and now matches the 2D pictogram.",
+      title: "Restore Fog after reveal clears the revealed tiles",
+      why: "TILE_SNAPSHOT_REPLACE handling early-returned on an empty tiles array, so when the gateway sent the fog-on snapshot back after a reveal toggle, any visibility-zero slice left the previously revealed tiles in place and the map kept rendering them.",
       changes: [
-        "Three furPost cylinders lean to a common apex (atan(r/h) tilt, 120° spacing) instead of standing as parallel vertical posts.",
-        "One pelt (furBody) hangs draped across the front of the tripod, tilted slightly forward so its broad face reads as a skin from camera level.",
-        "Per-variant layout (0/1/2) preserved: 2 tripods, 2 tripods rotated, or 3 tripods."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.5",
-      title: "Unfed-town badge: 🍞 loaf on a bobbing shield",
-      why: "Earlier badge designs (warning triangle, empty bowl, wheat sheaf, 3D loaf) didn't read clearly at floating-badge scale. Drawing the in-game food icon (🍞 — the same glyph border-empires uses for FOOD in the resource panel) onto a shield-shaped canvas texture with a red diagonal slash makes the badge instantly familiar from any orbit angle.",
-      changes: [
-        "Single InstancedMesh of textured PlaneGeometry — canvas texture has the shield background + 🍞 emoji + red diagonal slash baked in.",
-        "Badge spins slowly around Y (one rotation every ~5.4s) and bobs up/down (±0.06 around the float center, ~2.6s period).",
-        "Per-instance phase offset on the bob so a cluster of unfed towns doesn't bob in lock-step.",
-        "Falls back to a textureless plane in Node test environments (no document) so unit tests still construct the overlay cleanly."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.5",
-      title: "Storybook ResourceOverlay catalog now shows all 3 variants per resource",
-      why: "Each resource has 3 layout variants (chosen by a worldTileX/Y hash) but Storybook only showed one of them, hidden behind whatever variant the hardcoded worldX happened to hash to.",
-      changes: [
-        "Added per-resource Variants stories (FarmVariants, WoodVariants, IronVariants, GemsVariants, FishVariants, FurVariants, OilVariants) that find a worldX hashing to each target variant and render the three side-by-side.",
-        "Added an AllVariants story rendering the full 7 resources × 3 variants grid in one view."
+        "applyGatewayInitialState now treats an empty tiles array as a valid replacement and clears state.tiles + discoveredTiles + incomingAttacksByTile + pendingCollectVisibleKeys, while still treating a missing tiles field as a no-op so partial INIT payloads do not wipe state.",
+        "Regression test covers both the empty-replacement case and the missing-field no-op."
       ]
     },
     {
       introducedIn: "2026.05.22.4",
-      title: "Foundry back to its forge silhouette",
-      why: "Ironworks and Foundry are not the same thing in border-empires — ironworks (synthesizer) refines metal; a foundry casts it. The synthesizer-style foundry from 2026.05.22.3 erased that distinction. Restored the foundry to its original forge silhouette so it reads as a separate building family.",
+      title: "Clockwork Stipend resource picks no longer dropped at the gateway",
+      why: "ClientMessageSchema for CHOOSE_DOMAIN did not declare the chosenTrickleResource field. Zod's default object mode silently strips unknown keys, so the gateway parsed an empty payload, forwarded an empty payload, and the sim rejected with 'trickle resource choice required' even when the player had picked IRON/SUPPLY/CRYSTAL. The schema now declares the field as an optional TRICKLE_RESOURCE_KEYS enum, with a regression test that fails loud if it's removed.",
       changes: [
-        "FOUNDRY: stone base + pyramidal roof + tall stone furnace with a hot glow window + twin chimneys + glowing slag pile. Slag pile remains FOUNDRY-only.",
-        "IRONWORKS + ADVANCED_IRONWORKS stay synthesizer-style (chamber + iron-glow window + tubes) — that part of 2026.05.22.3 was right; only FOUNDRY needed reverting."
+        "ClientMessageSchema.CHOOSE_DOMAIN now declares chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional(), so the field survives the gateway's safeParse.",
+        "Regression test verifies the field round-trips and that unknown resource keys are rejected up front."
       ]
     },
     {
       introducedIn: "2026.05.22.4",
-      title: "Unfed-town badge: wheat sheaf + red diagonal slash",
-      why: "The empty-bowl badge from 2026.05.22.3 was hard to read at floating-badge scale. Replacing with the universal 'no grain' pictogram — a golden wheat sheaf with a bright red diagonal line through it — communicates 'not enough food' instantly from any orbit angle.",
+      title: "Domain and tech rejections surface as banner alerts",
+      why: "When the server rejected a domain pick — for example Clockwork Stipend returning 'trickle resource choice required' — the only feedback was a single line in the activity feed. The button quietly reverted to 'Choose Tier N' and players assumed the click was broken. Frontier/diplomacy/build rejections already use banner alerts, so domain and tech now match that pattern.",
       changes: [
-        "Golden wheat sheaf (tapered cylinder + conical grain head) floats above the unfed town.",
-        "Red diagonal slash (long thin emissive box rotated 45° around Z) crosses the sheaf — the 'no' marker that classic prohibition signs use."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.4",
-      title: "Farmstead story shows the farm field under the barn",
-      why: "FARMSTEAD's structure overlay is only the barn + silo + back fence. In-game the FARM resource overlay renders alongside (golden plates, wheat sheaves, orchard trees), so the actual tile reads as an upgraded farm. The Storybook story only rendered the structure layer, so the barn looked like it was sitting on bare grass.",
-      changes: [
-        "Reverted the green crop-row shim from 2026.05.22.3 — the resource overlay already provides the fields in-game.",
-        "Farmstead story now layers createResourceOverlay (FARM, 3 variants) under three FARMSTEAD structures so the story preview matches in-game appearance.",
-        "Added an explicit Camp story to the StructureOverlay catalog (CAMP was missing from the per-kind story list)."
+        "DOMAIN_INVALID and TECH_INVALID rejections now raise a 12-second 'Domain pick failed' / 'Research failed' banner alongside the existing feed entry.",
+        "The default 'Error CODE: message' fallback string is replaced with a friendlier 'Domain pick failed: …' / 'Research failed: …' for these codes."
       ]
     },
     {
       introducedIn: "2026.05.22.3",
-      title: "Ironworks family redesigned as synthesizer chambers",
-      why: "Ironworks is a synthesizer in border-empires, not a medieval forge. The previous forge-with-anvil silhouette was off-family. Reworking it as a chamber-with-glow-window matches FUR_SYNTHESIZER and CRYSTAL_SYNTHESIZER so all four read as the same industrial family at a glance.",
+      title: "Fog admin map-reveal toggle works on production and is no longer named staging-only",
+      why: "The client suppressed the reveal-map toggle on production hostnames even when the server told the session it was allowed to toggle fog, which blocked screenshotting prod-only AI state. The server-side FOG_ADMIN_EMAIL gate already scopes the capability to a single account, so the client hostname check was redundant. While the gate was being removed, every staging-prefixed symbol around it was renamed to match the actual scope.",
       changes: [
-        "IRONWORKS: single steel chamber on a dark base, hot-iron orange glow window, exhaust tube + vent cap (same idiom as FUR_SYNTHESIZER, iron-themed colors).",
-        "ADVANCED_IRONWORKS: twin chambers on a wider base, two exhaust tubes plus a central control vent (parallels ADVANCED_FUR_SYNTHESIZER).",
-        "FOUNDRY: same twin-chamber silhouette as ADVANCED_IRONWORKS plus a glowing slag pile, which is now FOUNDRY's signature differentiator."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.3",
-      title: "Caravanary fortified — corner watchtowers + cargo, no more pitched tents",
-      why: "Caravanaries (caravanserai) were fortified roadside inns for merchant caravans — square stone courtyard with corner towers, central well, travelers' rooms and stacked goods around the perimeter. The previous tents-in-courtyard read was wrong (caravanserai used built rooms, not pitched canvas).",
-      changes: [
-        "Walls taller and thicker so the perimeter reads as defensible stone.",
-        "Added 4 corner watchtowers with conical caps — the two front towers double as gate towers flanking the entrance.",
-        "Replaced the two interior tents with a row of stacked cargo crates against the back wall and a pair of grain sacks beside the well."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.3",
-      title: "Farmsteads keep crop rows visible",
-      why: "Building a farmstead on a FARM tile previously hid the crop rows entirely, leaving just the barn+silo on what should still be a cultivated field. Adding 4 visible crop rows beside the silo keeps the tile readable as 'barn-in-a-field' rather than 'barn replacing field'.",
-      changes: [
-        "FARMSTEAD now renders 4 green crop rows on the right side of the tile, past the silo, so 2D ↔ 3D match the farm tile's productive use."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.3",
-      title: "Unfed-town badge: empty bowl + red chevron",
-      why: "The prior badge (downward red triangle + white dot) read as a generic warning rather than 'this town has no food'. Replacing the warning glyph with an empty wooden bowl + red downward chevron above it communicates 'food container, but empty' at a glance from any orbit angle.",
-      changes: [
-        "Empty wooden bowl (tapered cylinder with darker interior disc suggesting an empty cavity) floats above unfed towns.",
-        "Small red downward chevron above the bowl carries the urgency cue from the old triangle — same red palette as before, but framed as 'declining / missing food' rather than a generic alert."
+        "Map reveal availability now relies solely on the server-issued canToggleFog flag and no longer checks the hostname.",
+        "Renamed the helper module, state fields, storage key, CSS class, and data attribute from the staging-only naming (stagingMapReveal*) to the hostname-agnostic name (mapReveal*) so the code matches the actual scope.",
+        "Existing fog admin browsers will see their staged toggle preference reset once (storage key changed from be-staging-map-reveal to be-map-reveal); re-toggling restores it."
       ]
     },
     {
       introducedIn: "2026.05.22.2",
-      title: "3D models for the remaining civic, infrastructure, industrial, and arcane structures",
-      why: "Following the first batch (Bank/Aether Tower/Aegis Dome/World Engine/Imperial Exchange), 15 more structures still rendered only as 2D SVG overlays in the perspective camera. With this batch, every OptimisticStructureKind backed by an SVG overlay now has a procedurally-built 3D silhouette.",
+      title: "Stored yield can't get stranded above the cap anymore",
+      why: "After the prior fix routed FetchTileDetail through tileDeltaFromState, the on-open inspector still showed e.g. \"Stored yield: 2105 / 960\" on a town that no longer had a market. Root cause: buildTileYieldView omitted the `yield` field whenever the live buffer rounded to ≤ 0.0001 (the common case right after an upkeep tick drained the buffer). The gateway's shallow `{ ...cached, ...fresh }` merge then preserved whatever stale buffer the client had cached from when the town's cap was higher.",
       changes: [
-        "Civic (5): Caravanary (sand-stone courtyard with central well and tents), Customs House (checkpoint with striped red/white gate), Exchange House (smaller cousin of the Imperial Exchange with a gold scale), Garrison Hall (olive barracks with sandbags and red banner), Governor's Office (tan civic building with red-tile roof and cupola flag).",
-        "Infrastructure (3): Airport (low hangar, tall control tower with dark glass cab, asphalt runway with painted stripes), Rail Depot (red-brick station with iron rails on wood sleepers and a red signal lamp), Radar System (control box, tall pylon, tilted shallow dish + antenna spike).",
-        "Industry (6): Foundry (bigger than ironworks, twin chimneys, glowing slag pile), Advanced Ironworks (taller furnace, twin chimneys, no slag), Fur Synthesizer + Advanced (industrial chamber with amber emissive window; advanced doubles the chambers), Crystal Synthesizer + Advanced (translucent cyan chamber housing a blue crystal core; advanced adds a central larger core).",
-        "Arcane (1): Astral Dock (dark aether-stone pad with a glowing cyan ring, four tilted arch buttresses, central spire, and a floating violet crystal core)."
+        "buildTileYieldView now always emits `yield` (with `gold: 0` when the live buffer is empty) for any tile that can produce gold or strategic resources, so fresh tile-delta and FetchTileDetail responses authoritatively overwrite stale cached buffer values instead of leaving them untouched."
       ]
     },
     {
       introducedIn: "2026.05.22.1",
-      title: "3D models for Bank, Aether Tower, Aegis Dome, World Engine, Imperial Exchange",
-      why: "Until now only the early-tier economic structures (farmstead, market, observatory, granary, etc.) had hand-modeled 3D representations. The signature mid- and late-game civic and arcane structures were rendering only as 2D SVG overlays, which made them hard to read from the perspective camera.",
+      title: "Attack win chance loading stops retrying itself",
+      why: "The watchdog for stranded attack preview requests did fire, but its menu re-render reopened the same enemy tile through the normal fresh-preview path. That immediately started another request, cleared the timeout state, and put the row back into \"Calculating win chance...\".",
       changes: [
-        "Bank: cream-stone civic block with front columns, pyramidal roof, and a gold coin stack on the step.",
-        "Aether Tower: slender dark-stone shaft topped by a glowing violet aether crystal spike.",
-        "Aegis Dome: stone foundation with a translucent cyan shield half-sphere and four cyan-tipped emitter pylons.",
-        "World Engine: three-tier ancient ziggurat with a central obsidian spire crowned by a massive golden core crystal.",
-        "Imperial Exchange: marble drum + four columns + golden dome + gold finial — the grandest of the civic silhouettes."
+        "Timeout-driven action menu re-renders now reuse the computed preview-unavailable state instead of starting another fresh preview request.",
+        "Normal player-opened enemy tile menus still request fresh authoritative odds.",
+        "Added regression coverage that fails when the timeout re-render restarts the preview request loop."
+      ]
+    },
+    {
+      introducedIn: "2026.05.21.7",
+      title: "Full-map reveal is chunked for high-player fanout",
+      why: "The old reveal path sent one full tile snapshot per requester. When many players revealed the whole map, the gateway could retain and serialize many huge payloads at once, causing memory pressure.",
+      changes: [
+        "Reveal Full Map now requests a dedicated reveal stream and applies tile chunks incrementally, keeping the regular control websocket clear.",
+        "The gateway builds one reusable chunk payload set for concurrent reveal requests, pre-serializes each chunk once for fanout across all viewers, and clears the set when live tile deltas arrive instead of retaining full reveal snapshots per player.",
+        "Reveal requests are rate-limited per player and bounded by a hard concurrent-stream cap so a fanout wave can't saturate the gateway event loop, and reveal-map metrics (build time, payload bytes, active streams, chunks sent, cache entries) are exposed via /metrics.",
+        "The simulation no longer stores explicit full-visibility subscribe snapshots in its per-player snapshot cache."
       ]
     },
     {

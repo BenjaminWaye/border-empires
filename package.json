@@ -13,6 +13,8 @@
     "rewrite:db:size": "node ./scripts/rewrite-db-size.mjs",
     "ai:labeling:batch": "node ./scripts/build-ai-labeling-batch.mjs",
     "ai:labeling:local": "node ./scripts/run-ai-labeling-local.mjs",
+    "ai:labeling:sample": "node ./scripts/sample-ai-labeling-records.mjs",
+    "ai:labeling:qa": "node ./scripts/validate-ai-labels.mjs",
     "ai:labeling:triage": "node ./scripts/build-ai-labeling-escalation-set.mjs",
     "ops:staging:login-probe": "test -n \"$STAGING_LOGIN_PROBE_AUTH_TOKEN\" && node ./scripts/staging-login-latency-probe.mjs --attempts 12 --timeout-ms 8000 --max-p95-ms 5000 --min-success-rate 1 || (echo 'STAGING_LOGIN_PROBE_AUTH_TOKEN is required for pnpm ops:staging:login-probe' >&2; exit 2)",
     "ops:staging:drift-check": "node ./scripts/check-staging-fly-env-drift.mjs",
@@ -27,7 +29,8 @@
     "deploy:staging:all": "node ./scripts/deploy-staging-all.mjs",
     "deploy:prod:all": "node ./scripts/deploy-prod-all.mjs",
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "pnpm test:scripts && pnpm -r test",
+    "test:scripts": "node --test scripts/ai-labeling-common.test.mjs scripts/ai-labeling-sample.test.mjs scripts/ai-labeling-qa.test.mjs",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {

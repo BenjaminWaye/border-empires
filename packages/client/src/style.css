@@ -2919,12 +2919,12 @@ body {
   color: rgba(162, 212, 255, 0.86);
 }
 
-.auth-staging-map-reveal {
+.auth-map-reveal {
   display: grid;
   gap: 6px;
 }
 
-.auth-staging-map-reveal p {
+.auth-map-reveal p {
   margin: 0;
   color: rgba(200, 225, 255, 0.82);
 }
