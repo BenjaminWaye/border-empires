@@ -184,9 +184,10 @@ export const openSingleTileActionMenu = (
   tile: Tile,
   clientX: number,
   clientY: number,
-  deps: TileActionMenuUiDeps
+  deps: TileActionMenuUiDeps,
+  options: { requestAttackPreview?: boolean } = {}
 ): void => {
-  if (tile.ownerId && tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile)) deps.requestAttackPreviewForTarget(tile);
+  if ((options.requestAttackPreview ?? true) && tile.ownerId && tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile)) deps.requestAttackPreviewForTarget(tile);
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];
   state.tileActionMenu.currentTileKey = deps.keyFor(tile.x, tile.y);
