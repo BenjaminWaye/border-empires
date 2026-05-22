@@ -67,6 +67,11 @@ export const registerEconomicStructures = (
   const barnRoofMaterial = new MeshStandardMaterial({ color: "#3a261c", roughness: 0.92, metalness: 0, flatShading: true });
   const siloMaterial = new MeshStandardMaterial({ color: "#c8b890", roughness: 0.86, metalness: 0, flatShading: true });
   const woodFenceMaterial = new MeshStandardMaterial({ color: "#5e4530", roughness: 0.92, metalness: 0, flatShading: true });
+  // Crop rows for FARMSTEAD: a farmstead is built on a FARM tile so it
+  // should still read as "barn-in-a-field", not "barn replacing field".
+  // Slight emissive on the green so the rows pop against the heightfield
+  // grass without looking neon.
+  const cropRowMaterial = new MeshStandardMaterial({ color: "#5e8a3a", roughness: 0.86, metalness: 0, flatShading: true, emissive: "#1e2e0e", emissiveIntensity: 0.18 });
   const stoneMaterial = new MeshStandardMaterial({ color: "#8a857a", roughness: 0.92, metalness: 0, flatShading: true });
   const stoneRoofMaterial = new MeshStandardMaterial({ color: "#5d574e", roughness: 0.88, metalness: 0, flatShading: true });
   const waterWheelMaterial = new MeshStandardMaterial({ color: "#6a4a32", roughness: 0.88, metalness: 0, flatShading: true });
@@ -81,11 +86,14 @@ export const registerEconomicStructures = (
   const mineCartMaterial = new MeshStandardMaterial({ color: "#3a3530", roughness: 0.7, metalness: 0.25, flatShading: true });
   const mineCartWheelMaterial = new MeshStandardMaterial({ color: "#1a1a1c", roughness: 0.6, metalness: 0.3, flatShading: true });
   const oreMaterial = new MeshStandardMaterial({ color: "#6a6a72", roughness: 0.85, metalness: 0.15, flatShading: true });
-  const forgeBaseMaterial = new MeshStandardMaterial({ color: "#5d4d3d", roughness: 0.92, metalness: 0, flatShading: true });
-  const forgeStoneMaterial = new MeshStandardMaterial({ color: "#6a625a", roughness: 0.92, metalness: 0, flatShading: true });
-  const forgeChimneyMaterial = new MeshStandardMaterial({ color: "#3a302a", roughness: 0.94, metalness: 0, flatShading: true });
-  const forgeGlowMaterial = new MeshStandardMaterial({ color: "#ff7a2a", roughness: 0.4, metalness: 0, flatShading: true, emissive: "#ff5318", emissiveIntensity: 0.7 });
-  const anvilMaterial = new MeshStandardMaterial({ color: "#262628", roughness: 0.6, metalness: 0.4, flatShading: true });
+  // Ironworks-family palette. Ironworks is a synthesizer in border-empires
+  // (matches FUR/CRYSTAL_SYNTHESIZER's chamber+glow+tubes idiom rather than
+  // the medieval forge-with-anvil). Same palette is reused by industrial.ts
+  // for FOUNDRY + ADVANCED_IRONWORKS via the EconomicSharedAssets export.
+  const forgeBaseMaterial = new MeshStandardMaterial({ color: "#3e3a36", roughness: 0.7, metalness: 0.35, flatShading: true });
+  const forgeStoneMaterial = new MeshStandardMaterial({ color: "#7c726a", roughness: 0.6, metalness: 0.45, flatShading: true });
+  const forgeChimneyMaterial = new MeshStandardMaterial({ color: "#3a302a", roughness: 0.7, metalness: 0.5, flatShading: true });
+  const forgeGlowMaterial = new MeshStandardMaterial({ color: "#ff7a2a", roughness: 0.4, metalness: 0, flatShading: true, emissive: "#ff5318", emissiveIntensity: 0.85 });
   const marketCounterMaterial = new MeshStandardMaterial({ color: "#7a5a38", roughness: 0.9, metalness: 0, flatShading: true });
   const marketAwningRedMaterial = new MeshStandardMaterial({ color: "#c53b2c", roughness: 0.86, metalness: 0, flatShading: true });
   const marketAwningWhiteMaterial = new MeshStandardMaterial({ color: "#eadcc2", roughness: 0.86, metalness: 0, flatShading: true });
@@ -116,6 +124,9 @@ export const registerEconomicStructures = (
   const siloBodyGeo = new CylinderGeometry(0.07, 0.07, 0.28, 10);
   const siloCapGeo = new ConeGeometry(0.075, 0.07, 10);
   const fenceGeo = new BoxGeometry(0.018, 0.06, 0.16);
+  // Crop row: a long thin box running along Z, so 4 rows side-by-side
+  // along X read as a small field beside the barn.
+  const cropRowGeo = new BoxGeometry(0.032, 0.035, 0.34);
   const wwTowerGeo = new BoxGeometry(0.22, 0.32, 0.22);
   const wwRoofGeo = new ConeGeometry(0.18, 0.12, 4);
   const wwWheelGeo = new CylinderGeometry(0.13, 0.13, 0.05, 12);
@@ -132,13 +143,15 @@ export const registerEconomicStructures = (
   const mineCartGeo = new BoxGeometry(0.13, 0.07, 0.10);
   const mineCartWheelGeo = new CylinderGeometry(0.025, 0.025, 0.022, 8);
   const oreGeo = new IcosahedronGeometry(0.04, 0);
-  const forgeBaseGeo = new BoxGeometry(0.32, 0.18, 0.24);
-  const forgeRoofGeo = new ConeGeometry(0.22, 0.10, 4);
-  const forgeStoneFurnaceGeo = new BoxGeometry(0.16, 0.20, 0.16);
-  const forgeChimneyGeo = new BoxGeometry(0.07, 0.30, 0.07);
-  const forgeGlowGeo = new BoxGeometry(0.06, 0.06, 0.06);
-  const anvilTopGeo = new BoxGeometry(0.10, 0.025, 0.05);
-  const anvilBaseGeo = new BoxGeometry(0.07, 0.05, 0.05);
+  // Ironworks-as-synthesizer geometries: industrial chamber on a small
+  // base, hot-iron glow window on the front, exhaust tube + vent cap.
+  // Same chamber idiom as FUR/CRYSTAL synthesizers in industrial.ts.
+  const ironBaseGeo = new BoxGeometry(0.20, 0.08, 0.16);
+  const ironChamberGeo = new CylinderGeometry(0.07, 0.07, 0.18, 12);
+  const ironChamberCapGeo = new ConeGeometry(0.075, 0.04, 12);
+  const ironWindowGeo = new BoxGeometry(0.022, 0.10, 0.04);
+  const ironTubeGeo = new CylinderGeometry(0.010, 0.010, 0.10, 6);
+  const ironTubeCapGeo = new ConeGeometry(0.012, 0.022, 6);
   const marketCounterGeo = new BoxGeometry(0.40, 0.05, 0.16);
   const marketAwningGeo = new BoxGeometry(0.40, 0.012, 0.10);
   const marketPostGeo = new CylinderGeometry(0.014, 0.014, 0.22, 6);
@@ -177,6 +190,7 @@ export const registerEconomicStructures = (
   builder.makeSlot("siloBody", siloBodyGeo, siloMaterial, C);
   builder.makeSlot("siloCap", siloCapGeo, siloMaterial, C);
   builder.makeSlot("fence", fenceGeo, woodFenceMaterial, C * 4);
+  builder.makeSlot("cropRow", cropRowGeo, cropRowMaterial, C * 4);
   // Waterworks
   builder.makeSlot("wwTower", wwTowerGeo, stoneMaterial, C);
   builder.makeSlot("wwRoof", wwRoofGeo, stoneRoofMaterial, C);
@@ -196,14 +210,14 @@ export const registerEconomicStructures = (
   builder.makeSlot("mineCart", mineCartGeo, mineCartMaterial, C);
   builder.makeSlot("mineCartWheel", mineCartWheelGeo, mineCartWheelMaterial, C * 2);
   builder.makeSlot("ore", oreGeo, oreMaterial, C * 3);
-  // Ironworks (forge palette is re-shared with FOUNDRY/ADVANCED_IRONWORKS).
-  builder.makeSlot("forgeBase", forgeBaseGeo, forgeBaseMaterial, C);
-  builder.makeSlot("forgeRoof", forgeRoofGeo, barnRoofMaterial, C);
-  builder.makeSlot("forgeFurnace", forgeStoneFurnaceGeo, forgeStoneMaterial, C);
-  builder.makeSlot("forgeChimney", forgeChimneyGeo, forgeChimneyMaterial, C);
-  builder.makeSlot("forgeGlow", forgeGlowGeo, forgeGlowMaterial, C);
-  builder.makeSlot("anvilTop", anvilTopGeo, anvilMaterial, C);
-  builder.makeSlot("anvilBase", anvilBaseGeo, anvilMaterial, C);
+  // Ironworks (synthesizer-style — same forge palette is reused by
+  // industrial.ts's FOUNDRY + ADVANCED_IRONWORKS).
+  builder.makeSlot("ironBase", ironBaseGeo, forgeBaseMaterial, C);
+  builder.makeSlot("ironChamber", ironChamberGeo, forgeStoneMaterial, C);
+  builder.makeSlot("ironChamberCap", ironChamberCapGeo, forgeStoneMaterial, C);
+  builder.makeSlot("ironWindow", ironWindowGeo, forgeGlowMaterial, C);
+  builder.makeSlot("ironTube", ironTubeGeo, forgeChimneyMaterial, C);
+  builder.makeSlot("ironTubeCap", ironTubeCapGeo, forgeChimneyMaterial, C);
   // Market
   builder.makeSlot("marketCounter", marketCounterGeo, marketCounterMaterial, C);
   builder.makeSlot("marketAwningRed", marketAwningGeo, marketAwningRedMaterial, C);
@@ -245,6 +259,14 @@ export const registerEconomicStructures = (
     builder.addPiece("fence", sx, sy, sz, -0.02, 0.03, -0.18);
     builder.addPiece("fence", sx, sy, sz, 0.14, 0.03, -0.18);
     builder.addPiece("fence", sx, sy, sz, 0.30, 0.03, -0.18);
+    // 4 crop rows running along Z on the right side of the tile so the
+    // farmstead reads as "barn + silo + cultivated field", not "barn
+    // replacing the field". X positions sit past the silo (silo is at
+    // x=0.16); rows step outward from there.
+    builder.addPiece("cropRow", sx, sy, sz, 0.30, 0.0175, 0.08);
+    builder.addPiece("cropRow", sx, sy, sz, 0.36, 0.0175, 0.08);
+    builder.addPiece("cropRow", sx, sy, sz, 0.42, 0.0175, 0.08);
+    builder.addPiece("cropRow", sx, sy, sz, 0.48, 0.0175, 0.08);
   };
 
   const addWaterworks: EconomicStructureLayout = (sx, sy, sz) => {
@@ -287,13 +309,15 @@ export const registerEconomicStructures = (
   };
 
   const addIronworks: EconomicStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("forgeBase", sx, sy, sz, -0.08, 0.09, -0.04);
-    builder.addPiece("forgeRoof", sx, sy, sz, -0.08, 0.23, -0.04, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("forgeFurnace", sx, sy, sz, 0.18, 0.10, -0.04);
-    builder.addPiece("forgeGlow", sx, sy, sz, 0.18, 0.07, 0.05);
-    builder.addPiece("forgeChimney", sx, sy, sz, 0.22, 0.27, -0.04);
-    builder.addPiece("anvilBase", sx, sy, sz, -0.04, 0.025, 0.20);
-    builder.addPiece("anvilTop", sx, sy, sz, -0.04, 0.065, 0.20);
+    // Single synthesizer chamber: dark steel base, brushed-steel
+    // cylinder body with a domed cap, hot-iron orange glow window
+    // facing the camera, exhaust tube + vent cap on top.
+    builder.addPiece("ironBase", sx, sy, sz, 0, 0.04, 0);
+    builder.addPiece("ironChamber", sx, sy, sz, 0, 0.17, 0);
+    builder.addPiece("ironChamberCap", sx, sy, sz, 0, 0.28, 0);
+    builder.addPiece("ironWindow", sx, sy, sz, 0.05, 0.17, 0.05);
+    builder.addPiece("ironTube", sx, sy, sz, 0, 0.35, 0);
+    builder.addPiece("ironTubeCap", sx, sy, sz, 0, 0.41, 0);
   };
 
   const addMarket: EconomicStructureLayout = (sx, sy, sz) => {

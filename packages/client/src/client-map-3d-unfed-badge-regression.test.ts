@@ -106,25 +106,25 @@ describe("3d unfed-town badge regression guard", () => {
     expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { populationGrowthPerMinute: 1 } }))).toBe(false);
   });
 
-  it("emits exactly one triangle + dot pair per unfed town and clears between frames", () => {
+  it("emits exactly one badge (bowl + interior + chevron) per unfed town and clears between frames", () => {
     const scene = new Scene();
     const overlay = createUnfedBadgeOverlay(scene, 32);
     const meshes = overlay.group.children.filter(
       (c): c is InstancedMesh => c instanceof InstancedMesh
     );
-    // Triangle + dot — two InstancedMesh objects on the overlay group.
-    expect(meshes).toHaveLength(2);
+    // Bowl outer + bowl interior disc + downward red chevron — three
+    // InstancedMesh objects on the overlay group (was triangle+dot prior
+    // to the empty-bowl redesign).
+    expect(meshes).toHaveLength(3);
 
     overlay.clear();
     overlay.addInstance(1, 2, 0.5);
     overlay.commit();
-    expect(meshes[0]!.count).toBe(1);
-    expect(meshes[1]!.count).toBe(1);
+    for (const mesh of meshes) expect(mesh.count).toBe(1);
 
     overlay.clear();
     overlay.commit();
-    expect(meshes[0]!.count).toBe(0);
-    expect(meshes[1]!.count).toBe(0);
+    for (const mesh of meshes) expect(mesh.count).toBe(0);
 
     overlay.dispose();
   });
