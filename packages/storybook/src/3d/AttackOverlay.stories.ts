@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/html";
+import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createAttackOverlay } from "@client/client-map-3d-attack-overlay.js";
 import { createStage, forEachGridCell, wrapWithCleanup } from "../three-stage.js";
 

@@ -1,16 +1,21 @@
-import type { Preview } from "@storybook/html";
+import type { Preview } from "@storybook/html-vite";
 
 const preview: Preview = {
   parameters: {
     layout: "fullscreen",
     backgrounds: {
-      default: "game",
-      values: [
-        { name: "game", value: "#0a0e14" },
-        { name: "light", value: "#ffffff" }
-      ]
+      options: {
+        game: { name: "game", value: "#0a0e14" },
+        light: { name: "light", value: "#ffffff" }
+      }
     },
     controls: { expanded: true }
+  },
+
+  initialGlobals: {
+    backgrounds: {
+      value: "game"
+    }
   }
 };
 

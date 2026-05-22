@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/html";
+import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
