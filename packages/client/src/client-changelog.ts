@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.1",
+  version: "2026.05.22.2",
   title: "What's New",
-  summary: "Attack menu win chance loading now exits cleanly when a fresh preview response never arrives.",
+  summary: "Stored yield no longer sticks above the cap on owned towns whose live buffer is zero — fresh tile-detail responses now always carry an explicit buffer so the client can overwrite a stale cached value.",
   entries: [
+    {
+      introducedIn: "2026.05.22.2",
+      title: "Stored yield can't get stranded above the cap anymore",
+      why: "After the prior fix routed FetchTileDetail through tileDeltaFromState, the on-open inspector still showed e.g. \"Stored yield: 2105 / 960\" on a town that no longer had a market. Root cause: buildTileYieldView omitted the `yield` field whenever the live buffer rounded to ≤ 0.0001 (the common case right after an upkeep tick drained the buffer). The gateway's shallow `{ ...cached, ...fresh }` merge then preserved whatever stale buffer the client had cached from when the town's cap was higher.",
+      changes: [
+        "buildTileYieldView now always emits `yield` (with `gold: 0` when the live buffer is empty) for any tile that can produce gold or strategic resources, so fresh tile-delta and FetchTileDetail responses authoritatively overwrite stale cached buffer values instead of leaving them untouched."
+      ]
+    },
     {
       introducedIn: "2026.05.22.1",
       title: "Attack win chance loading stops retrying itself",
