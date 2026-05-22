@@ -42,7 +42,12 @@ export type StructureKind =
   | "MARKET"
   | "OBSERVATORY"
   | "GRANARY"
-  | "SEED_GRANARY";
+  | "SEED_GRANARY"
+  | "BANK"
+  | "AETHER_TOWER"
+  | "AEGIS_DOME"
+  | "WORLD_ENGINE"
+  | "IMPERIAL_EXCHANGE";
 
 export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set([
   "FARMSTEAD",
@@ -53,7 +58,12 @@ export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set
   "MARKET",
   "OBSERVATORY",
   "GRANARY",
-  "SEED_GRANARY"
+  "SEED_GRANARY",
+  "BANK",
+  "AETHER_TOWER",
+  "AEGIS_DOME",
+  "WORLD_ENGINE",
+  "IMPERIAL_EXCHANGE"
 ]);
 
 export type StructureOverlay = {
@@ -155,6 +165,81 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     emissive: "#3aa648",
     emissiveIntensity: 0.6
   });
+  // Bank: cream stone facade with a white pyramidal roof, two front
+  // columns and a small stack of gold coins on the front step. Reads as
+  // a small civic/financial building distinct from the market stall.
+  const bankWallMaterial = new MeshStandardMaterial({ color: "#cabb98", roughness: 0.9, metalness: 0, flatShading: true });
+  const bankTrimMaterial = new MeshStandardMaterial({ color: "#ece2cf", roughness: 0.88, metalness: 0, flatShading: true });
+  const bankCoinMaterial = new MeshStandardMaterial({
+    color: "#e7c14a",
+    roughness: 0.4,
+    metalness: 0.65,
+    flatShading: true,
+    emissive: "#8a6512",
+    emissiveIntensity: 0.25
+  });
+  // Aether tower: slender dark-stone shaft topped by a glowing violet
+  // crystal — reads as arcane infrastructure rather than a fort tower.
+  const aetherStoneMaterial = new MeshStandardMaterial({ color: "#4a4258", roughness: 0.9, metalness: 0.05, flatShading: true });
+  const aetherCrownMaterial = new MeshStandardMaterial({ color: "#7a6a96", roughness: 0.6, metalness: 0.4, flatShading: true });
+  const aetherCrystalMaterial = new MeshStandardMaterial({
+    color: "#b888ff",
+    roughness: 0.3,
+    metalness: 0.2,
+    flatShading: true,
+    emissive: "#7a3acc",
+    emissiveIntensity: 0.85
+  });
+  // Aegis dome: translucent cyan shield half-sphere over a stone base,
+  // ringed by four small emitter pylons with cyan crystal tips. The
+  // dome is its own emissive-translucent material so the silhouette
+  // reads as a force field rather than a building.
+  const aegisStoneMaterial = new MeshStandardMaterial({ color: "#8c8c92", roughness: 0.92, metalness: 0, flatShading: true });
+  const aegisCoreMaterial = new MeshStandardMaterial({ color: "#2c2e34", roughness: 0.5, metalness: 0.6, flatShading: true });
+  const aegisDomeMaterial = new MeshStandardMaterial({
+    color: "#7ad9f0",
+    roughness: 0.35,
+    metalness: 0.1,
+    flatShading: true,
+    transparent: true,
+    opacity: 0.45,
+    emissive: "#2a9ec0",
+    emissiveIntensity: 0.55,
+    depthWrite: false
+  });
+  const aegisCrystalMaterial = new MeshStandardMaterial({
+    color: "#9ce8f8",
+    roughness: 0.3,
+    metalness: 0.2,
+    flatShading: true,
+    emissive: "#2a9ec0",
+    emissiveIntensity: 0.8
+  });
+  // World engine: three-tier ancient ziggurat with a central spire and
+  // a massive golden core crystal — the signature late-game uniques
+  // should feel weightier than any economic structure.
+  const worldEngineStoneMaterial = new MeshStandardMaterial({ color: "#8a7a5a", roughness: 0.94, metalness: 0.02, flatShading: true });
+  const worldEngineDarkMaterial = new MeshStandardMaterial({ color: "#2a241e", roughness: 0.86, metalness: 0.1, flatShading: true });
+  const worldEngineCoreMaterial = new MeshStandardMaterial({
+    color: "#ffd34a",
+    roughness: 0.25,
+    metalness: 0.4,
+    flatShading: true,
+    emissive: "#d68a18",
+    emissiveIntensity: 0.95
+  });
+  // Imperial exchange: marble drum + columns under a gold dome with a
+  // gold finial — visually grandest of the civic buildings.
+  const exchangeMarbleMaterial = new MeshStandardMaterial({ color: "#eee6d2", roughness: 0.78, metalness: 0.05, flatShading: true });
+  const exchangeColumnMaterial = new MeshStandardMaterial({ color: "#f6f0df", roughness: 0.76, metalness: 0.05, flatShading: true });
+  const exchangeDomeMaterial = new MeshStandardMaterial({
+    color: "#e8b840",
+    roughness: 0.35,
+    metalness: 0.65,
+    flatShading: true,
+    emissive: "#7a5210",
+    emissiveIntensity: 0.18
+  });
 
   // ─── Geometries ─────────────────────────────────────────────────────
   // Farmstead barn
@@ -230,6 +315,36 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   const seedLabBodyGeo = new BoxGeometry(0.18, 0.14, 0.14);
   const seedLabRoofGeo = new ConeGeometry(0.13, 0.07, 4);
   const seedLabWindowGeo = new BoxGeometry(0.012, 0.06, 0.08);
+  // Bank: body + step + pyramidal roof + 2 columns + 1 coin stack.
+  const bankBodyGeo = new BoxGeometry(0.32, 0.18, 0.22);
+  const bankStepGeo = new BoxGeometry(0.38, 0.04, 0.10);
+  const bankRoofGeo = new ConeGeometry(0.22, 0.10, 4);
+  const bankColumnGeo = new CylinderGeometry(0.022, 0.022, 0.16, 10);
+  const bankCoinGeo = new CylinderGeometry(0.04, 0.04, 0.025, 12);
+  // Aether tower: plinth + tall shaft + crown ring + crystal spike.
+  const aetherBaseGeo = new CylinderGeometry(0.10, 0.12, 0.05, 12);
+  const aetherShaftGeo = new CylinderGeometry(0.06, 0.075, 0.40, 10);
+  const aetherCrownGeo = new CylinderGeometry(0.085, 0.07, 0.035, 12);
+  const aetherCrystalGeo = new OctahedronGeometry(0.05, 0);
+  // Aegis dome: base disk + central control core + half-sphere shield
+  // + 4 emitter pylons (cylinder + crystal tip).
+  const aegisBaseGeo = new CylinderGeometry(0.22, 0.24, 0.04, 18);
+  const aegisCoreGeo = new BoxGeometry(0.10, 0.08, 0.10);
+  const aegisDomeGeo = new SphereGeometry(0.20, 18, 9, 0, Math.PI * 2, 0, Math.PI * 0.5);
+  const aegisPylonGeo = new CylinderGeometry(0.018, 0.022, 0.10, 6);
+  const aegisPylonTipGeo = new OctahedronGeometry(0.028, 0);
+  // World engine: 3 ziggurat tiers + central spire + huge core crystal.
+  const worldEngineTier1Geo = new BoxGeometry(0.44, 0.10, 0.32);
+  const worldEngineTier2Geo = new BoxGeometry(0.30, 0.10, 0.22);
+  const worldEngineTier3Geo = new BoxGeometry(0.18, 0.10, 0.14);
+  const worldEngineSpireGeo = new CylinderGeometry(0.022, 0.045, 0.22, 8);
+  const worldEngineCoreGeo = new OctahedronGeometry(0.08, 0);
+  // Imperial exchange: wide stepped base + drum + dome + 4 columns + finial.
+  const exchangeBaseGeo = new CylinderGeometry(0.22, 0.24, 0.04, 18);
+  const exchangeDrumGeo = new CylinderGeometry(0.16, 0.16, 0.18, 18);
+  const exchangeDomeGeo = new SphereGeometry(0.16, 18, 9, 0, Math.PI * 2, 0, Math.PI * 0.5);
+  const exchangeColumnGeo = new CylinderGeometry(0.020, 0.020, 0.18, 8);
+  const exchangeFinialGeo = new ConeGeometry(0.030, 0.06, 12);
 
   type Slot = { mesh: InstancedMesh; count: number; cap: number };
   const slots = new Map<string, Slot>();
@@ -315,6 +430,35 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   make("seedLabBody", seedLabBodyGeo, seedLabWallMaterial, C);
   make("seedLabRoof", seedLabRoofGeo, seedLabRoofMaterial, C);
   make("seedLabWindow", seedLabWindowGeo, seedLabGlowMaterial, C);
+  // Bank
+  make("bankBody", bankBodyGeo, bankWallMaterial, C);
+  make("bankStep", bankStepGeo, bankTrimMaterial, C);
+  make("bankRoof", bankRoofGeo, bankTrimMaterial, C);
+  make("bankColumn", bankColumnGeo, bankTrimMaterial, C * 2);
+  make("bankCoin", bankCoinGeo, bankCoinMaterial, C);
+  // Aether tower
+  make("aetherBase", aetherBaseGeo, aetherCrownMaterial, C);
+  make("aetherShaft", aetherShaftGeo, aetherStoneMaterial, C);
+  make("aetherCrown", aetherCrownGeo, aetherCrownMaterial, C);
+  make("aetherCrystal", aetherCrystalGeo, aetherCrystalMaterial, C);
+  // Aegis dome (4 pylons + 4 tips per instance)
+  make("aegisBase", aegisBaseGeo, aegisStoneMaterial, C);
+  make("aegisCore", aegisCoreGeo, aegisCoreMaterial, C);
+  make("aegisDome", aegisDomeGeo, aegisDomeMaterial, C);
+  make("aegisPylon", aegisPylonGeo, aegisStoneMaterial, C * 4);
+  make("aegisPylonTip", aegisPylonTipGeo, aegisCrystalMaterial, C * 4);
+  // World engine
+  make("worldEngineTier1", worldEngineTier1Geo, worldEngineStoneMaterial, C);
+  make("worldEngineTier2", worldEngineTier2Geo, worldEngineStoneMaterial, C);
+  make("worldEngineTier3", worldEngineTier3Geo, worldEngineStoneMaterial, C);
+  make("worldEngineSpire", worldEngineSpireGeo, worldEngineDarkMaterial, C);
+  make("worldEngineCore", worldEngineCoreGeo, worldEngineCoreMaterial, C);
+  // Imperial exchange (4 columns per instance)
+  make("exchangeBase", exchangeBaseGeo, exchangeMarbleMaterial, C);
+  make("exchangeDrum", exchangeDrumGeo, exchangeMarbleMaterial, C);
+  make("exchangeDome", exchangeDomeGeo, exchangeDomeMaterial, C);
+  make("exchangeColumn", exchangeColumnGeo, exchangeColumnMaterial, C * 4);
+  make("exchangeFinial", exchangeFinialGeo, exchangeDomeMaterial, C);
 
   // ─── Helpers ────────────────────────────────────────────────────────
   const matrix = new Matrix4();
@@ -540,6 +684,87 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     addPiece("seedLabWindow", sx, sy, sz, 0, 0.07, 0.235);
   };
 
+  const addBank = (sx: number, sy: number, sz: number): void => {
+    // Cream stone civic block with a low front step, two columns flanking
+    // the entrance, a pyramidal roof, and a small gold coin stack on the
+    // front step. Reads as a small civic / financial building, distinct
+    // from the market stall (open awning) and the granary (golden roof).
+    addPiece("bankStep", sx, sy, sz, 0, 0.025, 0.14);
+    addPiece("bankBody", sx, sy, sz, 0, 0.13, 0);
+    addPiece("bankRoof", sx, sy, sz, 0, 0.27, 0, 1, 1, 1, Math.PI * 0.25);
+    addPiece("bankColumn", sx, sy, sz, -0.10, 0.12, 0.13);
+    addPiece("bankColumn", sx, sy, sz, 0.10, 0.12, 0.13);
+    addPiece("bankCoin", sx, sy, sz, -0.16, 0.06, 0.22);
+  };
+
+  const addAetherTower = (sx: number, sy: number, sz: number): void => {
+    // Slender dark-stone shaft topped by a glowing violet crystal. Y-scale
+    // 1.4 on the crystal elongates the octahedron into a spike so the
+    // silhouette is unmistakable from any orbit angle.
+    addPiece("aetherBase", sx, sy, sz, 0, 0.025, 0);
+    addPiece("aetherShaft", sx, sy, sz, 0, 0.25, 0);
+    addPiece("aetherCrown", sx, sy, sz, 0, 0.47, 0);
+    addPiece("aetherCrystal", sx, sy, sz, 0, 0.55, 0, 1, 1.4, 1);
+  };
+
+  const addAegisDome = (sx: number, sy: number, sz: number): void => {
+    // Stone disk foundation with a dark core block at the center, a
+    // translucent cyan half-sphere shield over the top, and four small
+    // emitter pylons at NE/SE/SW/NW corners each capped with a cyan
+    // crystal. Dome is rendered with depthWrite:false + opacity 0.45 so
+    // it reads as a force field, not a building.
+    addPiece("aegisBase", sx, sy, sz, 0, 0.02, 0);
+    addPiece("aegisCore", sx, sy, sz, 0, 0.08, 0);
+    addPiece("aegisDome", sx, sy, sz, 0, 0.06, 0);
+    const pylonOffsets: ReadonlyArray<readonly [number, number]> = [
+      [-0.17, -0.17],
+      [0.17, -0.17],
+      [-0.17, 0.17],
+      [0.17, 0.17]
+    ];
+    for (const [ox, oz] of pylonOffsets) {
+      addPiece("aegisPylon", sx, sy, sz, ox, 0.07, oz);
+      addPiece("aegisPylonTip", sx, sy, sz, ox, 0.135, oz);
+    }
+  };
+
+  const addWorldEngine = (sx: number, sy: number, sz: number): void => {
+    // Three stacked ancient-stone tiers form a ziggurat. A short dark
+    // obsidian spire rises from the top tier and supports a massive
+    // golden core crystal that emits warm light. Y offsets stack the
+    // tiers so each one half-clears the next.
+    addPiece("worldEngineTier1", sx, sy, sz, 0, 0.05, 0);
+    addPiece("worldEngineTier2", sx, sy, sz, 0, 0.15, 0);
+    addPiece("worldEngineTier3", sx, sy, sz, 0, 0.25, 0);
+    addPiece("worldEngineSpire", sx, sy, sz, 0, 0.41, 0);
+    // Core crystal sits at the top of the spire, slightly elongated and
+    // tilted 22.5° so its silhouette reads as a multi-faceted gem.
+    addPiece("worldEngineCore", sx, sy, sz, 0, 0.56, 0, 1, 1.2, 1, Math.PI * 0.125, 0, 0);
+  };
+
+  const addImperialExchange = (sx: number, sy: number, sz: number): void => {
+    // Wide marble stepped base, central drum, four columns set forward of
+    // the drum at quarter positions, a golden dome on top, and a small
+    // gold finial above the dome. The dome shares the goldish exchange
+    // material, contrasting with the cream drum so the silhouette reads
+    // as a domed civic building from any orbit angle.
+    addPiece("exchangeBase", sx, sy, sz, 0, 0.02, 0);
+    addPiece("exchangeDrum", sx, sy, sz, 0, 0.13, 0);
+    addPiece("exchangeDome", sx, sy, sz, 0, 0.22, 0);
+    addPiece("exchangeFinial", sx, sy, sz, 0, 0.41, 0);
+    // 4 columns at cardinal points just outside the drum radius (drum
+    // radius 0.16, columns at 0.20 so they read as a colonnade).
+    const colOffsets: ReadonlyArray<readonly [number, number]> = [
+      [0.20, 0],
+      [-0.20, 0],
+      [0, 0.20],
+      [0, -0.20]
+    ];
+    for (const [ox, oz] of colOffsets) {
+      addPiece("exchangeColumn", sx, sy, sz, ox, 0.13, oz);
+    }
+  };
+
   // ─── Public API ─────────────────────────────────────────────────────
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
@@ -561,6 +786,11 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     else if (kind === "OBSERVATORY") addObservatory(sceneX, surfaceY, sceneZ);
     else if (kind === "GRANARY") addGranary(sceneX, surfaceY, sceneZ);
     else if (kind === "SEED_GRANARY") addSeedGranary(sceneX, surfaceY, sceneZ);
+    else if (kind === "BANK") addBank(sceneX, surfaceY, sceneZ);
+    else if (kind === "AETHER_TOWER") addAetherTower(sceneX, surfaceY, sceneZ);
+    else if (kind === "AEGIS_DOME") addAegisDome(sceneX, surfaceY, sceneZ);
+    else if (kind === "WORLD_ENGINE") addWorldEngine(sceneX, surfaceY, sceneZ);
+    else if (kind === "IMPERIAL_EXCHANGE") addImperialExchange(sceneX, surfaceY, sceneZ);
   };
 
   const commit = (): void => {
@@ -582,7 +812,12 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
       observatoryBaseGeo, observatoryDomeGeo, observatorySlitGeo, observatoryTelescopeGeo,
       blueCrystalGeo,
       granaryBodyGeo, granaryRoofGeo, granaryBandGeo, granaryAnnexBodyGeo, granaryAnnexRoofGeo, granaryCupolaGeo, granaryCupolaRoofGeo, granarySackGeo,
-      seedSiloBodyGeo, seedSiloBandGeo, seedSiloCapGeo, seedLabBodyGeo, seedLabRoofGeo, seedLabWindowGeo
+      seedSiloBodyGeo, seedSiloBandGeo, seedSiloCapGeo, seedLabBodyGeo, seedLabRoofGeo, seedLabWindowGeo,
+      bankBodyGeo, bankStepGeo, bankRoofGeo, bankColumnGeo, bankCoinGeo,
+      aetherBaseGeo, aetherShaftGeo, aetherCrownGeo, aetherCrystalGeo,
+      aegisBaseGeo, aegisCoreGeo, aegisDomeGeo, aegisPylonGeo, aegisPylonTipGeo,
+      worldEngineTier1Geo, worldEngineTier2Geo, worldEngineTier3Geo, worldEngineSpireGeo, worldEngineCoreGeo,
+      exchangeBaseGeo, exchangeDrumGeo, exchangeDomeGeo, exchangeColumnGeo, exchangeFinialGeo
     ].forEach((g) => g.dispose());
     [
       barnRedMaterial, barnRoofMaterial, siloMaterial, woodFenceMaterial,
@@ -594,7 +829,12 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
       observatoryStoneMaterial, observatoryDomeMaterial, observatorySlitMaterial, observatoryTelescopeMaterial,
       blueCrystalMaterial,
       granaryWallMaterial, granaryRoofMaterial, granaryAnnexRoofMaterial, granaryBandMaterial, granaryCupolaMaterial, granarySackMaterial,
-      seedSiloMaterial, seedSiloBandMaterial, seedSiloCapMaterial, seedLabWallMaterial, seedLabRoofMaterial, seedLabGlowMaterial
+      seedSiloMaterial, seedSiloBandMaterial, seedSiloCapMaterial, seedLabWallMaterial, seedLabRoofMaterial, seedLabGlowMaterial,
+      bankWallMaterial, bankTrimMaterial, bankCoinMaterial,
+      aetherStoneMaterial, aetherCrownMaterial, aetherCrystalMaterial,
+      aegisStoneMaterial, aegisCoreMaterial, aegisDomeMaterial, aegisCrystalMaterial,
+      worldEngineStoneMaterial, worldEngineDarkMaterial, worldEngineCoreMaterial,
+      exchangeMarbleMaterial, exchangeColumnMaterial, exchangeDomeMaterial
     ].forEach((m) => m.dispose());
   };
 
