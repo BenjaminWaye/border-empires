@@ -135,7 +135,11 @@ export const registerEconomicStructures = (
   const dryRackPeltGeo = new BoxGeometry(0.13, 0.085, 0.018);
   const campTripodPostGeo = new CylinderGeometry(0.028, 0.034, 0.30, 7);
   const campTripodBindingGeo = new BoxGeometry(0.055, 0.030, 0.055);
-  const campTripodPeltGeo = new BoxGeometry(0.20, 0.16, 0.022);
+  // Stretched-diamond hide — same shape as the FUR resource tripod's
+  // pelt (OctahedronGeometry scaled to a wide-flat diamond) so camp
+  // and fur read as the same family.
+  const campTripodPeltGeo = new OctahedronGeometry(1, 0);
+  campTripodPeltGeo.scale(0.105, 0.085, 0.018);
   const mineHillGeo = new ConeGeometry(0.30, 0.22, 6);
   const mineEntranceGeo = new BoxGeometry(0.18, 0.16, 0.05);
   const mineBeamGeo = new BoxGeometry(0.20, 0.022, 0.022);
