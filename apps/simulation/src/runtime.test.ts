@@ -619,6 +619,28 @@ describe("simulation runtime", () => {
     expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
   });
 
+  it("returns vision around owned tiles when the player has no live row in this.players (fog admin)", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map(),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "fog-admin", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND" },
+          { x: 30, y: 30, terrain: "LAND", ownerId: "other-player", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const visibleState = runtime.exportVisibleStateForPlayer("fog-admin");
+
+    expect(visibleState.tiles.some((tile) => tile.x === 10 && tile.y === 10 && tile.ownerId === "fog-admin")).toBe(true);
+    expect(visibleState.tiles.some((tile) => tile.x === 11 && tile.y === 10)).toBe(true);
+    expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
+  });
+
   it("redacts opponent settled state on lock-target tiles outside the viewer's vision", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
