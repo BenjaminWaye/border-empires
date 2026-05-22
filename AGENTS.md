@@ -36,11 +36,13 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - Failing regression tests are merge blockers, even if the feature seems unrelated.
 - Full regression + debugging-instrumentation patterns: `docs/agents/testing-and-debugging.md`.
 - AI planner / snapshot / selector rules (heavy selectors banned in snapshot builders, etc.): `docs/agents/ai-guardrails.md`.
+- Codex token budget and context-loading rules: `docs/agents/codex-token-budget.md`.
 
 ## Documentation maintenance
 
 - Keep `AGENTS.md` limited to always-on operating rules and pointers. Do not expand it into architecture or gameplay docs.
 - When workflow rules, repo entrypoints, or package layout change, update `AGENTS.md`, `README.md`, and affected docs in the same branch.
+- Use per-topic runbooks/task notes for recurring work so agents do not rediscover the same files and commands every session: `docs/agents/topic-runbooks.md`.
 
 ## Repo reference
 
