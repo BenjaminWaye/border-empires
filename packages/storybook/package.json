@@ -1,0 +1,26 @@
+{
+  "name": "@border-empires/storybook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "storybook dev -p 6006 --no-open",
+    "storybook:build": "storybook build -o storybook-static",
+    "build": "echo 'storybook: skipping build in -r build (use storybook:build)'",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@border-empires/client": "workspace:*",
+    "three": "^0.179.1"
+  },
+  "devDependencies": {
+    "@storybook/addon-docs": "^10.4.0",
+    "@storybook/html-vite": "^10.4.0",
+    "@types/three": "^0.179.0",
+    "storybook": "^10.4.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}
