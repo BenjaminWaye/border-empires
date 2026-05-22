@@ -30,10 +30,17 @@ export const registerCivicStructures = (
   const C = builder.maxTiles;
 
   // ─── Materials ──────────────────────────────────────────────────────
+  // Caravanary (caravanserai): a fortified roadside inn for merchant
+  // caravans. Square stone courtyard with corner watchtowers, a pair
+  // of gate towers flanking the front entrance, a central well, and
+  // stacked cargo against the inner walls. No tents — caravanserais
+  // gave travelers built rooms in the perimeter, not pitched canvas.
   const caravanaryStoneMaterial = new MeshStandardMaterial({ color: "#c9a972", roughness: 0.92, metalness: 0, flatShading: true });
+  const caravanaryTowerMaterial = new MeshStandardMaterial({ color: "#b8986a", roughness: 0.92, metalness: 0, flatShading: true });
+  const caravanaryTowerCapMaterial = new MeshStandardMaterial({ color: "#7a3026", roughness: 0.88, metalness: 0, flatShading: true });
   const caravanaryWellMaterial = new MeshStandardMaterial({ color: "#7a6a52", roughness: 0.92, metalness: 0, flatShading: true });
-  const caravanaryTentMaterial = new MeshStandardMaterial({ color: "#b5563a", roughness: 0.86, metalness: 0, flatShading: true });
   const caravanaryCargoMaterial = new MeshStandardMaterial({ color: "#6a4a30", roughness: 0.9, metalness: 0, flatShading: true });
+  const caravanarySackMaterial = new MeshStandardMaterial({ color: "#a5783e", roughness: 0.92, metalness: 0, flatShading: true });
   const customsWallMaterial = new MeshStandardMaterial({ color: "#dccab0", roughness: 0.9, metalness: 0, flatShading: true });
   const customsRoofMaterial = new MeshStandardMaterial({ color: "#7a3026", roughness: 0.88, metalness: 0, flatShading: true });
   const customsGateRedMaterial = new MeshStandardMaterial({ color: "#c63a2c", roughness: 0.84, metalness: 0, flatShading: true });
@@ -53,10 +60,18 @@ export const registerCivicStructures = (
   const governorFlagMaterial = new MeshStandardMaterial({ color: "#c83a2a", roughness: 0.82, metalness: 0, flatShading: true });
 
   // ─── Geometries ─────────────────────────────────────────────────────
-  const caravanaryWallGeo = new BoxGeometry(0.32, 0.10, 0.025);
+  // Walls taller and slightly thicker than v1 so the perimeter reads
+  // as defensible stone, not garden fencing.
+  const caravanaryWallGeo = new BoxGeometry(0.32, 0.14, 0.035);
+  // 4 corner watchtowers (cylinders) + 4 conical caps so the silhouette
+  // reads as fortified from any orbit angle.
+  const caravanaryTowerGeo = new CylinderGeometry(0.045, 0.05, 0.20, 8);
+  const caravanaryTowerCapGeo = new ConeGeometry(0.052, 0.05, 8);
   const caravanaryWellGeo = new CylinderGeometry(0.04, 0.045, 0.06, 10);
-  const caravanaryTentGeo = new ConeGeometry(0.08, 0.07, 4);
+  // Cargo crates and a single grain sack inside the courtyard, stacked
+  // along the back wall.
   const caravanaryCargoGeo = new BoxGeometry(0.05, 0.05, 0.07);
+  const caravanarySackGeo = new BoxGeometry(0.055, 0.045, 0.05);
   const customsBodyGeo = new BoxGeometry(0.20, 0.13, 0.16);
   const customsRoofGeo = new ConeGeometry(0.15, 0.08, 4);
   const customsGatePoleGeo = new CylinderGeometry(0.011, 0.011, 0.14, 6);
@@ -82,9 +97,11 @@ export const registerCivicStructures = (
 
   // ─── Slots ─────────────────────────────────────────────────────────
   builder.makeSlot("caravanaryWall", caravanaryWallGeo, caravanaryStoneMaterial, C * 4);
+  builder.makeSlot("caravanaryTower", caravanaryTowerGeo, caravanaryTowerMaterial, C * 4);
+  builder.makeSlot("caravanaryTowerCap", caravanaryTowerCapGeo, caravanaryTowerCapMaterial, C * 4);
   builder.makeSlot("caravanaryWell", caravanaryWellGeo, caravanaryWellMaterial, C);
-  builder.makeSlot("caravanaryTent", caravanaryTentGeo, caravanaryTentMaterial, C * 2);
-  builder.makeSlot("caravanaryCargo", caravanaryCargoGeo, caravanaryCargoMaterial, C * 2);
+  builder.makeSlot("caravanaryCargo", caravanaryCargoGeo, caravanaryCargoMaterial, C * 3);
+  builder.makeSlot("caravanarySack", caravanarySackGeo, caravanarySackMaterial, C * 2);
   builder.makeSlot("customsBody", customsBodyGeo, customsWallMaterial, C);
   builder.makeSlot("customsRoof", customsRoofGeo, customsRoofMaterial, C);
   builder.makeSlot("customsGatePole", customsGatePoleGeo, customsBollardMaterial, C);
@@ -110,15 +127,31 @@ export const registerCivicStructures = (
 
   // ─── Layouts ────────────────────────────────────────────────────────
   const addCaravanary: CivicStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("caravanaryWall", sx, sy, sz, 0, 0.05, -0.16);
-    builder.addPiece("caravanaryWall", sx, sy, sz, 0, 0.05, 0.16);
-    builder.addPiece("caravanaryWall", sx, sy, sz, -0.16, 0.05, 0, 1, 1, 1, Math.PI * 0.5);
-    builder.addPiece("caravanaryWall", sx, sy, sz, 0.16, 0.05, 0, 1, 1, 1, Math.PI * 0.5);
+    // 4 perimeter walls. North/south keep default orientation; east/west
+    // rotate 90° around Y. Wall height 0.14 reads as fortified.
+    builder.addPiece("caravanaryWall", sx, sy, sz, 0, 0.07, -0.16);
+    builder.addPiece("caravanaryWall", sx, sy, sz, 0, 0.07, 0.16);
+    builder.addPiece("caravanaryWall", sx, sy, sz, -0.16, 0.07, 0, 1, 1, 1, Math.PI * 0.5);
+    builder.addPiece("caravanaryWall", sx, sy, sz, 0.16, 0.07, 0, 1, 1, 1, Math.PI * 0.5);
+    // 4 corner watchtowers (cylinder + conical cap). The two front
+    // towers (positive Z) also function as the gate-tower pair flanking
+    // the entrance.
+    const towerOffsets: ReadonlyArray<readonly [number, number]> = [
+      [-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]
+    ];
+    for (const [ox, oz] of towerOffsets) {
+      builder.addPiece("caravanaryTower", sx, sy, sz, ox, 0.10, oz);
+      builder.addPiece("caravanaryTowerCap", sx, sy, sz, ox, 0.225, oz, 1, 1, 1, Math.PI * 0.125);
+    }
+    // Central courtyard well.
     builder.addPiece("caravanaryWell", sx, sy, sz, 0, 0.03, 0);
-    builder.addPiece("caravanaryTent", sx, sy, sz, -0.09, 0.035, -0.06, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("caravanaryTent", sx, sy, sz, 0.09, 0.035, 0.06, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("caravanaryCargo", sx, sy, sz, -0.07, 0.025, 0.10);
-    builder.addPiece("caravanaryCargo", sx, sy, sz, 0.07, 0.025, 0.10);
+    // Cargo stacked against the inner back wall + one along the side.
+    builder.addPiece("caravanaryCargo", sx, sy, sz, -0.08, 0.025, -0.10);
+    builder.addPiece("caravanaryCargo", sx, sy, sz, -0.02, 0.025, -0.10);
+    builder.addPiece("caravanaryCargo", sx, sy, sz, 0.04, 0.025, -0.10);
+    // A pair of grain sacks slumped beside the well.
+    builder.addPiece("caravanarySack", sx, sy, sz, 0.08, 0.022, 0.06);
+    builder.addPiece("caravanarySack", sx, sy, sz, 0.10, 0.022, 0.00);
   };
 
   const addCustomsHouse: CivicStructureLayout = (sx, sy, sz) => {
