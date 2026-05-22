@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.23.2",
+  version: "2026.05.23.3",
   title: "What's New",
-  summary: "Tile inspector Production and gold cap now reflect connected-town bonuses and other multipliers — the gateway no longer silently strips them out on its way to the client.",
+  summary: "Bridge debug card now shows the gateway/sim build SHA alongside the client's, with a ⚠ if they don't match. Confirms at a glance that the client and server were built from the same commit.",
   entries: [
+    {
+      introducedIn: "2026.05.23.3",
+      title: "Server build SHA visible in the bridge debug card",
+      why: "When a feature works on staging but not prod (or vice versa), the question that's hard to answer is 'is your client running the same commit as the gateway+sim?'. The card showed Client build but had no parallel value for the server, so a stale-server-vs-fresh-client deploy state was invisible.",
+      changes: [
+        "Deploy scripts (deploy-staging-all.mjs, deploy-prod-all.mjs) now pass --env BUILD_SHA=<targetSha> on fly deploy; the gateway reads it at startup and includes serverBuildSha on every INIT payload.",
+        "Bridge debug card adds a Server build line (first 8 chars, matches the Client build format) and flags ⚠ mismatch when the SHA does not start with CLIENT_BUILD_VERSION.",
+        "Copy Bridge Debug payload now includes both Client build and Server build lines so a pasted snapshot is self-diagnosing for client/server skew."
+      ]
+    },
     {
       introducedIn: "2026.05.23.2",
       title: "Tile inspector Production stops dropping the connected-town bonus",

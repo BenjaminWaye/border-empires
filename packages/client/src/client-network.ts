@@ -1325,6 +1325,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
       state.bridgeDebugRuntimeFingerprint = incomingRuntimeIdentity?.fingerprint ?? "";
       state.bridgeDebugSnapshotLabel = incomingRuntimeIdentity?.snapshotLabel ?? "";
+      const incomingServerBuildSha = (msg as { serverBuildSha?: unknown }).serverBuildSha;
+      state.bridgeDebugServerBuildSha = typeof incomingServerBuildSha === "string" ? incomingServerBuildSha : "";
       state.fogDisabled = Boolean(incomingConfig.fogDisabled);
       if (typeof incomingSeason?.worldSeed === "number") {
         setWorldSeed(incomingSeason.worldSeed);
