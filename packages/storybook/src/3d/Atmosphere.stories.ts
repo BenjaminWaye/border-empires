@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/html";
+import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createAtmosphere } from "@client/client-map-3d-atmosphere.js";
 import { createForest } from "@client/client-map-3d-forest.js";
 import { createMountainMassifs } from "@client/client-map-3d-mountain-massif.js";

@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/html";
+import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createVillageEffects } from "@client/client-map-3d-village-fx.js";
 import { createStage, forEachGridCell, wrapWithCleanup } from "../three-stage.js";
 

@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/html";
+import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createDefensibilityOverlay } from "@client/client-map-3d-defensibility-overlay.js";
 import type { WeakDefensibilitySeverity } from "@client/client-defensibility-tile.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
