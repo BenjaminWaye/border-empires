@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
   buildBatchBody,
+  buildTeacherRecordHash,
   buildTeacherPrompt,
   buildTokenUsageEntries,
   enforceTokenUsageLimits,
   estimateRecordInputTokens,
   estimateRecordPromptTokens,
+  loadLabelCache,
   summarizeTokenUsage
 } from "./ai-labeling-common.mjs";
 
@@ -53,6 +58,50 @@ test("buildTeacherPrompt compacts record JSON and omits nullish optional fields"
   assert.doesNotMatch(prompt, /"source":null/);
   assert.doesNotMatch(prompt, /"candidates":null/);
   assert.doesNotMatch(prompt, /"visibleSnapshot"/);
+});
+
+test("buildTeacherRecordHash is stable for equivalent context object key order", () => {
+  const reorderedRecord = {
+    notes: "prefer coast",
+    visibleSnapshot: undefined,
+    candidates: null,
+    chosenAction: { payload: { y: 2, x: 2 }, type: "EXPAND" },
+    plannerState: {
+      tiles: [{ ownerId: "ai-1", y: 2, x: 1 }],
+      player: { gold: 50, id: "ai-1" }
+    },
+    source: null,
+    recordId: "record-1"
+  };
+
+  assert.equal(buildTeacherRecordHash(record), buildTeacherRecordHash(reorderedRecord));
+  assert.notEqual(
+    buildTeacherRecordHash(record),
+    buildTeacherRecordHash({ ...record, chosenAction: { type: "FORTIFY" } })
+  );
+});
+
+test("loadLabelCache returns exact-hash label entries and ignores old cache lines", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "ai-label-cache-"));
+  try {
+    const cachePath = path.join(dir, "labels.jsonl");
+    const recordHash = buildTeacherRecordHash(record);
+    await writeFile(
+      cachePath,
+      [
+        JSON.stringify({ recordId: "old-format", label: { moveQuality: "strong" } }),
+        JSON.stringify({ recordId: "record-1", recordHash, label: { moveQuality: "playable" } })
+      ].join("\n"),
+      "utf8"
+    );
+
+    const cache = await loadLabelCache(cachePath);
+    assert.equal(cache.size, 1);
+    assert.equal(cache.get(recordHash).recordId, "record-1");
+    assert.equal(cache.get(recordHash).label.moveQuality, "playable");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("token usage summary includes totals and most expensive records", () => {
