@@ -9,7 +9,7 @@ import {
   shouldShowRendererPrompt
 } from "./client-renderer-prompt.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
-import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
+import { effectiveFogDisabled } from "./client-map-reveal.js";
 import {
   fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,

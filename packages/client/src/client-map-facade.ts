@@ -9,7 +9,7 @@ import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap.js";
 import { resolveOwnerColor } from "./client-owner-colors.js";
 import { playerNameForOwnerFromState } from "./client-owner-name.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
-import { effectiveFogDisabled } from "./client-staging-map-reveal.js";
+import { effectiveFogDisabled } from "./client-map-reveal.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
