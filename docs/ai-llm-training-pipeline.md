@@ -138,8 +138,38 @@ Input:
 Output:
 
 - `tmp/ai-training/labeling-batch.jsonl`
+- `tmp/ai-training/token-usage-report.json`
 
 That output is intentionally shaped for OpenAI batch-style offline labeling. It can also be adapted for any other LLM provider.
+
+Hosted batch generation fails closed by default. First run a dry-run estimate:
+
+```bash
+AI_LABELING_DRY_RUN=1 \
+AI_LABELING_INPUT_USD_PER_MTOK=<current-input-price> \
+AI_LABELING_OUTPUT_USD_PER_MTOK=<current-output-price> \
+pnpm ai:labeling:batch
+```
+
+Then generate a bounded batch only after reviewing `tmp/ai-training/token-usage-report.json`:
+
+```bash
+AI_LABELING_MAX_RECORDS=100 \
+AI_LABELING_MAX_OUTPUT_TOKENS=384 \
+AI_LABELING_INPUT_USD_PER_MTOK=<current-input-price> \
+AI_LABELING_OUTPUT_USD_PER_MTOK=<current-output-price> \
+AI_LABELING_MAX_ESTIMATED_USD=5 \
+pnpm ai:labeling:batch tmp/ai-training/records.escalate.jsonl
+```
+
+Use provider current per-million-token prices for the two pricing variables. The script intentionally does not keep baked-in prices because stale pricing is worse than no estimate. Other useful guards:
+
+- `AI_LABELING_MAX_INPUT_TOKENS=N`
+- `AI_LABELING_MAX_TOTAL_TOKENS=N`
+- `AI_LABELING_TOKEN_REPORT_PATH=/absolute/path/report.json`
+- `AI_LABELING_PROMPT_CACHE_RETENTION=24h` for supported hosted models only
+
+The batch prompt puts stable instructions first and compact per-record JSON last so hosted provider prefix caching can work. It also sets a stable prompt cache key and caps output tokens. Extended `24h` cache retention is opt-in because not every hosted model supports it.
 
 For local teacher runs, the worktree now also supports:
 
@@ -161,11 +191,14 @@ pnpm ai:labeling:local
 This writes:
 
 - `tmp/ai-training/labeled-records.local.jsonl`
+- `tmp/ai-training/token-usage-report.local.json`
 
 Useful knobs:
 
 - `AI_LABELING_CONCURRENCY=1..N`
 - `AI_LABELING_MAX_RECORDS=N`
+- `AI_LABELING_MAX_OUTPUT_TOKENS=N`
+- `AI_LABELING_DRY_RUN=1`
 
 For low-cost local labeling, start with `Qwen2.5-7B-Instruct` and a small `AI_LABELING_MAX_RECORDS` cap, then only escalate ambiguous or low-quality labels to a stronger model.
 
@@ -266,12 +299,31 @@ That gives you a usable first-pass corpus without introducing whole-world snapsh
 Run:
 
 ```bash
+AI_LABELING_DRY_RUN=1 \
+AI_LABELING_INPUT_USD_PER_MTOK=<current-input-price> \
+AI_LABELING_OUTPUT_USD_PER_MTOK=<current-output-price> \
 pnpm ai:labeling:batch
 ```
 
 after populating:
 
 - `tmp/ai-training/records.jsonl`
+
+Review:
+
+- `tmp/ai-training/token-usage-report.json`
+
+Prefer local labeling first, then triage, then hosted escalation:
+
+```bash
+AI_LABELING_MAX_RECORDS=500 pnpm ai:labeling:local
+pnpm ai:labeling:triage
+AI_LABELING_MAX_RECORDS=100 \
+AI_LABELING_MAX_ESTIMATED_USD=5 \
+AI_LABELING_INPUT_USD_PER_MTOK=<current-input-price> \
+AI_LABELING_OUTPUT_USD_PER_MTOK=<current-output-price> \
+pnpm ai:labeling:batch tmp/ai-training/records.escalate.jsonl
+```
 
 Then send the produced:
 
