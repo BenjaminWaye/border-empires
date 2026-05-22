@@ -106,25 +106,25 @@ describe("3d unfed-town badge regression guard", () => {
     expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { populationGrowthPerMinute: 1 } }))).toBe(false);
   });
 
-  it("emits exactly one triangle + dot pair per unfed town and clears between frames", () => {
+  it("emits exactly one badge per unfed town and clears between frames", () => {
     const scene = new Scene();
     const overlay = createUnfedBadgeOverlay(scene, 32);
     const meshes = overlay.group.children.filter(
       (c): c is InstancedMesh => c instanceof InstancedMesh
     );
-    // Triangle + dot — two InstancedMesh objects on the overlay group.
-    expect(meshes).toHaveLength(2);
+    // Single textured plane per badge (canvas texture: shield + 🍞 +
+    // red diagonal slash). The previous primitive-only designs used
+    // 2-3 meshes; the 2D-texture-on-a-plane approach is one mesh.
+    expect(meshes).toHaveLength(1);
 
     overlay.clear();
     overlay.addInstance(1, 2, 0.5);
     overlay.commit();
     expect(meshes[0]!.count).toBe(1);
-    expect(meshes[1]!.count).toBe(1);
 
     overlay.clear();
     overlay.commit();
     expect(meshes[0]!.count).toBe(0);
-    expect(meshes[1]!.count).toBe(0);
 
     overlay.dispose();
   });
