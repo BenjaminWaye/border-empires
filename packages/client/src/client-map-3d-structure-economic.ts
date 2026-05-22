@@ -67,11 +67,6 @@ export const registerEconomicStructures = (
   const barnRoofMaterial = new MeshStandardMaterial({ color: "#3a261c", roughness: 0.92, metalness: 0, flatShading: true });
   const siloMaterial = new MeshStandardMaterial({ color: "#c8b890", roughness: 0.86, metalness: 0, flatShading: true });
   const woodFenceMaterial = new MeshStandardMaterial({ color: "#5e4530", roughness: 0.92, metalness: 0, flatShading: true });
-  // Crop rows for FARMSTEAD: a farmstead is built on a FARM tile so it
-  // should still read as "barn-in-a-field", not "barn replacing field".
-  // Slight emissive on the green so the rows pop against the heightfield
-  // grass without looking neon.
-  const cropRowMaterial = new MeshStandardMaterial({ color: "#5e8a3a", roughness: 0.86, metalness: 0, flatShading: true, emissive: "#1e2e0e", emissiveIntensity: 0.18 });
   const stoneMaterial = new MeshStandardMaterial({ color: "#8a857a", roughness: 0.92, metalness: 0, flatShading: true });
   const stoneRoofMaterial = new MeshStandardMaterial({ color: "#5d574e", roughness: 0.88, metalness: 0, flatShading: true });
   const waterWheelMaterial = new MeshStandardMaterial({ color: "#6a4a32", roughness: 0.88, metalness: 0, flatShading: true });
@@ -124,9 +119,6 @@ export const registerEconomicStructures = (
   const siloBodyGeo = new CylinderGeometry(0.07, 0.07, 0.28, 10);
   const siloCapGeo = new ConeGeometry(0.075, 0.07, 10);
   const fenceGeo = new BoxGeometry(0.018, 0.06, 0.16);
-  // Crop row: a long thin box running along Z, so 4 rows side-by-side
-  // along X read as a small field beside the barn.
-  const cropRowGeo = new BoxGeometry(0.032, 0.035, 0.34);
   const wwTowerGeo = new BoxGeometry(0.22, 0.32, 0.22);
   const wwRoofGeo = new ConeGeometry(0.18, 0.12, 4);
   const wwWheelGeo = new CylinderGeometry(0.13, 0.13, 0.05, 12);
@@ -190,7 +182,6 @@ export const registerEconomicStructures = (
   builder.makeSlot("siloBody", siloBodyGeo, siloMaterial, C);
   builder.makeSlot("siloCap", siloCapGeo, siloMaterial, C);
   builder.makeSlot("fence", fenceGeo, woodFenceMaterial, C * 4);
-  builder.makeSlot("cropRow", cropRowGeo, cropRowMaterial, C * 4);
   // Waterworks
   builder.makeSlot("wwTower", wwTowerGeo, stoneMaterial, C);
   builder.makeSlot("wwRoof", wwRoofGeo, stoneRoofMaterial, C);
@@ -251,6 +242,11 @@ export const registerEconomicStructures = (
 
   // ─── Layouts ────────────────────────────────────────────────────────
   const addFarmstead: EconomicStructureLayout = (sx, sy, sz) => {
+    // Barn + silo + back fence. The crop field comes from the FARM
+    // resource overlay (golden plates + wheat sheaves + orchard trees,
+    // see client-map-3d-resource-overlay.ts addFarm). Both overlays
+    // render together on a farmstead tile so the in-game tile reads as
+    // "barn on a farm field" — an upgraded farm, not a replacement.
     builder.addPiece("barnBody", sx, sy, sz, -0.10, 0.11, 0.04);
     builder.addPiece("barnRoof", sx, sy, sz, -0.10, 0.29, 0.04, 1, 1, 1, Math.PI * 0.25);
     builder.addPiece("siloBody", sx, sy, sz, 0.16, 0.14, 0.04);
@@ -259,14 +255,6 @@ export const registerEconomicStructures = (
     builder.addPiece("fence", sx, sy, sz, -0.02, 0.03, -0.18);
     builder.addPiece("fence", sx, sy, sz, 0.14, 0.03, -0.18);
     builder.addPiece("fence", sx, sy, sz, 0.30, 0.03, -0.18);
-    // 4 crop rows running along Z on the right side of the tile so the
-    // farmstead reads as "barn + silo + cultivated field", not "barn
-    // replacing the field". X positions sit past the silo (silo is at
-    // x=0.16); rows step outward from there.
-    builder.addPiece("cropRow", sx, sy, sz, 0.30, 0.0175, 0.08);
-    builder.addPiece("cropRow", sx, sy, sz, 0.36, 0.0175, 0.08);
-    builder.addPiece("cropRow", sx, sy, sz, 0.42, 0.0175, 0.08);
-    builder.addPiece("cropRow", sx, sy, sz, 0.48, 0.0175, 0.08);
   };
 
   const addWaterworks: EconomicStructureLayout = (sx, sy, sz) => {
