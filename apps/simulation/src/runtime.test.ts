@@ -7674,7 +7674,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     // ≤ 0.0001), and the gateway's shallow snapshot merge preserved the stale
     // 2105. Verify the delta now carries `yield: { gold: 0 }` so the client
     // can authoritatively clear stale buffers even when the live value is zero.
-    let nowMs = 1_000_000;
+    const nowMs = 1_000_000;
     const runtime = new SimulationRuntime({
       now: () => nowMs,
       initialPlayers: new Map([
