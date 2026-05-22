@@ -2943,7 +2943,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
         const selectedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
         if (selectedTile && selectedTile.ownerId && selectedTile.ownerId !== state.me && !isTileOwnedByAlly(selectedTile)) {
-          openSingleTileActionMenu(selectedTile, state.tileActionMenu.x, state.tileActionMenu.y);
+          openSingleTileActionMenu(selectedTile, state.tileActionMenu.x, state.tileActionMenu.y, { requestAttackPreview: false });
         }
       }
       renderHud();
