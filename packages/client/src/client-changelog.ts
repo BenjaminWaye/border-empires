@@ -19,10 +19,47 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.2",
+  version: "2026.05.22.3",
   title: "What's New",
-  summary: "Every structure with a 2D SVG overlay now also has a hand-modeled 3D representation on the map — 15 more structures landed in this batch.",
+  summary: "Visual refinements: ironworks family now reads as synthesizers (matches FUR/CRYSTAL), caravanary has corner watchtowers, farmsteads keep their crop rows, and unfed towns float an empty bowl badge.",
   entries: [
+    {
+      introducedIn: "2026.05.22.3",
+      title: "Ironworks family redesigned as synthesizer chambers",
+      why: "Ironworks is a synthesizer in border-empires, not a medieval forge. The previous forge-with-anvil silhouette was off-family. Reworking it as a chamber-with-glow-window matches FUR_SYNTHESIZER and CRYSTAL_SYNTHESIZER so all four read as the same industrial family at a glance.",
+      changes: [
+        "IRONWORKS: single steel chamber on a dark base, hot-iron orange glow window, exhaust tube + vent cap (same idiom as FUR_SYNTHESIZER, iron-themed colors).",
+        "ADVANCED_IRONWORKS: twin chambers on a wider base, two exhaust tubes plus a central control vent (parallels ADVANCED_FUR_SYNTHESIZER).",
+        "FOUNDRY: same twin-chamber silhouette as ADVANCED_IRONWORKS plus a glowing slag pile, which is now FOUNDRY's signature differentiator."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.3",
+      title: "Caravanary fortified — corner watchtowers + cargo, no more pitched tents",
+      why: "Caravanaries (caravanserai) were fortified roadside inns for merchant caravans — square stone courtyard with corner towers, central well, travelers' rooms and stacked goods around the perimeter. The previous tents-in-courtyard read was wrong (caravanserai used built rooms, not pitched canvas).",
+      changes: [
+        "Walls taller and thicker so the perimeter reads as defensible stone.",
+        "Added 4 corner watchtowers with conical caps — the two front towers double as gate towers flanking the entrance.",
+        "Replaced the two interior tents with a row of stacked cargo crates against the back wall and a pair of grain sacks beside the well."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.3",
+      title: "Farmsteads keep crop rows visible",
+      why: "Building a farmstead on a FARM tile previously hid the crop rows entirely, leaving just the barn+silo on what should still be a cultivated field. Adding 4 visible crop rows beside the silo keeps the tile readable as 'barn-in-a-field' rather than 'barn replacing field'.",
+      changes: [
+        "FARMSTEAD now renders 4 green crop rows on the right side of the tile, past the silo, so 2D ↔ 3D match the farm tile's productive use."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.3",
+      title: "Unfed-town badge: empty bowl + red chevron",
+      why: "The prior badge (downward red triangle + white dot) read as a generic warning rather than 'this town has no food'. Replacing the warning glyph with an empty wooden bowl + red downward chevron above it communicates 'food container, but empty' at a glance from any orbit angle.",
+      changes: [
+        "Empty wooden bowl (tapered cylinder with darker interior disc suggesting an empty cavity) floats above unfed towns.",
+        "Small red downward chevron above the bowl carries the urgency cue from the old triangle — same red palette as before, but framed as 'declining / missing food' rather than a generic alert."
+      ]
+    },
     {
       introducedIn: "2026.05.22.2",
       title: "3D models for the remaining civic, infrastructure, industrial, and arcane structures",
