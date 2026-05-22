@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.6",
+  version: "2026.05.22.7",
   title: "What's New",
-  summary: "Tripod is sturdier and applied to both the FUR resource and the CAMP structure; unfed badge bobs (no spin) and stays face-on.",
+  summary: "Tripod hide is now a stretched diamond (two triangles joined) instead of a flat box — reads as a real skin pulled taut between the posts.",
   entries: [
+    {
+      introducedIn: "2026.05.22.7",
+      title: "Tripod hide → stretched diamond silhouette",
+      why: "The box-shaped pelt on the FUR resource + CAMP tripods read as a board, not a draped skin. A skin stretched between leaning poles is closest to a flat diamond (two triangles joined along the middle edge) with a faint spine giving it just enough 3D depth not to disappear edge-on.",
+      changes: [
+        "furTripodPeltGeo + campTripodPeltGeo are now OctahedronGeometry scaled non-uniformly (0.21 × 0.17 wide × 0.036 thin) — diamond shape from front, very flat from side, with a subtle ridge along the front/back axis so the skin still reads from oblique angles.",
+        "Camp and FUR tripods share the exact same geometry numbers so they stay one shape family."
+      ]
+    },
     {
       introducedIn: "2026.05.22.6",
       title: "Tripod silhouette improved — thicker posts, apex binding, larger draped hide",

@@ -113,7 +113,14 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
   // perspective camera; the pelt is a wider draped hide.
   const furTripodPostGeo = new CylinderGeometry(0.028, 0.034, 0.30, 7);
   const furTripodBindingGeo = new BoxGeometry(0.055, 0.030, 0.055);
-  const furTripodPeltGeo = new BoxGeometry(0.20, 0.16, 0.022);
+  // Pelt as a stretched diamond: OctahedronGeometry has 6 vertices
+  // (top/bottom/left/right/front/back) and 8 triangular faces. Scaled
+  // wide (X), tall (Y), and thin (Z) it reads as the classic "two
+  // triangles joined" skin silhouette pulled taut between the front
+  // posts, with just enough Z depth to keep a visible spine instead of
+  // disappearing edge-on.
+  const furTripodPeltGeo = new OctahedronGeometry(1, 0);
+  furTripodPeltGeo.scale(0.105, 0.085, 0.018);
   const derrickLegGeo = new CylinderGeometry(0.012, 0.014, 0.34, 5);
   const derrickCapGeo = new BoxGeometry(0.08, 0.04, 0.08);
   const pumpBaseGeo = new BoxGeometry(0.18, 0.06, 0.1);
