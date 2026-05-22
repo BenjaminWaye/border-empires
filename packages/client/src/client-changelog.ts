@@ -19,10 +19,38 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.3",
+  version: "2026.05.22.4",
   title: "What's New",
-  summary: "Visual refinements: ironworks family now reads as synthesizers (matches FUR/CRYSTAL), caravanary has corner watchtowers, farmsteads keep their crop rows, and unfed towns float an empty bowl badge.",
+  summary: "Foundry restored to its forge silhouette (it's not a synthesizer), unfed badge swapped to a wheat sheaf with red diagonal slash, and the Farmstead story now layers FARM resource fields under the barn so the in-game view is visible.",
   entries: [
+    {
+      introducedIn: "2026.05.22.4",
+      title: "Foundry back to its forge silhouette",
+      why: "Ironworks and Foundry are not the same thing in border-empires — ironworks (synthesizer) refines metal; a foundry casts it. The synthesizer-style foundry from 2026.05.22.3 erased that distinction. Restored the foundry to its original forge silhouette so it reads as a separate building family.",
+      changes: [
+        "FOUNDRY: stone base + pyramidal roof + tall stone furnace with a hot glow window + twin chimneys + glowing slag pile. Slag pile remains FOUNDRY-only.",
+        "IRONWORKS + ADVANCED_IRONWORKS stay synthesizer-style (chamber + iron-glow window + tubes) — that part of 2026.05.22.3 was right; only FOUNDRY needed reverting."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.4",
+      title: "Unfed-town badge: wheat sheaf + red diagonal slash",
+      why: "The empty-bowl badge from 2026.05.22.3 was hard to read at floating-badge scale. Replacing with the universal 'no grain' pictogram — a golden wheat sheaf with a bright red diagonal line through it — communicates 'not enough food' instantly from any orbit angle.",
+      changes: [
+        "Golden wheat sheaf (tapered cylinder + conical grain head) floats above the unfed town.",
+        "Red diagonal slash (long thin emissive box rotated 45° around Z) crosses the sheaf — the 'no' marker that classic prohibition signs use."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.4",
+      title: "Farmstead story shows the farm field under the barn",
+      why: "FARMSTEAD's structure overlay is only the barn + silo + back fence. In-game the FARM resource overlay renders alongside (golden plates, wheat sheaves, orchard trees), so the actual tile reads as an upgraded farm. The Storybook story only rendered the structure layer, so the barn looked like it was sitting on bare grass.",
+      changes: [
+        "Reverted the green crop-row shim from 2026.05.22.3 — the resource overlay already provides the fields in-game.",
+        "Farmstead story now layers createResourceOverlay (FARM, 3 variants) under three FARMSTEAD structures so the story preview matches in-game appearance.",
+        "Added an explicit Camp story to the StructureOverlay catalog (CAMP was missing from the per-kind story list)."
+      ]
+    },
     {
       introducedIn: "2026.05.22.3",
       title: "Ironworks family redesigned as synthesizer chambers",
