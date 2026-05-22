@@ -304,14 +304,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         authSessionReady: state.authSessionReady,
         connection: state.connection,
         fogDisabled: state.fogDisabled,
-        eligible: state.stagingMapRevealEligible
+        eligible: state.mapRevealEligible
       });
       console.info("[fog-reveal] ws-send", {
         disabled: maybeRewritePayload.disabled === true,
         authSessionReady: state.authSessionReady,
         connection: state.connection,
         fogDisabled: state.fogDisabled,
-        eligible: state.stagingMapRevealEligible
+        eligible: state.mapRevealEligible
       });
     }
     ws.send(JSON.stringify(payload));

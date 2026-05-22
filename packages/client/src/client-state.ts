@@ -393,8 +393,8 @@ export const createInitialState = () => ({
     tileCount?: number;
     raw?: unknown;
   }>,
-  stagingMapRevealEligible: false,
-  stagingMapRevealEnabled: false,
+  mapRevealEligible: false,
+  mapRevealEnabled: false,
   lastSubCx: Number.NaN,
   lastSubCy: Number.NaN,
   lastSubRadius: Number.NaN,

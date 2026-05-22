@@ -22,7 +22,7 @@ import {
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "./client-auth-ui.js";
 import { setDebugAuthEmail } from "./client-debug.js";
-import { getStagingMapRevealEnabled } from "./client-staging-map-reveal.js";
+import { getMapRevealEnabled } from "./client-map-reveal.js";
 import { rallyCodeFromLocation } from "./client-rally-links.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
@@ -308,8 +308,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       onAuthStateChanged(firebaseAuth, async (user) => {
         if (!user) {
           setDebugAuthEmail("");
-          state.stagingMapRevealEligible = false;
-          state.stagingMapRevealEnabled = false;
+          state.mapRevealEligible = false;
+          state.mapRevealEnabled = false;
           state.authReady = false;
           state.authSessionReady = false;
           state.authUserLabel = "";
@@ -327,12 +327,11 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         authSession.emailLinkSentTo = "";
         const authEmail = user.email ?? undefined;
         setDebugAuthEmail(authEmail);
-        state.stagingMapRevealEligible = false;
+        state.mapRevealEligible = false;
         state.authEmail = authEmail ?? "";
-        state.stagingMapRevealEnabled = getStagingMapRevealEnabled({
-          enabledForAccount: state.stagingMapRevealEligible,
-          authEmail: authEmail ?? null,
-          hostname: window.location.hostname
+        state.mapRevealEnabled = getMapRevealEnabled({
+          enabledForAccount: state.mapRevealEligible,
+          authEmail: authEmail ?? null
         });
         state.authReady = true;
         state.authSessionReady = false;

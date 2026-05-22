@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.2",
+  version: "2026.05.22.3",
   title: "What's New",
-  summary: "Stored yield no longer sticks above the cap on owned towns whose live buffer is zero — fresh tile-detail responses now always carry an explicit buffer so the client can overwrite a stale cached value.",
+  summary: "The fog admin map-reveal toggle now works on production for the account permitted by FOG_ADMIN_EMAIL, and the staging-only naming around it has been retired.",
   entries: [
+    {
+      introducedIn: "2026.05.22.3",
+      title: "Fog admin map-reveal toggle works on production and is no longer named staging-only",
+      why: "The client suppressed the reveal-map toggle on production hostnames even when the server told the session it was allowed to toggle fog, which blocked screenshotting prod-only AI state. The server-side FOG_ADMIN_EMAIL gate already scopes the capability to a single account, so the client hostname check was redundant. While the gate was being removed, every staging-prefixed symbol around it was renamed to match the actual scope.",
+      changes: [
+        "Map reveal availability now relies solely on the server-issued canToggleFog flag and no longer checks the hostname.",
+        "Renamed the helper module, state fields, storage key, CSS class, and data attribute from the staging-only naming (stagingMapReveal*) to the hostname-agnostic name (mapReveal*) so the code matches the actual scope.",
+        "Existing fog admin browsers will see their staged toggle preference reset once (storage key changed from be-staging-map-reveal to be-map-reveal); re-toggling restores it."
+      ]
+    },
     {
       introducedIn: "2026.05.22.2",
       title: "Stored yield can't get stranded above the cap anymore",
