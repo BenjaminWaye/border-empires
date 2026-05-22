@@ -19,18 +19,40 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.8",
+  version: "2026.05.23.3",
   title: "What's New",
   summary: "Bridge debug card now shows the gateway/sim build SHA alongside the client's, with a ⚠ if they don't match. Confirms at a glance that the client and server were built from the same commit.",
   entries: [
     {
-      introducedIn: "2026.05.22.8",
+      introducedIn: "2026.05.23.3",
       title: "Server build SHA visible in the bridge debug card",
       why: "When a feature works on staging but not prod (or vice versa), the question that's hard to answer is 'is your client running the same commit as the gateway+sim?'. The card showed Client build but had no parallel value for the server, so a stale-server-vs-fresh-client deploy state was invisible.",
       changes: [
         "Deploy scripts (deploy-staging-all.mjs, deploy-prod-all.mjs) now pass --env BUILD_SHA=<targetSha> on fly deploy; the gateway reads it at startup and includes serverBuildSha on every INIT payload.",
         "Bridge debug card adds a Server build line (first 8 chars, matches the Client build format) and flags ⚠ mismatch when the SHA does not start with CLIENT_BUILD_VERSION.",
         "Copy Bridge Debug payload now includes both Client build and Server build lines so a pasted snapshot is self-diagnosing for client/server skew."
+      ]
+    },
+    {
+      introducedIn: "2026.05.23.2",
+      title: "Tile inspector Production stops dropping the connected-town bonus",
+      why: "The gateway's tile-detail builder was unconditionally recomputing goldPerMinute and cap from a stripped-down local formula — baseGoldPerMinute * supportRatio * marketMult * bankMult — and writing that value into the townJson sent to the client. That formula doesn't apply connectedTownBonus, townPopulationMultiplier, firstThreeTownMult, incomeMultiplier, PASSIVE_INCOME_MULT, or the +1 bank flat, so an owned town with 3 connected towns (+120%) showed Production: 2.00/m and gold cap 960 even though the sim correctly computed 4.4/m and cap 2112. Every sim-side fix shipped over the last day computed the right number — the gateway then threw it away.",
+      changes: [
+        "buildSnapshotTileDetail now trusts the sim's authoritative goldPerMinute and cap when the cached snapshot's isFed matches the gateway's freshly-derived isFed (i.e. the snapshot is in sync). The local recompute path is preserved only as a fallback when isFed disagrees, so the existing 'gateway corrects stale fed state from current neighbors' tests still pass.",
+        "Added a gateway regression test for the prod scenario: a TOWN-tier town with 3 connected towns shipping goldPerMinute=4.4 / cap=2112 now survives buildSnapshotTileDetail end-to-end instead of being silently rewritten to 2 / 960."
+      ]
+    },
+    {
+      introducedIn: "2026.05.23.1",
+      title: "3D world fills out: late-game structures, fur tripods, unfed-town shield, and a Storybook asset viewer",
+      why: "Two gaps were visible to anyone playing on the 3D map: only 9 of the 38 structure kinds had hand-modeled 3D representations, and the unfed-town warning glyph didn't read as 'food problem'. The fur drying rack also didn't match its 2D pictogram. This batch closes the SVG↔3D gap across every kind, redesigns the fur tripod (and the matching camp drying frame) to look like a real tepee with a stretched hide, and replaces the floating warning triangle with a 🍞-on-a-shield badge so the meaning lands instantly.",
+      changes: [
+        "20 new 3D structures: Bank, Aether Tower, Aegis Dome, World Engine, Imperial Exchange, Airport, Caravanary, Customs House, Exchange House, Garrison Hall, Governor's Office, Rail Depot, Radar System, Foundry, Advanced Ironworks, Fur Synthesizer + Advanced, Crystal Synthesizer + Advanced, Astral Dock. Every OptimisticStructureKind backed by an SVG overlay now has a procedurally-built 3D silhouette in StructureOverlay.",
+        "IRONWORKS and ADVANCED_IRONWORKS redesigned as synthesizer chambers (chamber + iron-glow window + tubes) to match the FUR/CRYSTAL synthesizer family — ironworks is a synthesizer in border-empires, not a forge. FOUNDRY keeps its forge silhouette (twin chimneys + glowing slag pile) so the two read as distinct.",
+        "Fur resource 3D redesigned: rectangular drying frame replaced with a tepee tripod — three thicker posts leaning to a common apex with a small dark binding at the top and a stretched diamond hide (OctahedronGeometry scaled to a flat diamond) draped on the front. Camp structure's drying frame now uses the same tripod.",
+        "Unfed-town badge swapped from a generic warning triangle to a slowly-bobbing canvas-textured shield carrying the in-game 🍞 food glyph with a red diagonal slash drawn across it. Per-instance bob phase offset so a cluster of unfed towns doesn't lock-step.",
+        "Internal: structure-overlay refactored from 1457 lines into a per-family composition (builder + economic/late-game/civic/infrastructure/industrial files, each well under 500 lines).",
+        "Internal: a new @border-empires/storybook workspace package catalogs every 2D SVG and every 3D overlay layer in Storybook 10.4 with side-by-side variant comparisons — use `pnpm --filter @border-empires/storybook dev` to browse the catalog."
       ]
     },
     {
