@@ -19,10 +19,40 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.22.5",
+  version: "2026.05.22.6",
   title: "What's New",
-  summary: "Fur 3D is now a tepee tripod with a hanging pelt (matches the 2D overlay), and the unfed-town badge is the in-game 🍞 loaf icon with a red slash on a slowly bobbing+spinning shield.",
+  summary: "Tripod is sturdier and applied to both the FUR resource and the CAMP structure; unfed badge bobs (no spin) and stays face-on.",
   entries: [
+    {
+      introducedIn: "2026.05.22.6",
+      title: "Tripod silhouette improved — thicker posts, apex binding, larger draped hide",
+      why: "The first tripod pass had skinny posts (0.02 radius), no visible binding at the apex, and a small flat pelt that didn't read as a draped hide. Reworked to make the silhouette read clearly from the perspective camera.",
+      changes: [
+        "Dedicated furTripodPost geometry — thicker (0.028–0.034 radius) and longer (0.30) so the posts actually meet at the apex without overhang or scaling tricks.",
+        "Tripod scale bumped: base radius 0.09, apex height 0.26.",
+        "Small dark binding wrap (furTripodBinding) at the apex — visually anchors the three sticks together.",
+        "Wider hide (furTripodPelt 0.20 × 0.16) hangs on the front of the tripod with a forward drape tilt; reads as a stretched skin rather than a flat plate."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.6",
+      title: "Camp structure now uses the same drying tripod as the FUR resource",
+      why: "Camp was still rendering the legacy rectangular drying rack (two vertical posts + horizontal bar + two flat pelts). Replaced with the FUR-resource tripod so the camp and the fur resource read as the same shape family — three leaning sticks + apex binding + one stretched hide.",
+      changes: [
+        "addCamp: removed the rectangular drying rack from the layout; added a tripod at the back-centre of the tile (rotated π so its hide-bearing front faces +Z toward the default camera).",
+        "Tents + fire layout preserved unchanged."
+      ]
+    },
+    {
+      introducedIn: "2026.05.22.6",
+      title: "Unfed-town badge: bob only, no spin",
+      why: "Combining a Y-axis spin with the bobbing motion made the badge strobe edge-on every quarter rotation — too jarring. Dropped the spin and tilted the plane back ~28° around X so the badge faces the perspective camera at the default orbit angle, with the bob alone providing the eye-catching motion.",
+      changes: [
+        "Removed SPIN_PERIOD_MS; badge no longer rotates around Y.",
+        "Plane has a fixed back-tilt (rotX = -0.50 rad) so its face stays oriented toward the default camera's view direction.",
+        "Bob amplitude bumped slightly (0.07) and period shortened slightly (2400 ms) to compensate for the loss of the spin's motion cue."
+      ]
+    },
     {
       introducedIn: "2026.05.22.5",
       title: "Fur 3D redesigned as tepee tripods with hanging pelts",
