@@ -107,6 +107,20 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
   const fishGeo = new BoxGeometry(0.07, 0.025, 0.03);
   const furPostGeo = new CylinderGeometry(0.02, 0.022, 0.22, 5);
   const furBodyGeo = new BoxGeometry(0.13, 0.085, 0.018);
+  // Dedicated tripod pieces — the legacy furPost/furBody stay around for
+  // FISH's drying rack and any future small-prop reuse. Tripod legs are
+  // a thicker, longer cylinder so the silhouette reads from the
+  // perspective camera; the pelt is a wider draped hide.
+  const furTripodPostGeo = new CylinderGeometry(0.028, 0.034, 0.30, 7);
+  const furTripodBindingGeo = new BoxGeometry(0.055, 0.030, 0.055);
+  // Pelt as a stretched diamond: OctahedronGeometry has 6 vertices
+  // (top/bottom/left/right/front/back) and 8 triangular faces. Scaled
+  // wide (X), tall (Y), and thin (Z) it reads as the classic "two
+  // triangles joined" skin silhouette pulled taut between the front
+  // posts, with just enough Z depth to keep a visible spine instead of
+  // disappearing edge-on.
+  const furTripodPeltGeo = new OctahedronGeometry(1, 0);
+  furTripodPeltGeo.scale(0.105, 0.085, 0.018);
   const derrickLegGeo = new CylinderGeometry(0.012, 0.014, 0.34, 5);
   const derrickCapGeo = new BoxGeometry(0.08, 0.04, 0.08);
   const pumpBaseGeo = new BoxGeometry(0.18, 0.06, 0.1);
@@ -160,6 +174,10 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
   make("fish", fishGeo, fishMaterial, C * 6);
   make("furPost", furPostGeo, furPostMaterial, C * 12);
   make("furBody", furBodyGeo, furBodyMaterial, C * 8);
+  // Tripod slots — variant 2 can place up to 3 tripods per tile.
+  make("furTripodPost", furTripodPostGeo, furPostMaterial, C * 9);
+  make("furTripodBinding", furTripodBindingGeo, furPostMaterial, C * 3);
+  make("furTripodPelt", furTripodPeltGeo, furBodyMaterial, C * 3);
   make("derrickLeg", derrickLegGeo, oilDerrickMaterial, C * 4);
   make("derrickCap", derrickCapGeo, oilDerrickMaterial, C);
   make("pumpBase", pumpBaseGeo, oilPumpMaterial, C);
@@ -415,39 +433,93 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
     }
   };
 
-  const addFurDryingRack = (wx: number, sy: number, wz: number, ox: number, oz: number, rotY = 0): void => {
-    // Three vertical posts + a horizontal bar across, with two stretched
-    // pelts hanging between. rotY rotates the rack around its centre so
-    // racks read as different orientations across the tile.
-    const c = Math.cos(rotY);
-    const s = Math.sin(rotY);
-    const rotate = (dx: number, dz: number): [number, number] => [c * dx - s * dz, s * dx + c * dz];
-    const [p1x, p1z] = rotate(-0.12, 0);
-    const [p2x, p2z] = rotate(0, 0);
-    const [p3x, p3z] = rotate(0.12, 0);
-    const [b1x, b1z] = rotate(-0.06, 0);
-    const [b2x, b2z] = rotate(0.06, 0);
-    addPiece("furPost", wx, sy, wz, ox + p1x, 0.11, oz + p1z);
-    addPiece("furPost", wx, sy, wz, ox + p2x, 0.11, oz + p2z);
-    addPiece("furPost", wx, sy, wz, ox + p3x, 0.11, oz + p3z);
-    addPiece("furBody", wx, sy, wz, ox + b1x, 0.13, oz + b1z, 1, 1, 1, rotY);
-    addPiece("furBody", wx, sy, wz, ox + b2x, 0.13, oz + b2z, 1, 1, 1, rotY);
+  // Tripod geometry shared by every fur tripod: 3 thicker posts lean to
+  // a common apex (apex at y = TRIPOD_APEX_Y above the centre), base
+  // radius TRIPOD_BASE_R around the centre. Tilt = atan(R / APEX). Per-
+  // post (rotY, rotZ) precomputed once. furTripodPostGeo is length 0.30,
+  // matching the base-to-apex distance ≈ sqrt(R² + APEX²) ≈ 0.30 with
+  // R = 0.18 / 2 and APEX = 0.26 so the posts meet cleanly at the top
+  // without overhang.
+  const TRIPOD_BASE_R = 0.09;
+  const TRIPOD_APEX_Y = 0.26;
+  const TRIPOD_TILT = Math.atan(TRIPOD_BASE_R / TRIPOD_APEX_Y);
+  type TripodLeg = {
+    readonly cx: number;
+    readonly cy: number;
+    readonly cz: number;
+    readonly rotY: number;
+    readonly rotZ: number;
+  };
+  const TRIPOD_LEGS: ReadonlyArray<TripodLeg> = [0, (Math.PI * 2) / 3, (Math.PI * 4) / 3].map((alpha) => {
+    // Base on the ground in a triangle; centre of the cylinder sits at
+    // the midpoint of base→apex. Yaw of the lean direction (apex - base)
+    // in the XZ plane is atan2(-sin α, -cos α); we feed −yaw into rotY
+    // because Three.js's Euler XYZ applies Rz first then Ry to a vector.
+    const baseX = Math.cos(alpha) * TRIPOD_BASE_R;
+    const baseZ = Math.sin(alpha) * TRIPOD_BASE_R;
+    const yaw = Math.atan2(-Math.sin(alpha), -Math.cos(alpha));
+    return {
+      cx: baseX / 2,
+      cy: TRIPOD_APEX_Y / 2,
+      cz: baseZ / 2,
+      rotY: -yaw,
+      rotZ: -TRIPOD_TILT
+    };
+  });
+
+  const addFurTripod = (wx: number, sy: number, wz: number, ox: number, oz: number, rotY = 0): void => {
+    // Three sticks leaning together at the apex to form a tepee/tripod,
+    // with a single hide stretched across the front. Matches the 2D
+    // fur-overlay sketch. `rotY` rotates the whole tripod around its
+    // centre so adjacent tripods read as different orientations.
+    const yawCos = Math.cos(rotY);
+    const yawSin = Math.sin(rotY);
+    const rotateXZ = (dx: number, dz: number): [number, number] => [
+      yawCos * dx - yawSin * dz,
+      yawSin * dx + yawCos * dz
+    ];
+
+    for (const leg of TRIPOD_LEGS) {
+      const [lx, lz] = rotateXZ(leg.cx, leg.cz);
+      addPiece("furTripodPost", wx, sy, wz, ox + lx, leg.cy, oz + lz, 1, 1, 1, leg.rotY + rotY, 0, leg.rotZ);
+    }
+
+    // Dark binding at the apex — a small wrap suggesting the rope or
+    // sinew that holds the three sticks together. Sits just below the
+    // exact apex so it reads as the meeting point, not floating above.
+    addPiece("furTripodBinding", wx, sy, wz, ox, TRIPOD_APEX_Y - 0.015, oz, 1, 1, 1, rotY);
+
+    // Stretched pelt hanging on the front face of the tripod. Wider and
+    // taller than the legacy furBody, with a forward tilt so its broad
+    // surface faces a perspective camera looking at the front. Position
+    // it so the pelt's top edge is just below the apex binding and its
+    // bottom edge nearly reaches the ground — the classic "hide
+    // stretched between leaning poles" silhouette from the 2D overlay.
+    const peltLocalZ = 0.075;
+    const [px, pz] = rotateXZ(0, peltLocalZ);
+    addPiece(
+      "furTripodPelt",
+      wx, sy, wz,
+      ox + px, 0.115, oz + pz,
+      1, 1, 1,
+      rotY, Math.PI * 0.08, 0
+    );
   };
 
   const addFur = (wx: number, sy: number, wz: number, v: ResourceVariant): void => {
-    // Fur site = a couple of drying racks only. The trapper hut /
-    // hunter camp come back as upgrade structures later; for the raw
-    // resource tile we keep just the racks so the visual reads cleanly.
+    // Fur site = a couple of tripods only. The trapper hut / hunter
+    // camp come back as upgrade structures later; for the raw resource
+    // tile we keep just the tripods so the visual reads cleanly.
     if (v === 0) {
-      addFurDryingRack(wx, sy, wz, -0.18, -0.14, 0);
-      addFurDryingRack(wx, sy, wz, 0.18, 0.14, Math.PI * 0.5);
+      addFurTripod(wx, sy, wz, -0.18, -0.14, 0);
+      addFurTripod(wx, sy, wz, 0.18, 0.14, Math.PI * 0.5);
     } else if (v === 1) {
-      addFurDryingRack(wx, sy, wz, 0.18, -0.14, Math.PI * 0.25);
-      addFurDryingRack(wx, sy, wz, -0.18, 0.16, -Math.PI * 0.25);
+      addFurTripod(wx, sy, wz, 0.18, -0.14, Math.PI * 0.25);
+      addFurTripod(wx, sy, wz, -0.18, 0.16, -Math.PI * 0.25);
     } else {
-      addFurDryingRack(wx, sy, wz, -0.18, 0.0, 0);
-      addFurDryingRack(wx, sy, wz, 0.18, 0.0, 0);
-      addFurDryingRack(wx, sy, wz, 0.0, -0.18, Math.PI * 0.5);
+      addFurTripod(wx, sy, wz, -0.18, 0.0, 0);
+      addFurTripod(wx, sy, wz, 0.18, 0.0, 0);
+      addFurTripod(wx, sy, wz, 0.0, -0.18, Math.PI * 0.5);
     }
   };
 
@@ -525,6 +597,7 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
       gemCrystalGeo,
       boatHullGeo, boatMastGeo, boatSailGeo, netRodGeo, fishGeo,
       furPostGeo, furBodyGeo,
+      furTripodPostGeo, furTripodBindingGeo, furTripodPeltGeo,
       derrickLegGeo, derrickCapGeo, pumpBaseGeo, pumpArmGeo, pumpHeadGeo, oilPoolGeo
     ].forEach((g) => g.dispose());
     [
