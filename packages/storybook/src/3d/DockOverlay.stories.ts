@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/html";
+import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createDockOverlay } from "@client/client-map-3d-dock-overlay.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
