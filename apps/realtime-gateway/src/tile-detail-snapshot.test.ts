@@ -344,4 +344,64 @@ describe("buildSnapshotTileDetail", () => {
       { label: "Long time peace", deltaPerMinute: town.populationGrowthPerMinute }
     ]);
   });
+
+  it("preserves the sim's authoritative goldPerMinute and cap (does not silently re-derive with the stripped-down local formula)", () => {
+    // Repro for the prod bug where the inspector showed "Production: 2.00/m"
+    // with cap 960 on a town that actually had 3 connected towns (+120%): the
+    // sim correctly shipped townJson with goldPerMinute=4.4 and cap=2112, but
+    // buildSnapshotTileDetail recomputed gpm from baseGoldPerMinute * support *
+    // marketMult * bankMult — a formula missing connectedTownBonus, popMult,
+    // firstThreeTownMult, incomeMult, PASSIVE_INCOME_MULT, and the +1 bank
+    // flat. That stripped value clobbered the sim's authoritative one on its
+    // way to the client.
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Gloamspire",
+            type: "FARMING",
+            populationTier: "TOWN",
+            baseGoldPerMinute: 2,
+            supportCurrent: 8,
+            supportMax: 8,
+            // Sim's authoritative values with bonus + popMult applied.
+            goldPerMinute: 4.4,
+            cap: 2112,
+            isFed: true,
+            population: 17669,
+            maxPopulation: 10_000_000,
+            connectedTownCount: 3,
+            connectedTownBonus: 1.2,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          }),
+          townType: "FARMING",
+          townPopulationTier: "TOWN"
+        }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 10, 10);
+    const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as Record<string, unknown>) : undefined;
+    expect(town).toBeDefined();
+    // The whole point of the fix: the sim's values must survive end-to-end.
+    expect(town?.goldPerMinute).toBeCloseTo(4.4, 4);
+    expect(town?.cap).toBeCloseTo(2112, 0);
+    expect(detail).toEqual(
+      expect.objectContaining({
+        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
+        yieldCap: expect.objectContaining({ gold: 2112 })
+      })
+    );
+  });
 });
