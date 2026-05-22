@@ -7773,4 +7773,110 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(centerDelta?.yield).toBeDefined();
     expect(centerDelta?.yield?.gold ?? -1).toBe(0);
   });
+
+  it("applies connectedTownBonus to goldPerMinute and cap on owned-town tile detail (sim authority)", () => {
+    // Mirror the user's prod scenario: TOWN-tier town at (5,5) with three
+    // owned towns at 8-adjacent positions so buildConnectedTownNetworkForPlayer
+    // returns connectedTownCount=3 / bonus=1.2. Town is fed, support 8/8, no
+    // market, no bank. Expected gpm = TOWN_BASE(2) * 1 * 1 * 2.2 * 1 * 1 * 1
+    // = 4.4; cap = 4.4*60*8 = 2112. If this test fails, the sim has its own
+    // bug; if it passes, the prod display of 2.00/m + cap 960 means the
+    // gateway's buildSnapshotTileDetail is clobbering the sim's authoritative
+    // value.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 1000, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: {
+              name: "Gloamspire",
+              type: "FARMING",
+              populationTier: "TOWN",
+              baseGoldPerMinute: 2,
+              supportCurrent: 8,
+              supportMax: 8,
+              goldPerMinute: 2,
+              cap: 960,
+              isFed: true,
+              population: 17669,
+              maxPopulation: 10000000,
+              connectedTownCount: 0,
+              connectedTownBonus: 0,
+              hasMarket: false,
+              marketActive: false,
+              hasGranary: false,
+              granaryActive: false,
+              hasBank: false,
+              bankActive: false
+            }
+          },
+          // Three more owned towns 8-adjacent to (5,5) so the BFS finds them.
+          {
+            x: 6, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+            town: { name: "Velorreach", type: "FARMING", populationTier: "TOWN", supportCurrent: 4, supportMax: 8, population: 10000, maxPopulation: 10000000, isFed: true }
+          },
+          {
+            x: 5, y: 6, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+            town: { name: "Sablemanor", type: "FARMING", populationTier: "TOWN", supportCurrent: 4, supportMax: 8, population: 10000, maxPopulation: 10000000, isFed: true }
+          },
+          {
+            x: 6, y: 6, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+            town: { name: "Velramanor", type: "FARMING", populationTier: "TOWN", supportCurrent: 4, supportMax: 8, population: 10000, maxPopulation: 10000000, isFed: true }
+          },
+          // Five plain settled-land tiles to fill (5,5)'s remaining 8-neighbors.
+          ...[
+            [4, 4], [5, 4], [6, 4],
+            [4, 5],
+            [4, 6]
+          ].map(([x, y]) => ({
+            x,
+            y,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const
+          }))
+        ],
+        activeLocks: []
+      }
+    });
+
+    const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 5, 5, 0, { fullVisibility: true });
+    expect(centerDelta).toBeDefined();
+    const town = centerDelta?.townJson ? JSON.parse(centerDelta.townJson) as Record<string, unknown> : undefined;
+    expect(town).toBeDefined();
+    // First, prove the BFS sees all three neighbors (the actual user-visible
+    // modifier line shows "3 connected towns: +120%").
+    expect(town?.connectedTownCount).toBe(3);
+    expect(town?.connectedTownBonus).toBeCloseTo(1.2, 5);
+    // Now the load-bearing assertion: gpm and cap must reflect that bonus.
+    // 2 * 1.0 * 1.0 (TOWN tier popMult) * 2.2 = 4.4
+    expect(centerDelta?.yieldRate?.goldPerMinute ?? 0).toBeCloseTo(4.4, 2);
+    expect(town?.goldPerMinute).toBeCloseTo(4.4, 2);
+    // 4.4 * 60 * 8 = 2112
+    expect(centerDelta?.yieldCap?.gold ?? 0).toBeCloseTo(2112, 0);
+    expect(town?.cap).toBeCloseTo(2112, 0);
+  });
 });
