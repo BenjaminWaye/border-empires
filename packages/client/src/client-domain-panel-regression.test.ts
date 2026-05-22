@@ -52,12 +52,12 @@ describe("domain panel detail layout regression guard", () => {
     expect(hudSource).not.toContain("id=\"auth-logout\"");
   });
 
-  it("keeps the staging-only map reveal button in the settings card", () => {
+  it("keeps the map reveal button in the settings card", () => {
     const hudSource = sourceFor("./client-hud.ts");
 
-    expect(hudSource).toContain("stagingMapRevealCardHtml()");
-    expect(hudSource).toContain("data-staging-map-reveal");
-    expect(hudSource).toContain("const stagingMapRevealButtons = dom.hud.querySelectorAll(\"[data-staging-map-reveal]\")");
+    expect(hudSource).toContain("mapRevealCardHtml()");
+    expect(hudSource).toContain("data-map-reveal");
+    expect(hudSource).toContain("const mapRevealButtons = dom.hud.querySelectorAll(\"[data-map-reveal]\")");
     expect(hudSource).toContain('type: "REQUEST_REVEAL_MAP"');
     expect(hudSource).toContain('type: "SET_FOG_DISABLED"');
     expect(hudSource).toContain("Reveal Full Map");
