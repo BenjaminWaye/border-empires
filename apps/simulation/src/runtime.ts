@@ -2844,6 +2844,18 @@ export class SimulationRuntime {
         addVision(this.summaryForPlayer(allyId).territoryTileKeys, ally.mods?.vision ?? 1, visionRadiusBonusForPlayer(ally), allySink);
         radiusAllyKeys.set(allyId, allySink);
       }
+    } else {
+      // Fallback for sessions whose Firebase UID has no live player row in
+      // this.players (the fog admin auth lands here when the admin hasn't
+      // joined as a normal player). Mirrors the fallback in
+      // buildPlayerSubscriptionSnapshot so the fog-restore (live) subscribe
+      // path returns the same visibility set as the bootstrap path did. Use
+      // default vision=1 and visionRadiusBonus=0 since we have no live mods.
+      const territoryTileKeys: string[] = [];
+      for (const [tileKey, tile] of this.tiles) {
+        if (tile.ownerId === playerId) territoryTileKeys.push(tileKey);
+      }
+      if (territoryTileKeys.length > 0) addVision(territoryTileKeys, 1, 0, radiusSelfKeys);
     }
     for (const lock of this.locksByTile.values()) {
       if (lock.playerId !== playerId) continue;
