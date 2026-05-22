@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/html";
+import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createFortOverlay } from "@client/client-map-3d-fort-overlay.js";
 import type { FortificationOpening, FortificationOverlayKind } from "@client/client-fortification-overlays.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
