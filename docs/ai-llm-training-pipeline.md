@@ -287,12 +287,32 @@ Do not record the whole world. Keep the corpus planner-local.
 For the rewrite simulation path, the current record includes:
 
 - compact player economy and tech state
-- owned/frontier/hot-frontier/strategic-frontier/build-candidate tile slices
+- sampled owned/frontier/hot-frontier/strategic-frontier/build-candidate tile slices
+- full tile counts for each slice so labels know when a sample was truncated
 - dock-link metadata
 - chosen action payload
 - noop diagnostic and pending-settlement keys
 
 That gives you a usable first-pass corpus without introducing whole-world snapshots.
+
+The recorder samples tile slices before they reach the labeling prompt. Defaults:
+
+- owned: 24
+- frontier: 48
+- hot frontier: 48
+- strategic frontier: 48
+- build candidates: 32
+
+Useful recorder-side caps:
+
+- `SIMULATION_AI_TRAINING_TILE_SAMPLE_LIMIT=N` applies one global cap to every tile slice.
+- `SIMULATION_AI_TRAINING_OWNED_TILE_LIMIT=N`
+- `SIMULATION_AI_TRAINING_FRONTIER_TILE_LIMIT=N`
+- `SIMULATION_AI_TRAINING_HOT_FRONTIER_TILE_LIMIT=N`
+- `SIMULATION_AI_TRAINING_STRATEGIC_FRONTIER_TILE_LIMIT=N`
+- `SIMULATION_AI_TRAINING_BUILD_CANDIDATE_TILE_LIMIT=N`
+
+Samples prioritize command origin/target tiles, pending-settlement tiles, towns, resources, docks/structures, then stable coordinate order. Keep these caps low for first-pass local labeling. Raise them only for escalation records where the missing context is visible in the token report or label quality.
 
 ### Phase B: Teacher labeling
 
