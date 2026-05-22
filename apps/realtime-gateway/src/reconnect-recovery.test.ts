@@ -916,4 +916,32 @@ describe("buildInitMessage", () => {
     ]);
     expect(init.activeTruces).toEqual([]);
   });
+
+  it("surfaces process.env.BUILD_SHA on the INIT payload so clients can compare client/server SHAs", async () => {
+    // Regression: without this field the bridge debug card can't tell whether
+    // the gateway/sim image was built from the same commit as the client.
+    // Deploy scripts pass --env BUILD_SHA=<targetSha> on `fly deploy`.
+    const store = new InMemoryGatewayCommandStore();
+    const originalBuildSha = process.env.BUILD_SHA;
+    process.env.BUILD_SHA = "245384cf780a0db55313221e5821e2738c3a5d9a";
+    try {
+      const init = await buildInitMessage({ playerId: "player-1", playerName: "Nauticus" }, store);
+      expect(init.serverBuildSha).toBe("245384cf780a0db55313221e5821e2738c3a5d9a");
+    } finally {
+      if (originalBuildSha === undefined) delete process.env.BUILD_SHA;
+      else process.env.BUILD_SHA = originalBuildSha;
+    }
+  });
+
+  it("falls back to empty string when BUILD_SHA is unset (local dev)", async () => {
+    const store = new InMemoryGatewayCommandStore();
+    const originalBuildSha = process.env.BUILD_SHA;
+    delete process.env.BUILD_SHA;
+    try {
+      const init = await buildInitMessage({ playerId: "player-1", playerName: "Nauticus" }, store);
+      expect(init.serverBuildSha).toBe("");
+    } finally {
+      if (originalBuildSha !== undefined) process.env.BUILD_SHA = originalBuildSha;
+    }
+  });
 });
