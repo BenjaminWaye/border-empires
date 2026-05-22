@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.23.1",
+  version: "2026.05.23.2",
   title: "What's New",
-  summary: "20 previously SVG-only structures now have hand-modeled 3D representations, fur tripods and the camp drying frame share a real tepee silhouette with a draped diamond hide, and the unfed-town badge floats a 🍞 shield with a red slash above hungry towns.",
+  summary: "Tile inspector Production and gold cap now reflect connected-town bonuses and other multipliers — the gateway no longer silently strips them out on its way to the client.",
   entries: [
+    {
+      introducedIn: "2026.05.23.2",
+      title: "Tile inspector Production stops dropping the connected-town bonus",
+      why: "The gateway's tile-detail builder was unconditionally recomputing goldPerMinute and cap from a stripped-down local formula — baseGoldPerMinute * supportRatio * marketMult * bankMult — and writing that value into the townJson sent to the client. That formula doesn't apply connectedTownBonus, townPopulationMultiplier, firstThreeTownMult, incomeMultiplier, PASSIVE_INCOME_MULT, or the +1 bank flat, so an owned town with 3 connected towns (+120%) showed Production: 2.00/m and gold cap 960 even though the sim correctly computed 4.4/m and cap 2112. Every sim-side fix shipped over the last day computed the right number — the gateway then threw it away.",
+      changes: [
+        "buildSnapshotTileDetail now trusts the sim's authoritative goldPerMinute and cap when the cached snapshot's isFed matches the gateway's freshly-derived isFed (i.e. the snapshot is in sync). The local recompute path is preserved only as a fallback when isFed disagrees, so the existing 'gateway corrects stale fed state from current neighbors' tests still pass.",
+        "Added a gateway regression test for the prod scenario: a TOWN-tier town with 3 connected towns shipping goldPerMinute=4.4 / cap=2112 now survives buildSnapshotTileDetail end-to-end instead of being silently rewritten to 2 / 960."
+      ]
+    },
     {
       introducedIn: "2026.05.23.1",
       title: "3D world fills out: late-game structures, fur tripods, unfed-town shield, and a Storybook asset viewer",
