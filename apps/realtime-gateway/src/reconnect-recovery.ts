@@ -37,6 +37,12 @@ export const buildInitMessage = (
   canToggleFog = false
 ): Promise<{
   type: "INIT";
+  // process.env.BUILD_SHA is injected via `fly deploy --env BUILD_SHA=…` in
+  // deploy-{staging,prod}-all.mjs. Surfaced on INIT so the client's bridge
+  // debug card can show client-vs-server SHA side by side; an undefined env
+  // (local dev, ad-hoc fly machine start without re-deploy) falls through as
+  // an empty string which the client displays as "dev".
+  serverBuildSha: string;
   runtimeIdentity: {
     sourceType: "legacy-snapshot" | "seed-profile";
     seasonId: string;
@@ -157,6 +163,7 @@ export const buildInitMessage = (
       }
       return {
       type: "INIT",
+      serverBuildSha: process.env.BUILD_SHA ?? "",
       runtimeIdentity: bootstrap.runtimeIdentity,
       player: {
         ...bootstrap.player,

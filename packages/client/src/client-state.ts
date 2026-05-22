@@ -456,6 +456,10 @@ export const createInitialState = () => ({
   bridgeDebugSeasonId: "",
   bridgeDebugRuntimeFingerprint: "",
   bridgeDebugSnapshotLabel: "",
+  // Set from INIT.serverBuildSha. Empty string means the gateway was started
+  // without BUILD_SHA in its environment (local dev, ad-hoc machine start
+  // without a deploy) — the HUD renders that as "dev".
+  bridgeDebugServerBuildSha: "",
   bridgeDebugInitialTileCount: 0,
   bridgeDebugSupportedMessageCount: 0,
   bridgeDebugAcceptLatencyP95Ms: 0,
