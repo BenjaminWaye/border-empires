@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 import {
   assertTrainingRecord,
   buildBatchEntry,
+  buildTeacherRecordHash,
   buildTokenUsageEntries,
   enforceTokenUsageLimits,
   getMaxOutputTokens,
   getModelPricing,
+  loadLabelCache,
   parseBooleanEnv,
   parseNonNegativeIntegerEnv,
   parseJsonLines,
@@ -22,6 +24,7 @@ const rootDir = path.resolve(__dirname, "..");
 const defaultInput = path.resolve(rootDir, "tmp", "ai-training", "records.jsonl");
 const defaultOutput = path.resolve(rootDir, "tmp", "ai-training", "labeling-batch.jsonl");
 const defaultReport = path.resolve(rootDir, "tmp", "ai-training", "token-usage-report.json");
+const defaultCache = path.resolve(rootDir, "tmp", "ai-training", "labeled-records.local.jsonl");
 
 const usage = () => {
   console.log(
@@ -38,6 +41,8 @@ const usage = () => {
       "  AI_LABELING_MAX_INPUT_TOKENS=<n>        optional per-record guard",
       "  AI_LABELING_MAX_TOTAL_TOKENS=<n>        optional batch guard",
       "  AI_LABELING_MAX_ESTIMATED_USD=<n>       optional batch guard",
+      "  AI_LABELING_LABEL_CACHE_PATH=<jsonl>     skip exact cached labels",
+      "  AI_LABELING_DISABLE_CACHE=1             ignore the label cache",
       "  AI_LABELING_DRY_RUN=1                   write only the usage report",
       "",
       "Input records must be JSON Lines with this minimum shape:",
@@ -57,8 +62,13 @@ if (process.argv.includes("--help") || process.argv.includes("-h")) {
 const inputPath = path.resolve(process.cwd(), process.argv[2] ?? defaultInput);
 const outputPath = path.resolve(process.cwd(), process.argv[3] ?? defaultOutput);
 const reportPath = path.resolve(process.cwd(), process.env.AI_LABELING_TOKEN_REPORT_PATH ?? defaultReport);
+const cachePath = path.resolve(
+  process.cwd(),
+  process.env.AI_LABELING_LABEL_CACHE_PATH ?? defaultCache
+);
 const model = process.env.AI_LABELING_MODEL?.trim() || "gpt-5-mini";
 const dryRun = parseBooleanEnv("AI_LABELING_DRY_RUN", false);
+const cacheEnabled = !parseBooleanEnv("AI_LABELING_DISABLE_CACHE", false);
 const maxRecords = parseNonNegativeIntegerEnv("AI_LABELING_MAX_RECORDS", 0);
 
 const records = await parseJsonLines(inputPath);
@@ -71,9 +81,11 @@ if (!dryRun && maxRecords <= 0) {
 }
 
 const selectedRecords = maxRecords > 0 ? records.slice(0, maxRecords) : records;
+const cache = cacheEnabled ? await loadLabelCache(cachePath) : new Map();
+const uncachedRecords = selectedRecords.filter((record) => !cache.has(buildTeacherRecordHash(record)));
 const pricing = getModelPricing(model);
 const maxOutputTokens = getMaxOutputTokens();
-const usageEntries = buildTokenUsageEntries(selectedRecords, {
+const usageEntries = buildTokenUsageEntries(uncachedRecords, {
   model,
   pricing,
   maxOutputTokens
@@ -82,9 +94,13 @@ const summary = {
   generatedAt: new Date().toISOString(),
   inputPath,
   outputPath,
+  cachePath,
+  cacheEnabled,
   model,
   dryRun,
   selectedRecords: selectedRecords.length,
+  cachedRecords: selectedRecords.length - uncachedRecords.length,
+  uncachedRecords: uncachedRecords.length,
   totalRecords: records.length,
   pricing,
   ...summarizeTokenUsage(usageEntries)
@@ -96,13 +112,13 @@ await mkdir(path.dirname(reportPath), { recursive: true });
 await writeFile(reportPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
 
 if (!dryRun) {
-  const batchLines = selectedRecords.map((record) => JSON.stringify(buildBatchEntry(record, model)));
+  const batchLines = uncachedRecords.map((record) => JSON.stringify(buildBatchEntry(record, model)));
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, `${batchLines.join("\n")}\n`, "utf8");
+  await writeFile(outputPath, batchLines.length > 0 ? `${batchLines.join("\n")}\n` : "", "utf8");
 }
 
 console.log(
   dryRun
-    ? `Dry run complete for ${selectedRecords.length}/${records.length} records. Wrote token usage report to ${reportPath}`
-    : `Wrote ${selectedRecords.length}/${records.length} labeling requests to ${outputPath} and token usage report to ${reportPath}`
+    ? `Dry run complete for ${uncachedRecords.length} uncached of ${selectedRecords.length}/${records.length} records. Wrote token usage report to ${reportPath}`
+    : `Wrote ${uncachedRecords.length} uncached of ${selectedRecords.length}/${records.length} labeling requests to ${outputPath} and token usage report to ${reportPath}`
 );
