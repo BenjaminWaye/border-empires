@@ -32,14 +32,17 @@ const CANVAS_SIZE = 192;
 // so even the largest town clears it on every orbit angle. The bob
 // adds ±BOB_AMPLITUDE around this point.
 const FLOAT_BASE = 1.30;
-const BOB_AMPLITUDE = 0.06;
-const BOB_PERIOD_MS = 2600;
-// One full rotation every SPIN_PERIOD_MS — slow enough to read as
-// "drawing attention" without becoming a strobe.
-const SPIN_PERIOD_MS = 5400;
+const BOB_AMPLITUDE = 0.07;
+const BOB_PERIOD_MS = 2400;
 // Phase offset between adjacent badges so a cluster of unfed towns
 // doesn't appear to bob in lock-step.
 const PHASE_PER_INSTANCE = Math.PI * 0.37;
+// Plane is tilted back around X so its face is roughly perpendicular
+// to the game's default perspective camera (PERSPECTIVE_TILT_RADIANS =
+// 0.6 in client-map-3d-perspective-camera.ts). Picked slightly less
+// than the camera tilt so the badge reads from a range of orbit
+// elevations rather than only from the default.
+const PLANE_TILT_X = -0.50;
 
 const drawBadgeCanvas = (): HTMLCanvasElement | null => {
   // The unit test imports createUnfedBadgeOverlay in a Node env that
@@ -149,7 +152,6 @@ export const createUnfedBadgeOverlay = (scene: Scene, maxTiles: number): UnfedBa
   const tempEuler = new Euler();
   const unitScale = new Vector3(1, 1, 1);
   let count = 0;
-  let lastSpinAngle = 0;
   let lastBobPhase = 0;
 
   const applyMatrix = (
@@ -157,13 +159,16 @@ export const createUnfedBadgeOverlay = (scene: Scene, maxTiles: number): UnfedBa
     centerX: number,
     surfaceY: number,
     centerZ: number,
-    spinAngle: number,
     bobPhase: number
   ): void => {
     const phase = bobPhase + idx * PHASE_PER_INSTANCE;
     const bob = Math.sin(phase) * BOB_AMPLITUDE;
     tempPos.set(centerX, surfaceY + FLOAT_BASE + bob, centerZ);
-    tempEuler.set(0, spinAngle, 0, "XYZ");
+    // Static back-tilt around X — the plane stays face-on to the
+    // perspective camera at the default orbit angle. No spin (would
+    // strobe edge-on every quarter rotation); bobbing alone is enough
+    // motion to draw the eye to unfed towns.
+    tempEuler.set(PLANE_TILT_X, 0, 0, "XYZ");
     tempQuat.setFromEuler(tempEuler);
     tempMatrix.compose(tempPos, tempQuat, unitScale);
     mesh.setMatrixAt(idx, tempMatrix);
@@ -178,9 +183,9 @@ export const createUnfedBadgeOverlay = (scene: Scene, maxTiles: number): UnfedBa
     xs[count] = centerX;
     ys[count] = surfaceY;
     zs[count] = centerZ;
-    // Seed with the most recent spin/bob so a newly-added badge doesn't
-    // pop into the wrong orientation for one frame before tick() runs.
-    applyMatrix(count, centerX, surfaceY, centerZ, lastSpinAngle, lastBobPhase);
+    // Seed with the most recent bob phase so a newly-added badge doesn't
+    // pop into the wrong Y offset for one frame before tick() runs.
+    applyMatrix(count, centerX, surfaceY, centerZ, lastBobPhase);
     count += 1;
   };
 
@@ -191,10 +196,9 @@ export const createUnfedBadgeOverlay = (scene: Scene, maxTiles: number): UnfedBa
 
   const tick = (nowMs: number): void => {
     if (count === 0) return;
-    lastSpinAngle = ((nowMs % SPIN_PERIOD_MS) / SPIN_PERIOD_MS) * Math.PI * 2;
     lastBobPhase = ((nowMs % BOB_PERIOD_MS) / BOB_PERIOD_MS) * Math.PI * 2;
     for (let i = 0; i < count; i += 1) {
-      applyMatrix(i, xs[i]!, ys[i]!, zs[i]!, lastSpinAngle, lastBobPhase);
+      applyMatrix(i, xs[i]!, ys[i]!, zs[i]!, lastBobPhase);
     }
     mesh.instanceMatrix.needsUpdate = true;
   };

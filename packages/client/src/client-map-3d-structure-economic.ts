@@ -125,9 +125,17 @@ export const registerEconomicStructures = (
   const wwTroughGeo = new BoxGeometry(0.42, 0.04, 0.06);
   const tentGeo = new ConeGeometry(0.13, 0.20, 4);
   const fireGeo = new ConeGeometry(0.05, 0.10, 5);
+  // Camp drying tripod (same shape language as the FUR resource
+  // overlay's tripod): 3 thicker posts leaning to a common apex with a
+  // small binding wrap and a single stretched hide. Legacy
+  // dryRackPost/dryRackBar geos are kept for any future small-prop
+  // reuse, but the camp layout now uses the tripod pieces.
   const dryRackPostGeo = new CylinderGeometry(0.018, 0.022, 0.22, 5);
   const dryRackBarGeo = new CylinderGeometry(0.014, 0.014, 0.32, 5);
   const dryRackPeltGeo = new BoxGeometry(0.13, 0.085, 0.018);
+  const campTripodPostGeo = new CylinderGeometry(0.028, 0.034, 0.30, 7);
+  const campTripodBindingGeo = new BoxGeometry(0.055, 0.030, 0.055);
+  const campTripodPeltGeo = new BoxGeometry(0.20, 0.16, 0.022);
   const mineHillGeo = new ConeGeometry(0.30, 0.22, 6);
   const mineEntranceGeo = new BoxGeometry(0.18, 0.16, 0.05);
   const mineBeamGeo = new BoxGeometry(0.20, 0.022, 0.022);
@@ -193,6 +201,10 @@ export const registerEconomicStructures = (
   builder.makeSlot("dryRackPost", dryRackPostGeo, drymeatRackMaterial, C * 2);
   builder.makeSlot("dryRackBar", dryRackBarGeo, drymeatRackMaterial, C);
   builder.makeSlot("dryRackPelt", dryRackPeltGeo, drymeatPeltMaterial, C * 2);
+  // Camp tripod — 1 tripod per CAMP tile.
+  builder.makeSlot("campTripodPost", campTripodPostGeo, drymeatRackMaterial, C * 3);
+  builder.makeSlot("campTripodBinding", campTripodBindingGeo, drymeatRackMaterial, C);
+  builder.makeSlot("campTripodPelt", campTripodPeltGeo, drymeatPeltMaterial, C);
   // Mine
   builder.makeSlot("mineHill", mineHillGeo, mineHillMaterial, C);
   builder.makeSlot("mineEntrance", mineEntranceGeo, mineDarkMaterial, C);
@@ -264,15 +276,59 @@ export const registerEconomicStructures = (
     builder.addPiece("wwTrough", sx, sy, sz, 0, 0.04, 0.18);
   };
 
+  // Reusable tripod geometry (same numbers as the fur-resource tripod in
+  // client-map-3d-resource-overlay.ts, so camp and fur read as the same
+  // family of structure).
+  const CAMP_TRIPOD_BASE_R = 0.09;
+  const CAMP_TRIPOD_APEX_Y = 0.26;
+  const CAMP_TRIPOD_TILT = Math.atan(CAMP_TRIPOD_BASE_R / CAMP_TRIPOD_APEX_Y);
+  type CampTripodLeg = {
+    readonly cx: number;
+    readonly cy: number;
+    readonly cz: number;
+    readonly rotY: number;
+    readonly rotZ: number;
+  };
+  const CAMP_TRIPOD_LEGS: ReadonlyArray<CampTripodLeg> = [0, (Math.PI * 2) / 3, (Math.PI * 4) / 3].map((alpha) => {
+    const baseX = Math.cos(alpha) * CAMP_TRIPOD_BASE_R;
+    const baseZ = Math.sin(alpha) * CAMP_TRIPOD_BASE_R;
+    const yaw = Math.atan2(-Math.sin(alpha), -Math.cos(alpha));
+    return {
+      cx: baseX / 2,
+      cy: CAMP_TRIPOD_APEX_Y / 2,
+      cz: baseZ / 2,
+      rotY: -yaw,
+      rotZ: -CAMP_TRIPOD_TILT
+    };
+  });
+
   const addCamp: EconomicStructureLayout = (sx, sy, sz) => {
+    // 2 tents + central fire + drying tripod (3 leaning posts + binding
+    // + stretched hide). The tripod replaces the legacy rectangular
+    // drying rack and matches the FUR resource tripod shape.
     builder.addPiece("tent", sx, sy, sz, -0.18, 0.10, 0.10);
     builder.addPiece("tent", sx, sy, sz, 0.16, 0.10, 0.14, 1, 1, 1, Math.PI * 0.3);
     builder.addPiece("fire", sx, sy, sz, -0.02, 0.05, 0.04);
-    builder.addPiece("dryRackPost", sx, sy, sz, -0.18, 0.11, -0.20);
-    builder.addPiece("dryRackPost", sx, sy, sz, 0.18, 0.11, -0.20);
-    builder.addPiece("dryRackBar", sx, sy, sz, 0, 0.22, -0.20, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    builder.addPiece("dryRackPelt", sx, sy, sz, -0.10, 0.16, -0.20);
-    builder.addPiece("dryRackPelt", sx, sy, sz, 0.10, 0.16, -0.20);
+    // Tripod sits at the back-centre of the tile. Per-tripod yaw
+    // rotation of π (180°) so its hide-bearing front faces +Z (toward
+    // the camera for a default orbit) rather than out the back.
+    const tripodOX = 0;
+    const tripodOZ = -0.18;
+    const tripodYaw = Math.PI;
+    const yawCos = Math.cos(tripodYaw);
+    const yawSin = Math.sin(tripodYaw);
+    for (const leg of CAMP_TRIPOD_LEGS) {
+      const lx = yawCos * leg.cx - yawSin * leg.cz;
+      const lz = yawSin * leg.cx + yawCos * leg.cz;
+      builder.addPiece("campTripodPost", sx, sy, sz, tripodOX + lx, leg.cy, tripodOZ + lz, 1, 1, 1, leg.rotY + tripodYaw, 0, leg.rotZ);
+    }
+    builder.addPiece("campTripodBinding", sx, sy, sz, tripodOX, CAMP_TRIPOD_APEX_Y - 0.015, tripodOZ, 1, 1, 1, tripodYaw);
+    // Hide hangs on the front face of the tripod (negative Z because
+    // tripodYaw = π flips the local +Z to world -Z).
+    const peltLocalZ = 0.075;
+    const peltX = tripodOX - yawSin * peltLocalZ;
+    const peltZ = tripodOZ + yawCos * peltLocalZ;
+    builder.addPiece("campTripodPelt", sx, sy, sz, peltX, 0.115, peltZ, 1, 1, 1, tripodYaw, Math.PI * 0.08, 0);
   };
 
   const addMine: EconomicStructureLayout = (sx, sy, sz, resource) => {
