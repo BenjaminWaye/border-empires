@@ -444,7 +444,12 @@ export const applyGatewayInitialState = (
   options?: { preserveExistingDiscoveredTiles?: boolean }
 ): number => {
   const tiles = initialState?.tiles;
-  if (!Array.isArray(tiles) || tiles.length === 0) return 0;
+  // Missing tiles field is a no-op (caller passed nothing). An EMPTY tiles
+  // array is a valid replacement intent — TILE_SNAPSHOT_REPLACE after a
+  // full-map reveal can hand back a fog-on snapshot whose visible-tile slice
+  // is small or even empty, and we still have to drop the previously-revealed
+  // tiles from state.tiles or the map keeps rendering the reveal.
+  if (!Array.isArray(tiles)) return 0;
   const preserveExistingDiscoveredTiles = options?.preserveExistingDiscoveredTiles === true;
   if (preserveExistingDiscoveredTiles) {
     for (const [tileKey, tile] of deps.state.tiles) {
