@@ -192,15 +192,39 @@ export const buildSnapshotTileDetail = (
         ? 1
         : 2;
   const supportRatio = supportSummary.supportMax <= 0 ? 1 : supportSummary.supportCurrent / supportSummary.supportMax;
+  // Single source of truth: when the sim's authoritative goldPerMinute / cap
+  // are in sync with the gateway's view of the town's fed state, trust them.
+  // The gateway's local recompute below knows nothing about connectedTownBonus,
+  // townPopulationMultiplier, firstThreeTownMult, incomeMultiplier,
+  // PASSIVE_INCOME_MULT, or the +1 bank flat — so silently overriding the sim's
+  // 4.4 / m with the gateway's stripped 2.0 / m is the prod bug we're fixing.
+  // The fallback recompute path is still useful when the cached snapshot's
+  // isFed disagrees with the gateway's freshly-derived isFed (i.e. the
+  // snapshot is stale on fed state — the existing "thin town detail" tests
+  // cover that case).
+  const simGoldPerMinute =
+    typeof parsedTown?.goldPerMinute === "number" && Number.isFinite(parsedTown.goldPerMinute)
+      ? parsedTown.goldPerMinute
+      : undefined;
+  const simCap =
+    typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap) ? parsedTown.cap : undefined;
+  const simIsFedMatchesDerived = parsedTown?.isFed === isFed;
+  const trustSimEconomy = simIsFedMatchesDerived && simGoldPerMinute !== undefined;
   const goldPerMinute =
-    populationTier === "SETTLEMENT"
-      ? baseGoldPerMinute
-      : isFed
-        ? baseGoldPerMinute *
-          supportRatio *
-          (supportStructures.hasMarket ? 1.5 : 1) *
-          (supportStructures.hasBank ? 1.5 : 1)
-        : 0;
+    trustSimEconomy
+      ? (simGoldPerMinute as number)
+      : populationTier === "SETTLEMENT"
+        ? baseGoldPerMinute
+        : isFed
+          ? baseGoldPerMinute *
+            supportRatio *
+            (supportStructures.hasMarket ? 1.5 : 1) *
+            (supportStructures.hasBank ? 1.5 : 1)
+          : 0;
+  const cap =
+    trustSimEconomy && simCap !== undefined
+      ? simCap
+      : Math.max(0, goldPerMinute) * 60 * 8 * (supportStructures.hasMarket ? 1.5 : 1);
   const populationGrowthPerMinute =
     townPopulationGrowthPerMinute({
       isFed,
@@ -230,7 +254,7 @@ export const buildSnapshotTileDetail = (
         bankActive: supportStructures.hasBank,
         baseGoldPerMinute,
         goldPerMinute,
-        cap: Math.max(0, goldPerMinute) * 60 * 8 * (supportStructures.hasMarket ? 1.5 : 1),
+        cap,
         ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
         ...(growthModifiers ? { growthModifiers } : {})
       }
