@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 384;
+export const TEACHER_PROMPT_VERSION = "border-empires-ai-label-v1";
 
 export const teacherLabelSchema = {
   type: "object",
@@ -182,6 +184,56 @@ export const buildTeacherContext = (record) =>
     notes: record.notes
   });
 
+const stableJsonValue = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(stableJsonValue);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, stableJsonValue(value[key])])
+  );
+};
+
+export const stableStringify = (value) => JSON.stringify(stableJsonValue(value));
+
+export const buildTeacherRecordHash = (record) =>
+  createHash("sha256")
+    .update(`${TEACHER_PROMPT_VERSION}\n`)
+    .update(stableStringify(buildTeacherContext(record)))
+    .digest("hex");
+
+export const loadLabelCache = async (filePath) => {
+  if (!filePath) return new Map();
+  let entries;
+  try {
+    entries = await parseJsonLines(filePath);
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") {
+      return new Map();
+    }
+    throw error;
+  }
+
+  const cache = new Map();
+  for (const [index, entry] of entries.entries()) {
+    if (!entry || typeof entry !== "object") {
+      throw new Error(`Label cache entry ${index + 1} in ${filePath} must be an object`);
+    }
+    if (typeof entry.recordHash !== "string" || entry.recordHash.length === 0) {
+      continue;
+    }
+    if (!entry.label || typeof entry.label !== "object") {
+      continue;
+    }
+    cache.set(entry.recordHash, entry);
+  }
+  return cache;
+};
+
 export const buildTeacherPrompt = (record) => {
   const context = buildTeacherContext(record);
 
@@ -337,7 +389,7 @@ export const buildBatchBody = (record, model = "gpt-5-mini", options = {}) => {
     model,
     input: buildTeacherPrompt(record),
     max_output_tokens: maxOutputTokens,
-    prompt_cache_key: "border-empires-ai-label-v1",
+    prompt_cache_key: TEACHER_PROMPT_VERSION,
     text: {
       format: {
         type: "json_schema",
