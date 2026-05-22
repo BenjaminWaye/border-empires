@@ -128,6 +128,8 @@ This is exactly what the new batch-builder script generates prompts for:
 - `pnpm ai:labeling:batch`
 - `scripts/run-ai-labeling-local.mjs`
 - `pnpm ai:labeling:local`
+- `scripts/sample-ai-labeling-records.mjs`
+- `pnpm ai:labeling:sample`
 - `scripts/build-ai-labeling-escalation-set.mjs`
 - `pnpm ai:labeling:triage`
 
@@ -174,6 +176,24 @@ Use provider current per-million-token prices for the two pricing variables. The
 The batch prompt puts stable instructions first and compact per-record JSON last so hosted provider prefix caching can work. It also sets a stable prompt cache key and caps output tokens. Extended `24h` cache retention is opt-in because not every hosted model supports it.
 
 Batch generation also checks the label cache before writing requests. By default it reads `tmp/ai-training/labeled-records.local.jsonl` and skips records whose exact `recordHash` is already labeled, so hosted escalation does not pay again for examples that a local teacher already covered.
+
+Before labeling a large run, sample the corpus so repeated no-op states do not dominate token spend:
+
+```bash
+pnpm ai:labeling:sample
+```
+
+This reads `tmp/ai-training/records.jsonl` and writes:
+
+- `tmp/ai-training/records.sampled.jsonl`
+- `tmp/ai-training/sample-report.json`
+
+Useful sampling caps:
+
+- `AI_LABELING_SAMPLE_MAX_RECORDS=N`
+- `AI_LABELING_SAMPLE_MAX_PER_ACTION=N`
+- `AI_LABELING_SAMPLE_MAX_NOOP=N`
+- `AI_LABELING_SAMPLE_MAX_PER_PLAYER=N`
 
 For local teacher runs, the worktree now also supports:
 
@@ -339,11 +359,12 @@ Review:
 
 - `tmp/ai-training/token-usage-report.json`
 
-Prefer local labeling first, then triage, then hosted escalation:
+Prefer sampling, then local labeling, then triage, then hosted escalation:
 
 ```bash
-AI_LABELING_MAX_RECORDS=500 pnpm ai:labeling:local
-pnpm ai:labeling:triage
+pnpm ai:labeling:sample
+AI_LABELING_MAX_RECORDS=500 pnpm ai:labeling:local tmp/ai-training/records.sampled.jsonl
+pnpm ai:labeling:triage tmp/ai-training/records.sampled.jsonl
 AI_LABELING_MAX_RECORDS=100 \
 AI_LABELING_MAX_ESTIMATED_USD=5 \
 AI_LABELING_INPUT_USD_PER_MTOK=<current-input-price> \
