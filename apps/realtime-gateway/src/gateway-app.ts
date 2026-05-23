@@ -2015,6 +2015,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
+            // Always start a new auth with fog ON. Fog admins must explicitly
+            // re-toggle SET_FOG_DISABLED each login; the client also clears its
+            // persisted reveal preference on Firebase sign-in so it does not
+            // auto-resend the toggle.
+            session.fogDisabled = false;
             authTrace.startStep("profile_get");
             const persistedProfile = await cachedProfileGet(playerIdentity.playerId);
             authTrace.endStep("profile_get");
@@ -3172,12 +3177,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
       socket.on("close", () => {
         if (!session.playerId) return;
-        void playerSubscriptions.removeSocket(session.playerId, socket)
+        const closingPlayerId = session.playerId;
+        void playerSubscriptions.removeSocket(closingPlayerId, socket)
           .then(() => {
-            syncGatewaySnapshotMetricsFromCache(session.playerId!);
+            syncGatewaySnapshotMetricsFromCache(closingPlayerId);
+            // Prune fog-refresh bookkeeping when no fog-disabled session remains
+            // for this player — avoids unbounded growth of lastStartedAt across
+            // the gateway's lifetime.
+            const stillFogDisabled = [...playerSubscriptions.socketsForPlayer(closingPlayerId)].some(
+              (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
+            );
+            if (!stillFogDisabled) {
+              fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
+            }
           })
           .catch((error) => {
-            app.log.error({ err: error, playerId: session.playerId }, "failed to unsubscribe player");
+            app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player");
           });
       });
     });
