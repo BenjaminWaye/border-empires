@@ -1,0 +1,186 @@
+import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
+import type { Terrain } from "@border-empires/shared";
+import type { DomainPlayer, DomainStrategicResourceKey, FrontierCommandType } from "@border-empires/game-domain";
+import type { DockRouteDefinition } from "./dock-network.js";
+import type { RecoveredCommandHistory } from "./command-recovery.js";
+import type { RecoveredSimulationState } from "./event-recovery.js";
+import type { SimulationSeedProfile } from "./seed-state.js";
+import type { QueueLane } from "./command-lane.js";
+import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
+import type { buildConnectedTownNetworkForPlayer } from "./economy-network.js";
+
+export type RuntimeTileYieldEconomyContext = {
+  player: DomainPlayer;
+  townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
+  fedTownKeys: Set<string>;
+  firstThreeTownKeys: Set<string>;
+};
+
+export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL"] as const;
+export type UpkeepStrategicKey = (typeof UPKEEP_STRATEGIC_KEYS)[number];
+export type UpkeepNeed = { gold: number } & Record<UpkeepStrategicKey, number>;
+
+export const hasOutstandingUpkeepNeed = (need: UpkeepNeed): boolean => {
+  if (need.gold > 0.0001) return true;
+  for (const resource of UPKEEP_STRATEGIC_KEYS) {
+    if (need[resource] > 0.0001) return true;
+  }
+  return false;
+};
+
+export type LockRecord = {
+  commandId: string;
+  playerId: string;
+  actionType: FrontierCommandType;
+  manpowerCost: number;
+  originX: number;
+  originY: number;
+  targetX: number;
+  targetY: number;
+  targetKey: string;
+  originKey: string;
+  resolvesAt: number;
+  combatResolution?: LockedCombatResolution;
+};
+
+export type LockedCombatResolution = {
+  result: LockedFrontierCombatResult;
+  defenderGoldLoss: number;
+};
+
+export type AetherWallDirection = "N" | "E" | "S" | "W";
+
+export type ActiveAetherBridgeView = {
+  bridgeId: string;
+  ownerId: string;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  startedAt: number;
+  endsAt: number;
+};
+
+export type ActiveAetherWallView = {
+  wallId: string;
+  ownerId: string;
+  origin: { x: number; y: number };
+  direction: AetherWallDirection;
+  length: 1 | 2 | 3;
+  startedAt: number;
+  endsAt: number;
+};
+
+export type SimulationJob = {
+  lane: QueueLane;
+  run: () => void;
+  enqueuedAt: number;
+  commandType?: CommandEnvelope["type"];
+};
+
+export type StrategicResourceKey = DomainStrategicResourceKey;
+
+export type RuntimePlayer = DomainPlayer & {
+  manpowerUpdatedAt?: number;
+  manpowerCapSnapshot?: number;
+};
+
+export type SimulationPersistence = {
+  recordCommand: (command: CommandEnvelope) => void;
+  recordEvent: (event: SimulationEvent) => void;
+  snapshot: () => {
+    commands: CommandEnvelope[];
+    events: SimulationEvent[];
+  };
+};
+
+export class InMemorySimulationPersistence implements SimulationPersistence {
+  private readonly commands: CommandEnvelope[] = [];
+  private readonly events: SimulationEvent[] = [];
+
+  recordCommand(command: CommandEnvelope): void {
+    this.commands.push(command);
+  }
+
+  recordEvent(event: SimulationEvent): void {
+    this.events.push(event);
+  }
+
+  snapshot(): { commands: CommandEnvelope[]; events: SimulationEvent[] } {
+    return {
+      commands: [...this.commands],
+      events: [...this.events]
+    };
+  }
+}
+
+export type SimulationRuntimeOptions = {
+  now?: () => number;
+  persistence?: SimulationPersistence;
+  backgroundBatchSize?: number;
+  scheduleSoon?: (task: () => void) => void;
+  scheduleAfter?: (delayMs: number, task: () => void) => void;
+  initialState?: RecoveredSimulationState;
+  initialCommandHistory?: RecoveredCommandHistory;
+  seedProfile?: SimulationSeedProfile;
+  seedTiles?: Map<string, import("@border-empires/game-domain").DomainTileState>;
+  seedDocks?: DockRouteDefinition[];
+  initialPlayers?: Map<string, RuntimePlayer>;
+  mergeSeedTilesWithInitialState?: boolean;
+  commandTrace?: (sample: Record<string, unknown>) => void;
+  onQueueDrain?: (sample: {
+    durationMs: number;
+    processedJobs: number;
+    backgroundJobsProcessed: number;
+    yieldedForBackground: boolean;
+    processedByLane: Record<QueueLane, number>;
+    queueDepthsBefore: Record<QueueLane, number>;
+    queueDepthsAfter: Record<QueueLane, number>;
+  }) => void;
+  onJobApplied?: (sample: {
+    lane: QueueLane;
+    durationMs: number;
+    commandType?: CommandEnvelope["type"];
+  }) => void;
+  onCollectVisibleSample?: (sample: {
+    playerId: string;
+    yieldMs: number;
+    deltaMs: number;
+    tileDeltaBatchEmitMs: number;
+    collectResultEmitMs: number;
+    playerStateUpdateMs: number;
+    tilesConsidered: number;
+    tilesTouched: number;
+  }) => void;
+  maxTerminalCommandReplayHistory?: number;
+  maxPlayerSeqReplayEntries?: number;
+  onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
+  onCaptureRevealBuilt?: (sample: {
+    commandId: string;
+    playerId: string;
+    tileCount: number;
+    durationMs: number;
+  }) => void;
+};
+
+export type SimulationTileWireDelta = {
+  x: number;
+  y: number;
+  terrain?: Terrain;
+  resource?: string;
+  dockId?: string;
+  ownerId?: string | undefined;
+  ownershipState?: string | undefined;
+  frontierDecayAt?: number | undefined;
+  fortJson?: string | undefined;
+  observatoryJson?: string | undefined;
+  siegeOutpostJson?: string | undefined;
+  economicStructureJson?: string | undefined;
+  sabotageJson?: string | undefined;
+  townJson?: string;
+  townType?: "MARKET" | "FARMING";
+  townName?: string;
+  townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+  shardSiteJson?: string;
+  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
+  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
+  yieldCap?: { gold: number; strategicEach: number };
+};
