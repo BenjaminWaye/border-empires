@@ -1010,6 +1010,58 @@ describe("simulation runtime", () => {
     expect(p3Filtered.map((delta) => `${delta.x},${delta.y}`)).toEqual(["202,200"]);
   });
 
+  it("filterTileDeltasForPlayer eager and lazy paths agree on large delta batches", () => {
+    // The eager fast path kicks in when tileDeltas.length >= 16. This test
+    // builds a batch large enough to trip the threshold and confirms the
+    // visible-set output matches the lazy path on a smaller slice (R=4, so
+    // tiles at Chebyshev distance ≤ 4 from an owned tile are visible).
+    const makePlayer = (id: string) => ({
+      id,
+      isAi: false,
+      points: 100,
+      manpower: 100,
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(),
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      techRootId: "rewrite-local",
+      allies: new Set<string>()
+    });
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 100, y: 100, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    // Build 25 deltas: mix of tiles inside player-1's vision (Chebyshev ≤ 4
+    // from 10,10) and tiles outside it. The eager path must drop the same
+    // tiles as the lazy path would.
+    const deltas: Array<{ x: number; y: number; terrain: "LAND"; ownerId: string; ownershipState: "SETTLED" }> = [];
+    for (let dx = -6; dx <= 6; dx += 1) {
+      deltas.push({ x: 10 + dx, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" });
+    }
+    // 12 far-away tiles that should never be visible.
+    for (let i = 0; i < 12; i += 1) {
+      deltas.push({ x: 200 + i, y: 200, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" });
+    }
+    expect(deltas.length).toBeGreaterThanOrEqual(16);
+
+    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+    const visibleXs = filtered.map((delta) => delta.x).sort((a, b) => a - b);
+    // Player-1 owns (10,10) with vision radius 4 → x in [6..14] visible at y=10.
+    expect(visibleXs).toEqual([6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    expect(filtered.some((delta) => delta.y === 200)).toBe(false);
+  });
+
   it("does not redact lock-target tiles already covered by territory vision", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
