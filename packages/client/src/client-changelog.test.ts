@@ -26,6 +26,13 @@ const createState = (overrides?: {
   }
 });
 
+const releaseDayFromVersion = (releaseVersion: string): number => {
+  const match = /^(\d{4})\.(\d{2})\.(\d{2})\.\d+$/.exec(releaseVersion);
+  if (!match) throw new Error(`Invalid release version: ${releaseVersion}`);
+  const [, year, month, day] = match;
+  return Date.UTC(Number(year), Number(month) - 1, Number(day));
+};
+
 describe("client changelog", () => {
   it("stores visibility against the explicit changelog release version instead of the build sha", () => {
     expect(LATEST_CLIENT_CHANGELOG.version).toMatch(/^\d{4}\.\d{2}\.\d{2}\.\d+$/);
@@ -72,6 +79,15 @@ describe("client changelog", () => {
       expect(entry.why.trim().length).toBeGreaterThan(0);
       expect(entry.changes.length).toBeGreaterThan(0);
       expect(entry.changes.every((change) => change.trim().length > 0)).toBe(true);
+    }
+  });
+
+  it("keeps only the latest week of release entries in the client bundle", () => {
+    const latestReleaseDay = releaseDayFromVersion(LATEST_CLIENT_CHANGELOG.version);
+    const oldestAllowedReleaseDay = latestReleaseDay - 6 * 24 * 60 * 60 * 1000;
+
+    for (const entry of LATEST_CLIENT_CHANGELOG.entries) {
+      expect(releaseDayFromVersion(entry.introducedIn)).toBeGreaterThanOrEqual(oldestAllowedReleaseDay);
     }
   });
 
