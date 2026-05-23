@@ -10,7 +10,6 @@ import {
   validateFrontierCommand,
   fortAttackManpowerMultiplier,
   type DomainPlayer,
-  type DomainStrategicResourceKey,
   type DomainTileState,
   type FrontierCommandType
 } from "@border-empires/game-domain";
@@ -145,9 +144,7 @@ import {
 } from "./player-update-economy.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
 import { capturedStructureFields } from "./capture-structures.js";
-import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
-import type { RecoveredSimulationState } from "./event-recovery.js";
-import type { RecoveredCommandHistory } from "./command-recovery.js";
+import { createSeedWorld, simulationTileKey } from "./seed-state.js";
 import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
 import {
   buildModBreakdownForPlayer,
@@ -183,6 +180,52 @@ import {
   selectSpatialFocus,
   type AiSpatialFocus
 } from "./ai-spatial-focus.js";
+import {
+  InMemorySimulationPersistence,
+  UPKEEP_STRATEGIC_KEYS,
+  hasOutstandingUpkeepNeed,
+  type ActiveAetherBridgeView,
+  type ActiveAetherWallView,
+  type AetherWallDirection,
+  type LockRecord,
+  type LockedCombatResolution,
+  type RuntimePlayer,
+  type RuntimeTileYieldEconomyContext,
+  type SimulationJob,
+  type SimulationPersistence,
+  type SimulationRuntimeOptions,
+  type SimulationTileWireDelta,
+  type StrategicResourceKey,
+  type UpkeepNeed
+} from "./runtime-types.js";
+import {
+  parseAetherWallPayload,
+  parseAirportBombardPayload,
+  parseAllianceSyncPayload,
+  parseConverterTogglePayload,
+  parseEconomicStructurePayload,
+  parseFrontierPayload,
+  parseImperialExchangeLevyPayload,
+  parseRevealPayload,
+  parseSettlePayload,
+  parseSiegeOutpostAutoAttackPayload,
+  parseStructureTilePayload,
+  parseTilePayload,
+  parseWorldEngineStrikePayload
+} from "./runtime-command-parsers.js";
+import {
+  SYNTHETIC_SETTLEMENT_POPULATION,
+  createDocksFromInitialState,
+  createLocksFromInitialState,
+  createPlayersFromRecoveredState,
+  createTilesFromInitialState,
+  hydrateCommandHistory,
+  requeueRecoveredCommands,
+  uniqueLocksByCommandId
+} from "./runtime-hydration.js";
+
+export { InMemorySimulationPersistence } from "./runtime-types.js";
+export type { SimulationTileWireDelta } from "./runtime-types.js";
 
 const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {
   const scopedKeys = new Set<string>();
@@ -195,199 +238,7 @@ const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {
   return scopedKeys.size;
 };
 
-type RuntimeTileYieldEconomyContext = {
-  player: DomainPlayer;
-  townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
-  fedTownKeys: Set<string>;
-  firstThreeTownKeys: Set<string>;
-};
-
-const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL"] as const;
-type UpkeepStrategicKey = (typeof UPKEEP_STRATEGIC_KEYS)[number];
-type UpkeepNeed = { gold: number } & Record<UpkeepStrategicKey, number>;
-
-const hasOutstandingUpkeepNeed = (need: UpkeepNeed): boolean => {
-  if (need.gold > 0.0001) return true;
-  for (const resource of UPKEEP_STRATEGIC_KEYS) {
-    if (need[resource] > 0.0001) return true;
-  }
-  return false;
-};
-
-type LockRecord = {
-  commandId: string;
-  playerId: string;
-  actionType: FrontierCommandType;
-  manpowerCost: number;
-  originX: number;
-  originY: number;
-  targetX: number;
-  targetY: number;
-  targetKey: string;
-  originKey: string;
-  resolvesAt: number;
-  combatResolution?: LockedCombatResolution;
-};
-
-type LockedCombatResolution = {
-  result: LockedFrontierCombatResult;
-  defenderGoldLoss: number;
-};
-
-type AetherWallDirection = "N" | "E" | "S" | "W";
-
-type ActiveAetherBridgeView = {
-  bridgeId: string;
-  ownerId: string;
-  from: { x: number; y: number };
-  to: { x: number; y: number };
-  startedAt: number;
-  endsAt: number;
-};
-
-type ActiveAetherWallView = {
-  wallId: string;
-  ownerId: string;
-  origin: { x: number; y: number };
-  direction: AetherWallDirection;
-  length: 1 | 2 | 3;
-  startedAt: number;
-  endsAt: number;
-};
-
-type SimulationJob = {
-  lane: QueueLane;
-  run: () => void;
-  enqueuedAt: number;
-  // Set when the job was enqueued via queueCommandForProcessing; lets the
-  // drain emit per-command-type apply-time metrics. Background jobs
-  // (enqueueBackgroundJob) leave this undefined; their apply time is still
-  // counted in the overall drain duration but not attributed to a type.
-  commandType?: CommandEnvelope["type"];
-};
-
-type StrategicResourceKey = DomainStrategicResourceKey;
-type RuntimePlayer = DomainPlayer & {
-  manpowerUpdatedAt?: number;
-  manpowerCapSnapshot?: number;
-};
-
-type SimulationPersistence = {
-  recordCommand: (command: CommandEnvelope) => void;
-  recordEvent: (event: SimulationEvent) => void;
-  snapshot: () => {
-    commands: CommandEnvelope[];
-    events: SimulationEvent[];
-  };
-};
-
-export class InMemorySimulationPersistence implements SimulationPersistence {
-  private readonly commands: CommandEnvelope[] = [];
-  private readonly events: SimulationEvent[] = [];
-
-  recordCommand(command: CommandEnvelope): void {
-    this.commands.push(command);
-  }
-
-  recordEvent(event: SimulationEvent): void {
-    this.events.push(event);
-  }
-
-  snapshot(): { commands: CommandEnvelope[]; events: SimulationEvent[] } {
-    return {
-      commands: [...this.commands],
-      events: [...this.events]
-    };
-  }
-}
-
-type SimulationRuntimeOptions = {
-  now?: () => number;
-  persistence?: SimulationPersistence;
-  backgroundBatchSize?: number;
-  scheduleSoon?: (task: () => void) => void;
-  scheduleAfter?: (delayMs: number, task: () => void) => void;
-  initialState?: RecoveredSimulationState;
-  initialCommandHistory?: RecoveredCommandHistory;
-  seedProfile?: SimulationSeedProfile;
-  seedTiles?: Map<string, DomainTileState>;
-  seedDocks?: DockRouteDefinition[];
-  initialPlayers?: Map<string, RuntimePlayer>;
-  mergeSeedTilesWithInitialState?: boolean;
-  commandTrace?: (sample: Record<string, unknown>) => void;
-  onQueueDrain?: (sample: {
-    durationMs: number;
-    processedJobs: number;
-    backgroundJobsProcessed: number;
-    yieldedForBackground: boolean;
-    processedByLane: Record<QueueLane, number>;
-    queueDepthsBefore: Record<QueueLane, number>;
-    queueDepthsAfter: Record<QueueLane, number>;
-  }) => void;
-  // Fires once per processed job inside drainQueues with the wall-clock cost
-  // of its run() and (when the job was enqueued via queueCommandForProcessing)
-  // the originating command type. Lets us see which apply path dominates the
-  // drain (likely ATTACK with combat resolution).
-  onJobApplied?: (sample: {
-    lane: QueueLane;
-    durationMs: number;
-    commandType?: CommandEnvelope["type"];
-  }) => void;
-  // Per-COLLECT_VISIBLE phase telemetry. #317 split the inner loop and found
-  // it was only ~4% of the call cost — the remaining 96% lives in the three
-  // post-loop emits. Adds timing for each so we can localise the hot listener
-  // (almost certainly emitPlayerStateUpdate, which fires on every command
-  // apply across the runtime, not just COLLECT_VISIBLE — so fixing it once
-  // helps ATTACK / SETTLE / EXPAND too).
-  onCollectVisibleSample?: (sample: {
-    playerId: string;
-    yieldMs: number;
-    deltaMs: number;
-    tileDeltaBatchEmitMs: number;
-    collectResultEmitMs: number;
-    playerStateUpdateMs: number;
-    tilesConsidered: number;
-    tilesTouched: number;
-  }) => void;
-  maxTerminalCommandReplayHistory?: number;
-  maxPlayerSeqReplayEntries?: number;
-  onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
-  onCaptureRevealBuilt?: (sample: {
-    commandId: string;
-    playerId: string;
-    tileCount: number;
-    durationMs: number;
-  }) => void;
-};
-
 export type { VisibilityAuditSample };
-
-export type SimulationTileWireDelta = {
-  x: number;
-  y: number;
-  terrain?: Terrain;
-  resource?: string;
-  dockId?: string;
-  // Fields that flip to explicit `undefined` on uncapture / structure removal
-  // so subscribers can distinguish "field absent from delta" (no change) from
-  // "field cleared by this delta". Don't drop the `| undefined` union here.
-  ownerId?: string | undefined;
-  ownershipState?: string | undefined;
-  frontierDecayAt?: number | undefined;
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-  sabotageJson?: string | undefined;
-  townJson?: string;
-  townType?: "MARKET" | "FARMING";
-  townName?: string;
-  townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  shardSiteJson?: string;
-  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
-  yieldCap?: { gold: number; strategicEach: number };
-};
 
 const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWireDelta => ({
   x: tile.x,
@@ -409,45 +260,6 @@ const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWireDelta =
   ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
   ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {})
 });
-
-const createPlayersFromRecoveredState = (
-  initialState?: RecoveredSimulationState,
-  fallbackPlayers?: ReadonlyMap<string, RuntimePlayer>
-): Map<string, RuntimePlayer> | undefined => {
-  if (!initialState?.players || initialState.players.length === 0) return undefined;
-  return new Map(
-    initialState.players.map((player) => {
-      const techIds = new Set(player.techIds ?? []);
-      const domainIds = new Set(player.domainIds ?? []);
-      return [
-        player.id,
-        {
-          id: player.id,
-          isAi: player.isAi ?? fallbackPlayers?.get(player.id)?.isAi ?? false,
-          name: player.name ?? player.id,
-          points: player.points ?? 0,
-          manpower: player.manpower ?? MANPOWER_BASE_CAP,
-          ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
-          ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
-          techIds,
-          domainIds,
-          mods: recomputeMods({ techIds, domainIds }),
-          techRootId: "rewrite-recovered",
-          allies: new Set(player.allies ?? []),
-          strategicResources: {
-            FOOD: player.strategicResources?.FOOD ?? 0,
-            IRON: player.strategicResources?.IRON ?? 0,
-            CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-            SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-            SHARD: player.strategicResources?.SHARD ?? 0,
-            OIL: player.strategicResources?.OIL ?? 0
-          },
-          strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
-        }
-      ] as const;
-    })
-  );
-};
 
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 export const SETTLE_DURATION_MS = 60_000;
@@ -504,175 +316,6 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | undefi
   }
 };
 
-const parseFrontierPayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (
-      typeof parsed.fromX !== "number" ||
-      typeof parsed.fromY !== "number" ||
-      typeof parsed.toX !== "number" ||
-      typeof parsed.toY !== "number"
-    ) {
-      return null;
-    }
-    return {
-      fromX: parsed.fromX,
-      fromY: parsed.fromY,
-      toX: parsed.toX,
-      toY: parsed.toY
-    };
-  } catch {
-    return null;
-  }
-};
-
-const parseSettlePayload = (payloadJson: string): { x: number; y: number } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return null;
-    return { x: parsed.x, y: parsed.y };
-  } catch {
-    return null;
-  }
-};
-
-const parseTilePayload = (payloadJson: string): { x: number; y: number } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return null;
-    return { x: parsed.x, y: parsed.y };
-  } catch {
-    return null;
-  }
-};
-
-const parseStructureTilePayload = (payloadJson: string): { x: number; y: number } | null => parseTilePayload(payloadJson);
-
-const parseConverterTogglePayload = (payloadJson: string): { x: number; y: number; enabled: boolean } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.enabled !== "boolean") return null;
-    return {
-      x: parsed.x,
-      y: parsed.y,
-      enabled: parsed.enabled
-    };
-  } catch {
-    return null;
-  }
-};
-
-const parseSiegeOutpostAutoAttackPayload = parseConverterTogglePayload;
-
-const parseEconomicStructurePayload = (payloadJson: string): { x: number; y: number; structureType: EconomicStructureType } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.structureType !== "string") return null;
-    return {
-      x: parsed.x,
-      y: parsed.y,
-      structureType: parsed.structureType as EconomicStructureType
-    };
-  } catch {
-    return null;
-  }
-};
-
-const parseRevealPayload = (payloadJson: string): { targetPlayerId: string } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (typeof parsed.targetPlayerId !== "string" || parsed.targetPlayerId.length === 0) return null;
-    return { targetPlayerId: parsed.targetPlayerId };
-  } catch {
-    return null;
-  }
-};
-
-const parseAllianceSyncPayload = (payloadJson: string): { targetPlayerId: string; allied: boolean } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (typeof parsed.targetPlayerId !== "string" || parsed.targetPlayerId.length === 0 || typeof parsed.allied !== "boolean") {
-      return null;
-    }
-    return { targetPlayerId: parsed.targetPlayerId, allied: parsed.allied };
-  } catch {
-    return null;
-  }
-};
-
-const parseAetherWallPayload = (
-  payloadJson: string
-): { x: number; y: number; direction: AetherWallDirection; length: 1 | 2 | 3 } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (
-      typeof parsed.x !== "number" ||
-      typeof parsed.y !== "number" ||
-      (parsed.direction !== "N" && parsed.direction !== "E" && parsed.direction !== "S" && parsed.direction !== "W") ||
-      (parsed.length !== 1 && parsed.length !== 2 && parsed.length !== 3)
-    ) {
-      return null;
-    }
-    return {
-      x: parsed.x,
-      y: parsed.y,
-      direction: parsed.direction,
-      length: parsed.length
-    };
-  } catch {
-    return null;
-  }
-};
-
-const parseAirportBombardPayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (
-      typeof parsed.fromX !== "number" ||
-      typeof parsed.fromY !== "number" ||
-      typeof parsed.toX !== "number" ||
-      typeof parsed.toY !== "number"
-    ) {
-      return null;
-    }
-    return {
-      fromX: parsed.fromX,
-      fromY: parsed.fromY,
-      toX: parsed.toX,
-      toY: parsed.toY
-    };
-  } catch {
-    return null;
-  }
-};
-
-const parseImperialExchangeLevyPayload = (payloadJson: string): { fromX: number; fromY: number; resource: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (
-      typeof parsed.fromX !== "number" ||
-      typeof parsed.fromY !== "number" ||
-      typeof parsed.resource !== "string"
-    ) return null;
-    const resource = parsed.resource;
-    if (resource !== "FOOD" && resource !== "IRON" && resource !== "CRYSTAL" && resource !== "SUPPLY") return null;
-    return { fromX: parsed.fromX, fromY: parsed.fromY, resource };
-  } catch { return null; }
-};
-
-const parseWorldEngineStrikePayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (
-      typeof parsed.fromX !== "number" ||
-      typeof parsed.fromY !== "number" ||
-      typeof parsed.toX !== "number" ||
-      typeof parsed.toY !== "number"
-    ) return null;
-    return { fromX: parsed.fromX, fromY: parsed.fromY, toX: parsed.toX, toY: parsed.toY };
-  } catch { return null; }
-};
-
 const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, string>> = {
   FARMSTEAD: "agriculture",
   CAMP: "leatherworking",
@@ -721,18 +364,6 @@ const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructure
   return perMinute * (ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS / 60_000);
 };
 
-const isSyntheticSettlementTown = (
-  town: DomainTileState["town"] | undefined,
-  x: number,
-  y: number
-): boolean =>
-  Boolean(
-    town &&
-    town.populationTier === "SETTLEMENT" &&
-    town.name === `Settlement ${x},${y}`
-  );
-
-const SYNTHETIC_SETTLEMENT_POPULATION = 800;
 const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
 const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;
 
@@ -760,19 +391,6 @@ const nextShardRainStartAt = (nowMs: number): number => {
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(SHARD_RAIN_SCHEDULE_HOURS[0], 0, 0, 0);
   return tomorrow.getTime();
-};
-
-const hydrateSyntheticSettlementTown = (
-  town: DomainTileState["town"] | undefined,
-  x: number,
-  y: number
-): DomainTileState["town"] | undefined => {
-  if (!town || !isSyntheticSettlementTown(town, x, y)) return town;
-  return {
-    ...town,
-    population: typeof town.population === "number" ? town.population : SYNTHETIC_SETTLEMENT_POPULATION,
-    maxPopulation: typeof town.maxPopulation === "number" ? town.maxPopulation : POPULATION_MAX
-  };
 };
 
 // Process-global monotonically increasing counter so each runtime instance
@@ -8039,155 +7657,3 @@ export class SimulationRuntime {
     }, command.type);
   }
 }
-
-const createTilesFromInitialState = (
-  initialState: RecoveredSimulationState | undefined,
-  seedTiles: Map<string, DomainTileState>,
-  mergeSeedTilesWithInitialState: boolean
-): Map<string, DomainTileState> => {
-  if (!initialState) return new Map(seedTiles);
-  const recoveredTileKeys = new Set<string>();
-  for (const tile of initialState.tiles) {
-    recoveredTileKeys.add(simulationTileKey(tile.x, tile.y));
-  }
-  // Some older durable snapshots can contain only changed tiles. In that case we
-  // still need to backfill untouched coordinates from the deterministic seed.
-  const shouldBackfillMissingSeedTiles = !mergeSeedTilesWithInitialState && recoveredTileKeys.size < seedTiles.size;
-  const mergedTiles = mergeSeedTilesWithInitialState || shouldBackfillMissingSeedTiles
-    ? new Map(seedTiles)
-    : new Map<string, DomainTileState>();
-
-  for (const tile of initialState.tiles) {
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    const seededTile = mergedTiles.get(tileKey);
-    const hydratedTown = hydrateSyntheticSettlementTown(tile.town, tile.x, tile.y);
-    mergedTiles.set(tileKey, {
-      x: tile.x,
-      y: tile.y,
-      terrain: tile.terrain ?? seededTile?.terrain ?? "LAND",
-      ...(tile.resource ? { resource: tile.resource } : {}),
-      ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
-      ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-      ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-      ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-      ...(hydratedTown ? { town: hydratedTown } : {}),
-      ...(tile.fort ? { fort: tile.fort } : {}),
-      ...(tile.observatory ? { observatory: tile.observatory } : {}),
-      ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
-      ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-      ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
-    });
-  }
-  return mergedTiles;
-};
-
-const createDocksFromInitialState = (
-  initialState: RecoveredSimulationState | undefined,
-  seedDocks: DockRouteDefinition[]
-): DockRouteDefinition[] =>
-  (initialState?.docks ?? seedDocks).map((dock) => ({
-    dockId: dock.dockId,
-    tileKey: dock.tileKey,
-    pairedDockId: dock.pairedDockId,
-    ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
-  }));
-
-const parseRecoveredCombatResolution = (combatResolutionJson?: string): LockedCombatResolution | undefined => {
-  if (!combatResolutionJson) return undefined;
-  try {
-    const parsed = JSON.parse(combatResolutionJson) as Partial<LockedCombatResolution> | undefined;
-    if (!parsed || typeof parsed !== "object") return undefined;
-    if (parsed.result && typeof parsed.defenderGoldLoss === "number") {
-      return parsed as LockedCombatResolution;
-    }
-    if (parsed.result && typeof parsed.defenderGoldLoss !== "number") {
-      return {
-        result: parsed.result,
-        defenderGoldLoss: 0
-      };
-    }
-    return parsed as LockedCombatResolution | undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-const createLocksFromInitialState = (initialState?: RecoveredSimulationState): Map<string, LockRecord> => {
-  const locksByTile = new Map<string, LockRecord>();
-  if (!initialState) return locksByTile;
-
-  for (const lock of initialState.activeLocks) {
-    const combatResolution = parseRecoveredCombatResolution(lock.combatResolutionJson);
-    const hydratedLock: LockRecord = {
-      commandId: lock.commandId,
-      playerId: lock.playerId,
-      actionType: lock.actionType,
-      manpowerCost: 0,
-      originX: lock.originX,
-      originY: lock.originY,
-      targetX: lock.targetX,
-      targetY: lock.targetY,
-      originKey: lock.originKey,
-      targetKey: lock.targetKey,
-      resolvesAt: lock.resolvesAt,
-      ...(combatResolution ? { combatResolution } : {})
-    };
-    locksByTile.set(hydratedLock.originKey, hydratedLock);
-    locksByTile.set(hydratedLock.targetKey, hydratedLock);
-  }
-
-  return locksByTile;
-};
-
-const uniqueLocksByCommandId = (locks: Iterable<LockRecord>): LockRecord[] => {
-  const deduped = new Map<string, LockRecord>();
-  for (const lock of locks) {
-    if (!deduped.has(lock.commandId)) deduped.set(lock.commandId, lock);
-  }
-  return [...deduped.values()];
-};
-
-const hydrateCommandHistory = ({
-  commandIdsByPlayerSeq,
-  recordedEventsByCommandId,
-  recoveredCommandHistory
-}: {
-  commandIdsByPlayerSeq: Map<string, string>;
-  recordedEventsByCommandId: Map<string, SimulationEvent[]>;
-  recoveredCommandHistory?: RecoveredCommandHistory;
-}): void => {
-  if (!recoveredCommandHistory) return;
-
-  for (const command of recoveredCommandHistory.commands) {
-    if (command.type === "SYNC_ALLIANCE") continue;
-    commandIdsByPlayerSeq.set(`${command.playerId}:${command.clientSeq}`, command.commandId);
-  }
-  for (const [commandId, events] of recoveredCommandHistory.eventsByCommandId.entries()) {
-    recordedEventsByCommandId.set(commandId, [...events]);
-  }
-};
-
-const requeueRecoveredCommands = ({
-  recoveredCommandHistory,
-  queueCommandForProcessing
-}: {
-  recoveredCommandHistory?: RecoveredCommandHistory;
-  queueCommandForProcessing: (command: CommandEnvelope) => void;
-}): void => {
-  if (!recoveredCommandHistory) return;
-
-  for (const command of recoveredCommandHistory.commands) {
-    if (command.status !== "QUEUED") continue;
-    if (recoveredCommandHistory.eventsByCommandId.has(command.commandId)) continue;
-    queueCommandForProcessing({
-      commandId: command.commandId,
-      sessionId: command.sessionId,
-      playerId: command.playerId,
-      clientSeq: command.clientSeq,
-      issuedAt: command.queuedAt,
-      type: command.type,
-      payloadJson: command.payloadJson
-    });
-  }
-};
