@@ -330,5 +330,261 @@ describe("encirclement attack guard", () => {
       vi.useRealTimers();
     }
   });
+
+  // G1b: EXPAND from a blinking tile is blocked with ORIGIN_CUT_OFF.
+  it("G1b: EXPAND from a cut-off (blinking) tile is rejected with ORIGIN_CUT_OFF", async () => {
+    const runtime = mkRuntime([
+      {
+        x: 10, y: 10, terrain: "LAND",
+        ownerId: "player-1", ownershipState: "FRONTIER",
+        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS
+      },
+      // neutral target adjacent to origin
+      { x: 11, y: 10, terrain: "LAND" }
+    ]);
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((e) => events.push(e));
+
+    runtime.submitCommand({
+      commandId: "expand-from-cutoff",
+      sessionId: "s1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+    });
+    await Promise.resolve();
+
+    const rejected = events.find((e) => e.eventType === "COMMAND_REJECTED");
+    expect(rejected).toBeDefined();
+    expect(rejected).toMatchObject({ code: "ORIGIN_CUT_OFF" });
+  });
+
+  // Regression: EXPAND from a normal (non-blinking) frontier tile still succeeds.
+  it("G1b-regression: EXPAND from a non-blinking frontier tile is accepted", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => Date.now(),
+        initialPlayers: new Map([["player-1", player("player-1")]]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            // player-1 origin — normal frontier tile, no decay timer
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            // neutral target
+            { x: 11, y: 10, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+      const events: SimulationEvent[] = [];
+      runtime.onEvent((e) => events.push(e));
+
+      runtime.submitCommand({
+        commandId: "expand-normal",
+        sessionId: "s1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: Date.now(),
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+      });
+      await Promise.resolve();
+
+      expect(events.find((e) => e.eventType === "COMMAND_ACCEPTED")).toBeDefined();
+      expect(events.find((e) => e.eventType === "COMMAND_REJECTED")).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// G4-group: SETTLE guard on cut-off tiles
+// ---------------------------------------------------------------------------
+
+describe("encirclement settle guard", () => {
+  // G4: SETTLE on a blinking (cut-off) tile is rejected.
+  it("G4: SETTLE on a cut-off (blinking) tile is rejected with ORIGIN_CUT_OFF", async () => {
+    const runtime = mkRuntime([
+      {
+        x: 10, y: 10, terrain: "LAND",
+        ownerId: "player-1", ownershipState: "FRONTIER",
+        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS
+      }
+    ]);
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((e) => events.push(e));
+
+    runtime.submitCommand({
+      commandId: "settle-cutoff",
+      sessionId: "s1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+    await Promise.resolve();
+
+    const rejected = events.find((e) => e.eventType === "COMMAND_REJECTED");
+    expect(rejected).toBeDefined();
+    expect(rejected).toMatchObject({ code: "ORIGIN_CUT_OFF" });
+  });
+
+  // Regression: SETTLE on a normal (non-blinking) frontier tile still succeeds.
+  it("G4-regression: SETTLE on a non-blinking frontier tile is accepted", async () => {
+    const runtime = mkRuntime([
+      // no frontierDecayAt set → not cut off
+      { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+    ]);
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((e) => events.push(e));
+
+    runtime.submitCommand({
+      commandId: "settle-normal",
+      sessionId: "s1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+    await Promise.resolve();
+
+    // Should be accepted (SETTLEMENT_STARTED or COMMAND_ACCEPTED — settle emits SETTLEMENT_STARTED)
+    expect(events.find((e) => e.eventType === "SETTLEMENT_STARTED")).toBeDefined();
+    expect(events.find((e) => e.eventType === "COMMAND_REJECTED")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E8-group: EXPAND triggers encirclement reconnection check
+// ---------------------------------------------------------------------------
+
+describe("encirclement expand reconnection", () => {
+  // E8: A successful EXPAND that bridges a cut-off pocket back to settled supply
+  // clears frontierDecayAt on the reconnected tiles in the same tick.
+  it("E8: EXPAND that reconnects a cut-off region clears frontierDecayAt on reconnected tiles", async () => {
+    vi.useFakeTimers();
+    try {
+      // Layout:
+      //   S(P1, 10,10) — F_bridge(P1, 11,10) [to be expanded into] — F_pocket(P1, 12,10) [cut off]
+      //
+      // Before EXPAND: only S(10,10) and F_pocket(12,10) exist. F_pocket has no
+      // path to settled supply → frontierDecayAt is already set.
+      // After EXPAND succeeds into (11,10): F_pocket (12,10) is adjacent to the
+      // new frontier tile (11,10), which is adjacent to S(10,10) → reconnected.
+      const runtime = new SimulationRuntime({
+        now: () => Date.now(),
+        initialPlayers: new Map([["player-1", player("player-1")]]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            // pocket tile is cut off — no path to settled because (11,10) is neutral
+            {
+              x: 12, y: 10, terrain: "LAND",
+              ownerId: "player-1", ownershipState: "FRONTIER",
+              frontierDecayAt: Date.now() + ENCIRCLEMENT_DECAY_MS
+            },
+            // neutral tile that will become the bridge when expanded into
+            { x: 11, y: 10, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+      const events: SimulationEvent[] = [];
+      runtime.onEvent((e) => events.push(e));
+
+      runtime.submitCommand({
+        commandId: "expand-bridge",
+        sessionId: "s1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: Date.now(),
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+      });
+      await Promise.resolve();
+
+      // Advance past the claim duration so the lock resolves
+      vi.advanceTimersByTime(4_000);
+
+      // The pocket tile (12,10) should now have frontierDecayAt cleared because
+      // it is reconnected through the new (11,10) frontier tile to S(10,10).
+      const tileDeltas = events
+        .filter((e) => e.eventType === "TILE_DELTA_BATCH")
+        // biome-ignore lint: safe cast, event type checked above
+        .flatMap((e) => (e as Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>).tileDeltas);
+
+      // There may be multiple deltas for (12,10) across batches (e.g. natural decay then
+      // reconnection). We want the last one — the reconnection should be the final state.
+      const pocketDeltas = tileDeltas.filter((d) => d.x === 12 && d.y === 10);
+      const lastPocketDelta = pocketDeltas[pocketDeltas.length - 1];
+      // The reconnection delta should be present and frontierDecayAt should be cleared.
+      expect(lastPocketDelta).toBeDefined();
+      expect(lastPocketDelta?.frontierDecayAt).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Regression: EXPAND that does not reconnect anything does not spuriously
+  // clear or set frontierDecayAt on unrelated tiles.
+  it("E8-regression: EXPAND into truly isolated region has no encirclement side effects on unrelated tiles", async () => {
+    vi.useFakeTimers();
+    try {
+      // Layout: only a settled tile and a neutral target — no cut-off tiles present.
+      // After EXPAND the new frontier tile is directly adjacent to settled supply,
+      // so computeEncirclementDeltas produces empty cutOff and reconnected sets.
+      const runtime = new SimulationRuntime({
+        now: () => Date.now(),
+        initialPlayers: new Map([["player-1", player("player-1")]]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 11, y: 10, terrain: "LAND" } // neutral target
+          ],
+          activeLocks: []
+        }
+      });
+      const events: SimulationEvent[] = [];
+      runtime.onEvent((e) => events.push(e));
+
+      runtime.submitCommand({
+        commandId: "expand-no-reconnect",
+        sessionId: "s1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: Date.now(),
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(4_000);
+
+      // No TILE_DELTA_BATCH event should carry a frontierDecayAt change for any tile.
+      // The only delta batches expected are the EXPAND resolution itself (the new tile)
+      // plus possibly a player state update — none should set/clear frontierDecayAt
+      // on pre-existing tiles.
+      const tileDeltas = events
+        .filter((e) => e.eventType === "TILE_DELTA_BATCH")
+        // biome-ignore lint: safe cast, event type checked above
+        .flatMap((e) => (e as Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>).tileDeltas);
+
+      // The only delta should be for the newly expanded (11,10) tile — no spurious
+      // frontierDecayAt mutations on tiles that weren't involved.
+      const spurious = tileDeltas.filter(
+        (d) => !(d.x === 11 && d.y === 10) && typeof d.frontierDecayAt !== "undefined"
+      );
+      expect(spurious).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 

@@ -3202,14 +3202,16 @@ export class SimulationRuntime {
       targetLockResolvesAt: targetLock?.resolvesAt
     });
     // Encirclement guard: a cut-off (blinking) frontier tile cannot be used as
-    // an attack source. Attacks *against* blinking tiles proceed normally.
-    if (actionType === "ATTACK" && typeof from.frontierDecayAt === "number") {
+    // an attack or expand source. Attacks *against* blinking tiles proceed normally.
+    // Blocking EXPAND prevents a player from "escaping" a cut-off pocket by
+    // pushing into neutral territory, which would defeat the encirclement mechanic.
+    if ((actionType === "ATTACK" || actionType === "EXPAND") && typeof from.frontierDecayAt === "number") {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "ORIGIN_CUT_OFF",
-        message: "origin tile is cut off from supply and cannot launch attacks"
+        message: "origin tile is cut off from supply and cannot launch actions"
       });
       return;
     }
@@ -3461,6 +3463,19 @@ export class SimulationRuntime {
         playerId: command.playerId,
         code: "SETTLE_INVALID",
         message: "tile is not one of your frontier tiles"
+      });
+      return;
+    }
+    // Encirclement guard: a cut-off (blinking) tile cannot be settled. Settling
+    // a disconnected tile would let a player convert an encircled pocket into
+    // permanent territory, defeating the encirclement mechanic.
+    if (typeof target.frontierDecayAt === "number") {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "ORIGIN_CUT_OFF",
+        message: "tile is cut off from supply and cannot be settled"
       });
       return;
     }
@@ -7217,8 +7232,11 @@ export class SimulationRuntime {
         });
       }
     }
-    // Encirclement: re-check connectivity for players affected by ATTACK
-    // ownership changes. EXPAND never severs a connection — only ATTACK does.
+    // Encirclement: re-check connectivity for players affected by ownership
+    // changes from ATTACK or EXPAND.
+    // ATTACK can sever connections (enemy takes a tile out of a supply chain).
+    // EXPAND can reconnect previously cut-off regions (new frontier tile bridges
+    // a pocket back to settled supply), so we run the check for EXPAND too.
     if (lock.actionType === "ATTACK") {
       const encirclementChangedKeys: string[] = [];
       if (attackerWon) encirclementChangedKeys.push(lock.targetKey);
@@ -7233,6 +7251,12 @@ export class SimulationRuntime {
           this.applyEncirclement(encirclementChangedKeys, pid, lock.commandId);
         }
       }
+    } else if (lock.actionType === "EXPAND" && attackerWon) {
+      // A successful EXPAND adds a new frontier tile owned by the expander.
+      // This can reconnect a previously cut-off pocket (the new tile bridges
+      // the pocket back to settled supply). We scope the check to the expander
+      // only — EXPAND never alters another player's territory.
+      this.applyEncirclement([lock.targetKey], lock.playerId, lock.commandId);
     }
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
     if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
