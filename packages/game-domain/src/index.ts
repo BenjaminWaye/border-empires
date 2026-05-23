@@ -132,6 +132,9 @@ export type DomainTileState = {
         autoAttackEnabled?: boolean | undefined;
         completesAt?: number | undefined;
         previousStatus?: "active" | undefined;
+        sweepBudget?: number | undefined;
+        sweepActive?: boolean | undefined;
+        sweepBudgetUpdatedAt?: number | undefined;
       }
     | undefined;
   economicStructure?:

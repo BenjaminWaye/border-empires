@@ -1296,6 +1296,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           : "Lets this siege outpost resume automatic adjacent attacks.",
         ...tileActionAvailability(true, "", autoAttackEnabled ? "Outpost auto attack on" : "Outpost auto attack off")
       });
+      const sweepActive = tile.siegeOutpost.sweepActive === true;
+      const sweepBudget = tile.siegeOutpost.sweepBudget ?? 0;
+      const sweepBudgetDisplay = `${Math.floor(sweepBudget)}/300`;
+      out.push({
+        id: sweepActive ? "disable_outpost_sweep" : "enable_outpost_sweep",
+        label: sweepActive ? "Stop Sweep" : "Start Sweep",
+        detail: sweepActive
+          ? `Sweep active — budget ${sweepBudgetDisplay}. Stops the outpost from launching sweep attacks.`
+          : `Sweep inactive — budget ${sweepBudgetDisplay}. Automatically attacks the closest enemy tile within 5-tile radius.`,
+        ...tileActionAvailability(true, "", sweepActive ? "Sweep on" : "Sweep off")
+      });
     }
     if (tile.ownershipState === "FRONTIER" && !queuedSettlement)
       out.push({

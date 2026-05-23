@@ -489,6 +489,9 @@ export interface SiegeOutpost {
   startedAt: number;
   completesAt?: number;
   previousStatus?: "active";
+  sweepBudget?: number;      // 0..SWEEP_BUDGET_CAP; undefined treated as 0
+  sweepActive?: boolean;     // player-controlled toggle
+  sweepBudgetUpdatedAt?: number; // timestamp when sweepBudget was last written
 }
 
 export interface Observatory {

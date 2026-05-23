@@ -16,6 +16,9 @@ import {
 import {
   ATTACK_MANPOWER_MIN,
   ATTACK_MANPOWER_COST,
+  SWEEP_ATTACK_COST,
+  SWEEP_BUDGET_CAP,
+  SWEEP_RADIUS_BY_VARIANT,
   BARBARIAN_MULTIPLY_THRESHOLD,
   BARBARIAN_POPULATION_CAP,
   DEVELOPMENT_PROCESS_LIMIT,
@@ -116,6 +119,7 @@ import {
   MAX_FORT_AUTO_FRONTIER_RADIUS,
   orderedAutoSettlementTileKeys,
   siegeAutoAttackCandidates,
+  sweepAttackCandidates,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "./territory-automation.js";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
@@ -942,6 +946,122 @@ export class SimulationRuntime {
         );
         availableSiegeManpower -= targetManpowerCost;
         availableSiegeGold -= FRONTIER_CLAIM_COST;
+      }
+
+      // --- Sweep tick: per-outpost budget-gated radial attacks ---
+      // Iterates all player territory tiles; skips non-outpost tiles cheaply.
+      // O(territory) per player per tick — same as the siege auto-attack above.
+      for (const tileKey of [...summary.territoryTileKeys]) {
+        const outpostTile = this.tiles.get(tileKey);
+        if (
+          !outpostTile ||
+          outpostTile.siegeOutpost?.ownerId !== playerId ||
+          outpostTile.siegeOutpost.status !== "active"
+        ) {
+          continue;
+        }
+        const outpostData = outpostTile.siegeOutpost;
+
+        // Regen sweep budget: same rate as global MP regen, rate-limit only.
+        const elapsedMins = (nowMs - (outpostData.sweepBudgetUpdatedAt ?? nowMs)) / 60_000;
+        const regenPerMin = this.playerManpowerRegenPerMinute(actor);
+        const rawBudget = (outpostData.sweepBudget ?? 0) + Math.max(0, elapsedMins * regenPerMin);
+        const newBudget = Math.min(SWEEP_BUDGET_CAP, rawBudget);
+
+        if (!outpostData.sweepActive) {
+          // Budget still needs updating even when sweep is off.
+          if (Math.abs(newBudget - (outpostData.sweepBudget ?? 0)) > 0.001) {
+            const regenedTile: DomainTileState = {
+              ...outpostTile,
+              siegeOutpost: { ...outpostData, sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs }
+            };
+            this.replaceTileState(tileKey, regenedTile);
+            const regenCommandId = this.nextTerritoryAutomationCommandId("sweep-regen", playerId, tileKey, nowMs);
+            this.emitEvent({
+              eventType: "TILE_DELTA_BATCH",
+              commandId: regenCommandId,
+              playerId,
+              tileDeltas: [this.tileDeltaFromState(regenedTile)]
+            });
+          }
+          continue;
+        }
+
+        const variant = outpostData.variant ?? "SIEGE_OUTPOST";
+        const sweepRadius = SWEEP_RADIUS_BY_VARIANT[variant] ?? 5;
+        const candidates = sweepAttackCandidates(outpostTile, playerId, sweepRadius, (x, y) => this.tiles.get(simulationTileKey(x, y)));
+        const noTargets = candidates.length === 0;
+        const nobudget = newBudget < SWEEP_ATTACK_COST;
+
+        if (noTargets) {
+          // Deactivate — player must re-toggle.
+          const deactivatedTile: DomainTileState = {
+            ...outpostTile,
+            siegeOutpost: { ...outpostData, sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs, sweepActive: false }
+          };
+          this.replaceTileState(tileKey, deactivatedTile);
+          const deactivateCommandId = this.nextTerritoryAutomationCommandId("sweep-deact", playerId, tileKey, nowMs);
+          this.emitEvent({
+            eventType: "TILE_DELTA_BATCH",
+            commandId: deactivateCommandId,
+            playerId,
+            tileDeltas: [this.tileDeltaFromState(deactivatedTile)]
+          });
+          continue;
+        }
+
+        if (nobudget) {
+          // Pause — sweepActive stays true; just update regen.
+          if (Math.abs(newBudget - (outpostData.sweepBudget ?? 0)) > 0.001) {
+            const pausedTile: DomainTileState = {
+              ...outpostTile,
+              siegeOutpost: { ...outpostData, sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs }
+            };
+            this.replaceTileState(tileKey, pausedTile);
+            const pauseCommandId = this.nextTerritoryAutomationCommandId("sweep-pause", playerId, tileKey, nowMs);
+            this.emitEvent({
+              eventType: "TILE_DELTA_BATCH",
+              commandId: pauseCommandId,
+              playerId,
+              tileDeltas: [this.tileDeltaFromState(pausedTile)]
+            });
+          }
+          continue;
+        }
+
+        // We have targets and budget — fire.
+        const sweepTarget = candidates[0]!;
+        const afterAttackBudget = newBudget - SWEEP_ATTACK_COST;
+        const attackedTile: DomainTileState = {
+          ...outpostTile,
+          siegeOutpost: { ...outpostData, sweepBudget: afterAttackBudget, sweepBudgetUpdatedAt: nowMs }
+        };
+        this.replaceTileState(tileKey, attackedTile);
+
+        const sweepCommandId = this.nextTerritoryAutomationCommandId("sweep", playerId, simulationTileKey(sweepTarget.x, sweepTarget.y), nowMs);
+        // Enqueue via the existing attack path — encirclement, global MP, and gold
+        // are handled there. Sweep budget is deducted above only; global resources
+        // are NOT double-deducted here.
+        this.handleFrontierCommand(
+          {
+            commandId: sweepCommandId,
+            sessionId: `system-runtime:territory-automation:${playerId}`,
+            playerId,
+            clientSeq: 0,
+            issuedAt: nowMs,
+            type: "ATTACK",
+            payloadJson: JSON.stringify({ fromX: outpostTile.x, fromY: outpostTile.y, toX: sweepTarget.x, toY: sweepTarget.y })
+          },
+          "ATTACK"
+        );
+
+        const budgetDeltaCommandId = this.nextTerritoryAutomationCommandId("sweep-budget", playerId, tileKey, nowMs);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: budgetDeltaCommandId,
+          playerId,
+          tileDeltas: [this.tileDeltaFromState(attackedTile)]
+        });
       }
     }
   }
@@ -6272,7 +6392,7 @@ export class SimulationRuntime {
     const { completesAt: _ignoredCompletesAt, ...activeSiegeOutpost } = latest.siegeOutpost;
     const completedTile: DomainTileState = {
       ...latest,
-      siegeOutpost: { ...activeSiegeOutpost, status: "active" }
+      siegeOutpost: { ...activeSiegeOutpost, status: "active", sweepBudget: SWEEP_BUDGET_CAP, sweepActive: false, sweepBudgetUpdatedAt: this.now() }
     };
     this.replaceTileState(targetKey, completedTile);
     this.emitEvent({
@@ -6342,6 +6462,53 @@ export class SimulationRuntime {
         cancelledCommandIds
       });
     }
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+    this.emitPlayerStateUpdate(command);
+  }
+
+  private handleSetSiegeOutpostSweepCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseSiegeOutpostSweepPayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+    const target = this.tiles.get(targetKey);
+    if (
+      !target ||
+      target.ownerId !== command.playerId ||
+      target.siegeOutpost?.ownerId !== command.playerId ||
+      target.siegeOutpost.status !== "active"
+    ) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BUILD_INVALID",
+        message: "active owned siege outpost required"
+      });
+      return;
+    }
+    const updatedTile: DomainTileState = {
+      ...target,
+      siegeOutpost: {
+        ...target.siegeOutpost,
+        sweepActive: payload.enabled
+      }
+    };
+    this.replaceTileState(targetKey, updatedTile, command.commandId);
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,
@@ -7581,6 +7748,7 @@ export class SimulationRuntime {
         command.type !== "BUILD_OBSERVATORY" &&
         command.type !== "BUILD_SIEGE_OUTPOST" &&
         command.type !== "SET_SIEGE_OUTPOST_AUTO_ATTACK" &&
+        command.type !== "SET_SIEGE_OUTPOST_SWEEP" &&
         command.type !== "BUILD_ECONOMIC_STRUCTURE" &&
         command.type !== "CANCEL_CAPTURE" &&
         command.type !== "CANCEL_FORT_BUILD" &&
@@ -7640,6 +7808,11 @@ export class SimulationRuntime {
 
       if (command.type === "SET_SIEGE_OUTPOST_AUTO_ATTACK") {
         this.handleSetSiegeOutpostAutoAttackCommand(command);
+        return;
+      }
+
+      if (command.type === "SET_SIEGE_OUTPOST_SWEEP") {
+        this.handleSetSiegeOutpostSweepCommand(command);
         return;
       }
 
