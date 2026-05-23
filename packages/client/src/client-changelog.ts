@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.23.4",
+  version: "2026.05.23.5",
   title: "What's New",
-  summary: "Smoother panning on the 3D map — the heightfield rebuild path now spends less time per frame, so dragging across the world feels less choppy on the same hardware.",
+  summary: "Faster sign-ins — the gateway no longer blocks on a full-world fog refresh on every world change, so login bootstrap finishes promptly even while AI players are taking turns.",
   entries: [
+    {
+      introducedIn: "2026.05.23.5",
+      title: "Login bootstrap is no longer starved by fog admin refreshes",
+      why: "A production debug trace on 2026-05-23 showed login wall-time of 60.6s with bootstrap_subscribe alone taking 45.9s, while the gateway event loop p99 was 21.3s and the simulation was idle (sim_rpc_p99=0). Each TILE_DELTA_BATCH for a player whose session had fog disabled awaited a synchronous full-world resubscribe; with AI commands firing every second this monopolized the event loop and starved incoming logins.",
+      changes: [
+        "Gateway: fog-admin live refresh now runs through a per-player coalescing scheduler (max one in flight, FOG_LIVE_REFRESH_MIN_INTERVAL_MS=1s) instead of being awaited inside the TILE_DELTA_BATCH handler. Fog admin views may lag by up to ~1s between refreshes; gameplay logins no longer wait on those refreshes.",
+        "Gateway: every AUTH explicitly resets session.fogDisabled=false so a reconnecting fog admin starts with fog ON and must opt in again.",
+        "Client: Firebase sign-in clears the persisted map-reveal preference (be-map-reveal:*) so the admin must re-toggle reveal each session — prevents a stale tab from auto-re-enabling reveal on connect."
+      ]
+    },
     {
       introducedIn: "2026.05.23.4",
       title: "3D map pan is smoother",

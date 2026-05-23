@@ -25,7 +25,13 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain('reason: "fog_toggle"');
     expect(source).toContain('queueOrSendSessionPayload(targetSocket, replacementBroadcast);');
     expect(source).toContain('const hasFogDisabledSession = [...playerSubscriptions.socketsForPlayer(playerId)].some(');
-    expect(source).toContain('await refreshPlayerFogSnapshot(playerId, true, { reason: "live-delta", commandId: event.commandId });');
+    // TILE_DELTA_BATCH must NOT await refreshPlayerFogSnapshot inline — that
+    // blocked the gateway event loop for 21s p99 in prod on 2026-05-23 and
+    // starved login bootstrap_subscribe for 45s+. The path now goes through
+    // the coalesced scheduler.
+    expect(source).not.toContain('await refreshPlayerFogSnapshot(playerId, true, { reason: "live-delta"');
+    expect(source).toContain("scheduleFogLiveRefresh(playerId, event.commandId);");
+    expect(source).toContain("const FOG_LIVE_REFRESH_MIN_INTERVAL_MS");
     expect(source).not.toContain("session.authEmail");
   });
 

@@ -39,4 +39,16 @@ export const setMapRevealEnabled = (enabled: boolean, options?: MapRevealOptions
   }
 };
 
+// Force-clear the persisted reveal preference regardless of eligibility. Called
+// on every Firebase sign-in so the fog admin must re-toggle reveal each login —
+// stale reveal state on connect makes the gateway fan out a full-world snapshot
+// for every TILE_DELTA_BATCH and starved login bootstrap in prod on 2026-05-23.
+export const clearStoredMapReveal = (authEmail?: string | null): void => {
+  try {
+    window.localStorage.removeItem(mapRevealStorageKey(resolveIdentityKey(authEmail)));
+  } catch {
+    // Ignore storage failures in restricted browser contexts.
+  }
+};
+
 export const effectiveFogDisabled = (state: { fogDisabled: boolean }): boolean => state.fogDisabled;

@@ -22,7 +22,7 @@ import {
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "./client-auth-ui.js";
 import { setDebugAuthEmail } from "./client-debug.js";
-import { getMapRevealEnabled } from "./client-map-reveal.js";
+import { clearStoredMapReveal, getMapRevealEnabled } from "./client-map-reveal.js";
 import { rallyCodeFromLocation } from "./client-rally-links.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
@@ -327,6 +327,11 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         authSession.emailLinkSentTo = "";
         const authEmail = user.email ?? undefined;
         setDebugAuthEmail(authEmail);
+        // Force fog admin to re-activate reveal on every sign-in. A stale "1" in
+        // localStorage from a prior session caused syncDesiredFogDisabled to
+        // auto-resend REQUEST_REVEAL_MAP on connect, which triggers a full-world
+        // refresh on every TILE_DELTA_BATCH and starves login bootstrap.
+        clearStoredMapReveal(authEmail ?? null);
         state.mapRevealEligible = false;
         state.authEmail = authEmail ?? "";
         state.mapRevealEnabled = getMapRevealEnabled({
