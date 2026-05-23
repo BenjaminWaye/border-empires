@@ -459,6 +459,27 @@ export const FOREST_SETTLEMENT_MULT = 2;
 export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 
+const dilateTerritoryIntoSet = (
+  target: Set<string>,
+  territoryTileKeys: Iterable<string>,
+  radius: number
+): void => {
+  for (const tileKey of territoryTileKeys) {
+    const separator = tileKey.indexOf(",");
+    if (separator < 0) continue;
+    const tx = Number(tileKey.slice(0, separator));
+    const ty = Number(tileKey.slice(separator + 1));
+    if (!Number.isInteger(tx) || !Number.isInteger(ty)) continue;
+    for (let dx = -radius; dx <= radius; dx += 1) {
+      const nx = ((tx + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        const ny = ((ty + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
+        target.add(simulationTileKey(nx, ny));
+      }
+    }
+  }
+};
+
 const isForestSettlementTile = (x: number, y: number): boolean =>
   terrainAt(x, y) === "LAND" &&
   landBiomeAt(x, y) === "GRASS" &&
@@ -3277,6 +3298,33 @@ export class SimulationRuntime {
     );
     const auditEnabled = Boolean(this.onVisibilityAudit);
 
+    // Eager-vision fast path. The lazy path below is O(deltas × territory) per
+    // subscriber: for each delta we re-scan every territory tile, which is
+    // cheap for 1–3 deltas but pathological for COLLECT_VISIBLE batches that
+    // emit hundreds of tiles. When the batch is large enough that one-shot
+    // dilation (O(territory × (2R+1)²)) is cheaper than the per-delta scan
+    // (≈ deltas × territory), precompute the visible-key set once and reduce
+    // per-delta cost to a Set.has lookup. Threshold of 16 ≈ R² for the default
+    // VISION_RADIUS=4: at that size the lazy path's amortised cost matches the
+    // dilation, and any larger batch is strictly faster eager.
+    //
+    // Audit mode keeps the lazy path: it emits per-reason strings ("radius:self",
+    // "radius:ally:X", "lock-origin", "dock-reveal"), which the eager Set
+    // can't reconstruct without per-source bookkeeping. Audit is only enabled
+    // for tests/diagnostics, so the perf trade-off is in the right place.
+    const EAGER_VISIBILITY_THRESHOLD = 16;
+    const useEagerVisibilitySet = !auditEnabled && tileDeltas.length >= EAGER_VISIBILITY_THRESHOLD;
+    let eagerVisibleKeys: Set<string> | undefined;
+    if (useEagerVisibilitySet) {
+      eagerVisibleKeys = new Set<string>();
+      dilateTerritoryIntoSet(eagerVisibleKeys, playerSummary.territoryTileKeys, playerVisionRadius);
+      for (const { territory, radius } of allyVision) {
+        dilateTerritoryIntoSet(eagerVisibleKeys, territory, radius);
+      }
+      for (const key of lockOriginKeys) eagerVisibleKeys.add(key);
+      for (const key of dockRevealKeys) eagerVisibleKeys.add(key);
+    }
+
     const filtered: TDelta[] = [];
     for (const delta of tileDeltas) {
       const tileKey = simulationTileKey(delta.x, delta.y);
@@ -3284,26 +3332,30 @@ export class SimulationRuntime {
       let viaLockTargetOnly = false;
       const reasons: string[] = [];
 
-      if (this.isTileWithinTerritoryRadius(delta.x, delta.y, playerSummary.territoryTileKeys, playerVisionRadius)) {
-        visible = true;
-        if (auditEnabled) reasons.push("radius:self");
-      }
-      if (auditEnabled || !visible) {
-        for (const { allyId, territory, radius } of allyVision) {
-          if (this.isTileWithinTerritoryRadius(delta.x, delta.y, territory, radius)) {
-            visible = true;
-            if (auditEnabled) reasons.push(`radius:ally:${allyId}`);
-            else break;
+      if (useEagerVisibilitySet && eagerVisibleKeys) {
+        if (eagerVisibleKeys.has(tileKey)) visible = true;
+      } else {
+        if (this.isTileWithinTerritoryRadius(delta.x, delta.y, playerSummary.territoryTileKeys, playerVisionRadius)) {
+          visible = true;
+          if (auditEnabled) reasons.push("radius:self");
+        }
+        if (auditEnabled || !visible) {
+          for (const { allyId, territory, radius } of allyVision) {
+            if (this.isTileWithinTerritoryRadius(delta.x, delta.y, territory, radius)) {
+              visible = true;
+              if (auditEnabled) reasons.push(`radius:ally:${allyId}`);
+              else break;
+            }
           }
         }
-      }
-      if ((auditEnabled || !visible) && lockOriginKeys.has(tileKey)) {
-        visible = true;
-        if (auditEnabled) reasons.push("lock-origin");
-      }
-      if ((auditEnabled || !visible) && dockRevealKeys.has(tileKey)) {
-        visible = true;
-        if (auditEnabled) reasons.push("dock-reveal");
+        if ((auditEnabled || !visible) && lockOriginKeys.has(tileKey)) {
+          visible = true;
+          if (auditEnabled) reasons.push("lock-origin");
+        }
+        if ((auditEnabled || !visible) && dockRevealKeys.has(tileKey)) {
+          visible = true;
+          if (auditEnabled) reasons.push("dock-reveal");
+        }
       }
       if (lockTargetKeys.has(tileKey)) {
         if (!visible) {
@@ -3368,6 +3420,7 @@ export class SimulationRuntime {
     }
     return false;
   }
+
 
   private settledTileCountForPlayer(playerId: string): number {
     return this.summaryForPlayer(playerId).settledTileCount;
