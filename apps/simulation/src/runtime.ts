@@ -223,6 +223,7 @@ import {
   requeueRecoveredCommands,
   uniqueLocksByCommandId
 } from "./runtime-hydration.js";
+import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "./encirclement.js";
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
 export type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -3200,6 +3201,19 @@ export class SimulationRuntime {
       targetLockOwnerId: targetLock?.playerId,
       targetLockResolvesAt: targetLock?.resolvesAt
     });
+    // Encirclement guard: a cut-off (blinking) frontier tile cannot be used as
+    // an attack source. Attacks *against* blinking tiles proceed normally.
+    if (actionType === "ATTACK" && typeof from.frontierDecayAt === "number") {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "ORIGIN_CUT_OFF",
+        message: "origin tile is cut off from supply and cannot launch attacks"
+      });
+      return;
+    }
+
     const isDockCrossing = this.isDockCrossingTarget(from, to.x, to.y);
     const isForestTarget =
       terrainAt(to.x, to.y) === "LAND" &&
@@ -5613,6 +5627,9 @@ export class SimulationRuntime {
       if (existing) existing.push(delta);
       else changedDeltasByOwner.set(playerId, [delta]);
     };
+    // Track tiles that expired this tick so we can re-check encirclement for
+    // neighboring tiles after all expirations are processed.
+    const expiredByOwner = new Map<string, string[]>();
 
     for (const [tileKey, tile] of this.tiles) {
       if (this.locksByTile.has(tileKey)) continue;
@@ -5655,6 +5672,10 @@ export class SimulationRuntime {
         this.replaceTileState(tileKey, expiredTile, `frontier-decay-expired:${ownerId}:${tileKey}:${nowMs}`);
         this.fortPatrolGraceUntilByTile.delete(tileKey);
         addChangedDelta(ownerId, this.tileDeltaFromState(expiredTile));
+        // Track for encirclement re-check of neighbors below.
+        const expiredList = expiredByOwner.get(ownerId);
+        if (expiredList) expiredList.push(tileKey);
+        else expiredByOwner.set(ownerId, [tileKey]);
         continue;
       }
 
@@ -5677,6 +5698,13 @@ export class SimulationRuntime {
         tileDeltas
       });
       this.emitPlayerStateUpdate({ commandId, playerId });
+    }
+
+    // Re-check encirclement for neighbors of tiles that expired this tick.
+    // A tile expiry can cut off neighbors that were connected through it.
+    for (const [playerId, expiredKeys] of expiredByOwner) {
+      const commandId = this.nextTerritoryAutomationCommandId("frontier-decay-encirclement", playerId, "batch", nowMs);
+      this.applyEncirclement(expiredKeys, playerId, commandId);
     }
   }
 
@@ -7189,6 +7217,23 @@ export class SimulationRuntime {
         });
       }
     }
+    // Encirclement: re-check connectivity for players affected by ATTACK
+    // ownership changes. EXPAND never severs a connection — only ATTACK does.
+    if (lock.actionType === "ATTACK") {
+      const encirclementChangedKeys: string[] = [];
+      if (attackerWon) encirclementChangedKeys.push(lock.targetKey);
+      if (originLost) encirclementChangedKeys.push(lock.originKey);
+      if (encirclementChangedKeys.length > 0) {
+        const affectedPlayerIds = new Set<string>();
+        if (attackerWon && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
+        if (attackerWon) affectedPlayerIds.add(lock.playerId);
+        if (originLost) affectedPlayerIds.add(lock.playerId);
+        if (originLost && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
+        for (const pid of affectedPlayerIds) {
+          this.applyEncirclement(encirclementChangedKeys, pid, lock.commandId);
+        }
+      }
+    }
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
     if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
     if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
@@ -7206,6 +7251,57 @@ export class SimulationRuntime {
       this.respawnIfEliminated(previousOwnerId, lock.commandId);
       this.ensureGrossIncomeSettlementForPlayer(previousOwnerId, lock.commandId);
       this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
+    }
+  }
+
+  /**
+   * Re-check encirclement connectivity for tiles owned by `playerId` in the
+   * region around `changedKeys`. Apply `frontierDecayAt` to newly cut-off
+   * tiles and clear it for reconnected tiles. Emit a TILE_DELTA_BATCH for
+   * any tiles that changed.
+   */
+  private applyEncirclement(changedKeys: string[], playerId: string, commandId: string): void {
+    const getTile = (key: string) => this.tiles.get(key);
+    const nowMs = this.now();
+    const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs);
+
+    const tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[] = [];
+
+    for (const key of cutOff) {
+      const tile = this.tiles.get(key);
+      if (!tile) continue;
+      // Min-wins: don't overwrite a shorter existing timer.
+      const encirclementExpiresAt = nowMs + ENCIRCLEMENT_DECAY_MS;
+      const newDecayAt =
+        typeof tile.frontierDecayAt === "number"
+          ? Math.min(tile.frontierDecayAt, encirclementExpiresAt)
+          : encirclementExpiresAt;
+      if (tile.frontierDecayAt === newDecayAt) continue; // already has this or shorter timer
+      const updated: typeof tile = { ...tile, frontierDecayAt: newDecayAt };
+      this.replaceTileState(key, updated, commandId);
+      tileDeltas.push(this.tileDeltaFromState(updated));
+    }
+
+    for (const key of reconnected) {
+      const tile = this.tiles.get(key);
+      if (!tile) continue;
+      // Only clear timer if it was set by encirclement (i.e. the remaining
+      // time is <= ENCIRCLEMENT_DECAY_MS). If the natural 10-min decay has
+      // already been set to a longer horizon it stays — but that can't happen
+      // here since we'd only mark reconnected if frontierDecayAt is set.
+      // Per spec: clear fully on reconnection.
+      const updated: typeof tile = { ...tile, frontierDecayAt: undefined };
+      this.replaceTileState(key, updated, commandId);
+      tileDeltas.push(this.tileDeltaFromState(updated));
+    }
+
+    if (tileDeltas.length > 0) {
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId,
+        playerId,
+        tileDeltas
+      });
     }
   }
 

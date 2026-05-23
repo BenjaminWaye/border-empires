@@ -2391,6 +2391,7 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
+        "TILE_DELTA_BATCH:cmd-1", // encirclement: captured tile is cut off, sets frontierDecayAt
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
@@ -2399,6 +2400,7 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
+        "TILE_DELTA_BATCH:cmd-1", // encirclement: captured tile is cut off, sets frontierDecayAt
         "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
@@ -4074,6 +4076,7 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
+        "TILE_DELTA_BATCH:cmd-1", // encirclement: captured tile is cut off, sets frontierDecayAt
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
@@ -4082,6 +4085,7 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
+        "TILE_DELTA_BATCH:cmd-1", // encirclement: captured tile is cut off, sets frontierDecayAt
         "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
@@ -4892,6 +4896,8 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            // Settled anchor so recaptured tiles are connected and won't encirclement-expire.
+            { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
             { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" }
@@ -4996,6 +5002,8 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            // Settled anchor so frontier tiles are connected and won't encirclement-expire.
+            { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
             { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" }
