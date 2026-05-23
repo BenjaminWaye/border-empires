@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.24.1",
+  version: "2026.05.24.2",
   title: "What's New",
-  summary: "Large connected-town empires no longer stall the simulation when economy updates are built.",
+  summary: "Encirclement: frontier tiles cut off from your settled core now blink and disappear after 60 seconds, and cannot be used to launch new attacks.",
   entries: [
+    {
+      introducedIn: "2026.05.24.2",
+      title: "Encirclement — cut-off frontier tiles decay in 60 s",
+      why: "Players reported that cleaning up enemy tiles scattered inside their territory was tedious. Encirclement makes isolated frontier tiles self-destruct: a frontier tile with no 8-neighbor path back to your settled core goes into a 60-second countdown, shown as a blinking overlay and a 'Cut off from supply' warning in the tile panel. Cut-off tiles cannot launch attacks. The natural 10-minute decay still applies; encirclement only shortens it.",
+      changes: [
+        "Simulation: when a tile changes ownership, the sim re-checks 8-neighbor connectivity for all affected player frontier tiles in the changed region. Disconnected tiles get frontierDecayAt = now + 60 s (min with any existing shorter timer). Reconnected tiles have their timer cleared immediately with no debt.",
+        "Simulation: attack commands from a cut-off (blinking) frontier tile are rejected with ORIGIN_CUT_OFF.",
+        "Client: the tile panel shows 'Cut off from supply — disappears in Xs' as a warning header for blinking frontier tiles."
+      ]
+    },
     {
       introducedIn: "2026.05.24.1",
       title: "Large connected-town empires no longer stall AI ticks",
