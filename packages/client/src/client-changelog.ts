@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.24.2",
+  version: "2026.05.24.3",
   title: "What's New",
-  summary: "Encirclement: frontier tiles cut off from your settled core now blink and disappear after 60 seconds, and cannot be used to launch new attacks.",
+  summary: "Sweep: siege outposts can now automatically attack the closest enemy tile within a 5-tile radius, gated by a rechargeable sweep budget.",
   entries: [
+    {
+      introducedIn: "2026.05.24.3",
+      title: "Siege outpost sweep",
+      why: "Manual micro on outposts was tedious for players who built forward siege lines. Sweep adds a structure-bound budget (0–300) that recharges at the same rate as your global manpower. Toggle it on and the outpost attacks the closest enemy tile in a 5-tile Chebyshev radius once per tick, deducting 60 from the budget each time. When the budget runs dry the outpost pauses; when there are no enemies in range it deactivates and needs a manual re-toggle.",
+      changes: [
+        "Siege outpost panel: 'Start Sweep' / 'Stop Sweep' toggle button and a budget progress bar (0–300).",
+        "Selecting an active outpost now shows an orange 11×11 sweep-radius highlight on the 3D map.",
+        "Budget recharges at the player's MP-regen-per-minute rate but is rate-limiting only — it does not generate global manpower.",
+        "New outposts start with sweepBudget=300, sweepActive=false (immediately usable after build completes)."
+      ]
+    },
     {
       introducedIn: "2026.05.24.2",
       title: "Encirclement — cut-off frontier tiles decay in 60 s",
