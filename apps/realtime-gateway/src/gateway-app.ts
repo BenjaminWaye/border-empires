@@ -996,6 +996,17 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const REVEAL_REQUEST_COOLDOWN_MS = 5_000;
   const activeRevealStreamSockets = new Set<import("ws").WebSocket>();
   const lastRevealRequestMsByPlayerId = new Map<string, number>();
+  // Fog-disabled sessions need a full-world snapshot resubscribe whenever the
+  // world changes, but doing that synchronously inside the per-batch event
+  // handler blocks the gateway loop for hundreds of ms × N batches per second
+  // (login bootstrap_subscribe got starved for 45s+ in prod on 2026-05-23).
+  // Coalesce per-player refreshes: only one in-flight refresh per player, and
+  // record a "dirty" bit so the next refresh starts as soon as the previous one
+  // resolves if more deltas arrived in the meantime.
+  const FOG_LIVE_REFRESH_MIN_INTERVAL_MS = 1_000;
+  const fogLiveRefreshInflightByPlayerId = new Map<string, Promise<void>>();
+  const fogLiveRefreshPendingByPlayerId = new Map<string, { commandId: string }>();
+  const fogLiveRefreshLastStartedAtByPlayerId = new Map<string, number>();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
   const gatewaySnapshotByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
   type GatewaySnapshotCacheSummary = {
@@ -1337,6 +1348,47 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
 
+  const scheduleFogLiveRefresh = (playerId: string, commandId: string): void => {
+    // Always record the latest commandId so the next refresh annotates with
+    // the most recent trigger rather than the stale one.
+    fogLiveRefreshPendingByPlayerId.set(playerId, { commandId });
+    if (fogLiveRefreshInflightByPlayerId.has(playerId)) return;
+    const runRefresh = async (): Promise<void> => {
+      try {
+        while (fogLiveRefreshPendingByPlayerId.has(playerId)) {
+          const pending = fogLiveRefreshPendingByPlayerId.get(playerId)!;
+          fogLiveRefreshPendingByPlayerId.delete(playerId);
+          const lastStartedAt = fogLiveRefreshLastStartedAtByPlayerId.get(playerId) ?? 0;
+          const sinceLast = Date.now() - lastStartedAt;
+          if (sinceLast < FOG_LIVE_REFRESH_MIN_INTERVAL_MS) {
+            await sleep(FOG_LIVE_REFRESH_MIN_INTERVAL_MS - sinceLast);
+          }
+          // Only fire if the player still has at least one fog-disabled socket.
+          const stillFogDisabled = [...playerSubscriptions.socketsForPlayer(playerId)].some(
+            (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
+          );
+          if (!stillFogDisabled) continue;
+          fogLiveRefreshLastStartedAtByPlayerId.set(playerId, Date.now());
+          try {
+            await refreshPlayerFogSnapshot(playerId, true, {
+              reason: "live-delta-coalesced",
+              commandId: pending.commandId
+            });
+          } catch (error) {
+            recordGatewayEvent("warn", "gateway_fog_refresh_skip_failed", {
+              playerId,
+              commandId: pending.commandId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
+        }
+      } finally {
+        fogLiveRefreshInflightByPlayerId.delete(playerId);
+      }
+    };
+    fogLiveRefreshInflightByPlayerId.set(playerId, runRefresh());
+  };
+
   const revealMapPayloadSet = async (playerId: string): Promise<RevealMapPayloadSet> => {
     const cachedPayloadSet = revealMapChunkCache.current();
     if (cachedPayloadSet) return cachedPayloadSet;
@@ -1528,9 +1580,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             playerId,
             commandId: event.commandId,
             tileDeltaCount: tileDeltas.length,
-            socketCount: playerSockets.size
+            socketCount: playerSockets.size,
+            coalesced: true
           });
-          await refreshPlayerFogSnapshot(playerId, true, { reason: "live-delta", commandId: event.commandId });
+          // Do NOT await — a full-world resubscribe inside the per-batch handler
+          // blocks the gateway event loop and starves bootstrap_subscribe /
+          // live_subscribe for incoming logins. The fog admin's view will lag
+          // by at most FOG_LIVE_REFRESH_MIN_INTERVAL_MS.
+          scheduleFogLiveRefresh(playerId, event.commandId);
           return;
         }
         playerSubscriptions.updateSnapshot(playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
@@ -1958,6 +2015,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
+            // Always start a new auth with fog ON. Fog admins must explicitly
+            // re-toggle SET_FOG_DISABLED each login; the client also clears its
+            // persisted reveal preference on Firebase sign-in so it does not
+            // auto-resend the toggle.
+            session.fogDisabled = false;
             authTrace.startStep("profile_get");
             const persistedProfile = await cachedProfileGet(playerIdentity.playerId);
             authTrace.endStep("profile_get");
@@ -3115,12 +3177,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
       socket.on("close", () => {
         if (!session.playerId) return;
-        void playerSubscriptions.removeSocket(session.playerId, socket)
+        const closingPlayerId = session.playerId;
+        void playerSubscriptions.removeSocket(closingPlayerId, socket)
           .then(() => {
-            syncGatewaySnapshotMetricsFromCache(session.playerId!);
+            syncGatewaySnapshotMetricsFromCache(closingPlayerId);
+            // Prune fog-refresh bookkeeping when no fog-disabled session remains
+            // for this player — avoids unbounded growth of lastStartedAt across
+            // the gateway's lifetime.
+            const stillFogDisabled = [...playerSubscriptions.socketsForPlayer(closingPlayerId)].some(
+              (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
+            );
+            if (!stillFogDisabled) {
+              fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
+            }
           })
           .catch((error) => {
-            app.log.error({ err: error, playerId: session.playerId }, "failed to unsubscribe player");
+            app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player");
           });
       });
     });
