@@ -46,6 +46,18 @@ export const jsonByteSize = (value: unknown): number => {
   return utf8Encoder.encode(JSON.stringify(value)).length;
 };
 
+// Average JSON bytes per tile observed in prod 2026-05-24: tilesJsonBytes
+// 145242 / tileCount 2523 ≈ 57.6. Round up to 64 for safety. Use this to
+// estimate tiles bytes WITHOUT stringifying the array — the bootstrap
+// snapshot's tiles array is fresh out of gRPC per AUTH so the per-object
+// memo never hits, and synchronously running JSON.stringify on 2.5k tiles
+// (~200KB string + ~200KB Uint8Array allocated and thrown away) on the
+// gateway main thread per AUTH bootstrap was blocking the event loop long
+// enough to trip the watchdog under retry storms.
+export const ESTIMATED_JSON_BYTES_PER_TILE = 64;
+
+const estimateTilesJsonBytes = (tiles: { length: number }): number => tiles.length * ESTIMATED_JSON_BYTES_PER_TILE;
+
 // Memo correctness depends on snapshot writers REPLACING the outer object
 // (see applyTileDeltasToSnapshot / applyPlayerMessageToSnapshot in
 // apps/realtime-gateway/src/subscription-snapshot-sync.ts — both spread into
@@ -59,7 +71,7 @@ export const measurePlayerSubscriptionSnapshot = (
 ): PlayerSubscriptionSnapshotMeasure => {
   const memoized = measureCache.get(snapshot);
   if (memoized) return memoized;
-  const tilesJsonBytes = jsonByteSize(snapshot.tiles);
+  const tilesJsonBytes = estimateTilesJsonBytes(snapshot.tiles);
   const playerJsonBytes = snapshot.player ? jsonByteSize(snapshot.player) : 0;
   const worldStatusJsonBytes = snapshot.worldStatus ? jsonByteSize(snapshot.worldStatus) : 0;
   const seasonJsonBytes = snapshot.season ? jsonByteSize(snapshot.season) : 0;
