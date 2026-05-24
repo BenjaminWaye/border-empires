@@ -55,7 +55,7 @@ import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapsho
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../simulation/src/seed-state.js";
 import { seasonalPlayerNameForId } from "../../simulation/src/season-worldgen.js";
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { ESTIMATED_JSON_BYTES_PER_TILE, jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -2231,9 +2231,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               // array is fresh out of gRPC every call, so any per-object memo
               // misses; under retry storms the repeated 200KB stringifies on
               // the gateway main thread were tripping the event-loop watchdog.
-              // 64 B/tile matches the prod-measured average; small fixed
-              // constant covers the non-tile envelope.
-              const initJsonBytesEstimate = initInitialTileCount * 64 + 2048;
+              // Envelope constant covers snapshot non-tile fields (player +
+              // worldStatus + season + docks ≈ 13.6KB observed 2026-05-24) plus
+              // the gateway init wrapper (recovery + runtimeIdentity, ~2KB).
+              const INIT_MESSAGE_ENVELOPE_BYTES = 16384;
+              const initJsonBytesEstimate =
+                initInitialTileCount * ESTIMATED_JSON_BYTES_PER_TILE + INIT_MESSAGE_ENVELOPE_BYTES;
               recordGatewayEvent(
                 initInitialTileCount ? "info" : "warn",
                 "gateway_init_sent",
