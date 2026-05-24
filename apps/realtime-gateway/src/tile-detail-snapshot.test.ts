@@ -202,10 +202,10 @@ describe("buildSnapshotTileDetail", () => {
     expect(town.supportCurrent).toBe(8);
     expect(town.supportMax).toBe(8);
     expect(town.isFed).toBe(true);
-    expect(town.goldPerMinute).toBe(2);
+    expect(town.goldPerMinute).toBe(0);
     expect(detail).toEqual(
       expect.objectContaining({
-        yieldRate: expect.objectContaining({ goldPerMinute: 2 })
+        yieldRate: expect.objectContaining({ goldPerMinute: 0 })
       })
     );
   });
@@ -269,10 +269,10 @@ describe("buildSnapshotTileDetail", () => {
     };
 
     expect(town.isFed).toBe(true);
-    expect(town.goldPerMinute).toBe(2);
+    expect(town.goldPerMinute).toBe(0);
     expect(detail).toEqual(
       expect.objectContaining({
-        yieldRate: expect.objectContaining({ goldPerMinute: 2 })
+        yieldRate: expect.objectContaining({ goldPerMinute: 0 })
       })
     );
   });
@@ -397,6 +397,77 @@ describe("buildSnapshotTileDetail", () => {
     // The whole point of the fix: the sim's values must survive end-to-end.
     expect(town?.goldPerMinute).toBeCloseTo(4.4, 4);
     expect(town?.cap).toBeCloseTo(2112, 0);
+    expect(detail).toEqual(
+      expect.objectContaining({
+        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
+        yieldCap: expect.objectContaining({ gold: 2112 })
+      })
+    );
+  });
+
+  it("preserves sim production and cap even when cached fed state disagrees with gateway-derived fed state", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      player: {
+        id: "player-1",
+        gold: 8603,
+        manpower: 1950,
+        manpowerCap: 1950,
+        incomePerMinute: 14.5,
+        strategicResources: { FOOD: 321.5, IRON: 81.5, CRYSTAL: 189.4, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        strategicProductionPerMinute: { FOOD: 0.12, IRON: 0.17, CRYSTAL: 0.4, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        upkeepPerMinute: { food: 0.1, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0.04 },
+        upkeepLastTick: { foodCoverage: 1 },
+        developmentProcessLimit: 3,
+        activeDevelopmentProcessCount: 0,
+        pendingSettlements: [],
+        techIds: [],
+        domainIds: []
+      },
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Gloamspire",
+            type: "FARMING",
+            populationTier: "TOWN",
+            baseGoldPerMinute: 2,
+            supportCurrent: 8,
+            supportMax: 8,
+            goldPerMinute: 4.4,
+            cap: 2112,
+            isFed: false,
+            population: 17669,
+            maxPopulation: 10_000_000,
+            connectedTownCount: 3,
+            connectedTownBonus: 1.2,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false
+          }),
+          townType: "FARMING",
+          townPopulationTier: "TOWN"
+        }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 10, 10);
+    const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as Record<string, unknown>) : undefined;
+
+    expect(town).toEqual(
+      expect.objectContaining({
+        isFed: true,
+        goldPerMinute: 4.4,
+        cap: 2112
+      })
+    );
     expect(detail).toEqual(
       expect.objectContaining({
         yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
