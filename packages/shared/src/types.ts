@@ -99,6 +99,10 @@ export interface EconomicStructure {
   previousStatus?: "active" | "inactive";
   nextUpkeepAt: number;
   powered?: boolean;
+  /** Sweep state — only used when type === "LIGHT_OUTPOST". */
+  sweepBudget?: number;
+  sweepActive?: boolean;
+  sweepBudgetUpdatedAt?: number;
 }
 
 export interface SeasonVictoryObjectiveView {
@@ -278,7 +282,7 @@ export interface Tile {
     strategicEach: number;
   };
   fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; disabledUntil?: number };
-  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; autoAttackEnabled?: boolean; completesAt?: number };
+  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number };
   observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; cooldownUntil?: number };
   economicStructure?: {
     ownerId: PlayerId;
@@ -489,6 +493,9 @@ export interface SiegeOutpost {
   startedAt: number;
   completesAt?: number;
   previousStatus?: "active";
+  sweepBudget?: number;      // 0..SWEEP_BUDGET_CAP; undefined treated as 0
+  sweepActive?: boolean;     // player-controlled toggle
+  sweepBudgetUpdatedAt?: number; // timestamp when sweepBudget was last written
 }
 
 export interface Observatory {
