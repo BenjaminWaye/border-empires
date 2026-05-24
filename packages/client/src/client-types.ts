@@ -136,8 +136,9 @@ export type Tile = {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
     variant?: "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
-    autoAttackEnabled?: boolean;
     completesAt?: number;
+    sweepBudget?: number;
+    sweepActive?: boolean;
   };
   economicStructure?: {
     ownerId: string;
@@ -595,8 +596,8 @@ export type TileActionDef = {
     | "abandon_territory"
     | "build_siege_camp"
     | "build_light_outpost"
-    | "enable_outpost_auto_attack"
-    | "disable_outpost_auto_attack"
+    | "enable_outpost_sweep"
+    | "disable_outpost_sweep"
     | "overload_fur_synthesizer"
     | "overload_ironworks"
     | "overload_crystal_synthesizer"

@@ -465,6 +465,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   });
   const observatoryRangeMaxSegments = observatoryRangeBorderSegmentCount(OBSERVATORY_PROTECTION_RADIUS);
   const observatoryRangeMaxFillVertices = observatoryRangeFillVertexCount(OBSERVATORY_PROTECTION_RADIUS);
+  const SWEEP_RANGE_RADIUS = 5;
+  const sweepRangeMaxSegments = observatoryRangeBorderSegmentCount(SWEEP_RANGE_RADIUS);
+  const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
   const observatoryVisionRangeMaterial = new LineBasicMaterial({
     color: "#7ad6ff",
     transparent: true,
@@ -511,18 +514,45 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createObservatoryRangeFillGeometry(observatoryRangeMaxFillVertices),
     observatoryProtectionFillMaterial
   );
+  const sweepRangeMaterial = new LineBasicMaterial({
+    color: "#ff8c42",
+    transparent: true,
+    opacity: 0.7,
+    depthTest: false,
+    depthWrite: false
+  });
+  const sweepRangeFillMaterial = new MeshBasicMaterial({
+    color: "#ff8c42",
+    transparent: true,
+    opacity: 0.04,
+    depthTest: false,
+    depthWrite: false,
+    side: DoubleSide
+  });
+  const sweepRangeMarker = new LineSegments(
+    createObservatoryRangeBorderGeometry(sweepRangeMaxSegments),
+    sweepRangeMaterial
+  );
+  const sweepRangeFill = new Mesh(
+    createObservatoryRangeFillGeometry(sweepRangeMaxFillVertices),
+    sweepRangeFillMaterial
+  );
   selectedMarker.visible = false;
   hoverMarker.visible = false;
   observatoryVisionRangeMarker.visible = false;
   observatoryProtectionRangeMarker.visible = false;
   observatoryVisionRangeFill.visible = false;
   observatoryProtectionRangeFill.visible = false;
+  sweepRangeMarker.visible = false;
+  sweepRangeFill.visible = false;
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
   observatoryVisionRangeMarker.renderOrder = 27;
   observatoryProtectionRangeMarker.renderOrder = 26;
   observatoryVisionRangeFill.renderOrder = 25;
   observatoryProtectionRangeFill.renderOrder = 24;
+  sweepRangeMarker.renderOrder = 23;
+  sweepRangeFill.renderOrder = 22;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
@@ -558,6 +588,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   observatoryProtectionRangeMarker.frustumCulled = false;
   observatoryVisionRangeFill.frustumCulled = false;
   observatoryProtectionRangeFill.frustumCulled = false;
+  sweepRangeMarker.frustumCulled = false;
+  sweepRangeFill.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
@@ -569,6 +601,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   scene.add(
     selectedMarker,
     hoverMarker,
+    sweepRangeFill,
+    sweepRangeMarker,
     observatoryProtectionRangeFill,
     observatoryVisionRangeFill,
     observatoryVisionRangeMarker,
@@ -1021,6 +1055,19 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     );
   };
 
+  const syncSweepRangeMarker = (): void => {
+    sweepRangeMarker.visible = false;
+    sweepRangeFill.visible = false;
+    const selectedCoord = deps.state.selected;
+    if (!selectedCoord) return;
+    const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
+    if (!selectedTile?.siegeOutpost) return;
+    if (selectedTile.siegeOutpost.status !== "active") return;
+    if (selectedTile.ownerId !== deps.state.me) return;
+    if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
+    writeObservatoryRangeGeometry(sweepRangeMarker, sweepRangeFill, selectedTile, SWEEP_RANGE_RADIUS);
+  };
+
   const applyCamera = (): void => {
     applyPerspectiveCamera(camera, {
       zoom: deps.state.zoom,
@@ -1441,6 +1488,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncWaypointMarkers();
     syncFrontierClaimPlate();
     syncObservatoryRangeMarkers();
+    syncSweepRangeMarker();
     villageEffects.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(nowMs);
@@ -1469,12 +1517,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryProtectionRangeMarker.geometry.dispose();
     observatoryVisionRangeFill.geometry.dispose();
     observatoryProtectionRangeFill.geometry.dispose();
+    sweepRangeMarker.geometry.dispose();
+    sweepRangeFill.geometry.dispose();
     (selectedMarker.material as LineBasicMaterial).dispose();
     (hoverMarker.material as LineBasicMaterial).dispose();
     observatoryVisionRangeMaterial.dispose();
     observatoryProtectionRangeMaterial.dispose();
     observatoryVisionFillMaterial.dispose();
     observatoryProtectionFillMaterial.dispose();
+    sweepRangeMaterial.dispose();
+    sweepRangeFillMaterial.dispose();
     for (const { marker, material } of townSupportMarkers) {
       marker.geometry.dispose();
       material.dispose();

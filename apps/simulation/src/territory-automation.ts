@@ -2,6 +2,42 @@ import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared"
 import type { DomainTileState } from "@border-empires/game-domain";
 import { frontierNeighborCoords } from "./frontier-topology.js";
 
+/**
+ * Chebyshev distance between two points, without world-wrap (used for sweep
+ * targeting where radius is small enough that wrap is irrelevant).
+ */
+export const chebyshevDistanceSimple = (ax: number, ay: number, bx: number, by: number): number =>
+  Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+
+/**
+ * Sweep attack candidate tiles: all enemy-player and barbarian tiles within
+ * chebyshev distance <= radius from the outpost tile. Returns tiles sorted by
+ * distance ascending; tie-break: lower x first, then lower y.
+ */
+export const sweepAttackCandidates = (
+  outpost: DomainTileState,
+  playerId: string,
+  radius: number,
+  getTile: (x: number, y: number) => DomainTileState | undefined
+): DomainTileState[] =>
+  coordsInChebyshevRadius(outpost.x, outpost.y, radius)
+    .map(({ x, y }) => getTile(x, y))
+    .filter(
+      (tile): tile is DomainTileState =>
+        Boolean(
+          tile &&
+            tile.terrain === "LAND" &&
+            tile.ownerId &&
+            tile.ownerId !== playerId &&
+            (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED" || tile.ownershipState === "BARBARIAN")
+        )
+    )
+    .sort((a, b) => {
+      const distA = chebyshevDistanceSimple(outpost.x, outpost.y, a.x, a.y);
+      const distB = chebyshevDistanceSimple(outpost.x, outpost.y, b.x, b.y);
+      return distA - distB || a.x - b.x || a.y - b.y;
+    });
+
 export const FORT_AUTO_FRONTIER_RADIUS = 1;
 export const TOWN_AUTO_FRONTIER_RADIUS = 1;
 export const FRONTIER_DECAY_MS = 10 * 60_000;
