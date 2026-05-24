@@ -54,7 +54,7 @@ export const jsonByteSize = (value: unknown): number => {
 // (~200KB string + ~200KB Uint8Array allocated and thrown away) on the
 // gateway main thread per AUTH bootstrap was blocking the event loop long
 // enough to trip the watchdog under retry storms.
-const ESTIMATED_JSON_BYTES_PER_TILE = 64;
+export const ESTIMATED_JSON_BYTES_PER_TILE = 64;
 
 const estimateTilesJsonBytes = (tiles: { length: number }): number => tiles.length * ESTIMATED_JSON_BYTES_PER_TILE;
 
