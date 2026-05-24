@@ -233,7 +233,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "CHOOSE_DOMAIN",
     "OVERLOAD_SYNTHESIZER",
     "SET_CONVERTER_STRUCTURE_ENABLED",
-    "SET_SIEGE_OUTPOST_AUTO_ATTACK",
     "REVEAL_EMPIRE",
     "REVEAL_EMPIRE_STATS",
     "CAST_AETHER_BRIDGE",
@@ -1521,8 +1520,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "overload_crystal_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "enable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: true });
     if (actionId === "disable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: false });
-    if (actionId === "enable_outpost_auto_attack") sendGameMessage({ type: "SET_SIEGE_OUTPOST_AUTO_ATTACK", x: selected.x, y: selected.y, enabled: true });
-    if (actionId === "disable_outpost_auto_attack") sendGameMessage({ type: "SET_SIEGE_OUTPOST_AUTO_ATTACK", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "enable_outpost_sweep") sendGameMessage({ type: "SET_SIEGE_OUTPOST_SWEEP", x: selected.x, y: selected.y, enabled: true });
     if (actionId === "disable_outpost_sweep") sendGameMessage({ type: "SET_SIEGE_OUTPOST_SWEEP", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });

@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.24.3",
+  version: "2026.05.24.4",
   title: "What's New",
-  summary: "Sweep: siege outposts can now automatically attack the closest enemy tile within a 5-tile radius, gated by a rechargeable sweep budget.",
+  summary: "All four outpost-family structures (Light Outpost, Siege Outpost, Siege Tower, Dread Tower) now share sweep and a target-based attack aura at radius 5. Auto-attack toggle removed.",
   entries: [
+    {
+      introducedIn: "2026.05.24.4",
+      title: "Outpost-family sweep + aura overhaul",
+      why: "Sweep and aura bonuses now cover all four outpost-family structures uniformly. The old 1-tile auto-attack loop has been removed in favour of the sweep system, which offers the same automation with explicit budget control.",
+      changes: [
+        "Sweep is now available on all four outpost-family structures: Light Outpost, Siege Outpost, Siege Tower, and Dread Tower. Each has its own rechargeable budget (0–300) and a Start Sweep / Stop Sweep toggle.",
+        "Removed 'Enable Auto Attack' / 'Cancel Auto Attack' from siege outpost panels. The SET_SIEGE_OUTPOST_AUTO_ATTACK command has been removed from the protocol entirely — the sweep system replaces it.",
+        "Attack aura is now target-based at radius 5 (was origin-based at radius 2). The bonus applies when the tile being attacked is within Chebyshev 5 of any friendly outpost-family structure, regardless of where the attacker is standing.",
+        "Per-variant aura multipliers: Light Outpost 1.25×, Siege Outpost 1.6×, Siege Tower 1.8×, Dread Tower 2.0×. When multiple auras overlap the maximum multiplier wins (no stacking).",
+        "Light Outpost sweep state (sweepBudget, sweepActive) is now tracked on the economic structure and initialised at completion (budget=300, active=false)."
+      ]
+    },
     {
       introducedIn: "2026.05.24.3",
       title: "Siege outpost sweep",
