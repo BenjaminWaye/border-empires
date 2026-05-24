@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.23.7",
+  version: "2026.05.24.1",
   title: "What's New",
-  summary: "Town inspector production now preserves the simulation's authoritative connected-town bonuses even when cached fed-state fields disagree.",
+  summary: "Large connected-town empires no longer stall the simulation when economy updates are built.",
   entries: [
+    {
+      introducedIn: "2026.05.24.1",
+      title: "Large connected-town empires no longer stall AI ticks",
+      why: "Connected-town bonuses were being computed by walking the same settled-land component once per town. On a large empire, an economy update could rebuild the same network thousands of times and also materialize huge connected-town name lists, blocking the simulation event loop and making AI worker replies look like 30s planner stalls.",
+      changes: [
+        "Simulation now builds connected-town components once per player economy refresh and derives every town's connected count from that shared component.",
+        "Connected-town bonuses and counts are preserved, while giant connected-town name lists are capped on runtime tile payloads and skipped entirely for internal economy math."
+      ]
+    },
     {
       introducedIn: "2026.05.23.7",
       title: "Town Production keeps connected-town bonuses on stale tile detail",
@@ -562,30 +571,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "As you discover new tiles the box expands, so the rendered area grows steadily instead of jumping.",
         "Minimap clicks and drags still set the camera correctly — pointer positions invert through the same view box.",
         "Camera viewport rect, player dot, town markers, dock pairs, replay overlays and shard pings all map through the new box, with off-frame markers culled."
-      ]
-    },
-    {
-      introducedIn: "2026.05.17.2",
-      title: "Render FPS moved into debug details",
-      why: "The FPS counter is useful when diagnosing slow 3D rendering, but showing it inside the Shard Network card made a debug metric look like part of the sharding game loop.",
-      changes: [
-        "Shard Network now only shows shard gameplay information.",
-        "Render FPS moved into the auth/backend debug card alongside build, backend, bridge, and account diagnostics.",
-        "Copy Auth Debug now includes the current Render FPS value so performance reports keep the same signal without cluttering the gameplay card."
-      ]
-    },
-    {
-      introducedIn: "2026.05.17.1",
-      title: "Coins show which adjacent tiles feed a town's gold",
-      why: "Players settled a town, saw it fed, and wondered why no gold came in — without realizing town gold scales linearly with adjacent SETTLED tiles. The 8-tile colored ring was already drawn but it conveyed ownership, not income.",
-      changes: [
-        "Selecting one of your towns (City and above) now floats a coin over each of its 8 adjacent land tiles.",
-        "Gold coin = that neighbor is settled by you and is currently contributing to the town's gold income.",
-        "Grey coin = that neighbor is land but isn't settled by you yet; settling it will increase the town's gold; grey coins are translucent so they clearly read as inactive.",
-        "Each coin is drawn as a stylized tilted disk with a visible metallic side and a recessed inner face, and casts a soft circular shadow on the tile beneath it.",
-        "Selecting a coin tile (to settle it) keeps the overlay visible by anchoring it to the nearest player-owned non-Settlement town.",
-        "Settlement-tier towns hide both the support ring and the coins — settlements pay a flat base income and don't use adjacent tiles.",
-        "Trying to build an economic structure (Farmstead, Market, Mine, etc.) on a Settlement-tier town is now rejected by the sim with a clearer message instead of silently failing."
       ]
     },
   ]

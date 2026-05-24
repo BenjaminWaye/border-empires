@@ -808,7 +808,11 @@ export const buildLivePlayerEconomySnapshot = (
   const domainTilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), toDomainTile(tile)] as const));
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
-  const townNetwork = economyPlayer ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? []) : undefined;
+  const townNetwork = economyPlayer
+    ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? [], {
+        maxConnectedTownNames: 16
+      })
+    : undefined;
   const firstThreeTownKeys = buildFirstThreeTownKeysByPlayer(runtimeState).get(playerId);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
@@ -992,7 +996,9 @@ export const enrichSnapshotTilesForGlobalVisibility = (
   const townNetworksByPlayerId = new Map(
     [...economyPlayersById].map(([id, economyPlayer]) => [
       id,
-      buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [])
+      buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [], {
+        maxConnectedTownNames: 16
+      })
     ] as const)
   );
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
@@ -1067,7 +1073,9 @@ const buildEnrichmentContext = (
   const townNetworksByPlayerId = new Map(
     [...economyPlayersById].map(([id, economyPlayer]) => [
       id,
-      buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [])
+      buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [], {
+        maxConnectedTownNames: 16
+      })
     ] as const)
   );
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
