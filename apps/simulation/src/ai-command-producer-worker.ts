@@ -131,6 +131,10 @@ type WorkerAiCommandProducerOptions = {
     phase:
       | "sync_players_export"
       | "sync_players_relevance"
+      | "sync_players_replace_players"
+      | "sync_players_relevant_set_alloc"
+      | "sync_players_unseen_scan"
+      | "sync_players_export_unseen_tiles"
       | "sync_players_post"
       | "sync_players_total"
       | "tile_delta_merge"
@@ -149,6 +153,8 @@ type WorkerAiCommandProducerOptions = {
     tileDeltaCount?: number;
     ownedTileCount?: number;
     frontierTileCount?: number;
+    relevantKeyCount?: number;
+    unseenCount?: number;
   }) => void;
 };
 
@@ -384,13 +390,33 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       playerCount: players.length
     });
     for (const player of players) plannerPlayersById.set(player.id, player);
-    const relevanceStartedAt = now();
+    const replacePlayersStartedAt = now();
     relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
+    const replacePlayersDurationMs = Math.max(0, now() - replacePlayersStartedAt);
+    const relevantSetAllocStartedAt = now();
     relevantTileKeys = new Set(relevantTileKeyIndex.keys());
+    const relevantSetAllocDurationMs = Math.max(0, now() - relevantSetAllocStartedAt);
+    const relevantKeyCount = relevantTileKeys.size;
+    options.onDiagnostic?.({
+      phase: "sync_players_replace_players",
+      durationMs: replacePlayersDurationMs,
+      playerCount: players.length,
+      relevantKeyCount
+    });
+    options.onDiagnostic?.({
+      phase: "sync_players_relevant_set_alloc",
+      durationMs: relevantSetAllocDurationMs,
+      playerCount: players.length,
+      relevantKeyCount
+    });
+    // Legacy aggregate kept for dashboards/alerts that already watch it. The
+    // sum is correct (replace + set alloc); historical sync_players_relevance
+    // measured exactly these two steps before the 2026-05-24 split.
     options.onDiagnostic?.({
       phase: "sync_players_relevance",
-      durationMs: Math.max(0, now() - relevanceStartedAt),
-      playerCount: players.length
+      durationMs: replacePlayersDurationMs + relevantSetAllocDurationMs,
+      playerCount: players.length,
+      relevantKeyCount
     });
     // Backfill any tiles that have just entered scope but were never sent to the
     // worker. This happens when territory expands: new frontier neighbors become
@@ -398,11 +424,21 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     // never triggered a TILE_DELTA_BATCH event (neutral tiles that were always
     // neutral don't generate deltas). Without this, the planner can't see those
     // tiles and returns "no_frontier_targets" noop forever.
+    const unseenScanStartedAt = now();
     const unseenTileKeys: string[] = [];
     for (const tileKey of relevantTileKeys) {
       if (!plannerTilesByKey.has(tileKey)) unseenTileKeys.push(tileKey);
     }
+    const unseenScanDurationMs = Math.max(0, now() - unseenScanStartedAt);
+    options.onDiagnostic?.({
+      phase: "sync_players_unseen_scan",
+      durationMs: unseenScanDurationMs,
+      playerCount: players.length,
+      relevantKeyCount,
+      unseenCount: unseenTileKeys.length
+    });
     if (unseenTileKeys.length > 0) {
+      const exportUnseenStartedAt = now();
       const unseenTiles = options.runtime.exportTilesForKeys(unseenTileKeys);
       const backfillDeltas: SimulationTileDelta[] = [];
       for (const tile of unseenTiles) {
@@ -413,6 +449,12 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       if (backfillDeltas.length > 0) {
         worker.postMessage({ type: "tile_deltas", tileDeltas: backfillDeltas });
       }
+      options.onDiagnostic?.({
+        phase: "sync_players_export_unseen_tiles",
+        durationMs: Math.max(0, now() - exportUnseenStartedAt),
+        playerCount: players.length,
+        unseenCount: unseenTileKeys.length
+      });
     }
 
     const postStartedAt = now();
