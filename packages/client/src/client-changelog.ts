@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.23.6",
+  version: "2026.05.23.7",
   title: "What's New",
-  summary: "Release notes now stay focused on the current week instead of carrying the full historical log in the client bundle.",
+  summary: "Town inspector production now preserves the simulation's authoritative connected-town bonuses even when cached fed-state fields disagree.",
   entries: [
+    {
+      introducedIn: "2026.05.23.7",
+      title: "Town Production keeps connected-town bonuses on stale tile detail",
+      why: "The prior fix still left one fallback path in the gateway: when the cached town's isFed value disagreed with the gateway's derived fed-state, buildSnapshotTileDetail recomputed goldPerMinute and cap locally. That local formula only knew base production, support, market, and bank, so a town showing '3 connected towns: +120% gold production' could still render Production: 2.00/m and Stored yield cap 960 instead of the simulation's 4.4/m and 2112.",
+      changes: [
+        "Gateway tile detail now preserves finite townJson.goldPerMinute and townJson.cap from the simulation regardless of fed-state mismatch; the gateway can still update support/fed display fields, but it no longer rewrites production or cap.",
+        "Updated the stale-fed-state gateway tests so they no longer expect the gateway to invent town production, and added helper plus WebSocket tile-detail regressions matching the Gloamspire shape: isFed corrected to true while goldPerMinute=4.4 and cap=2112 survive into yieldRate/yieldCap."
+      ]
+    },
     {
       introducedIn: "2026.05.23.6",
       title: "Release notes stay limited to the current week",

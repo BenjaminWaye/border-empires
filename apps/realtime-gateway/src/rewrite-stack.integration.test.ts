@@ -1519,6 +1519,117 @@ describe("rewrite stack integration", () => {
     );
   });
 
+  it("preserves sim town production and cap through the tile-detail WebSocket path when cached fed state is stale", async () => {
+    const townJson = JSON.stringify({
+      name: "Gloamspire",
+      type: "FARMING",
+      populationTier: "TOWN",
+      baseGoldPerMinute: 2,
+      supportCurrent: 8,
+      supportMax: 8,
+      goldPerMinute: 4.4,
+      cap: 2112,
+      isFed: false,
+      population: 17669,
+      maxPopulation: 10_000_000,
+      connectedTownCount: 3,
+      connectedTownBonus: 1.2,
+      hasMarket: false,
+      marketActive: false,
+      hasGranary: false,
+      granaryActive: false,
+      hasBank: false,
+      bankActive: false
+    });
+    const simulationTile = {
+      x: 10,
+      y: 10,
+      terrain: "LAND" as const,
+      ownerId: "player-1",
+      ownershipState: "SETTLED" as const,
+      townJson,
+      townType: "FARMING" as const,
+      townPopulationTier: "TOWN" as const
+    };
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      commandStore: new InMemoryGatewayCommandStore(),
+      defaultHumanPlayerId: "player-1",
+      simulationClient: {
+        preparePlayer: async (playerId) => ({ playerId, spawned: false }),
+        submitCommand: async () => undefined,
+        subscribePlayer: async (playerId) => ({
+          playerId,
+          player: {
+            id: playerId,
+            gold: 8603,
+            manpower: 1950,
+            manpowerCap: 1950,
+            incomePerMinute: 14.5,
+            strategicResources: { FOOD: 321.5, IRON: 81.5, CRYSTAL: 189.4, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            strategicProductionPerMinute: { FOOD: 0.12, IRON: 0.17, CRYSTAL: 0.4, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            upkeepPerMinute: { food: 0.1, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0.04 },
+            upkeepLastTick: { foodCoverage: 1 },
+            developmentProcessLimit: 3,
+            activeDevelopmentProcessCount: 0,
+            pendingSettlements: [],
+            techIds: [],
+            domainIds: []
+          },
+          tiles: [simulationTile]
+        }),
+        fetchTileDetail: async (playerId, x, y) => ({
+          playerId,
+          x,
+          y,
+          tiles: [simulationTile]
+        }),
+        unsubscribePlayer: async () => undefined,
+        getSubscriptionNamespace: async () => "tile-detail-production-source-test",
+        ping: async () => undefined,
+        streamEvents: (_listener, options) => {
+          options?.onConnect?.();
+          return () => undefined;
+        }
+      }
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const socket = await openSocket(gatewayAddress.wsUrl);
+    cleanup.push(() => closeSocket(socket.socket));
+    socket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    const init = await nextNonBootstrapMessage(socket, "tile detail production init");
+    expect(init).toEqual(expect.objectContaining({ type: "INIT" }));
+
+    socket.socket.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x: 10, y: 10 }));
+    const cachedDetail = await nextTypedMessage(socket, "cached production tile detail", "TILE_DELTA");
+    const freshDetail = await nextTypedMessage(socket, "fresh production tile detail", "TILE_DELTA");
+
+    for (const detail of [cachedDetail, freshDetail]) {
+      const updates = detail.updates;
+      expect(Array.isArray(updates)).toBe(true);
+      const update = (updates as Array<Record<string, unknown>>).find((candidate) => candidate.x === 10 && candidate.y === 10);
+      expect(update).toEqual(
+        expect.objectContaining({
+          detailLevel: "full",
+          yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
+          yieldCap: expect.objectContaining({ gold: 2112 })
+        })
+      );
+      const town = JSON.parse(String(update?.townJson)) as Record<string, unknown>;
+      expect(town).toEqual(
+        expect.objectContaining({
+          isFed: true,
+          goldPerMinute: 4.4,
+          cap: 2112
+        })
+      );
+    }
+  });
+
   it("supports siege outpost build commands through the rewrite gateway", async () => {
     const scheduledBuilds: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
