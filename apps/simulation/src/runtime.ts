@@ -2895,7 +2895,7 @@ export class SimulationRuntime {
     const settledTiles = this.settledTilesForPlayer(player.id);
     return {
       player,
-      townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles),
+      townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames: 16 }),
       fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles),
       firstThreeTownKeys: firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id))
     };

@@ -4,8 +4,8 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 
 ## Stack targeting
 
-- **Staging = rewrite stack** (`apps/realtime-gateway` + `apps/simulation`, combined). **Production = legacy stack** (`packages/server`). They are not symmetric.
-- **Default target for new work is the rewrite stack.** Do not modify or instrument `packages/server` unless the user explicitly says "legacy", names `packages/server`, or names a production-only behavior. If a search turns up logic only in `packages/server`, surface that as a missing port — do not extend the legacy version.
+- **Staging and production both run the rewrite stack** (`apps/realtime-gateway` + `apps/simulation`, combined). Staging uses `border-empires-combined-staging`; production uses `border-empires-combined`.
+- **Default target for new work is the rewrite stack.** Do not modify or instrument `packages/server` unless the user explicitly says "legacy" or names `packages/server`. If a search turns up logic only in `packages/server`, surface that as stale legacy code — do not extend it as the active runtime.
 - Full deploy/Fly/Vercel details: read `docs/agents/deploys.md` before any deploy or CLI work.
 
 ## Worktrees and branches
@@ -47,7 +47,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 ## Repo reference
 
 - Main repo: `/Users/benjaminwaye/Sites/border-empires-container/border-empires`
-- Workspace packages: `packages/shared` (constants/formulas/schemas/types), `packages/game-domain` (rewrite domain logic), `packages/sim-protocol` (gateway↔sim wire), `packages/client-protocol` (gateway↔client wire), `packages/server` (legacy, prod-only), `packages/client` (browser client).
+- Workspace packages: `packages/shared` (constants/formulas/schemas/types), `packages/game-domain` (rewrite domain logic), `packages/sim-protocol` (gateway↔sim wire), `packages/client-protocol` (gateway↔client wire), `packages/server` (legacy only), `packages/client` (browser client).
 - Rewrite-stack apps (staging today): `apps/realtime-gateway`, `apps/simulation`.
 - Root scripts: `pnpm dev` (shared + server + client), `pnpm build`, `pnpm test`, `pnpm lint`.
 - Architecture/AI/design notes live in `docs/`. Load on demand; do not inline into this file.
