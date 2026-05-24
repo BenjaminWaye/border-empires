@@ -8,7 +8,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "./config.js";
-import { OUTPOST_AURA_RADIUS, type OutpostAuraTileFacts, scanOutpostMult, tileOutpostMult } from "./outpost-aura.js";
+import { OUTPOST_AURA_RADIUS, type OutpostAuraTileFacts, type OutpostPosition, scanOutpostMult, targetOutpostMult, tileOutpostMult } from "./outpost-aura.js";
 
 describe("tileOutpostMult — per-variant multipliers", () => {
   it("VariantMult: SIEGE_OUTPOST → 1.6", () => {
@@ -184,5 +184,69 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     });
     // Target at (13, 10) is within radius of all three — DREAD_TOWER (2.0) should win
     expect(scanOutpostMult("p1", 13, 10, lookup)).toBeCloseTo(DREAD_TOWER_ATTACK_MULT, 6);
+  });
+});
+
+describe("targetOutpostMult — outpost-list iteration", () => {
+  it("TOM1: single SIEGE_OUTPOST within radius → correct multiplier", () => {
+    const outposts: OutpostPosition[] = [
+      { x: 10, y: 10, variant: "SIEGE_OUTPOST" }
+    ];
+    // Target at (14, 10): Chebyshev distance = 4 ≤ 5
+    expect(targetOutpostMult(outposts, 14, 10)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
+  });
+
+  it("TOM2: target outside radius → no bonus (mult = 1)", () => {
+    const outposts: OutpostPosition[] = [
+      { x: 10, y: 10, variant: "SIEGE_OUTPOST" }
+    ];
+    // Target at (16, 10): Chebyshev distance = 6 > 5
+    expect(targetOutpostMult(outposts, 16, 10)).toBe(1);
+  });
+
+  it("TOM3: LIGHT_OUTPOST within radius → 1.25 multiplier", () => {
+    const outposts: OutpostPosition[] = [
+      { x: 10, y: 10, variant: "LIGHT_OUTPOST" }
+    ];
+    expect(targetOutpostMult(outposts, 13, 10)).toBeCloseTo(LIGHT_OUTPOST_ATTACK_MULT, 6);
+  });
+
+  it("TOM4: overlapping auras — max multiplier wins", () => {
+    const outposts: OutpostPosition[] = [
+      { x: 10, y: 10, variant: "LIGHT_OUTPOST" },
+      { x: 11, y: 10, variant: "SIEGE_OUTPOST" }
+    ];
+    // Both within radius of target (12, 10): SIEGE_OUTPOST (1.6) beats LIGHT (1.25)
+    expect(targetOutpostMult(outposts, 12, 10)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
+  });
+
+  it("TOM5: DREAD_TOWER short-circuits — skips remaining outposts", () => {
+    // Verify short-circuit by ensuring the result equals DREAD_TOWER_ATTACK_MULT
+    // even when a higher-mult outpost isn't possible.
+    const outposts: OutpostPosition[] = [
+      { x: 10, y: 10, variant: "DREAD_TOWER" },
+      { x: 11, y: 10, variant: "SIEGE_OUTPOST" }
+    ];
+    // Target at (12, 10): DREAD_TOWER (2.0) wins and triggers early return.
+    expect(targetOutpostMult(outposts, 12, 10)).toBeCloseTo(DREAD_TOWER_ATTACK_MULT, 6);
+  });
+
+  it("TOM6: empty outpost list → no bonus (mult = 1)", () => {
+    expect(targetOutpostMult([], 10, 10)).toBe(1);
+  });
+
+  it("TOM7: world-wrap — outpost at (0, 0), target at far edge is within radius 1 via wrap", () => {
+    const outposts: OutpostPosition[] = [
+      { x: 0, y: 0, variant: "LIGHT_OUTPOST" }
+    ];
+    // Chebyshev wrap: distance from (0,0) to (WORLD_WIDTH-1, WORLD_HEIGHT-1) = 1 via wrap
+    expect(targetOutpostMult(outposts, WORLD_WIDTH - 1, WORLD_HEIGHT - 1)).toBeCloseTo(LIGHT_OUTPOST_ATTACK_MULT, 6);
+  });
+
+  it("TOM8: SIEGE_TOWER within radius → correct multiplier", () => {
+    const outposts: OutpostPosition[] = [
+      { x: 10, y: 10, variant: "SIEGE_TOWER" }
+    ];
+    expect(targetOutpostMult(outposts, 10, 10)).toBeCloseTo(SIEGE_TOWER_ATTACK_MULT, 6);
   });
 });

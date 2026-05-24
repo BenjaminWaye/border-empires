@@ -82,7 +82,7 @@ describe("encirclement connectivity", () => {
     const tiles = mkTileMap({
       "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
       "11,10": { ownerId: "player-1", ownershipState: "FRONTIER" },
-      "12,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 1_061_000 }
+      "12,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 61_000 }
     });
     const nowMs = 1_000;
     const { reconnected } = computeEncirclementDeltas(["11,10"], "player-1", tiles, nowMs);
@@ -227,6 +227,42 @@ describe("encirclement timer semantics", () => {
     const { cutOff: cutOff2 } = computeEncirclementDeltas(["12,10"], "player-1", tilesLong, nowMs);
     expect(cutOff2.has("12,10")).toBe(true);
     expect(Math.min(naturalDecayFar, encirclementExpiresAt)).toBe(encirclementExpiresAt);
+  });
+
+  it("F5: reconnect preserves natural decay timer that was never overwritten by encirclement", () => {
+    // Tile has a natural 10-min decay timer with 9 min remaining (well above ENCIRCLEMENT_DECAY_MS).
+    // Because computeEncirclementDeltas only marks a tile as `reconnected` when
+    // remaining time ≤ ENCIRCLEMENT_DECAY_MS (i.e. the timer was plausibly set by
+    // encirclement), this tile will NOT appear in `reconnected` — it can't be reached
+    // by the reconnection code path. The test verifies this invariant.
+    const nowMs = 1_000;
+    const naturalDecayLong = nowMs + 9 * 60_000; // 9 min remaining — our timer, NOT encirclement's
+    const tiles = mkTileMap({
+      "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
+      "11,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: naturalDecayLong }
+    });
+    // Changed key is the settled tile — triggers a reconnect check for adjacent tiles.
+    const { reconnected } = computeEncirclementDeltas(["10,10"], "player-1", tiles, nowMs);
+    // 11,10 is reachable from the settled tile, but its timer has > 60 s remaining
+    // → the encirclement reconnect guard leaves it alone (we didn't set it).
+    expect(reconnected.has("11,10")).toBe(false);
+  });
+
+  it("F6: tile cut off while natural decay was running — encirclement wins via min-wins, then reconnects cleanly", () => {
+    // Scenario: tile had a 10-min natural decay with 9 min remaining (naturalDecayAt).
+    // It was cut off: applyEncirclement set a 60 s timer. min-wins → 60 s wins.
+    // We simulate the post-cut-off state: tile now has the encirclement timer (60 s).
+    // On reconnect, computeEncirclementDeltas should include it in `reconnected`
+    // because remaining time ≤ ENCIRCLEMENT_DECAY_MS.
+    const nowMs = 1_000;
+    const encirclementTimer = nowMs + ENCIRCLEMENT_DECAY_MS; // 61_000 — exactly 60 s
+    const tiles = mkTileMap({
+      "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
+      "11,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: encirclementTimer }
+    });
+    const { reconnected } = computeEncirclementDeltas(["10,10"], "player-1", tiles, nowMs);
+    // Timer is exactly ENCIRCLEMENT_DECAY_MS remaining → encirclement set it → can be cleared.
+    expect(reconnected.has("11,10")).toBe(true);
   });
 });
 

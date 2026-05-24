@@ -152,21 +152,77 @@ export const computeEncirclementDeltas = (
     }
   }
 
-  // For each frontier tile in the affected region, check connectivity.
+  // Single forward BFS from all settled tiles owned by affectedPlayerId that
+  // border the affected region. This avoids O(N²) — instead of re-running BFS
+  // from every tile in toCheck, we do one pass and mark all reachable frontier
+  // tiles as connected.
+  //
+  // Strategy:
+  //   1. Collect settled tiles that are neighbors of any tile in bfsVisited
+  //      (the affected region). These are the "roots" of the forward BFS.
+  //   2. BFS outward through affectedPlayerId's frontier tiles from those roots.
+  //   3. Anything in toCheck reached by the BFS is connected; otherwise cut off.
+  const reachable = new Set<string>();
+  const fwdQueue: string[] = [];
+  const fwdVisited = new Set<string>();
+
+  for (const key of bfsVisited) {
+    const [xStr, yStr] = key.split(",");
+    const cx = Number(xStr);
+    const cy = Number(yStr);
+    for (const { dx, dy } of NEIGHBOR_OFFSETS) {
+      const nx = wrapX(cx + dx, WORLD_WIDTH);
+      const ny = wrapY(cy + dy, WORLD_HEIGHT);
+      const nk = `${nx},${ny}`;
+      if (fwdVisited.has(nk)) continue;
+      const neighbor = getTile(nk);
+      if (neighbor?.ownerId === affectedPlayerId && neighbor.ownershipState === "SETTLED") {
+        fwdVisited.add(nk);
+        fwdQueue.push(nk);
+      }
+    }
+  }
+
+  while (fwdQueue.length > 0) {
+    // biome-ignore lint: queue.shift() fine for bounded BFS
+    const current = fwdQueue.shift()!;
+    const [xStr, yStr] = current.split(",");
+    const cx = Number(xStr);
+    const cy = Number(yStr);
+
+    for (const { dx, dy } of NEIGHBOR_OFFSETS) {
+      const nx = wrapX(cx + dx, WORLD_WIDTH);
+      const ny = wrapY(cy + dy, WORLD_HEIGHT);
+      const nk = `${nx},${ny}`;
+      if (fwdVisited.has(nk)) continue;
+      fwdVisited.add(nk);
+
+      const neighbor = getTile(nk);
+      if (neighbor?.ownerId !== affectedPlayerId) continue;
+
+      if (neighbor.ownershipState === "FRONTIER") {
+        reachable.add(nk);
+        fwdQueue.push(nk);
+      } else if (neighbor.ownershipState === "SETTLED") {
+        fwdQueue.push(nk);
+      }
+    }
+  }
+
+  // Classify tiles in toCheck using the reachable set.
   for (const key of toCheck) {
     const tile = getTile(key);
     if (!tile || tile.ownerId !== affectedPlayerId || tile.ownershipState !== "FRONTIER") continue;
 
-    const connected = isFrontierConnected(key, affectedPlayerId, getTile);
-
-    if (!connected) {
-      // Only mark cut-off if the tile doesn't already have a shorter timer
-      // (shorter = the natural decay is already closing in). We set the timer
-      // to min(existing, now + ENCIRCLEMENT_DECAY_MS). But we always add to
-      // cutOff so the caller can apply min-wins.
+    if (!reachable.has(key)) {
+      // Not reached from any settled supply root — cut off.
       cutOff.add(key);
-    } else if (typeof tile.frontierDecayAt === "number") {
-      // Was cut off (has a timer) and is now reconnected.
+    } else if (
+      typeof tile.frontierDecayAt === "number" &&
+      tile.frontierDecayAt - nowMs <= ENCIRCLEMENT_DECAY_MS
+    ) {
+      // Was cut off (has an encirclement timer ≤ 60 s) and is now reconnected.
+      // Natural decay timers (> 60 s remaining) are not ours to clear.
       reconnected.add(key);
     }
   }

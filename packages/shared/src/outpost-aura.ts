@@ -51,6 +51,63 @@ export const tileOutpostMult = (
   return { mult: 1 };
 };
 
+/** All four outpost-family variants that can contribute an attack aura. */
+export type OutpostVariant = "LIGHT_OUTPOST" | "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
+
+/**
+ * Minimal position + variant descriptor needed to evaluate outpost aura from
+ * an outpost list. Use with `targetOutpostMult` to avoid tile-grid scanning.
+ */
+export type OutpostPosition = {
+  x: number;
+  y: number;
+  variant: OutpostVariant;
+};
+
+/** Returns the attack multiplier for a single outpost variant. */
+const multiplierFor = (variant: OutpostVariant): number => {
+  if (variant === "DREAD_TOWER") return DREAD_TOWER_ATTACK_MULT;
+  if (variant === "SIEGE_TOWER") return SIEGE_TOWER_ATTACK_MULT;
+  if (variant === "SIEGE_OUTPOST") return SIEGE_OUTPOST_ATTACK_MULT;
+  // LIGHT_OUTPOST
+  return LIGHT_OUTPOST_ATTACK_MULT;
+};
+
+/** Wrapped Chebyshev distance between two world positions. */
+const chebyshevWithWrap = (ax: number, ay: number, bx: number, by: number): number => {
+  const dxRaw = Math.abs(ax - bx);
+  const dyRaw = Math.abs(ay - by);
+  const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
+  const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
+  return Math.max(dx, dy);
+};
+
+/**
+ * Given an explicit list of the player's active outposts, returns the best
+ * attack multiplier for an attack against `(targetX, targetY)`.
+ *
+ * Iterates the outpost list (O(outposts)) instead of scanning a tile grid
+ * (O(radius²)), which is significantly faster when the player has few outposts.
+ *
+ * Wraps around world edges. Multiple overlapping auras: max multiplier wins.
+ * Short-circuits immediately on DREAD_TOWER (maximum possible multiplier).
+ */
+export const targetOutpostMult = (
+  outposts: ReadonlyArray<OutpostPosition>,
+  targetX: number,
+  targetY: number
+): number => {
+  let bestMult = 1;
+  for (const op of outposts) {
+    const dist = chebyshevWithWrap(op.x, op.y, targetX, targetY);
+    if (dist > OUTPOST_AURA_RADIUS) continue;
+    const mult = multiplierFor(op.variant);
+    if (mult >= DREAD_TOWER_ATTACK_MULT) return mult; // short-circuit: max possible
+    if (mult > bestMult) bestMult = mult;
+  }
+  return bestMult;
+};
+
 /**
  * Scans a Chebyshev-distance-`OUTPOST_AURA_RADIUS` square around
  * `(targetX, targetY)` and returns the best attacker-side outpost multiplier
@@ -60,6 +117,11 @@ export const tileOutpostMult = (
  *
  * The caller provides `getTile` which returns whatever it has on hand
  * (parsed object, decoded JSON, etc.) projected into `OutpostAuraTileFacts`.
+ *
+ * @deprecated Use `targetOutpostMult` instead — it iterates the player's
+ * outpost list directly (O(outposts)) rather than scanning 121 tiles
+ * (O(radius²)). Keep this for callers that don't have a pre-built outpost
+ * list (e.g. the realtime gateway preview).
  */
 export const scanOutpostMult = (
   playerId: string,
@@ -75,7 +137,11 @@ export const scanOutpostMult = (
       const tile = getTile(wrappedX, wrappedY);
       if (!tile) continue;
       const contribution = tileOutpostMult(tile, playerId);
-      if (contribution.mult > bestMult) bestMult = contribution.mult;
+      if (contribution.mult > bestMult) {
+        bestMult = contribution.mult;
+        // DREAD_TOWER_ATTACK_MULT is the maximum possible — no need to scan further.
+        if (bestMult >= DREAD_TOWER_ATTACK_MULT) return bestMult;
+      }
     }
   }
   return bestMult;
