@@ -45,47 +45,13 @@ const settledLandKeysForPlayer = (
   return out;
 };
 
-// Walk the owner's settled-land 8-adjacency component starting from the town
-// and record every other owned-town tile reachable through it. The walk does
-// NOT terminate at other town tiles — towns are normal settled-land nodes for
-// the purposes of connectivity. This matches the client road overlay's
-// component-based road drawing (see packages/client/src/client-road-network.ts)
-// so the bonus count and the rendered roads share one source of truth.
-const directlyConnectedTownKeysForTown = (
-  _playerId: string,
-  originTownKey: string,
-  settledLand: ReadonlySet<string>,
-  ownedTownKeys: ReadonlySet<string>
-): string[] => {
-  if (!settledLand.has(originTownKey)) return [];
-  const queue = [originTownKey];
-  const visited = new Set<string>([originTownKey]);
-  const connectedTowns = new Set<string>();
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    const [rawX, rawY] = current.split(",");
-    const cx = Number(rawX);
-    const cy = Number(rawY);
-    if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const nextKey = keyFor(cx + dx, cy + dy);
-        if (!settledLand.has(nextKey) || visited.has(nextKey)) continue;
-        visited.add(nextKey);
-        if (ownedTownKeys.has(nextKey)) connectedTowns.add(nextKey);
-        queue.push(nextKey);
-      }
-    }
-  }
-  return [...connectedTowns].sort((left, right) => left.localeCompare(right));
-};
-
 export const buildConnectedTownNetworkForPlayer = (
   player: EconomyPlayer,
   tiles: ReadonlyMap<string, DomainTileState>,
-  playerSettledTiles: Iterable<DomainTileState> = tiles.values()
+  playerSettledTiles: Iterable<DomainTileState> = tiles.values(),
+  options: { maxConnectedTownNames?: number } = {}
 ): Map<string, ConnectedTownNetworkEntry> => {
+  const maxConnectedTownNames = Math.max(0, options.maxConnectedTownNames ?? Number.POSITIVE_INFINITY);
   const settledTiles = [...playerSettledTiles];
   const settledLand = settledLandKeysForPlayer(player.id, settledTiles);
   const ownedTownKeys = new Set<string>();
@@ -95,17 +61,56 @@ export const buildConnectedTownNetworkForPlayer = (
     }
   }
   const out = new Map<string, ConnectedTownNetworkEntry>();
-  for (const townKey of ownedTownKeys) {
-    const connectedTownKeys = directlyConnectedTownKeysForTown(player.id, townKey, settledLand, ownedTownKeys);
-    const connectedTownNames = connectedTownKeys
-      .map((tileKey) => tiles.get(tileKey)?.town?.name)
-      .filter((name): name is string => typeof name === "string" && name.length > 0)
-      .sort((left, right) => left.localeCompare(right));
-    out.set(townKey, {
-      connectedTownCount: connectedTownKeys.length,
-      connectedTownBonus: connectedTownBonusForPlayer(connectedTownKeys.length, player),
-      ...(connectedTownNames.length ? { connectedTownNames } : {})
-    });
+  const visited = new Set<string>();
+  for (const componentStart of settledLand) {
+    if (visited.has(componentStart)) continue;
+    const queue = [componentStart];
+    let readIndex = 0;
+    visited.add(componentStart);
+    const componentTownKeys: string[] = [];
+
+    while (readIndex < queue.length) {
+      const current = queue[readIndex]!;
+      readIndex += 1;
+      if (ownedTownKeys.has(current)) componentTownKeys.push(current);
+      const [rawX, rawY] = current.split(",");
+      const cx = Number(rawX);
+      const cy = Number(rawY);
+      if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (dx === 0 && dy === 0) continue;
+          const nextKey = keyFor(cx + dx, cy + dy);
+          if (!settledLand.has(nextKey) || visited.has(nextKey)) continue;
+          visited.add(nextKey);
+          queue.push(nextKey);
+        }
+      }
+    }
+
+    if (componentTownKeys.length === 0) continue;
+    componentTownKeys.sort((left, right) => left.localeCompare(right));
+    const townNameByKey = new Map<string, string>();
+    for (const townKey of componentTownKeys) {
+      const name = tiles.get(townKey)?.town?.name;
+      if (typeof name === "string" && name.length > 0) townNameByKey.set(townKey, name);
+    }
+    for (const townKey of componentTownKeys) {
+      const connectedTownCount = componentTownKeys.length - 1;
+      const connectedTownNames =
+        maxConnectedTownNames > 0 && connectedTownCount <= maxConnectedTownNames
+          ? componentTownKeys
+              .filter((key) => key !== townKey)
+              .map((key) => townNameByKey.get(key))
+              .filter((name): name is string => typeof name === "string" && name.length > 0)
+              .sort((left, right) => left.localeCompare(right))
+          : [];
+      out.set(townKey, {
+        connectedTownCount,
+        connectedTownBonus: connectedTownBonusForPlayer(connectedTownCount, player),
+        ...(connectedTownNames.length ? { connectedTownNames } : {})
+      });
+    }
   }
   return out;
 };

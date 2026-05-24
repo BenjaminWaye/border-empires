@@ -53,6 +53,8 @@ import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "./season-lifecycle.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "./season-worldgen.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
+import { createMainThreadTaskTracker } from "./main-thread-task-tracker.js";
+import type { ProjectionExportState } from "./postgres-projection-writer.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
   if (!value) return undefined;
@@ -564,6 +566,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const slowQueueDrainWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_QUEUE_DRAIN_WARN_MS ?? 100));
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
+  const mainThreadTasks = createMainThreadTaskTracker();
   const logWriters = log as Partial<Record<"info" | "warn" | "error", (...args: unknown[]) => void>>;
   const emitLog = (level: "info" | "warn" | "error", message: string, payload: Record<string, unknown>): void => {
     const writer = logWriters[level];
@@ -955,14 +958,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     eventStore,
     snapshotStore,
     exportSnapshotSections: () => {
-      const snapshotSections = runtime.exportSnapshotSections();
-      return {
-        ...snapshotSections,
-        initialState: {
-          ...snapshotSections.initialState,
-          season: currentSeasonState
-        }
-      };
+      return mainThreadTasks.trackSync("checkpoint_export_snapshot_sections", undefined, () => {
+        const snapshotSections = runtime.exportSnapshotSections();
+        return {
+          ...snapshotSections,
+          initialState: {
+            ...snapshotSections.initialState,
+            season: currentSeasonState
+          }
+        };
+      });
     },
     ...(options.writeCheckpointProjections === false
       ? {}
@@ -974,7 +979,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           // observed 5-10s spikes preceded by this log line. The dedicated
           // projection method returns the same { players, activeLocks }
           // shape without ever touching this.tiles.
-          exportProjectionState: () => runtime.exportProjectionPlayersAndLocks()
+          exportProjectionState: (): ProjectionExportState =>
+            mainThreadTasks.trackSync("checkpoint_export_projection_state", undefined, () =>
+              runtime.exportProjectionPlayersAndLocks()
+            )
         }),
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
     ...(typeof options.checkpointForceAfterEvents === "number"
@@ -1390,7 +1398,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
     invalidateSharedFullVisibilityTilesCache();
     const runtimeSubmitStartedAt = Date.now();
-    runtime.submitCommand(command);
+    mainThreadTasks.trackSync(
+      "runtime_submit_command",
+      {
+        commandId: command.commandId,
+        playerId: command.playerId,
+        type: command.type
+      },
+      () => runtime.submitCommand(command)
+    );
     const runtimeSubmitDurationMs = Date.now() - runtimeSubmitStartedAt;
     if (runtimeSubmitDurationMs >= slowRuntimeSubmitWarnMs) {
       recordLagDiagnostic("warn", "runtime_submit_command_slow", {
@@ -2255,21 +2271,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       server.start();
       shardRainTicker = setInterval(() => {
         try {
-          runtime.tickShardRain(Date.now());
+          mainThreadTasks.trackSync("tick_shard_rain", undefined, () => runtime.tickShardRain(Date.now()));
         } catch (error) {
           log.error({ err: error }, "shard rain tick failed");
         }
       }, 60_000);
       tileSheddingTicker = setInterval(() => {
         try {
-          runtime.tickTileShedding(Date.now());
+          mainThreadTasks.trackSync("tick_tile_shedding", undefined, () => runtime.tickTileShedding(Date.now()));
         } catch (error) {
           log.error({ err: error }, "tile shedding tick failed");
         }
       }, 60_000);
       territoryAutomationTicker = setInterval(() => {
         try {
-          runtime.tickTerritoryAutomation(Date.now());
+          mainThreadTasks.trackSync("tick_territory_automation", undefined, () => runtime.tickTerritoryAutomation(Date.now()));
         } catch (error) {
           log.error({ err: error }, "territory automation tick failed");
         }
@@ -2300,7 +2316,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             rssMb: memory.rss / (1024 * 1024),
             persistencePendingCount: persistenceQueue.pendingCount(),
             persistenceDegraded: persistenceQueue.isDegraded(),
-            activePlayerCount: activePlayers.size
+            activePlayerCount: activePlayers.size,
+            mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now).slice(-8)
           });
         }
       }, 100);
