@@ -504,6 +504,17 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_event_store_write_ms{quantile=\"p50\"} ${formatMetricValue(sample.simEventStoreWriteMs.p50)}`,
         `sim_event_store_write_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventStoreWriteMs.p95)}`,
         `sim_event_store_write_ms{quantile=\"p99\"} ${formatMetricValue(sample.simEventStoreWriteMs.p99)}`,
+        "# TYPE sim_ai_planner_phase_ms gauge",
+        "# TYPE sim_runtime_drain_ms gauge",
+        `sim_runtime_drain_ms{quantile=\"p50\"} ${formatMetricValue(sample.simRuntimeDrainMs.p50)}`,
+        `sim_runtime_drain_ms{quantile=\"p95\"} ${formatMetricValue(sample.simRuntimeDrainMs.p95)}`,
+        `sim_runtime_drain_ms{quantile=\"p99\"} ${formatMetricValue(sample.simRuntimeDrainMs.p99)}`,
+        "# TYPE sim_runtime_drain_jobs_per_call gauge",
+        `sim_runtime_drain_jobs_per_call{quantile=\"p50\"} ${formatMetricValue(sample.simRuntimeDrainJobsPerCall.p50)}`,
+        `sim_runtime_drain_jobs_per_call{quantile=\"p95\"} ${formatMetricValue(sample.simRuntimeDrainJobsPerCall.p95)}`,
+        `sim_runtime_drain_jobs_per_call{quantile=\"p99\"} ${formatMetricValue(sample.simRuntimeDrainJobsPerCall.p99)}`,
+        "# TYPE sim_runtime_drain_ms_by_lane gauge",
+        "# TYPE sim_runtime_apply_ms_by_command gauge",
         "# TYPE sim_command_accept_latency_ms gauge",
         "# TYPE sim_snapshot_tile_count gauge",
         `sim_snapshot_tile_count{quantile=\"p50\"} ${formatMetricValue(sample.simSnapshotTileCount.p50)}`,
@@ -528,6 +539,21 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p50\"} ${formatMetricValue(laneSample.p50)}`);
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p95\"} ${formatMetricValue(laneSample.p95)}`);
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p99\"} ${formatMetricValue(laneSample.p99)}`);
+        const drainSample = sample.simRuntimeDrainMsByLane[lane];
+        lines.push(`sim_runtime_drain_ms_by_lane{lane=\"${lane}\",quantile=\"p50\"} ${formatMetricValue(drainSample.p50)}`);
+        lines.push(`sim_runtime_drain_ms_by_lane{lane=\"${lane}\",quantile=\"p95\"} ${formatMetricValue(drainSample.p95)}`);
+        lines.push(`sim_runtime_drain_ms_by_lane{lane=\"${lane}\",quantile=\"p99\"} ${formatMetricValue(drainSample.p99)}`);
+      }
+      for (const phase of AI_PLANNER_PHASES) {
+        const phaseSample = sample.simAiPlannerPhaseMs[phase];
+        lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p50\"} ${formatMetricValue(phaseSample.p50)}`);
+        lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p95\"} ${formatMetricValue(phaseSample.p95)}`);
+        lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p99\"} ${formatMetricValue(phaseSample.p99)}`);
+      }
+      for (const [commandType, commandSample] of Object.entries(sample.simRuntimeApplyMsByCommandType)) {
+        lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p50\"} ${formatMetricValue(commandSample.p50)}`);
+        lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p95\"} ${formatMetricValue(commandSample.p95)}`);
+        lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p99\"} ${formatMetricValue(commandSample.p99)}`);
       }
       for (const commandType of DURABLE_COMMAND_TYPES) {
         lines.push(`sim_ai_command_total{type=\"${commandType}\"} ${formatMetricValue(sample.simAiCommandTotalByType[commandType])}`);
