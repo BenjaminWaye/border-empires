@@ -2444,8 +2444,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           "simulation metrics sample"
         );
       }, 1_000);
+      const recoveredAiPlayerCount = [...activePlayers.values()].filter((player) => player.isAi).length;
       log.info(
-        `recovered ${effectiveStartupRecovery.recoveredCommandCount} commands and ${effectiveStartupRecovery.recoveredEventCount} world events; ${effectiveStartupRecovery.initialState.activeLocks.length} unresolved locks from event log`
+        {
+          envAiPlayerCountHint: options.aiPlayerCount,
+          recoveredAiPlayerCount
+        },
+        `recovered ${effectiveStartupRecovery.recoveredCommandCount} commands and ${effectiveStartupRecovery.recoveredEventCount} world events; ${effectiveStartupRecovery.initialState.activeLocks.length} unresolved locks from event log; ${recoveredAiPlayerCount} AI players locked in at season start`
       );
       if (legacySnapshotBootstrap) {
         log.info(
