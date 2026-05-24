@@ -96,6 +96,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   const allowSeedRecoveryFallback =
     parseBooleanishEnvFlag(env.SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK) &&
     Boolean(env.SIMULATION_SEED_PROFILE);
+  const aiPlayerCountHint = parseOptionalAiPlayerCount(env.SIMULATION_AI_PLAYER_COUNT);
   const requireDurableStartupState =
     env.SIMULATION_REQUIRE_DURABLE_STARTUP_STATE === undefined
       ? undefined
@@ -141,10 +142,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     ...(env.SIMULATION_RULESET_ID ? { rulesetId: env.SIMULATION_RULESET_ID as SimulationRulesetId } : {}),
     mapStyle: parseSimulationMapStyle(env.SIMULATION_MAP_STYLE),
-    ...((): { aiPlayerCount?: number } => {
-      const aiPlayerCount = parseOptionalAiPlayerCount(env.SIMULATION_AI_PLAYER_COUNT);
-      return typeof aiPlayerCount === "number" ? { aiPlayerCount } : {};
-    })(),
+    ...(typeof aiPlayerCountHint === "number" ? { aiPlayerCount: aiPlayerCountHint } : {}),
     enableAiAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_AI_AUTOPILOT),
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
     aiMaxEventLoopLagMs: parsePositiveNumber(
