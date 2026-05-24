@@ -55,7 +55,6 @@ const mkRuntime = (
       ownerId: string;
       status: "under_construction" | "active" | "removing";
       variant?: "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
-      autoAttackEnabled?: boolean;
       sweepBudget?: number;
       sweepActive?: boolean;
       sweepBudgetUpdatedAt?: number;
@@ -201,7 +200,7 @@ describe("sweep budget mechanics", () => {
     const runtime = mkRuntime(
       [
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_ATTACK_COST - 1, sweepActive: true, sweepBudgetUpdatedAt: 1_000, autoAttackEnabled: false }
+          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_ATTACK_COST - 1, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
         },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
       ],
@@ -227,7 +226,7 @@ describe("sweep budget mechanics", () => {
       [
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
           // Start below threshold
-          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: 0, sweepActive: true, sweepBudgetUpdatedAt: 1_000, autoAttackEnabled: false }
+          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: 0, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
         },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
       ],
@@ -445,7 +444,7 @@ describe("sweep lifecycle", () => {
     const runtime = mkRuntime(
       [
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_BUDGET_CAP, sweepActive: true, sweepBudgetUpdatedAt: 1_000, autoAttackEnabled: false }
+          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_BUDGET_CAP, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
         },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
       ],

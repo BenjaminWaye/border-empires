@@ -1287,15 +1287,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
     }
     if (tile.siegeOutpost?.ownerId === state.me && tile.siegeOutpost.status === "active") {
-      const autoAttackEnabled = tile.siegeOutpost.autoAttackEnabled !== false;
-      out.push({
-        id: autoAttackEnabled ? "disable_outpost_auto_attack" : "enable_outpost_auto_attack",
-        label: autoAttackEnabled ? "Cancel Auto Attack" : "Enable Auto Attack",
-        detail: autoAttackEnabled
-          ? "Stops this siege outpost from launching future automatic attacks and cancels its active auto attack."
-          : "Lets this siege outpost resume automatic adjacent attacks.",
-        ...tileActionAvailability(true, "", autoAttackEnabled ? "Outpost auto attack on" : "Outpost auto attack off")
-      });
       const sweepActive = tile.siegeOutpost.sweepActive === true;
       const sweepBudget = tile.siegeOutpost.sweepBudget ?? 0;
       const sweepBudgetDisplay = `${Math.floor(sweepBudget)}/300`;
