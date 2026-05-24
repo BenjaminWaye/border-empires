@@ -2444,17 +2444,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           "simulation metrics sample"
         );
       }, 1_000);
+      const recoveredAiPlayerCount = [...activePlayers.values()].filter((player) => player.isAi).length;
       log.info(
-        `recovered ${effectiveStartupRecovery.recoveredCommandCount} commands and ${effectiveStartupRecovery.recoveredEventCount} world events; ${effectiveStartupRecovery.initialState.activeLocks.length} unresolved locks from event log`
+        {
+          envAiPlayerCountHint: options.aiPlayerCount,
+          recoveredAiPlayerCount
+        },
+        `recovered ${effectiveStartupRecovery.recoveredCommandCount} commands and ${effectiveStartupRecovery.recoveredEventCount} world events; ${effectiveStartupRecovery.initialState.activeLocks.length} unresolved locks from event log; ${recoveredAiPlayerCount} AI players locked in at season start`
       );
       if (legacySnapshotBootstrap) {
         log.info(
           `legacy snapshot bootstrap loaded: ${legacySnapshotBootstrap.playerProfiles.size} players, ${legacySnapshotBootstrap.initialState.tiles.length} tiles, season ${legacySnapshotBootstrap.season?.seasonId ?? "unknown"}`
         );
       } else if (effectiveStartupRecovery.recoveredEventCount === 0 && effectiveStartupRecovery.recoveredCommandCount === 0) {
-        const aiPlayerCount = [...activePlayers.values()].filter((player) => player.isAi).length;
         log.info(
-          `seed profile ${options.seedProfile ?? "default"}: ${aiPlayerCount} AI, ${effectiveStartupRecovery.initialState.tiles.filter((tile) => tile.ownershipState === "SETTLED").length} settled tiles, ${effectiveStartupRecovery.initialState.tiles.filter((tile) => tile.town).length} town designations`
+          `seed profile ${options.seedProfile ?? "default"}: ${recoveredAiPlayerCount} AI, ${effectiveStartupRecovery.initialState.tiles.filter((tile) => tile.ownershipState === "SETTLED").length} settled tiles, ${effectiveStartupRecovery.initialState.tiles.filter((tile) => tile.town).length} town designations`
         );
       }
       log.info(`simulation service listening on ${boundPort}`);
