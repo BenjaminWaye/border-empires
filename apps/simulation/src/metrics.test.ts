@@ -41,6 +41,18 @@ describe("simulation metrics", () => {
     metrics.observeSimEventStoreWriteMs(3);
     metrics.observeSimEventStoreWriteMs(7);
     metrics.observeSimEventStoreWriteMs(11);
+    metrics.observeSimAiPlannerPhaseMs("planner_total", 13);
+    metrics.observeSimAiPlannerPhaseMs("request_plan_round_trip", 21);
+    metrics.observeSimRuntimeDrain({
+      durationMs: 31,
+      processedJobs: 1,
+      processedByLane: { human_interactive: 0, human_noninteractive: 0, system: 0, ai: 1 }
+    });
+    metrics.observeSimRuntimeApply({
+      lane: "ai",
+      commandType: "EXPAND",
+      durationMs: 17
+    });
     metrics.setSimSnapshotCache({ entries: 3, bytes: 4096 });
     metrics.observeSimSnapshotBuild({
       trigger: "gateway_auth_bootstrap",
@@ -107,6 +119,11 @@ describe("simulation metrics", () => {
     expect(sample.simGcPauseMs.p95).toBe(12);
     expect(sample.simCommandAcceptLatencyMsByLane.human_interactive.p50).toBe(12);
     expect(sample.simEventStoreWriteMs.p95).toBe(11);
+    expect(sample.simAiPlannerPhaseMs.planner_total.p95).toBe(13);
+    expect(sample.simAiPlannerPhaseMs.request_plan_round_trip.p95).toBe(21);
+    expect(sample.simRuntimeDrainMs.p95).toBe(31);
+    expect(sample.simRuntimeDrainMsByLane.ai.p95).toBe(31);
+    expect(sample.simRuntimeApplyMsByCommandType.EXPAND?.p95).toBe(17);
     expect(metrics.currentAcceptLatencyP95Ms()).toBe(20);
     expect(sample.simSnapshotTileCount.p95).toBe(512);
     expect(sample.simSnapshotJsonBytes.p95).toBe(4096);
@@ -125,6 +142,10 @@ describe("simulation metrics", () => {
     expect(exposition).toContain("sim_cpu_percent 37.200");
     expect(exposition).toContain('sim_gc_pause_ms{quantile="p95"}');
     expect(exposition).toContain('sim_command_accept_latency_ms{lane="human_interactive",quantile="p95"}');
+    expect(exposition).toContain('sim_ai_planner_phase_ms{phase="request_plan_round_trip",quantile="p95"} 21');
+    expect(exposition).toContain('sim_runtime_drain_ms{quantile="p95"} 31');
+    expect(exposition).toContain('sim_runtime_drain_ms_by_lane{lane="ai",quantile="p95"} 31');
+    expect(exposition).toContain('sim_runtime_apply_ms_by_command{type="EXPAND",quantile="p95"} 17');
     expect(exposition).toContain('sim_ai_command_total{type="SETTLE"} 1');
     expect(exposition).toContain('sim_ai_command_total{type="BUILD_ECONOMIC_STRUCTURE"} 1');
     expect(exposition).toContain('sim_ai_preplan_total{reason="collect_for_unaffordable_progression"} 1');
