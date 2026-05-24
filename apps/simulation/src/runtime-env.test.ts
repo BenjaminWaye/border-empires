@@ -162,6 +162,24 @@ describe("simulation runtime env", () => {
     });
   });
 
+  it("uses a positive SIMULATION_AI_PLAYER_COUNT as a fresh-season hint", () => {
+    expect(
+      parseSimulationRuntimeEnv({ SIMULATION_AI_PLAYER_COUNT: "5" })
+    ).toMatchObject({ aiPlayerCount: 5 });
+  });
+
+  it("treats SIMULATION_AI_PLAYER_COUNT=0 as no override instead of crashing", () => {
+    // A running season's AI roster is locked into the save when the season is
+    // seeded, so a stale or fat-fingered env value must never brick boot.
+    const env = parseSimulationRuntimeEnv({ SIMULATION_AI_PLAYER_COUNT: "0" });
+    expect(env.aiPlayerCount).toBeUndefined();
+  });
+
+  it("ignores malformed SIMULATION_AI_PLAYER_COUNT instead of crashing", () => {
+    const env = parseSimulationRuntimeEnv({ SIMULATION_AI_PLAYER_COUNT: "not-a-number" });
+    expect(env.aiPlayerCount).toBeUndefined();
+  });
+
   it("allows explicitly disabling durable startup for local seeded db runs", () => {
     expect(
       parseSimulationRuntimeEnv({
