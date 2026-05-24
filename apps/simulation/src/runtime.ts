@@ -16,6 +16,9 @@ import {
 import {
   ATTACK_MANPOWER_MIN,
   ATTACK_MANPOWER_COST,
+  SWEEP_ATTACK_COST,
+  SWEEP_BUDGET_CAP,
+  SWEEP_RADIUS_BY_VARIANT,
   BARBARIAN_MULTIPLY_THRESHOLD,
   BARBARIAN_POPULATION_CAP,
   DEVELOPMENT_PROCESS_LIMIT,
@@ -35,7 +38,8 @@ import {
   landBiomeAt,
   terrainAt,
   type Terrain,
-  scanOutpostMult,
+  targetOutpostMult,
+  type OutpostPosition,
   rollFrontierCombat,
   structureBuildDurationMs,
   structureBuildGoldCost,
@@ -115,7 +119,7 @@ import {
   isSettledTownAnchor,
   MAX_FORT_AUTO_FRONTIER_RADIUS,
   orderedAutoSettlementTileKeys,
-  siegeAutoAttackCandidates,
+  sweepAttackCandidates,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "./territory-automation.js";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
@@ -208,7 +212,7 @@ import {
   parseImperialExchangeLevyPayload,
   parseRevealPayload,
   parseSettlePayload,
-  parseSiegeOutpostAutoAttackPayload,
+  parseSiegeOutpostSweepPayload,
   parseStructureTilePayload,
   parseTilePayload,
   parseWorldEngineStrikePayload
@@ -223,6 +227,7 @@ import {
   requeueRecoveredCommands,
   uniqueLocksByCommandId
 } from "./runtime-hydration.js";
+import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "./encirclement.js";
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
 export type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -902,47 +907,181 @@ export class SimulationRuntime {
         availableSiegeManpower -= ATTACK_MANPOWER_COST;
         availableSiegeGold -= FRONTIER_CLAIM_COST;
       }
+      // --- Sweep tick: siege outposts (SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER) ---
+      // Iterates all player territory tiles; skips non-outpost tiles cheaply.
+      // O(territory) per player per tick — same as the siege auto-attack above.
       for (const tileKey of [...summary.territoryTileKeys]) {
-        const outpost = this.tiles.get(tileKey);
+        const outpostTile = this.tiles.get(tileKey);
         if (
-          !outpost ||
-          outpost.siegeOutpost?.ownerId !== playerId ||
-          outpost.siegeOutpost.status !== "active" ||
-          outpost.siegeOutpost.autoAttackEnabled === false
+          !outpostTile ||
+          outpostTile.siegeOutpost?.ownerId !== playerId ||
+          outpostTile.siegeOutpost.status !== "active"
         ) {
           continue;
         }
-        if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) break;
-        if (this.locksByTile.has(tileKey)) continue;
-        const target = siegeAutoAttackCandidates(outpost, playerId, (x, y) => this.tiles.get(simulationTileKey(x, y)))
-          .find((candidate) => {
-            const targetKey = simulationTileKey(candidate.x, candidate.y);
-            const targetManpowerCost = ATTACK_MANPOWER_COST * fortAttackManpowerMultiplier(candidate);
-            return (
-              availableSiegeManpower >= targetManpowerCost &&
-              !this.locksByTile.has(targetKey) &&
-              !actor.allies.has(candidate.ownerId ?? "")
-            );
-          });
-        if (!target) continue;
-        const targetManpowerCost = ATTACK_MANPOWER_COST * fortAttackManpowerMultiplier(target);
-        const commandId = this.nextTerritoryAutomationCommandId("siege", playerId, simulationTileKey(target.x, target.y), nowMs);
-        this.handleFrontierCommand(
+        const outpostData = outpostTile.siegeOutpost;
+        const variant = outpostData.variant ?? "SIEGE_OUTPOST";
+        const sweepRadius = SWEEP_RADIUS_BY_VARIANT[variant] ?? 5;
+        this.tickSweepStructure(
           {
-            commandId,
-            sessionId: `system-runtime:territory-automation:${playerId}`,
-            playerId,
-            clientSeq: 0,
-            issuedAt: nowMs,
-            type: "ATTACK",
-            payloadJson: JSON.stringify({ fromX: outpost.x, fromY: outpost.y, toX: target.x, toY: target.y })
+            tileKey,
+            tile: outpostTile,
+            sweepBudget: outpostData.sweepBudget,
+            sweepActive: outpostData.sweepActive,
+            sweepBudgetUpdatedAt: outpostData.sweepBudgetUpdatedAt,
+            sweepRadius,
+            commandIdPrefix: "sweep",
+            applyUpdate: (fields) => ({ ...outpostTile, siegeOutpost: { ...outpostData, ...fields } })
           },
-          "ATTACK"
+          playerId,
+          actor,
+          nowMs
         );
-        availableSiegeManpower -= targetManpowerCost;
-        availableSiegeGold -= FRONTIER_CLAIM_COST;
+      }
+
+      // --- Sweep tick: LIGHT_OUTPOST ---
+      for (const tileKey of [...summary.territoryTileKeys]) {
+        const outpostTile = this.tiles.get(tileKey);
+        if (
+          !outpostTile ||
+          outpostTile.economicStructure?.ownerId !== playerId ||
+          outpostTile.economicStructure.type !== "LIGHT_OUTPOST" ||
+          outpostTile.economicStructure.status !== "active"
+        ) {
+          continue;
+        }
+        const econData = outpostTile.economicStructure;
+        this.tickSweepStructure(
+          {
+            tileKey,
+            tile: outpostTile,
+            sweepBudget: econData.sweepBudget,
+            sweepActive: econData.sweepActive,
+            sweepBudgetUpdatedAt: econData.sweepBudgetUpdatedAt,
+            sweepRadius: SWEEP_RADIUS_BY_VARIANT["LIGHT_OUTPOST"],
+            commandIdPrefix: "lo-sweep",
+            applyUpdate: (fields) => ({ ...outpostTile, economicStructure: { ...econData, ...fields } })
+          },
+          playerId,
+          actor,
+          nowMs
+        );
       }
     }
+  }
+
+  /**
+   * Shared sweep-tick logic for both siege outposts and light outposts.
+   * Handles budget regen, pause (no budget), deactivate (no targets), and fire.
+   * The caller projects the tile's sweep fields and provides an `applyUpdate`
+   * function that returns a new `DomainTileState` with updated sweep fields.
+   */
+  private tickSweepStructure(
+    structure: {
+      tileKey: string;
+      tile: DomainTileState;
+      sweepBudget: number | undefined;
+      sweepActive: boolean | undefined;
+      sweepBudgetUpdatedAt: number | undefined;
+      sweepRadius: number;
+      commandIdPrefix: string;
+      applyUpdate: (fields: { sweepBudget: number; sweepBudgetUpdatedAt: number; sweepActive?: boolean }) => DomainTileState;
+    },
+    playerId: string,
+    actor: RuntimePlayer,
+    nowMs: number
+  ): void {
+    const { tileKey, tile, sweepRadius, commandIdPrefix, applyUpdate } = structure;
+
+    // Regen sweep budget at the same rate as global MP regen.
+    const elapsedMins = (nowMs - (structure.sweepBudgetUpdatedAt ?? nowMs)) / 60_000;
+    const regenPerMin = this.playerManpowerRegenPerMinute(actor);
+    const rawBudget = (structure.sweepBudget ?? 0) + Math.max(0, elapsedMins * regenPerMin);
+    const newBudget = Math.min(SWEEP_BUDGET_CAP, rawBudget);
+
+    if (!structure.sweepActive) {
+      // Budget still regens even when sweep is off.
+      if (Math.abs(newBudget - (structure.sweepBudget ?? 0)) > 0.001) {
+        const regenedTile = applyUpdate({ sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs });
+        this.replaceTileState(tileKey, regenedTile);
+        const regenCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-regen`, playerId, tileKey, nowMs);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: regenCommandId,
+          playerId,
+          tileDeltas: [this.tileDeltaFromState(regenedTile)]
+        });
+      }
+      return;
+    }
+
+    const candidates = sweepAttackCandidates(tile, playerId, sweepRadius, (x, y) => this.tiles.get(simulationTileKey(x, y)));
+    const noTargets = candidates.length === 0;
+    const nobudget = newBudget < SWEEP_ATTACK_COST;
+
+    if (noTargets) {
+      // Deactivate — player must re-toggle.
+      const deactivatedTile = applyUpdate({ sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs, sweepActive: false });
+      this.replaceTileState(tileKey, deactivatedTile);
+      const deactivateCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-deact`, playerId, tileKey, nowMs);
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: deactivateCommandId,
+        playerId,
+        tileDeltas: [this.tileDeltaFromState(deactivatedTile)]
+      });
+      return;
+    }
+
+    if (nobudget) {
+      // Pause — sweepActive stays true; just update regen.
+      if (Math.abs(newBudget - (structure.sweepBudget ?? 0)) > 0.001) {
+        const pausedTile = applyUpdate({ sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs });
+        this.replaceTileState(tileKey, pausedTile);
+        const pauseCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-pause`, playerId, tileKey, nowMs);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: pauseCommandId,
+          playerId,
+          tileDeltas: [this.tileDeltaFromState(pausedTile)]
+        });
+      }
+      return;
+    }
+
+    // We have targets and budget — fire.
+    const sweepTarget = candidates[0]!;
+    const afterAttackBudget = newBudget - SWEEP_ATTACK_COST;
+    const attackedTile = applyUpdate({ sweepBudget: afterAttackBudget, sweepBudgetUpdatedAt: nowMs });
+    this.replaceTileState(tileKey, attackedTile);
+
+    // The fire command uses just the prefix without a suffix for the attack itself
+    // (e.g. "sweep" and "lo-sweep", not "sweep-attack").
+    const attackPrefix = commandIdPrefix === "sweep" ? "sweep" : commandIdPrefix;
+    const sweepCommandId = this.nextTerritoryAutomationCommandId(attackPrefix, playerId, simulationTileKey(sweepTarget.x, sweepTarget.y), nowMs);
+    // Enqueue via the existing attack path — encirclement, global MP, and gold
+    // are handled there. Sweep budget is deducted above only; global resources
+    // are NOT double-deducted here.
+    this.handleFrontierCommand(
+      {
+        commandId: sweepCommandId,
+        sessionId: `system-runtime:territory-automation:${playerId}`,
+        playerId,
+        clientSeq: 0,
+        issuedAt: nowMs,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: tile.x, fromY: tile.y, toX: sweepTarget.x, toY: sweepTarget.y })
+      },
+      "ATTACK"
+    );
+
+    const budgetDeltaCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-budget`, playerId, tileKey, nowMs);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: budgetDeltaCommandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(attackedTile)]
+    });
   }
 
   emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
@@ -3200,6 +3339,21 @@ export class SimulationRuntime {
       targetLockOwnerId: targetLock?.playerId,
       targetLockResolvesAt: targetLock?.resolvesAt
     });
+    // Encirclement guard: a cut-off (blinking) frontier tile cannot be used as
+    // an attack or expand source. Attacks *against* blinking tiles proceed normally.
+    // Blocking EXPAND prevents a player from "escaping" a cut-off pocket by
+    // pushing into neutral territory, which would defeat the encirclement mechanic.
+    if ((actionType === "ATTACK" || actionType === "EXPAND") && typeof from.frontierDecayAt === "number") {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "ORIGIN_CUT_OFF",
+        message: "origin tile is cut off from supply and cannot launch actions"
+      });
+      return;
+    }
+
     const isDockCrossing = this.isDockCrossingTarget(from, to.x, to.y);
     const isForestTarget =
       terrainAt(to.x, to.y) === "LAND" &&
@@ -3447,6 +3601,19 @@ export class SimulationRuntime {
         playerId: command.playerId,
         code: "SETTLE_INVALID",
         message: "tile is not one of your frontier tiles"
+      });
+      return;
+    }
+    // Encirclement guard: a cut-off (blinking) tile cannot be settled. Settling
+    // a disconnected tile would let a player convert an encircled pocket into
+    // permanent territory, defeating the encirclement mechanic.
+    if (typeof target.frontierDecayAt === "number") {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "ORIGIN_CUT_OFF",
+        message: "tile is cut off from supply and cannot be settled"
       });
       return;
     }
@@ -5613,6 +5780,9 @@ export class SimulationRuntime {
       if (existing) existing.push(delta);
       else changedDeltasByOwner.set(playerId, [delta]);
     };
+    // Track tiles that expired this tick so we can re-check encirclement for
+    // neighboring tiles after all expirations are processed.
+    const expiredByOwner = new Map<string, string[]>();
 
     for (const [tileKey, tile] of this.tiles) {
       if (this.locksByTile.has(tileKey)) continue;
@@ -5655,6 +5825,10 @@ export class SimulationRuntime {
         this.replaceTileState(tileKey, expiredTile, `frontier-decay-expired:${ownerId}:${tileKey}:${nowMs}`);
         this.fortPatrolGraceUntilByTile.delete(tileKey);
         addChangedDelta(ownerId, this.tileDeltaFromState(expiredTile));
+        // Track for encirclement re-check of neighbors below.
+        const expiredList = expiredByOwner.get(ownerId);
+        if (expiredList) expiredList.push(tileKey);
+        else expiredByOwner.set(ownerId, [tileKey]);
         continue;
       }
 
@@ -5677,6 +5851,13 @@ export class SimulationRuntime {
         tileDeltas
       });
       this.emitPlayerStateUpdate({ commandId, playerId });
+    }
+
+    // Re-check encirclement for neighbors of tiles that expired this tick.
+    // A tile expiry can cut off neighbors that were connected through it.
+    for (const [playerId, expiredKeys] of expiredByOwner) {
+      const commandId = this.nextTerritoryAutomationCommandId("frontier-decay-encirclement", playerId, "batch", nowMs);
+      this.applyEncirclement(expiredKeys, playerId, commandId);
     }
   }
 
@@ -6229,7 +6410,7 @@ export class SimulationRuntime {
     const { completesAt: _ignoredCompletesAt, ...activeSiegeOutpost } = latest.siegeOutpost;
     const completedTile: DomainTileState = {
       ...latest,
-      siegeOutpost: { ...activeSiegeOutpost, status: "active" }
+      siegeOutpost: { ...activeSiegeOutpost, status: "active", sweepBudget: SWEEP_BUDGET_CAP, sweepActive: false, sweepBudgetUpdatedAt: this.now() }
     };
     this.replaceTileState(targetKey, completedTile);
     this.emitEvent({
@@ -6251,9 +6432,9 @@ export class SimulationRuntime {
     return cancelled;
   }
 
-  private handleSetSiegeOutpostAutoAttackCommand(command: CommandEnvelope): void {
+  private handleSetSiegeOutpostSweepCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
-    const payload = parseSiegeOutpostAutoAttackPayload(command.payloadJson);
+    const payload = parseSiegeOutpostSweepPayload(command.payloadJson);
     if (!actor || !payload) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -6266,39 +6447,45 @@ export class SimulationRuntime {
     }
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
-    if (
-      !target ||
-      target.ownerId !== command.playerId ||
-      target.siegeOutpost?.ownerId !== command.playerId ||
-      target.siegeOutpost.status !== "active"
-    ) {
+    // Accept either an active siege outpost OR an active LIGHT_OUTPOST.
+    const hasSiegeOutpost =
+      target?.ownerId === command.playerId &&
+      target.siegeOutpost?.ownerId === command.playerId &&
+      target.siegeOutpost.status === "active";
+    const hasLightOutpost =
+      target?.ownerId === command.playerId &&
+      target.economicStructure?.ownerId === command.playerId &&
+      target.economicStructure.type === "LIGHT_OUTPOST" &&
+      target.economicStructure.status === "active";
+    if (!target || (!hasSiegeOutpost && !hasLightOutpost)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "BUILD_INVALID",
-        message: "active owned siege outpost required"
+        message: "active owned outpost-family structure required"
       });
       return;
     }
-    const updatedTile: DomainTileState = {
-      ...target,
-      siegeOutpost: {
-        ...target.siegeOutpost,
-        autoAttackEnabled: payload.enabled
-      }
-    };
-    this.replaceTileState(targetKey, updatedTile, command.commandId);
-    const cancelledCommandIds = payload.enabled ? [] : this.cancelActiveOutpostAttackLocks(command.playerId, targetKey);
-    if (cancelledCommandIds.length > 0) {
-      this.emitEvent({
-        eventType: "COMBAT_CANCELLED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        count: cancelledCommandIds.length,
-        cancelledCommandIds
-      });
+    let updatedTile: DomainTileState;
+    if (hasSiegeOutpost) {
+      updatedTile = {
+        ...target,
+        siegeOutpost: {
+          ...target.siegeOutpost!,
+          sweepActive: payload.enabled
+        }
+      };
+    } else {
+      updatedTile = {
+        ...target,
+        economicStructure: {
+          ...target.economicStructure!,
+          sweepActive: payload.enabled
+        }
+      };
     }
+    this.replaceTileState(targetKey, updatedTile, command.commandId);
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,
@@ -6518,9 +6705,12 @@ export class SimulationRuntime {
     }
     if (latest.economicStructure.status !== "under_construction") return;
     const { completesAt: _ignoredCompletesAt, ...activeStructure } = latest.economicStructure;
+    const sweepInit = expectedType === "LIGHT_OUTPOST"
+      ? { sweepBudget: SWEEP_BUDGET_CAP, sweepActive: false as const, sweepBudgetUpdatedAt: this.now() }
+      : {};
     const completedTile: DomainTileState = {
       ...latest,
-      economicStructure: { ...activeStructure, status: "active" }
+      economicStructure: { ...activeStructure, status: "active", ...sweepInit }
     };
     this.replaceTileState(targetKey, completedTile);
     this.emitEvent({
@@ -6953,13 +7143,34 @@ export class SimulationRuntime {
     return activeFort || activeWoodenFort;
   }
 
-  private attackerOutpostMult(playerId: string, originX: number, originY: number): number {
-    return scanOutpostMult(playerId, originX, originY, (x, y) => this.tiles.get(simulationTileKey(x, y)));
+  private attackerOutpostMult(playerId: string, targetX: number, targetY: number): number {
+    // Gather the player's active outposts from their territory (O(territory) one-time,
+    // but iterates a much smaller set than 121 grid tiles when outpost count is low).
+    // TODO(perf): maintain a per-player outpost index to make this O(outposts).
+    const summary = this.summaryForPlayer(playerId);
+    const outposts: OutpostPosition[] = [];
+    for (const tileKey of summary.territoryTileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (!tile) continue;
+      if (
+        tile.siegeOutpost?.ownerId === playerId &&
+        tile.siegeOutpost.status === "active"
+      ) {
+        outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeOutpost.variant ?? "SIEGE_OUTPOST" });
+      } else if (
+        tile.economicStructure?.ownerId === playerId &&
+        tile.economicStructure.type === "LIGHT_OUTPOST" &&
+        tile.economicStructure.status === "active"
+      ) {
+        outposts.push({ x: tile.x, y: tile.y, variant: "LIGHT_OUTPOST" });
+      }
+    }
+    return targetOutpostMult(outposts, targetX, targetY);
   }
 
   private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
     const previousTarget = this.tiles.get(lock.targetKey);
-    const attackerOutpostMult = this.attackerOutpostMult(lock.playerId, lock.originX, lock.originY);
+    const attackerOutpostMult = this.attackerOutpostMult(lock.playerId, lock.targetX, lock.targetY);
     const attacker = this.players.get(lock.playerId);
     const defenderOwnerId = previousTarget?.ownerId;
     const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
@@ -7189,6 +7400,32 @@ export class SimulationRuntime {
         });
       }
     }
+    // Encirclement: re-check connectivity for players affected by ownership
+    // changes from ATTACK or EXPAND.
+    // ATTACK can sever connections (enemy takes a tile out of a supply chain).
+    // EXPAND can reconnect previously cut-off regions (new frontier tile bridges
+    // a pocket back to settled supply), so we run the check for EXPAND too.
+    if (lock.actionType === "ATTACK") {
+      const encirclementChangedKeys: string[] = [];
+      if (attackerWon) encirclementChangedKeys.push(lock.targetKey);
+      if (originLost) encirclementChangedKeys.push(lock.originKey);
+      if (encirclementChangedKeys.length > 0) {
+        const affectedPlayerIds = new Set<string>();
+        if (attackerWon && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
+        if (attackerWon) affectedPlayerIds.add(lock.playerId);
+        if (originLost) affectedPlayerIds.add(lock.playerId);
+        if (originLost && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
+        for (const pid of affectedPlayerIds) {
+          this.applyEncirclement(encirclementChangedKeys, pid, lock.commandId);
+        }
+      }
+    } else if (lock.actionType === "EXPAND" && attackerWon) {
+      // A successful EXPAND adds a new frontier tile owned by the expander.
+      // This can reconnect a previously cut-off pocket (the new tile bridges
+      // the pocket back to settled supply). We scope the check to the expander
+      // only — EXPAND never alters another player's territory.
+      this.applyEncirclement([lock.targetKey], lock.playerId, lock.commandId);
+    }
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
     if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
     if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
@@ -7206,6 +7443,61 @@ export class SimulationRuntime {
       this.respawnIfEliminated(previousOwnerId, lock.commandId);
       this.ensureGrossIncomeSettlementForPlayer(previousOwnerId, lock.commandId);
       this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
+    }
+  }
+
+  /**
+   * Re-check encirclement connectivity for tiles owned by `playerId` in the
+   * region around `changedKeys`. Apply `frontierDecayAt` to newly cut-off
+   * tiles and clear it for reconnected tiles. Emit a TILE_DELTA_BATCH for
+   * any tiles that changed.
+   */
+  private applyEncirclement(changedKeys: string[], playerId: string, commandId: string): void {
+    const getTile = (key: string) => this.tiles.get(key);
+    const nowMs = this.now();
+    const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs);
+
+    const tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[] = [];
+
+    for (const key of cutOff) {
+      const tile = this.tiles.get(key);
+      if (!tile) continue;
+      // Min-wins: don't overwrite a shorter existing timer.
+      const encirclementExpiresAt = nowMs + ENCIRCLEMENT_DECAY_MS;
+      const newDecayAt =
+        typeof tile.frontierDecayAt === "number"
+          ? Math.min(tile.frontierDecayAt, encirclementExpiresAt)
+          : encirclementExpiresAt;
+      if (tile.frontierDecayAt === newDecayAt) continue; // already has this or shorter timer
+      const updated: typeof tile = { ...tile, frontierDecayAt: newDecayAt };
+      this.replaceTileState(key, updated, commandId);
+      tileDeltas.push(this.tileDeltaFromState(updated));
+    }
+
+    for (const key of reconnected) {
+      const tile = this.tiles.get(key);
+      if (!tile) continue;
+      // Only clear the timer if it was plausibly set by encirclement (remaining
+      // time <= ENCIRCLEMENT_DECAY_MS). If it's a natural 10-min decay timer with
+      // more than 60 s remaining, leave it alone — we didn't set it.
+      if (
+        typeof tile.frontierDecayAt !== "number" ||
+        tile.frontierDecayAt - nowMs > ENCIRCLEMENT_DECAY_MS
+      ) {
+        continue;
+      }
+      const updated: typeof tile = { ...tile, frontierDecayAt: undefined };
+      this.replaceTileState(key, updated, commandId);
+      tileDeltas.push(this.tileDeltaFromState(updated));
+    }
+
+    if (tileDeltas.length > 0) {
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId,
+        playerId,
+        tileDeltas
+      });
     }
   }
 
@@ -7460,7 +7752,7 @@ export class SimulationRuntime {
         command.type !== "BUILD_FORT" &&
         command.type !== "BUILD_OBSERVATORY" &&
         command.type !== "BUILD_SIEGE_OUTPOST" &&
-        command.type !== "SET_SIEGE_OUTPOST_AUTO_ATTACK" &&
+        command.type !== "SET_SIEGE_OUTPOST_SWEEP" &&
         command.type !== "BUILD_ECONOMIC_STRUCTURE" &&
         command.type !== "CANCEL_CAPTURE" &&
         command.type !== "CANCEL_FORT_BUILD" &&
@@ -7518,8 +7810,8 @@ export class SimulationRuntime {
         return;
       }
 
-      if (command.type === "SET_SIEGE_OUTPOST_AUTO_ATTACK") {
-        this.handleSetSiegeOutpostAutoAttackCommand(command);
+      if (command.type === "SET_SIEGE_OUTPOST_SWEEP") {
+        this.handleSetSiegeOutpostSweepCommand(command);
         return;
       }
 

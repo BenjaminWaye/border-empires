@@ -1,6 +1,8 @@
 import type { Tile } from "./client-types.js";
 
 const CAPTURE_RECOVERY_WINDOW_MS = 11 * 60_000;
+/** Must match ENCIRCLEMENT_DECAY_MS in apps/simulation/src/encirclement.ts */
+const ENCIRCLEMENT_DECAY_MS = 60_000;
 
 export type TileMenuHeaderStatus = {
   text: string;
@@ -30,7 +32,29 @@ const formatHeaderCountdown = (remainingMs: number): string => {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
+/**
+ * Returns the remaining ms if this frontier tile is cut off from supply
+ * (encirclement decay timer set and within the encirclement window).
+ */
+export const encirclementRemainingMsForTile = (tile: Tile, nowMs = Date.now()): number | undefined => {
+  if (tile.ownershipState !== "FRONTIER") return undefined;
+  if (typeof tile.frontierDecayAt !== "number") return undefined;
+  const remaining = tile.frontierDecayAt - nowMs;
+  if (remaining <= 0 || remaining > ENCIRCLEMENT_DECAY_MS) return undefined;
+  return remaining;
+};
+
 export const tileMenuHeaderStatusForTile = (tile: Tile, nowMs = Date.now()): TileMenuHeaderStatus | undefined => {
+  // Encirclement takes precedence over capture-recovery for the header status.
+  const encirclementRemaining = encirclementRemainingMsForTile(tile, nowMs);
+  if (encirclementRemaining !== undefined) {
+    const seconds = Math.max(1, Math.ceil(encirclementRemaining / 1000));
+    return {
+      text: `Cut off from supply — disappears in ${seconds}s`,
+      tone: "warning"
+    };
+  }
+
   const remainingMs = captureRecoveryRemainingMsForTile(tile, nowMs);
   if (remainingMs === undefined) return undefined;
   return {
