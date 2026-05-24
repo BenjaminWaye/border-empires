@@ -61,7 +61,17 @@ export const AI_PLANNER_PHASES = [
   // Bridge-side (main thread, wrapping each worker round-trip).
   "request_plan_round_trip",
   "sync_players_export",
+  // Kept for back-compat with existing dashboards/alerts. Equals
+  // replace_players + relevant_set_alloc (its pre-split scope) — does NOT
+  // include unseen_scan or export_unseen_tiles, which were always measured
+  // separately as "the backfill loop after relevance". Split sub-phases added
+  // 2026-05-24 so prod evidence can pinpoint which is causing
+  // sim_tick_duration_ms p95 = 7s.
   "sync_players_relevance",
+  "sync_players_replace_players",
+  "sync_players_relevant_set_alloc",
+  "sync_players_unseen_scan",
+  "sync_players_export_unseen_tiles",
   "sync_players_post",
   "sync_players_total",
   "tile_delta_merge",
