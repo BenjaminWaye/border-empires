@@ -191,48 +191,12 @@ export const buildSnapshotTileDetail = (
       : populationTier === "SETTLEMENT"
         ? 1
         : 2;
-  const supportRatio = supportSummary.supportMax <= 0 ? 1 : supportSummary.supportCurrent / supportSummary.supportMax;
-  // Single source of truth: when the sim's authoritative goldPerMinute / cap
-  // are in sync with the gateway's view of the town's fed state, trust them.
-  // The gateway's local recompute below knows nothing about connectedTownBonus,
-  // townPopulationMultiplier, firstThreeTownMult, incomeMultiplier,
-  // PASSIVE_INCOME_MULT, or the +1 bank flat — so silently overriding the sim's
-  // 4.4 / m with the gateway's stripped 2.0 / m is the prod bug we're fixing.
-  // The fallback recompute path is still useful when the cached snapshot's
-  // isFed disagrees with the gateway's freshly-derived isFed (i.e. the
-  // snapshot is stale on fed state — the existing "thin town detail" tests
-  // cover that case).
-  const simGoldPerMinute =
+  const goldPerMinute =
     typeof parsedTown?.goldPerMinute === "number" && Number.isFinite(parsedTown.goldPerMinute)
       ? parsedTown.goldPerMinute
       : undefined;
-  const simCap =
-    typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap) ? parsedTown.cap : undefined;
-  const simIsFedMatchesDerived = parsedTown?.isFed === isFed;
-  const trustSimEconomy = simIsFedMatchesDerived && simGoldPerMinute !== undefined;
-  const goldPerMinute =
-    trustSimEconomy
-      ? (simGoldPerMinute as number)
-      : // TODO: this fallback is still incomplete — it omits connectedTownBonus,
-        // townPopulationMultiplier, firstThreeTownMult, incomeMultiplier,
-        // PASSIVE_INCOME_MULT, and the +1 bank flat. It only fires when the
-        // cached snapshot's isFed disagrees with the gateway's derived isFed,
-        // so in practice the sim's authoritative values cover the common case.
-        // Once that's confirmed stable in prod we can drop this branch entirely
-        // and rely on the sim, but until then this preserves the existing
-        // "thin town detail" stale-isFed correction behavior.
-        populationTier === "SETTLEMENT"
-        ? baseGoldPerMinute
-        : isFed
-          ? baseGoldPerMinute *
-            supportRatio *
-            (supportStructures.hasMarket ? 1.5 : 1) *
-            (supportStructures.hasBank ? 1.5 : 1)
-          : 0;
   const cap =
-    trustSimEconomy && simCap !== undefined
-      ? simCap
-      : Math.max(0, goldPerMinute) * 60 * 8 * (supportStructures.hasMarket ? 1.5 : 1);
+    typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap) ? parsedTown.cap : undefined;
   const populationGrowthPerMinute =
     townPopulationGrowthPerMinute({
       isFed,
@@ -261,8 +225,8 @@ export const buildSnapshotTileDetail = (
         hasBank: supportStructures.hasBank,
         bankActive: supportStructures.hasBank,
         baseGoldPerMinute,
-        goldPerMinute,
-        cap,
+        ...(typeof goldPerMinute === "number" ? { goldPerMinute } : {}),
+        ...(typeof cap === "number" ? { cap } : {}),
         ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
         ...(growthModifiers ? { growthModifiers } : {})
       }
