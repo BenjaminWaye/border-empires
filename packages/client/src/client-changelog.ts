@@ -19,10 +19,43 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.24.1",
+  version: "2026.05.24.4",
   title: "What's New",
-  summary: "Large connected-town empires no longer stall the simulation when economy updates are built.",
+  summary: "All four outpost-family structures (Light Outpost, Siege Outpost, Siege Tower, Dread Tower) now share sweep and a target-based attack aura at radius 5. Auto-attack toggle removed.",
   entries: [
+    {
+      introducedIn: "2026.05.24.4",
+      title: "Outpost-family sweep + aura overhaul",
+      why: "Sweep and aura bonuses now cover all four outpost-family structures uniformly. The old 1-tile auto-attack loop has been removed in favour of the sweep system, which offers the same automation with explicit budget control.",
+      changes: [
+        "Sweep is now available on all four outpost-family structures: Light Outpost, Siege Outpost, Siege Tower, and Dread Tower. Each has its own rechargeable budget (0–300) and a Start Sweep / Stop Sweep toggle.",
+        "Removed 'Enable Auto Attack' / 'Cancel Auto Attack' from siege outpost panels. The SET_SIEGE_OUTPOST_AUTO_ATTACK command has been removed from the protocol entirely — the sweep system replaces it.",
+        "Attack aura is now target-based at radius 5 (was origin-based at radius 2). The bonus applies when the tile being attacked is within Chebyshev 5 of any friendly outpost-family structure, regardless of where the attacker is standing.",
+        "Per-variant aura multipliers: Light Outpost 1.25×, Siege Outpost 1.6×, Siege Tower 1.8×, Dread Tower 2.0×. When multiple auras overlap the maximum multiplier wins (no stacking).",
+        "Light Outpost sweep state (sweepBudget, sweepActive) is now tracked on the economic structure and initialised at completion (budget=300, active=false)."
+      ]
+    },
+    {
+      introducedIn: "2026.05.24.3",
+      title: "Siege outpost sweep",
+      why: "Manual micro on outposts was tedious for players who built forward siege lines. Sweep adds a structure-bound budget (0–300) that recharges at the same rate as your global manpower. Toggle it on and the outpost attacks the closest enemy tile in a 5-tile Chebyshev radius once per tick, deducting 60 from the budget each time. When the budget runs dry the outpost pauses; when there are no enemies in range it deactivates and needs a manual re-toggle.",
+      changes: [
+        "Siege outpost panel: 'Start Sweep' / 'Stop Sweep' toggle button and a budget progress bar (0–300).",
+        "Selecting an active outpost now shows an orange 11×11 sweep-radius highlight on the 3D map.",
+        "Budget recharges at the player's MP-regen-per-minute rate but is rate-limiting only — it does not generate global manpower.",
+        "New outposts start with sweepBudget=300, sweepActive=false (immediately usable after build completes)."
+      ]
+    },
+    {
+      introducedIn: "2026.05.24.2",
+      title: "Encirclement — cut-off frontier tiles decay in 60 s",
+      why: "Players reported that cleaning up enemy tiles scattered inside their territory was tedious. Encirclement makes isolated frontier tiles self-destruct: a frontier tile with no 8-neighbor path back to your settled core goes into a 60-second countdown, shown as a blinking overlay and a 'Cut off from supply' warning in the tile panel. Cut-off tiles cannot launch attacks. The natural 10-minute decay still applies; encirclement only shortens it.",
+      changes: [
+        "Simulation: when a tile changes ownership, the sim re-checks 8-neighbor connectivity for all affected player frontier tiles in the changed region. Disconnected tiles get frontierDecayAt = now + 60 s (min with any existing shorter timer). Reconnected tiles have their timer cleared immediately with no debt.",
+        "Simulation: attack commands from a cut-off (blinking) frontier tile are rejected with ORIGIN_CUT_OFF.",
+        "Client: the tile panel shows 'Cut off from supply — disappears in Xs' as a warning header for blinking frontier tiles."
+      ]
+    },
     {
       introducedIn: "2026.05.24.1",
       title: "Large connected-town empires no longer stall AI ticks",

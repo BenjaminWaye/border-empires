@@ -71,7 +71,24 @@ export const LIGHT_OUTPOST_ATTACK_MULT = 1.25;
 export const SIEGE_OUTPOST_BUILD_MS = 60_000;
 export const SIEGE_OUTPOST_BUILD_COST = 900;
 export const SIEGE_OUTPOST_ATTACK_MULT = 1.6;
+export const SIEGE_TOWER_ATTACK_MULT = 1.8;
+export const DREAD_TOWER_ATTACK_MULT = 2.0;
 export const OUTPOST_ATTACK_REACH = 2;
+
+export const SWEEP_BUDGET_CAP = 300;
+export const SWEEP_ATTACK_COST = 60; // matches ATTACK_MANPOWER_COST
+// Chebyshev radius per outpost variant. Gives 11×11 area. Radius 5 for all four
+// outpost-family variants. LIGHT_OUTPOST is included here; SWEEP_RADIUS_BY_VARIANT
+// is now the single source of truth for all four variants.
+import type { SiegeOutpostVariant } from "./types.js";
+export const SWEEP_RADIUS_BY_VARIANT: Record<SiegeOutpostVariant | "LIGHT_OUTPOST", number> = {
+  LIGHT_OUTPOST: 5,
+  SIEGE_OUTPOST: 5,
+  SIEGE_TOWER: 5,
+  DREAD_TOWER: 5
+};
+/** @deprecated Use `SWEEP_RADIUS_BY_VARIANT["LIGHT_OUTPOST"]` instead. */
+export const LIGHT_OUTPOST_SWEEP_RADIUS = 5;
 
 export const DOCK_DEFENSE_MULT = 1.5;
 export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
