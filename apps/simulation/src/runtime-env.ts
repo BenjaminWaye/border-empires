@@ -45,6 +45,23 @@ const parsePositiveNumber = (value: string | undefined, fallback: number, label:
   return parsed;
 };
 
+// AI player count is locked into the save when a season is seeded, so the env
+// var is only consulted when bootstrapping a fresh season. Treat 0, empty, or
+// malformed values as "no override" rather than crashing — a typo in the env
+// var must never brick a running world.
+const parseOptionalAiPlayerCount = (value: string | undefined): number | undefined => {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[runtime-env] ignoring SIMULATION_AI_PLAYER_COUNT=${value} (must be a positive integer); recovered seasons use the saved roster, fresh seasons fall back to the worldgen default`
+    );
+    return undefined;
+  }
+  return Math.floor(parsed);
+};
+
 const isManagedRuntimeEnv = (env: NodeJS.ProcessEnv): boolean => {
   const nodeEnv = (env.NODE_ENV ?? "").toLowerCase();
   return nodeEnv === "production" || nodeEnv === "staging" || typeof env.FLY_APP_NAME === "string";
@@ -124,9 +141,10 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     ...(env.SIMULATION_RULESET_ID ? { rulesetId: env.SIMULATION_RULESET_ID as SimulationRulesetId } : {}),
     mapStyle: parseSimulationMapStyle(env.SIMULATION_MAP_STYLE),
-    ...(env.SIMULATION_AI_PLAYER_COUNT
-      ? { aiPlayerCount: parsePositiveNumber(env.SIMULATION_AI_PLAYER_COUNT, 20, "simulation ai player count") }
-      : {}),
+    ...((): { aiPlayerCount?: number } => {
+      const aiPlayerCount = parseOptionalAiPlayerCount(env.SIMULATION_AI_PLAYER_COUNT);
+      return typeof aiPlayerCount === "number" ? { aiPlayerCount } : {};
+    })(),
     enableAiAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_AI_AUTOPILOT),
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
     aiMaxEventLoopLagMs: parsePositiveNumber(
