@@ -397,7 +397,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const oilSources = new Map<string, EconomyBucket>();
   const oilSinks = new Map<string, EconomyBucket>();
   const dockEconomyContext = dockContext ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey } : undefined;
-  const townNetwork = buildConnectedTownNetworkForPlayer(player, tiles, settledTiles);
+  const townNetwork = buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0 });
   const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, orderedTownTiles);
 
   for (const tile of settledTiles) {
