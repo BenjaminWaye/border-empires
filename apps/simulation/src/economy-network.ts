@@ -16,6 +16,11 @@ export type DockEconomyContext = {
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
 };
 
+export type ConnectedTownNetworkOptions = {
+  maxConnectedTownNames?: number;
+  onVisitSettledLandTile?: (tileKey: string) => void;
+};
+
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
 
 const connectedTownStepCount = (connectedTownCount: number): number => Math.max(0, Math.min(3, connectedTownCount));
@@ -49,7 +54,7 @@ export const buildConnectedTownNetworkForPlayer = (
   player: EconomyPlayer,
   tiles: ReadonlyMap<string, DomainTileState>,
   playerSettledTiles: Iterable<DomainTileState> = tiles.values(),
-  options: { maxConnectedTownNames?: number } = {}
+  options: ConnectedTownNetworkOptions = {}
 ): Map<string, ConnectedTownNetworkEntry> => {
   const maxConnectedTownNames = Math.max(0, options.maxConnectedTownNames ?? Number.POSITIVE_INFINITY);
   const settledTiles = [...playerSettledTiles];
@@ -72,6 +77,7 @@ export const buildConnectedTownNetworkForPlayer = (
     while (readIndex < queue.length) {
       const current = queue[readIndex]!;
       readIndex += 1;
+      options.onVisitSettledLandTile?.(current);
       if (ownedTownKeys.has(current)) componentTownKeys.push(current);
       const [rawX, rawY] = current.split(",");
       const cx = Number(rawX);
