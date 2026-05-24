@@ -55,7 +55,7 @@ import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapsho
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../simulation/src/seed-state.js";
 import { seasonalPlayerNameForId } from "../../simulation/src/season-worldgen.js";
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { ESTIMATED_JSON_BYTES_PER_TILE, jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -2224,14 +2224,27 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               );
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
               session.initSent = true;
+              const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
+              // Estimate rather than synchronously JSON.stringify-ing the full
+              // initMessage (which embeds the bootstrap snapshot's tiles array)
+              // just to log a diagnostic byte count. On AUTH bootstrap the tiles
+              // array is fresh out of gRPC every call, so any per-object memo
+              // misses; under retry storms the repeated 200KB stringifies on
+              // the gateway main thread were tripping the event-loop watchdog.
+              // Envelope constant covers snapshot non-tile fields (player +
+              // worldStatus + season + docks ≈ 13.6KB observed 2026-05-24) plus
+              // the gateway init wrapper (recovery + runtimeIdentity, ~2KB).
+              const INIT_MESSAGE_ENVELOPE_BYTES = 16384;
+              const initJsonBytesEstimate =
+                initInitialTileCount * ESTIMATED_JSON_BYTES_PER_TILE + INIT_MESSAGE_ENVELOPE_BYTES;
               recordGatewayEvent(
-                initMessage.initialState?.tiles?.length ? "info" : "warn",
+                initInitialTileCount ? "info" : "warn",
                 "gateway_init_sent",
                 {
                   playerId: playerIdentity.playerId,
                   channel,
-                  initialTileCount: initMessage.initialState?.tiles?.length ?? 0,
-                  initJsonBytes: jsonByteSize(initMessage),
+                  initialTileCount: initInitialTileCount,
+                  initJsonBytes: initJsonBytesEstimate,
                   playerPayloadPresent: Boolean(initMessage.player),
                   seasonId: initMessage.runtimeIdentity.seasonId,
                   runtimeFingerprint: initMessage.runtimeIdentity.fingerprint,
