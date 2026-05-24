@@ -2224,14 +2224,24 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               );
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
               session.initSent = true;
+              const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
+              // Estimate rather than synchronously JSON.stringify-ing the full
+              // initMessage (which embeds the bootstrap snapshot's tiles array)
+              // just to log a diagnostic byte count. On AUTH bootstrap the tiles
+              // array is fresh out of gRPC every call, so any per-object memo
+              // misses; under retry storms the repeated 200KB stringifies on
+              // the gateway main thread were tripping the event-loop watchdog.
+              // 64 B/tile matches the prod-measured average; small fixed
+              // constant covers the non-tile envelope.
+              const initJsonBytesEstimate = initInitialTileCount * 64 + 2048;
               recordGatewayEvent(
-                initMessage.initialState?.tiles?.length ? "info" : "warn",
+                initInitialTileCount ? "info" : "warn",
                 "gateway_init_sent",
                 {
                   playerId: playerIdentity.playerId,
                   channel,
-                  initialTileCount: initMessage.initialState?.tiles?.length ?? 0,
-                  initJsonBytes: jsonByteSize(initMessage),
+                  initialTileCount: initInitialTileCount,
+                  initJsonBytes: initJsonBytesEstimate,
                   playerPayloadPresent: Boolean(initMessage.player),
                   seasonId: initMessage.runtimeIdentity.seasonId,
                   runtimeFingerprint: initMessage.runtimeIdentity.fingerprint,
