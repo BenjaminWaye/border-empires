@@ -121,9 +121,16 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   app.get("/healthz", async (_request, reply) => {
-    const health = readHealth();
-    reply.code(health.statusCode);
-    return health.body;
+    const health = deps.health();
+    reply.code(200);
+    return {
+      ok: true,
+      readiness: {
+        ok: health.ok,
+        simulation: health.simulation
+      },
+      runtimeIdentity: deps.runtimeIdentity
+    };
   });
 
   app.get("/admin/runtime/debug-bundle", async () => ({
