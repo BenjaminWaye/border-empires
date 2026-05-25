@@ -28,6 +28,36 @@ export const hasOutstandingUpkeepNeed = (need: UpkeepNeed): boolean => {
   return false;
 };
 
+/**
+ * Distinguishes player-issued frontier locks from passive defensive fire
+ * (fort auto-attack, siege/light-outpost sweep). The AI strategic planner
+ * only blocks on `"player"` locks; counting `"automation"` locks would
+ * starve the planner because territory-automation re-locks every ~3 s as
+ * long as any valid target stays in range.
+ */
+export type LockSource = "player" | "automation";
+
+/**
+ * Command-id prefix used by every command emitted from territory-automation
+ * (fort auto-attack, siege/light outpost sweep). Live runtime code reads
+ * `LockRecord.source` directly; this constant is the back-compat fallback
+ * for hydrating snapshots written before `source` existed.
+ */
+export const TERRITORY_AUTO_COMMAND_PREFIX = "territory-auto:";
+
+/**
+ * Session-id prefix every territory-automation `handleFrontierCommand`
+ * call uses. Lock creation reads the session id to set `LockRecord.source`,
+ * so this is the producer-side contract for "is this lock automation?"
+ */
+export const TERRITORY_AUTO_SESSION_PREFIX = "system-runtime:territory-automation:";
+
+export const lockSourceFromSessionId = (sessionId: string): LockSource =>
+  sessionId.startsWith(TERRITORY_AUTO_SESSION_PREFIX) ? "automation" : "player";
+
+export const lockSourceFromCommandId = (commandId: string): LockSource =>
+  commandId.startsWith(TERRITORY_AUTO_COMMAND_PREFIX) ? "automation" : "player";
+
 export type LockRecord = {
   commandId: string;
   playerId: string;
@@ -40,6 +70,7 @@ export type LockRecord = {
   targetKey: string;
   originKey: string;
   resolvesAt: number;
+  source: LockSource;
   combatResolution?: LockedCombatResolution;
 };
 
