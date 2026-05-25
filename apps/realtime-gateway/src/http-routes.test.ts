@@ -75,7 +75,16 @@ describe("gateway http routes", () => {
 
     const healthzResponse = await app.inject({ method: "GET", url: "/healthz" });
     expect(healthzResponse.statusCode).toBe(200);
-    expect(healthzResponse.json()).toEqual(healthResponse.json());
+    expect(healthzResponse.json()).toEqual({
+      ok: true,
+      readiness: {
+        ok: true,
+        simulation: {
+          connected: true,
+          lastReadyAt: 1_100
+        }
+      }
+    });
 
     const metricsResponse = await app.inject({ method: "GET", url: "/metrics" });
     expect(metricsResponse.statusCode).toBe(200);
@@ -155,6 +164,19 @@ describe("gateway http routes", () => {
       simulation: {
         connected: false,
         lastError: "simulation ping timed out after 1500ms"
+      }
+    });
+
+    const healthzResponse = await app.inject({ method: "GET", url: "/healthz" });
+    expect(healthzResponse.statusCode).toBe(200);
+    expect(healthzResponse.json()).toEqual({
+      ok: true,
+      readiness: {
+        ok: false,
+        simulation: {
+          connected: false,
+          lastError: "simulation ping timed out after 1500ms"
+        }
       }
     });
 

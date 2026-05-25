@@ -356,7 +356,8 @@ const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
 export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
   "SETTLEMENT_STARTED",
   "TILE_YIELD_ANCHOR_UPDATED",
-  "TILE_YIELD_ANCHOR_BATCH"
+  "TILE_YIELD_ANCHOR_BATCH",
+  "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED"
 ]);
 
 export const isWireInternalEvent = (event: SimulationEvent): boolean =>

@@ -96,6 +96,7 @@ type RuntimeState = {
   }>;
   docks?: Array<{ dockId: string; tileKey: string; pairedDockId: string; connectedDockIds?: readonly string[] }>;
   tileYieldCollectedAtByTile?: Array<{ tileKey: string; collectedAt: number }>;
+  playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
   terrainEpoch?: number;
 };
 
@@ -955,6 +956,7 @@ const toSharedVisibilityTownSummary = (town: DomainTileState["town"] | undefined
 const buildSnapshotTileYieldFields = (
   tile: RuntimeState["tiles"][number],
   collectedAtByTile: ReadonlyMap<string, number>,
+  playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>,
   town: DomainTileState["town"] | undefined,
   context?: {
     player?: EconomyPlayer | undefined;
@@ -975,7 +977,11 @@ const buildSnapshotTileYieldFields = (
     ...(town ? { town } : tile.townJson ? { town: JSON.parse(tile.townJson) as DomainTileState["town"] } : {}),
     ...(tile.economicStructureJson ? { economicStructure: JSON.parse(tile.economicStructureJson) as DomainTileState["economicStructure"] } : {})
   };
-  const yieldView = buildTileYieldView(yieldTile, collectedAtByTile.get(keyFor(tile.x, tile.y)), Date.now(), context);
+  const tileAnchor = collectedAtByTile.get(keyFor(tile.x, tile.y));
+  const playerAnchor = tile.ownerId ? playerYieldCollectionEpochByPlayer.get(tile.ownerId) : undefined;
+  const collectedAt =
+    typeof tileAnchor === "number" && typeof playerAnchor === "number" ? Math.max(tileAnchor, playerAnchor) : tileAnchor ?? playerAnchor;
+  const yieldView = buildTileYieldView(yieldTile, collectedAt, Date.now(), context);
   return {
     ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
     ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
@@ -987,6 +993,9 @@ export const enrichSnapshotTilesForGlobalVisibility = (
   runtimeState: RuntimeState
 ): RuntimeState["tiles"] => {
   const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
+  const playerYieldCollectionEpochByPlayer = new Map(
+    (runtimeState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt] as const)
+  );
   const tilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), entry] as const));
   const domainTilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), toDomainTile(entry)] as const));
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
@@ -1023,7 +1032,7 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         computeSeedGranaryBuffedTileKeys(runtimeState)
       );
       const town = toSharedVisibilityTownSummary(fullTown);
-      const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, fullTown, {
+      const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, playerYieldCollectionEpochByPlayer, fullTown, {
         ...(economyPlayer ? { player: economyPlayer } : {}),
         fedTownKeys,
         ...(tile.ownerId ? { firstThreeTownKeys: firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
@@ -1048,6 +1057,7 @@ export const enrichSnapshotTilesForGlobalVisibility = (
 // visible tiles blocked the main thread for tens of seconds.
 type EnrichmentContext = {
   collectedAtByTile: Map<string, number>;
+  playerYieldCollectionEpochByPlayer: Map<string, number>;
   tilesByKey: Map<string, RuntimeState["tiles"][number]>;
   domainTilesByKey: Map<string, DomainTileState>;
   dockLinksByDockTileKey: ReturnType<typeof buildDockLinksByDockTileKey>;
@@ -1065,6 +1075,9 @@ const buildEnrichmentContext = (
   playerEconomy: LivePlayerEconomySnapshot
 ): EnrichmentContext => {
   const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
+  const playerYieldCollectionEpochByPlayer = new Map(
+    (runtimeState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt] as const)
+  );
   const tilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), entry] as const));
   const domainTilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), toDomainTile(entry)] as const));
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
@@ -1083,6 +1096,7 @@ const buildEnrichmentContext = (
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   return {
     collectedAtByTile,
+    playerYieldCollectionEpochByPlayer,
     tilesByKey,
     domainTilesByKey,
     dockLinksByDockTileKey,
@@ -1116,7 +1130,7 @@ const buildEnrichedTile = (
     ctx.nearbyWarTownKeys,
     ctx.seedGranaryBuffedTileKeys
   );
-  const yieldFields = buildSnapshotTileYieldFields(tile, ctx.collectedAtByTile, town, {
+  const yieldFields = buildSnapshotTileYieldFields(tile, ctx.collectedAtByTile, ctx.playerYieldCollectionEpochByPlayer, town, {
     ...(economyPlayer ? { player: economyPlayer } : {}),
     ...(tile.ownerId
       ? { fedTownKeys: tile.ownerId === playerId ? ctx.fedTownKeys : (ctx.fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) }

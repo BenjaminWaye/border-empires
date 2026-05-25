@@ -70,6 +70,7 @@ export type V1SnapshotPayload = {
   players?: RecoveredSimulationState["players"];
   pendingSettlements?: RecoveredSimulationState["pendingSettlements"];
   tileYieldCollectedAtByTile?: RecoveredSimulationState["tileYieldCollectedAtByTile"];
+  playerYieldCollectionEpochByPlayer?: RecoveredSimulationState["playerYieldCollectionEpochByPlayer"];
   collectVisibleCooldownByPlayer?: RecoveredSimulationState["collectVisibleCooldownByPlayer"];
   commandEvents: StoredSnapshotCommandEvents[];
 };
@@ -166,6 +167,9 @@ export const compactSnapshotForStorage = (
     ...(initialState.tileYieldCollectedAtByTile
       ? { tileYieldCollectedAtByTile: initialState.tileYieldCollectedAtByTile }
       : {}),
+    ...(initialState.playerYieldCollectionEpochByPlayer
+      ? { playerYieldCollectionEpochByPlayer: initialState.playerYieldCollectionEpochByPlayer }
+      : {}),
     ...(initialState.collectVisibleCooldownByPlayer
       ? { collectVisibleCooldownByPlayer: initialState.collectVisibleCooldownByPlayer }
       : {}),
@@ -219,6 +223,7 @@ export const expandSnapshotFromStorage = (
       ...(v1.players ? { players: v1.players } : {}),
       ...(v1.pendingSettlements ? { pendingSettlements: v1.pendingSettlements } : {}),
       ...(v1.tileYieldCollectedAtByTile ? { tileYieldCollectedAtByTile: v1.tileYieldCollectedAtByTile } : {}),
+      ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {}),
       ...(v1.collectVisibleCooldownByPlayer ? { collectVisibleCooldownByPlayer: v1.collectVisibleCooldownByPlayer } : {})
     },
     commandEvents: v1.commandEvents

@@ -438,6 +438,7 @@ export class SimulationRuntime {
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
+  private readonly playerYieldCollectionEpochByPlayer = new Map<string, number>();
   private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
   // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
   // inside replaceTileState; consumed by tickTileShedding to shed newest-first
@@ -588,6 +589,9 @@ export class SimulationRuntime {
     this.locksByTile = createLocksFromInitialState(options.initialState);
     for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
       this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
+    }
+    for (const yieldEntry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) {
+      this.playerYieldCollectionEpochByPlayer.set(yieldEntry.playerId, yieldEntry.collectedAt);
     }
     for (const cooldown of options.initialState?.collectVisibleCooldownByPlayer ?? []) {
       this.collectVisibleCooldownByPlayer.set(cooldown.playerId, cooldown.cooldownUntil);
@@ -1736,7 +1740,7 @@ export class SimulationRuntime {
             return { ...tile, town: refreshedTown };
           })()
         : tile;
-      const lastCollectedAt = this.tileYieldCollectedAtByTile.get(tileKey);
+      const lastCollectedAt = this.tileYieldCollectedAt(tileKey, player.id);
       const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, nowMs, {
         player,
         fedTownKeys: economyContext.fedTownKeys,
@@ -1880,6 +1884,23 @@ export class SimulationRuntime {
       tileKey,
       collectedAt
     });
+  }
+
+  private setPlayerYieldCollectionEpoch(commandId: string, playerId: string, collectedAt: number): void {
+    this.playerYieldCollectionEpochByPlayer.set(playerId, collectedAt);
+    this.emitEvent({
+      eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED",
+      commandId,
+      playerId,
+      collectedAt
+    });
+  }
+
+  private tileYieldCollectedAt(tileKey: string, ownerId?: string): number | undefined {
+    const tileAnchor = this.tileYieldCollectedAtByTile.get(tileKey);
+    const playerAnchor = ownerId ? this.playerYieldCollectionEpochByPlayer.get(ownerId) : undefined;
+    if (typeof tileAnchor === "number" && typeof playerAnchor === "number") return Math.max(tileAnchor, playerAnchor);
+    return tileAnchor ?? playerAnchor;
   }
 
   private rebuildPlannerCandidateIndexesForPlayer(playerId: string): void {
@@ -2221,6 +2242,9 @@ export class SimulationRuntime {
         tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
           .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
           .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+        playerYieldCollectionEpochByPlayer: [...this.playerYieldCollectionEpochByPlayer.entries()]
+          .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
+          .sort((left, right) => left.playerId.localeCompare(right.playerId)),
         collectVisibleCooldownByPlayer: [...this.collectVisibleCooldownByPlayer.entries()]
           .map(([playerId, cooldownUntil]) => ({ playerId, cooldownUntil }))
           .sort((left, right) => left.playerId.localeCompare(right.playerId))
@@ -2424,6 +2448,7 @@ export class SimulationRuntime {
       connectedDockIds?: readonly string[];
     }>;
     tileYieldCollectedAtByTile: Array<{ tileKey: string; collectedAt: number }>;
+    playerYieldCollectionEpochByPlayer: Array<{ playerId: string; collectedAt: number }>;
     terrainEpoch: number;
   } {
     return {
@@ -2497,6 +2522,9 @@ export class SimulationRuntime {
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      playerYieldCollectionEpochByPlayer: [...this.playerYieldCollectionEpochByPlayer.entries()]
+        .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
+        .sort((left, right) => left.playerId.localeCompare(right.playerId)),
       terrainEpoch: this.terrainEpoch
     };
   }
@@ -2846,6 +2874,9 @@ export class SimulationRuntime {
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      playerYieldCollectionEpochByPlayer: [...this.playerYieldCollectionEpochByPlayer.entries()]
+        .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
+        .sort((left, right) => left.playerId.localeCompare(right.playerId)),
       terrainEpoch: this.terrainEpoch
     };
   }
@@ -2960,6 +2991,9 @@ export class SimulationRuntime {
       tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
         .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      playerYieldCollectionEpochByPlayer: [...this.playerYieldCollectionEpochByPlayer.entries()]
+        .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
+        .sort((left, right) => left.playerId.localeCompare(right.playerId)),
       terrainEpoch: this.terrainEpoch
     };
   }
@@ -3749,61 +3783,38 @@ export class SimulationRuntime {
     let tiles = 0;
     let gold = 0;
     const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
-    const touchedTileDeltas: Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> = [];
     const yieldContext = this.tileYieldEconomyContextForPlayer(actor);
-    // Iterate this player's owned tiles only (typically tens to a few
-    // hundred) rather than every tile on the map (~2095). Staging telemetry
-    // showed COLLECT_VISIBLE apply p99 = 286ms — the dominant cost in the
-    // runtime drain — almost entirely from the O(all-map-tiles) scan that
-    // rejected ~99% of iterations. summary.territoryTileKeys is maintained
-    // incrementally as ownership changes, so this is O(owned-tiles).
-    const summary = this.summaryForPlayer(command.playerId);
-    // Split the inner-loop cost into yield-computation vs delta-build so we
-    // can target the right optimisation when this apply is slow on big
-    // empires. The whole-loop wall clock is already tracked via the
-    // onJobApplied callback; this adds the per-phase breakdown.
     let yieldMs = 0;
-    let deltaMs = 0;
     let tilesConsidered = 0;
     const sampleNow = this.now.bind(this);
-    for (const tileKey of summary.territoryTileKeys) {
+    for (const tileKey of this.summaryForPlayer(command.playerId).territoryTileKeys) {
       const tile = this.tiles.get(tileKey);
       if (!tile || tile.ownershipState !== "SETTLED") continue;
       tilesConsidered += 1;
       const yieldStartedAt = sampleNow();
-      const collected = this.collectTileYield(tile, now, command, yieldContext);
+      const collected = this.collectTileYield(tile, now, command, yieldContext, {
+        creditStrategic: false,
+        persistAnchor: false
+      });
       yieldMs += sampleNow() - yieldStartedAt;
       const touched = collected.gold > 0 || Object.values(collected.strategic).some((value) => Number(value) > 0);
       if (!touched) continue;
       tiles += 1;
       gold += collected.gold;
-      const deltaStartedAt = sampleNow();
-      touchedTileDeltas.push(this.tileDeltaFromState(tile, yieldContext));
-      deltaMs += sampleNow() - deltaStartedAt;
-      for (const [resource, amount] of Object.entries(collected.strategic) as Array<
-        ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number]
-      >) {
+      for (const [resource, amount] of Object.entries(collected.strategic) as Array<[StrategicResourceKey, number]>) {
         strategic[resource] = (strategic[resource] ?? 0) + amount;
       }
     }
-    actor.points += gold;
     this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
-    // Time each post-loop emit. The inner loop is only ~4% of COLLECT_VISIBLE
-    // p99 (per #317 telemetry); the rest lives in these three calls. The
-    // dominant one is almost certainly emitPlayerStateUpdate since it's
-    // shared across every command apply path — fixing it once helps every
-    // command, not just COLLECT_VISIBLE.
-    let tileDeltaBatchEmitMs = 0;
-    if (touchedTileDeltas.length > 0) {
-      const startedAt = sampleNow();
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        tileDeltas: touchedTileDeltas
-      });
-      tileDeltaBatchEmitMs = sampleNow() - startedAt;
+    this.setPlayerYieldCollectionEpoch(command.commandId, command.playerId, now);
+    actor.points += gold;
+    for (const [resource, amount] of Object.entries(strategic) as Array<[StrategicResourceKey, number]>) {
+      if (amount > 0) this.addStrategicResource(actor, resource, amount);
     }
+    // COLLECT_VISIBLE is a player-level economy operation. The player epoch
+    // below clears derived tile buffers without emitting one zero-yield tile
+    // delta per touched tile.
+    const tileDeltaBatchEmitMs = 0;
     const collectResultStartedAt = sampleNow();
     this.emitEvent({
       eventType: "COLLECT_RESULT",
@@ -3821,7 +3832,7 @@ export class SimulationRuntime {
     this.onCollectVisibleSample?.({
       playerId: command.playerId,
       yieldMs,
-      deltaMs,
+      deltaMs: 0,
       tileDeltaBatchEmitMs,
       collectResultEmitMs,
       playerStateUpdateMs,
@@ -5680,7 +5691,7 @@ export class SimulationRuntime {
           return { ...tile, town: refreshedTown };
         })()
       : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(simulationTileKey(tile.x, tile.y)), this.now(), {
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(simulationTileKey(tile.x, tile.y), tile.ownerId), this.now(), {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
       ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys } : {}),
@@ -5719,11 +5730,14 @@ export class SimulationRuntime {
     tile: DomainTileState,
     now: number,
     command: Pick<CommandEnvelope, "commandId" | "playerId">,
-    context?: RuntimeTileYieldEconomyContext
+    context?: RuntimeTileYieldEconomyContext,
+    options: { creditStrategic?: boolean; persistAnchor?: boolean } = {}
   ): {
     gold: number;
     strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
   } {
+    const creditStrategic = options.creditStrategic ?? true;
+    const persistAnchor = options.persistAnchor ?? true;
     const tileKey = simulationTileKey(tile.x, tile.y);
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
@@ -5736,7 +5750,7 @@ export class SimulationRuntime {
           return { ...tile, town: refreshedTown };
         })()
       : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAtByTile.get(tileKey), now, {
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
       ...(resolvedContext ? { firstThreeTownKeys: resolvedContext.firstThreeTownKeys } : {}),
@@ -5750,10 +5764,10 @@ export class SimulationRuntime {
     >) {
       if (amount > 0) {
         strategic[resource] = amount;
-        this.addStrategicResource(this.players.get(tile.ownerId!)!, resource, amount);
+        if (creditStrategic && player) this.addStrategicResource(player, resource, amount);
       }
     }
-    if (gold > 0 || Object.keys(strategic).length > 0) {
+    if (persistAnchor && (gold > 0 || Object.keys(strategic).length > 0)) {
       this.setTileYieldCollectedAt(command.commandId, command.playerId, tileKey, now);
     }
     return { gold, strategic };
