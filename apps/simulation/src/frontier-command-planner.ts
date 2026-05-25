@@ -23,6 +23,7 @@ type FrontierAffordability = {
   canExpand?: boolean;
   needsFood?: boolean;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
+  onEvaluateNeutralTarget?: (targetKey: string) => void;
 };
 
 export type FrontierClass = "economic" | "scaffold" | "scout" | "waste";
@@ -223,6 +224,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const domainTilesByKey = buildDomainTileLookup(tilesByKey);
   const ownedTileList = [...ownedTiles].sort(sortTiles);
   const currentReachableLandKeys = new Set<string>();
+  const neutralEvaluationByTargetKey = new Map<string, SettlementCandidateEvaluation>();
   let bestAttack: FrontierSelection | undefined;
   let bestEnemyAttack: FrontierSelection | undefined;
   let bestBarbarianAttack: FrontierSelection | undefined;
@@ -277,12 +279,20 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
 
       neutralTargets.add(targetKey);
       if (!canExpand) continue;
-      const settlementEvaluation = evaluateSettlementCandidate(
-        playerId,
-        target as import("@border-empires/game-domain").DomainTileState,
-        domainTilesByKey,
-        new Set([targetKey])
-      );
+      const cachedSettlementEvaluation = neutralEvaluationByTargetKey.get(targetKey);
+      const settlementEvaluation =
+        cachedSettlementEvaluation ??
+        (() => {
+          affordability.onEvaluateNeutralTarget?.(targetKey);
+          const nextEvaluation = evaluateSettlementCandidate(
+            playerId,
+            target as import("@border-empires/game-domain").DomainTileState,
+            domainTilesByKey,
+            new Set([targetKey])
+          );
+          neutralEvaluationByTargetKey.set(targetKey, nextEvaluation);
+          return nextEvaluation;
+        })();
       const scoutScore = scoutExpandScore(tilesByKey, from, target, playerId, currentReachableLandKeys, dockLinksByDockTileKey);
       const frontierClass = classifyNeutralOpportunity(target, settlementEvaluation, scoutScore);
       const score = selectionScoreForClass(frontierClass, target, settlementEvaluation, scoutScore, needsFood);
