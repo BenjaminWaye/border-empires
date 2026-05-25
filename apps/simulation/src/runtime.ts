@@ -271,6 +271,12 @@ export const SETTLE_DURATION_MS = 60_000;
 export const FOREST_SETTLEMENT_MULT = 2;
 export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+// Command-id prefix used by every command emitted from territory-automation
+// (fort auto-attack, siege/light outpost sweep). Single source of truth — the
+// id is built in `nextTerritoryAutomationCommandId` and matched in
+// `plannerGatingLockPlayerIds` so passive defensive fire never starves the
+// AI strategic planner.
+const TERRITORY_AUTO_COMMAND_PREFIX = "territory-auto:";
 
 const isForestSettlementTile = (x: number, y: number): boolean =>
   terrainAt(x, y) === "LAND" &&
@@ -2012,7 +2018,7 @@ export class SimulationRuntime {
       .map((tileKey) => this.tiles.get(tileKey))
       .filter((tile): tile is DomainTileState => tile !== undefined);
     const spatialFocus = this.refreshSpatialFocusForPlayer(playerId, this.now());
-    const hasActiveLock = [...this.locksByTile.values()].some((lock) => lock.playerId === playerId);
+    const hasActiveLock = this.plannerGatingLockPlayerIds().has(playerId);
     let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
     if (!options?.skipPreplan) {
       const preplan = chooseAutomationPreplanCommand({
@@ -2241,10 +2247,7 @@ export class SimulationRuntime {
   }
 
   exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
-    const lockPlayerIds = new Set<string>();
-    for (const lock of this.locksByTile.values()) {
-      lockPlayerIds.add(lock.playerId);
-    }
+    const lockPlayerIds = this.plannerGatingLockPlayerIds();
     const players: PlannerPlayerView[] = [];
     for (const playerId of playerIds) {
       const player = this.players.get(playerId);
@@ -2304,10 +2307,7 @@ export class SimulationRuntime {
     hasActiveLock: boolean;
     allies: string[];
   }> {
-    const lockPlayerIds = new Set<string>();
-    for (const lock of this.locksByTile.values()) {
-      lockPlayerIds.add(lock.playerId);
-    }
+    const lockPlayerIds = this.plannerGatingLockPlayerIds();
     return [...this.players.values()]
       .map((player) => {
         this.refreshManpowerOnly(player);
@@ -3495,7 +3495,7 @@ export class SimulationRuntime {
 
   private nextTerritoryAutomationCommandId(label: string, playerId: string, tileKey: string, nowMs: number): string {
     this.territoryAutomationCounter += 1;
-    return `territory-auto:${label}:${playerId}:${tileKey}:${nowMs}:${this.territoryAutomationCounter}`;
+    return `${TERRITORY_AUTO_COMMAND_PREFIX}${label}:${playerId}:${tileKey}:${nowMs}:${this.territoryAutomationCounter}`;
   }
 
   private startSettlementProcess(input: {
@@ -7059,6 +7059,23 @@ export class SimulationRuntime {
       tileDeltas: [this.tileDeltaFromState(updatedTile)]
     });
     this.emitPlayerStateUpdate(command);
+  }
+
+  // Locks that should gate the AI strategic planner. Passive defensive fire
+  // from forts and siege/light outposts (sweep) also creates playerId-scoped
+  // combat locks via `handleFrontierCommand` from territory-automation; those
+  // arrive every ~3 s as long as a valid target is in range, which would
+  // otherwise starve the planner with a perpetual `active_lock` noop. Lock
+  // command IDs produced by `nextTerritoryAutomationCommandId` are prefixed
+  // `territory-auto:` — the planner only blocks on locks NOT carrying that
+  // prefix (i.e. player-issued frontier commands).
+  private plannerGatingLockPlayerIds(): Set<string> {
+    const lockPlayerIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      if (lock.commandId.startsWith(TERRITORY_AUTO_COMMAND_PREFIX)) continue;
+      lockPlayerIds.add(lock.playerId);
+    }
+    return lockPlayerIds;
   }
 
   private activeFrontierLocksForPlayer(playerId: string): LockRecord[] {
