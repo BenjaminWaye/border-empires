@@ -12,6 +12,9 @@
  * - no tick > 10s
  * - events emitted in 600 ticks matches baseline ±2%
  * - heap growth across 600 ticks < 50 MB
+ *
+ * exportState() is called after each tick to exercise the TileDeltaStringifyCache
+ * on the broadcast path, which mirrors real gateway usage.
  */
 import { describe, expect, it } from "vitest";
 import { loadProdSnapshot } from "./__bench__/load-prod-snapshot.js";
@@ -29,10 +32,11 @@ describe.skipIf(!RUN)("runtime prod-shape load (600 ticks)", () => {
     const nowMs = { value: Date.now() };
     const TICK_INTERVAL_MS = 1_000;
 
-    // Warm: 60 silent ticks
+    // Warm: 60 silent ticks (include exportState to warm the cache path too)
     for (let i = 0; i < 60; i++) {
       nowMs.value += TICK_INTERVAL_MS;
       runtime.tickTerritoryAutomation(nowMs.value);
+      runtime.exportState();
     }
 
     // Force GC before measurement so the baseline is a post-GC heap size,
@@ -44,7 +48,9 @@ describe.skipIf(!RUN)("runtime prod-shape load (600 ticks)", () => {
     const warmEventCount = eventCount;
     eventCount = 0;
 
-    // Measure: 600 ticks
+    // Measure: 600 ticks. exportState() is called outside the timed window to
+    // exercise the stringify cache on the broadcast path without inflating tick
+    // latency numbers (the gateway serialises outside the sim-tick hot path).
     const TICKS = 600;
     for (let i = 0; i < TICKS; i++) {
       nowMs.value += TICK_INTERVAL_MS;
@@ -52,6 +58,7 @@ describe.skipIf(!RUN)("runtime prod-shape load (600 ticks)", () => {
       runtime.tickTerritoryAutomation(nowMs.value);
       const dt = performance.now() - t0;
       tickDurations.push(dt);
+      runtime.exportState();
     }
 
     // Force GC after measurement to evict any newly-allocated garbage before
