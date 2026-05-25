@@ -1,12 +1,6 @@
-import { readFile } from "node:fs/promises";
-
-import { resolveGatewayMigrationPath } from "./migration-path.js";
-import { createPostgresGatewayPlayerProfileStore } from "./postgres-player-profile-store.js";
 import { InMemoryGatewayPlayerProfileStore, type GatewayPlayerProfileStore } from "./player-profile-store.js";
-import { retryStartup } from "./startup-retry.js";
 
 type PlayerProfileStoreFactoryOptions = {
-  databaseUrl?: string;
   sqlitePath?: string;
   applySchema?: boolean;
 };
@@ -14,29 +8,12 @@ type PlayerProfileStoreFactoryOptions = {
 export const createGatewayPlayerProfileStore = async (
   options: PlayerProfileStoreFactoryOptions = {}
 ): Promise<GatewayPlayerProfileStore> => {
-  if (options.sqlitePath) {
-    const [{ SqliteGatewayPlayerProfileStore }, { openSqliteDatabase }] = await Promise.all([
-      import("./sqlite-player-profile-store.js"),
-      import("./sqlite-db.js")
-    ]);
-    const store = new SqliteGatewayPlayerProfileStore(openSqliteDatabase(options.sqlitePath));
-    if (options.applySchema) await store.applySchema();
-    return store;
-  }
-  if (!options.databaseUrl) return new InMemoryGatewayPlayerProfileStore();
-
-  const store = createPostgresGatewayPlayerProfileStore(options.databaseUrl);
-  if (options.applySchema) {
-    const migrationPath = await resolveGatewayMigrationPath("0002_player_profiles.sql", import.meta.url);
-    const migrationSql = await readFile(migrationPath, "utf8");
-    await retryStartup("gateway player-profile-store applySchema", () => store.applySchema(migrationSql), {
-      onAttemptFailed: (error, attempt, delayMs) => {
-        console.warn(
-          `[gateway] player-profile-store applySchema attempt ${attempt} failed; retrying in ${delayMs}ms:`,
-          error instanceof Error ? error.message : String(error)
-        );
-      }
-    });
-  }
+  if (!options.sqlitePath) return new InMemoryGatewayPlayerProfileStore();
+  const [{ SqliteGatewayPlayerProfileStore }, { openSqliteDatabase }] = await Promise.all([
+    import("./sqlite-player-profile-store.js"),
+    import("./sqlite-db.js")
+  ]);
+  const store = new SqliteGatewayPlayerProfileStore(openSqliteDatabase(options.sqlitePath));
+  if (options.applySchema) await store.applySchema();
   return store;
 };

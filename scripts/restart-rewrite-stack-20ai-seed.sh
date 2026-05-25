@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DIRECT_DATABASE_URL="${DATABASE_URL:-${SIMULATION_DATABASE_URL:-${GATEWAY_DATABASE_URL:-}}}"
+SQLITE_PATH="${SQLITE_PATH:-${ROOT_DIR}/.local-data/border-empires-20ai.db}"
 
 kill_match() {
   local pattern="$1"
@@ -56,44 +56,18 @@ wait_port_free 3101
 wait_port_free 5173
 
 cd "${ROOT_DIR}"
-if [[ -n "${DIRECT_DATABASE_URL}" ]] && [[ "${DIRECT_DATABASE_URL}" =~ @127\.0\.0\.1:|@localhost: ]]; then
-  truncate_if_exists() {
-    local table_name="$1"
-    local exists
-    exists="$(psql "${DIRECT_DATABASE_URL}" -Atqc "select to_regclass('public.${table_name}') is not null;")"
-    if [[ "${exists}" == "t" ]]; then
-      psql "${DIRECT_DATABASE_URL}" -q -c "TRUNCATE TABLE ${table_name} RESTART IDENTITY CASCADE;"
-    fi
-  }
+mkdir -p "$(dirname "${SQLITE_PATH}")"
 
-  echo "Resetting local rewrite simulation tables before fresh seed startup"
-  for table_name in \
-    visibility_projection_current \
-    combat_lock_projection_current \
-    tile_projection_current \
-    player_projection_current \
-    visibility_projection \
-    combat_lock_projection \
-    tile_projection \
-    player_projection \
-    world_status_current \
-    season_archive \
-    checkpoint_metadata \
-    world_snapshots \
-    world_events \
-    command_results \
-    commands
-  do
-    truncate_if_exists "${table_name}"
-  done
+if [[ -f "${SQLITE_PATH}" ]]; then
+  echo "Removing existing SQLite file for fresh seed startup: ${SQLITE_PATH}"
+  rm -f "${SQLITE_PATH}" "${SQLITE_PATH}-shm" "${SQLITE_PATH}-wal"
 fi
 
-if [[ -n "${DIRECT_DATABASE_URL}" ]]; then
-  export DATABASE_URL="${DIRECT_DATABASE_URL}"
-fi
-
-SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK=1 \
-SIMULATION_REQUIRE_DURABLE_STARTUP_STATE=0 \
+echo "Booting durable rewrite localhost stack against ${SQLITE_PATH} (fresh seed)"
+GATEWAY_SQLITE_PATH="${SQLITE_PATH}" \
+GATEWAY_DB_APPLY_SCHEMA=1 \
+SIMULATION_SQLITE_PATH="${SQLITE_PATH}" \
+SIMULATION_DB_APPLY_SCHEMA=1 \
 SIMULATION_SEED_PROFILE=season-20ai \
 SIMULATION_ENABLE_AI_AUTOPILOT=1 \
 SIMULATION_AI_TICK_MS=25 \

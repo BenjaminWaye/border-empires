@@ -13,7 +13,6 @@ import {
   type RecoveredTile
 } from "./snapshot-compaction.js";
 import type { SnapshotStringifier } from "./snapshot-stringifier.js";
-import type { ProjectionExportState } from "./postgres-projection-writer.js";
 
 type Row = {
   snapshot_id: number;
@@ -67,7 +66,6 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     lastAppliedEventId: number;
     snapshotSections: SimulationSnapshotSections;
     createdAt: number;
-    projectionState?: ProjectionExportState;
   }): Promise<void> {
     const baselineIndex = this.resolveBaselineIndexFromSections(snapshot.snapshotSections);
     const payload = baselineIndex

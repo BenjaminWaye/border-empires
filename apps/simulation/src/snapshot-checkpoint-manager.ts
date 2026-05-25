@@ -1,6 +1,5 @@
 import type { SimulationEventStore } from "./event-store.js";
 import type { SimulationSnapshotSections, SimulationSnapshotStore } from "./snapshot-store.js";
-import type { ProjectionExportState } from "./postgres-projection-writer.js";
 
 export type SnapshotCheckpointMemoryUsage = {
   rssBytes: number;
@@ -19,8 +18,6 @@ type SnapshotCheckpointManagerOptions = {
   eventStore: SimulationEventStore;
   snapshotStore: SimulationSnapshotStore;
   exportSnapshotSections: () => SimulationSnapshotSections;
-  /** When provided, projection tables are written at each checkpoint. */
-  exportProjectionState?: () => ProjectionExportState;
   checkpointEveryEvents?: number;
   now?: () => number;
   getMemoryUsage?: () => SnapshotCheckpointMemoryUsage;
@@ -129,12 +126,10 @@ export const createSnapshotCheckpointManager = (
 
       emitPhase("before_save", lastAppliedEventId);
       const snapshotSections = options.exportSnapshotSections();
-      const projectionState = options.exportProjectionState?.();
       await options.snapshotStore.saveSnapshot({
         lastAppliedEventId,
         snapshotSections,
-        createdAt: now(),
-        ...(projectionState ? { projectionState } : {})
+        createdAt: now()
       });
       emitPhase("after_save", lastAppliedEventId);
       pendingEvents = 0;

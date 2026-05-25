@@ -11,7 +11,6 @@ describe("simulation runtime env", () => {
       metricsPort: 50052,
       applySchema: false,
       checkpointEveryEvents: 5000,
-      writeCheckpointProjections: true,
       checkpointForceAfterEvents: 20000,
       startupReplayCompactionMinEvents: 10000,
       seedProfile: "default",
@@ -33,7 +32,7 @@ describe("simulation runtime env", () => {
 
   it("requires durable database configuration in managed runtime", () => {
     expect(() => parseSimulationRuntimeEnv({ NODE_ENV: "production" })).toThrow(
-      "simulation requires SIMULATION_DATABASE_URL/DATABASE_URL or SIMULATION_SQLITE_PATH/SQLITE_PATH in managed runtime"
+      "simulation requires SIMULATION_SQLITE_PATH/SQLITE_PATH in managed runtime"
     );
   });
 
@@ -45,10 +44,9 @@ describe("simulation runtime env", () => {
         SIMULATION_PORT: "50051",
         SIMULATION_METRICS_HOST: "0.0.0.0",
         SIMULATION_METRICS_PORT: "5100",
-        DATABASE_URL: "postgres://simulation",
+        SQLITE_PATH: "/data/simulation.db",
         SIMULATION_DB_APPLY_SCHEMA: "1",
         SIMULATION_SNAPSHOT_EVERY_EVENTS: "75",
-        SIMULATION_WRITE_CHECKPOINT_PROJECTIONS: "0",
         SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS: "420",
         SIMULATION_CHECKPOINT_MAX_RSS_MB: "420",
         SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB: "300",
@@ -68,10 +66,9 @@ describe("simulation runtime env", () => {
       port: 50051,
       metricsHost: "0.0.0.0",
       metricsPort: 5100,
-      databaseUrl: "postgres://simulation",
+      sqlitePath: "/data/simulation.db",
       applySchema: true,
       checkpointEveryEvents: 75,
-      writeCheckpointProjections: false,
       checkpointForceAfterEvents: 420,
       startupReplayCompactionMinEvents: 10000,
       checkpointMaxRssBytes: 420 * 1024 * 1024,
@@ -99,7 +96,7 @@ describe("simulation runtime env", () => {
       () =>
         parseSimulationRuntimeEnv({
           NODE_ENV: "staging",
-          DATABASE_URL: "postgres://simulation"
+          SQLITE_PATH: "/data/simulation.db"
         })
     ).toThrow("simulation requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   });
@@ -112,15 +109,6 @@ describe("simulation runtime env", () => {
 
   it("falls back to continent map style for unknown selector values", () => {
     expect(parseSimulationRuntimeEnv({ SIMULATION_MAP_STYLE: "unknown" })).toMatchObject({ mapStyle: "continents" });
-  });
-
-  it("keeps checkpoint projection writes enabled unless explicitly disabled", () => {
-    expect(parseSimulationRuntimeEnv({})).toMatchObject({ writeCheckpointProjections: true });
-    expect(
-      parseSimulationRuntimeEnv({
-        SIMULATION_WRITE_CHECKPOINT_PROJECTIONS: "false"
-      })
-    ).toMatchObject({ writeCheckpointProjections: false });
   });
 
   it("treats booleanish autopilot env values as enabled", () => {
@@ -153,7 +141,7 @@ describe("simulation runtime env", () => {
     expect(
       parseSimulationRuntimeEnv({
         NODE_ENV: "staging",
-        DATABASE_URL: "postgres://simulation",
+        SQLITE_PATH: "/data/simulation.db",
         SIMULATION_SEED_PROFILE: "season-20ai",
         SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK: "1"
       })
@@ -169,8 +157,6 @@ describe("simulation runtime env", () => {
   });
 
   it("treats SIMULATION_AI_PLAYER_COUNT=0 as no override instead of crashing", () => {
-    // A running season's AI roster is locked into the save when the season is
-    // seeded, so a stale or fat-fingered env value must never brick boot.
     const env = parseSimulationRuntimeEnv({ SIMULATION_AI_PLAYER_COUNT: "0" });
     expect(env.aiPlayerCount).toBeUndefined();
   });
@@ -183,7 +169,7 @@ describe("simulation runtime env", () => {
   it("allows explicitly disabling durable startup for local seeded db runs", () => {
     expect(
       parseSimulationRuntimeEnv({
-        DATABASE_URL: "postgres://simulation",
+        SQLITE_PATH: "/data/simulation.db",
         SIMULATION_SEED_PROFILE: "season-20ai",
         SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK: "1",
         SIMULATION_REQUIRE_DURABLE_STARTUP_STATE: "0"

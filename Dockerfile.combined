@@ -62,11 +62,9 @@ COPY --from=build /app/packages/sim-protocol/node_modules ./packages/sim-protoco
 COPY --from=build /app/apps/realtime-gateway/package.json ./apps/realtime-gateway/package.json
 COPY --from=build /app/apps/realtime-gateway/dist ./apps/realtime-gateway/dist
 COPY --from=build /app/apps/realtime-gateway/node_modules ./apps/realtime-gateway/node_modules
-COPY --from=build /app/apps/realtime-gateway/sql ./apps/realtime-gateway/sql
 COPY --from=build /app/apps/simulation/package.json ./apps/simulation/package.json
 COPY --from=build /app/apps/simulation/dist ./apps/simulation/dist
 COPY --from=build /app/apps/simulation/node_modules ./apps/simulation/node_modules
-COPY --from=build /app/apps/simulation/sql ./apps/simulation/sql
 
 RUN chmod -R a+rX \
     /app/packages/game-domain/data \
