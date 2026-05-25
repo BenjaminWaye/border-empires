@@ -27,6 +27,7 @@ if ! pnpm --filter @border-empires/client exec vitest --version >/dev/null 2>&1;
 fi
 
 run_step "shared:build" pnpm --filter @border-empires/shared build
+run_step "scripts:test" pnpm test:scripts
 run_step "shared:lint" pnpm --filter @border-empires/shared lint
 run_step "shared:test" pnpm --filter @border-empires/shared test
 run_step "game-domain:build" pnpm --filter @border-empires/game-domain build
