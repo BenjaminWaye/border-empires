@@ -22,12 +22,10 @@ const runtimeEnv = parseSimulationRuntimeEnv(process.env);
 const service = await createSimulationService({
   host: runtimeEnv.host,
   port: runtimeEnv.port,
-  ...(runtimeEnv.databaseUrl ? { databaseUrl: runtimeEnv.databaseUrl } : {}),
   ...(runtimeEnv.sqlitePath ? { sqlitePath: runtimeEnv.sqlitePath } : {}),
   ...(runtimeEnv.snapshotDir ? { snapshotDir: runtimeEnv.snapshotDir } : {}),
   applySchema: runtimeEnv.applySchema,
   checkpointEveryEvents: runtimeEnv.checkpointEveryEvents,
-  writeCheckpointProjections: runtimeEnv.writeCheckpointProjections,
   checkpointForceAfterEvents: runtimeEnv.checkpointForceAfterEvents,
   startupReplayCompactionMinEvents: runtimeEnv.startupReplayCompactionMinEvents,
   ...(typeof runtimeEnv.checkpointMaxRssBytes === "number" ? { checkpointMaxRssBytes: runtimeEnv.checkpointMaxRssBytes } : {}),

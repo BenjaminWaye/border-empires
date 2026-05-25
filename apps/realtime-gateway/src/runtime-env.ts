@@ -8,7 +8,6 @@ export type RealtimeGatewayRuntimeEnv = {
   port: number;
   simulationAddress: string;
   simulationWakeAddress?: string;
-  databaseUrl?: string;
   sqlitePath?: string;
   snapshotDir?: string;
   applySchema: boolean;
@@ -48,7 +47,6 @@ const parseBinaryFlag = (value: string | undefined): boolean | undefined => {
 export const parseRealtimeGatewayRuntimeEnv = (
   env: NodeJS.ProcessEnv
 ): RealtimeGatewayRuntimeEnv => {
-  const databaseUrl = env.GATEWAY_DATABASE_URL ?? env.DATABASE_URL;
   const sqlitePath = env.GATEWAY_SQLITE_PATH ?? env.SQLITE_PATH;
   const snapshotDir = env.GATEWAY_SNAPSHOT_DIR;
   const simulationAddress = env.SIMULATION_ADDRESS ?? "127.0.0.1:50051";
@@ -63,8 +61,8 @@ export const parseRealtimeGatewayRuntimeEnv = (
   const emailAlertsFrom = env.GATEWAY_EMAIL_ALERTS_FROM ?? DEFAULT_EMAIL_ALERTS_FROM;
   const emailAlertsAppUrl = env.GATEWAY_EMAIL_ALERTS_APP_URL ?? env.PUBLIC_APP_URL ?? DEFAULT_EMAIL_ALERTS_APP_URL;
 
-  if (isManagedRuntime && !databaseUrl && !sqlitePath) {
-    throw new Error("realtime gateway requires GATEWAY_DATABASE_URL/DATABASE_URL or GATEWAY_SQLITE_PATH/SQLITE_PATH in managed runtime");
+  if (isManagedRuntime && !sqlitePath) {
+    throw new Error("realtime gateway requires GATEWAY_SQLITE_PATH/SQLITE_PATH in managed runtime");
   }
   if (isManagedRuntime && !env.SIMULATION_ADDRESS) {
     throw new Error("realtime gateway requires SIMULATION_ADDRESS in managed runtime");
@@ -78,7 +76,6 @@ export const parseRealtimeGatewayRuntimeEnv = (
     port: parsePort(env.PORT, 3101),
     simulationAddress,
     ...(simulationWakeAddress ? { simulationWakeAddress } : {}),
-    ...(databaseUrl ? { databaseUrl } : {}),
     ...(sqlitePath ? { sqlitePath } : {}),
     ...(snapshotDir ? { snapshotDir } : {}),
     applySchema: env.GATEWAY_DB_APPLY_SCHEMA === "1",
