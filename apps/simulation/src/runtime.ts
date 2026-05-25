@@ -232,7 +232,7 @@ import {
 } from "./runtime-hydration.js";
 import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "./encirclement.js";
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
-import { PlayerCandidateIndex } from "./player-candidate-index.js";
+import { PlayerCandidateIndex, MAX_SWEEP_RADIUS } from "./player-candidate-index.js";
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
 export type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -625,10 +625,16 @@ export class SimulationRuntime {
         const nowMs = this.now();
         const fortRadius = fortAutoFrontierRadiusForTile(tile, tile.ownerId, nowMs);
         const townAnchor = isSettledTownAnchor(tile, tile.ownerId);
+        const outpostAnchor =
+          tile.siegeOutpost?.ownerId === tile.ownerId &&
+          tile.siegeOutpost.status === "active" &&
+          tile.siegeOutpost.sweepActive;
         if (fortRadius > 0) {
           this.playerCandidateIndex.registerAnchor(tileKey, tile.ownerId, fortRadius, (k) => this.tiles.get(k));
         } else if (townAnchor) {
           this.playerCandidateIndex.registerAnchor(tileKey, tile.ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
+        } else if (outpostAnchor) {
+          this.playerCandidateIndex.registerAnchor(tileKey, tile.ownerId, MAX_SWEEP_RADIUS, (k) => this.tiles.get(k));
         }
       }
     }
@@ -908,7 +914,7 @@ export class SimulationRuntime {
         if (!fortTile || fortRadius <= 0) continue;
         if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) break;
         if (this.locksByTile.has(tileKey)) continue;
-        const target = fortAutoAttackCandidates(fortTile, playerId, FORT_AUTO_FRONTIER_RADIUS, (x, y) => this.tiles.get(simulationTileKey(x, y)))
+        const target = this.playerCandidateIndex.sortedFortAttackCandidates(tileKey, FORT_AUTO_FRONTIER_RADIUS)
           .find((candidate) => {
             const targetKey = simulationTileKey(candidate.x, candidate.y);
             return (
@@ -1042,7 +1048,10 @@ export class SimulationRuntime {
       return;
     }
 
-    const candidates = sweepAttackCandidates(tile, playerId, sweepRadius, (x, y) => this.tiles.get(simulationTileKey(x, y)));
+    // Use index when available; fall back to sweepAttackCandidates only if anchor not registered.
+    const candidates = this.playerCandidateIndex.hasAnchor(tileKey)
+      ? this.playerCandidateIndex.sortedAttackCandidates(tileKey, sweepRadius)
+      : sweepAttackCandidates(tile, playerId, sweepRadius, (x, y) => this.tiles.get(simulationTileKey(x, y)));
     const noTargets = candidates.length === 0;
     const nobudget = newBudget < SWEEP_ATTACK_COST;
 
@@ -1967,8 +1976,8 @@ export class SimulationRuntime {
   /**
    * Keep PlayerCandidateIndex anchor registrations consistent with tile state.
    * Called from replaceTileState after the tile is already written to this.tiles.
-   * Registers/unregisters anchors when a tile gains or loses a fort, town, or
-   * active WOODEN_FORT anchor.
+   * Registers/unregisters anchors when a tile gains or loses a fort, town,
+   * active WOODEN_FORT, or active siege outpost (for sweep).
    */
   private refreshPlayerCandidateIndexAnchorForTile(
     tileKey: string,
@@ -1978,28 +1987,36 @@ export class SimulationRuntime {
     const nowMs = this.now();
     const prevOwnerId = previous?.ownerId;
     const nextOwnerId = next.ownerId;
-    // Determine anchor status for prev and next.
-    const prevFortRadius = previous && prevOwnerId ? fortAutoFrontierRadiusForTile(previous, prevOwnerId, nowMs) : 0;
-    const prevTownAnchor = previous && prevOwnerId ? isSettledTownAnchor(previous, prevOwnerId) : false;
-    const prevIsAnchor = prevFortRadius > 0 || prevTownAnchor;
-    const nextFortRadius = nextOwnerId ? fortAutoFrontierRadiusForTile(next, nextOwnerId, nowMs) : 0;
-    const nextTownAnchor = nextOwnerId ? isSettledTownAnchor(next, nextOwnerId) : false;
-    const nextIsAnchor = nextFortRadius > 0 || nextTownAnchor;
-    // Determine the effective radius for registration.
-    const nextMaxRadius = nextFortRadius > 0 ? nextFortRadius : nextTownAnchor ? TOWN_AUTO_FRONTIER_RADIUS : 0;
-    if (!prevIsAnchor && !nextIsAnchor) return;
-    if (prevIsAnchor && !nextIsAnchor) {
+
+    const tileAnchorRadius = (tile: DomainTileState, ownerId: string): number => {
+      const fortRadius = fortAutoFrontierRadiusForTile(tile, ownerId, nowMs);
+      if (fortRadius > 0) return fortRadius;
+      if (isSettledTownAnchor(tile, ownerId)) return TOWN_AUTO_FRONTIER_RADIUS;
+      // Active siege outpost — use max sweep radius for attack candidate index.
+      if (
+        tile.siegeOutpost?.ownerId === ownerId &&
+        tile.siegeOutpost.status === "active" &&
+        tile.siegeOutpost.sweepActive
+      ) return MAX_SWEEP_RADIUS;
+      return 0;
+    };
+
+    const prevRadius = previous && prevOwnerId ? tileAnchorRadius(previous, prevOwnerId) : 0;
+    const nextRadius = nextOwnerId ? tileAnchorRadius(next, nextOwnerId) : 0;
+
+    if (prevRadius <= 0 && nextRadius <= 0) return;
+    if (prevRadius > 0 && nextRadius <= 0) {
       this.playerCandidateIndex.unregisterAnchor(tileKey);
       return;
     }
-    if (!prevIsAnchor && nextIsAnchor) {
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
+    if (prevRadius <= 0 && nextRadius > 0) {
+      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextRadius, (k) => this.tiles.get(k));
       return;
     }
     // Both are anchors — re-register if owner or radius changed.
-    if (prevOwnerId !== nextOwnerId || prevFortRadius !== nextFortRadius || prevTownAnchor !== nextTownAnchor) {
+    if (prevOwnerId !== nextOwnerId || prevRadius !== nextRadius) {
       this.playerCandidateIndex.unregisterAnchor(tileKey);
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
+      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextRadius, (k) => this.tiles.get(k));
     }
   }
 
