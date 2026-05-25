@@ -105,6 +105,7 @@ export type SimulationJob = {
   run: () => void;
   enqueuedAt: number;
   commandType?: CommandEnvelope["type"];
+  scheduling?: "immediate" | "background";
 };
 
 export type StrategicResourceKey = DomainStrategicResourceKey;

@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.24.4",
+  version: "2026.05.24.5",
   title: "What's New",
-  summary: "All four outpost-family structures (Light Outpost, Siege Outpost, Siege Tower, Dread Tower) now share sweep and a target-based attack aura at radius 5. Auto-attack toggle removed.",
+  summary: "Expansion accepts more reliably while AI automation is busy.",
   entries: [
+    {
+      introducedIn: "2026.05.24.5",
+      title: "Expansion accepts more reliably under AI load",
+      why: "AI and system automation jobs could drain from the simulation queue in the microtask phase immediately after being submitted. That preserved lane priority for already-queued human commands, but it still let background jobs start too aggressively between socket events and delay a later human expansion until the client showed the 2s sync warning.",
+      changes: [
+        "Human and gateway commands still schedule immediate runtime drains, while ai-runtime and system-runtime automation jobs now yield to the event loop before draining.",
+        "The load harness now keeps successful latency samples when a soak stops because the test player runs out of manpower, so nightly gates evaluate real accept timings instead of failing with null samples."
+      ]
+    },
     {
       introducedIn: "2026.05.24.4",
       title: "Outpost-family sweep + aura overhaul",

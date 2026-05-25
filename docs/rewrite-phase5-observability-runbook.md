@@ -10,6 +10,8 @@ Both endpoints emit Prometheus text exposition for the Phase 5 gate metrics.
 ## Fly log-stream alert wiring
 
 Use Fly log streams and the alert checker script to enforce Phase 5 thresholds.
+Set `SLACK_WEBHOOK_URL` or `PHASE5_ALERT_SLACK_WEBHOOK` to post the first breach
+per process to Slack. Set `PHASE5_ALERT_LABEL` to identify the environment.
 
 - Gateway event-loop alert (3 consecutive samples over 100ms):
 
