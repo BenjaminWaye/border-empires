@@ -7,9 +7,33 @@ Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 - **Staging** (`https://staging.borderempires.com`, fly app `border-empires-combined-staging`) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` / `fly.combined.staging.toml`.
 - **Production** (`https://play.borderempires.com`, fly app `border-empires-combined`) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` / `fly.combined.toml`.
 - "Deploy to staging" = deploying the rewrite stack. Use `pnpm deploy:staging:all` from any worktree on any branch — it fast-forwards `origin/staging` to `origin/main`, deploys the combined Fly app, then publishes the client to Vercel and flips the staging alias. Fly escape hatch: `fly deploy --config fly.combined.staging.toml --strategy rolling --remote-only`. Piecemeal split gateway/simulation staging deploys are obsolete.
-- "Deploy to production" = deploying the combined rewrite stack plus the prod client. Use `pnpm deploy:prod:all` from a clean checkout at `origin/main`; it deploys `fly.combined.toml`, tags the release, updates `origin/production`, and publishes the client with the gateway backend default.
+- "Deploy to production" = deploying the combined rewrite stack plus the prod client. Use `pnpm deploy:prod:all` from a clean checkout at `origin/main`; it requires a recent successful prod-shape gate JSON for the exact target SHA, deploys `fly.combined.toml`, tags the release, updates `origin/production`, and publishes the client with the gateway backend default.
 - When a user says "deploy" without naming an environment, treat that as **staging by default**. Do not assume production unless the user explicitly says `production`, `prod`, or otherwise makes it unambiguous.
-- Before any production deploy, make sure this checkout is updated to the latest `origin/main`.
+- Before any production deploy, make sure this checkout is updated to the latest `origin/main`, then run the prod-shape gate against an isolated clone of the latest production map. Set `PROD_SHAPE_GATE_RESULT_JSON` to that result before running `pnpm deploy:prod:all`. Bypass only for emergency rollback with `SKIP_PROD_SHAPE_GATE=1`.
+
+## Production shape gate
+
+Production deploys must prove the candidate can handle a live-shaped world before any remote prod mutation happens. The gate must run against an isolated clone, not live production.
+
+```bash
+SOURCE_DATABASE_URL="$PROD_DATABASE_URL" \
+TARGET_DATABASE_URL="$THROWAWAY_DATABASE_URL" \
+  pnpm ops:prod-shape:clone-snapshot
+
+# Boot the candidate combined stack against TARGET_DATABASE_URL, then:
+PROD_SHAPE_TARGET_SHA="$(git rev-parse HEAD)" \
+PROD_SHAPE_OUTPUT_PATH="docs/load-results/prod-shape-$(git rev-parse --short HEAD).json" \
+WS_URL="ws://127.0.0.1:3101/ws" \
+GATEWAY_HEALTH_URL="http://127.0.0.1:3101/health" \
+GATEWAY_METRICS_URL="http://127.0.0.1:3101/metrics" \
+SIMULATION_METRICS_URL="http://127.0.0.1:50052/metrics" \
+  pnpm ops:prod-shape:gate
+
+PROD_SHAPE_GATE_RESULT_JSON="docs/load-results/prod-shape-$(git rev-parse --short HEAD).json" \
+  pnpm ops:prod-shape:verify --target-sha "$(git rev-parse HEAD)"
+```
+
+`pnpm deploy:prod:all` runs the same verification internally. The result must be `ok: true`, recent by default within 6 hours, and stamped with the exact deploy SHA.
 
 ## Vercel
 
