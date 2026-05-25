@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.24.5",
+  version: "2026.05.25.1",
   title: "What's New",
-  summary: "Expansion accepts more reliably while AI automation is busy.",
+  summary: "Collecting visible yield no longer broadcasts thousands of tile updates from the simulation.",
   entries: [
+    {
+      introducedIn: "2026.05.25.1",
+      title: "Collect no longer floods live tile updates",
+      why: "Production telemetry showed COLLECT_VISIBLE spending over a second applying tile-delta fanout after large empires gathered stored yield. The command was clearing each tile individually, then broadcasting and filtering thousands of zero-yield tile deltas even though collection is a player-level economy action.",
+      changes: [
+        "Visible collect now advances a player collection epoch and emits the collect result/player update without sending a giant TILE_DELTA_BATCH.",
+        "Snapshots and tile detail use that player epoch when deriving stored yield, so collected tiles still show cleared yield after reconnects or restarts."
+      ]
+    },
     {
       introducedIn: "2026.05.24.5",
       title: "Expansion accepts more reliably under AI load",
@@ -508,111 +517,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Active Forts now show 2.5x defense in the tile Modifiers section.",
         "Iron Bastions and Thunder Bastions now show their own modifier names with 4x and 8x defense.",
         "The Fort structure detail panel now uses the same 2.5x local defense copy."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.10",
-      title: "Captured towns explain their recovery smoke",
-      why: "A town recently taken by another player could show black capture-shock smoke while the tile menu had no negative modifier, or could keep showing Long-term peace if that modifier was already present before the capture-shock payload was refreshed.",
-      changes: [
-        "Town capture shock now drives the tile heading's Recently captured countdown even when no captured structure is disabled.",
-        "Settled captured towns now list a negative Recently captured modifier that calls out paused population growth while the shock window is active.",
-        "Long-term peace and nearby-war growth rows are hidden while capture shock is active, and simulation snapshots recompute shocked town modifiers instead of preserving stale long-peace rows.",
-        "Captured frontier towns still call out that town manpower and production are paused until the tile is settled."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.9",
-      title: "Waypoint starts expanding the moment you confirm it",
-      why: "Placing a waypoint set state.waypoint and hid the menu, but never called processActionQueue, so the first step did not enqueue until the player did some unrelated action that happened to poke the queue.",
-      changes: [
-        "Tile-action dispatch for Expand Here now calls processActionQueue() immediately after setting the waypoint, so the first step queues on the same frame.",
-        "No change to halt or re-plan behaviour — only the kick that was missing."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.8",
-      title: "Expansion waypoints: chain runs, menu sticks, flag looks alive",
-      why: "Initial release of waypoints had three real bugs: the queue halted after one tile, the tile menu Cancel/Expand actions vanished on the first server tick, and the destination marker reused the same outline as the selection ring.",
-      changes: [
-        "Halt logic now checks whether the previously-enqueued tile is actually owned by you. A successful step always advances; a server reject (stale EXPAND_TARGET_OWNED, etc.) halts cleanly to amber instead of tight-looping.",
-        "The Cancel Waypoint and Expand Here tile-menu actions are now reinjected by renderTileActionMenu itself, so the HUD's per-tick re-render no longer wipes them. Injection is idempotent so duplicates can't stack.",
-        "The waypoint flag is now a brass-and-copper assembly: tapered pole with two copper rivet bands, horizontal cross-arm, empire-colored pennant with a copper top stripe, brass spire finial, and two counter-rotating cog rings around an empire-color glow disk at the base."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.7",
-      title: "Production login restored after legacy host retirement",
-      why: "The legacy `border-empires.fly.dev` server was retired and its DNS record stopped resolving, but the prod client's default still dialed that hostname whenever the Vercel build was missing VITE_GATEWAY_WS_URL — so every play.borderempires.com login completed Google sign-in and then hung on \"Securing session\" against a dead WebSocket.",
-      changes: [
-        "play.borderempires.com (and every other non-localhost, non-staging hostname) now defaults to the live combined gateway at wss://border-empires-combined.fly.dev/ws, with no reliance on a baked Vercel env var.",
-        "The implicit env-default backend is now always the gateway; only an explicit ?backend=legacy URL param or be-backend=legacy cookie still selects the retired legacy stack, kept for forensic comparison.",
-        "Added a regression test pinning play.borderempires.com to the prod gateway URL so a future env-var drift can't silently route prod into the dead legacy host again."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.6",
-      title: "Season victory adds maritime and diplomatic wins",
-      why: "The old land-control and continent-footprint paths overlapped with basic expansion and were harder to read than the strategic pressure players actually create through docks and alliances.",
-      changes: [
-        "Maritime Supremacy now starts a 24-hour victory hold when one empire controls 55% of world docks, with a minimum target of 3 settled docks.",
-        "Diplomatic Dominance now starts a 24-hour victory hold when a player's alliance bloc controls 66% of claimable land and that player is the largest individual empire in the bloc.",
-        "Territorial Control and Continental Footprint were removed from the active season-victory set, and AI path selection now treats diplomatic growth and maritime dock control as first-class strategies."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.5",
-      title: "Low-FPS 3D warning works on desktop too",
-      why: "The render FPS monitor could show desktop players stuck around 8-16 FPS, but the switch-to-2D prompt was still guarded by the old mobile-only check.",
-      changes: [
-        "Sustained 3D rendering at or below 25 FPS for 5 seconds now wakes the 2D switch prompt on desktop and mobile.",
-        "The prompt still waits until the game HUD is initialized and stays hidden if you already dismissed it or are already using the 2D renderer.",
-        "Added regression coverage for the prompt eligibility rules so the desktop path does not get gated out again."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.4",
-      title: "Border anchors automate frontier work",
-      why: "Expanding through enemy land and then settling every claimed tile created too much repetitive clicking after the strategic decision had already been made.",
-      changes: [
-        "Active forts now automatically frontier-claim unowned land in their surrounding 3x3 ring, spending the normal frontier-claim gold per tile.",
-        "Settled towns now automatically frontier-claim adjacent unowned land, also paying the normal frontier-claim gold per tile.",
-        "Settled towns automatically start settlement on adjacent owned frontier tiles only when those tiles contain a town, resource, or dock and gold/development slots are available.",
-        "Active siege outposts now launch one adjacent attack per automation tick when their owner has enough gold and manpower, prioritizing weaker frontier targets."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.3",
-      title: "Distant-tap expansion waypoints",
-      why: "Tapping every tile in a long expansion chain is exhausting on mobile. Setting a destination once and letting the queue chip away matches how RTS games handle move orders.",
-      changes: [
-        "Tap any reachable land tile that you can't currently border to open the tile action menu. The new Expand Here action shows the total gold, manpower, and estimated time before you commit, then drops an empire-colored waypoint flag at the destination with the planned route lit up in the same color.",
-        "The planner routes around mountains and through dock pairs and folds enemy tiles into the queue as attacks rather than stopping at borders.",
-        "Once placed, the action queue chips away at the route one tile at a time and re-plans on every step, so fog reveals, ownership changes, and freshly captured tiles all feed back into routing.",
-        "Tap the waypoint flag and choose Cancel Waypoint to clear it. Unreachable plans switch the flag to an amber halt tint so you notice and can re-target."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.2",
-      title: "Zero-income empires regain a settlement",
-      why: "In the rewrite economy, a real settlement always pays positive gross gold income. A recovered player with owned land but zero gross income has therefore lost the settlement invariant and should not remain alive with no settlement economy.",
-      changes: [
-        "Simulation startup now treats zero gross income as a settlement-recovery signal for non-barbarian players who still own territory.",
-        "Live settlement capture now runs the same repair immediately when the defender's only remaining town is not a settlement.",
-        "The repair respawns the player onto a fresh unowned settlement tile instead of overwriting any existing town they still control.",
-        "Added simulation regressions for sparse startup recovery, zero-income recovery, and live settlement capture with stranded town territory."
-      ]
-    },
-    {
-      introducedIn: "2026.05.18.1",
-      title: "Minimap zooms to your discovered region",
-      why: "Drawing the full world made early-game exploration unreadable — your tiny known patch was a few pixels in the corner. The minimap had the data; it just wasn't framing it.",
-      changes: [
-        "The minimap view now computes a bounding box over the tiles you've discovered (visible or previously seen) with ~8 tiles of padding on each side.",
-        "The box is expanded to match the minimap canvas aspect ratio so things don't stretch, then clamped to world bounds.",
-        "As you discover new tiles the box expands, so the rendered area grows steadily instead of jumping.",
-        "Minimap clicks and drags still set the camera correctly — pointer positions invert through the same view box.",
-        "Camera viewport rect, player dot, town markers, dock pairs, replay overlays and shard pings all map through the new box, with off-frame markers culled."
       ]
     },
   ]
