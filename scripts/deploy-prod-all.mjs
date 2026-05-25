@@ -21,13 +21,14 @@
 //      ALLOW_UNCONFIRMED_PROD_DEPLOY=1 (for CI/automation only).
 //   4. Build workspace internal packages so Fly + Vercel build steps have
 //      fresh typings.
-//   5. Force-push origin/main → origin/production.
-//   6. Tag prod-YYYYMMDDHHMMSS-<short-sha> and push the tag.
-//   7. Deploy fly.combined.toml with --strategy rolling --remote-only so the
+//   5. Verify a recent successful prod-shape gate result for the target SHA.
+//   6. Force-push origin/main → origin/production.
+//   7. Tag prod-YYYYMMDDHHMMSS-<short-sha> and push the tag.
+//   8. Deploy fly.combined.toml with --strategy rolling --remote-only so the
 //      live prod machine stays serving until the new one is healthy.
-//   8. Write __build_sha.txt so /__build_sha.txt on play.borderempires.com
+//   9. Write __build_sha.txt so /__build_sha.txt on play.borderempires.com
 //      reports which commit is live.
-//   9. Run deploy-client-prod.mjs with PRODUCTION_GATEWAY_WS_URL injected so
+//   10. Run deploy-client-prod.mjs with PRODUCTION_GATEWAY_WS_URL injected so
 //      the Vite build bakes the prod WS URL into the bundle.
 //
 // Concurrency / idempotence:
@@ -149,6 +150,18 @@ const main = async () => {
     "--filter", "@border-empires/game-domain",
     "build"
   ]);
+
+  if (process.env.SKIP_PROD_SHAPE_GATE === "1") {
+    log("SKIP_PROD_SHAPE_GATE=1 — bypassing required prod-shape deploy gate");
+  } else {
+    log("Verifying required prod-shape gate result");
+    run("node", ["./scripts/check-prod-shape-gate-result.mjs", "--target-sha", targetSha], {
+      env: {
+        ...process.env,
+        PROD_SHAPE_TARGET_SHA: targetSha
+      }
+    });
+  }
 
   log("Force-pushing origin/main onto origin/production");
   run("git", ["push", "origin", `${targetSha}:refs/heads/production`, "--force"]);
