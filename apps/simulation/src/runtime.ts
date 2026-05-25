@@ -436,6 +436,10 @@ export class SimulationRuntime {
     pendingSettlementTileKeys: string[];
   }>();
   private readonly locksByTile: Map<string, LockRecord>;
+  // Pooled per-tick accumulators for updateFrontierDecay.
+  // Reset via arr.length = 0 at the top of each call (preserves inner arrays).
+  private readonly frontierDecayChangedByOwner = new Map<string, Array<SimulationTileWireDelta>>();
+  private readonly frontierDecayExpiredByOwner = new Map<string, string[]>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
@@ -2035,6 +2039,8 @@ export class SimulationRuntime {
     if (summary.territoryTileKeys.size <= 0) {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
       this.aiSpatialFocusByPlayer.delete(playerId);
+      this.frontierDecayChangedByOwner.delete(playerId);
+      this.frontierDecayExpiredByOwner.delete(playerId);
     }
     const ownedTiles = [...summary.territoryTileKeys]
       .map((tileKey) => this.tiles.get(tileKey))
@@ -5809,15 +5815,23 @@ export class SimulationRuntime {
   }
 
   private updateFrontierDecay(nowMs: number): void {
-    const changedDeltasByOwner = new Map<string, Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>>>();
-    const addChangedDelta = (playerId: string, delta: ReturnType<SimulationRuntime["tileDeltaFromState"]>): void => {
-      const existing = changedDeltasByOwner.get(playerId);
+    // Reset pooled accumulators without discarding inner arrays (pool pattern).
+    for (const arr of this.frontierDecayChangedByOwner.values()) arr.length = 0;
+    for (const arr of this.frontierDecayExpiredByOwner.values()) arr.length = 0;
+
+    const addChangedDelta = (playerId: string, delta: SimulationTileWireDelta): void => {
+      const existing = this.frontierDecayChangedByOwner.get(playerId);
       if (existing) existing.push(delta);
-      else changedDeltasByOwner.set(playerId, [delta]);
+      else {
+        const arr: SimulationTileWireDelta[] = [delta];
+        this.frontierDecayChangedByOwner.set(playerId, arr);
+      }
     };
-    // Track tiles that expired this tick so we can re-check encirclement for
-    // neighboring tiles after all expirations are processed.
-    const expiredByOwner = new Map<string, string[]>();
+    const addExpiredKey = (playerId: string, tileKey: string): void => {
+      const existing = this.frontierDecayExpiredByOwner.get(playerId);
+      if (existing) existing.push(tileKey);
+      else this.frontierDecayExpiredByOwner.set(playerId, [tileKey]);
+    };
 
     for (const [tileKey, tile] of this.tiles) {
       if (this.locksByTile.has(tileKey)) continue;
@@ -5864,9 +5878,7 @@ export class SimulationRuntime {
         this.fortPatrolGraceUntilByTile.delete(tileKey);
         addChangedDelta(ownerId, this.tileDeltaFromState(expiredTile));
         // Track for encirclement re-check of neighbors below.
-        const expiredList = expiredByOwner.get(ownerId);
-        if (expiredList) expiredList.push(tileKey);
-        else expiredByOwner.set(ownerId, [tileKey]);
+        addExpiredKey(ownerId, tileKey);
         continue;
       }
 
@@ -5881,7 +5893,8 @@ export class SimulationRuntime {
       }
     }
 
-    for (const [playerId, tileDeltas] of changedDeltasByOwner) {
+    for (const [playerId, tileDeltas] of this.frontierDecayChangedByOwner) {
+      if (tileDeltas.length === 0) continue;
       const commandId = this.nextTerritoryAutomationCommandId("frontier-decay", playerId, "batch", nowMs);
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
@@ -5894,7 +5907,8 @@ export class SimulationRuntime {
 
     // Re-check encirclement for neighbors of tiles that expired this tick.
     // A tile expiry can cut off neighbors that were connected through it.
-    for (const [playerId, expiredKeys] of expiredByOwner) {
+    for (const [playerId, expiredKeys] of this.frontierDecayExpiredByOwner) {
+      if (expiredKeys.length === 0) continue;
       const commandId = this.nextTerritoryAutomationCommandId("frontier-decay-encirclement", playerId, "batch", nowMs);
       this.applyEncirclement(expiredKeys, playerId, commandId);
     }
