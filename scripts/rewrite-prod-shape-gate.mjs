@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +9,15 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const numberEnv = (name, fallback) => {
   const value = Number(process.env[name] ?? "");
   return Number.isFinite(value) ? value : fallback;
+};
+
+const captureGitSha = () => {
+  const result = spawnSync("git", ["rev-parse", "HEAD"], {
+    cwd: root,
+    encoding: "utf8"
+  });
+  if (result.status !== 0) return null;
+  return result.stdout.trim();
 };
 
 const boolEnv = (name, fallback = false) => {
@@ -170,6 +179,7 @@ const warmupIterations = Math.max(0, numberEnv("PROD_SHAPE_WARMUP_ITERATIONS", 2
 const waitForResult = boolEnv("PROD_SHAPE_WAIT_FOR_RESULT", false);
 const allowAttacks = boolEnv("PROD_SHAPE_ALLOW_ATTACKS", false);
 const allowLiveProdMutation = boolEnv("PROD_SHAPE_ALLOW_LIVE_PROD_MUTATION", false);
+const targetGitSha = process.env.PROD_SHAPE_TARGET_SHA ?? captureGitSha();
 
 if (/^wss:\/\/border-empires-combined\.fly\.dev\/ws/.test(wsUrl) && !allowLiveProdMutation) {
   throw new Error(
@@ -259,6 +269,7 @@ const payload = {
   ok: absoluteChecks.every((check) => check.ok) && regressionChecks.every((check) => check.ok),
   at: startedAt.toISOString(),
   target: {
+    gitSha: targetGitSha,
     wsUrl,
     gatewayHealthUrl,
     gatewayMetricsUrl,
