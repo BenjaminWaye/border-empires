@@ -156,48 +156,21 @@ pnpm ops:staging:drift-check
 
 This compares the effective env on the combined staging Fly machine against the checked-in values in `fly.combined.staging.toml`. It exits non-zero on drift, including stale secret overrides like `SIMULATION_ADDRESS=...internal:50051`.
 
-For rewrite localhost stress testing with a durable DB-backed 20-AI world on `http://localhost:5173`, run:
+For rewrite localhost stress testing with a durable SQLite-backed 20-AI world on `http://localhost:5173`, run:
 
 ```bash
-DATABASE_URL="postgres://USER@127.0.0.1:5432/border_empires_local?sslmode=disable" pnpm rewrite:restart:20ai
+pnpm rewrite:restart:20ai
 ```
 
-If `DATABASE_URL` is unset, the helper falls back to the older Fly proxy path and expects a reachable Fly app name in `DB_PROXY_APP`.
+The helper writes to `./.local-data/border-empires-20ai.db` by default. Override with `SQLITE_PATH=...`.
 
 For an explicit fresh-world reseed instead of durable recovery, run:
 
 ```bash
-DATABASE_URL="postgres://USER@127.0.0.1:5432/border_empires_local?sslmode=disable" pnpm rewrite:restart:20ai:seed
+pnpm rewrite:restart:20ai:seed
 ```
 
-`rewrite:restart:20ai:seed` is the explicit localhost-only bootstrap path for an empty DB. It enables seed recovery fallback and disables strict durable-startup requirements for that run only.
-
-When `DATABASE_URL` points at `127.0.0.1` or `localhost`, the seed helper also clears the local simulation tables first so it really starts from a fresh seeded world instead of recovering old local events.
-
-## Rewrite DB Operations (Supabase)
-
-The rewrite stack now treats Postgres as an external database (Supabase) and keeps operational storage bounded.
-
-- Apply migrations:
-
-```bash
-DATABASE_URL="postgres://...sslmode=require" pnpm rewrite:db:migrate
-```
-
-- Check database size against guardrails (`300MB` warn, `400MB` critical, `450MB` emergency):
-
-```bash
-DATABASE_URL="postgres://...sslmode=require" pnpm rewrite:db:size
-```
-
-- Staging app bootstrap helper:
-
-```bash
-export STAGING_DATABASE_URL="postgres://...sslmode=require"
-./provision-fly-staging.command
-```
-
-Detailed cutover/rollback steps are in `docs/rewrite-supabase-cutover-runbook.md`.
+`rewrite:restart:20ai:seed` deletes the local SQLite file before booting so it really starts from a fresh seeded world instead of recovering old local events.
 
 ## Client Release Notes
 
@@ -366,7 +339,6 @@ The split simulation service now supports checkpoint memory watermarks so checkp
 Environment variables:
 
 - `SIMULATION_SNAPSHOT_EVERY_EVENTS`: checkpoint cadence by persisted events
-- `SIMULATION_WRITE_CHECKPOINT_PROJECTIONS`: set to `0` to skip per-checkpoint projection table rewrites and keep Postgres I/O focused on durable snapshots
 - `SIMULATION_CHECKPOINT_MAX_RSS_MB`: defer checkpoint when RSS is at or above this many MB
 - `SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB`: defer checkpoint when heap used is at or above this many MB
 
