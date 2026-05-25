@@ -90,13 +90,17 @@ describe("buildPlannerRelevantTileKeys", () => {
 
   it("skips the rebuild when tileCollectionVersion is unchanged", () => {
     const player = makePlayer({ id: "p1", tileCollectionVersion: 7, territoryTileKeys: ["10,10"] });
+    const rebuilds: Array<{ playerId: string; inputTileKeyCount: number }> = [];
     const index = createPlannerRelevantTileKeyIndex({
       players: [player],
       tiles: [],
       docks: []
-    }, 0);
+    }, 0, {
+      onPlayerRelevanceRebuild: (playerId, inputTileKeyCount) => rebuilds.push({ playerId, inputTileKeyCount })
+    });
 
     expect(index.keys()).toEqual(new Set(["10,10"]));
+    expect(rebuilds).toEqual([{ playerId: "p1", inputTileKeyCount: 1 }]);
 
     // Same version → cache hit. Even if territoryTileKeys is mutated in the
     // input (which would never happen in production without a version bump),
@@ -107,5 +111,42 @@ describe("buildPlannerRelevantTileKeys", () => {
     );
 
     expect(index.keys()).toEqual(new Set(["10,10"]));
+    expect(rebuilds).toEqual([{ playerId: "p1", inputTileKeyCount: 1 }]);
+  });
+
+  it("does not rescan large unchanged empires during incremental player replacement", () => {
+    const makeTerritory = (offset: number, count: number): string[] =>
+      Array.from({ length: count }, (_, index) => `${offset + index},10`);
+    const players = Array.from({ length: 8 }, (_, index) =>
+      makePlayer({
+        id: `p${index + 1}`,
+        tileCollectionVersion: 3,
+        territoryTileKeys: makeTerritory(index * 100, 100)
+      })
+    );
+    const rebuilds: Array<{ playerId: string; inputTileKeyCount: number }> = [];
+    const index = createPlannerRelevantTileKeyIndex({
+      players,
+      tiles: [],
+      docks: []
+    }, 0, {
+      onPlayerRelevanceRebuild: (playerId, inputTileKeyCount) => rebuilds.push({ playerId, inputTileKeyCount })
+    });
+
+    expect(index.keys().size).toBe(800);
+    expect(rebuilds).toHaveLength(8);
+    rebuilds.length = 0;
+
+    index.replacePlayers(
+      [
+        ...players.slice(0, 3),
+        makePlayer({ ...players[3]!, tileCollectionVersion: 4, territoryTileKeys: ["50,50"] }),
+        ...players.slice(4)
+      ],
+      new Map()
+    );
+
+    expect(rebuilds).toEqual([{ playerId: "p4", inputTileKeyCount: 1 }]);
+    expect(index.keys().has("50,50")).toBe(true);
   });
 });
