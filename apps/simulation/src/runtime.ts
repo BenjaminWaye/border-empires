@@ -186,8 +186,10 @@ import {
 } from "./ai-spatial-focus.js";
 import {
   InMemorySimulationPersistence,
+  TERRITORY_AUTO_COMMAND_PREFIX,
   UPKEEP_STRATEGIC_KEYS,
   hasOutstandingUpkeepNeed,
+  lockSourceFromSessionId,
   type ActiveAetherBridgeView,
   type ActiveAetherWallView,
   type AetherWallDirection,
@@ -271,12 +273,6 @@ export const SETTLE_DURATION_MS = 60_000;
 export const FOREST_SETTLEMENT_MULT = 2;
 export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
-// Command-id prefix used by every command emitted from territory-automation
-// (fort auto-attack, siege/light outpost sweep). Single source of truth — the
-// id is built in `nextTerritoryAutomationCommandId` and matched in
-// `plannerGatingLockPlayerIds` so passive defensive fire never starves the
-// AI strategic planner.
-const TERRITORY_AUTO_COMMAND_PREFIX = "territory-auto:";
 
 const isForestSettlementTile = (x: number, y: number): boolean =>
   terrainAt(x, y) === "LAND" &&
@@ -2018,7 +2014,16 @@ export class SimulationRuntime {
       .map((tileKey) => this.tiles.get(tileKey))
       .filter((tile): tile is DomainTileState => tile !== undefined);
     const spatialFocus = this.refreshSpatialFocusForPlayer(playerId, this.now());
-    const hasActiveLock = this.plannerGatingLockPlayerIds().has(playerId);
+    // No-alloc per-tick check: short-circuit on first player-issued lock.
+    // Allocating a Set for one .has() lookup would be wasteful in the AI
+    // planner hot path (per AI per planner tick).
+    let hasActiveLock = false;
+    for (const lock of this.locksByTile.values()) {
+      if (lock.playerId !== playerId) continue;
+      if (lock.source === "automation") continue;
+      hasActiveLock = true;
+      break;
+    }
     let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
     if (!options?.skipPreplan) {
       const preplan = chooseAutomationPreplanCommand({
@@ -2304,10 +2309,22 @@ export class SimulationRuntime {
     incomePerMinute: number;
     strategicProductionPerMinute: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount: number;
-    hasActiveLock: boolean;
+    /** True iff a *player-issued* frontier lock would block the AI planner. */
+    plannerBlocked: boolean;
+    /** True iff any lock exists for this player (player-issued OR territory-automation). */
+    hasAnyLock: boolean;
     allies: string[];
   }> {
-    const lockPlayerIds = this.plannerGatingLockPlayerIds();
+    // Build both sets in one pass — debug callers want to distinguish
+    // "planner is gated" from "anything is locked" (e.g. fort auto-attack
+    // firing). Without `hasAnyLock`, the only signal a fort is firing
+    // would be the metrics buffer.
+    const plannerBlockedIds = new Set<string>();
+    const anyLockIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      anyLockIds.add(lock.playerId);
+      if (lock.source !== "automation") plannerBlockedIds.add(lock.playerId);
+    }
     return [...this.players.values()]
       .map((player) => {
         this.refreshManpowerOnly(player);
@@ -2328,7 +2345,8 @@ export class SimulationRuntime {
           incomePerMinute: this.estimatedIncomePerMinuteForPlayer(player.id),
           strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
           activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-          hasActiveLock: lockPlayerIds.has(player.id),
+          plannerBlocked: plannerBlockedIds.has(player.id),
+          hasAnyLock: anyLockIds.has(player.id),
           allies: [...player.allies].sort()
         };
       })
@@ -3419,7 +3437,8 @@ export class SimulationRuntime {
       targetY: validation.target.y,
       originKey: simulationTileKey(validation.origin.x, validation.origin.y),
       targetKey: simulationTileKey(validation.target.x, validation.target.y),
-      resolvesAt: validation.resolvesAt
+      resolvesAt: validation.resolvesAt,
+      source: lockSourceFromSessionId(command.sessionId)
     };
     const combatResolution = actionType === "EXPAND" ? undefined : this.buildLockedCombatResolution(baseLock);
     const lock: LockRecord = {
@@ -7061,18 +7080,17 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate(command);
   }
 
-  // Locks that should gate the AI strategic planner. Passive defensive fire
-  // from forts and siege/light outposts (sweep) also creates playerId-scoped
+  // Player-ids with at least one *player-issued* frontier lock — i.e. locks
+  // that should gate the AI strategic planner. Passive defensive fire from
+  // forts and siege/light outposts (sweep) also creates playerId-scoped
   // combat locks via `handleFrontierCommand` from territory-automation; those
-  // arrive every ~3 s as long as a valid target is in range, which would
-  // otherwise starve the planner with a perpetual `active_lock` noop. Lock
-  // command IDs produced by `nextTerritoryAutomationCommandId` are prefixed
-  // `territory-auto:` — the planner only blocks on locks NOT carrying that
-  // prefix (i.e. player-issued frontier commands).
+  // carry `source: "automation"` and are filtered out here so they don't
+  // starve the planner with a perpetual `active_lock` noop (territory-
+  // automation re-locks every ~3 s as long as a valid target stays in range).
   private plannerGatingLockPlayerIds(): Set<string> {
     const lockPlayerIds = new Set<string>();
     for (const lock of this.locksByTile.values()) {
-      if (lock.commandId.startsWith(TERRITORY_AUTO_COMMAND_PREFIX)) continue;
+      if (lock.source === "automation") continue;
       lockPlayerIds.add(lock.playerId);
     }
     return lockPlayerIds;
