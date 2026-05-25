@@ -6,12 +6,10 @@ export type SimulationRuntimeEnv = {
   port: number;
   metricsHost: string;
   metricsPort: number;
-  databaseUrl?: string;
   sqlitePath?: string;
   snapshotDir?: string;
   applySchema: boolean;
   checkpointEveryEvents: number;
-  writeCheckpointProjections: boolean;
   checkpointForceAfterEvents: number;
   checkpointMaxRssBytes?: number;
   checkpointMaxHeapUsedBytes?: number;
@@ -73,16 +71,12 @@ const parseBooleanishEnvFlag = (value: string | undefined): boolean => {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 };
 
-const parseBooleanishEnvFlagWithDefault = (value: string | undefined, fallback: boolean): boolean =>
-  value === undefined ? fallback : parseBooleanishEnvFlag(value);
-
 export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRuntimeEnv => {
-  const databaseUrl = env.SIMULATION_DATABASE_URL ?? env.DATABASE_URL;
   const sqlitePath = env.SIMULATION_SQLITE_PATH ?? env.SQLITE_PATH;
   const isManagedRuntime = isManagedRuntimeEnv(env);
 
-  if (isManagedRuntime && !databaseUrl && !sqlitePath) {
-    throw new Error("simulation requires SIMULATION_DATABASE_URL/DATABASE_URL or SIMULATION_SQLITE_PATH/SQLITE_PATH in managed runtime");
+  if (isManagedRuntime && !sqlitePath) {
+    throw new Error("simulation requires SIMULATION_SQLITE_PATH/SQLITE_PATH in managed runtime");
   }
   if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE && !env.SIMULATION_RULESET_ID) {
     throw new Error("simulation requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
@@ -107,7 +101,6 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     port: parsePositiveNumber(env.SIMULATION_PORT, 50051, "simulation port"),
     metricsHost: env.SIMULATION_METRICS_HOST ?? (env.SIMULATION_HOST ?? "127.0.0.1"),
     metricsPort: parsePositiveNumber(env.SIMULATION_METRICS_PORT, 50052, "simulation metrics port"),
-    ...(databaseUrl ? { databaseUrl } : {}),
     ...(sqlitePath ? { sqlitePath } : {}),
     ...(env.SIMULATION_SNAPSHOT_DIR ? { snapshotDir: env.SIMULATION_SNAPSHOT_DIR } : {}),
     applySchema: env.SIMULATION_DB_APPLY_SCHEMA === "1",
@@ -115,10 +108,6 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       env.SIMULATION_SNAPSHOT_EVERY_EVENTS,
       5000,
       "simulation snapshot interval"
-    ),
-    writeCheckpointProjections: parseBooleanishEnvFlagWithDefault(
-      env.SIMULATION_WRITE_CHECKPOINT_PROJECTIONS,
-      true
     ),
     checkpointForceAfterEvents: parsePositiveNumber(
       env.SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS,
