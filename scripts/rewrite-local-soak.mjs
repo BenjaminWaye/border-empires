@@ -330,6 +330,7 @@ const runIteration = (session, iteration) =>
 
 let session = await openSession();
 const results = [];
+let stoppedReason = null;
 
 for (let iteration = 1; iteration <= iterations + warmupIterations; iteration += 1) {
   let result;
@@ -348,6 +349,10 @@ for (let iteration = 1; iteration <= iterations + warmupIterations; iteration +=
         continue;
       }
       if (!refreshOnEmptyFrontier || refreshedForIteration || !message.includes("found no frontier action candidate")) {
+        if (message.includes("resource exhausted") && results.length > 0) {
+          stoppedReason = message;
+          break;
+        }
         throw error;
       }
       await closeSession(session);
@@ -355,6 +360,7 @@ for (let iteration = 1; iteration <= iterations + warmupIterations; iteration +=
       refreshedForIteration = true;
     }
   }
+  if (stoppedReason) break;
   if (iteration <= warmupIterations) {
     if (logEachIteration) {
       console.log(JSON.stringify({ ...result, warmup: true, reconnectEachIteration }));
@@ -384,7 +390,8 @@ const summary = {
   acceptedMaxMs: acceptedLatencies.length > 0 ? Math.max(...acceptedLatencies) : null,
   acceptedP95Ms: percentile(acceptedLatencies, 0.95),
   acceptedP99Ms: percentile(acceptedLatencies, 0.99),
-  acceptanceOver500Ms: acceptedLatencies.filter((value) => value > 500).length
+  acceptanceOver500Ms: acceptedLatencies.filter((value) => value > 500).length,
+  ...(stoppedReason ? { stoppedReason } : {})
 };
 if (emitAcceptedLatencies) summary.acceptedLatenciesMs = acceptedLatencies;
 
