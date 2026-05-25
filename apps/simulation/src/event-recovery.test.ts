@@ -210,6 +210,37 @@ describe("recoverSimulationStateFromEvents", () => {
     ]);
   });
 
+  it("advances playerYieldCollectionEpochByPlayer from visible collect epoch events", () => {
+    const recovered = applySimulationEventsToRecoveredState(
+      {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Settlement 5,5" }
+          }
+        ],
+        activeLocks: [],
+        tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: 1_000 }],
+        playerYieldCollectionEpochByPlayer: [{ playerId: "player-1", collectedAt: 2_000 }]
+      },
+      [
+        {
+          eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED",
+          commandId: "collect-visible-1",
+          playerId: "player-1",
+          collectedAt: 9_000
+        }
+      ]
+    );
+
+    expect(recovered.tileYieldCollectedAtByTile).toEqual([{ tileKey: "5,5", collectedAt: 1_000 }]);
+    expect(recovered.playerYieldCollectionEpochByPlayer).toEqual([{ playerId: "player-1", collectedAt: 9_000 }]);
+  });
+
   it("clears cancelled accepted frontier locks from recovered state", () => {
     const recovered = recoverSimulationStateFromEvents([
       {
