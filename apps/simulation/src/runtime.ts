@@ -230,6 +230,7 @@ import {
   uniqueLocksByCommandId
 } from "./runtime-hydration.js";
 import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "./encirclement.js";
+import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
 export type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -511,6 +512,7 @@ export class SimulationRuntime {
   private drainScheduled = false;
   private immediateDrainScheduled = false;
   private draining = false;
+  private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
 
   private refreshSpatialFocusForPlayer(playerId: string, now: number): AiSpatialFocus | undefined {
     const summary = this.summaryForPlayer(playerId);
@@ -1820,6 +1822,7 @@ export class SimulationRuntime {
   }
 
   private replaceTileState(tileKey: string, tile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
+    this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.tiles.get(tileKey);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // Maintain settledAt timestamp for the tile-shedding ticker:
@@ -2455,27 +2458,31 @@ export class SimulationRuntime {
   } {
     return {
       tiles: [...this.tiles.values()]
-        .map((tile) => ({
-          x: tile.x,
-          y: tile.y,
-          terrain: tile.terrain,
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dockId: tile.dockId } : {}),
-          ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
-          ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-          ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-          ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-          ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-          ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-          ...(tile.town?.type ? { townType: tile.town.type } : {}),
-          ...(tile.town?.name ? { townName: tile.town.name } : {}),
-          ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-          ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
-          ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-          ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
-          ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
-          ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {})
-        }))
+        .map((tile) => {
+          const tileKey = simulationTileKey(tile.x, tile.y);
+          const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
+          return {
+            x: tile.x,
+            y: tile.y,
+            terrain: tile.terrain,
+            ...(tile.resource ? { resource: tile.resource } : {}),
+            ...(tile.dockId ? { dockId: tile.dockId } : {}),
+            ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
+            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+            ...(cached.townJson ? { townJson: cached.townJson } : {}),
+            ...(tile.town?.type ? { townType: tile.town.type } : {}),
+            ...(tile.town?.name ? { townName: tile.town.name } : {}),
+            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
+            ...(cached.fortJson ? { fortJson: cached.fortJson } : {}),
+            ...(cached.observatoryJson ? { observatoryJson: cached.observatoryJson } : {}),
+            ...(cached.siegeOutpostJson ? { siegeOutpostJson: cached.siegeOutpostJson } : {}),
+            ...(cached.economicStructureJson ? { economicStructureJson: cached.economicStructureJson } : {}),
+            ...(cached.sabotageJson ? { sabotageJson: cached.sabotageJson } : {})
+          };
+        })
         .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
       players: [...this.players.values()]
         .map((player) => {
@@ -5649,13 +5656,15 @@ export class SimulationRuntime {
       tiles: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
+    const tileKey = simulationTileKey(tile.x, tile.y);
+    const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
     return {
       x: tile.x,
       y: tile.y,
       ...(tile.terrain ? { terrain: tile.terrain } : {}),
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+      ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
       // Explicit `undefined` (rather than `...({})`) is load-bearing on these
       // fields: subscribers diff by own-property existence to detect clears
       // (uncapture, structure removal). See the uncapture regression test.
@@ -5667,11 +5676,11 @@ export class SimulationRuntime {
       ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
       ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
       ...(enrichedTile.town?.populationTier ? { townPopulationTier: enrichedTile.town.populationTier } : {}),
-      fortJson: tile.fort ? JSON.stringify(tile.fort) : undefined,
-      observatoryJson: tile.observatory ? JSON.stringify(tile.observatory) : undefined,
-      siegeOutpostJson: tile.siegeOutpost ? JSON.stringify(tile.siegeOutpost) : undefined,
-      economicStructureJson: tile.economicStructure ? JSON.stringify(tile.economicStructure) : undefined,
-      sabotageJson: tile.sabotage ? JSON.stringify(tile.sabotage) : undefined,
+      fortJson: cached.fortJson,
+      observatoryJson: cached.observatoryJson,
+      siegeOutpostJson: cached.siegeOutpostJson,
+      economicStructureJson: cached.economicStructureJson,
+      sabotageJson: cached.sabotageJson,
       ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
       ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
       ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {})
