@@ -54,7 +54,6 @@ import { createInitialSeasonState, updateSeasonVictoryTrackers } from "./season-
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "./season-worldgen.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import { createMainThreadTaskTracker } from "./main-thread-task-tracker.js";
-import type { ProjectionExportState } from "./postgres-projection-writer.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
   if (!value) return undefined;
@@ -237,11 +236,9 @@ type ProtoSimulationEvent = {
 type SimulationServiceOptions = {
   host?: string;
   port?: number;
-  databaseUrl?: string;
   sqlitePath?: string;
   applySchema?: boolean;
   checkpointEveryEvents?: number;
-  writeCheckpointProjections?: boolean;
   checkpointForceAfterEvents?: number;
   checkpointMaxRssBytes?: number;
   checkpointMaxHeapUsedBytes?: number;
@@ -618,17 +615,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       redacted: sample.redacted
     });
   };
-  const isDbBackedStartup =
-    (typeof options.databaseUrl === "string" && options.databaseUrl.length > 0) ||
-    (typeof options.sqlitePath === "string" && options.sqlitePath.length > 0);
-  const requireDurableStartupState = options.requireDurableStartupState ?? isDbBackedStartup;
+  const hasSqlitePath =
+    typeof options.sqlitePath === "string" && options.sqlitePath.length > 0;
+  const isDbBackedStartup = hasSqlitePath || options.requireDurableStartupState === true;
+  const requireDurableStartupState = options.requireDurableStartupState ?? hasSqlitePath;
   const rulesetId = options.rulesetId;
   const mapStyle = options.mapStyle ?? "continents";
   const seedPlayers = createSeedPlayers(options.seedProfile);
   let snapshotStringifier: ReturnType<typeof createWorkerSnapshotStringifier> | undefined;
   // Only spin up a stringify worker for SQLite-backed deployments — full
   // snapshots there are ~18MB and inline JSON.stringify blocks the
-  // simulation event loop. Postgres/in-memory tests stay inline.
+  // simulation event loop. In-memory tests stay inline.
   if (options.sqlitePath && process.env.SIMULATION_SNAPSHOT_STRINGIFY_INLINE !== "1") {
     try {
       snapshotStringifier = createWorkerSnapshotStringifier();
@@ -653,7 +650,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     return generated.initialState.tiles;
   };
   const storeFactoryOptions = {
-    ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
     ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
     ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {}),
     ...(snapshotStringifier ? { stringify: snapshotStringifier } : {}),
@@ -970,21 +966,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         };
       });
     },
-    ...(options.writeCheckpointProjections === false
-      ? {}
-      : {
-          // Previously called runtime.exportState() which materialises and
-          // sorts the full ~200k tile array (then we discarded it). That
-          // synchronous O(world) work was the dominant cost of the
-          // "simulation checkpoint phase" event-loop block — staging
-          // observed 5-10s spikes preceded by this log line. The dedicated
-          // projection method returns the same { players, activeLocks }
-          // shape without ever touching this.tiles.
-          exportProjectionState: (): ProjectionExportState =>
-            mainThreadTasks.trackSync("checkpoint_export_projection_state", undefined, () =>
-              runtime.exportProjectionPlayersAndLocks()
-            )
-        }),
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
     ...(typeof options.checkpointForceAfterEvents === "number"
       ? { forceCheckpointAfterEvents: options.checkpointForceAfterEvents }

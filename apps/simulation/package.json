@@ -15,8 +15,6 @@
     "@border-empires/sim-protocol": "workspace:*",
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",
-    "@types/pg": "^8.20.0",
-    "pg": "^8.20.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

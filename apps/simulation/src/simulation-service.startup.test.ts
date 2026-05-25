@@ -66,7 +66,7 @@ describe("simulation service startup recovery", () => {
     await expect(
       createSimulationService({
         seedProfile: "season-20ai",
-        databaseUrl: "postgres://simulation",
+        requireDurableStartupState: true,
         commandStore,
         eventStore,
         snapshotStore,
@@ -89,7 +89,7 @@ describe("simulation service startup recovery", () => {
     await expect(
       createSimulationService({
         seedProfile: "season-20ai",
-        databaseUrl: "postgres://simulation",
+        requireDurableStartupState: true,
         commandStore,
         eventStore,
         snapshotStore,
@@ -111,7 +111,7 @@ describe("simulation service startup recovery", () => {
 
     const service = await createSimulationService({
       seedProfile: "season-20ai",
-      databaseUrl: "postgres://simulation",
+      requireDurableStartupState: true,
       commandStore,
       eventStore,
       snapshotStore,
@@ -178,7 +178,7 @@ describe("simulation service startup recovery", () => {
 
     const service = await createSimulationService({
       seedProfile: "season-20ai",
-      databaseUrl: "postgres://simulation",
+      requireDurableStartupState: true,
       commandStore,
       eventStore,
       snapshotStore,
@@ -202,7 +202,7 @@ describe("simulation service startup recovery", () => {
     const snapshotStore = new InMemorySimulationSnapshotStore();
 
     const service = await createSimulationService({
-      databaseUrl: "postgres://simulation",
+      requireDurableStartupState: true,
       commandStore,
       eventStore,
       snapshotStore,
@@ -252,7 +252,7 @@ describe("simulation service startup recovery", () => {
 
     const service = await createSimulationService({
       seedProfile: "season-20ai",
-      databaseUrl: "postgres://simulation",
+      requireDurableStartupState: true,
       commandStore,
       eventStore,
       snapshotStore,
@@ -303,7 +303,7 @@ describe("simulation service startup recovery", () => {
 
     const service = await createSimulationService({
       seedProfile: "season-20ai",
-      databaseUrl: "postgres://simulation",
+      requireDurableStartupState: true,
       commandStore,
       eventStore,
       snapshotStore,
@@ -368,7 +368,7 @@ describe("simulation service startup recovery", () => {
     });
 
     const service = await createSimulationService({
-      databaseUrl: "postgres://simulation",
+      requireDurableStartupState: true,
       commandStore,
       eventStore,
       snapshotStore,
@@ -433,7 +433,7 @@ describe("simulation service startup recovery", () => {
     });
 
     const service = await createSimulationService({
-      databaseUrl: "postgres://simulation",
+      requireDurableStartupState: true,
       commandStore,
       eventStore,
       snapshotStore,
