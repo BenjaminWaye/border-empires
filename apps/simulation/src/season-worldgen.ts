@@ -150,6 +150,7 @@ export const generateSeasonWorld = (
       players: [...initialPlayers.values()].map((player) => toRecoveredPlayer(player)),
       pendingSettlements: [],
       tileYieldCollectedAtByTile: [],
+      playerYieldCollectionEpochByPlayer: [],
       collectVisibleCooldownByPlayer: []
     },
     worldSeed: generated.worldSeed ?? requestedWorldSeed

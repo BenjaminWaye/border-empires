@@ -285,6 +285,12 @@ export type SimulationEvent =
       anchors: Array<{ tileKey: string; collectedAt: number }>;
     }
   | {
+      eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED";
+      commandId: string;
+      playerId: string;
+      collectedAt: number;
+    }
+  | {
       eventType: "SETTLEMENT_STARTED";
       commandId: string;
       playerId: string;

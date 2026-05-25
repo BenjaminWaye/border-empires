@@ -69,6 +69,7 @@ export type RecoveredSimulationState = {
   }>;
   pendingSettlements?: PendingSettlementRecord[];
   tileYieldCollectedAtByTile?: Array<{ tileKey: string; collectedAt: number }>;
+  playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
   collectVisibleCooldownByPlayer?: Array<{ playerId: string; cooldownUntil: number }>;
 };
 
@@ -80,6 +81,7 @@ type RecoveredSimulationAccumulator = {
   players: NonNullable<RecoveredSimulationState["players"]>;
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
   tileYieldCollectedAtByTile: Map<string, number>;
+  playerYieldCollectionEpochByPlayer: Map<string, number>;
   collectVisibleCooldownByPlayer: NonNullable<RecoveredSimulationState["collectVisibleCooldownByPlayer"]>;
 };
 
@@ -132,6 +134,9 @@ export const createRecoveredSimulationAccumulator = (
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     tileYieldCollectedAtByTile: new Map(
       (baseState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt])
+    ),
+    playerYieldCollectionEpochByPlayer: new Map(
+      (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
     ),
     collectVisibleCooldownByPlayer: baseState.collectVisibleCooldownByPlayer ? [...baseState.collectVisibleCooldownByPlayer] : []
   };
@@ -366,6 +371,11 @@ export const applySimulationEventsToRecoveredAccumulator = (
       continue;
     }
 
+    if (event.eventType === "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED") {
+      accumulator.playerYieldCollectionEpochByPlayer.set(event.playerId, event.collectedAt);
+      continue;
+    }
+
     if (event.eventType === "SETTLEMENT_STARTED") {
       spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
       removeRecoveredPendingSettlement(accumulator, event.tileKey);
@@ -469,6 +479,9 @@ export const finalizeRecoveredSimulationAccumulator = (
   tileYieldCollectedAtByTile: [...accumulator.tileYieldCollectedAtByTile.entries()]
     .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
     .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+  playerYieldCollectionEpochByPlayer: [...accumulator.playerYieldCollectionEpochByPlayer.entries()]
+    .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
+    .sort((left, right) => left.playerId.localeCompare(right.playerId)),
   collectVisibleCooldownByPlayer: [...accumulator.collectVisibleCooldownByPlayer]
 });
 
@@ -487,6 +500,7 @@ export const recoverSimulationStateFromEvents = (
       players: [],
       pendingSettlements: [],
       tileYieldCollectedAtByTile: [],
+      playerYieldCollectionEpochByPlayer: [],
       collectVisibleCooldownByPlayer: []
     },
     events
