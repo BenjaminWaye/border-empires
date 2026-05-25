@@ -24,6 +24,10 @@ const addScopedKey = (target: Set<string>, tileKey: string, radius: number): voi
   }
 };
 
+type PlannerRelevantTileKeyIndexOptions = {
+  onPlayerRelevanceRebuild?: (playerId: string, inputTileKeyCount: number) => void;
+};
+
 export const buildPlannerRelevantTileKeys = (
   worldView: Pick<PlannerWorldView, "players" | "tiles" | "docks">,
   radius = DEFAULT_PLANNER_SYNC_RADIUS
@@ -74,7 +78,8 @@ type PlannerRelevantTileKeyIndex = {
 
 export const createPlannerRelevantTileKeyIndex = (
   worldView: Pick<PlannerWorldView, "players" | "tiles" | "docks">,
-  radius = DEFAULT_PLANNER_SYNC_RADIUS
+  radius = DEFAULT_PLANNER_SYNC_RADIUS,
+  options: PlannerRelevantTileKeyIndexOptions = {}
 ): PlannerRelevantTileKeyIndex => {
   const safeRadius = Math.max(0, Math.floor(radius));
   const tilesByKey = new Map<string, PlannerTileView>(
@@ -130,6 +135,10 @@ export const createPlannerRelevantTileKeyIndex = (
         // correct). Skip the rebuild entirely.
         continue;
       }
+      options.onPlayerRelevanceRebuild?.(
+        player.id,
+        player.territoryTileKeys.length + player.frontierTileKeys.length + player.pendingSettlementTileKeys.length
+      );
       const nextKeys = buildPlannerRelevantTileKeysForPlayer(player, nextTilesByKey, dockLinksByDockTileKey, safeRadius);
       const previousKeys = keysByPlayerId.get(player.id);
       if (previousKeys) removeKeys(previousKeys);

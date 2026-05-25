@@ -177,6 +177,35 @@ describe("frontier command planner", () => {
     expect(analysis.scaffoldExpand?.target).toMatchObject({ x: 11, y: 11 });
   });
 
+  it("evaluates each neutral frontier target once even when many owned tiles border it", () => {
+    const tiles = new Map([
+      ["9,9", { x: 9, y: 9, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["10,9", { x: 10, y: 9, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["11,9", { x: 11, y: 9, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["9,10", { x: 9, y: 10, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["11,10", { x: 11, y: 10, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["9,11", { x: 9, y: 11, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["10,11", { x: 10, y: 11, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["11,11", { x: 11, y: 11, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["10,10", { x: 10, y: 10, terrain: "LAND" as const, resource: "FARM" }]
+    ]);
+    const evaluatedTargets = new Map<string, number>();
+
+    const analysis = analyzeOwnedFrontierTargetsFromLookup(
+      tiles,
+      [...tiles.values()].filter((tile) => tile.ownerId === "ai-1"),
+      "ai-1",
+      {
+        onEvaluateNeutralTarget: (targetKey) =>
+          evaluatedTargets.set(targetKey, (evaluatedTargets.get(targetKey) ?? 0) + 1)
+      }
+    );
+
+    expect(analysis.frontierNeutralTargetCount).toBe(1);
+    expect(analysis.economicExpand?.target).toMatchObject({ x: 10, y: 10 });
+    expect(evaluatedTargets).toEqual(new Map([["10,10", 1]]));
+  });
+
   it("tracks enemy-player and barbarian attack availability separately on mixed fronts", () => {
     const tiles = new Map([
       ["0,0", { x: 0, y: 0, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
