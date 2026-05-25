@@ -14,20 +14,20 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 
 interface Entry {
-  townJson?: string;
-  townRef?: unknown;
-  fortJson?: string;
-  fortRef?: unknown;
-  observatoryJson?: string;
-  observatoryRef?: unknown;
-  siegeOutpostJson?: string;
-  siegeOutpostRef?: unknown;
-  economicStructureJson?: string;
-  economicStructureRef?: unknown;
-  sabotageJson?: string;
-  sabotageRef?: unknown;
-  shardSiteJson?: string;
-  shardSiteRef?: unknown;
+  townJson: string | undefined;
+  townRef: unknown;
+  fortJson: string | undefined;
+  fortRef: unknown;
+  observatoryJson: string | undefined;
+  observatoryRef: unknown;
+  siegeOutpostJson: string | undefined;
+  siegeOutpostRef: unknown;
+  economicStructureJson: string | undefined;
+  economicStructureRef: unknown;
+  sabotageJson: string | undefined;
+  sabotageRef: unknown;
+  shardSiteJson: string | undefined;
+  shardSiteRef: unknown;
 }
 
 export type AllSubstructureJson = {
@@ -50,7 +50,15 @@ export class TileDeltaStringifyCache {
   getOrComputeAll(tileKey: string, tile: DomainTileState): AllSubstructureJson {
     let entry = this.entries.get(tileKey);
     if (!entry) {
-      entry = {};
+      entry = {
+        townJson: undefined, townRef: undefined,
+        fortJson: undefined, fortRef: undefined,
+        observatoryJson: undefined, observatoryRef: undefined,
+        siegeOutpostJson: undefined, siegeOutpostRef: undefined,
+        economicStructureJson: undefined, economicStructureRef: undefined,
+        sabotageJson: undefined, sabotageRef: undefined,
+        shardSiteJson: undefined, shardSiteRef: undefined
+      };
       this.entries.set(tileKey, entry);
     }
 
