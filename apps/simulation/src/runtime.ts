@@ -507,6 +507,7 @@ export class SimulationRuntime {
       }) => void)
     | undefined;
   private drainScheduled = false;
+  private immediateDrainScheduled = false;
   private draining = false;
 
   private refreshSpatialFocusForPlayer(playerId: string, now: number): AiSpatialFocus | undefined {
@@ -1368,7 +1369,7 @@ export class SimulationRuntime {
   }
 
   enqueueBackgroundJob(job: () => void): void {
-    this.enqueueJob("ai", job);
+    this.enqueueJob("ai", job, undefined, "background");
   }
 
   repairZeroGrossIncomeSettlements(playerIds: Iterable<string>): number {
@@ -3216,17 +3217,32 @@ export class SimulationRuntime {
     return true;
   }
 
-  private enqueueJob(lane: QueueLane, run: () => void, commandType?: CommandEnvelope["type"]): void {
-    const job: SimulationJob = { lane, run, enqueuedAt: this.now() };
+  private enqueueJob(
+    lane: QueueLane,
+    run: () => void,
+    commandType?: CommandEnvelope["type"],
+    scheduling: "immediate" | "background" = "immediate"
+  ): void {
+    const job: SimulationJob = { lane, run, enqueuedAt: this.now(), scheduling };
     if (commandType !== undefined) job.commandType = commandType;
     this.jobsByLane[lane].push(job);
-    this.scheduleDrain();
+    this.scheduleDrain(scheduling);
   }
 
-  private scheduleDrain(): void {
-    if (this.drainScheduled || this.draining) return;
+  private scheduleDrain(scheduling: "immediate" | "background" = "immediate"): void {
+    if (this.draining) return;
+    if (scheduling === "immediate") {
+      if (this.immediateDrainScheduled) return;
+      this.immediateDrainScheduled = true;
+      this.scheduleSoon(() => {
+        this.immediateDrainScheduled = false;
+        this.drainQueues();
+      });
+      return;
+    }
+    if (this.drainScheduled || this.immediateDrainScheduled) return;
     this.drainScheduled = true;
-    this.scheduleSoon(() => {
+    this.scheduleAfter(0, () => {
       this.drainScheduled = false;
       this.drainQueues();
     });
@@ -3246,9 +3262,21 @@ export class SimulationRuntime {
     let processedJobs = 0;
     let shouldYieldForBackground = false;
     let backgroundJobsProcessed = 0;
+    let currentDrainScheduling: "immediate" | "background" = "immediate";
     try {
       let next = this.shiftNextJob();
       while (next) {
+        currentDrainScheduling = next.scheduling ?? "immediate";
+        if (currentDrainScheduling === "background") {
+          const hasImmediateWork =
+            this.jobsByLane.human_interactive.some((job) => (job.scheduling ?? "immediate") === "immediate") ||
+            this.jobsByLane.human_noninteractive.some((job) => (job.scheduling ?? "immediate") === "immediate");
+          if (hasImmediateWork) {
+            this.jobsByLane[next.lane].unshift(next);
+            shouldYieldForBackground = true;
+            break;
+          }
+        }
         if ((next.lane === "system" || next.lane === "ai") && backgroundJobsProcessed >= this.backgroundBatchSize) {
           this.jobsByLane[next.lane].unshift(next);
           shouldYieldForBackground = true;
@@ -3270,6 +3298,11 @@ export class SimulationRuntime {
           backgroundJobsProcessed += 1;
         }
         next = this.shiftNextJob();
+        if (currentDrainScheduling === "immediate" && next && (next.scheduling ?? "immediate") === "background") {
+          this.jobsByLane[next.lane].unshift(next);
+          shouldYieldForBackground = true;
+          break;
+        }
       }
     } finally {
       this.draining = false;
@@ -3288,10 +3321,18 @@ export class SimulationRuntime {
         if (shouldYieldForBackground) {
           this.scheduleAfter(0, () => this.drainQueues());
         } else {
-          this.scheduleDrain();
+          this.scheduleDrain(this.nextQueuedScheduling());
         }
       }
     }
+  }
+
+  private nextQueuedScheduling(): "immediate" | "background" {
+    for (const lane of priorityOrder) {
+      const next = this.jobsByLane[lane][0];
+      if (next) return next.scheduling ?? "immediate";
+    }
+    return "immediate";
   }
 
   private shiftNextJob(): SimulationJob | undefined {
@@ -7779,7 +7820,13 @@ export class SimulationRuntime {
   }
 
   private queueCommandForProcessing(command: CommandEnvelope): void {
-    this.enqueueJob(laneForCommand(command), () => {
+    const lane = laneForCommand(command);
+    const scheduling =
+      command.type !== "SYNC_ALLIANCE" &&
+      (command.sessionId.startsWith("ai-runtime:") || command.sessionId.startsWith("system-runtime:"))
+        ? "background"
+        : "immediate";
+    this.enqueueJob(lane, () => {
       if (
         command.type !== "ATTACK" &&
         command.type !== "EXPAND" &&
@@ -7981,6 +8028,6 @@ export class SimulationRuntime {
       }
 
       this.handleFrontierCommand(command, command.type);
-    }, command.type);
+    }, command.type, scheduling);
   }
 }
