@@ -22,18 +22,18 @@ describe("realtime gateway runtime env", () => {
 
   it("requires durable database and simulation address settings in managed runtime", () => {
     expect(() => parseRealtimeGatewayRuntimeEnv({ NODE_ENV: "production" })).toThrow(
-      "realtime gateway requires GATEWAY_DATABASE_URL/DATABASE_URL or GATEWAY_SQLITE_PATH/SQLITE_PATH in managed runtime"
+      "realtime gateway requires GATEWAY_SQLITE_PATH/SQLITE_PATH in managed runtime"
     );
     expect(() =>
       parseRealtimeGatewayRuntimeEnv({
         NODE_ENV: "production",
-        DATABASE_URL: "postgres://gateway"
+        SQLITE_PATH: "/data/gateway.db"
       })
     ).toThrow("realtime gateway requires SIMULATION_ADDRESS in managed runtime");
     expect(() =>
       parseRealtimeGatewayRuntimeEnv({
         NODE_ENV: "production",
-        DATABASE_URL: "postgres://gateway",
+        SQLITE_PATH: "/data/gateway.db",
         SIMULATION_ADDRESS: "border-empires-simulation.internal:50051"
       })
     ).toThrow("realtime gateway requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
@@ -45,7 +45,7 @@ describe("realtime gateway runtime env", () => {
         NODE_ENV: "production",
         HOST: "0.0.0.0",
         PORT: "8080",
-        DATABASE_URL: "postgres://gateway",
+        SQLITE_PATH: "/data/gateway.db",
         SIMULATION_ADDRESS: "border-empires-simulation.internal:50051",
         SIMULATION_SEED_PROFILE: "season-20ai",
         GATEWAY_DB_APPLY_SCHEMA: "1"
@@ -55,7 +55,7 @@ describe("realtime gateway runtime env", () => {
       port: 8080,
       simulationAddress: "border-empires-simulation.internal:50051",
       simulationWakeAddress: "border-empires-simulation.flycast:50051",
-      databaseUrl: "postgres://gateway",
+      sqlitePath: "/data/gateway.db",
       applySchema: true,
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: false,
@@ -113,7 +113,7 @@ describe("realtime gateway runtime env", () => {
     expect(
       parseRealtimeGatewayRuntimeEnv({
         NODE_ENV: "production",
-        DATABASE_URL: "postgres://gateway",
+        SQLITE_PATH: "/data/gateway.db",
         SIMULATION_ADDRESS: "border-empires-simulation.internal:50051",
         SIMULATION_SEED_PROFILE: "season-20ai",
         GATEWAY_ALLOW_NON_AUTHORITATIVE_INITIAL_STATE: "1"
@@ -123,7 +123,7 @@ describe("realtime gateway runtime env", () => {
       port: 3101,
       simulationAddress: "border-empires-simulation.internal:50051",
       simulationWakeAddress: "border-empires-simulation.flycast:50051",
-      databaseUrl: "postgres://gateway",
+      sqlitePath: "/data/gateway.db",
       applySchema: false,
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: true,
