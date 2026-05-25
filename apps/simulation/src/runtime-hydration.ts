@@ -6,6 +6,7 @@ import { simulationTileKey } from "./seed-state.js";
 import type { DockRouteDefinition } from "./dock-network.js";
 import type { RecoveredCommandHistory } from "./command-recovery.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
+import { lockSourceFromCommandId } from "./runtime-types.js";
 import type { LockedCombatResolution, LockRecord, RuntimePlayer } from "./runtime-types.js";
 
 const isSyntheticSettlementTown = (
@@ -150,6 +151,10 @@ export const createLocksFromInitialState = (initialState?: RecoveredSimulationSt
 
   for (const lock of initialState.activeLocks) {
     const combatResolution = parseRecoveredCombatResolution(lock.combatResolutionJson);
+    // Newer snapshots carry `source` explicitly; older snapshots (written
+    // before the field existed) are migrated by sniffing the commandId
+    // prefix produced by `nextTerritoryAutomationCommandId`.
+    const source = lock.source ?? lockSourceFromCommandId(lock.commandId);
     const hydratedLock: LockRecord = {
       commandId: lock.commandId,
       playerId: lock.playerId,
@@ -162,6 +167,7 @@ export const createLocksFromInitialState = (initialState?: RecoveredSimulationSt
       originKey: lock.originKey,
       targetKey: lock.targetKey,
       resolvesAt: lock.resolvesAt,
+      source,
       ...(combatResolution ? { combatResolution } : {})
     };
     locksByTile.set(hydratedLock.originKey, hydratedLock);

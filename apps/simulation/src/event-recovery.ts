@@ -36,6 +36,12 @@ export type RecoveredLock = {
   originKey: string;
   targetKey: string;
   resolvesAt: number;
+  /**
+   * Lock origin. Optional for back-compat with snapshots written before this
+   * field existed; `createLocksFromInitialState` falls back to a commandId
+   * prefix check for old snapshots.
+   */
+  source?: "player" | "automation";
   combatResolutionJson?: string;
 };
 
