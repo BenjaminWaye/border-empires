@@ -35,6 +35,7 @@ import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
 import type { PlannerDockView, PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
+import { resolvePlayerTiles as resolvePlayerTilesFromCache } from "./planner-tile-resolver.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
 if (!parentPort) throw new Error("ai-planner-worker must run inside a Worker thread");
@@ -234,47 +235,7 @@ const resolvePlayerTiles = (
   strategicFrontierTiles: PlannerTileView[];
   buildCandidateTiles: PlannerTileView[];
   pendingSettlementTileKeys: Set<string>;
-} => {
-  const cached = playerTileCacheById.get(player.id);
-  if (cached && cached.tileCollectionVersion === player.tileCollectionVersion) {
-    return {
-      ownedTiles: cached.ownedTiles,
-      frontierTiles: cached.frontierTiles,
-      hotFrontierTiles: cached.hotFrontierTiles,
-      strategicFrontierTiles: cached.strategicFrontierTiles,
-      buildCandidateTiles: cached.buildCandidateTiles,
-      pendingSettlementTileKeys: cached.pendingSettlementTileKeys
-    };
-  }
-
-  const ownedTiles = player.territoryTileKeys
-    .map((k) => tilesByKey.get(k))
-    .filter((t): t is PlannerTileView => t !== undefined);
-  const frontierTiles = player.frontierTileKeys
-    .map((k) => tilesByKey.get(k))
-    .filter((t): t is PlannerTileView => t !== undefined);
-  const hotFrontierTiles = player.hotFrontierTileKeys
-    .map((k) => tilesByKey.get(k))
-    .filter((t): t is PlannerTileView => t !== undefined);
-  const strategicFrontierTiles = player.strategicFrontierTileKeys
-    .map((k) => tilesByKey.get(k))
-    .filter((t): t is PlannerTileView => t !== undefined);
-  const buildCandidateTiles = player.buildCandidateTileKeys
-    .map((k) => tilesByKey.get(k))
-    .filter((t): t is PlannerTileView => t !== undefined);
-  const pendingSettlementTileKeys = new Set(player.pendingSettlementTileKeys);
-
-  playerTileCacheById.set(player.id, {
-    tileCollectionVersion: player.tileCollectionVersion,
-    ownedTiles,
-    frontierTiles,
-    hotFrontierTiles,
-    strategicFrontierTiles,
-    buildCandidateTiles,
-    pendingSettlementTileKeys
-  });
-  return { ownedTiles, frontierTiles, hotFrontierTiles, strategicFrontierTiles, buildCandidateTiles, pendingSettlementTileKeys };
-};
+} => resolvePlayerTilesFromCache(player, tilesByKey, playerTileCacheById);
 
 const emitDiagnostic = (sample: {
   phase:
