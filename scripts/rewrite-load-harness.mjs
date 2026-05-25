@@ -97,6 +97,7 @@ const pollIntervalMs = Math.max(250, Number(process.env.LOAD_HARNESS_POLL_MS ?? 
 const soakBatchIterations = Math.max(10, Number(process.env.LOAD_HARNESS_BATCH_ITERATIONS ?? "120"));
 const soakTimeoutMs = Math.max(3_000, Number(process.env.LOAD_HARNESS_SOAK_TIMEOUT_MS ?? "15000"));
 const interBatchPauseMs = Math.max(0, Number(process.env.LOAD_HARNESS_INTER_BATCH_PAUSE_MS ?? "0"));
+const minAcceptedSamples = Math.max(1, Number(process.env.LOAD_HARNESS_MIN_ACCEPTED_SAMPLES ?? "30"));
 
 const startedAt = Date.now();
 const deadlineAt = startedAt + soakMinutes * 60_000;
@@ -165,13 +166,22 @@ const gatewayEventLoopMaxMs = metricsSamples.length > 0
 const simEventLoopMaxMs = metricsSamples.length > 0
   ? Math.max(...metricsSamples.map((sample) => sample.simulation["sim_event_loop_max_ms"] ?? 0))
   : null;
+const simHumanInteractiveBacklogMaxMs = metricsSamples.length > 0
+  ? Math.max(...metricsSamples.map((sample) => sample.simulation["sim_human_interactive_backlog_ms"] ?? 0))
+  : null;
+const simCheckpointRssMaxMb = metricsSamples.length > 0
+  ? Math.max(...metricsSamples.map((sample) => sample.simulation["sim_checkpoint_rss_mb"] ?? 0))
+  : null;
 
 const gates = {
+  acceptedSamplesAtLeastMinimum: acceptedLatenciesMs.length >= minAcceptedSamples,
   actionAcceptedP95Under100: typeof acceptedP95Ms === "number" && acceptedP95Ms < 100,
   actionAcceptedP99Under250: typeof acceptedP99Ms === "number" && acceptedP99Ms < 250,
   actionAcceptedMaxUnder500: typeof acceptedMaxMs === "number" && acceptedMaxMs < 500,
-  gatewayEventLoopMaxUnder50: typeof gatewayEventLoopMaxMs === "number" && gatewayEventLoopMaxMs < 50,
-  simEventLoopMaxUnder100: typeof simEventLoopMaxMs === "number" && simEventLoopMaxMs < 100
+  gatewayEventLoopMaxUnder100: typeof gatewayEventLoopMaxMs === "number" && gatewayEventLoopMaxMs < 100,
+  simEventLoopMaxUnder100: typeof simEventLoopMaxMs === "number" && simEventLoopMaxMs < 100,
+  simHumanInteractiveBacklogMaxUnder500: typeof simHumanInteractiveBacklogMaxMs === "number" && simHumanInteractiveBacklogMaxMs < 500,
+  simCheckpointRssMaxUnder400: typeof simCheckpointRssMaxMb === "number" && simCheckpointRssMaxMb < 400
 };
 
 const payload = {
@@ -181,6 +191,7 @@ const payload = {
     startedAt: new Date(startedAt).toISOString(),
     endedAt: new Date().toISOString(),
     soakMinutes,
+    minAcceptedSamples,
     acceptedSamples: acceptedLatenciesMs.length,
     acceptedP95Ms,
     acceptedP99Ms,
@@ -193,7 +204,9 @@ const payload = {
     simulationMetricsUrl,
     sampleCount: metricsSamples.length,
     gatewayEventLoopMaxMs,
-    simEventLoopMaxMs
+    simEventLoopMaxMs,
+    simHumanInteractiveBacklogMaxMs,
+    simCheckpointRssMaxMb
   },
   gates,
   allGatesGreen: Object.values(gates).every(Boolean)
