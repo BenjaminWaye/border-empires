@@ -851,9 +851,8 @@ export class SimulationRuntime {
             ? TOWN_AUTO_FRONTIER_RADIUS
             : 0;
         if (radius <= 0) continue;
-        for (const coords of coordsInChebyshevRadius(anchor.x, anchor.y, radius)) {
+        for (const targetKey of this.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
           if (actor.points < FRONTIER_CLAIM_COST) break;
-          const targetKey = simulationTileKey(coords.x, coords.y);
           if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || this.locksByTile.has(targetKey)) continue;
           const target = this.tiles.get(targetKey);
           if (!isAutoClaimTarget(target)) continue;
