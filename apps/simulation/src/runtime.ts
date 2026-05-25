@@ -115,6 +115,7 @@ import {
   fortAutoAttackCandidates,
   fortAutoFrontierRadiusForTile,
   FORT_PATROL_GRACE_MS,
+  isActiveFortAnchor,
   isAutoClaimTarget,
   isSettledTownAnchor,
   MAX_FORT_AUTO_FRONTIER_RADIUS,
@@ -231,6 +232,7 @@ import {
 } from "./runtime-hydration.js";
 import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "./encirclement.js";
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
+import { PlayerCandidateIndex } from "./player-candidate-index.js";
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
 export type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -517,6 +519,7 @@ export class SimulationRuntime {
   private immediateDrainScheduled = false;
   private draining = false;
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
+  private readonly playerCandidateIndex = new PlayerCandidateIndex();
 
   private refreshSpatialFocusForPlayer(playerId: string, now: number): AiSpatialFocus | undefined {
     const summary = this.summaryForPlayer(playerId);
@@ -616,6 +619,17 @@ export class SimulationRuntime {
           typeof this.currentShardRainExpiresAt === "number"
             ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
             : site.expiresAt;
+      }
+      // Bootstrap PlayerCandidateIndex anchors.
+      if (tile.ownerId) {
+        const nowMs = this.now();
+        const fortRadius = fortAutoFrontierRadiusForTile(tile, tile.ownerId, nowMs);
+        const townAnchor = isSettledTownAnchor(tile, tile.ownerId);
+        if (fortRadius > 0) {
+          this.playerCandidateIndex.registerAnchor(tileKey, tile.ownerId, fortRadius, (k) => this.tiles.get(k));
+        } else if (townAnchor) {
+          this.playerCandidateIndex.registerAnchor(tileKey, tile.ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
+        }
       }
     }
     for (const player of options.initialState?.players ?? []) {
@@ -1876,6 +1890,7 @@ export class SimulationRuntime {
       for (const [key, tier] of currentTowns) summary.ownedTownTierByTile.set(key, tier);
     }
     this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
+    this.refreshPlayerCandidateIndexAnchorForTile(tileKey, previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
   }
 
@@ -1946,6 +1961,46 @@ export class SimulationRuntime {
         if (isBuildCandidateTile(playerId, candidateTile, this.tiles)) summary.buildCandidateTileKeys.add(candidateKey);
       }
       this.markPlannerPlayerTileCollectionDirty(playerId);
+    }
+    this.playerCandidateIndex.refreshAroundTile(tileKey, (k) => this.tiles.get(k));
+  }
+
+  /**
+   * Keep PlayerCandidateIndex anchor registrations consistent with tile state.
+   * Called from replaceTileState after the tile is already written to this.tiles.
+   * Registers/unregisters anchors when a tile gains or loses a fort, town, or
+   * active WOODEN_FORT anchor.
+   */
+  private refreshPlayerCandidateIndexAnchorForTile(
+    tileKey: string,
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    const nowMs = this.now();
+    const prevOwnerId = previous?.ownerId;
+    const nextOwnerId = next.ownerId;
+    // Determine anchor status for prev and next.
+    const prevFortRadius = previous && prevOwnerId ? fortAutoFrontierRadiusForTile(previous, prevOwnerId, nowMs) : 0;
+    const prevTownAnchor = previous && prevOwnerId ? isSettledTownAnchor(previous, prevOwnerId) : false;
+    const prevIsAnchor = prevFortRadius > 0 || prevTownAnchor;
+    const nextFortRadius = nextOwnerId ? fortAutoFrontierRadiusForTile(next, nextOwnerId, nowMs) : 0;
+    const nextTownAnchor = nextOwnerId ? isSettledTownAnchor(next, nextOwnerId) : false;
+    const nextIsAnchor = nextFortRadius > 0 || nextTownAnchor;
+    // Determine the effective radius for registration.
+    const nextMaxRadius = nextFortRadius > 0 ? nextFortRadius : nextTownAnchor ? TOWN_AUTO_FRONTIER_RADIUS : 0;
+    if (!prevIsAnchor && !nextIsAnchor) return;
+    if (prevIsAnchor && !nextIsAnchor) {
+      this.playerCandidateIndex.unregisterAnchor(tileKey);
+      return;
+    }
+    if (!prevIsAnchor && nextIsAnchor) {
+      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
+      return;
+    }
+    // Both are anchors — re-register if owner or radius changed.
+    if (prevOwnerId !== nextOwnerId || prevFortRadius !== nextFortRadius || prevTownAnchor !== nextTownAnchor) {
+      this.playerCandidateIndex.unregisterAnchor(tileKey);
+      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
     }
   }
 
