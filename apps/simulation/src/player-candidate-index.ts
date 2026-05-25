@@ -276,6 +276,10 @@ export class PlayerCandidateIndex {
     });
   }
 
+  hasAnchor(anchorTileKey: string): boolean {
+    return this.anchors.has(anchorTileKey);
+  }
+
   anchorCount(): number {
     return this.anchors.size;
   }
