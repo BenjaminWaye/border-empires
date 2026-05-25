@@ -2229,7 +2229,7 @@ describe("simulation runtime", () => {
       type: "SETTLE",
       payloadJson: JSON.stringify({ x: 11, y: 10 })
     });
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(runtime.chooseNextAutomationCommand("ai-1", 2, 1_000, "ai-runtime")).toEqual(
       expect.objectContaining({
@@ -4076,9 +4076,6 @@ describe("simulation runtime", () => {
         order.push("AI_JOB_3");
       });
 
-      await Promise.resolve();
-      expect(order).toEqual(["AI_JOB_1"]);
-
       runtime.submitCommand({
         commandId: "cmd-3",
         sessionId: "session-1",
@@ -4090,7 +4087,10 @@ describe("simulation runtime", () => {
       });
 
       await Promise.resolve();
-      expect(order[1]).toBe("COMMAND_ACCEPTED");
+      expect(order[0]).toBe("COMMAND_ACCEPTED");
+      expect(order).not.toContain("AI_JOB_1");
+      vi.advanceTimersByTime(0);
+      expect(order).toContain("AI_JOB_1");
     } finally {
       vi.useRealTimers();
     }
@@ -4228,15 +4228,33 @@ describe("simulation runtime", () => {
     for (const task of scheduled) task();
     await Promise.resolve();
 
-    expect(onQueueDrain).toHaveBeenCalledWith(
+    expect(onQueueDrain).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
-        processedJobs: 2,
+        processedJobs: 1,
+        yieldedForBackground: true,
         processedByLane: expect.objectContaining({
           human_interactive: 1,
-          ai: 1
+          ai: 0
         }),
         queueDepthsBefore: expect.objectContaining({
           human_interactive: 1,
+          ai: 1
+        }),
+        queueDepthsAfter: {
+          human_interactive: 0,
+          human_noninteractive: 0,
+          system: 0,
+          ai: 1
+        }
+      })
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onQueueDrain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        processedJobs: 1,
+        processedByLane: expect.objectContaining({
+          human_interactive: 0,
           ai: 1
         }),
         queueDepthsAfter: {

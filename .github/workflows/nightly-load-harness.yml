@@ -38,9 +38,11 @@ jobs:
       LOAD_HARNESS_POLL_MS: "2000"
       LOAD_HARNESS_BATCH_ITERATIONS: "120"
       LOAD_HARNESS_SOAK_TIMEOUT_MS: "15000"
+      LOAD_HARNESS_MIN_ACCEPTED_SAMPLES: "30"
 
       # Fly API token for waking staging apps before the run.
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      LOAD_HARNESS_SLACK_WEBHOOK: ${{ secrets.LOAD_HARNESS_SLACK_WEBHOOK }}
 
     steps:
       - name: Preflight — verify required secrets are set
@@ -136,12 +138,19 @@ jobs:
           #   simulation human_interactive p95 accept-latency < 100
           #   sim_human_interactive_backlog_ms < 500
           #   sim_checkpoint_rss_mb < 400
+          #   acceptedSamples >= LOAD_HARNESS_MIN_ACCEPTED_SAMPLES
           GATEWAY_LOOP=$(jq -r '.metrics.gatewayEventLoopMaxMs // 9999' "$RESULT_FILE")
           P95=$(jq -r '.soak.acceptedP95Ms // 9999' "$RESULT_FILE")
+          SAMPLES=$(jq -r '.soak.acceptedSamples // 0' "$RESULT_FILE")
+          BACKLOG=$(jq -r '.metrics.simHumanInteractiveBacklogMaxMs // 9999' "$RESULT_FILE")
+          CHECKPOINT_RSS=$(jq -r '.metrics.simCheckpointRssMaxMb // 9999' "$RESULT_FILE")
           ALL_GREEN=$(jq -r '.allGatesGreen' "$RESULT_FILE")
 
+          echo "accepted_samples=${SAMPLES}"
           echo "gateway_event_loop_max_ms=${GATEWAY_LOOP}"
           echo "accepted_p95_ms=${P95}"
+          echo "sim_human_interactive_backlog_max_ms=${BACKLOG}"
+          echo "sim_checkpoint_rss_max_mb=${CHECKPOINT_RSS}"
           echo "all_gates_green=${ALL_GREEN}"
 
           if [ "${ALL_GREEN}" != "true" ]; then
@@ -183,3 +192,19 @@ jobs:
         run: |
           echo "::error::Nightly load harness FAILED. Check docs/load-results/ for details."
           echo "::error::Phase 6 pre-flight requires 3 consecutive GREEN nights. Streak reset."
+
+      - name: Notify Slack on gate failure
+        if: failure() && env.LOAD_HARNESS_SLACK_WEBHOOK != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ env.LOAD_HARNESS_SLACK_WEBHOOK }}
+        run: |
+          RESULT_FILE="$(cat /tmp/harness-output.txt 2>/dev/null | grep -o 'docs/load-results/[^ ]*' | tail -1 || true)"
+          if [ -n "${RESULT_FILE}" ] && [ -f "${RESULT_FILE}" ]; then
+            SUMMARY="$(jq -r '"accepted_samples=\(.soak.acceptedSamples // "n/a") min_accepted_samples=\(.soak.minAcceptedSamples // "n/a") accepted_p95_ms=\(.soak.acceptedP95Ms // "n/a") accepted_p99_ms=\(.soak.acceptedP99Ms // "n/a") accepted_max_ms=\(.soak.acceptedMaxMs // "n/a") gateway_loop_max_ms=\(.metrics.gatewayEventLoopMaxMs // "n/a") sim_loop_max_ms=\(.metrics.simEventLoopMaxMs // "n/a") sim_backlog_max_ms=\(.metrics.simHumanInteractiveBacklogMaxMs // "n/a") sim_checkpoint_rss_max_mb=\(.metrics.simCheckpointRssMaxMb // "n/a")"' "${RESULT_FILE}")"
+          else
+            SUMMARY="no load-result file was produced"
+          fi
+          jq -n \
+            --arg text "Nightly Border Empires load gates failed on ${GITHUB_REF_NAME}. ${SUMMARY}. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            '{text: $text}' \
+            | curl -sS -X POST -H 'content-type: application/json' --data @- "${SLACK_WEBHOOK_URL}"
