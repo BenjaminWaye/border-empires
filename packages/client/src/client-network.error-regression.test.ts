@@ -133,6 +133,7 @@ const createState = () =>
     discoveredTiles: new Set<string>(),
     discoveredDockTiles: new Set<string>(),
     tileDetailRequestedAt: new Map<string, number>(),
+    tileDetailReceivedAt: new Map<string, number>(),
     lastChunkSnapshotGeneration: 0,
     lastSubAt: Date.now(),
     lastSubCx: 0,

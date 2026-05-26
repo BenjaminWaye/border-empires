@@ -475,4 +475,60 @@ describe("buildSnapshotTileDetail", () => {
       })
     );
   });
+
+  it("backfills goldPerMinute when the snapshot's townJson lacks the field (prod-zero regression)", () => {
+    // Repro for the bug where a TOWN-tier town's tile detail showed
+    // Production: 0/m even though baseGoldPerMinute=2 and connectedTownBonus=1.2
+    // were both present. Cause: the snapshot path produced a townJson without
+    // `goldPerMinute`, and buildSnapshotTileDetail then forwarded that gap to
+    // buildTileYieldView — which, with no economyContext, returns 0 for TOWN-
+    // tier. Expected gpm here: 2 * 1 * (1 + 1.2) * 1 * 1 * 1 = 4.4.
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 241,
+          y: 150,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            name: "Velorreach",
+            type: "MARKET",
+            populationTier: "TOWN",
+            baseGoldPerMinute: 2,
+            supportCurrent: 5,
+            supportMax: 5,
+            // goldPerMinute / cap intentionally absent — this is the bug shape.
+            isFed: true,
+            population: 20671,
+            maxPopulation: 10_000_000,
+            connectedTownCount: 3,
+            connectedTownBonus: 1.2,
+            connectedTownNames: ["Gloamspire", "Sablemanor", "Velramanor"]
+          }),
+          townType: "MARKET",
+          townPopulationTier: "TOWN"
+        },
+        // Five neighbor settled tiles so supportSummary reads 5/5.
+        { x: 240, y: 149, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 241, y: 149, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 242, y: 149, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 240, y: 150, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 242, y: 150, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 241, 150);
+    const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as Record<string, unknown>) : undefined;
+    expect(town).toBeDefined();
+    expect(town?.goldPerMinute).toBeCloseTo(4.4, 4);
+    expect(town?.cap).toBeCloseTo(2112, 0);
+    expect(detail).toEqual(
+      expect.objectContaining({
+        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
+        yieldCap: expect.objectContaining({ gold: 2112 })
+      })
+    );
+  });
 });

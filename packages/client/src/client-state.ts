@@ -144,6 +144,10 @@ export const createInitialState = () => ({
   settledE: 4,
   selected: undefined as { x: number; y: number } | undefined,
   tileDetailRequestedAt: new Map<string, number>(),
+  // tileKey -> ms timestamp when a full-detail TILE_DELTA arrived. Used to
+  // skip REQUEST_TILE_DETAIL re-sends when we already have a recent answer.
+  // Paired with tileDetailRequestedAt to dedupe in-flight requests as well.
+  tileDetailReceivedAt: new Map<string, number>(),
   // tileKey -> ms timestamp when an owned settled town was first observed
   // missing owner-economy fields (Production/Support/Upkeep). Used to drive
   // per-row "loading for Xs" indicators on the tile detail panel until the
