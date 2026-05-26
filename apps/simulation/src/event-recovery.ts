@@ -17,6 +17,7 @@ type RecoveredTileState = {
   ownerId?: DomainTileState["ownerId"];
   ownershipState?: DomainTileState["ownershipState"];
   frontierDecayAt?: DomainTileState["frontierDecayAt"];
+  frontierDecayKind?: DomainTileState["frontierDecayKind"];
   town?: DomainTileState["town"];
   fort?: DomainTileState["fort"];
   observatory?: DomainTileState["observatory"];
@@ -259,6 +260,13 @@ const applyTileDeltaToRecoveredAccumulator = (
         : {}
       : typeof existing?.frontierDecayAt === "number"
         ? { frontierDecayAt: existing.frontierDecayAt }
+        : {}),
+    ...("frontierDecayKind" in tileDelta
+      ? tileDelta.frontierDecayKind === "NATURAL" || tileDelta.frontierDecayKind === "ENCIRCLEMENT"
+        ? { frontierDecayKind: tileDelta.frontierDecayKind }
+        : {}
+      : existing?.frontierDecayKind
+        ? { frontierDecayKind: existing.frontierDecayKind }
         : {}),
     ...(recoveredTown ? { town: recoveredTown } : {}),
     ...("fortJson" in tileDelta
