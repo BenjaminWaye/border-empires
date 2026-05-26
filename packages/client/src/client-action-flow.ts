@@ -328,11 +328,18 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const now = Date.now();
     const lastRequestedAt = state.tileDetailRequestedAt.get(tileKey) ?? 0;
     const lastReceivedAt = state.tileDetailReceivedAt.get(tileKey) ?? 0;
+    // Recovery path: when shouldSendTileDetailRequest fired because an owned
+    // town is missing economy fields (Production/Support/Upkeep), the prior
+    // full-detail response is by definition stale — bypass the 60s freshness
+    // gate so the recovery REQUEST_TILE_DETAIL actually reaches the gateway.
+    // The in-flight dedupe + 1.5s throttle still suppress runaway re-sends.
+    const isOwnedTownRecovery = ownTownEconomyFieldsPartial(tile, state.me);
     if (!options.force) {
       // Skip if a fresh full-detail response landed within the last 60s — town
       // economy fields don't change fast enough to justify another round-trip,
-      // and the gateway path is expensive under load.
-      if (now - lastReceivedAt < 60_000) return;
+      // and the gateway path is expensive under load. Skipped for the owned-
+      // town recovery path above.
+      if (!isOwnedTownRecovery && now - lastReceivedAt < 60_000) return;
       // Skip if a request is already in flight (sent but no response yet).
       // 15s cap protects against a dropped response stranding the tile forever.
       if (lastRequestedAt > lastReceivedAt && now - lastRequestedAt < 15_000) return;
