@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.26.1",
+  version: "2026.05.26.2",
   title: "What's New",
-  summary: "Connected frontier tiles with normal decay timers can launch actions again.",
+  summary: "Tile-detail inspector no longer reports Production as 0/m for owned towns, and rapid re-clicks no longer spam the gateway.",
   entries: [
+    {
+      introducedIn: "2026.05.26.2",
+      title: "Tile inspector shows real town production again",
+      why: "REQUEST_TILE_DETAIL returned a townJson with baseGoldPerMinute=2 but no goldPerMinute, and yieldRate.goldPerMinute=0. Root cause: the gateway-cached tile-detail path (buildSnapshotTileDetail) forwarded the snapshot's missing goldPerMinute through to buildTileYieldView, which — called without an economyContext — returns 0 for TOWN-tier tiles whose town.goldPerMinute isn't set. Compounding it, the client sent a fresh REQUEST_TILE_DETAIL on every click of the same tile even when the previous request was still in flight, piling up duplicate work on a backed-up gateway.",
+      changes: [
+        "buildSnapshotTileDetail now backfills goldPerMinute and cap inline using the same formula as the live snapshot when the snapshot tile's townJson lacks them, so owned-town inspectors show the real Production value (e.g. 4.4/m on a TOWN with +120% connected-town bonus) instead of 0.",
+        "refreshTownEconomyFields re-stamps isFed from the freshly computed fed-key set, so the wire payload's townJson.isFed can no longer contradict the live goldPerMinute it ships alongside.",
+        "Tile-detail requests are deduped by tile: a click is suppressed if a full-detail response landed within the last 60s, or if a request for the same tile is still in flight (15s timeout protects against dropped responses)."
+      ]
+    },
     {
       introducedIn: "2026.05.26.1",
       title: "Frontier decay no longer blocks supplied expansion",

@@ -325,10 +325,22 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (!shouldSendTileDetailRequest(tile, state.me, options)) return;
     if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
     const tileKey = keyFor(tile.x, tile.y);
+    const now = Date.now();
     const lastRequestedAt = state.tileDetailRequestedAt.get(tileKey) ?? 0;
-    if (!options.force && Date.now() - lastRequestedAt < 1500) return;
+    const lastReceivedAt = state.tileDetailReceivedAt.get(tileKey) ?? 0;
+    if (!options.force) {
+      // Skip if a fresh full-detail response landed within the last 60s — town
+      // economy fields don't change fast enough to justify another round-trip,
+      // and the gateway path is expensive under load.
+      if (now - lastReceivedAt < 60_000) return;
+      // Skip if a request is already in flight (sent but no response yet).
+      // 15s cap protects against a dropped response stranding the tile forever.
+      if (lastRequestedAt > lastReceivedAt && now - lastRequestedAt < 15_000) return;
+      // Fallback throttle preserves the prior 1.5s send-rate ceiling.
+      if (now - lastRequestedAt < 1500) return;
+    }
     ws.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x: tile.x, y: tile.y }));
-    state.tileDetailRequestedAt.set(tileKey, Date.now());
+    state.tileDetailRequestedAt.set(tileKey, now);
   };
 
   const playerActionDeps = () => ({
