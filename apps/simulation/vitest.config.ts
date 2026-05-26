@@ -10,12 +10,6 @@ export default defineConfig({
       deps: {
         external: [/^node:/]
       }
-    },
-    pool: "forks",
-    poolOptions: {
-      forks: {
-        execArgv: ["--expose-gc"]
-      }
     }
   }
 });
