@@ -256,6 +256,7 @@ const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWireDelta =
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+  ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
   ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
   ...(tile.town?.type ? { townType: tile.town.type } : {}),
   ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -2192,6 +2193,7 @@ export class SimulationRuntime {
             ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
             ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
             ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
             ...(tile.town ? { town: tile.town } : {}),
             ...(tile.fort ? { fort: tile.fort } : {}),
             ...(tile.observatory ? { observatory: tile.observatory } : {}),
@@ -2463,6 +2465,7 @@ export class SimulationRuntime {
           ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
           ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
           ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+          ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
           ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
           ...(tile.town?.type ? { townType: tile.town.type } : {}),
           ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -2758,6 +2761,7 @@ export class SimulationRuntime {
             ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
             ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
             ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
             ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
             ...(tile.town?.type ? { townType: tile.town.type } : {}),
             ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -2865,6 +2869,7 @@ export class SimulationRuntime {
             ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
             ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
             ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
             ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
             ...(tile.town?.type ? { townType: tile.town.type } : {}),
             ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -3373,11 +3378,15 @@ export class SimulationRuntime {
       targetLockOwnerId: targetLock?.playerId,
       targetLockResolvesAt: targetLock?.resolvesAt
     });
-    // Encirclement guard: a cut-off (blinking) frontier tile cannot be used as
-    // an attack or expand source. Attacks *against* blinking tiles proceed normally.
-    // Blocking EXPAND prevents a player from "escaping" a cut-off pocket by
-    // pushing into neutral territory, which would defeat the encirclement mechanic.
-    if ((actionType === "ATTACK" || actionType === "EXPAND") && typeof from.frontierDecayAt === "number") {
+    // Encirclement guard: a cut-off frontier tile cannot be used as an attack
+    // or expand source. Attacks *against* cut-off tiles proceed normally.
+    // `frontierDecayAt` is shared by natural frontier expiry and encirclement,
+    // so only the explicit encirclement owner marks a tile as action-blocked.
+    if (
+      (actionType === "ATTACK" || actionType === "EXPAND") &&
+      from.ownershipState === "FRONTIER" &&
+      from.frontierDecayKind === "ENCIRCLEMENT"
+    ) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -3639,10 +3648,11 @@ export class SimulationRuntime {
       });
       return;
     }
-    // Encirclement guard: a cut-off (blinking) tile cannot be settled. Settling
-    // a disconnected tile would let a player convert an encircled pocket into
-    // permanent territory, defeating the encirclement mechanic.
-    if (typeof target.frontierDecayAt === "number") {
+    // Encirclement guard: a cut-off tile cannot be settled. Settling a
+    // disconnected tile would let a player convert an encircled pocket into
+    // permanent territory, defeating the encirclement mechanic. Natural
+    // frontier expiry also uses `frontierDecayAt`, so use the explicit owner.
+    if (target.frontierDecayKind === "ENCIRCLEMENT") {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -5652,6 +5662,7 @@ export class SimulationRuntime {
       ownerId: tile.ownerId ?? undefined,
       ownershipState: tile.ownershipState ?? undefined,
       frontierDecayAt: tile.frontierDecayAt ?? undefined,
+      frontierDecayKind: tile.frontierDecayKind ?? undefined,
       ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
       ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
       ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
@@ -5807,7 +5818,8 @@ export class SimulationRuntime {
         if (tile.frontierDecayAt === undefined) continue;
         const queuedTile: DomainTileState = {
           ...tile,
-          frontierDecayAt: undefined
+          frontierDecayAt: undefined,
+          frontierDecayKind: undefined
         };
         this.replaceTileState(tileKey, queuedTile, `frontier-decay-paused:${ownerId}:${tileKey}:${nowMs}`);
         addChangedDelta(ownerId, this.tileDeltaFromState(queuedTile));
@@ -5817,7 +5829,8 @@ export class SimulationRuntime {
         if (tile.frontierDecayAt === undefined) continue;
         const supportedTile: DomainTileState = {
           ...tile,
-          frontierDecayAt: undefined
+          frontierDecayAt: undefined,
+          frontierDecayKind: undefined
         };
         this.replaceTileState(tileKey, supportedTile, `frontier-decay-supported:${ownerId}:${tileKey}:${nowMs}`);
         addChangedDelta(ownerId, this.tileDeltaFromState(supportedTile));
@@ -5831,6 +5844,7 @@ export class SimulationRuntime {
           ownerId: undefined,
           ownershipState: undefined,
           frontierDecayAt: undefined,
+          frontierDecayKind: undefined,
           fort: undefined,
           observatory: undefined,
           siegeOutpost: undefined,
@@ -5850,7 +5864,8 @@ export class SimulationRuntime {
       if (tile.frontierDecayAt !== decayAt) {
         const decayingTile: DomainTileState = {
           ...tile,
-          frontierDecayAt: decayAt
+          frontierDecayAt: decayAt,
+          frontierDecayKind: "NATURAL"
         };
         this.replaceTileState(tileKey, decayingTile, `frontier-decay-started:${ownerId}:${tileKey}:${nowMs}`);
         addChangedDelta(ownerId, this.tileDeltaFromState(decayingTile));
@@ -7499,8 +7514,9 @@ export class SimulationRuntime {
         typeof tile.frontierDecayAt === "number"
           ? Math.min(tile.frontierDecayAt, encirclementExpiresAt)
           : encirclementExpiresAt;
-      if (tile.frontierDecayAt === newDecayAt) continue; // already has this or shorter timer
-      const updated: typeof tile = { ...tile, frontierDecayAt: newDecayAt };
+      const newDecayKind = newDecayAt === encirclementExpiresAt ? "ENCIRCLEMENT" : tile.frontierDecayKind;
+      if (tile.frontierDecayAt === newDecayAt && tile.frontierDecayKind === newDecayKind) continue; // already has this or shorter timer
+      const updated: typeof tile = { ...tile, frontierDecayAt: newDecayAt, frontierDecayKind: newDecayKind };
       this.replaceTileState(key, updated, commandId);
       tileDeltas.push(this.tileDeltaFromState(updated));
     }
@@ -7508,16 +7524,8 @@ export class SimulationRuntime {
     for (const key of reconnected) {
       const tile = this.tiles.get(key);
       if (!tile) continue;
-      // Only clear the timer if it was plausibly set by encirclement (remaining
-      // time <= ENCIRCLEMENT_DECAY_MS). If it's a natural 10-min decay timer with
-      // more than 60 s remaining, leave it alone — we didn't set it.
-      if (
-        typeof tile.frontierDecayAt !== "number" ||
-        tile.frontierDecayAt - nowMs > ENCIRCLEMENT_DECAY_MS
-      ) {
-        continue;
-      }
-      const updated: typeof tile = { ...tile, frontierDecayAt: undefined };
+      if (typeof tile.frontierDecayAt !== "number" || tile.frontierDecayKind !== "ENCIRCLEMENT") continue;
+      const updated: typeof tile = { ...tile, frontierDecayAt: undefined, frontierDecayKind: undefined };
       this.replaceTileState(key, updated, commandId);
       tileDeltas.push(this.tileDeltaFromState(updated));
     }

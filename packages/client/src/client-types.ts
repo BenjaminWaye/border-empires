@@ -1,4 +1,4 @@
-import type { Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, Terrain } from "@border-empires/shared";
 
 export type OptimisticStructureKind =
   | "FORT"
@@ -57,6 +57,7 @@ export type Tile = {
   capital?: boolean;
   breachShockUntil?: number;
   frontierDecayAt?: number;
+  frontierDecayKind?: FrontierDecayKind;
   clusterId?: string;
   clusterType?: string;
   landBiome?: "GRASS" | "SAND" | "COASTAL_SAND";

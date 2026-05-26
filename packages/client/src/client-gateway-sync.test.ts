@@ -174,12 +174,14 @@ describe("client gateway sync", () => {
           terrain: "LAND",
           ownerId: "me",
           ownershipState: "FRONTIER",
-          frontierDecayAt: 601_000
+          frontierDecayAt: 601_000,
+          frontierDecayKind: "ENCIRCLEMENT"
         }
       ]
     });
 
     expect(deps.state.tiles.get("11,12")?.frontierDecayAt).toBe(601_000);
+    expect(deps.state.tiles.get("11,12")?.frontierDecayKind).toBe("ENCIRCLEMENT");
 
     applyGatewayTileDeltaBatch(deps, [
       {
@@ -187,11 +189,13 @@ describe("client gateway sync", () => {
         y: 12,
         ownerId: "me",
         ownershipState: "FRONTIER",
-        frontierDecayAt: null
+        frontierDecayAt: null,
+        frontierDecayKind: null
       }
     ]);
 
     expect(deps.state.tiles.get("11,12")?.frontierDecayAt).toBeUndefined();
+    expect(deps.state.tiles.get("11,12")?.frontierDecayKind).toBeUndefined();
   });
 
   it("applies pressed-tile detail metadata from gateway tile delta batches", () => {

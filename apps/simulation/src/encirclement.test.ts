@@ -8,12 +8,13 @@ import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS, isFrontierConnected } from "./encirclement.js";
+import { FRONTIER_DECAY_MS } from "./territory-automation.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-type TileStub = { ownerId?: string; ownershipState?: string; frontierDecayAt?: number };
+type TileStub = { ownerId?: string; ownershipState?: string; frontierDecayAt?: number; frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" };
 
 const mkTileMap = (entries: Record<string, TileStub>): ((key: string) => TileStub | undefined) =>
   (key: string) => entries[key];
@@ -37,6 +38,7 @@ const mkRuntime = (tiles: Array<{
   ownerId?: string;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
   frontierDecayAt?: number;
+  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT";
 }>, players = ["player-1", "player-2"]) =>
   new SimulationRuntime({
     now: () => 1_000,
@@ -82,7 +84,7 @@ describe("encirclement connectivity", () => {
     const tiles = mkTileMap({
       "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
       "11,10": { ownerId: "player-1", ownershipState: "FRONTIER" },
-      "12,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 61_000 }
+      "12,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 61_000, frontierDecayKind: "ENCIRCLEMENT" }
     });
     const nowMs = 1_000;
     const { reconnected } = computeEncirclementDeltas(["11,10"], "player-1", tiles, nowMs);
@@ -200,7 +202,7 @@ describe("encirclement timer semantics", () => {
     const nowMs = 1_000;
     const tiles = mkTileMap({
       "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
-      "11,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: nowMs + 30_000 }
+      "11,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" }
     });
     const { reconnected } = computeEncirclementDeltas(["10,10"], "player-1", tiles, nowMs);
     expect(reconnected.has("11,10")).toBe(true);
@@ -211,7 +213,7 @@ describe("encirclement timer semantics", () => {
     // Natural 10-min decay was set 9 min 30 s ago, so 30 s remaining < 60 s.
     const naturalDecayAt = nowMs + 30_000; // 30 s remaining
     const tiles = mkTileMap({
-      "12,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: naturalDecayAt }
+      "12,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: naturalDecayAt, frontierDecayKind: "NATURAL" }
     });
     const { cutOff } = computeEncirclementDeltas(["12,10"], "player-1", tiles, nowMs);
     expect(cutOff.has("12,10")).toBe(true);
@@ -222,29 +224,20 @@ describe("encirclement timer semantics", () => {
     // Reverse: if natural decay is far in future (9 min remaining), encirclement wins.
     const naturalDecayFar = nowMs + 9 * 60_000;
     const tilesLong = mkTileMap({
-      "12,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: naturalDecayFar }
+      "12,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: naturalDecayFar, frontierDecayKind: "NATURAL" }
     });
     const { cutOff: cutOff2 } = computeEncirclementDeltas(["12,10"], "player-1", tilesLong, nowMs);
     expect(cutOff2.has("12,10")).toBe(true);
     expect(Math.min(naturalDecayFar, encirclementExpiresAt)).toBe(encirclementExpiresAt);
   });
 
-  it("F5: reconnect preserves natural decay timer that was never overwritten by encirclement", () => {
-    // Tile has a natural 10-min decay timer with 9 min remaining (well above ENCIRCLEMENT_DECAY_MS).
-    // Because computeEncirclementDeltas only marks a tile as `reconnected` when
-    // remaining time ≤ ENCIRCLEMENT_DECAY_MS (i.e. the timer was plausibly set by
-    // encirclement), this tile will NOT appear in `reconnected` — it can't be reached
-    // by the reconnection code path. The test verifies this invariant.
+  it("F5: reconnect preserves natural decay timer, including its final 60 seconds", () => {
     const nowMs = 1_000;
-    const naturalDecayLong = nowMs + 9 * 60_000; // 9 min remaining — our timer, NOT encirclement's
     const tiles = mkTileMap({
       "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
-      "11,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: naturalDecayLong }
+      "11,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: nowMs + 30_000, frontierDecayKind: "NATURAL" }
     });
-    // Changed key is the settled tile — triggers a reconnect check for adjacent tiles.
     const { reconnected } = computeEncirclementDeltas(["10,10"], "player-1", tiles, nowMs);
-    // 11,10 is reachable from the settled tile, but its timer has > 60 s remaining
-    // → the encirclement reconnect guard leaves it alone (we didn't set it).
     expect(reconnected.has("11,10")).toBe(false);
   });
 
@@ -258,7 +251,7 @@ describe("encirclement timer semantics", () => {
     const encirclementTimer = nowMs + ENCIRCLEMENT_DECAY_MS; // 61_000 — exactly 60 s
     const tiles = mkTileMap({
       "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
-      "11,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: encirclementTimer }
+      "11,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: encirclementTimer, frontierDecayKind: "ENCIRCLEMENT" }
     });
     const { reconnected } = computeEncirclementDeltas(["10,10"], "player-1", tiles, nowMs);
     // Timer is exactly ENCIRCLEMENT_DECAY_MS remaining → encirclement set it → can be cleared.
@@ -286,7 +279,8 @@ describe("encirclement attack guard", () => {
           {
             x: 10, y: 10, terrain: "LAND",
             ownerId: "player-1", ownershipState: "FRONTIER",
-            frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS // 60 s from now
+            frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS, // 60 s from now
+            frontierDecayKind: "ENCIRCLEMENT"
           },
           // player-2 target
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
@@ -332,7 +326,8 @@ describe("encirclement attack guard", () => {
             {
               x: 11, y: 10, terrain: "LAND",
               ownerId: "player-2", ownershipState: "FRONTIER",
-              frontierDecayAt: Date.now() + ENCIRCLEMENT_DECAY_MS
+              frontierDecayAt: Date.now() + ENCIRCLEMENT_DECAY_MS,
+              frontierDecayKind: "ENCIRCLEMENT"
             }
           ],
           activeLocks: []
@@ -373,7 +368,8 @@ describe("encirclement attack guard", () => {
       {
         x: 10, y: 10, terrain: "LAND",
         ownerId: "player-1", ownershipState: "FRONTIER",
-        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS
+        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS,
+        frontierDecayKind: "ENCIRCLEMENT"
       },
       // neutral target adjacent to origin
       { x: 11, y: 10, terrain: "LAND" }
@@ -407,8 +403,9 @@ describe("encirclement attack guard", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            // player-1 origin — normal frontier tile, no decay timer
+            // player-1 origin — normal frontier tile, supplied by adjacent settled tile
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
             // neutral target
             { x: 11, y: 10, terrain: "LAND" }
           ],
@@ -435,6 +432,35 @@ describe("encirclement attack guard", () => {
       vi.useRealTimers();
     }
   });
+
+  it("G1b-regression: EXPAND from a connected frontier tile with natural decay is accepted", async () => {
+    const runtime = mkRuntime([
+      {
+        x: 10, y: 10, terrain: "LAND",
+        ownerId: "player-1", ownershipState: "FRONTIER",
+        frontierDecayAt: 1_000 + FRONTIER_DECAY_MS,
+        frontierDecayKind: "NATURAL"
+      },
+      { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 11, y: 10, terrain: "LAND" }
+    ]);
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((e) => events.push(e));
+
+    runtime.submitCommand({
+      commandId: "expand-natural-decay",
+      sessionId: "s1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+    });
+    await Promise.resolve();
+
+    expect(events.find((e) => e.eventType === "COMMAND_ACCEPTED")).toBeDefined();
+    expect(events.find((e) => e.eventType === "COMMAND_REJECTED")).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -448,7 +474,8 @@ describe("encirclement settle guard", () => {
       {
         x: 10, y: 10, terrain: "LAND",
         ownerId: "player-1", ownershipState: "FRONTIER",
-        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS
+        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS,
+        frontierDecayKind: "ENCIRCLEMENT"
       }
     ]);
     const events: SimulationEvent[] = [];
@@ -473,8 +500,9 @@ describe("encirclement settle guard", () => {
   // Regression: SETTLE on a normal (non-blinking) frontier tile still succeeds.
   it("G4-regression: SETTLE on a non-blinking frontier tile is accepted", async () => {
     const runtime = mkRuntime([
-      // no frontierDecayAt set → not cut off
-      { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+      // no frontierDecayAt set and adjacent settled supply → not cut off
+      { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+      { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
     ]);
     const events: SimulationEvent[] = [];
     runtime.onEvent((e) => events.push(e));
@@ -491,6 +519,34 @@ describe("encirclement settle guard", () => {
     await Promise.resolve();
 
     // Should be accepted (SETTLEMENT_STARTED or COMMAND_ACCEPTED — settle emits SETTLEMENT_STARTED)
+    expect(events.find((e) => e.eventType === "SETTLEMENT_STARTED")).toBeDefined();
+    expect(events.find((e) => e.eventType === "COMMAND_REJECTED")).toBeUndefined();
+  });
+
+  it("G4-regression: SETTLE on a connected frontier tile with natural decay is accepted", async () => {
+    const runtime = mkRuntime([
+      {
+        x: 10, y: 10, terrain: "LAND",
+        ownerId: "player-1", ownershipState: "FRONTIER",
+        frontierDecayAt: 1_000 + FRONTIER_DECAY_MS,
+        frontierDecayKind: "NATURAL"
+      },
+      { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+    ]);
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((e) => events.push(e));
+
+    runtime.submitCommand({
+      commandId: "settle-natural-decay",
+      sessionId: "s1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+    await Promise.resolve();
+
     expect(events.find((e) => e.eventType === "SETTLEMENT_STARTED")).toBeDefined();
     expect(events.find((e) => e.eventType === "COMMAND_REJECTED")).toBeUndefined();
   });
@@ -524,7 +580,8 @@ describe("encirclement expand reconnection", () => {
             {
               x: 12, y: 10, terrain: "LAND",
               ownerId: "player-1", ownershipState: "FRONTIER",
-              frontierDecayAt: Date.now() + ENCIRCLEMENT_DECAY_MS
+              frontierDecayAt: Date.now() + ENCIRCLEMENT_DECAY_MS,
+              frontierDecayKind: "ENCIRCLEMENT"
             },
             // neutral tile that will become the bridge when expanded into
             { x: 11, y: 10, terrain: "LAND" }
@@ -623,4 +680,3 @@ describe("encirclement expand reconnection", () => {
     }
   });
 });
-
