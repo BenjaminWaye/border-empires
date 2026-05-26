@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
-import { buildPlayerUpdateEconomySnapshot } from "./player-update-economy.js";
+import { buildPlayerUpdateEconomySnapshot, refreshTownEconomyFields } from "./player-update-economy.js";
 import { createEmptyPlayerRuntimeSummary, applyTileToPlayerSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
 const makePlayer = (): DomainPlayer => ({
@@ -142,5 +142,115 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
       expect.objectContaining({ label: "Towns", amountPerMinute: 15.4, count: 4 })
     );
+  });
+});
+
+describe("refreshTownEconomyFields", () => {
+  it("re-stamps isFed from the freshly computed fed-key set so wire townJson cannot lie about fed state", () => {
+    const player = makePlayer();
+    const tile: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      town: {
+        type: "FARMING",
+        populationTier: "TOWN",
+        supportCurrent: 5,
+        supportMax: 5,
+        // Stale isFed:true — must be overwritten when fedTownKeys says otherwise.
+        isFed: true,
+        baseGoldPerMinute: 2,
+        population: 1000,
+        maxPopulation: 25_000,
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMarket: false,
+        marketActive: false,
+        hasGranary: false,
+        granaryActive: false,
+        hasBank: false,
+        bankActive: false
+      }
+    };
+    const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
+    const fedTownKeys = new Set<string>(); // tile is NOT fed in the fresh computation
+
+    const refreshed = refreshTownEconomyFields(tile.town!, tile, player, tiles, fedTownKeys);
+
+    expect(refreshed.isFed).toBe(false);
+    expect(refreshed.goldPerMinute).toBe(0);
+  });
+
+  it("keeps isFed=true when the tile is in the fresh fed-key set", () => {
+    const player = makePlayer();
+    const tile: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      town: {
+        type: "FARMING",
+        populationTier: "TOWN",
+        supportCurrent: 5,
+        supportMax: 5,
+        isFed: false, // stale false — should flip to true after restamp
+        baseGoldPerMinute: 2,
+        population: 1000,
+        maxPopulation: 25_000,
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMarket: false,
+        marketActive: false,
+        hasGranary: false,
+        granaryActive: false,
+        hasBank: false,
+        bankActive: false
+      }
+    };
+    const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
+    const fedTownKeys = new Set<string>(["10,10"]);
+
+    const refreshed = refreshTownEconomyFields(tile.town!, tile, player, tiles, fedTownKeys);
+
+    expect(refreshed.isFed).toBe(true);
+    expect(refreshed.goldPerMinute).toBeGreaterThan(0);
+  });
+
+  it("treats settlements as always fed regardless of fedTownKeys membership", () => {
+    const player = makePlayer();
+    const tile: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      town: {
+        type: "FARMING",
+        populationTier: "SETTLEMENT",
+        supportCurrent: 0,
+        supportMax: 0,
+        isFed: false,
+        baseGoldPerMinute: 1,
+        population: 500,
+        maxPopulation: 2500,
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMarket: false,
+        marketActive: false,
+        hasGranary: false,
+        granaryActive: false,
+        hasBank: false,
+        bankActive: false
+      }
+    };
+    const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
+    const fedTownKeys = new Set<string>(); // empty — settlement still fed
+
+    const refreshed = refreshTownEconomyFields(tile.town!, tile, player, tiles, fedTownKeys);
+
+    expect(refreshed.isFed).toBe(true);
   });
 });
