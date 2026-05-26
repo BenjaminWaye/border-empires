@@ -2,6 +2,7 @@ import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile }
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor.js";
 import {
   RENDERER_PROMPT_FPS_THRESHOLD,
@@ -466,22 +467,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
         const fortificationKind = fortificationOverlayKindForTile(t);
         const overlay = deps.structureOverlayImages[t.economicStructure.type];
-        // Tier-1 structures handled by the 3D structure overlay — skip
-        // the 2D image / fallback so the canvas stays clean over them.
-        const structure3DType = t.economicStructure.type;
+        // Structures handled by the 3D structure overlay — skip the 2D
+        // image / fallback so the canvas stays clean over them. The
+        // authoritative set lives in client-map-3d-structure-overlay.ts
+        // (economic + late-game + civic + infrastructure + industrial).
         const handled3DStructure =
-          isTrue3DRendererActive() && (
-            structure3DType === "FARMSTEAD" ||
-            structure3DType === "WATERWORKS" ||
-            structure3DType === "CAMP" ||
-            structure3DType === "MINE" ||
-            structure3DType === "IRONWORKS" ||
-            structure3DType === "MARKET" ||
-            structure3DType === "GRANARY"
-          );
+          isTrue3DRendererActive() &&
+          STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind);
         if (fortificationKind || handled3DStructure) {
-          // 3D-rendered (fortifications + Tier-1 economic structures);
-          // do not draw 2D fallbacks.
+          // 3D-rendered (fortifications + any economic structure in the
+          // 3D overlay set); do not draw 2D fallbacks.
         } else if (overlay && overlay.complete && overlay.naturalWidth) {
           deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
         } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
@@ -1035,18 +1030,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const active = t.economicStructure.status === "active";
           const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
           const overlay = deps.structureOverlayImages[t.economicStructure.type];
-          const structure3DType2 = t.economicStructure.type;
           const handled3DStructure2 =
-            isTrue3DRendererActive() && (
-              structure3DType2 === "FARMSTEAD" ||
-              structure3DType2 === "WATERWORKS" ||
-              structure3DType2 === "CAMP" ||
-              structure3DType2 === "MINE" ||
-              structure3DType2 === "IRONWORKS" ||
-              structure3DType2 === "MARKET"
-            );
+            isTrue3DRendererActive() &&
+            STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind);
           if (handled3DStructure2) {
-            // 3D-rendered Tier-1 structure; skip the 2D fallbacks.
+            // 3D-rendered structure; skip the 2D fallbacks.
           } else if (overlay && overlay.complete && overlay.naturalWidth) {
             deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
           } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
