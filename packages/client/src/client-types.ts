@@ -184,6 +184,11 @@ export type Tile = {
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
     powered?: boolean;
+    /** Sweep state — only meaningful when type === "LIGHT_OUTPOST". Type-lie
+     * carried from packages/shared until the structure-pipeline rewrite. */
+    sweepBudget?: number;
+    sweepActive?: boolean;
+    sweepBudgetUpdatedAt?: number;
   };
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
