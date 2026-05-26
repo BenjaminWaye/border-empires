@@ -18,8 +18,11 @@ import {
   LIGHT_OUTPOST_GOLD_UPKEEP,
   MARKET_FOOD_UPKEEP,
   MINE_GOLD_UPKEEP,
+  PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   RADAR_SYSTEM_GOLD_UPKEEP,
+  SETTLEMENT_BASE_GOLD_PER_MIN,
+  TOWN_BASE_GOLD_PER_MIN,
   WOODEN_FORT_GOLD_UPKEEP
 } from "@border-empires/game-domain";
 
@@ -28,6 +31,51 @@ type TileUpdate = Record<string, unknown>;
 type YieldSourceTile = Parameters<typeof buildTileYieldView>[0];
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
+
+// Keep this in sync with buildTownSummary's gpm/cap branches in
+// apps/simulation/src/live-snapshot-view.ts (around lines 720-770). Used to
+// backfill goldPerMinute when the snapshot tile's townJson is missing it —
+// without this, the gateway-cached tile-detail path serves
+// yieldRate.goldPerMinute=0 for any TOWN-tier town the snapshot didn't fully
+// populate, which is the bug we're fixing. firstThreeTownMult and the player
+// income multiplier aren't available here; both default to 1.0, so this may
+// under-report by tech/first-three bonuses (<= ~25%) until the sim's
+// authoritative response lands — vastly better than reporting 0.
+const townPopulationMultiplierLocal = (tier: string): number => {
+  switch (tier) {
+    case "CITY": return 1.5;
+    case "GREAT_CITY": return 2.5;
+    case "METROPOLIS": return 3.2;
+    default: return 1;
+  }
+};
+
+const fallbackTownGoldPerMinute = (input: {
+  isSettlement: boolean;
+  isFed: boolean;
+  supportCurrent: number;
+  supportMax: number;
+  populationTier: string;
+  connectedTownBonus: number;
+  hasMarket: boolean;
+  hasBank: boolean;
+}): number => {
+  if (input.isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * PASSIVE_INCOME_MULT;
+  if (!input.isFed) return 0;
+  const supportRatio = input.supportMax <= 0 ? 1 : input.supportCurrent / input.supportMax;
+  return (
+    TOWN_BASE_GOLD_PER_MIN *
+    supportRatio *
+    townPopulationMultiplierLocal(input.populationTier) *
+    (1 + input.connectedTownBonus) *
+    (input.hasMarket ? 1.5 : 1) *
+    (input.hasBank ? 1.5 : 1) *
+    PASSIVE_INCOME_MULT
+  ) + (input.hasBank ? 1 : 0);
+};
+
+const fallbackTownCap = (goldPerMinute: number, isSettlement: boolean, hasMarket: boolean): number =>
+  isSettlement ? goldPerMinute * 60 * 8 : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
 
 const parseTown = (tile: SnapshotTile): Partial<import("@border-empires/shared").Tile["town"]> | undefined => {
   if (!tile?.townJson) return undefined;
@@ -191,12 +239,30 @@ export const buildSnapshotTileDetail = (
       : populationTier === "SETTLEMENT"
         ? 1
         : 2;
+  const populationTierIsSettlement = populationTier === "SETTLEMENT";
+  // Trust the sim's authoritative goldPerMinute when it's on the snapshot.
+  // Fall back to an inline recompute when missing — required because the
+  // snapshot path (and re-stitched gateway townJson) sometimes drops the
+  // field, and buildTileYieldView with no economyContext returns 0 for
+  // TOWN-tier when town.goldPerMinute isn't present.
   const goldPerMinute =
     typeof parsedTown?.goldPerMinute === "number" && Number.isFinite(parsedTown.goldPerMinute)
       ? parsedTown.goldPerMinute
-      : undefined;
+      : fallbackTownGoldPerMinute({
+          isSettlement: populationTierIsSettlement,
+          isFed,
+          supportCurrent: supportSummary.supportCurrent,
+          supportMax: supportSummary.supportMax,
+          populationTier,
+          connectedTownBonus:
+            typeof parsedTown?.connectedTownBonus === "number" ? parsedTown.connectedTownBonus : 0,
+          hasMarket: supportStructures.hasMarket,
+          hasBank: supportStructures.hasBank
+        });
   const cap =
-    typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap) ? parsedTown.cap : undefined;
+    typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap)
+      ? parsedTown.cap
+      : fallbackTownCap(goldPerMinute, populationTierIsSettlement, supportStructures.hasMarket);
   const populationGrowthPerMinute =
     townPopulationGrowthPerMinute({
       isFed,

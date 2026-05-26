@@ -360,8 +360,12 @@ export const refreshTownEconomyFields = (
   const cap = isSettlement
     ? goldPerMinute * 60 * 8
     : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
-  if (town.goldPerMinute === goldPerMinute && town.cap === cap) return town;
-  return { ...town, goldPerMinute, cap };
+  // Re-stamp isFed from the freshly-computed fed-key set so the wire payload's
+  // townJson.isFed never contradicts the live fedTownKeys (and the derived
+  // goldPerMinute/cap above). Settlements have no food upkeep so always fed.
+  const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);
+  if (town.goldPerMinute === goldPerMinute && town.cap === cap && town.isFed === isFed) return town;
+  return { ...town, goldPerMinute, cap, isFed };
 };
 
 export const buildPlayerUpdateEconomySnapshot = (
