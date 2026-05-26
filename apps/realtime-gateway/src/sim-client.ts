@@ -36,6 +36,8 @@ type ProtoTileDelta = {
   ownershipState?: string;
   frontier_decay_at?: number;
   frontierDecayAt?: number;
+  frontier_decay_kind?: "NATURAL" | "ENCIRCLEMENT";
+  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT";
   town_json?: string;
   townJson?: string;
   town_type?: string;
@@ -265,6 +267,7 @@ export type SimulationClientEvent =
         ownerId?: string | undefined;
         ownershipState?: string | undefined;
         frontierDecayAt?: number | undefined;
+        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;
@@ -348,6 +351,10 @@ const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Simulatio
   if ("frontier_decay_at" in tile || "frontierDecayAt" in tile) {
     const frontierDecayAt = tile.frontier_decay_at ?? tile.frontierDecayAt;
     normalized.frontierDecayAt = typeof frontierDecayAt === "number" && frontierDecayAt > 0 ? frontierDecayAt : undefined;
+  }
+  if ("frontier_decay_kind" in tile || "frontierDecayKind" in tile) {
+    const frontierDecayKind = tile.frontier_decay_kind ?? tile.frontierDecayKind;
+    normalized.frontierDecayKind = frontierDecayKind === "NATURAL" || frontierDecayKind === "ENCIRCLEMENT" ? frontierDecayKind : undefined;
   }
   if ("town_json" in tile || "townJson" in tile) normalized.townJson = tile.town_json || tile.townJson || undefined;
   if (typeof tile.town_type === "string" && (tile.town_type === "MARKET" || tile.town_type === "FARMING")) {

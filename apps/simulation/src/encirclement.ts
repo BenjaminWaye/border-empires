@@ -9,7 +9,8 @@
  * When a frontier tile loses connectivity it is "cut off" and gets a short
  * decay timer (ENCIRCLEMENT_DECAY_MS = 60 s). Reconnection clears the timer.
  * The natural 10-min decay and the encirclement timer share the same
- * `frontierDecayAt` field; whichever is smaller wins.
+ * `frontierDecayAt` field; `frontierDecayKind` records which mechanic owns
+ * the active timer.
  */
 
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
@@ -36,6 +37,7 @@ const NEIGHBOR_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
 export interface EncirclementTileView {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
+  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
 }
 
 /**
@@ -219,10 +221,10 @@ export const computeEncirclementDeltas = (
       cutOff.add(key);
     } else if (
       typeof tile.frontierDecayAt === "number" &&
-      tile.frontierDecayAt - nowMs <= ENCIRCLEMENT_DECAY_MS
+      tile.frontierDecayKind === "ENCIRCLEMENT"
     ) {
-      // Was cut off (has an encirclement timer ≤ 60 s) and is now reconnected.
-      // Natural decay timers (> 60 s remaining) are not ours to clear.
+      // Was cut off by encirclement and is now reconnected. Natural decay
+      // timers are not ours to clear, even in their final 60 seconds.
       reconnected.add(key);
     }
   }
