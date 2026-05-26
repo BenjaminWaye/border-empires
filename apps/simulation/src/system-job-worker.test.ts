@@ -351,7 +351,9 @@ describe("worker system command producer backpressure", () => {
         onEvent: (listener: (event: { playerId: string; eventType: string }) => void) => {
           eventEmitter.on("event", listener);
           return () => eventEmitter.off("event", listener);
-        }
+        },
+        getBarbActivationVisionSignature: () => "",
+        exportBarbActivationVisibleUnion: () => ({ keys: [], signature: "" })
       },
       systemPlayerIds: ["barbarian-1"],
       submitCommand: async () => undefined,
@@ -406,7 +408,9 @@ describe("worker system command producer backpressure", () => {
         onEvent: (listener: (event: { playerId: string; eventType: string }) => void) => {
           eventEmitter.on("event", listener);
           return () => eventEmitter.off("event", listener);
-        }
+        },
+        getBarbActivationVisionSignature: () => "",
+        exportBarbActivationVisibleUnion: () => ({ keys: [], signature: "" })
       },
       systemPlayerIds: ["barbarian-1"],
       submitCommand: async () => undefined,
