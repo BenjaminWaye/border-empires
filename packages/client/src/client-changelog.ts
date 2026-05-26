@@ -28,7 +28,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       title: "Tile menu shows a countdown for natural frontier decay",
       why: "The 3D map already blinks frontier tiles white in the last 60s of their ~10-minute natural decay window, but the tile menu header only surfaced a timer for encirclement (cut-off) decay. Players who clicked a blinking tile to see how long they had left got no number.",
       changes: [
-        "Tile menu header now shows 'Frontier collapsing in Ns' for the final 60s of natural frontier decay, mirroring the existing encirclement 'Cut off from supply' countdown. Encirclement still wins when both apply."
+        "Tile menu header now shows 'Frontier collapsing in Ns' for the final 60s of natural frontier decay, mirroring the existing encirclement 'Cut off from supply' countdown."
       ]
     },
     {

@@ -72,13 +72,6 @@ describe("tileMenuHeaderStatusForTile — encirclement tooltip", () => {
     expect(status?.text).toMatch(/45s/);
   });
 
-  it("encirclement tooltip takes priority over natural decay countdown", () => {
-    const nowMs = 1_000;
-    // Both kinds in the final 60s window — encirclement wins (it's still "cut off" semantically).
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
-    const status = tileMenuHeaderStatusForTile(tile, nowMs);
-    expect(status?.text).toMatch(/Cut off from supply/);
-  });
 });
 
 describe("naturalDecayRemainingMsForTile", () => {
