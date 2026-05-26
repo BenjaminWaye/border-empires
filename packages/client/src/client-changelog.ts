@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.26.2",
+  version: "2026.05.26.3",
   title: "What's New",
-  summary: "Tile-detail inspector no longer reports Production as 0/m for owned towns, and rapid re-clicks no longer spam the gateway.",
+  summary: "Light Outpost sweep toggle now works.",
   entries: [
+    {
+      introducedIn: "2026.05.26.3",
+      title: "Light Outpost sweep toggle now works",
+      why: "The sim already ticked Light Outpost sweep budget every tick AND the SET_SIEGE_OUTPOST_SWEEP handler already accepted LIGHT_OUTPOST tiles (since PR #390) — but the Start/Stop Sweep tile action only rendered for tile.siegeOutpost. Because LIGHT_OUTPOST lives on tile.economicStructure the toggle never appeared, leaving sweepActive permanently false.",
+      changes: [
+        "Start/Stop Sweep action now appears on owned, active Light Outposts in the tile action panel.",
+        "Client-only fix — no sim or wire changes. The semantic mismatch (message named SET_SIEGE_OUTPOST_SWEEP also flips Light Outposts) is acknowledged debt for the planned structure-pipeline rewrite.",
+        "No game balance changes."
+      ]
+    },
     {
       introducedIn: "2026.05.26.2",
       title: "Tile inspector shows real town production again",
