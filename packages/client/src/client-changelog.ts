@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.26.3",
+  version: "2026.05.26.4",
   title: "What's New",
-  summary: "Light Outpost sweep toggle now works.",
+  summary: "3D renderer no longer double-paints buildings — late-game, civic, infrastructure, and industrial structures now hide their 2D fallbacks the way Tier-1 structures already did.",
   entries: [
+    {
+      introducedIn: "2026.05.26.4",
+      title: "3D buildings no longer double up with 2D sprites",
+      why: "The 3D structure overlay now renders ~28 building kinds (economic + late-game + civic + infrastructure + industrial), but the 2D fallback in client-runtime-loop.ts only suppressed a hardcoded 7-type Tier-1 list. Every newer building (Bank, Caravanary, Foundry, Airport, etc.) was being drawn twice — 3D mesh plus 2D PNG/marker on top.",
+      changes: [
+        "Both 2D structure-draw passes now consult STRUCTURE_KINDS_HANDLED_BY_3D (the authoritative set from client-map-3d-structure-overlay.ts) instead of a stale hardcoded Tier-1 allowlist, so any kind the 3D overlay can render hides its 2D fallback automatically as new families are added."
+      ]
+    },
     {
       introducedIn: "2026.05.26.3",
       title: "Light Outpost sweep toggle now works",
