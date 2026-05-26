@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.26.4",
+  version: "2026.05.26.5",
   title: "What's New",
-  summary: "3D renderer no longer double-paints buildings — late-game, civic, infrastructure, and industrial structures now hide their 2D fallbacks the way Tier-1 structures already did.",
+  summary: "Frontier tiles in the final minute of their natural decay now show a 'Frontier collapsing in Ns' countdown in the tile menu header, matching the existing 3D blink.",
   entries: [
+    {
+      introducedIn: "2026.05.26.5",
+      title: "Tile menu shows a countdown for natural frontier decay",
+      why: "The 3D map already blinks frontier tiles white in the last 60s of their ~10-minute natural decay window, but the tile menu header only surfaced a timer for encirclement (cut-off) decay. Players who clicked a blinking tile to see how long they had left got no number.",
+      changes: [
+        "Tile menu header now shows 'Frontier collapsing in Ns' for the final 60s of natural frontier decay, mirroring the existing encirclement 'Cut off from supply' countdown. Encirclement still wins when both apply."
+      ]
+    },
     {
       introducedIn: "2026.05.26.4",
       title: "3D buildings no longer double up with 2D sprites",
