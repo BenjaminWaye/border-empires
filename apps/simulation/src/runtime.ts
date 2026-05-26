@@ -610,6 +610,10 @@ export class SimulationRuntime {
       this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
     }
+    // First pass: apply tile summaries and shard-site tracking.
+    // All tiles are already in this.tiles (createTilesFromInitialState produced a
+    // complete Map), so anchor registration in the second pass below will find every
+    // neighbour regardless of iteration order.
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
       const site = tile.shardSite;
@@ -620,22 +624,34 @@ export class SimulationRuntime {
             ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
             : site.expiresAt;
       }
-      // Bootstrap PlayerCandidateIndex anchors.
-      if (tile.ownerId) {
-        const nowMs = this.now();
-        const fortRadius = fortAutoFrontierRadiusForTile(tile, tile.ownerId, nowMs);
-        const townAnchor = isSettledTownAnchor(tile, tile.ownerId);
-        const outpostAnchor =
-          tile.siegeOutpost?.ownerId === tile.ownerId &&
-          tile.siegeOutpost.status === "active" &&
-          tile.siegeOutpost.sweepActive;
-        if (fortRadius > 0) {
-          this.playerCandidateIndex.registerAnchor(tileKey, tile.ownerId, fortRadius, (k) => this.tiles.get(k));
-        } else if (townAnchor) {
-          this.playerCandidateIndex.registerAnchor(tileKey, tile.ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        } else if (outpostAnchor) {
-          this.playerCandidateIndex.registerAnchor(tileKey, tile.ownerId, MAX_SWEEP_RADIUS, (k) => this.tiles.get(k));
-        }
+    }
+    // Second pass: register PlayerCandidateIndex anchors now that this.tiles is
+    // fully traversed.  Each anchor is stored at the MAX possible radius for its
+    // kind — time-dependent radius (e.g. FORT_PATROL_GRACE_MS) is applied at the
+    // call site, not stored here, to prevent stale maxRadius bugs.
+    for (const [tileKey, tile] of this.tiles.entries()) {
+      if (!tile.ownerId) continue;
+      const ownerId = tile.ownerId;
+      // Fort kind: active fort (any variant, including patrol-grace) or active WOODEN_FORT.
+      if (
+        tile.economicStructure?.ownerId === ownerId &&
+        tile.economicStructure.type === "WOODEN_FORT" &&
+        tile.economicStructure.status === "active"
+      ) {
+        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
+      } else if (
+        tile.fort?.ownerId === ownerId &&
+        tile.fort.status === "active"
+      ) {
+        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
+      } else if (isSettledTownAnchor(tile, ownerId)) {
+        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
+      } else if (
+        tile.siegeOutpost?.ownerId === ownerId &&
+        tile.siegeOutpost.status === "active" &&
+        tile.siegeOutpost.sweepActive
+      ) {
+        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_SWEEP_RADIUS, (k) => this.tiles.get(k));
       }
     }
     for (const player of options.initialState?.players ?? []) {
@@ -1049,6 +1065,9 @@ export class SimulationRuntime {
     }
 
     // Use index when available; fall back to sweepAttackCandidates only if anchor not registered.
+    // The fallback is an intentional safety net: a sweep outpost that was activated
+    // before its anchor registration had a chance to run will still function correctly.
+    // Frequent misses here would indicate a registration gap and should be investigated.
     const candidates = this.playerCandidateIndex.hasAnchor(tileKey)
       ? this.playerCandidateIndex.sortedAttackCandidates(tileKey, sweepRadius)
       : sweepAttackCandidates(tile, playerId, sweepRadius, (x, y) => this.tiles.get(simulationTileKey(x, y)));
@@ -1978,21 +1997,39 @@ export class SimulationRuntime {
    * Called from replaceTileState after the tile is already written to this.tiles.
    * Registers/unregisters anchors when a tile gains or loses a fort, town,
    * active WOODEN_FORT, or active siege outpost (for sweep).
+   *
+   * Each anchor is stored at the MAXIMUM possible radius for its kind, not the
+   * current effective radius.  This prevents stale maxRadius when time-dependent
+   * conditions (e.g. FORT_PATROL_GRACE_MS) change the effective radius without
+   * triggering a tile mutation.  Re-registration fires only when the anchor KIND
+   * or OWNER changes, not on radius drift.
    */
   private refreshPlayerCandidateIndexAnchorForTile(
     tileKey: string,
     previous: DomainTileState | undefined,
     next: DomainTileState
   ): void {
-    const nowMs = this.now();
     const prevOwnerId = previous?.ownerId;
     const nextOwnerId = next.ownerId;
 
-    const tileAnchorRadius = (tile: DomainTileState, ownerId: string): number => {
-      const fortRadius = fortAutoFrontierRadiusForTile(tile, ownerId, nowMs);
-      if (fortRadius > 0) return fortRadius;
+    // Detect anchor kind (ignoring time-dependent radius factors like patrol grace).
+    // Returns the max-possible radius for the kind, or 0 if not an anchor.
+    const anchorKindMaxRadius = (tile: DomainTileState, ownerId: string): number => {
+      // Fort kind: active fort (any variant, including grace state) or active WOODEN_FORT.
+      if (
+        tile.ownerId === ownerId &&
+        tile.economicStructure?.ownerId === ownerId &&
+        tile.economicStructure.type === "WOODEN_FORT" &&
+        tile.economicStructure.status === "active"
+      ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
+      if (
+        tile.ownerId === ownerId &&
+        tile.fort?.ownerId === ownerId &&
+        tile.fort.status === "active"
+      ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
+      // Town kind.
       if (isSettledTownAnchor(tile, ownerId)) return TOWN_AUTO_FRONTIER_RADIUS;
-      // Active siege outpost — use max sweep radius for attack candidate index.
+      // Active siege outpost with sweep enabled.
       if (
         tile.siegeOutpost?.ownerId === ownerId &&
         tile.siegeOutpost.status === "active" &&
@@ -2001,22 +2038,23 @@ export class SimulationRuntime {
       return 0;
     };
 
-    const prevRadius = previous && prevOwnerId ? tileAnchorRadius(previous, prevOwnerId) : 0;
-    const nextRadius = nextOwnerId ? tileAnchorRadius(next, nextOwnerId) : 0;
+    const prevMaxRadius = previous && prevOwnerId ? anchorKindMaxRadius(previous, prevOwnerId) : 0;
+    const nextMaxRadius = nextOwnerId ? anchorKindMaxRadius(next, nextOwnerId) : 0;
 
-    if (prevRadius <= 0 && nextRadius <= 0) return;
-    if (prevRadius > 0 && nextRadius <= 0) {
+    if (prevMaxRadius <= 0 && nextMaxRadius <= 0) return;
+    if (prevMaxRadius > 0 && nextMaxRadius <= 0) {
       this.playerCandidateIndex.unregisterAnchor(tileKey);
       return;
     }
-    if (prevRadius <= 0 && nextRadius > 0) {
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextRadius, (k) => this.tiles.get(k));
+    if (prevMaxRadius <= 0 && nextMaxRadius > 0) {
+      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
       return;
     }
-    // Both are anchors — re-register if owner or radius changed.
-    if (prevOwnerId !== nextOwnerId || prevRadius !== nextRadius) {
+    // Both are anchors — re-register only if owner or anchor KIND (max radius) changed.
+    // Radius drift from time-dependent conditions does NOT trigger re-registration.
+    if (prevOwnerId !== nextOwnerId || prevMaxRadius !== nextMaxRadius) {
       this.playerCandidateIndex.unregisterAnchor(tileKey);
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextRadius, (k) => this.tiles.get(k));
+      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
     }
   }
 

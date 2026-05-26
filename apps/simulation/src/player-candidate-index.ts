@@ -15,9 +15,22 @@
  * Each call is O(1) amortised per tile, so the total cost per tick is O(dirty
  * tiles * R^2), which is well within watchdog budget.
  *
- * Iteration order for claimCandidates: top-left to bottom-right, matching
- * coordsInChebyshevRadius exactly (dy = -R..+R outer, dx = -R..+R inner,
- * skip center). This preserves determinism in tickTerritoryAutomation.
+ * Anchor registration: each anchor is stored at the MAXIMUM possible radius for
+ * its kind (MAX_FORT_AUTO_FRONTIER_RADIUS for forts/wooden-forts,
+ * TOWN_AUTO_FRONTIER_RADIUS for towns, MAX_SWEEP_RADIUS for sweep outposts).
+ * This prevents stale maxRadius when time-dependent conditions (e.g.
+ * FORT_PATROL_GRACE_MS) change the effective radius without a tile mutation.
+ * The per-tick call sites pass the current dynamic radius to claimCandidates /
+ * sortedAttackCandidates, which clamps the set to the actual effective radius.
+ * Re-registration is triggered only when the anchor KIND or OWNER changes, not
+ * on radius drift.
+ *
+ * Iteration order for claimCandidates: ring-by-ring outward (radius 1 first,
+ * then 2, …), and within each ring top-to-bottom / left-to-right (dy asc, dx
+ * asc). This differs from the original coordsInChebyshevRadius full-square
+ * traversal (which visited all radii top-to-bottom together) and is intentional
+ * — it gives closer tiles priority in the claim loop, which is the desired
+ * behaviour for territory automation.
  *
  * Sort key for sortedAttackCandidates: distance asc, then x asc, then y asc.
  * Matches sweepAttackCandidates exactly.
@@ -104,23 +117,20 @@ const buildClaimCandidatesByRadius = (
   // Group by radius (Chebyshev distance).
   const byRadius: string[][] = Array.from({ length: maxRadius }, () => []);
   for (const { x, y } of allCoords) {
-    const dist = Math.max(Math.abs(x - ax), Math.abs(y - ay));
-    // For wrapped coordinates, recompute correctly.
+    // For wrapped coordinates, compute Chebyshev distance accounting for wrap.
     const dx = Math.abs(x - ax);
     const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
     const dy = Math.abs(y - ay);
     const wrappedDy = Math.min(dy, WORLD_HEIGHT - dy);
-    const wrappedDist = Math.max(wrappedDx, wrappedDy);
-    const r = wrappedDist;
+    const r = Math.max(wrappedDx, wrappedDy);
     if (r >= 1 && r <= maxRadius) {
       byRadius[r - 1]!.push(`${x},${y}`);
     }
-    void dist; // unused, using wrappedDist
   }
   for (let r = 0; r < maxRadius; r += 1) {
-    // coordsInChebyshevRadius iterates dy=-r..+r outer, dx=-r..+r inner.
-    // The coords are already in (dy asc, dx asc) order within each ring.
-    // We just pass them through in the same order they were generated.
+    // coordsInChebyshevRadius iterates dy=-R..+R outer, dx=-R..+R inner.
+    // Coords arrive in (dy asc, dx asc) order, so within each ring they are
+    // already top-to-bottom / left-to-right. Pass them through as-is.
     result.push(byRadius[r] ?? []);
   }
   return result;
@@ -268,8 +278,11 @@ export class PlayerCandidateIndex {
     if (!coords) return [];
     const { x: ax, y: ay } = coords;
     const ownerId = entry.anchorOwnerId;
+    // sortedAttackTiles is built from isEnemyTile which includes SETTLED tiles and
+    // tiles with forts.  isFortAttackTarget is a stricter predicate (frontier only,
+    // no fort/wooden-fort), so we cannot skip the filter even when
+    // currentRadius >= entry.maxRadius.  Clamp once here to avoid per-element branching.
     const r = Math.min(currentRadius, entry.maxRadius);
-    // Filter from the precomputed sorted list.
     return entry.sortedAttackTiles.filter((t) => {
       const dist = chebyshevDistanceSimple(ax, ay, t.x, t.y);
       return dist <= r && isFortAttackTarget(t, ownerId);
