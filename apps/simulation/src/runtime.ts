@@ -857,14 +857,14 @@ export class SimulationRuntime {
   // sweep keeps the planner from getting permanently gated.
   tickOrphanedLockSweep(nowMs: number = this.now()): number {
     const cutoff = nowMs - ORPHAN_LOCK_GRACE_MS;
-    let dropped = 0;
+    const droppedCommandIds = new Set<string>();
     for (const [tileKey, lock] of this.locksByTile) {
       if (lock.resolvesAt < cutoff) {
         this.locksByTile.delete(tileKey);
-        dropped++;
+        droppedCommandIds.add(lock.commandId);
       }
     }
-    return dropped;
+    return droppedCommandIds.size;
   }
 
   tickShardRain(nowMs: number = this.now()): void {
