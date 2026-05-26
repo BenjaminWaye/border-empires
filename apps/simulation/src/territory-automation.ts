@@ -13,10 +13,6 @@ export const chebyshevDistanceSimple = (ax: number, ay: number, bx: number, by: 
  * Sweep attack candidate tiles: all enemy-player and barbarian tiles within
  * chebyshev distance <= radius from the outpost tile. Returns tiles sorted by
  * distance ascending; tie-break: lower x first, then lower y.
- *
- * Hot-path callers (tickSweepStructure) should prefer
- * PlayerCandidateIndex.sortedAttackCandidates() to avoid per-tick sort and
- * intermediate-array allocations.
  */
 export const sweepAttackCandidates = (
   outpost: DomainTileState,
@@ -180,13 +176,6 @@ export const siegeAutoAttackCandidates = (
       );
     });
 
-/**
- * Fort auto-attack candidates: frontier enemy tiles (no fort or wooden-fort)
- * within chebyshev radius. Sorted by resource/town value desc, then x/y asc.
- *
- * Hot-path callers (tickTerritoryAutomation fort patrol) should prefer
- * PlayerCandidateIndex.sortedFortAttackCandidates() to avoid per-tick sort.
- */
 export const fortAutoAttackCandidates = (
   fortTile: DomainTileState,
   playerId: string,
