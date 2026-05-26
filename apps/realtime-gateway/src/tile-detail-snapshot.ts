@@ -259,10 +259,17 @@ export const buildSnapshotTileDetail = (
           hasMarket: supportStructures.hasMarket,
           hasBank: supportStructures.hasBank
         });
+  // Only backfill cap when goldPerMinute is positive. For unfed TOWN-tier
+  // tiles the live-snapshot formula multiplies through 0, which on the wire
+  // would clobber buildTileYieldView's default TILE_YIELD_CAP_GOLD fallback
+  // (24) with a hard 0 cap — preserving the existing "undefined → default"
+  // behavior for unfed tiles avoids a stored-yield-buffer regression.
   const cap =
     typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap)
       ? parsedTown.cap
-      : fallbackTownCap(goldPerMinute, populationTierIsSettlement, supportStructures.hasMarket);
+      : goldPerMinute > 0
+        ? fallbackTownCap(goldPerMinute, populationTierIsSettlement, supportStructures.hasMarket)
+        : undefined;
   const populationGrowthPerMinute =
     townPopulationGrowthPerMinute({
       isFed,

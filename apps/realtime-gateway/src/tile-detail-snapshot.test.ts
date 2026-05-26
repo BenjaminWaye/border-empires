@@ -476,6 +476,53 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
+  it("does not backfill cap=0 for an unfed TOWN when the snapshot also lacks cap", () => {
+    // Unfed TOWN-tier with no goldPerMinute / cap on the snapshot: gpm correctly
+    // falls back to 0, but cap must stay omitted so buildTileYieldView's default
+    // TILE_YIELD_CAP_GOLD (=24) takes over for the stored-yield buffer ceiling.
+    // Hard-coding cap=0 here would clobber that fallback and break offline yield
+    // accumulation once the town becomes fed again.
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 50,
+          y: 50,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            type: "FARMING",
+            populationTier: "TOWN",
+            baseGoldPerMinute: 2,
+            supportCurrent: 2,
+            supportMax: 8,
+            isFed: false,
+            population: 9000,
+            maxPopulation: 25_000,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            foodUpkeepPerMinute: 0.1
+          }),
+          townType: "FARMING",
+          townPopulationTier: "TOWN"
+        }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 50, 50);
+    const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as Record<string, unknown>) : undefined;
+    expect(town?.goldPerMinute).toBe(0);
+    // cap must NOT be present on town — otherwise the buffer cap is clobbered to 0.
+    expect(town && "cap" in town).toBe(false);
+    // yieldCap should reflect the default TILE_YIELD_CAP_GOLD (24), not 0.
+    expect(detail).toEqual(
+      expect.objectContaining({
+        yieldCap: expect.objectContaining({ gold: 24 })
+      })
+    );
+  });
+
   it("backfills goldPerMinute when the snapshot's townJson lacks the field (prod-zero regression)", () => {
     // Repro for the bug where a TOWN-tier town's tile detail showed
     // Production: 0/m even though baseGoldPerMinute=2 and connectedTownBonus=1.2
