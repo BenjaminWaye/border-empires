@@ -16,19 +16,19 @@ const makeFrontierTile = (overrides: Partial<Tile> = {}): Tile => ({
 describe("encirclementRemainingMsForTile", () => {
   it("returns remaining ms when cut-off timer is within 60 s window", () => {
     const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000 });
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
     expect(encirclementRemainingMsForTile(tile, nowMs)).toBe(30_000);
   });
 
-  it("returns undefined when frontierDecayAt is beyond 60 s (natural decay only)", () => {
+  it("returns undefined when frontierDecayAt is natural decay, even in the final 60 s", () => {
     const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 9 * 60_000 });
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "NATURAL" });
     expect(encirclementRemainingMsForTile(tile, nowMs)).toBeUndefined();
   });
 
   it("returns undefined for settled tiles", () => {
     const nowMs = 1_000;
-    const tile = makeFrontierTile({ ownershipState: "SETTLED", frontierDecayAt: nowMs + 30_000 });
+    const tile = makeFrontierTile({ ownershipState: "SETTLED", frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
     expect(encirclementRemainingMsForTile(tile, nowMs)).toBeUndefined();
   });
 
@@ -40,7 +40,7 @@ describe("encirclementRemainingMsForTile", () => {
 
   it("returns undefined when timer has already expired", () => {
     const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs - 1 }); // already expired
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs - 1, frontierDecayKind: "ENCIRCLEMENT" }); // already expired
     expect(encirclementRemainingMsForTile(tile, nowMs)).toBeUndefined();
   });
 });
@@ -48,7 +48,7 @@ describe("encirclementRemainingMsForTile", () => {
 describe("tileMenuHeaderStatusForTile — encirclement tooltip", () => {
   it("shows 'Cut off from supply' with countdown for blinking frontier tile", () => {
     const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000 });
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
     const status = tileMenuHeaderStatusForTile(tile, nowMs);
     expect(status).toBeDefined();
     expect(status?.tone).toBe("warning");
@@ -58,7 +58,7 @@ describe("tileMenuHeaderStatusForTile — encirclement tooltip", () => {
 
   it("does not show encirclement tooltip for tile with only natural 10-min decay", () => {
     const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 9 * 60_000 });
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 9 * 60_000, frontierDecayKind: "NATURAL" });
     const status = tileMenuHeaderStatusForTile(tile, nowMs);
     // No encirclement and no capture recovery → undefined
     expect(status).toBeUndefined();
@@ -68,7 +68,7 @@ describe("tileMenuHeaderStatusForTile — encirclement tooltip", () => {
     const nowMs = 1_000;
     // A tile that is both cut-off AND recently captured — encirclement wins.
     const tile: Tile = {
-      ...makeFrontierTile({ frontierDecayAt: nowMs + 30_000 }),
+      ...makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" }),
       history: { lastCapturedAt: nowMs - 100, previousOwners: [], captureCount: 1, structureHistory: [] },
       economicStructure: {
         ownerId: "player-1",

@@ -202,6 +202,7 @@ export type SimulationTileWireDelta = {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   frontierDecayAt?: number | undefined;
+  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
   siegeOutpostJson?: string | undefined;

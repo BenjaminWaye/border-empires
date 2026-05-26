@@ -103,6 +103,7 @@ export const createTilesFromInitialState = (
       ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
       ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+      ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),

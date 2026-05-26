@@ -6,6 +6,7 @@ export type PlayerId = string;
 export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND";
 export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS" | "OIL_FIELD";
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
+export type FrontierDecayKind = "NATURAL" | "ENCIRCLEMENT";
 export type FortStatus = "under_construction" | "active" | "removing";
 export type SiegeOutpostStatus = "under_construction" | "active" | "removing";
 export type FortVariant = "FORT" | "IRON_BASTION" | "THUNDER_BASTION";
@@ -209,6 +210,7 @@ export interface Tile {
   capital?: boolean | undefined;
   breachShockUntil?: number;
   frontierDecayAt?: number;
+  frontierDecayKind?: FrontierDecayKind;
   continentId?: number;
   clusterId?: string;
   clusterType?: ClusterType;

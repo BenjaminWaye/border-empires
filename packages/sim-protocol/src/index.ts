@@ -250,6 +250,7 @@ export type SimulationEvent =
         ownerId?: string | undefined;
         ownershipState?: string | undefined;
         frontierDecayAt?: number | undefined;
+        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;
@@ -370,6 +371,7 @@ export type PlayerSubscriptionSnapshot = {
     ownerId?: string | undefined;
     ownershipState?: string | undefined;
     frontierDecayAt?: number | undefined;
+    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";
     townName?: string | undefined;

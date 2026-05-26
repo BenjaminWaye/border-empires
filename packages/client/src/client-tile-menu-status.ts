@@ -39,6 +39,7 @@ const formatHeaderCountdown = (remainingMs: number): string => {
 export const encirclementRemainingMsForTile = (tile: Tile, nowMs = Date.now()): number | undefined => {
   if (tile.ownershipState !== "FRONTIER") return undefined;
   if (typeof tile.frontierDecayAt !== "number") return undefined;
+  if (tile.frontierDecayKind !== "ENCIRCLEMENT") return undefined;
   const remaining = tile.frontierDecayAt - nowMs;
   if (remaining <= 0 || remaining > ENCIRCLEMENT_DECAY_MS) return undefined;
   return remaining;
