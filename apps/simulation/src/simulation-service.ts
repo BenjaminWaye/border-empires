@@ -2074,8 +2074,25 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             playerId: call.request.player_id,
             tileDeltas: snapshotPayload.tiles
           });
+          // Re-broadcast the snapshot's player block as a PLAYER_UPDATE event so
+          // any prior PLAYER_UPDATE that fired before this subscriber attached
+          // (e.g. a startup `repairZeroGrossIncomeSettlements` respawn) is
+          // unconditionally superseded by a fresh value on the event stream.
+          // Reuses snapshotPayload.player verbatim — zero extra computation.
+          const hydrateEvent = snapshotPayload.player
+            ? toProtoEvent({
+                eventType: "PLAYER_MESSAGE",
+                commandId: `subscribe-hydrate:${call.request.player_id}:${Date.now()}`,
+                playerId: call.request.player_id,
+                messageType: "PLAYER_UPDATE",
+                payloadJson: JSON.stringify({ type: "PLAYER_UPDATE", ...snapshotPayload.player })
+              })
+            : undefined;
           queueMicrotask(() => {
             for (const stream of eventStreams) stream.write(bootstrapEvent);
+            if (hydrateEvent) {
+              for (const stream of eventStreams) stream.write(hydrateEvent);
+            }
           });
         },
         (error) => {
