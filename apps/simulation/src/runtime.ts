@@ -7769,6 +7769,17 @@ export class SimulationRuntime {
       tileDeltas: [this.tileDeltaFromState(respawnedTile)]
     });
     this.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
+    this.runtimeLogInfo(
+      {
+        type: "respawn_placed",
+        playerId,
+        commandId: respawnCommandId,
+        tileKey: respawnedTileKey,
+        goldIncomePerMinute: this.summaryForPlayer(playerId).goldIncomePerMinute,
+        incomePerMinute: this.incomePerMinuteForPlayer(playerId)
+      },
+      "placed respawn settlement"
+    );
     return true;
   }
 
