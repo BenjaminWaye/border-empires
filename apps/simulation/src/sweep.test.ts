@@ -59,6 +59,17 @@ const mkRuntime = (
       sweepActive?: boolean;
       sweepBudgetUpdatedAt?: number;
     };
+    economicStructure?: {
+      id: string;
+      type: string;
+      tileKey: string;
+      ownerId: string;
+      status: "under_construction" | "active" | "inactive" | "removing";
+      nextUpkeepAt: number;
+      sweepBudget?: number;
+      sweepActive?: boolean;
+      sweepBudgetUpdatedAt?: number;
+    };
     frontierDecayAt?: number;
   }>,
   players: string[] = ["player-1", "player-2"],
@@ -82,6 +93,21 @@ const tileSiegeOutpost = (runtime: SimulationRuntime, x: number, y: number) => {
     sweepActive?: boolean;
     sweepBudgetUpdatedAt?: number;
   };
+};
+
+const tileLightOutpost = (runtime: SimulationRuntime, x: number, y: number) => {
+  const exported = runtime.exportState();
+  const tile = exported.tiles.find((t) => t.x === x && t.y === y);
+  if (!tile?.economicStructureJson) return undefined;
+  const econ = JSON.parse(tile.economicStructureJson) as {
+    type: string;
+    ownerId: string;
+    status: string;
+    sweepBudget?: number;
+    sweepActive?: boolean;
+    sweepBudgetUpdatedAt?: number;
+  };
+  return econ.type === "LIGHT_OUTPOST" ? econ : undefined;
 };
 
 const collectEvents = (runtime: SimulationRuntime): SimulationEvent[] => {
@@ -657,5 +683,105 @@ describe("pause vs deactivate conflict", () => {
     const outpost = tileSiegeOutpost(runtime, 10, 10);
     // deactivate wins: sweepActive = false
     expect(outpost?.sweepActive).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LIGHT_OUTPOST sweep toggle (SET_SIEGE_OUTPOST_SWEEP with economicStructure)
+// ---------------------------------------------------------------------------
+
+describe("LIGHT_OUTPOST sweep toggle", () => {
+  const mkLightOutpostTile = (x: number, y: number, ownerId: string, sweepBudget = SWEEP_BUDGET_CAP, sweepActive = false) => ({
+    x,
+    y,
+    terrain: "LAND" as const,
+    ownerId,
+    ownershipState: "SETTLED" as const,
+    economicStructure: {
+      id: `lo-${x}-${y}`,
+      type: "LIGHT_OUTPOST",
+      tileKey: `${x},${y}`,
+      ownerId,
+      status: "active" as const,
+      nextUpkeepAt: Number.MAX_SAFE_INTEGER,
+      sweepBudget,
+      sweepActive,
+      sweepBudgetUpdatedAt: 1_000
+    }
+  });
+
+  it("LO-C1: SET_SIEGE_OUTPOST_SWEEP {enabled:true} sets sweepActive on LIGHT_OUTPOST", async () => {
+    const runtime = mkRuntime(
+      [mkLightOutpostTile(10, 10, "player-1", SWEEP_BUDGET_CAP, false)],
+      ["player-1", "player-2"]
+    );
+    const events = collectEvents(runtime);
+
+    runtime.submitCommand({
+      commandId: "lo-sweep-on",
+      sessionId: "s1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_SIEGE_OUTPOST_SWEEP",
+      payloadJson: JSON.stringify({ x: 10, y: 10, enabled: true })
+    });
+    await Promise.resolve();
+
+    const outpost = tileLightOutpost(runtime, 10, 10);
+    expect(outpost?.sweepActive).toBe(true);
+
+    const tileDeltas = events.filter((e) => e.eventType === "TILE_DELTA_BATCH");
+    expect(tileDeltas.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("LO-C2: SET_SIEGE_OUTPOST_SWEEP {enabled:false} turns off sweep on LIGHT_OUTPOST", async () => {
+    const runtime = mkRuntime(
+      [mkLightOutpostTile(10, 10, "player-1", SWEEP_BUDGET_CAP, true)],
+      ["player-1", "player-2"]
+    );
+
+    runtime.submitCommand({
+      commandId: "lo-sweep-off",
+      sessionId: "s1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_SIEGE_OUTPOST_SWEEP",
+      payloadJson: JSON.stringify({ x: 10, y: 10, enabled: false })
+    });
+    await Promise.resolve();
+
+    const outpost = tileLightOutpost(runtime, 10, 10);
+    expect(outpost?.sweepActive).toBe(false);
+  });
+
+  // LO-C3 (does an enabled LIGHT_OUTPOST actually fire on tick?) is intentionally
+  // not covered here. The sim's per-tick sweep firing was unchanged by this PR
+  // and is already covered by the SIEGE_OUTPOST sweep tests above; LIGHT_OUTPOST
+  // routes through the same shared tickSweepStructure helper. Setting up the
+  // anchor/manpower/projection fixture for an end-to-end LIGHT_OUTPOST tick
+  // belongs with the structure-pipeline rewrite.
+
+  it("LO-neg: SET_SIEGE_OUTPOST_SWEEP on tile with no outpost → COMMAND_REJECTED", async () => {
+    const runtime = mkRuntime(
+      [{ x: 5, y: 5, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }],
+      ["player-1", "player-2"]
+    );
+    const events = collectEvents(runtime);
+
+    runtime.submitCommand({
+      commandId: "lo-sweep-reject",
+      sessionId: "s1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_SIEGE_OUTPOST_SWEEP",
+      payloadJson: JSON.stringify({ x: 5, y: 5, enabled: true })
+    });
+    await Promise.resolve();
+
+    const rejected = events.filter((e) => e.eventType === "COMMAND_REJECTED");
+    expect(rejected.length).toBeGreaterThanOrEqual(1);
   });
 });
