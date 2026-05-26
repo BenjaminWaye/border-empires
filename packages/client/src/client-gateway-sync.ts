@@ -22,6 +22,7 @@ type NormalizedGatewayTileUpdate = {
   ownerId?: Tile["ownerId"] | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
   frontierDecayAt?: Tile["frontierDecayAt"] | undefined;
+  frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
   yield?: Tile["yield"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
   yieldCap?: Tile["yieldCap"] | undefined;
@@ -41,6 +42,7 @@ export type GatewayTileUpdate = {
   ownerId?: string | null;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" | null;
   frontierDecayAt?: number | null;
+  frontierDecayKind?: Tile["frontierDecayKind"] | null;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
@@ -271,6 +273,10 @@ export const normalizeGatewayTileUpdate = (
       ? update.frontierDecayAt
       : undefined;
   }
+  if ("frontierDecayKind" in update) {
+    normalized.frontierDecayKind =
+      update.frontierDecayKind === "NATURAL" || update.frontierDecayKind === "ENCIRCLEMENT" ? update.frontierDecayKind : undefined;
+  }
   if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("yieldCap" in update) normalized.yieldCap = update.yieldCap;
@@ -401,6 +407,10 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("frontierDecayAt" in normalizedGateway) {
     if (typeof normalizedGateway.frontierDecayAt === "number") merged.frontierDecayAt = normalizedGateway.frontierDecayAt;
     else delete merged.frontierDecayAt;
+  }
+  if ("frontierDecayKind" in normalizedGateway) {
+    if (normalizedGateway.frontierDecayKind) merged.frontierDecayKind = normalizedGateway.frontierDecayKind;
+    else delete merged.frontierDecayKind;
   }
   if ("yield" in normalizedGateway) {
     if (normalizedGateway.yield) merged.yield = normalizedGateway.yield;

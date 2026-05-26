@@ -703,7 +703,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return origin ? state.tiles.get(keyFor(origin.x, origin.y)) : undefined;
     })();
     const changes =
-      (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number; frontierDecayAt?: number | null }>) ??
+      (msg.changes as Array<{
+        x: number;
+        y: number;
+        ownerId?: string;
+        ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+        breachShockUntil?: number;
+        frontierDecayAt?: number | null;
+        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | null;
+      }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
     for (const change of changes) {
@@ -724,6 +732,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
       if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
       else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
+      if (change.frontierDecayKind === "NATURAL" || change.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = change.frontierDecayKind;
+      else if ("frontierDecayKind" in change && !change.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
@@ -2142,6 +2152,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if ("frontierDecayAt" in normalizedUpdate) {
           if (typeof normalizedUpdate.frontierDecayAt === "number") merged.frontierDecayAt = normalizedUpdate.frontierDecayAt;
           else delete merged.frontierDecayAt;
+        }
+        if ("frontierDecayKind" in normalizedUpdate) {
+          if (normalizedUpdate.frontierDecayKind) merged.frontierDecayKind = normalizedUpdate.frontierDecayKind;
+          else delete merged.frontierDecayKind;
         }
         if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
         if (normalizedUpdate.clusterId !== undefined) merged.clusterId = normalizedUpdate.clusterId;

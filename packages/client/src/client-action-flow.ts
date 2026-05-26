@@ -498,7 +498,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return origin ? state.tiles.get(keyFor(origin.x, origin.y)) : undefined;
     })();
     const changes =
-      (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number; frontierDecayAt?: number | null }>) ??
+      (msg.changes as Array<{
+        x: number;
+        y: number;
+        ownerId?: string;
+        ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+        breachShockUntil?: number;
+        frontierDecayAt?: number | null;
+        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | null;
+      }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
     for (const c of changes) {
@@ -519,6 +527,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       else if ("breachShockUntil" in c && !c.breachShockUntil) delete incoming.breachShockUntil;
       if (typeof c.frontierDecayAt === "number") incoming.frontierDecayAt = c.frontierDecayAt;
       else if ("frontierDecayAt" in c && !c.frontierDecayAt) delete incoming.frontierDecayAt;
+      if (c.frontierDecayKind === "NATURAL" || c.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = c.frontierDecayKind;
+      else if ("frontierDecayKind" in c && !c.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
