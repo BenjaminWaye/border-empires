@@ -375,6 +375,11 @@ const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructure
   return perMinute * (ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS / 60_000);
 };
 
+// Grace beyond resolvesAt before the sweep drops a lock. Normal locks resolve
+// inside their setTimeout window; anything still present 60s after its scheduled
+// resolution is a leak from a code path that bypassed validation.
+const ORPHAN_LOCK_GRACE_MS = 60_000;
+
 const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
 const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;
 
@@ -842,6 +847,24 @@ export class SimulationRuntime {
       });
       this.emitPlayerStateUpdate({ commandId, playerId: player.id });
     }
+  }
+
+  // Belt-and-braces: drop any LockRecord whose resolvesAt is more than
+  // ORPHAN_LOCK_GRACE_MS in the past. resolveLock now cleans matching keys
+  // per-side so the leak path (originKey overwritten by a later EXPAND,
+  // targetKey orphaned forever) shouldn't happen — but if any future code
+  // path inserts to locksByTile without going through validation, this
+  // sweep keeps the planner from getting permanently gated.
+  tickOrphanedLockSweep(nowMs: number = this.now()): number {
+    const cutoff = nowMs - ORPHAN_LOCK_GRACE_MS;
+    const droppedCommandIds = new Set<string>();
+    for (const [tileKey, lock] of this.locksByTile) {
+      if (lock.resolvesAt < cutoff) {
+        this.locksByTile.delete(tileKey);
+        droppedCommandIds.add(lock.commandId);
+      }
+    }
+    return droppedCommandIds.size;
   }
 
   tickShardRain(nowMs: number = this.now()): void {
@@ -7423,10 +7446,18 @@ export class SimulationRuntime {
   private resolveLock(lock: LockRecord): void {
     const originLock = this.locksByTile.get(lock.originKey);
     const targetLock = this.locksByTile.get(lock.targetKey);
-    if (originLock?.commandId !== lock.commandId || targetLock?.commandId !== lock.commandId) return;
-
-    this.locksByTile.delete(lock.originKey);
-    this.locksByTile.delete(lock.targetKey);
+    const originMatches = originLock?.commandId === lock.commandId;
+    const targetMatches = targetLock?.commandId === lock.commandId;
+    // Always clean up keys still pointing at THIS lock — even if the other
+    // side was superseded by a later command's overwrite. Skipping the
+    // delete on partial mismatch is what stranded ai-3 for 18h in prod:
+    // the surviving key kept playerId in the planner's active-lock set.
+    if (originMatches) this.locksByTile.delete(lock.originKey);
+    if (targetMatches) this.locksByTile.delete(lock.targetKey);
+    // Partial / no match means a later command already replaced this lock's
+    // slot on at least one tile — that command will (or did) emit its own
+    // COMBAT_RESOLVED. Don't double-emit or re-apply tile state.
+    if (!originMatches || !targetMatches) return;
     const previousTarget = this.tiles.get(lock.targetKey);
     const previousOwnerId = previousTarget?.ownerId;
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";

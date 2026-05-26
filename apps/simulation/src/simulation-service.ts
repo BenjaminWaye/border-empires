@@ -1119,6 +1119,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
   let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
   let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined;
+  let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -2294,6 +2295,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "territory automation tick failed");
         }
       }, 15_000);
+      orphanLockSweepTicker = setInterval(() => {
+        try {
+          mainThreadTasks.trackSync("tick_orphan_lock_sweep", undefined, () => {
+            const dropped = runtime.tickOrphanedLockSweep(Date.now());
+            if (dropped > 0) log.error({ dropped }, "orphan-lock sweep dropped stale locks");
+          });
+        } catch (error) {
+          log.error({ err: error }, "orphan lock sweep tick failed");
+        }
+      }, 30_000);
       eventLoopSampler = setInterval(() => {
         const now = Date.now();
         const lagMs = Math.max(0, now - expectedEventLoopTickAt);
@@ -2500,6 +2511,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (shardRainTicker) clearInterval(shardRainTicker);
       if (tileSheddingTicker) clearInterval(tileSheddingTicker);
       if (territoryAutomationTicker) clearInterval(territoryAutomationTicker);
+      if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       gcObserver?.disconnect();
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
