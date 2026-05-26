@@ -186,6 +186,37 @@ describe("PlayerCandidateIndex", () => {
     expect(keys[7]).toBe("11,11");
   });
 
+  it("claimCandidates iteration order golden test: ring-by-ring, top-left to bottom-right within each ring", () => {
+    // This test snapshots the exact key order produced by claimCandidates at r=2.
+    // The order is: ring 1 (radius=1) fully before ring 2 (radius=2), and within
+    // each ring keys appear dy=-R..+R outer, dx=-R..+R inner (top-left to
+    // bottom-right).  This differs from coordsInChebyshevRadius full-square order
+    // and is intentional — closer tiles are visited first.
+    // If this test breaks, a refactor accidentally changed iteration order; that
+    // would affect territory claim determinism in tickTerritoryAutomation.
+    const index = new PlayerCandidateIndex();
+    index.registerAnchor("5,5", "p1", 2, () => undefined);
+    const keys = [...index.claimCandidates("5,5", 2)];
+
+    // Ring 1 (radius=1): 8 tiles, dy=-1..+1 outer, dx=-1..+1 inner, skip center (0,0)
+    const ring1Expected = [
+      "4,4", "5,4", "6,4",  // dy=-1
+      "4,5",        "6,5",  // dy=0 (center 5,5 skipped)
+      "4,6", "5,6", "6,6",  // dy=+1
+    ];
+    // Ring 2 (radius=2): 16 tiles, dy=-2..+2 outer, dx=-2..+2 inner, only those
+    // with max(|dx|,|dy|) === 2 (i.e. on the outer ring).
+    const ring2Expected = [
+      "3,3", "4,3", "5,3", "6,3", "7,3",  // dy=-2
+      "3,4",                       "7,4",  // dy=-1, edges only
+      "3,5",                       "7,5",  // dy=0, edges only
+      "3,6",                       "7,6",  // dy=+1, edges only
+      "3,7", "4,7", "5,7", "6,7", "7,7",  // dy=+2
+    ];
+    const expected = [...ring1Expected, ...ring2Expected];
+    expect(keys).toEqual(expected);
+  });
+
   it("tie-break determinism: 4 enemies equidistant, x asc then y asc", () => {
     const index = new PlayerCandidateIndex();
     const tiles = new Map<string, DomainTileState>();
