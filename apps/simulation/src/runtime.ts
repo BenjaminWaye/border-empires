@@ -115,7 +115,6 @@ import {
   fortAutoAttackCandidates,
   fortAutoFrontierRadiusForTile,
   FORT_PATROL_GRACE_MS,
-  isActiveFortAnchor,
   isAutoClaimTarget,
   isSettledTownAnchor,
   MAX_FORT_AUTO_FRONTIER_RADIUS,
@@ -231,8 +230,6 @@ import {
   uniqueLocksByCommandId
 } from "./runtime-hydration.js";
 import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "./encirclement.js";
-import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
-import { PlayerCandidateIndex, MAX_SWEEP_RADIUS } from "./player-candidate-index.js";
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
 export type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -443,10 +440,6 @@ export class SimulationRuntime {
     pendingSettlementTileKeys: string[];
   }>();
   private readonly locksByTile: Map<string, LockRecord>;
-  // Pooled per-tick accumulators for updateFrontierDecay.
-  // Reset via arr.length = 0 at the top of each call (preserves inner arrays).
-  private readonly frontierDecayChangedByOwner = new Map<string, Array<SimulationTileWireDelta>>();
-  private readonly frontierDecayExpiredByOwner = new Map<string, string[]>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
@@ -523,8 +516,6 @@ export class SimulationRuntime {
   private drainScheduled = false;
   private immediateDrainScheduled = false;
   private draining = false;
-  private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
-  private readonly playerCandidateIndex = new PlayerCandidateIndex();
 
   private refreshSpatialFocusForPlayer(playerId: string, now: number): AiSpatialFocus | undefined {
     const summary = this.summaryForPlayer(playerId);
@@ -615,10 +606,6 @@ export class SimulationRuntime {
       this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
     }
-    // First pass: apply tile summaries and shard-site tracking.
-    // All tiles are already in this.tiles (createTilesFromInitialState produced a
-    // complete Map), so anchor registration in the second pass below will find every
-    // neighbour regardless of iteration order.
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
       const site = tile.shardSite;
@@ -628,35 +615,6 @@ export class SimulationRuntime {
           typeof this.currentShardRainExpiresAt === "number"
             ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
             : site.expiresAt;
-      }
-    }
-    // Second pass: register PlayerCandidateIndex anchors now that this.tiles is
-    // fully traversed.  Each anchor is stored at the MAX possible radius for its
-    // kind — time-dependent radius (e.g. FORT_PATROL_GRACE_MS) is applied at the
-    // call site, not stored here, to prevent stale maxRadius bugs.
-    for (const [tileKey, tile] of this.tiles.entries()) {
-      if (!tile.ownerId) continue;
-      const ownerId = tile.ownerId;
-      // Fort kind: active fort (any variant, including patrol-grace) or active WOODEN_FORT.
-      if (
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "WOODEN_FORT" &&
-        tile.economicStructure.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-      } else if (
-        tile.fort?.ownerId === ownerId &&
-        tile.fort.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-      } else if (isSettledTownAnchor(tile, ownerId)) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-      } else if (
-        tile.siegeOutpost?.ownerId === ownerId &&
-        tile.siegeOutpost.status === "active" &&
-        tile.siegeOutpost.sweepActive
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_SWEEP_RADIUS, (k) => this.tiles.get(k));
       }
     }
     for (const player of options.initialState?.players ?? []) {
@@ -896,8 +854,9 @@ export class SimulationRuntime {
             ? TOWN_AUTO_FRONTIER_RADIUS
             : 0;
         if (radius <= 0) continue;
-        for (const targetKey of this.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
+        for (const coords of coordsInChebyshevRadius(anchor.x, anchor.y, radius)) {
           if (actor.points < FRONTIER_CLAIM_COST) break;
+          const targetKey = simulationTileKey(coords.x, coords.y);
           if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || this.locksByTile.has(targetKey)) continue;
           const target = this.tiles.get(targetKey);
           if (!isAutoClaimTarget(target)) continue;
@@ -953,7 +912,7 @@ export class SimulationRuntime {
         if (!fortTile || fortRadius <= 0) continue;
         if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) break;
         if (this.locksByTile.has(tileKey)) continue;
-        const target = this.playerCandidateIndex.sortedFortAttackCandidates(tileKey, FORT_AUTO_FRONTIER_RADIUS)
+        const target = fortAutoAttackCandidates(fortTile, playerId, FORT_AUTO_FRONTIER_RADIUS, (x, y) => this.tiles.get(simulationTileKey(x, y)))
           .find((candidate) => {
             const targetKey = simulationTileKey(candidate.x, candidate.y);
             return (
@@ -1087,13 +1046,7 @@ export class SimulationRuntime {
       return;
     }
 
-    // Use index when available; fall back to sweepAttackCandidates only if anchor not registered.
-    // The fallback is an intentional safety net: a sweep outpost that was activated
-    // before its anchor registration had a chance to run will still function correctly.
-    // Frequent misses here would indicate a registration gap and should be investigated.
-    const candidates = this.playerCandidateIndex.hasAnchor(tileKey)
-      ? this.playerCandidateIndex.sortedAttackCandidates(tileKey, sweepRadius)
-      : sweepAttackCandidates(tile, playerId, sweepRadius, (x, y) => this.tiles.get(simulationTileKey(x, y)));
+    const candidates = sweepAttackCandidates(tile, playerId, sweepRadius, (x, y) => this.tiles.get(simulationTileKey(x, y)));
     const noTargets = candidates.length === 0;
     const nobudget = newBudget < SWEEP_ATTACK_COST;
 
@@ -1890,7 +1843,6 @@ export class SimulationRuntime {
   }
 
   private replaceTileState(tileKey: string, tile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
-    this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.tiles.get(tileKey);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // Maintain settledAt timestamp for the tile-shedding ticker:
@@ -1940,7 +1892,6 @@ export class SimulationRuntime {
       for (const [key, tier] of currentTowns) summary.ownedTownTierByTile.set(key, tier);
     }
     this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
-    this.refreshPlayerCandidateIndexAnchorForTile(tileKey, previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
   }
 
@@ -2011,73 +1962,6 @@ export class SimulationRuntime {
         if (isBuildCandidateTile(playerId, candidateTile, this.tiles)) summary.buildCandidateTileKeys.add(candidateKey);
       }
       this.markPlannerPlayerTileCollectionDirty(playerId);
-    }
-    this.playerCandidateIndex.refreshAroundTile(tileKey, (k) => this.tiles.get(k));
-  }
-
-  /**
-   * Keep PlayerCandidateIndex anchor registrations consistent with tile state.
-   * Called from replaceTileState after the tile is already written to this.tiles.
-   * Registers/unregisters anchors when a tile gains or loses a fort, town,
-   * active WOODEN_FORT, or active siege outpost (for sweep).
-   *
-   * Each anchor is stored at the MAXIMUM possible radius for its kind, not the
-   * current effective radius.  This prevents stale maxRadius when time-dependent
-   * conditions (e.g. FORT_PATROL_GRACE_MS) change the effective radius without
-   * triggering a tile mutation.  Re-registration fires only when the anchor KIND
-   * or OWNER changes, not on radius drift.
-   */
-  private refreshPlayerCandidateIndexAnchorForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevOwnerId = previous?.ownerId;
-    const nextOwnerId = next.ownerId;
-
-    // Detect anchor kind (ignoring time-dependent radius factors like patrol grace).
-    // Returns the max-possible radius for the kind, or 0 if not an anchor.
-    const anchorKindMaxRadius = (tile: DomainTileState, ownerId: string): number => {
-      // Fort kind: active fort (any variant, including grace state) or active WOODEN_FORT.
-      if (
-        tile.ownerId === ownerId &&
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "WOODEN_FORT" &&
-        tile.economicStructure.status === "active"
-      ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-      if (
-        tile.ownerId === ownerId &&
-        tile.fort?.ownerId === ownerId &&
-        tile.fort.status === "active"
-      ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-      // Town kind.
-      if (isSettledTownAnchor(tile, ownerId)) return TOWN_AUTO_FRONTIER_RADIUS;
-      // Active siege outpost with sweep enabled.
-      if (
-        tile.siegeOutpost?.ownerId === ownerId &&
-        tile.siegeOutpost.status === "active" &&
-        tile.siegeOutpost.sweepActive
-      ) return MAX_SWEEP_RADIUS;
-      return 0;
-    };
-
-    const prevMaxRadius = previous && prevOwnerId ? anchorKindMaxRadius(previous, prevOwnerId) : 0;
-    const nextMaxRadius = nextOwnerId ? anchorKindMaxRadius(next, nextOwnerId) : 0;
-
-    if (prevMaxRadius <= 0 && nextMaxRadius <= 0) return;
-    if (prevMaxRadius > 0 && nextMaxRadius <= 0) {
-      this.playerCandidateIndex.unregisterAnchor(tileKey);
-      return;
-    }
-    if (prevMaxRadius <= 0 && nextMaxRadius > 0) {
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
-      return;
-    }
-    // Both are anchors — re-register only if owner or anchor KIND (max radius) changed.
-    // Radius drift from time-dependent conditions does NOT trigger re-registration.
-    if (prevOwnerId !== nextOwnerId || prevMaxRadius !== nextMaxRadius) {
-      this.playerCandidateIndex.unregisterAnchor(tileKey);
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
     }
   }
 
@@ -2171,8 +2055,6 @@ export class SimulationRuntime {
     if (summary.territoryTileKeys.size <= 0) {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
       this.aiSpatialFocusByPlayer.delete(playerId);
-      this.frontierDecayChangedByOwner.delete(playerId);
-      this.frontierDecayExpiredByOwner.delete(playerId);
     }
     const ownedTiles = [...summary.territoryTileKeys]
       .map((tileKey) => this.tiles.get(tileKey))
@@ -2596,31 +2478,27 @@ export class SimulationRuntime {
   } {
     return {
       tiles: [...this.tiles.values()]
-        .map((tile) => {
-          const tileKey = simulationTileKey(tile.x, tile.y);
-          const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
-          return {
-            x: tile.x,
-            y: tile.y,
-            terrain: tile.terrain,
-            ...(tile.resource ? { resource: tile.resource } : {}),
-            ...(tile.dockId ? { dockId: tile.dockId } : {}),
-            ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-            ...(cached.townJson ? { townJson: cached.townJson } : {}),
-            ...(tile.town?.type ? { townType: tile.town.type } : {}),
-            ...(tile.town?.name ? { townName: tile.town.name } : {}),
-            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-            ...(cached.fortJson ? { fortJson: cached.fortJson } : {}),
-            ...(cached.observatoryJson ? { observatoryJson: cached.observatoryJson } : {}),
-            ...(cached.siegeOutpostJson ? { siegeOutpostJson: cached.siegeOutpostJson } : {}),
-            ...(cached.economicStructureJson ? { economicStructureJson: cached.economicStructureJson } : {}),
-            ...(cached.sabotageJson ? { sabotageJson: cached.sabotageJson } : {})
-          };
-        })
+        .map((tile) => ({
+          x: tile.x,
+          y: tile.y,
+          terrain: tile.terrain,
+          ...(tile.resource ? { resource: tile.resource } : {}),
+          ...(tile.dockId ? { dockId: tile.dockId } : {}),
+          ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+          ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+          ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+          ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+          ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+          ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
+          ...(tile.town?.type ? { townType: tile.town.type } : {}),
+          ...(tile.town?.name ? { townName: tile.town.name } : {}),
+          ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
+          ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
+          ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
+          ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+          ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
+          ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {})
+        }))
         .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
       players: [...this.players.values()]
         .map((player) => {
@@ -5794,15 +5672,13 @@ export class SimulationRuntime {
       tiles: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
     return {
       x: tile.x,
       y: tile.y,
       ...(tile.terrain ? { terrain: tile.terrain } : {}),
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
+      ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
       // Explicit `undefined` (rather than `...({})`) is load-bearing on these
       // fields: subscribers diff by own-property existence to detect clears
       // (uncapture, structure removal). See the uncapture regression test.
@@ -5814,11 +5690,11 @@ export class SimulationRuntime {
       ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
       ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
       ...(enrichedTile.town?.populationTier ? { townPopulationTier: enrichedTile.town.populationTier } : {}),
-      fortJson: cached.fortJson,
-      observatoryJson: cached.observatoryJson,
-      siegeOutpostJson: cached.siegeOutpostJson,
-      economicStructureJson: cached.economicStructureJson,
-      sabotageJson: cached.sabotageJson,
+      fortJson: tile.fort ? JSON.stringify(tile.fort) : undefined,
+      observatoryJson: tile.observatory ? JSON.stringify(tile.observatory) : undefined,
+      siegeOutpostJson: tile.siegeOutpost ? JSON.stringify(tile.siegeOutpost) : undefined,
+      economicStructureJson: tile.economicStructure ? JSON.stringify(tile.economicStructure) : undefined,
+      sabotageJson: tile.sabotage ? JSON.stringify(tile.sabotage) : undefined,
       ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
       ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
       ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {})
@@ -5947,23 +5823,15 @@ export class SimulationRuntime {
   }
 
   private updateFrontierDecay(nowMs: number): void {
-    // Reset pooled accumulators without discarding inner arrays (pool pattern).
-    for (const arr of this.frontierDecayChangedByOwner.values()) arr.length = 0;
-    for (const arr of this.frontierDecayExpiredByOwner.values()) arr.length = 0;
-
-    const addChangedDelta = (playerId: string, delta: SimulationTileWireDelta): void => {
-      const existing = this.frontierDecayChangedByOwner.get(playerId);
+    const changedDeltasByOwner = new Map<string, Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>>>();
+    const addChangedDelta = (playerId: string, delta: ReturnType<SimulationRuntime["tileDeltaFromState"]>): void => {
+      const existing = changedDeltasByOwner.get(playerId);
       if (existing) existing.push(delta);
-      else {
-        const arr: SimulationTileWireDelta[] = [delta];
-        this.frontierDecayChangedByOwner.set(playerId, arr);
-      }
+      else changedDeltasByOwner.set(playerId, [delta]);
     };
-    const addExpiredKey = (playerId: string, tileKey: string): void => {
-      const existing = this.frontierDecayExpiredByOwner.get(playerId);
-      if (existing) existing.push(tileKey);
-      else this.frontierDecayExpiredByOwner.set(playerId, [tileKey]);
-    };
+    // Track tiles that expired this tick so we can re-check encirclement for
+    // neighboring tiles after all expirations are processed.
+    const expiredByOwner = new Map<string, string[]>();
 
     for (const [tileKey, tile] of this.tiles) {
       if (this.locksByTile.has(tileKey)) continue;
@@ -6010,7 +5878,9 @@ export class SimulationRuntime {
         this.fortPatrolGraceUntilByTile.delete(tileKey);
         addChangedDelta(ownerId, this.tileDeltaFromState(expiredTile));
         // Track for encirclement re-check of neighbors below.
-        addExpiredKey(ownerId, tileKey);
+        const expiredList = expiredByOwner.get(ownerId);
+        if (expiredList) expiredList.push(tileKey);
+        else expiredByOwner.set(ownerId, [tileKey]);
         continue;
       }
 
@@ -6025,8 +5895,7 @@ export class SimulationRuntime {
       }
     }
 
-    for (const [playerId, tileDeltas] of this.frontierDecayChangedByOwner) {
-      if (tileDeltas.length === 0) continue;
+    for (const [playerId, tileDeltas] of changedDeltasByOwner) {
       const commandId = this.nextTerritoryAutomationCommandId("frontier-decay", playerId, "batch", nowMs);
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
@@ -6039,8 +5908,7 @@ export class SimulationRuntime {
 
     // Re-check encirclement for neighbors of tiles that expired this tick.
     // A tile expiry can cut off neighbors that were connected through it.
-    for (const [playerId, expiredKeys] of this.frontierDecayExpiredByOwner) {
-      if (expiredKeys.length === 0) continue;
+    for (const [playerId, expiredKeys] of expiredByOwner) {
       const commandId = this.nextTerritoryAutomationCommandId("frontier-decay-encirclement", playerId, "batch", nowMs);
       this.applyEncirclement(expiredKeys, playerId, commandId);
     }
