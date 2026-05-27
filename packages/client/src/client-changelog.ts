@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.26.5",
+  version: "2026.05.27.1",
   title: "What's New",
-  summary: "Frontier tiles in the final minute of their natural decay now show a 'Frontier collapsing in Ns' countdown in the tile menu header, matching the existing 3D blink.",
+  summary: "New 'Settle Connected (N)' action in the frontier tile menu queues settlements on every connected frontier tile you own in one tap.",
   entries: [
+    {
+      introducedIn: "2026.05.27.1",
+      title: "Settle a whole frontier pocket in one tap",
+      why: "Settling each tile of a freshly captured pocket one click at a time was tedious; the new 'Settle Connected (N)' action in the tile menu queues every connected frontier tile you own.",
+      changes: [
+        "Frontier tile menu now shows 'Settle Connected (N)' when 2+ of your frontier tiles are connected.",
+        "Each tile still costs the standard settle gold and uses a development slot — extras are queued FIFO like manual settles."
+      ]
+    },
     {
       introducedIn: "2026.05.26.5",
       title: "Tile menu shows a countdown for natural frontier decay",
