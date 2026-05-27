@@ -1,5 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#0f2430" />
-  <path d="M17 47V17h12c9.5 0 15 5.2 15 13.3S38.5 47 29 47H17zm8-6h4c4.8 0 7-3.2 7-10.7S33.8 23 29 23h-4v18z" fill="#f4efe3" />
-  <path d="M44 18l4 5-4 5-4-5 4-5zm0 18l4 5-4 5-4-5 4-5z" fill="#7bdff6" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2A2F24"/>
+      <stop offset="1" stop-color="#0E110D"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="16" y1="12" x2="50" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F1D28A"/>
+      <stop offset="0.45" stop-color="#C79A3C"/>
+      <stop offset="1" stop-color="#8B6323"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#bg)"/>
+  <rect x="8" y="8" width="48" height="48" rx="12" stroke="url(#brass)" stroke-width="2.5"/>
+
+  <path
+    d="M22 42V24H27V20H32V24H37V18H42V24H46V42H38V34H30V42H22Z"
+    fill="url(#brass)"
+  />
+  <path
+    d="M24 46H44"
+    stroke="url(#brass)"
+    stroke-width="3"
+    stroke-linecap="round"
+  />
+  <path
+    d="M18 18L24 14M46 18L40 14"
+    stroke="url(#brass)"
+    stroke-width="2.5"
+    stroke-linecap="round"
+  />
 </svg>
