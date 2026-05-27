@@ -874,6 +874,7 @@ export class SimulationRuntime {
   }
 
   tickTerritoryAutomation(nowMs: number = this.now()): void {
+    const _ttaStart = Date.now();
     const autoClaimedKeys = new Set<string>();
 
     for (const playerId of this.players.keys()) {
@@ -927,7 +928,9 @@ export class SimulationRuntime {
       }
     }
 
+    const _ttaAfterClaim = Date.now();
     this.updateFrontierDecay(nowMs);
+    const _ttaAfterDecay = Date.now();
 
     for (const playerId of this.players.keys()) {
       if (!playerId.startsWith("barbarian-") && this.autoSettlementQueueForPlayer(playerId).length > 0) {
@@ -1039,6 +1042,20 @@ export class SimulationRuntime {
           nowMs
         );
       }
+    }
+
+    const _ttaEnd = Date.now();
+    const totalMs = _ttaEnd - _ttaStart;
+    if (totalMs >= 200) {
+      this.runtimeLogInfo(
+        {
+          totalMs,
+          claimLoopMs: _ttaAfterClaim - _ttaStart,
+          updateFrontierDecayMs: _ttaAfterDecay - _ttaAfterClaim,
+          settleAndSiegeMs: _ttaEnd - _ttaAfterDecay
+        },
+        "[tick_territory_automation] phase breakdown"
+      );
     }
   }
 
