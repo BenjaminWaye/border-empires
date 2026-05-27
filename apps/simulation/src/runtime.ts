@@ -457,6 +457,12 @@ export class SimulationRuntime {
   // Siege outposts are excluded (they do not grant frontier support).
   // Maintained in replaceTileState via refreshFortAnchorIndexForTile.
   private readonly activeFortAnchorsByOwner = new Map<string, Map<string, number>>();
+  // Index of yield-bearing SETTLED LAND tiles per owner. A tile is yield-bearing
+  // iff it has town, dockId, a strategic resource, or an active converter
+  // economicStructure. Maintained in replaceTileState; rebuilt from this.tiles
+  // in the constructor. Used by handleCollectVisibleCommand to skip the 99% of
+  // settled tiles that produce zero yield (plain land).
+  private readonly yieldBearingTilesByOwner = new Map<string, Set<string>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
@@ -478,6 +484,12 @@ export class SimulationRuntime {
   // each player pays O(settled-tiles) at most once per tick instead of once per
   // call site.  The cache is keyed by player ID; a missing entry means dirty.
   private readonly economySnapshotCacheByPlayer = new Map<string, PlayerUpdateEconomySnapshot>();
+  // Cached tile-yield economy context per player. Includes town network, fed-town
+  // keys, and first-three-town keys. Invalidated alongside economySnapshotCacheByPlayer
+  // (same replaceTileState triggers). Without this cache, COLLECT_VISIBLE calls
+  // tileYieldEconomyContextForPlayer which rebuilds the town network from all
+  // settled tiles — O(250k) at target scale.
+  private readonly tileYieldContextCacheByPlayer = new Map<string, RuntimeTileYieldEconomyContext>();
   // Cached defensibility metrics per player.  Invalidated alongside the
   // economy snapshot cache because the same tile mutations that change income
   // also change border exposure (T, E, Ts, Es).
@@ -654,6 +666,12 @@ export class SimulationRuntime {
       if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
         let set = this.frontierTilesByOwner.get(tile.ownerId);
         if (!set) { set = new Set<string>(); this.frontierTilesByOwner.set(tile.ownerId, set); }
+        set.add(tileKey);
+      }
+      // Populate yieldBearingTilesByOwner index.
+      if (this.isYieldBearing(tile) && tile.ownerId) {
+        let set = this.yieldBearingTilesByOwner.get(tile.ownerId);
+        if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(tile.ownerId, set); }
         set.add(tileKey);
       }
     }
@@ -1965,7 +1983,10 @@ export class SimulationRuntime {
     if (!hasOutstandingUpkeepNeed(need)) return;
     if (summary.territoryTileKeys.size <= 0) return;
     let economyContext: RuntimeTileYieldEconomyContext | undefined;
-    const tileKeys = [...summary.territoryTileKeys].sort();
+    // Use yield-bearing index to skip plain settled tiles that produce nothing.
+    // Sort for deterministic drain order — same as the old full-territory sort.
+    const yieldBearingSet = this.yieldBearingTilesByOwner.get(player.id);
+    const tileKeys = yieldBearingSet ? [...yieldBearingSet].sort() : [];
     const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
     // Collect anchor updates locally and emit ONE batch event at the end of
     // the loop. Pre-batch, each updated tile fired a TILE_YIELD_ANCHOR_UPDATED
@@ -2076,10 +2097,12 @@ export class SimulationRuntime {
     if (previous?.ownerId) {
       this.economySnapshotCacheByPlayer.delete(previous.ownerId);
       this.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
+      this.tileYieldContextCacheByPlayer.delete(previous.ownerId);
     }
     if (tile.ownerId) {
       this.economySnapshotCacheByPlayer.delete(tile.ownerId);
       this.defensibilityMetricsCacheByPlayer.delete(tile.ownerId);
+      this.tileYieldContextCacheByPlayer.delete(tile.ownerId);
     }
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
@@ -2143,6 +2166,8 @@ export class SimulationRuntime {
     }
     // Part 2: maintain activeFortAnchorsByOwner index.
     this.refreshFortAnchorIndexForTile(tileKey, previous, tile);
+    // Yield-bearing index: maintain yieldBearingTilesByOwner.
+    this.refreshYieldBearingIndexForTile(tileKey, previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
   }
 
@@ -2352,6 +2377,120 @@ export class SimulationRuntime {
     if (nextMaxRadius > 0 && nextOwnerId) {
       this.registerFortSupportAnchor(tileKey, nextOwnerId, nextMaxRadius);
     }
+  }
+
+  // ---- Yield-bearing tile index helpers ----
+
+  /**
+   * Returns true iff the tile would produce a non-zero yield buffer when passed
+   * to buildTileYieldView — i.e., it is SETTLED LAND owned by someone AND has at
+   * least one income source (town, dock, strategic resource, or active converter).
+   *
+   * This predicate mirrors the "would produce a non-undefined yield field" logic
+   * in buildTileYieldView (tile-yield-view.ts:82). The outer gate (SETTLED + LAND
+   * + ownerId) is the same as line 92 of that function; the income conditions
+   * below correspond to: townGoldPerMinute > 0, dockGoldPerMinute > 0, and
+   * strategicPerDay having at least one entry (lines 96–124).
+   *
+   * Critically: a tile with only `town: undefined` / `dockId: undefined` /
+   * `resource: undefined` / no active converter earns zero yield and is NOT
+   * yield-bearing. Plain settled land tiles — the vast majority at scale — are
+   * intentionally excluded.
+   */
+  private isYieldBearing(tile: DomainTileState): boolean {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return false;
+    // Town income (any town, including SETTLEMENT tier — those earn base gold)
+    if (tile.town) return true;
+    // Dock income (any dock earns at least DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT)
+    if (tile.dockId) return true;
+    // Strategic resource terrain — only the resources that strategicDailyFromResource
+    // maps to a non-empty result (all cases except `default: return {}`)
+    if (tile.resource !== undefined && tile.resource !== null) {
+      switch (tile.resource) {
+        case "FARM":
+        case "FISH":
+        case "IRON":
+        case "WOOD":
+        case "FUR":
+        case "GEMS":
+        case "OIL":
+          return true;
+        default:
+          break;
+      }
+    }
+    // Active converter economicStructure — only the types that converterDailyOutput maps
+    // to a non-empty result (FUR_SYNTHESIZER, ADVANCED_FUR_SYNTHESIZER, IRONWORKS,
+    // ADVANCED_IRONWORKS, CRYSTAL_SYNTHESIZER, ADVANCED_CRYSTAL_SYNTHESIZER)
+    if (tile.economicStructure?.status === "active") {
+      switch (tile.economicStructure.type) {
+        case "FUR_SYNTHESIZER":
+        case "ADVANCED_FUR_SYNTHESIZER":
+        case "IRONWORKS":
+        case "ADVANCED_IRONWORKS":
+        case "CRYSTAL_SYNTHESIZER":
+        case "ADVANCED_CRYSTAL_SYNTHESIZER":
+          return true;
+        default:
+          break;
+      }
+    }
+    return false;
+  }
+
+  private addYieldBearingTileToOwnerIndex(tileKey: string, ownerId: string): void {
+    let set = this.yieldBearingTilesByOwner.get(ownerId);
+    if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(ownerId, set); }
+    set.add(tileKey);
+  }
+
+  private removeYieldBearingTileFromOwnerIndex(tileKey: string, ownerId: string): void {
+    const set = this.yieldBearingTilesByOwner.get(ownerId);
+    if (set) set.delete(tileKey);
+  }
+
+  private refreshYieldBearingIndexForTile(
+    tileKey: string,
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    const prevIsYieldBearing = previous ? this.isYieldBearing(previous) : false;
+    const prevOwnerId = previous?.ownerId;
+    const nextIsYieldBearing = this.isYieldBearing(next);
+    const nextOwnerId = next.ownerId;
+
+    // Remove from previous owner's index if it was yield-bearing
+    if (prevIsYieldBearing && prevOwnerId) {
+      this.removeYieldBearingTileFromOwnerIndex(tileKey, prevOwnerId);
+    }
+    // Add to new owner's index if it is yield-bearing
+    if (nextIsYieldBearing && nextOwnerId) {
+      this.addYieldBearingTileToOwnerIndex(tileKey, nextOwnerId);
+    }
+  }
+
+  /**
+   * DEV_ASSERT_YIELD_INDEX=1 cross-check: rebuild the expected yield-bearing set
+   * from territoryTileKeys and compare against yieldBearingTilesByOwner. Logs
+   * a loud error on any divergence but does NOT throw (prod-safe if accidentally
+   * enabled). Off by default.
+   */
+  private assertYieldIndexCorrect(playerId: string, _now: number, _yieldContext: RuntimeTileYieldEconomyContext): void {
+    const summary = this.summaryForPlayer(playerId);
+    const expected = new Set<string>();
+    for (const tileKey of summary.territoryTileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (tile && this.isYieldBearing(tile)) expected.add(tileKey);
+    }
+    const actual = this.yieldBearingTilesByOwner.get(playerId) ?? new Set<string>();
+    let ok = true;
+    for (const key of expected) {
+      if (!actual.has(key)) { ok = false; console.error(`[YIELD-INDEX] player=${playerId} MISSING from index: ${key}`); }
+    }
+    for (const key of actual) {
+      if (!expected.has(key)) { ok = false; console.error(`[YIELD-INDEX] player=${playerId} SPURIOUS in index: ${key}`); }
+    }
+    if (ok) console.debug(`[YIELD-INDEX] player=${playerId} OK expected=${expected.size} actual=${actual.size}`);
   }
 
   private addPendingSettlement(record: PendingSettlementRecord): void {
@@ -3448,13 +3587,17 @@ export class SimulationRuntime {
   }
 
   private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
+    const cached = this.tileYieldContextCacheByPlayer.get(player.id);
+    if (cached) return cached;
     const settledTiles = this.settledTilesForPlayer(player.id);
-    return {
+    const context: RuntimeTileYieldEconomyContext = {
       player,
       townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames: 16 }),
       fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles),
       firstThreeTownKeys: firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id))
     };
+    this.tileYieldContextCacheByPlayer.set(player.id, context);
+    return context;
   }
 
   private incomePerMinuteForPlayer(playerId: string): number {
@@ -3504,8 +3647,11 @@ export class SimulationRuntime {
   }
 
   private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
-    const summary = this.summaryForPlayer(playerId);
-    return orderedAutoSettlementTileKeys(playerId, summary.territoryTileKeys, {
+    // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
+    // orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway, so passing only
+    // frontier keys is semantically equivalent but O(frontier) instead of O(territory).
+    const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
+    return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
       getTile: (tileKey) => this.tiles.get(tileKey),
       isBlocked: (tileKey) => this.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
       hasTownSupport: (tile) =>
@@ -4156,23 +4302,33 @@ export class SimulationRuntime {
     let yieldMs = 0;
     let tilesConsidered = 0;
     const sampleNow = this.now.bind(this);
-    for (const tileKey of this.summaryForPlayer(command.playerId).territoryTileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (!tile || tile.ownershipState !== "SETTLED") continue;
-      tilesConsidered += 1;
-      const yieldStartedAt = sampleNow();
-      const collected = this.collectTileYield(tile, now, command, yieldContext, {
-        creditStrategic: false,
-        persistAnchor: false
-      });
-      yieldMs += sampleNow() - yieldStartedAt;
-      const touched = collected.gold > 0 || Object.values(collected.strategic).some((value) => Number(value) > 0);
-      if (!touched) continue;
-      tiles += 1;
-      gold += collected.gold;
-      for (const [resource, amount] of Object.entries(collected.strategic) as Array<[StrategicResourceKey, number]>) {
-        strategic[resource] = (strategic[resource] ?? 0) + amount;
+    // Use the yieldBearingTilesByOwner index so we iterate only tiles with
+    // income potential (O(yield-bearing) instead of O(all-settled)). The inner
+    // SETTLED guard is kept as a safety net for index drift.
+    const yieldBearingKeys = this.yieldBearingTilesByOwner.get(command.playerId);
+    if (yieldBearingKeys) {
+      for (const tileKey of yieldBearingKeys) {
+        const tile = this.tiles.get(tileKey);
+        if (!tile || tile.ownershipState !== "SETTLED") continue;
+        tilesConsidered += 1;
+        const yieldStartedAt = sampleNow();
+        const collected = this.collectTileYield(tile, now, command, yieldContext, {
+          creditStrategic: false,
+          persistAnchor: false
+        });
+        yieldMs += sampleNow() - yieldStartedAt;
+        const touched = collected.gold > 0 || Object.values(collected.strategic).some((value) => Number(value) > 0);
+        if (!touched) continue;
+        tiles += 1;
+        gold += collected.gold;
+        for (const [resource, amount] of Object.entries(collected.strategic) as Array<[StrategicResourceKey, number]>) {
+          strategic[resource] = (strategic[resource] ?? 0) + amount;
+        }
       }
+    }
+    // DEV_ASSERT: cross-check index vs full scan in dev mode
+    if (process.env.DEV_ASSERT_YIELD_INDEX === "1") {
+      this.assertYieldIndexCorrect(command.playerId, now, yieldContext);
     }
     this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
     this.setPlayerYieldCollectionEpoch(command.commandId, command.playerId, now);
