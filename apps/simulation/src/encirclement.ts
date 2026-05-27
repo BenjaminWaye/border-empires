@@ -93,6 +93,21 @@ export const isFrontierConnected = (
 };
 
 /**
+ * Lazy cap for the backward BFS in computeEncirclementDeltas (Option C).
+ *
+ * At 250k owned tiles the backward BFS could visit the entire connected
+ * territory component (250k tiles) when the changed key is near the centre.
+ * This constant caps the visited-set size. If the backward BFS hits the cap
+ * we bail out and return empty sets — i.e., we skip the encirclement check
+ * for this tick and retry on the next mutation. This is semantically safe:
+ * cut-off tiles stay cut off (their existing timer is preserved), and any
+ * reconnection will be detected on the next mutation. The trade-off is
+ * eventual consistency rather than same-tick detection in the rare case
+ * where a central tile in a 250k+ empire changes ownership in one tick.
+ */
+export const ENCIRCLEMENT_BFS_CAP = 10_000;
+
+/**
  * Given a set of tile keys that may have been affected by a recent ownership
  * change, compute two sets:
  *   - `cutOff`       — keys that are now disconnected
@@ -105,19 +120,29 @@ export const isFrontierConnected = (
  * Implementation: BFS from the changed tile key(s) outward to find the
  * affected region; re-checks connectivity only for tiles in that region.
  * This keeps the check local rather than scanning all player territory.
+ *
+ * Option C — lazy partial BFS: if the backward BFS exceeds ENCIRCLEMENT_BFS_CAP
+ * visited tiles, the function returns empty sets and logs a warning. The
+ * encirclement state of affected tiles is unchanged (timers are preserved).
+ * This is safe regression: we just skip detection for this tick.
  */
 export const computeEncirclementDeltas = (
   changedKeys: Iterable<string>,
   affectedPlayerId: string,
   getTile: (key: string) => (EncirclementTileView & { frontierDecayAt?: number | undefined }) | undefined,
-  nowMs: number
+  nowMs: number,
+  options?: {
+    bfsCap?: number;
+    onCapExceeded?: (playerId: string, visitedCount: number, capLimit: number) => void;
+  }
 ): { cutOff: Set<string>; reconnected: Set<string> } => {
+  const bfsCap = options?.bfsCap ?? ENCIRCLEMENT_BFS_CAP;
   const cutOff = new Set<string>();
   const reconnected = new Set<string>();
 
   // Collect the frontier tiles we need to re-check by doing a BFS over the
   // affected player's frontier territory from the changed tiles. Cap the
-  // expansion at the full connected component — it won't exceed player territory.
+  // expansion at ENCIRCLEMENT_BFS_CAP — if exceeded, bail out (Option C).
   const toCheck = new Set<string>();
   const bfsVisited = new Set<string>();
   const bfsQueue: string[] = [];
@@ -151,6 +176,14 @@ export const computeEncirclementDeltas = (
       if (neighbor?.ownerId === affectedPlayerId) {
         bfsQueue.push(nk);
       }
+    }
+
+    // Option C: if the backward BFS grows beyond the cap, bail out and
+    // skip this encirclement check. The caller's timers are preserved;
+    // detection will happen on the next mutation.
+    if (bfsCap > 0 && bfsVisited.size > bfsCap) {
+      options?.onCapExceeded?.(affectedPlayerId, bfsVisited.size, bfsCap);
+      return { cutOff, reconnected };
     }
   }
 
