@@ -8353,7 +8353,20 @@ export class SimulationRuntime {
   private applyEncirclement(changedKeys: string[], playerId: string, commandId: string): void {
     const getTile = (key: string) => this.tiles.get(key);
     const nowMs = this.now();
-    const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs);
+    const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs, {
+      onCapExceeded: (pid, visited, cap) => {
+        this.runtimeLogInfo(
+          {
+            playerId: pid,
+            bfsVisited: visited,
+            bfsCap: cap,
+            changedKeysCount: changedKeys.length,
+            commandId
+          },
+          "[applyEncirclement] BFS cap exceeded — skipping detection this tick"
+        );
+      }
+    });
 
     const tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[] = [];
 
