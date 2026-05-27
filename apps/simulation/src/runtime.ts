@@ -899,27 +899,50 @@ export class SimulationRuntime {
     const _ttaStart = Date.now();
     const autoClaimedKeys = new Set<string>();
 
+    // --- Inner claim-loop accumulators ---
+    let _claimSummaryForPlayerMs = 0;
+    let _claimAnchorScanMs = 0;
+    let _claimReplaceTileStateMs = 0;
+    let _claimEmitMs = 0;
+    let _playersProcessed = 0;
+    let _anchorsIterated = 0;
+    let _claimCandidatesEvaluated = 0;
+    let _tilesActuallyClaimed = 0;
+
     for (const playerId of this.players.keys()) {
       if (playerId.startsWith("barbarian-")) continue;
+      const _t0 = Date.now();
       const summary = this.summaryForPlayer(playerId);
       const actor = this.players.get(playerId);
       if (!actor) continue;
       this.applyEconomyAccrual(actor, nowMs);
       const ownedTileKeys = [...summary.territoryTileKeys];
+      _claimSummaryForPlayerMs += Date.now() - _t0;
+      _playersProcessed++;
+
       const claimDeltas: Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> = [];
       let claimCommandId: string | undefined;
 
       for (const anchorKey of ownedTileKeys) {
+        _anchorsIterated++;
+        const _tAnchor = Date.now();
         const anchor = this.tiles.get(anchorKey);
-        if (!anchor) continue;
+        if (!anchor) {
+          _claimAnchorScanMs += Date.now() - _tAnchor;
+          continue;
+        }
         const fortRadius = fortAutoFrontierRadiusForTile(anchor, playerId, nowMs);
         const radius = fortRadius > 0
           ? fortRadius
           : isSettledTownAnchor(anchor, playerId)
             ? TOWN_AUTO_FRONTIER_RADIUS
             : 0;
-        if (radius <= 0) continue;
+        if (radius <= 0) {
+          _claimAnchorScanMs += Date.now() - _tAnchor;
+          continue;
+        }
         for (const targetKey of this.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
+          _claimCandidatesEvaluated++;
           if (actor.points < FRONTIER_CLAIM_COST) break;
           if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || this.locksByTile.has(targetKey)) continue;
           const target = this.tiles.get(targetKey);
@@ -932,13 +955,20 @@ export class SimulationRuntime {
             ownerId: playerId,
             ownershipState: "FRONTIER"
           };
+          const _tReplace = Date.now();
           this.replaceTileState(targetKey, claimedTile, claimCommandId);
+          const _replaceDuration = Date.now() - _tReplace;
+          _claimReplaceTileStateMs += _replaceDuration;
+          _claimAnchorScanMs -= _replaceDuration; // replaceTileState already charged separately
           this.extendFortPatrolGrace(targetKey, nowMs + FORT_PATROL_GRACE_MS);
           claimDeltas.push(this.tileDeltaFromState(claimedTile));
+          _tilesActuallyClaimed++;
         }
+        _claimAnchorScanMs += Date.now() - _tAnchor;
       }
 
       if (claimCommandId && claimDeltas.length > 0) {
+        const _tEmit = Date.now();
         this.emitEvent({
           eventType: "TILE_DELTA_BATCH",
           commandId: claimCommandId,
@@ -947,6 +977,7 @@ export class SimulationRuntime {
           tileDeltas: claimDeltas
         });
         this.emitPlayerStateUpdate({ commandId: claimCommandId, playerId });
+        _claimEmitMs += Date.now() - _tEmit;
       }
     }
 
@@ -954,14 +985,30 @@ export class SimulationRuntime {
     this.updateFrontierDecay(nowMs);
     const _ttaAfterDecay = Date.now();
 
+    // --- Settle queue block ---
+    let _settleQueueNotifyMs = 0;
+    let _settleQueueNotifications = 0;
+
     for (const playerId of this.players.keys()) {
       if (!playerId.startsWith("barbarian-") && this.autoSettlementQueueForPlayer(playerId).length > 0) {
+        const _tSettle = Date.now();
         this.emitPlayerStateUpdate({
           commandId: this.nextTerritoryAutomationCommandId("settle-queue", playerId, "batch", nowMs),
           playerId
         });
+        _settleQueueNotifyMs += Date.now() - _tSettle;
+        _settleQueueNotifications++;
       }
     }
+
+    // --- Siege/sweep block inner accumulators ---
+    let _siegeAttackLoopMs = 0;
+    let _siegeHandleFrontierCommandMs = 0;
+    let _siegeOutpostSweepMs = 0;
+    let _siegeLightSweepMs = 0;
+    let _siegeAttacksIssued = 0;
+    let _siegeOutpostSweepsTicked = 0;
+    let _lightOutpostSweepsTicked = 0;
 
     for (const playerId of this.players.keys()) {
       if (playerId.startsWith("barbarian-")) continue;
@@ -972,6 +1019,9 @@ export class SimulationRuntime {
       let availableSiegeGold = actor.points;
       if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) continue;
       const summary = this.summaryForPlayer(playerId);
+
+      // --- siege auto-attack loop ---
+      const _tAttackLoop = Date.now();
       for (const tileKey of [...summary.territoryTileKeys]) {
         const fortTile = this.tiles.get(tileKey);
         const fortRadius = fortTile ? fortAutoFrontierRadiusForTile(fortTile, playerId, nowMs) : 0;
@@ -989,6 +1039,7 @@ export class SimulationRuntime {
           });
         if (!target) continue;
         const commandId = this.nextTerritoryAutomationCommandId("fort", playerId, simulationTileKey(target.x, target.y), nowMs);
+        const _tHandleCmd = Date.now();
         this.handleFrontierCommand(
           {
             commandId,
@@ -1001,12 +1052,17 @@ export class SimulationRuntime {
           },
           "ATTACK"
         );
+        _siegeHandleFrontierCommandMs += Date.now() - _tHandleCmd;
         availableSiegeManpower -= ATTACK_MANPOWER_COST;
         availableSiegeGold -= FRONTIER_CLAIM_COST;
+        _siegeAttacksIssued++;
       }
+      _siegeAttackLoopMs += Date.now() - _tAttackLoop;
+
       // --- Sweep tick: siege outposts (SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER) ---
       // Iterates all player territory tiles; skips non-outpost tiles cheaply.
       // O(territory) per player per tick — same as the siege auto-attack above.
+      const _tOutpostSweep = Date.now();
       for (const tileKey of [...summary.territoryTileKeys]) {
         const outpostTile = this.tiles.get(tileKey);
         if (
@@ -1034,9 +1090,12 @@ export class SimulationRuntime {
           actor,
           nowMs
         );
+        _siegeOutpostSweepsTicked++;
       }
+      _siegeOutpostSweepMs += Date.now() - _tOutpostSweep;
 
       // --- Sweep tick: LIGHT_OUTPOST ---
+      const _tLightSweep = Date.now();
       for (const tileKey of [...summary.territoryTileKeys]) {
         const outpostTile = this.tiles.get(tileKey);
         if (
@@ -1063,18 +1122,43 @@ export class SimulationRuntime {
           actor,
           nowMs
         );
+        _lightOutpostSweepsTicked++;
       }
+      _siegeLightSweepMs += Date.now() - _tLightSweep;
     }
 
     const _ttaEnd = Date.now();
     const totalMs = _ttaEnd - _ttaStart;
-    if (totalMs >= 200) {
+    if (totalMs >= 100) {
       this.runtimeLogInfo(
         {
           totalMs,
           claimLoopMs: _ttaAfterClaim - _ttaStart,
           updateFrontierDecayMs: _ttaAfterDecay - _ttaAfterClaim,
-          settleAndSiegeMs: _ttaEnd - _ttaAfterDecay
+          settleAndSiegeMs: _ttaEnd - _ttaAfterDecay,
+          claim: {
+            summaryForPlayerMs: _claimSummaryForPlayerMs,
+            anchorScanMs: _claimAnchorScanMs,
+            replaceTileStateMs: _claimReplaceTileStateMs,
+            emitMs: _claimEmitMs,
+            playersProcessed: _playersProcessed,
+            anchorsIterated: _anchorsIterated,
+            claimCandidatesEvaluated: _claimCandidatesEvaluated,
+            tilesActuallyClaimed: _tilesActuallyClaimed
+          },
+          settle: {
+            queueNotifyMs: _settleQueueNotifyMs,
+            settleQueueNotifications: _settleQueueNotifications
+          },
+          siege: {
+            attackLoopMs: _siegeAttackLoopMs,
+            outpostSweepMs: _siegeOutpostSweepMs,
+            lightSweepMs: _siegeLightSweepMs,
+            handleFrontierCommandMs: _siegeHandleFrontierCommandMs,
+            attacksIssued: _siegeAttacksIssued,
+            outpostSweepsTicked: _siegeOutpostSweepsTicked,
+            lightSweepsTicked: _lightOutpostSweepsTicked
+          }
         },
         "[tick_territory_automation] phase breakdown"
       );
