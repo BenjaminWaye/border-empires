@@ -550,6 +550,7 @@ export type TerrainTextureId =
 export type TileActionDef = {
   id:
     | "settle_land"
+    | "settle_connected_frontier"
     | "launch_attack"
     | "attack_connected_region"
     | "reveal_empire"

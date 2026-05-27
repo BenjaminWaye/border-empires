@@ -132,6 +132,7 @@ type TileActionLogicDeps = {
   activeTruceWithPlayer: (playerId?: string | null) => ActiveTruceView | undefined;
   pendingTruceWithPlayer: (playerId?: string | null) => "incoming" | "outgoing" | undefined;
   ownerSpawnShieldActive: (ownerId: string) => boolean;
+  connectedOwnedFrontierKeysFor: (tile: Tile) => string[];
 };
 
 export const hasRevealCapability = (state: ClientState): boolean =>
@@ -1329,6 +1330,24 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           deps
         )
       });
+    if (tile.ownershipState === "FRONTIER" && !queuedSettlement) {
+      const connectedKeys = deps.connectedOwnedFrontierKeysFor(tile);
+      if (connectedKeys.length >= 2) {
+        const totalCost = SETTLE_COST * connectedKeys.length;
+        out.push({
+          id: "settle_connected_frontier",
+          label: `Settle Connected (${connectedKeys.length})`,
+          detail: deps.buildDetailTextForAction("settle_connected_frontier", tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            canAffordCost(state.gold, SETTLE_COST),
+            `Need ${SETTLE_COST} gold`,
+            `${totalCost} gold total • fills slots, rest queue`,
+            slots,
+            deps
+          )
+        });
+      }
+    }
     const townGrowthAction = tile.town ? townGrowthActionForUpgrade(state, tile.town.nextPopulationTierUpgrade) : undefined;
     if (townGrowthAction) out.push(townGrowthAction);
     const hasWoodenFort = tile.economicStructure?.type === "WOODEN_FORT";
