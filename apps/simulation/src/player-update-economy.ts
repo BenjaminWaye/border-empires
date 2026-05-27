@@ -280,7 +280,9 @@ export const buildFedTownKeys = (
   const availableFood = (player.strategicResources?.FOOD ?? 0) + strategicProductionPerMinute.FOOD;
   let remainingFood = availableFood;
   const fedTownKeys = new Set<string>();
-  const ownedSettledTowns = [...summary.territoryTileKeys]
+  // Use ownedTownTierByTile (already an index of just owned town tiles) instead
+  // of spreading all territoryTileKeys and filtering. O(towns) vs O(territory).
+  const ownedSettledTowns = [...summary.ownedTownTierByTile.keys()]
     .map((tileKey) => tiles.get(tileKey))
     .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === player.id && tile.ownershipState === "SETTLED"))
     .sort((left, right) => (left.x - right.x) || (left.y - right.y));
@@ -378,9 +380,14 @@ export const buildPlayerUpdateEconomySnapshot = (
   const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
   const fortIronUpkeepMult = multiplicativeEffectForPlayer(player, "fortIronUpkeepMult");
   const outpostSupplyUpkeepMult = multiplicativeEffectForPlayer(player, "outpostSupplyUpkeepMult");
-  const settledTiles = [...summary.territoryTileKeys]
-    .map((tileKey) => tiles.get(tileKey))
-    .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === player.id && tile.ownershipState === "SETTLED"));
+  // Iterate the Set directly rather than spreading it — avoids a 250k-element
+  // intermediate array allocation at scale. Same result, O(territory) either way
+  // but no GC pressure from the spread.
+  const settledTiles: DomainTileState[] = [];
+  for (const tileKey of summary.territoryTileKeys) {
+    const tile = tiles.get(tileKey);
+    if (tile && tile.ownerId === player.id && tile.ownershipState === "SETTLED") settledTiles.push(tile);
+  }
   const orderedTownTiles = [...summary.ownedTownTierByTile.keys()]
     .map((tileKey) => tiles.get(tileKey))
     .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === player.id && tile.ownershipState === "SETTLED"));
