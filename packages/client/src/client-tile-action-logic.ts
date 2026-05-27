@@ -1332,11 +1332,16 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
     if (tile.ownershipState === "FRONTIER" && !queuedSettlement) {
       const connectedKeys = deps.connectedOwnedFrontierKeysFor(tile);
-      if (connectedKeys.length >= 2) {
-        const totalCost = SETTLE_COST * connectedKeys.length;
+      const actionableKeys = connectedKeys.filter(
+        (k) =>
+          !state.settleProgressByTile.has(k) &&
+          !hasQueuedSettlementForTile(state.developmentQueue, k)
+      );
+      if (actionableKeys.length >= 2) {
+        const totalCost = SETTLE_COST * actionableKeys.length;
         out.push({
           id: "settle_connected_frontier",
-          label: `Settle Connected (${connectedKeys.length})`,
+          label: `Settle Connected (${actionableKeys.length})`,
           detail: deps.buildDetailTextForAction("settle_connected_frontier", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             canAffordCost(state.gold, SETTLE_COST),

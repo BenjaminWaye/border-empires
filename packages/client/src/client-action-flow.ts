@@ -1132,6 +1132,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
 
     if (actionId === "settle_connected_frontier" && selected) {
+      const origSelected = { x: selected.x, y: selected.y };
       const keys = connectedOwnedFrontierKeys(state, selected, { keyFor, wrapX, wrapY });
       let queued = 0;
       let skipped = 0;
@@ -1140,6 +1141,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         if (!t) { skipped += 1; continue; }
         if (requestSettlement(t.x, t.y)) queued += 1; else skipped += 1;
       }
+      state.selected = origSelected;
       pushFeed(
         queued > 0
           ? `Queued ${queued} settlements across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
