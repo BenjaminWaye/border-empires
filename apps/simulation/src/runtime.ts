@@ -457,6 +457,16 @@ export class SimulationRuntime {
   // Siege outposts are excluded (they do not grant frontier support).
   // Maintained in replaceTileState via refreshFortAnchorIndexForTile.
   private readonly activeFortAnchorsByOwner = new Map<string, Map<string, number>>();
+  // Index of active siege outpost tiles per owner (SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER).
+  // Key: ownerId, Value: Set of tileKeys with an active siegeOutpost owned by that player.
+  // Maintained in replaceTileState via refreshSiegeOutpostIndexForTile.
+  // Replaces the O(territory) sweep in tickTerritoryAutomation.
+  private readonly activeSiegeOutpostsByOwner = new Map<string, Set<string>>();
+  // Index of active LIGHT_OUTPOST economic structure tiles per owner.
+  // Key: ownerId, Value: Set of tileKeys with an active LIGHT_OUTPOST owned by that player.
+  // Maintained in replaceTileState via refreshLightOutpostIndexForTile.
+  // Replaces the O(territory) sweep in tickTerritoryAutomation.
+  private readonly activeLightOutpostsByOwner = new Map<string, Set<string>>();
   // Index of yield-bearing SETTLED LAND tiles per owner. A tile is yield-bearing
   // iff it has town, dockId, a strategic resource, or an active converter
   // economicStructure. Maintained in replaceTileState; rebuilt from this.tiles
@@ -710,6 +720,22 @@ export class SimulationRuntime {
         this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_SWEEP_RADIUS, (k) => this.tiles.get(k));
         // NOTE: siege outposts are NOT registered in activeFortAnchorsByOwner (by design)
       }
+      // Populate activeSiegeOutpostsByOwner index
+      if (tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active") {
+        let set = this.activeSiegeOutpostsByOwner.get(ownerId);
+        if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(ownerId, set); }
+        set.add(tileKey);
+      }
+      // Populate activeLightOutpostsByOwner index
+      if (
+        tile.economicStructure?.ownerId === ownerId &&
+        tile.economicStructure.type === "LIGHT_OUTPOST" &&
+        tile.economicStructure.status === "active"
+      ) {
+        let set = this.activeLightOutpostsByOwner.get(ownerId);
+        if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(ownerId, set); }
+        set.add(tileKey);
+      }
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
@@ -946,14 +972,17 @@ export class SimulationRuntime {
       const actor = this.players.get(playerId);
       if (!actor) continue;
       this.applyEconomyAccrual(actor, nowMs);
-      const ownedTileKeys = [...summary.territoryTileKeys];
       _claimSummaryForPlayerMs += Date.now() - _t0;
       _playersProcessed++;
 
       const claimDeltas: Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> = [];
       let claimCommandId: string | undefined;
 
-      for (const anchorKey of ownedTileKeys) {
+      // Use the activeFortAnchorsByOwner index (forts + towns) instead of
+      // iterating all territoryTileKeys. O(anchors) vs O(territory) — typically
+      // 1–5 entries per player instead of 250k.
+      const fortAnchorMap = this.activeFortAnchorsByOwner.get(playerId);
+      for (const anchorKey of (fortAnchorMap ? fortAnchorMap.keys() : [])) {
         _anchorsIterated++;
         const _tAnchor = Date.now();
         const anchor = this.tiles.get(anchorKey);
@@ -961,6 +990,8 @@ export class SimulationRuntime {
           _claimAnchorScanMs += Date.now() - _tAnchor;
           continue;
         }
+        // Re-derive the effective radius from the tile — the index stores
+        // the static max radius but forts may be time-gated (disabledUntil).
         const fortRadius = fortAutoFrontierRadiusForTile(anchor, playerId, nowMs);
         const radius = fortRadius > 0
           ? fortRadius
@@ -1096,10 +1127,10 @@ export class SimulationRuntime {
       _siegeAttackLoopMs += Date.now() - _tAttackLoop;
 
       // --- Sweep tick: siege outposts (SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER) ---
-      // Iterates all player territory tiles; skips non-outpost tiles cheaply.
-      // O(territory) per player per tick — same as the siege auto-attack above.
+      // Iterates only tiles in activeSiegeOutpostsByOwner index — O(active outposts)
+      // instead of O(territory).
       const _tOutpostSweep = Date.now();
-      for (const tileKey of [...summary.territoryTileKeys]) {
+      for (const tileKey of (this.activeSiegeOutpostsByOwner.get(playerId) ?? [])) {
         const outpostTile = this.tiles.get(tileKey);
         if (
           !outpostTile ||
@@ -1131,8 +1162,10 @@ export class SimulationRuntime {
       _siegeOutpostSweepMs += Date.now() - _tOutpostSweep;
 
       // --- Sweep tick: LIGHT_OUTPOST ---
+      // Iterates only tiles in activeLightOutpostsByOwner index — O(active light outposts)
+      // instead of O(territory).
       const _tLightSweep = Date.now();
-      for (const tileKey of [...summary.territoryTileKeys]) {
+      for (const tileKey of (this.activeLightOutpostsByOwner.get(playerId) ?? [])) {
         const outpostTile = this.tiles.get(tileKey);
         if (
           !outpostTile ||
@@ -2168,6 +2201,9 @@ export class SimulationRuntime {
     this.refreshFortAnchorIndexForTile(tileKey, previous, tile);
     // Yield-bearing index: maintain yieldBearingTilesByOwner.
     this.refreshYieldBearingIndexForTile(tileKey, previous, tile);
+    // Sweep outpost indexes: maintain activeSiegeOutpostsByOwner and activeLightOutpostsByOwner.
+    this.refreshSiegeOutpostIndexForTile(tileKey, previous, tile);
+    this.refreshLightOutpostIndexForTile(tileKey, previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
   }
 
@@ -2466,6 +2502,76 @@ export class SimulationRuntime {
     // Add to new owner's index if it is yield-bearing
     if (nextIsYieldBearing && nextOwnerId) {
       this.addYieldBearingTileToOwnerIndex(tileKey, nextOwnerId);
+    }
+  }
+
+  // ---- Siege outpost index helpers ----
+
+  private isSiegeOutpostActive(tile: DomainTileState, ownerId: string): boolean {
+    return tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active";
+  }
+
+  private refreshSiegeOutpostIndexForTile(
+    tileKey: string,
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    const prevOwnerId = previous?.ownerId;
+    const prevActive = previous && prevOwnerId ? this.isSiegeOutpostActive(previous, prevOwnerId) : false;
+    const nextOwnerId = next.ownerId;
+    const nextActive = nextOwnerId ? this.isSiegeOutpostActive(next, nextOwnerId) : false;
+
+    if (!prevActive && !nextActive) return;
+    // When owner changes, remove from old owner and add to new.
+    // When active state changes for same owner, add or remove.
+    // When active state is unchanged for same owner, do nothing — avoids
+    // mutating the set while it is being iterated in tickTerritoryAutomation,
+    // which would cause JavaScript Set iteration to revisit the key after re-add.
+    if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
+    if (prevActive && prevOwnerId) {
+      const set = this.activeSiegeOutpostsByOwner.get(prevOwnerId);
+      if (set) set.delete(tileKey);
+    }
+    if (nextActive && nextOwnerId) {
+      let set = this.activeSiegeOutpostsByOwner.get(nextOwnerId);
+      if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(nextOwnerId, set); }
+      set.add(tileKey);
+    }
+  }
+
+  // ---- Light outpost index helpers ----
+
+  private isLightOutpostActive(tile: DomainTileState, ownerId: string): boolean {
+    return (
+      tile.economicStructure?.ownerId === ownerId &&
+      tile.economicStructure.type === "LIGHT_OUTPOST" &&
+      tile.economicStructure.status === "active"
+    );
+  }
+
+  private refreshLightOutpostIndexForTile(
+    tileKey: string,
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    const prevOwnerId = previous?.ownerId;
+    const prevActive = previous && prevOwnerId ? this.isLightOutpostActive(previous, prevOwnerId) : false;
+    const nextOwnerId = next.ownerId;
+    const nextActive = nextOwnerId ? this.isLightOutpostActive(next, nextOwnerId) : false;
+
+    if (!prevActive && !nextActive) return;
+    // Same-owner, same-active-state: no-op to avoid mutating the set while
+    // it is being iterated in tickTerritoryAutomation (re-add after delete
+    // would cause JavaScript Set iteration to revisit the key).
+    if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
+    if (prevActive && prevOwnerId) {
+      const set = this.activeLightOutpostsByOwner.get(prevOwnerId);
+      if (set) set.delete(tileKey);
+    }
+    if (nextActive && nextOwnerId) {
+      let set = this.activeLightOutpostsByOwner.get(nextOwnerId);
+      if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(nextOwnerId, set); }
+      set.add(tileKey);
     }
   }
 
