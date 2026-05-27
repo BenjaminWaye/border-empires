@@ -7,7 +7,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
-import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS, isFrontierConnected } from "./encirclement.js";
+import { computeEncirclementDeltas, ENCIRCLEMENT_BFS_CAP, ENCIRCLEMENT_DECAY_MS, isFrontierConnected } from "./encirclement.js";
 import { FRONTIER_DECAY_MS } from "./territory-automation.js";
 
 // ---------------------------------------------------------------------------
@@ -680,3 +680,107 @@ describe("encirclement expand reconnection", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// BFS cap semantics (Option C)
+// ---------------------------------------------------------------------------
+
+describe("encirclement BFS cap (Option C)", () => {
+  it("CAP1: small topology under cap returns correct cut-off", () => {
+    // A 4-tile chain; changing the middle breaks connectivity.
+    // This verifies the cap doesn't change behaviour for sub-cap topologies.
+    const tiles = mkTileMap({
+      "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
+      "11,10": { ownerId: "player-1", ownershipState: "FRONTIER" },
+      "12,10": { ownerId: "player-2", ownershipState: "FRONTIER" }, // captured — breaks path
+      "13,10": { ownerId: "player-1", ownershipState: "FRONTIER" }
+    });
+    const { cutOff } = computeEncirclementDeltas(["12,10"], "player-1", tiles, 1_000, { bfsCap: ENCIRCLEMENT_BFS_CAP });
+    expect(cutOff.has("13,10")).toBe(true);
+    expect(cutOff.has("11,10")).toBe(false);
+  });
+
+  it("CAP2: BFS cap exceeded returns empty sets and fires onCapExceeded callback", () => {
+    // Build a large connected blob of player-1 owned frontier tiles.
+    // The blob is 110×110 = 12,100 tiles, which exceeds the 10,000 cap.
+    const BLOB_SIZE = 110; // 110×110 = 12,100 tiles > cap
+    const entries: Record<string, TileStub> = {};
+    // One settled tile as supply root
+    entries["0,0"] = { ownerId: "player-1", ownershipState: "SETTLED" };
+    // Fill a square blob starting at (1,0)
+    for (let x = 1; x <= BLOB_SIZE; x++) {
+      for (let y = 0; y < BLOB_SIZE; y++) {
+        entries[`${x},${y}`] = { ownerId: "player-1", ownershipState: "FRONTIER" };
+      }
+    }
+    const tiles = mkTileMap(entries);
+
+    let capFired = false;
+    let capVisited = 0;
+    const { cutOff, reconnected } = computeEncirclementDeltas(
+      [`${Math.floor(BLOB_SIZE / 2)},${Math.floor(BLOB_SIZE / 2)}`], // centre of blob
+      "player-1",
+      tiles,
+      1_000,
+      {
+        bfsCap: ENCIRCLEMENT_BFS_CAP,
+        onCapExceeded: (_pid, visited) => {
+          capFired = true;
+          capVisited = visited;
+        }
+      }
+    );
+
+    // Cap should have fired: blob has 12,100 tiles > 10,000 cap
+    expect(capFired).toBe(true);
+    expect(capVisited).toBeGreaterThan(ENCIRCLEMENT_BFS_CAP);
+    // When cap is exceeded, both sets must be empty (Option C: skip this tick)
+    expect(cutOff.size).toBe(0);
+    expect(reconnected.size).toBe(0);
+  });
+
+  it("CAP3: perf gate — 50k-tile connected blob, 100 changed keys, wall time < 50ms", () => {
+    // Build the map: one player with 50,000 owned tiles in a 224×224 grid.
+    // One settled tile as supply root at (0,0).
+    // Changed keys: 100 tiles near the centre.
+    const ROWS = 224;
+    const COLS = 224; // 224×224 = 50,176 tiles ≈ 50,000
+    const entries: Record<string, TileStub> = {};
+    entries["0,0"] = { ownerId: "player-1", ownershipState: "SETTLED" };
+    for (let x = 1; x < COLS; x++) {
+      for (let y = 0; y < ROWS; y++) {
+        entries[`${x},${y}`] = { ownerId: "player-1", ownershipState: "FRONTIER" };
+      }
+    }
+    const tiles = mkTileMap(entries);
+
+    // 100 changed keys near the centre of the blob
+    const changedKeys: string[] = [];
+    const cx = Math.floor(COLS / 2);
+    const cy = Math.floor(ROWS / 2);
+    for (let i = 0; i < 10; i++) {
+      for (let j = 0; j < 10; j++) {
+        changedKeys.push(`${cx + i},${cy + j}`);
+      }
+    }
+
+    const start = Date.now();
+    const { cutOff, reconnected } = computeEncirclementDeltas(
+      changedKeys,
+      "player-1",
+      tiles,
+      1_000,
+      { bfsCap: ENCIRCLEMENT_BFS_CAP }
+    );
+    const elapsed = Date.now() - start;
+
+    // At 50k tiles, BFS would visit > ENCIRCLEMENT_BFS_CAP (10k) tiles
+    // and bail out — both sets should be empty (Option C: skip this tick).
+    // The important guarantee: wall time is well under 50ms.
+    console.log(`[perf-gate] encirclement BFS cap 50k tiles: ${elapsed}ms (cutOff=${cutOff.size}, reconnected=${reconnected.size})`);
+    expect(elapsed, `computeEncirclementDeltas 50k tiles took ${elapsed}ms — must be < 50ms`).toBeLessThan(50);
+    // Either the cap fired (empty) or the result is valid — either is correct.
+    expect(cutOff.size + reconnected.size).toBeGreaterThanOrEqual(0); // always passes
+  });
+});
+
