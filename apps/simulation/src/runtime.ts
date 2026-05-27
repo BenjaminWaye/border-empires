@@ -145,7 +145,8 @@ import {
   buildFedTownKeys,
   buildPlayerUpdateEconomySnapshot,
   buildStrategicProductionForSettledTiles,
-  refreshTownEconomyFields
+  refreshTownEconomyFields,
+  type PlayerUpdateEconomySnapshot
 } from "./player-update-economy.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
 import { capturedStructureFields } from "./capture-structures.js";
@@ -470,6 +471,17 @@ export class SimulationRuntime {
   // restart shouldn't have its core tiles shed before its newer expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
+  // Cached economy snapshot per player. Invalidated in replaceTileState whenever
+  // a tile mutates in a way that could change income/upkeep rates (ownership,
+  // town, fort, economicStructure, siegeOutpost, observatory, dockId changes).
+  // applyEconomyAccrual and emitPlayerStateUpdate both read from this cache so
+  // each player pays O(settled-tiles) at most once per tick instead of once per
+  // call site.  The cache is keyed by player ID; a missing entry means dirty.
+  private readonly economySnapshotCacheByPlayer = new Map<string, PlayerUpdateEconomySnapshot>();
+  // Cached defensibility metrics per player.  Invalidated alongside the
+  // economy snapshot cache because the same tile mutations that change income
+  // also change border exposure (T, E, Ts, Es).
+  private readonly defensibilityMetricsCacheByPlayer = new Map<string, { T: number; E: number; Ts: number; Es: number }>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
@@ -1021,8 +1033,14 @@ export class SimulationRuntime {
       const summary = this.summaryForPlayer(playerId);
 
       // --- siege auto-attack loop ---
+      // Use the fort-anchor index (forts + wooden-forts + towns) rather than
+      // all territory tiles.  Towns return fortRadius=0 from
+      // fortAutoFrontierRadiusForTile and are skipped cheaply; what matters is
+      // we skip the O(all-territory) scan entirely — O(fort-anchors) is
+      // typically 1–5 entries per player.
       const _tAttackLoop = Date.now();
-      for (const tileKey of [...summary.territoryTileKeys]) {
+      const fortAnchors = this.activeFortAnchorsByOwner.get(playerId);
+      for (const tileKey of (fortAnchors ? fortAnchors.keys() : [])) {
         const fortTile = this.tiles.get(tileKey);
         const fortRadius = fortTile ? fortAutoFrontierRadiusForTile(fortTile, playerId, nowMs) : 0;
         if (!fortTile || fortRadius <= 0) continue;
@@ -1825,6 +1843,41 @@ export class SimulationRuntime {
     player.manpowerCapSnapshot = cap;
   }
 
+  /**
+   * Returns a cached PlayerUpdateEconomySnapshot for the player, rebuilding it
+   * only when the cache has been invalidated (i.e., a tile affecting this
+   * player's income changed via replaceTileState).
+   *
+   * The snapshot is built with full dock context so both the accrual path and
+   * the emit path share a single entry.  The dock context affects only
+   * `incomePerMinute` (display), not the upkeep rates consumed by accrual math,
+   * so this is safe for all callers.
+   *
+   * Cache miss cost: O(settled tiles).  Cache hit cost: O(1).
+   * Invalidated on every replaceTileState — O(1) per mutation.
+   */
+  private cachedEconomySnapshot(player: RuntimePlayer): PlayerUpdateEconomySnapshot {
+    const cached = this.economySnapshotCacheByPlayer.get(player.id);
+    if (cached) return cached;
+    const summary = this.summaryForPlayer(player.id);
+    const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
+    });
+    this.economySnapshotCacheByPlayer.set(player.id, snapshot);
+    return snapshot;
+  }
+
+  private cachedDefensibilityMetrics(
+    playerId: string,
+    summary: PlayerRuntimeSummary
+  ): { T: number; E: number; Ts: number; Es: number } {
+    const cached = this.defensibilityMetricsCacheByPlayer.get(playerId);
+    if (cached) return cached;
+    const metrics = buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys);
+    this.defensibilityMetricsCacheByPlayer.set(playerId, metrics);
+    return metrics;
+  }
+
   private applyEconomyAccrual(player: RuntimePlayer, nowMs = this.now()): void {
     const last = this.lastEconomyAccrualAtByPlayer.get(player.id);
     if (last === undefined) {
@@ -1837,8 +1890,8 @@ export class SimulationRuntime {
       this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
       return;
     }
+    const economy = this.cachedEconomySnapshot(player);
     const summary = this.summaryForPlayer(player.id);
-    const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles);
     const elapsedMinutes = elapsedMs / 60_000;
     // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
     // upkeep drain, so the trickle helps cover upkeep on a starved empire
@@ -2016,6 +2069,18 @@ export class SimulationRuntime {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.tiles.get(tileKey);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
+    // Invalidate the economy snapshot cache for affected owners so the next
+    // call to cachedEconomySnapshot() rebuilds with fresh tile data.
+    // We invalidate conservatively — any tile mutation could change income/upkeep
+    // for its owner(s).  O(1) map.delete per call.
+    if (previous?.ownerId) {
+      this.economySnapshotCacheByPlayer.delete(previous.ownerId);
+      this.defensibilityMetricsCacheByPlayer.delete(previous.ownerId);
+    }
+    if (tile.ownerId) {
+      this.economySnapshotCacheByPlayer.delete(tile.ownerId);
+      this.defensibilityMetricsCacheByPlayer.delete(tile.ownerId);
+    }
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
     //   - leaves SETTLED → clear
@@ -3463,10 +3528,10 @@ export class SimulationRuntime {
     if (!player) return;
     this.applyManpowerRegen(player);
     const summary = this.summaryForPlayer(playerId);
-    const economy = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
-      dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    });
-    const metrics = buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys);
+    // Use cached snapshots — O(1) on cache hit (rebuilt at most once per tile
+    // mutation via replaceTileState invalidation).
+    const economy = this.cachedEconomySnapshot(player);
+    const metrics = this.cachedDefensibilityMetrics(playerId, summary);
     player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
     this.emitPlayerMessage(
       { commandId: command.commandId, playerId },
