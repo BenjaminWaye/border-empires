@@ -447,6 +447,15 @@ export class SimulationRuntime {
   // Reset via arr.length = 0 at the top of each call (preserves inner arrays).
   private readonly frontierDecayChangedByOwner = new Map<string, Array<SimulationTileWireDelta>>();
   private readonly frontierDecayExpiredByOwner = new Map<string, string[]>();
+  // Part 1: index of FRONTIER tiles per owner — avoids full this.tiles scan in updateFrontierDecay.
+  // Key: ownerId, Value: Set of tile keys that are FRONTIER-owned by that player.
+  // Maintained in replaceTileState; rebuilt from this.tiles in the constructor.
+  private readonly frontierTilesByOwner = new Map<string, Set<string>>();
+  // Part 2: index of fort/town anchors that grant frontier support per owner.
+  // Key: ownerId, Value: Map of (anchorTileKey → maxRadius) for FORT + WOODEN_FORT + TOWN kinds only.
+  // Siege outposts are excluded (they do not grant frontier support).
+  // Maintained in replaceTileState via refreshFortAnchorIndexForTile.
+  private readonly activeFortAnchorsByOwner = new Map<string, Map<string, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
@@ -629,6 +638,12 @@ export class SimulationRuntime {
             ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
             : site.expiresAt;
       }
+      // Part 1: populate frontierTilesByOwner index.
+      if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
+        let set = this.frontierTilesByOwner.get(tile.ownerId);
+        if (!set) { set = new Set<string>(); this.frontierTilesByOwner.set(tile.ownerId, set); }
+        set.add(tileKey);
+      }
     }
     // Second pass: register PlayerCandidateIndex anchors now that this.tiles is
     // fully traversed.  Each anchor is stored at the MAX possible radius for its
@@ -644,19 +659,26 @@ export class SimulationRuntime {
         tile.economicStructure.status === "active"
       ) {
         this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
+        // Part 2: register in activeFortAnchorsByOwner
+        this.registerFortSupportAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
       } else if (
         tile.fort?.ownerId === ownerId &&
         tile.fort.status === "active"
       ) {
         this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
+        // Part 2: register in activeFortAnchorsByOwner
+        this.registerFortSupportAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
       } else if (isSettledTownAnchor(tile, ownerId)) {
         this.playerCandidateIndex.registerAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
+        // Part 2: register in activeFortAnchorsByOwner
+        this.registerFortSupportAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS);
       } else if (
         tile.siegeOutpost?.ownerId === ownerId &&
         tile.siegeOutpost.status === "active" &&
         tile.siegeOutpost.sweepActive
       ) {
         this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_SWEEP_RADIUS, (k) => this.tiles.get(k));
+        // NOTE: siege outposts are NOT registered in activeFortAnchorsByOwner (by design)
       }
     }
     for (const player of options.initialState?.players ?? []) {
@@ -1958,6 +1980,20 @@ export class SimulationRuntime {
     }
     this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
     this.refreshPlayerCandidateIndexAnchorForTile(tileKey, previous, tile);
+    // Part 1: maintain frontierTilesByOwner index.
+    const prevIsFrontier = previous?.ownershipState === "FRONTIER" && previous?.ownerId && !previous.ownerId.startsWith("barbarian-");
+    const nextIsFrontier = tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-");
+    if (prevIsFrontier && previous!.ownerId !== tile.ownerId) {
+      this.removeFrontierTileFromOwnerIndex(tileKey, previous!.ownerId!);
+    }
+    if (nextIsFrontier) {
+      this.addFrontierTileToOwnerIndex(tileKey, tile.ownerId!);
+    } else if (prevIsFrontier && previous!.ownerId === tile.ownerId) {
+      // Was frontier for this owner, no longer frontier
+      this.removeFrontierTileFromOwnerIndex(tileKey, tile.ownerId!);
+    }
+    // Part 2: maintain activeFortAnchorsByOwner index.
+    this.refreshFortAnchorIndexForTile(tileKey, previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
   }
 
@@ -2095,6 +2131,77 @@ export class SimulationRuntime {
     if (prevOwnerId !== nextOwnerId || prevMaxRadius !== nextMaxRadius) {
       this.playerCandidateIndex.unregisterAnchor(tileKey);
       this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
+    }
+  }
+
+  // ---- Part 1 helpers: frontierTilesByOwner index ----
+
+  private addFrontierTileToOwnerIndex(tileKey: string, ownerId: string): void {
+    let set = this.frontierTilesByOwner.get(ownerId);
+    if (!set) { set = new Set<string>(); this.frontierTilesByOwner.set(ownerId, set); }
+    set.add(tileKey);
+  }
+
+  private removeFrontierTileFromOwnerIndex(tileKey: string, ownerId: string): void {
+    const set = this.frontierTilesByOwner.get(ownerId);
+    if (set) set.delete(tileKey);
+  }
+
+  // ---- Part 2 helpers: activeFortAnchorsByOwner index ----
+
+  /**
+   * Returns the max radius this tile contributes as a fort-support anchor for its owner,
+   * considering only FORT + WOODEN_FORT + town kinds (NOT siege outposts).
+   * Returns 0 if the tile is not a fort-support anchor.
+   */
+  private fortSupportAnchorMaxRadius(tile: DomainTileState, ownerId: string): number {
+    if (
+      tile.ownerId === ownerId &&
+      tile.economicStructure?.ownerId === ownerId &&
+      tile.economicStructure.type === "WOODEN_FORT" &&
+      tile.economicStructure.status === "active"
+    ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
+    if (
+      tile.ownerId === ownerId &&
+      tile.fort?.ownerId === ownerId &&
+      tile.fort.status === "active"
+    ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
+    if (isSettledTownAnchor(tile, ownerId)) return TOWN_AUTO_FRONTIER_RADIUS;
+    return 0;
+  }
+
+  private registerFortSupportAnchor(tileKey: string, ownerId: string, maxRadius: number): void {
+    let map = this.activeFortAnchorsByOwner.get(ownerId);
+    if (!map) { map = new Map<string, number>(); this.activeFortAnchorsByOwner.set(ownerId, map); }
+    map.set(tileKey, maxRadius);
+  }
+
+  private unregisterFortSupportAnchor(tileKey: string, ownerId: string): void {
+    const map = this.activeFortAnchorsByOwner.get(ownerId);
+    if (map) map.delete(tileKey);
+  }
+
+  /**
+   * Called from replaceTileState to keep activeFortAnchorsByOwner in sync.
+   * Mirrors the logic in refreshPlayerCandidateIndexAnchorForTile but only for
+   * fort-support kinds (forts + towns, NOT siege outposts).
+   */
+  private refreshFortAnchorIndexForTile(
+    tileKey: string,
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    const prevOwnerId = previous?.ownerId;
+    const nextOwnerId = next.ownerId;
+    const prevMaxRadius = previous && prevOwnerId ? this.fortSupportAnchorMaxRadius(previous, prevOwnerId) : 0;
+    const nextMaxRadius = nextOwnerId ? this.fortSupportAnchorMaxRadius(next, nextOwnerId) : 0;
+
+    if (prevMaxRadius <= 0 && nextMaxRadius <= 0) return;
+    if (prevMaxRadius > 0 && prevOwnerId) {
+      this.unregisterFortSupportAnchor(tileKey, prevOwnerId);
+    }
+    if (nextMaxRadius > 0 && nextOwnerId) {
+      this.registerFortSupportAnchor(tileKey, nextOwnerId, nextMaxRadius);
     }
   }
 
@@ -5947,12 +6054,25 @@ export class SimulationRuntime {
     });
   }
 
+  /**
+   * Part 2 rewrite: instead of scanning a radius² neighbourhood of cells,
+   * iterate the pre-built activeFortAnchorsByOwner index for the player and
+   * check coverage. O(anchors) per tile instead of O(radius²).
+   *
+   * Semantics preserved: returns true if any fort/wooden-fort/town anchor
+   * owned by playerId has an effective radius that covers tile.
+   */
   private frontierSupportedByActiveFort(tile: DomainTileState, playerId: string, nowMs: number): boolean {
+    // Fast path: the tile itself is an anchor (e.g. a fort sitting on a frontier tile).
     if (fortAutoFrontierRadiusForTile(tile, playerId, nowMs) > 0) return true;
-    for (const coords of coordsInChebyshevRadius(tile.x, tile.y, MAX_FORT_AUTO_FRONTIER_RADIUS)) {
-      const anchor = this.tiles.get(simulationTileKey(coords.x, coords.y));
+    const anchors = this.activeFortAnchorsByOwner.get(playerId);
+    if (!anchors) return false;
+    for (const [anchorKey, _maxRadius] of anchors) {
+      const anchor = this.tiles.get(anchorKey);
       if (!anchor) continue;
-      const radius = fortAutoFrontierRadiusForTile(anchor, playerId, nowMs);
+      const effectiveRadius = fortAutoFrontierRadiusForTile(anchor, playerId, nowMs);
+      // fortAutoFrontierRadiusForTile returns 0 for towns; fall back to TOWN_AUTO_FRONTIER_RADIUS.
+      const radius = effectiveRadius > 0 ? effectiveRadius : (isSettledTownAnchor(anchor, playerId) ? TOWN_AUTO_FRONTIER_RADIUS : 0);
       if (radius <= 0) continue;
       const dx = Math.abs(anchor.x - tile.x);
       const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
@@ -5982,63 +6102,83 @@ export class SimulationRuntime {
       else this.frontierDecayExpiredByOwner.set(playerId, [tileKey]);
     };
 
-    for (const [tileKey, tile] of this.tiles) {
-      if (this.locksByTile.has(tileKey)) continue;
-      if (tile.ownershipState !== "FRONTIER" || !tile.ownerId || tile.ownerId.startsWith("barbarian-")) continue;
-      const ownerId = tile.ownerId;
-      if (this.frontierDecayPausedForTile(ownerId, tileKey, tile)) {
-        if (tile.frontierDecayAt === undefined) continue;
-        const queuedTile: DomainTileState = {
-          ...tile,
-          frontierDecayAt: undefined,
-          frontierDecayKind: undefined
-        };
-        this.replaceTileState(tileKey, queuedTile, `frontier-decay-paused:${ownerId}:${tileKey}:${nowMs}`);
-        addChangedDelta(ownerId, this.tileDeltaFromState(queuedTile));
-        continue;
-      }
-      if (this.frontierSupportedByActiveFort(tile, ownerId, nowMs)) {
-        if (tile.frontierDecayAt === undefined) continue;
-        const supportedTile: DomainTileState = {
-          ...tile,
-          frontierDecayAt: undefined,
-          frontierDecayKind: undefined
-        };
-        this.replaceTileState(tileKey, supportedTile, `frontier-decay-supported:${ownerId}:${tileKey}:${nowMs}`);
-        addChangedDelta(ownerId, this.tileDeltaFromState(supportedTile));
-        continue;
-      }
+    // Part 3: collect expired tiles separately to apply via bulk path.
+    // Key: ownerId, Value: array of [tileKey, expiredTileState]
+    const expiredTilesByOwner = new Map<string, Array<[string, DomainTileState]>>();
 
-      const decayAt = tile.frontierDecayAt ?? nowMs + FRONTIER_DECAY_MS;
-      if (decayAt <= nowMs) {
-        const expiredTile: DomainTileState = {
-          ...tile,
-          ownerId: undefined,
-          ownershipState: undefined,
-          frontierDecayAt: undefined,
-          frontierDecayKind: undefined,
-          fort: undefined,
-          observatory: undefined,
-          siegeOutpost: undefined,
-          economicStructure: undefined,
-          sabotage: undefined
-        };
-        this.replaceTileState(tileKey, expiredTile, `frontier-decay-expired:${ownerId}:${tileKey}:${nowMs}`);
-        this.fortPatrolGraceUntilByTile.delete(tileKey);
-        addChangedDelta(ownerId, this.tileDeltaFromState(expiredTile));
-        // Track for encirclement re-check of neighbors below.
-        addExpiredKey(ownerId, tileKey);
-        continue;
-      }
+    // Part 1: iterate only frontier tiles via frontierTilesByOwner index,
+    // avoiding the full this.tiles scan (was O(all_tiles), now O(frontier_tiles)).
+    for (const [ownerId, frontierKeys] of this.frontierTilesByOwner) {
+      for (const tileKey of frontierKeys) {
+        if (this.locksByTile.has(tileKey)) continue;
+        const tile = this.tiles.get(tileKey);
+        // tile could be undefined if index is stale, or non-FRONTIER for same reason — skip.
+        if (!tile || tile.ownershipState !== "FRONTIER" || tile.ownerId !== ownerId) continue;
 
-      if (tile.frontierDecayAt !== decayAt) {
-        const decayingTile: DomainTileState = {
-          ...tile,
-          frontierDecayAt: decayAt,
-          frontierDecayKind: "NATURAL"
-        };
-        this.replaceTileState(tileKey, decayingTile, `frontier-decay-started:${ownerId}:${tileKey}:${nowMs}`);
-        addChangedDelta(ownerId, this.tileDeltaFromState(decayingTile));
+        if (this.frontierDecayPausedForTile(ownerId, tileKey, tile)) {
+          if (tile.frontierDecayAt === undefined) continue;
+          const queuedTile: DomainTileState = {
+            ...tile,
+            frontierDecayAt: undefined,
+            frontierDecayKind: undefined
+          };
+          this.replaceTileState(tileKey, queuedTile, `frontier-decay-paused:${ownerId}:${tileKey}:${nowMs}`);
+          addChangedDelta(ownerId, this.tileDeltaFromState(queuedTile));
+          continue;
+        }
+        if (this.frontierSupportedByActiveFort(tile, ownerId, nowMs)) {
+          if (tile.frontierDecayAt === undefined) continue;
+          const supportedTile: DomainTileState = {
+            ...tile,
+            frontierDecayAt: undefined,
+            frontierDecayKind: undefined
+          };
+          this.replaceTileState(tileKey, supportedTile, `frontier-decay-supported:${ownerId}:${tileKey}:${nowMs}`);
+          addChangedDelta(ownerId, this.tileDeltaFromState(supportedTile));
+          continue;
+        }
+
+        const decayAt = tile.frontierDecayAt ?? nowMs + FRONTIER_DECAY_MS;
+        if (decayAt <= nowMs) {
+          // Part 3: collect for bulk expiry instead of individual replaceTileState.
+          const expiredTile: DomainTileState = {
+            ...tile,
+            ownerId: undefined,
+            ownershipState: undefined,
+            frontierDecayAt: undefined,
+            frontierDecayKind: undefined,
+            fort: undefined,
+            observatory: undefined,
+            siegeOutpost: undefined,
+            economicStructure: undefined,
+            sabotage: undefined
+          };
+          const bucket = expiredTilesByOwner.get(ownerId);
+          if (bucket) bucket.push([tileKey, expiredTile]);
+          else expiredTilesByOwner.set(ownerId, [[tileKey, expiredTile]]);
+          continue;
+        }
+
+        if (tile.frontierDecayAt !== decayAt) {
+          const decayingTile: DomainTileState = {
+            ...tile,
+            frontierDecayAt: decayAt,
+            frontierDecayKind: "NATURAL"
+          };
+          this.replaceTileState(tileKey, decayingTile, `frontier-decay-started:${ownerId}:${tileKey}:${nowMs}`);
+          addChangedDelta(ownerId, this.tileDeltaFromState(decayingTile));
+        }
+      }
+    }
+
+    // Part 3: bulk-apply expired tiles, deduplicating planner index work.
+    if (expiredTilesByOwner.size > 0) {
+      this.bulkClearFrontierOwnership(expiredTilesByOwner, nowMs);
+      for (const [ownerId, pairs] of expiredTilesByOwner) {
+        for (const [tileKey, expiredTile] of pairs) {
+          addChangedDelta(ownerId, this.tileDeltaFromState(expiredTile));
+          addExpiredKey(ownerId, tileKey);
+        }
       }
     }
 
@@ -6060,6 +6200,127 @@ export class SimulationRuntime {
       if (expiredKeys.length === 0) continue;
       const commandId = this.nextTerritoryAutomationCommandId("frontier-decay-encirclement", playerId, "batch", nowMs);
       this.applyEncirclement(expiredKeys, playerId, commandId);
+    }
+  }
+
+  /**
+   * Part 3: Bulk expiry path. Applies all expired frontier tiles with deduped
+   * planner/candidate index refreshes, avoiding O(expiredCount * radius²) cost.
+   *
+   * For each expired tile:
+   *   - Directly mutates this.tiles to the cleared state
+   *   - Updates frontierTilesByOwner and activeFortAnchorsByOwner
+   *   - Handles player summaries (O(1) per tile)
+   *   - Defers planner/playerCandidateIndex work until after all mutations
+   *
+   * Then does ONE deduped refresh pass over the union of all affected candidate keys.
+   */
+  private bulkClearFrontierOwnership(
+    expiredTilesByOwner: Map<string, Array<[string, DomainTileState]>>,
+    nowMs: number
+  ): void {
+    // Dedupe keys that need planner-candidate-index refresh.
+    const dirtyPlannerKeysByPlayer = new Map<string, Set<string>>();
+    const dirtyWatchedKeys = new Set<string>();
+    const commandIdPrefix = `frontier-decay-expired-bulk:${nowMs}`;
+
+    for (const [ownerId, pairs] of expiredTilesByOwner) {
+      for (const [tileKey, expiredTile] of pairs) {
+        const previous = this.tiles.get(tileKey);
+
+        // 1. Invalidate stringify cache (cheap, keep per-tile).
+        this.tileDeltaStringifyCache.invalidate(tileKey);
+
+        // 2. Update player summaries (O(1) per tile, keep per-tile).
+        if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
+        this.tiles.set(tileKey, expiredTile);
+        this.applyTileToPlayerSummaries(tileKey, expiredTile);
+
+        // 3. Settle-at bookkeeping (expiredTile is unowned, so clear).
+        this.tileSettledAtByKey.delete(tileKey);
+
+        // 4. Fort patrol grace (clear on expiry).
+        this.fortPatrolGraceUntilByTile.delete(tileKey);
+
+        // 5. Part 1: update frontierTilesByOwner — tile is no longer FRONTIER.
+        this.removeFrontierTileFromOwnerIndex(tileKey, ownerId);
+
+        // 6. Part 2: update activeFortAnchorsByOwner — expired tile loses any anchor status.
+        this.refreshFortAnchorIndexForTile(tileKey, previous, expiredTile);
+
+        // 7. Cancel pending settlement if owner changed (it always does on expiry).
+        this.cancelPendingSettlementIfOwnerChanged(tileKey, expiredTile.ownerId, commandIdPrefix);
+
+        // 8 & 9. Collect planner dirty keys and playerCandidateIndex watched keys (deduped).
+        // Use numeric coordinates to avoid per-tile string-parse overhead from
+        // candidateIndexKeysAroundTileKey. Expand 2 hops inline.
+        {
+          const ex = expiredTile.x;
+          const ey = expiredTile.y;
+          let ownerSet = dirtyPlannerKeysByPlayer.get(ownerId);
+          if (!ownerSet) { ownerSet = new Set<string>(); dirtyPlannerKeysByPlayer.set(ownerId, ownerSet); }
+          // Include the tile itself and all tiles within 2 hops (Chebyshev radius 2 = 5x5 - 1 = 24 neighbors).
+          for (let dy = -2; dy <= 2; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+              const nx = ((ex + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+              const ny = ((ey + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
+              const nk = `${nx},${ny}`;
+              ownerSet.add(nk);
+              dirtyWatchedKeys.add(nk);
+              // Check for other affected players in the neighborhood.
+              const neighborTile = this.tiles.get(nk);
+              const neighborOwner = neighborTile?.ownerId;
+              if (neighborOwner && neighborOwner !== ownerId) {
+                let nset = dirtyPlannerKeysByPlayer.get(neighborOwner);
+                if (!nset) { nset = new Set<string>(); dirtyPlannerKeysByPlayer.set(neighborOwner, nset); }
+                nset.add(nk);
+              }
+            }
+          }
+        }
+
+        // 10. PlayerCandidateIndex anchor: unregister if this tile was an anchor.
+        // refreshPlayerCandidateIndexAnchorForTile logic inline:
+        const prevOwnerId = previous?.ownerId;
+        if (previous && prevOwnerId) {
+          // Use anchorKindMaxRadius detection: fort, wooden-fort, town, sweep outpost.
+          const hadFort =
+            (previous.economicStructure?.ownerId === prevOwnerId &&
+              previous.economicStructure.type === "WOODEN_FORT" &&
+              previous.economicStructure.status === "active") ||
+            (previous.fort?.ownerId === prevOwnerId && previous.fort.status === "active");
+          const hadTown = isSettledTownAnchor(previous, prevOwnerId);
+          const hadSweep =
+            previous.siegeOutpost?.ownerId === prevOwnerId &&
+            previous.siegeOutpost.status === "active" &&
+            previous.siegeOutpost.sweepActive;
+          if (hadFort || hadTown || hadSweep) {
+            this.playerCandidateIndex.unregisterAnchor(tileKey);
+          }
+        }
+        // expiredTile has no owner, so no re-register.
+      }
+    }
+
+    // 11. Deduped planner-candidate-index refresh.
+    for (const [pid, candidateKeys] of dirtyPlannerKeysByPlayer) {
+      const summary = this.summaryForPlayer(pid);
+      for (const candidateKey of candidateKeys) {
+        summary.hotFrontierTileKeys.delete(candidateKey);
+        summary.strategicFrontierTileKeys.delete(candidateKey);
+        summary.buildCandidateTileKeys.delete(candidateKey);
+        const candidateTile = this.tiles.get(candidateKey);
+        if (!candidateTile || candidateTile.ownerId !== pid) continue;
+        if (isHotFrontierTile(pid, candidateTile, this.tiles)) summary.hotFrontierTileKeys.add(candidateKey);
+        if (isStrategicFrontierTile(pid, candidateTile, this.tiles)) summary.strategicFrontierTileKeys.add(candidateKey);
+        if (isBuildCandidateTile(pid, candidateTile, this.tiles)) summary.buildCandidateTileKeys.add(candidateKey);
+      }
+      this.markPlannerPlayerTileCollectionDirty(pid);
+    }
+
+    // 12. Deduped playerCandidateIndex refresh.
+    for (const watchedKey of dirtyWatchedKeys) {
+      this.playerCandidateIndex.refreshAroundTile(watchedKey, (k) => this.tiles.get(k));
     }
   }
 
