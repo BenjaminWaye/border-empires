@@ -45,6 +45,20 @@ export const encirclementRemainingMsForTile = (tile: Tile, nowMs = Date.now()): 
   return remaining;
 };
 
+/**
+ * Returns the remaining ms if this frontier tile is in the final 60 s of its
+ * natural (~10 min) decay window. Matches the 3D map's blink threshold so the
+ * on-tile flash and the header countdown light up together.
+ */
+export const naturalDecayRemainingMsForTile = (tile: Tile, nowMs = Date.now()): number | undefined => {
+  if (tile.ownershipState !== "FRONTIER") return undefined;
+  if (typeof tile.frontierDecayAt !== "number") return undefined;
+  if (tile.frontierDecayKind !== "NATURAL") return undefined;
+  const remaining = tile.frontierDecayAt - nowMs;
+  if (remaining <= 0 || remaining > ENCIRCLEMENT_DECAY_MS) return undefined;
+  return remaining;
+};
+
 export const tileMenuHeaderStatusForTile = (tile: Tile, nowMs = Date.now()): TileMenuHeaderStatus | undefined => {
   // Encirclement takes precedence over capture-recovery for the header status.
   const encirclementRemaining = encirclementRemainingMsForTile(tile, nowMs);
@@ -52,6 +66,15 @@ export const tileMenuHeaderStatusForTile = (tile: Tile, nowMs = Date.now()): Til
     const seconds = Math.max(1, Math.ceil(encirclementRemaining / 1000));
     return {
       text: `Cut off from supply — disappears in ${seconds}s`,
+      tone: "warning"
+    };
+  }
+
+  const naturalRemaining = naturalDecayRemainingMsForTile(tile, nowMs);
+  if (naturalRemaining !== undefined) {
+    const seconds = Math.max(1, Math.ceil(naturalRemaining / 1000));
+    return {
+      text: `Frontier collapsing in ${seconds}s`,
       tone: "warning"
     };
   }
