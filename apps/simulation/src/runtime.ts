@@ -87,7 +87,9 @@ import {
   SIPHON_SHARE,
   SYNTH_OVERLOAD_DISABLE_MS,
   SYNTH_OVERLOAD_GOLD_COST,
+  POPULATION_GROWTH_BASE_RATE,
   POPULATION_MAX,
+  SEED_GRANARY_GROWTH_MULT,
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
@@ -145,6 +147,7 @@ import {
   buildFedTownKeys,
   buildPlayerUpdateEconomySnapshot,
   buildStrategicProductionForSettledTiles,
+  hasSupportedStructure,
   refreshTownEconomyFields,
   type PlayerUpdateEconomySnapshot
 } from "./player-update-economy.js";
@@ -154,7 +157,7 @@ import {
   removeTileUpkeepFromCache,
   type UpkeepAccrualSnapshot
 } from "./player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network.js";
 import { capturedStructureFields } from "./capture-structures.js";
 import { createSeedWorld, simulationTileKey } from "./seed-state.js";
 import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
@@ -501,6 +504,9 @@ export class SimulationRuntime {
   // they're shed last (which matches the intent: an empire that survived
   // restart shouldn't have its core tiles shed before its newer expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
+  // Epoch ms of the last population growth tick for each settled town tile key.
+  // Used by tickPopulationGrowth to compute elapsed minutes since the last update.
+  private readonly townLastGrowthTickAtByKey = new Map<string, number>();
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Cached economy snapshot per player. Invalidated in replaceTileState whenever
   // a tile mutates in a way that could change income/upkeep rates (ownership,
@@ -981,6 +987,124 @@ export class SimulationRuntime {
       }
     }
     return droppedCommandIds.size;
+  }
+
+  /**
+   * Periodic population growth tick. Applies logistic growth to every
+   * settled, fed, non-settlement (populationTier !== "SETTLEMENT"),
+   * non-shocked town. Growth formula mirrors the display-path computation
+   * in live-snapshot-view.ts.
+   *
+   * Called every 60 s from simulation-service.ts.
+   */
+  tickPopulationGrowth(nowMs: number = this.now()): void {
+    for (const player of this.players.values()) {
+      if (player.id.startsWith("barbarian-")) continue;
+      const summary = this.summaryForPlayer(player.id);
+      const ownedTowns = summary.ownedTownTierByTile;
+      if (ownedTowns.size === 0) continue;
+
+      const fedTownKeys = buildFedTownKeys(
+        player,
+        summary,
+        this.tiles,
+        summary.strategicProductionPerMinute
+      );
+      if (fedTownKeys.size === 0) continue;
+
+      const firstThreeKeys = firstThreeTownKeysForPlayer(player.id, this.tiles.values());
+
+      for (const tileKey of ownedTowns.keys()) {
+        const tile = this.tiles.get(tileKey);
+        if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
+        const town = tile.town;
+
+        // Gate: skip settlements (populationTier === "SETTLEMENT").
+        if (town.populationTier === "SETTLEMENT") continue;
+        // Gate: skip if in capture shock.
+        if (typeof town.captureShockUntil === "number" && town.captureShockUntil > nowMs) continue;
+        // Gate: skip unfed towns.
+        if (!fedTownKeys.has(tileKey)) continue;
+        // Guard: population and maxPopulation must be present.
+        if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
+
+        const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
+        if (logisticFactor <= 0) continue;
+
+        // Granary multiplier: 1.0 (none), 1.15 (regular granary),
+        // or SEED_GRANARY_GROWTH_MULT (seed granary buffed by adjacent seed).
+        const hasGranary = hasSupportedStructure(player.id, tile, "GRANARY", this.tiles);
+        const hasSeedGranary = hasSupportedStructure(player.id, tile, "SEED_GRANARY", this.tiles);
+        const granaryGrowthMult = !hasGranary && !hasSeedGranary
+          ? 1
+          : hasSeedGranary
+            ? (() => {
+                for (let dy = -1; dy <= 1; dy += 1) {
+                  for (let dx = -1; dx <= 1; dx += 1) {
+                    if (dx === 0 && dy === 0) continue;
+                    const nTile = this.tiles.get(`${tile.x + dx},${tile.y + dy}`);
+                    if (
+                      nTile?.ownerId === player.id &&
+                      nTile.ownershipState === "SETTLED" &&
+                      nTile.economicStructure?.type === "SEED_GRANARY" &&
+                      nTile.economicStructure.status === "active"
+                    ) {
+                      return SEED_GRANARY_GROWTH_MULT;
+                    }
+                  }
+                }
+                return 1.15;
+              })()
+            : 1.15;
+
+        // First-three-town population growth multiplier.
+        const firstThreeMult = firstThreeKeys.has(tileKey)
+          ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player)
+          : 1;
+
+        const lastTick = this.townLastGrowthTickAtByKey.get(tileKey) ?? nowMs;
+        const elapsedMinutes = (nowMs - lastTick) / 60_000;
+        if (elapsedMinutes <= 0) {
+          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+          continue;
+        }
+
+        const growthPerMinute =
+          town.population *
+          POPULATION_GROWTH_BASE_RATE *
+          granaryGrowthMult *
+          firstThreeMult *
+          logisticFactor;
+        const growth = growthPerMinute * elapsedMinutes;
+        if (growth <= 0) continue;
+
+        const newPopulation = Math.min(town.maxPopulation, town.population + growth);
+
+        // Update population tier from the new population value.
+        const nextTier = newPopulation >= 5_000_000 ? "METROPOLIS" as const
+          : newPopulation >= 1_000_000 ? "GREAT_CITY" as const
+          : newPopulation >= 100_000 ? "CITY" as const
+          : "TOWN" as const;
+
+        const updatedTown = {
+          ...town,
+          population: newPopulation,
+          ...(nextTier !== town.populationTier ? { populationTier: nextTier } : {})
+        };
+        const updatedTile = { ...tile, town: updatedTown };
+        this.tiles.set(tileKey, updatedTile);
+        this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+
+        // Update the tier index when the tier changed.
+        if (nextTier !== town.populationTier) {
+          summary.ownedTownTierByTile.set(tileKey, nextTier);
+        }
+
+        // Invalidate economy caches — population affects goldPerMinute.
+        this.economySnapshotCacheByPlayer.delete(player.id);
+        this.tileYieldContextCacheByPlayer.delete(player.id);
+      }
+    }
   }
 
   tickShardRain(nowMs: number = this.now()): void {
