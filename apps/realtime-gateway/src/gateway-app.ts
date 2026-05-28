@@ -6,6 +6,7 @@ import { buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, t
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "./broadcast-payload.js";
+import { createGatewayStringifier } from "./gateway-stringifier.js";
 import { createSlowLoginAlerter } from "./slow-login-alert.js";
 import { resolveGatewayAuthIdentity } from "./auth-identity.js";
 import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "./gateway-auth-binding-resolution.js";
@@ -55,7 +56,7 @@ import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapsho
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../simulation/src/seed-state.js";
 import { seasonalPlayerNameForId } from "../../simulation/src/season-worldgen.js";
-import { ESTIMATED_JSON_BYTES_PER_TILE, jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -466,6 +467,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let lastCpuSampleAt = Date.now();
   let lastCpuUsage = process.cpuUsage();
   const pendingGcDurationsMs: number[] = [];
+  const gatewayBootstrapStringifier = createGatewayStringifier();
   const pendingInputToStateByCommandId = new Map<string, number>();
   const controlPathEventNames = new Set([
     "gateway_auth",
@@ -2223,20 +2225,29 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 session.canToggleFog
               );
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
-              session.initSent = true;
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
-              // Estimate rather than synchronously JSON.stringify-ing the full
-              // initMessage (which embeds the bootstrap snapshot's tiles array)
-              // just to log a diagnostic byte count. On AUTH bootstrap the tiles
-              // array is fresh out of gRPC every call, so any per-object memo
-              // misses; under retry storms the repeated 200KB stringifies on
-              // the gateway main thread were tripping the event-loop watchdog.
-              // Envelope constant covers snapshot non-tile fields (player +
-              // worldStatus + season + docks ≈ 13.6KB observed 2026-05-24) plus
-              // the gateway init wrapper (recovery + runtimeIdentity, ~2KB).
-              const INIT_MESSAGE_ENVELOPE_BYTES = 16384;
-              const initJsonBytesEstimate =
-                initInitialTileCount * ESTIMATED_JSON_BYTES_PER_TILE + INIT_MESSAGE_ENVELOPE_BYTES;
+              authTrace.endStep("build_init");
+              // Stringify the ~256KB init message off the main thread so the
+              // event loop stays free for gRPC acks and healthz during bootstrap.
+              authTrace.startStep("stringify_init");
+              let initJson: string;
+              try {
+                initJson = await gatewayBootstrapStringifier(initMessage);
+              } catch (err) {
+                // Worker OOM/crash — respawn is automatic; fall back to inline once.
+                app.log.warn({ err }, "[gateway-stringifier] worker stringify failed, using inline fallback");
+                initJson = JSON.stringify(initMessage);
+              }
+              authTrace.endStep("stringify_init");
+              if (socket.readyState !== socket.OPEN) {
+                // Socket closed while we were stringifying — discard silently.
+                authTrace.complete("rejected", "socket_closed_before_init");
+                return;
+              }
+              // initSent must be set only after the init leaves the socket so
+              // that payloads arriving during the stringify await stay queued in
+              // pendingPayloads rather than racing ahead of the init message.
+              session.initSent = true;
               recordGatewayEvent(
                 initInitialTileCount ? "info" : "warn",
                 "gateway_init_sent",
@@ -2244,7 +2255,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   playerId: playerIdentity.playerId,
                   channel,
                   initialTileCount: initInitialTileCount,
-                  initJsonBytes: initJsonBytesEstimate,
+                  initJsonBytes: initJson.length,
                   playerPayloadPresent: Boolean(initMessage.player),
                   seasonId: initMessage.runtimeIdentity.seasonId,
                   runtimeFingerprint: initMessage.runtimeIdentity.fingerprint,
@@ -2253,8 +2264,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   simulationLastError: simulationHealth.lastError ?? ""
                 }
               );
-              authTrace.endStep("build_init");
-              sendJson(socket, initMessage);
+              socket.send(initJson);
               for (const payload of session.pendingPayloads) {
                 sendJson(socket, payload);
                 recordCommandSocketDelivery("gateway_command_payload_sent", socket, payload);
@@ -3229,6 +3239,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       };
     },
     async close(): Promise<void> {
+      await gatewayBootstrapStringifier.close();
       await app.close();
     }
   };
