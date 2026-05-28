@@ -71,6 +71,17 @@ const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [-1, 1],  [0, 1],  [1, 1]
 ];
 
+// Tiebreaker added to step cost when a step changes direction from its
+// parent step. Must be small enough that no sum of turn penalties along
+// any feasible path can exceed the smallest real step cost (one expand,
+// FRONTIER_CLAIM_MS = 1250ms) — otherwise the planner could prefer a
+// longer detour to avoid turns. A path of a few hundred turns still sums
+// to well under one extra tile.
+const TURN_PENALTY_MS = 1;
+// Sentinel for "no incoming direction" (source tile or dock-pair jump).
+// Any first step from such a node is treated as straight (no penalty).
+const NO_DIR = -1;
+
 const isForestAt = (x: number, y: number): boolean =>
   landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
 
@@ -247,6 +258,22 @@ export const planWaypoint = (
   if (sources.length === 0) return blockedPlan("NO_OWNED_TERRITORY");
 
   const dockLinks = dockPairLinks(state);
+  // Search states are (tile, incoming-direction) pairs, not bare tiles.
+  // Direction is an index into NEIGHBOR_OFFSETS, or NO_DIR for source tiles
+  // and dock-pair landings. Splitting on direction lets the turn penalty
+  // below stay correct: the cheapest way to *reach* a tile depends on which
+  // direction you arrived from (a tile entered heading east can continue
+  // east for free, but the same tile entered heading north-east cannot),
+  // and a scalar per-tile cost cannot capture that.
+  const DIR_CODES = NEIGHBOR_OFFSETS.length + 1; // 8 directions + NO_DIR
+  const encodeState = (nodeIdx: number, dir: number): number =>
+    nodeIdx * DIR_CODES + (dir === NO_DIR ? 0 : dir + 1);
+  const nodeOfState = (stateId: number): number => Math.floor(stateId / DIR_CODES);
+  const dirOfState = (stateId: number): number => {
+    const code = stateId % DIR_CODES;
+    return code === 0 ? NO_DIR : code - 1;
+  };
+
   const gScore = new Map<number, number>();
   const cameFrom = new Map<number, number>();
   const viaDock = new Set<number>();
@@ -258,44 +285,50 @@ export const planWaypoint = (
   };
 
   for (const src of sources) {
-    gScore.set(src, 0);
-    heap.push(h(src), src);
+    const startState = encodeState(src, NO_DIR);
+    gScore.set(startState, 0);
+    heap.push(h(src), startState);
   }
 
   const maxExpanded = 200_000;
   let expanded = 0;
-  let solved = false;
+  let goalState: number | undefined;
 
   while (heap.size() > 0 && expanded < maxExpanded) {
     const popped = heap.pop()!;
-    const current = popped.node;
-    const currentG = gScore.get(current) ?? Number.POSITIVE_INFINITY;
+    const currentState = popped.node;
+    const current = nodeOfState(currentState);
+    const currentG = gScore.get(currentState) ?? Number.POSITIVE_INFINITY;
     if (popped.score > currentG + h(current)) continue;
     if (current === goalIdx) {
-      solved = true;
+      goalState = currentState;
       break;
     }
     expanded += 1;
     const { x: cx, y: cy } = coordFromIndex(current);
 
     // 8-way neighbors.
-    for (const [dx, dy] of NEIGHBOR_OFFSETS) {
+    const parentDir = dirOfState(currentState);
+    for (let dirIdx = 0; dirIdx < NEIGHBOR_OFFSETS.length; dirIdx += 1) {
+      const [dx, dy] = NEIGHBOR_OFFSETS[dirIdx]!;
       const nx = wrapX(cx + dx, WORLD_WIDTH);
       const ny = wrapY(cy + dy, WORLD_HEIGHT);
       const neighborIdx = worldIndex(nx, ny);
       const neighborTile = state.tiles.get(keyFor(nx, ny));
       const classified = classifyTile(neighborTile, nx, ny, me, attackDurationMs, truceTargetIds, expandDurationMsAt);
       if (classified.kind === "IMPASSABLE") continue;
-      const stepCost = classified.kind === "OWN" ? 0 : classified.durationMs;
-      const tentative = currentG + stepCost;
-      const existing = gScore.get(neighborIdx) ?? Number.POSITIVE_INFINITY;
+      const baseCost = classified.kind === "OWN" ? 0 : classified.durationMs;
+      const turnPenalty = parentDir === NO_DIR || parentDir === dirIdx ? 0 : TURN_PENALTY_MS;
+      const tentative = currentG + baseCost + turnPenalty;
+      const neighborState = encodeState(neighborIdx, dirIdx);
+      const existing = gScore.get(neighborState) ?? Number.POSITIVE_INFINITY;
       if (tentative >= existing) continue;
-      gScore.set(neighborIdx, tentative);
-      cameFrom.set(neighborIdx, current);
-      // Clear any dock flag a prior iteration recorded for this tile,
+      gScore.set(neighborState, tentative);
+      cameFrom.set(neighborState, currentState);
+      // Clear any dock flag a prior iteration recorded for this state,
       // since the cheaper path we just found is an 8-way step.
-      viaDock.delete(neighborIdx);
-      heap.push(tentative + h(neighborIdx), neighborIdx);
+      viaDock.delete(neighborState);
+      heap.push(tentative + h(neighborIdx), neighborState);
     }
 
     // Dock-pair jumps from owned dock tiles. The jump itself is free;
@@ -311,27 +344,33 @@ export const planWaypoint = (
           if (classified.kind === "IMPASSABLE") continue;
           const stepCost = classified.kind === "OWN" ? 0 : classified.durationMs;
           const tentative = currentG + stepCost;
-          const existing = gScore.get(destIdx) ?? Number.POSITIVE_INFINITY;
+          const destState = encodeState(destIdx, NO_DIR);
+          const existing = gScore.get(destState) ?? Number.POSITIVE_INFINITY;
           if (tentative >= existing) continue;
-          gScore.set(destIdx, tentative);
-          cameFrom.set(destIdx, current);
-          viaDock.add(destIdx);
-          heap.push(tentative + h(destIdx), destIdx);
+          gScore.set(destState, tentative);
+          cameFrom.set(destState, currentState);
+          viaDock.add(destState);
+          heap.push(tentative + h(destIdx), destState);
         }
       }
     }
   }
 
-  if (!solved) return blockedPlan("NO_PATH");
+  if (goalState === undefined) return blockedPlan("NO_PATH");
 
   // Reconstruct path from goal back to the source it entered through.
+  // Track both the tile indices (for steps) and the states that produced
+  // them (so the dock flag, which is per-state, lines up with each tile).
   const pathIndices: number[] = [];
-  let cursor: number | undefined = goalIdx;
+  const pathStates: number[] = [];
+  let cursor: number | undefined = goalState;
   while (cursor !== undefined) {
-    pathIndices.push(cursor);
-    if (preOwned.has(cursor)) break;
+    pathIndices.push(nodeOfState(cursor));
+    pathStates.push(cursor);
+    if (preOwned.has(nodeOfState(cursor))) break;
     cursor = cameFrom.get(cursor);
   }
+  pathStates.reverse();
   pathIndices.reverse();
   if (pathIndices.length < 2) return blockedPlan("NO_PATH");
 
@@ -369,7 +408,7 @@ export const planWaypoint = (
       manpowerCost,
       manpowerMin,
       throughFog,
-      viaDock: viaDock.has(nextIdx)
+      viaDock: viaDock.has(pathStates[i]!)
     };
     steps.push(step);
     totalGold += goldCost;
