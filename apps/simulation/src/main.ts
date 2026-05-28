@@ -1,119 +1,14 @@
-import { createServer } from "node:http";
-import { createListenerWatchdog } from "./listener-watchdog.js";
-import { createSimulationService } from "./simulation-service.js";
-import { parseSimulationRuntimeEnv } from "./runtime-env.js";
+// Standalone simulation entry — runs the simulation service as its own OS
+// process (the pre-merged deployment shape, still used for integration tests
+// and the legacy two-process Fly app). The combined deployment spawns the
+// simulation in a worker thread instead; see worker-main.ts.
+//
+// Setup is shared with worker-main.ts via bootstrapSimulationProcess(); this
+// file only wires the POSIX signal lifecycle and uncaught-error handlers,
+// which are meaningful for a process root but not for a worker.
+import { bootstrapSimulationProcess } from "./process-bootstrap.js";
 
-const stripIpv6Brackets = (value: string): string =>
-  value.startsWith("[") && value.endsWith("]") ? value.slice(1, -1) : value;
-
-const managedRuntime = (() => {
-  const nodeEnv = (process.env.NODE_ENV ?? "").toLowerCase();
-  return nodeEnv === "production" || nodeEnv === "staging" || typeof process.env.FLY_APP_NAME === "string";
-})();
-
-const preferredRoutableProbeHost = (): string | undefined => {
-  const envCandidates = [process.env.FLY_PRIVATE_IP, process.env.PRIVATE_IP]
-    .map((value) => (typeof value === "string" ? stripIpv6Brackets(value.trim()) : ""))
-    .filter(Boolean);
-  return envCandidates[0];
-};
-
-const runtimeEnv = parseSimulationRuntimeEnv(process.env);
-const service = await createSimulationService({
-  host: runtimeEnv.host,
-  port: runtimeEnv.port,
-  ...(runtimeEnv.sqlitePath ? { sqlitePath: runtimeEnv.sqlitePath } : {}),
-  ...(runtimeEnv.snapshotDir ? { snapshotDir: runtimeEnv.snapshotDir } : {}),
-  applySchema: runtimeEnv.applySchema,
-  checkpointEveryEvents: runtimeEnv.checkpointEveryEvents,
-  checkpointForceAfterEvents: runtimeEnv.checkpointForceAfterEvents,
-  startupReplayCompactionMinEvents: runtimeEnv.startupReplayCompactionMinEvents,
-  ...(typeof runtimeEnv.checkpointMaxRssBytes === "number" ? { checkpointMaxRssBytes: runtimeEnv.checkpointMaxRssBytes } : {}),
-  ...(typeof runtimeEnv.checkpointMaxHeapUsedBytes === "number"
-    ? { checkpointMaxHeapUsedBytes: runtimeEnv.checkpointMaxHeapUsedBytes }
-    : {}),
-  seedProfile: runtimeEnv.seedProfile,
-  ...(runtimeEnv.rulesetId ? { rulesetId: runtimeEnv.rulesetId } : {}),
-  ...(typeof runtimeEnv.aiPlayerCount === "number" ? { aiPlayerCount: runtimeEnv.aiPlayerCount } : {}),
-  mapStyle: runtimeEnv.mapStyle,
-  enableAiAutopilot: runtimeEnv.enableAiAutopilot,
-  aiTickMs: runtimeEnv.aiTickMs,
-  aiMaxEventLoopLagMs: runtimeEnv.aiMaxEventLoopLagMs,
-  enableSystemAutopilot: runtimeEnv.enableSystemAutopilot,
-  systemTickMs: runtimeEnv.systemTickMs,
-  globalStatusBroadcastDebounceMs: runtimeEnv.globalStatusBroadcastDebounceMs,
-  startupRecoveryTimeoutMs: runtimeEnv.startupRecoveryTimeoutMs,
-  allowSeedRecoveryFallback: runtimeEnv.allowSeedRecoveryFallback,
-  ...(typeof runtimeEnv.requireDurableStartupState === "boolean"
-    ? { requireDurableStartupState: runtimeEnv.requireDurableStartupState }
-    : {}),
-  useAiWorker: runtimeEnv.useAiWorker,
-  ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {})
-});
-
-const binding = await service.start();
-const managedProbeHost = managedRuntime ? preferredRoutableProbeHost() : undefined;
-
-const listenerWatchdog = createListenerWatchdog({
-  bindHost: binding.host,
-  port: binding.port,
-  ...(managedProbeHost ? { probeHost: managedProbeHost } : {}),
-  probeIntervalMs: runtimeEnv.healthProbeIntervalMs,
-  probeTimeoutMs: runtimeEnv.healthProbeTimeoutMs,
-  failureThreshold: runtimeEnv.healthFailureThreshold,
-  log: console,
-  onUnhealthy: (snapshot) => {
-    console.error({ snapshot }, "simulation listener watchdog declared unhealthy; exiting for restart");
-    process.exitCode = 1;
-    process.kill(process.pid, "SIGTERM");
-  }
-});
-listenerWatchdog.start();
-
-const healthResponse = () => {
-  const serviceHealth = service.healthSnapshot();
-  const listener = listenerWatchdog.snapshot();
-  return {
-    statusCode: serviceHealth.ok && listener.ok ? 200 : 503,
-    body: {
-      ...serviceHealth,
-      ok: serviceHealth.ok && listener.ok,
-      listener
-    }
-  };
-};
-
-const metricsServer = createServer((request, response) => {
-  if (request.url === "/metrics") {
-    response.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
-    response.end(service.renderMetrics());
-    return;
-  }
-  if (request.url === "/health" || request.url === "/healthz") {
-    const health = healthResponse();
-    response.statusCode = health.statusCode;
-    response.setHeader("Content-Type", "application/json; charset=utf-8");
-    response.end(`${JSON.stringify(health.body)}\n`);
-    return;
-  }
-  if (request.url && request.url.startsWith("/debug/players")) {
-    const aiOnly = /[?&]ai=(true|1)\b/.test(request.url);
-    const players = service.playerDebugSnapshot();
-    response.setHeader("Content-Type", "application/json; charset=utf-8");
-    response.end(`${JSON.stringify({ players: aiOnly ? players.filter((p) => p.isAi) : players })}\n`);
-    return;
-  }
-  response.statusCode = 404;
-  response.end("not found");
-});
-
-await new Promise<void>((resolve, reject) => {
-  metricsServer.once("error", reject);
-  metricsServer.listen(runtimeEnv.metricsPort, runtimeEnv.metricsHost, () => {
-    metricsServer.off("error", reject);
-    resolve();
-  });
-});
+const { runtimeEnv, binding, beginShutdown } = await bootstrapSimulationProcess();
 
 console.info(
   {
@@ -125,39 +20,6 @@ console.info(
   },
   "simulation process listeners ready"
 );
-
-let shutdownPromise: Promise<void> | undefined;
-const closeWithMetrics = async (): Promise<void> => {
-  listenerWatchdog.stop();
-  await new Promise<void>((resolve) => metricsServer.close(() => resolve()));
-  await service.close();
-};
-
-const SHUTDOWN_HARD_EXIT_MS = 10_000;
-
-const beginShutdown = (reason: string, details?: Record<string, unknown>): Promise<void> => {
-  if (shutdownPromise) return shutdownPromise;
-  console.info({ reason, ...(details ?? {}) }, "simulation process shutdown requested");
-  const hardExitTimer = setTimeout(() => {
-    console.error(
-      { reason, hardExitMs: SHUTDOWN_HARD_EXIT_MS },
-      "simulation shutdown deadline exceeded; force-exiting so Fly can restart the machine"
-    );
-    process.exit(process.exitCode ?? 1);
-  }, SHUTDOWN_HARD_EXIT_MS);
-  hardExitTimer.unref();
-  shutdownPromise = closeWithMetrics()
-    .then(() => {
-      clearTimeout(hardExitTimer);
-      process.exit(process.exitCode ?? 0);
-    })
-    .catch((error) => {
-      clearTimeout(hardExitTimer);
-      console.error({ err: error, reason }, "simulation process shutdown failed");
-      process.exit(process.exitCode ?? 1);
-    });
-  return shutdownPromise;
-};
 
 process.once("SIGTERM", () => {
   void beginShutdown("SIGTERM");
