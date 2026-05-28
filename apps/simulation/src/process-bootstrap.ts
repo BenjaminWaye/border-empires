@@ -93,7 +93,21 @@ export const bootstrapSimulationProcess = async (
   });
 
   const binding = await service.start();
-  const managedProbeHost = isManagedRuntime() ? preferredRoutableProbeHost() : undefined;
+  // Only use the fly routable IP as the probe target when gRPC is actually
+  // bound to a routable interface. SIMULATION_HOST="127.0.0.1" (the combined
+  // build's default) means the gRPC listener is loopback-only — probing the
+  // fly IPv6 private IP gets ECONNREFUSED and the watchdog immediately
+  // declares unhealthy and SIGTERMs the worker, putting the machine into a
+  // restart loop. Probe loopback in that case; the listenerWatchdog still
+  // validates the gRPC server is up, just from inside the OS pid space
+  // (which is the only path the in-process gateway uses anyway).
+  const bindHostNormalized = binding.host.trim();
+  const isLoopbackBind =
+    bindHostNormalized === "127.0.0.1" ||
+    bindHostNormalized === "::1" ||
+    bindHostNormalized === "[::1]" ||
+    bindHostNormalized === "localhost";
+  const managedProbeHost = !isLoopbackBind && isManagedRuntime() ? preferredRoutableProbeHost() : undefined;
 
   const listenerWatchdog = createListenerWatchdog({
     bindHost: binding.host,
