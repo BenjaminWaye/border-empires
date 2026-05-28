@@ -280,6 +280,9 @@ const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWireDelta =
 });
 
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
+// Force a full upkeep-cache rebuild every N reads to bound floating-point drift
+// from the incremental add/subtract sum over a long-lived season.
+const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 export const SETTLE_DURATION_MS = 60_000;
 export const FOREST_SETTLEMENT_MULT = 2;
 export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * FOREST_SETTLEMENT_MULT;
@@ -507,6 +510,9 @@ export class SimulationRuntime {
   // A missing entry is lazily populated on first read (O(settled-tiles) once).
   // Must be invalidated (deleted) when tech/domain multipliers change.
   private readonly upkeepAccrualCacheByPlayer = new Map<string, UpkeepAccrualSnapshot>();
+  // Per-player read counter for the upkeep cache. Drives the periodic full
+  // rebuild that bounds floating-point drift (see cachedUpkeepAccrual).
+  private readonly upkeepAccrualReadCountByPlayer = new Map<string, number>();
   // Cached tile-yield economy context per player. Includes town network, fed-town
   // keys, and first-three-town keys. Invalidated alongside economySnapshotCacheByPlayer
   // (same replaceTileState triggers). Without this cache, COLLECT_VISIBLE calls
@@ -1935,8 +1941,18 @@ export class SimulationRuntime {
    * Returns the incremental upkeep accrual snapshot for `player`.
    * Cache hit: O(1).  Cache miss (first access or after tech/domain change): O(settled tiles).
    * Kept warm by replaceTileState O(1) add/subtract on every tile mutation.
+   *
+   * Every UPKEEP_ACCRUAL_REBUILD_INTERVAL reads we force a full rebuild to bound
+   * floating-point drift from the running add/subtract sum over a long-lived
+   * season. Drift per op is ~1e-16 relative, so this is defense-in-depth; the
+   * interval keeps the periodic O(settled-tiles) rebuild rare.
    */
   private cachedUpkeepAccrual(player: RuntimePlayer): UpkeepAccrualSnapshot {
+    const reads = (this.upkeepAccrualReadCountByPlayer.get(player.id) ?? 0) + 1;
+    this.upkeepAccrualReadCountByPlayer.set(player.id, reads);
+    if (reads % UPKEEP_ACCRUAL_REBUILD_INTERVAL === 0) {
+      this.upkeepAccrualCacheByPlayer.delete(player.id);
+    }
     const cached = this.upkeepAccrualCacheByPlayer.get(player.id);
     if (cached) return cached;
     const snapshot = buildUpkeepAccrualSnapshot(player.id, player, this.tiles);
@@ -1979,11 +1995,14 @@ export class SimulationRuntime {
       const full = buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(player.id), this.tiles, {
         dockLinksByDockTileKey: this.dockLinksByDockTileKey
       });
-      const round6 = (n: number): number => Number(n.toFixed(6));
+      // Round both sides to 4dp to match buildPlayerUpdateEconomySnapshot's
+      // toFixed(4) on upkeepPerMinute — avoids false positives from raw-float
+      // rounding noise below the gameplay-significant precision.
+      const round4 = (n: number): number => Number(n.toFixed(4));
       const mismatches: string[] = [];
       for (const key of ["gold", "food", "iron", "crystal", "supply", "oil"] as const) {
-        const inc = round6(upkeep[key]);
-        const fullV = round6((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
+        const inc = round4(upkeep[key]);
+        const fullV = round4((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
         if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);
       }
       if (mismatches.length > 0) {
