@@ -92,7 +92,7 @@ export const registerShardRainPingsFromAlert = (
       x,
       y,
       createdAt: nowMs,
-      activateAt: scheduledActivateAt(state.shardAlert, x, y, nowMs)
+      activateAt: scheduledActivateAt(alert, x, y, nowMs)
     });
   }
 };
