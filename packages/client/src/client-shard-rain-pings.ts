@@ -79,6 +79,24 @@ export const shardRainPingActiveAt = (
   visibleMs: number = SHARD_RAIN_PING_VISIBLE_MS
 ): boolean => nowMs >= ping.activateAt && nowMs < ping.activateAt + visibleMs;
 
+export const registerShardRainPingsFromAlert = (
+  state: Pick<ClientState, "shardRainPingsByTile" | "shardAlert">,
+  alert: ClientShardRainAlert,
+  nowMs: number = Date.now()
+): void => {
+  if (alert.phase !== "started" || !alert.sites || alert.sites.length === 0) return;
+  for (const { x, y } of alert.sites) {
+    const tileKey = pingKeyForTile({ x, y });
+    if (state.shardRainPingsByTile.has(tileKey)) continue;
+    state.shardRainPingsByTile.set(tileKey, {
+      x,
+      y,
+      createdAt: nowMs,
+      activateAt: scheduledActivateAt(state.shardAlert, x, y, nowMs)
+    });
+  }
+};
+
 export const pruneShardRainPings = (
   state: Pick<ClientState, "tiles" | "shardRainPingsByTile">
 ): boolean => {
