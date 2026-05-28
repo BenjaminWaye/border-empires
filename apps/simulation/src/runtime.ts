@@ -473,6 +473,12 @@ export class SimulationRuntime {
   // in the constructor. Used by handleCollectVisibleCommand to skip the 99% of
   // settled tiles that produce zero yield (plain land).
   private readonly yieldBearingTilesByOwner = new Map<string, Set<string>>();
+  // Per-(owner, BuildableStructureType) counter used by structureBuildGoldCost
+  // to apply incremental scaling on each new BUILD_* command. Replaces an
+  // O(all_tiles) scan that took 884ms on a 250k-tile world (2026-05-28 prod
+  // BUILD_FORT). Maintained in refreshOwnedStructureCountIndexForTile;
+  // populated in the constructor's first-pass tile loop.
+  private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
@@ -683,6 +689,19 @@ export class SimulationRuntime {
         let set = this.yieldBearingTilesByOwner.get(tile.ownerId);
         if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(tile.ownerId, set); }
         set.add(tileKey);
+      }
+      // Populate ownedStructureCountByPlayerByType. Each structure slot has its
+      // own ownerId — count by structure ownership, not by tile ownership,
+      // to mirror the original ownedStructureCountForPlayer semantics.
+      if (tile.fort?.ownerId) this.adjustOwnedStructureCount(tile.fort.ownerId, "FORT", 1);
+      if (tile.observatory?.ownerId) this.adjustOwnedStructureCount(tile.observatory.ownerId, "OBSERVATORY", 1);
+      if (tile.siegeOutpost?.ownerId) this.adjustOwnedStructureCount(tile.siegeOutpost.ownerId, "SIEGE_OUTPOST", 1);
+      if (tile.economicStructure?.ownerId) {
+        this.adjustOwnedStructureCount(
+          tile.economicStructure.ownerId,
+          tile.economicStructure.type as BuildableStructureType,
+          1
+        );
       }
     }
     // Second pass: register PlayerCandidateIndex anchors now that this.tiles is
@@ -2204,6 +2223,11 @@ export class SimulationRuntime {
     // Sweep outpost indexes: maintain activeSiegeOutpostsByOwner and activeLightOutpostsByOwner.
     this.refreshSiegeOutpostIndexForTile(tileKey, previous, tile);
     this.refreshLightOutpostIndexForTile(tileKey, previous, tile);
+    // Structure count index: keep ownedStructureCountByPlayerByType consistent
+    // across capture / build / cancel / removal transitions. Each slot is
+    // tracked by the STRUCTURE's ownerId (not the tile's), to match the
+    // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
+    this.refreshOwnedStructureCountIndexForTile(previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
   }
 
@@ -6788,14 +6812,59 @@ export class SimulationRuntime {
   }
 
   private ownedStructureCountForPlayer(playerId: string, structureType: BuildableStructureType): number {
-    let count = 0;
-    for (const tile of this.tiles.values()) {
-      if (structureType === "FORT" && tile.fort?.ownerId === playerId) count += 1;
-      else if (structureType === "OBSERVATORY" && tile.observatory?.ownerId === playerId) count += 1;
-      else if (structureType === "SIEGE_OUTPOST" && tile.siegeOutpost?.ownerId === playerId) count += 1;
-      else if (tile.economicStructure?.ownerId === playerId && tile.economicStructure.type === structureType) count += 1;
+    return this.ownedStructureCountByPlayerByType.get(playerId)?.get(structureType) ?? 0;
+  }
+
+  private adjustOwnedStructureCount(ownerId: string, structureType: BuildableStructureType, delta: number): void {
+    let byType = this.ownedStructureCountByPlayerByType.get(ownerId);
+    if (!byType) {
+      if (delta <= 0) return;
+      byType = new Map();
+      this.ownedStructureCountByPlayerByType.set(ownerId, byType);
     }
-    return count;
+    const next = (byType.get(structureType) ?? 0) + delta;
+    if (next <= 0) {
+      byType.delete(structureType);
+      if (byType.size === 0) this.ownedStructureCountByPlayerByType.delete(ownerId);
+    } else {
+      byType.set(structureType, next);
+    }
+  }
+
+  private refreshOwnedStructureCountIndexForTile(
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    // Each slot's ownerId is independent of the tile's ownerId — a captured tile
+    // can retain a previous owner's fort until the new owner razes/replaces it.
+    // Track each slot separately by structure ownership, decrement only when the
+    // slot changes occupant.
+    const prevFortOwner = previous?.fort?.ownerId;
+    const nextFortOwner = next.fort?.ownerId;
+    if (prevFortOwner !== nextFortOwner) {
+      if (prevFortOwner) this.adjustOwnedStructureCount(prevFortOwner, "FORT", -1);
+      if (nextFortOwner) this.adjustOwnedStructureCount(nextFortOwner, "FORT", 1);
+    }
+    const prevObsOwner = previous?.observatory?.ownerId;
+    const nextObsOwner = next.observatory?.ownerId;
+    if (prevObsOwner !== nextObsOwner) {
+      if (prevObsOwner) this.adjustOwnedStructureCount(prevObsOwner, "OBSERVATORY", -1);
+      if (nextObsOwner) this.adjustOwnedStructureCount(nextObsOwner, "OBSERVATORY", 1);
+    }
+    const prevSiegeOwner = previous?.siegeOutpost?.ownerId;
+    const nextSiegeOwner = next.siegeOutpost?.ownerId;
+    if (prevSiegeOwner !== nextSiegeOwner) {
+      if (prevSiegeOwner) this.adjustOwnedStructureCount(prevSiegeOwner, "SIEGE_OUTPOST", -1);
+      if (nextSiegeOwner) this.adjustOwnedStructureCount(nextSiegeOwner, "SIEGE_OUTPOST", 1);
+    }
+    const prevEcoOwner = previous?.economicStructure?.ownerId;
+    const prevEcoType = previous?.economicStructure?.type as BuildableStructureType | undefined;
+    const nextEcoOwner = next.economicStructure?.ownerId;
+    const nextEcoType = next.economicStructure?.type as BuildableStructureType | undefined;
+    if (prevEcoOwner !== nextEcoOwner || prevEcoType !== nextEcoType) {
+      if (prevEcoOwner && prevEcoType) this.adjustOwnedStructureCount(prevEcoOwner, prevEcoType, -1);
+      if (nextEcoOwner && nextEcoType) this.adjustOwnedStructureCount(nextEcoOwner, nextEcoType, 1);
+    }
   }
 
   private handleBuildFortCommand(command: CommandEnvelope): void {
