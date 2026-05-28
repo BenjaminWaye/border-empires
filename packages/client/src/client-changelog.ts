@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.28.1",
+  version: "2026.05.28.2",
   title: "What's New",
-  summary: "Waypoint routes now prefer straight, connected expansion: a target on a straight line or pure diagonal is followed directly, and mixed routes group their straight runs instead of zigzagging.",
+  summary: "Unsupported frontier tiles now show a decay warning in the tile overview from the moment the timer starts, not just in the final 60 seconds.",
   entries: [
+    {
+      introducedIn: "2026.05.28.2",
+      title: "Tile overview warns about unsupported frontier decay immediately",
+      why: "The tile overview header only showed a countdown in the final 60 seconds of a frontier tile's natural 10-minute decay window. Players who checked a freshly claimed frontier tile saw no indication it was decaying until the last minute.",
+      changes: [
+        "Tile overview now shows 'This tile is unsupported and will soon decay.' for the full decay window, not just the final 60 seconds."
+      ]
+    },
     {
       introducedIn: "2026.05.28.1",
       title: "Waypoint paths run straight instead of zigzagging",
