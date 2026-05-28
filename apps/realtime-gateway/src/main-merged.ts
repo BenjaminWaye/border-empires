@@ -1,107 +1,87 @@
-// Single-process entry: boots the simulation gRPC server on loopback inside
-// this Node runtime, then boots the gateway pointed at it. Saves the second
-// Node V8 baseline (~50-70 MB) compared to running them as two processes.
-import { createServer } from "node:http";
-import { createSimulationService } from "../../simulation/src/simulation-service.js";
+// Single-process entry: spawns the simulation in a dedicated worker thread,
+// then boots the gateway on the main thread pointed at it. The previous
+// design ran sim and gateway on the same event loop, so any heavy sync work
+// in the sim (e.g. a slow COLLECT_VISIBLE apply) blocked the gateway's
+// /healthz and WebSocket upgrades — fly's health checks timed out, the
+// proxy de-rotated the machine, and the watchdog SIGKILL'd a process that
+// was just doing CPU work. Isolating the sim into its own worker keeps the
+// gateway main loop responsive no matter how long a sim apply takes.
+//
+// We still pay one Node V8 baseline because workers share the process; the
+// extra cost is a separate event loop + heap inside the same OS process,
+// which is far cheaper than the old two-process arrangement and structurally
+// stronger than the previous shared-loop design.
+import { Worker } from "node:worker_threads";
+import { resolveWorkerEntryUrl } from "../../simulation/src/resolve-worker-entry.js";
 import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env.js";
 import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env.js";
 
+type SimWorkerReadyMessage = {
+  type: "ready";
+  grpcAddress: string;
+  metricsHost: string;
+  metricsPort: number;
+};
+type SimWorkerClosedMessage = { type: "closed" };
+type SimWorkerFatalMessage = { type: "fatal"; reason: string; error: string };
+type SimWorkerMessage = SimWorkerReadyMessage | SimWorkerClosedMessage | SimWorkerFatalMessage;
+
 // Boot the event-loop watchdog FIRST so it can observe boot itself, but
-// leave it DISARMED — sim replay legitimately blocks the main thread for
-// 30-90s during startup. We arm it after `gateway.start()` returns, which
-// is the point at which any sustained block is a real bug, not boot work.
-// A worker-side failsafe arms after WATCHDOG_BOOT_GRACE_MS (default 5 min)
-// so the watchdog still catches a "stuck booting forever" regression.
+// leave it DISARMED — gateway boot is fast (no sim replay on the main
+// thread anymore), but worker startup + replay can still take time and we
+// don't want a spurious arm window. We arm it after `gateway.start()`
+// returns; from that point any 30s+ main-thread block is a real bug because
+// the sim cannot block this thread.
 const watchdog = startEventLoopWatchdog({ label: "combined" });
 
+// Parse the sim env in the parent purely to validate it early (so a typo
+// crashes the parent with a clear error) and to know the loopback address
+// the gateway should dial. The worker re-parses the same env independently.
 const simEnv = parseSimulationRuntimeEnv(process.env);
-
-// Force loopback for in-process gRPC. We never expose the sim port externally.
 const simHost = "127.0.0.1";
 const simPort = simEnv.port;
 
-const simService = await createSimulationService({
-  host: simHost,
-  port: simPort,
-  ...(simEnv.sqlitePath ? { sqlitePath: simEnv.sqlitePath } : {}),
-  ...(simEnv.snapshotDir ? { snapshotDir: simEnv.snapshotDir } : {}),
-  applySchema: simEnv.applySchema,
-  checkpointEveryEvents: simEnv.checkpointEveryEvents,
-  checkpointForceAfterEvents: simEnv.checkpointForceAfterEvents,
-  startupReplayCompactionMinEvents: simEnv.startupReplayCompactionMinEvents,
-  ...(typeof simEnv.checkpointMaxRssBytes === "number" ? { checkpointMaxRssBytes: simEnv.checkpointMaxRssBytes } : {}),
-  ...(typeof simEnv.checkpointMaxHeapUsedBytes === "number"
-    ? { checkpointMaxHeapUsedBytes: simEnv.checkpointMaxHeapUsedBytes }
-    : {}),
-  seedProfile: simEnv.seedProfile,
-  ...(simEnv.rulesetId ? { rulesetId: simEnv.rulesetId } : {}),
-  ...(typeof simEnv.aiPlayerCount === "number" ? { aiPlayerCount: simEnv.aiPlayerCount } : {}),
-  enableAiAutopilot: simEnv.enableAiAutopilot,
-  aiTickMs: simEnv.aiTickMs,
-  aiMaxEventLoopLagMs: simEnv.aiMaxEventLoopLagMs,
-  enableSystemAutopilot: simEnv.enableSystemAutopilot,
-  systemTickMs: simEnv.systemTickMs,
-  globalStatusBroadcastDebounceMs: simEnv.globalStatusBroadcastDebounceMs,
-  startupRecoveryTimeoutMs: simEnv.startupRecoveryTimeoutMs,
-  allowSeedRecoveryFallback: simEnv.allowSeedRecoveryFallback,
-  ...(typeof simEnv.requireDurableStartupState === "boolean"
-    ? { requireDurableStartupState: simEnv.requireDurableStartupState }
-    : {}),
-  useAiWorker: simEnv.useAiWorker,
-  ...(simEnv.systemPlayerIds ? { systemPlayerIds: simEnv.systemPlayerIds } : {})
+const workerEntryUrl = resolveWorkerEntryUrl("./worker-main.js", import.meta.url);
+const simWorker = new Worker(workerEntryUrl);
+let simWorkerExitedUnexpectedly = false;
+
+simWorker.on("error", (err) => {
+  console.error("[merged] simulation worker error:", err);
+  simWorkerExitedUnexpectedly = true;
+});
+simWorker.on("exit", (code) => {
+  if (code !== 0) {
+    console.error(`[merged] simulation worker exited code=${code}; exiting process so fly restarts the machine`);
+    simWorkerExitedUnexpectedly = true;
+    process.exit(code || 1);
+  }
 });
 
-const simBinding = await simService.start();
-
-console.log(`[merged] simulation gRPC bound at ${simBinding.address}`);
-
-// Standalone sim (apps/simulation/src/main.ts) binds a tiny HTTP server on
-// SIMULATION_METRICS_PORT for `/metrics` + `/health`. The merged entry has
-// to mirror that explicitly — otherwise the per-player diag buffers
-// (sim_ai_settle_decision_recent, etc.) are only reachable via the 1Hz
-// stdout dump, which fly logs throttles too aggressively to catch.
-const simHealthResponse = () => {
-  const health = simService.healthSnapshot();
-  return {
-    statusCode: health.ok ? 200 : 503,
-    body: health
+const simReady = await new Promise<SimWorkerReadyMessage>((resolve, reject) => {
+  const onMessage = (raw: unknown): void => {
+    if (!raw || typeof raw !== "object") return;
+    const msg = raw as SimWorkerMessage;
+    if (msg.type === "ready") {
+      simWorker.off("message", onMessage);
+      resolve(msg);
+    } else if (msg.type === "fatal") {
+      simWorker.off("message", onMessage);
+      reject(new Error(`simulation worker fatal during startup: ${msg.reason} — ${msg.error}`));
+    }
   };
-};
-const simMetricsServer = createServer((request, response) => {
-  if (request.url === "/metrics") {
-    response.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
-    response.end(simService.renderMetrics());
-    return;
-  }
-  if (request.url === "/health" || request.url === "/healthz") {
-    const health = simHealthResponse();
-    response.statusCode = health.statusCode;
-    response.setHeader("Content-Type", "application/json; charset=utf-8");
-    response.end(`${JSON.stringify(health.body)}\n`);
-    return;
-  }
-  if (request.url && request.url.startsWith("/debug/players")) {
-    const aiOnly = /[?&]ai=(true|1)\b/.test(request.url);
-    const players = simService.playerDebugSnapshot();
-    response.setHeader("Content-Type", "application/json; charset=utf-8");
-    response.end(`${JSON.stringify({ players: aiOnly ? players.filter((p) => p.isAi) : players })}\n`);
-    return;
-  }
-  response.statusCode = 404;
-  response.end("not found");
-});
-await new Promise<void>((resolve, reject) => {
-  simMetricsServer.once("error", reject);
-  simMetricsServer.listen(simEnv.metricsPort, simEnv.metricsHost, () => {
-    simMetricsServer.off("error", reject);
-    resolve();
+  simWorker.on("message", onMessage);
+  simWorker.once("exit", (code) => {
+    if (code !== 0) reject(new Error(`simulation worker exited code=${code} before ready`));
   });
 });
-console.log(`[merged] simulation metrics bound at ${simEnv.metricsHost}:${simEnv.metricsPort}`);
 
-// Override the gateway's simulationAddress to always point at our in-process loopback.
+console.log(`[merged] simulation gRPC bound at ${simReady.grpcAddress}`);
+console.log(`[merged] simulation metrics bound at ${simReady.metricsHost}:${simReady.metricsPort}`);
+
+// Override the gateway's simulationAddress to always point at the worker's
+// loopback gRPC. We never expose the sim port externally.
 process.env.SIMULATION_ADDRESS = `${simHost}:${simPort}`;
 process.env.GATEWAY_SIMULATION_WAKE_ADDRESS = `${simHost}:${simPort}`;
 const gatewayEnv = parseRealtimeGatewayRuntimeEnv(process.env);
@@ -126,24 +106,50 @@ await gateway.start();
 console.log(`[merged] gateway listening on ${gatewayEnv.host}:${gatewayEnv.port}`);
 watchdog?.arm();
 
-const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
+const SIM_WORKER_SHUTDOWN_TIMEOUT_MS = 12_000;
+
+const waitForSimWorkerClosed = (): Promise<void> =>
+  new Promise<void>((resolve) => {
+    const settle = (): void => {
+      simWorker.off("message", onMessage);
+      resolve();
+    };
+    const onMessage = (raw: unknown): void => {
+      if (!raw || typeof raw !== "object") return;
+      const msg = raw as SimWorkerMessage;
+      if (msg.type === "closed" || msg.type === "fatal") settle();
+    };
+    simWorker.on("message", onMessage);
+    simWorker.once("exit", settle);
+    setTimeout(settle, SIM_WORKER_SHUTDOWN_TIMEOUT_MS).unref();
+  });
+
+let shutdownInFlight: Promise<void> | undefined;
+const shutdown = (signal: NodeJS.Signals | "uncaught"): Promise<void> => {
+  if (shutdownInFlight) return shutdownInFlight;
   console.log(`[merged] caught ${signal}; shutting down`);
-  try {
-    await gateway.close();
-  } catch (error) {
-    console.error("[merged] gateway close error:", error);
-  }
-  try {
-    await new Promise<void>((resolve) => simMetricsServer.close(() => resolve()));
-  } catch (error) {
-    console.error("[merged] simulation metrics close error:", error);
-  }
-  try {
-    await simService.close();
-  } catch (error) {
-    console.error("[merged] simulation close error:", error);
-  }
-  process.exit(0);
+  shutdownInFlight = (async () => {
+    try {
+      await gateway.close();
+    } catch (error) {
+      console.error("[merged] gateway close error:", error);
+    }
+    if (!simWorkerExitedUnexpectedly) {
+      try {
+        simWorker.postMessage({ type: "shutdown", reason: signal });
+      } catch (error) {
+        console.error("[merged] simulation worker postMessage(shutdown) failed:", error);
+      }
+      await waitForSimWorkerClosed();
+    }
+    try {
+      await simWorker.terminate();
+    } catch (error) {
+      console.error("[merged] simulation worker terminate error:", error);
+    }
+    process.exit(0);
+  })();
+  return shutdownInFlight;
 };
 
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
