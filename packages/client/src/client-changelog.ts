@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.27.1",
+  version: "2026.05.27.2",
   title: "What's New",
-  summary: "New 'Settle Connected (N)' action in the frontier tile menu queues settlements on every connected frontier tile you own in one tap.",
+  summary: "Capture pop-loss indicator is now bigger, redder, and floats away above the smoke column instead of getting lost inside it.",
   entries: [
+    {
+      introducedIn: "2026.05.27.2",
+      title: "Capture pop-loss indicator now readable through smoke",
+      why: "The floating \"-N pop\" label spawned inside the captured-town smoke column at a small size with a heavy black outline, so the red fill was largely covered and the text read as white at a glance. It also barely moved, making it easy to miss next to the dramatic smoke effect.",
+      changes: [
+        "Label is larger (3.2x sprite scale, 96px bold canvas font) with a soft shadow instead of a chunky outline, so the red fill dominates and the text reads at a glance.",
+        "Color saturated to #ff2d2d so it reads as red, not washed-out coral.",
+        "Now rises ~4.2 world units over 3.2s with an ease-out curve and a brief pop-in scale, so it clearly floats away above the smoke instead of sitting inside it.",
+        "renderOrder bumped to 9999 so the label always paints over the smoke puffs."
+      ]
+    },
     {
       introducedIn: "2026.05.27.1",
       title: "Settle a whole frontier pocket in one tap",
