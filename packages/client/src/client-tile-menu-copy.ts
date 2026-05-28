@@ -7,6 +7,7 @@ export type TileMenuOverviewIntroInput = {
   resourceLabel?: string | undefined;
   isDockEndpoint?: boolean;
   hasTown?: boolean;
+  isDecaying?: boolean;
 };
 
 export const tileMenuSubtitleText = (ownerLabel: string, regionLabel?: string): string =>
@@ -44,9 +45,14 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
       ? [
           ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
           "Frontier land is visible control, but it has no real defense yet.",
-          `Needs settlement to produce ${input.productionLabel}.`
+          `Needs settlement to produce ${input.productionLabel}.`,
+          ...(input.isDecaying ? ["This tile is unsupported and will soon decay."] : [])
         ]
-      : ["Frontier land is visible control, but it has no real defense yet.", "Needs settlement to gain defense and full ownership strength."];
+      : [
+          "Frontier land is visible control, but it has no real defense yet.",
+          "Needs settlement to gain defense and full ownership strength.",
+          ...(input.isDecaying ? ["This tile is unsupported and will soon decay."] : [])
+        ];
   }
   if (input.ownerKind === "mine-settled") {
     return ["Settled land is defended and fully part of your empire."];
