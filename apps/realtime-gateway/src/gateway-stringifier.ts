@@ -107,6 +107,11 @@ export const createGatewayStringifier = (
   return Object.assign(stringify, {
     close: async () => {
       closed = true;
+      // Reject in-flight requests before terminating — otherwise those
+      // promises never settle (exit handler skips rejection when closed=true).
+      const drainErr = new Error("gateway-stringify-worker closed");
+      for (const handler of pending.values()) handler.reject(drainErr);
+      pending.clear();
       await worker.terminate();
     },
     getWorkerMetrics: (): GatewayStringifierMemoryMetrics => ({ ...metrics })
