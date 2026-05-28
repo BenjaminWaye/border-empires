@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.27.2",
+  version: "2026.05.28.1",
   title: "What's New",
-  summary: "Capture pop-loss indicator is now bigger, redder, and floats away above the smoke column instead of getting lost inside it.",
+  summary: "Waypoint routes now prefer straight, connected expansion: a target on a straight line or pure diagonal is followed directly, and mixed routes group their straight runs instead of zigzagging.",
   entries: [
+    {
+      introducedIn: "2026.05.28.1",
+      title: "Waypoint paths run straight instead of zigzagging",
+      why: "The waypoint planner picked any shortest path, so among equal-length routes it could weave (N-E-N-E) or overshoot before doubling back, even when a clean straight or diagonal line reached the target.",
+      changes: [
+        "Waypoint routing now adds a tiny per-turn tiebreaker so equal-length paths prefer the fewest direction changes: a target due in one direction expands in a straight line, a pure-diagonal target expands diagonally, and mixed targets keep their straight runs grouped (and connected) rather than zigzagging."
+      ]
+    },
     {
       introducedIn: "2026.05.27.2",
       title: "Capture pop-loss indicator now readable through smoke",
@@ -297,175 +305,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Timeout-driven action menu re-renders now reuse the computed preview-unavailable state instead of starting another fresh preview request.",
         "Normal player-opened enemy tile menus still request fresh authoritative odds.",
         "Added regression coverage that fails when the timeout re-render restarts the preview request loop."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.7",
-      title: "Full-map reveal is chunked for high-player fanout",
-      why: "The old reveal path sent one full tile snapshot per requester. When many players revealed the whole map, the gateway could retain and serialize many huge payloads at once, causing memory pressure.",
-      changes: [
-        "Reveal Full Map now requests a dedicated reveal stream and applies tile chunks incrementally, keeping the regular control websocket clear.",
-        "The gateway builds one reusable chunk payload set for concurrent reveal requests, pre-serializes each chunk once for fanout across all viewers, and clears the set when live tile deltas arrive instead of retaining full reveal snapshots per player.",
-        "Reveal requests are rate-limited per player and bounded by a hard concurrent-stream cap so a fanout wave can't saturate the gateway event loop, and reveal-map metrics (build time, payload bytes, active streams, chunks sent, cache entries) are exposed via /metrics.",
-        "The simulation no longer stores explicit full-visibility subscribe snapshots in its per-player snapshot cache."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.6",
-      title: "Attack menu win chance survives hover-vs-menu races",
-      why: "Pending preview request ids were tracked globally, so a hover preview for one tile would overwrite the menu's pending id and cause the menu's gateway response to be silently dropped — leaving the 4 second watchdog to fall back to \"preview unavailable\" even though the gateway had returned the real odds.",
-      changes: [
-        "Pending attack preview request ids are now tracked per (from, to) attack key, so hover previews for one tile cannot invalidate the menu's request for a different tile.",
-        "Gateway responses are accepted as long as they match the latest request id for that specific attack key; only same-key superseded responses are dropped.",
-        "Added a regression test for the cross-target race the prior implementation dropped."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.5",
-      title: "Tile inspector refreshes Production and gold cap on open",
-      why: "REQUEST_TILE_DETAIL went through exportTilesInAreaForPlayer → domainTileToWireDelta, which serialized the in-memory tile state directly. Between full snapshot rebuilds the in-memory town.goldPerMinute and town.cap stayed at whatever the last rebuild had written, and this code path never touched buildTileYieldView or the connected-town refresh — so the owned-town inspector kept reporting a stale Production row and gold cap even after the previous fix to the event-driven tile delta emission. The response also didn't include yield_rate_json / yield_cap_json / yield_json at all, so the merged client snapshot fell back to whatever cached yield fields it had.",
-      changes: [
-        "FetchTileDetail now serializes its tiles through tileDeltaFromState, so the response carries refreshed town.goldPerMinute and town.cap plus the matching yield_rate_json, yield_cap_json, and yield_json. Opening an owned town's action menu now sees current support/fed/market/connected-town state without waiting for a full snapshot rebuild or an event-driven tile delta."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.4",
-      title: "Seed Granary growth buff",
-      why: "Seed Granaries had no gameplay effect beyond the build prompt; they now apply a real growth multiplier to the closest 5 granaries on their island.",
-      changes: [
-        "Each Seed Granary buffs up to 5 closest owned Granary/Seed Granary tiles on the same island to 1.30x population growth.",
-        "The Seed Granary's own tile counts as slot 1; ties on distance break lexicographically by tile key.",
-        "Cross-island granaries are not buffed."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.4",
-      title: "Imperial Exchange Levy and Worldbreaker Shot",
-      why: "Both monuments existed without abilities; the levy seizes a quarter of each rival's stock and the shot razes a single target.",
-      changes: [
-        "Imperial Exchange Levy seizes 25% of each non-allied rival's chosen resource (FOOD, IRON, CRYSTAL, or SUPPLY) for 200 CRYSTAL on a 30 minute cooldown — allies are spared.",
-        "Worldbreaker Shot destroys the target tile's economic structure (if not yours) and removes 30% of a settled town's population — no cap, and demotes the city tier one step (floored at TOWN) — for 500 CRYSTAL on a 60 minute cooldown.",
-        "Worldbreaker Shot is blocked when the target tile is within 30 tiles of an enemy's active, powered Aegis Dome.",
-        "Both abilities require the matching tech (Exchange Levy Writs / Worldbreaker Fire) and an Aether Tower powering the monument."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.4",
-      title: "Aether Towers power Airports",
-      why: "Airports were free-standing and Oil had no producer; gating Airports on a nearby Aether Tower restores the design intent and moves the upkeep onto Crystal, which the empire can actually produce.",
-      changes: [
-        "Airports now require an active player-owned Aether Tower within 30 tiles to bombard.",
-        "Airport upkeep and bombard cost switched from Oil to Crystal.",
-        "New isStructurePowered helper gates future monument abilities on Aether Tower coverage."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.4",
-      title: "Tech-tree expansion and stub cleanup",
-      why: "Eight dead unlock stubs were cluttering the tech tree with no backing mechanic; the three worth keeping now have real entries and the others are gone.",
-      changes: [
-        "Added Seedline Granaries (tier 4), Exchange Levy Writs (tier 8), and Worldbreaker Ignition (tier 8).",
-        "Removed Broker Market, Treasury House, Weather Engine, Advanced Foundry, Catalytic Refiner, Refinery, Lockworks Port, and Chartered Port stubs — none of those had any backing sim logic in the rewrite.",
-        "Seed Granary structure type is wired through shared types and the simulation runtime; gameplay effects land in follow-up work."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.4",
-      title: "FUEL_PLANT structure removed",
-      why: "Refinery (FUEL_PLANT) was the only producer of OIL, and the Refinery unlock stub was already deleted. Keeping the structure type and its OIL output wired created dead code with no path to be built.",
-      changes: [
-        "Removed FUEL_PLANT from shared types, costs, placement metadata, sim economy, gateway upkeep map, and all client build actions.",
-        "Removed associated FUEL_PLANT_BUILD_GOLD_COST, FUEL_PLANT_GOLD_UPKEEP, and FUEL_PLANT_OIL_PER_DAY constants.",
-        "OIL is now an unused strategic resource (no producers, no consumers) and is a candidate for removal in a follow-up."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.2",
-      title: "Attack win chance loading no longer gets stuck",
-      why: "The action menu now waits for fresh authoritative attack odds so outpost bonuses are accurate, but if the gateway preview response is stranded the menu could sit on 'Calculating win chance...' indefinitely.",
-      changes: [
-        "Fresh action-menu attack preview requests now have a watchdog that clears the loading state and re-renders the menu with a preview-unavailable message if the matching response does not arrive.",
-        "A late matching gateway response can still replace the timeout message with the real win chance, so transient network delay no longer leaves the menu permanently stuck."
-      ]
-    },
-    {
-      introducedIn: "2026.05.21.1",
-      title: "Town Production, gold cap, and connected-town count stop going stale",
-      why: "The displayed Production, gold cap, and the 'N connected towns' modifier on an owned town tile each came from townJson fields persisted only when a full snapshot rebuild ran. Between rebuilds, the freshly recomputed connectedTownBonus updated but the goldPerMinute/cap it should have flowed into did not, so the same panel could show 'Production: 2.00/m', '+50% gold production', and 'Stored yield: 2112.0 / 960' simultaneously — the buffer was the only number actually tracking the real production rate. Separately, the connected-town count used a BFS that terminated on neighboring owned towns, so a third town reachable only via another owned town never counted toward the bonus even though the road overlay drew a road to it.",
-      changes: [
-        "Runtime tile delta and per-tile upkeep collection now refresh the town's goldPerMinute and gold cap from live support/fed/market/bank/connected-town state before serializing the townJson, so the Production row, gold cap, and Stored yield/cap ratio in the action menu can no longer disagree with the active modifiers list. The refresh only fires on towns that already carry a full snapshot shape, so it leaves test fixtures and partial-shape stubs untouched.",
-        "Connected-town BFS now walks the owner's full settled-land 8-adjacency component instead of stopping at neighboring owned towns, matching the rule the client road overlay already uses to draw roads. Two towns sharing a settled-land blob now count as connected even when other owned towns sit on the path between them."
-      ]
-    },
-    {
-      introducedIn: "2026.05.20.7",
-      title: "Attack previews wait for the real combat odds",
-      why: "The action menu could cache or accept an older preview before the gateway returned fresh authoritative odds. That made nearby active outpost attack auras look like they were not changing the displayed win chance.",
-      changes: [
-        "Opening an enemy tile action menu now bypasses cached attack previews and shows a loading state while the gateway computes current odds.",
-        "Attack preview requests carry a request id, and stale preview responses are ignored if a newer menu refresh is pending.",
-        "Regression coverage verifies menu previews do not store unboosted local odds, supersede hover previews, and reject stale gateway responses."
-      ]
-    },
-    {
-      introducedIn: "2026.05.20.6",
-      title: "Alliance breaks now give 24 hours of notice",
-      why: "Diplomatic victory depends on alliance blocs, so leaving an alliance should not be an instant way to dodge a pending bloc win.",
-      changes: [
-        "Active ally cards now include a Break Alliance action; the old break-by-player-id form was removed.",
-        "Breaking an alliance starts a 24 hour notice instead of removing the ally immediately, and the card shows the remaining notice time.",
-        "The allied player gets an in-game alert when the break notice starts, and both players are notified when the alliance fully ends."
-      ]
-    },
-    {
-      introducedIn: "2026.05.20.5",
-      title: "Desktop Choose Tier button is no longer a no-op",
-      why: "Per-button onclick handlers were bound before the domains panel innerHTML was rewritten, so the new buttons the user actually saw had no listeners. Mobile worked because clicks were caught by the overlay container handler, which survived the rewrite.",
-      changes: [
-        "Domain panel now uses event delegation on the panel container (same pattern as the mobile overlay), so unlock and close clicks fire regardless of how often the inner HTML is re-rendered."
-      ]
-    },
-    {
-      introducedIn: "2026.05.20.4",
-      title: "Ironworks and Aether Condenser unlock from their own techs",
-      why: "The menu's hide-locked filter was checking Workshops for all three synthesizer-family buildings, so researching Alchemy or Crystal Lattices alone left Ironworks and Aether Condenser invisible in the build list even though the action itself was already enabled.",
-      changes: [
-        "build_ironworks now reports Alchemy as its required tech (matches the in-action gate).",
-        "build_crystal_synthesizer now reports Crystal Lattices as its required tech.",
-        "build_fur_synthesizer is unchanged — it still requires Workshops."
-      ]
-    },
-    {
-      introducedIn: "2026.05.20.3",
-      title: "Strict FIFO development queue",
-      why: "If you queued 20 settlements and then clicked a granary, the granary would sometimes start immediately by catching a slot that opened the instant a settlement finished, jumping ahead of the queue.",
-      changes: [
-        "Settle and build clicks now route to the end of the development queue whenever the queue is non-empty, regardless of available slots.",
-        "Queue processor still drains in order, so behavior matches what you see in the queue UI."
-      ]
-    },
-    {
-      introducedIn: "2026.05.20.2",
-      title: "Tier-1 domains reworked + dead tooltip effects brought to life + Clockwork Stipend goes live",
-      why: "Most tier-1 modifiers were 10–20% — too small to feel decisive — and several effect keys (fortIronUpkeepMult, fortBuildGoldCostMult, fortDefenseMult, outpostSupplyUpkeepMult, outpostDeploymentSpeedMult, firstThreeTownsPopulationGrowthMult, attackVsSettledMult, attackVsFortsMult) only existed in tooltips; the sim never read them. Domains should feel like an identity choice from the first pick.",
-      changes: [
-        "Frontier Doctrine: settlement speed +50% (was +20%), keeps +1 development slot.",
-        "Iron Bastions reworked: forts build +50% faster (new effect, now wired in the sim), and both fort iron upkeep and fort gold upkeep are -40%.",
-        "Supply Raiding reworked: outpost deployment +50% faster and outpost supply upkeep -30%.",
-        "Mercantile Charter: first-three-towns population growth bonus raised to +25% (was +15%) and now actually applies to the growth tick.",
-        "Farmer's Compact retired; Clockwork Stipend takes its tier-1 slot — pick one resource (iron 0.2/min, supply 0.2/min, or crystal 0.1/min) for a permanent trickle. Choice is locked forever; an in-game modal lets you pick on confirm, the owned-domain card shows your locked pick after that. AI players pick whichever offered resource they are most stockpile-starved on.",
-        "Frontier combat now reads defender-side fortDefenseMult and attacker-side attackVsSettledMult / attackVsFortsMult; the runtime extends FrontierCombatPreviewTile with a hasFort flag derived from the actual tile state.",
-        "Single source of truth for the trickle resource list lives in @border-empires/shared (TRICKLE_RESOURCE_KEYS + isChosenTrickleResource guard); a parity test reads the raw domain-tree.json and fails loud on either-direction drift."
-      ]
-    },
-    {
-      introducedIn: "2026.05.20.1",
-      title: "Barbarian population capped at 200",
-      why: "Unchecked barb multiplication was the underlying cause of late-game gateway slowdowns. The cap holds the population steady without disabling regrowth.",
-      changes: [
-        "Barbarian-1 stops multiplying once it owns 200 tiles.",
-        "An at-threshold walk on a capped population still walks (source releases, target captured) but carries the would-multiply progress to the target.",
-        "As soon as any barb dies, the next walk from a progress-loaded barb tile multiplies — replacement happens immediately, no compound growth."
       ]
     },
   ]
