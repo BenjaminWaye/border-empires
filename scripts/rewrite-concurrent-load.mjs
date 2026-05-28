@@ -229,48 +229,43 @@ const closeSession = async (state) => {
 
 // ── Serial action dispatch (one per client, no listener pileup) ─────────────
 
-const sendAction = (state, timeoutMs) =>
+const sendAction = (state, timeoutMs, invalidTargets, invalidOrigins) =>
   new Promise((resolve, reject) => {
-    const invalidTargets = new Set();
-    const invalidOrigins = new Set();
+    const candidates = collectCandidatePayloads(state.tilesByKey, state.playerId, invalidTargets, invalidOrigins);
+    if (candidates.length === 0) {
+      reject(new Error("no frontier action candidate"));
+      return;
+    }
+    const payload = {
+      ...candidates[0],
+      clientSeq: state.nextClientSeq,
+      commandId: `cl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    };
+    state.nextClientSeq += 1;
+    const startedAt = Date.now();
 
-    const send = () => {
-      const candidates = collectCandidatePayloads(state.tilesByKey, state.playerId, invalidTargets, invalidOrigins);
-      if (candidates.length === 0) {
-        reject(new Error("no frontier action candidate"));
-        return;
-      }
-      const payload = {
-        ...candidates[0],
-        clientSeq: state.nextClientSeq,
-        commandId: `cl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      };
-      state.nextClientSeq += 1;
-      const startedAt = Date.now();
-
-      const entry = {
-        resolve,
-        reject,
-        startedAt,
-        acceptedAt: 0,
-        payload,
-        timer: setTimeout(() => {
-          state.pending.delete(payload.commandId);
-          reject(new Error("action timeout"));
-        }, timeoutMs)
-      };
-
-      state.pending.set(payload.commandId, entry);
-      state.socket.send(JSON.stringify(payload));
+    const entry = {
+      resolve,
+      reject,
+      startedAt,
+      acceptedAt: 0,
+      payload,
+      timer: setTimeout(() => {
+        state.pending.delete(payload.commandId);
+        reject(new Error("action timeout"));
+      }, timeoutMs)
     };
 
-    send();
+    state.pending.set(payload.commandId, entry);
+    state.socket.send(JSON.stringify(payload));
   });
 
 // ── Per-client action loop (serial, resource-aware) ─────────────────────────
 
 const actionLoop = async (state, deadlineAt, actionIntervalMs, actionTimeoutMs) => {
   const acceptedLatencies = [];
+  const invalidTargets = new Set();
+  const invalidOrigins = new Set();
   let resourcePauses = 0;
   let exhausted = false;
 
@@ -278,14 +273,20 @@ const actionLoop = async (state, deadlineAt, actionIntervalMs, actionTimeoutMs) 
     const loopStart = Date.now();
 
     try {
-      const result = await sendAction(state, actionTimeoutMs);
+      const result = await sendAction(state, actionTimeoutMs, invalidTargets, invalidOrigins);
 
       if (result.kind === "accepted" && typeof result.acceptedDelayMs === "number") {
         acceptedLatencies.push(result.acceptedDelayMs);
-        resourcePauses = 0; // reset regen pause counter on success
+        resourcePauses = 0;
       } else if (result.kind === "error_recoverable") {
-        // Update invalid sets for next candidate selection
-        // (handled implicitly by sendAction's retry via internal send() loop)
+        // Learn from recoverable rejection to avoid re-picking same candidate
+        const originKey = tileKey(result.fromX, result.fromY);
+        const targetKey = tileKey(result.toX, result.toY);
+        if (result.code === "NOT_OWNER") {
+          invalidOrigins.add(originKey);
+        } else {
+          invalidTargets.add(targetKey);
+        }
         resourcePauses = 0;
       } else if (result.kind === "resource_exhausted") {
         resourcePauses += 1;
