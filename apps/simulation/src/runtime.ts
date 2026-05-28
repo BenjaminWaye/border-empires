@@ -148,6 +148,12 @@ import {
   refreshTownEconomyFields,
   type PlayerUpdateEconomySnapshot
 } from "./player-update-economy.js";
+import {
+  addTileUpkeepToCache,
+  buildUpkeepAccrualSnapshot,
+  removeTileUpkeepFromCache,
+  type UpkeepAccrualSnapshot
+} from "./player-upkeep-incremental.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
 import { capturedStructureFields } from "./capture-structures.js";
 import { createSeedWorld, simulationTileKey } from "./seed-state.js";
@@ -494,6 +500,13 @@ export class SimulationRuntime {
   // each player pays O(settled-tiles) at most once per tick instead of once per
   // call site.  The cache is keyed by player ID; a missing entry means dirty.
   private readonly economySnapshotCacheByPlayer = new Map<string, PlayerUpdateEconomySnapshot>();
+  // Incremental upkeep accrual cache per player. Unlike economySnapshotCacheByPlayer
+  // (invalidate-on-mutation, O(tiles) to rebuild), this cache is kept warm by
+  // O(1) add/subtract in replaceTileState. applyEconomyAccrual reads upkeep from
+  // here instead of triggering a full snapshot rebuild on every tile mutation.
+  // A missing entry is lazily populated on first read (O(settled-tiles) once).
+  // Must be invalidated (deleted) when tech/domain multipliers change.
+  private readonly upkeepAccrualCacheByPlayer = new Map<string, UpkeepAccrualSnapshot>();
   // Cached tile-yield economy context per player. Includes town network, fed-town
   // keys, and first-three-town keys. Invalidated alongside economySnapshotCacheByPlayer
   // (same replaceTileState triggers). Without this cache, COLLECT_VISIBLE calls
@@ -1918,6 +1931,19 @@ export class SimulationRuntime {
     return snapshot;
   }
 
+  /**
+   * Returns the incremental upkeep accrual snapshot for `player`.
+   * Cache hit: O(1).  Cache miss (first access or after tech/domain change): O(settled tiles).
+   * Kept warm by replaceTileState O(1) add/subtract on every tile mutation.
+   */
+  private cachedUpkeepAccrual(player: RuntimePlayer): UpkeepAccrualSnapshot {
+    const cached = this.upkeepAccrualCacheByPlayer.get(player.id);
+    if (cached) return cached;
+    const snapshot = buildUpkeepAccrualSnapshot(player.id, player, this.tiles);
+    this.upkeepAccrualCacheByPlayer.set(player.id, snapshot);
+    return snapshot;
+  }
+
   private cachedDefensibilityMetrics(
     playerId: string,
     summary: PlayerRuntimeSummary
@@ -1941,7 +1967,30 @@ export class SimulationRuntime {
       this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
       return;
     }
-    const economy = this.cachedEconomySnapshot(player);
+    // Use the incremental upkeep cache (stays warm across mutations via
+    // replaceTileState; O(1) per tile change).  The full cachedEconomySnapshot
+    // is NOT read here — that would rebuild O(settled-tiles) on every cache miss
+    // caused by a tile mutation.  Income accrual (gold/min from towns) is handled
+    // separately in the tile-yield path; this path covers upkeep drain only.
+    const upkeep = this.cachedUpkeepAccrual(player);
+    // DEV_ASSERT_ECONOMY_INCREMENTAL: on-demand cross-check against full snapshot.
+    // Enable with DEV_ASSERT_ECONOMY_INCREMENTAL=1 in env; OFF by default.
+    if (process.env["DEV_ASSERT_ECONOMY_INCREMENTAL"] === "1") {
+      const full = buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(player.id), this.tiles, {
+        dockLinksByDockTileKey: this.dockLinksByDockTileKey
+      });
+      const round6 = (n: number): number => Number(n.toFixed(6));
+      const mismatches: string[] = [];
+      for (const key of ["gold", "food", "iron", "crystal", "supply", "oil"] as const) {
+        const inc = round6(upkeep[key]);
+        const fullV = round6((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
+        if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);
+      }
+      if (mismatches.length > 0) {
+        // eslint-disable-next-line no-console
+        console.error(`[DEV_ASSERT_ECONOMY_INCREMENTAL] player=${player.id} mismatch: ${mismatches.join(", ")}`);
+      }
+    }
     const summary = this.summaryForPlayer(player.id);
     const elapsedMinutes = elapsedMs / 60_000;
     // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
@@ -1959,12 +2008,12 @@ export class SimulationRuntime {
       }
     }
     const need: UpkeepNeed = {
-      gold: Math.max(0, economy.upkeepPerMinute.gold) * elapsedMinutes,
-      FOOD: Math.max(0, economy.upkeepPerMinute.food) * elapsedMinutes,
-      IRON: Math.max(0, economy.upkeepPerMinute.iron) * elapsedMinutes,
-      CRYSTAL: Math.max(0, economy.upkeepPerMinute.crystal) * elapsedMinutes,
-      SUPPLY: Math.max(0, economy.upkeepPerMinute.supply) * elapsedMinutes,
-      OIL: Math.max(0, economy.upkeepPerMinute.oil) * elapsedMinutes
+      gold: Math.max(0, upkeep.gold) * elapsedMinutes,
+      FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
+      IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
+      CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
+      SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes,
+      OIL: Math.max(0, upkeep.oil) * elapsedMinutes
     };
     // Towns pay their own upkeep from accumulated yield before raiding the
     // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
@@ -2136,6 +2185,26 @@ export class SimulationRuntime {
       this.economySnapshotCacheByPlayer.delete(tile.ownerId);
       this.defensibilityMetricsCacheByPlayer.delete(tile.ownerId);
       this.tileYieldContextCacheByPlayer.delete(tile.ownerId);
+    }
+    // Incrementally maintain the upkeep accrual cache.  The cache is keyed by
+    // owner; subtract the previous tile's contribution and add the new one.
+    // Multipliers (fortGoldUpkeepMult etc.) are sourced from the player object
+    // which is looked up live — no stale-multiplier risk unless tech/domain
+    // changes the player object without calling replaceTileState (that path
+    // deletes the cache entry explicitly in handleChooseTech/Domain helpers).
+    if (previous?.ownerId) {
+      const prevPlayer = this.players.get(previous.ownerId);
+      const prevCache = this.upkeepAccrualCacheByPlayer.get(previous.ownerId);
+      if (prevPlayer && prevCache) {
+        removeTileUpkeepFromCache(prevCache, previous, previous.ownerId, prevPlayer);
+      }
+    }
+    if (tile.ownerId) {
+      const nextPlayer = this.players.get(tile.ownerId);
+      const nextCache = this.upkeepAccrualCacheByPlayer.get(tile.ownerId);
+      if (nextPlayer && nextCache) {
+        addTileUpkeepToCache(nextCache, tile, tile.ownerId, nextPlayer);
+      }
     }
     // Maintain settledAt timestamp for the tile-shedding ticker:
     //   - newly SETTLED (previously not, or new owner) → stamp `now`
@@ -5898,6 +5967,10 @@ export class SimulationRuntime {
       });
       return;
     }
+    // Tech can change upkeep multipliers (fortGoldUpkeepMult, fortIronUpkeepMult,
+    // outpostSupplyUpkeepMult). Invalidate the incremental cache so it is rebuilt
+    // from scratch with the new multipliers on the next accrual tick.
+    this.upkeepAccrualCacheByPlayer.delete(actor.id);
     this.emitEvent({
       eventType: "TECH_UPDATE",
       commandId: command.commandId,
@@ -5955,6 +6028,10 @@ export class SimulationRuntime {
       });
       return;
     }
+    // Domain can change upkeep multipliers (e.g. reduced fort/outpost upkeep
+    // domain bonuses). Invalidate the incremental cache so it is rebuilt from
+    // scratch with the new multipliers on the next accrual tick.
+    this.upkeepAccrualCacheByPlayer.delete(actor.id);
     this.emitEvent({
       eventType: "DOMAIN_UPDATE",
       commandId: command.commandId,
