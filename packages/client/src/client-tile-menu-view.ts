@@ -9,7 +9,7 @@ import { economicStructureBuildMs, economicStructureName, resourceLabel, storedY
 import { tileOverviewModifiersForTile } from "./client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "./client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
-import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
+import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
 import { tileOverviewUpkeepLines } from "./client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "./client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "./client-types.js";
@@ -351,7 +351,8 @@ export const menuOverviewForTile = (
     productionLabel,
     resourceLabel: resourceLabelText,
     isDockEndpoint: Boolean(tile.dockId),
-    hasTown: Boolean(tile.town)
+    hasTown: Boolean(tile.town),
+    isDecaying: isFrontierNaturallyDecaying(tile)
   }).forEach(pushLine);
   if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
