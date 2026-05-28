@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TOWN_MANPOWER_BY_TIER } from "@border-empires/shared";
 import { buildPlayerSubscriptionSnapshot, buildPlayerSubscriptionSnapshotAsync } from "./player-snapshot.js";
 import { SimulationRuntime } from "./runtime.js";
 import { yieldToEventLoop } from "./event-loop-yield.js";
@@ -1150,13 +1151,15 @@ describe("buildPlayerSubscriptionSnapshot", () => {
 
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", runtime.exportState());
 
+    const settlementCap = TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
+    const settlementRegen = TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
     expect(snapshot.player).toEqual(
       expect.objectContaining({
-        manpowerCap: 300,
-        manpowerRegenPerMinute: 20,
+        manpowerCap: settlementCap * 2,
+        manpowerRegenPerMinute: settlementRegen * 2,
         manpowerBreakdown: {
-          cap: [{ label: "2 Settlements", amount: 300 }],
-          regen: [{ label: "2 Settlements", amount: 20 }]
+          cap: [{ label: "2 Settlements", amount: settlementCap * 2 }],
+          regen: [{ label: "2 Settlements", amount: settlementRegen * 2 }]
         }
       })
     );
