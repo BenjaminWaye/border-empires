@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encirclementRemainingMsForTile, naturalDecayRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
+import { encirclementRemainingMsForTile, isFrontierNaturallyDecaying, naturalDecayRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
 import type { Tile } from "./client-types.js";
 
 const ENCIRCLEMENT_DECAY_MS = 60_000;
@@ -122,5 +122,37 @@ describe("tileMenuHeaderStatusForTile — priority", () => {
     };
     const status = tileMenuHeaderStatusForTile(tile, nowMs);
     expect(status?.text).toMatch(/Cut off from supply/);
+  });
+});
+
+describe("isFrontierNaturallyDecaying", () => {
+  it("returns false for SETTLED tiles", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ ownershipState: "SETTLED", frontierDecayAt: nowMs + 9 * 60_000, frontierDecayKind: "NATURAL" });
+    expect(isFrontierNaturallyDecaying(tile, nowMs)).toBe(false);
+  });
+
+  it("returns false for ENCIRCLEMENT decay kind", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
+    expect(isFrontierNaturallyDecaying(tile, nowMs)).toBe(false);
+  });
+
+  it("returns false when timer has expired", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs - 1, frontierDecayKind: "NATURAL" });
+    expect(isFrontierNaturallyDecaying(tile, nowMs)).toBe(false);
+  });
+
+  it("returns true for FRONTIER + NATURAL + future timer (full 10 min window)", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 9 * 60_000, frontierDecayKind: "NATURAL" });
+    expect(isFrontierNaturallyDecaying(tile, nowMs)).toBe(true);
+  });
+
+  it("returns false when no frontierDecayAt is set", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayKind: "NATURAL" });
+    expect(isFrontierNaturallyDecaying(tile, nowMs)).toBe(false);
   });
 });
