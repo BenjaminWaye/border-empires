@@ -23,17 +23,20 @@ export const UNDERDOG_K = 2.0;
 export const STAMINA_MAX = 10;
 export const STAMINA_REGEN_MS = 120_000;
 export const MANPOWER_BASE_CAP = 150;
-export const MANPOWER_BASE_REGEN_PER_MINUTE = 10;
+// Regen tuned so a single settlement fills its cap in ~12 hours (cap / 720 min).
+// Acts as a floor in playerManpowerRegenPerMinute, so it must scale with the
+// per-tier regen below — otherwise the tier values are masked.
+export const MANPOWER_BASE_REGEN_PER_MINUTE = 150 / 720;
 export const MANPOWER_EPSILON = 1e-6;
 export const TOWN_MANPOWER_BY_TIER: Record<
   "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS",
   { cap: number; regenPerMinute: number }
 > = {
-  SETTLEMENT: { cap: 150, regenPerMinute: 10 },
-  TOWN: { cap: 300, regenPerMinute: 15 },
-  CITY: { cap: 600, regenPerMinute: 30 },
-  GREAT_CITY: { cap: 1_200, regenPerMinute: 60 },
-  METROPOLIS: { cap: 2_400, regenPerMinute: 120 }
+  SETTLEMENT: { cap: 150, regenPerMinute: 150 / 720 },
+  TOWN: { cap: 300, regenPerMinute: 300 / 720 },
+  CITY: { cap: 600, regenPerMinute: 600 / 720 },
+  GREAT_CITY: { cap: 1_200, regenPerMinute: 1_200 / 720 },
+  METROPOLIS: { cap: 2_400, regenPerMinute: 2_400 / 720 }
 };
 export const manpowerRegenWeightForSettlementIndex = (index: number): number => {
   if (index < 5) return 1;
