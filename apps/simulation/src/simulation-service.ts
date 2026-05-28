@@ -867,6 +867,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     initialState: effectiveStartupRecovery.initialState,
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
     mergeSeedTilesWithInitialState: !isDbBackedStartup,
+    // Drain on setImmediate (next loop tick), not queueMicrotask. Microtasks
+    // run inside the current task before any I/O — that means a gRPC
+    // SubmitCommand handler's drain microtask blocks the ack TCP write the
+    // SAME loop turn. sim_command_accept_latency_ms{human_interactive} was
+    // p95 884ms in prod, entirely accounted for by the apply running before
+    // the ack returned. setImmediate lets the ack leave the worker before
+    // the apply starts. Drain still runs ~1ms later — no semantic change,
+    // sim is still the authoritative validator (the apply emits
+    // COMMAND_REJECTED via the event stream if it fails).
+    scheduleSoon: (task) => void setImmediate(task),
     ...(commandTraceEnabled
       ? {
           commandTrace: (sample: Record<string, unknown>) =>
