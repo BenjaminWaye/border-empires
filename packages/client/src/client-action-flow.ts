@@ -1,6 +1,6 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
-import { connectedEnemyRegionKeys } from "./client-connected-region.js";
+import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
 import {
   activeTruceWithPlayerFromState,
@@ -986,7 +986,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     townHasSupportStructure,
     activeTruceWithPlayer,
     pendingTruceWithPlayer,
-    ownerSpawnShieldActive
+    ownerSpawnShieldActive,
+    connectedOwnedFrontierKeysFor: (tile: Tile) => connectedOwnedFrontierKeys(state, tile, { keyFor, wrapX, wrapY })
   });
 
   const hasRevealCapability = (): boolean => hasRevealCapabilityFromModule(state);
@@ -1127,6 +1128,28 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       // some unrelated action pokes processActionQueue.
       processActionQueue();
       renderHud();
+      return;
+    }
+
+    if (actionId === "settle_connected_frontier" && selected) {
+      const origSelected = { x: selected.x, y: selected.y };
+      const keys = connectedOwnedFrontierKeys(state, selected, { keyFor, wrapX, wrapY });
+      let queued = 0;
+      let skipped = 0;
+      for (const k of keys) {
+        const t = state.tiles.get(k);
+        if (!t) { skipped += 1; continue; }
+        if (requestSettlement(t.x, t.y)) queued += 1; else skipped += 1;
+      }
+      state.selected = origSelected;
+      pushFeed(
+        queued > 0
+          ? `Queued ${queued} settlements across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
+          : "No settlements queued — check gold / slots.",
+        "combat",
+        queued > 0 ? "info" : "warn"
+      );
+      hideTileActionMenu();
       return;
     }
 
