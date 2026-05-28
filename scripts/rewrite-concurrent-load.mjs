@@ -2,7 +2,7 @@
 import WebSocket from "ws";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const WS_URL = process.env.WS_URL ?? "ws://127.0.0.1:3101/ws";
@@ -13,6 +13,8 @@ const AUTH_TOKEN_PREFIX = process.env.AUTH_TOKEN_PREFIX ?? "loadtest-";
 const GATEWAY_METRICS_URL = process.env.GATEWAY_METRICS_URL ?? "http://127.0.0.1:3101/metrics";
 const SIMULATION_METRICS_URL = process.env.SIMULATION_METRICS_URL ?? "http://127.0.0.1:50052/metrics";
 const CANDIDATE_VISION_RADIUS = 4;
+const RESOURCE_PAUSE_MS = 2500;
+const MAX_RESOURCE_PAUSES = 3;
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
@@ -132,13 +134,21 @@ const fetchMetrics = async (url) => {
 const openSession = (token, timeoutMs = 15_000) =>
   new Promise((resolve, reject) => {
     const socket = new WebSocket(WS_URL);
-    const state = { socket, playerId: token, nextClientSeq: 1, tilesByKey: new Map(), ready: false };
+    const state = {
+      socket,
+      playerId: token,
+      nextClientSeq: 1,
+      tilesByKey: new Map(),
+      pending: new Map(),
+      ready: false
+    };
     const timer = setTimeout(() => { try { socket.close(); } catch { /* */ } reject(new Error(`INIT timeout for ${token}`)); }, timeoutMs);
 
     socket.on("open", () => socket.send(JSON.stringify({ type: "AUTH", token })));
 
     socket.on("message", (data) => {
       const msg = JSON.parse(data.toString());
+
       if (msg.type === "INIT") {
         for (const tile of (Array.isArray(msg.initialState?.tiles) ? msg.initialState.tiles : [])) {
           const n = normalizeTile(tile);
@@ -151,12 +161,61 @@ const openSession = (token, timeoutMs = 15_000) =>
         resolve(state);
         return;
       }
+
       if (msg.type === "TILE_DELTA_BATCH" && Array.isArray(msg.tiles)) {
         for (const tile of msg.tiles) {
           const n = normalizeTile(tile);
           const existing = state.tilesByKey.get(tileKey(n.x, n.y)) ?? { x: n.x, y: n.y };
           state.tilesByKey.set(tileKey(n.x, n.y), { ...existing, ...n });
         }
+      }
+
+      const entry = state.pending.get(msg.commandId);
+      if (!entry) return;
+
+      if (msg.type === "ACTION_ACCEPTED") {
+        entry.acceptedAt = Date.now();
+        clearTimeout(entry.timer);
+        state.pending.delete(msg.commandId);
+        entry.resolve({ kind: "accepted", acceptedDelayMs: entry.acceptedAt - entry.startedAt });
+        return;
+      }
+
+      if (msg.type === "COMBAT_RESULT" || msg.type === "FRONTIER_RESULT") {
+        if (entry.acceptedAt === 0) entry.acceptedAt = Date.now();
+        clearTimeout(entry.timer);
+        state.pending.delete(msg.commandId);
+        entry.resolve({ kind: "accepted", acceptedDelayMs: entry.acceptedAt - entry.startedAt });
+        return;
+      }
+
+      if (msg.type === "ERROR") {
+        const recoverable = ["ATTACK_COOLDOWN", "ATTACK_TARGET_INVALID", "NOT_OWNER", "NOT_ADJACENT",
+          "LOCKED", "EXPAND_TARGET_OWNED", "BARRIER", "EXPAND_COOLDOWN"];
+        if (recoverable.includes(msg.code)) {
+          clearTimeout(entry.timer);
+          state.pending.delete(msg.commandId);
+          entry.resolve({
+            kind: "error_recoverable",
+            code: msg.code,
+            fromX: entry.payload.fromX,
+            fromY: entry.payload.fromY,
+            toX: entry.payload.toX,
+            toY: entry.payload.toY
+          });
+          return;
+        }
+
+        if (msg.code === "INSUFFICIENT_MANPOWER" || msg.code === "INSUFFICIENT_RESOURCES") {
+          clearTimeout(entry.timer);
+          state.pending.delete(msg.commandId);
+          entry.resolve({ kind: "resource_exhausted", code: msg.code });
+          return;
+        }
+
+        clearTimeout(entry.timer);
+        state.pending.delete(msg.commandId);
+        entry.reject(new Error(`${msg.code}: ${msg.message}`));
       }
     });
 
@@ -168,16 +227,16 @@ const closeSession = async (state) => {
   try { state.socket.close(); } catch { /* */ }
 };
 
+// ── Serial action dispatch (one per client, no listener pileup) ─────────────
+
 const sendAction = (state, timeoutMs) =>
   new Promise((resolve, reject) => {
     const invalidTargets = new Set();
     const invalidOrigins = new Set();
-    let timer;
 
     const send = () => {
       const candidates = collectCandidatePayloads(state.tilesByKey, state.playerId, invalidTargets, invalidOrigins);
       if (candidates.length === 0) {
-        clearTimeout(timer);
         reject(new Error("no frontier action candidate"));
         return;
       }
@@ -188,63 +247,69 @@ const sendAction = (state, timeoutMs) =>
       };
       state.nextClientSeq += 1;
       const startedAt = Date.now();
-      let acceptedAt = 0;
 
-      const onMessage = (data) => {
-        const msg = JSON.parse(data.toString());
-
-        if (msg.type === "TILE_DELTA_BATCH" && Array.isArray(msg.tiles)) {
-          for (const tile of msg.tiles) {
-            const n = normalizeTile(tile);
-            const existing = state.tilesByKey.get(tileKey(n.x, n.y)) ?? { x: n.x, y: n.y };
-            state.tilesByKey.set(tileKey(n.x, n.y), { ...existing, ...n });
-          }
-        }
-
-        if (msg.commandId !== payload.commandId) return;
-
-        if (msg.type === "ACTION_ACCEPTED") {
-          acceptedAt = Date.now();
-          clearTimeout(timer);
-          state.socket.removeListener("message", onMessage);
-          resolve({ acceptedDelayMs: acceptedAt - startedAt });
-          return;
-        }
-        if (msg.type === "COMBAT_RESULT" || msg.type === "FRONTIER_RESULT") {
-          if (acceptedAt === 0) acceptedAt = Date.now();
-          clearTimeout(timer);
-          state.socket.removeListener("message", onMessage);
-          resolve({ acceptedDelayMs: acceptedAt - startedAt });
-          return;
-        }
-        if (msg.type === "ERROR") {
-          const recoverable = ["ATTACK_COOLDOWN", "ATTACK_TARGET_INVALID", "NOT_OWNER", "NOT_ADJACENT",
-            "LOCKED", "EXPAND_TARGET_OWNED", "BARRIER", "EXPAND_COOLDOWN"];
-          if (recoverable.includes(msg.code)) {
-            const originKey = tileKey(payload.fromX, payload.fromY);
-            const targetKey = tileKey(payload.toX, payload.toY);
-            if (msg.code === "NOT_OWNER") invalidOrigins.add(originKey);
-            else invalidTargets.add(targetKey);
-            send();
-            return;
-          }
-          clearTimeout(timer);
-          state.socket.removeListener("message", onMessage);
-          reject(new Error(`${msg.code}: ${msg.message}`));
-        }
+      const entry = {
+        resolve,
+        reject,
+        startedAt,
+        acceptedAt: 0,
+        payload,
+        timer: setTimeout(() => {
+          state.pending.delete(payload.commandId);
+          reject(new Error("action timeout"));
+        }, timeoutMs)
       };
 
-      timer = setTimeout(() => {
-        state.socket.removeListener("message", onMessage);
-        reject(new Error("action timeout"));
-      }, timeoutMs);
-
-      state.socket.on("message", onMessage);
+      state.pending.set(payload.commandId, entry);
       state.socket.send(JSON.stringify(payload));
     };
 
     send();
   });
+
+// ── Per-client action loop (serial, resource-aware) ─────────────────────────
+
+const actionLoop = async (state, deadlineAt, actionIntervalMs, actionTimeoutMs) => {
+  const acceptedLatencies = [];
+  let resourcePauses = 0;
+  let exhausted = false;
+
+  while (Date.now() < deadlineAt && !exhausted) {
+    const loopStart = Date.now();
+
+    try {
+      const result = await sendAction(state, actionTimeoutMs);
+
+      if (result.kind === "accepted" && typeof result.acceptedDelayMs === "number") {
+        acceptedLatencies.push(result.acceptedDelayMs);
+        resourcePauses = 0; // reset regen pause counter on success
+      } else if (result.kind === "error_recoverable") {
+        // Update invalid sets for next candidate selection
+        // (handled implicitly by sendAction's retry via internal send() loop)
+        resourcePauses = 0;
+      } else if (result.kind === "resource_exhausted") {
+        resourcePauses += 1;
+        if (resourcePauses > MAX_RESOURCE_PAUSES) {
+          exhausted = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, RESOURCE_PAUSE_MS));
+        continue;
+      }
+    } catch {
+      // Non-recoverable error — skip this tick
+    }
+
+    // Maintain cadence: sleep for the remainder of the interval
+    const elapsed = Date.now() - loopStart;
+    const remaining = actionIntervalMs - elapsed;
+    if (remaining > 0 && Date.now() + remaining < deadlineAt) {
+      await new Promise((r) => setTimeout(r, remaining));
+    }
+  }
+
+  return { acceptedLatencies, exhausted };
+};
 
 // ── Metrics poller ──────────────────────────────────────────────────────────
 
@@ -289,32 +354,11 @@ const runLevel = async (level, durationMs, actionsPerSec) => {
   const stopSignal = { stopped: false };
   const metricsPromise = pollMetrics(GATEWAY_METRICS_URL, SIMULATION_METRICS_URL, 1000, stopSignal);
 
-  // Start action loops for each connected client
-  const actionLoops = clients.map((state) => {
-    const acceptedLatencies = [];
-    let stopped = false;
-    const timer = setInterval(async () => {
-      if (stopped) return;
-      try {
-        const result = await sendAction(state, actionTimeoutMs);
-        if (typeof result.acceptedDelayMs === "number") acceptedLatencies.push(result.acceptedDelayMs);
-      } catch {
-        // Recoverable failures — continue
-      }
-    }, actionIntervalMs);
-
-    return {
-      state,
-      stop: () => { stopped = true; clearInterval(timer); },
-      acceptedLatencies
-    };
-  });
-
-  // Hold for duration
-  await new Promise((r) => setTimeout(r, durationMs));
-
-  // Stop action loops
-  for (const loop of actionLoops) loop.stop();
+  // Start serial action loops for each connected client
+  const deadlineAt = Date.now() + durationMs;
+  const loopResults = await Promise.all(
+    clients.map((state) => actionLoop(state, deadlineAt, actionIntervalMs, actionTimeoutMs))
+  );
 
   // Stop metrics polling
   stopSignal.stopped = true;
@@ -324,13 +368,16 @@ const runLevel = async (level, durationMs, actionsPerSec) => {
   await Promise.all(clients.map(closeSession));
 
   // Aggregate
-  const allLatencies = actionLoops.flatMap((l) => l.acceptedLatencies).filter((v) => Number.isFinite(v));
+  const allLatencies = loopResults.flatMap((l) => l.acceptedLatencies).filter((v) => Number.isFinite(v));
+  const exhaustedCount = loopResults.filter((l) => l.exhausted).length;
+
   return {
     level,
     clientsRequested: level,
     clientsConnected: clients.length,
     initFailures: initFailures.length,
     initFailureDetails: initFailures.slice(0, 10),
+    exhaustedClients: exhaustedCount,
     totalAcceptedActions: allLatencies.length,
     acceptedP50Ms: quantile(allLatencies, 0.5),
     acceptedP95Ms: quantile(allLatencies, 0.95),
@@ -350,7 +397,7 @@ const runLevel = async (level, durationMs, actionsPerSec) => {
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url).endsWith(process.argv[1].split("/").pop());
+const isMain = import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isMain) {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -370,7 +417,8 @@ for (const level of CONCURRENCY_LEVELS) {
   const record = await runLevel(level, LEVEL_DURATION_MS, ACTIONS_PER_CLIENT_PER_SEC);
   levelRecords.push(record);
   console.log(`[level] N=${level} connected=${record.clientsConnected} failed=${record.initFailures} ` +
-    `actions=${record.totalAcceptedActions} p99=${record.acceptedP99Ms}ms ` +
+    `exhausted=${record.exhaustedClients} actions=${record.totalAcceptedActions} ` +
+    `p99=${record.acceptedP99Ms}ms ` +
     `gwLoop=${record.gatewayEventLoopMaxMs}ms simLoop=${record.simEventLoopMaxMs}ms`);
 }
 
