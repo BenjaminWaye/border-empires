@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.28.1",
+  version: "2026.05.28.2",
   title: "What's New",
-  summary: "Waypoint routes now prefer straight, connected expansion: a target on a straight line or pure diagonal is followed directly, and mixed routes group their straight runs instead of zigzagging.",
+  summary: "Town population now grows in the new simulation stack — same logistic growth formula, same granary and first-three-town bonuses, same 60-second tick as the old server.",
   entries: [
+    {
+      introducedIn: "2026.05.28.2",
+      title: "Town population growth is live in the rewrite stack",
+      why: "Town population growth was never ported from the old server to the new simulation runtime, so town populations have been frozen since the 2026-05-15 rewrite cutover. The display showed growth rates, but no tick was applying them.",
+      changes: [
+        "Simulation now runs a 60-second population growth tick for every settled, fed, non-shocked town (TOWN tier and above; settlements are excluded).",
+        "Growth formula matches the old server exactly: logistic curve (1 − pop/maxPop), base rate 0.00032/min, granary bonus (×1.15 or ×1.30 for buffed seed granaries), and first-three-town growth multiplier from techs/domains.",
+        "Towns in capture shock do not grow until the shock expires. Population is capped at maxPopulation (10M) and tier upgrades (TOWN → CITY → GREAT_CITY → METROPOLIS) happen automatically when thresholds are crossed."
+      ]
+    },
     {
       introducedIn: "2026.05.28.1",
       title: "Waypoint paths run straight instead of zigzagging",
