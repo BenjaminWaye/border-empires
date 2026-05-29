@@ -46,3 +46,32 @@ export const connectedEnemyRegionKeys = (
   regionKeys.sort();
   return regionKeys;
 };
+
+export const connectedOwnedFrontierKeys = (
+  state: Pick<ClientState, "me" | "tiles">,
+  root: Tile | undefined,
+  deps: ConnectedRegionDeps
+): string[] => {
+  if (!root || root.terrain !== "LAND" || root.fogged || root.ownerId !== state.me || root.ownershipState !== "FRONTIER") return [];
+  const rootKey = deps.keyFor(root.x, root.y);
+  const visited = new Set<string>([rootKey]);
+  const queue = [root];
+  const regionKeys: string[] = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+    if (current.terrain !== "LAND" || current.fogged || current.ownerId !== state.me || current.ownershipState !== "FRONTIER") continue;
+    regionKeys.push(deps.keyFor(current.x, current.y));
+    for (const neighborKey of cardinalNeighbors(current, deps)) {
+      if (visited.has(neighborKey)) continue;
+      visited.add(neighborKey);
+      const neighbor = state.tiles.get(neighborKey);
+      if (!neighbor || neighbor.terrain !== "LAND" || neighbor.fogged || neighbor.ownerId !== state.me || neighbor.ownershipState !== "FRONTIER") continue;
+      queue.push(neighbor);
+    }
+  }
+
+  regionKeys.sort();
+  return regionKeys;
+};
