@@ -1,5 +1,5 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { MANPOWER_BASE_CAP } from "@border-empires/shared";
+import { MANPOWER_BASE_CAP, isChosenTrickleResource } from "@border-empires/shared";
 import { POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state.js";
@@ -67,6 +67,9 @@ export const createPlayersFromRecoveredState = (
             SHARD: player.strategicResources?.SHARD ?? 0,
             OIL: player.strategicResources?.OIL ?? 0
           },
+          ...(player.chosenTrickleResource && isChosenTrickleResource(player.chosenTrickleResource)
+            ? { chosenTrickleResource: player.chosenTrickleResource }
+            : {}),
           strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
         }
       ] as const;

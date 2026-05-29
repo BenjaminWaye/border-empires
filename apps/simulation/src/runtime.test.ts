@@ -3,6 +3,7 @@ import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, TOWN_MANPOWER_BY_TIE
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
+import { createPlayersFromRecoveredState } from "./runtime-hydration.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
 
@@ -6793,6 +6794,96 @@ describe("simulation runtime", () => {
 
       randomSpy.mockRestore();
     });
+  });
+
+  it("subscription snapshot includes synthesizer crystal regen without COLLECT_VISIBLE", () => {
+    // Regression: strategicProductionPerMinute in subscription snapshots was
+    // sourced from summary.strategicProductionPerMinute (terrain-only), so
+    // players with CRYSTAL_SYNTHESIZER but no GEMS tiles saw 0 crystal regen
+    // on connect until COLLECT_VISIBLE fired emitPlayerStateUpdate.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Crystal Town" }
+          },
+          {
+            x: 6, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+            economicStructure: { ownerId: "player-1", type: "CRYSTAL_SYNTHESIZER", status: "active" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    // Use the subscription path (exportVisibleStateForPlayer), not exportState.
+    const state = runtime.exportVisibleStateForPlayer("player-1");
+    const player = state.players.find((p) => p.id === "player-1");
+    expect(player).toBeDefined();
+    // Crystal synthesizer outputs CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY / 1440 per minute.
+    expect(player?.strategicProductionPerMinute?.CRYSTAL ?? 0).toBeGreaterThan(0);
+  });
+
+  it("chosenTrickleResource round-trips through snapshot and trickle is credited after recovery", () => {
+    // Regression: chosenTrickleResource was never persisted to the compaction
+    // snapshot, so Clockwork Stipend trickle was lost after sim restart.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", {
+        ...testRuntimePlayer("player-1"),
+        domainIds: new Set(["clockwork-stipend"]),
+        chosenTrickleResource: "IRON" as const
+      }]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Trickle Town" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    // Export the snapshot sections and verify chosenTrickleResource is present.
+    const sections = runtime.exportSnapshotSections();
+    const exportedPlayer = sections.initialState.players?.find((p) => p.id === "player-1");
+    expect(exportedPlayer?.chosenTrickleResource).toBe("IRON");
+
+    // Recover from those sections (simulates restart hydration).
+    const recovered = createPlayersFromRecoveredState(sections.initialState);
+    const recoveredPlayer = recovered?.get("player-1");
+    expect(recoveredPlayer?.chosenTrickleResource).toBe("IRON");
+
+    // Build a new runtime from the recovered state, use fake timers, and
+    // advance time — the trickle should actually credit IRON.
+    vi.useFakeTimers();
+    const recoveredRuntime = new SimulationRuntime({
+      now: () => Date.now(),
+      initialPlayers: recovered,
+      initialState: {
+        tiles: [
+          {
+            x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Trickle Town" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    // Advance time by 10 minutes. Clockwork Stipend IRON rate is 0.2/min.
+    vi.advanceTimersByTime(10 * 60_000);
+    const stateAfter = recoveredRuntime.exportState();
+    const playerAfter = stateAfter.players.find((p) => p.id === "player-1");
+    // 10 min × 0.2/min = 2.0 IRON (before upkeep drain on a single settlement).
+    expect(playerAfter?.strategicResources?.IRON ?? 0).toBeGreaterThan(0);
+    vi.useRealTimers();
   });
 });
 
