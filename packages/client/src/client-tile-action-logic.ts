@@ -18,6 +18,9 @@ import {
   structureBuildDurationMs,
   structurePlacementMetadata,
   structureShowsOnTile,
+  bestFortTierForTech,
+  nextFortTierForUpgrade,
+  type FortTierInfo,
   terrainAt
 } from "@border-empires/shared";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "./client-constants.js";
@@ -267,43 +270,32 @@ const collectValidAetherWallOrigins = (
   return out;
 };
 
-const fortBuildVariantForState = (state: ClientState): {
-  label: string;
-  gold: number;
-  iron: number;
-  defenseMult: number;
-  summary: string;
-} => {
-  if (state.techIds.includes("steelworking")) {
-    return { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" };
-  }
-  if (state.techIds.includes("fortified-walls")) {
-    return { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" };
-  }
-  return { label: "Fort", gold: structureBuildGoldCost("FORT", 0), iron: 45, defenseMult: FORT_DEFENSE_MULT, summary: "900 gold + 300 manpower + 45 IRON" };
+const FORT_VARIANT_LABELS: Record<FortTierInfo["variant"], string> = {
+  FORT: "Fort",
+  IRON_BASTION: "Iron Bastion",
+  THUNDER_BASTION: "Thunder Bastion",
 };
+
+type FortVariantAction = { label: string; gold: number; iron: number; defenseMult: number; summary: string };
+
+const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
+  label: FORT_VARIANT_LABELS[tier.variant],
+  gold: tier.gold,
+  iron: tier.iron,
+  defenseMult: tier.defenseMult,
+  summary: `${tier.gold} gold + ${tier.manpower} manpower + ${tier.iron} IRON`,
+});
+
+const fortBuildVariantForState = (state: ClientState): FortVariantAction =>
+  fortActionFromTier(bestFortTierForTech((id) => state.techIds.includes(id)));
 
 const nextFortVariantForTile = (
   state: ClientState,
-  tile: Tile
-):
-  | {
-      label: string;
-      gold: number;
-      iron: number;
-      defenseMult: number;
-      summary: string;
-    }
-  | undefined => {
+  tile: Tile,
+): FortVariantAction | undefined => {
   if (tile.fort) {
-    const current = tile.fort.variant ?? "FORT";
-    if (current === "FORT" && state.techIds.includes("fortified-walls")) {
-      return { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" };
-    }
-    if (current === "IRON_BASTION" && state.techIds.includes("steelworking")) {
-      return { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" };
-    }
-    return undefined;
+    const result = nextFortTierForUpgrade(tile.fort.variant, (id) => state.techIds.includes(id));
+    return result ? fortActionFromTier(result) : undefined;
   }
   return fortBuildVariantForState(state);
 };
