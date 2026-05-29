@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.28.2",
+  version: "2026.05.28.3",
   title: "What's New",
-  summary: "Unsupported frontier tiles now show a decay warning in the tile overview from the moment the timer starts, not just in the final 60 seconds.",
+  summary: "Manpower now regenerates far more slowly, so the game rewards expansion and timing over sheer hours online. The manpower rate shows one decimal so small regen is visible.",
   entries: [
+    {
+      introducedIn: "2026.05.28.3",
+      title: "Manpower regen slowed; rate shows a decimal",
+      why: "Manpower filled in ~15-20 minutes, which made the game largely about who could stay online longest to bank attacks. Regen is now tuned so a settlement takes ~12 hours to fill its cap, making manpower a strategic resource rather than a faucet. Because per-minute regen is now well under 1 for small empires, the HUD rate chip rounded it to '+0/m' and looked broken.",
+      changes: [
+        "Manpower regeneration is roughly 48x slower across all population tiers (a settlement now takes ~12 hours to refill its cap). Caps are unchanged.",
+        "The manpower rate chip now shows one decimal place (e.g. '+0.2/m') so slow regen is visible instead of rounding to '+0/m'."
+      ]
+    },
     {
       introducedIn: "2026.05.28.2",
       title: "Tile overview warns about unsupported frontier decay immediately",
