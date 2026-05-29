@@ -19,17 +19,45 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.28.1",
+  version: "2026.05.28.2",
   title: "What's New",
   summary: "Manpower now regenerates far more slowly, so the game rewards expansion and timing over sheer hours online. The manpower rate shows one decimal so small regen is visible.",
   entries: [
     {
-      introducedIn: "2026.05.28.1",
+      introducedIn: "2026.05.28.2",
       title: "Manpower regen slowed; rate shows a decimal",
       why: "Manpower filled in ~15-20 minutes, which made the game largely about who could stay online longest to bank attacks. Regen is now tuned so a settlement takes ~12 hours to fill its cap, making manpower a strategic resource rather than a faucet. Because per-minute regen is now well under 1 for small empires, the HUD rate chip rounded it to '+0/m' and looked broken.",
       changes: [
         "Manpower regeneration is roughly 48x slower across all population tiers (a settlement now takes ~12 hours to refill its cap). Caps are unchanged.",
         "The manpower rate chip now shows one decimal place (e.g. '+0.2/m') so slow regen is visible instead of rounding to '+0/m'."
+      ]
+    },
+    {
+      introducedIn: "2026.05.28.1",
+      title: "Waypoint paths run straight instead of zigzagging",
+      why: "The waypoint planner picked any shortest path, so among equal-length routes it could weave (N-E-N-E) or overshoot before doubling back, even when a clean straight or diagonal line reached the target.",
+      changes: [
+        "Waypoint routing now adds a tiny per-turn tiebreaker so equal-length paths prefer the fewest direction changes: a target due in one direction expands in a straight line, a pure-diagonal target expands diagonally, and mixed targets keep their straight runs grouped (and connected) rather than zigzagging."
+      ]
+    },
+    {
+      introducedIn: "2026.05.27.2",
+      title: "Capture pop-loss indicator now readable through smoke",
+      why: "The floating \"-N pop\" label spawned inside the captured-town smoke column at a small size with a heavy black outline, so the red fill was largely covered and the text read as white at a glance. It also barely moved, making it easy to miss next to the dramatic smoke effect.",
+      changes: [
+        "Label is larger (3.2x sprite scale, 96px bold canvas font) with a soft shadow instead of a chunky outline, so the red fill dominates and the text reads at a glance.",
+        "Color saturated to #ff2d2d so it reads as red, not washed-out coral.",
+        "Now rises ~4.2 world units over 3.2s with an ease-out curve and a brief pop-in scale, so it clearly floats away above the smoke instead of sitting inside it.",
+        "renderOrder bumped to 9999 so the label always paints over the smoke puffs."
+      ]
+    },
+    {
+      introducedIn: "2026.05.27.1",
+      title: "Settle a whole frontier pocket in one tap",
+      why: "Settling each tile of a freshly captured pocket one click at a time was tedious; the new 'Settle Connected (N)' action in the tile menu queues every connected frontier tile you own.",
+      changes: [
+        "Frontier tile menu now shows 'Settle Connected (N)' when 2+ of your frontier tiles are connected.",
+        "Each tile still costs the standard settle gold and uses a development slot — extras are queued FIFO like manual settles."
       ]
     },
     {

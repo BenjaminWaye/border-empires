@@ -33,6 +33,7 @@ const structureNameForTile = (tile: Tile): string | undefined => {
 export const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
   const supportedTownLabel = supportedTown?.town?.name ? supportedTown.town.name : supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
   if (actionId === "settle_land") return "Makes this tile defended and activates production.";
+  if (actionId === "settle_connected_frontier") return "Queues a settlement on every connected frontier tile you own.";
   if (actionId === "build_fortification") {
     if (tile.fort?.variant === "FORT") return "Upgrade this Fort into an Iron Bastion. Iron Bastions defend at 4x.";
     if (tile.fort?.variant === "IRON_BASTION") return "Upgrade this Iron Bastion into a Thunder Bastion. Thunder Bastions defend at 8x.";

@@ -1,3 +1,4 @@
+import { FRONTIER_CLAIM_MS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import { planWaypoint } from "./client-waypoint-planner.js";
@@ -28,6 +29,17 @@ const baseDeps = (state: StateShape): WaypointPlannerDeps => ({
   keyFor,
   // Flat durations so cost arithmetic is predictable in tests.
   expandDurationMsAt: () => 1000,
+  attackDurationMs: 3000,
+  now: 1_000_000
+});
+
+// Tiebreak tests assert on path *shape* (turns/overshoot), which only holds
+// when the A* heuristic is admissible — i.e. the per-step expand cost is not
+// below the heuristic's FRONTIER_CLAIM_MS lower bound (true in production).
+const tiebreakDeps = (state: StateShape): WaypointPlannerDeps => ({
+  state,
+  keyFor,
+  expandDurationMsAt: () => FRONTIER_CLAIM_MS,
   attackDurationMs: 3000,
   now: 1_000_000
 });
@@ -196,5 +208,84 @@ describe("planWaypoint", () => {
     expect(plan.steps[0]!.viaDock).toBe(true);
     expect(plan.steps[0]!.target).toEqual({ x: 40, y: 40 });
     expect(plan.steps[1]!.target).toEqual({ x: 41, y: 40 });
+  });
+
+  it("walks a pure diagonal target as a pure diagonal (no zigzag)", () => {
+    const tiles = [tile(3, 3, { ownerId: "me" })];
+    for (let i = 1; i <= 4; i += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        for (let dy = -1; dy <= 1; dy += 1) {
+          if (dx === 0 && dy === 0) continue;
+          tiles.push(tile(3 + i * dx, 3 + i * dy));
+          tiles.push(tile(3 + i, 3 + i - 1));
+          tiles.push(tile(3 + i - 1, 3 + i));
+        }
+      }
+    }
+    const state = stateWith(tiles);
+    const plan = planWaypoint({ x: 7, y: 7 }, tiebreakDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.steps).toHaveLength(4);
+    expect(plan.steps.map((s) => s.target)).toEqual([
+      { x: 4, y: 4 },
+      { x: 5, y: 5 },
+      { x: 6, y: 6 },
+      { x: 7, y: 7 }
+    ]);
+  });
+
+  it("prefers a straight east run over a zigzag when the goal is due east", () => {
+    // Source (0,3); plenty of open tiles around. Goal (5,3) is due east.
+    // Without the turn penalty, A* could pick NE-SE-NE-SE-NE (also 5 chebyshev
+    // steps); the penalty makes the straight E-E-E-E-E strictly cheaper.
+    const tiles: Tile[] = [tile(0, 3, { ownerId: "me" })];
+    for (let x = 0; x <= 6; x += 1) {
+      for (let y = 1; y <= 5; y += 1) {
+        if (x === 0 && y === 3) continue;
+        tiles.push(tile(x, y));
+      }
+    }
+    const state = stateWith(tiles);
+    const plan = planWaypoint({ x: 5, y: 3 }, tiebreakDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.steps).toHaveLength(5);
+    for (const step of plan.steps) {
+      expect(step.target.y).toBe(3);
+    }
+  });
+
+  it("groups straight runs together on a mixed target (one direction change)", () => {
+    // Source (0,5) to target (5,3): 5 east + 2 north over 5 chebyshev steps.
+    // Expect contiguous runs (E-E-E-NE-NE or NE-NE-E-E-E), one turn, no
+    // overshoot. Open field so geometry, not obstacles, drives the path.
+    const tiles: Tile[] = [tile(0, 5, { ownerId: "me" })];
+    for (let x = 0; x <= 6; x += 1) {
+      for (let y = 1; y <= 6; y += 1) {
+        if (x === 0 && y === 5) continue;
+        tiles.push(tile(x, y));
+      }
+    }
+    const state = stateWith(tiles);
+    const plan = planWaypoint({ x: 5, y: 3 }, tiebreakDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.steps).toHaveLength(5);
+    // No overshoot: y stays within [3, 5] the whole way.
+    for (const step of plan.steps) {
+      expect(step.target.y).toBeGreaterThanOrEqual(3);
+      expect(step.target.y).toBeLessThanOrEqual(5);
+    }
+    // Exactly one direction change between consecutive steps.
+    let turns = 0;
+    for (let i = 1; i < plan.steps.length; i += 1) {
+      const a = plan.steps[i - 1]!;
+      const b = plan.steps[i]!;
+      if (
+        a.target.x - a.origin.x !== b.target.x - b.origin.x ||
+        a.target.y - a.origin.y !== b.target.y - b.origin.y
+      ) {
+        turns += 1;
+      }
+    }
+    expect(turns).toBe(1);
   });
 });
