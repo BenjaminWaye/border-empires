@@ -58,6 +58,11 @@ export const AI_PLANNER_PHASES = [
   "planner_choose_frontier",
   "planner_summarize_frontier",
   "planner_total",
+  // Frontier-analysis sub-phases (PR 1 measurement — cost-cap plan).
+  "analyze_iter_total",
+  "analyze_per_candidate",
+  "analyze_neighbor_lookups",
+  "analyze_score_calc",
   // Bridge-side (main thread, wrapping each worker round-trip).
   "request_plan_round_trip",
   "sync_players_export",
