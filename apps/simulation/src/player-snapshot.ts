@@ -72,8 +72,17 @@ export const buildPlayerSubscriptionSnapshot = (
     return { x, y };
   };
 
-  const ownedTileKeys = (pid: string): string[] =>
-    sourceTiles.filter((t) => t.ownerId === pid).map((t) => keyFor(t.x, t.y));
+  const ownedTileKeysByPlayer = new Map<string, string[]>();
+  for (const tile of sourceTiles) {
+    if (!tile.ownerId) continue;
+    let keys = ownedTileKeysByPlayer.get(tile.ownerId);
+    if (!keys) {
+      keys = [];
+      ownedTileKeysByPlayer.set(tile.ownerId, keys);
+    }
+    keys.push(keyFor(tile.x, tile.y));
+  }
+  const ownedTileKeys = (pid: string): string[] => ownedTileKeysByPlayer.get(pid) ?? [];
 
   const playersById = new Map(runtimeState.players.map((player) => [player.id, player] as const));
   const addVision = (
@@ -346,8 +355,17 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
     return { x, y };
   };
 
-  const ownedTileKeys = (pid: string): string[] =>
-    sourceTiles.filter((t) => t.ownerId === pid).map((t) => keyFor(t.x, t.y));
+  const ownedTileKeysByPlayer = new Map<string, string[]>();
+  for (const tile of sourceTiles) {
+    if (!tile.ownerId) continue;
+    let keys = ownedTileKeysByPlayer.get(tile.ownerId);
+    if (!keys) {
+      keys = [];
+      ownedTileKeysByPlayer.set(tile.ownerId, keys);
+    }
+    keys.push(keyFor(tile.x, tile.y));
+  }
+  const ownedTileKeys = (pid: string): string[] => ownedTileKeysByPlayer.get(pid) ?? [];
 
   const playersById = new Map(runtimeState.players.map((player) => [player.id, player] as const));
   const addVision = (
