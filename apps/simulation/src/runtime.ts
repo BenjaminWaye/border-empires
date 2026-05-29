@@ -549,6 +549,7 @@ export class SimulationRuntime {
   private currentShardRainExpiresAt: number | undefined;
   private currentShardRainSiteCount = 0;
   private readonly lastShardRainHelloByPlayer = new Map<string, number>();
+  private readonly recentShardRainTileKeys = new Set<string>();
   private readonly terminalReplayCommandIds = new Map<string, true>();
   private readonly terminalOnlyReplayCommandIds = new Set<string>();
   private territoryAutomationCounter = 0;
@@ -562,6 +563,7 @@ export class SimulationRuntime {
   private readonly onCaptureRevealBuilt:
     | ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void)
     | undefined;
+  private readonly onShardCollected: (() => void) | undefined;
   private readonly onQueueDrain:
     | ((sample: {
         durationMs: number;
@@ -658,6 +660,7 @@ export class SimulationRuntime {
     this.onCollectVisibleSample = options.onCollectVisibleSample;
     this.onVisibilityAudit = options.onVisibilityAudit;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
+    this.onShardCollected = options.onShardCollected;
     this.players =
       createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
       (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
@@ -1433,13 +1436,14 @@ export class SimulationRuntime {
     return undefined;
   }
 
-  private canHostShardFallSiteAt(tile: DomainTileState | undefined): boolean {
+  private canHostShardFallSiteAt(tile: DomainTileState | undefined, tileKey?: string): boolean {
     if (!tile) return false;
     if (tile.terrain !== "LAND") return false;
     if (tile.dockId) return false;
     if (tile.resource) return false;
     if (tile.town) return false;
     if (tile.shardSite) return false;
+    if (tileKey && this.recentShardRainTileKeys.has(tileKey)) return false;
     return true;
   }
 
@@ -1489,6 +1493,7 @@ export class SimulationRuntime {
   }
 
   private spawnShardRain(nowMs: number): void {
+    this.recentShardRainTileKeys.clear();
     const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
     const expiresAt = nowMs + SHARD_RAIN_TTL_MS;
     const startsAt = nowMs;
@@ -1500,10 +1505,11 @@ export class SimulationRuntime {
       const y = Math.floor(Math.random() * WORLD_HEIGHT);
       const tileKey = simulationTileKey(x, y);
       const tile = this.tiles.get(tileKey);
-      if (!this.canHostShardFallSiteAt(tile)) continue;
+      if (!this.canHostShardFallSiteAt(tile, tileKey)) continue;
       const amount = Math.random() > 0.8 ? 2 : 1;
       const updated: DomainTileState = { ...(tile as DomainTileState), shardSite: { kind: "FALL", amount, expiresAt } };
       this.replaceTileState(tileKey, updated);
+      this.recentShardRainTileKeys.add(tileKey);
       placed.push({ tileKey, tile: updated });
     }
     if (placed.length === 0) return;
@@ -1524,7 +1530,8 @@ export class SimulationRuntime {
       phase: "started",
       startsAt,
       expiresAt,
-      siteCount: placed.length
+      siteCount: placed.length,
+      sites: placed.map((entry) => ({ x: entry.tile.x, y: entry.tile.y }))
     });
   }
 
@@ -5947,6 +5954,10 @@ export class SimulationRuntime {
       this.currentShardRainExpiresAt = undefined;
       this.lastShardRainHelloByPlayer.clear();
     }
+    } else {
+      // Non-FALL (CACHE) shards are one-time collectibles — request a
+      // checkpoint so the cleared state survives a process restart.
+      this.onShardCollected?.();
     }
     const updatedTile: DomainTileState = { ...target, shardSite: undefined };
     this.replaceTileState(targetKey, updatedTile);

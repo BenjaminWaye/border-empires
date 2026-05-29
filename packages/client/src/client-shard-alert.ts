@@ -1,6 +1,6 @@
 export type ClientShardRainAlert =
   | { key: string; phase: "upcoming"; startsAt: number }
-  | { key: string; phase: "started"; startsAt: number; expiresAt: number; siteCount: number };
+  | { key: string; phase: "started"; startsAt: number; expiresAt: number; siteCount: number; sites?: { x: number; y: number }[] };
 
 const pluralize = (value: number, unit: string): string => `${value} ${unit}${value === 1 ? "" : "s"}`;
 
