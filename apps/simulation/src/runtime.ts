@@ -990,6 +990,37 @@ export class SimulationRuntime {
   }
 
   /**
+   * Returns the granary growth multiplier for a tile: 1.0 (none),
+   * 1.15 (active GRANARY or unbuffed SEED_GRANARY adjacent),
+   * or SEED_GRANARY_GROWTH_MULT (active SEED_GRANARY adjacent to another
+   * active settled SEED_GRANARY owned by the same player).
+   */
+  private seedGranaryGrowthMultForTile(
+    tile: DomainTileState,
+    playerId: string
+  ): number {
+    const hasGranary = hasSupportedStructure(playerId, tile, "GRANARY", this.tiles);
+    const hasSeedGranary = hasSupportedStructure(playerId, tile, "SEED_GRANARY", this.tiles);
+    if (!hasGranary && !hasSeedGranary) return 1;
+    if (!hasSeedGranary) return 1.15;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const neighbor = this.tiles.get(`${tile.x + dx},${tile.y + dy}`);
+        if (
+          neighbor?.ownerId === playerId &&
+          neighbor.ownershipState === "SETTLED" &&
+          neighbor.economicStructure?.type === "SEED_GRANARY" &&
+          neighbor.economicStructure.status === "active"
+        ) {
+          return SEED_GRANARY_GROWTH_MULT;
+        }
+      }
+    }
+    return 1.15;
+  }
+
+  /**
    * Periodic population growth tick. Applies logistic growth to every
    * settled, fed, non-settlement (populationTier !== "SETTLEMENT"),
    * non-shocked town. Growth formula mirrors the display-path computation
@@ -998,6 +1029,7 @@ export class SimulationRuntime {
    * Called every 60 s from simulation-service.ts.
    */
   tickPopulationGrowth(nowMs: number = this.now()): void {
+    const dirtyPlayerIds = new Set<string>();
     for (const player of this.players.values()) {
       if (player.id.startsWith("barbarian-")) continue;
       const summary = this.summaryForPlayer(player.id);
@@ -1031,31 +1063,7 @@ export class SimulationRuntime {
         const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
         if (logisticFactor <= 0) continue;
 
-        // Granary multiplier: 1.0 (none), 1.15 (regular granary),
-        // or SEED_GRANARY_GROWTH_MULT (seed granary buffed by adjacent seed).
-        const hasGranary = hasSupportedStructure(player.id, tile, "GRANARY", this.tiles);
-        const hasSeedGranary = hasSupportedStructure(player.id, tile, "SEED_GRANARY", this.tiles);
-        const granaryGrowthMult = !hasGranary && !hasSeedGranary
-          ? 1
-          : hasSeedGranary
-            ? (() => {
-                for (let dy = -1; dy <= 1; dy += 1) {
-                  for (let dx = -1; dx <= 1; dx += 1) {
-                    if (dx === 0 && dy === 0) continue;
-                    const nTile = this.tiles.get(`${tile.x + dx},${tile.y + dy}`);
-                    if (
-                      nTile?.ownerId === player.id &&
-                      nTile.ownershipState === "SETTLED" &&
-                      nTile.economicStructure?.type === "SEED_GRANARY" &&
-                      nTile.economicStructure.status === "active"
-                    ) {
-                      return SEED_GRANARY_GROWTH_MULT;
-                    }
-                  }
-                }
-                return 1.15;
-              })()
-            : 1.15;
+        const granaryGrowthMult = this.seedGranaryGrowthMultForTile(tile, player.id);
 
         // First-three-town population growth multiplier.
         const firstThreeMult = firstThreeKeys.has(tileKey)
@@ -1093,6 +1101,7 @@ export class SimulationRuntime {
         };
         const updatedTile = { ...tile, town: updatedTown };
         this.tiles.set(tileKey, updatedTile);
+        this.tileDeltaStringifyCache.invalidate(tileKey);
         this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
 
         // Update the tier index when the tier changed.
@@ -1100,10 +1109,14 @@ export class SimulationRuntime {
           summary.ownedTownTierByTile.set(tileKey, nextTier);
         }
 
-        // Invalidate economy caches — population affects goldPerMinute.
-        this.economySnapshotCacheByPlayer.delete(player.id);
-        this.tileYieldContextCacheByPlayer.delete(player.id);
+        dirtyPlayerIds.add(player.id);
       }
+    }
+
+    // Invalidate economy caches once per player — population affects goldPerMinute.
+    for (const playerId of dirtyPlayerIds) {
+      this.economySnapshotCacheByPlayer.delete(playerId);
+      this.tileYieldContextCacheByPlayer.delete(playerId);
     }
   }
 
