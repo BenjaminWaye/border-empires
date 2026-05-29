@@ -18,7 +18,6 @@ export type DockEconomyContext = {
 
 export type ConnectedTownNetworkOptions = {
   maxConnectedTownNames?: number;
-  onVisitSettledLandTile?: (tileKey: string) => void;
 };
 
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
@@ -76,7 +75,6 @@ export const buildConnectedTownNetworkForPlayer = (
     while (readIndex < queue.length) {
       const current = queue[readIndex]!;
       readIndex += 1;
-      options.onVisitSettledLandTile?.(current);
 
       if (current !== startTownKey && ownedTownKeys.has(current)) {
         // This is a different town — count it as a direct connection but stop traversal here.
