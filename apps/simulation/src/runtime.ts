@@ -1030,6 +1030,28 @@ export class SimulationRuntime {
    */
   tickPopulationGrowth(nowMs: number = this.now()): void {
     const dirtyPlayerIds = new Set<string>();
+
+    // Build set of town tile keys adjacent to active ATTACK locks.
+    const warAdjacentTownKeys = new Set<string>();
+    const seenLockCommandIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      if (seenLockCommandIds.has(lock.commandId)) continue; // locksByTile stores each lock twice
+      seenLockCommandIds.add(lock.commandId);
+      if (lock.actionType !== "ATTACK") continue;
+      for (const lockedKey of [lock.originKey, lock.targetKey]) {
+        const comma = lockedKey.indexOf(",");
+        if (comma <= 0) continue;
+        const lx = Number(lockedKey.slice(0, comma));
+        const ly = Number(lockedKey.slice(comma + 1));
+        // Mark all tiles within 1 step of the lock coordinates.
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            warAdjacentTownKeys.add(`${lx + dx},${ly + dy}`);
+          }
+        }
+      }
+    }
+
     for (const player of this.players.values()) {
       if (player.id.startsWith("barbarian-")) continue;
       const summary = this.summaryForPlayer(player.id);
@@ -1055,6 +1077,8 @@ export class SimulationRuntime {
         if (town.populationTier === "SETTLEMENT") continue;
         // Gate: skip if in capture shock.
         if (typeof town.captureShockUntil === "number" && town.captureShockUntil > nowMs) continue;
+        // Gate: skip towns near active combat (mirrors the "Nearby war" display modifier).
+        if (warAdjacentTownKeys.has(tileKey)) continue;
         // Gate: skip unfed towns.
         if (!fedTownKeys.has(tileKey)) continue;
         // Guard: population and maxPopulation must be present.
@@ -1103,9 +1127,17 @@ export class SimulationRuntime {
         this.tiles.set(tileKey, updatedTile);
         this.tileDeltaStringifyCache.invalidate(tileKey);
         this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: `population-growth-tick:${tileKey}`,
+          playerId: player.id,
+          tileDeltas: [this.tileDeltaFromState(updatedTile)]
+        });
 
         // Update the tier index when the tier changed.
         if (nextTier !== town.populationTier) {
+          // Direct map update intentional — replaceTileState side-effects (planner/anchor
+          // index refresh) are ownership-driven and are no-ops for tier-only changes.
           summary.ownedTownTierByTile.set(tileKey, nextTier);
         }
 
