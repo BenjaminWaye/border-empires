@@ -19,10 +19,37 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.29.1",
+  version: "2026.05.29.2",
   title: "What's New",
-  summary: "Building action menu now shows upkeep cost per minute for every building that has one.",
+  summary: "Shard rain now pings on the minimap, and duplicate-shard prevention.",
   entries: [
+    {
+      introducedIn: "2026.05.29.2",
+      title: "Shard rain now pings on the minimap when it starts",
+      why: "Shard rain sites appeared on the map but never triggered minimap location pings, so players had to scan the entire map to find them. The server was broadcasting site coordinates but only to system-internal subscribers — clients never received them.",
+      changes: [
+        "Shard rain start broadcasts now include the x/y of each placed site alongside the site count.",
+        "Client registers minimap pings for each site immediately when the shard rain alert arrives, using the same staged fall-delay timing as tile-delta-based pings.",
+        "Reconnecting players also get pings from the init-payload shard rain notice."
+      ]
+    },
+    {
+      introducedIn: "2026.05.29.2",
+      title: "Shard rain no longer places sites on tiles used in the previous rain event",
+      why: "When the valid land tile pool is small (e.g. late-game with many claimed tiles), the random placement could land on the exact same tile multiple events in a row, making it look like a stale duplicate.",
+      changes: [
+        "Shard rain now tracks recently-placed tile keys and excludes them from candidate selection during the same event.",
+        "The exclusion set is cleared at the start of each new rain event."
+      ]
+    },
+    {
+      introducedIn: "2026.05.29.2",
+      title: "CACHE shard collections now survive process restarts",
+      why: "One-time CACHE shards could reappear after a simulation process restart because the cleared state wasn't durably checkpointed before the process exited. FALL shards were immune because they expire naturally on the next tick.",
+      changes: [
+        "Collecting a non-FALL (CACHE) shard now requests an immediate checkpoint write, making the cleared state durable before the next process restart."
+      ]
+    },
     {
       introducedIn: "2026.05.29.1",
       title: "Upkeep shown on every building action",
