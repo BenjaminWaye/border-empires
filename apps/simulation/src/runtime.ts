@@ -3007,6 +3007,7 @@ export class SimulationRuntime {
             ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
             techIds: [...player.techIds].sort(),
             domainIds: [...(player.domainIds ?? [])].sort(),
+            ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
             strategicResources: { ...(player.strategicResources ?? {}) },
             allies: [...player.allies].sort(),
             vision: player.mods?.vision ?? 1,
@@ -3578,7 +3579,9 @@ export class SimulationRuntime {
             settledTileCount: summary.settledTileCount,
             townCount: summary.townCount,
             incomePerMinute: this.incomePerMinuteForPlayer(player.id),
-            strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
+            strategicProductionPerMinute: player.id === playerId
+              ? this.cachedEconomySnapshot(player).strategicProductionPerMinute
+              : cloneStrategicProduction(summary.strategicProductionPerMinute),
             activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
           };
         })
@@ -3692,7 +3695,9 @@ export class SimulationRuntime {
           settledTileCount: summary.settledTileCount,
           townCount: summary.townCount,
           incomePerMinute: this.incomePerMinuteForPlayer(player.id),
-          strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
+          strategicProductionPerMinute: player.id === playerId
+            ? this.cachedEconomySnapshot(player).strategicProductionPerMinute
+            : cloneStrategicProduction(summary.strategicProductionPerMinute),
           activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
         };
       })
