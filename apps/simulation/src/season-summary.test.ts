@@ -26,7 +26,6 @@ describe("buildCurrentSeasonSummary", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10"]
         },
         {
           id: "ai-1",
@@ -40,7 +39,6 @@ describe("buildCurrentSeasonSummary", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["30,30"]
         },
         {
           id: "barbarian-1",
@@ -54,7 +52,6 @@ describe("buildCurrentSeasonSummary", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["50,50"]
         }
       ],
       pendingSettlements: [],
