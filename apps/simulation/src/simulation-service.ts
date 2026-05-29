@@ -860,6 +860,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     1,
     Number(process.env.SIMULATION_RUNTIME_BACKGROUND_BATCH_SIZE ?? 1)
   );
+  let onShardCollectedCallback: (() => void) | undefined;
   let runtime = new SimulationRuntime({
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
@@ -914,6 +915,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     },
     onVisibilityAudit: handleVisibilityAudit,
+    onShardCollected: () => {
+      onShardCollectedCallback?.();
+    },
     onCaptureRevealBuilt: captureRevealBuildSample,
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
@@ -1006,6 +1010,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   });
+  // Wire the deferred callback so CACHE shard collections trigger an immediate checkpoint.
+  onShardCollectedCallback = () => {
+    void snapshotCheckpointManager.checkpointNow().catch((error) => {
+      log.error({ err: error }, "simulation forced checkpoint after shard collect failed");
+    });
+  };
   const runStartupReplayCompaction = createStartupReplayCompactionRunner({
     checkpointNow: snapshotCheckpointManager.checkpointNow,
     recoveredEventCount: effectiveStartupRecovery.recoveredEventCount,
