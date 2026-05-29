@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.28.3",
+  version: "2026.05.29.1",
   title: "What's New",
-  summary: "Manpower now regenerates far more slowly, so the game rewards expansion and timing over sheer hours online. The manpower rate shows one decimal so small regen is visible.",
+  summary: "Building action menu now shows upkeep cost per minute for every building that has one.",
   entries: [
+    {
+      introducedIn: "2026.05.29.1",
+      title: "Upkeep shown on every building action",
+      why: "The buildings tab showed build cost and time but omitted the ongoing upkeep, so players had no way to see what a building would cost per minute before committing.",
+      changes: [
+        "All buildings with gold, food, or crystal upkeep now display it in the action menu detail line (e.g. '0.1 gold/min', '0.05 food/min').",
+        "Corrected the Fur Synthesizer, Ironworks, and Aether Condenser upkeep display from 12/12/16 gold/min to the correct 6/6/8 gold/min.",
+        "Corrected Harbor Exchange (Customs House) upkeep from 0.5 to 1.5 gold/min.",
+        "Removed phantom '1.5 gold/min' from Caravanary — the sim charges food upkeep only.",
+        "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
+      ],
+    },
     {
       introducedIn: "2026.05.28.3",
       title: "Manpower regen slowed; rate shows a decimal",
