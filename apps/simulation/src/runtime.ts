@@ -6630,6 +6630,17 @@ export class SimulationRuntime {
     return false;
   }
 
+  // Fast path for decay-timer-only mutations in updateFrontierDecay. Starting or
+  // clearing a frontier decay timer changes only frontierDecayAt/frontierDecayKind
+  // — ownerId and ownershipState are unchanged — so none of replaceTileState's
+  // ownership-change maintenance (economy/summary/planner/index refreshes) applies.
+  // This collapses the cold first-tick cost from O(frontier × (territory + radius²))
+  // to O(frontier). Caller is responsible for emitting the tile delta.
+  private setFrontierDecayTimerFields(tileKey: string, tile: DomainTileState): void {
+    this.tiles.set(tileKey, tile);
+    this.tileDeltaStringifyCache.invalidate(tileKey);
+  }
+
   private updateFrontierDecay(nowMs: number): void {
     // Reset pooled accumulators without discarding inner arrays (pool pattern).
     for (const arr of this.frontierDecayChangedByOwner.values()) arr.length = 0;
@@ -6669,7 +6680,7 @@ export class SimulationRuntime {
             frontierDecayAt: undefined,
             frontierDecayKind: undefined
           };
-          this.replaceTileState(tileKey, queuedTile, `frontier-decay-paused:${ownerId}:${tileKey}:${nowMs}`);
+          this.setFrontierDecayTimerFields(tileKey, queuedTile);
           addChangedDelta(ownerId, this.tileDeltaFromState(queuedTile));
           continue;
         }
@@ -6680,7 +6691,7 @@ export class SimulationRuntime {
             frontierDecayAt: undefined,
             frontierDecayKind: undefined
           };
-          this.replaceTileState(tileKey, supportedTile, `frontier-decay-supported:${ownerId}:${tileKey}:${nowMs}`);
+          this.setFrontierDecayTimerFields(tileKey, supportedTile);
           addChangedDelta(ownerId, this.tileDeltaFromState(supportedTile));
           continue;
         }
@@ -6712,7 +6723,7 @@ export class SimulationRuntime {
             frontierDecayAt: decayAt,
             frontierDecayKind: "NATURAL"
           };
-          this.replaceTileState(tileKey, decayingTile, `frontier-decay-started:${ownerId}:${tileKey}:${nowMs}`);
+          this.setFrontierDecayTimerFields(tileKey, decayingTile);
           addChangedDelta(ownerId, this.tileDeltaFromState(decayingTile));
         }
       }
