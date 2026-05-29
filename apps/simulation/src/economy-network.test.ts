@@ -61,41 +61,36 @@ describe("connected town network", () => {
     );
 
     expect(network.get("0,0")).toMatchObject({
-      connectedTownCount: 2,
-      connectedTownBonus: 0.9
+      connectedTownCount: 1,
+      connectedTownBonus: 0.5
     });
     expect(network.get("0,0")?.connectedTownNames).toBeUndefined();
   });
 
-  it("visits each settled land tile once for a large connected town component", () => {
-    const width = 35;
-    const height = 35;
-    const tiles = new Map<string, DomainTileState>();
-    for (let y = 0; y < height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        const tile = townTile(x, y, `Town ${x},${y}`);
-        tiles.set(`${tile.x},${tile.y}`, tile);
-      }
-    }
+  it("does not count a town as connected when only reachable through another town", () => {
+    // Three towns in a line, each separated by a non-town settled land tile.
+    // Layout: Alpha(0,0) — land(1,0) — Beta(2,0) — land(3,0) — Gamma(4,0)
+    const landTile = (x: number, y: number): DomainTileState => ({
+      x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED"
+    });
 
-    const visited = new Map<string, number>();
+    const tiles = new Map<string, DomainTileState>([
+      ["0,0", townTile(0, 0, "Alpha")],
+      ["1,0", landTile(1, 0)],
+      ["2,0", townTile(2, 0, "Beta")],
+      ["3,0", landTile(3, 0)],
+      ["4,0", townTile(4, 0, "Gamma")]
+    ]);
+
     const network = buildConnectedTownNetworkForPlayer(
       { id: "player-1", techIds: [], domainIds: [] },
       tiles,
-      tiles.values(),
-      {
-        maxConnectedTownNames: 0,
-        onVisitSettledLandTile: (tileKey) => visited.set(tileKey, (visited.get(tileKey) ?? 0) + 1)
-      }
+      tiles.values()
     );
 
-    expect(network.size).toBe(width * height);
-    expect(visited.size).toBe(width * height);
-    expect(Math.max(...visited.values())).toBe(1);
-    expect(network.get("0,0")).toMatchObject({
-      connectedTownCount: width * height - 1,
-      connectedTownBonus: 1.2
-    });
-    expect(network.get("0,0")?.connectedTownNames).toBeUndefined();
+    // Alpha and Gamma each connect to Beta only — not to each other.
+    expect(network.get("0,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
+    expect(network.get("2,0")).toMatchObject({ connectedTownCount: 2, connectedTownNames: ["Alpha", "Gamma"] });
+    expect(network.get("4,0")).toMatchObject({ connectedTownCount: 1, connectedTownNames: ["Beta"] });
   });
 });
