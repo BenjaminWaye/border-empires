@@ -137,6 +137,144 @@ describe("yield-bearing tile index: perf gate (250k tiles)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Perf gate — COLD CACHE 250k tiles, COLLECT_VISIBLE < 500ms
+//
+// Reason this test exists: the warm-cache gate above measures the second call
+// after the first one populated economySnapshotCacheByPlayer + tileYieldContext
+// + defensibilityMetrics. In prod those caches are invalidated on EVERY
+// replaceTileState for the owner, so a player who just attacked/expanded/
+// settled then immediately fires COLLECT_VISIBLE pays the full rebuild cost.
+// On 2026-05-28 prod hit p99 4s on COLLECT_VISIBLE because of this exact
+// path — warm-only gates let the regression ship.
+// ---------------------------------------------------------------------------
+
+describe("yield-bearing tile index: cold-cache perf gate", () => {
+  // Helper: invalidate the per-player caches exactly the way replaceTileState
+  // does (runtime.ts:2130-2138). Simulates the steady-state prod condition
+  // where the player just did an action that mutated one of their tiles, so
+  // the next COLLECT_VISIBLE pays the full rebuild cost.
+  const invalidatePlayerCaches = (runtime: SimulationRuntime, playerId: string): void => {
+    const rt = runtime as unknown as {
+      economySnapshotCacheByPlayer: Map<string, unknown>;
+      defensibilityMetricsCacheByPlayer: Map<string, unknown>;
+      tileYieldContextCacheByPlayer: Map<string, unknown>;
+    };
+    rt.economySnapshotCacheByPlayer.delete(playerId);
+    rt.defensibilityMetricsCacheByPlayer.delete(playerId);
+    rt.tileYieldContextCacheByPlayer.delete(playerId);
+  };
+
+  // Prod-shape: 2026-05-28 logs showed ai-1 with 967 owned tiles producing
+  // p99 4s on COLLECT_VISIBLE. The 250k-warm gate (above) cannot catch that
+  // because it only measures the second call with all caches hot. This gate
+  // exercises a prod-realistic empire on the cold path that the AI actually
+  // hits between tile mutations.
+  it("prod-shape (1k tiles, ~300 yield-bearing) cold-cache COLLECT_VISIBLE < 200ms", async () => {
+    const NOW_MS = 2_000_000;
+    const seedTiles = new Map<string, DomainTileState>();
+    const PLAIN_COUNT = 700;
+    const TOWN_COUNT = 150;
+    const RESOURCE_COUNT = 100;
+    const CONVERTER_COUNT = 50;
+    const addTile = (idx: number, tile: Partial<DomainTileState>): void => {
+      const x = idx % 50;
+      const y = Math.floor(idx / 50);
+      seedTiles.set(`${x},${y}`, settledLand(x, y, tile));
+    };
+    for (let i = 0; i < PLAIN_COUNT; i++) addTile(i, {});
+    for (let i = 0; i < TOWN_COUNT; i++) {
+      addTile(PLAIN_COUNT + i, { town: { type: "FARMING", populationTier: "SETTLEMENT", name: `Town${i}` } });
+    }
+    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "OIL", "FUR"] as const;
+    for (let i = 0; i < RESOURCE_COUNT; i++) {
+      addTile(PLAIN_COUNT + TOWN_COUNT + i, { resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length] });
+    }
+    const CONVERTER_TYPES = ["FUR_SYNTHESIZER", "IRONWORKS", "CRYSTAL_SYNTHESIZER"] as const;
+    for (let i = 0; i < CONVERTER_COUNT; i++) {
+      addTile(PLAIN_COUNT + TOWN_COUNT + RESOURCE_COUNT + i, {
+        economicStructure: { ownerId: PLAYER_ID, type: CONVERTER_TYPES[i % CONVERTER_TYPES.length], status: "active", level: 1 }
+      });
+    }
+
+    const runtime = new SimulationRuntime({
+      now: () => NOW_MS,
+      initialPlayers: new Map([[PLAYER_ID, makePlayer(PLAYER_ID)]]),
+      seedTiles
+    });
+
+    runtime.submitCommand(makeCommand(1));
+    await Promise.resolve();
+    const cooldowns = (runtime as unknown as { collectVisibleCooldownByPlayer: Map<string, number> }).collectVisibleCooldownByPlayer;
+    cooldowns.set(PLAYER_ID, 0);
+    invalidatePlayerCaches(runtime, PLAYER_ID);
+
+    const start = Date.now();
+    runtime.submitCommand(makeCommand(2));
+    await Promise.resolve();
+    const elapsed = Date.now() - start;
+
+    console.log(`[perf-gate] COLLECT_VISIBLE prod-shape COLD CACHE: ${elapsed}ms`);
+
+    // The prod p99 was 4000ms on similar empire size. 200ms gives 20× headroom
+    // for CI variance and catches anything that pushes cold rebuilds beyond
+    // single-tick noise.
+    expect(elapsed, `COLLECT_VISIBLE cold-cache took ${elapsed}ms — must be < 200ms`).toBeLessThan(200);
+  }, 30_000);
+
+  // Scale gate: 250k tiles cold path. Catches algorithmic regressions in the
+  // cache rebuild (buildConnectedTownNetworkForPlayer, fedTownKeysForPlayer,
+  // etc.) that would scale superlinearly with territory size. Threshold is
+  // generous because we expect the cold rebuild to be ~O(territory).
+  it("scale (250k tiles) cold-cache COLLECT_VISIBLE < 2000ms", async () => {
+    const NOW_MS = 2_000_000;
+    const seedTiles = new Map<string, DomainTileState>();
+    const PLAIN_COUNT = 249_000;
+    const TOWN_COUNT = 500;
+    const RESOURCE_COUNT = 250;
+    const CONVERTER_COUNT = 250;
+    const addTile = (idx: number, tile: Partial<DomainTileState>): void => {
+      const x = idx % 1000;
+      const y = Math.floor(idx / 1000);
+      seedTiles.set(`${x},${y}`, settledLand(x, y, tile));
+    };
+    for (let i = 0; i < PLAIN_COUNT; i++) addTile(i, {});
+    for (let i = 0; i < TOWN_COUNT; i++) {
+      addTile(PLAIN_COUNT + i, { town: { type: "FARMING", populationTier: "SETTLEMENT", name: `Town${i}` } });
+    }
+    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "OIL", "FUR"] as const;
+    for (let i = 0; i < RESOURCE_COUNT; i++) {
+      addTile(PLAIN_COUNT + TOWN_COUNT + i, { resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length] });
+    }
+    const CONVERTER_TYPES = ["FUR_SYNTHESIZER", "IRONWORKS", "CRYSTAL_SYNTHESIZER"] as const;
+    for (let i = 0; i < CONVERTER_COUNT; i++) {
+      addTile(PLAIN_COUNT + TOWN_COUNT + RESOURCE_COUNT + i, {
+        economicStructure: { ownerId: PLAYER_ID, type: CONVERTER_TYPES[i % CONVERTER_TYPES.length], status: "active", level: 1 }
+      });
+    }
+
+    const runtime = new SimulationRuntime({
+      now: () => NOW_MS,
+      initialPlayers: new Map([[PLAYER_ID, makePlayer(PLAYER_ID)]]),
+      seedTiles
+    });
+
+    runtime.submitCommand(makeCommand(1));
+    await Promise.resolve();
+    const cooldowns = (runtime as unknown as { collectVisibleCooldownByPlayer: Map<string, number> }).collectVisibleCooldownByPlayer;
+    cooldowns.set(PLAYER_ID, 0);
+    invalidatePlayerCaches(runtime, PLAYER_ID);
+
+    const start = Date.now();
+    runtime.submitCommand(makeCommand(2));
+    await Promise.resolve();
+    const elapsed = Date.now() - start;
+
+    console.log(`[perf-gate] COLLECT_VISIBLE 250k tiles COLD CACHE: ${elapsed}ms`);
+    expect(elapsed, `COLLECT_VISIBLE cold-cache took ${elapsed}ms — must be < 2000ms`).toBeLessThan(2000);
+  }, 30_000);
+});
+
+// ---------------------------------------------------------------------------
 // Correctness test — small runtime, verify gold + strategic match full scan
 // ---------------------------------------------------------------------------
 
