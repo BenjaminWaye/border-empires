@@ -1,4 +1,4 @@
-import { structureBuildDurationMs } from "@border-empires/shared";
+import { bestFortTierForTech, nextFortTierForUpgrade, structureBuildDurationMs, type FortVariant } from "@border-empires/shared";
 import { shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "./client-types.js";
@@ -151,20 +151,10 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       tile.optimisticPending = "structure_build";
       if (kind === "FORT") {
         delete tile.economicStructure;
-        const variant =
-          tile.fort?.variant === "FORT"
-            ? state.techIds.includes("fortified-walls")
-              ? "IRON_BASTION"
-              : "FORT"
-            : tile.fort?.variant === "IRON_BASTION"
-              ? state.techIds.includes("steelworking")
-                ? "THUNDER_BASTION"
-                : "IRON_BASTION"
-              : state.techIds.includes("steelworking")
-                ? "THUNDER_BASTION"
-                : state.techIds.includes("fortified-walls")
-                  ? "IRON_BASTION"
-                  : "FORT";
+        const hasTech = (id: string) => state.techIds.includes(id);
+        const variant: FortVariant = tile.fort
+          ? (nextFortTierForUpgrade(tile.fort.variant, hasTech)?.variant ?? tile.fort.variant ?? "FORT")
+          : bestFortTierForTech(hasTech).variant;
         tile.fort = { ownerId: state.me, status: "under_construction", variant, completesAt };
         return;
       }

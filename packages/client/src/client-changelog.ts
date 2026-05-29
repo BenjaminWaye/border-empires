@@ -21,8 +21,19 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.05.29.2",
   title: "What's New",
-  summary: "Shard rain now pings on the minimap, and duplicate-shard prevention.",
+  summary: "Fort and siege tiers now persist server-side. Shard rain now pings on the minimap, and duplicate-shard prevention.",
   entries: [
+    {
+      introducedIn: "2026.05.29.2",
+      title: "Fort and siege outpost tiers persist — Iron/Thunder Bastion defense and Siege/Dread Tower attack work correctly",
+      why: "Fort and siege variants existed only as client-side optimistic labels. The simulation never stored a structure's tier, so combat multipliers defaulted to base values (5x for all forts, 1.6x for all siege). Upgrade menus offered bogus actions on maxed structures, and menu text showed wrong defense/attack numbers. Displayed siege attack multipliers are also corrected — they now match the authoritative config values.",
+      changes: [
+        "Forts: BUILD_FORT creates the best available tier and upgrades follow FORT → Iron Bastion → Thunder Bastion. Costs: Iron 1800g/90 iron, Thunder 4200g/180 iron.",
+        "Siege: BUILD_SIEGE_OUTPOST creates the best available tier and upgrades follow Siege Outpost → Siege Tower → Dread Tower. Costs: Tower 1800g/90 SUPPLY/60 IRON, Dread 4200g/140 SUPPLY/120 IRON.",
+        "Attack multiplier labels on Siege Tower (was 2x, now 1.8x) and Dread Tower (was 3x, now 2.0x) corrected — no behavior change, just accurate labels.",
+        "buildDetailTextForAction now shows correct tier-based defense and attack numbers."
+      ]
+    },
     {
       introducedIn: "2026.05.29.2",
       title: "Shard rain now pings on the minimap when it starts",
@@ -61,7 +72,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Removed phantom '1.5 gold/min' from Caravanary — the sim charges food upkeep only.",
         "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
       ],
-    },
     {
       introducedIn: "2026.05.28.3",
       title: "Manpower regen slowed; rate shows a decimal",
