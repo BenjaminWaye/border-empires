@@ -47,6 +47,8 @@ import {
   structureCostDefinition,
   structurePlacementMetadata,
   structureShowsOnTile,
+  bestFortTierForTech,
+  nextFortTierForUpgrade,
   isChosenTrickleResource,
   type BuildableStructureType,
   type EconomicStructureType
@@ -7064,7 +7066,8 @@ export class SimulationRuntime {
       target.economicStructure?.ownerId === command.playerId &&
       target.economicStructure.type === "WOODEN_FORT" &&
       (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
-    if (target.fort || target.observatory || target.siegeOutpost || (target.economicStructure && !upgradingWoodenFort)) {
+    // Allow upgrading an existing fort; block other conflicting structures.
+    if (target.observatory || target.siegeOutpost || (target.economicStructure && !upgradingWoodenFort && !target.fort)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -7074,14 +7077,33 @@ export class SimulationRuntime {
       });
       return;
     }
+
+    // Compute the target tier.
+    const hasTech = (id: string) => actor.techIds.has(id);
+    const targetTier = target.fort
+      ? nextFortTierForUpgrade(target.fort.variant, hasTech)
+      : bestFortTierForTech(hasTech);
+
+    if (target.fort && !targetTier) {
+      const isMaxed = target.fort.variant === "THUNDER_BASTION";
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BUILD_INVALID",
+        message: isMaxed ? "fort already at maximum tier" : "research the next tier first"
+      });
+      return;
+    }
+    if (!targetTier) return; // should be unreachable: fresh build always has at least FORT
+
     if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
 
+    // Charge the target tier's costs (flat, no per-count scaling).
+    // This aligns the sim with what the client menu already displays.
     const fortGoldCostMult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
-    const goldCost = Math.max(
-      0,
-      Math.round(structureBuildGoldCost("FORT", this.ownedStructureCountForPlayer(command.playerId, "FORT")) * fortGoldCostMult)
-    );
-    const manpowerCost = structureBuildManpowerCost("FORT");
+    const goldCost = Math.max(0, Math.round(targetTier.gold * fortGoldCostMult));
+    const manpowerCost = targetTier.manpower;
     if (actor.points < goldCost) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -7102,7 +7124,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "IRON", 45)) {
+    if (!this.spendStrategicResource(actor, "IRON", targetTier.iron)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -7125,7 +7147,8 @@ export class SimulationRuntime {
       fort: {
         ownerId: command.playerId,
         status: "under_construction",
-        completesAt: this.now() + fortBuildDurationMs
+        completesAt: this.now() + fortBuildDurationMs,
+        variant: targetTier.variant
       }
     };
     this.replaceTileState(targetKey, startedTile);

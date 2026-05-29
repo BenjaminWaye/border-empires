@@ -3624,6 +3624,285 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("persists the variant on a fresh fort build (tech determines tier)", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["masonry", "fortified-walls"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { IRON: 500 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      const events: string[] = [];
+      runtime.onEvent((event) => {
+        events.push(event.eventType);
+      });
+
+      runtime.submitCommand({
+        commandId: "fort-tier-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_FORT",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+
+      await Promise.resolve();
+      expect(events).toContain("TILE_DELTA_BATCH");
+      const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+      expect(tile?.fortJson).toBeDefined();
+      expect(tile?.fortJson).toContain("\"variant\":\"IRON_BASTION\"");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("upgrades FORT → IRON_BASTION when fortified-walls is researched", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["masonry", "fortified-walls"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { IRON: 500 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      const events: string[] = [];
+      runtime.onEvent((event) => {
+        events.push(event.eventType);
+      });
+
+      runtime.submitCommand({
+        commandId: "fort-upgrade-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_FORT",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+
+      await Promise.resolve();
+      expect(events).toContain("TILE_DELTA_BATCH");
+      const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+      expect(tile?.fortJson).toBeDefined();
+      expect(tile?.fortJson).toContain("\"variant\":\"IRON_BASTION\"");
+      // Should charge 1800 gold + 90 iron (not base FORT costs).
+      // Points drop: 10_000 - (round(1800 * 1.0)) = 8_200
+      const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
+      expect(player.points).toBeLessThan(9_000); // clearly less than the base FORT 900
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects THUNDER_BASTION upgrade when already max tier", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { IRON: 500 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "THUNDER_BASTION" as const } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      const events: Array<{ code: string; message: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") events.push({ code: event.code, message: event.message });
+      });
+
+      runtime.submitCommand({
+        commandId: "fort-maxed-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_FORT",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+
+      await Promise.resolve();
+      expect(events).toHaveLength(1);
+      expect(events[0].code).toBe("BUILD_INVALID");
+      expect(events[0].message).toBe("fort already at maximum tier");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects FORT upgrade when next tier tech is missing", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["masonry"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { IRON: 500 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      const events: Array<{ code: string; message: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") events.push({ code: event.code, message: event.message });
+      });
+
+      runtime.submitCommand({
+        commandId: "fort-no-tech-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_FORT",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+
+      await Promise.resolve();
+      expect(events).toHaveLength(1);
+      expect(events[0].code).toBe("BUILD_INVALID");
+      expect(events[0].message).toBe("research the next tier first");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("persists the variant through completeFortBuild", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { IRON: 500 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "fort-complete-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_FORT",
+        payloadJson: JSON.stringify({ x: 10, y: 10 })
+      });
+
+      await Promise.resolve();
+      // Under construction — should have THUNDER_BASTION variant
+      let tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+      expect(tile?.fortJson).toContain("\"variant\":\"THUNDER_BASTION\"");
+      expect(tile?.fortJson).toContain("\"status\":\"under_construction\"");
+
+      // Advance past build time
+      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+
+      tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+      expect(tile?.fortJson).toContain("\"variant\":\"THUNDER_BASTION\"");
+      expect(tile?.fortJson).toContain("\"status\":\"active\"");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps an active wooden fort until its full fort upgrade completes", async () => {
     vi.useFakeTimers();
     try {

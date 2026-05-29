@@ -1,8 +1,10 @@
 import {
   FORT_BUILD_MS,
+  FORT_TIER_LADDER,
   OBSERVATORY_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
   SIEGE_OUTPOST_BUILD_MS,
+  nextFortTierForUpgrade,
   structureBuildDurationMs
 } from "@border-empires/shared";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, storedYieldSummary, strategicResourceKeyForTile, tileProductionHtml } from "./client-map-display.js";
@@ -35,11 +37,12 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "settle_land") return "Makes this tile defended and activates production.";
   if (actionId === "settle_connected_frontier") return "Queues a settlement on every connected frontier tile you own.";
   if (actionId === "build_fortification") {
-    if (tile.fort?.variant === "FORT") return "Upgrade this Fort into an Iron Bastion. Iron Bastions defend at 4x.";
-    if (tile.fort?.variant === "IRON_BASTION") return "Upgrade this Iron Bastion into a Thunder Bastion. Thunder Bastions defend at 8x.";
+    const currentVariant = tile.fort?.variant ?? "FORT";
+    if (currentVariant === "FORT") return `Upgrade this Fort into an Iron Bastion. Iron Bastions defend at ${FORT_TIER_LADDER.IRON_BASTION.defenseMult}x.`;
+    if (currentVariant === "IRON_BASTION") return `Upgrade this Iron Bastion into a Thunder Bastion. Thunder Bastions defend at ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x.`;
     return tile.economicStructure?.type === "WOODEN_FORT"
-      ? "Upgrade this Wooden Fort into a full fortification. Forts defend at 2.5x and stop failed attacks from costing the origin tile."
-      : "Fortify this tile. Forts defend at 2.5x and stop failed attacks from costing the origin tile.";
+      ? `Upgrade this Wooden Fort into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
+      : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
   }
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
   if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;

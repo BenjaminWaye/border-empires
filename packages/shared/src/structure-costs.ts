@@ -1,5 +1,5 @@
 import { ECONOMIC_STRUCTURE_BUILD_MS, FORT_BUILD_MS, LIGHT_OUTPOST_BUILD_MS, OBSERVATORY_BUILD_MS, SIEGE_OUTPOST_BUILD_MS, WOODEN_FORT_BUILD_MS } from "./config.js";
-import type { EconomicStructureType } from "./types.js";
+import type { EconomicStructureType, FortVariant } from "./types.js";
 
 export type StrategicResourceCostType = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
 export type BuildableStructureType = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | EconomicStructureType;
@@ -86,6 +86,41 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   WORLD_ENGINE: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } },
   AEGIS_DOME: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } },
   ASTRAL_DOCK: { baseGoldCost: 18_000, resourceCost: { resource: "SHARD", amount: 2 } }
+};
+
+// ── Fort tier ladder ───────────────────────────────────────────────
+// Single source of truth for fort variant costs and combat multipliers.
+// Used by the simulation (runtime.ts), game-domain (fortAttackManpowerMultiplier),
+// and the client (action logic, optimistic state, UI controls, menu view).
+
+export type FortTierInfo = {
+  variant: FortVariant;
+  gold: number;
+  iron: number;
+  manpower: number;
+  defenseMult: number;
+};
+
+export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
+  FORT:             { variant: "FORT",             gold: 900,  iron: 45,  manpower: 300, defenseMult: 2.5 },
+  IRON_BASTION:     { variant: "IRON_BASTION",     gold: 1800, iron: 90,  manpower: 300, defenseMult: 4 },
+  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 4200, iron: 180, manpower: 300, defenseMult: 8 },
+};
+
+export const bestFortTierForTech = (has: (id: string) => boolean): FortTierInfo => {
+  if (has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
+  if (has("fortified-walls")) return FORT_TIER_LADDER.IRON_BASTION;
+  return FORT_TIER_LADDER.FORT;
+};
+
+export const nextFortTierForUpgrade = (
+  current: FortVariant | undefined,
+  has: (id: string) => boolean,
+): FortTierInfo | null => {
+  const resolved = current ?? "FORT";
+  if (resolved === "FORT" && has("fortified-walls")) return FORT_TIER_LADDER.IRON_BASTION;
+  if (resolved === "IRON_BASTION" && has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
+  return null;
 };
 
 export const structureCostDefinition = (type: BuildableStructureType): StructureCostDefinition => STRUCTURE_COST_DEFINITIONS[type];
