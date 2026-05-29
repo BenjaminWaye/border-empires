@@ -79,6 +79,24 @@ export const shardRainPingActiveAt = (
   visibleMs: number = SHARD_RAIN_PING_VISIBLE_MS
 ): boolean => nowMs >= ping.activateAt && nowMs < ping.activateAt + visibleMs;
 
+export const registerShardRainPingsFromAlert = (
+  state: Pick<ClientState, "shardRainPingsByTile" | "shardAlert">,
+  alert: ClientShardRainAlert,
+  nowMs: number = Date.now()
+): void => {
+  if (alert.phase !== "started" || !alert.sites || alert.sites.length === 0) return;
+  for (const { x, y } of alert.sites) {
+    const tileKey = pingKeyForTile({ x, y });
+    if (state.shardRainPingsByTile.has(tileKey)) continue;
+    state.shardRainPingsByTile.set(tileKey, {
+      x,
+      y,
+      createdAt: nowMs,
+      activateAt: scheduledActivateAt(alert, x, y, nowMs)
+    });
+  }
+};
+
 export const pruneShardRainPings = (
   state: Pick<ClientState, "tiles" | "shardRainPingsByTile">
 ): boolean => {
@@ -87,12 +105,16 @@ export const pruneShardRainPings = (
 
 export const pruneExpiredShardRainPings = (
   state: Pick<ClientState, "tiles" | "shardRainPingsByTile">,
-  _nowMs: number = Date.now(),
-  _visibleMs: number = SHARD_RAIN_PING_VISIBLE_MS
+  nowMs: number = Date.now(),
+  visibleMs: number = SHARD_RAIN_PING_VISIBLE_MS
 ): boolean => {
   let changed = false;
-  for (const [tileKey] of state.shardRainPingsByTile) {
+  for (const [tileKey, ping] of state.shardRainPingsByTile) {
     if (isActiveShardFall(state.tiles.get(tileKey))) continue;
+    // Keep pings registered from the alert broadcast for their full
+    // activateAt + visibleMs window, even when the tile is not yet in
+    // the player's vision (absent from state.tiles or fogged).
+    if (nowMs < ping.activateAt + visibleMs) continue;
     state.shardRainPingsByTile.delete(tileKey);
     changed = true;
   }

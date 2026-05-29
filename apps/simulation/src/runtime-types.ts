@@ -191,6 +191,8 @@ export type SimulationRuntimeOptions = {
     tileCount: number;
     durationMs: number;
   }) => void;
+  /** Called when a non-FALL shard is collected so the runtime can request an immediate checkpoint. */
+  onShardCollected?: () => void;
 };
 
 export type SimulationTileWireDelta = {
