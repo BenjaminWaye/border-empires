@@ -483,6 +483,12 @@ export class SimulationRuntime {
   // in the constructor. Used by handleCollectVisibleCommand to skip the 99% of
   // settled tiles that produce zero yield (plain land).
   private readonly yieldBearingTilesByOwner = new Map<string, Set<string>>();
+  // Sorted (deterministic drain order) snapshot of yieldBearingTilesByOwner.
+  // Lazily populated; invalidated (deleted) whenever the underlying Set
+  // changes via addYieldBearingTileToOwnerIndex or removeYieldBearingTileFromOwnerIndex.
+  // Avoids O(n log n) spread+sort in consumeUpkeepFromTileYield on every tick
+  // for players whose yield-bearing set is stable.
+  private readonly sortedYieldBearingKeysByOwner = new Map<string, string[]>();
   // Per-(owner, BuildableStructureType) counter used by structureBuildGoldCost
   // to apply incremental scaling on each new BUILD_* command. Replaces an
   // O(all_tiles) scan that took 884ms on a 250k-tile world (2026-05-28 prod
@@ -2118,8 +2124,21 @@ export class SimulationRuntime {
     let economyContext: RuntimeTileYieldEconomyContext | undefined;
     // Use yield-bearing index to skip plain settled tiles that produce nothing.
     // Sort for deterministic drain order — same as the old full-territory sort.
+    // The sorted array is cached (sortedYieldBearingKeysByOwner) and invalidated
+    // only when the underlying set changes, avoiding O(n log n) spread+sort
+    // on every tick for players whose yield-bearing set is stable.
     const yieldBearingSet = this.yieldBearingTilesByOwner.get(player.id);
-    const tileKeys = yieldBearingSet ? [...yieldBearingSet].sort() : [];
+    let tileKeys: readonly string[];
+    if (!yieldBearingSet || yieldBearingSet.size === 0) {
+      tileKeys = [];
+    } else {
+      let cached = this.sortedYieldBearingKeysByOwner.get(player.id);
+      if (!cached) {
+        cached = [...yieldBearingSet].sort();
+        this.sortedYieldBearingKeysByOwner.set(player.id, cached);
+      }
+      tileKeys = cached;
+    }
     const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
     // Collect anchor updates locally and emit ONE batch event at the end of
     // the loop. Pre-batch, each updated tile fired a TILE_YIELD_ANCHOR_UPDATED
@@ -2603,11 +2622,12 @@ export class SimulationRuntime {
     let set = this.yieldBearingTilesByOwner.get(ownerId);
     if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(ownerId, set); }
     set.add(tileKey);
+    this.sortedYieldBearingKeysByOwner.delete(ownerId);
   }
 
   private removeYieldBearingTileFromOwnerIndex(tileKey: string, ownerId: string): void {
     const set = this.yieldBearingTilesByOwner.get(ownerId);
-    if (set) set.delete(tileKey);
+    if (set) { set.delete(tileKey); this.sortedYieldBearingKeysByOwner.delete(ownerId); }
   }
 
   private refreshYieldBearingIndexForTile(
