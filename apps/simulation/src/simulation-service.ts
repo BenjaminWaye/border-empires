@@ -547,6 +547,7 @@ const normalizeAutopilotEnabled = (value: boolean | string | number | undefined)
 
 export const createSimulationService = async (options: SimulationServiceOptions = {}) => {
   const log = options.log ?? console;
+  const nonCompetitivePlayerIds = options.nonCompetitivePlayerIds;
   const aiAutopilotEnabled = normalizeAutopilotEnabled(options.enableAiAutopilot as boolean | string | number | undefined);
   const systemAutopilotEnabled = normalizeAutopilotEnabled(
     options.enableSystemAutopilot as boolean | string | number | undefined
@@ -1163,7 +1164,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {})
+      ...(respawnNotice ? { respawnNotice } : {}),
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     });
     if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
     recordSnapshotDiagnostics(playerId, snapshot, {
@@ -1205,7 +1207,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {})
+      ...(respawnNotice ? { respawnNotice } : {}),
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     });
     if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
     recordSnapshotDiagnostics(playerId, snapshot, {
@@ -1815,7 +1818,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         seasonState: bootstrap.seasonState,
         runtimeState: nextRuntime.exportState(),
         onlinePlayers: 0,
-        updatedAt: bootstrap.seasonState.startedAt
+        updatedAt: bootstrap.seasonState.startedAt,
+        ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
       });
       await seasonSummaryStore.startNextSeason({
         archiveSummary,
