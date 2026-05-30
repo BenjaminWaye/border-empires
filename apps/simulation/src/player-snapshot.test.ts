@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TOWN_MANPOWER_BY_TIER } from "@border-empires/shared";
+import { TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import { buildPlayerSubscriptionSnapshot, buildPlayerSubscriptionSnapshotAsync } from "./player-snapshot.js";
 import { SimulationRuntime } from "./runtime.js";
 import { yieldToEventLoop } from "./event-loop-yield.js";
