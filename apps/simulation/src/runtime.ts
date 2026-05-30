@@ -3204,7 +3204,6 @@ export class SimulationRuntime {
       vision: number;
       visionRadiusBonus: number;
       incomeMultiplier?: number;
-      territoryTileKeys: string[];
       ownedTownTileKeys: string[];
       settledTileCount?: number;
       townCount?: number;
@@ -3280,7 +3279,6 @@ export class SimulationRuntime {
             vision: player.mods?.vision ?? 1,
             visionRadiusBonus: visionRadiusBonusForPlayer(player),
             incomeMultiplier: player.mods?.income ?? 1,
-            territoryTileKeys: [...summary.territoryTileKeys],
             ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
             settledTileCount: summary.settledTileCount,
             townCount: summary.townCount,
@@ -3574,7 +3572,6 @@ export class SimulationRuntime {
             vision: player.mods?.vision ?? 1,
             visionRadiusBonus: visionRadiusBonusForPlayer(player),
             incomeMultiplier: player.mods?.income ?? 1,
-            territoryTileKeys: [...summary.territoryTileKeys],
             ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
             settledTileCount: summary.settledTileCount,
             townCount: summary.townCount,
@@ -3690,7 +3687,6 @@ export class SimulationRuntime {
           vision: player.mods?.vision ?? 1,
           visionRadiusBonus: visionRadiusBonusForPlayer(player),
           incomeMultiplier: player.mods?.income ?? 1,
-          territoryTileKeys: [...summary.territoryTileKeys],
           ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
           settledTileCount: summary.settledTileCount,
           townCount: summary.townCount,
