@@ -151,7 +151,17 @@ export type AutomationPlannerDiagnostic = {
   settleDecisionTopScore?: number;
 };
 
-export type AutomationPlannerPhase = "choose_settlement" | "choose_frontier" | "summarize_frontier";
+export type AutomationPlannerPhase =
+  | "choose_settlement"
+  | "choose_frontier"
+  | "summarize_frontier"
+  // Frontier-analysis sub-phases (PR 1 measurement — flow through
+  // the same onPhaseTiming channel so the worker emits them as
+  // diagnostic phases).
+  | "analyze_iter_total"
+  | "analyze_per_candidate"
+  | "analyze_neighbor_lookups"
+  | "analyze_score_calc";
 
 type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   playerId: string;
@@ -513,7 +523,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           canAttack,
           canExpand,
           needsFood,
-          ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
+          ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
+          onAnalyzeTiming: (phase, durationMs) => {
+            input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
+          }
         })
       : emptyFrontierAnalysis();
   if ((canAttack || canExpand) && !hasActionableFrontierAnalysis(frontierAnalysis) && input.frontierTiles.length > 0) {
@@ -530,7 +543,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         canAttack,
         canExpand,
         needsFood,
-        ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
+        ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
+        onAnalyzeTiming: (phase, durationMs) => {
+          input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
+        }
       });
       if (hasActionableFrontierAnalysis(broadFrontierAnalysis)) {
         frontierOrigins = broadFrontierOrigins;
