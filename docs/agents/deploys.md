@@ -13,14 +13,22 @@ Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 
 ## Production shape gate
 
-Production deploys must prove the candidate can handle a live-shaped world before any remote prod mutation happens. The gate must run against an isolated clone, not live production.
+Production deploys must prove the candidate can handle a live-shaped world before any remote prod mutation happens. The gate must run against an isolated local clone of the prod SQLite database, not live production.
 
 ```bash
-SOURCE_DATABASE_URL="$PROD_DATABASE_URL" \
-TARGET_DATABASE_URL="$THROWAWAY_DATABASE_URL" \
-  pnpm ops:prod-shape:clone-snapshot
+# 1. Pull a snapshot of the live prod SQLite db (~1 GB; takes a few minutes).
+#    Writes border-empires.db + .db-wal + .db-shm into a timestamped dir
+#    under ./.prod-shape-clones/. Requires `flyctl auth login`.
+pnpm ops:prod-shape:clone-snapshot
+# (or --app border-empires-combined-staging to clone staging instead)
 
-# Boot the candidate combined stack against TARGET_DATABASE_URL, then:
+# 2. In one shell, boot the candidate combined stack against the cloned db
+#    (replace <CLONE_DIR> with the path the previous step printed).
+GATEWAY_SQLITE_PATH="<CLONE_DIR>/border-empires.db" \
+SIMULATION_SQLITE_PATH="<CLONE_DIR>/border-empires.db" \
+  pnpm dev
+
+# 3. In another shell, once /health returns 200 on 127.0.0.1:3101, run the gate.
 PROD_SHAPE_TARGET_SHA="$(git rev-parse HEAD)" \
 PROD_SHAPE_OUTPUT_PATH="docs/load-results/prod-shape-$(git rev-parse --short HEAD).json" \
 WS_URL="ws://127.0.0.1:3101/ws" \
@@ -32,6 +40,8 @@ SIMULATION_METRICS_URL="http://127.0.0.1:50052/metrics" \
 PROD_SHAPE_GATE_RESULT_JSON="docs/load-results/prod-shape-$(git rev-parse --short HEAD).json" \
   pnpm ops:prod-shape:verify --target-sha "$(git rev-parse HEAD)"
 ```
+
+The clone script pulls WAL and SHM sidecars alongside the main db file because the live database runs in WAL mode; SQLite replays the WAL on open so the local clone lands at a consistent point in time. Cloned snapshots are git-ignored under `.prod-shape-clones/`.
 
 `pnpm deploy:prod:all` runs the same verification internally. The result must be `ok: true`, recent by default within 6 hours, and stamped with the exact deploy SHA.
 
