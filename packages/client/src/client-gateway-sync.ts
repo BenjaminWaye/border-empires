@@ -1,5 +1,6 @@
 import type { ClientState } from "./client-state.js";
 import type { Tile } from "./client-types.js";
+import { ensureTileYield } from "./yield-derivation.js";
 
 type TownSummary = NonNullable<Tile["town"]>;
 type PartialTownSummary = Partial<TownSummary>;
@@ -443,6 +444,9 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("ownerId" in normalizedGateway && !normalizedGateway.ownerId) delete merged.ownershipState;
 
   const resolved = deps.mergeServerTileWithOptimisticState(deps.mergeIncomingTileDetail(existing, merged));
+  // Bootstrap tiles no longer carry yieldRate/yieldCap (see docs/plans/2026-05-30-bootstrap-payload-shrink.md).
+  // Derive them client-side from townJson / resource / economicStructure / dockId.
+  ensureTileYield(resolved);
   deps.state.tiles.set(tileKey, resolved);
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
