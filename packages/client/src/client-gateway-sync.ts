@@ -64,8 +64,9 @@ export type GatewayTileUpdate = {
 };
 
 type GatewayTileSyncDeps = {
-  state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles" | "mods"> & {
+  state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
     me?: string | undefined;
+    mods?: ClientState["mods"];
     upkeepLastTick: { foodCoverage?: number };
   };
   keyFor: (x: number, y: number) => string;
@@ -448,7 +449,9 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   // Derive them client-side from townJson / resource / economicStructure / dockId.
   // Pass the player's income modifier so non-town dock tiles and settlement
   // fallback use the correct tech/domain-adjusted rate.
-  ensureTileYield(resolved, deps.state.mods?.income ?? 1.0);
+  // Cast: Tile.yieldRate has optional inner fields; TileYieldRate requires them.
+  // ensureTileYield only writes the field when it can derive a complete value.
+  ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], deps.state.mods?.income ?? 1.0);
   deps.state.tiles.set(tileKey, resolved);
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
