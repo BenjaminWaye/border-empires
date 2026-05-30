@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.05.30.3",
   title: "What's New",
-  summary: "Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist.",
+  summary: "Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist. Income multiplier and advanced converter display fixes.",
   entries: [
     {
       introducedIn: "2026.05.30.3",
@@ -400,6 +400,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Timeout-driven action menu re-renders now reuse the computed preview-unavailable state instead of starting another fresh preview request.",
         "Normal player-opened enemy tile menus still request fresh authoritative odds.",
         "Added regression coverage that fails when the timeout re-render restarts the preview request loop."
+      ]
+    },
+    {
+      introducedIn: "2026.05.30.3",
+      title: "Income multiplier and advanced converter display fixes (PR #440 follow-up)",
+      why: "Two regressions from the bootstrap-payload-shrink work. (1) The player's income mod from tech was applied to every tile's yield display — even enemy tiles — so clicking another empire showed inflated yields. (2) Advanced converter structures (ADVANCED_FUR_SYNTHESIZER, ADVANCED_IRONWORKS, ADVANCED_CRYSTAL_SYNTHESIZER) displayed their theoretically-correct higher values (21.6 / 21.6 / 14.4), but the sim currently returns the basic values (18 / 18 / 12) for these structures. The client now matches the sim so displayed yield equals actual production. The sim-side fix will be a separate gameplay PR.",
+      changes: [
+        "Income multiplier from tech now only applies to tiles owned by the viewer. Enemy tiles display their owner-appropriate yield.",
+        "Advanced converter daily output now matches the sim's current behavior (basic values). Will update in lockstep when the sim honors ADVANCED_* constants."
       ]
     },
   ]
