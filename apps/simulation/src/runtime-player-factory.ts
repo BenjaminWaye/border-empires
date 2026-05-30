@@ -1,4 +1,4 @@
-import { MANPOWER_BASE_CAP } from "@border-empires/shared";
+import { MANPOWER_BASE_CAP } from "@border-empires/game-domain";
 
 import type { RuntimePlayer } from "./runtime-types.js";
 

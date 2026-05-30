@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, TOWN_MANPOWER_BY_TIER, getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
+import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
+import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";

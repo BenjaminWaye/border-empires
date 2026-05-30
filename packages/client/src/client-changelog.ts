@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.30.2",
+  version: "2026.05.30.3",
   title: "What's New",
-  summary: "Barbarian counter-captures stay settled. Fort and siege tiers persist. Smaller bootstrap payload.",
+  summary: "Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist.",
   entries: [
+    {
+      introducedIn: "2026.05.30.3",
+      title: "Manpower regen slowdown now uses one runtime source",
+      why: "The shared balance constants had been slowed so a settlement takes about 12 hours to refill manpower, but game-domain still exported the old fast per-tier table. That left room for runtime paths and tooling to drift back to pre-slowdown rates.",
+      changes: [
+        "Simulation now reads manpower cap and regen constants through game-domain, which mirrors the shared balance table instead of keeping a duplicate fast table.",
+        "Added a regression test that fails if base regen or any town tier stops taking about 720 minutes to refill its manpower cap."
+      ]
+    },
     {
       introducedIn: "2026.05.30.2",
       title: "Barbarian counter-captures stay settled",

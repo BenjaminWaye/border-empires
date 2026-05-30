@@ -12,7 +12,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
-import { MANPOWER_BASE_REGEN_PER_MINUTE, SWEEP_ATTACK_COST, SWEEP_BUDGET_CAP } from "@border-empires/shared";
+import { SWEEP_ATTACK_COST, SWEEP_BUDGET_CAP } from "@border-empires/shared";
+import { MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/game-domain";
 import { sweepAttackCandidates } from "./territory-automation.js";
 
 // ---------------------------------------------------------------------------
