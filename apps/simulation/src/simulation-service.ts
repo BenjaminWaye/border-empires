@@ -256,6 +256,7 @@ type SimulationServiceOptions = {
   systemTickMs?: number;
   globalStatusBroadcastDebounceMs?: number;
   systemPlayerIds?: string[];
+  nonCompetitivePlayerIds?: ReadonlySet<string>;
   startupRecoveryTimeoutMs?: number;
   allowSeedRecoveryFallback?: boolean;
   requireDurableStartupState?: boolean;
@@ -709,7 +710,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       seasonState: bootstrap.seasonState,
       runtimeState: bootstrapRuntime.exportState(),
       onlinePlayers: 0,
-      updatedAt: bootstrap.seasonState.startedAt
+      updatedAt: bootstrap.seasonState.startedAt,
+      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
     await seasonSummaryStore.bootstrapSeason({
       snapshotSections: {
@@ -1265,7 +1267,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       runtimeState,
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
-      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1281,7 +1284,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
-            acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+            acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+            ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
           })
         : {
             ...baseSummary,
@@ -1335,7 +1339,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
         const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState, undefined, {
-          acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+          acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+          ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
         });
         const playerWorldStatus = {
           ...worldStatus,
