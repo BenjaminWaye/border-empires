@@ -2,8 +2,12 @@ import {
   OBSERVATORY_CAST_RADIUS as SHARED_OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS as SHARED_OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
+  MANPOWER_BASE_CAP as SHARED_MANPOWER_BASE_CAP,
+  MANPOWER_BASE_REGEN_PER_MINUTE as SHARED_MANPOWER_BASE_REGEN_PER_MINUTE,
+  TOWN_MANPOWER_BY_TIER as SHARED_TOWN_MANPOWER_BY_TIER,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  manpowerRegenWeightForSettlementIndex as sharedManpowerRegenWeightForSettlementIndex,
   structureBaseGoldCost,
   type PopulationTier,
   type TileKey
@@ -92,13 +96,10 @@ export const RADAR_SYSTEM_BUILD_GOLD_COST = structureBaseGoldCost("RADAR_SYSTEM"
 export const RADAR_SYSTEM_BUILD_CRYSTAL_COST = 120;
 export const FOUNDRY_BUILD_GOLD_COST = structureBaseGoldCost("FOUNDRY");
 export const MANPOWER_EPSILON = 1e-6;
-export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = {
-  SETTLEMENT: { cap: 150, regenPerMinute: 10 },
-  TOWN: { cap: 300, regenPerMinute: 15 },
-  CITY: { cap: 600, regenPerMinute: 30 },
-  GREAT_CITY: { cap: 1_200, regenPerMinute: 60 },
-  METROPOLIS: { cap: 2_400, regenPerMinute: 120 }
-};
+export const MANPOWER_BASE_CAP = SHARED_MANPOWER_BASE_CAP;
+export const MANPOWER_BASE_REGEN_PER_MINUTE = SHARED_MANPOWER_BASE_REGEN_PER_MINUTE;
+export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = SHARED_TOWN_MANPOWER_BY_TIER;
+export const manpowerRegenWeightForSettlementIndex = sharedManpowerRegenWeightForSettlementIndex;
 export const SETTLEMENT_BASE_GOLD_PER_MIN = 1;
 export const FUR_SYNTHESIZER_GOLD_UPKEEP = 60;
 export const IRONWORKS_GOLD_UPKEEP = 60;

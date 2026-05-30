@@ -4,7 +4,7 @@ import {
   MANPOWER_BASE_REGEN_PER_MINUTE,
   TOWN_MANPOWER_BY_TIER,
   manpowerRegenWeightForSettlementIndex
-} from "@border-empires/shared";
+} from "@border-empires/game-domain";
 
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer } from "./runtime-types.js";
