@@ -4443,6 +4443,63 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("does not lose SUPPLY when IRON is insufficient for a siege upgrade", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["leatherworking", "siegecraft"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { SUPPLY: 100, IRON: 10 } // enough SUPPLY, not enough IRON
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      const events: Array<{ code: string; message: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") events.push({ code: event.code, message: event.message });
+      });
+
+      runtime.submitCommand({
+        commandId: "siege-resource-theft-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_SIEGE_OUTPOST",
+        payloadJson: JSON.stringify({ x: 14, y: 14 })
+      });
+
+      await Promise.resolve();
+      expect(events).toHaveLength(1);
+      expect(events[0].code).toBe("BUILD_INVALID");
+      expect(events[0].message).toBe("insufficient IRON for siege outpost");
+      // SUPPLY must be unchanged — no silent resource theft.
+      const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
+      expect(player.strategicResources.SUPPLY).toBe(100);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("builds a market through the rewrite simulation path and places it on a supported town tile", async () => {
     vi.useFakeTimers();
     try {
