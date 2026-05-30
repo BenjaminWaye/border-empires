@@ -7067,6 +7067,10 @@ export class SimulationRuntime {
       target.economicStructure.type === "WOODEN_FORT" &&
       (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
     // Allow upgrading an existing fort; block other conflicting structures.
+    // The !target.fort clause prevents a fort+economic-structure tile from
+    // slipping past the reject — only pure forts (or wooden-fort upgrades)
+    // bypass this guard. Tiles should never have both a fort and a non-wooden
+    // economic structure simultaneously, but the old guard was stricter.
     if (target.observatory || target.siegeOutpost || (target.economicStructure && !upgradingWoodenFort && !target.fort)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -9079,5 +9083,6 @@ export class SimulationRuntime {
 
       this.handleFrontierCommand(command, command.type);
     }, command.type, scheduling);
+
   }
 }

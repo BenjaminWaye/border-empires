@@ -9,6 +9,7 @@ import {
   WOODEN_FORT_BUILD_MS,
   WOODEN_FORT_DEFENSE_MULT,
   bestFortTierForTech,
+  FORT_VARIANT_LABELS,
   nextFortTierForUpgrade,
   type FortTierInfo,
   structureBuildManpowerCost,
@@ -131,7 +132,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
       const tier = nextFortTierForUpgrade(tile.fort.variant, hasFortTech);
       if (!tier) return undefined;
       return {
-        label: tier.variant === "IRON_BASTION" ? "Iron Bastion" : "Thunder Bastion",
+        label: FORT_VARIANT_LABELS[tier.variant],
         gold: tier.gold,
         iron: tier.iron,
         defenseMult: tier.defenseMult,
@@ -140,7 +141,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
     }
     const tier = bestFortTierForTech(hasFortTech);
     return {
-      label: tier.variant === "FORT" ? "Fort" : tier.variant === "IRON_BASTION" ? "Iron Bastion" : "Thunder Bastion",
+      label: FORT_VARIANT_LABELS[tier.variant],
       gold: tier.gold,
       iron: tier.iron,
       defenseMult: tier.defenseMult,

@@ -152,8 +152,11 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       if (kind === "FORT") {
         delete tile.economicStructure;
         const hasTech = (id: string) => state.techIds.includes(id);
+        // If the tile already has a fort at max tier with no upgrade path,
+        // don't write an optimistic under_construction state the sim will reject.
+        if (tile.fort && !nextFortTierForUpgrade(tile.fort.variant, hasTech)) return;
         const variant: FortVariant = tile.fort
-          ? (nextFortTierForUpgrade(tile.fort.variant, hasTech)?.variant ?? tile.fort.variant ?? "FORT")
+          ? nextFortTierForUpgrade(tile.fort.variant, hasTech)!.variant
           : bestFortTierForTech(hasTech).variant;
         tile.fort = { ownerId: state.me, status: "under_construction", variant, completesAt };
         return;
