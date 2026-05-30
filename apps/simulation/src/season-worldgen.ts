@@ -1,5 +1,4 @@
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { MANPOWER_BASE_CAP } from "@border-empires/shared";
+import { MANPOWER_BASE_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 
 import { createSeason20AiSeedWorld } from "./season-seed-world.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
