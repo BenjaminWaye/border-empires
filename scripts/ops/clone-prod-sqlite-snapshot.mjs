@@ -26,7 +26,7 @@
 // gate. The intended follow-on flow is documented in docs/agents/deploys.md.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 const DEFAULT_APP = "border-empires-combined";
@@ -202,4 +202,9 @@ const main = () => {
   );
 };
 
-main();
+try {
+  main();
+} catch (error) {
+  console.error(`[clone-snapshot] ${error instanceof Error ? error.message : error}`);
+  process.exit(1);
+}
