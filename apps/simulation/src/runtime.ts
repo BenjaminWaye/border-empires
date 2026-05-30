@@ -7963,7 +7963,7 @@ export class SimulationRuntime {
         combat.attackerWon
           ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
           : defenderOwnerId && !originHeldByFort
-            ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: "FRONTIER" }]
+            ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: defenderOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
             : [],
       pointsDelta: 0,
       manpowerDelta,
@@ -8108,14 +8108,21 @@ export class SimulationRuntime {
       const previousOrigin = this.tiles.get(lock.originKey);
       if (previousOrigin) {
         // Town is a worldgen entity tied to the tile — mirror the attacker-wins branch (~6008) which preserves it.
+        const originOwnershipState = previousOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER";
         const resolvedOrigin: DomainTileState = {
           ...previousOrigin,
           ownerId: previousOwnerId,
-          ownershipState: "FRONTIER",
+          ownershipState: originOwnershipState,
+          frontierDecayAt: undefined,
+          frontierDecayKind: undefined,
           ...capturedStructureFields(previousOrigin, previousOwnerId)
         };
         this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
-        this.extendFortPatrolGrace(lock.originKey, this.now() + FORT_PATROL_GRACE_MS);
+        if (originOwnershipState === "FRONTIER") {
+          this.extendFortPatrolGrace(lock.originKey, this.now() + FORT_PATROL_GRACE_MS);
+        } else {
+          this.fortPatrolGraceUntilByTile.delete(lock.originKey);
+        }
         const tileDeltas = [this.tileDeltaFromState(resolvedOrigin)];
 
         // Successful barb counter-attack: barb JUMPS from defender tile to the

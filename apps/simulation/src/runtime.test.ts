@@ -7393,6 +7393,85 @@ describe("simulation runtime", () => {
 
       randomSpy.mockRestore();
     });
+
+    it("keeps barbarian counter-captures settled when a player attack fails", async () => {
+      const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
+      try {
+        const runtime = new SimulationRuntime({
+          now: () => 1_000,
+          scheduleAfter: (delayMs, task) => {
+            scheduledTasks.push({ delayMs, task });
+          },
+          initialPlayers: new Map([
+            ["player-1", testRuntimePlayer("player-1")],
+            [
+              "barbarian-1",
+              {
+                id: "barbarian-1",
+                isAi: true,
+                points: Number.MAX_SAFE_INTEGER,
+                manpower: Number.MAX_SAFE_INTEGER,
+                techIds: new Set<string>(),
+                domainIds: new Set<string>(),
+                mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+                techRootId: "rewrite-local",
+                allies: new Set<string>()
+              }
+            ]
+          ]),
+          seedTiles: new Map(),
+          initialState: {
+            tiles: [
+              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 61_000, frontierDecayKind: "NATURAL" },
+              { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
+            ],
+            activeLocks: []
+          }
+        });
+        const seen: SimulationRuntimeEventShape[] = [];
+        runtime.onEvent((event) => seen.push(event));
+
+        runtime.submitCommand({
+          commandId: "failed-attack-barb-counter",
+          sessionId: "session-1",
+          playerId: "player-1",
+          clientSeq: 1,
+          issuedAt: 1_000,
+          type: "ATTACK",
+          payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+        });
+
+        await Promise.resolve();
+        expect(scheduledTasks).toHaveLength(1);
+        scheduledTasks[0]?.task();
+
+        const origin = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+        expect(origin).toEqual(
+          expect.objectContaining({
+            ownerId: "barbarian-1",
+            ownershipState: "SETTLED"
+          })
+        );
+        expect(origin?.frontierDecayAt).toBeUndefined();
+        expect(origin?.frontierDecayKind).toBeUndefined();
+
+        const resolved = seen.find(
+          (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMBAT_RESOLVED" }> =>
+            event.eventType === "COMBAT_RESOLVED" && event.commandId === "failed-attack-barb-counter"
+        );
+        expect(resolved?.combatResult?.changes).toContainEqual(
+          expect.objectContaining({
+            x: 10,
+            y: 10,
+            ownerId: "barbarian-1",
+            ownershipState: "SETTLED"
+          })
+        );
+      } finally {
+        randomSpy.mockRestore();
+      }
+    });
   });
 
   it("subscription snapshot includes synthesizer crystal regen without COLLECT_VISIBLE", () => {
