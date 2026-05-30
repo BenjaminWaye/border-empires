@@ -4,6 +4,7 @@ import {
   OBSERVATORY_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
   SIEGE_OUTPOST_BUILD_MS,
+  SIEGE_TIER_LADDER,
   nextFortTierForUpgrade,
   structureBuildDurationMs
 } from "@border-empires/shared";
@@ -53,11 +54,16 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
   if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
   if (actionId === "build_siege_camp") {
-    if (tile.siegeOutpost?.variant === "SIEGE_OUTPOST") return "Upgrade this Siege Outpost into a Siege Tower. Siege Towers attack at 2x.";
-    if (tile.siegeOutpost?.variant === "SIEGE_TOWER") return "Upgrade this Siege Tower into a Dread Tower. Dread Towers attack at 3x.";
+    // Only show upgrade text when a siege outpost already exists.
+    if (tile.siegeOutpost) {
+      const currentVariant = tile.siegeOutpost.variant ?? "SIEGE_OUTPOST";
+      if (currentVariant === "SIEGE_OUTPOST") return `Upgrade this Siege Outpost into a Siege Tower. Siege Towers attack at ${SIEGE_TIER_LADDER.SIEGE_TOWER.attackMult}x.`;
+      if (currentVariant === "SIEGE_TOWER") return `Upgrade this Siege Tower into a Dread Tower. Dread Towers attack at ${SIEGE_TIER_LADDER.DREAD_TOWER.attackMult}x.`;
+      // DREAD_TOWER shouldn't expose this action; fall through for safety.
+    }
     return tile.economicStructure?.type === "LIGHT_OUTPOST"
-      ? "Upgrade this Light Outpost into a full siege outpost. Siege Outposts attack at 1.25x."
-      : "Adds an offensive staging point on this border or dock tile. Siege Outposts attack at 1.25x.";
+      ? `Upgrade this Light Outpost into a full siege outpost. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
+      : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
   if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
   if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";
