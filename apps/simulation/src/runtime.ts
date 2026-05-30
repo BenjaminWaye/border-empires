@@ -178,6 +178,7 @@ import {
 } from "./tile-delta-visibility-filter.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
+import { VisionExpansionCache } from "./vision-expansion-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./planner-world-view.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./planner-world-view-slice.js";
 import {
@@ -501,6 +502,11 @@ export class SimulationRuntime {
   // they're shed last (which matches the intent: an empire that survived
   // restart shouldn't have its core tiles shed before its newer expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
+  // Per-player territorial vision expansion cache.  Avoids O(territory×r²)
+  // recomputation on every classifyVisibilityForPlayer call; invalidated lazily
+  // via signature (tileCollectionVersion:vision:visionRadiusBonus) and
+  // explicitly on player elimination via frontierDecayChangedByOwner cleanup.
+  private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT);
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Cached economy snapshot per player. Invalidated in replaceTileState whenever
   // a tile mutates in a way that could change income/upkeep rates (ownership,
@@ -2808,6 +2814,7 @@ export class SimulationRuntime {
     if (summary.territoryTileKeys.size <= 0) {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
       this.aiSpatialFocusByPlayer.delete(playerId);
+      this.visionExpansionCache.invalidate(playerId);
       this.frontierDecayChangedByOwner.delete(playerId);
       this.frontierDecayExpiredByOwner.delete(playerId);
     }
@@ -3314,8 +3321,8 @@ export class SimulationRuntime {
   }
 
   private classifyVisibilityForPlayer(playerId: string): {
-    radiusSelfKeys: Set<string>;
-    radiusAllyKeys: Map<string, Set<string>>;
+    radiusSelfKeys: ReadonlySet<string>;
+    radiusAllyKeys: Map<string, ReadonlySet<string>>;
     lockOriginKeys: Set<string>;
     dockRevealKeys: Set<string>;
     lockTargetOnlyKeys: Set<string>;
@@ -3323,51 +3330,44 @@ export class SimulationRuntime {
     visibleKeys: Set<string>;
     allyAndSelfIds: Set<string>;
   } {
-    const keyFor = (x: number, y: number): string => simulationTileKey(((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH, ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT);
-    const parseKey = (tileKey: string): { x: number; y: number } | undefined => {
-      const [rawX, rawY] = tileKey.split(",");
-      const x = Number(rawX);
-      const y = Number(rawY);
-      if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined;
-      return { x, y };
-    };
-    const radiusSelfKeys = new Set<string>();
-    const radiusAllyKeys = new Map<string, Set<string>>();
+    // radiusSelfKeys and radiusAllyKeys values come from VisionExpansionCache —
+    // each is recomputed only when the player's (tileCollectionVersion, vision,
+    // visionRadiusBonus) signature changes, so large empires pay O(territory×r²)
+    // at most once between tile mutations rather than on every export call.
+    const radiusAllyKeys = new Map<string, ReadonlySet<string>>();
     const lockOriginKeys = new Set<string>();
     const dockRevealKeys = new Set<string>();
     const fullVisionKeys = new Set<string>();
-    const addVision = (
-      territoryTileKeys: Iterable<string>,
-      vision: number,
-      visionRadiusBonus: number,
-      sink: Set<string>
-    ): void => {
-      const radius = Math.max(1, Math.floor(VISION_RADIUS * vision) + visionRadiusBonus);
-      for (const tileKey of territoryTileKeys) {
-        const coords = parseKey(tileKey);
-        if (!coords) continue;
-        for (let dy = -radius; dy <= radius; dy += 1) {
-          for (let dx = -radius; dx <= radius; dx += 1) {
-            const wrapped = keyFor(coords.x + dx, coords.y + dy);
-            sink.add(wrapped);
-            fullVisionKeys.add(wrapped);
-          }
-        }
-      }
-    };
+
+    let radiusSelfKeys: ReadonlySet<string> = new Set<string>();
 
     const primaryPlayer = this.players.get(playerId);
     if (primaryPlayer) {
       this.applyManpowerRegen(primaryPlayer);
       const primarySummary = this.summaryForPlayer(playerId);
-      addVision(primarySummary.territoryTileKeys, primaryPlayer.mods?.vision ?? 1, visionRadiusBonusForPlayer(primaryPlayer), radiusSelfKeys);
+      const tcv = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
+      radiusSelfKeys = this.visionExpansionCache.getOrCompute(
+        playerId,
+        primarySummary.territoryTileKeys,
+        primaryPlayer.mods?.vision ?? 1,
+        visionRadiusBonusForPlayer(primaryPlayer),
+        tcv
+      );
+      for (const key of radiusSelfKeys) fullVisionKeys.add(key);
       for (const allyId of primaryPlayer.allies) {
         const ally = this.players.get(allyId);
         if (!ally) continue;
         this.applyManpowerRegen(ally);
-        const allySink = new Set<string>();
-        addVision(this.summaryForPlayer(allyId).territoryTileKeys, ally.mods?.vision ?? 1, visionRadiusBonusForPlayer(ally), allySink);
-        radiusAllyKeys.set(allyId, allySink);
+        const allyTcv = this.plannerPlayerTileCollectionVersionByPlayer.get(allyId) ?? 0;
+        const allyKeys = this.visionExpansionCache.getOrCompute(
+          allyId,
+          this.summaryForPlayer(allyId).territoryTileKeys,
+          ally.mods?.vision ?? 1,
+          visionRadiusBonusForPlayer(ally),
+          allyTcv
+        );
+        radiusAllyKeys.set(allyId, allyKeys);
+        for (const key of allyKeys) fullVisionKeys.add(key);
       }
     } else {
       // Fallback for sessions whose Firebase UID has no live player row in
@@ -3380,7 +3380,15 @@ export class SimulationRuntime {
       for (const [tileKey, tile] of this.tiles) {
         if (tile.ownerId === playerId) territoryTileKeys.push(tileKey);
       }
-      if (territoryTileKeys.length > 0) addVision(territoryTileKeys, 1, 0, radiusSelfKeys);
+      if (territoryTileKeys.length > 0) {
+        // Admin fallback: use tileCollectionVersion 0 (no live player row means
+        // no version tracking); this path is cold and correctness > speed.
+        radiusSelfKeys = this.visionExpansionCache.getOrCompute(
+          playerId, territoryTileKeys, 1, 0,
+          this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0
+        );
+        for (const key of radiusSelfKeys) fullVisionKeys.add(key);
+      }
     }
     for (const lock of this.locksByTile.values()) {
       if (lock.playerId !== playerId) continue;
