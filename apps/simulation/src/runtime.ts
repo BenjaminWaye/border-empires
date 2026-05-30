@@ -3829,9 +3829,11 @@ export class SimulationRuntime {
   private incomePerMinuteForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     if (!player) return 0;
-    return buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(playerId), this.tiles, {
-      dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    }).incomePerMinute;
+    // Route through cachedEconomySnapshot — the cache is maintained
+    // incrementally by replaceTileState (O(1) per tile mutation) so this
+    // returns a stale-free result without rebuilding the full O(settled-tiles)
+    // snapshot on every call. The full rebuild only fires on cache miss.
+    return this.cachedEconomySnapshot(player).incomePerMinute;
   }
 
   private hasActiveSettlementTownForPlayer(playerId: string): boolean {
