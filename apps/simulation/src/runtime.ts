@@ -454,6 +454,11 @@ export class SimulationRuntime {
     pendingSettlementTileKeys: string[];
   }>();
   private readonly locksByTile: Map<string, LockRecord>;
+  // Deduplicated view of locksByTile keyed by commandId.  A single lock is
+  // stored under TWO tile keys (originKey + targetKey); this index gives O(1)
+  // unique-lock iteration for exportState's activeLocks projection, replacing
+  // the per-call `new Map([...locksByTile.entries()].map(...))` dedup.
+  private readonly locksByCommandId = new Map<string, LockRecord>();
   // Pooled per-tick accumulators for updateFrontierDecay.
   // Reset via arr.length = 0 at the top of each call (preserves inner arrays).
   private readonly frontierDecayChangedByOwner = new Map<string, Array<SimulationTileWireDelta>>();
@@ -685,6 +690,8 @@ export class SimulationRuntime {
     this.docks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? []);
     this.dockLinksByDockTileKey = buildDockLinksByDockTileKey(this.docks);
     this.locksByTile = createLocksFromInitialState(options.initialState);
+    // Populate the commandId index from the just-created locksByTile map.
+    for (const lock of this.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
     for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
       this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
     }
@@ -3007,7 +3014,7 @@ export class SimulationRuntime {
             ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
           }))
           .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
-        activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+        activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -3325,7 +3332,7 @@ export class SimulationRuntime {
       pendingSettlements: [...this.pendingSettlementsByTile.values()]
         .map((settlement) => ({ ...settlement }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -3621,7 +3628,7 @@ export class SimulationRuntime {
       pendingSettlements: [...this.pendingSettlementsByTile.values()]
         .map((settlement) => ({ ...settlement }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -3740,7 +3747,7 @@ export class SimulationRuntime {
       pendingSettlements: [...this.pendingSettlementsByTile.values()]
         .map((settlement) => ({ ...settlement }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -4308,6 +4315,7 @@ export class SimulationRuntime {
     }
     this.locksByTile.set(lock.originKey, lock);
     this.locksByTile.set(lock.targetKey, lock);
+    this.locksByCommandId.set(lock.commandId, lock);
     this.commandTrace?.({
       phase: "frontier_accept",
       commandId: command.commandId,
@@ -7527,6 +7535,7 @@ export class SimulationRuntime {
     if (!lock || lock.playerId !== playerId || lock.actionType !== "ATTACK") return cancelled;
     this.locksByTile.delete(lock.originKey);
     this.locksByTile.delete(lock.targetKey);
+    this.locksByCommandId.delete(lock.commandId);
     cancelled.push(lock.commandId);
     return cancelled;
   }
@@ -8214,6 +8223,7 @@ export class SimulationRuntime {
     for (const lock of activeLocks) {
       this.locksByTile.delete(lock.originKey);
       this.locksByTile.delete(lock.targetKey);
+      this.locksByCommandId.delete(lock.commandId);
     }
 
     this.emitEvent({
@@ -8372,6 +8382,7 @@ export class SimulationRuntime {
     // slot on at least one tile — that command will (or did) emit its own
     // COMBAT_RESOLVED. Don't double-emit or re-apply tile state.
     if (!originMatches || !targetMatches) return;
+    this.locksByCommandId.delete(lock.commandId);
     const previousTarget = this.tiles.get(lock.targetKey);
     const previousOwnerId = previousTarget?.ownerId;
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
