@@ -76,7 +76,6 @@ type RuntimeState = {
     allies: string[];
     vision: number;
     visionRadiusBonus: number;
-    territoryTileKeys: string[];
     ownedTownTileKeys?: string[];
     settledTileCount?: number;
     townCount?: number;
@@ -145,15 +144,17 @@ const snapshotEconomyPlayer = (player: RuntimeState["players"][number] | undefin
 const buildFirstThreeTownKeysByPlayer = (
   runtimeState: RuntimeState
 ): Map<string, Set<string>> => {
-  const tilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
   const result = new Map<string, Set<string>>();
   for (const player of runtimeState.players) {
     const firstThree = new Set<string>();
-    for (const tileKey of player.ownedTownTileKeys ?? player.territoryTileKeys) {
-      if (firstThree.size >= 3) break;
-      const tile = tilesByKey.get(tileKey);
-      if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
+    let count = 0;
+    for (const tile of runtimeState.tiles) {
+      if (count >= 3) break;
+      if (tile.ownerId !== player.id) continue;
+      const tileKey = keyFor(tile.x, tile.y);
+      if (tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
       firstThree.add(tileKey);
+      count += 1;
     }
     result.set(player.id, firstThree);
   }
@@ -608,7 +609,6 @@ const buildFedTownKeysByPlayer = (
   runtimeState: RuntimeState,
   strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>
 ): Map<string, Set<string>> => {
-  const tilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
   const result = new Map<string, Set<string>>();
   for (const player of runtimeState.players) {
     const availableFood =
