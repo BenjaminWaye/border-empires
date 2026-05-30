@@ -4179,6 +4179,270 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("persists the siege variant on a fresh build (tech determines tier)", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["leatherworking", "siegecraft"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { SUPPLY: 500, IRON: 200 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "siege-tier-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_SIEGE_OUTPOST",
+        payloadJson: JSON.stringify({ x: 14, y: 14 })
+      });
+
+      await Promise.resolve();
+      const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
+      expect(tile?.siegeOutpostJson).toBeDefined();
+      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("upgrades SIEGE_OUTPOST → SIEGE_TOWER when siegecraft is researched", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["leatherworking", "siegecraft"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { SUPPLY: 500, IRON: 200 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "siege-upgrade-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_SIEGE_OUTPOST",
+        payloadJson: JSON.stringify({ x: 14, y: 14 })
+      });
+
+      await Promise.resolve();
+      const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
+      expect(tile?.siegeOutpostJson).toBeDefined();
+      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
+      // Should charge 1800 gold + 90 supply + 60 iron (not base SIEGE_OUTPOST costs)
+      const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
+      expect(player.points).toBeLessThan(9_000); // clearly less than the base 900
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects DREAD_TOWER upgrade when already max tier", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { SUPPLY: 500, IRON: 200 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "DREAD_TOWER" as const } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      const events: Array<{ code: string; message: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") events.push({ code: event.code, message: event.message });
+      });
+
+      runtime.submitCommand({
+        commandId: "siege-maxed-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_SIEGE_OUTPOST",
+        payloadJson: JSON.stringify({ x: 14, y: 14 })
+      });
+
+      await Promise.resolve();
+      expect(events).toHaveLength(1);
+      expect(events[0].code).toBe("BUILD_INVALID");
+      expect(events[0].message).toBe("siege outpost already at maximum tier");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects SIEGE_OUTPOST upgrade when next tier tech is missing", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["leatherworking"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { SUPPLY: 500, IRON: 200 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      const events: Array<{ code: string; message: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") events.push({ code: event.code, message: event.message });
+      });
+
+      runtime.submitCommand({
+        commandId: "siege-no-tech-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_SIEGE_OUTPOST",
+        payloadJson: JSON.stringify({ x: 14, y: 14 })
+      });
+
+      await Promise.resolve();
+      expect(events).toHaveLength(1);
+      expect(events[0].code).toBe("BUILD_INVALID");
+      expect(events[0].message).toBe("research the next tier first");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("persists the siege variant through completeSiegeOutpostBuild", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 10_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { SUPPLY: 500, IRON: 200 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "siege-complete-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_SIEGE_OUTPOST",
+        payloadJson: JSON.stringify({ x: 14, y: 14 })
+      });
+
+      await Promise.resolve();
+      let tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
+      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"DREAD_TOWER\"");
+      expect(tile?.siegeOutpostJson).toContain("\"status\":\"under_construction\"");
+
+      vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
+
+      tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
+      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"DREAD_TOWER\"");
+      expect(tile?.siegeOutpostJson).toContain("\"status\":\"active\"");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("builds a market through the rewrite simulation path and places it on a supported town tile", async () => {
     vi.useFakeTimers();
     try {
