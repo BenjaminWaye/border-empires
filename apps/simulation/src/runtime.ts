@@ -9083,6 +9083,5 @@ export class SimulationRuntime {
 
       this.handleFrontierCommand(command, command.type);
     }, command.type, scheduling);
-
   }
 }
