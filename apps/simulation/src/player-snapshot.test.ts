@@ -1164,6 +1164,36 @@ describe("buildPlayerSubscriptionSnapshot", () => {
       })
     );
   });
+
+  it("derives owned tile keys matching the internal summary Set — tiles and set are consistent", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        ["p1", { id: "p1", isAi: false, points: 0, manpower: 0, manpowerUpdatedAt: 0, techIds: new Set(), domainIds: new Set(), mods: { attack: 1, defense: 1, income: 1, vision: 1 }, techRootId: "rewrite-local", allies: new Set() }],
+        ["p2", { id: "p2", isAi: false, points: 0, manpower: 0, manpowerUpdatedAt: 0, techIds: new Set(), domainIds: new Set(), mods: { attack: 1, defense: 1, income: 1, vision: 1 }, techRootId: "rewrite-local", allies: new Set() }],
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND" as const, ownerId: "p1", ownershipState: "SETTLED" as const },
+          { x: 1, y: 0, terrain: "LAND" as const, ownerId: "p1", ownershipState: "SETTLED" as const },
+          { x: 2, y: 0, terrain: "LAND" as const, ownerId: "p1", ownershipState: "FRONTIER" as const },
+          { x: 3, y: 0, terrain: "LAND" as const, ownerId: "p2", ownershipState: "SETTLED" as const },
+        ],
+        players: [],
+        activeLocks: [],
+      }
+    });
+
+    for (const playerId of ["p1", "p2"]) {
+      const internalKeys = [...runtime.summaryForPlayer(playerId).territoryTileKeys].sort();
+      const derivedKeys = runtime.exportState().tiles
+        .filter((t) => t.ownerId === playerId)
+        .map((t) => `${t.x},${t.y}`)
+        .sort();
+      expect(derivedKeys).toEqual(internalKeys);
+    }
+  });
 });
 
 describe("buildPlayerSubscriptionSnapshotAsync (parity with sync)", () => {
