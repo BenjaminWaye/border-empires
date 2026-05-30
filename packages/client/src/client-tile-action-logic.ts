@@ -19,6 +19,7 @@ import {
   structurePlacementMetadata,
   structureShowsOnTile,
   bestFortTierForTech,
+  FORT_VARIANT_LABELS,
   nextFortTierForUpgrade,
   type FortTierInfo,
   terrainAt
@@ -268,12 +269,6 @@ const collectValidAetherWallOrigins = (
     if (validAetherWallDirectionsForTile(state, tile, deps).length > 0) out.add(deps.keyFor(tile.x, tile.y));
   }
   return out;
-};
-
-const FORT_VARIANT_LABELS: Record<FortTierInfo["variant"], string> = {
-  FORT: "Fort",
-  IRON_BASTION: "Iron Bastion",
-  THUNDER_BASTION: "Thunder Bastion",
 };
 
 type FortVariantAction = { label: string; gold: number; iron: number; defenseMult: number; summary: string };
