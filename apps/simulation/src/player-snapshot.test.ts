@@ -515,8 +515,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         ownershipState: "SETTLED",
         townType: "FARMING",
         townName: "Nauticus",
-        townPopulationTier: "TOWN",
-        yieldRate: expect.objectContaining({ goldPerMinute: 0 })
+        townPopulationTier: "TOWN"
+        // yieldRate removed from tile export (bootstrap-payload-shrink PR A)
       }),
       expect.objectContaining({
         x: 11,
