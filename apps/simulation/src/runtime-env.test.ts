@@ -25,6 +25,7 @@ describe("simulation runtime env", () => {
       healthProbeTimeoutMs: 2000,
       healthFailureThreshold: 3,
       startupRecoveryTimeoutMs: 120000,
+      nonCompetitivePlayerIds: new Set(),
       allowSeedRecoveryFallback: false,
       useAiWorker: false
     });
@@ -87,6 +88,7 @@ describe("simulation runtime env", () => {
       startupRecoveryTimeoutMs: 20000,
       allowSeedRecoveryFallback: true,
       systemPlayerIds: ["barbarian-1", "barbarian-2"],
+      nonCompetitivePlayerIds: new Set(),
       useAiWorker: false
     });
   });
@@ -178,5 +180,25 @@ describe("simulation runtime env", () => {
       allowSeedRecoveryFallback: true,
       requireDurableStartupState: false
     });
+  });
+
+  it("parses SIMULATION_NON_COMPETITIVE_PLAYER_IDS into a set", () => {
+    const env = parseSimulationRuntimeEnv({
+      SIMULATION_NON_COMPETITIVE_PLAYER_IDS: "probe-uid-1, probe-uid-2"
+    });
+    expect(env.nonCompetitivePlayerIds).toEqual(new Set(["probe-uid-1", "probe-uid-2"]));
+  });
+
+  it("handles empty SIMULATION_NON_COMPETITIVE_PLAYER_IDS as an empty set", () => {
+    const env = parseSimulationRuntimeEnv({});
+    expect(env.nonCompetitivePlayerIds).toEqual(new Set());
+    expect(env.nonCompetitivePlayerIds.size).toBe(0);
+  });
+
+  it("trims whitespace around non-competitive player IDs", () => {
+    const env = parseSimulationRuntimeEnv({
+      SIMULATION_NON_COMPETITIVE_PLAYER_IDS: "  probe-uid-1 , probe-uid-2  "
+    });
+    expect(env.nonCompetitivePlayerIds).toEqual(new Set(["probe-uid-1", "probe-uid-2"]));
   });
 });
