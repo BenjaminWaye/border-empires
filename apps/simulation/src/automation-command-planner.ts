@@ -9,6 +9,8 @@ import {
   type Terrain
 } from "@border-empires/shared";
 
+const SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD = 500;
+
 import { chooseBestSettlementTile, chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { computeTownSupport } from "./town-support.js";
@@ -149,6 +151,10 @@ export type AutomationPlannerDiagnostic = {
   // why AIs are not actually settling.
   settleDecisionReason?: import("./automation-command-planner-helpers.js").AutomationSettleDecisionReason;
   settleDecisionTopScore?: number;
+  // Set when the broad-fallback path is skipped because the empire exceeds
+  // SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD. Wired into a counter metric so
+  // we know how often the skip fires at the current threshold.
+  broadFallbackSkipped?: boolean | undefined;
 };
 
 export type AutomationPlannerPhase =
@@ -529,28 +535,35 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           }
         })
       : emptyFrontierAnalysis();
+  let broadFallbackSkipped = false;
   if ((canAttack || canExpand) && !hasActionableFrontierAnalysis(frontierAnalysis) && input.frontierTiles.length > 0) {
-    const broadFrontierOriginsAll = dedupeTiles([
-      ...narrowFrontierOrigins,
-      ...input.frontierTiles,
-      ...ownedFrontierTiles
-    ]);
-    // The broad fallback also respects the spatial focus front so a large
-    // empire cannot blow up planner CPU through the fallback path.
-    const broadFrontierOrigins = restrictToFocus(broadFrontierOriginsAll);
-    if (broadFrontierOrigins.length > frontierOrigins.length) {
-      const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
-        canAttack,
-        canExpand,
-        needsFood,
-        ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
-        onAnalyzeTiming: (phase, durationMs) => {
-          input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
+    if (input.ownedTiles.length > SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD) {
+      // Broad fallback's second analyzeOwnedFrontierTargetsFromLookup
+      // dominates the 587ms tail at this scale. The narrow result stands.
+      broadFallbackSkipped = true;
+    } else {
+      const broadFrontierOriginsAll = dedupeTiles([
+        ...narrowFrontierOrigins,
+        ...input.frontierTiles,
+        ...ownedFrontierTiles
+      ]);
+      // The broad fallback also respects the spatial focus front so a large
+      // empire cannot blow up planner CPU through the fallback path.
+      const broadFrontierOrigins = restrictToFocus(broadFrontierOriginsAll);
+      if (broadFrontierOrigins.length > frontierOrigins.length) {
+        const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
+          canAttack,
+          canExpand,
+          needsFood,
+          ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
+          onAnalyzeTiming: (phase, durationMs) => {
+            input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
+          }
+        });
+        if (hasActionableFrontierAnalysis(broadFrontierAnalysis)) {
+          frontierOrigins = broadFrontierOrigins;
+          frontierAnalysis = broadFrontierAnalysis;
         }
-      });
-      if (hasActionableFrontierAnalysis(broadFrontierAnalysis)) {
-        frontierOrigins = broadFrontierOrigins;
-        frontierAnalysis = broadFrontierAnalysis;
       }
     }
   }
@@ -574,6 +587,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     canExpand,
     ownedTileCount: input.ownedTiles.length,
     ownedFrontierTileCount: ownedFrontierTiles.length,
+    broadFallbackSkipped: broadFallbackSkipped || undefined,
     frontierTileCountInput: input.frontierTiles.length,
     hotFrontierTileCountInput: input.hotFrontierTiles?.length ?? 0,
     strategicFrontierTileCountInput: input.strategicFrontierTiles?.length ?? 0,
