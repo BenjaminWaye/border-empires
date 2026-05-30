@@ -1,4 +1,4 @@
-import { structureBuildDurationMs } from "@border-empires/shared";
+import { bestFortTierForTech, nextFortTierForUpgrade, structureBuildDurationMs, type FortVariant, bestSiegeTierForTech, nextSiegeTierForUpgrade, type SiegeOutpostVariant } from "@border-empires/shared";
 import { shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "./client-types.js";
@@ -151,20 +151,13 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       tile.optimisticPending = "structure_build";
       if (kind === "FORT") {
         delete tile.economicStructure;
-        const variant =
-          tile.fort?.variant === "FORT"
-            ? state.techIds.includes("fortified-walls")
-              ? "IRON_BASTION"
-              : "FORT"
-            : tile.fort?.variant === "IRON_BASTION"
-              ? state.techIds.includes("steelworking")
-                ? "THUNDER_BASTION"
-                : "IRON_BASTION"
-              : state.techIds.includes("steelworking")
-                ? "THUNDER_BASTION"
-                : state.techIds.includes("fortified-walls")
-                  ? "IRON_BASTION"
-                  : "FORT";
+        const hasTech = (id: string) => state.techIds.includes(id);
+        // If the tile already has a fort at max tier with no upgrade path,
+        // don't write an optimistic under_construction state the sim will reject.
+        if (tile.fort && !nextFortTierForUpgrade(tile.fort.variant, hasTech)) return;
+        const variant: FortVariant = tile.fort
+          ? nextFortTierForUpgrade(tile.fort.variant, hasTech)!.variant
+          : bestFortTierForTech(hasTech).variant;
         tile.fort = { ownerId: state.me, status: "under_construction", variant, completesAt };
         return;
       }
@@ -174,20 +167,12 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       }
       if (kind === "SIEGE_OUTPOST") {
         delete tile.economicStructure;
-        const variant =
-          tile.siegeOutpost?.variant === "SIEGE_OUTPOST"
-            ? state.techIds.includes("siegecraft")
-              ? "SIEGE_TOWER"
-              : "SIEGE_OUTPOST"
-            : tile.siegeOutpost?.variant === "SIEGE_TOWER"
-              ? state.techIds.includes("standing-army")
-                ? "DREAD_TOWER"
-                : "SIEGE_TOWER"
-              : state.techIds.includes("standing-army")
-                ? "DREAD_TOWER"
-                : state.techIds.includes("siegecraft")
-                  ? "SIEGE_TOWER"
-                  : "SIEGE_OUTPOST";
+        const hasTech = (id: string) => state.techIds.includes(id);
+        // If max tier with no upgrade path, don't write invalid optimistic state.
+        if (tile.siegeOutpost && !nextSiegeTierForUpgrade(tile.siegeOutpost.variant, hasTech)) return;
+        const variant: SiegeOutpostVariant = tile.siegeOutpost
+          ? nextSiegeTierForUpgrade(tile.siegeOutpost.variant, hasTech)!.variant
+          : bestSiegeTierForTech(hasTech).variant;
         tile.siegeOutpost = { ownerId: state.me, status: "under_construction", variant, completesAt };
         return;
       }
