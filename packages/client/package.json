@@ -10,6 +10,7 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@border-empires/game-domain": "workspace:*",
     "@border-empires/shared": "workspace:*",
     "firebase": "^12.11.0",
     "three": "^0.179.1"

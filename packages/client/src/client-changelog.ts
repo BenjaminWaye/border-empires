@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.29.2",
+  version: "2026.05.30.1",
   title: "What's New",
-  summary: "Fort and siege tiers now persist server-side. Shard rain now pings on the minimap, and duplicate-shard prevention.",
+  summary: "Fort and siege tiers persist. Smaller bootstrap payload. Shard rain minimap pings.",
   entries: [
+    {
+      introducedIn: "2026.05.30.1",
+      title: "Smaller initial world payload — faster load times",
+      why: "The bootstrap init message was 512KB and growing with the world. Per-tile fields yieldRate and yieldCap were redundant for town tiles (townJson already carries goldPerMinute and cap) and derivable for non-town tiles from static yield tables and tile resource/dock/economicStructure fields. Moving them to client-side derivation shrinks the payload ~30%.",
+      changes: [
+        "yieldRate and yieldCap are no longer sent in the bootstrap init payload. The client derives them from the tile's townJson, resource, dockId, and economicStructure fields.",
+        "Town tiles still carry goldPerMinute and cap inside townJson — no loss of accuracy.",
+        "Gateway tile-detail endpoint still computes and returns yieldRate/yieldCap for live tile detail fetches."
+      ]
+    },
     {
       introducedIn: "2026.05.29.2",
       title: "Fort and siege outpost tiers persist — Iron/Thunder Bastion defense and Siege/Dread Tower attack work correctly",
