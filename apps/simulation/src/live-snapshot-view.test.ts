@@ -188,7 +188,6 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "11,10"]
         }
       ],
       pendingSettlements: [],

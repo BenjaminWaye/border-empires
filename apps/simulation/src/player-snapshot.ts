@@ -72,6 +72,21 @@ export const buildPlayerSubscriptionSnapshot = (
     return { x, y };
   };
 
+  const ownedTileKeysByPlayer = new Map<string, string[]>();
+  for (const tile of sourceTiles) {
+    if (!tile.ownerId) continue;
+    let keys = ownedTileKeysByPlayer.get(tile.ownerId);
+    if (!keys) {
+      keys = [];
+      ownedTileKeysByPlayer.set(tile.ownerId, keys);
+    }
+    keys.push(keyFor(tile.x, tile.y));
+  }
+  for (const keys of ownedTileKeysByPlayer.values()) {
+    keys.sort((a, b) => a.localeCompare(b));
+  }
+  const ownedTileKeys = (pid: string): string[] => ownedTileKeysByPlayer.get(pid) ?? [];
+
   const playersById = new Map(runtimeState.players.map((player) => [player.id, player] as const));
   const addVision = (
     targetKeys: Set<string>,
@@ -93,7 +108,7 @@ export const buildPlayerSubscriptionSnapshot = (
   const addVisionForPlayer = (targetKeys: Set<string>, nextPlayerId: string): void => {
     const nextPlayer = playersById.get(nextPlayerId);
     if (!nextPlayer) return;
-    addVision(targetKeys, nextPlayer.territoryTileKeys, nextPlayer.vision, nextPlayer.visionRadiusBonus);
+    addVision(targetKeys, ownedTileKeys(nextPlayerId), nextPlayer.vision, nextPlayer.visionRadiusBonus);
   };
 
   const tiles =
@@ -103,7 +118,7 @@ export const buildPlayerSubscriptionSnapshot = (
           const visibleKeys = new Set<string>();
           const primaryPlayer = playersById.get(playerId);
           if (primaryPlayer) {
-            addVision(visibleKeys, primaryPlayer.territoryTileKeys, primaryPlayer.vision, primaryPlayer.visionRadiusBonus);
+            addVision(visibleKeys, ownedTileKeys(playerId), primaryPlayer.vision, primaryPlayer.visionRadiusBonus);
             for (const allyId of primaryPlayer.allies) addVisionForPlayer(visibleKeys, allyId);
           } else {
             addVision(
@@ -163,7 +178,7 @@ export const buildPlayerSubscriptionSnapshot = (
   );
   const activeLockTileKeys = new Set(runtimeState.activeLocks?.map((lock) => lock.targetKey) ?? []);
   const autoSettlementQueue = livePlayer
-    ? (livePlayer.territoryTileKeys ?? [])
+    ? ownedTileKeys(playerId)
         .map((tileKey) => {
           if (pendingSettlementTileKeys.has(tileKey) || activeLockTileKeys.has(tileKey)) return undefined;
           const tile = tileByKey.get(tileKey);
@@ -343,6 +358,21 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
     return { x, y };
   };
 
+  const ownedTileKeysByPlayer = new Map<string, string[]>();
+  for (const tile of sourceTiles) {
+    if (!tile.ownerId) continue;
+    let keys = ownedTileKeysByPlayer.get(tile.ownerId);
+    if (!keys) {
+      keys = [];
+      ownedTileKeysByPlayer.set(tile.ownerId, keys);
+    }
+    keys.push(keyFor(tile.x, tile.y));
+  }
+  for (const keys of ownedTileKeysByPlayer.values()) {
+    keys.sort((a, b) => a.localeCompare(b));
+  }
+  const ownedTileKeys = (pid: string): string[] => ownedTileKeysByPlayer.get(pid) ?? [];
+
   const playersById = new Map(runtimeState.players.map((player) => [player.id, player] as const));
   const addVision = (
     targetKeys: Set<string>,
@@ -364,7 +394,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   const addVisionForPlayer = (targetKeys: Set<string>, nextPlayerId: string): void => {
     const nextPlayer = playersById.get(nextPlayerId);
     if (!nextPlayer) return;
-    addVision(targetKeys, nextPlayer.territoryTileKeys, nextPlayer.vision, nextPlayer.visionRadiusBonus);
+    addVision(targetKeys, ownedTileKeys(nextPlayerId), nextPlayer.vision, nextPlayer.visionRadiusBonus);
   };
 
   const tiles =
@@ -374,7 +404,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
           const visibleKeys = new Set<string>();
           const primaryPlayer = playersById.get(playerId);
           if (primaryPlayer) {
-            addVision(visibleKeys, primaryPlayer.territoryTileKeys, primaryPlayer.vision, primaryPlayer.visionRadiusBonus);
+            addVision(visibleKeys, ownedTileKeys(playerId), primaryPlayer.vision, primaryPlayer.visionRadiusBonus);
             for (const allyId of primaryPlayer.allies) addVisionForPlayer(visibleKeys, allyId);
           } else {
             addVision(
@@ -435,7 +465,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   );
   const activeLockTileKeys = new Set(runtimeState.activeLocks?.map((lock) => lock.targetKey) ?? []);
   const autoSettlementQueue = livePlayer
-    ? (livePlayer.territoryTileKeys ?? [])
+    ? ownedTileKeys(playerId)
         .map((tileKey) => {
           if (pendingSettlementTileKeys.has(tileKey) || activeLockTileKeys.has(tileKey)) return undefined;
           const tile = tileByKey.get(tileKey);
