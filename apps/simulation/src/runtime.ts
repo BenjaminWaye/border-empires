@@ -9,6 +9,9 @@ import {
 import {
   validateFrontierCommand,
   fortAttackManpowerMultiplier,
+  MANPOWER_BASE_CAP,
+  MANPOWER_BASE_REGEN_PER_MINUTE,
+  TOWN_MANPOWER_BY_TIER,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType

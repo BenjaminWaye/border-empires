@@ -1,6 +1,6 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { MANPOWER_BASE_CAP, isChosenTrickleResource } from "@border-empires/shared";
-import { POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
+import { isChosenTrickleResource } from "@border-empires/shared";
+import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state.js";
 import type { DockRouteDefinition } from "./dock-network.js";
