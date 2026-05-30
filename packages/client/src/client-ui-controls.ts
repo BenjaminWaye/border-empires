@@ -8,6 +8,14 @@ import {
   SIEGE_OUTPOST_BUILD_MS,
   WOODEN_FORT_BUILD_MS,
   WOODEN_FORT_DEFENSE_MULT,
+  bestFortTierForTech,
+  FORT_VARIANT_LABELS,
+  nextFortTierForUpgrade,
+  type FortTierInfo,
+  bestSiegeTierForTech,
+  nextSiegeTierForUpgrade,
+  SIEGE_VARIANT_LABELS,
+  type SiegeTierInfo,
   structureBuildManpowerCost,
   structureShowsOnTile,
   type ResourceType
@@ -116,30 +124,69 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
   const canUpgradeWoodenFort = tile.economicStructure?.type === "WOODEN_FORT" && state.techIds.includes("masonry");
   const canUpgradeLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST" && state.techIds.includes("leatherworking");
-  const fortVariant =
-    tile.fort?.variant === "FORT" && state.techIds.includes("fortified-walls")
-      ? { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" }
-      : tile.fort?.variant === "IRON_BASTION" && state.techIds.includes("steelworking")
-        ? { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" }
-    : tile.fort
-      ? undefined
-    : state.techIds.includes("steelworking")
-      ? { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" }
-      : state.techIds.includes("fortified-walls")
-        ? { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" }
-        : { label: "Fort", gold: structureGoldCost("FORT"), iron: 45, defenseMult: FORT_DEFENSE_MULT, summary: structureCostText("FORT") };
-  const siegeVariant =
-    tile.siegeOutpost?.variant === "SIEGE_OUTPOST" && state.techIds.includes("siegecraft")
-      ? { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 60 manpower + 90 SUPPLY + 60 IRON" }
-      : tile.siegeOutpost?.variant === "SIEGE_TOWER" && state.techIds.includes("standing-army")
-        ? { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 60 manpower + 140 SUPPLY + 120 IRON" }
-    : tile.siegeOutpost
-      ? undefined
-    : state.techIds.includes("standing-army")
-      ? { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 60 manpower + 140 SUPPLY + 120 IRON" }
-      : state.techIds.includes("siegecraft")
-        ? { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 60 manpower + 90 SUPPLY + 60 IRON" }
-        : { label: "Siege Outpost", gold: structureGoldCost("SIEGE_OUTPOST"), supply: 45, iron: 0, attackMult: SIEGE_OUTPOST_ATTACK_MULT, summary: structureCostText("SIEGE_OUTPOST") };
+  const hasFortTech = (id: string) => state.techIds.includes(id);
+  const fortVariant: {
+    label: string;
+    gold: number;
+    iron: number;
+    defenseMult: number;
+    summary: string;
+  } | undefined = (() => {
+    if (tile.fort) {
+      const tier = nextFortTierForUpgrade(tile.fort.variant, hasFortTech);
+      if (!tier) return undefined;
+      return {
+        label: FORT_VARIANT_LABELS[tier.variant],
+        gold: tier.gold,
+        iron: tier.iron,
+        defenseMult: tier.defenseMult,
+        summary: `${tier.gold} gold + ${tier.manpower} manpower + ${tier.iron} IRON`,
+      };
+    }
+    const tier = bestFortTierForTech(hasFortTech);
+    return {
+      label: FORT_VARIANT_LABELS[tier.variant],
+      gold: tier.gold,
+      iron: tier.iron,
+      defenseMult: tier.defenseMult,
+      summary: `${tier.gold} gold + ${tier.manpower} manpower + ${tier.iron} IRON`,
+    };
+  })();
+  const hasSiegeTech = (id: string) => state.techIds.includes(id);
+  const siegeVariant: {
+    label: string;
+    gold: number;
+    supply: number;
+    iron: number;
+    attackMult: number;
+    summary: string;
+  } | undefined = (() => {
+    if (tile.siegeOutpost) {
+      const tier = nextSiegeTierForUpgrade(tile.siegeOutpost.variant, hasSiegeTech);
+      if (!tier) return undefined;
+      return {
+        label: SIEGE_VARIANT_LABELS[tier.variant],
+        gold: tier.gold,
+        supply: tier.supply,
+        iron: tier.iron,
+        attackMult: tier.attackMult,
+        summary: tier.iron > 0
+          ? `${tier.gold} gold + ${tier.manpower} manpower + ${tier.supply} SUPPLY + ${tier.iron} IRON`
+          : `${tier.gold} gold + ${tier.manpower} manpower + ${tier.supply} SUPPLY`,
+      };
+    }
+    const tier = bestSiegeTierForTech(hasSiegeTech);
+    return {
+      label: SIEGE_VARIANT_LABELS[tier.variant],
+      gold: tier.gold,
+      supply: tier.supply,
+      iron: tier.iron,
+      attackMult: tier.attackMult,
+      summary: tier.iron > 0
+        ? `${tier.gold} gold + ${tier.manpower} manpower + ${tier.supply} SUPPLY + ${tier.iron} IRON`
+        : `${tier.gold} gold + ${tier.manpower} manpower + ${tier.supply} SUPPLY`,
+    };
+  })();
   const woodenFortGoldCost = structureGoldCost("WOODEN_FORT");
   const lightOutpostGoldCost = structureGoldCost("LIGHT_OUTPOST");
   const woodenFortManpowerCost = structureBuildManpowerCost("WOODEN_FORT");
