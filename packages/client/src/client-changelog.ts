@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.05.30.1",
   title: "What's New",
-  summary: "Faster bootstrap load from smaller initial payload.",
+  summary: "Fort and siege tiers persist. Smaller bootstrap payload. Shard rain minimap pings.",
   entries: [
     {
       introducedIn: "2026.05.30.1",
@@ -31,6 +31,17 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "yieldRate and yieldCap are no longer sent in the bootstrap init payload. The client derives them from the tile's townJson, resource, dockId, and economicStructure fields.",
         "Town tiles still carry goldPerMinute and cap inside townJson — no loss of accuracy.",
         "Gateway tile-detail endpoint still computes and returns yieldRate/yieldCap for live tile detail fetches."
+      ]
+    },
+    {
+      introducedIn: "2026.05.29.2",
+      title: "Fort and siege outpost tiers persist — Iron/Thunder Bastion defense and Siege/Dread Tower attack work correctly",
+      why: "Fort and siege variants existed only as client-side optimistic labels. The simulation never stored a structure's tier, so combat multipliers defaulted to base values (5x for all forts, 1.6x for all siege). Upgrade menus offered bogus actions on maxed structures, and menu text showed wrong defense/attack numbers. Displayed siege attack multipliers are also corrected — they now match the authoritative config values.",
+      changes: [
+        "Forts: BUILD_FORT creates the best available tier and upgrades follow FORT → Iron Bastion → Thunder Bastion. Costs: Iron 1800g/90 iron, Thunder 4200g/180 iron.",
+        "Siege: BUILD_SIEGE_OUTPOST creates the best available tier and upgrades follow Siege Outpost → Siege Tower → Dread Tower. Costs: Tower 1800g/90 SUPPLY/60 IRON, Dread 4200g/140 SUPPLY/120 IRON.",
+        "Attack multiplier labels on Siege Tower (was 2x, now 1.8x) and Dread Tower (was 3x, now 2.0x) corrected — no behavior change, just accurate labels.",
+        "buildDetailTextForAction now shows correct tier-based defense and attack numbers."
       ]
     },
     {
@@ -71,7 +82,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Removed phantom '1.5 gold/min' from Caravanary — the sim charges food upkeep only.",
         "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
       ],
-    },
     {
       introducedIn: "2026.05.28.3",
       title: "Manpower regen slowed; rate shows a decimal",
