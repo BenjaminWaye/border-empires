@@ -37,9 +37,15 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "settle_land") return "Makes this tile defended and activates production.";
   if (actionId === "settle_connected_frontier") return "Queues a settlement on every connected frontier tile you own.";
   if (actionId === "build_fortification") {
-    const currentVariant = tile.fort?.variant ?? "FORT";
-    if (currentVariant === "FORT") return `Upgrade this Fort into an Iron Bastion. Iron Bastions defend at ${FORT_TIER_LADDER.IRON_BASTION.defenseMult}x.`;
-    if (currentVariant === "IRON_BASTION") return `Upgrade this Iron Bastion into a Thunder Bastion. Thunder Bastions defend at ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x.`;
+    // Only show upgrade text when a fort already exists on the tile.
+    // Without this guard, a tile.fort === undefined falls through the
+    // ?? "FORT" default and shows "Upgrade this Fort" for fresh builds.
+    if (tile.fort) {
+      const currentVariant = tile.fort.variant ?? "FORT";
+      if (currentVariant === "FORT") return `Upgrade this Fort into an Iron Bastion. Iron Bastions defend at ${FORT_TIER_LADDER.IRON_BASTION.defenseMult}x.`;
+      if (currentVariant === "IRON_BASTION") return `Upgrade this Iron Bastion into a Thunder Bastion. Thunder Bastions defend at ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x.`;
+      // THUNDER_BASTION shouldn't expose this action at all; fall through for safety.
+    }
     return tile.economicStructure?.type === "WOODEN_FORT"
       ? `Upgrade this Wooden Fort into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
       : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;

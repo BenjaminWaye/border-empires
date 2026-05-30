@@ -107,6 +107,12 @@ export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
   THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 4200, iron: 180, manpower: 300, defenseMult: 8 },
 };
 
+export const FORT_VARIANT_LABELS: Record<FortVariant, string> = {
+  FORT: "Fort",
+  IRON_BASTION: "Iron Bastion",
+  THUNDER_BASTION: "Thunder Bastion",
+};
+
 export const bestFortTierForTech = (has: (id: string) => boolean): FortTierInfo => {
   if (has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
   if (has("fortified-walls")) return FORT_TIER_LADDER.IRON_BASTION;
