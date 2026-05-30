@@ -198,12 +198,11 @@ describe("simulation runtime", () => {
     const collectedTown = snapshot.tiles.find((tile) => tile.x === 5 && tile.y === 5);
     expect(collectedTown?.yield?.gold ?? -1).toBeLessThan(0.01);
     expect(collectedTown?.yield?.strategic ?? {}).toEqual({});
-    expect(collectedTown?.yieldRate?.goldPerMinute ?? 0).toBeGreaterThan(0);
-    expect(collectedTown?.yieldCap?.gold ?? 0).toBeGreaterThan(0);
+    // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
+    // The client derives them from townJson (goldPerMinute/cap) + static tables.
+    // Just verify the collected buffer is cleared — rate/cap are now client-side.
     const [tileDetail] = runtime.exportTilesInAreaForPlayer("player-1", 5, 5, 0, { fullVisibility: true });
     expect(tileDetail?.yield).toEqual({ gold: 0, strategic: {} });
-    expect(tileDetail?.yieldRate?.goldPerMinute ?? 0).toBeGreaterThan(0);
-    expect(tileDetail?.yieldCap?.gold ?? 0).toBeGreaterThan(0);
   });
 
   it("does not emit per-tile events when collecting visible yield for a large empire", async () => {
@@ -8012,20 +8011,14 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
 
     const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 5, 5, 0, { fullVisibility: true });
     expect(centerDelta).toBeDefined();
-    // The fix's whole point: the response carries the yield trio so the client
-    // does not have to fall back to its cached snapshot values.
-    expect(centerDelta?.yieldRate).toBeDefined();
-    expect(centerDelta?.yieldCap).toBeDefined();
+    // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
+    // The gateway-side tile-detail-snapshot still computes them from buildTileYieldView.
     // Persisted goldPerMinute was 0.5; live recompute must override it. Exact
     // value depends on the gold formula, just assert it's the recomputed one
     // (not the stale stub).
-    expect(centerDelta?.yieldRate?.goldPerMinute ?? 0).toBeGreaterThan(0.5);
-    expect(centerDelta?.yieldCap?.gold ?? 0).toBeGreaterThan(10);
-    // townJson must carry the same fresh numbers so the gateway-side fallback
-    // yield view in tile-detail-snapshot stays consistent with yieldRate.
     const refreshedTown = centerDelta?.townJson ? JSON.parse(centerDelta.townJson) : undefined;
-    expect(refreshedTown?.goldPerMinute).toBe(centerDelta?.yieldRate?.goldPerMinute);
-    expect(refreshedTown?.cap).toBe(centerDelta?.yieldCap?.gold);
+    expect(refreshedTown?.goldPerMinute).toBeGreaterThan(0.5);
+    expect(refreshedTown?.cap).toBeGreaterThan(10);
   });
 
   it("emits an explicit zero yield buffer for yield-bearing tiles so fresh responses can clear stale cached buffers", () => {
@@ -8217,11 +8210,11 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(town?.connectedTownCount).toBe(3);
     expect(town?.connectedTownBonus).toBeCloseTo(1.2, 5);
     // Now the load-bearing assertion: gpm and cap must reflect that bonus.
+    // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
+    // townJson carries the authoritative goldPerMinute and cap.
     // 2 * 1.0 * 1.0 (TOWN tier popMult) * 2.2 = 4.4
-    expect(centerDelta?.yieldRate?.goldPerMinute ?? 0).toBeCloseTo(4.4, 2);
     expect(town?.goldPerMinute).toBeCloseTo(4.4, 2);
     // 4.4 * 60 * 8 = 2112
-    expect(centerDelta?.yieldCap?.gold ?? 0).toBeCloseTo(2112, 0);
     expect(town?.cap).toBeCloseTo(2112, 0);
   });
 });
