@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.30.1",
+  version: "2026.05.30.2",
   title: "What's New",
-  summary: "Fort and siege tiers persist. Smaller bootstrap payload. Shard rain minimap pings.",
+  summary: "Barbarian counter-captures stay settled. Fort and siege tiers persist. Smaller bootstrap payload.",
   entries: [
+    {
+      introducedIn: "2026.05.30.2",
+      title: "Barbarian counter-captures stay settled",
+      why: "When a player attack against barbarians failed, the counter-captured origin tile was being converted to barbarian FRONTIER land. That could make the tile blink like cut-off frontier even though barbarian territory should always be settled.",
+      changes: [
+        "Failed attacks against barbarians now leave the counter-captured player origin as barbarian SETTLED land.",
+        "Any stale frontier decay timer on that captured origin is cleared during the ownership change."
+      ]
+    },
     {
       introducedIn: "2026.05.30.1",
       title: "Smaller initial world payload — faster load times",
