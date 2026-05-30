@@ -7474,7 +7474,10 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "SUPPLY", targetTier.supply)) {
+    // Atomically pre-check both resources before spending either.
+    // spendStrategicResource deducts on success; a SUPPLY-success / IRON-fail
+    // sequence would silently steal SUPPLY without a refund path.
+    if (this.strategicResourceAmount(actor, "SUPPLY") < targetTier.supply) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -7484,7 +7487,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (targetTier.iron > 0 && !this.spendStrategicResource(actor, "IRON", targetTier.iron)) {
+    if (targetTier.iron > 0 && this.strategicResourceAmount(actor, "IRON") < targetTier.iron) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -7494,6 +7497,9 @@ export class SimulationRuntime {
       });
       return;
     }
+    // Both spends are now guaranteed to succeed.
+    this.spendStrategicResource(actor, "SUPPLY", targetTier.supply);
+    if (targetTier.iron > 0) this.spendStrategicResource(actor, "IRON", targetTier.iron);
 
     actor.points -= goldCost;
     actor.manpower = Math.max(0, actor.manpower - manpowerCost);
