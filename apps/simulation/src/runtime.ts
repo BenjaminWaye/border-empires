@@ -3259,33 +3259,40 @@ export class SimulationRuntime {
     terrainEpoch: number;
   } {
     return {
-      tiles: [...this.tiles.values()]
-        .map((tile) => {
+      // Single-pass pre-allocated tile projection.  Avoids:
+      //   1. [...this.tiles.values()] spread (O(N) intermediate array)
+      //   2. .map() (second O(N) intermediate array)
+      //   3. 14 conditional spread expressions per tile (each allocates a
+      //      temporary object just to be immediately merged and discarded)
+      // Result is sorted in place; byte-for-byte identical to the old output.
+      tiles: (() => {
+        const result = new Array(this.tiles.size) as Array<ReturnType<SimulationRuntime["exportState"]>["tiles"][number]>;
+        let i = 0;
+        for (const tile of this.tiles.values()) {
           const tileKey = simulationTileKey(tile.x, tile.y);
           const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
-          return {
-            x: tile.x,
-            y: tile.y,
-            terrain: tile.terrain,
-            ...(tile.resource ? { resource: tile.resource } : {}),
-            ...(tile.dockId ? { dockId: tile.dockId } : {}),
-            ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-            ...(cached.townJson ? { townJson: cached.townJson } : {}),
-            ...(tile.town?.type ? { townType: tile.town.type } : {}),
-            ...(tile.town?.name ? { townName: tile.town.name } : {}),
-            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-            ...(cached.fortJson ? { fortJson: cached.fortJson } : {}),
-            ...(cached.observatoryJson ? { observatoryJson: cached.observatoryJson } : {}),
-            ...(cached.siegeOutpostJson ? { siegeOutpostJson: cached.siegeOutpostJson } : {}),
-            ...(cached.economicStructureJson ? { economicStructureJson: cached.economicStructureJson } : {}),
-            ...(cached.sabotageJson ? { sabotageJson: cached.sabotageJson } : {})
-          };
-        })
-        .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
+          const entry: ReturnType<SimulationRuntime["exportState"]>["tiles"][number] = { x: tile.x, y: tile.y, terrain: tile.terrain };
+          if (tile.resource) entry.resource = tile.resource;
+          if (tile.dockId) entry.dockId = tile.dockId;
+          if (cached.shardSiteJson) entry.shardSiteJson = cached.shardSiteJson;
+          if (tile.ownerId) entry.ownerId = tile.ownerId;
+          if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
+          if (typeof tile.frontierDecayAt === "number") (entry as Record<string, unknown>)["frontierDecayAt"] = tile.frontierDecayAt;
+          if (tile.frontierDecayKind) (entry as Record<string, unknown>)["frontierDecayKind"] = tile.frontierDecayKind;
+          if (cached.townJson) entry.townJson = cached.townJson;
+          if (tile.town?.type) entry.townType = tile.town.type;
+          if (tile.town?.name) entry.townName = tile.town.name;
+          if (tile.town?.populationTier) entry.townPopulationTier = tile.town.populationTier;
+          if (cached.fortJson) entry.fortJson = cached.fortJson;
+          if (cached.observatoryJson) entry.observatoryJson = cached.observatoryJson;
+          if (cached.siegeOutpostJson) entry.siegeOutpostJson = cached.siegeOutpostJson;
+          if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
+          if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
+          result[i++] = entry;
+        }
+        result.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+        return result;
+      })(),
       players: [...this.players.values()]
         .map((player) => {
           this.applyManpowerRegen(player);
