@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, structureBuildGoldCost, structureCostDefinition } from "../src/structure-costs.js";
+import { FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureCostDefinition } from "../src/structure-costs.js";
 
 describe("structureBuildGoldCost", () => {
   test("scales forts and siege outposts by 10 percent per additional structure", () => {
@@ -111,5 +111,83 @@ describe("nextFortTierForUpgrade", () => {
 
   test("undefined variant treated as FORT → null with no tech", () => {
     expect(nextFortTierForUpgrade(undefined, hasNoTech)).toBeNull();
+  });
+});
+
+describe("SIEGE_TIER_LADDER", () => {
+  test("SIEGE_OUTPOST costs 900 gold, 45 supply, 0 iron, 60 manpower, 1.6x attack", () => {
+    const tier = SIEGE_TIER_LADDER.SIEGE_OUTPOST;
+    expect(tier.gold).toBe(900);
+    expect(tier.supply).toBe(45);
+    expect(tier.iron).toBe(0);
+    expect(tier.manpower).toBe(60);
+    expect(tier.attackMult).toBe(1.6);
+  });
+
+  test("SIEGE_TOWER costs 1800 gold, 90 supply, 60 iron, 60 manpower, 1.8x attack", () => {
+    const tier = SIEGE_TIER_LADDER.SIEGE_TOWER;
+    expect(tier.gold).toBe(1800);
+    expect(tier.supply).toBe(90);
+    expect(tier.iron).toBe(60);
+    expect(tier.manpower).toBe(60);
+    expect(tier.attackMult).toBe(1.8);
+  });
+
+  test("DREAD_TOWER costs 4200 gold, 140 supply, 120 iron, 60 manpower, 2.0x attack", () => {
+    const tier = SIEGE_TIER_LADDER.DREAD_TOWER;
+    expect(tier.gold).toBe(4200);
+    expect(tier.supply).toBe(140);
+    expect(tier.iron).toBe(120);
+    expect(tier.manpower).toBe(60);
+    expect(tier.attackMult).toBe(2.0);
+  });
+
+  test("bestSiegeTierForTech returns SIEGE_OUTPOST with no siege tech", () => {
+    const hasTech = (id: string) => false;
+    expect(bestSiegeTierForTech(hasTech).variant).toBe("SIEGE_OUTPOST");
+  });
+
+  test("bestSiegeTierForTech returns SIEGE_TOWER with siegecraft but no standing-army", () => {
+    const hasTech = (id: string) => id === "siegecraft";
+    expect(bestSiegeTierForTech(hasTech).variant).toBe("SIEGE_TOWER");
+  });
+
+  test("bestSiegeTierForTech returns DREAD_TOWER when standing-army is researched", () => {
+    const hasTech = (id: string) => id === "standing-army" || id === "siegecraft";
+    expect(bestSiegeTierForTech(hasTech).variant).toBe("DREAD_TOWER");
+  });
+});
+
+describe("nextSiegeTierForUpgrade", () => {
+  const hasBasicTech = (id: string) => id === "siegecraft";
+  const hasAllTech = (id: string) => id === "siegecraft" || id === "standing-army";
+  const hasNoTech = (id: string) => false;
+
+  test("SIEGE_OUTPOST → SIEGE_TOWER when siegecraft is researched", () => {
+    expect(nextSiegeTierForUpgrade("SIEGE_OUTPOST", hasBasicTech)?.variant).toBe("SIEGE_TOWER");
+  });
+
+  test("SIEGE_OUTPOST → null when no siege tech is researched", () => {
+    expect(nextSiegeTierForUpgrade("SIEGE_OUTPOST", hasNoTech)).toBeNull();
+  });
+
+  test("SIEGE_TOWER → DREAD_TOWER when standing-army is researched", () => {
+    expect(nextSiegeTierForUpgrade("SIEGE_TOWER", hasAllTech)?.variant).toBe("DREAD_TOWER");
+  });
+
+  test("SIEGE_TOWER → null when standing-army is not researched", () => {
+    expect(nextSiegeTierForUpgrade("SIEGE_TOWER", hasBasicTech)).toBeNull();
+  });
+
+  test("DREAD_TOWER → null (already max tier)", () => {
+    expect(nextSiegeTierForUpgrade("DREAD_TOWER", hasAllTech)).toBeNull();
+  });
+
+  test("undefined variant treated as SIEGE_OUTPOST → SIEGE_TOWER with siegecraft", () => {
+    expect(nextSiegeTierForUpgrade(undefined, hasBasicTech)?.variant).toBe("SIEGE_TOWER");
+  });
+
+  test("undefined variant treated as SIEGE_OUTPOST → null with no tech", () => {
+    expect(nextSiegeTierForUpgrade(undefined, hasNoTech)).toBeNull();
   });
 });

@@ -49,6 +49,8 @@ import {
   structureShowsOnTile,
   bestFortTierForTech,
   nextFortTierForUpgrade,
+  bestSiegeTierForTech,
+  nextSiegeTierForUpgrade,
   isChosenTrickleResource,
   type BuildableStructureType,
   type EconomicStructureType
@@ -7416,7 +7418,8 @@ export class SimulationRuntime {
       target.economicStructure?.ownerId === command.playerId &&
       target.economicStructure.type === "LIGHT_OUTPOST" &&
       (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
-    if (target.siegeOutpost || target.fort || target.observatory || (target.economicStructure && !upgradingLightOutpost)) {
+    // Allow upgrading an existing siege outpost; block other conflicting structures.
+    if (target.fort || target.observatory || (target.economicStructure && !upgradingLightOutpost && !target.siegeOutpost)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -7426,10 +7429,31 @@ export class SimulationRuntime {
       });
       return;
     }
+
+    // Compute the target tier.
+    const hasTech = (id: string) => actor.techIds.has(id);
+    const targetTier = target.siegeOutpost
+      ? nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)
+      : bestSiegeTierForTech(hasTech);
+
+    if (target.siegeOutpost && !targetTier) {
+      const isMaxed = target.siegeOutpost.variant === "DREAD_TOWER";
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BUILD_INVALID",
+        message: isMaxed ? "siege outpost already at maximum tier" : "research the next tier first"
+      });
+      return;
+    }
+    if (!targetTier) return; // unreachable: fresh build always has at least SIEGE_OUTPOST
+
     if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
 
-    const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", this.ownedStructureCountForPlayer(command.playerId, "SIEGE_OUTPOST"));
-    const manpowerCost = structureBuildManpowerCost("SIEGE_OUTPOST");
+    // Charge flat tier costs (no siegeBuildGoldCostMult exists — charge flat).
+    const goldCost = targetTier.gold;
+    const manpowerCost = targetTier.manpower;
     if (actor.points < goldCost) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
@@ -7450,13 +7474,23 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "SUPPLY", 45)) {
+    if (!this.spendStrategicResource(actor, "SUPPLY", targetTier.supply)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "BUILD_INVALID",
         message: "insufficient SUPPLY for siege outpost"
+      });
+      return;
+    }
+    if (targetTier.iron > 0 && !this.spendStrategicResource(actor, "IRON", targetTier.iron)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BUILD_INVALID",
+        message: "insufficient IRON for siege outpost"
       });
       return;
     }
@@ -7476,7 +7510,8 @@ export class SimulationRuntime {
       siegeOutpost: {
         ownerId: command.playerId,
         status: "under_construction",
-        completesAt: this.now() + siegeOutpostBuildDurationMs
+        completesAt: this.now() + siegeOutpostBuildDurationMs,
+        variant: targetTier.variant
       }
     };
     this.replaceTileState(targetKey, startedTile);
