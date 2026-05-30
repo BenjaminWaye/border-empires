@@ -25,6 +25,10 @@ export type SimulationRuntimeEnv = {
   systemTickMs: number;
   globalStatusBroadcastDebounceMs: number;
   systemPlayerIds?: string[];
+  /** Player IDs excluded from all leaderboard surfaces (overall, byTiles, byIncome, byTechs).
+   *  Intended for health-check / probe players that should not appear in rankings. */
+  nonCompetitivePlayerIds: ReadonlySet<string>;
+
   startupRecoveryTimeoutMs: number;
   allowSeedRecoveryFallback: boolean;
   requireDurableStartupState?: boolean;
@@ -85,6 +89,12 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   const systemPlayerIds = env.SIMULATION_SYSTEM_PLAYER_IDS
     ? env.SIMULATION_SYSTEM_PLAYER_IDS.split(",").map((value) => value.trim()).filter(Boolean)
     : undefined;
+  const nonCompetitivePlayerIds = new Set(
+    (env.SIMULATION_NON_COMPETITIVE_PLAYER_IDS ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
   const checkpointMaxRssMb = env.SIMULATION_CHECKPOINT_MAX_RSS_MB;
   const checkpointMaxHeapUsedMb = env.SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB;
   const allowSeedRecoveryFallback =
@@ -169,6 +179,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     allowSeedRecoveryFallback,
     ...(typeof requireDurableStartupState === "boolean" ? { requireDurableStartupState } : {}),
     useAiWorker: parseBooleanishEnvFlag(env.SIMULATION_AI_WORKER),
+    nonCompetitivePlayerIds,
     ...(systemPlayerIds && systemPlayerIds.length > 0 ? { systemPlayerIds } : {})
   };
 };
