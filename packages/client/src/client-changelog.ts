@@ -81,7 +81,8 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Corrected Harbor Exchange (Customs House) upkeep from 0.5 to 1.5 gold/min.",
         "Removed phantom '1.5 gold/min' from Caravanary — the sim charges food upkeep only.",
         "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
-      ],
+      ]
+    },
     {
       introducedIn: "2026.05.28.3",
       title: "Manpower regen slowed; rate shows a decimal",
