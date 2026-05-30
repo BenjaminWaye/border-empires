@@ -1522,6 +1522,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   diagnostic.settleDecisionTopScore
                 );
               }
+              if (diagnostic.broadFallbackSkipped) {
+                simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
+              }
             },
             onDiagnostic: (sample) => {
               if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
@@ -1586,6 +1589,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   diagnostic.playerId,
                   diagnostic.settleDecisionTopScore
                 );
+              }
+              if (diagnostic.broadFallbackSkipped) {
+                simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
               }
             },
             onTick: ({ durationMs }) => {
