@@ -99,7 +99,7 @@ export class SqliteGatewayCommandStore implements GatewayCommandStore {
           throw error;
         }
         this.onRetry?.();
-        const delayMs = SQLITE_BUSY_RETRY_DELAYS_MS[attempt] ?? 0;
+        const delayMs = SQLITE_BUSY_RETRY_DELAYS_MS[attempt];
         await new Promise<void>((resolve) => {
           setTimeout(resolve, delayMs);
         });
