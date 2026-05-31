@@ -435,6 +435,9 @@ export const createSeason20AiSeedWorld = (
     docksRuntime.generateDocks(worldSeed);
     townsRuntime.generateTowns(worldSeed);
     shardsRuntime.seedInitialShardScatter(worldSeed);
+    // Place food anchored to towns first, then top up to 80 clusters randomly.
+    townsRuntime.ensureFoodNearTowns(worldSeed);
+    clustersRuntime.fillFoodToTarget(worldSeed, 80);
     townsRuntime.ensureBaselineEconomyCoverage(worldSeed);
     townsRuntime.ensureInterestCoverage(worldSeed);
     townsRuntime.normalizeTownPlacements();

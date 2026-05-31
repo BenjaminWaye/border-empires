@@ -50,6 +50,7 @@ export interface ServerWorldgenClustersDeps {
 
 export interface ServerWorldgenClustersRuntime {
   generateClusters: (seed: number) => void;
+  fillFoodToTarget: (seed: number, target: number) => void;
   applyClusterResources: (x: number, y: number, base: ResourceType | undefined) => ResourceType | undefined;
 }
 
@@ -114,6 +115,7 @@ export interface ServerWorldgenTownsRuntime {
   townPlacementsNeedNormalization: () => boolean;
   normalizeTownPlacements: () => void;
   assignMissingTownNamesForWorld: () => void;
+  ensureFoodNearTowns: (seed: number) => void;
   ensureBaselineEconomyCoverage: (seed: number) => void;
   ensureInterestCoverage: (seed: number) => void;
   initialTownPopulationAt: (x: number, y: number, seed: number) => number;
