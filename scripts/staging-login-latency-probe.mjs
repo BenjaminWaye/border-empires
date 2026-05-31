@@ -24,6 +24,7 @@ Options:
 
 Environment:
   STAGING_LOGIN_PROBE_AUTH_TOKEN  Auth token to use when --auth-token is omitted
+  PROBE_FIREBASE_REFRESH_TOKEN    Firebase refresh token; exchanged for a fresh ID token when set
 `);
 };
 
@@ -93,8 +94,8 @@ const parseArgs = (argv) => {
     }
     throw new Error(`Unknown argument: ${arg}`);
   }
-  if (!options.authToken) {
-    throw new Error("missing auth token; pass --auth-token or set STAGING_LOGIN_PROBE_AUTH_TOKEN");
+  if (!options.authToken && !process.env.PROBE_FIREBASE_REFRESH_TOKEN) {
+    throw new Error("missing auth token; pass --auth-token, set STAGING_LOGIN_PROBE_AUTH_TOKEN, or set PROBE_FIREBASE_REFRESH_TOKEN");
   }
   return options;
 };
@@ -110,6 +111,20 @@ const sleep = (ms) =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+
+const refreshAuthToken = async (refreshToken) => {
+  const response = await fetch(
+    `https://securetoken.googleapis.com/v1/token?key=AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`
+    }
+  );
+  if (!response.ok) throw new Error(`token refresh failed: ${response.status}`);
+  const data = await response.json();
+  return data.id_token;
+};
 
 const runAttempt = async ({ url, timeoutMs, authToken }) => {
   const socket = new WebSocket(url);
@@ -176,6 +191,11 @@ const main = async () => {
     console.error(`[probe] ${error instanceof Error ? error.message : String(error)}`);
     usage();
     process.exit(2);
+  }
+
+  // Exchange refresh token for a fresh ID token if available
+  if (process.env.PROBE_FIREBASE_REFRESH_TOKEN && !options.authToken) {
+    options.authToken = await refreshAuthToken(process.env.PROBE_FIREBASE_REFRESH_TOKEN);
   }
 
   const attempts = [];
