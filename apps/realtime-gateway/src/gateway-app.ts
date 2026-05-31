@@ -684,7 +684,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   };
   const commandStoreFactoryOptions = {
     ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
-    ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {})
+    ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {}),
+    onSqliteBusyRetry: () => gatewayMetrics.incrementGatewaySqliteRetryTotal()
   };
   const commandStore =
     options.commandStore ??
