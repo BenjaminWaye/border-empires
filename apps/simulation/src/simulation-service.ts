@@ -1522,6 +1522,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   diagnostic.settleDecisionTopScore
                 );
               }
+              if (diagnostic.broadFallbackSkipped) {
+                simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
+              }
+              if (diagnostic.narrowAnalyzeCapped) {
+                simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
+              }
             },
             onDiagnostic: (sample) => {
               if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
@@ -1586,6 +1592,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   diagnostic.playerId,
                   diagnostic.settleDecisionTopScore
                 );
+              }
+              if (diagnostic.broadFallbackSkipped) {
+                simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
+              }
+              if (diagnostic.narrowAnalyzeCapped) {
+                simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
               }
             },
             onTick: ({ durationMs }) => {
@@ -1988,6 +2000,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             owner_id?: string;
             ownership_state?: string;
             frontier_decay_at?: number;
+            frontier_decay_kind?: string;
             town_json?: string;
             town_type?: string;
             town_name?: string;
@@ -2079,6 +2092,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
               ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
               ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
+              ...(tile.frontierDecayKind ? { frontier_decay_kind: tile.frontierDecayKind } : {}),
               ...(tile.townJson ? { town_json: tile.townJson } : {}),
               ...(tile.townType ? { town_type: tile.townType } : {}),
               ...(tile.townName ? { town_name: tile.townName } : {}),
@@ -2153,6 +2167,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             owner_id?: string;
             ownership_state?: string;
             frontier_decay_at?: number;
+            frontier_decay_kind?: string;
             town_json?: string;
             town_type?: string;
             town_name?: string;
@@ -2197,6 +2212,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
           ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
           ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
+          ...(tile.frontierDecayKind ? { frontier_decay_kind: tile.frontierDecayKind } : {}),
           ...(tile.townJson ? { town_json: tile.townJson } : {}),
           ...(tile.townType ? { town_type: tile.townType } : {}),
           ...(tile.townName ? { town_name: tile.townName } : {}),

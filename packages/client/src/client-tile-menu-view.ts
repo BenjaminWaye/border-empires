@@ -1,8 +1,11 @@
 import {
   FORT_BUILD_MS,
+  FORT_TIER_LADDER,
   OBSERVATORY_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
   SIEGE_OUTPOST_BUILD_MS,
+  SIEGE_TIER_LADDER,
+  nextFortTierForUpgrade,
   structureBuildDurationMs
 } from "@border-empires/shared";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, storedYieldSummary, strategicResourceKeyForTile, tileProductionHtml } from "./client-map-display.js";
@@ -35,20 +38,32 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "settle_land") return "Makes this tile defended and activates production.";
   if (actionId === "settle_connected_frontier") return "Queues a settlement on every connected frontier tile you own.";
   if (actionId === "build_fortification") {
-    if (tile.fort?.variant === "FORT") return "Upgrade this Fort into an Iron Bastion. Iron Bastions defend at 4x.";
-    if (tile.fort?.variant === "IRON_BASTION") return "Upgrade this Iron Bastion into a Thunder Bastion. Thunder Bastions defend at 8x.";
+    // Only show upgrade text when a fort already exists on the tile.
+    // Without this guard, a tile.fort === undefined falls through the
+    // ?? "FORT" default and shows "Upgrade this Fort" for fresh builds.
+    if (tile.fort) {
+      const currentVariant = tile.fort.variant ?? "FORT";
+      if (currentVariant === "FORT") return `Upgrade this Fort into an Iron Bastion. Iron Bastions defend at ${FORT_TIER_LADDER.IRON_BASTION.defenseMult}x.`;
+      if (currentVariant === "IRON_BASTION") return `Upgrade this Iron Bastion into a Thunder Bastion. Thunder Bastions defend at ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x.`;
+      // THUNDER_BASTION shouldn't expose this action at all; fall through for safety.
+    }
     return tile.economicStructure?.type === "WOODEN_FORT"
-      ? "Upgrade this Wooden Fort into a full fortification. Forts defend at 2.5x and stop failed attacks from costing the origin tile."
-      : "Fortify this tile. Forts defend at 2.5x and stop failed attacks from costing the origin tile.";
+      ? `Upgrade this Wooden Fort into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
+      : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
   }
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
   if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
   if (actionId === "build_siege_camp") {
-    if (tile.siegeOutpost?.variant === "SIEGE_OUTPOST") return "Upgrade this Siege Outpost into a Siege Tower. Siege Towers attack at 2x.";
-    if (tile.siegeOutpost?.variant === "SIEGE_TOWER") return "Upgrade this Siege Tower into a Dread Tower. Dread Towers attack at 3x.";
+    // Only show upgrade text when a siege outpost already exists.
+    if (tile.siegeOutpost) {
+      const currentVariant = tile.siegeOutpost.variant ?? "SIEGE_OUTPOST";
+      if (currentVariant === "SIEGE_OUTPOST") return `Upgrade this Siege Outpost into a Siege Tower. Siege Towers attack at ${SIEGE_TIER_LADDER.SIEGE_TOWER.attackMult}x.`;
+      if (currentVariant === "SIEGE_TOWER") return `Upgrade this Siege Tower into a Dread Tower. Dread Towers attack at ${SIEGE_TIER_LADDER.DREAD_TOWER.attackMult}x.`;
+      // DREAD_TOWER shouldn't expose this action; fall through for safety.
+    }
     return tile.economicStructure?.type === "LIGHT_OUTPOST"
-      ? "Upgrade this Light Outpost into a full siege outpost. Siege Outposts attack at 1.25x."
-      : "Adds an offensive staging point on this border or dock tile. Siege Outposts attack at 1.25x.";
+      ? `Upgrade this Light Outpost into a full siege outpost. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
+      : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
   if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
   if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";

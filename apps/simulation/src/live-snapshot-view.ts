@@ -983,9 +983,9 @@ const buildSnapshotTileYieldFields = (
     typeof tileAnchor === "number" && typeof playerAnchor === "number" ? Math.max(tileAnchor, playerAnchor) : tileAnchor ?? playerAnchor;
   const yieldView = buildTileYieldView(yieldTile, collectedAt, Date.now(), context);
   return {
-    ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
-    ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),
-    ...(yieldView?.yieldCap ? { yieldCap: yieldView.yieldCap } : {})
+    ...(yieldView?.yield ? { yield: yieldView.yield } : {})
+    // yieldRate and yieldCap are derived client-side from static yield tables
+    // + townJson (goldPerMinute/cap). See packages/client/src/yield-derivation.ts.
   };
 };
 

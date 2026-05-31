@@ -833,6 +833,31 @@ describe("automation command planner", () => {
     expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
   });
 
+  it("skips broad-fallback when owned tiles exceed threshold", () => {
+    const tileCount = 501;
+    const ownedTiles = Array.from({ length: tileCount }, (_, i) =>
+      makeTile(0, i, { ownerId: "ai-1", ownershipState: "FRONTIER" })
+    );
+    const tilesByKey = new Map(ownedTiles.map((t) => [`${t.x},${t.y}`, t]));
+    const frontierTiles = ownedTiles.slice(0, 3);
+
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 1000,
+      manpower: 100,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: 0,
+      frontierTiles,
+      ownedTiles,
+      tilesByKey,
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.diagnostic.broadFallbackSkipped).toBe(true);
+  });
+
   it("matches the legacy goldHealthy reserve threshold for the goap adapter", () => {
     expect(goapGoldReserveHealthy(4)).toBe(false);
     expect(goapGoldReserveHealthy(5)).toBe(true);

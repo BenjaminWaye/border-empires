@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 
 import { buildDockLinksByDockTileKey } from "./dock-network.js";
 import {
@@ -224,5 +224,39 @@ describe("frontier command planner", () => {
     expect(analysis.frontierBarbarianTargetCount).toBe(1);
     expect(analysis.enemyAttack?.target).toMatchObject({ x: 1, y: 0, ownerId: "enemy-1" });
     expect(analysis.barbarianAttack?.target).toMatchObject({ x: 0, y: 1, ownerId: "barbarian" });
+  });
+
+  it("caps candidate evaluation when frontier exceeds NARROW_ANALYZE_MAX_CANDIDATES", () => {
+    // 68 owned tiles spaced 5 apart with 8 unique unowned LAND neighbors each = 544 candidates.
+    // frontierNeighborCoords wraps via wrapX/wrapY, so we must create tile entries using
+    // wrapped coordinates or the map lookup returns undefined.
+    const tiles = new Map<string, { x: number; y: number; terrain: string; ownerId?: string }>();
+    const ownedTiles: { x: number; y: number; terrain: string; ownerId: string }[] = [];
+    const stepOffsets: Array<[number, number]> = [
+      [-1, -1], [0, -1], [1, -1],
+      [-1, 0],           [1, 0],
+      [-1, 1],  [0, 1],  [1, 1]
+    ];
+    const N = 68; // 68 origins × 8 neighbors = 544, comfortably over 512
+    for (let i = 0; i < N; i++) {
+      const x = i * 5; // wider spacing to avoid neighbor collision
+      const y = 0;
+      tiles.set(`${x},${y}`, { x, y, terrain: "LAND" as const, ownerId: "ai-1" });
+      ownedTiles.push({ x, y, terrain: "LAND" as const, ownerId: "ai-1" });
+      for (const [dx, dy] of stepOffsets) {
+        const nx = wrapX(x + dx, WORLD_WIDTH);
+        const ny = wrapY(y + dy, WORLD_HEIGHT);
+        if (!tiles.has(`${nx},${ny}`)) {
+          tiles.set(`${nx},${ny}`, { x: nx, y: ny, terrain: "LAND" as const });
+        }
+      }
+    }
+
+    const analysis = analyzeOwnedFrontierTargetsFromLookup(tiles, ownedTiles, "ai-1");
+
+    expect(analysis.narrowAnalyzeCapped).toBe(true);
+    // Still picks best-scored candidate from what was evaluated
+    expect(analysis.expand).toBeDefined();
+    expect(analysis.frontierNeutralTargetCount).toBeGreaterThan(0);
   });
 });

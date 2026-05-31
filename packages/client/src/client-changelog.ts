@@ -19,10 +19,49 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.29.2",
+  version: "2026.05.30.3",
   title: "What's New",
-  summary: "Shard rain now pings on the minimap, and duplicate-shard prevention.",
+  summary: "Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist.",
   entries: [
+    {
+      introducedIn: "2026.05.30.3",
+      title: "Manpower regen slowdown now uses one runtime source",
+      why: "The shared balance constants had been slowed so a settlement takes about 12 hours to refill manpower, but game-domain still exported the old fast per-tier table. That left room for runtime paths and tooling to drift back to pre-slowdown rates.",
+      changes: [
+        "Simulation now reads manpower cap and regen constants through game-domain, which mirrors the shared balance table instead of keeping a duplicate fast table.",
+        "Added a regression test that fails if base regen or any town tier stops taking about 720 minutes to refill its manpower cap."
+      ]
+    },
+    {
+      introducedIn: "2026.05.30.2",
+      title: "Barbarian counter-captures stay settled",
+      why: "When a player attack against barbarians failed, the counter-captured origin tile was being converted to barbarian FRONTIER land. That could make the tile blink like cut-off frontier even though barbarian territory should always be settled.",
+      changes: [
+        "Failed attacks against barbarians now leave the counter-captured player origin as barbarian SETTLED land.",
+        "Any stale frontier decay timer on that captured origin is cleared during the ownership change."
+      ]
+    },
+    {
+      introducedIn: "2026.05.30.1",
+      title: "Smaller initial world payload — faster load times",
+      why: "The bootstrap init message was 512KB and growing with the world. Per-tile fields yieldRate and yieldCap were redundant for town tiles (townJson already carries goldPerMinute and cap) and derivable for non-town tiles from static yield tables and tile resource/dock/economicStructure fields. Moving them to client-side derivation shrinks the payload ~30%.",
+      changes: [
+        "yieldRate and yieldCap are no longer sent in the bootstrap init payload. The client derives them from the tile's townJson, resource, dockId, and economicStructure fields.",
+        "Town tiles still carry goldPerMinute and cap inside townJson — no loss of accuracy.",
+        "Gateway tile-detail endpoint still computes and returns yieldRate/yieldCap for live tile detail fetches."
+      ]
+    },
+    {
+      introducedIn: "2026.05.29.2",
+      title: "Fort and siege outpost tiers persist — Iron/Thunder Bastion defense and Siege/Dread Tower attack work correctly",
+      why: "Fort and siege variants existed only as client-side optimistic labels. The simulation never stored a structure's tier, so combat multipliers defaulted to base values (5x for all forts, 1.6x for all siege). Upgrade menus offered bogus actions on maxed structures, and menu text showed wrong defense/attack numbers. Displayed siege attack multipliers are also corrected — they now match the authoritative config values.",
+      changes: [
+        "Forts: BUILD_FORT creates the best available tier and upgrades follow FORT → Iron Bastion → Thunder Bastion. Costs: Iron 1800g/90 iron, Thunder 4200g/180 iron.",
+        "Siege: BUILD_SIEGE_OUTPOST creates the best available tier and upgrades follow Siege Outpost → Siege Tower → Dread Tower. Costs: Tower 1800g/90 SUPPLY/60 IRON, Dread 4200g/140 SUPPLY/120 IRON.",
+        "Attack multiplier labels on Siege Tower (was 2x, now 1.8x) and Dread Tower (was 3x, now 2.0x) corrected — no behavior change, just accurate labels.",
+        "buildDetailTextForAction now shows correct tier-based defense and attack numbers."
+      ]
+    },
     {
       introducedIn: "2026.05.29.2",
       title: "Shard rain now pings on the minimap when it starts",
@@ -60,7 +99,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Corrected Harbor Exchange (Customs House) upkeep from 0.5 to 1.5 gold/min.",
         "Removed phantom '1.5 gold/min' from Caravanary — the sim charges food upkeep only.",
         "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
-      ],
+      ]
     },
     {
       introducedIn: "2026.05.28.3",
