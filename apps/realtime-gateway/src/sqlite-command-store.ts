@@ -1,6 +1,19 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
+type SqliteGatewayCommandStoreOptions = {
+  /** Called on each SQLITE_BUSY retry. Wire to gateway_sqlite_retry_total. */
+  onRetry?: () => void;
+};
+
+const isSqliteBusy = (error: unknown): boolean => {
+  const code = (error as { code?: string } | undefined)?.code;
+  return code === "SQLITE_BUSY" || code === "SQLITE_BUSY_TIMEOUT";
+};
+
+/** Retry backoff for SQLITE_BUSY contention (50ms, 150ms, 300ms). */
+const SQLITE_BUSY_RETRY_DELAYS_MS = [50, 150, 300] as const;
+
 import type { GatewayCommandStore, StoredGatewayCommand } from "./command-store.js";
 
 type Row = {
@@ -44,7 +57,11 @@ FROM commands c JOIN command_results r ON r.command_id = c.command_id
 `;
 
 export class SqliteGatewayCommandStore implements GatewayCommandStore {
-  constructor(private readonly db: DatabaseSync) {}
+  private readonly onRetry: (() => void) | undefined;
+
+  constructor(private readonly db: DatabaseSync, options: SqliteGatewayCommandStoreOptions = {}) {
+    this.onRetry = options.onRetry;
+  }
 
   async applySchema(): Promise<void> {
     this.db.exec(`
@@ -71,7 +88,30 @@ export class SqliteGatewayCommandStore implements GatewayCommandStore {
     `);
   }
 
-  async persistQueuedCommand(command: CommandEnvelope, queuedAt: number): Promise<StoredGatewayCommand> {
+  private async withSqliteRetry<T>(op: () => T): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= SQLITE_BUSY_RETRY_DELAYS_MS.length; attempt += 1) {
+      try {
+        return op();
+      } catch (error) {
+        lastError = error;
+        if (!isSqliteBusy(error) || attempt >= SQLITE_BUSY_RETRY_DELAYS_MS.length) {
+          throw error;
+        }
+        this.onRetry?.();
+        const delayMs = SQLITE_BUSY_RETRY_DELAYS_MS[attempt] ?? 0;
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+      }
+    }
+    throw lastError;
+  }
+
+  async persistQueuedCommand(
+    command: CommandEnvelope,
+    queuedAt: number
+  ): Promise<StoredGatewayCommand> {
     const insertCmd = this.db.prepare(
       `INSERT INTO commands (command_id, session_id, player_id, client_seq, command_type, payload_json, queued_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -81,15 +121,17 @@ export class SqliteGatewayCommandStore implements GatewayCommandStore {
       `INSERT INTO command_results (command_id, status) VALUES (?, 'QUEUED')
        ON CONFLICT(command_id) DO NOTHING`
     );
-    this.db.exec("BEGIN");
-    try {
-      insertCmd.run(command.commandId, command.sessionId, command.playerId, command.clientSeq, command.type, command.payloadJson, queuedAt);
-      insertResult.run(command.commandId);
-      this.db.exec("COMMIT");
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
+    await this.withSqliteRetry(() => {
+      this.db.exec("BEGIN");
+      try {
+        insertCmd.run(command.commandId, command.sessionId, command.playerId, command.clientSeq, command.type, command.payloadJson, queuedAt);
+        insertResult.run(command.commandId);
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    });
     const row = this.db
       .prepare(`${SELECT_JOINED} WHERE c.command_id = ? OR (c.player_id = ? AND c.client_seq = ?) LIMIT 1`)
       .get(command.commandId, command.playerId, command.clientSeq) as Row | undefined;
