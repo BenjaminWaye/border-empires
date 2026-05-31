@@ -1,14 +1,12 @@
 import {
   DEVELOPMENT_PROCESS_LIMIT,
-  MANPOWER_BASE_CAP,
-  MANPOWER_BASE_REGEN_PER_MINUTE,
   VISION_RADIUS,
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "@border-empires/shared";
 import type { PlayerRespawnNotice } from "@border-empires/shared";
 import type { PlayerSubscriptionDock, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
-import type { DomainTileState } from "@border-empires/game-domain";
+import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type DomainTileState } from "@border-empires/game-domain";
 
 import type { SimulationRuntime } from "./runtime.js";
 import { estimateIncomePerMinuteFromTiles, estimateStrategicProductionPerMinuteFromTiles } from "./player-runtime-summary.js";

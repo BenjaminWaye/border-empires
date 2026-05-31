@@ -1,5 +1,6 @@
 import type { ClientState } from "./client-state.js";
 import type { Tile } from "./client-types.js";
+import { ensureTileYield } from "./yield-derivation.js";
 
 type TownSummary = NonNullable<Tile["town"]>;
 type PartialTownSummary = Partial<TownSummary>;
@@ -65,6 +66,7 @@ export type GatewayTileUpdate = {
 type GatewayTileSyncDeps = {
   state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
     me?: string | undefined;
+    mods?: ClientState["mods"];
     upkeepLastTick: { foodCoverage?: number };
   };
   keyFor: (x: number, y: number) => string;
@@ -443,6 +445,13 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("ownerId" in normalizedGateway && !normalizedGateway.ownerId) delete merged.ownershipState;
 
   const resolved = deps.mergeServerTileWithOptimisticState(deps.mergeIncomingTileDetail(existing, merged));
+  // Bootstrap tiles no longer carry yieldRate/yieldCap (see docs/plans/2026-05-30-bootstrap-payload-shrink.md).
+  // Derive them client-side from townJson / resource / economicStructure / dockId.
+  // Pass the player's income modifier so non-town dock tiles and settlement
+  // fallback use the correct tech/domain-adjusted rate.
+  // Cast: Tile.yieldRate has optional inner fields; TileYieldRate requires them.
+  // ensureTileYield only writes the field when it can derive a complete value.
+  ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], deps.state.mods?.income ?? 1.0);
   deps.state.tiles.set(tileKey, resolved);
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TOWN_MANPOWER_BY_TIER } from "@border-empires/shared";
+import { TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import { buildPlayerSubscriptionSnapshot, buildPlayerSubscriptionSnapshotAsync } from "./player-snapshot.js";
 import { SimulationRuntime } from "./runtime.js";
 import { yieldToEventLoop } from "./event-loop-yield.js";
@@ -515,8 +515,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         ownershipState: "SETTLED",
         townType: "FARMING",
         townName: "Nauticus",
-        townPopulationTier: "TOWN",
-        yieldRate: expect.objectContaining({ goldPerMinute: 0 })
+        townPopulationTier: "TOWN"
+        // yieldRate removed from tile export (bootstrap-payload-shrink PR A)
       }),
       expect.objectContaining({
         x: 11,

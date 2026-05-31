@@ -110,6 +110,8 @@ export type SimulationMetricsSnapshot = {
   simAiAutopilotEnabled: number;
   simAiAutopilotPlayerCount: number;
   simAiPlannerBreaches: number;
+  simAiBroadFallbackSkipped: Record<string, number>;
+  simAiNarrowAnalyzeCapped: Record<string, number>;
   simAiCommandTotalByType: Record<DurableCommandType, number>;
   simAiCommandRecent: string[];
   simAiPreplanTotalByReason: Record<AutomationPreplanReason, number>;
@@ -221,6 +223,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simCollectVisibleTilesTouched: number[] = [];
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
+  const simAiBroadFallbackSkipped = new Map<string, number>();
+  const simAiNarrowAnalyzeCapped = new Map<string, number>();
   let simAiAutopilotEnabled = 0;
   let simAiAutopilotPlayerCount = 0;
   let simAiPlannerBreaches = 0;
@@ -252,6 +256,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiAutopilotEnabled,
     simAiAutopilotPlayerCount,
     simAiPlannerBreaches,
+    simAiBroadFallbackSkipped: Object.fromEntries(simAiBroadFallbackSkipped),
+    simAiNarrowAnalyzeCapped: Object.fromEntries(simAiNarrowAnalyzeCapped),
     simAiCommandTotalByType: Object.fromEntries(
       DURABLE_COMMAND_TYPES.map((type) => [type, simAiCommandTotalByType.get(type) ?? 0])
     ) as Record<DurableCommandType, number>,
@@ -335,6 +341,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimAiPlannerBreaches(): void {
       simAiPlannerBreaches += 1;
+    },
+    incrementSimAiBroadFallbackSkipped(playerId: string): void {
+      simAiBroadFallbackSkipped.set(playerId, (simAiBroadFallbackSkipped.get(playerId) ?? 0) + 1);
+    },
+    incrementSimAiNarrowAnalyzeCapped(playerId: string): void {
+      simAiNarrowAnalyzeCapped.set(playerId, (simAiNarrowAnalyzeCapped.get(playerId) ?? 0) + 1);
     },
     observeSimAiCommand(commandType: DurableCommandType, playerId: string): void {
       simAiCommandTotalByType.set(commandType, (simAiCommandTotalByType.get(commandType) ?? 0) + 1);
@@ -484,6 +496,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_ai_autopilot_player_count ${formatMetricValue(sample.simAiAutopilotPlayerCount)}`,
         "# TYPE sim_ai_planner_breaches counter",
         `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
+        "# TYPE sim_ai_broad_fallback_skipped_total counter",
+        "# TYPE sim_ai_narrow_analyze_capped_total counter",
         "# TYPE sim_ai_command_total counter",
         "# TYPE sim_ai_preplan_total counter",
         "# TYPE sim_ai_preplan_progress_total counter",
@@ -574,6 +588,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       }
       for (const reason of AUTOMATION_SETTLE_DECISION_REASONS) {
         lines.push(`sim_ai_settle_decision_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiSettleDecisionTotalByReason[reason])}`);
+      }
+      for (const [playerId, count] of Object.entries(sample.simAiBroadFallbackSkipped)) {
+        lines.push(`sim_ai_broad_fallback_skipped_total{playerId=\"${playerId}\"} ${formatMetricValue(count)}`);
+      }
+      for (const [playerId, count] of Object.entries(sample.simAiNarrowAnalyzeCapped)) {
+        lines.push(`sim_ai_narrow_analyze_capped_total{playerId=\"${playerId}\"} ${formatMetricValue(count)}`);
       }
 
       return lines.join("\n");

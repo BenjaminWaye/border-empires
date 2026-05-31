@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { constructionProgressForTile, menuOverviewForTile, tileMenuViewForTile } from "./client-tile-menu-view.js";
+import { buildDetailTextForAction, constructionProgressForTile, menuOverviewForTile, tileMenuViewForTile } from "./client-tile-menu-view.js";
 import type { TileOverviewModifier } from "./client-tile-overview-modifiers.js";
 import type { Tile } from "./client-types.js";
 
@@ -1235,5 +1235,44 @@ describe("menuOverviewForTile", () => {
 
     expect(menu.subtitle).toBe("Green Banner · ANCIENT_HEARTLAND");
     expect(menu.subtitleHtml).toBe('<span class="tile-owner-label is-ally">Green Banner</span> · ANCIENT_HEARTLAND');
+  });
+});
+
+describe("buildDetailTextForAction fort tier text", () => {
+  const emptyTile: Tile = { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+  const fortTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active" } };
+  const ironTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "IRON_BASTION" } };
+  const thunderTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "THUNDER_BASTION" } };
+  const woodenFortTile: Tile = { ...emptyTile, economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" } };
+
+  it("shows 'Fortify this tile' for a tile with no fort (no regression to upgrade text)", () => {
+    const detail = buildDetailTextForAction("build_fortification", emptyTile);
+    expect(detail).toContain("Fortify this tile");
+    expect(detail).not.toContain("Upgrade");
+  });
+
+  it("shows 'Upgrade this Wooden Fort' for a wooden-fort tile", () => {
+    const detail = buildDetailTextForAction("build_fortification", woodenFortTile);
+    expect(detail).toContain("Upgrade this Wooden Fort");
+  });
+
+  it("shows Iron Bastion upgrade text for an active fort with undefined variant", () => {
+    const detail = buildDetailTextForAction("build_fortification", fortTile);
+    expect(detail).toContain("Upgrade this Fort into an Iron Bastion");
+    expect(detail).toContain("4x");
+  });
+
+  it("shows Thunder Bastion upgrade text for an Iron Bastion", () => {
+    const detail = buildDetailTextForAction("build_fortification", ironTile);
+    expect(detail).toContain("Upgrade this Iron Bastion into a Thunder Bastion");
+    expect(detail).toContain("8x");
+  });
+
+  it("falls through (no upgrade text) for a Thunder Bastion", () => {
+    const detail = buildDetailTextForAction("build_fortification", thunderTile);
+    // Should not show upgrade text for a max-tier fort
+    expect(detail).toBeDefined();
+    expect(detail).not.toContain("Upgrade");
+    expect(detail).not.toContain("Bastion");
   });
 });
