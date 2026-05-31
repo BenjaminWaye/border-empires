@@ -3,19 +3,20 @@ import { describe, expect, it, vi } from "vitest";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch } from "./client-gateway-sync.js";
 import type { Tile } from "./client-types.js";
 
-const createDeps = () => {
+const createDeps = (overrides?: { me?: string; mods?: { income?: number } }) => {
   const state = {
       me: "",
       tiles: new Map<string, Tile>(),
       incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
       pendingCollectVisibleKeys: new Set<string>(),
       discoveredTiles: new Set<string>(),
-      upkeepLastTick: { foodCoverage: 1 }
+      upkeepLastTick: { foodCoverage: 1 },
+      mods: overrides?.mods ?? { income: 1.0 }
     };
   return {
     state: {
       ...state,
-      me: "me",
+      me: overrides?.me ?? "me",
       upkeepLastTick: {
         food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
         iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
@@ -1076,5 +1077,53 @@ describe("client gateway sync", () => {
         regionType: "CRYSTAL_WASTES"
       })
     );
+  });
+
+  it("applies the viewer's income multiplier only to own tiles, not enemy tiles", () => {
+    const ownMultiplier = 1.25;
+    const deps = createDeps({ mods: { income: ownMultiplier } });
+
+    // Seed an own tile (settlement, no persisted goldPerMinute — hits fallback)
+    deps.state.tiles.set("1,1", {
+      x: 1,
+      y: 1,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fogged: false,
+      detailLevel: "summary"
+    });
+
+    // Seed an enemy tile with the same shape
+    deps.state.tiles.set("2,2", {
+      x: 2,
+      y: 2,
+      terrain: "LAND",
+      ownerId: "rival",
+      ownershipState: "SETTLED",
+      fogged: false,
+      detailLevel: "summary"
+    });
+
+    const settlementTownJson = JSON.stringify({
+      type: "MARKET",
+      populationTier: "SETTLEMENT",
+      population: 1000,
+      maxPopulation: 5000
+    });
+
+    // Send town data for both tiles in one batch
+    applyGatewayTileDeltaBatch(deps, [
+      { x: 1, y: 1, townJson: settlementTownJson },
+      { x: 2, y: 2, townJson: settlementTownJson }
+    ]);
+
+    // Own tile: settlement fallback gold = 1 × 1.25 × 1.0 = 1.25
+    const ownTile = deps.state.tiles.get("1,1");
+    expect(ownTile?.yieldRate?.goldPerMinute).toBe(1.25);
+
+    // Enemy tile: income multiplier gated to 1.0 — settlement fallback = 1 × 1.0 × 1.0 = 1.0
+    const enemyTile = deps.state.tiles.get("2,2");
+    expect(enemyTile?.yieldRate?.goldPerMinute).toBe(1.0);
   });
 });
