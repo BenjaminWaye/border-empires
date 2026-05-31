@@ -262,8 +262,8 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   }
 
   let capped = false;
+  let candidatesEvaluated = 0;
   for (const from of ownedTileList) {
-    let candidatesEvaluated = 0;
     for (const targetKey of candidateKeysForOrigin(from, dockLinksByDockTileKey)) {
       const candidateStartedAt = performance.now();
       const target = tilesByKey.get(targetKey);
