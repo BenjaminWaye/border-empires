@@ -23,12 +23,13 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
   const generateClusters = (seed: number): void => {
     clusterByTile.clear();
     clustersById.clear();
+    // Food clusters (FARM / FISH) are no longer scattered randomly here.
+    // They are placed by ensureFoodNearTowns (anchored to towns) and then
+    // topped up to the map-wide target by fillFoodToTarget.
     const clusterPlan: ResourceType[] = [
-      ...Array.from({ length: 52 }, (): ResourceType => "FARM"),
       ...Array.from({ length: 52 }, (): ResourceType => "FUR"),
       ...Array.from({ length: 30 }, (): ResourceType => "GEMS"),
       ...Array.from({ length: 52 }, (): ResourceType => "IRON"),
-      ...Array.from({ length: 52 }, (): ResourceType => "FISH")
     ];
     const defByResource = new Map<ResourceType, (typeof clusterTypeDefs)[number]>();
     for (const def of clusterTypeDefs) defByResource.set(def.resourceType, def);
@@ -92,6 +93,49 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
     }
   };
 
+  // After ensureFoodNearTowns has anchored food to every town, call this to
+  // top up the map-wide food cluster count to `target`. Clusters are placed
+  // randomly using the same terrain rules as the main pass (FARM on grass,
+  // FISH on coastal sand). Stops early if attempts are exhausted.
+  const fillFoodToTarget = (seed: number, target: number): void => {
+    const defByResource = new Map<ResourceType, (typeof clusterTypeDefs)[number]>();
+    for (const def of clusterTypeDefs) defByResource.set(def.resourceType, def);
+
+    const foodResources: ResourceType[] = ["FARM", "FISH"];
+    const countFood = (): number => {
+      let n = 0;
+      for (const c of clustersById.values()) {
+        if (foodResources.includes(clusterResourceType(c) as ResourceType)) n++;
+      }
+      return n;
+    };
+
+    let attempts = 0;
+    while (countFood() < target && attempts < 20_000) {
+      const resource: ResourceType = attempts % 2 === 0 ? "FARM" : "FISH";
+      const def = defByResource.get(resource);
+      attempts++;
+      if (!def) continue;
+      const cx = Math.floor(seeded01(attempts * 31, attempts * 47, seed + 8801) * WORLD_WIDTH);
+      const cy = Math.floor(seeded01(attempts * 53, attempts * 67, seed + 8851) * WORLD_HEIGHT);
+      if (!clusterRuleMatch(cx, cy, resource)) continue;
+      const tileCount = clusterTileCountForResource(resource, cx, cy);
+      const tiles = collectClusterTiles(cx, cy, resource, tileCount);
+      if (tiles.length < 6) continue;
+      const clusterId = `cl-${clustersById.size}`;
+      clustersById.set(clusterId, {
+        clusterId,
+        clusterType: def.type,
+        resourceType: resource,
+        centerX: cx,
+        centerY: cy,
+        radius: clusterRadiusForResource(resource, cx, cy),
+        controlThreshold: def.threshold
+      });
+      for (const tileKey of tiles) clusterByTile.set(tileKey, clusterId);
+    }
+  };
+
   const applyClusterResources = (x: number, y: number, base: ResourceType | undefined): ResourceType | undefined => {
     const clusterId = clusterByTile.get(key(x, y));
     if (!clusterId) return base;
@@ -102,6 +146,7 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
 
   return {
     generateClusters,
+    fillFoodToTarget,
     applyClusterResources
   };
 };

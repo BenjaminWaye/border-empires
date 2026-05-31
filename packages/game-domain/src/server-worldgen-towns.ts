@@ -122,12 +122,74 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
 
   const assignMissingTownNamesForWorld = (): void => assignMissingTownNames(townsByTile.values(), getIslandMap().islandIdByTile, activeSeason.worldSeed);
 
+  // For every town that has no food cluster within a 30×30 tile window (±15
+  // tiles in each direction), place one cluster as close to that town as
+  // possible. FARM is preferred on grass; FISH on coastal sand. Called before
+  // fillFoodToTarget so the per-town guarantee is always met.
+  const ensureFoodNearTowns = (seed: number): void => {
+    const HALF = 15; // ±15 = 30×30 window
+    let counter = 0;
+    for (const town of townsByTile.values()) {
+      const [tx, ty] = parseKey(town.tileKey);
+      // Check whether any food tile already exists within the window.
+      let hasFood = false;
+      outer: for (let dy = -HALF; dy <= HALF; dy += 1) {
+        for (let dx = -HALF; dx <= HALF; dx += 1) {
+          const clusterId = clusterByTile.get(key(wrapX(tx + dx, WORLD_WIDTH), wrapY(ty + dy, WORLD_HEIGHT)));
+          if (!clusterId) continue;
+          const cluster = clustersById.get(clusterId);
+          if (cluster && ["FARM", "FISH"].includes(clusterResourceType(cluster))) { hasFood = true; break outer; }
+        }
+      }
+      counter += 1;
+      if (hasFood) continue;
+      // Collect all land tiles in the window as placement candidates.
+      const land: Array<{ x: number; y: number }> = [];
+      for (let dy = -HALF; dy <= HALF; dy += 1) {
+        for (let dx = -HALF; dx <= HALF; dx += 1) {
+          const x = wrapX(tx + dx, WORLD_WIDTH);
+          const y = wrapY(ty + dy, WORLD_HEIGHT);
+          if (terrainAt(x, y) === "LAND") land.push({ x, y });
+        }
+      }
+      if (land.length === 0) continue;
+      const center = land[Math.floor(seeded01(tx + counter * 3, ty + counter * 7, seed + 9601) * land.length)]!;
+      const pickFoodTiles = (resource: ResourceType, relaxed: boolean): TileKey[] =>
+        nearestLandTiles(center.x, center.y, land, 8, (tile: { x: number; y: number }) => {
+          const tileKey = key(tile.x, tile.y);
+          if (clusterByTile.has(tileKey) || docksByTile.has(tileKey) || townsByTile.has(tileKey)) return false;
+          return resourcePlacementAllowed(tile.x, tile.y, resource, relaxed);
+        });
+      let resourceType: ResourceType | undefined;
+      let foodTiles = pickFoodTiles("FARM", false);
+      if (foodTiles.length >= 6) resourceType = "FARM";
+      else {
+        foodTiles = pickFoodTiles("FISH", false);
+        if (foodTiles.length >= 6) resourceType = "FISH";
+      }
+      if (!resourceType) {
+        foodTiles = pickFoodTiles("FARM", true);
+        if (foodTiles.length >= 6) resourceType = "FARM";
+        else {
+          foodTiles = pickFoodTiles("FISH", true);
+          if (foodTiles.length >= 6) resourceType = "FISH";
+        }
+      }
+      if (foodTiles.length >= 6 && resourceType) {
+        const clusterId = `cl-${clustersById.size}`;
+        clustersById.set(clusterId, { clusterId, clusterType: resourceType === "FISH" ? "COASTAL_SHOALS" : "FERTILE_PLAINS", resourceType, centerX: center.x, centerY: center.y, radius: 3, controlThreshold: 3 });
+        for (const tileKey of foodTiles) clusterByTile.set(tileKey, clusterId);
+      }
+    }
+  };
+
+  // Only fills 30×30 blocks that lack a town. Food gap-filling has moved to
+  // ensureFoodNearTowns (town-anchored) + fillFoodToTarget (clusters runtime).
   const ensureBaselineEconomyCoverage = (seed: number): void => {
     for (let by = 0; by < WORLD_HEIGHT; by += 30) {
       for (let bx = 0; bx < WORLD_WIDTH; bx += 30) {
         const land: Array<{ x: number; y: number }> = [];
         let hasTown = false;
-        let hasFood = false;
         for (let dy = 0; dy < 30; dy += 1) {
           for (let dx = 0; dx < 30; dx += 1) {
             const x = wrapX(bx + dx, WORLD_WIDTH);
@@ -136,45 +198,12 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
             const tileKey = key(x, y);
             land.push({ x, y });
             if (townsByTile.has(tileKey)) hasTown = true;
-            const clusterId = clusterByTile.get(tileKey);
-            const cluster = clusterId ? clustersById.get(clusterId) : undefined;
-            if (cluster && ["FARM", "FISH"].includes(clusterResourceType(cluster))) hasFood = true;
           }
         }
-        if (land.length === 0) continue;
-        if (!hasTown) {
-          const picked = land.find((tile) => !docksByTile.has(key(tile.x, tile.y)) && !clusterByTile.has(key(tile.x, tile.y)) && !townsByTile.has(key(tile.x, tile.y)));
-          if (picked) {
-            townsByTile.set(key(picked.x, picked.y), { townId: `town-${townsByTile.size}`, tileKey: key(picked.x, picked.y), type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, lastGrowthTickAt: now() });
-          }
-        }
-        if (hasFood) continue;
-        const center = land[Math.floor(seeded01(bx + 3, by + 7, seed + 9501) * land.length)]!;
-        const pickFoodTiles = (resource: ResourceType, relaxed: boolean): TileKey[] =>
-          nearestLandTiles(center.x, center.y, land, 8, (tile: { x: number; y: number }) => {
-            const tileKey = key(tile.x, tile.y);
-            if (clusterByTile.has(tileKey) || docksByTile.has(tileKey) || townsByTile.has(tileKey)) return false;
-            return resourcePlacementAllowed(tile.x, tile.y, resource, relaxed);
-          });
-        let resourceType: ResourceType | undefined;
-        let foodTiles = pickFoodTiles("FARM", false);
-        if (foodTiles.length >= 6) resourceType = "FARM";
-        else {
-          foodTiles = pickFoodTiles("FISH", false);
-          if (foodTiles.length >= 6) resourceType = "FISH";
-        }
-        if (!resourceType) {
-          foodTiles = pickFoodTiles("FARM", true);
-          if (foodTiles.length >= 6) resourceType = "FARM";
-          else {
-            foodTiles = pickFoodTiles("FISH", true);
-            if (foodTiles.length >= 6) resourceType = "FISH";
-          }
-        }
-        if (foodTiles.length >= 6) {
-          const clusterId = `cl-${clustersById.size}`;
-          clustersById.set(clusterId, { clusterId, clusterType: resourceType === "FISH" ? "COASTAL_SHOALS" : "FERTILE_PLAINS", resourceType: resourceType ?? "FARM", centerX: center.x, centerY: center.y, radius: 3, controlThreshold: 3 });
-          for (const tileKey of foodTiles) clusterByTile.set(tileKey, clusterId);
+        if (land.length === 0 || hasTown) continue;
+        const picked = land.find((tile) => !docksByTile.has(key(tile.x, tile.y)) && !clusterByTile.has(key(tile.x, tile.y)) && !townsByTile.has(key(tile.x, tile.y)));
+        if (picked) {
+          townsByTile.set(key(picked.x, picked.y), { townId: `town-${townsByTile.size}`, tileKey: key(picked.x, picked.y), type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, lastGrowthTickAt: now() });
         }
       }
     }
@@ -218,6 +247,7 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     townPlacementsNeedNormalization,
     normalizeTownPlacements,
     assignMissingTownNamesForWorld,
+    ensureFoodNearTowns,
     ensureBaselineEconomyCoverage,
     ensureInterestCoverage,
     initialTownPopulationAt
