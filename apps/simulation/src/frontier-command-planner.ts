@@ -58,6 +58,8 @@ export type FrontierAnalysis = {
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
   frontierOpportunityWaste: number;
+  /** True when the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES) was hit. */
+  narrowAnalyzeCapped: boolean;
 };
 
 const sortTiles = (left: { x: number; y: number }, right: { x: number; y: number }): number =>
@@ -81,6 +83,9 @@ const resourceScore = (resource: string | undefined, needsFood: boolean = false)
       return 0;
   }
 };
+
+/** Cap the number of candidates scored in a single analyze pass. See docs/plans/2026-05-30-cap-narrow-analyze-path.md. */
+const NARROW_ANALYZE_MAX_CANDIDATES = 512;
 
 const strategicFrontierTargetScore = (tile: PlannerTile, needsFood: boolean = false): number => {
   let score = 0;
@@ -256,6 +261,8 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     }
   }
 
+  let capped = false;
+  let candidatesEvaluated = 0;
   for (const from of ownedTileList) {
     for (const targetKey of candidateKeysForOrigin(from, dockLinksByDockTileKey)) {
       const candidateStartedAt = performance.now();
@@ -299,6 +306,11 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
           bestEnemyAttack = candidate;
         }
         emitTiming?.("analyze_per_candidate", performance.now() - candidateStartedAt);
+        candidatesEvaluated += 1;
+        if (candidatesEvaluated >= NARROW_ANALYZE_MAX_CANDIDATES) {
+          capped = true;
+          break;
+        }
         continue;
       }
 
@@ -355,7 +367,13 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       }
       if (isBetterSelection(candidate, bestExpand)) bestExpand = candidate;
       emitTiming?.("analyze_per_candidate", performance.now() - candidateStartedAt);
+      candidatesEvaluated += 1;
+      if (candidatesEvaluated >= NARROW_ANALYZE_MAX_CANDIDATES) {
+        capped = true;
+        break;
+      }
     }
+    if (capped) break;
   }
 
   emitTiming?.("analyze_score_calc", scoreCalcTotalMs);
@@ -377,7 +395,8 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     frontierOpportunityTownSupport,
     frontierOpportunityScout,
     frontierOpportunityScaffold,
-    frontierOpportunityWaste
+    frontierOpportunityWaste,
+    narrowAnalyzeCapped: capped
   };
 };
 
