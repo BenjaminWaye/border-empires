@@ -19,10 +19,6 @@ import {
   TILE_YIELD_CAP_RESOURCE
 } from "@border-empires/game-domain";
 
-const ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY = 21.6;
-const ADVANCED_IRONWORKS_IRON_PER_DAY = 21.6;
-const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
-
 // Matches apps/simulation/src/tile-yield-view.ts:strategicDailyFromResource
 const strategicDailyFromResource = (resource: string | undefined): Record<string, number> => {
   switch (resource) {
@@ -46,19 +42,20 @@ const strategicDailyFromResource = (resource: string | undefined): Record<string
 
 // Matches apps/simulation/src/tile-yield-view.ts:converterDailyOutput
 const converterDailyOutput = (structureType: string | undefined): Record<string, number> => {
+  // Sim's tile-yield-view.ts:converterDailyOutput currently returns
+  // the basic value for ADVANCED_* too. Match that here so the
+  // client display equals what the sim produces. If/when the sim is
+  // fixed to honor ADVANCED_* constants, update this in lockstep.
   switch (structureType) {
     case "FUR_SYNTHESIZER":
-      return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY };
     case "ADVANCED_FUR_SYNTHESIZER":
-      return { SUPPLY: ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY };
+      return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY };
     case "IRONWORKS":
-      return { IRON: IRONWORKS_IRON_PER_DAY };
     case "ADVANCED_IRONWORKS":
-      return { IRON: ADVANCED_IRONWORKS_IRON_PER_DAY };
+      return { IRON: IRONWORKS_IRON_PER_DAY };
     case "CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
     case "ADVANCED_CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
+      return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
     default:
       return {};
   }
