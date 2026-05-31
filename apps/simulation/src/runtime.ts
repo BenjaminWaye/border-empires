@@ -999,6 +999,7 @@ export class SimulationRuntime {
     for (const [tileKey, lock] of this.locksByTile) {
       if (lock.resolvesAt < cutoff) {
         this.locksByTile.delete(tileKey);
+        this.locksByCommandId.delete(lock.commandId);
         droppedCommandIds.add(lock.commandId);
       }
     }
@@ -8378,11 +8379,16 @@ export class SimulationRuntime {
     // the surviving key kept playerId in the planner's active-lock set.
     if (originMatches) this.locksByTile.delete(lock.originKey);
     if (targetMatches) this.locksByTile.delete(lock.targetKey);
+    // This is the terminal handler for THIS lock — retire its commandId index
+    // entry whether or not both sides still matched. On partial mismatch the
+    // surviving tile key was just deleted above, leaving the old lock with zero
+    // locksByTile entries; if we returned without this delete, the defunct lock
+    // would leak into exportState().activeLocks (derived from locksByCommandId).
+    this.locksByCommandId.delete(lock.commandId);
     // Partial / no match means a later command already replaced this lock's
     // slot on at least one tile — that command will (or did) emit its own
     // COMBAT_RESOLVED. Don't double-emit or re-apply tile state.
     if (!originMatches || !targetMatches) return;
-    this.locksByCommandId.delete(lock.commandId);
     const previousTarget = this.tiles.get(lock.targetKey);
     const previousOwnerId = previousTarget?.ownerId;
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
