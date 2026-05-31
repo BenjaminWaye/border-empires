@@ -176,6 +176,7 @@ import {
 } from "./tile-delta-visibility-filter.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
+import { VisionExpansionCache } from "./vision-expansion-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./planner-world-view.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./planner-world-view-slice.js";
 import {
@@ -332,6 +333,11 @@ export class SimulationRuntime {
     pendingSettlementTileKeys: string[];
   }>();
   private readonly locksByTile: Map<string, LockRecord>;
+  // Deduplicated view of locksByTile keyed by commandId.  A single lock is
+  // stored under TWO tile keys (originKey + targetKey); this index gives O(1)
+  // unique-lock iteration for exportState's activeLocks projection, replacing
+  // the per-call `new Map([...locksByTile.entries()].map(...))` dedup.
+  private readonly locksByCommandId = new Map<string, LockRecord>();
   // Pooled per-tick accumulators for updateFrontierDecay.
   // Reset via arr.length = 0 at the top of each call (preserves inner arrays).
   private readonly frontierDecayChangedByOwner = new Map<string, Array<SimulationTileWireDelta>>();
@@ -361,6 +367,12 @@ export class SimulationRuntime {
   // in the constructor. Used by handleCollectVisibleCommand to skip the 99% of
   // settled tiles that produce zero yield (plain land).
   private readonly yieldBearingTilesByOwner = new Map<string, Set<string>>();
+  // Sorted (deterministic drain order) snapshot of yieldBearingTilesByOwner.
+  // Lazily populated; invalidated (deleted) whenever the underlying Set
+  // changes via addYieldBearingTileToOwnerIndex or removeYieldBearingTileFromOwnerIndex.
+  // Avoids O(n log n) spread+sort in consumeUpkeepFromTileYield on every tick
+  // for players whose yield-bearing set is stable.
+  private readonly sortedYieldBearingKeysByOwner = new Map<string, string[]>();
   // Per-(owner, BuildableStructureType) counter used by structureBuildGoldCost
   // to apply incremental scaling on each new BUILD_* command. Replaces an
   // O(all_tiles) scan that took 884ms on a 250k-tile world (2026-05-28 prod
@@ -380,6 +392,11 @@ export class SimulationRuntime {
   // they're shed last (which matches the intent: an empire that survived
   // restart shouldn't have its core tiles shed before its newer expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
+  // Per-player territorial vision expansion cache.  Avoids O(territory×r²)
+  // recomputation on every classifyVisibilityForPlayer call; invalidated lazily
+  // via signature (tileCollectionVersion:vision:visionRadiusBonus) and
+  // explicitly on player elimination via frontierDecayChangedByOwner cleanup.
+  private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT);
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Cached economy snapshot per player. Invalidated in replaceTileState whenever
   // a tile mutates in a way that could change income/upkeep rates (ownership,
@@ -543,6 +560,8 @@ export class SimulationRuntime {
     this.docks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? []);
     this.dockLinksByDockTileKey = buildDockLinksByDockTileKey(this.docks);
     this.locksByTile = createLocksFromInitialState(options.initialState);
+    // Populate the commandId index from the just-created locksByTile map.
+    for (const lock of this.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
     for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
       this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
     }
@@ -850,6 +869,7 @@ export class SimulationRuntime {
     for (const [tileKey, lock] of this.locksByTile) {
       if (lock.resolvesAt < cutoff) {
         this.locksByTile.delete(tileKey);
+        this.locksByCommandId.delete(lock.commandId);
         droppedCommandIds.add(lock.commandId);
       }
     }
@@ -1826,8 +1846,21 @@ export class SimulationRuntime {
     let economyContext: RuntimeTileYieldEconomyContext | undefined;
     // Use yield-bearing index to skip plain settled tiles that produce nothing.
     // Sort for deterministic drain order — same as the old full-territory sort.
+    // The sorted array is cached (sortedYieldBearingKeysByOwner) and invalidated
+    // only when the underlying set changes, avoiding O(n log n) spread+sort
+    // on every tick for players whose yield-bearing set is stable.
     const yieldBearingSet = this.yieldBearingTilesByOwner.get(player.id);
-    const tileKeys = yieldBearingSet ? [...yieldBearingSet].sort() : [];
+    let tileKeys: readonly string[];
+    if (!yieldBearingSet || yieldBearingSet.size === 0) {
+      tileKeys = [];
+    } else {
+      let cached = this.sortedYieldBearingKeysByOwner.get(player.id);
+      if (!cached) {
+        cached = [...yieldBearingSet].sort();
+        this.sortedYieldBearingKeysByOwner.set(player.id, cached);
+      }
+      tileKeys = cached;
+    }
     const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
     // Collect anchor updates locally and emit ONE batch event at the end of
     // the loop. Pre-batch, each updated tile fired a TILE_YIELD_ANCHOR_UPDATED
@@ -2311,11 +2344,12 @@ export class SimulationRuntime {
     let set = this.yieldBearingTilesByOwner.get(ownerId);
     if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(ownerId, set); }
     set.add(tileKey);
+    this.sortedYieldBearingKeysByOwner.delete(ownerId);
   }
 
   private removeYieldBearingTileFromOwnerIndex(tileKey: string, ownerId: string): void {
     const set = this.yieldBearingTilesByOwner.get(ownerId);
-    if (set) set.delete(tileKey);
+    if (set) { set.delete(tileKey); this.sortedYieldBearingKeysByOwner.delete(ownerId); }
   }
 
   private refreshYieldBearingIndexForTile(
@@ -2522,6 +2556,7 @@ export class SimulationRuntime {
     if (summary.territoryTileKeys.size <= 0) {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
       this.aiSpatialFocusByPlayer.delete(playerId);
+      this.visionExpansionCache.invalidate(playerId);
       this.frontierDecayChangedByOwner.delete(playerId);
       this.frontierDecayExpiredByOwner.delete(playerId);
     }
@@ -2694,7 +2729,7 @@ export class SimulationRuntime {
             ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
           }))
           .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
-        activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+        activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -2946,33 +2981,40 @@ export class SimulationRuntime {
     terrainEpoch: number;
   } {
     return {
-      tiles: [...this.tiles.values()]
-        .map((tile) => {
+      // Single-pass pre-allocated tile projection.  Avoids:
+      //   1. [...this.tiles.values()] spread (O(N) intermediate array)
+      //   2. .map() (second O(N) intermediate array)
+      //   3. 14 conditional spread expressions per tile (each allocates a
+      //      temporary object just to be immediately merged and discarded)
+      // Result is sorted in place; byte-for-byte identical to the old output.
+      tiles: (() => {
+        const result = new Array(this.tiles.size) as Array<ReturnType<SimulationRuntime["exportState"]>["tiles"][number]>;
+        let i = 0;
+        for (const tile of this.tiles.values()) {
           const tileKey = simulationTileKey(tile.x, tile.y);
           const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
-          return {
-            x: tile.x,
-            y: tile.y,
-            terrain: tile.terrain,
-            ...(tile.resource ? { resource: tile.resource } : {}),
-            ...(tile.dockId ? { dockId: tile.dockId } : {}),
-            ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-            ...(cached.townJson ? { townJson: cached.townJson } : {}),
-            ...(tile.town?.type ? { townType: tile.town.type } : {}),
-            ...(tile.town?.name ? { townName: tile.town.name } : {}),
-            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-            ...(cached.fortJson ? { fortJson: cached.fortJson } : {}),
-            ...(cached.observatoryJson ? { observatoryJson: cached.observatoryJson } : {}),
-            ...(cached.siegeOutpostJson ? { siegeOutpostJson: cached.siegeOutpostJson } : {}),
-            ...(cached.economicStructureJson ? { economicStructureJson: cached.economicStructureJson } : {}),
-            ...(cached.sabotageJson ? { sabotageJson: cached.sabotageJson } : {})
-          };
-        })
-        .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
+          const entry: ReturnType<SimulationRuntime["exportState"]>["tiles"][number] = { x: tile.x, y: tile.y, terrain: tile.terrain };
+          if (tile.resource) entry.resource = tile.resource;
+          if (tile.dockId) entry.dockId = tile.dockId;
+          if (cached.shardSiteJson) entry.shardSiteJson = cached.shardSiteJson;
+          if (tile.ownerId) entry.ownerId = tile.ownerId;
+          if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
+          if (typeof tile.frontierDecayAt === "number") (entry as Record<string, unknown>)["frontierDecayAt"] = tile.frontierDecayAt;
+          if (tile.frontierDecayKind) (entry as Record<string, unknown>)["frontierDecayKind"] = tile.frontierDecayKind;
+          if (cached.townJson) entry.townJson = cached.townJson;
+          if (tile.town?.type) entry.townType = tile.town.type;
+          if (tile.town?.name) entry.townName = tile.town.name;
+          if (tile.town?.populationTier) entry.townPopulationTier = tile.town.populationTier;
+          if (cached.fortJson) entry.fortJson = cached.fortJson;
+          if (cached.observatoryJson) entry.observatoryJson = cached.observatoryJson;
+          if (cached.siegeOutpostJson) entry.siegeOutpostJson = cached.siegeOutpostJson;
+          if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
+          if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
+          result[i++] = entry;
+        }
+        result.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+        return result;
+      })(),
       players: [...this.players.values()]
         .map((player) => {
           this.applyManpowerRegen(player);
@@ -3005,7 +3047,7 @@ export class SimulationRuntime {
       pendingSettlements: [...this.pendingSettlementsByTile.values()]
         .map((settlement) => ({ ...settlement }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -3036,7 +3078,10 @@ export class SimulationRuntime {
       docks: this.docks,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
       summaryForPlayer: (visiblePlayerId) => this.summaryForPlayer(visiblePlayerId),
-      applyManpowerRegen: (player) => this.applyManpowerRegen(player)
+      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
+      visionExpansionCache: this.visionExpansionCache,
+      tileCollectionVersionForPlayer: (visiblePlayerId) =>
+        this.plannerPlayerTileCollectionVersionByPlayer.get(visiblePlayerId) ?? 0
     });
   }
 
@@ -3195,7 +3240,7 @@ export class SimulationRuntime {
       pendingSettlements: [...this.pendingSettlementsByTile.values()]
         .map((settlement) => ({ ...settlement }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -3314,7 +3359,7 @@ export class SimulationRuntime {
       pendingSettlements: [...this.pendingSettlementsByTile.values()]
         .map((settlement) => ({ ...settlement }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -3438,9 +3483,11 @@ export class SimulationRuntime {
   private incomePerMinuteForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     if (!player) return 0;
-    return buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(playerId), this.tiles, {
-      dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    }).incomePerMinute;
+    // Route through cachedEconomySnapshot — the cache is maintained
+    // incrementally by replaceTileState (O(1) per tile mutation) so this
+    // returns a stale-free result without rebuilding the full O(settled-tiles)
+    // snapshot on every call. The full rebuild only fires on cache miss.
+    return this.cachedEconomySnapshot(player).incomePerMinute;
   }
 
   private hasActiveSettlementTownForPlayer(playerId: string): boolean {
@@ -3880,6 +3927,7 @@ export class SimulationRuntime {
     }
     this.locksByTile.set(lock.originKey, lock);
     this.locksByTile.set(lock.targetKey, lock);
+    this.locksByCommandId.set(lock.commandId, lock);
     this.commandTrace?.({
       phase: "frontier_accept",
       commandId: command.commandId,
@@ -7154,6 +7202,7 @@ export class SimulationRuntime {
     if (!lock || lock.playerId !== playerId || lock.actionType !== "ATTACK") return cancelled;
     this.locksByTile.delete(lock.originKey);
     this.locksByTile.delete(lock.targetKey);
+    this.locksByCommandId.delete(lock.commandId);
     cancelled.push(lock.commandId);
     return cancelled;
   }
@@ -7841,6 +7890,7 @@ export class SimulationRuntime {
     for (const lock of activeLocks) {
       this.locksByTile.delete(lock.originKey);
       this.locksByTile.delete(lock.targetKey);
+      this.locksByCommandId.delete(lock.commandId);
     }
 
     this.emitEvent({
@@ -7995,6 +8045,12 @@ export class SimulationRuntime {
     // the surviving key kept playerId in the planner's active-lock set.
     if (originMatches) this.locksByTile.delete(lock.originKey);
     if (targetMatches) this.locksByTile.delete(lock.targetKey);
+    // This is the terminal handler for THIS lock — retire its commandId index
+    // entry whether or not both sides still matched. On partial mismatch the
+    // surviving tile key was just deleted above, leaving the old lock with zero
+    // locksByTile entries; if we returned without this delete, the defunct lock
+    // would leak into exportState().activeLocks (derived from locksByCommandId).
+    this.locksByCommandId.delete(lock.commandId);
     // Partial / no match means a later command already replaced this lock's
     // slot on at least one tile — that command will (or did) emit its own
     // COMBAT_RESOLVED. Don't double-emit or re-apply tile state.
