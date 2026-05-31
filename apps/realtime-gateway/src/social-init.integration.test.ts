@@ -4,6 +4,9 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { InMemoryGatewayCommandStore } from "./command-store.js";
 
+process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS = "0";
+process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "999";
+
 type TestWebSocket = {
   readonly readyState: number;
   readonly CLOSED: number;
