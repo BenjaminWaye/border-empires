@@ -473,7 +473,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   // cannot stall the event loop. Purely additive — the happy path is unchanged.
   let bootstrapsInFlight = 0;
   const maxConcurrentBootstraps = Math.max(1, Number(process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS ?? 4));
-  const minBootstrapIntervalMs = Math.max(0, Number(process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS ?? 3000));
+  const minBootstrapIntervalMs = Math.max(0, Number(process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS ?? 0));
   const lastBootstrapAtByPlayerId = new Map<string, number>();
   const pendingInputToStateByCommandId = new Map<string, number>();
   const controlPathEventNames = new Set([
