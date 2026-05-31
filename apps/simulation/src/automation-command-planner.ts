@@ -155,6 +155,8 @@ export type AutomationPlannerDiagnostic = {
   // SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD. Wired into a counter metric so
   // we know how often the skip fires at the current threshold.
   broadFallbackSkipped?: boolean | undefined;
+  /** Set when the narrow analyze path hits the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES). */
+  narrowAnalyzeCapped?: boolean | undefined;
 };
 
 export type AutomationPlannerPhase =
@@ -250,7 +252,8 @@ const emptyFrontierAnalysis = (): FrontierAnalysis => ({
   frontierOpportunityTownSupport: 0,
   frontierOpportunityScout: 0,
   frontierOpportunityScaffold: 0,
-  frontierOpportunityWaste: 0
+  frontierOpportunityWaste: 0,
+  narrowAnalyzeCapped: false
 });
 
 const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
@@ -588,6 +591,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ownedTileCount: input.ownedTiles.length,
     ownedFrontierTileCount: ownedFrontierTiles.length,
     broadFallbackSkipped: broadFallbackSkipped || undefined,
+    narrowAnalyzeCapped: frontierAnalysis.narrowAnalyzeCapped || undefined,
     frontierTileCountInput: input.frontierTiles.length,
     hotFrontierTileCountInput: input.hotFrontierTiles?.length ?? 0,
     strategicFrontierTileCountInput: input.strategicFrontierTiles?.length ?? 0,
