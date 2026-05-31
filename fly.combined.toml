@@ -40,7 +40,7 @@ primary_region = "arn"
   SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS = "15000"
   # Player IDs excluded from all leaderboard surfaces (comma-separated).
   # Decode probe auth token JWT to get the user_id: JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString()).user_id
-  SIMULATION_NON_COMPETITIVE_PLAYER_IDS = ""
+  SIMULATION_NON_COMPETITIVE_PLAYER_IDS = "avumxUe8L6OluuTkdMZAb76ldCq1"
   SIMULATION_HEALTH_PROBE_INTERVAL_MS = "5000"
   SIMULATION_HEALTH_PROBE_TIMEOUT_MS = "2000"
   SIMULATION_HEALTH_FAILURE_THRESHOLD = "3"
