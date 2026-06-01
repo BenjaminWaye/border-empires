@@ -636,9 +636,10 @@ export const drawAetherBridgeLane = (
   toX: number,
   toY: number,
   nowMs: number,
-  options?: { compact?: boolean }
+  options?: { compact?: boolean; anchors?: boolean }
 ): void => {
   const compact = options?.compact ?? false;
+  const drawAnchors = options?.anchors ?? true;
   const dx = toX - fromX;
   const dy = toY - fromY;
   const distance = Math.hypot(dx, dy);
@@ -664,11 +665,21 @@ export const drawAetherBridgeLane = (
       ctx.fill();
       return;
     }
-    const glyphSize = compact ? 8 : 28;
+    const glyphSize = compact ? 8 : 38;
+    const pulse = 0.5 + 0.5 * Math.sin(pulseOffset * Math.PI * 2);
     ctx.save();
     ctx.translate(x, y);
+    const auraRadius = glyphSize * (0.62 + pulse * 0.14);
+    const aura = ctx.createRadialGradient(0, 0, auraRadius * 0.2, 0, 0, auraRadius);
+    aura.addColorStop(0, `rgba(196, 246, 255, ${(0.42 + pulse * 0.22).toFixed(3)})`);
+    aura.addColorStop(0.55, "rgba(83, 207, 255, 0.18)");
+    aura.addColorStop(1, "rgba(83, 207, 255, 0)");
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
+    ctx.fill();
     ctx.rotate(angle);
-    ctx.globalAlpha = compact ? 0.9 : 0.98;
+    ctx.globalAlpha = 0.98;
     ctx.drawImage(aetherBridgeAnchorImage, -glyphSize * 0.5, -glyphSize * 0.5, glyphSize, glyphSize);
     ctx.restore();
   };
@@ -690,8 +701,10 @@ export const drawAetherBridgeLane = (
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.lineDashOffset = 0;
-  drawAnchorGlyph(fromX, fromY, laneAngle);
-  drawAnchorGlyph(toX, toY, laneAngle + Math.PI);
+  if (drawAnchors) {
+    drawAnchorGlyph(fromX, fromY, laneAngle);
+    drawAnchorGlyph(toX, toY, laneAngle + Math.PI);
+  }
   const pulseCount = compact ? 2 : 3;
   for (let i = 0; i < pulseCount; i += 1) {
     const t = (pulseOffset + i / pulseCount) % 1;

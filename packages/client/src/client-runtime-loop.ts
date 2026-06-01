@@ -114,7 +114,8 @@ type StartClientRuntimeLoopDeps = {
     fromY: number,
     toX: number,
     toY: number,
-    nowMs: number
+    nowMs: number,
+    options?: { compact?: boolean; anchors?: boolean }
   ) => void;
   drawAetherWallSegment: (
     ctx: CanvasRenderingContext2D,
@@ -1532,7 +1533,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       const dx = deps.toroidDelta(bridge.from.x, bridge.to.x, WORLD_WIDTH) * size;
       const dy = deps.toroidDelta(bridge.from.y, bridge.to.y, WORLD_HEIGHT) * size;
       const to = { sx: from.sx + dx, sy: from.sy + dy };
-      deps.drawAetherBridgeLane(deps.ctx, from.sx, from.sy, to.sx, to.sy, nowMs);
+      // In true-3D mode the flat anchor glyphs are replaced by real 3D
+      // pylons (see client-map-3d-aether-bridge-pylon-overlay.ts), so draw
+      // the lane only; the 2D path keeps its painted anchors.
+      deps.drawAetherBridgeLane(deps.ctx, from.sx, from.sy, to.sx, to.sy, nowMs, {
+        anchors: !isTrue3DRendererActive()
+      });
     }
 
     pruneShardRainPings(state);
