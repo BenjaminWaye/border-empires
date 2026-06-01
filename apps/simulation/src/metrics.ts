@@ -86,6 +86,9 @@ export const AI_PLANNER_PHASES = [
 ] as const;
 export type AiPlannerPhase = (typeof AI_PLANNER_PHASES)[number];
 
+const AI_TICK_THROTTLE_REASONS = ["adaptive", "budget", "loop_lag"] as const;
+export type AiTickThrottleReason = (typeof AI_TICK_THROTTLE_REASONS)[number];
+
 export type SimulationSnapshotMetricSample = {
   trigger: string;
   playerId: string;
@@ -121,6 +124,9 @@ export type SimulationMetricsSnapshot = {
   simAiNoopTotalByReason: Record<AutomationNoopReason, number>;
   simAiNoopRecent: string[];
   simAiNoFrontierRecent: string[];
+  simAiTickThrottledTotal: Record<AiTickThrottleReason, number>;
+  simAiCurrentTickIntervalMs: number;
+  simAiBudgetUsedMs: number;
   simAiSettleDecisionTotalByReason: Record<AutomationSettleDecisionReason, number>;
   simAiSettleDecisionRecent: string[];
   simAiSettleDecisionTopScore: QuantileSample;
@@ -225,6 +231,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simHumanInteractiveBacklogMs = 0;
   const simAiBroadFallbackSkipped = new Map<string, number>();
   const simAiNarrowAnalyzeCapped = new Map<string, number>();
+  const simAiTickThrottledTotal = new Map<AiTickThrottleReason, number>(
+    AI_TICK_THROTTLE_REASONS.map((reason) => [reason, 0])
+  );
+  let simAiCurrentTickIntervalMs = 0;
+  let simAiBudgetUsedMs = 0;
   let simAiAutopilotEnabled = 0;
   let simAiAutopilotPlayerCount = 0;
   let simAiPlannerBreaches = 0;
@@ -275,6 +286,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     ) as Record<AutomationNoopReason, number>,
     simAiNoopRecent: [...simAiNoopRecent],
     simAiNoFrontierRecent: [...simAiNoFrontierRecent],
+    simAiTickThrottledTotal: Object.fromEntries(simAiTickThrottledTotal) as Record<AiTickThrottleReason, number>,
+    simAiCurrentTickIntervalMs,
+    simAiBudgetUsedMs,
     simAiSettleDecisionTotalByReason: Object.fromEntries(
       AUTOMATION_SETTLE_DECISION_REASONS.map((reason) => [reason, simAiSettleDecisionTotalByReason.get(reason) ?? 0])
     ) as Record<AutomationSettleDecisionReason, number>,
@@ -347,6 +361,15 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimAiNarrowAnalyzeCapped(playerId: string): void {
       simAiNarrowAnalyzeCapped.set(playerId, (simAiNarrowAnalyzeCapped.get(playerId) ?? 0) + 1);
+    },
+    incrementSimAiTickThrottled(reason: AiTickThrottleReason): void {
+      simAiTickThrottledTotal.set(reason, (simAiTickThrottledTotal.get(reason) ?? 0) + 1);
+    },
+    setSimAiCurrentTickIntervalMs(value: number): void {
+      simAiCurrentTickIntervalMs = clampMetric(value);
+    },
+    setSimAiBudgetUsedMs(value: number): void {
+      simAiBudgetUsedMs = clampMetric(value);
     },
     observeSimAiCommand(commandType: DurableCommandType, playerId: string): void {
       simAiCommandTotalByType.set(commandType, (simAiCommandTotalByType.get(commandType) ?? 0) + 1);
@@ -496,6 +519,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_ai_autopilot_player_count ${formatMetricValue(sample.simAiAutopilotPlayerCount)}`,
         "# TYPE sim_ai_planner_breaches counter",
         `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
+        "# TYPE sim_ai_tick_throttled_total counter",
+        "# TYPE sim_ai_current_tick_interval_ms gauge",
+        `sim_ai_current_tick_interval_ms ${formatMetricValue(sample.simAiCurrentTickIntervalMs)}`,
+        "# TYPE sim_ai_budget_used_ms gauge",
+        `sim_ai_budget_used_ms ${formatMetricValue(sample.simAiBudgetUsedMs)}`,
         "# TYPE sim_ai_broad_fallback_skipped_total counter",
         "# TYPE sim_ai_narrow_analyze_capped_total counter",
         "# TYPE sim_ai_command_total counter",
@@ -588,6 +616,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       }
       for (const reason of AUTOMATION_SETTLE_DECISION_REASONS) {
         lines.push(`sim_ai_settle_decision_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiSettleDecisionTotalByReason[reason])}`);
+      }
+      for (const reason of AI_TICK_THROTTLE_REASONS) {
+        lines.push(`sim_ai_tick_throttled_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiTickThrottledTotal[reason])}`);
       }
       for (const [playerId, count] of Object.entries(sample.simAiBroadFallbackSkipped)) {
         lines.push(`sim_ai_broad_fallback_skipped_total{playerId=\"${playerId}\"} ${formatMetricValue(count)}`);
