@@ -87,7 +87,13 @@ import {
   SIPHON_SHARE,
   SYNTH_OVERLOAD_DISABLE_MS,
   SYNTH_OVERLOAD_GOLD_COST,
+  POPULATION_GROWTH_BASE_RATE,
   POPULATION_MAX,
+  SEED_GRANARY_GROWTH_MULT,
+  NEARBY_WAR_RADIUS,
+  NEARBY_WAR_PAUSE_MS,
+  LONG_PEACE_MS,
+  LONG_PEACE_GROWTH_MULT,
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
@@ -143,6 +149,7 @@ import {
   buildFedTownKeys,
   buildPlayerUpdateEconomySnapshot,
   buildStrategicProductionForSettledTiles,
+  hasSupportedStructure,
   refreshTownEconomyFields,
   type PlayerUpdateEconomySnapshot
 } from "./player-update-economy.js";
@@ -152,7 +159,7 @@ import {
   removeTileUpkeepFromCache,
   type UpkeepAccrualSnapshot
 } from "./player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network.js";
 import { capturedStructureFields } from "./capture-structures.js";
 import { createSeedWorld, simulationTileKey } from "./seed-state.js";
 import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
@@ -392,6 +399,9 @@ export class SimulationRuntime {
   // they're shed last (which matches the intent: an empire that survived
   // restart shouldn't have its core tiles shed before its newer expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
+  // Epoch ms of the last population growth tick for each settled town tile key.
+  // Used by tickPopulationGrowth to compute elapsed minutes since the last update.
+  private readonly townLastGrowthTickAtByKey = new Map<string, number>();
   // Per-player territorial vision expansion cache.  Avoids O(territory×r²)
   // recomputation on every classifyVisibilityForPlayer call; invalidated lazily
   // via signature (tileCollectionVersion:vision:visionRadiusBonus) and
@@ -874,6 +884,206 @@ export class SimulationRuntime {
       }
     }
     return droppedCommandIds.size;
+  }
+
+  /**
+   * Returns the granary growth multiplier for a tile: 1.0 (none),
+   * 1.15 (active GRANARY or unbuffed SEED_GRANARY adjacent),
+   * or SEED_GRANARY_GROWTH_MULT (active SEED_GRANARY adjacent to another
+   * active settled SEED_GRANARY owned by the same player).
+   */
+  private seedGranaryGrowthMultForTile(
+    tile: DomainTileState,
+    playerId: string
+  ): number {
+    const hasGranary = hasSupportedStructure(playerId, tile, "GRANARY", this.tiles);
+    const hasSeedGranary = hasSupportedStructure(playerId, tile, "SEED_GRANARY", this.tiles);
+    if (!hasGranary && !hasSeedGranary) return 1;
+    if (!hasSeedGranary) return 1.15;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const neighbor = this.tiles.get(`${tile.x + dx},${tile.y + dy}`);
+        if (
+          neighbor?.ownerId === playerId &&
+          neighbor.ownershipState === "SETTLED" &&
+          neighbor.economicStructure?.type === "SEED_GRANARY" &&
+          neighbor.economicStructure.status === "active"
+        ) {
+          return SEED_GRANARY_GROWTH_MULT;
+        }
+      }
+    }
+    return 1.15;
+  }
+
+  /**
+   * Periodic population growth tick. Applies logistic growth to every
+   * settled, fed, non-settlement (populationTier !== "SETTLEMENT"),
+   * non-shocked town. Growth formula mirrors the display-path computation
+   * in live-snapshot-view.ts.
+   *
+   * Called every 60 s from simulation-service.ts.
+   */
+  tickPopulationGrowth(nowMs: number = this.now()): void {
+    const dirtyPlayerIds = new Set<string>();
+
+    // Gather unique attack tile coords once — O(locks). Per-town radius check
+    // below is O(towns × n_coords); ~12 k comparisons for 300 towns / 40 coords.
+    const attackCoords: number[] = [];
+    const seenLockCommandIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      if (seenLockCommandIds.has(lock.commandId)) continue; // locksByTile stores each lock twice
+      seenLockCommandIds.add(lock.commandId);
+      if (lock.actionType !== "ATTACK") continue;
+      for (const lockedKey of [lock.originKey, lock.targetKey]) {
+        const comma = lockedKey.indexOf(",");
+        if (comma > 0) {
+          attackCoords.push(Number(lockedKey.slice(0, comma)), Number(lockedKey.slice(comma + 1)));
+        }
+      }
+    }
+
+    for (const player of this.players.values()) {
+      if (player.id.startsWith("barbarian-")) continue;
+      const summary = this.summaryForPlayer(player.id);
+      const ownedTowns = summary.ownedTownTierByTile;
+      if (ownedTowns.size === 0) continue;
+
+      const fedTownKeys = buildFedTownKeys(
+        player,
+        summary,
+        this.tiles,
+        summary.strategicProductionPerMinute
+      );
+      if (fedTownKeys.size === 0) continue;
+
+      const firstThreeKeys = firstThreeTownKeysForPlayer(player.id, this.tiles.values());
+
+      for (const tileKey of ownedTowns.keys()) {
+        const tile = this.tiles.get(tileKey);
+        if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
+        const town = tile.town;
+
+        // Gate: skip settlements (populationTier === "SETTLEMENT").
+        if (town.populationTier === "SETTLEMENT") continue;
+        // Gate: skip if in capture shock.
+        if (typeof town.captureShockUntil === "number" && town.captureShockUntil > nowMs) continue;
+        // Gate: skip unfed towns.
+        if (!fedTownKeys.has(tileKey)) continue;
+        // Guard: population and maxPopulation must be present.
+        if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
+
+        // Check 10-tile radius for active ATTACK locks. Stamp a 60-minute pause
+        // on the town tile so the gate persists after the lock resolves and the
+        // timestamp flows through snapshots/deltas to the display path.
+        let isNearActiveWar = false;
+        for (let i = 0; i < attackCoords.length; i += 2) {
+          if (Math.abs(tile.x - (attackCoords[i] as number)) <= NEARBY_WAR_RADIUS &&
+              Math.abs(tile.y - (attackCoords[i + 1] as number)) <= NEARBY_WAR_RADIUS) {
+            isNearActiveWar = true;
+            break;
+          }
+        }
+        if (isNearActiveWar) {
+          const pausedUntil = nowMs + NEARBY_WAR_PAUSE_MS;
+          if ((town.nearbyWarPausedUntil ?? 0) < pausedUntil) {
+            const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: nowMs };
+            const updatedTile = { ...tile, town: updatedTown };
+            this.tiles.set(tileKey, updatedTile);
+            this.tileDeltaStringifyCache.invalidate(tileKey);
+            this.emitEvent({
+              eventType: "TILE_DELTA_BATCH",
+              commandId: `population-growth-tick:war-pause:${tileKey}`,
+              playerId: player.id,
+              tileDeltas: [this.tileDeltaFromState(updatedTile)]
+            });
+            dirtyPlayerIds.add(player.id);
+          }
+          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+          continue;
+        }
+        // Still within the 60-minute pause window from a recent battle.
+        if (typeof town.nearbyWarPausedUntil === "number" && town.nearbyWarPausedUntil > nowMs) {
+          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+          continue;
+        }
+
+        const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
+        if (logisticFactor <= 0) continue;
+
+        const granaryGrowthMult = this.seedGranaryGrowthMultForTile(tile, player.id);
+
+        // First-three-town population growth multiplier.
+        const firstThreeMult = firstThreeKeys.has(tileKey)
+          ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player)
+          : 1;
+
+        // Long-peace multiplier: 24 h of no nearby combat near this town.
+        const hasLongPeace = !town.nearbyWarLastAt || nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
+        const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
+
+        const lastTick = this.townLastGrowthTickAtByKey.get(tileKey) ?? nowMs;
+        const elapsedMinutes = (nowMs - lastTick) / 60_000;
+        if (elapsedMinutes <= 0) {
+          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+          continue;
+        }
+
+        const growthPerMinute =
+          town.population *
+          POPULATION_GROWTH_BASE_RATE *
+          granaryGrowthMult *
+          firstThreeMult *
+          longPeaceMult *
+          logisticFactor;
+        const growth = growthPerMinute * elapsedMinutes;
+        if (growth <= 0) continue;
+
+        const newPopulation = Math.min(town.maxPopulation, town.population + growth);
+
+        // Update population tier from the new population value.
+        const nextTier = newPopulation >= 5_000_000 ? "METROPOLIS" as const
+          : newPopulation >= 1_000_000 ? "GREAT_CITY" as const
+          : newPopulation >= 100_000 ? "CITY" as const
+          : "TOWN" as const;
+
+        // Destructure out the stale pause timestamp (exactOptionalPropertyTypes
+        // forbids setting it to undefined; omitting the key altogether is correct
+        // and ensures JSON.stringify no longer includes it).
+        const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
+        const updatedTown = {
+          ...townWithoutPause,
+          population: newPopulation,
+          ...(nextTier !== town.populationTier ? { populationTier: nextTier } : {})
+        };
+        const updatedTile = { ...tile, town: updatedTown };
+        this.tiles.set(tileKey, updatedTile);
+        this.tileDeltaStringifyCache.invalidate(tileKey);
+        this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: `population-growth-tick:${tileKey}`,
+          playerId: player.id,
+          tileDeltas: [this.tileDeltaFromState(updatedTile)]
+        });
+
+        // Update the tier index when the tier changed.
+        if (nextTier !== town.populationTier) {
+          // Direct map update intentional — replaceTileState side-effects (planner/anchor
+          // index refresh) are ownership-driven and are no-ops for tier-only changes.
+          summary.ownedTownTierByTile.set(tileKey, nextTier);
+        }
+
+        dirtyPlayerIds.add(player.id);
+      }
+    }
+
+    // Invalidate economy caches once per player — population affects goldPerMinute.
+    for (const playerId of dirtyPlayerIds) {
+      this.economySnapshotCacheByPlayer.delete(playerId);
+      this.tileYieldContextCacheByPlayer.delete(playerId);
+    }
   }
 
   tickShardRain(nowMs: number = this.now()): void {
