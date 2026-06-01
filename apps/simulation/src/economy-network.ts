@@ -18,7 +18,6 @@ export type DockEconomyContext = {
 
 export type ConnectedTownNetworkOptions = {
   maxConnectedTownNames?: number;
-  onVisitSettledLandTile?: (tileKey: string) => void;
 };
 
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
@@ -66,19 +65,23 @@ export const buildConnectedTownNetworkForPlayer = (
     }
   }
   const out = new Map<string, ConnectedTownNetworkEntry>();
-  const visited = new Set<string>();
-  for (const componentStart of settledLand) {
-    if (visited.has(componentStart)) continue;
-    const queue = [componentStart];
+
+  for (const startTownKey of ownedTownKeys) {
+    const bfsVisited = new Set<string>([startTownKey]);
+    const queue = [startTownKey];
     let readIndex = 0;
-    visited.add(componentStart);
-    const componentTownKeys: string[] = [];
+    const directTownKeys: string[] = [];
 
     while (readIndex < queue.length) {
       const current = queue[readIndex]!;
       readIndex += 1;
-      options.onVisitSettledLandTile?.(current);
-      if (ownedTownKeys.has(current)) componentTownKeys.push(current);
+
+      if (current !== startTownKey && ownedTownKeys.has(current)) {
+        // This is a different town — count it as a direct connection but stop traversal here.
+        directTownKeys.push(current);
+        continue;
+      }
+
       const [rawX, rawY] = current.split(",");
       const cx = Number(rawX);
       const cy = Number(rawY);
@@ -87,36 +90,33 @@ export const buildConnectedTownNetworkForPlayer = (
         for (let dx = -1; dx <= 1; dx += 1) {
           if (dx === 0 && dy === 0) continue;
           const nextKey = keyFor(cx + dx, cy + dy);
-          if (!settledLand.has(nextKey) || visited.has(nextKey)) continue;
-          visited.add(nextKey);
+          if (!settledLand.has(nextKey) || bfsVisited.has(nextKey)) continue;
+          bfsVisited.add(nextKey);
           queue.push(nextKey);
         }
       }
     }
 
-    if (componentTownKeys.length === 0) continue;
-    componentTownKeys.sort((left, right) => left.localeCompare(right));
+    directTownKeys.sort((l, r) => l.localeCompare(r));
     const townNameByKey = new Map<string, string>();
-    for (const townKey of componentTownKeys) {
+    for (const townKey of directTownKeys) {
       const name = tiles.get(townKey)?.town?.name;
       if (typeof name === "string" && name.length > 0) townNameByKey.set(townKey, name);
     }
-    for (const townKey of componentTownKeys) {
-      const connectedTownCount = componentTownKeys.length - 1;
-      const connectedTownNames =
-        maxConnectedTownNames > 0 && connectedTownCount <= maxConnectedTownNames
-          ? componentTownKeys
-              .filter((key) => key !== townKey)
-              .map((key) => townNameByKey.get(key))
-              .filter((name): name is string => typeof name === "string" && name.length > 0)
-              .sort((left, right) => left.localeCompare(right))
-          : [];
-      out.set(townKey, {
-        connectedTownCount,
-        connectedTownBonus: connectedTownBonusForPlayer(connectedTownCount, player),
-        ...(connectedTownNames.length ? { connectedTownNames } : {})
-      });
-    }
+
+    const connectedTownCount = directTownKeys.length;
+    const connectedTownNames =
+      maxConnectedTownNames > 0 && connectedTownCount <= maxConnectedTownNames
+        ? directTownKeys
+            .map((k) => townNameByKey.get(k))
+            .filter((n): n is string => typeof n === "string" && n.length > 0)
+            .sort((l, r) => l.localeCompare(r))
+        : [];
+    out.set(startTownKey, {
+      connectedTownCount,
+      connectedTownBonus: connectedTownBonusForPlayer(connectedTownCount, player),
+      ...(connectedTownNames.length ? { connectedTownNames } : {})
+    });
   }
   return out;
 };

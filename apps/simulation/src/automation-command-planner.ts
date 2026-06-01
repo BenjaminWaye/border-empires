@@ -9,6 +9,8 @@ import {
   type Terrain
 } from "@border-empires/shared";
 
+const SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD = 500;
+
 import { chooseBestSettlementTile, chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { computeTownSupport } from "./town-support.js";
@@ -149,9 +151,25 @@ export type AutomationPlannerDiagnostic = {
   // why AIs are not actually settling.
   settleDecisionReason?: import("./automation-command-planner-helpers.js").AutomationSettleDecisionReason;
   settleDecisionTopScore?: number;
+  // Set when the broad-fallback path is skipped because the empire exceeds
+  // SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD. Wired into a counter metric so
+  // we know how often the skip fires at the current threshold.
+  broadFallbackSkipped?: boolean | undefined;
+  /** Set when the narrow analyze path hits the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES). */
+  narrowAnalyzeCapped?: boolean | undefined;
 };
 
-export type AutomationPlannerPhase = "choose_settlement" | "choose_frontier" | "summarize_frontier";
+export type AutomationPlannerPhase =
+  | "choose_settlement"
+  | "choose_frontier"
+  | "summarize_frontier"
+  // Frontier-analysis sub-phases (PR 1 measurement — flow through
+  // the same onPhaseTiming channel so the worker emits them as
+  // diagnostic phases).
+  | "analyze_iter_total"
+  | "analyze_per_candidate"
+  | "analyze_neighbor_lookups"
+  | "analyze_score_calc";
 
 type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   playerId: string;
@@ -234,7 +252,8 @@ const emptyFrontierAnalysis = (): FrontierAnalysis => ({
   frontierOpportunityTownSupport: 0,
   frontierOpportunityScout: 0,
   frontierOpportunityScaffold: 0,
-  frontierOpportunityWaste: 0
+  frontierOpportunityWaste: 0,
+  narrowAnalyzeCapped: false
 });
 
 const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
@@ -513,28 +532,41 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           canAttack,
           canExpand,
           needsFood,
-          ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
+          ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
+          onAnalyzeTiming: (phase, durationMs) => {
+            input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
+          }
         })
       : emptyFrontierAnalysis();
+  let broadFallbackSkipped = false;
   if ((canAttack || canExpand) && !hasActionableFrontierAnalysis(frontierAnalysis) && input.frontierTiles.length > 0) {
-    const broadFrontierOriginsAll = dedupeTiles([
-      ...narrowFrontierOrigins,
-      ...input.frontierTiles,
-      ...ownedFrontierTiles
-    ]);
-    // The broad fallback also respects the spatial focus front so a large
-    // empire cannot blow up planner CPU through the fallback path.
-    const broadFrontierOrigins = restrictToFocus(broadFrontierOriginsAll);
-    if (broadFrontierOrigins.length > frontierOrigins.length) {
-      const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
-        canAttack,
-        canExpand,
-        needsFood,
-        ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
-      });
-      if (hasActionableFrontierAnalysis(broadFrontierAnalysis)) {
-        frontierOrigins = broadFrontierOrigins;
-        frontierAnalysis = broadFrontierAnalysis;
+    if (input.ownedTiles.length > SKIP_BROAD_FALLBACK_OWNED_TILE_THRESHOLD) {
+      // Broad fallback's second analyzeOwnedFrontierTargetsFromLookup
+      // dominates the 587ms tail at this scale. The narrow result stands.
+      broadFallbackSkipped = true;
+    } else {
+      const broadFrontierOriginsAll = dedupeTiles([
+        ...narrowFrontierOrigins,
+        ...input.frontierTiles,
+        ...ownedFrontierTiles
+      ]);
+      // The broad fallback also respects the spatial focus front so a large
+      // empire cannot blow up planner CPU through the fallback path.
+      const broadFrontierOrigins = restrictToFocus(broadFrontierOriginsAll);
+      if (broadFrontierOrigins.length > frontierOrigins.length) {
+        const broadFrontierAnalysis = analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, broadFrontierOrigins, input.playerId, {
+          canAttack,
+          canExpand,
+          needsFood,
+          ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
+          onAnalyzeTiming: (phase, durationMs) => {
+            input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
+          }
+        });
+        if (hasActionableFrontierAnalysis(broadFrontierAnalysis)) {
+          frontierOrigins = broadFrontierOrigins;
+          frontierAnalysis = broadFrontierAnalysis;
+        }
       }
     }
   }
@@ -558,6 +590,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     canExpand,
     ownedTileCount: input.ownedTiles.length,
     ownedFrontierTileCount: ownedFrontierTiles.length,
+    broadFallbackSkipped: broadFallbackSkipped || undefined,
+    narrowAnalyzeCapped: frontierAnalysis.narrowAnalyzeCapped || undefined,
     frontierTileCountInput: input.frontierTiles.length,
     hotFrontierTileCountInput: input.hotFrontierTiles?.length ?? 0,
     strategicFrontierTileCountInput: input.strategicFrontierTiles?.length ?? 0,

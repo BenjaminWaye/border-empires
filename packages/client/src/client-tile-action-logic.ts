@@ -18,6 +18,14 @@ import {
   structureBuildDurationMs,
   structurePlacementMetadata,
   structureShowsOnTile,
+  bestFortTierForTech,
+  FORT_VARIANT_LABELS,
+  nextFortTierForUpgrade,
+  type FortTierInfo,
+  bestSiegeTierForTech,
+  nextSiegeTierForUpgrade,
+  SIEGE_VARIANT_LABELS,
+  type SiegeTierInfo,
   terrainAt
 } from "@border-empires/shared";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "./client-constants.js";
@@ -267,93 +275,53 @@ const collectValidAetherWallOrigins = (
   return out;
 };
 
-const fortBuildVariantForState = (state: ClientState): {
-  label: string;
-  gold: number;
-  iron: number;
-  defenseMult: number;
-  summary: string;
-} => {
-  if (state.techIds.includes("steelworking")) {
-    return { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" };
-  }
-  if (state.techIds.includes("fortified-walls")) {
-    return { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" };
-  }
-  return { label: "Fort", gold: structureBuildGoldCost("FORT", 0), iron: 45, defenseMult: FORT_DEFENSE_MULT, summary: "900 gold + 300 manpower + 45 IRON" };
-};
+type FortVariantAction = { label: string; gold: number; iron: number; defenseMult: number; summary: string };
+
+const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
+  label: FORT_VARIANT_LABELS[tier.variant],
+  gold: tier.gold,
+  iron: tier.iron,
+  defenseMult: tier.defenseMult,
+  summary: `${tier.gold} gold + ${tier.manpower} manpower + ${tier.iron} IRON`,
+});
+
+const fortBuildVariantForState = (state: ClientState): FortVariantAction =>
+  fortActionFromTier(bestFortTierForTech((id) => state.techIds.includes(id)));
 
 const nextFortVariantForTile = (
   state: ClientState,
-  tile: Tile
-):
-  | {
-      label: string;
-      gold: number;
-      iron: number;
-      defenseMult: number;
-      summary: string;
-    }
-  | undefined => {
+  tile: Tile,
+): FortVariantAction | undefined => {
   if (tile.fort) {
-    const current = tile.fort.variant ?? "FORT";
-    if (current === "FORT" && state.techIds.includes("fortified-walls")) {
-      return { label: "Iron Bastion", gold: 1800, iron: 90, defenseMult: 4, summary: "1800 gold + 300 manpower + 90 IRON" };
-    }
-    if (current === "IRON_BASTION" && state.techIds.includes("steelworking")) {
-      return { label: "Thunder Bastion", gold: 4200, iron: 180, defenseMult: 8, summary: "4200 gold + 300 manpower + 180 IRON" };
-    }
-    return undefined;
+    const result = nextFortTierForUpgrade(tile.fort.variant, (id) => state.techIds.includes(id));
+    return result ? fortActionFromTier(result) : undefined;
   }
   return fortBuildVariantForState(state);
 };
 
-const siegeBuildVariantForState = (state: ClientState): {
-  label: string;
-  gold: number;
-  supply: number;
-  iron: number;
-  attackMult: number;
-  summary: string;
-} => {
-  if (state.techIds.includes("standing-army")) {
-    return { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 60 manpower + 140 SUPPLY + 120 IRON" };
-  }
-  if (state.techIds.includes("siegecraft")) {
-    return { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 60 manpower + 90 SUPPLY + 60 IRON" };
-  }
-  return {
-    label: "Siege Outpost",
-    gold: structureBuildGoldCost("SIEGE_OUTPOST", 0),
-    supply: 45,
-    iron: 0,
-    attackMult: SIEGE_OUTPOST_ATTACK_MULT,
-    summary: "900 gold + 60 manpower + 45 SUPPLY"
-  };
-};
+type SiegeVariantAction = { label: string; gold: number; supply: number; iron: number; attackMult: number; summary: string };
+
+const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
+  label: SIEGE_VARIANT_LABELS[tier.variant],
+  gold: tier.gold,
+  supply: tier.supply,
+  iron: tier.iron,
+  attackMult: tier.attackMult,
+  summary: tier.iron > 0
+    ? `${tier.gold} gold + ${tier.manpower} manpower + ${tier.supply} SUPPLY + ${tier.iron} IRON`
+    : `${tier.gold} gold + ${tier.manpower} manpower + ${tier.supply} SUPPLY`,
+});
+
+const siegeBuildVariantForState = (state: ClientState): SiegeVariantAction =>
+  siegeActionFromTier(bestSiegeTierForTech((id) => state.techIds.includes(id)));
 
 const nextSiegeVariantForTile = (
   state: ClientState,
-  tile: Tile
-):
-  | {
-      label: string;
-      gold: number;
-      supply: number;
-      iron: number;
-      attackMult: number;
-      summary: string;
-    }
-  | undefined => {
+  tile: Tile,
+): SiegeVariantAction | undefined => {
   if (tile.siegeOutpost) {
-    const current = tile.siegeOutpost.variant ?? "SIEGE_OUTPOST";
-    if (current === "SIEGE_OUTPOST" && state.techIds.includes("siegecraft")) {
-      return { label: "Siege Tower", gold: 1800, supply: 90, iron: 60, attackMult: 2, summary: "1800 gold + 90 SUPPLY + 60 IRON" };
-    }
-    if (current === "SIEGE_TOWER" && state.techIds.includes("standing-army")) {
-      return { label: "Dread Tower", gold: 4200, supply: 140, iron: 120, attackMult: 3, summary: "4200 gold + 140 SUPPLY + 120 IRON" };
-    }
-    return undefined;
+    const result = nextSiegeTierForUpgrade(tile.siegeOutpost.variant, (id) => state.techIds.includes(id));
+    return result ? siegeActionFromTier(result) : undefined;
   }
   return siegeBuildVariantForState(state);
 };
@@ -1228,7 +1196,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("advanced-synthetication") && state.gold >= deps.structureGoldCost("ADVANCED_FUR_SYNTHESIZER") && (state.strategicResources.SUPPLY ?? 0) >= 40,
           !state.techIds.includes("advanced-synthetication") ? "Requires Advanced Synthetication" : state.gold < deps.structureGoldCost("ADVANCED_FUR_SYNTHESIZER") ? `Need ${deps.structureGoldCost("ADVANCED_FUR_SYNTHESIZER")} gold` : "Need 40 SUPPLY",
-          `${deps.structureCostText("ADVANCED_FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_FUR_SYNTHESIZER") / 60000)}m • 21.6 SUPPLY/day`,
+          `${deps.structureCostText("ADVANCED_FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_FUR_SYNTHESIZER") / 60000)}m • 21.6 SUPPLY/day • 6 gold/min`,
           slots,
           deps
         )
@@ -1242,7 +1210,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("advanced-synthetication") && state.gold >= deps.structureGoldCost("ADVANCED_IRONWORKS") && (state.strategicResources.IRON ?? 0) >= 40,
           !state.techIds.includes("advanced-synthetication") ? "Requires Advanced Synthetication" : state.gold < deps.structureGoldCost("ADVANCED_IRONWORKS") ? `Need ${deps.structureGoldCost("ADVANCED_IRONWORKS")} gold` : "Need 40 IRON",
-          `${deps.structureCostText("ADVANCED_IRONWORKS")} • ${Math.round(economicStructureBuildMs("ADVANCED_IRONWORKS") / 60000)}m • 21.6 IRON/day`,
+          `${deps.structureCostText("ADVANCED_IRONWORKS")} • ${Math.round(economicStructureBuildMs("ADVANCED_IRONWORKS") / 60000)}m • 21.6 IRON/day • 6 gold/min`,
           slots,
           deps
         )
@@ -1256,7 +1224,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("advanced-synthetication") && state.gold >= deps.structureGoldCost("ADVANCED_CRYSTAL_SYNTHESIZER") && (state.strategicResources.CRYSTAL ?? 0) >= 40,
           !state.techIds.includes("advanced-synthetication") ? "Requires Advanced Synthetication" : state.gold < deps.structureGoldCost("ADVANCED_CRYSTAL_SYNTHESIZER") ? `Need ${deps.structureGoldCost("ADVANCED_CRYSTAL_SYNTHESIZER")} gold` : "Need 40 CRYSTAL",
-          `${deps.structureCostText("ADVANCED_CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_CRYSTAL_SYNTHESIZER") / 60000)}m • 14.4 CRYSTAL/day`,
+          `${deps.structureCostText("ADVANCED_CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_CRYSTAL_SYNTHESIZER") / 60000)}m • 14.4 CRYSTAL/day • 8 gold/min`,
           slots,
           deps
         )
@@ -1375,7 +1343,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           state.gold < deps.structureGoldCost("WOODEN_FORT")
             ? `Need ${deps.structureGoldCost("WOODEN_FORT")} gold`
             : `Need ${structureBuildManpowerCost("WOODEN_FORT")} manpower`,
-          `${deps.structureCostText("WOODEN_FORT")} • ${Math.round(WOODEN_FORT_BUILD_MS / 60000)}m • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)}`,
+          `${deps.structureCostText("WOODEN_FORT")} • ${Math.round(WOODEN_FORT_BUILD_MS / 60000)}m • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)} • 0.05 gold/min`,
           slots,
           deps
         )
@@ -1439,7 +1407,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : !hasCrystal
                   ? "Need 45 CRYSTAL"
                   : "Unavailable",
-          `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision`,
+          `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • 0.025 crystal/min`,
           slots,
           deps
         )
@@ -1475,7 +1443,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : state.gold < airportGoldCost
                   ? `Need ${airportGoldCost} gold`
                   : "Need 80 CRYSTAL",
-            `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard`,
+            `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard • 0.025 crystal/min`,
             slots,
             deps
           )
@@ -1525,7 +1493,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : state.gold < 4000
                   ? "Need 4000 gold"
                   : "Need 120 CRYSTAL",
-            `${deps.structureCostText("RADAR_SYSTEM")} • ${Math.round(economicStructureBuildMs("RADAR_SYSTEM") / 60000)}m • blocks bombardment within 30 tiles`,
+            `${deps.structureCostText("RADAR_SYSTEM")} • ${Math.round(economicStructureBuildMs("RADAR_SYSTEM") / 60000)}m • blocks bombardment within 30 tiles • 4.5 gold/min`,
             slots,
             deps
           )
@@ -1655,7 +1623,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : tile.fort || tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
                 : "Need 2600 gold",
-            `${deps.structureCostText("GOVERNORS_OFFICE")} • ${Math.round(economicStructureBuildMs("GOVERNORS_OFFICE") / 60000)}m • reduces local upkeep`,
+            `${deps.structureCostText("GOVERNORS_OFFICE")} • ${Math.round(economicStructureBuildMs("GOVERNORS_OFFICE") / 60000)}m • reduces local upkeep • 3 gold/min`,
             slots,
             deps
           )
@@ -1677,7 +1645,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : tile.fort || tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
                 : "Need 4500 gold",
-            `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 10 tiles`,
+            `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 10 tiles • 5 gold/min`,
             slots,
             deps
           )
@@ -1702,7 +1670,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : state.gold < 2200
                   ? "Need 2200 gold"
                   : "Need 80 CRYSTAL",
-            `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +20% defense within 10 tiles • 25 gold / 10m`,
+            `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +20% defense within 10 tiles • 2.5 gold/min`,
             slots,
             deps
           )
@@ -1727,7 +1695,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           state.gold < deps.structureGoldCost("LIGHT_OUTPOST")
             ? `Need ${deps.structureGoldCost("LIGHT_OUTPOST")} gold`
             : `Need ${structureBuildManpowerCost("LIGHT_OUTPOST")} manpower`,
-          `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`,
+          `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)} • 0.05 gold/min`,
           slots,
           deps
         )
@@ -1783,7 +1751,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("agriculture") && state.gold >= 700 && (state.strategicResources.FOOD ?? 0) >= 20,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("agriculture") ? "Requires Agriculture" : state.gold < 700 ? "Need 700 gold" : "Need 20 FOOD",
-            `700 gold + 20 FOOD • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food`,
+            `700 gold + 20 FOOD • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food • 0.1 gold/min`,
             slots,
             deps
           )
@@ -1811,7 +1779,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("leatherworking") && state.gold >= 800 && (state.strategicResources.SUPPLY ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("leatherworking") ? "Requires Leatherworking" : state.gold < 800 ? "Need 800 gold" : "Need 30 SUPPLY",
-            `800 gold + 30 SUPPLY • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply`,
+            `800 gold + 30 SUPPLY • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply • 0.12 gold/min`,
             slots,
             deps
           )
@@ -1826,7 +1794,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("mining") && state.gold >= 800 && (state.strategicResources[matchingNeed] ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("mining") ? "Requires Mining" : state.gold < 800 ? "Need 800 gold" : `Need 30 ${matchingNeed}`,
-            `800 gold + 30 ${matchingNeed} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"}`,
+            `800 gold + 30 ${matchingNeed} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"} • 0.12 gold/min`,
             slots,
             deps
           )
@@ -1862,7 +1830,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : !state.techIds.includes("trade")
                   ? "Requires Trade"
                   : `Need ${deps.structureGoldCost("MARKET")} gold`,
-            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold • +50% storage cap`,
+            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold • +50% storage cap • 0.05 food/min`,
             slots,
             deps
           )
@@ -1882,7 +1850,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : state.gold < 700
                     ? "Need 700 gold"
                     : "Need 40 FOOD",
-            `700 gold + 40 FOOD • ${Math.round(economicStructureBuildMs("GRANARY") / 60000)}m • +15% town growth`,
+            `700 gold + 40 FOOD • ${Math.round(economicStructureBuildMs("GRANARY") / 60000)}m • +15% town growth • 0.1 gold/min`,
             slots,
             deps
           )
@@ -1920,7 +1888,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : !state.techIds.includes("coinage")
                   ? "Requires Coinage"
                   : "Need 3200 gold",
-            `3200 gold • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m • +50% city income • +1 flat income`,
+            `3200 gold • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m • +50% city income • +1 flat income • 0.1 food/min`,
             slots,
             deps
           )
@@ -1952,7 +1920,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !supportPlacementBlocked && !townHasCaravanary && state.techIds.includes("ledger-keeping") && state.gold >= deps.structureGoldCost("CARAVANARY"),
             supportPlacementBlocked ? "Tile already has structure" : townHasCaravanary ? "Nearby town already has Caravanary" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : `Need ${deps.structureGoldCost("CARAVANARY")} gold`,
-            `${deps.structureCostText("CARAVANARY")} • ${Math.round(economicStructureBuildMs("CARAVANARY") / 60000)}m • +25% connected-town bonus • 1.5 gold / minute`,
+            `${deps.structureCostText("CARAVANARY")} • ${Math.round(economicStructureBuildMs("CARAVANARY") / 60000)}m • +25% connected-town bonus • 0.075 food/min`,
             slots,
             deps
           )
@@ -1964,7 +1932,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !supportPlacementBlocked && !townHasFurSynth && state.techIds.includes("workshops") && state.gold >= 2200,
             supportPlacementBlocked ? "Tile already has structure" : townHasFurSynth ? "Nearby town already has Fur Synthesizer" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 2200 gold",
-            `2200 gold • ${Math.round(economicStructureBuildMs("FUR_SYNTHESIZER") / 60000)}m • 18 SUPPLY/day • 12 gold / minute`,
+            `2200 gold • ${Math.round(economicStructureBuildMs("FUR_SYNTHESIZER") / 60000)}m • 18 SUPPLY/day • 6 gold/min`,
             slots,
             deps
           )
@@ -1976,7 +1944,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !supportPlacementBlocked && !townHasIronworks && state.techIds.includes("alchemy") && state.gold >= 2400,
             supportPlacementBlocked ? "Tile already has structure" : townHasIronworks ? "Nearby town already has Ironworks" : !state.techIds.includes("alchemy") ? "Requires Alchemy" : "Need 2400 gold",
-            `2400 gold • ${Math.round(economicStructureBuildMs("IRONWORKS") / 60000)}m • 18 IRON/day • 12 gold / minute`,
+            `2400 gold • ${Math.round(economicStructureBuildMs("IRONWORKS") / 60000)}m • 18 IRON/day • 6 gold/min`,
             slots,
             deps
           )
@@ -1988,7 +1956,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !supportPlacementBlocked && !townHasCrystalSynth && state.techIds.includes("crystal-lattices") && state.gold >= 2800,
             supportPlacementBlocked ? "Tile already has structure" : townHasCrystalSynth ? "Nearby town already has Aether Condenser" : !state.techIds.includes("crystal-lattices") ? "Requires Crystal Lattices" : "Need 2800 gold",
-            `2800 gold • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 16 gold / minute`,
+            `2800 gold • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 8 gold/min`,
             slots,
             deps
           )
@@ -2188,7 +2156,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("harborcraft") && state.gold >= 1800 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("harborcraft") ? "Requires Aether Moorings" : state.gold < 1800 ? "Need 1800 gold" : "Need 60 CRYSTAL",
-            `1800 gold + 60 CRYSTAL • ${Math.round(economicStructureBuildMs("CUSTOMS_HOUSE") / 60000)}m • +1 gold/m per connected dock • 0.5 gold / minute`,
+            `1800 gold + 60 CRYSTAL • ${Math.round(economicStructureBuildMs("CUSTOMS_HOUSE") / 60000)}m • +1 gold/m per connected dock • 1.5 gold/min`,
             slots,
             deps
           )

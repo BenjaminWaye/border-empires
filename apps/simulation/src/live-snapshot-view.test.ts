@@ -188,7 +188,6 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "11,10"]
         }
       ],
       pendingSettlements: [],
@@ -203,8 +202,9 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town).not.toHaveProperty("supportCurrent");
     expect(town).not.toHaveProperty("supportMax");
     expect(town).not.toHaveProperty("hasMarket");
+    // yieldRate removed from tile export (see docs/plans/2026-05-30-bootstrap-payload-shrink.md).
+    // goldPerMinute remains stripped from shared-visibility town summaries (by design).
     expect(town).not.toHaveProperty("goldPerMinute");
-    expect(tiles[0]?.yieldRate?.goldPerMinute).toBe(4.5);
     expect(town.connectedTownCount).toBe(1);
     expect(town.connectedTownBonus).toBe(0.5);
   });

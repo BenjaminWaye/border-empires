@@ -23,6 +23,7 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "./client-diplomacy-notifications.js";
 import { effectiveFogDisabled } from "./client-map-reveal.js";
+import { registerShardRainPingsFromAlert } from "./client-shard-rain-pings.js";
 import { tileHasTownIdentity } from "./client-town-identity.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -1346,7 +1347,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const mapMeta = (msg.mapMeta as { dockCount?: number; dockPairCount?: number; clusterCount?: number; townCount?: number; dockPairs?: any[] } | undefined) ?? {};
       const shardRainNotice =
         (msg.shardRainNotice as
-          | { phase?: "upcoming" | "started"; startsAt?: number; expiresAt?: number; siteCount?: number }
+          | { phase?: "upcoming" | "started"; startsAt?: number; expiresAt?: number; siteCount?: number; sites?: { x: number; y: number }[] }
           | undefined) ?? undefined;
       const offlineActivity =
         (msg.offlineActivity as
@@ -1418,13 +1419,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         typeof shardRainNotice.startsAt === "number" &&
         typeof shardRainNotice.expiresAt === "number"
       ) {
-        showShardAlert({
+        const startedAlert = {
           key: shardAlertKeyForPayload("started", shardRainNotice.startsAt),
-          phase: "started",
+          phase: "started" as const,
           startsAt: shardRainNotice.startsAt,
           expiresAt: shardRainNotice.expiresAt,
-          siteCount: Number(shardRainNotice.siteCount ?? 0)
-        });
+          siteCount: Number(shardRainNotice.siteCount ?? 0),
+          ...(shardRainNotice.sites ? { sites: shardRainNotice.sites } : {})
+        };
+        showShardAlert(startedAlert);
+        registerShardRainPingsFromAlert(state, startedAlert);
       }
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       syncAuthOverlay();
@@ -2713,9 +2717,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           );
         }
       }
-      if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
+      if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
-        if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") && firebaseAuth?.currentUser) {
+        if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
           state.connection = "disconnected";
           state.mapLoadStartedAt = Date.now();
           state.firstChunkAt = 0;
@@ -3056,13 +3060,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         typeof (msg.expiresAt as number | undefined) === "number"
       ) {
         state.shardRainFxUntil = Date.now() + 8_000;
-        showShardAlert({
+        const startedAlert = {
           key: shardAlertKeyForPayload("started", msg.startsAt as number),
-          phase: "started",
+          phase: "started" as const,
           startsAt: msg.startsAt as number,
           expiresAt: msg.expiresAt as number,
-          siteCount: Number(msg.siteCount ?? 0)
-        });
+          siteCount: Number(msg.siteCount ?? 0),
+          ...(Array.isArray(msg.sites) ? { sites: msg.sites as { x: number; y: number }[] } : {})
+        };
+        showShardAlert(startedAlert);
+        registerShardRainPingsFromAlert(state, startedAlert);
       }
       renderHud();
     }

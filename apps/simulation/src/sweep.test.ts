@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { SWEEP_ATTACK_COST, SWEEP_BUDGET_CAP } from "@border-empires/shared";
+import { MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/game-domain";
 import { sweepAttackCandidates } from "./territory-automation.js";
 
 // ---------------------------------------------------------------------------
@@ -179,10 +180,10 @@ describe("sweep budget mechanics", () => {
     runtime.tickTerritoryAutomation(nowMs.value);
 
     const outpost = tileSiegeOutpost(runtime, 10, 10);
-    // Base regen is 10 MP/min (MANPOWER_BASE_REGEN_PER_MINUTE) — no towns
-    expect(outpost?.sweepBudget).toBeCloseTo(10, 0);
+    // Sweep budget regens at the player's MP regen rate (coupled).
+    expect(outpost?.sweepBudget).toBeCloseTo(MANPOWER_BASE_REGEN_PER_MINUTE, 3);
 
-    // Fill to almost cap and tick again — should cap at 300
+    // Fill to almost cap and tick again — should cap at SWEEP_BUDGET_CAP
     const nowMs2 = { value: 1_000 };
     const runtime2 = mkRuntime(
       [
@@ -193,7 +194,11 @@ describe("sweep budget mechanics", () => {
       ["player-1", "player-2"],
       () => nowMs2.value
     );
-    nowMs2.value = 1_000 + 60_000 * 10; // 10 minutes → would give 100 MP, total 395, but capped at 300
+    // Advance enough minutes that base-rate regen would more than cover the
+    // remaining 5 MP to cap, regardless of how MANPOWER_BASE_REGEN_PER_MINUTE
+    // is tuned.
+    const minutesToOvercap = Math.ceil(10 / MANPOWER_BASE_REGEN_PER_MINUTE);
+    nowMs2.value = 1_000 + 60_000 * minutesToOvercap;
     runtime2.tickTerritoryAutomation(nowMs2.value);
     const outpost2 = tileSiegeOutpost(runtime2, 10, 10);
     expect(outpost2?.sweepBudget).toBe(SWEEP_BUDGET_CAP);
@@ -251,8 +256,9 @@ describe("sweep budget mechanics", () => {
     const runtime = mkRuntime(
       [
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          // Start below threshold
-          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: 0, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
+          // Start just below threshold so the wait is short and unrelated
+          // automation (frontier auto-claim) can't reach the enemy tile first.
+          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_ATTACK_COST - 1, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
         },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
       ],
@@ -261,14 +267,14 @@ describe("sweep budget mechanics", () => {
     );
     runtime.onEvent((e) => events.push(e));
 
-    // Tick with no budget — no attack
+    // Tick with budget below threshold — sweep pauses, no attack.
     runtime.tickTerritoryAutomation(nowMs.value);
     const noAttackEvents = events.filter((e) => e.eventType === "COMMAND_ACCEPTED");
     expect(noAttackEvents).toHaveLength(0);
 
-    // Jump forward enough for budget to recover past SWEEP_ATTACK_COST (60)
-    // Base regen = 10/min, so 7 minutes gives 70 > 60
-    nowMs.value = 1_000 + 7 * 60_000;
+    // Jump forward enough that the 1 MP gap fills at MANPOWER_BASE_REGEN_PER_MINUTE.
+    const minutesToRecover = Math.ceil(1 / MANPOWER_BASE_REGEN_PER_MINUTE) + 1;
+    nowMs.value = 1_000 + minutesToRecover * 60_000;
     runtime.tickTerritoryAutomation(nowMs.value);
 
     const afterAttackEvents = events.filter((e) => e.eventType === "COMMAND_ACCEPTED");

@@ -41,6 +41,7 @@ run_step "sim-protocol:lint" pnpm --filter @border-empires/sim-protocol lint
 run_step "sim-protocol:test" pnpm --filter @border-empires/sim-protocol test
 run_step "simulation:lint" pnpm --filter @border-empires/simulation lint
 run_step "simulation:test" pnpm --filter @border-empires/simulation test
+run_step "simulation:perf" pnpm --filter @border-empires/simulation test:perf
 run_step "simulation:build" pnpm --filter @border-empires/simulation build
 run_step "realtime-gateway:lint" pnpm --filter @border-empires/realtime-gateway lint
 run_step "realtime-gateway:test" pnpm --filter @border-empires/realtime-gateway test
