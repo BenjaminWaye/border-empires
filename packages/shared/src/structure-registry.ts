@@ -84,8 +84,14 @@ export interface StructureSpec {
   /** Placement validators. Each returns null if placement is OK or a reason
    *  string otherwise. Composable so families share generic checks. */
   placement: ReadonlyArray<PlacementCheck>;
-  /** Upkeep per interval. Empty array for no upkeep. */
+  /** Upkeep entries per interval. Empty array for no upkeep.
+   *  TileUpkeepEntry models food/iron/crystal/supply/oil upkeep.
+   *  Gold upkeep is modelled separately via goldUpkeepPerMinute. */
   upkeep: ReadonlyArray<TileUpkeepEntry>;
+  /** Gold upkeep per minute. 0 or undefined means no gold upkeep.
+   *  Applies to converter structures (FUR/IRON/CRYSTAL_SYNTHESIZER
+   *  and their advanced variants). */
+  goldUpkeepPerMinute?: number;
   /** Tile field this structure populates. Phase 2 collapses to a single field;
    *  Phase 1 keeps this as the routing key. */
   tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure";

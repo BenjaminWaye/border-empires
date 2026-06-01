@@ -16,6 +16,9 @@ import { ECONOMIC_SPECS } from "./structure-registry-economic.js";
  *
  * Phase 1: data extraction only — this registry is NOT yet consumed by any
  * handler. Phase 2 will wire it into a unified BUILD_STRUCTURE handler.
+ *
+ * Coverage: 3 forts + 1 observatory + 4 outposts + 35 economic (including
+ * WOODEN_FORT) = 43 total.
  */
 export const STRUCTURE_REGISTRY: Record<string, StructureSpec> = {
   ...FORT_SPECS,

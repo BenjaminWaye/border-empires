@@ -4,24 +4,24 @@ import { STRUCTURE_REGISTRY, STRUCTURE_REGISTRY_SIZE } from "../src/structure-re
 import type { StructureSpec } from "../src/structure-registry.js";
 import {
   structureBuildDurationMs,
-  structureBuildGoldCost,
-  structureBuildManpowerCost,
   structureCostDefinition,
+  FORT_TIER_LADDER,
+  SIEGE_TIER_LADDER,
 } from "../src/structure-costs.js";
-import {
-  FORT_BUILD_MS,
-  LIGHT_OUTPOST_BUILD_MS,
-  OBSERVATORY_BUILD_MS,
-  SIEGE_OUTPOST_BUILD_MS,
-  ECONOMIC_STRUCTURE_BUILD_MS,
-} from "../src/config.js";
+import { OBSERVATORY_BUILD_MS } from "../src/config.js";
 import type { EconomicStructureType } from "../src/types.js";
+
+// ── Import live source-of-truth for cross-check ────────────────────
+// TECH_REQUIREMENTS_BY_STRUCTURE now lives in shared as the single source
+// of truth. Both the registry and the simulation import from here.
+
+import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../src/structure-registry-economic.js";
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 42 structure types", () => {
-  // 3 forts + 1 observatory + 4 outposts + 34 economic = 42
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(42);
+test("STRUCTURE_REGISTRY covers exactly 43 structure types", () => {
+  // 3 forts + 1 observatory + 4 outposts + 35 economic (incl. WOODEN_FORT) = 43
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(43);
 });
 
 test("all registered types are unique", () => {
@@ -54,7 +54,6 @@ test("covers all outpost variants", () => {
     const spec = STRUCTURE_REGISTRY[t];
     expect(spec, `missing ${t}`).toBeDefined();
     expect(spec.kind).toBe("OUTPOST");
-    // LIGHT_OUTPOST lives on economicStructure in Phase 1
     if (t === "LIGHT_OUTPOST") {
       expect(spec.tileField).toBe("economicStructure");
     } else {
@@ -63,29 +62,73 @@ test("covers all outpost variants", () => {
   }
 });
 
-// ── Cost parity with structure-costs.ts ────────────────────────────
+test("WOODEN_FORT is present", () => {
+  const spec = STRUCTURE_REGISTRY["WOODEN_FORT"];
+  expect(spec).toBeDefined();
+  expect(spec.kind).toBe("ECONOMIC");
+  expect(spec.tileField).toBe("economicStructure");
+});
 
-describe("cost parity with structure-costs.ts", () => {
+// ── Cost parity: forts (against FORT_TIER_LADDER) ──────────────────
+
+describe("fort cost parity against FORT_TIER_LADDER", () => {
+  for (const [variant, tier] of Object.entries(FORT_TIER_LADDER)) {
+    test(`${variant}: cost matches tier ladder`, () => {
+      const spec = STRUCTURE_REGISTRY[variant];
+      expect(spec).toBeDefined();
+      expect(spec.cost.gold).toBe(tier.gold);
+      expect(spec.cost.manpower).toBe(tier.manpower);
+      expect(spec.cost.strategic).toEqual({ IRON: tier.iron });
+    });
+  }
+});
+
+// ── Cost parity: siege outposts (against SIEGE_TIER_LADDER) ────────
+
+describe("siege outpost cost parity against SIEGE_TIER_LADDER", () => {
+  for (const [variant, tier] of Object.entries(SIEGE_TIER_LADDER)) {
+    test(`${variant}: cost matches tier ladder`, () => {
+      const spec = STRUCTURE_REGISTRY[variant];
+      expect(spec).toBeDefined();
+      expect(spec.cost.gold).toBe(tier.gold);
+      expect(spec.cost.manpower).toBe(tier.manpower);
+      const expectedStrategic: Record<string, number> = { SUPPLY: tier.supply };
+      if (tier.iron > 0) expectedStrategic.IRON = tier.iron;
+      expect(spec.cost.strategic).toEqual(expectedStrategic);
+    });
+  }
+});
+
+// ── Cost parity: observatory ───────────────────────────────────────
+
+test("OBSERVATORY cost matches existing constants", () => {
+  const spec = STRUCTURE_REGISTRY["OBSERVATORY"];
+  expect(spec.cost.gold).toBe(800);
+  expect(spec.cost.manpower).toBe(0);
+  expect(spec.cost.strategic).toEqual({ CRYSTAL: 45 });
+});
+
+// ── Cost parity: economic structures (against structureCostDefinition) ─
+
+describe("economic structure cost parity against structureCostDefinition", () => {
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
-    test(`${type}: cost matches structure-costs.ts`, () => {
+    if (spec.kind !== "ECONOMIC") continue;
+
+    test(`${type}: cost matches structureCostDefinition`, () => {
       const def = structureCostDefinition(type as any);
-      if (!def) return; // skip non-economic types that aren't in structure-costs
+      // WOODEN_FORT and LIGHT_OUTPOST are in EconomicStructureType but have
+      // their own STRUCTURE_COST_DEFINITIONS entries.
+      expect(def, `${type} missing from STRUCTURE_COST_DEFINITIONS`).toBeDefined();
+      if (!def) return;
 
       expect(spec.cost.gold).toBe(def.baseGoldCost);
       expect(spec.cost.manpower).toBe(def.manpowerCost ?? 0);
 
       if (def.resourceCost) {
         expect(spec.cost.strategic).toBeDefined();
-        const key = def.resourceCost.resource as
-          | "FOOD"
-          | "IRON"
-          | "CRYSTAL"
-          | "SUPPLY"
-          | "SHARD";
+        const key = def.resourceCost.resource as keyof NonNullable<StructureSpec["cost"]["strategic"]>;
         const amount = (spec.cost.strategic as Record<string, number>)[key];
-        expect(amount, `${type} strategic ${key} amount`).toBe(
-          def.resourceCost.amount,
-        );
+        expect(amount, `${type} strategic ${key} amount`).toBe(def.resourceCost.amount);
       } else {
         expect(spec.cost.strategic ?? {}).toEqual({});
       }
@@ -96,10 +139,6 @@ describe("cost parity with structure-costs.ts", () => {
 // ── Build duration parity ─────────────────────────────────────────
 
 describe("buildMs parity with structureBuildDurationMs", () => {
-  // structureBuildDurationMs only knows about the four top-level types
-  // (FORT, OBSERVATORY, SIEGE_OUTPOST, and economic). Siege variants and
-  // sub-types all use SIEGE_OUTPOST_BUILD_MS but the function doesn't map
-  // them. Skip types not handled by the existing function.
   const KNOWN_TYPES = new Set([
     "FORT", "OBSERVATORY", "SIEGE_OUTPOST",
     ...Object.keys(STRUCTURE_REGISTRY).filter((t) => {
@@ -109,7 +148,7 @@ describe("buildMs parity with structureBuildDurationMs", () => {
   ]);
 
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
-    if (!KNOWN_TYPES.has(type)) continue; // variant-level type not in structureBuildDurationMs
+    if (!KNOWN_TYPES.has(type)) continue;
 
     test(`${type}: buildMs matches`, () => {
       const expected = structureBuildDurationMs(type as any);
@@ -118,9 +157,26 @@ describe("buildMs parity with structureBuildDurationMs", () => {
   }
 });
 
-// ── Tech ID parity ─────────────────────────────────────────────────
+// ── Tech ID parity: cross-check against live source ────────────────
 
-describe("techIds parity with existing handlers", () => {
+describe("techIds parity against live TECH_REQUIREMENTS_BY_STRUCTURE", () => {
+  for (const [type] of Object.entries(STRUCTURE_REGISTRY)) {
+    if (STRUCTURE_REGISTRY[type].kind !== "ECONOMIC") continue;
+
+    test(`${type}: techIds match live source`, () => {
+      const spec = STRUCTURE_REGISTRY[type];
+      const liveTech = (LIVE_TECH_REQ as Record<string, string | undefined>)[type];
+
+      if (liveTech) {
+        expect(spec.techIds, `${type} should require ${liveTech}`).toContain(liveTech);
+      } else {
+        expect(spec.techIds, `${type} should have no tech requirement`).toEqual([]);
+      }
+    });
+  }
+});
+
+describe("techIds parity with existing handlers (non-economic)", () => {
   test("FORT requires masonry", () => {
     expect(STRUCTURE_REGISTRY["FORT"].techIds).toContain("masonry");
   });
@@ -143,9 +199,7 @@ describe("techIds parity with existing handlers", () => {
   });
 
   test("SIEGE_OUTPOST requires leatherworking", () => {
-    expect(STRUCTURE_REGISTRY["SIEGE_OUTPOST"].techIds).toContain(
-      "leatherworking",
-    );
+    expect(STRUCTURE_REGISTRY["SIEGE_OUTPOST"].techIds).toContain("leatherworking");
   });
 
   test("SIEGE_TOWER requires leatherworking + siegecraft", () => {
@@ -164,68 +218,10 @@ describe("techIds parity with existing handlers", () => {
   test("LIGHT_OUTPOST has no tech requirement", () => {
     expect(STRUCTURE_REGISTRY["LIGHT_OUTPOST"].techIds).toEqual([]);
   });
-});
 
-// ── Tech ID parity for economic structures ─────────────────────────
-
-// Inlined from runtime-structure-rules.ts TECH_REQUIREMENTS_BY_STRUCTURE
-const EXPECTED_ECONOMIC_TECH: Record<string, string> = {
-  FARMSTEAD: "agriculture",
-  CAMP: "leatherworking",
-  MINE: "mining",
-  MARKET: "trade",
-  GRANARY: "pottery",
-  SEED_GRANARY: "seed-granaries",
-  BANK: "coinage",
-  AIRPORT: "aeronautics",
-  FUR_SYNTHESIZER: "workshops",
-  ADVANCED_FUR_SYNTHESIZER: "advanced-synthetication",
-  IRONWORKS: "alchemy",
-  ADVANCED_IRONWORKS: "advanced-synthetication",
-  CRYSTAL_SYNTHESIZER: "crystal-lattices",
-  ADVANCED_CRYSTAL_SYNTHESIZER: "advanced-synthetication",
-  CARAVANARY: "ledger-keeping",
-  FOUNDRY: "industrial-extraction",
-  GARRISON_HALL: "organization",
-  CUSTOMS_HOUSE: "trade",
-  GOVERNORS_OFFICE: "civil-service",
-  RADAR_SYSTEM: "radar",
-};
-
-describe("economic structure techIds parity", () => {
-  for (const [type, expectedTech] of Object.entries(EXPECTED_ECONOMIC_TECH)) {
-    test(`${type} requires ${expectedTech}`, () => {
-      const spec = STRUCTURE_REGISTRY[type];
-      expect(spec, `missing ${type} in registry`).toBeDefined();
-      expect(spec.techIds).toContain(expectedTech);
-    });
-  }
-
-  // Economic structures NOT in TECH_REQUIREMENTS_BY_STRUCTURE should have
-  // empty techIds (no tech requirement).
-  const noTechTypes: EconomicStructureType[] = [
-    "WATERWORKS",
-    "CENSUS_HALL",
-    "CLEARING_HOUSE",
-    "AETHER_TOWER",
-    "EXCHANGE_HOUSE",
-    "RAIL_DEPOT",
-    "IMPERIAL_EXCHANGE_PART",
-    "WORLD_ENGINE_PART",
-    "AEGIS_DOME_PART",
-    "ASTRAL_DOCK_PART",
-    "IMPERIAL_EXCHANGE",
-    "WORLD_ENGINE",
-    "AEGIS_DOME",
-    "ASTRAL_DOCK",
-  ];
-  for (const type of noTechTypes) {
-    test(`${type} has no tech requirement`, () => {
-      const spec = STRUCTURE_REGISTRY[type];
-      expect(spec, `missing ${type}`).toBeDefined();
-      expect(spec.techIds).toEqual([]);
-    });
-  }
+  test("WOODEN_FORT has no tech requirement", () => {
+    expect(STRUCTURE_REGISTRY["WOODEN_FORT"].techIds).toEqual([]);
+  });
 });
 
 // ── Upgrade prerequisite parity ────────────────────────────────────
@@ -245,8 +241,7 @@ describe("prerequisiteStructureTypes parity", () => {
 
   test("ADVANCED_CRYSTAL_SYNTHESIZER requires CRYSTAL_SYNTHESIZER", () => {
     expect(
-      STRUCTURE_REGISTRY["ADVANCED_CRYSTAL_SYNTHESIZER"]
-        .prerequisiteStructureTypes,
+      STRUCTURE_REGISTRY["ADVANCED_CRYSTAL_SYNTHESIZER"].prerequisiteStructureTypes,
     ).toEqual(["CRYSTAL_SYNTHESIZER"]);
   });
 
@@ -281,6 +276,49 @@ describe("prerequisiteStructureTypes parity", () => {
   });
 });
 
+// ── Converter gold upkeep parity ───────────────────────────────────
+
+describe("converter goldUpkeepPerMinute", () => {
+  test("FUR_SYNTHESIZER has 60 gold/min upkeep", () => {
+    expect(STRUCTURE_REGISTRY["FUR_SYNTHESIZER"].goldUpkeepPerMinute).toBe(60);
+  });
+
+  test("ADVANCED_FUR_SYNTHESIZER has 60 gold/min upkeep", () => {
+    expect(STRUCTURE_REGISTRY["ADVANCED_FUR_SYNTHESIZER"].goldUpkeepPerMinute).toBe(60);
+  });
+
+  test("IRONWORKS has 60 gold/min upkeep", () => {
+    expect(STRUCTURE_REGISTRY["IRONWORKS"].goldUpkeepPerMinute).toBe(60);
+  });
+
+  test("ADVANCED_IRONWORKS has 60 gold/min upkeep", () => {
+    expect(STRUCTURE_REGISTRY["ADVANCED_IRONWORKS"].goldUpkeepPerMinute).toBe(60);
+  });
+
+  test("CRYSTAL_SYNTHESIZER has 80 gold/min upkeep", () => {
+    expect(STRUCTURE_REGISTRY["CRYSTAL_SYNTHESIZER"].goldUpkeepPerMinute).toBe(80);
+  });
+
+  test("ADVANCED_CRYSTAL_SYNTHESIZER has 80 gold/min upkeep", () => {
+    expect(STRUCTURE_REGISTRY["ADVANCED_CRYSTAL_SYNTHESIZER"].goldUpkeepPerMinute).toBe(80);
+  });
+
+  test("non-converter structures have no goldUpkeepPerMinute", () => {
+    const converters = new Set([
+      "FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER",
+      "IRONWORKS", "ADVANCED_IRONWORKS",
+      "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER",
+    ]);
+    for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
+      if (converters.has(type)) continue;
+      expect(
+        spec.goldUpkeepPerMinute ?? 0,
+        `${type} should have no gold upkeep`,
+      ).toBe(0);
+    }
+  });
+});
+
 // ── Placement check parity ─────────────────────────────────────────
 
 describe("placement predicates", () => {
@@ -293,41 +331,43 @@ describe("placement predicates", () => {
     }
   });
 
-  test("economic specs include noDuplicateStructureType", () => {
+  test("economic specs and LIGHT_OUTPOST include noDuplicateStructureType", () => {
     for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
-      if (spec.kind === "ECONOMIC") {
-        const hasDedup = spec.placement.some((p) => {
-          // We can't compare function references directly because they're
-          // module-level exports. Instead, test behavior: a tile with a
-          // same-type economic structure should be rejected.
-          const ctx = {
-            tile: {
-              x: 0, y: 0,
-              terrain: "LAND" as const,
-              ownerId: "p1",
-              ownershipState: "SETTLED" as const,
-              resource: undefined,
-              dockId: undefined,
-              town: undefined,
-              fort: undefined,
-              observatory: undefined,
-              siegeOutpost: undefined,
-              economicStructure: { type },
-            },
-            actor: { techIds: new Set(), playerId: "p1" },
-            isUpgrade: false,
-            tileField: "economicStructure" as const,
-            extra: { structureType: type },
-          };
-          const result = p(ctx);
-          // Should return a reason string when same type exists
-          return result !== null;
-        });
-        expect(
-          hasDedup,
-          `${type} should have noDuplicateStructureType check`,
-        ).toBe(true);
-      }
+      // LIGHT_OUTPOST has kind=OUTPOST but tileField=economicStructure,
+      // so it needs dedup just like economic structures.
+      const isDedupTarget =
+        spec.kind === "ECONOMIC" ||
+        type === "LIGHT_OUTPOST";
+
+      if (!isDedupTarget) continue;
+
+      const hasDedup = spec.placement.some((p) => {
+        const ctx = {
+          tile: {
+            x: 0, y: 0,
+            terrain: "LAND" as const,
+            ownerId: "p1",
+            ownershipState: "SETTLED" as const,
+            resource: undefined,
+            dockId: undefined,
+            town: undefined,
+            fort: undefined,
+            observatory: undefined,
+            siegeOutpost: undefined,
+            economicStructure: { type },
+          },
+          actor: { techIds: new Set(), playerId: "p1" },
+          isUpgrade: false,
+          tileField: spec.tileField,
+          extra: { structureType: type },
+        };
+        const result = p(ctx);
+        return result !== null;
+      });
+      expect(
+        hasDedup,
+        `${type} should have noDuplicateStructureType check`,
+      ).toBe(true);
     }
   });
 });
@@ -345,12 +385,7 @@ describe("structural properties", () => {
   });
 
   test("all specs have a valid tileField", () => {
-    const validFields = [
-      "fort",
-      "observatory",
-      "siegeOutpost",
-      "economicStructure",
-    ];
+    const validFields = ["fort", "observatory", "siegeOutpost", "economicStructure"];
     for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
       expect(validFields, `${type} tileField`).toContain(spec.tileField);
     }

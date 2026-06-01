@@ -6,6 +6,7 @@ import {
   IRONWORKS_GOLD_UPKEEP
 } from "@border-empires/game-domain";
 import type { EconomicStructureType } from "@border-empires/shared";
+export { TECH_REQUIREMENTS_BY_STRUCTURE } from "@border-empires/shared";
 
 import type { StrategicResourceKey } from "./runtime-types.js";
 
@@ -25,29 +26,6 @@ export const strategicResourceForTile = (resource: DomainTileState["resource"] |
     default:
       return undefined;
   }
-};
-
-export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, string>> = {
-  FARMSTEAD: "agriculture",
-  CAMP: "leatherworking",
-  MINE: "mining",
-  MARKET: "trade",
-  GRANARY: "pottery",
-  SEED_GRANARY: "seed-granaries",
-  BANK: "coinage",
-  AIRPORT: "aeronautics",
-  FUR_SYNTHESIZER: "workshops",
-  ADVANCED_FUR_SYNTHESIZER: "advanced-synthetication",
-  IRONWORKS: "alchemy",
-  ADVANCED_IRONWORKS: "advanced-synthetication",
-  CRYSTAL_SYNTHESIZER: "crystal-lattices",
-  ADVANCED_CRYSTAL_SYNTHESIZER: "advanced-synthetication",
-  CARAVANARY: "ledger-keeping",
-  FOUNDRY: "industrial-extraction",
-  GARRISON_HALL: "organization",
-  CUSTOMS_HOUSE: "trade",
-  GOVERNORS_OFFICE: "civil-service",
-  RADAR_SYSTEM: "radar"
 };
 
 export const upgradeBaseTypeForEconomicStructure = (type: EconomicStructureType): EconomicStructureType | undefined => {

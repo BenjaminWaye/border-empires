@@ -10,6 +10,7 @@ import {
 import type { StructureSpec } from "./structure-registry.js";
 import {
   noConflictingStructure,
+  noDuplicateStructureType,
   ownerOwnsTile,
   tileIsLand,
   tileIsSettled,
@@ -76,6 +77,7 @@ export const LIGHT_OUTPOST_SPEC: StructureSpec = {
     tileIsSettled, // economic handler adds this; siege handler doesn't
     tileIsLand,
     noConflictingStructure,
+    noDuplicateStructureType,
   ],
   upkeep: [],
   // Acknowledged debt: LIGHT_OUTPOST lives on economicStructure in Phase 1.

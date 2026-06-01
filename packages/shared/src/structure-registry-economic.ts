@@ -29,9 +29,11 @@ const economicPlacement: StructureSpec["placement"] = [
   noDuplicateStructureType,
 ];
 
-// ── Tech requirements (inlined from runtime-structure-rules.ts) ────
+// ── Tech requirements (single source of truth) ────────────────────
+// Previously triplicated across runtime-structure-rules.ts, the registry,
+// and the parity test. Now lives here; the simulation imports from shared.
 
-const TECH_REQ: Partial<Record<EconomicStructureType, string>> = {
+export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, string>> = {
   FARMSTEAD: "agriculture",
   CAMP: "leatherworking",
   MINE: "mining",
@@ -80,6 +82,7 @@ function econSpec(
     strategic?: StructureSpec["cost"]["strategic"];
     techIds?: string[];
     prerequisiteStructureTypes?: readonly string[];
+    goldUpkeepPerMinute?: number;
   },
 ): StructureSpec {
   const prereqs = opts?.prerequisiteStructureTypes ?? upgradePrereq(type);
@@ -94,13 +97,16 @@ function econSpec(
     buildMs: ECONOMIC_STRUCTURE_BUILD_MS,
     techIds: opts?.techIds
       ? opts.techIds
-      : TECH_REQ[type]
-        ? [TECH_REQ[type]!]
+      : TECH_REQUIREMENTS_BY_STRUCTURE[type]
+        ? [TECH_REQUIREMENTS_BY_STRUCTURE[type]!]
         : [],
     ...(prereqs ? { prerequisiteStructureTypes: prereqs } : {}),
     consumesDevelopmentSlot: true,
     placement: economicPlacement,
     upkeep: [],
+    ...(opts?.goldUpkeepPerMinute !== undefined
+      ? { goldUpkeepPerMinute: opts.goldUpkeepPerMinute }
+      : {}),
     tileField: "economicStructure",
   };
 }
@@ -126,18 +132,27 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   AIRPORT: econSpec("AIRPORT", 3_000, { strategic: { CRYSTAL: 80 } }),
   AETHER_TOWER: econSpec("AETHER_TOWER", 6_000, { strategic: { CRYSTAL: 160 } }),
 
-  // Converters
-  FUR_SYNTHESIZER: econSpec("FUR_SYNTHESIZER", 2_200),
+  // Converters (gold upkeep per minute from server-game-constants.ts)
+  FUR_SYNTHESIZER: econSpec("FUR_SYNTHESIZER", 2_200, {
+    goldUpkeepPerMinute: 60,
+  }),
   ADVANCED_FUR_SYNTHESIZER: econSpec("ADVANCED_FUR_SYNTHESIZER", 4_000, {
     strategic: { SUPPLY: 40 },
+    goldUpkeepPerMinute: 60,
   }),
-  IRONWORKS: econSpec("IRONWORKS", 2_400),
+  IRONWORKS: econSpec("IRONWORKS", 2_400, {
+    goldUpkeepPerMinute: 60,
+  }),
   ADVANCED_IRONWORKS: econSpec("ADVANCED_IRONWORKS", 4_200, {
     strategic: { IRON: 40 },
+    goldUpkeepPerMinute: 60,
   }),
-  CRYSTAL_SYNTHESIZER: econSpec("CRYSTAL_SYNTHESIZER", 2_800),
+  CRYSTAL_SYNTHESIZER: econSpec("CRYSTAL_SYNTHESIZER", 2_800, {
+    goldUpkeepPerMinute: 80,
+  }),
   ADVANCED_CRYSTAL_SYNTHESIZER: econSpec("ADVANCED_CRYSTAL_SYNTHESIZER", 4_800, {
     strategic: { CRYSTAL: 40 },
+    goldUpkeepPerMinute: 80,
   }),
 
   // Military-support structures
@@ -187,4 +202,20 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   ASTRAL_DOCK: econSpec("ASTRAL_DOCK", 18_000, {
     strategic: { SHARD: 2 },
   }),
+
+  // WOODEN_FORT — currently lives on economicStructure. Uses its own build
+  // time (WOODEN_FORT_BUILD_MS = 10 min), no tech requirement. Treated as an
+  // economic structure for now; may be forklifted to the FORT family in
+  // Phase 4 when tileShape collapses.
+  WOODEN_FORT: {
+    type: "WOODEN_FORT",
+    kind: "ECONOMIC",
+    cost: { gold: 75, manpower: 30 },
+    buildMs: 10 * 60_000, // WOODEN_FORT_BUILD_MS
+    techIds: [],
+    consumesDevelopmentSlot: true,
+    placement: economicPlacement,
+    upkeep: [],
+    tileField: "economicStructure",
+  },
 };
