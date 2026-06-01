@@ -2042,7 +2042,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   fullVisibility: subscribeOptions.fullVisibility,
                   ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
                 })
-              : (() => {
+              : await (() => {
                   // Phase B3: reuse the cached snapshot from the bootstrap-only
                   // build when it exists and visibility matches (same-tick fresh
                   // per Q3, gateway ignores the payload per Q1). Only short-circuit
