@@ -1432,10 +1432,71 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     buildNextClientSeqByPlayer(recoveredCommands, playerIds);
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
-  const aiShouldRun = () =>
-    !persistenceQueue.isDegraded() &&
-    persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
-    latestEventLoopLagMs <= aiMaxEventLoopLagMs;
+
+  // Layer 2: rolling time-budget tracker — caps AI work to 200ms per 1s window.
+  const aiBudgetTracker = (() => {
+    const entries: { time: number; durationMs: number }[] = [];
+    const WINDOW_MS = 1_000;
+    const BUDGET_MS = 200;
+    const purge = (now: number) => {
+      while (entries.length > 0 && entries[0].time < now - WINDOW_MS) {
+        entries.shift();
+      }
+    };
+    return {
+      recordWork(durationMs: number): void {
+        const now = Date.now();
+        entries.push({ time: now, durationMs });
+        purge(now);
+      },
+      available(): boolean {
+        const now = Date.now();
+        purge(now);
+        return entries.reduce((sum, e) => sum + e.durationMs, 0) < BUDGET_MS;
+      },
+      usedMs(): number {
+        const now = Date.now();
+        purge(now);
+        return entries.reduce((sum, e) => sum + e.durationMs, 0);
+      }
+    };
+  })();
+
+  // Layer 3: event-loop-lag observer. Uses hrtime to detect when the sim
+  // main thread is too busy to run AI on schedule.
+  let lastAiShouldRunHr = process.hrtime.bigint();
+  let aiShouldRunFirstCall = true;
+  const baseAiTickMs = options.aiTickMs ?? 250;
+
+  const aiShouldRun = () => {
+    const hrNow = process.hrtime.bigint();
+    if (aiShouldRunFirstCall) {
+      aiShouldRunFirstCall = false;
+      lastAiShouldRunHr = hrNow;
+    } else {
+      const gapMs = Number(hrNow - lastAiShouldRunHr) / 1e6;
+      lastAiShouldRunHr = hrNow;
+      // Only flag loop lag when tick is at or near the base interval.
+      // When adaptive backoff is active (gap > baseInterval * 1.5),
+      // the adaptive throttle already handles the load — skip the check.
+      if (gapMs > baseAiTickMs + 20 && gapMs < baseAiTickMs * 1.5) {
+        simulationMetrics.incrementSimAiTickThrottled("loop_lag");
+        return false;
+      }
+    }
+
+    if (!aiBudgetTracker.available()) {
+      simulationMetrics.incrementSimAiTickThrottled("budget");
+      return false;
+    }
+
+    return (
+      !persistenceQueue.isDegraded() &&
+      persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
+      latestEventLoopLagMs <= aiMaxEventLoopLagMs
+    );
+  };
+
   const systemShouldRun = () =>
     !persistenceQueue.isDegraded() &&
     persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
@@ -1538,6 +1599,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             },
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+              aiBudgetTracker.recordWork(durationMs);
+              simulationMetrics.setSimAiBudgetUsedMs(aiBudgetTracker.usedMs());
+            },
+            onThrottle: (reason) => {
+              simulationMetrics.incrementSimAiTickThrottled(reason);
+            },
+            onIntervalChange: (intervalMs) => {
+              simulationMetrics.setSimAiCurrentTickIntervalMs(intervalMs);
             },
             onSlowTick: (sample) => {
               // Rare-event diagnostic: a single ai tick that crossed the
@@ -1612,6 +1681,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               }
             }
           });
+      simulationMetrics.setSimAiCurrentTickIntervalMs(options.aiTickMs ?? 250);
     }
     if (systemAutopilotEnabled) {
       systemCommandProducer = useAiWorker
