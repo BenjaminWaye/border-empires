@@ -263,6 +263,8 @@ export interface Tile {
     foodUpkeepPerMinute?: number;
     captureShockUntil?: number;
     populationBeforeCapture?: number;
+    nearbyWarPausedUntil?: number;
+    nearbyWarLastAt?: number;
     growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
     nextPopulationTierUpgrade?: {
       targetTier: TownGrowthUpgradeTier;
