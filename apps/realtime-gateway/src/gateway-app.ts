@@ -468,6 +468,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let lastCpuUsage = process.cpuUsage();
   const pendingGcDurationsMs: number[] = [];
   const gatewayBootstrapStringifier = createGatewayStringifier();
+  // Phase B bootstrap admission control. Caps concurrent full-snapshot
+  // bootstraps and throttles per-player re-bootstrap so a reconnect loop
+  // cannot stall the event loop. Purely additive — the happy path is unchanged.
+  let bootstrapsInFlight = 0;
+  const maxConcurrentBootstraps = Math.max(1, Number(process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS ?? 4));
+  const minBootstrapIntervalMs = Math.max(0, Number(process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS ?? 0));
+  const lastBootstrapAtByPlayerId = new Map<string, number>();
   const pendingInputToStateByCommandId = new Map<string, number>();
   const controlPathEventNames = new Set([
     "gateway_auth",
@@ -2112,6 +2119,30 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", "prepare_failed");
               return;
             }
+            const bootstrapNowMs = Date.now();
+            const lastBootstrapAtMs = lastBootstrapAtByPlayerId.get(playerIdentity.playerId) ?? 0;
+            const overConcurrency = bootstrapsInFlight >= maxConcurrentBootstraps;
+            const overRate = bootstrapNowMs - lastBootstrapAtMs < minBootstrapIntervalMs;
+            if (overConcurrency || overRate) {
+              recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
+                playerId: playerIdentity.playerId,
+                channel,
+                reason: overConcurrency ? "concurrency" : "rate",
+                bootstrapsInFlight,
+                maxConcurrentBootstraps
+              });
+              sendJson(socket, {
+                type: "ERROR",
+                code: "SERVER_BUSY",
+                retryAfterMs: 4000 + Math.floor(Math.random() * 4000),
+                message: "Server is busy. Retry shortly."
+              });
+              authTrace.complete("rejected", "bootstrap_admission");
+              return;
+            }
+            if (lastBootstrapAtByPlayerId.size > 5000) lastBootstrapAtByPlayerId.clear();
+            lastBootstrapAtByPlayerId.set(playerIdentity.playerId, bootstrapNowMs);
+            bootstrapsInFlight += 1;
             let bootstrapInitialState;
             authTrace.startStep("bootstrap_subscribe");
             try {
@@ -2156,6 +2187,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.endStep("bootstrap_subscribe", false);
               authTrace.complete("rejected", "bootstrap_failed");
               return;
+            } finally {
+              bootstrapsInFlight -= 1;
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) {
