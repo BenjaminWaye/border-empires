@@ -6,6 +6,7 @@ import {
   maybeRegisterShardRainPing,
   pruneExpiredShardRainPings,
   pruneShardRainPings,
+  registerShardRainPingsFromAlert,
   shardRainPingActiveAt,
   visibleShardSiteForTile
 } from "./client-shard-rain-pings.js";
@@ -66,6 +67,32 @@ describe("client shard rain pings", () => {
     expect(visibleShardSiteForTile(tile, state.shardRainPingsByTile, ping!.activateAt)).toEqual(tile.shardSite);
     expect(visibleShardSiteForTile(tile, state.shardRainPingsByTile, ping!.activateAt + SHARD_RAIN_PING_VISIBLE_MS + 5_000)).toEqual(tile.shardSite);
     expect(state.shardRainPingsByTile.has("12,34")).toBe(true);
+  });
+
+  it("keeps alert-registered pings alive even when tile is not yet in vision", () => {
+    const state = createState({
+      key: "started:1",
+      phase: "started",
+      startsAt: 10_000,
+      expiresAt: 90_000,
+      siteCount: 2,
+      sites: [{ x: 60, y: 30 }]
+    });
+
+    registerShardRainPingsFromAlert(state, state.shardAlert!);
+
+    const ping = state.shardRainPingsByTile.get("60,30");
+    expect(ping).toBeDefined();
+    const expiry = ping!.activateAt + SHARD_RAIN_PING_VISIBLE_MS;
+
+    // Tile is NOT in state.tiles — isActiveShardFall returns false.
+    // Ping should survive pruning while within its time window.
+    expect(pruneExpiredShardRainPings(state, expiry - 1, SHARD_RAIN_PING_VISIBLE_MS)).toBe(false);
+    expect(state.shardRainPingsByTile.has("60,30")).toBe(true);
+
+    // After the window, it should be pruned.
+    expect(pruneExpiredShardRainPings(state, expiry, SHARD_RAIN_PING_VISIBLE_MS)).toBe(true);
+    expect(state.shardRainPingsByTile.size).toBe(0);
   });
 
   it("drops pings once the shardfall disappears", () => {

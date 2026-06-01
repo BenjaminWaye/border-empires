@@ -132,6 +132,29 @@ describe("simulation metrics", () => {
     expect(sample.simSnapshotCacheBytes).toBe(4096);
     expect(sample.simSnapshotRecent.at(-1)?.trigger).toBe("gateway_fog_refresh");
 
+    // New AI time-budget-cap metrics
+    metrics.incrementSimAiTickThrottled("adaptive");
+    metrics.incrementSimAiTickThrottled("adaptive");
+    metrics.incrementSimAiTickThrottled("budget");
+    metrics.incrementSimAiTickThrottled("loop_lag");
+
+    metrics.setSimAiCurrentTickIntervalMs(400);
+    metrics.setSimAiBudgetUsedMs(150);
+
+    const budgetSample = metrics.snapshot();
+    expect(budgetSample.simAiTickThrottledTotal.adaptive).toBe(2);
+    expect(budgetSample.simAiTickThrottledTotal.budget).toBe(1);
+    expect(budgetSample.simAiTickThrottledTotal.loop_lag).toBe(1);
+    expect(budgetSample.simAiCurrentTickIntervalMs).toBe(400);
+    expect(budgetSample.simAiBudgetUsedMs).toBe(150);
+
+    const budgetExposition = metrics.renderPrometheus();
+    expect(budgetExposition).toContain('sim_ai_tick_throttled_total{reason="adaptive"} 2');
+    expect(budgetExposition).toContain('sim_ai_tick_throttled_total{reason="budget"} 1');
+    expect(budgetExposition).toContain('sim_ai_tick_throttled_total{reason="loop_lag"} 1');
+    expect(budgetExposition).toContain("sim_ai_current_tick_interval_ms 400");
+    expect(budgetExposition).toContain("sim_ai_budget_used_ms 150");
+
     const exposition = metrics.renderPrometheus();
     expect(exposition).toContain("sim_event_loop_max_ms 18");
     expect(exposition).toContain('sim_event_loop_delay_ms{quantile="p95"}');

@@ -4,6 +4,8 @@ import { InMemoryGatewayCommandStore } from "./command-store.js";
 type CommandStoreFactoryOptions = {
   sqlitePath?: string;
   applySchema?: boolean;
+  /** Called on each SQLITE_BUSY retry. Wire to gateway_sqlite_retry_total. */
+  onSqliteBusyRetry?: () => void;
 };
 
 export const createGatewayCommandStore = async (
@@ -14,7 +16,9 @@ export const createGatewayCommandStore = async (
     import("./sqlite-command-store.js"),
     import("./sqlite-db.js")
   ]);
-  const store = new SqliteGatewayCommandStore(openSqliteDatabase(options.sqlitePath));
+  const store = new SqliteGatewayCommandStore(openSqliteDatabase(options.sqlitePath), {
+    ...(options.onSqliteBusyRetry ? { onRetry: options.onSqliteBusyRetry } : {})
+  });
   if (options.applySchema) await store.applySchema();
   return store;
 };

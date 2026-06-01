@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import { buildPlayerSubscriptionSnapshot, buildPlayerSubscriptionSnapshotAsync } from "./player-snapshot.js";
 import { SimulationRuntime } from "./runtime.js";
 import { yieldToEventLoop } from "./event-loop-yield.js";
@@ -514,8 +515,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         ownershipState: "SETTLED",
         townType: "FARMING",
         townName: "Nauticus",
-        townPopulationTier: "TOWN",
-        yieldRate: expect.objectContaining({ goldPerMinute: 0 })
+        townPopulationTier: "TOWN"
+        // yieldRate removed from tile export (bootstrap-payload-shrink PR A)
       }),
       expect.objectContaining({
         x: 11,
@@ -1150,16 +1151,48 @@ describe("buildPlayerSubscriptionSnapshot", () => {
 
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", runtime.exportState());
 
+    const settlementCap = TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
+    const settlementRegen = TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
     expect(snapshot.player).toEqual(
       expect.objectContaining({
-        manpowerCap: 300,
-        manpowerRegenPerMinute: 20,
+        manpowerCap: settlementCap * 2,
+        manpowerRegenPerMinute: settlementRegen * 2,
         manpowerBreakdown: {
-          cap: [{ label: "2 Settlements", amount: 300 }],
-          regen: [{ label: "2 Settlements", amount: 20 }]
+          cap: [{ label: "2 Settlements", amount: settlementCap * 2 }],
+          regen: [{ label: "2 Settlements", amount: settlementRegen * 2 }]
         }
       })
     );
+  });
+
+  it("derives owned tile keys matching the internal summary Set — tiles and set are consistent", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        ["p1", { id: "p1", isAi: false, points: 0, manpower: 0, manpowerUpdatedAt: 0, techIds: new Set(), domainIds: new Set(), mods: { attack: 1, defense: 1, income: 1, vision: 1 }, techRootId: "rewrite-local", allies: new Set() }],
+        ["p2", { id: "p2", isAi: false, points: 0, manpower: 0, manpowerUpdatedAt: 0, techIds: new Set(), domainIds: new Set(), mods: { attack: 1, defense: 1, income: 1, vision: 1 }, techRootId: "rewrite-local", allies: new Set() }],
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND" as const, ownerId: "p1", ownershipState: "SETTLED" as const },
+          { x: 1, y: 0, terrain: "LAND" as const, ownerId: "p1", ownershipState: "SETTLED" as const },
+          { x: 2, y: 0, terrain: "LAND" as const, ownerId: "p1", ownershipState: "FRONTIER" as const },
+          { x: 3, y: 0, terrain: "LAND" as const, ownerId: "p2", ownershipState: "SETTLED" as const },
+        ],
+        players: [],
+        activeLocks: [],
+      }
+    });
+
+    for (const playerId of ["p1", "p2"]) {
+      const internalKeys = [...runtime.summaryForPlayer(playerId).territoryTileKeys].sort();
+      const derivedKeys = runtime.exportState().tiles
+        .filter((t) => t.ownerId === playerId)
+        .map((t) => `${t.x},${t.y}`)
+        .sort();
+      expect(derivedKeys).toEqual(internalKeys);
+    }
   });
 });
 

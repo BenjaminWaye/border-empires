@@ -59,6 +59,17 @@ export const naturalDecayRemainingMsForTile = (tile: Tile, nowMs = Date.now()): 
   return remaining;
 };
 
+/**
+ * Returns true if this frontier tile has an active natural decay timer —
+ * i.e. it is unsupported for the full decay window, not just the final 60 s.
+ */
+export const isFrontierNaturallyDecaying = (tile: Tile, nowMs = Date.now()): boolean => {
+  if (tile.ownershipState !== "FRONTIER") return false;
+  if (tile.frontierDecayKind !== "NATURAL") return false;
+  if (typeof tile.frontierDecayAt !== "number") return false;
+  return tile.frontierDecayAt > nowMs;
+};
+
 export const tileMenuHeaderStatusForTile = (tile: Tile, nowMs = Date.now()): TileMenuHeaderStatus | undefined => {
   // Encirclement takes precedence over capture-recovery for the header status.
   const encirclementRemaining = encirclementRemainingMsForTile(tile, nowMs);

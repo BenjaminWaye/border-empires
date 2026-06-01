@@ -4,6 +4,7 @@ import { POPULATION_MAX, POPULATION_TOWN_MIN, type DomainTileState } from "@bord
 
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
 import { CITY_POPULATION_MIN, GREAT_CITY_POPULATION_MIN, METROPOLIS_POPULATION_MIN } from "@border-empires/shared";
+import type { ChosenTrickleResource } from "@border-empires/shared";
 import type { DockRouteDefinition } from "./dock-network.js";
 import type { PendingSettlementRecord } from "./player-runtime-summary.js";
 
@@ -62,6 +63,7 @@ export type RecoveredSimulationState = {
     techIds?: string[];
     domainIds?: string[];
     strategicResources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    chosenTrickleResource?: ChosenTrickleResource;
     allies?: string[];
     vision?: number;
     incomeMultiplier?: number;

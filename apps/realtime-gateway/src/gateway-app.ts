@@ -6,7 +6,9 @@ import { buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, t
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "./broadcast-payload.js";
+import { createGatewayStringifier } from "./gateway-stringifier.js";
 import { createSlowLoginAlerter } from "./slow-login-alert.js";
+import { createSlackAlerter, type SlackAlerter } from "./slack-alerts.js";
 import { resolveGatewayAuthIdentity } from "./auth-identity.js";
 import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "./gateway-auth-binding-resolution.js";
 import type { GatewayAuthBindingStore } from "./auth-binding-store.js";
@@ -55,7 +57,7 @@ import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapsho
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
 import { createSeedPlayers, createSeedWorld } from "../../simulation/src/seed-state.js";
 import { seasonalPlayerNameForId } from "../../simulation/src/season-worldgen.js";
-import { ESTIMATED_JSON_BYTES_PER_TILE, jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -388,12 +390,31 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   }
   const recentGatewayEvents: Array<{ at: number; level: "info" | "warn" | "error"; event: string; payload: Record<string, unknown> }> = [];
+  // Forward-declared so recordGatewayEvent can reference it before the initializer runs;
+  // assigned after gatewayMetrics is created. Recorded events guard with a null check.
+  let slackAlerter: SlackAlerter | undefined;
   const recordGatewayEvent = (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown> = {}): void => {
     recentGatewayEvents.push({ at: Date.now(), level, event, payload });
     if (recentGatewayEvents.length > 250) recentGatewayEvents.splice(0, recentGatewayEvents.length - 250);
     if (event.startsWith("gateway_fog_")) {
       const logger = level === "error" ? app.log.error.bind(app.log) : level === "warn" ? app.log.warn.bind(app.log) : app.log.info.bind(app.log);
       logger({ event, ...payload }, event);
+    }
+    // Slow-event Slack alert triggers
+    if (slackAlerter && event === "QUEUE_PERSIST_FAILED") {
+      const cutoff = Date.now() - 60_000;
+      const count = recentGatewayEvents.filter(
+        e => e.event === "QUEUE_PERSIST_FAILED" && e.at >= cutoff
+      ).length;
+      if (count >= 3) {
+        slackAlerter.alertQueuePersistFailed(count, 60_000);
+      }
+    }
+    if (slackAlerter && event === "simulation_wake_exhausted") {
+      slackAlerter.alertSimulationWakeExhausted(
+        (payload.attempts as number) ?? 0,
+        (payload.wakeTimeoutMs as number) ?? 0
+      );
     }
   };
 
@@ -450,6 +471,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     log: { error: (payload, message) => app.log.error(payload, message) },
     appLabel: process.env.GATEWAY_SLOW_LOGIN_ALERT_LABEL ?? "border-empires-combined-staging"
   });
+  slackAlerter = createSlackAlerter({
+    ...(process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK
+      ? { webhookUrl: process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK }
+      : {}),
+    metricsSnapshot: () => gatewayMetrics.snapshot(),
+    recentEvents: () => recentGatewayEvents,
+    log: { error: (payload, message) => app.log.error(payload, message) },
+    appLabel: process.env.GATEWAY_SLOW_LOGIN_ALERT_LABEL ?? "border-empires-combined-staging",
+    ...(process.env.GATEWAY_BUILD_SHA ? { buildSha: process.env.GATEWAY_BUILD_SHA } : {})
+  });
   const slowGatewaySubmitWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_SUBMIT_WARN_MS ?? 1_000));
   const slowGatewayRpcWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_RPC_WARN_MS ?? 1_000));
   // Threshold for "single processSimulationEvent handler took too long" warning.
@@ -466,6 +497,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let lastCpuSampleAt = Date.now();
   let lastCpuUsage = process.cpuUsage();
   const pendingGcDurationsMs: number[] = [];
+  const gatewayBootstrapStringifier = createGatewayStringifier();
+  // Phase B bootstrap admission control. Caps concurrent full-snapshot
+  // bootstraps and throttles per-player re-bootstrap so a reconnect loop
+  // cannot stall the event loop. Purely additive — the happy path is unchanged.
+  let bootstrapsInFlight = 0;
+  const maxConcurrentBootstraps = Math.max(1, Number(process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS ?? 4));
+  const minBootstrapIntervalMs = Math.max(0, Number(process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS ?? 0));
+  const lastBootstrapAtByPlayerId = new Map<string, number>();
   const pendingInputToStateByCommandId = new Map<string, number>();
   const controlPathEventNames = new Set([
     "gateway_auth",
@@ -682,7 +721,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   };
   const commandStoreFactoryOptions = {
     ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
-    ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {})
+    ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {}),
+    onSqliteBusyRetry: () => gatewayMetrics.incrementGatewaySqliteRetryTotal()
   };
   const commandStore =
     options.commandStore ??
@@ -1904,11 +1944,33 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     );
   }, 1_000);
 
+  // Slow-event Slack alert latency poll (every 30s)
+  let slackAlertLatencyTimer: ReturnType<typeof setInterval> | undefined;
+  let slackAlertMachineRestartFired = false;
+  slackAlertLatencyTimer = setInterval(() => {
+    if (!slackAlerter) return;
+    const snapshot = gatewayMetrics.snapshot();
+    // Machine restart detection — fire once on first poll if uptime < 2 min
+    if (!slackAlertMachineRestartFired) {
+      slackAlertMachineRestartFired = true;
+      const uptimeMs = Date.now() - startupStartedAt;
+      if (uptimeMs < 120_000) {
+        slackAlerter.alertMachineRestart(uptimeMs);
+      }
+    }
+    // Command submit latency p99 check
+    const submitP99 = snapshot.gatewayCommandSubmitLatencyMs.p99;
+    if (submitP99 > 2500) {
+      slackAlerter.alertCommandSubmitLatencyHigh(submitP99);
+    }
+  }, 30_000);
+
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
     if (allianceBreakFinalizeTimer) clearInterval(allianceBreakFinalizeTimer);
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
+    if (slackAlertLatencyTimer) clearInterval(slackAlertLatencyTimer);
     clearInterval(databaseKeepAliveTimer);
     gcObserver?.disconnect();
     stopSimulationStream();
@@ -2109,6 +2171,30 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", "prepare_failed");
               return;
             }
+            const bootstrapNowMs = Date.now();
+            const lastBootstrapAtMs = lastBootstrapAtByPlayerId.get(playerIdentity.playerId) ?? 0;
+            const overConcurrency = bootstrapsInFlight >= maxConcurrentBootstraps;
+            const overRate = bootstrapNowMs - lastBootstrapAtMs < minBootstrapIntervalMs;
+            if (overConcurrency || overRate) {
+              recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
+                playerId: playerIdentity.playerId,
+                channel,
+                reason: overConcurrency ? "concurrency" : "rate",
+                bootstrapsInFlight,
+                maxConcurrentBootstraps
+              });
+              sendJson(socket, {
+                type: "ERROR",
+                code: "SERVER_BUSY",
+                retryAfterMs: 4000 + Math.floor(Math.random() * 4000),
+                message: "Server is busy. Retry shortly."
+              });
+              authTrace.complete("rejected", "bootstrap_admission");
+              return;
+            }
+            if (lastBootstrapAtByPlayerId.size > 5000) lastBootstrapAtByPlayerId.clear();
+            lastBootstrapAtByPlayerId.set(playerIdentity.playerId, bootstrapNowMs);
+            bootstrapsInFlight += 1;
             let bootstrapInitialState;
             authTrace.startStep("bootstrap_subscribe");
             try {
@@ -2153,6 +2239,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.endStep("bootstrap_subscribe", false);
               authTrace.complete("rejected", "bootstrap_failed");
               return;
+            } finally {
+              bootstrapsInFlight -= 1;
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) {
@@ -2223,20 +2311,29 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 session.canToggleFog
               );
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
-              session.initSent = true;
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
-              // Estimate rather than synchronously JSON.stringify-ing the full
-              // initMessage (which embeds the bootstrap snapshot's tiles array)
-              // just to log a diagnostic byte count. On AUTH bootstrap the tiles
-              // array is fresh out of gRPC every call, so any per-object memo
-              // misses; under retry storms the repeated 200KB stringifies on
-              // the gateway main thread were tripping the event-loop watchdog.
-              // Envelope constant covers snapshot non-tile fields (player +
-              // worldStatus + season + docks ≈ 13.6KB observed 2026-05-24) plus
-              // the gateway init wrapper (recovery + runtimeIdentity, ~2KB).
-              const INIT_MESSAGE_ENVELOPE_BYTES = 16384;
-              const initJsonBytesEstimate =
-                initInitialTileCount * ESTIMATED_JSON_BYTES_PER_TILE + INIT_MESSAGE_ENVELOPE_BYTES;
+              authTrace.endStep("build_init");
+              // Stringify the ~256KB init message off the main thread so the
+              // event loop stays free for gRPC acks and healthz during bootstrap.
+              authTrace.startStep("stringify_init");
+              let initJson: string;
+              try {
+                initJson = await gatewayBootstrapStringifier(initMessage);
+              } catch (err) {
+                // Worker OOM/crash — respawn is automatic; fall back to inline once.
+                app.log.warn({ err }, "[gateway-stringifier] worker stringify failed, using inline fallback");
+                initJson = JSON.stringify(initMessage);
+              }
+              authTrace.endStep("stringify_init");
+              if (socket.readyState !== socket.OPEN) {
+                // Socket closed while we were stringifying — discard silently.
+                authTrace.complete("rejected", "socket_closed_before_init");
+                return;
+              }
+              // initSent must be set only after the init leaves the socket so
+              // that payloads arriving during the stringify await stay queued in
+              // pendingPayloads rather than racing ahead of the init message.
+              session.initSent = true;
               recordGatewayEvent(
                 initInitialTileCount ? "info" : "warn",
                 "gateway_init_sent",
@@ -2244,7 +2341,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   playerId: playerIdentity.playerId,
                   channel,
                   initialTileCount: initInitialTileCount,
-                  initJsonBytes: initJsonBytesEstimate,
+                  initJsonBytes: initJson.length,
                   playerPayloadPresent: Boolean(initMessage.player),
                   seasonId: initMessage.runtimeIdentity.seasonId,
                   runtimeFingerprint: initMessage.runtimeIdentity.fingerprint,
@@ -2253,8 +2350,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   simulationLastError: simulationHealth.lastError ?? ""
                 }
               );
-              authTrace.endStep("build_init");
-              sendJson(socket, initMessage);
+              socket.send(initJson);
               for (const payload of session.pendingPayloads) {
                 sendJson(socket, payload);
                 recordCommandSocketDelivery("gateway_command_payload_sent", socket, payload);
@@ -3229,6 +3325,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       };
     },
     async close(): Promise<void> {
+      await gatewayBootstrapStringifier.close();
       await app.close();
     }
   };

@@ -30,4 +30,43 @@ describe("tile menu copy ownership", () => {
       "Resource node: Iron. Claim and settle this tile to start producing iron."
     ]);
   });
+
+  it("omits decay line for mine-frontier tile when isDecaying is false", () => {
+    const lines = tileMenuOverviewIntroLines({
+      terrain: "LAND",
+      ownerKind: "mine-frontier",
+      productionLabel: "food",
+      isDecaying: false
+    });
+    expect(lines).not.toContain("This tile is unsupported and will soon decay.");
+  });
+
+  it("omits decay line for mine-frontier tile when isDecaying is undefined", () => {
+    const lines = tileMenuOverviewIntroLines({
+      terrain: "LAND",
+      ownerKind: "mine-frontier"
+    });
+    expect(lines).not.toContain("This tile is unsupported and will soon decay.");
+  });
+
+  it("includes decay line for mine-frontier tile when isDecaying is true", () => {
+    const lines = tileMenuOverviewIntroLines({
+      terrain: "LAND",
+      ownerKind: "mine-frontier",
+      productionLabel: "food",
+      isDecaying: true
+    });
+    expect(lines).toContain("This tile is unsupported and will soon decay.");
+    expect(lines[lines.length - 1]).toBe("This tile is unsupported and will soon decay.");
+  });
+
+  it("includes decay line for mine-frontier tile without productionLabel when isDecaying is true", () => {
+    const lines = tileMenuOverviewIntroLines({
+      terrain: "LAND",
+      ownerKind: "mine-frontier",
+      isDecaying: true
+    });
+    expect(lines).toContain("This tile is unsupported and will soon decay.");
+    expect(lines[lines.length - 1]).toBe("This tile is unsupported and will soon decay.");
+  });
 });

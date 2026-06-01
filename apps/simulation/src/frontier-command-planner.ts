@@ -24,6 +24,11 @@ type FrontierAffordability = {
   needsFood?: boolean;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
   onEvaluateNeutralTarget?: (targetKey: string) => void;
+  /** PR 1 measurement callback — emits per-phase durations from inside
+   *  analyzeOwnedFrontierTargetsFromLookup so the hot loop can be
+   *  located before any optimization. Phase names correspond to
+   *  AI_PLANNER_PHASES entries. */
+  onAnalyzeTiming?: (phase: string, durationMs: number) => void;
 };
 
 export type FrontierClass = "economic" | "scaffold" | "scout" | "waste";
@@ -53,6 +58,8 @@ export type FrontierAnalysis = {
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
   frontierOpportunityWaste: number;
+  /** True when the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES) was hit. */
+  narrowAnalyzeCapped: boolean;
 };
 
 const sortTiles = (left: { x: number; y: number }, right: { x: number; y: number }): number =>
@@ -76,6 +83,9 @@ const resourceScore = (resource: string | undefined, needsFood: boolean = false)
       return 0;
   }
 };
+
+/** Cap the number of candidates scored in a single analyze pass. See docs/plans/2026-05-30-cap-narrow-analyze-path.md. */
+const NARROW_ANALYZE_MAX_CANDIDATES = 512;
 
 const strategicFrontierTargetScore = (tile: PlannerTile, needsFood: boolean = false): number => {
   let score = 0;
@@ -216,6 +226,10 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const canExpand = affordability.canExpand ?? true;
   const needsFood = affordability.needsFood ?? false;
   const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
+  const emitTiming = affordability.onAnalyzeTiming;
+  const iterStartedAt = performance.now();
+  let neighborLookupsTotalMs = 0;
+  let scoreCalcTotalMs = 0;
   const scoreByTargetKey = new Map<string, number>();
   const enemyTargets = new Set<string>();
   const enemyPlayerTargets = new Set<string>();
@@ -247,8 +261,11 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     }
   }
 
+  let capped = false;
+  let candidatesEvaluated = 0;
   for (const from of ownedTileList) {
     for (const targetKey of candidateKeysForOrigin(from, dockLinksByDockTileKey)) {
+      const candidateStartedAt = performance.now();
       const target = tilesByKey.get(targetKey);
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
       if (target.ownerId) {
@@ -262,10 +279,24 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
         const cachedScore = scoreByTargetKey.get(targetKey);
         const score =
           cachedScore ??
-          (strategicFrontierTargetScore(target, needsFood) +
-            (target.ownershipState === "FRONTIER" ? 120 : 0) +
-            ownedNeighborCount(tilesByKey, target, playerId) * 95 +
-            coastlineDiscoveryValue(tilesByKey, target) * 0.35);
+          (() => {
+            const scoreStartedAt = performance.now();
+            const neighborStartedAt = performance.now();
+            const neighborOwned = ownedNeighborCount(tilesByKey, target, playerId);
+            const neighborCoastline = coastlineDiscoveryValue(tilesByKey, target);
+            const neighborMs = performance.now() - neighborStartedAt;
+            neighborLookupsTotalMs += neighborMs;
+            emitTiming?.("analyze_neighbor_lookups", neighborMs);
+            const result =
+              strategicFrontierTargetScore(target, needsFood) +
+              (target.ownershipState === "FRONTIER" ? 120 : 0) +
+              neighborOwned * 95 +
+              neighborCoastline * 0.35;
+            const scoreMs = performance.now() - scoreStartedAt;
+            scoreCalcTotalMs += scoreMs;
+            emitTiming?.("analyze_score_calc", scoreMs);
+            return result;
+          })();
         scoreByTargetKey.set(targetKey, score);
         const candidate = { from, target, score };
         if (isBetterSelection(candidate, bestAttack)) bestAttack = candidate;
@@ -273,6 +304,12 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
           if (isBetterSelection(candidate, bestBarbarianAttack)) bestBarbarianAttack = candidate;
         } else if (isBetterSelection(candidate, bestEnemyAttack)) {
           bestEnemyAttack = candidate;
+        }
+        emitTiming?.("analyze_per_candidate", performance.now() - candidateStartedAt);
+        candidatesEvaluated += 1;
+        if (candidatesEvaluated >= NARROW_ANALYZE_MAX_CANDIDATES) {
+          capped = true;
+          break;
         }
         continue;
       }
@@ -293,9 +330,20 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
           neutralEvaluationByTargetKey.set(targetKey, nextEvaluation);
           return nextEvaluation;
         })();
-      const scoutScore = scoutExpandScore(tilesByKey, from, target, playerId, currentReachableLandKeys, dockLinksByDockTileKey);
+      const scoutScore = (() => {
+        const neighborStartedAt = performance.now();
+        const result = scoutExpandScore(tilesByKey, from, target, playerId, currentReachableLandKeys, dockLinksByDockTileKey);
+        const neighborMs = performance.now() - neighborStartedAt;
+        neighborLookupsTotalMs += neighborMs;
+        emitTiming?.("analyze_neighbor_lookups", neighborMs);
+        return result;
+      })();
       const frontierClass = classifyNeutralOpportunity(target, settlementEvaluation, scoutScore);
+      const scoreStartedAt = performance.now();
       const score = selectionScoreForClass(frontierClass, target, settlementEvaluation, scoutScore, needsFood);
+      const scoreMs = performance.now() - scoreStartedAt;
+      scoreCalcTotalMs += scoreMs;
+      emitTiming?.("analyze_score_calc", scoreMs);
       const candidate = { from, target, score, frontierClass };
       if (settlementEvaluation.townSupportNeed > 0) {
         frontierOpportunityTownSupport += 1;
@@ -318,9 +366,18 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
         frontierOpportunityWaste += 1;
       }
       if (isBetterSelection(candidate, bestExpand)) bestExpand = candidate;
+      emitTiming?.("analyze_per_candidate", performance.now() - candidateStartedAt);
+      candidatesEvaluated += 1;
+      if (candidatesEvaluated >= NARROW_ANALYZE_MAX_CANDIDATES) {
+        capped = true;
+        break;
+      }
     }
+    if (capped) break;
   }
 
+  emitTiming?.("analyze_score_calc", scoreCalcTotalMs);
+  emitTiming?.("analyze_iter_total", performance.now() - iterStartedAt);
   return {
     ...(bestAttack ? { attack: bestAttack } : {}),
     ...(bestEnemyAttack ? { enemyAttack: bestEnemyAttack } : {}),
@@ -338,7 +395,8 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     frontierOpportunityTownSupport,
     frontierOpportunityScout,
     frontierOpportunityScaffold,
-    frontierOpportunityWaste
+    frontierOpportunityWaste,
+    narrowAnalyzeCapped: capped
   };
 };
 

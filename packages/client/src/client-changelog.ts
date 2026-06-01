@@ -19,18 +19,123 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.28.2",
+  version: "2026.06.01.1",
   title: "What's New",
-  summary: "Town population now grows in the new simulation stack — same logistic growth formula, same granary and first-three-town bonuses, same 60-second tick as the old server.",
+  summary: "Client now backs off on SERVER_BUSY. Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist. Income multiplier and advanced converter display fixes.",
   entries: [
+    {
+      introducedIn: "2026.06.01.1",
+      title: "Client backs off when the server is busy",
+      why: "The gateway now rejects auth with SERVER_BUSY when too many players are connecting at once. Without this change, the client treated SERVER_BUSY as a fatal error and stopped retrying, which made the reconnection cascade worse.",
+      changes: [
+        "SERVER_BUSY auth errors now flow into the existing reconnect backoff (exponential with jitter), same as SERVER_STARTING.",
+        "No new backoff logic — the existing scheduleAuthReconnect path handles the retry spacing."
+      ]
+    },
+    {
+      introducedIn: "2026.05.30.3",
+      title: "Manpower regen slowdown now uses one runtime source",
+      why: "The shared balance constants had been slowed so a settlement takes about 12 hours to refill manpower, but game-domain still exported the old fast per-tier table. That left room for runtime paths and tooling to drift back to pre-slowdown rates.",
+      changes: [
+        "Simulation now reads manpower cap and regen constants through game-domain, which mirrors the shared balance table instead of keeping a duplicate fast table.",
+        "Added a regression test that fails if base regen or any town tier stops taking about 720 minutes to refill its manpower cap."
+      ]
+    },
+    {
+      introducedIn: "2026.05.30.2",
+      title: "Barbarian counter-captures stay settled",
+      why: "When a player attack against barbarians failed, the counter-captured origin tile was being converted to barbarian FRONTIER land. That could make the tile blink like cut-off frontier even though barbarian territory should always be settled.",
+      changes: [
+        "Failed attacks against barbarians now leave the counter-captured player origin as barbarian SETTLED land.",
+        "Any stale frontier decay timer on that captured origin is cleared during the ownership change."
+      ]
+    },
+    {
+      introducedIn: "2026.05.30.1",
+      title: "Smaller initial world payload — faster load times",
+      why: "The bootstrap init message was 512KB and growing with the world. Per-tile fields yieldRate and yieldCap were redundant for town tiles (townJson already carries goldPerMinute and cap) and derivable for non-town tiles from static yield tables and tile resource/dock/economicStructure fields. Moving them to client-side derivation shrinks the payload ~30%.",
+      changes: [
+        "yieldRate and yieldCap are no longer sent in the bootstrap init payload. The client derives them from the tile's townJson, resource, dockId, and economicStructure fields.",
+        "Town tiles still carry goldPerMinute and cap inside townJson — no loss of accuracy.",
+        "Gateway tile-detail endpoint still computes and returns yieldRate/yieldCap for live tile detail fetches."
+      ]
+    },
+    {
+      introducedIn: "2026.05.29.2",
+      title: "Fort and siege outpost tiers persist — Iron/Thunder Bastion defense and Siege/Dread Tower attack work correctly",
+      why: "Fort and siege variants existed only as client-side optimistic labels. The simulation never stored a structure's tier, so combat multipliers defaulted to base values (5x for all forts, 1.6x for all siege). Upgrade menus offered bogus actions on maxed structures, and menu text showed wrong defense/attack numbers. Displayed siege attack multipliers are also corrected — they now match the authoritative config values.",
+      changes: [
+        "Forts: BUILD_FORT creates the best available tier and upgrades follow FORT → Iron Bastion → Thunder Bastion. Costs: Iron 1800g/90 iron, Thunder 4200g/180 iron.",
+        "Siege: BUILD_SIEGE_OUTPOST creates the best available tier and upgrades follow Siege Outpost → Siege Tower → Dread Tower. Costs: Tower 1800g/90 SUPPLY/60 IRON, Dread 4200g/140 SUPPLY/120 IRON.",
+        "Attack multiplier labels on Siege Tower (was 2x, now 1.8x) and Dread Tower (was 3x, now 2.0x) corrected — no behavior change, just accurate labels.",
+        "buildDetailTextForAction now shows correct tier-based defense and attack numbers."
+      ]
+    },
+    {
+      introducedIn: "2026.05.29.2",
+      title: "Shard rain now pings on the minimap when it starts",
+      why: "Shard rain sites appeared on the map but never triggered minimap location pings, so players had to scan the entire map to find them. The server was broadcasting site coordinates but only to system-internal subscribers — clients never received them.",
+      changes: [
+        "Shard rain start broadcasts now include the x/y of each placed site alongside the site count.",
+        "Client registers minimap pings for each site immediately when the shard rain alert arrives, using the same staged fall-delay timing as tile-delta-based pings.",
+        "Reconnecting players also get pings from the init-payload shard rain notice."
+      ]
+    },
+    {
+      introducedIn: "2026.05.29.2",
+      title: "Shard rain no longer places sites on tiles used in the previous rain event",
+      why: "When the valid land tile pool is small (e.g. late-game with many claimed tiles), the random placement could land on the exact same tile multiple events in a row, making it look like a stale duplicate.",
+      changes: [
+        "Shard rain now tracks recently-placed tile keys and excludes them from candidate selection during the same event.",
+        "The exclusion set is cleared at the start of each new rain event."
+      ]
+    },
+    {
+      introducedIn: "2026.05.29.2",
+      title: "CACHE shard collections now survive process restarts",
+      why: "One-time CACHE shards could reappear after a simulation process restart because the cleared state wasn't durably checkpointed before the process exited. FALL shards were immune because they expire naturally on the next tick.",
+      changes: [
+        "Collecting a non-FALL (CACHE) shard now requests an immediate checkpoint write, making the cleared state durable before the next process restart."
+      ]
+    },
+    {
+      introducedIn: "2026.05.29.1",
+      title: "Upkeep shown on every building action",
+      why: "The buildings tab showed build cost and time but omitted the ongoing upkeep, so players had no way to see what a building would cost per minute before committing.",
+      changes: [
+        "All buildings with gold, food, or crystal upkeep now display it in the action menu detail line (e.g. '0.1 gold/min', '0.05 food/min').",
+        "Corrected the Fur Synthesizer, Ironworks, and Aether Condenser upkeep display from 12/12/16 gold/min to the correct 6/6/8 gold/min.",
+        "Corrected Harbor Exchange (Customs House) upkeep from 0.5 to 1.5 gold/min.",
+        "Removed phantom '1.5 gold/min' from Caravanary — the sim charges food upkeep only.",
+        "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
+      ]
+    },
+    {
+      introducedIn: "2026.05.28.3",
+      title: "Manpower regen slowed; rate shows a decimal",
+      why: "Manpower filled in ~15-20 minutes, which made the game largely about who could stay online longest to bank attacks. Regen is now tuned so a settlement takes ~12 hours to fill its cap, making manpower a strategic resource rather than a faucet. Because per-minute regen is now well under 1 for small empires, the HUD rate chip rounded it to '+0/m' and looked broken.",
+      changes: [
+        "Manpower regeneration is roughly 48x slower across all population tiers (a settlement now takes ~12 hours to refill its cap). Caps are unchanged.",
+        "The manpower rate chip now shows one decimal place (e.g. '+0.2/m') so slow regen is visible instead of rounding to '+0/m'."
+      ]
+    },
+    {
+      introducedIn: "2026.05.28.2",
+      title: "Tile overview warns about unsupported frontier decay immediately",
+      why: "The tile overview header only showed a countdown in the final 60 seconds of a frontier tile's natural 10-minute decay window. Players who checked a freshly claimed frontier tile saw no indication it was decaying until the last minute.",
+      changes: [
+        "Tile overview now shows 'This tile is unsupported and will soon decay.' for the full decay window, not just the final 60 seconds."
+      ]
+    },
     {
       introducedIn: "2026.05.28.2",
       title: "Town population growth is live in the rewrite stack",
       why: "Town population growth was never ported from the old server to the new simulation runtime, so town populations have been frozen since the 2026-05-15 rewrite cutover. The display showed growth rates, but no tick was applying them.",
       changes: [
         "Simulation now runs a 60-second population growth tick for every settled, fed, non-shocked town (TOWN tier and above; settlements are excluded).",
-        "Growth formula matches the old server exactly: logistic curve (1 − pop/maxPop), base rate 0.00032/min, granary bonus (×1.15 or ×1.30 for buffed seed granaries), and first-three-town growth multiplier from techs/domains.",
-        "Towns in capture shock do not grow until the shock expires. Population is capped at maxPopulation (10M) and tier upgrades (TOWN → CITY → GREAT_CITY → METROPOLIS) happen automatically when thresholds are crossed."
+        "Growth formula: logistic curve (1 − pop/maxPop), base rate 0.00032/min, granary bonus (×1.15 or ×1.30 for buffed seed granaries), first-three-town growth multiplier from techs/domains.",
+        "Towns near active combat (within 10 tiles) have growth paused for 60 minutes after the battle. Towns with 24+ hours of peace get a ×1.20 long-peace growth bonus.",
+        "Towns in capture shock do not grow until the shock expires. Population is capped at 10M; tier upgrades (TOWN → CITY → GREAT_CITY → METROPOLIS) fire automatically."
       ]
     },
     {
@@ -315,6 +420,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Timeout-driven action menu re-renders now reuse the computed preview-unavailable state instead of starting another fresh preview request.",
         "Normal player-opened enemy tile menus still request fresh authoritative odds.",
         "Added regression coverage that fails when the timeout re-render restarts the preview request loop."
+      ]
+    },
+    {
+      introducedIn: "2026.05.30.3",
+      title: "Income multiplier and advanced converter display fixes (PR #440 follow-up)",
+      why: "Two regressions from the bootstrap-payload-shrink work. (1) The player's income mod from tech was applied to every tile's yield display — even enemy tiles — so clicking another empire showed inflated yields. (2) Advanced converter structures (ADVANCED_FUR_SYNTHESIZER, ADVANCED_IRONWORKS, ADVANCED_CRYSTAL_SYNTHESIZER) displayed their theoretically-correct higher values (21.6 / 21.6 / 14.4), but the sim currently returns the basic values (18 / 18 / 12) for these structures. The client now matches the sim so displayed yield equals actual production. The sim-side fix will be a separate gameplay PR.",
+      changes: [
+        "Income multiplier from tech now only applies to tiles owned by the viewer. Enemy tiles display their owner-appropriate yield.",
+        "Advanced converter daily output now matches the sim's current behavior (basic values). Will update in lockstep when the sim honors ADVANCED_* constants."
       ]
     },
   ]

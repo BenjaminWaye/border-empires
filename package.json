@@ -14,8 +14,9 @@
     "ai:labeling:sample": "node ./scripts/sample-ai-labeling-records.mjs",
     "ai:labeling:qa": "node ./scripts/validate-ai-labels.mjs",
     "ai:labeling:triage": "node ./scripts/build-ai-labeling-escalation-set.mjs",
-    "ops:staging:login-probe": "test -n \"$STAGING_LOGIN_PROBE_AUTH_TOKEN\" && node ./scripts/staging-login-latency-probe.mjs --attempts 12 --timeout-ms 8000 --max-p95-ms 5000 --min-success-rate 1 || (echo 'STAGING_LOGIN_PROBE_AUTH_TOKEN is required for pnpm ops:staging:login-probe' >&2; exit 2)",
+    "ops:staging:login-probe": "(test -n \"$STAGING_LOGIN_PROBE_AUTH_TOKEN\" || test -n \"$PROBE_FIREBASE_REFRESH_TOKEN\") && node ./scripts/staging-login-latency-probe.mjs --attempts 12 --timeout-ms 8000 --max-p95-ms 5000 --min-success-rate 1 || (echo 'STAGING_LOGIN_PROBE_AUTH_TOKEN or PROBE_FIREBASE_REFRESH_TOKEN is required for pnpm ops:staging:login-probe' >&2; exit 2)",
     "ops:staging:drift-check": "node ./scripts/check-staging-fly-env-drift.mjs",
+    "ops:prod-shape:clone-snapshot": "node ./scripts/ops/clone-prod-sqlite-snapshot.mjs",
     "ops:prod-shape:gate": "node ./scripts/rewrite-prod-shape-gate.mjs",
     "ops:prod-shape:verify": "node ./scripts/check-prod-shape-gate-result.mjs",
     "check:client-changelog": "node ./scripts/check-client-changelog-update.mjs",
@@ -30,7 +31,7 @@
     "deploy:prod:all": "node ./scripts/deploy-prod-all.mjs",
     "build": "pnpm -r build",
     "test": "pnpm test:scripts && pnpm -r test",
-    "test:scripts": "node --test scripts/ai-labeling-common.test.mjs scripts/ai-labeling-sample.test.mjs scripts/ai-labeling-qa.test.mjs scripts/prod-shape-gate-guards.test.mjs",
+    "test:scripts": "node --test scripts/ai-labeling-common.test.mjs scripts/ai-labeling-sample.test.mjs scripts/ai-labeling-qa.test.mjs scripts/prod-shape-gate-guards.test.mjs scripts/rewrite-concurrent-load.test.mjs",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {

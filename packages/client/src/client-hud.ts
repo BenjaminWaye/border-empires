@@ -437,7 +437,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
   const mobileGoldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(0)}/m`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
-  const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}/m`;
+  const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(1)}/m`;
   const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
   const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   dom.statsChipsEl.innerHTML = `

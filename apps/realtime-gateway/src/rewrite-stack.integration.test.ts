@@ -9,6 +9,9 @@ import type { RecoveredSimulationState } from "../../simulation/src/event-recove
 import { InMemorySimulationSnapshotStore, buildSimulationSnapshotSections } from "../../simulation/src/snapshot-store.js";
 import { createSimulationService } from "../../simulation/src/simulation-service.js";
 
+process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS = "0";
+process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "999";
+
 const silentLog = {
   info: () => undefined,
   error: () => undefined

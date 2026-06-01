@@ -94,6 +94,9 @@ importers:
 
   packages/client:
     dependencies:
+      '@border-empires/game-domain':
+        specifier: workspace:*
+        version: link:../game-domain
       '@border-empires/shared':
         specifier: workspace:*
         version: link:../shared

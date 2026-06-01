@@ -243,7 +243,12 @@ const emitDiagnostic = (sample: {
     | "planner_choose_settlement"
     | "planner_choose_frontier"
     | "planner_summarize_frontier"
-    | "planner_total";
+    | "planner_total"
+    // Frontier-analysis sub-phases (PR 1 measurement — cost-cap plan).
+    | "analyze_iter_total"
+    | "analyze_per_candidate"
+    | "analyze_neighbor_lookups"
+    | "analyze_score_calc";
   durationMs: number;
   playerId: string;
   ownedTileCount?: number;
@@ -367,14 +372,15 @@ const choosePlannerCommand = (
     issuedAt,
     sessionPrefix: "ai-runtime",
     onPhaseTiming: (sample) => {
-      const phaseByPlannerPhase: Record<
-        AutomationPlannerPhase,
-        "planner_choose_settlement" | "planner_choose_frontier" | "planner_summarize_frontier"
-      > = {
+      const phaseByPlannerPhase = {
         choose_settlement: "planner_choose_settlement",
         choose_frontier: "planner_choose_frontier",
-        summarize_frontier: "planner_summarize_frontier"
-      };
+        summarize_frontier: "planner_summarize_frontier",
+        analyze_iter_total: "analyze_iter_total",
+        analyze_per_candidate: "analyze_per_candidate",
+        analyze_neighbor_lookups: "analyze_neighbor_lookups",
+        analyze_score_calc: "analyze_score_calc"
+      } as const satisfies Record<AutomationPlannerPhase, string>;
       emitDiagnostic({
         phase: phaseByPlannerPhase[sample.phase],
         durationMs: sample.durationMs,

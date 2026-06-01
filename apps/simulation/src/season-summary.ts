@@ -32,16 +32,19 @@ export const buildCurrentSeasonSummary = ({
   runtimeState,
   onlinePlayers,
   updatedAt,
-  acceptLatencyP95Ms
+  acceptLatencyP95Ms,
+  nonCompetitivePlayerIds
 }: {
   seasonState: SimulationSeasonState;
   runtimeState: RuntimeState;
   onlinePlayers: number;
   updatedAt: number;
   acceptLatencyP95Ms?: number;
+  nonCompetitivePlayerIds?: ReadonlySet<string>;
 }): CurrentSeasonSummary => {
   const worldStatus = buildWorldStatusSnapshot("", runtimeState, undefined, {
-    ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
+    ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {}),
+    ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
   });
   const townCount = runtimeState.tiles.filter((tile) => typeof tile.townJson === "string" || typeof tile.townType === "string").length;
   const totalPlayers = worldStatus.leaderboard.overall.length;
