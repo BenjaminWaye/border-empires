@@ -217,6 +217,7 @@ export const createInitialState = () => ({
   notifiedIncomingDiplomacyRequestIds: new Set<string>(),
   activeAetherBridges: [] as ActiveAetherBridgeView[],
   activeAetherWalls: [] as ActiveAetherWallView[],
+  aetherLanceFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
   replayPlaying: false,
