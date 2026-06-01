@@ -1,7 +1,13 @@
 import { describe, expect, it, beforeEach } from "vitest";
 
 import { SimulationRuntime } from "./runtime.js";
-import { POPULATION_GROWTH_BASE_RATE, POPULATION_MAX } from "@border-empires/game-domain";
+import {
+  POPULATION_GROWTH_BASE_RATE,
+  POPULATION_MAX,
+  LONG_PEACE_GROWTH_MULT,
+  LONG_PEACE_MS,
+  NEARBY_WAR_PAUSE_MS
+} from "@border-empires/game-domain";
 
 const TOWN_POP = 50_000;
 const TOWN_MAX = 5_000_000;
@@ -43,6 +49,8 @@ const makeTownTile = (
     maxPopulation: number;
     isFed: boolean;
     captureShockUntil: number;
+    nearbyWarPausedUntil: number;
+    nearbyWarLastAt: number;
   }> = {}
 ) => ({
   x,
@@ -56,7 +64,9 @@ const makeTownTile = (
     population: overrides.population ?? TOWN_POP,
     maxPopulation: overrides.maxPopulation ?? TOWN_MAX,
     isFed: overrides.isFed ?? true,
-    ...(overrides.captureShockUntil ? { captureShockUntil: overrides.captureShockUntil } : {})
+    ...(overrides.captureShockUntil ? { captureShockUntil: overrides.captureShockUntil } : {}),
+    ...(overrides.nearbyWarPausedUntil ? { nearbyWarPausedUntil: overrides.nearbyWarPausedUntil } : {}),
+    ...(overrides.nearbyWarLastAt ? { nearbyWarLastAt: overrides.nearbyWarLastAt } : {})
   }
 });
 
@@ -93,7 +103,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
     expect(townPop(tile!)).toBe(TOWN_POP);
   });
 
-  it("grows population after elapsed minutes", () => {
+  it("grows population after elapsed minutes (long-peace applies — no prior war)", () => {
     // First tick seeds the timer (zero elapsed).
     runtime.tickPopulationGrowth(now);
     // Advance time by 60 minutes and tick again.
@@ -104,12 +114,132 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
     expect(tile).toBeDefined();
     const pop = townPop(tile!)!;
 
+    // No nearbyWarLastAt → long-peace multiplier is active.
     const logistic = 1 - TOWN_POP / TOWN_MAX;
-    const expectedPerMin = TOWN_POP * POPULATION_GROWTH_BASE_RATE * logistic;
+    const expectedPerMin = TOWN_POP * POPULATION_GROWTH_BASE_RATE * logistic * LONG_PEACE_GROWTH_MULT;
     const expectedGrowth = expectedPerMin * 60;
     expect(pop).toBeGreaterThan(TOWN_POP);
     expect(pop).toBeLessThanOrEqual(TOWN_POP + expectedGrowth * 1.01);
     expect(pop).toBeGreaterThan(TOWN_POP + expectedGrowth * 0.99);
+  });
+
+  it("suppresses growth and stamps pause when an ATTACK lock is within 10 tiles", () => {
+    runtime.tickPopulationGrowth(now);
+    // Place an ATTACK lock at (15, 15) — 5 tiles from town at (10, 10).
+    const lockNear = {
+      commandId: "cmd-near-war",
+      playerId: "p2",
+      actionType: "ATTACK" as const,
+      manpowerCost: 0,
+      originX: 15, originY: 15,
+      targetX: 16, targetY: 16,
+      originKey: "15,15",
+      targetKey: "16,16",
+      resolvesAt: now + 30_000,
+      source: "player" as const
+    };
+    const player = makePlayer("p1");
+    runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["p1", player]]),
+      initialState: {
+        tiles: [makeTownTile(10, 10, "p1")],
+        activeLocks: [lockNear]
+      }
+    });
+
+    now += 60 * 60_000;
+    runtime.tickPopulationGrowth(now);
+    const exported = runtime.exportState();
+    const tile = exported.tiles.find((t) => t.x === 10 && t.y === 10)!;
+    // Growth suppressed — population unchanged.
+    expect(townPop(tile)).toBe(TOWN_POP);
+    // Pause timestamp stamped on the town.
+    const town = JSON.parse(tile.townJson!) as { nearbyWarPausedUntil?: number };
+    expect(town.nearbyWarPausedUntil).toBeGreaterThan(now);
+  });
+
+  it("suppresses growth during the 60-min pause window even after lock resolves", () => {
+    // Stamp a pause that expires 30 min from now.
+    const halfPauseMs = NEARBY_WAR_PAUSE_MS / 2;
+    const pausedTile = makeTownTile(10, 10, "p1", {
+      nearbyWarPausedUntil: now + halfPauseMs,
+      nearbyWarLastAt: now - halfPauseMs
+    });
+    const player = makePlayer("p1");
+    runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["p1", player]]),
+      initialState: {
+        tiles: [pausedTile],
+        activeLocks: []           // no active lock — pause persists from timestamp
+      }
+    });
+
+    now += 30 * 60_000; // still inside the 60-min window
+    runtime.tickPopulationGrowth(now);
+    const exported = runtime.exportState();
+    const tile = exported.tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(townPop(tile!)).toBe(TOWN_POP);
+  });
+
+  it("does not apply long-peace multiplier when war was recent (< 24 h)", () => {
+    // nearbyWarLastAt = 1 h ago — inside the 24-h window.
+    const recentWarTile = makeTownTile(10, 10, "p1", {
+      nearbyWarLastAt: now - 60 * 60_000
+    });
+    const player = makePlayer("p1");
+    runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["p1", player]]),
+      initialState: {
+        tiles: [recentWarTile],
+        activeLocks: []
+      }
+    });
+
+    runtime.tickPopulationGrowth(now);
+    now += 60 * 60_000;
+    runtime.tickPopulationGrowth(now);
+    const exported = runtime.exportState();
+    const tile = exported.tiles.find((t) => t.x === 10 && t.y === 10);
+    const pop = townPop(tile!)!;
+
+    // No long-peace multiplier — base rate only.
+    const logistic = 1 - TOWN_POP / TOWN_MAX;
+    const expectedPerMin = TOWN_POP * POPULATION_GROWTH_BASE_RATE * logistic;
+    const expectedGrowth = expectedPerMin * 60;
+    expect(pop).toBeGreaterThan(TOWN_POP + expectedGrowth * 0.99);
+    expect(pop).toBeLessThanOrEqual(TOWN_POP + expectedGrowth * 1.01);
+  });
+
+  it("applies long-peace multiplier after 24 h of no nearby combat", () => {
+    // nearbyWarLastAt = 25 h ago — outside the 24-h window.
+    const longPeaceTile = makeTownTile(10, 10, "p1", {
+      nearbyWarLastAt: now - (LONG_PEACE_MS + 60 * 60_000)
+    });
+    const player = makePlayer("p1");
+    runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["p1", player]]),
+      initialState: {
+        tiles: [longPeaceTile],
+        activeLocks: []
+      }
+    });
+
+    runtime.tickPopulationGrowth(now);
+    now += 60 * 60_000;
+    runtime.tickPopulationGrowth(now);
+    const exported = runtime.exportState();
+    const tile = exported.tiles.find((t) => t.x === 10 && t.y === 10);
+    const pop = townPop(tile!)!;
+
+    const logistic = 1 - TOWN_POP / TOWN_MAX;
+    const expectedPerMin = TOWN_POP * POPULATION_GROWTH_BASE_RATE * logistic * LONG_PEACE_GROWTH_MULT;
+    const expectedGrowth = expectedPerMin * 60;
+    expect(pop).toBeGreaterThan(TOWN_POP + expectedGrowth * 0.99);
+    expect(pop).toBeLessThanOrEqual(TOWN_POP + expectedGrowth * 1.01);
   });
 
   it("skips settlement-tier towns", () => {
