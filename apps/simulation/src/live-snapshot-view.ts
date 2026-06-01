@@ -75,6 +75,7 @@ type RuntimeState = {
     manpowerCapSnapshot?: number;
     techIds: string[];
     domainIds: string[];
+    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     vision: number;
@@ -904,9 +905,7 @@ export const buildLivePlayerEconomySnapshot = (
   // Clockwork Stipend (and any future pick-a-resource domain) credits a flat
   // trickle each tick — fold it into the breakdown so the income panel
   // attributes it, matching buildPlayerUpdateEconomySnapshot.
-  const trickle = player
-    ? chosenTrickleRateForPlayer({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource })
-    : undefined;
+  const trickle = player ? chosenTrickleRateForPlayer({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource }) : undefined;
   if (trickle && trickle.ratePerMinute > 0) {
     const target =
       trickle.resource === "IRON" ? ironSources :
