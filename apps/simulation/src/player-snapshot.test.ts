@@ -113,7 +113,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             type: "MARKET",
             populationTier: "TOWN",
             population: 25_000,
-            maxPopulation: 100_000
+            maxPopulation: 100_000,
+            nearbyWarPausedUntil: Date.now() + 30_000
           }),
           townType: "MARKET",
           townName: "Warwick",
@@ -732,6 +733,42 @@ describe("buildPlayerSubscriptionSnapshot", () => {
       expect.objectContaining({ label: "Towns", amountPerMinute: expect.any(Number) })
     );
     expect(snapshot.player?.upkeepPerMinute?.food).toBeGreaterThan(0.1);
+  });
+
+  it("shows Clockwork Stipend in the SUPPLY source bucket for live snapshot economy breakdown", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+      players: [
+        {
+          id: "player-1",
+          name: "Nauticus",
+          points: 64,
+          manpower: 120,
+          incomeMultiplier: 1,
+          techIds: [],
+          domainIds: ["clockwork-stipend"],
+          chosenTrickleResource: "SUPPLY",
+          strategicResources: { FOOD: 3, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+
+    expect(snapshot.player?.economyBreakdown?.SUPPLY.sources).toContainEqual(
+      expect.objectContaining({ label: "Clockwork Stipend", amountPerMinute: 0.2 })
+    );
+    expect(snapshot.player?.economyBreakdown?.IRON.sources).not.toContainEqual(
+      expect.objectContaining({ label: "Clockwork Stipend" })
+    );
+    expect(snapshot.player?.economyBreakdown?.CRYSTAL.sources).not.toContainEqual(
+      expect.objectContaining({ label: "Clockwork Stipend" })
+    );
+    expect(snapshot.player?.strategicProductionPerMinute?.SUPPLY).toBeCloseTo(0.2);
   });
 
   it("keeps settlement food upkeep at zero in rewrite economy snapshots", () => {

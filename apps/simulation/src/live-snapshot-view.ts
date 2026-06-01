@@ -44,6 +44,7 @@ import {
   type EconomyPlayer
 } from "./economy-network.js";
 import { buildDockLinksByDockTileKey } from "./dock-network.js";
+import { chosenTrickleRateForPlayer } from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 
 type RuntimeState = {
@@ -83,6 +84,7 @@ type RuntimeState = {
     townCount?: number;
     incomePerMinute?: number;
     incomeMultiplier?: number;
+    chosenTrickleResource?: "IRON" | "CRYSTAL" | "SUPPLY";
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
   }>;
@@ -873,6 +875,21 @@ export const buildLivePlayerEconomySnapshot = (
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
       if (output.OIL) addBucket(oilSources, structure.type, output.OIL, { count: 1 });
     }
+  }
+
+  // Clockwork Stipend (and any future pick-a-resource domain) credits a flat
+  // trickle each tick — fold it into the breakdown so the income panel
+  // attributes it, matching buildPlayerUpdateEconomySnapshot.
+  const trickle = player
+    ? chosenTrickleRateForPlayer({ domainIds: player.domainIds, chosenTrickleResource: player.chosenTrickleResource })
+    : undefined;
+  if (trickle && trickle.ratePerMinute > 0) {
+    const target =
+      trickle.resource === "IRON" ? ironSources :
+      trickle.resource === "SUPPLY" ? supplySources :
+      crystalSources;
+    addBucket(target, "Clockwork Stipend", trickle.ratePerMinute, { count: 1, resourceKey: trickle.resource });
+    strategicProductionPerMinute[trickle.resource] += trickle.ratePerMinute;
   }
 
   const upkeepPerMinute = {
