@@ -33,6 +33,8 @@ export type RuntimeExportState = {
     shardSiteJson?: string;
     ownerId?: string;
     ownershipState?: string;
+    frontierDecayAt?: number;
+    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT";
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;
@@ -215,33 +217,39 @@ type RuntimeExportInput = Omit<SnapshotExportInput, "collectVisibleCooldownByPla
 
 export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExportState {
   return {
-    tiles: [...input.tiles.values()]
-      .map((tile) => {
+    tiles: (() => {
+      const result = new Array(input.tiles.size) as RuntimeExportState["tiles"];
+      let i = 0;
+      for (const tile of input.tiles.values()) {
         const tileKey = simulationTileKey(tile.x, tile.y);
         const cached = input.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
-        return {
+        const entry: RuntimeExportState["tiles"][number] = {
           x: tile.x,
           y: tile.y,
-          terrain: tile.terrain,
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dockId: tile.dockId } : {}),
-          ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-          ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-          ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-          ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-          ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-          ...(cached.townJson ? { townJson: cached.townJson } : {}),
-          ...(tile.town?.type ? { townType: tile.town.type } : {}),
-          ...(tile.town?.name ? { townName: tile.town.name } : {}),
-          ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-          ...(cached.fortJson ? { fortJson: cached.fortJson } : {}),
-          ...(cached.observatoryJson ? { observatoryJson: cached.observatoryJson } : {}),
-          ...(cached.siegeOutpostJson ? { siegeOutpostJson: cached.siegeOutpostJson } : {}),
-          ...(cached.economicStructureJson ? { economicStructureJson: cached.economicStructureJson } : {}),
-          ...(cached.sabotageJson ? { sabotageJson: cached.sabotageJson } : {})
+          terrain: tile.terrain
         };
-      })
-      .sort((left, right) => left.x - right.x || left.y - right.y),
+        if (tile.resource) entry.resource = tile.resource;
+        if (tile.dockId) entry.dockId = tile.dockId;
+        if (cached.shardSiteJson) entry.shardSiteJson = cached.shardSiteJson;
+        if (tile.ownerId) entry.ownerId = tile.ownerId;
+        if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
+        if (typeof tile.frontierDecayAt === "number") entry.frontierDecayAt = tile.frontierDecayAt;
+        if (tile.frontierDecayKind) entry.frontierDecayKind = tile.frontierDecayKind;
+        if (cached.townJson) entry.townJson = cached.townJson;
+        if (tile.town?.type) entry.townType = tile.town.type;
+        if (tile.town?.name) entry.townName = tile.town.name;
+        if (tile.town?.populationTier) entry.townPopulationTier = tile.town.populationTier;
+        if (cached.fortJson) entry.fortJson = cached.fortJson;
+        if (cached.observatoryJson) entry.observatoryJson = cached.observatoryJson;
+        if (cached.siegeOutpostJson) entry.siegeOutpostJson = cached.siegeOutpostJson;
+        if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
+        if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
+        result[i] = entry;
+        i += 1;
+      }
+      result.sort((left, right) => left.x - right.x || left.y - right.y);
+      return result;
+    })(),
     players: [...input.players.values()]
       .map((player) => {
         input.applyManpowerRegen(player);
@@ -291,7 +299,7 @@ export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExpor
 }
 
 type PlayerDebugInput = {
-  locksByCommandId: ReadonlyMap<string, LockRecord>;
+  locksByTile: ReadonlyMap<string, LockRecord>;
   players: ReadonlyMap<string, DomainPlayer>;
   refreshManpowerOnly: (player: DomainPlayer) => void;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -303,7 +311,7 @@ type PlayerDebugInput = {
 export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): RuntimePlayerDebugSnapshot {
   const plannerBlockedIds = new Set<string>();
   const anyLockIds = new Set<string>();
-  for (const lock of input.locksByCommandId.values()) {
+  for (const lock of input.locksByTile.values()) {
     anyLockIds.add(lock.playerId);
     if (lock.source !== "automation") plannerBlockedIds.add(lock.playerId);
   }
