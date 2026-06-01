@@ -4573,6 +4573,76 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("rejects duplicate support structures submitted directly on another support tile", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 5_000,
+            manpower: 10_000,
+            techIds: new Set<string>(["trade"]),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: {}
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 16,
+            y: 16,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Trade Hub", type: "MARKET", populationTier: "TOWN" }
+          },
+          {
+            x: 16,
+            y: 17,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            economicStructure: { ownerId: "player-1", type: "MARKET", status: "active" }
+          },
+          {
+            x: 17,
+            y: 16,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED"
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: Array<{ code: string; message: string }> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMMAND_REJECTED") events.push({ code: event.code, message: event.message });
+    });
+
+    runtime.submitCommand({
+      commandId: "market-duplicate-support-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "BUILD_ECONOMIC_STRUCTURE",
+      payloadJson: JSON.stringify({ x: 17, y: 16, structureType: "MARKET" })
+    });
+
+    await Promise.resolve();
+    expect(events).toEqual([{ code: "BUILD_INVALID", message: "town already has market" }]);
+    const duplicateTarget = runtime.exportState().tiles.find((tile) => tile.x === 17 && tile.y === 16);
+    expect(duplicateTarget?.economicStructureJson).toBeUndefined();
+  });
+
   it("uncaptures an owned tile through the rewrite simulation path and clears owned structures on it", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

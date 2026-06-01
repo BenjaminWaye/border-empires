@@ -6750,9 +6750,15 @@ export class SimulationRuntime {
   }
 
   private supportedTownKeysForTile(playerId: string, x: number, y: number): string[] {
+    const townKey = this.assignedTownKeyForSupportTile(playerId, x, y);
+    return townKey ? [townKey] : [];
+  }
+
+  private assignedTownKeyForSupportTile(playerId: string, x: number, y: number): string | undefined {
     return this.adjacentTileStates(x, y)
-      .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.town)
-      .map((tile) => simulationTileKey(tile.x, tile.y));
+      .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.town && tile.town.populationTier !== "SETTLEMENT")
+      .sort((a, b) => a.x - b.x || a.y - b.y)
+      .map((tile) => simulationTileKey(tile.x, tile.y))[0];
   }
 
   private supportedDockKeysForTile(playerId: string, x: number, y: number): string[] {
@@ -6766,7 +6772,11 @@ export class SimulationRuntime {
     const townX = Number(townXRaw);
     const townY = Number(townYRaw);
     return this.adjacentTileStates(townX, townY).find(
-      (tile) => tile.ownerId === playerId && tile.economicStructure?.ownerId === playerId && tile.economicStructure.type === structureType
+      (tile) =>
+        this.assignedTownKeyForSupportTile(playerId, tile.x, tile.y) === townKey &&
+        tile.ownerId === playerId &&
+        tile.economicStructure?.ownerId === playerId &&
+        tile.economicStructure.type === structureType
     );
   }
 
@@ -6777,6 +6787,7 @@ export class SimulationRuntime {
     return this.adjacentTileStates(townX, townY).find((tile) => {
       if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
       if (tile.town || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;
+      if (this.assignedTownKeyForSupportTile(playerId, tile.x, tile.y) !== townKey) return false;
       return structureShowsOnTile(structureType, {
         ownershipState: tile.ownershipState,
         resource: tile.resource,
@@ -7519,7 +7530,8 @@ export class SimulationRuntime {
       return;
     }
 
-    if (structurePlacementMetadata(payload.structureType).placementMode === "town_support" && target.town) {
+    const placementMode = structurePlacementMetadata(payload.structureType).placementMode;
+    if (placementMode === "town_support" && target.town) {
       if (target.town.populationTier === "SETTLEMENT") {
         this.emitEvent({
           eventType: "COMMAND_REJECTED",
@@ -7582,6 +7594,19 @@ export class SimulationRuntime {
       target.economicStructure?.ownerId === command.playerId &&
       target.economicStructure.type === upgradeBaseType &&
       (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
+    if (placementMode === "town_support" && !target.town && !upgradingBaseEconomic) {
+      const supportedTownKey = this.assignedTownKeyForSupportTile(command.playerId, target.x, target.y);
+      if (supportedTownKey && this.economicStructureForSupportedTown(command.playerId, supportedTownKey, payload.structureType)) {
+        this.emitEvent({
+          eventType: "COMMAND_REJECTED",
+          commandId: command.commandId,
+          playerId: command.playerId,
+          code: "BUILD_INVALID",
+          message: `town already has ${payload.structureType.toLowerCase().replaceAll("_", " ")}`
+        });
+        return;
+      }
+    }
     if (
       !structureShowsOnTile(payload.structureType, {
         ownershipState: target.ownershipState,
