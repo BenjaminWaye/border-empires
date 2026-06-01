@@ -253,7 +253,6 @@ export const createAetherBridgePylonOverlay = (
     // reads as a charged, working mechanism.
     pylon.gear.rotation.z = nowMs / 900 + cursor;
     const pulse = 0.5 + 0.5 * Math.sin((nowMs / PULSE_PERIOD_MS) * Math.PI * 2 + cursor);
-    pylon.core.rotation.y = nowMs / 700;
     (pylon.core.material as MeshBasicMaterial).opacity = 0.38 + pulse * 0.38;
     const auraScale = 0.78 + pulse * 0.24;
     pylon.aura.scale.set(auraScale, auraScale, auraScale);
