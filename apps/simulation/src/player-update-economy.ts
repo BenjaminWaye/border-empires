@@ -227,11 +227,33 @@ export const supportSummaryForTown = (
       if (dx === 0 && dy === 0) continue;
       const neighbor = tiles.get(`${tile.x + dx},${tile.y + dy}`);
       if (!neighbor || neighbor.terrain !== "LAND") continue;
+      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
       supportMax += 1;
       if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
     }
   }
   return { supportCurrent, supportMax };
+};
+
+const supportTileBelongsToTown = (
+  playerId: string,
+  supportTile: DomainTileState,
+  townTile: DomainTileState,
+  tiles: ReadonlyMap<string, DomainTileState>
+): boolean => {
+  let assignedTown: DomainTileState | undefined;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const candidate = tiles.get(`${supportTile.x + dx},${supportTile.y + dy}`);
+      if (!candidate?.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;
+      if (candidate.town.populationTier === "SETTLEMENT") continue;
+      if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
+        assignedTown = candidate;
+      }
+    }
+  }
+  return assignedTown?.x === townTile.x && assignedTown.y === townTile.y;
 };
 
 export const hasSupportedStructure = (
@@ -245,6 +267,7 @@ export const hasSupportedStructure = (
       if (dx === 0 && dy === 0) continue;
       const neighbor = tiles.get(`${tile.x + dx},${tile.y + dy}`);
       if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
+      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
       if (neighbor.economicStructure?.ownerId === playerId && neighbor.economicStructure.status === "active" && neighbor.economicStructure.type === structureType) return true;
     }
   }

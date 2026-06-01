@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.1",
+  version: "2026.06.01.2",
   title: "What's New",
-  summary: "Client now backs off on SERVER_BUSY. Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist. Income multiplier and advanced converter display fixes.",
+  summary: "Shared support tiles resolve to one town. Client backs off on SERVER_BUSY. Manpower regen constants aligned.",
   entries: [
+    {
+      introducedIn: "2026.06.01.2",
+      title: "Shared support tiles can build again",
+      why: "Support tiles that touched multiple towns were blocked with 'Support tile touches multiple towns' even when the player owned the land. The block avoided double-counting support effects, but it made valid settled support tiles unusable.",
+      changes: [
+        "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
+        "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
+      ]
+    },
     {
       introducedIn: "2026.06.01.1",
       title: "Client backs off when the server is busy",
