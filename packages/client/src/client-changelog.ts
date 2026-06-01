@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.2",
+  version: "2026.06.01.3",
   title: "What's New",
-  summary: "Shared support tiles resolve to one town. Client backs off on SERVER_BUSY. Manpower regen constants aligned.",
+  summary: "Crystal shard sites and crystal abilities now have true-3D overlays, with one-shot cast flourish effects for instant abilities.",
   entries: [
+    {
+      introducedIn: "2026.06.01.3",
+      title: "Crystal shard and ability overlays in true 3D",
+      why: "Shard sites and crystal ability indicators were still mostly 2D-style markers in the true-3D renderer, and instant casts lacked strong visual feedback at cast time.",
+      changes: [
+        "Shard sites now render with three deterministic 3D variants (spire, cluster, shattered) chosen by tile hash.",
+        "Crystal abilities now render distinct 3D markers by ability key, including live map badges for active siphons, aether walls, and aether bridges.",
+        "One-shot crystal cast flourishes now trigger for Aether Lance, Retort Recasting, Reveal Empire, and Reveal Empire Stats."
+      ]
+    },
     {
       introducedIn: "2026.06.01.2",
       title: "Shared support tiles can build again",

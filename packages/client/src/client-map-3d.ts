@@ -43,6 +43,7 @@ import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.j
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "./client-town-growth.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
+import { createShardOverlay } from "./client-map-3d-shard-overlay.js";
 import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
 import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "./client-map-3d-resource-overlay.js";
@@ -53,6 +54,8 @@ import {
   STRUCTURE_KINDS_HANDLED_BY_3D,
   type StructureKind
 } from "./client-map-3d-structure-overlay.js";
+import { createCrystalAbilityOverlay } from "./client-map-3d-crystal-ability-overlay.js";
+import { createCrystalCastFxLayer } from "./client-map-3d-crystal-cast-fx.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
 import { createRoadOverlay } from "./client-map-3d-road-overlay.js";
 import { createDefensibilityOverlay } from "./client-map-3d-defensibility-overlay.js";
@@ -123,12 +126,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const roadOverlay = createRoadOverlay(scene);
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
+  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
   const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES);
+  const crystalAbilityOverlay = createCrystalAbilityOverlay(scene);
+  const crystalCastFx = createCrystalCastFxLayer(scene);
   const defensibilityOverlay = createDefensibilityOverlay(scene, MAX_VISIBLE_TILES);
 
   // Visual-only demo: ?towndemo=1 fakes a row of 5 tiers near (camX, camY)
@@ -1130,6 +1136,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
     unfedBadgeOverlay.clear();
     dockOverlay.clear();
+    shardOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
     fortOverlay.clear();
@@ -1137,6 +1144,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.clear();
     settleOverlay.clear();
     structureOverlay.clear();
+    crystalAbilityOverlay.clear();
     defensibilityOverlay.clear();
     // Build the dock-endpoint key set the same way the 2D runtime loop
     // does, since `tile.dockId` is not reliably populated on every
@@ -1251,6 +1259,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           }
           const dockSurfaceY = Math.max(heightfield.elevationAt(wx, wy), -0.04) + 0.02;
           dockOverlay.addInstance(x, z, dockSurfaceY, dockRotation, wx, wy);
+        }
+        if (tile?.shardSite) {
+          shardOverlay.addInstance(x, z, surfaceY, wx, wy);
         }
         if (terrain === "MOUNTAIN") {
           mountainMassifs.addInstance(x, z, surfaceY);
@@ -1432,8 +1443,31 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const severity = weakDefensibilitySeverity(exposedSides.length);
           if (severity) defensibilityOverlay.addInstance(x, z, surfaceY, severity);
         }
+        if (tile?.sabotage && tile.sabotage.endsAt > Date.now()) {
+          crystalAbilityOverlay.addInstance("siphon", x, z, surfaceY, wx, wy);
+        }
       }
     }
+
+    const pushAbilityMarker = (key: "aether_wall" | "aether_bridge", worldX: number, worldY: number): void => {
+      const dx = toroidDelta(worldX, deps.state.camX, WORLD_WIDTH);
+      const dy = toroidDelta(worldY, deps.state.camY, WORLD_HEIGHT);
+      if (Math.abs(dx) > halfW + 2 || Math.abs(dy) > halfH + 2) return;
+      const wx = deps.wrapX(deps.state.camX + dx);
+      const wy = deps.wrapY(deps.state.camY + dy);
+      const x = dx + TILE_CENTER_OFFSET;
+      const z = dy + TILE_CENTER_OFFSET;
+      const surfaceY = Math.max(
+        heightfield.elevationAt(wx, wy),
+        heightfield.cornerYAt(wx, wy),
+        heightfield.cornerYAt(deps.wrapX(wx + 1), wy),
+        heightfield.cornerYAt(wx, deps.wrapY(wy + 1)),
+        heightfield.cornerYAt(deps.wrapX(wx + 1), deps.wrapY(wy + 1))
+      ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+      crystalAbilityOverlay.addInstance(key, x, z, surfaceY, wx, wy);
+    };
+    for (const wall of deps.state.activeAetherWalls) pushAbilityMarker("aether_wall", wall.origin.x, wall.origin.y);
+    for (const bridge of deps.state.activeAetherBridges) pushAbilityMarker("aether_bridge", bridge.to.x, bridge.to.y);
 
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
@@ -1445,6 +1479,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     roadOverlay.commit();
     unfedBadgeOverlay.commit();
     dockOverlay.commit();
+    shardOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
     fortOverlay.commit();
@@ -1452,6 +1487,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.commit();
     settleOverlay.commit();
     structureOverlay.commit();
+    crystalAbilityOverlay.commit();
     defensibilityOverlay.commit();
   };
 
@@ -1491,6 +1527,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncSweepRangeMarker();
     villageEffects.update(nowMs);
     floatingText.update(nowMs);
+    crystalCastFx.update(nowMs);
+    while (deps.state.crystalCastFxQueue.length > 0) {
+      const cast = deps.state.crystalCastFxQueue.shift()!;
+      const dx = toroidDelta(cast.x, deps.state.camX, WORLD_WIDTH);
+      const dy = toroidDelta(cast.y, deps.state.camY, WORLD_HEIGHT);
+      const wx = deps.wrapX(deps.state.camX + dx);
+      const wy = deps.wrapY(deps.state.camY + dy);
+      const x = dx + TILE_CENTER_OFFSET;
+      const z = dy + TILE_CENTER_OFFSET;
+      const y = heightfield.elevationAt(wx, wy) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+      crystalCastFx.spawn(x, z, y, cast.key);
+    }
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
@@ -1592,12 +1640,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     roadOverlay.dispose();
     unfedBadgeOverlay.dispose();
     dockOverlay.dispose();
+    shardOverlay.dispose();
     barbarianOverlay.dispose();
     fortOverlay.dispose();
     resourceOverlay.dispose();
     attackOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();
+    crystalAbilityOverlay.dispose();
+    crystalCastFx.dispose();
     defensibilityOverlay.dispose();
     forest.dispose();
     villageEffects.dispose();
