@@ -664,11 +664,21 @@ export const drawAetherBridgeLane = (
       ctx.fill();
       return;
     }
-    const glyphSize = compact ? 8 : 28;
+    const glyphSize = compact ? 8 : 38;
+    const pulse = 0.5 + 0.5 * Math.sin(pulseOffset * Math.PI * 2);
     ctx.save();
     ctx.translate(x, y);
+    const auraRadius = glyphSize * (0.62 + pulse * 0.14);
+    const aura = ctx.createRadialGradient(0, 0, auraRadius * 0.2, 0, 0, auraRadius);
+    aura.addColorStop(0, `rgba(196, 246, 255, ${(0.42 + pulse * 0.22).toFixed(3)})`);
+    aura.addColorStop(0.55, "rgba(83, 207, 255, 0.18)");
+    aura.addColorStop(1, "rgba(83, 207, 255, 0)");
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
+    ctx.fill();
     ctx.rotate(angle);
-    ctx.globalAlpha = compact ? 0.9 : 0.98;
+    ctx.globalAlpha = 0.98;
     ctx.drawImage(aetherBridgeAnchorImage, -glyphSize * 0.5, -glyphSize * 0.5, glyphSize, glyphSize);
     ctx.restore();
   };
