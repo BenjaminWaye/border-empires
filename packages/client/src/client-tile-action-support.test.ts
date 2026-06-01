@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { settleDurationMsForTile } from "./client-constants.js";
 import { settleDurationMsForState, settlementSpeedMultiplierForState } from "./client-queue-logic.js";
-import { tileActionAvailabilityWithDevelopmentSlot } from "./client-tile-action-logic.js";
+import { createInitialState } from "./client-state.js";
+import { menuActionsForSingleTile, tileActionAvailabilityWithDevelopmentSlot } from "./client-tile-action-logic.js";
 import { ownedActiveObservatoryWithinRange, shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
 import type { Tile, TileActionDef } from "./client-types.js";
@@ -230,6 +231,85 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
 
   it("keeps same-tile structures optimistic on town tiles", () => {
     expect(shouldOptimisticallyBuildOnSelectedTile("build_foundry", townTile)).toBe(true);
+  });
+});
+
+describe("town support tile actions", () => {
+  it("uses the first assigned town instead of blocking shared support tiles", () => {
+    const clientState = createInitialState();
+    clientState.me = "me";
+    clientState.gold = 500;
+    clientState.techIds = ["trade"];
+    const supportTile: Tile = { x: 210, y: 149, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+    const town = (x: number, y: number): Tile => ({
+      x,
+      y,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      town: {
+        type: "MARKET",
+        baseGoldPerMinute: 1,
+        supportCurrent: 1,
+        supportMax: 8,
+        goldPerMinute: 1,
+        cap: 100,
+        isFed: true,
+        population: 1000,
+        maxPopulation: 2000,
+        populationTier: "TOWN",
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMarket: false,
+        marketActive: false,
+        hasGranary: false,
+        granaryActive: false,
+        hasBank: false,
+        bankActive: false
+      }
+    });
+
+    const actions = menuActionsForSingleTile(clientState, supportTile, {
+      keyFor: (x: number, y: number) => `${x},${y}`,
+      parseKey: (key: string) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y };
+      },
+      wrapX: (x: number) => x,
+      wrapY: (y: number) => y,
+      terrainAt: () => "LAND",
+      chebyshevDistanceClient: () => 0,
+      isTileOwnedByAlly: () => false,
+      hostileObservatoryProtectingTile: () => undefined,
+      abilityCooldownRemainingMs: () => 0,
+      formatCooldownShort: () => "",
+      pushFeed: () => undefined,
+      hideTileActionMenu: () => undefined,
+      hideHoldBuildMenu: () => undefined,
+      selectedTile: () => undefined,
+      renderHud: () => undefined,
+      requireAuthedSession: () => true,
+      ws: { readyState: 1, send: () => undefined },
+      attackPreviewDetailForTarget: () => undefined,
+      attackPreviewPendingForTarget: () => false,
+      pickOriginForTarget: () => undefined,
+      buildDetailTextForAction: () => undefined,
+      developmentSlotSummary: () => ({ busy: 0, limit: 3, available: 3 }),
+      developmentSlotReason: () => "",
+      structureGoldCost: () => 0,
+      structureCostText: () => "0 gold",
+      supportedOwnedTownsForTile: () => [town(209, 148), town(211, 150)],
+      supportedOwnedDocksForTile: () => [],
+      townHasSupportStructure: () => false,
+      activeTruceWithPlayer: () => undefined,
+      pendingTruceWithPlayer: () => undefined,
+      ownerSpawnShieldActive: () => false
+    } as never);
+
+    expect(actions.find((action) => action.id === "build_market")).toMatchObject({
+      disabled: false
+    });
+    expect(actions.some((action) => action.disabledReason === "Support tile touches multiple towns")).toBe(false);
   });
 });
 
