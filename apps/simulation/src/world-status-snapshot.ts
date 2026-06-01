@@ -39,7 +39,8 @@ type WorldTile = RuntimeState["tiles"][number];
 
 const BARBARIAN_PLAYER_ID = "barbarian-1";
 
-const isCompetitivePlayer = (playerId: string): boolean => playerId !== BARBARIAN_PLAYER_ID;
+const isCompetitivePlayer = (playerId: string, excludedIds?: ReadonlySet<string>): boolean =>
+  playerId !== BARBARIAN_PLAYER_ID && !(excludedIds?.has(playerId) ?? false);
 const leaderboardScoreFor = (settledTileCount: number, incomePerMinute: number, techCount: number): number =>
   Math.round((settledTileCount + incomePerMinute * 3 + techCount * 8) * 10) / 10;
 
@@ -357,11 +358,11 @@ export const buildWorldStatusSnapshot = (
   playerId: string,
   runtimeState: RuntimeState,
   fallbackTiles?: Iterable<DomainTileState>,
-  options?: { acceptLatencyP95Ms?: number }
+  options?: { acceptLatencyP95Ms?: number; nonCompetitivePlayerIds?: ReadonlySet<string> }
 ): WorldStatusSnapshot => {
   const worldTiles = runtimeState.tiles.length > 0 ? runtimeState.tiles : fallbackTiles ? [...fallbackTiles].map((tile) => toFallbackWorldTile(tile)) : [];
   const overall = runtimeState.players
-    .filter((player) => isCompetitivePlayer(player.id))
+    .filter((player) => isCompetitivePlayer(player.id, options?.nonCompetitivePlayerIds))
     .map((player) => {
       const settledTileCount =
         typeof player.settledTileCount === "number"

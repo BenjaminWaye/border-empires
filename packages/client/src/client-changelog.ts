@@ -19,17 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.1",
+  version: "2026.06.01.2",
   title: "What's New",
-  summary: "Settle Connected no longer floods development slots. Manpower regen constants aligned. Barbarian counter-captures stay settled.",
+  summary: "Settle Connected no longer floods development slots. Client now backs off on SERVER_BUSY. Manpower regen constants aligned. Barbarian counter-captures stay settled.",
   entries: [
     {
-      introducedIn: "2026.06.01.1",
+      introducedIn: "2026.06.01.2",
       title: "Settle Connected no longer fails with \"development slots are busy\"",
       why: "Settle Connected sent every connected tile's SETTLE message in one synchronous burst. The development slot count only updates when the server replies, so all the messages raced against a stale count, the server accepted the first few, and the rest bounced back as \"development slots are busy\". It only misbehaved when slots were free — once a queue already existed, every tile correctly went through the paced queue.",
       changes: [
         "Settle Connected now routes every tile through the development queue, which dispatches them one slot at a time as the server confirms each settlement — no more rejected overflow.",
         "Single-tile settling is unchanged: it still starts immediately into a free slot."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.1",
+      title: "Client backs off when the server is busy",
+      why: "The gateway now rejects auth with SERVER_BUSY when too many players are connecting at once. Without this change, the client treated SERVER_BUSY as a fatal error and stopped retrying, which made the reconnection cascade worse.",
+      changes: [
+        "SERVER_BUSY auth errors now flow into the existing reconnect backoff (exponential with jitter), same as SERVER_STARTING.",
+        "No new backoff logic — the existing scheduleAuthReconnect path handles the retry spacing."
       ]
     },
     {
@@ -125,6 +134,17 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "The tile overview header only showed a countdown in the final 60 seconds of a frontier tile's natural 10-minute decay window. Players who checked a freshly claimed frontier tile saw no indication it was decaying until the last minute.",
       changes: [
         "Tile overview now shows 'This tile is unsupported and will soon decay.' for the full decay window, not just the final 60 seconds."
+      ]
+    },
+    {
+      introducedIn: "2026.05.28.2",
+      title: "Town population growth is live in the rewrite stack",
+      why: "Town population growth was never ported from the old server to the new simulation runtime, so town populations have been frozen since the 2026-05-15 rewrite cutover. The display showed growth rates, but no tick was applying them.",
+      changes: [
+        "Simulation now runs a 60-second population growth tick for every settled, fed, non-shocked town (TOWN tier and above; settlements are excluded).",
+        "Growth formula: logistic curve (1 − pop/maxPop), base rate 0.00032/min, granary bonus (×1.15 or ×1.30 for buffed seed granaries), first-three-town growth multiplier from techs/domains.",
+        "Towns near active combat (within 10 tiles) have growth paused for 60 minutes after the battle. Towns with 24+ hours of peace get a ×1.20 long-peace growth bonus.",
+        "Towns in capture shock do not grow until the shock expires. Population is capped at 10M; tier upgrades (TOWN → CITY → GREAT_CITY → METROPOLIS) fire automatically."
       ]
     },
     {
@@ -409,6 +429,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Timeout-driven action menu re-renders now reuse the computed preview-unavailable state instead of starting another fresh preview request.",
         "Normal player-opened enemy tile menus still request fresh authoritative odds.",
         "Added regression coverage that fails when the timeout re-render restarts the preview request loop."
+      ]
+    },
+    {
+      introducedIn: "2026.05.30.3",
+      title: "Income multiplier and advanced converter display fixes (PR #440 follow-up)",
+      why: "Two regressions from the bootstrap-payload-shrink work. (1) The player's income mod from tech was applied to every tile's yield display — even enemy tiles — so clicking another empire showed inflated yields. (2) Advanced converter structures (ADVANCED_FUR_SYNTHESIZER, ADVANCED_IRONWORKS, ADVANCED_CRYSTAL_SYNTHESIZER) displayed their theoretically-correct higher values (21.6 / 21.6 / 14.4), but the sim currently returns the basic values (18 / 18 / 12) for these structures. The client now matches the sim so displayed yield equals actual production. The sim-side fix will be a separate gameplay PR.",
+      changes: [
+        "Income multiplier from tech now only applies to tiles owned by the viewer. Enemy tiles display their owner-appropriate yield.",
+        "Advanced converter daily output now matches the sim's current behavior (basic values). Will update in lockstep when the sim honors ADVANCED_* constants."
       ]
     },
   ]

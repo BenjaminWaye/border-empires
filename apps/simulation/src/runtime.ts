@@ -87,7 +87,13 @@ import {
   SIPHON_SHARE,
   SYNTH_OVERLOAD_DISABLE_MS,
   SYNTH_OVERLOAD_GOLD_COST,
+  POPULATION_GROWTH_BASE_RATE,
   POPULATION_MAX,
+  SEED_GRANARY_GROWTH_MULT,
+  NEARBY_WAR_RADIUS,
+  NEARBY_WAR_PAUSE_MS,
+  LONG_PEACE_MS,
+  LONG_PEACE_GROWTH_MULT,
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
@@ -143,6 +149,7 @@ import {
   buildFedTownKeys,
   buildPlayerUpdateEconomySnapshot,
   buildStrategicProductionForSettledTiles,
+  hasSupportedStructure,
   refreshTownEconomyFields,
   type PlayerUpdateEconomySnapshot
 } from "./player-update-economy.js";
@@ -152,7 +159,7 @@ import {
   removeTileUpkeepFromCache,
   type UpkeepAccrualSnapshot
 } from "./player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network.js";
 import { capturedStructureFields } from "./capture-structures.js";
 import { createSeedWorld, simulationTileKey } from "./seed-state.js";
 import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
@@ -176,6 +183,7 @@ import {
 } from "./tile-delta-visibility-filter.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
+import { VisionExpansionCache } from "./vision-expansion-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./planner-world-view.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./planner-world-view-slice.js";
 import {
@@ -332,6 +340,11 @@ export class SimulationRuntime {
     pendingSettlementTileKeys: string[];
   }>();
   private readonly locksByTile: Map<string, LockRecord>;
+  // Deduplicated view of locksByTile keyed by commandId.  A single lock is
+  // stored under TWO tile keys (originKey + targetKey); this index gives O(1)
+  // unique-lock iteration for exportState's activeLocks projection, replacing
+  // the per-call `new Map([...locksByTile.entries()].map(...))` dedup.
+  private readonly locksByCommandId = new Map<string, LockRecord>();
   // Pooled per-tick accumulators for updateFrontierDecay.
   // Reset via arr.length = 0 at the top of each call (preserves inner arrays).
   private readonly frontierDecayChangedByOwner = new Map<string, Array<SimulationTileWireDelta>>();
@@ -361,6 +374,12 @@ export class SimulationRuntime {
   // in the constructor. Used by handleCollectVisibleCommand to skip the 99% of
   // settled tiles that produce zero yield (plain land).
   private readonly yieldBearingTilesByOwner = new Map<string, Set<string>>();
+  // Sorted (deterministic drain order) snapshot of yieldBearingTilesByOwner.
+  // Lazily populated; invalidated (deleted) whenever the underlying Set
+  // changes via addYieldBearingTileToOwnerIndex or removeYieldBearingTileFromOwnerIndex.
+  // Avoids O(n log n) spread+sort in consumeUpkeepFromTileYield on every tick
+  // for players whose yield-bearing set is stable.
+  private readonly sortedYieldBearingKeysByOwner = new Map<string, string[]>();
   // Per-(owner, BuildableStructureType) counter used by structureBuildGoldCost
   // to apply incremental scaling on each new BUILD_* command. Replaces an
   // O(all_tiles) scan that took 884ms on a 250k-tile world (2026-05-28 prod
@@ -380,6 +399,14 @@ export class SimulationRuntime {
   // they're shed last (which matches the intent: an empire that survived
   // restart shouldn't have its core tiles shed before its newer expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
+  // Epoch ms of the last population growth tick for each settled town tile key.
+  // Used by tickPopulationGrowth to compute elapsed minutes since the last update.
+  private readonly townLastGrowthTickAtByKey = new Map<string, number>();
+  // Per-player territorial vision expansion cache.  Avoids O(territory×r²)
+  // recomputation on every classifyVisibilityForPlayer call; invalidated lazily
+  // via signature (tileCollectionVersion:vision:visionRadiusBonus) and
+  // explicitly on player elimination via frontierDecayChangedByOwner cleanup.
+  private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT);
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Cached economy snapshot per player. Invalidated in replaceTileState whenever
   // a tile mutates in a way that could change income/upkeep rates (ownership,
@@ -543,6 +570,8 @@ export class SimulationRuntime {
     this.docks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? []);
     this.dockLinksByDockTileKey = buildDockLinksByDockTileKey(this.docks);
     this.locksByTile = createLocksFromInitialState(options.initialState);
+    // Populate the commandId index from the just-created locksByTile map.
+    for (const lock of this.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
     for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
       this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
     }
@@ -850,10 +879,211 @@ export class SimulationRuntime {
     for (const [tileKey, lock] of this.locksByTile) {
       if (lock.resolvesAt < cutoff) {
         this.locksByTile.delete(tileKey);
+        this.locksByCommandId.delete(lock.commandId);
         droppedCommandIds.add(lock.commandId);
       }
     }
     return droppedCommandIds.size;
+  }
+
+  /**
+   * Returns the granary growth multiplier for a tile: 1.0 (none),
+   * 1.15 (active GRANARY or unbuffed SEED_GRANARY adjacent),
+   * or SEED_GRANARY_GROWTH_MULT (active SEED_GRANARY adjacent to another
+   * active settled SEED_GRANARY owned by the same player).
+   */
+  private seedGranaryGrowthMultForTile(
+    tile: DomainTileState,
+    playerId: string
+  ): number {
+    const hasGranary = hasSupportedStructure(playerId, tile, "GRANARY", this.tiles);
+    const hasSeedGranary = hasSupportedStructure(playerId, tile, "SEED_GRANARY", this.tiles);
+    if (!hasGranary && !hasSeedGranary) return 1;
+    if (!hasSeedGranary) return 1.15;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const neighbor = this.tiles.get(`${tile.x + dx},${tile.y + dy}`);
+        if (
+          neighbor?.ownerId === playerId &&
+          neighbor.ownershipState === "SETTLED" &&
+          neighbor.economicStructure?.type === "SEED_GRANARY" &&
+          neighbor.economicStructure.status === "active"
+        ) {
+          return SEED_GRANARY_GROWTH_MULT;
+        }
+      }
+    }
+    return 1.15;
+  }
+
+  /**
+   * Periodic population growth tick. Applies logistic growth to every
+   * settled, fed, non-settlement (populationTier !== "SETTLEMENT"),
+   * non-shocked town. Growth formula mirrors the display-path computation
+   * in live-snapshot-view.ts.
+   *
+   * Called every 60 s from simulation-service.ts.
+   */
+  tickPopulationGrowth(nowMs: number = this.now()): void {
+    const dirtyPlayerIds = new Set<string>();
+
+    // Gather unique attack tile coords once — O(locks). Per-town radius check
+    // below is O(towns × n_coords); ~12 k comparisons for 300 towns / 40 coords.
+    const attackCoords: number[] = [];
+    const seenLockCommandIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      if (seenLockCommandIds.has(lock.commandId)) continue; // locksByTile stores each lock twice
+      seenLockCommandIds.add(lock.commandId);
+      if (lock.actionType !== "ATTACK") continue;
+      for (const lockedKey of [lock.originKey, lock.targetKey]) {
+        const comma = lockedKey.indexOf(",");
+        if (comma > 0) {
+          attackCoords.push(Number(lockedKey.slice(0, comma)), Number(lockedKey.slice(comma + 1)));
+        }
+      }
+    }
+
+    for (const player of this.players.values()) {
+      if (player.id.startsWith("barbarian-")) continue;
+      const summary = this.summaryForPlayer(player.id);
+      const ownedTowns = summary.ownedTownTierByTile;
+      if (ownedTowns.size === 0) continue;
+
+      const fedTownKeys = buildFedTownKeys(
+        player,
+        summary,
+        this.tiles,
+        summary.strategicProductionPerMinute
+      );
+      if (fedTownKeys.size === 0) continue;
+
+      const firstThreeKeys = firstThreeTownKeysForPlayer(player.id, this.tiles.values());
+
+      for (const tileKey of ownedTowns.keys()) {
+        const tile = this.tiles.get(tileKey);
+        if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
+        const town = tile.town;
+
+        // Gate: skip settlements (populationTier === "SETTLEMENT").
+        if (town.populationTier === "SETTLEMENT") continue;
+        // Gate: skip if in capture shock.
+        if (typeof town.captureShockUntil === "number" && town.captureShockUntil > nowMs) continue;
+        // Gate: skip unfed towns.
+        if (!fedTownKeys.has(tileKey)) continue;
+        // Guard: population and maxPopulation must be present.
+        if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
+
+        // Check 10-tile radius for active ATTACK locks. Stamp a 60-minute pause
+        // on the town tile so the gate persists after the lock resolves and the
+        // timestamp flows through snapshots/deltas to the display path.
+        let isNearActiveWar = false;
+        for (let i = 0; i < attackCoords.length; i += 2) {
+          if (Math.abs(tile.x - (attackCoords[i] as number)) <= NEARBY_WAR_RADIUS &&
+              Math.abs(tile.y - (attackCoords[i + 1] as number)) <= NEARBY_WAR_RADIUS) {
+            isNearActiveWar = true;
+            break;
+          }
+        }
+        if (isNearActiveWar) {
+          const pausedUntil = nowMs + NEARBY_WAR_PAUSE_MS;
+          if ((town.nearbyWarPausedUntil ?? 0) < pausedUntil) {
+            const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: nowMs };
+            const updatedTile = { ...tile, town: updatedTown };
+            this.tiles.set(tileKey, updatedTile);
+            this.tileDeltaStringifyCache.invalidate(tileKey);
+            this.emitEvent({
+              eventType: "TILE_DELTA_BATCH",
+              commandId: `population-growth-tick:war-pause:${tileKey}`,
+              playerId: player.id,
+              tileDeltas: [this.tileDeltaFromState(updatedTile)]
+            });
+            dirtyPlayerIds.add(player.id);
+          }
+          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+          continue;
+        }
+        // Still within the 60-minute pause window from a recent battle.
+        if (typeof town.nearbyWarPausedUntil === "number" && town.nearbyWarPausedUntil > nowMs) {
+          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+          continue;
+        }
+
+        const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
+        if (logisticFactor <= 0) continue;
+
+        const granaryGrowthMult = this.seedGranaryGrowthMultForTile(tile, player.id);
+
+        // First-three-town population growth multiplier.
+        const firstThreeMult = firstThreeKeys.has(tileKey)
+          ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player)
+          : 1;
+
+        // Long-peace multiplier: 24 h of no nearby combat near this town.
+        const hasLongPeace = !town.nearbyWarLastAt || nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
+        const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
+
+        const lastTick = this.townLastGrowthTickAtByKey.get(tileKey) ?? nowMs;
+        const elapsedMinutes = (nowMs - lastTick) / 60_000;
+        if (elapsedMinutes <= 0) {
+          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+          continue;
+        }
+
+        const growthPerMinute =
+          town.population *
+          POPULATION_GROWTH_BASE_RATE *
+          granaryGrowthMult *
+          firstThreeMult *
+          longPeaceMult *
+          logisticFactor;
+        const growth = growthPerMinute * elapsedMinutes;
+        if (growth <= 0) continue;
+
+        const newPopulation = Math.min(town.maxPopulation, town.population + growth);
+
+        // Update population tier from the new population value.
+        const nextTier = newPopulation >= 5_000_000 ? "METROPOLIS" as const
+          : newPopulation >= 1_000_000 ? "GREAT_CITY" as const
+          : newPopulation >= 100_000 ? "CITY" as const
+          : "TOWN" as const;
+
+        // Destructure out the stale pause timestamp (exactOptionalPropertyTypes
+        // forbids setting it to undefined; omitting the key altogether is correct
+        // and ensures JSON.stringify no longer includes it).
+        const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
+        const updatedTown = {
+          ...townWithoutPause,
+          population: newPopulation,
+          ...(nextTier !== town.populationTier ? { populationTier: nextTier } : {})
+        };
+        const updatedTile = { ...tile, town: updatedTown };
+        this.tiles.set(tileKey, updatedTile);
+        this.tileDeltaStringifyCache.invalidate(tileKey);
+        this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: `population-growth-tick:${tileKey}`,
+          playerId: player.id,
+          tileDeltas: [this.tileDeltaFromState(updatedTile)]
+        });
+
+        // Update the tier index when the tier changed.
+        if (nextTier !== town.populationTier) {
+          // Direct map update intentional — replaceTileState side-effects (planner/anchor
+          // index refresh) are ownership-driven and are no-ops for tier-only changes.
+          summary.ownedTownTierByTile.set(tileKey, nextTier);
+        }
+
+        dirtyPlayerIds.add(player.id);
+      }
+    }
+
+    // Invalidate economy caches once per player — population affects goldPerMinute.
+    for (const playerId of dirtyPlayerIds) {
+      this.economySnapshotCacheByPlayer.delete(playerId);
+      this.tileYieldContextCacheByPlayer.delete(playerId);
+    }
   }
 
   tickShardRain(nowMs: number = this.now()): void {
@@ -1826,8 +2056,21 @@ export class SimulationRuntime {
     let economyContext: RuntimeTileYieldEconomyContext | undefined;
     // Use yield-bearing index to skip plain settled tiles that produce nothing.
     // Sort for deterministic drain order — same as the old full-territory sort.
+    // The sorted array is cached (sortedYieldBearingKeysByOwner) and invalidated
+    // only when the underlying set changes, avoiding O(n log n) spread+sort
+    // on every tick for players whose yield-bearing set is stable.
     const yieldBearingSet = this.yieldBearingTilesByOwner.get(player.id);
-    const tileKeys = yieldBearingSet ? [...yieldBearingSet].sort() : [];
+    let tileKeys: readonly string[];
+    if (!yieldBearingSet || yieldBearingSet.size === 0) {
+      tileKeys = [];
+    } else {
+      let cached = this.sortedYieldBearingKeysByOwner.get(player.id);
+      if (!cached) {
+        cached = [...yieldBearingSet].sort();
+        this.sortedYieldBearingKeysByOwner.set(player.id, cached);
+      }
+      tileKeys = cached;
+    }
     const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
     // Collect anchor updates locally and emit ONE batch event at the end of
     // the loop. Pre-batch, each updated tile fired a TILE_YIELD_ANCHOR_UPDATED
@@ -2311,11 +2554,12 @@ export class SimulationRuntime {
     let set = this.yieldBearingTilesByOwner.get(ownerId);
     if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(ownerId, set); }
     set.add(tileKey);
+    this.sortedYieldBearingKeysByOwner.delete(ownerId);
   }
 
   private removeYieldBearingTileFromOwnerIndex(tileKey: string, ownerId: string): void {
     const set = this.yieldBearingTilesByOwner.get(ownerId);
-    if (set) set.delete(tileKey);
+    if (set) { set.delete(tileKey); this.sortedYieldBearingKeysByOwner.delete(ownerId); }
   }
 
   private refreshYieldBearingIndexForTile(
@@ -2522,6 +2766,7 @@ export class SimulationRuntime {
     if (summary.territoryTileKeys.size <= 0) {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
       this.aiSpatialFocusByPlayer.delete(playerId);
+      this.visionExpansionCache.invalidate(playerId);
       this.frontierDecayChangedByOwner.delete(playerId);
       this.frontierDecayExpiredByOwner.delete(playerId);
     }
@@ -2694,7 +2939,7 @@ export class SimulationRuntime {
             ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
           }))
           .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
-        activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+        activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -2946,33 +3191,40 @@ export class SimulationRuntime {
     terrainEpoch: number;
   } {
     return {
-      tiles: [...this.tiles.values()]
-        .map((tile) => {
+      // Single-pass pre-allocated tile projection.  Avoids:
+      //   1. [...this.tiles.values()] spread (O(N) intermediate array)
+      //   2. .map() (second O(N) intermediate array)
+      //   3. 14 conditional spread expressions per tile (each allocates a
+      //      temporary object just to be immediately merged and discarded)
+      // Result is sorted in place; byte-for-byte identical to the old output.
+      tiles: (() => {
+        const result = new Array(this.tiles.size) as Array<ReturnType<SimulationRuntime["exportState"]>["tiles"][number]>;
+        let i = 0;
+        for (const tile of this.tiles.values()) {
           const tileKey = simulationTileKey(tile.x, tile.y);
           const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
-          return {
-            x: tile.x,
-            y: tile.y,
-            terrain: tile.terrain,
-            ...(tile.resource ? { resource: tile.resource } : {}),
-            ...(tile.dockId ? { dockId: tile.dockId } : {}),
-            ...(cached.shardSiteJson ? { shardSiteJson: cached.shardSiteJson } : {}),
-            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-            ...(cached.townJson ? { townJson: cached.townJson } : {}),
-            ...(tile.town?.type ? { townType: tile.town.type } : {}),
-            ...(tile.town?.name ? { townName: tile.town.name } : {}),
-            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-            ...(cached.fortJson ? { fortJson: cached.fortJson } : {}),
-            ...(cached.observatoryJson ? { observatoryJson: cached.observatoryJson } : {}),
-            ...(cached.siegeOutpostJson ? { siegeOutpostJson: cached.siegeOutpostJson } : {}),
-            ...(cached.economicStructureJson ? { economicStructureJson: cached.economicStructureJson } : {}),
-            ...(cached.sabotageJson ? { sabotageJson: cached.sabotageJson } : {})
-          };
-        })
-        .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
+          const entry: ReturnType<SimulationRuntime["exportState"]>["tiles"][number] = { x: tile.x, y: tile.y, terrain: tile.terrain };
+          if (tile.resource) entry.resource = tile.resource;
+          if (tile.dockId) entry.dockId = tile.dockId;
+          if (cached.shardSiteJson) entry.shardSiteJson = cached.shardSiteJson;
+          if (tile.ownerId) entry.ownerId = tile.ownerId;
+          if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
+          if (typeof tile.frontierDecayAt === "number") (entry as Record<string, unknown>)["frontierDecayAt"] = tile.frontierDecayAt;
+          if (tile.frontierDecayKind) (entry as Record<string, unknown>)["frontierDecayKind"] = tile.frontierDecayKind;
+          if (cached.townJson) entry.townJson = cached.townJson;
+          if (tile.town?.type) entry.townType = tile.town.type;
+          if (tile.town?.name) entry.townName = tile.town.name;
+          if (tile.town?.populationTier) entry.townPopulationTier = tile.town.populationTier;
+          if (cached.fortJson) entry.fortJson = cached.fortJson;
+          if (cached.observatoryJson) entry.observatoryJson = cached.observatoryJson;
+          if (cached.siegeOutpostJson) entry.siegeOutpostJson = cached.siegeOutpostJson;
+          if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
+          if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
+          result[i++] = entry;
+        }
+        result.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+        return result;
+      })(),
       players: [...this.players.values()]
         .map((player) => {
           this.applyManpowerRegen(player);
@@ -3005,7 +3257,7 @@ export class SimulationRuntime {
       pendingSettlements: [...this.pendingSettlementsByTile.values()]
         .map((settlement) => ({ ...settlement }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -3036,7 +3288,10 @@ export class SimulationRuntime {
       docks: this.docks,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
       summaryForPlayer: (visiblePlayerId) => this.summaryForPlayer(visiblePlayerId),
-      applyManpowerRegen: (player) => this.applyManpowerRegen(player)
+      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
+      visionExpansionCache: this.visionExpansionCache,
+      tileCollectionVersionForPlayer: (visiblePlayerId) =>
+        this.plannerPlayerTileCollectionVersionByPlayer.get(visiblePlayerId) ?? 0
     });
   }
 
@@ -3195,7 +3450,7 @@ export class SimulationRuntime {
       pendingSettlements: [...this.pendingSettlementsByTile.values()]
         .map((settlement) => ({ ...settlement }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -3314,7 +3569,7 @@ export class SimulationRuntime {
       pendingSettlements: [...this.pendingSettlementsByTile.values()]
         .map((settlement) => ({ ...settlement }))
         .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+      activeLocks: [...this.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
           playerId: lock.playerId,
@@ -3438,9 +3693,11 @@ export class SimulationRuntime {
   private incomePerMinuteForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     if (!player) return 0;
-    return buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(playerId), this.tiles, {
-      dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    }).incomePerMinute;
+    // Route through cachedEconomySnapshot — the cache is maintained
+    // incrementally by replaceTileState (O(1) per tile mutation) so this
+    // returns a stale-free result without rebuilding the full O(settled-tiles)
+    // snapshot on every call. The full rebuild only fires on cache miss.
+    return this.cachedEconomySnapshot(player).incomePerMinute;
   }
 
   private hasActiveSettlementTownForPlayer(playerId: string): boolean {
@@ -3880,6 +4137,7 @@ export class SimulationRuntime {
     }
     this.locksByTile.set(lock.originKey, lock);
     this.locksByTile.set(lock.targetKey, lock);
+    this.locksByCommandId.set(lock.commandId, lock);
     this.commandTrace?.({
       phase: "frontier_accept",
       commandId: command.commandId,
@@ -7154,6 +7412,7 @@ export class SimulationRuntime {
     if (!lock || lock.playerId !== playerId || lock.actionType !== "ATTACK") return cancelled;
     this.locksByTile.delete(lock.originKey);
     this.locksByTile.delete(lock.targetKey);
+    this.locksByCommandId.delete(lock.commandId);
     cancelled.push(lock.commandId);
     return cancelled;
   }
@@ -7841,6 +8100,7 @@ export class SimulationRuntime {
     for (const lock of activeLocks) {
       this.locksByTile.delete(lock.originKey);
       this.locksByTile.delete(lock.targetKey);
+      this.locksByCommandId.delete(lock.commandId);
     }
 
     this.emitEvent({
@@ -7995,6 +8255,12 @@ export class SimulationRuntime {
     // the surviving key kept playerId in the planner's active-lock set.
     if (originMatches) this.locksByTile.delete(lock.originKey);
     if (targetMatches) this.locksByTile.delete(lock.targetKey);
+    // This is the terminal handler for THIS lock — retire its commandId index
+    // entry whether or not both sides still matched. On partial mismatch the
+    // surviving tile key was just deleted above, leaving the old lock with zero
+    // locksByTile entries; if we returned without this delete, the defunct lock
+    // would leak into exportState().activeLocks (derived from locksByCommandId).
+    this.locksByCommandId.delete(lock.commandId);
     // Partial / no match means a later command already replaced this lock's
     // slot on at least one tile — that command will (or did) emit its own
     // COMBAT_RESOLVED. Don't double-emit or re-apply tile state.

@@ -45,6 +45,7 @@ import { createStartupReplayCompactionRunner } from "./startup-replay-compaction
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { personalizeSeasonVictoryObjectives } from "./personalized-season-victory.js";
 import { laneForCommand } from "./command-lane.js";
+import { createAiBudgetTracker } from "./ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "./metrics.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import { createSeasonSummaryStore } from "./season-summary-store-factory.js";
@@ -256,6 +257,7 @@ type SimulationServiceOptions = {
   systemTickMs?: number;
   globalStatusBroadcastDebounceMs?: number;
   systemPlayerIds?: string[];
+  nonCompetitivePlayerIds?: ReadonlySet<string>;
   startupRecoveryTimeoutMs?: number;
   allowSeedRecoveryFallback?: boolean;
   requireDurableStartupState?: boolean;
@@ -546,6 +548,7 @@ const normalizeAutopilotEnabled = (value: boolean | string | number | undefined)
 
 export const createSimulationService = async (options: SimulationServiceOptions = {}) => {
   const log = options.log ?? console;
+  const nonCompetitivePlayerIds = options.nonCompetitivePlayerIds;
   const aiAutopilotEnabled = normalizeAutopilotEnabled(options.enableAiAutopilot as boolean | string | number | undefined);
   const systemAutopilotEnabled = normalizeAutopilotEnabled(
     options.enableSystemAutopilot as boolean | string | number | undefined
@@ -709,7 +712,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       seasonState: bootstrap.seasonState,
       runtimeState: bootstrapRuntime.exportState(),
       onlinePlayers: 0,
-      updatedAt: bootstrap.seasonState.startedAt
+      updatedAt: bootstrap.seasonState.startedAt,
+      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
     await seasonSummaryStore.bootstrapSeason({
       snapshotSections: {
@@ -1140,6 +1144,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
   let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined;
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
+  let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -1171,7 +1176,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {})
+      ...(respawnNotice ? { respawnNotice } : {}),
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     });
     if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
     recordSnapshotDiagnostics(playerId, snapshot, {
@@ -1213,7 +1219,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {})
+      ...(respawnNotice ? { respawnNotice } : {}),
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     });
     if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
     recordSnapshotDiagnostics(playerId, snapshot, {
@@ -1275,7 +1282,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       runtimeState,
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
-      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1291,7 +1299,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
-            acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+            acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+            ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
           })
         : {
             ...baseSummary,
@@ -1345,7 +1354,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
         const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState, undefined, {
-          acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+          acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+          ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
         });
         const playerWorldStatus = {
           ...worldStatus,
@@ -1432,10 +1442,45 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     buildNextClientSeqByPlayer(recoveredCommands, playerIds);
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
-  const aiShouldRun = () =>
-    !persistenceQueue.isDegraded() &&
-    persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
-    latestEventLoopLagMs <= aiMaxEventLoopLagMs;
+
+  // Layer 2: rolling time-budget tracker — caps AI work to 200ms per 1s window.
+  const aiBudgetTracker = createAiBudgetTracker();
+
+  // Layer 3: event-loop-lag observer. Uses hrtime to detect when the sim
+  // main thread is too busy to run AI on schedule.
+  let lastAiShouldRunHr = process.hrtime.bigint();
+  let aiShouldRunFirstCall = true;
+  const baseAiTickMs = options.aiTickMs ?? 250;
+
+  const aiShouldRun = () => {
+    const hrNow = process.hrtime.bigint();
+    if (aiShouldRunFirstCall) {
+      aiShouldRunFirstCall = false;
+      lastAiShouldRunHr = hrNow;
+    } else {
+      const gapMs = Number(hrNow - lastAiShouldRunHr) / 1e6;
+      lastAiShouldRunHr = hrNow;
+      // Only flag loop lag when tick is at or near the base interval.
+      // When adaptive backoff is active (gap > baseInterval * 1.5),
+      // the adaptive throttle already handles the load — skip the check.
+      if (gapMs > baseAiTickMs + 20 && gapMs < baseAiTickMs * 1.5) {
+        simulationMetrics.incrementSimAiTickThrottled("loop_lag");
+        return false;
+      }
+    }
+
+    if (!aiBudgetTracker.available()) {
+      simulationMetrics.incrementSimAiTickThrottled("budget");
+      return false;
+    }
+
+    return (
+      !persistenceQueue.isDegraded() &&
+      persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
+      latestEventLoopLagMs <= aiMaxEventLoopLagMs
+    );
+  };
+
   const systemShouldRun = () =>
     !persistenceQueue.isDegraded() &&
     persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
@@ -1538,6 +1583,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             },
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+              aiBudgetTracker.recordWork(durationMs);
+              simulationMetrics.setSimAiBudgetUsedMs(aiBudgetTracker.usedMs());
+            },
+            onThrottle: (reason) => {
+              simulationMetrics.incrementSimAiTickThrottled(reason);
+            },
+            onIntervalChange: (intervalMs) => {
+              simulationMetrics.setSimAiCurrentTickIntervalMs(intervalMs);
             },
             onSlowTick: (sample) => {
               // Rare-event diagnostic: a single ai tick that crossed the
@@ -1612,6 +1665,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               }
             }
           });
+      simulationMetrics.setSimAiCurrentTickIntervalMs(options.aiTickMs ?? 250);
     }
     if (systemAutopilotEnabled) {
       systemCommandProducer = useAiWorker
@@ -1832,7 +1886,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         seasonState: bootstrap.seasonState,
         runtimeState: nextRuntime.exportState(),
         onlinePlayers: 0,
-        updatedAt: bootstrap.seasonState.startedAt
+        updatedAt: bootstrap.seasonState.startedAt,
+        ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
       });
       await seasonSummaryStore.startNextSeason({
         archiveSummary,
@@ -2324,6 +2379,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "tile shedding tick failed");
         }
       }, 60_000);
+      populationGrowthTicker = setInterval(() => {
+        try {
+          mainThreadTasks.trackSync("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
+        } catch (error) {
+          log.error({ err: error }, "population growth tick failed");
+        }
+      }, 60_000);
       territoryAutomationTicker = setInterval(() => {
         try {
           mainThreadTasks.trackSync("tick_territory_automation", undefined, () => runtime.tickTerritoryAutomation(Date.now()));
@@ -2548,6 +2610,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (tileSheddingTicker) clearInterval(tileSheddingTicker);
       if (territoryAutomationTicker) clearInterval(territoryAutomationTicker);
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
+      if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       gcObserver?.disconnect();
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
