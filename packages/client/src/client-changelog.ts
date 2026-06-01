@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.30.3",
+  version: "2026.06.01.1",
   title: "What's New",
-  summary: "Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist. Income multiplier and advanced converter display fixes.",
+  summary: "Client now backs off on SERVER_BUSY. Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist. Income multiplier and advanced converter display fixes.",
   entries: [
+    {
+      introducedIn: "2026.06.01.1",
+      title: "Client backs off when the server is busy",
+      why: "The gateway now rejects auth with SERVER_BUSY when too many players are connecting at once. Without this change, the client treated SERVER_BUSY as a fatal error and stopped retrying, which made the reconnection cascade worse.",
+      changes: [
+        "SERVER_BUSY auth errors now flow into the existing reconnect backoff (exponential with jitter), same as SERVER_STARTING.",
+        "No new backoff logic — the existing scheduleAuthReconnect path handles the retry spacing."
+      ]
+    },
     {
       introducedIn: "2026.05.30.3",
       title: "Manpower regen slowdown now uses one runtime source",
