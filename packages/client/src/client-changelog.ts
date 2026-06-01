@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.4",
+  version: "2026.06.01.5",
   title: "What's New",
-  summary: "Aether Lance now has a focused 3D cast strike, alongside the Aether Bridge pylon and observatory cooldown improvements.",
+  summary: "Retort Transmutation and Aether Lance now have one-shot 3D cast feedback, alongside the Aether Bridge pylon and observatory cooldown improvements.",
   entries: [
+    {
+      introducedIn: "2026.06.01.5",
+      title: "Retort Transmutation gets a 3D recast flourish",
+      why: "Retort Transmutation changes a resource tile, but the 3D map did not show the alchemical cast moment when the player triggered it.",
+      changes: [
+        "Casting a retort recast now triggers an alchemical transmutation circle, glass retort glow, orbiting motes, target-resource core, and fading ground wash on the selected tile.",
+        "The effect is client-only and one-shot, so it provides immediate cast feedback without adding synced persistent state."
+      ]
+    },
     {
       introducedIn: "2026.06.01.4",
       title: "Aether Lance gets a focused 3D strike",
