@@ -28,7 +28,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       title: "Aether Bridge raises 3D anchor pylons",
       why: "In the 3D map the bridge only had flat painted anchor marks, which read poorly in perspective and made the span feel like a 2D doodle rather than a built structure.",
       changes: [
-        "Each end of an active Aether Bridge now raises a glowing crystal pylon — twin faceted spires around a pulsing energy core — that stands on the coast in 3D.",
+        "Each end of an active Aether Bridge now raises a brass-and-copper pylon — riveted iron base, twin towers, a turning cog, and a glowing aether core — that stands on the coast in 3D.",
         "The flat anchor glyphs are kept for the 2D map; the 3D map uses the new pylons instead."
       ]
     },
