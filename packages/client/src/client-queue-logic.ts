@@ -420,7 +420,7 @@ export const requestSettlement = (
     developmentSlotReason: (summary: DevelopmentSlotSummary) => string;
     sendGameMessage: (payload: unknown) => boolean;
     syncOptimisticSettlementTile: (x: number, y: number, awaitingServerConfirm: boolean) => void;
-    opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean };
+    opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean; forceQueue?: boolean };
   }
 ): boolean => {
   const tileKey = deps.keyFor(x, y);
@@ -446,8 +446,11 @@ export const requestSettlement = (
   const slots = deps.developmentSlotSummary();
   const canQueue = deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue;
   // FIFO: if anything is already waiting, this new click goes to the end of the line
-  // rather than racing into a slot that opened mid-dispatch.
-  if (canQueue && state.developmentQueue.length > 0) {
+  // rather than racing into a slot that opened mid-dispatch. Bulk dispatchers
+  // (e.g. settle-connected) pass forceQueue so every tile enters the queue and the
+  // dispatcher paces them one slot at a time, instead of firing N SETTLEs at once
+  // against a server slot count that hasn't yet caught up with the in-flight sends.
+  if (canQueue && (deps.opts?.forceQueue || state.developmentQueue.length > 0)) {
     return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
   }
   if (slots.available <= 0) {

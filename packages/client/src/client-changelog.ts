@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.1",
+  version: "2026.06.01.2",
   title: "What's New",
-  summary: "Client now backs off on SERVER_BUSY. Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist. Income multiplier and advanced converter display fixes.",
+  summary: "Settle Connected no longer floods development slots. Client now backs off on SERVER_BUSY. Manpower regen constants aligned. Barbarian counter-captures stay settled.",
   entries: [
+    {
+      introducedIn: "2026.06.01.2",
+      title: "Settle Connected no longer fails with \"development slots are busy\"",
+      why: "Settle Connected sent every connected tile's SETTLE message in one synchronous burst. The development slot count only updates when the server replies, so all the messages raced against a stale count, the server accepted the first few, and the rest bounced back as \"development slots are busy\". It only misbehaved when slots were free — once a queue already existed, every tile correctly went through the paced queue.",
+      changes: [
+        "Settle Connected now routes every tile through the development queue, which dispatches them one slot at a time as the server confirms each settlement — no more rejected overflow.",
+        "Single-tile settling is unchanged: it still starts immediately into a free slot."
+      ]
+    },
     {
       introducedIn: "2026.06.01.1",
       title: "Client backs off when the server is busy",

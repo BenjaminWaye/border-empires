@@ -435,7 +435,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const requestSettlement = (
     x: number,
     y: number,
-    opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean }
+    opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean; forceQueue?: boolean }
   ): boolean =>
     requestSettlementFromModule(state, x, y, {
       keyFor,
@@ -1139,8 +1139,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       for (const k of keys) {
         const t = state.tiles.get(k);
         if (!t) { skipped += 1; continue; }
-        if (requestSettlement(t.x, t.y)) queued += 1; else skipped += 1;
+        // forceQueue so every tile enters the development queue; the dispatcher
+        // then paces them one slot at a time. Sending each directly would fire all
+        // N SETTLEs synchronously against a server slot count that hasn't caught up,
+        // so the overflow comes back as "development slots are busy".
+        if (requestSettlement(t.x, t.y, { forceQueue: true })) queued += 1; else skipped += 1;
       }
+      if (queued > 0) processDevelopmentQueue();
       state.selected = origSelected;
       pushFeed(
         queued > 0
