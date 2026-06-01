@@ -1,20 +1,21 @@
 #!/usr/bin/env node
-// SQLite-aware replacement for the deleted Postgres `clone-snapshot` script.
+// Downloads a consistent SQLite snapshot from a live Fly app via server-side
+// VACUUM INTO, producing a single clean file with no WAL/SHM coordination.
 //
-// Downloads the live combined-stack SQLite database (and its WAL/SHM
-// sidecars) from the prod Fly app into a local clone directory, so the
-// candidate stack can boot against a real prod-shaped world for
-// `pnpm ops:prod-shape:gate`.
+// Previous approach pulled the main .db + .db-wal + .db-shm sequentially via
+// SFTP. That is fundamentally broken against a live WAL-mode database — the
+// main file lands torn because the writer is mid-transaction during every
+// pull. Verified 2026-05-30: PRAGMA integrity_check returned btree errors,
+// .recover dropped the 28MB snapshot_payload BLOBs, making the clone unusable
+// for the prod-shape gate.
+//
+// Fix: run VACUUM INTO server-side (atomic, single-file, defragmented), then
+// SFTP pull the one output file. VACUUM INTO holds a read lock for ~30-60s on
+// a ~1GB DB; writes queue during that window — acceptable for a pre-deploy
+// gate that runs once per deploy.
 //
 // The 2026-05-18 v6 outage is the reason the gate exists at all — per-tick
 // AI command paths only fail under accumulated prod-shaped state.
-//
-// Why all three files: the prod database runs in WAL mode (verified via
-// `ls /data/border-empires.db*`). A consistent snapshot needs the main
-// file + the WAL (in-flight transactions) + the SHM (shared-memory index).
-// SQLite replays the WAL on open, so opening the local clone yields a
-// consistent point-in-time view even though the three files are pulled
-// sequentially. For a load-shape test that fidelity is sufficient.
 //
 // Usage:
 //   pnpm ops:prod-shape:clone-snapshot
@@ -26,13 +27,16 @@
 // gate. The intended follow-on flow is documented in docs/agents/deploys.md.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 const DEFAULT_APP = "border-empires-combined";
 const REMOTE_DB_PATH = "/data/border-empires.db";
-const REMOTE_WAL_PATH = "/data/border-empires.db-wal";
-const REMOTE_SHM_PATH = "/data/border-empires.db-shm";
+const REMOTE_SNAPSHOT_PATH = "/tmp/border-empires.snapshot.db";
+// .cjs forces CommonJS so `require("node:sqlite")` works regardless of
+// whether the remote /tmp has a package.json with "type": "module".
+const REMOTE_SNAPSHOT_SCRIPT = "/tmp/border-empires-snapshot.cjs";
 
 const parseArgs = (argv) => {
   const args = { force: false };
@@ -88,6 +92,20 @@ const requireFlyAuth = () => {
   return result.stdout.trim();
 };
 
+// Runs a command on the remote Fly app via `flyctl ssh console -C`.
+// Returns { ok: true, stdout } or { ok: false, stderr, status }.
+const sshExec = (app, command) => {
+  const result = spawnSync(
+    "flyctl",
+    ["ssh", "console", "-a", app, "-C", command],
+    { encoding: "utf8" }
+  );
+  if (result.status !== 0) {
+    return { ok: false, stderr: result.stderr, status: result.status };
+  }
+  return { ok: true, stdout: result.stdout };
+};
+
 // Returns size in bytes of remote file, or null if absent.
 const remoteFileSize = (app, remotePath) => {
   const result = spawnSync(
@@ -102,8 +120,6 @@ const remoteFileSize = (app, remotePath) => {
 
 const sftpGet = (app, remotePath, localPath) => {
   console.log(`  → ${remotePath} -> ${localPath}`);
-  // flyctl ssh sftp get writes the file to the current cwd by default if
-  // [local-path] is a directory; pass an explicit file path to control name.
   const result = spawnSync(
     "flyctl",
     ["ssh", "sftp", "get", "-a", app, remotePath, localPath],
@@ -129,6 +145,78 @@ const formatBytes = (n) => {
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 };
 
+// Run VACUUM INTO on the remote server to produce a consistent snapshot.
+// Returns { ok: true } on success, or throws on failure.
+//
+// Writes a self-cleaning Node script locally, uploads via SFTP, and runs it
+// with a plain `node /tmp/script.cjs` command (no shell metacharacters).
+// flyctl ssh console -C does NOT invoke a shell — it passes arguments directly
+// to SSH exec, so `;`, `&&`, `$?` would be literal characters, not operators.
+// The script cleans up after itself with fs.unlinkSync(__filename).
+const createServerSnapshot = (app) => {
+  // Self-cleaning: unlinks itself in finally so the remote `node` invocation
+  // is the only command needed — no shell-dependent cleanup chain.
+  const nodeScript = [
+    'const{DatabaseSync}=require("node:sqlite")',
+    `const db=new DatabaseSync("${REMOTE_DB_PATH}")`,
+    `try{db.exec(\`VACUUM INTO '${REMOTE_SNAPSHOT_PATH}'\`);db.close();console.log("ok")}finally{try{require("fs").unlinkSync(__filename)}catch{}}`
+  ].join(";");
+
+  // Write locally, upload via SFTP to avoid all shell escaping.
+  const localScript = resolve(tmpdir(), `be-snapshot-${Date.now()}.cjs`);
+  writeFileSync(localScript, nodeScript);
+
+  try {
+    // Upload script to server
+    console.log(`[clone-snapshot] uploading snapshot script to ${app}`);
+    const putResult = spawnSync("flyctl", [
+      "ssh", "sftp", "put", "-a", app,
+      localScript, REMOTE_SNAPSHOT_SCRIPT
+    ], { stdio: "inherit" });
+    if (putResult.status !== 0) {
+      throw new Error(`SFTP upload failed (exit ${putResult.status})`);
+    }
+
+    // Simple command: no `;`, no `&&`, no shell variables.
+    // flyctl ssh console -C does not invoke a shell — just SSH exec.
+    console.log(`[clone-snapshot] creating server-side snapshot via VACUUM INTO (this may take 30-60s on a large database)`);
+    const result = sshExec(app, `node ${REMOTE_SNAPSHOT_SCRIPT}`);
+
+    if (!result.ok) {
+      const stderr = (result.stderr || "").trim();
+      throw new Error(
+        `VACUUM INTO failed on ${app} (exit ${result.status}): ${stderr || "no output"}`
+      );
+    }
+
+    // Confirm the snapshot file exists on the server.
+    const snapSize = remoteFileSize(app, REMOTE_SNAPSHOT_PATH);
+    if (snapSize === null) {
+      throw new Error(
+        `VACUUM INTO completed but ${REMOTE_SNAPSHOT_PATH} not found on ${app}`
+      );
+    }
+
+    console.log(`  Server snapshot: ${REMOTE_SNAPSHOT_PATH} (${formatBytes(snapSize)})`);
+    return { ok: true, size: snapSize };
+  } finally {
+    // Always clean up the local temp script
+    try { rmSync(localScript); } catch { /* best-effort */ }
+  }
+};
+
+// Remove server-side snapshot and temp script. Best-effort — logs a warning
+// on failure but does not throw (the local clone is already safe).
+const cleanupServerSnapshot = (app) => {
+  console.log(`[clone-snapshot] cleaning up server-side files`);
+  const result = sshExec(app, `rm -f ${REMOTE_SNAPSHOT_PATH} ${REMOTE_SNAPSHOT_SCRIPT}`);
+  if (!result.ok) {
+    console.warn(`  Cleanup warning: rm failed (exit ${result.status}) — files may remain on ${app}`);
+    return;
+  }
+  console.log(`  Removed ${REMOTE_SNAPSHOT_PATH}`);
+};
+
 const main = () => {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -151,35 +239,39 @@ const main = () => {
   }
   mkdirSync(dest, { recursive: true });
 
-  console.log("[clone-snapshot] sizing remote files");
+  console.log("[clone-snapshot] sizing remote database");
   const dbSize = remoteFileSize(app, REMOTE_DB_PATH);
-  const walSize = remoteFileSize(app, REMOTE_WAL_PATH);
-  const shmSize = remoteFileSize(app, REMOTE_SHM_PATH);
   if (dbSize === null) {
     console.error(`remote ${REMOTE_DB_PATH} not found on ${app} — wrong app or volume not mounted?`);
     process.exit(1);
   }
-  console.log(
-    `  ${REMOTE_DB_PATH}     ${formatBytes(dbSize)}\n` +
-      `  ${REMOTE_WAL_PATH} ${formatBytes(walSize)}\n` +
-      `  ${REMOTE_SHM_PATH} ${formatBytes(shmSize)}`
-  );
+  console.log(`  ${REMOTE_DB_PATH}  ${formatBytes(dbSize)}`);
 
-  console.log("[clone-snapshot] downloading (this may take a few minutes on a multi-hundred-MB db)");
-  const localDb = resolve(dest, "border-empires.db");
-  const localWal = resolve(dest, "border-empires.db-wal");
-  const localShm = resolve(dest, "border-empires.db-shm");
-  sftpGet(app, REMOTE_DB_PATH, localDb);
-  // WAL/SHM are best-effort: a freshly checkpointed db may not have them.
+  // Create consistent snapshot server-side, then pull it.
   try {
-    if (walSize !== null) sftpGet(app, REMOTE_WAL_PATH, localWal);
+    createServerSnapshot(app);
   } catch (error) {
-    console.warn(`  WAL pull failed (ok if writer just checkpointed): ${error.message}`);
+    console.error(`[clone-snapshot] ${error.message}`);
+    // Try to clean up server-side snapshot even on failure.
+    try { cleanupServerSnapshot(app); } catch { /* best-effort */ }
+    process.exit(1);
   }
+
+  console.log("[clone-snapshot] downloading snapshot");
+  const localDb = resolve(dest, "border-empires.db");
   try {
-    if (shmSize !== null) sftpGet(app, REMOTE_SHM_PATH, localShm);
+    sftpGet(app, REMOTE_SNAPSHOT_PATH, localDb);
   } catch (error) {
-    console.warn(`  SHM pull failed (ok if writer just checkpointed): ${error.message}`);
+    console.error(`[clone-snapshot] ${error.message}`);
+    try { cleanupServerSnapshot(app); } catch { /* best-effort */ }
+    process.exit(1);
+  }
+
+  // Clean up server-side snapshot. Best-effort — the local file is safe.
+  try {
+    cleanupServerSnapshot(app);
+  } catch (error) {
+    console.warn(`[clone-snapshot] server cleanup threw: ${error.message}`);
   }
 
   const localSize = statSync(localDb).size;

@@ -16,9 +16,10 @@ Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 Production deploys must prove the candidate can handle a live-shaped world before any remote prod mutation happens. The gate must run against an isolated local clone of the prod SQLite database, not live production.
 
 ```bash
-# 1. Pull a snapshot of the live prod SQLite db (~1 GB; takes a few minutes).
-#    Writes border-empires.db + .db-wal + .db-shm into a timestamped dir
-#    under ./.prod-shape-clones/. Requires `flyctl auth login`.
+# 1. Pull a consistent snapshot of the live prod SQLite db.
+#    Runs VACUUM INTO server-side (atomic, single-file, ~30-60s read lock),
+#    then SFTP-pulls the one output file into a timestamped dir under
+#    ./.prod-shape-clones/. Requires `flyctl auth login`.
 pnpm ops:prod-shape:clone-snapshot
 # (or --app border-empires-combined-staging to clone staging instead)
 
@@ -41,7 +42,7 @@ PROD_SHAPE_GATE_RESULT_JSON="docs/load-results/prod-shape-$(git rev-parse --shor
   pnpm ops:prod-shape:verify --target-sha "$(git rev-parse HEAD)"
 ```
 
-The clone script pulls WAL and SHM sidecars alongside the main db file because the live database runs in WAL mode; SQLite replays the WAL on open so the local clone lands at a consistent point in time. Cloned snapshots are git-ignored under `.prod-shape-clones/`.
+The clone script runs `VACUUM INTO` on the remote server to produce a single consistent, defragmented SQLite file — no WAL/SHM coordination needed. The `VACUUM INTO` holds a read lock for ~30-60s on a ~1GB database; the simulation's writes queue during that window and resume after (no user-visible impact). Server-side temp files are cleaned up after the SFTP pull. Cloned snapshots are git-ignored under `.prod-shape-clones/`.
 
 `pnpm deploy:prod:all` runs the same verification internally. The result must be `ok: true`, recent by default within 6 hours, and stamped with the exact deploy SHA.
 
