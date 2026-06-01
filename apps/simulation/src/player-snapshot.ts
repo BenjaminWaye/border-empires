@@ -25,6 +25,7 @@ type BuildOptions = {
   worldStatusRuntimeState?: RuntimeState;
   seasonState?: PlayerSubscriptionSnapshot["season"];
   respawnNotice?: PlayerRespawnNotice;
+  nonCompetitivePlayerIds?: ReadonlySet<string>;
 };
 
 export const buildPlayerSubscriptionSnapshot = (
@@ -290,7 +291,8 @@ export const buildPlayerSubscriptionSnapshot = (
           worldStatus: buildWorldStatusSnapshot(
             playerId,
             options?.worldStatusRuntimeState ?? runtimeState,
-            fallbackTiles
+            fallbackTiles,
+            options?.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : undefined
           )
         }),
     ...(options?.seasonState ? { season: options.seasonState } : {}),
@@ -573,7 +575,8 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
           worldStatus: buildWorldStatusSnapshot(
             playerId,
             options?.worldStatusRuntimeState ?? runtimeState,
-            fallbackTiles
+            fallbackTiles,
+            options?.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : undefined
           )
         }),
     ...(options?.seasonState ? { season: options.seasonState } : {}),

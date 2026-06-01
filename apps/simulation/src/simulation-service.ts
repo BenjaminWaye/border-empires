@@ -256,6 +256,7 @@ type SimulationServiceOptions = {
   systemTickMs?: number;
   globalStatusBroadcastDebounceMs?: number;
   systemPlayerIds?: string[];
+  nonCompetitivePlayerIds?: ReadonlySet<string>;
   startupRecoveryTimeoutMs?: number;
   allowSeedRecoveryFallback?: boolean;
   requireDurableStartupState?: boolean;
@@ -546,6 +547,7 @@ const normalizeAutopilotEnabled = (value: boolean | string | number | undefined)
 
 export const createSimulationService = async (options: SimulationServiceOptions = {}) => {
   const log = options.log ?? console;
+  const nonCompetitivePlayerIds = options.nonCompetitivePlayerIds;
   const aiAutopilotEnabled = normalizeAutopilotEnabled(options.enableAiAutopilot as boolean | string | number | undefined);
   const systemAutopilotEnabled = normalizeAutopilotEnabled(
     options.enableSystemAutopilot as boolean | string | number | undefined
@@ -709,7 +711,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       seasonState: bootstrap.seasonState,
       runtimeState: bootstrapRuntime.exportState(),
       onlinePlayers: 0,
-      updatedAt: bootstrap.seasonState.startedAt
+      updatedAt: bootstrap.seasonState.startedAt,
+      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
     await seasonSummaryStore.bootstrapSeason({
       snapshotSections: {
@@ -1171,7 +1174,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {})
+      ...(respawnNotice ? { respawnNotice } : {}),
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     });
     if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
     recordSnapshotDiagnostics(playerId, snapshot, {
@@ -1213,7 +1217,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {})
+      ...(respawnNotice ? { respawnNotice } : {}),
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     });
     if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
     recordSnapshotDiagnostics(playerId, snapshot, {
@@ -1275,7 +1280,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       runtimeState,
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
-      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+      ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1291,7 +1297,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             runtimeState,
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
-            acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+            acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+            ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
           })
         : {
             ...baseSummary,
@@ -1345,7 +1352,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
         const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState, undefined, {
-          acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+          acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+          ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
         });
         const playerWorldStatus = {
           ...worldStatus,
@@ -1832,7 +1840,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         seasonState: bootstrap.seasonState,
         runtimeState: nextRuntime.exportState(),
         onlinePlayers: 0,
-        updatedAt: bootstrap.seasonState.startedAt
+        updatedAt: bootstrap.seasonState.startedAt,
+        ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
       });
       await seasonSummaryStore.startNextSeason({
         archiveSummary,
