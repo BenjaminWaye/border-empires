@@ -41,6 +41,7 @@ import { createForest } from "./client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
+import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "./client-town-growth.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
@@ -122,6 +123,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
+  const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
@@ -1129,6 +1131,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       wrapY: deps.wrapY
     });
     unfedBadgeOverlay.clear();
+    observatoryCooldownBadgeOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
@@ -1342,6 +1345,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // status differentiation can come later.
         if (tile?.observatory && terrain === "LAND") {
           structureOverlay.addInstance(x, z, surfaceY, "OBSERVATORY");
+          // Float a "recharging" badge over our own active observatory
+          // while its crystal-casting cooldown is still running, so the
+          // map shows at a glance why a cast just did nothing. Exact
+          // remaining time is in the tile-menu overview.
+          if (
+            ownerId === deps.state.me &&
+            tile.observatory.status === "active" &&
+            (tile.observatory.cooldownUntil ?? 0) > Date.now()
+          ) {
+            observatoryCooldownBadgeOverlay.addInstance(x, z, surfaceY);
+          }
         }
         // ?structuredemo=1: drop each structure kind on a fake row two
         // tiles north of the camera. Only fires when the URL flag is
@@ -1444,6 +1458,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.commit();
     roadOverlay.commit();
     unfedBadgeOverlay.commit();
+    observatoryCooldownBadgeOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -1495,6 +1510,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
     unfedBadgeOverlay.tick(nowMs);
+    observatoryCooldownBadgeOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -1591,6 +1607,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.dispose();
     roadOverlay.dispose();
     unfedBadgeOverlay.dispose();
+    observatoryCooldownBadgeOverlay.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     fortOverlay.dispose();

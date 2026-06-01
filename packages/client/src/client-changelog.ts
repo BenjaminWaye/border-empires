@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.05.30.3",
+  version: "2026.06.01.1",
   title: "What's New",
-  summary: "Manpower regen constants aligned. Barbarian counter-captures stay settled. Fort and siege tiers persist.",
+  summary: "Observatories on crystal-casting cooldown now show a floating badge and a countdown in the tile overview.",
   entries: [
+    {
+      introducedIn: "2026.06.01.1",
+      title: "Observatory crystal-cooldown is now visible",
+      why: "After casting a crystal action like Aether Bridge, the source observatory goes on cooldown, but nothing on the map or in the tile menu showed it — so a follow-up cast appeared to silently do nothing.",
+      changes: [
+        "A floating hourglass badge now hovers over your own active observatory while its crystal-casting cooldown is running.",
+        "The tile overview for an active observatory now shows a live \"Crystal casting recharging — ready in MM:SS\" countdown."
+      ]
+    },
     {
       introducedIn: "2026.05.30.3",
       title: "Manpower regen slowdown now uses one runtime source",
