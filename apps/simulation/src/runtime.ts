@@ -1461,16 +1461,30 @@ export class SimulationRuntime {
       return;
     }
 
-    // We have targets and budget — determine how to act.
-    const sweepTarget = candidates[0]!;
+    // We have targets and budget — determine how to act. Candidates are sorted
+    // nearest-first; attack the nearest one that already borders owned land
+    // (the origin must be a bordering owned tile so isFrontierAdjacent passes).
+    // Only fall back to expansion when NO candidate borders our territory, so a
+    // reachable enemy is never skipped in favour of expanding toward a closer
+    // but unreachable one.
+    const findBorderingOwned = (target: DomainTileState): DomainTileState | undefined =>
+      this.adjacentTileStates(target.x, target.y).find(
+        (candidate) =>
+          candidate.ownerId === playerId &&
+          candidate.terrain === "LAND" &&
+          !(candidate.ownershipState === "FRONTIER" && candidate.frontierDecayKind === "ENCIRCLEMENT")
+      );
 
-    // Check whether any owned tile already borders the sweep target.
-    const borderingOwned = this.adjacentTileStates(sweepTarget.x, sweepTarget.y).find(
-      (candidate) =>
-        candidate.ownerId === playerId &&
-        candidate.terrain === "LAND" &&
-        !(candidate.ownershipState === "FRONTIER" && candidate.frontierDecayKind === "ENCIRCLEMENT")
-    );
+    let attackTarget: DomainTileState | undefined;
+    let attackOrigin: DomainTileState | undefined;
+    for (const candidate of candidates) {
+      const owned = findBorderingOwned(candidate);
+      if (owned) {
+        attackTarget = candidate;
+        attackOrigin = owned;
+        break;
+      }
+    }
 
     // The fire command uses just the prefix without a suffix for the attack itself
     // (e.g. "sweep" and "lo-sweep", not "sweep-attack").
@@ -1478,9 +1492,9 @@ export class SimulationRuntime {
 
     let commandAccepted = false;
 
-    if (borderingOwned) {
+    if (attackTarget && attackOrigin) {
       // Attack from the bordering owned tile so isFrontierAdjacent passes.
-      const sweepCommandId = this.nextTerritoryAutomationCommandId(attackPrefix, playerId, simulationTileKey(sweepTarget.x, sweepTarget.y), nowMs);
+      const sweepCommandId = this.nextTerritoryAutomationCommandId(attackPrefix, playerId, simulationTileKey(attackTarget.x, attackTarget.y), nowMs);
       commandAccepted = this.handleFrontierCommand(
         {
           commandId: sweepCommandId,
@@ -1489,15 +1503,16 @@ export class SimulationRuntime {
           clientSeq: 0,
           issuedAt: nowMs,
           type: "ATTACK",
-          payloadJson: JSON.stringify({ fromX: borderingOwned.x, fromY: borderingOwned.y, toX: sweepTarget.x, toY: sweepTarget.y })
+          payloadJson: JSON.stringify({ fromX: attackOrigin.x, fromY: attackOrigin.y, toX: attackTarget.x, toY: attackTarget.y })
         },
         "ATTACK"
       );
     } else {
-      // Target doesn't border owned territory yet — expand one step toward it.
+      // No candidate borders owned territory yet — expand one step toward the
+      // nearest target.
       const step = chooseSweepExpansionStep(
         tile,
-        sweepTarget,
+        candidates[0]!,
         playerId,
         sweepRadius,
         (x, y) => this.tiles.get(simulationTileKey(x, y))

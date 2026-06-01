@@ -832,6 +832,43 @@ describe("sweep attack uses bordering owned tile as origin", () => {
     const outpost = tileSiegeOutpost(runtime, 10, 10);
     expect(outpost?.sweepBudget).toBe(SWEEP_BUDGET_CAP - SWEEP_ATTACK_COST);
   });
+
+  it("attacks a farther bordering candidate rather than expanding toward a closer non-bordering one", () => {
+    // Layout (all distances measured from the outpost at (10,10)):
+    //   (10,10) SETTLED outpost (player-1)
+    //   (11,11) SETTLED player-1 — borders enemy A at (12,12)
+    //   (8,10)  FRONTIER player-2  — enemy C, dist 2, borders NO owned tile (closer, sorts first)
+    //   (12,12) FRONTIER player-2  — enemy A, dist 2, borders (11,11) (reachable)
+    // Tie-break is x asc, so C (x=8) sorts before A (x=12): the old single-candidate
+    // logic would have expanded toward C; the fix must attack A instead.
+    const nowMs = { value: 1_000 };
+    const events: SimulationEvent[] = [];
+    const runtime = mkRuntime(
+      [
+        {
+          x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_BUDGET_CAP, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
+        },
+        { x: 11, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 8, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+        { x: 12, y: 12, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+      ],
+      ["player-1", "player-2"],
+      () => nowMs.value
+    );
+    runtime.onEvent((e) => events.push(e));
+
+    runtime.tickTerritoryAutomation(nowMs.value);
+
+    const accepted = events.filter((e) => e.eventType === "COMMAND_ACCEPTED") as Array<Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }>>;
+    expect(accepted.length).toBeGreaterThan(0);
+    // Must ATTACK the bordering enemy A (12,12) from (11,11), not EXPAND toward C.
+    expect(accepted[0]!.actionType).toBe("ATTACK");
+    expect(accepted[0]!.originX).toBe(11);
+    expect(accepted[0]!.originY).toBe(11);
+    expect(accepted[0]!.targetX).toBe(12);
+    expect(accepted[0]!.targetY).toBe(12);
+  });
 });
 
 describe("sweep expands toward target when it does not border owned territory", () => {
