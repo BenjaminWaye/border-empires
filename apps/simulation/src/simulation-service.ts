@@ -1144,6 +1144,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
   let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined;
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
+  let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
@@ -2378,6 +2379,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "tile shedding tick failed");
         }
       }, 60_000);
+      populationGrowthTicker = setInterval(() => {
+        try {
+          mainThreadTasks.trackSync("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
+        } catch (error) {
+          log.error({ err: error }, "population growth tick failed");
+        }
+      }, 60_000);
       territoryAutomationTicker = setInterval(() => {
         try {
           mainThreadTasks.trackSync("tick_territory_automation", undefined, () => runtime.tickTerritoryAutomation(Date.now()));
@@ -2602,6 +2610,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (tileSheddingTicker) clearInterval(tileSheddingTicker);
       if (territoryAutomationTicker) clearInterval(territoryAutomationTicker);
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
+      if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       gcObserver?.disconnect();
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
