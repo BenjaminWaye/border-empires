@@ -89,7 +89,8 @@ export const bootstrapSimulationProcess = async (
       ? { requireDurableStartupState: runtimeEnv.requireDurableStartupState }
       : {}),
     useAiWorker: runtimeEnv.useAiWorker,
-    ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {})
+    ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {}),
+    nonCompetitivePlayerIds: runtimeEnv.nonCompetitivePlayerIds
   });
 
   const binding = await service.start();
