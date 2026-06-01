@@ -75,6 +75,7 @@ type RuntimeState = {
     manpowerCapSnapshot?: number;
     techIds: string[];
     domainIds: string[];
+    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     vision: number;
@@ -84,7 +85,6 @@ type RuntimeState = {
     townCount?: number;
     incomePerMinute?: number;
     incomeMultiplier?: number;
-    chosenTrickleResource?: "IRON" | "CRYSTAL" | "SUPPLY";
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
   }>;
