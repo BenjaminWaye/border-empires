@@ -41,6 +41,8 @@ import { createForest } from "./client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
+import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
+import { createAetherBridgePylonOverlay } from "./client-map-3d-aether-bridge-pylon-overlay.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "./client-town-growth.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
 import { createShardOverlay } from "./client-map-3d-shard-overlay.js";
@@ -88,6 +90,7 @@ type ClientThreeTerrainRendererDeps = {
 };
 
 const MAX_VISIBLE_TILES = 14000;
+const MAX_BRIDGE_PYLONS = 16;
 const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
@@ -125,6 +128,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
+  const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
+  const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
@@ -1011,6 +1016,46 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     );
     frontierClaimPlate.visible = true;
   };
+  const aetherBridgeTileSurfaceY = (wx: number, wy: number): number => {
+    const wxNext = deps.wrapX(wx + 1);
+    const wyNext = deps.wrapY(wy + 1);
+    return (
+      (heightfield.cornerYAt(wx, wy) +
+        heightfield.cornerYAt(wxNext, wy) +
+        heightfield.cornerYAt(wx, wyNext) +
+        heightfield.cornerYAt(wxNext, wyNext)) /
+      4
+    );
+  };
+  const syncAetherBridgePylons = (nowMs: number): void => {
+    aetherBridgePylonOverlay.beginFrame();
+    const now = Date.now();
+    for (const bridge of deps.state.activeAetherBridges) {
+      if (bridge.endsAt <= now) continue;
+      const fromX = toroidDelta(deps.state.camX, bridge.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const fromZ = toroidDelta(deps.state.camY, bridge.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      const toX = toroidDelta(deps.state.camX, bridge.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const toZ = toroidDelta(deps.state.camY, bridge.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      // Rotate each pylon so its twin spires straddle the lane (the energy
+      // gate opens toward the far coast).
+      const faceAngle = Math.atan2(toX - fromX, toZ - fromZ);
+      aetherBridgePylonOverlay.place(
+        fromX,
+        aetherBridgeTileSurfaceY(bridge.from.x, bridge.from.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        fromZ,
+        faceAngle,
+        nowMs
+      );
+      aetherBridgePylonOverlay.place(
+        toX,
+        aetherBridgeTileSurfaceY(bridge.to.x, bridge.to.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        toZ,
+        faceAngle + Math.PI,
+        nowMs
+      );
+    }
+    aetherBridgePylonOverlay.endFrame();
+  };
   const writeObservatoryRangeGeometry = (
     lineMarker: LineSegments,
     fillMesh: Mesh,
@@ -1135,6 +1180,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       wrapY: deps.wrapY
     });
     unfedBadgeOverlay.clear();
+    observatoryCooldownBadgeOverlay.clear();
     dockOverlay.clear();
     shardOverlay.clear();
     waterSurface.clear();
@@ -1353,6 +1399,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // status differentiation can come later.
         if (tile?.observatory && terrain === "LAND") {
           structureOverlay.addInstance(x, z, surfaceY, "OBSERVATORY");
+          // Float a "recharging" badge over our own active observatory
+          // while its crystal-casting cooldown is still running, so the
+          // map shows at a glance why a cast just did nothing. Exact
+          // remaining time is in the tile-menu overview.
+          if (
+            ownerId === deps.state.me &&
+            tile.observatory.status === "active" &&
+            (tile.observatory.cooldownUntil ?? 0) > Date.now()
+          ) {
+            observatoryCooldownBadgeOverlay.addInstance(x, z, surfaceY);
+          }
         }
         // ?structuredemo=1: drop each structure kind on a fake row two
         // tiles north of the camera. Only fires when the URL flag is
@@ -1478,6 +1535,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.commit();
     roadOverlay.commit();
     unfedBadgeOverlay.commit();
+    observatoryCooldownBadgeOverlay.commit();
     dockOverlay.commit();
     shardOverlay.commit();
     waterSurface.commit();
@@ -1525,6 +1583,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncFrontierClaimPlate();
     syncObservatoryRangeMarkers();
     syncSweepRangeMarker();
+    syncAetherBridgePylons(nowMs);
     villageEffects.update(nowMs);
     floatingText.update(nowMs);
     crystalCastFx.update(nowMs);
@@ -1543,6 +1602,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
     unfedBadgeOverlay.tick(nowMs);
+    observatoryCooldownBadgeOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -1639,6 +1699,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.dispose();
     roadOverlay.dispose();
     unfedBadgeOverlay.dispose();
+    observatoryCooldownBadgeOverlay.dispose();
+    aetherBridgePylonOverlay.dispose();
     dockOverlay.dispose();
     shardOverlay.dispose();
     barbarianOverlay.dispose();

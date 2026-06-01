@@ -29,7 +29,6 @@ import {
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
   SETTLE_COST,
-  VISION_RADIUS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grassShadeAt,
@@ -87,13 +86,7 @@ import {
   SIPHON_SHARE,
   SYNTH_OVERLOAD_DISABLE_MS,
   SYNTH_OVERLOAD_GOLD_COST,
-  POPULATION_GROWTH_BASE_RATE,
   POPULATION_MAX,
-  SEED_GRANARY_GROWTH_MULT,
-  NEARBY_WAR_RADIUS,
-  NEARBY_WAR_PAUSE_MS,
-  LONG_PEACE_MS,
-  LONG_PEACE_GROWTH_MULT,
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
@@ -149,7 +142,6 @@ import {
   buildFedTownKeys,
   buildPlayerUpdateEconomySnapshot,
   buildStrategicProductionForSettledTiles,
-  hasSupportedStructure,
   refreshTownEconomyFields,
   type PlayerUpdateEconomySnapshot
 } from "./player-update-economy.js";
@@ -159,10 +151,10 @@ import {
   removeTileUpkeepFromCache,
   type UpkeepAccrualSnapshot
 } from "./player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
 import { capturedStructureFields } from "./capture-structures.js";
 import { createSeedWorld, simulationTileKey } from "./seed-state.js";
-import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
+import type { SimulationSnapshotSections } from "./snapshot-store.js";
 import {
   buildModBreakdownForPlayer,
   buildDomainUpdatePayload,
@@ -174,8 +166,7 @@ import {
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
   observatoryCastRadiusForPlayer,
-  recomputeMods,
-  visionRadiusBonusForPlayer
+  recomputeMods
 } from "./tech-domain-bridge.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
@@ -185,7 +176,6 @@ import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
 import { VisionExpansionCache } from "./vision-expansion-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./planner-world-view.js";
-import { buildPlannerTileSlice, toPlannerTileView } from "./planner-world-view-slice.js";
 import {
   createAutomationNoopDiagnostic,
   planAutomationCommand,
@@ -280,13 +270,75 @@ import {
   playerManpowerCapFromSummary,
   playerManpowerRegenPerMinuteFromSummary
 } from "./runtime-manpower.js";
-import { plannerPlayerScopeKeyCount } from "./runtime-state-export.js";
+import {
+  buildRuntimeExportState,
+  buildRuntimePlannerPlayerViews,
+  buildRuntimePlannerWorldView,
+  buildRuntimePlayerDebugSnapshot,
+  buildRuntimeSnapshotSections,
+  exportPlannerTilesForKeys,
+  plannerPlayerScopeKeyCount,
+  type RuntimeExportState,
+  type RuntimePlayerDebugSnapshot
+} from "./runtime-state-export.js";
+import {
+  emitVisibilityAudit as emitVisibilityAuditImpl,
+  exportBarbActivationVisibleUnion as exportBarbActivationVisibleUnionImpl,
+  exportTilesInAreaForPlayer as exportTilesInAreaForPlayerImpl,
+  exportVisibleStateForPlayer as exportVisibleStateForPlayerImpl,
+  exportVisibleStateForPlayerAsync as exportVisibleStateForPlayerAsyncImpl,
+  getBarbActivationVisionSignature as getBarbActivationVisionSignatureImpl,
+  type BarbActivationVisibilityCache
+} from "./runtime-visible-state.js";
+
 import { RuntimeReplayCache } from "./runtime-replay-cache.js";
 import {
   classifyVisibilityForPlayer as classifyVisibilityForPlayerImpl,
   type RuntimeVisibilityClassification
 } from "./runtime-visibility-classifier.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
+import {
+  activeAetherBridgesForPlayer as activeAetherBridgesForPlayerImpl,
+  activeAetherWallsForPlayer as activeAetherWallsForPlayerImpl,
+  buildRevealEmpireStats as buildRevealEmpireStatsImpl,
+  closestAetherBridgeOrigin as closestAetherBridgeOriginImpl,
+  crossingBlockedByAetherWall as crossingBlockedByAetherWallImpl,
+  getAbilityCooldownUntil as getAbilityCooldownUntilImpl,
+  isCoastalLand as isCoastalLandImpl,
+  isStructurePowered as isStructurePoweredImpl,
+  isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
+  observatoryCastRadiusFor as observatoryCastRadiusForImpl,
+  ownedLandWithinRange as ownedLandWithinRangeImpl,
+  pickReadyOwnedObservatoryAny as pickReadyOwnedObservatoryAnyImpl,
+  pickReadyOwnedObservatoryForTarget as pickReadyOwnedObservatoryForTargetImpl,
+  revealCapacityForPlayer as revealCapacityForPlayerImpl,
+  seaTileCountBetween as seaTileCountBetweenImpl,
+  setAbilityCooldownUntil as setAbilityCooldownUntilImpl,
+  wallSegments as wallSegmentsImpl,
+  wrappedChebyshev as wrappedChebyshevImpl,
+  type AetherWallSegment
+} from "./runtime-ability-helpers.js";
+import {
+  adjustOwnedStructureCount as adjustOwnedStructureCountImpl,
+  ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
+  refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl
+} from "./runtime-owned-structure-index.js";
+import {
+  economicStructureForSupportedTown as economicStructureForSupportedTownImpl,
+  firstAvailableTownSupportTile as firstAvailableTownSupportTileImpl,
+  supportedDockKeysForTile as supportedDockKeysForTileImpl,
+  supportedTownKeysForTile as supportedTownKeysForTileImpl
+} from "./runtime-structure-support.js";
+import { tickPopulationGrowth as tickPopulationGrowthImpl } from "./runtime-population-growth.js";
+import {
+  tickOrphanedLockSweep as tickOrphanedLockSweepImpl,
+  tickTileShedding as tickTileSheddingImpl
+} from "./runtime-maintenance-ticks.js";
+import {
+  bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
+  updateFrontierDecay as updateFrontierDecayImpl
+} from "./runtime-frontier-decay.js";
+
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
 export type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -496,6 +548,7 @@ export class SimulationRuntime {
   private draining = false;
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
+  private readonly barbActivationVisibilityCache: BarbActivationVisibilityCache = { union: null, signature: "" };
 
   private refreshSpatialFocusForPlayer(playerId: string, now: number): AiSpatialFocus | undefined {
     const summary = this.summaryForPlayer(playerId);
@@ -790,300 +843,47 @@ export class SimulationRuntime {
     return () => this.events.off("event", listener);
   }
 
-  // Universal tile-shedding: every minute, for each player whose treasury is
-  // empty AND net gold/min is non-positive, shed their most-recently-settled
-  // owned SETTLED tile. Strips town + all per-tile structures so the next
-  // capturer doesn't inherit the upkeep ghost. Skips locked tiles so the shed
-  // never races a combat resolution. One tile per player per call.
   tickTileShedding(nowMs: number = this.now()): void {
-    for (const player of this.players.values()) {
-      if (player.id.startsWith("barbarian-")) continue;
-      // Make sure points/upkeep reflect the current time before the gate test.
-      this.applyEconomyAccrual(player, nowMs);
-      if ((player.points ?? 0) > 0) continue;
-      const summary = this.summaryForPlayer(player.id);
-      // Gate is purely treasury==0 after applyEconomyAccrual. We dropped the
-      // `net <= threshold` check because `economy.upkeepPerMinute.gold`
-      // diverges from the realized treasury drain: upkeep is consumed from
-      // tile yield in-place inside consumeUpkeepFromTileYield BEFORE the
-      // residual is subtracted from player.points, so a player whose tile
-      // yield is fully eaten in-place can show `net = gross - upkeep > 0`
-      // while their treasury is still strictly zero. If treasury is zero
-      // after accrual, the player is broke regardless of theoretical net.
-
-      let shedTileKey: string | undefined;
-      let shedTile: DomainTileState | undefined;
-      let shedStamp = -Infinity;
-      for (const tileKey of summary.territoryTileKeys) {
-        const tile = this.tiles.get(tileKey);
-        if (!tile) continue;
-        if (tile.ownerId !== player.id) continue;
-        if (tile.ownershipState !== "SETTLED") continue;
-        if (this.locksByTile.has(tileKey)) continue;
-        const stamp = this.tileSettledAtByKey.get(tileKey) ?? -Infinity;
-        // Use >= so the very first eligible tile always wins, even when its
-        // stamp is -Infinity (which is the case for every tile recovered
-        // from the event log — tileSettledAtByKey is in-memory only). Map
-        // iteration is insertion order, so on ties the last-inserted tile
-        // wins — a reasonable "newest" proxy when stamps are missing.
-        if (stamp >= shedStamp) {
-          shedStamp = stamp;
-          shedTileKey = tileKey;
-          shedTile = tile;
-        }
-      }
-      if (!shedTileKey || !shedTile) continue;
-
-      const commandId = `tile-shed:${player.id}:${shedTileKey}:${nowMs}`;
-      const shedState: DomainTileState = {
-        ...shedTile,
-        ownerId: undefined,
-        ownershipState: undefined,
-        town: undefined,
-        fort: undefined,
-        observatory: undefined,
-        siegeOutpost: undefined,
-        economicStructure: undefined
-      };
-      this.replaceTileState(shedTileKey, shedState, commandId);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId,
-        playerId: player.id,
-        tileDeltas: [
-          {
-            ...this.tileDeltaFromState(shedState),
-            ownerId: "",
-            ownershipState: "",
-            townJson: "",
-            fortJson: "",
-            observatoryJson: "",
-            siegeOutpostJson: "",
-            economicStructureJson: ""
-          }
-        ]
-      });
-      this.emitPlayerStateUpdate({ commandId, playerId: player.id });
-    }
+    tickTileSheddingImpl({
+      nowMs,
+      players: this.players,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      tileSettledAtByKey: this.tileSettledAtByKey,
+      applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+    });
   }
 
-  // Belt-and-braces: drop any LockRecord whose resolvesAt is more than
-  // ORPHAN_LOCK_GRACE_MS in the past. resolveLock now cleans matching keys
-  // per-side so the leak path (originKey overwritten by a later EXPAND,
-  // targetKey orphaned forever) shouldn't happen — but if any future code
-  // path inserts to locksByTile without going through validation, this
-  // sweep keeps the planner from getting permanently gated.
   tickOrphanedLockSweep(nowMs: number = this.now()): number {
-    const cutoff = nowMs - ORPHAN_LOCK_GRACE_MS;
-    const droppedCommandIds = new Set<string>();
-    for (const [tileKey, lock] of this.locksByTile) {
-      if (lock.resolvesAt < cutoff) {
-        this.locksByTile.delete(tileKey);
-        this.locksByCommandId.delete(lock.commandId);
-        droppedCommandIds.add(lock.commandId);
-      }
-    }
-    return droppedCommandIds.size;
+    return tickOrphanedLockSweepImpl({
+      nowMs,
+      orphanLockGraceMs: ORPHAN_LOCK_GRACE_MS,
+      locksByTile: this.locksByTile,
+      locksByCommandId: this.locksByCommandId
+    });
   }
 
-  /**
-   * Returns the granary growth multiplier for a tile: 1.0 (none),
-   * 1.15 (active GRANARY or unbuffed SEED_GRANARY adjacent),
-   * or SEED_GRANARY_GROWTH_MULT (active SEED_GRANARY adjacent to another
-   * active settled SEED_GRANARY owned by the same player).
-   */
-  private seedGranaryGrowthMultForTile(
-    tile: DomainTileState,
-    playerId: string
-  ): number {
-    const hasGranary = hasSupportedStructure(playerId, tile, "GRANARY", this.tiles);
-    const hasSeedGranary = hasSupportedStructure(playerId, tile, "SEED_GRANARY", this.tiles);
-    if (!hasGranary && !hasSeedGranary) return 1;
-    if (!hasSeedGranary) return 1.15;
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const neighbor = this.tiles.get(`${tile.x + dx},${tile.y + dy}`);
-        if (
-          neighbor?.ownerId === playerId &&
-          neighbor.ownershipState === "SETTLED" &&
-          neighbor.economicStructure?.type === "SEED_GRANARY" &&
-          neighbor.economicStructure.status === "active"
-        ) {
-          return SEED_GRANARY_GROWTH_MULT;
-        }
-      }
-    }
-    return 1.15;
-  }
-
-  /**
-   * Periodic population growth tick. Applies logistic growth to every
-   * settled, fed, non-settlement (populationTier !== "SETTLEMENT"),
-   * non-shocked town. Growth formula mirrors the display-path computation
-   * in live-snapshot-view.ts.
-   *
-   * Called every 60 s from simulation-service.ts.
-   */
   tickPopulationGrowth(nowMs: number = this.now()): void {
-    const dirtyPlayerIds = new Set<string>();
-
-    // Gather unique attack tile coords once — O(locks). Per-town radius check
-    // below is O(towns × n_coords); ~12 k comparisons for 300 towns / 40 coords.
-    const attackCoords: number[] = [];
-    const seenLockCommandIds = new Set<string>();
-    for (const lock of this.locksByTile.values()) {
-      if (seenLockCommandIds.has(lock.commandId)) continue; // locksByTile stores each lock twice
-      seenLockCommandIds.add(lock.commandId);
-      if (lock.actionType !== "ATTACK") continue;
-      for (const lockedKey of [lock.originKey, lock.targetKey]) {
-        const comma = lockedKey.indexOf(",");
-        if (comma > 0) {
-          attackCoords.push(Number(lockedKey.slice(0, comma)), Number(lockedKey.slice(comma + 1)));
-        }
+    tickPopulationGrowthImpl({
+      nowMs,
+      players: this.players,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      townLastGrowthTickAtByKey: this.townLastGrowthTickAtByKey,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      invalidateEconomyCachesForPlayer: (playerId) => {
+        this.economySnapshotCacheByPlayer.delete(playerId);
+        this.tileYieldContextCacheByPlayer.delete(playerId);
       }
-    }
-
-    for (const player of this.players.values()) {
-      if (player.id.startsWith("barbarian-")) continue;
-      const summary = this.summaryForPlayer(player.id);
-      const ownedTowns = summary.ownedTownTierByTile;
-      if (ownedTowns.size === 0) continue;
-
-      const fedTownKeys = buildFedTownKeys(
-        player,
-        summary,
-        this.tiles,
-        summary.strategicProductionPerMinute
-      );
-      if (fedTownKeys.size === 0) continue;
-
-      const firstThreeKeys = firstThreeTownKeysForPlayer(player.id, this.tiles.values());
-
-      for (const tileKey of ownedTowns.keys()) {
-        const tile = this.tiles.get(tileKey);
-        if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
-        const town = tile.town;
-
-        // Gate: skip settlements (populationTier === "SETTLEMENT").
-        if (town.populationTier === "SETTLEMENT") continue;
-        // Gate: skip if in capture shock.
-        if (typeof town.captureShockUntil === "number" && town.captureShockUntil > nowMs) continue;
-        // Gate: skip unfed towns.
-        if (!fedTownKeys.has(tileKey)) continue;
-        // Guard: population and maxPopulation must be present.
-        if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
-
-        // Check 10-tile radius for active ATTACK locks. Stamp a 60-minute pause
-        // on the town tile so the gate persists after the lock resolves and the
-        // timestamp flows through snapshots/deltas to the display path.
-        let isNearActiveWar = false;
-        for (let i = 0; i < attackCoords.length; i += 2) {
-          if (Math.abs(tile.x - (attackCoords[i] as number)) <= NEARBY_WAR_RADIUS &&
-              Math.abs(tile.y - (attackCoords[i + 1] as number)) <= NEARBY_WAR_RADIUS) {
-            isNearActiveWar = true;
-            break;
-          }
-        }
-        if (isNearActiveWar) {
-          const pausedUntil = nowMs + NEARBY_WAR_PAUSE_MS;
-          if ((town.nearbyWarPausedUntil ?? 0) < pausedUntil) {
-            const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: nowMs };
-            const updatedTile = { ...tile, town: updatedTown };
-            this.tiles.set(tileKey, updatedTile);
-            this.tileDeltaStringifyCache.invalidate(tileKey);
-            this.emitEvent({
-              eventType: "TILE_DELTA_BATCH",
-              commandId: `population-growth-tick:war-pause:${tileKey}`,
-              playerId: player.id,
-              tileDeltas: [this.tileDeltaFromState(updatedTile)]
-            });
-            dirtyPlayerIds.add(player.id);
-          }
-          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
-          continue;
-        }
-        // Still within the 60-minute pause window from a recent battle.
-        if (typeof town.nearbyWarPausedUntil === "number" && town.nearbyWarPausedUntil > nowMs) {
-          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
-          continue;
-        }
-
-        const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
-        if (logisticFactor <= 0) continue;
-
-        const granaryGrowthMult = this.seedGranaryGrowthMultForTile(tile, player.id);
-
-        // First-three-town population growth multiplier.
-        const firstThreeMult = firstThreeKeys.has(tileKey)
-          ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player)
-          : 1;
-
-        // Long-peace multiplier: 24 h of no nearby combat near this town.
-        const hasLongPeace = !town.nearbyWarLastAt || nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
-        const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
-
-        const lastTick = this.townLastGrowthTickAtByKey.get(tileKey) ?? nowMs;
-        const elapsedMinutes = (nowMs - lastTick) / 60_000;
-        if (elapsedMinutes <= 0) {
-          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
-          continue;
-        }
-
-        const growthPerMinute =
-          town.population *
-          POPULATION_GROWTH_BASE_RATE *
-          granaryGrowthMult *
-          firstThreeMult *
-          longPeaceMult *
-          logisticFactor;
-        const growth = growthPerMinute * elapsedMinutes;
-        if (growth <= 0) continue;
-
-        const newPopulation = Math.min(town.maxPopulation, town.population + growth);
-
-        // Update population tier from the new population value.
-        const nextTier = newPopulation >= 5_000_000 ? "METROPOLIS" as const
-          : newPopulation >= 1_000_000 ? "GREAT_CITY" as const
-          : newPopulation >= 100_000 ? "CITY" as const
-          : "TOWN" as const;
-
-        // Destructure out the stale pause timestamp (exactOptionalPropertyTypes
-        // forbids setting it to undefined; omitting the key altogether is correct
-        // and ensures JSON.stringify no longer includes it).
-        const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
-        const updatedTown = {
-          ...townWithoutPause,
-          population: newPopulation,
-          ...(nextTier !== town.populationTier ? { populationTier: nextTier } : {})
-        };
-        const updatedTile = { ...tile, town: updatedTown };
-        this.tiles.set(tileKey, updatedTile);
-        this.tileDeltaStringifyCache.invalidate(tileKey);
-        this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: `population-growth-tick:${tileKey}`,
-          playerId: player.id,
-          tileDeltas: [this.tileDeltaFromState(updatedTile)]
-        });
-
-        // Update the tier index when the tier changed.
-        if (nextTier !== town.populationTier) {
-          // Direct map update intentional — replaceTileState side-effects (planner/anchor
-          // index refresh) are ownership-driven and are no-ops for tier-only changes.
-          summary.ownedTownTierByTile.set(tileKey, nextTier);
-        }
-
-        dirtyPlayerIds.add(player.id);
-      }
-    }
-
-    // Invalidate economy caches once per player — population affects goldPerMinute.
-    for (const playerId of dirtyPlayerIds) {
-      this.economySnapshotCacheByPlayer.delete(playerId);
-      this.tileYieldContextCacheByPlayer.delete(playerId);
-    }
+    });
   }
 
   tickShardRain(nowMs: number = this.now()): void {
@@ -2917,366 +2717,83 @@ export class SimulationRuntime {
   }
 
   exportSnapshotSections(): SimulationSnapshotSections {
-    return {
-      initialState: {
-        tiles: [...this.tiles.values()]
-          .map((tile) => ({
-            x: tile.x,
-            y: tile.y,
-            terrain: tile.terrain,
-            ...(tile.resource ? { resource: tile.resource } : {}),
-            ...(tile.dockId ? { dockId: tile.dockId } : {}),
-            ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
-            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-            ...(tile.town ? { town: tile.town } : {}),
-            ...(tile.fort ? { fort: tile.fort } : {}),
-            ...(tile.observatory ? { observatory: tile.observatory } : {}),
-            ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
-            ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-            ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
-          }))
-          .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
-        activeLocks: [...this.locksByCommandId.values()]
-        .map((lock) => ({
-          commandId: lock.commandId,
-          playerId: lock.playerId,
-          actionType: lock.actionType,
-          originX: lock.originX,
-          originY: lock.originY,
-          targetX: lock.targetX,
-          targetY: lock.targetY,
-          originKey: lock.originKey,
-          targetKey: lock.targetKey,
-          resolvesAt: lock.resolvesAt,
-          ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
-        }))
-          .sort((left, right) => left.commandId.localeCompare(right.commandId))
-        ,
-        players: [...this.players.values()]
-          .map((player) => ({
-            id: player.id,
-            ...(player.name ? { name: player.name } : {}),
-            isAi: player.isAi,
-            points: player.points,
-            manpower: player.manpower,
-            ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
-            ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
-            techIds: [...player.techIds].sort(),
-            domainIds: [...(player.domainIds ?? [])].sort(),
-            ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
-            strategicResources: { ...(player.strategicResources ?? {}) },
-            allies: [...player.allies].sort(),
-            vision: player.mods?.vision ?? 1,
-            visionRadiusBonus: visionRadiusBonusForPlayer(player),
-            incomeMultiplier: player.mods?.income ?? 1,
-            incomePerMinute: this.incomePerMinuteForPlayer(player.id),
-            ownedTownTileKeys: [...this.summaryForPlayer(player.id).ownedTownTierByTile.keys()]
-          }))
-          .sort((left, right) => left.id.localeCompare(right.id)),
-        pendingSettlements: [...this.pendingSettlementsByTile.values()]
-          .map((settlement) => ({ ...settlement }))
-          .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-        tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
-          .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
-          .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-        playerYieldCollectionEpochByPlayer: [...this.playerYieldCollectionEpochByPlayer.entries()]
-          .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
-          .sort((left, right) => left.playerId.localeCompare(right.playerId)),
-        collectVisibleCooldownByPlayer: [...this.collectVisibleCooldownByPlayer.entries()]
-          .map(([playerId, cooldownUntil]) => ({ playerId, cooldownUntil }))
-          .sort((left, right) => left.playerId.localeCompare(right.playerId))
-        ,
-        ...(this.docks.length
-          ? {
-              docks: this.docks.map((dock) => ({
-                dockId: dock.dockId,
-                tileKey: dock.tileKey,
-                pairedDockId: dock.pairedDockId,
-                ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
-              }))
-            }
-          : {})
-      },
-      commandEvents: buildSimulationSnapshotCommandEvents(this.replayCache.recordedEventsByCommandId)
-    };
+    return buildRuntimeSnapshotSections({
+      tiles: this.tiles,
+      locksByCommandId: this.locksByCommandId,
+      players: this.players,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
+      playerYieldCollectionEpochByPlayer: this.playerYieldCollectionEpochByPlayer,
+      collectVisibleCooldownByPlayer: this.collectVisibleCooldownByPlayer,
+      docks: this.docks,
+      recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
+      incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
+    });
   }
 
   exportPlannerWorldView(playerIds: string[]): PlannerWorldView {
-    const players = this.exportPlannerPlayerViews(playerIds);
-    const tiles = buildPlannerTileSlice({
+    return buildRuntimePlannerWorldView({
       playerIds,
       tiles: this.tiles,
       docks: this.docks,
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
+      players: this.players,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      plannerGatingLockPlayerIds: () => this.plannerGatingLockPlayerIds(),
+      refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
+      plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
+      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId)
     });
-
-    return { tiles, players, docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) };
   }
 
   exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
-    const lockPlayerIds = this.plannerGatingLockPlayerIds();
-    const players: PlannerPlayerView[] = [];
-    for (const playerId of playerIds) {
-      const player = this.players.get(playerId);
-      if (!player) continue;
-      // Use the manpower-only refresh — full applyManpowerRegen also runs
-      // applyEconomyAccrual, which is O(territory tiles) per player and is
-      // the dominant cost in sync_players_export under steady-state AI play.
-      // Economy accrual catches up on the next real command tick.
-      this.refreshManpowerOnly(player);
-      const summary = this.summaryForPlayer(playerId);
-      const tileKeys = this.plannerPlayerTileKeys(playerId, summary);
-      players.push({
-        id: player.id,
-        points: player.points,
-        manpower: player.manpower,
-        techIds: [...player.techIds].sort(),
-        domainIds: [...(player.domainIds ?? [])].sort(),
-        strategicResources: { ...(player.strategicResources ?? {}) },
-        settledTileCount: summary.settledTileCount,
-        townCount: summary.townCount,
-        incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
-        tileCollectionVersion: tileKeys.tileCollectionVersion,
-        hasActiveLock: lockPlayerIds.has(player.id),
-        territoryTileKeys: tileKeys.territoryTileKeys,
-        frontierTileKeys: tileKeys.frontierTileKeys,
-        hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
-        strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
-        buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
-        pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
-      });
-    }
-    return players;
+    return buildRuntimePlannerPlayerViews({
+      playerIds,
+      tiles: this.tiles,
+      docks: this.docks,
+      players: this.players,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      plannerGatingLockPlayerIds: () => this.plannerGatingLockPlayerIds(),
+      refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
+      plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
+      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId)
+    });
   }
 
-  // Minimal per-player snapshot for the /debug/players HTTP route. Mirrors
-  // exportState().players but skips the O(world-tile) tile projection so a
-  // debug scrape never disturbs hot-path latency. Uses the manpower-only
-  // refresh for the same reason exportPlannerPlayerViews does — economy
-  // accrual catches up on the next real command tick.
-  exportPlayerDebugSnapshot(): Array<{
-    id: string;
-    name?: string;
-    isAi: boolean;
-    points: number;
-    manpower: number;
-    manpowerCap: number;
-    manpowerRegenPerMinute: number;
-    techIds: string[];
-    domainIds: string[];
-    strategicResources: Partial<Record<StrategicResourceKey, number>>;
-    settledTileCount: number;
-    townCount: number;
-    incomePerMinute: number;
-    strategicProductionPerMinute: Record<StrategicResourceKey, number>;
-    activeDevelopmentProcessCount: number;
-    /** True iff a *player-issued* frontier lock would block the AI planner. */
-    plannerBlocked: boolean;
-    /** True iff any lock exists for this player (player-issued OR territory-automation). */
-    hasAnyLock: boolean;
-    allies: string[];
-  }> {
-    // Build both sets in one pass — debug callers want to distinguish
-    // "planner is gated" from "anything is locked" (e.g. fort auto-attack
-    // firing). Without `hasAnyLock`, the only signal a fort is firing
-    // would be the metrics buffer.
-    const plannerBlockedIds = new Set<string>();
-    const anyLockIds = new Set<string>();
-    for (const lock of this.locksByTile.values()) {
-      anyLockIds.add(lock.playerId);
-      if (lock.source !== "automation") plannerBlockedIds.add(lock.playerId);
-    }
-    return [...this.players.values()]
-      .map((player) => {
-        this.refreshManpowerOnly(player);
-        const summary = this.summaryForPlayer(player.id);
-        return {
-          id: player.id,
-          ...(player.name ? { name: player.name } : {}),
-          isAi: player.isAi === true,
-          points: player.points,
-          manpower: player.manpower,
-          manpowerCap: this.playerManpowerCap(player),
-          manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
-          techIds: [...player.techIds].sort(),
-          domainIds: [...(player.domainIds ?? [])].sort(),
-          strategicResources: { ...(player.strategicResources ?? {}) },
-          settledTileCount: summary.settledTileCount,
-          townCount: summary.townCount,
-          incomePerMinute: this.estimatedIncomePerMinuteForPlayer(player.id),
-          strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
-          activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-          plannerBlocked: plannerBlockedIds.has(player.id),
-          hasAnyLock: anyLockIds.has(player.id),
-          allies: [...player.allies].sort()
-        };
-      })
-      .sort((left, right) => left.id.localeCompare(right.id));
+  exportPlayerDebugSnapshot(): RuntimePlayerDebugSnapshot {
+    return buildRuntimePlayerDebugSnapshot({
+      locksByTile: this.locksByTile,
+      players: this.players,
+      refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
+      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId)
+    });
   }
 
   exportTilesForKeys(tileKeys: Iterable<string>): PlannerTileView[] {
-    const result: PlannerTileView[] = [];
-    for (const tileKey of tileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (tile) result.push(toPlannerTileView(tile));
-    }
-    return result;
+    return exportPlannerTilesForKeys(this.tiles, tileKeys);
   }
 
-  exportState(): {
-    tiles: Array<{
-      x: number;
-      y: number;
-      terrain: Terrain;
-      resource?: string;
-      dockId?: string;
-      shardSiteJson?: string;
-      ownerId?: string;
-      ownershipState?: string;
-      townJson?: string;
-      townType?: "MARKET" | "FARMING";
-      townName?: string;
-      townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-      fortJson?: string;
-      observatoryJson?: string;
-      siegeOutpostJson?: string;
-      economicStructureJson?: string;
-      sabotageJson?: string;
-    }>;
-    players: Array<{
-      id: string;
-      name?: string;
-      points: number;
-      manpower: number;
-      manpowerCap?: number;
-      manpowerRegenPerMinute?: number;
-      manpowerBreakdown?: ManpowerBreakdown;
-      manpowerCapSnapshot?: number;
-      techIds: string[];
-      domainIds: string[];
-      strategicResources: Partial<Record<StrategicResourceKey, number>>;
-      allies: string[];
-      vision: number;
-      visionRadiusBonus: number;
-      incomeMultiplier?: number;
-      ownedTownTileKeys: string[];
-      settledTileCount?: number;
-      townCount?: number;
-      incomePerMinute?: number;
-      strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
-      activeDevelopmentProcessCount?: number;
-    }>;
-    pendingSettlements: Array<PendingSettlementRecord>;
-    activeLocks: Array<{
-      commandId: string;
-      playerId: string;
-      actionType: FrontierCommandType;
-      originKey: string;
-      targetKey: string;
-      resolvesAt: number;
-      combatResolutionJson?: string;
-    }>;
-    docks: Array<{
-      dockId: string;
-      tileKey: string;
-      pairedDockId: string;
-      connectedDockIds?: readonly string[];
-    }>;
-    tileYieldCollectedAtByTile: Array<{ tileKey: string; collectedAt: number }>;
-    playerYieldCollectionEpochByPlayer: Array<{ playerId: string; collectedAt: number }>;
-    terrainEpoch: number;
-  } {
-    return {
-      // Single-pass pre-allocated tile projection.  Avoids:
-      //   1. [...this.tiles.values()] spread (O(N) intermediate array)
-      //   2. .map() (second O(N) intermediate array)
-      //   3. 14 conditional spread expressions per tile (each allocates a
-      //      temporary object just to be immediately merged and discarded)
-      // Result is sorted in place; byte-for-byte identical to the old output.
-      tiles: (() => {
-        const result = new Array(this.tiles.size) as Array<ReturnType<SimulationRuntime["exportState"]>["tiles"][number]>;
-        let i = 0;
-        for (const tile of this.tiles.values()) {
-          const tileKey = simulationTileKey(tile.x, tile.y);
-          const cached = this.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
-          const entry: ReturnType<SimulationRuntime["exportState"]>["tiles"][number] = { x: tile.x, y: tile.y, terrain: tile.terrain };
-          if (tile.resource) entry.resource = tile.resource;
-          if (tile.dockId) entry.dockId = tile.dockId;
-          if (cached.shardSiteJson) entry.shardSiteJson = cached.shardSiteJson;
-          if (tile.ownerId) entry.ownerId = tile.ownerId;
-          if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
-          if (typeof tile.frontierDecayAt === "number") (entry as Record<string, unknown>)["frontierDecayAt"] = tile.frontierDecayAt;
-          if (tile.frontierDecayKind) (entry as Record<string, unknown>)["frontierDecayKind"] = tile.frontierDecayKind;
-          if (cached.townJson) entry.townJson = cached.townJson;
-          if (tile.town?.type) entry.townType = tile.town.type;
-          if (tile.town?.name) entry.townName = tile.town.name;
-          if (tile.town?.populationTier) entry.townPopulationTier = tile.town.populationTier;
-          if (cached.fortJson) entry.fortJson = cached.fortJson;
-          if (cached.observatoryJson) entry.observatoryJson = cached.observatoryJson;
-          if (cached.siegeOutpostJson) entry.siegeOutpostJson = cached.siegeOutpostJson;
-          if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
-          if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
-          result[i++] = entry;
-        }
-        result.sort((left, right) => (left.x - right.x) || (left.y - right.y));
-        return result;
-      })(),
-      players: [...this.players.values()]
-        .map((player) => {
-          this.applyManpowerRegen(player);
-          const summary = this.summaryForPlayer(player.id);
-          return {
-            id: player.id,
-            ...(player.name ? { name: player.name } : {}),
-            points: player.points,
-            manpower: player.manpower,
-            manpowerCap: this.playerManpowerCap(player),
-            manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
-            manpowerBreakdown: this.playerManpowerBreakdown(player),
-            ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
-            techIds: [...player.techIds].sort(),
-            domainIds: [...(player.domainIds ?? [])].sort(),
-            strategicResources: { ...(player.strategicResources ?? {}) },
-            allies: [...player.allies].sort(),
-            vision: player.mods?.vision ?? 1,
-            visionRadiusBonus: visionRadiusBonusForPlayer(player),
-            incomeMultiplier: player.mods?.income ?? 1,
-            ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
-            settledTileCount: summary.settledTileCount,
-            townCount: summary.townCount,
-            incomePerMinute: this.incomePerMinuteForPlayer(player.id),
-            strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
-            activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
-          };
-        })
-        .sort((left, right) => left.id.localeCompare(right.id)),
-      pendingSettlements: [...this.pendingSettlementsByTile.values()]
-        .map((settlement) => ({ ...settlement }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...this.locksByCommandId.values()]
-        .map((lock) => ({
-          commandId: lock.commandId,
-          playerId: lock.playerId,
-          actionType: lock.actionType,
-          originKey: lock.originKey,
-          targetKey: lock.targetKey,
-          resolvesAt: lock.resolvesAt,
-          ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
-        }))
-        .sort((left, right) => left.commandId.localeCompare(right.commandId)),
-      docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
-      tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
-        .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      playerYieldCollectionEpochByPlayer: [...this.playerYieldCollectionEpochByPlayer.entries()]
-        .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
-        .sort((left, right) => left.playerId.localeCompare(right.playerId)),
-      terrainEpoch: this.terrainEpoch
-    };
+  exportState(): RuntimeExportState {
+    return buildRuntimeExportState({
+      tiles: this.tiles,
+      locksByCommandId: this.locksByCommandId,
+      players: this.players,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
+      playerYieldCollectionEpochByPlayer: this.playerYieldCollectionEpochByPlayer,
+      docks: this.docks,
+      terrainEpoch: this.terrainEpoch,
+      tileDeltaStringifyCache: this.tileDeltaStringifyCache,
+      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
+      playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
+      incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
+    });
   }
 
   private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
@@ -3295,59 +2812,22 @@ export class SimulationRuntime {
     });
   }
 
-  // ─── Barbarian activation: union of non-barb fog ────────────────────────────
-  // The system-job worker can't compute this itself (it only sees the
-  // barbarian player), so the main process owns the cache and ships the keys
-  // via `vision_union` messages. Signature is per-(player, tileCollectionVersion,
-  // vision, visionRadiusBonus) — covers territory changes and vision-mod
-  // unlocks (tech/domain) without per-event subscription wiring.
-
-  private cachedBarbActivationUnion: Set<string> | null = null;
-  private cachedBarbActivationSignature = "";
-
   getBarbActivationVisionSignature(): string {
-    const parts: string[] = [];
-    for (const player of this.players.values()) {
-      if (player.id.startsWith("barbarian-")) continue;
-      const tcv = this.plannerPlayerTileCollectionVersionByPlayer.get(player.id) ?? 0;
-      const v = player.mods?.vision ?? 1;
-      const vrb = visionRadiusBonusForPlayer(player);
-      parts.push(`${player.id}:${tcv}:${v}:${vrb}`);
-    }
-    parts.sort();
-    return parts.join("|");
+    return getBarbActivationVisionSignatureImpl({
+      players: this.players,
+      tileCollectionVersionForPlayer: (playerId) =>
+        this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0
+    });
   }
 
   exportBarbActivationVisibleUnion(): { keys: string[]; signature: string } {
-    const signature = this.getBarbActivationVisionSignature();
-    if (this.cachedBarbActivationUnion && this.cachedBarbActivationSignature === signature) {
-      return { keys: [...this.cachedBarbActivationUnion], signature };
-    }
-    const union = new Set<string>();
-    for (const player of this.players.values()) {
-      if (player.id.startsWith("barbarian-")) continue;
-      const summary = this.summaryForPlayer(player.id);
-      const radius = Math.max(
-        1,
-        Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player)
-      );
-      for (const tileKey of summary.territoryTileKeys) {
-        const [rawX, rawY] = tileKey.split(",");
-        const x = Number(rawX);
-        const y = Number(rawY);
-        if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
-        for (let dy = -radius; dy <= radius; dy += 1) {
-          for (let dx = -radius; dx <= radius; dx += 1) {
-            const wx = ((x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
-            const wy = ((y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
-            union.add(`${wx},${wy}`);
-          }
-        }
-      }
-    }
-    this.cachedBarbActivationUnion = union;
-    this.cachedBarbActivationSignature = signature;
-    return { keys: [...union], signature };
+    return exportBarbActivationVisibleUnionImpl({
+      players: this.players,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      tileCollectionVersionForPlayer: (playerId) =>
+        this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0,
+      cache: this.barbActivationVisibilityCache
+    });
   }
 
   private emitVisibilityAudit(
@@ -3357,118 +2837,43 @@ export class SimulationRuntime {
     redacted: boolean,
     classification: ReturnType<SimulationRuntime["classifyVisibilityForPlayer"]>
   ): void {
-    const onVisibilityAudit = this.onVisibilityAudit;
-    if (!onVisibilityAudit) return;
-    if (!tile.ownerId || classification.allyAndSelfIds.has(tile.ownerId)) return;
-    const reasons: string[] = [];
-    if (classification.radiusSelfKeys.has(tileKey)) reasons.push("radius:self");
-    for (const [allyId, set] of classification.radiusAllyKeys) {
-      if (set.has(tileKey)) reasons.push(`radius:ally:${allyId}`);
-    }
-    if (classification.lockOriginKeys.has(tileKey)) reasons.push("lock-origin");
-    if (classification.dockRevealKeys.has(tileKey)) reasons.push("dock-reveal");
-    if (classification.lockTargetOnlyKeys.has(tileKey)) reasons.push("lock-target");
-    onVisibilityAudit({
+    emitVisibilityAuditImpl({
+      onVisibilityAudit: this.onVisibilityAudit,
       playerId,
+      tile,
       tileKey,
-      x: tile.x,
-      y: tile.y,
-      ownerId: tile.ownerId,
-      reasons,
-      redacted
+      redacted,
+      classification
     });
   }
 
   exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
-    const classification = this.classifyVisibilityForPlayer(playerId);
-    const { lockTargetOnlyKeys, visibleKeys, allyAndSelfIds } = classification;
+    return exportVisibleStateForPlayerImpl(this.visibleStateDeps(playerId));
+  }
 
+  private visibleStateDeps(playerId: string) {
     return {
-      tiles: [...visibleKeys]
-        .map((tileKey) => this.tiles.get(tileKey))
-        .filter((tile): tile is DomainTileState => Boolean(tile))
-        .map((tile) => {
-          const tileKey = simulationTileKey(tile.x, tile.y);
-          const isLockTargetOnly = lockTargetOnlyKeys.has(tileKey);
-          const ownedByOther = Boolean(tile.ownerId) && !allyAndSelfIds.has(tile.ownerId as string);
-          if (isLockTargetOnly && ownedByOther) {
-            this.emitVisibilityAudit(playerId, tile, tileKey, true, classification);
-            return { x: tile.x, y: tile.y, terrain: tile.terrain };
-          }
-          if (ownedByOther) this.emitVisibilityAudit(playerId, tile, tileKey, false, classification);
-          return {
-            x: tile.x,
-            y: tile.y,
-            terrain: tile.terrain,
-            ...(tile.resource ? { resource: tile.resource } : {}),
-            ...(tile.dockId ? { dockId: tile.dockId } : {}),
-            ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
-            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-            ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-            ...(tile.town?.type ? { townType: tile.town.type } : {}),
-            ...(tile.town?.name ? { townName: tile.town.name } : {}),
-            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-            ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
-            ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-            ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
-            ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
-            ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {})
-          };
-        })
-        .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
-      players: [...this.players.values()]
-        .map((player) => {
-          this.applyManpowerRegen(player);
-          const summary = this.summaryForPlayer(player.id);
-          return {
-            id: player.id,
-            ...(player.name ? { name: player.name } : {}),
-            points: player.points,
-            manpower: player.manpower,
-            ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
-            techIds: [...player.techIds].sort(),
-            domainIds: [...(player.domainIds ?? [])].sort(),
-            strategicResources: { ...(player.strategicResources ?? {}) },
-            allies: [...player.allies].sort(),
-            vision: player.mods?.vision ?? 1,
-            visionRadiusBonus: visionRadiusBonusForPlayer(player),
-            incomeMultiplier: player.mods?.income ?? 1,
-            ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
-            settledTileCount: summary.settledTileCount,
-            townCount: summary.townCount,
-            incomePerMinute: this.incomePerMinuteForPlayer(player.id),
-            strategicProductionPerMinute: player.id === playerId
-              ? this.cachedEconomySnapshot(player).strategicProductionPerMinute
-              : cloneStrategicProduction(summary.strategicProductionPerMinute),
-            activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
-          };
-        })
-        .sort((left, right) => left.id.localeCompare(right.id)),
-      pendingSettlements: [...this.pendingSettlementsByTile.values()]
-        .map((settlement) => ({ ...settlement }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...this.locksByCommandId.values()]
-        .map((lock) => ({
-          commandId: lock.commandId,
-          playerId: lock.playerId,
-          actionType: lock.actionType,
-          originKey: lock.originKey,
-          targetKey: lock.targetKey,
-          resolvesAt: lock.resolvesAt,
-          ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
-        }))
-        .sort((left, right) => left.commandId.localeCompare(right.commandId)),
-      docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
-      tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
-        .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      playerYieldCollectionEpochByPlayer: [...this.playerYieldCollectionEpochByPlayer.entries()]
-        .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
-        .sort((left, right) => left.playerId.localeCompare(right.playerId)),
-      terrainEpoch: this.terrainEpoch
+      playerId,
+      tiles: this.tiles,
+      locksByCommandId: this.locksByCommandId,
+      players: this.players,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      docks: this.docks,
+      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
+      playerYieldCollectionEpochByPlayer: this.playerYieldCollectionEpochByPlayer,
+      terrainEpoch: this.terrainEpoch,
+      classifyVisibilityForPlayer: (visiblePlayerId: string) => this.classifyVisibilityForPlayer(visiblePlayerId),
+      emitVisibilityAudit: (
+        visiblePlayerId: string,
+        tile: { x: number; y: number; ownerId?: string | undefined },
+        tileKey: string,
+        redacted: boolean,
+        classification: RuntimeVisibilityClassification
+      ) => this.emitVisibilityAudit(visiblePlayerId, tile, tileKey, redacted, classification),
+      summaryForPlayer: (summaryPlayerId: string) => this.summaryForPlayer(summaryPlayerId),
+      applyManpowerRegen: (player: RuntimePlayer) => this.applyManpowerRegen(player),
+      incomePerMinuteForPlayer: (incomePlayerId: string) => this.incomePerMinuteForPlayer(incomePlayerId),
+      cachedEconomySnapshot: (player: RuntimePlayer) => this.cachedEconomySnapshot(player)
     };
   }
 
@@ -3487,108 +2892,10 @@ export class SimulationRuntime {
     playerId: string,
     yieldToEventLoop: () => Promise<void>
   ): Promise<ReturnType<SimulationRuntime["exportState"]>> {
-    const classification = this.classifyVisibilityForPlayer(playerId);
-    await yieldToEventLoop();
-    const { lockTargetOnlyKeys, visibleKeys, allyAndSelfIds } = classification;
-
-    const TILE_CHUNK = 500;
-    const tiles: ReturnType<SimulationRuntime["exportState"]>["tiles"] = [];
-    let idx = 0;
-    for (const tileKey of visibleKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (tile) {
-        const wrappedTileKey = simulationTileKey(tile.x, tile.y);
-        const isLockTargetOnly = lockTargetOnlyKeys.has(wrappedTileKey);
-        const ownedByOther = Boolean(tile.ownerId) && !allyAndSelfIds.has(tile.ownerId as string);
-        if (isLockTargetOnly && ownedByOther) {
-          this.emitVisibilityAudit(playerId, tile, wrappedTileKey, true, classification);
-          tiles.push({ x: tile.x, y: tile.y, terrain: tile.terrain });
-        } else {
-          if (ownedByOther) this.emitVisibilityAudit(playerId, tile, wrappedTileKey, false, classification);
-          tiles.push({
-            x: tile.x,
-            y: tile.y,
-            terrain: tile.terrain,
-            ...(tile.resource ? { resource: tile.resource } : {}),
-            ...(tile.dockId ? { dockId: tile.dockId } : {}),
-            ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
-            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-            ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-            ...(tile.town?.type ? { townType: tile.town.type } : {}),
-            ...(tile.town?.name ? { townName: tile.town.name } : {}),
-            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-            ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
-            ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-            ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
-            ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
-            ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {})
-          });
-        }
-      }
-      idx += 1;
-      if (idx % TILE_CHUNK === 0) await yieldToEventLoop();
-    }
-    tiles.sort((left, right) => (left.x - right.x) || (left.y - right.y));
-    await yieldToEventLoop();
-
-    const players = [...this.players.values()]
-      .map((player) => {
-        this.applyManpowerRegen(player);
-        const summary = this.summaryForPlayer(player.id);
-        return {
-          id: player.id,
-          ...(player.name ? { name: player.name } : {}),
-          points: player.points,
-          manpower: player.manpower,
-          ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
-          techIds: [...player.techIds].sort(),
-          domainIds: [...(player.domainIds ?? [])].sort(),
-          strategicResources: { ...(player.strategicResources ?? {}) },
-          allies: [...player.allies].sort(),
-          vision: player.mods?.vision ?? 1,
-          visionRadiusBonus: visionRadiusBonusForPlayer(player),
-          incomeMultiplier: player.mods?.income ?? 1,
-          ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
-          settledTileCount: summary.settledTileCount,
-          townCount: summary.townCount,
-          incomePerMinute: this.incomePerMinuteForPlayer(player.id),
-          strategicProductionPerMinute: player.id === playerId
-            ? this.cachedEconomySnapshot(player).strategicProductionPerMinute
-            : cloneStrategicProduction(summary.strategicProductionPerMinute),
-          activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
-        };
-      })
-      .sort((left, right) => left.id.localeCompare(right.id));
-
-    return {
-      tiles,
-      players,
-      pendingSettlements: [...this.pendingSettlementsByTile.values()]
-        .map((settlement) => ({ ...settlement }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      activeLocks: [...this.locksByCommandId.values()]
-        .map((lock) => ({
-          commandId: lock.commandId,
-          playerId: lock.playerId,
-          actionType: lock.actionType,
-          originKey: lock.originKey,
-          targetKey: lock.targetKey,
-          resolvesAt: lock.resolvesAt,
-          ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
-        }))
-        .sort((left, right) => left.commandId.localeCompare(right.commandId)),
-      docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
-      tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
-        .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
-        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
-      playerYieldCollectionEpochByPlayer: [...this.playerYieldCollectionEpochByPlayer.entries()]
-        .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
-        .sort((left, right) => left.playerId.localeCompare(right.playerId)),
-      terrainEpoch: this.terrainEpoch
-    };
+    return exportVisibleStateForPlayerAsyncImpl({
+      ...this.visibleStateDeps(playerId),
+      yieldToEventLoop
+    });
   }
 
   exportTilesInAreaForPlayer(
@@ -3598,32 +2905,18 @@ export class SimulationRuntime {
     radius: number,
     options?: { fullVisibility?: boolean }
   ): SimulationTileWireDelta[] {
-    const wrapX = (value: number): number => ((value % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
-    const wrapY = (value: number): number => ((value % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
-    // Reuse the owner's economy context across all tiles in the request so the
-    // per-tile refresh inside tileDeltaFromState doesn't rebuild the same
-    // fed-town set / connected-town network 9× for a radius-1 fetch.
-    const tileOwner = this.tiles.get(simulationTileKey(wrapX(centerX), wrapY(centerY)))?.ownerId;
-    const ownerForContext = tileOwner ? this.players.get(tileOwner) : undefined;
-    const tileYieldContext = ownerForContext ? this.tileYieldEconomyContextForPlayer(ownerForContext) : undefined;
-    const collected: SimulationTileWireDelta[] = [];
-    const seen = new Set<string>();
-    const r = Math.max(0, Math.floor(radius));
-    for (let dy = -r; dy <= r; dy += 1) {
-      for (let dx = -r; dx <= r; dx += 1) {
-        const x = wrapX(centerX + dx);
-        const y = wrapY(centerY + dy);
-        const tileKey = simulationTileKey(x, y);
-        if (seen.has(tileKey)) continue;
-        seen.add(tileKey);
-        const tile = this.tiles.get(tileKey);
-        if (!tile) continue;
-        const delta = this.tileDeltaFromState(tile, tile.ownerId && ownerForContext && tile.ownerId === ownerForContext.id ? tileYieldContext : undefined);
-        collected.push(delta);
-      }
-    }
-    if (options?.fullVisibility) return collected;
-    return this.filterTileDeltasForPlayer(collected, playerId);
+    return exportTilesInAreaForPlayerImpl({
+      playerId,
+      centerX,
+      centerY,
+      radius,
+      fullVisibility: options?.fullVisibility,
+      tiles: this.tiles,
+      players: this.players,
+      tileDeltaFromState: (tile, context) => this.tileDeltaFromState(tile, context),
+      tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
+      filterTileDeltasForPlayer: (tileDeltas, visiblePlayerId) => this.filterTileDeltasForPlayer(tileDeltas, visiblePlayerId)
+    });
   }
 
   filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }>(
@@ -6446,294 +5739,51 @@ export class SimulationRuntime {
     return true;
   }
 
-  private frontierDecayPausedForTile(playerId: string, tileKey: string, tile: DomainTileState): boolean {
-    if (this.pendingSettlementsByTile.has(tileKey)) return true;
-    if (tile.resource || tile.town || tile.dockId) return true;
-    return this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
-      const town = this.tiles.get(townKey)?.town;
-      return Boolean(town && town.populationTier !== "SETTLEMENT");
-    });
-  }
-
-  /**
-   * Part 2 rewrite: instead of scanning a radius² neighbourhood of cells,
-   * iterate the pre-built activeFortAnchorsByOwner index for the player and
-   * check coverage. O(anchors) per tile instead of O(radius²).
-   *
-   * Semantics preserved: returns true if any fort/wooden-fort/town anchor
-   * owned by playerId has an effective radius that covers tile.
-   */
-  private frontierSupportedByActiveFort(tile: DomainTileState, playerId: string, nowMs: number): boolean {
-    // Fast path: the tile itself is an anchor (e.g. a fort sitting on a frontier tile).
-    if (fortAutoFrontierRadiusForTile(tile, playerId, nowMs) > 0) return true;
-    const anchors = this.activeFortAnchorsByOwner.get(playerId);
-    if (!anchors) return false;
-    for (const [anchorKey, _maxRadius] of anchors) {
-      const anchor = this.tiles.get(anchorKey);
-      if (!anchor) continue;
-      const effectiveRadius = fortAutoFrontierRadiusForTile(anchor, playerId, nowMs);
-      // fortAutoFrontierRadiusForTile returns 0 for towns; fall back to TOWN_AUTO_FRONTIER_RADIUS.
-      const radius = effectiveRadius > 0 ? effectiveRadius : (isSettledTownAnchor(anchor, playerId) ? TOWN_AUTO_FRONTIER_RADIUS : 0);
-      if (radius <= 0) continue;
-      const dx = Math.abs(anchor.x - tile.x);
-      const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
-      const dy = Math.abs(anchor.y - tile.y);
-      const wrappedDy = Math.min(dy, WORLD_HEIGHT - dy);
-      if (Math.max(wrappedDx, wrappedDy) <= radius) return true;
-    }
-    return false;
-  }
-
-  // Fast path for decay-timer-only mutations in updateFrontierDecay. Starting or
-  // clearing a frontier decay timer changes only frontierDecayAt/frontierDecayKind
-  // — ownerId and ownershipState are unchanged — so none of replaceTileState's
-  // ownership-change maintenance (economy/summary/planner/index refreshes) applies.
-  // This collapses the cold first-tick cost from O(frontier × (territory + radius²))
-  // to O(frontier). Caller is responsible for emitting the tile delta.
-  private setFrontierDecayTimerFields(tileKey: string, tile: DomainTileState): void {
-    this.tiles.set(tileKey, tile);
-    this.tileDeltaStringifyCache.invalidate(tileKey);
-  }
-
   private updateFrontierDecay(nowMs: number): void {
-    // Reset pooled accumulators without discarding inner arrays (pool pattern).
-    for (const arr of this.frontierDecayChangedByOwner.values()) arr.length = 0;
-    for (const arr of this.frontierDecayExpiredByOwner.values()) arr.length = 0;
-
-    const addChangedDelta = (playerId: string, delta: SimulationTileWireDelta): void => {
-      const existing = this.frontierDecayChangedByOwner.get(playerId);
-      if (existing) existing.push(delta);
-      else {
-        const arr: SimulationTileWireDelta[] = [delta];
-        this.frontierDecayChangedByOwner.set(playerId, arr);
-      }
-    };
-    const addExpiredKey = (playerId: string, tileKey: string): void => {
-      const existing = this.frontierDecayExpiredByOwner.get(playerId);
-      if (existing) existing.push(tileKey);
-      else this.frontierDecayExpiredByOwner.set(playerId, [tileKey]);
-    };
-
-    // Part 3: collect expired tiles separately to apply via bulk path.
-    // Key: ownerId, Value: array of [tileKey, expiredTileState]
-    const expiredTilesByOwner = new Map<string, Array<[string, DomainTileState]>>();
-
-    // Part 1: iterate only frontier tiles via frontierTilesByOwner index,
-    // avoiding the full this.tiles scan (was O(all_tiles), now O(frontier_tiles)).
-    for (const [ownerId, frontierKeys] of this.frontierTilesByOwner) {
-      for (const tileKey of frontierKeys) {
-        if (this.locksByTile.has(tileKey)) continue;
-        const tile = this.tiles.get(tileKey);
-        // tile could be undefined if index is stale, or non-FRONTIER for same reason — skip.
-        if (!tile || tile.ownershipState !== "FRONTIER" || tile.ownerId !== ownerId) continue;
-
-        if (this.frontierDecayPausedForTile(ownerId, tileKey, tile)) {
-          if (tile.frontierDecayAt === undefined) continue;
-          const queuedTile: DomainTileState = {
-            ...tile,
-            frontierDecayAt: undefined,
-            frontierDecayKind: undefined
-          };
-          this.setFrontierDecayTimerFields(tileKey, queuedTile);
-          addChangedDelta(ownerId, this.tileDeltaFromState(queuedTile));
-          continue;
-        }
-        if (this.frontierSupportedByActiveFort(tile, ownerId, nowMs)) {
-          if (tile.frontierDecayAt === undefined) continue;
-          const supportedTile: DomainTileState = {
-            ...tile,
-            frontierDecayAt: undefined,
-            frontierDecayKind: undefined
-          };
-          this.setFrontierDecayTimerFields(tileKey, supportedTile);
-          addChangedDelta(ownerId, this.tileDeltaFromState(supportedTile));
-          continue;
-        }
-
-        const decayAt = tile.frontierDecayAt ?? nowMs + FRONTIER_DECAY_MS;
-        if (decayAt <= nowMs) {
-          // Part 3: collect for bulk expiry instead of individual replaceTileState.
-          const expiredTile: DomainTileState = {
-            ...tile,
-            ownerId: undefined,
-            ownershipState: undefined,
-            frontierDecayAt: undefined,
-            frontierDecayKind: undefined,
-            fort: undefined,
-            observatory: undefined,
-            siegeOutpost: undefined,
-            economicStructure: undefined,
-            sabotage: undefined
-          };
-          const bucket = expiredTilesByOwner.get(ownerId);
-          if (bucket) bucket.push([tileKey, expiredTile]);
-          else expiredTilesByOwner.set(ownerId, [[tileKey, expiredTile]]);
-          continue;
-        }
-
-        if (tile.frontierDecayAt !== decayAt) {
-          const decayingTile: DomainTileState = {
-            ...tile,
-            frontierDecayAt: decayAt,
-            frontierDecayKind: "NATURAL"
-          };
-          this.setFrontierDecayTimerFields(tileKey, decayingTile);
-          addChangedDelta(ownerId, this.tileDeltaFromState(decayingTile));
-        }
-      }
-    }
-
-    // Part 3: bulk-apply expired tiles, deduplicating planner index work.
-    if (expiredTilesByOwner.size > 0) {
-      this.bulkClearFrontierOwnership(expiredTilesByOwner, nowMs);
-      for (const [ownerId, pairs] of expiredTilesByOwner) {
-        for (const [tileKey, expiredTile] of pairs) {
-          addChangedDelta(ownerId, this.tileDeltaFromState(expiredTile));
-          addExpiredKey(ownerId, tileKey);
-        }
-      }
-    }
-
-    for (const [playerId, tileDeltas] of this.frontierDecayChangedByOwner) {
-      if (tileDeltas.length === 0) continue;
-      const commandId = this.nextTerritoryAutomationCommandId("frontier-decay", playerId, "batch", nowMs);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId,
-        playerId,
-        tileDeltas
-      });
-      this.emitPlayerStateUpdate({ commandId, playerId });
-    }
-
-    // Re-check encirclement for neighbors of tiles that expired this tick.
-    // A tile expiry can cut off neighbors that were connected through it.
-    for (const [playerId, expiredKeys] of this.frontierDecayExpiredByOwner) {
-      if (expiredKeys.length === 0) continue;
-      const commandId = this.nextTerritoryAutomationCommandId("frontier-decay-encirclement", playerId, "batch", nowMs);
-      this.applyEncirclement(expiredKeys, playerId, commandId);
-    }
-  }
-
-  /**
-   * Part 3: Bulk expiry path. Applies all expired frontier tiles with deduped
-   * planner/candidate index refreshes, avoiding O(expiredCount * radius²) cost.
-   *
-   * For each expired tile:
-   *   - Directly mutates this.tiles to the cleared state
-   *   - Updates frontierTilesByOwner and activeFortAnchorsByOwner
-   *   - Handles player summaries (O(1) per tile)
-   *   - Defers planner/playerCandidateIndex work until after all mutations
-   *
-   * Then does ONE deduped refresh pass over the union of all affected candidate keys.
-   */
-  private bulkClearFrontierOwnership(
-    expiredTilesByOwner: Map<string, Array<[string, DomainTileState]>>,
-    nowMs: number
-  ): void {
-    // Dedupe keys that need planner-candidate-index refresh.
-    const dirtyPlannerKeysByPlayer = new Map<string, Set<string>>();
-    const dirtyWatchedKeys = new Set<string>();
-    const commandIdPrefix = `frontier-decay-expired-bulk:${nowMs}`;
-
-    for (const [ownerId, pairs] of expiredTilesByOwner) {
-      for (const [tileKey, expiredTile] of pairs) {
-        const previous = this.tiles.get(tileKey);
-
-        // 1. Invalidate stringify cache (cheap, keep per-tile).
+    updateFrontierDecayImpl({
+      nowMs,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      frontierTilesByOwner: this.frontierTilesByOwner,
+      activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
+      accumulators: {
+        changedByOwner: this.frontierDecayChangedByOwner,
+        expiredByOwner: this.frontierDecayExpiredByOwner
+      },
+      supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),
+      setFrontierDecayTimerFields: (tileKey, tile) => {
+        this.tiles.set(tileKey, tile);
         this.tileDeltaStringifyCache.invalidate(tileKey);
-
-        // 2. Update player summaries (O(1) per tile, keep per-tile).
-        if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
-        this.tiles.set(tileKey, expiredTile);
-        this.applyTileToPlayerSummaries(tileKey, expiredTile);
-
-        // 3. Settle-at bookkeeping (expiredTile is unowned, so clear).
-        this.tileSettledAtByKey.delete(tileKey);
-
-        // 4. Fort patrol grace (clear on expiry).
-        this.fortPatrolGraceUntilByTile.delete(tileKey);
-
-        // 5. Part 1: update frontierTilesByOwner — tile is no longer FRONTIER.
-        this.removeFrontierTileFromOwnerIndex(tileKey, ownerId);
-
-        // 6. Part 2: update activeFortAnchorsByOwner — expired tile loses any anchor status.
-        this.refreshFortAnchorIndexForTile(tileKey, previous, expiredTile);
-
-        // 7. Cancel pending settlement if owner changed (it always does on expiry).
-        this.cancelPendingSettlementIfOwnerChanged(tileKey, expiredTile.ownerId, commandIdPrefix);
-
-        // 8 & 9. Collect planner dirty keys and playerCandidateIndex watched keys (deduped).
-        // Use numeric coordinates to avoid per-tile string-parse overhead from
-        // candidateIndexKeysAroundTileKey. Expand 2 hops inline.
-        {
-          const ex = expiredTile.x;
-          const ey = expiredTile.y;
-          let ownerSet = dirtyPlannerKeysByPlayer.get(ownerId);
-          if (!ownerSet) { ownerSet = new Set<string>(); dirtyPlannerKeysByPlayer.set(ownerId, ownerSet); }
-          // Include the tile itself and all tiles within 2 hops (Chebyshev radius 2 = 5x5 - 1 = 24 neighbors).
-          for (let dy = -2; dy <= 2; dy++) {
-            for (let dx = -2; dx <= 2; dx++) {
-              const nx = ((ex + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
-              const ny = ((ey + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
-              const nk = `${nx},${ny}`;
-              ownerSet.add(nk);
-              dirtyWatchedKeys.add(nk);
-              // Check for other affected players in the neighborhood.
-              const neighborTile = this.tiles.get(nk);
-              const neighborOwner = neighborTile?.ownerId;
-              if (neighborOwner && neighborOwner !== ownerId) {
-                let nset = dirtyPlannerKeysByPlayer.get(neighborOwner);
-                if (!nset) { nset = new Set<string>(); dirtyPlannerKeysByPlayer.set(neighborOwner, nset); }
-                nset.add(nk);
-              }
-            }
-          }
-        }
-
-        // 10. PlayerCandidateIndex anchor: unregister if this tile was an anchor.
-        // refreshPlayerCandidateIndexAnchorForTile logic inline:
-        const prevOwnerId = previous?.ownerId;
-        if (previous && prevOwnerId) {
-          // Use anchorKindMaxRadius detection: fort, wooden-fort, town, sweep outpost.
-          const hadFort =
-            (previous.economicStructure?.ownerId === prevOwnerId &&
-              previous.economicStructure.type === "WOODEN_FORT" &&
-              previous.economicStructure.status === "active") ||
-            (previous.fort?.ownerId === prevOwnerId && previous.fort.status === "active");
-          const hadTown = isSettledTownAnchor(previous, prevOwnerId);
-          const hadSweep =
-            previous.siegeOutpost?.ownerId === prevOwnerId &&
-            previous.siegeOutpost.status === "active" &&
-            previous.siegeOutpost.sweepActive;
-          if (hadFort || hadTown || hadSweep) {
-            this.playerCandidateIndex.unregisterAnchor(tileKey);
-          }
-        }
-        // expiredTile has no owner, so no re-register.
-      }
-    }
-
-    // 11. Deduped planner-candidate-index refresh.
-    for (const [pid, candidateKeys] of dirtyPlannerKeysByPlayer) {
-      const summary = this.summaryForPlayer(pid);
-      for (const candidateKey of candidateKeys) {
-        summary.hotFrontierTileKeys.delete(candidateKey);
-        summary.strategicFrontierTileKeys.delete(candidateKey);
-        summary.buildCandidateTileKeys.delete(candidateKey);
-        const candidateTile = this.tiles.get(candidateKey);
-        if (!candidateTile || candidateTile.ownerId !== pid) continue;
-        if (isHotFrontierTile(pid, candidateTile, this.tiles)) summary.hotFrontierTileKeys.add(candidateKey);
-        if (isStrategicFrontierTile(pid, candidateTile, this.tiles)) summary.strategicFrontierTileKeys.add(candidateKey);
-        if (isBuildCandidateTile(pid, candidateTile, this.tiles)) summary.buildCandidateTileKeys.add(candidateKey);
-      }
-      this.markPlannerPlayerTileCollectionDirty(pid);
-    }
-
-    // 12. Deduped playerCandidateIndex refresh.
-    for (const watchedKey of dirtyWatchedKeys) {
-      this.playerCandidateIndex.refreshAroundTile(watchedKey, (k) => this.tiles.get(k));
-    }
+      },
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
+        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
+      emitTileDeltaBatch: ({ commandId, playerId, tileDeltas }) => {
+        this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas });
+      },
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      bulkClearFrontierOwnership: (expiredTilesByOwner, at) => {
+        bulkClearFrontierOwnershipImpl({
+          expiredTilesByOwner,
+          nowMs: at,
+          tiles: this.tiles,
+          playerCandidateIndex: this.playerCandidateIndex,
+          invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
+          removeTileFromPlayerSummaries: (tileKey, tile) => this.removeTileFromPlayerSummaries(tileKey, tile),
+          applyTileToPlayerSummaries: (tileKey, tile) => this.applyTileToPlayerSummaries(tileKey, tile),
+          tileSettledAtByKey: this.tileSettledAtByKey,
+          fortPatrolGraceUntilByTile: this.fortPatrolGraceUntilByTile,
+          removeFrontierTileFromOwnerIndex: (tileKey, ownerId) => this.removeFrontierTileFromOwnerIndex(tileKey, ownerId),
+          refreshFortAnchorIndexForTile: (tileKey, previous, next) => this.refreshFortAnchorIndexForTile(tileKey, previous, next),
+          cancelPendingSettlementIfOwnerChanged: (tileKey, nextOwnerId, commandId) =>
+            this.cancelPendingSettlementIfOwnerChanged(tileKey, nextOwnerId, commandId),
+          summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+          markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
+        });
+      },
+      applyEncirclement: (changedKeys, playerId, commandId) => this.applyEncirclement(changedKeys, playerId, commandId)
+    });
   }
 
   private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {

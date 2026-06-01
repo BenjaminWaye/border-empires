@@ -21,16 +21,24 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.01.3",
   title: "What's New",
-  summary: "Crystal shard sites and crystal abilities now have true-3D overlays, with one-shot cast flourish effects for instant abilities.",
+  summary: "Observatories on crystal-casting cooldown now show a floating badge and a countdown, and the Aether Bridge now plants glowing 3D pylons at each coast.",
   entries: [
     {
       introducedIn: "2026.06.01.3",
-      title: "Crystal shard and ability overlays in true 3D",
-      why: "Shard sites and crystal ability indicators were still mostly 2D-style markers in the true-3D renderer, and instant casts lacked strong visual feedback at cast time.",
+      title: "Aether Bridge raises 3D anchor pylons",
+      why: "In the 3D map the bridge only had flat painted anchor marks, which read poorly in perspective and made the span feel like a 2D doodle rather than a built structure.",
       changes: [
-        "Shard sites now render with three deterministic 3D variants (spire, cluster, shattered) chosen by tile hash.",
-        "Crystal abilities now render distinct 3D markers by ability key, including live map badges for active siphons, aether walls, and aether bridges.",
-        "One-shot crystal cast flourishes now trigger for Aether Lance, Retort Recasting, Reveal Empire, and Reveal Empire Stats."
+        "Each end of an active Aether Bridge now raises a brass-and-copper pylon — riveted iron base, twin towers, a turning cog, and a glowing aether core — that stands on the coast in 3D.",
+        "The flat anchor glyphs are kept for the 2D map; the 3D map uses the new pylons instead."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.3",
+      title: "Observatory crystal-cooldown is now visible",
+      why: "After casting a crystal action like Aether Bridge, the source observatory goes on cooldown, but nothing on the map or in the tile menu showed it — so a follow-up cast appeared to silently do nothing.",
+      changes: [
+        "A floating hourglass badge now hovers over your own active observatory while its crystal-casting cooldown is running.",
+        "The tile overview for an active observatory now shows a live \"Crystal casting recharging — ready in MM:SS\" countdown."
       ]
     },
     {
