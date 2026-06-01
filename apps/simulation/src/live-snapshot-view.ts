@@ -26,6 +26,8 @@ import {
   POPULATION_GROWTH_BASE_RATE,
   RADAR_SYSTEM_GOLD_UPKEEP,
   SEED_GRANARY_GROWTH_MULT,
+  LONG_PEACE_MS,
+  LONG_PEACE_GROWTH_MULT,
   SEED_GRANARY_SLOTS,
   POPULATION_MAX,
   SETTLEMENT_BASE_GOLD_PER_MIN,
@@ -42,6 +44,7 @@ import {
   type EconomyPlayer
 } from "./economy-network.js";
 import { buildDockLinksByDockTileKey } from "./dock-network.js";
+import { chosenTrickleRateForPlayer } from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 
 type RuntimeState = {
@@ -81,6 +84,7 @@ type RuntimeState = {
     townCount?: number;
     incomePerMinute?: number;
     incomeMultiplier?: number;
+    chosenTrickleResource?: "IRON" | "CRYSTAL" | "SUPPLY";
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
   }>;
@@ -428,6 +432,7 @@ const supportSummaryForTown = (
       if (dx === 0 && dy === 0) continue;
       const tile = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!tile || tile.terrain !== "LAND") continue;
+      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
       supportMax += 1;
       if (tile.ownerId === ownerId && tile.ownershipState === "SETTLED") supportCurrent += 1;
     }
@@ -439,35 +444,16 @@ const EMPTY_TOWN_KEY_SET: ReadonlySet<string> = new Set<string>();
 const nearbyWarTownKeysCache: WeakMap<RuntimeState, ReadonlySet<string>> = new WeakMap();
 
 const computeTownKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> => {
-  const lockedCoords: number[] = [];
-  for (const lock of runtimeState.activeLocks ?? []) {
-    if (lock.actionType !== "ATTACK") continue;
-    for (const rawKey of [lock.originKey, lock.targetKey]) {
-      const comma = rawKey.indexOf(",");
-      if (comma <= 0) continue;
-      const x = Number(rawKey.slice(0, comma));
-      const y = Number(rawKey.slice(comma + 1));
-      if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
-      lockedCoords.push(x, y);
-    }
-  }
-  if (lockedCoords.length === 0) return EMPTY_TOWN_KEY_SET;
-
+  const nowMs = Date.now();
   const result = new Set<string>();
   for (const tile of runtimeState.tiles) {
     if (tile.ownershipState !== "SETTLED" || (!tile.townJson && !tile.townType)) continue;
-    for (let i = 0; i < lockedCoords.length; i += 2) {
-      const lockedX = lockedCoords[i] as number;
-      const lockedY = lockedCoords[i + 1] as number;
-      const dx = tile.x - lockedX;
-      const dy = tile.y - lockedY;
-      if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1) {
-        result.add(keyFor(tile.x, tile.y));
-        break;
-      }
+    const town = parseTown(tile);
+    if (typeof town?.nearbyWarPausedUntil === "number" && town.nearbyWarPausedUntil > nowMs) {
+      result.add(keyFor(tile.x, tile.y));
     }
   }
-  return result;
+  return result.size > 0 ? result : EMPTY_TOWN_KEY_SET;
 };
 
 const townKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> => {
@@ -494,11 +480,34 @@ const hasSupportedStructure = (
       if (dx === 0 && dy === 0) continue;
       const tile = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
+      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
       const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
       if (structure?.status === "active" && structure.type && allowed.has(structure.type)) return true;
     }
   }
   return false;
+};
+
+const supportTileBelongsToTown = (
+  supportTile: RuntimeState["tiles"][number],
+  townX: number,
+  townY: number,
+  ownerId: string,
+  tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
+): boolean => {
+  let assignedTown: RuntimeState["tiles"][number] | undefined;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const candidate = tilesByKey.get(keyFor(supportTile.x + dx, supportTile.y + dy));
+      if (!candidate || candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
+      if (!candidate.townType || candidate.townPopulationTier === "SETTLEMENT") continue;
+      if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
+        assignedTown = candidate;
+      }
+    }
+  }
+  return assignedTown?.x === townX && assignedTown.y === townY;
 };
 
 // Island map only changes when terrain changes (create_mountain / remove_mountain).
@@ -740,6 +749,10 @@ const buildTownSummary = (
   const population = populationView?.population ?? townPartial.population!;
   const maxPopulation = populationView?.maxPopulation ?? townPartial.maxPopulation!;
   const logisticFactor = 1 - population / Math.max(1, maxPopulation);
+  const hasNearbyWar = nearbyWarTownKeys?.has(tileKey) ?? false;
+  const hasLongPeace = !hasNearbyWar && (
+    !townPartial.nearbyWarLastAt || Date.now() - townPartial.nearbyWarLastAt >= LONG_PEACE_MS
+  );
   const naturalGrowth =
     !tile.ownerId || tile.ownershipState !== "SETTLED" || !isFed || logisticFactor <= 0
       ? 0
@@ -748,23 +761,25 @@ const buildTownSummary = (
         (populationTier === "SETTLEMENT" ? 4 : 1) *
         granaryGrowthMult *
         firstThreeTownPopGrowthMult *
+        (hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1) *
         logisticFactor;
   const baseGrowth = isInCaptureShock ? 0 : naturalGrowth;
-  const hasNearbyWar = nearbyWarTownKeys?.has(tileKey) ?? false;
   // Modifier precedence:
   //   1. Recently captured (capture-shock smoke is active even when growth is
   //      already zero, so surface the blocker explicitly instead of falling
   //      through to stale long-peace copy).
-  //   2. Nearby war (negative — active combat near a fed settled town).
-  //   3. Long time peace (positive baseline growth).
+  //   2. Nearby war (negative — 60-min stamped pause from recent nearby combat).
+  //   3. Long time peace (positive — 24 h of no nearby combat near this town).
   const growthModifiers = isInCaptureShock
     ? [{ label: "Recently captured" as const, deltaPerMinute: -Number(naturalGrowth.toFixed(4)) }]
-    : baseGrowth > 0
-      ? [{
-          label: hasNearbyWar ? "Nearby war" as const : "Long time peace" as const,
-          deltaPerMinute: Number((hasNearbyWar ? -baseGrowth : baseGrowth).toFixed(4))
-        }]
-      : [];
+    : hasNearbyWar && baseGrowth > 0
+      ? [{ label: "Nearby war" as const, deltaPerMinute: -Number(baseGrowth.toFixed(4)) }]
+      : hasLongPeace && baseGrowth > 0
+        ? [{
+            label: "Long time peace" as const,
+            deltaPerMinute: Number((baseGrowth * (1 - 1 / LONG_PEACE_GROWTH_MULT)).toFixed(4))
+          }]
+        : [];
   const cap = isSettlement
     ? goldPerMinute * 60 * 8
     : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
@@ -884,6 +899,21 @@ export const buildLivePlayerEconomySnapshot = (
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
       if (output.OIL) addBucket(oilSources, structure.type, output.OIL, { count: 1 });
     }
+  }
+
+  // Clockwork Stipend (and any future pick-a-resource domain) credits a flat
+  // trickle each tick — fold it into the breakdown so the income panel
+  // attributes it, matching buildPlayerUpdateEconomySnapshot.
+  const trickle = player
+    ? chosenTrickleRateForPlayer({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource })
+    : undefined;
+  if (trickle && trickle.ratePerMinute > 0) {
+    const target =
+      trickle.resource === "IRON" ? ironSources :
+      trickle.resource === "SUPPLY" ? supplySources :
+      crystalSources;
+    addBucket(target, "Clockwork Stipend", trickle.ratePerMinute, { count: 1, resourceKey: trickle.resource });
+    strategicProductionPerMinute[trickle.resource] += trickle.ratePerMinute;
   }
 
   const upkeepPerMinute = {

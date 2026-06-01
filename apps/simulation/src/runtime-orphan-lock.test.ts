@@ -98,6 +98,14 @@ describe("orphaned frontier lock cleanup", () => {
     // is that the planner stays gated.
     const afterView = runtime.exportPlannerPlayerViews(["ai-3"])[0];
     expect(afterView?.hasActiveLock).toBe(false);
+
+    // Regression for the locksByCommandId index (PR #442): exportState's
+    // activeLocks is derived from locksByCommandId, not locksByTile. On a
+    // partial-mismatch resolve the retired lock must be dropped from the
+    // commandId index too, or it leaks into every subsequent export.
+    const exportedCommandIds = runtime.exportState().activeLocks.map((l) => l.commandId);
+    expect(exportedCommandIds).not.toContain("lockA-expand-from-10-10");
+    expect(exportedCommandIds).not.toContain("lockB-expand-from-10-10");
   });
 
   it("tickOrphanedLockSweep drops locks whose resolvesAt is well in the past", () => {
@@ -139,5 +147,11 @@ describe("orphaned frontier lock cleanup", () => {
     nowMs = 200_000;
     expect(runtime.tickOrphanedLockSweep(nowMs)).toBeGreaterThan(0);
     expect(runtime.exportPlannerPlayerViews(["ai-3"])[0]?.hasActiveLock).toBe(false);
+
+    // Regression for the locksByCommandId index (PR #442): the sweep must
+    // also evict the lock from locksByCommandId, or it persists in
+    // exportState().activeLocks even though locksByTile no longer holds it.
+    const exportedCommandIds = runtime.exportState().activeLocks.map((l) => l.commandId);
+    expect(exportedCommandIds).not.toContain("stale-lock-from-past");
   });
 });

@@ -66,7 +66,7 @@ export type GatewayTileUpdate = {
 type GatewayTileSyncDeps = {
   state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
     me?: string | undefined;
-    mods?: ClientState["mods"];
+    mods?: Partial<ClientState["mods"]>;
     upkeepLastTick: { foodCoverage?: number };
   };
   keyFor: (x: number, y: number) => string;
@@ -447,11 +447,15 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   const resolved = deps.mergeServerTileWithOptimisticState(deps.mergeIncomingTileDetail(existing, merged));
   // Bootstrap tiles no longer carry yieldRate/yieldCap (see docs/plans/2026-05-30-bootstrap-payload-shrink.md).
   // Derive them client-side from townJson / resource / economicStructure / dockId.
-  // Pass the player's income modifier so non-town dock tiles and settlement
-  // fallback use the correct tech/domain-adjusted rate.
+  // Only apply the viewer's income modifier when the tile is owned by the
+  // viewer — enemy-tile yields must not be inflated by our tech bonuses.
   // Cast: Tile.yieldRate has optional inner fields; TileYieldRate requires them.
   // ensureTileYield only writes the field when it can derive a complete value.
-  ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], deps.state.mods?.income ?? 1.0);
+  const ownIncomeMultiplier =
+    resolved.ownerId && deps.state.me && resolved.ownerId === deps.state.me
+      ? deps.state.mods?.income ?? 1.0
+      : 1.0;
+  ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], ownIncomeMultiplier);
   deps.state.tiles.set(tileKey, resolved);
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
