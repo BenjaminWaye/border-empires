@@ -402,6 +402,36 @@ describe("development queue helpers", () => {
     expect(state.developmentQueue.map((e) => e.tileKey)).toEqual(["1,1", "2,2"]);
   });
 
+  it("forceQueue routes a settlement into the queue even with an empty queue and free slots", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 999;
+    state.activeDevelopmentProcessCount = 0;
+    state.tiles.set("2,2", { x: 2, y: 2, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as any);
+    const sendGameMessage = vi.fn(() => true);
+
+    const queued = requestSettlement(state, 2, 2, {
+      keyFor: (x, y) => `${x},${y}`,
+      developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+      developmentSlotReason: () => "busy",
+      queueDevelopmentAction: (entry) => {
+        state.developmentQueue.push(entry);
+        return true;
+      },
+      pushFeed: vi.fn(),
+      renderHud: vi.fn(),
+      sendGameMessage,
+      syncOptimisticSettlementTile: vi.fn(),
+      opts: { forceQueue: true }
+    });
+
+    expect(queued).toBe(true);
+    // Bulk dispatch must not fire SETTLE directly; the queue dispatcher paces it.
+    expect(sendGameMessage).not.toHaveBeenCalled();
+    expect(state.settleProgressByTile.size).toBe(0);
+    expect(state.developmentQueue.map((e) => e.tileKey)).toEqual(["2,2"]);
+  });
+
   it("queues a granary behind existing queue entries even when a slot is free", () => {
     const state = createInitialState();
     state.me = "me";
