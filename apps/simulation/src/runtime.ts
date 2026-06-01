@@ -1155,8 +1155,12 @@ export class SimulationRuntime {
           : newPopulation >= 100_000 ? "CITY" as const
           : "TOWN" as const;
 
+        // Destructure out the stale pause timestamp (exactOptionalPropertyTypes
+        // forbids setting it to undefined; omitting the key altogether is correct
+        // and ensures JSON.stringify no longer includes it).
+        const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
         const updatedTown = {
-          ...town,
+          ...townWithoutPause,
           population: newPopulation,
           ...(nextTier !== town.populationTier ? { populationTier: nextTier } : {})
         };
