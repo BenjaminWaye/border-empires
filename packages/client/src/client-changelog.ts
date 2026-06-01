@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.3",
+  version: "2026.06.01.4",
   title: "What's New",
-  summary: "Observatories on crystal-casting cooldown now show a floating badge and a countdown, and the Aether Bridge now plants glowing 3D pylons at each coast.",
+  summary: "Aether Lance now has a focused 3D cast strike, alongside the Aether Bridge pylon and observatory cooldown improvements.",
   entries: [
+    {
+      introducedIn: "2026.06.01.4",
+      title: "Aether Lance gets a focused 3D strike",
+      why: "Aether Lance is a precise structure-breaking crystal cast, but the 3D map gave no cast feedback when the player fired it.",
+      changes: [
+        "Casting Aether Lance now triggers a target lock, charging column, needle beam, shock ring, debris burst, and fading afterglow on the target tile.",
+        "The effect is client-only and one-shot, so it gives immediate feedback without adding persistent map state."
+      ]
+    },
     {
       introducedIn: "2026.06.01.3",
       title: "Aether Bridge raises 3D anchor pylons",
