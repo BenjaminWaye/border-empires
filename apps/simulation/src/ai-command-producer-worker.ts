@@ -108,6 +108,8 @@ type WorkerAiCommandProducerOptions = {
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
+  onThrottle?: (reason: "adaptive") => void;
+  onIntervalChange?: (intervalMs: number) => void;
   // Fires when a single ai tick exceeds slowTickThresholdMs. The histograms
   // capture per-call stats but the rare 5s ai tick p99 hasn't been explained
   // by any single phase. This callback captures the tick-level context so we
@@ -168,6 +170,10 @@ const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 // are p50=2ms / p95=5ms; p99=5000ms+ is a rare outlier we want to capture.
 // 1s threshold catches the outliers without flooding logs with normal ticks.
 const AI_TICK_SLOW_THRESHOLD_MS = 1_000;
+const MIN_TICK_MS = 200;
+const MAX_TICK_MS = 3_200; // 16x backoff ceiling
+const ADAPTIVE_BACKOFF_THRESHOLD_MS = 50;
+const ADAPTIVE_RECOVER_THRESHOLD_MS = 25;
 const isAutomationPreplanCommand = (type: CommandEnvelope["type"]): boolean =>
   type === "COLLECT_VISIBLE" || type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
 const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
@@ -181,11 +187,12 @@ type PlannedCommandResult = {
 
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
-  const tickIntervalMs = Math.max(25, options.tickIntervalMs ?? 250);
+  const initialTickMs = Math.max(25, options.tickIntervalMs ?? 250);
+  let nextTickDelayMs = initialTickMs;
   const playerSyncIntervalMs = Math.max(25, options.playerSyncIntervalMs ?? 5_000);
   const periodicPlayerSyncBatchSize = Math.max(1, options.periodicPlayerSyncBatchSize ?? 1);
   const playerSyncDebounceMs = 500;
-  const tileDeltaSyncDebounceMs = Math.max(20, Math.min(150, Math.floor(tickIntervalMs / 2)));
+  const tileDeltaSyncDebounceMs = Math.max(20, Math.min(150, Math.floor(initialTickMs / 2)));
   const shouldRun = options.shouldRun ?? (() => true);
   const plannerBreachThresholdMs = Math.max(1, options.plannerBreachThresholdMs ?? 50);
   const aiPlayerIdSet = new Set(options.aiPlayerIds);
@@ -959,19 +966,39 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         });
       }
       tickInFlight = false;
+      // Adaptive tick interval (Layer 1): back off when AI work is heavy,
+      // recover when it's light. Never drop below MIN or above MAX.
+      const prevDelayMs = nextTickDelayMs;
+      if (tickDurationMs > ADAPTIVE_BACKOFF_THRESHOLD_MS) {
+        nextTickDelayMs = Math.min(MAX_TICK_MS, nextTickDelayMs * 2);
+        options.onThrottle?.("adaptive");
+      } else if (tickDurationMs < ADAPTIVE_RECOVER_THRESHOLD_MS && nextTickDelayMs > MIN_TICK_MS) {
+        nextTickDelayMs = Math.max(MIN_TICK_MS, Math.floor(nextTickDelayMs / 2));
+      }
+      if (nextTickDelayMs !== prevDelayMs) {
+        options.onIntervalChange?.(nextTickDelayMs);
+      }
+      scheduleNextTick();
     }
   };
 
-  const intervalHandle = setInterval(() => {
-    void tick();
-  }, tickIntervalMs);
+  let nextTickTimeout: ReturnType<typeof setTimeout> | undefined;
+
+  const scheduleNextTick = (): void => {
+    if (closed) return;
+    nextTickTimeout = setTimeout(() => {
+      void tick();
+    }, nextTickDelayMs);
+  };
+
+  scheduleNextTick();
 
   return {
     tick,
     getWorkerMetrics: (): WorkerMemoryMetrics => ({ ...workerMetrics }),
     close(): void {
       closed = true;
-      clearInterval(intervalHandle);
+      if (nextTickTimeout) clearTimeout(nextTickTimeout);
       clearInterval(playerSyncInterval);
       if (playerSyncTimeout) clearTimeout(playerSyncTimeout);
       if (tileDeltaSyncTimeout) clearTimeout(tileDeltaSyncTimeout);
