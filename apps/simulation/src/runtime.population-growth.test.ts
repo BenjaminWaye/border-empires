@@ -242,6 +242,37 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
     expect(pop).toBeLessThanOrEqual(TOWN_POP + expectedGrowth * 1.01);
   });
 
+  it("resumes growth after pause expires and clears nearbyWarPausedUntil", () => {
+    // Pause already expired 1 ms ago; war was > 24 h ago so long-peace applies.
+    const expiredPauseTile = makeTownTile(10, 10, "p1", {
+      nearbyWarPausedUntil: now - 1,
+      nearbyWarLastAt: now - (LONG_PEACE_MS + 60 * 60_000)
+    });
+    const player = makePlayer("p1");
+    runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["p1", player]]),
+      initialState: {
+        tiles: [expiredPauseTile],
+        activeLocks: []
+      }
+    });
+
+    runtime.tickPopulationGrowth(now);
+    now += 60 * 60_000;
+    runtime.tickPopulationGrowth(now);
+    const exported = runtime.exportState();
+    const tile = exported.tiles.find((t) => t.x === 10 && t.y === 10)!;
+
+    // Growth resumed.
+    const pop = townPop(tile)!;
+    expect(pop).toBeGreaterThan(TOWN_POP);
+
+    // Stale pause timestamp cleared from the tile JSON.
+    const town = JSON.parse(tile.townJson!) as { nearbyWarPausedUntil?: number };
+    expect(town.nearbyWarPausedUntil).toBeUndefined();
+  });
+
   it("skips settlement-tier towns", () => {
     const settlementTile = {
       x: 11,
