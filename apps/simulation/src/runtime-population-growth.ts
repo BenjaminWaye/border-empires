@@ -1,0 +1,185 @@
+import type { SimulationEvent } from "@border-empires/sim-protocol";
+import {
+  LONG_PEACE_GROWTH_MULT,
+  LONG_PEACE_MS,
+  NEARBY_WAR_PAUSE_MS,
+  NEARBY_WAR_RADIUS,
+  POPULATION_GROWTH_BASE_RATE,
+  SEED_GRANARY_GROWTH_MULT,
+  type DomainTileState
+} from "@border-empires/game-domain";
+import { buildFedTownKeys, hasSupportedStructure } from "./player-update-economy.js";
+import { firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network.js";
+import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
+import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+
+export function seedGranaryGrowthMultForTile(input: {
+  tile: DomainTileState;
+  playerId: string;
+  tiles: ReadonlyMap<string, DomainTileState>;
+}): number {
+  const hasGranary = hasSupportedStructure(input.playerId, input.tile, "GRANARY", input.tiles);
+  const hasSeedGranary = hasSupportedStructure(input.playerId, input.tile, "SEED_GRANARY", input.tiles);
+  if (!hasGranary && !hasSeedGranary) return 1;
+  if (!hasSeedGranary) return 1.15;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const neighbor = input.tiles.get(`${input.tile.x + dx},${input.tile.y + dy}`);
+      if (
+        neighbor?.ownerId === input.playerId &&
+        neighbor.ownershipState === "SETTLED" &&
+        neighbor.economicStructure?.type === "SEED_GRANARY" &&
+        neighbor.economicStructure.status === "active"
+      ) {
+        return SEED_GRANARY_GROWTH_MULT;
+      }
+    }
+  }
+  return 1.15;
+}
+
+export function tickPopulationGrowth(input: {
+  nowMs: number;
+  players: ReadonlyMap<string, RuntimePlayer>;
+  tiles: Map<string, DomainTileState>;
+  locksByTile: ReadonlyMap<string, LockRecord>;
+  townLastGrowthTickAtByKey: Map<string, number>;
+  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
+  invalidateTileStringifyCache: (tileKey: string) => void;
+  emitEvent: (event: SimulationEvent) => void;
+  tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
+  invalidateEconomyCachesForPlayer: (playerId: string) => void;
+}): void {
+  const dirtyPlayerIds = new Set<string>();
+  const attackCoords: number[] = [];
+  const seenLockCommandIds = new Set<string>();
+  for (const lock of input.locksByTile.values()) {
+    if (seenLockCommandIds.has(lock.commandId)) continue;
+    seenLockCommandIds.add(lock.commandId);
+    if (lock.actionType !== "ATTACK") continue;
+    for (const lockedKey of [lock.originKey, lock.targetKey]) {
+      const comma = lockedKey.indexOf(",");
+      if (comma > 0) {
+        attackCoords.push(Number(lockedKey.slice(0, comma)), Number(lockedKey.slice(comma + 1)));
+      }
+    }
+  }
+
+  for (const player of input.players.values()) {
+    if (player.id.startsWith("barbarian-")) continue;
+    const summary = input.summaryForPlayer(player.id);
+    const ownedTowns = summary.ownedTownTierByTile;
+    if (ownedTowns.size === 0) continue;
+
+    const fedTownKeys = buildFedTownKeys(
+      player,
+      summary,
+      input.tiles,
+      summary.strategicProductionPerMinute
+    );
+    if (fedTownKeys.size === 0) continue;
+
+    const firstThreeKeys = firstThreeTownKeysForPlayer(player.id, input.tiles.values());
+
+    for (const tileKey of ownedTowns.keys()) {
+      const tile = input.tiles.get(tileKey);
+      if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
+      const town = tile.town;
+      if (town.populationTier === "SETTLEMENT") continue;
+      if (typeof town.captureShockUntil === "number" && town.captureShockUntil > input.nowMs) continue;
+      if (!fedTownKeys.has(tileKey)) continue;
+      if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
+
+      let isNearActiveWar = false;
+      for (let i = 0; i < attackCoords.length; i += 2) {
+        if (
+          Math.abs(tile.x - (attackCoords[i] as number)) <= NEARBY_WAR_RADIUS &&
+          Math.abs(tile.y - (attackCoords[i + 1] as number)) <= NEARBY_WAR_RADIUS
+        ) {
+          isNearActiveWar = true;
+          break;
+        }
+      }
+      if (isNearActiveWar) {
+        const pausedUntil = input.nowMs + NEARBY_WAR_PAUSE_MS;
+        if ((town.nearbyWarPausedUntil ?? 0) < pausedUntil) {
+          const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: input.nowMs };
+          const updatedTile = { ...tile, town: updatedTown };
+          input.tiles.set(tileKey, updatedTile);
+          input.invalidateTileStringifyCache(tileKey);
+          input.emitEvent({
+            eventType: "TILE_DELTA_BATCH",
+            commandId: `population-growth-tick:war-pause:${tileKey}`,
+            playerId: player.id,
+            tileDeltas: [input.tileDeltaFromState(updatedTile)]
+          });
+          dirtyPlayerIds.add(player.id);
+        }
+        input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+        continue;
+      }
+      if (typeof town.nearbyWarPausedUntil === "number" && town.nearbyWarPausedUntil > input.nowMs) {
+        input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+        continue;
+      }
+
+      const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
+      if (logisticFactor <= 0) continue;
+
+      const granaryGrowthMult = seedGranaryGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles });
+      const firstThreeMult = firstThreeKeys.has(tileKey)
+        ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player)
+        : 1;
+      const hasLongPeace = !town.nearbyWarLastAt || input.nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
+      const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
+      const lastTick = input.townLastGrowthTickAtByKey.get(tileKey) ?? input.nowMs;
+      const elapsedMinutes = (input.nowMs - lastTick) / 60_000;
+      if (elapsedMinutes <= 0) {
+        input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+        continue;
+      }
+
+      const growthPerMinute =
+        town.population *
+        POPULATION_GROWTH_BASE_RATE *
+        granaryGrowthMult *
+        firstThreeMult *
+        longPeaceMult *
+        logisticFactor;
+      const growth = growthPerMinute * elapsedMinutes;
+      if (growth <= 0) continue;
+
+      const newPopulation = Math.min(town.maxPopulation, town.population + growth);
+      const nextTier = newPopulation >= 5_000_000 ? "METROPOLIS" as const
+        : newPopulation >= 1_000_000 ? "GREAT_CITY" as const
+        : newPopulation >= 100_000 ? "CITY" as const
+        : "TOWN" as const;
+
+      const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
+      const updatedTown = {
+        ...townWithoutPause,
+        population: newPopulation,
+        ...(nextTier !== town.populationTier ? { populationTier: nextTier } : {})
+      };
+      const updatedTile = { ...tile, town: updatedTown };
+      input.tiles.set(tileKey, updatedTile);
+      input.invalidateTileStringifyCache(tileKey);
+      input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+      input.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: `population-growth-tick:${tileKey}`,
+        playerId: player.id,
+        tileDeltas: [input.tileDeltaFromState(updatedTile)]
+      });
+
+      if (nextTier !== town.populationTier) {
+        summary.ownedTownTierByTile.set(tileKey, nextTier);
+      }
+
+      dirtyPlayerIds.add(player.id);
+    }
+  }
+
+  for (const playerId of dirtyPlayerIds) input.invalidateEconomyCachesForPlayer(playerId);
+}
