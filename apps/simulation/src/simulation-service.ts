@@ -45,6 +45,7 @@ import { createStartupReplayCompactionRunner } from "./startup-replay-compaction
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { personalizeSeasonVictoryObjectives } from "./personalized-season-victory.js";
 import { laneForCommand } from "./command-lane.js";
+import { createAiBudgetTracker } from "./ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "./metrics.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import { createSeasonSummaryStore } from "./season-summary-store-factory.js";
@@ -1434,33 +1435,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 
   // Layer 2: rolling time-budget tracker — caps AI work to 200ms per 1s window.
-  const aiBudgetTracker = (() => {
-    const entries: { time: number; durationMs: number }[] = [];
-    const WINDOW_MS = 1_000;
-    const BUDGET_MS = 200;
-    const purge = (now: number) => {
-      while (entries.length > 0 && entries[0].time < now - WINDOW_MS) {
-        entries.shift();
-      }
-    };
-    return {
-      recordWork(durationMs: number): void {
-        const now = Date.now();
-        entries.push({ time: now, durationMs });
-        purge(now);
-      },
-      available(): boolean {
-        const now = Date.now();
-        purge(now);
-        return entries.reduce((sum, e) => sum + e.durationMs, 0) < BUDGET_MS;
-      },
-      usedMs(): number {
-        const now = Date.now();
-        purge(now);
-        return entries.reduce((sum, e) => sum + e.durationMs, 0);
-      }
-    };
-  })();
+  const aiBudgetTracker = createAiBudgetTracker();
 
   // Layer 3: event-loop-lag observer. Uses hrtime to detect when the sim
   // main thread is too busy to run AI on schedule.
