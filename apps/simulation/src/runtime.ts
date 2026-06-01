@@ -2758,7 +2758,7 @@ export class SimulationRuntime {
 
   exportPlayerDebugSnapshot(): RuntimePlayerDebugSnapshot {
     return buildRuntimePlayerDebugSnapshot({
-      locksByCommandId: this.locksByCommandId,
+      locksByTile: this.locksByTile,
       players: this.players,
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
