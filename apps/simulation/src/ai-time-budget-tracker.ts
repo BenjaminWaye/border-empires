@@ -21,7 +21,9 @@ export const createAiBudgetTracker = (
   const entries: { time: number; durationMs: number }[] = [];
 
   const purge = (now: number) => {
-    while (entries.length > 0 && entries[0].time < now - windowMs) {
+    while (entries.length > 0) {
+      const head = entries[0];
+      if (!head || head.time >= now - windowMs) break;
       entries.shift();
     }
   };
