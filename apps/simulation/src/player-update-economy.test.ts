@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
-import { buildPlayerUpdateEconomySnapshot, refreshTownEconomyFields } from "./player-update-economy.js";
+import { buildPlayerUpdateEconomySnapshot, hasSupportedStructure, refreshTownEconomyFields, supportSummaryForTown } from "./player-update-economy.js";
 import { createEmptyPlayerRuntimeSummary, applyTileToPlayerSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
 const makePlayer = (): DomainPlayer => ({
@@ -23,6 +23,44 @@ const summaryForTiles = (tiles: ReadonlyMap<string, DomainTileState>) => {
 };
 
 describe("buildPlayerUpdateEconomySnapshot", () => {
+  it("assigns a shared support tile to one town for support and structure effects", () => {
+    const player = makePlayer();
+    const westTown: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      town: { type: "MARKET", populationTier: "TOWN", name: "West" }
+    };
+    const eastTown: DomainTileState = {
+      x: 12,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      town: { type: "MARKET", populationTier: "TOWN", name: "East" }
+    };
+    const sharedSupport: DomainTileState = {
+      x: 11,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: player.id, type: "MARKET", status: "active" }
+    };
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", westTown],
+      ["11,10", sharedSupport],
+      ["12,10", eastTown]
+    ]);
+
+    expect(supportSummaryForTown(player.id, westTown, tiles)).toEqual({ supportCurrent: 1, supportMax: 1 });
+    expect(supportSummaryForTown(player.id, eastTown, tiles)).toEqual({ supportCurrent: 0, supportMax: 0 });
+    expect(hasSupportedStructure(player.id, westTown, "MARKET", tiles)).toBe(true);
+    expect(hasSupportedStructure(player.id, eastTown, "MARKET", tiles)).toBe(false);
+  });
+
   it("adds connected dock route income when both dock endpoints are settled by the player", () => {
     const player = makePlayer();
     const tiles = new Map<string, DomainTileState>([
