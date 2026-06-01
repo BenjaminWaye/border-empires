@@ -90,6 +90,10 @@ import {
   POPULATION_GROWTH_BASE_RATE,
   POPULATION_MAX,
   SEED_GRANARY_GROWTH_MULT,
+  NEARBY_WAR_RADIUS,
+  NEARBY_WAR_PAUSE_MS,
+  LONG_PEACE_MS,
+  LONG_PEACE_GROWTH_MULT,
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
@@ -1031,8 +1035,9 @@ export class SimulationRuntime {
   tickPopulationGrowth(nowMs: number = this.now()): void {
     const dirtyPlayerIds = new Set<string>();
 
-    // Build set of town tile keys adjacent to active ATTACK locks.
-    const warAdjacentTownKeys = new Set<string>();
+    // Gather unique attack tile coords once — O(locks). Per-town radius check
+    // below is O(towns × n_coords); ~12 k comparisons for 300 towns / 40 coords.
+    const attackCoords: number[] = [];
     const seenLockCommandIds = new Set<string>();
     for (const lock of this.locksByTile.values()) {
       if (seenLockCommandIds.has(lock.commandId)) continue; // locksByTile stores each lock twice
@@ -1040,14 +1045,8 @@ export class SimulationRuntime {
       if (lock.actionType !== "ATTACK") continue;
       for (const lockedKey of [lock.originKey, lock.targetKey]) {
         const comma = lockedKey.indexOf(",");
-        if (comma <= 0) continue;
-        const lx = Number(lockedKey.slice(0, comma));
-        const ly = Number(lockedKey.slice(comma + 1));
-        // Mark all tiles within 1 step of the lock coordinates.
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            warAdjacentTownKeys.add(`${lx + dx},${ly + dy}`);
-          }
+        if (comma > 0) {
+          attackCoords.push(Number(lockedKey.slice(0, comma)), Number(lockedKey.slice(comma + 1)));
         }
       }
     }
@@ -1077,12 +1076,45 @@ export class SimulationRuntime {
         if (town.populationTier === "SETTLEMENT") continue;
         // Gate: skip if in capture shock.
         if (typeof town.captureShockUntil === "number" && town.captureShockUntil > nowMs) continue;
-        // Gate: skip towns near active combat (mirrors the "Nearby war" display modifier).
-        if (warAdjacentTownKeys.has(tileKey)) continue;
         // Gate: skip unfed towns.
         if (!fedTownKeys.has(tileKey)) continue;
         // Guard: population and maxPopulation must be present.
         if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
+
+        // Check 10-tile radius for active ATTACK locks. Stamp a 60-minute pause
+        // on the town tile so the gate persists after the lock resolves and the
+        // timestamp flows through snapshots/deltas to the display path.
+        let isNearActiveWar = false;
+        for (let i = 0; i < attackCoords.length; i += 2) {
+          if (Math.abs(tile.x - (attackCoords[i] as number)) <= NEARBY_WAR_RADIUS &&
+              Math.abs(tile.y - (attackCoords[i + 1] as number)) <= NEARBY_WAR_RADIUS) {
+            isNearActiveWar = true;
+            break;
+          }
+        }
+        if (isNearActiveWar) {
+          const pausedUntil = nowMs + NEARBY_WAR_PAUSE_MS;
+          if ((town.nearbyWarPausedUntil ?? 0) < pausedUntil) {
+            const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: nowMs };
+            const updatedTile = { ...tile, town: updatedTown };
+            this.tiles.set(tileKey, updatedTile);
+            this.tileDeltaStringifyCache.invalidate(tileKey);
+            this.emitEvent({
+              eventType: "TILE_DELTA_BATCH",
+              commandId: `population-growth-tick:war-pause:${tileKey}`,
+              playerId: player.id,
+              tileDeltas: [this.tileDeltaFromState(updatedTile)]
+            });
+            dirtyPlayerIds.add(player.id);
+          }
+          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+          continue;
+        }
+        // Still within the 60-minute pause window from a recent battle.
+        if (typeof town.nearbyWarPausedUntil === "number" && town.nearbyWarPausedUntil > nowMs) {
+          this.townLastGrowthTickAtByKey.set(tileKey, nowMs);
+          continue;
+        }
 
         const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
         if (logisticFactor <= 0) continue;
@@ -1093,6 +1125,10 @@ export class SimulationRuntime {
         const firstThreeMult = firstThreeKeys.has(tileKey)
           ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player)
           : 1;
+
+        // Long-peace multiplier: 24 h of no nearby combat near this town.
+        const hasLongPeace = !town.nearbyWarLastAt || nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
+        const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
 
         const lastTick = this.townLastGrowthTickAtByKey.get(tileKey) ?? nowMs;
         const elapsedMinutes = (nowMs - lastTick) / 60_000;
@@ -1106,6 +1142,7 @@ export class SimulationRuntime {
           POPULATION_GROWTH_BASE_RATE *
           granaryGrowthMult *
           firstThreeMult *
+          longPeaceMult *
           logisticFactor;
         const growth = growthPerMinute * elapsedMinutes;
         if (growth <= 0) continue;
