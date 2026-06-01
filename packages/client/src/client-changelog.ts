@@ -21,15 +21,15 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.01.2",
   title: "What's New",
-  summary: "Settle Connected no longer floods development slots. Client now backs off on SERVER_BUSY. Manpower regen constants aligned. Barbarian counter-captures stay settled.",
+  summary: "Shared support tiles resolve to one town. Client backs off on SERVER_BUSY. Manpower regen constants aligned.",
   entries: [
     {
       introducedIn: "2026.06.01.2",
-      title: "Settle Connected no longer fails with \"development slots are busy\"",
-      why: "Settle Connected sent every connected tile's SETTLE message in one synchronous burst. The development slot count only updates when the server replies, so all the messages raced against a stale count, the server accepted the first few, and the rest bounced back as \"development slots are busy\". It only misbehaved when slots were free — once a queue already existed, every tile correctly went through the paced queue.",
+      title: "Shared support tiles can build again",
+      why: "Support tiles that touched multiple towns were blocked with 'Support tile touches multiple towns' even when the player owned the land. The block avoided double-counting support effects, but it made valid settled support tiles unusable.",
       changes: [
-        "Settle Connected now routes every tile through the development queue, which dispatches them one slot at a time as the server confirms each settlement — no more rejected overflow.",
-        "Single-tile settling is unchanged: it still starts immediately into a free slot."
+        "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
+        "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
       ]
     },
     {

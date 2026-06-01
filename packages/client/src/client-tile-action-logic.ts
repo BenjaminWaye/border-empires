@@ -978,7 +978,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
     const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     const supportedTowns = tile.ownershipState === "SETTLED" ? deps.supportedOwnedTownsForTile(tile) : [];
-    const supportedTown = supportedTowns.length === 1 ? supportedTowns[0] : undefined;
+    const supportedTown = supportedTowns[0];
     const supportedDocks = tile.ownershipState === "SETTLED" ? deps.supportedOwnedDocksForTile(tile) : [];
     const townBuildSource =
       tile.town && tile.town.populationTier !== "SETTLEMENT" && tile.ownershipState === "SETTLED" ? tile : supportedTown;
@@ -2121,32 +2121,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             deps
           )
         });
-      } else if (!tile.town && supportedTowns.length > 1) {
-        out.push({
-          id: "build_market",
-          label: "Build Market",
-          disabled: true,
-          disabledReason: "Support tile touches multiple towns"
-        });
-        out.push({
-          id: "build_granary",
-          label: "Build Granary",
-          disabled: true,
-          disabledReason: "Support tile touches multiple towns"
-        });
-        out.push({ id: "build_census_hall", label: "Build Census Hall", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_bank", label: "Build Bank", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_clearing_house", label: "Build Clearing House", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_caravanary", label: "Build Caravanary", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_fur_synthesizer", label: "Build Fur Synthesizer", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_ironworks", label: "Build Ironworks", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_crystal_synthesizer", label: "Build Aether Condenser", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_exchange_house", label: "Build Exchange House", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_rail_depot", label: "Build Rail Depot", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_imperial_exchange_part", label: "Build Imperial Exchange Part", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_world_engine_part", label: "Build Worldbreaker Cannon Part", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_aegis_dome_part", label: "Build Aegis Dome Part", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_astral_dock_part", label: "Build Astral Dock Part", disabled: true, disabledReason: "Support tile touches multiple towns" });
       }
       if (tile.dockId) {
         out.push({

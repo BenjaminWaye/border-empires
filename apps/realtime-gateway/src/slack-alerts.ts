@@ -138,10 +138,12 @@ const buildAlertPayload = (input: {
 
   // World stats line
   const worldParts: string[] = [];
-  if (tileCount !== undefined) worldParts.push(`${fmtCount(tileCount)} tiles`);
+  if (tileCount !== undefined && tileCount > 0) worldParts.push(`${fmtCount(tileCount)} tiles`);
   if (aiPlayerCount !== undefined) worldParts.push(`${fmtCount(aiPlayerCount)} AI`);
-  if (wsSessions !== undefined) worldParts.push(`${fmtCount(wsSessions)} human WS`);
-  const worldLine = worldParts.length > 0 ? worldParts.join(", ") : undefined;
+  if (wsSessions !== undefined && wsSessions > 0) worldParts.push(`${fmtCount(wsSessions)} human WS`);
+  const worldLine = worldParts.length > 0
+    ? worldParts.join(", ")
+    : "(world stats not yet populated — no auth bootstrap or WS sessions since restart)";
 
   // Recent events summary
   let recentLine = "(none)";
