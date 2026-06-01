@@ -362,4 +362,33 @@ describe("createSlackAlerter", () => {
     expect(sectionText).toContain("<500ms");
     expect(body.text).toContain("analyze_iter_total p99");
   });
+
+  it("omits zero tile/ws counts and shows 'not yet populated' fallback (post-restart)", async () => {
+    const { captured, fetch } = captureFetch();
+    const metrics = baseMetrics();
+    // Simulate post-restart: snapshot histogram not yet populated
+    metrics.gatewaySnapshotTileCount = { p50: 0, p95: 0, p99: 0 };
+    metrics.gatewayWsSessions = 0;
+
+    const alerter = createSlackAlerter({
+      webhookUrl: "https://hooks.slack.example/hook",
+      dedupeWindowMs: 0,
+      fetchImpl: fetch,
+      metricsSnapshot: () => metrics,
+      recentEvents: noEvents,
+      now: () => 1000
+    });
+
+    alerter.alertMachineRestart(30_000);
+    await vi.waitFor(() => captured() !== undefined, { timeout: 200 });
+
+    const c = captured()!;
+    const body = JSON.parse(c.init.body as string) as Record<string, unknown>;
+    const sectionText = ((body.blocks as Array<{ text: { text: string } }>)[1]).text.text;
+
+    // Should show the fallback, not misleading zeros
+    expect(sectionText).toContain("world stats not yet populated");
+    expect(sectionText).not.toContain("0 tiles");
+    expect(sectionText).not.toContain("0 human WS");
+  });
 });

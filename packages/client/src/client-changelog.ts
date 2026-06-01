@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.3",
+  version: "2026.06.01.4",
   title: "What's New",
-  summary: "Attack-rejection errors now show as popups instead of only appearing in the activity log. Settle Connected no longer floods development slots. Client now backs off on SERVER_BUSY. Manpower regen constants aligned.",
+  summary: "Attack-rejection errors now show as popups instead of only appearing in the activity log. Observatories on crystal-casting cooldown show a floating badge and countdown, and the Aether Bridge now plants glowing 3D pylons at each coast.",
   entries: [
     {
-      introducedIn: "2026.06.01.3",
+      introducedIn: "2026.06.01.4",
       title: "Attack rejections now surface as popups",
       why: "Errors like NOT_ADJACENT, ATTACK_COOLDOWN, LOCKED, SHIELDED, ALLY_TARGET, BARRIER, and ORIGIN_CUT_OFF were only written to the activity log, which players frequently miss. They now trigger the capture-alert popup so the reason for a blocked action is immediately visible.",
       changes: [
@@ -32,12 +32,30 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.06.01.2",
-      title: "Settle Connected no longer fails with \"development slots are busy\"",
-      why: "Settle Connected sent every connected tile's SETTLE message in one synchronous burst. The development slot count only updates when the server replies, so all the messages raced against a stale count, the server accepted the first few, and the rest bounced back as \"development slots are busy\". It only misbehaved when slots were free — once a queue already existed, every tile correctly went through the paced queue.",
+      introducedIn: "2026.06.01.3",
+      title: "Aether Bridge raises 3D anchor pylons",
+      why: "In the 3D map the bridge only had flat painted anchor marks, which read poorly in perspective and made the span feel like a 2D doodle rather than a built structure.",
       changes: [
-        "Settle Connected now routes every tile through the development queue, which dispatches them one slot at a time as the server confirms each settlement — no more rejected overflow.",
-        "Single-tile settling is unchanged: it still starts immediately into a free slot."
+        "Each end of an active Aether Bridge now raises a brass-and-copper pylon — riveted iron base, twin towers, a turning cog, and a glowing aether core — that stands on the coast in 3D.",
+        "The flat anchor glyphs are kept for the 2D map; the 3D map uses the new pylons instead."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.3",
+      title: "Observatory crystal-cooldown is now visible",
+      why: "After casting a crystal action like Aether Bridge, the source observatory goes on cooldown, but nothing on the map or in the tile menu showed it — so a follow-up cast appeared to silently do nothing.",
+      changes: [
+        "A floating hourglass badge now hovers over your own active observatory while its crystal-casting cooldown is running.",
+        "The tile overview for an active observatory now shows a live \"Crystal casting recharging — ready in MM:SS\" countdown."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.2",
+      title: "Shared support tiles can build again",
+      why: "Support tiles that touched multiple towns were blocked with 'Support tile touches multiple towns' even when the player owned the land. The block avoided double-counting support effects, but it made valid settled support tiles unusable.",
+      changes: [
+        "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
+        "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
       ]
     },
     {

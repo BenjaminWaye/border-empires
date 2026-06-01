@@ -495,6 +495,14 @@ export const menuOverviewForTile = (
   if (tile.observatory) {
     if (tile.observatory.status === "active") {
       pushLine("Observatory is active here and blocks hostile crystal actions nearby.");
+      const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - Date.now();
+      if (tile.ownerId === deps.state.me && cooldownRemainingMs > 0) {
+        const totalSeconds = Math.ceil(cooldownRemainingMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const clock = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+        pushLine(`Crystal casting recharging — ready in ${clock}.`);
+      }
     } else if (tile.observatory.status === "under_construction") {
       pushLine("Observatory is under construction on this tile.");
     } else {
