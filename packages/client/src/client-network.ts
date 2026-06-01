@@ -2717,9 +2717,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           );
         }
       }
-      if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
+      if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
-        if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") && firebaseAuth?.currentUser) {
+        if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
           state.connection = "disconnected";
           state.mapLoadStartedAt = Date.now();
           state.firstChunkAt = 0;
