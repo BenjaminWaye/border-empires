@@ -32,7 +32,6 @@ import type {
   TileTimedProgress,
   OptimisticStructureKind
 } from "./client-types.js";
-import type { CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
 import type { WaypointPlan } from "./client-waypoint-planner.js";
 
 export type ClientWaypoint = {
@@ -218,7 +217,6 @@ export const createInitialState = () => ({
   notifiedIncomingDiplomacyRequestIds: new Set<string>(),
   activeAetherBridges: [] as ActiveAetherBridgeView[],
   activeAetherWalls: [] as ActiveAetherWallView[],
-  crystalCastFxQueue: [] as Array<{ x: number; y: number; key: CrystalAbilityInfoKey; queuedAt: number }>,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
   replayPlaying: false,
