@@ -40,7 +40,7 @@ const parseNumberArg = (name, raw, fallback) => {
 const parseArgs = (argv) => {
   const options = {
     ...DEFAULTS,
-    authToken: process.env.STAGING_LOGIN_PROBE_AUTH_TOKEN,
+    authToken: process.env.PROBE_FIREBASE_REFRESH_TOKEN ? undefined : process.env.STAGING_LOGIN_PROBE_AUTH_TOKEN,
     maxP95Ms: undefined,
     json: false
   };
