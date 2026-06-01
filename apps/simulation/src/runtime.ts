@@ -334,6 +334,10 @@ import {
   tickOrphanedLockSweep as tickOrphanedLockSweepImpl,
   tickTileShedding as tickTileSheddingImpl
 } from "./runtime-maintenance-ticks.js";
+import {
+  bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
+  updateFrontierDecay as updateFrontierDecayImpl
+} from "./runtime-frontier-decay.js";
 
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
@@ -5735,294 +5739,51 @@ export class SimulationRuntime {
     return true;
   }
 
-  private frontierDecayPausedForTile(playerId: string, tileKey: string, tile: DomainTileState): boolean {
-    if (this.pendingSettlementsByTile.has(tileKey)) return true;
-    if (tile.resource || tile.town || tile.dockId) return true;
-    return this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
-      const town = this.tiles.get(townKey)?.town;
-      return Boolean(town && town.populationTier !== "SETTLEMENT");
-    });
-  }
-
-  /**
-   * Part 2 rewrite: instead of scanning a radius² neighbourhood of cells,
-   * iterate the pre-built activeFortAnchorsByOwner index for the player and
-   * check coverage. O(anchors) per tile instead of O(radius²).
-   *
-   * Semantics preserved: returns true if any fort/wooden-fort/town anchor
-   * owned by playerId has an effective radius that covers tile.
-   */
-  private frontierSupportedByActiveFort(tile: DomainTileState, playerId: string, nowMs: number): boolean {
-    // Fast path: the tile itself is an anchor (e.g. a fort sitting on a frontier tile).
-    if (fortAutoFrontierRadiusForTile(tile, playerId, nowMs) > 0) return true;
-    const anchors = this.activeFortAnchorsByOwner.get(playerId);
-    if (!anchors) return false;
-    for (const [anchorKey, _maxRadius] of anchors) {
-      const anchor = this.tiles.get(anchorKey);
-      if (!anchor) continue;
-      const effectiveRadius = fortAutoFrontierRadiusForTile(anchor, playerId, nowMs);
-      // fortAutoFrontierRadiusForTile returns 0 for towns; fall back to TOWN_AUTO_FRONTIER_RADIUS.
-      const radius = effectiveRadius > 0 ? effectiveRadius : (isSettledTownAnchor(anchor, playerId) ? TOWN_AUTO_FRONTIER_RADIUS : 0);
-      if (radius <= 0) continue;
-      const dx = Math.abs(anchor.x - tile.x);
-      const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
-      const dy = Math.abs(anchor.y - tile.y);
-      const wrappedDy = Math.min(dy, WORLD_HEIGHT - dy);
-      if (Math.max(wrappedDx, wrappedDy) <= radius) return true;
-    }
-    return false;
-  }
-
-  // Fast path for decay-timer-only mutations in updateFrontierDecay. Starting or
-  // clearing a frontier decay timer changes only frontierDecayAt/frontierDecayKind
-  // — ownerId and ownershipState are unchanged — so none of replaceTileState's
-  // ownership-change maintenance (economy/summary/planner/index refreshes) applies.
-  // This collapses the cold first-tick cost from O(frontier × (territory + radius²))
-  // to O(frontier). Caller is responsible for emitting the tile delta.
-  private setFrontierDecayTimerFields(tileKey: string, tile: DomainTileState): void {
-    this.tiles.set(tileKey, tile);
-    this.tileDeltaStringifyCache.invalidate(tileKey);
-  }
-
   private updateFrontierDecay(nowMs: number): void {
-    // Reset pooled accumulators without discarding inner arrays (pool pattern).
-    for (const arr of this.frontierDecayChangedByOwner.values()) arr.length = 0;
-    for (const arr of this.frontierDecayExpiredByOwner.values()) arr.length = 0;
-
-    const addChangedDelta = (playerId: string, delta: SimulationTileWireDelta): void => {
-      const existing = this.frontierDecayChangedByOwner.get(playerId);
-      if (existing) existing.push(delta);
-      else {
-        const arr: SimulationTileWireDelta[] = [delta];
-        this.frontierDecayChangedByOwner.set(playerId, arr);
-      }
-    };
-    const addExpiredKey = (playerId: string, tileKey: string): void => {
-      const existing = this.frontierDecayExpiredByOwner.get(playerId);
-      if (existing) existing.push(tileKey);
-      else this.frontierDecayExpiredByOwner.set(playerId, [tileKey]);
-    };
-
-    // Part 3: collect expired tiles separately to apply via bulk path.
-    // Key: ownerId, Value: array of [tileKey, expiredTileState]
-    const expiredTilesByOwner = new Map<string, Array<[string, DomainTileState]>>();
-
-    // Part 1: iterate only frontier tiles via frontierTilesByOwner index,
-    // avoiding the full this.tiles scan (was O(all_tiles), now O(frontier_tiles)).
-    for (const [ownerId, frontierKeys] of this.frontierTilesByOwner) {
-      for (const tileKey of frontierKeys) {
-        if (this.locksByTile.has(tileKey)) continue;
-        const tile = this.tiles.get(tileKey);
-        // tile could be undefined if index is stale, or non-FRONTIER for same reason — skip.
-        if (!tile || tile.ownershipState !== "FRONTIER" || tile.ownerId !== ownerId) continue;
-
-        if (this.frontierDecayPausedForTile(ownerId, tileKey, tile)) {
-          if (tile.frontierDecayAt === undefined) continue;
-          const queuedTile: DomainTileState = {
-            ...tile,
-            frontierDecayAt: undefined,
-            frontierDecayKind: undefined
-          };
-          this.setFrontierDecayTimerFields(tileKey, queuedTile);
-          addChangedDelta(ownerId, this.tileDeltaFromState(queuedTile));
-          continue;
-        }
-        if (this.frontierSupportedByActiveFort(tile, ownerId, nowMs)) {
-          if (tile.frontierDecayAt === undefined) continue;
-          const supportedTile: DomainTileState = {
-            ...tile,
-            frontierDecayAt: undefined,
-            frontierDecayKind: undefined
-          };
-          this.setFrontierDecayTimerFields(tileKey, supportedTile);
-          addChangedDelta(ownerId, this.tileDeltaFromState(supportedTile));
-          continue;
-        }
-
-        const decayAt = tile.frontierDecayAt ?? nowMs + FRONTIER_DECAY_MS;
-        if (decayAt <= nowMs) {
-          // Part 3: collect for bulk expiry instead of individual replaceTileState.
-          const expiredTile: DomainTileState = {
-            ...tile,
-            ownerId: undefined,
-            ownershipState: undefined,
-            frontierDecayAt: undefined,
-            frontierDecayKind: undefined,
-            fort: undefined,
-            observatory: undefined,
-            siegeOutpost: undefined,
-            economicStructure: undefined,
-            sabotage: undefined
-          };
-          const bucket = expiredTilesByOwner.get(ownerId);
-          if (bucket) bucket.push([tileKey, expiredTile]);
-          else expiredTilesByOwner.set(ownerId, [[tileKey, expiredTile]]);
-          continue;
-        }
-
-        if (tile.frontierDecayAt !== decayAt) {
-          const decayingTile: DomainTileState = {
-            ...tile,
-            frontierDecayAt: decayAt,
-            frontierDecayKind: "NATURAL"
-          };
-          this.setFrontierDecayTimerFields(tileKey, decayingTile);
-          addChangedDelta(ownerId, this.tileDeltaFromState(decayingTile));
-        }
-      }
-    }
-
-    // Part 3: bulk-apply expired tiles, deduplicating planner index work.
-    if (expiredTilesByOwner.size > 0) {
-      this.bulkClearFrontierOwnership(expiredTilesByOwner, nowMs);
-      for (const [ownerId, pairs] of expiredTilesByOwner) {
-        for (const [tileKey, expiredTile] of pairs) {
-          addChangedDelta(ownerId, this.tileDeltaFromState(expiredTile));
-          addExpiredKey(ownerId, tileKey);
-        }
-      }
-    }
-
-    for (const [playerId, tileDeltas] of this.frontierDecayChangedByOwner) {
-      if (tileDeltas.length === 0) continue;
-      const commandId = this.nextTerritoryAutomationCommandId("frontier-decay", playerId, "batch", nowMs);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId,
-        playerId,
-        tileDeltas
-      });
-      this.emitPlayerStateUpdate({ commandId, playerId });
-    }
-
-    // Re-check encirclement for neighbors of tiles that expired this tick.
-    // A tile expiry can cut off neighbors that were connected through it.
-    for (const [playerId, expiredKeys] of this.frontierDecayExpiredByOwner) {
-      if (expiredKeys.length === 0) continue;
-      const commandId = this.nextTerritoryAutomationCommandId("frontier-decay-encirclement", playerId, "batch", nowMs);
-      this.applyEncirclement(expiredKeys, playerId, commandId);
-    }
-  }
-
-  /**
-   * Part 3: Bulk expiry path. Applies all expired frontier tiles with deduped
-   * planner/candidate index refreshes, avoiding O(expiredCount * radius²) cost.
-   *
-   * For each expired tile:
-   *   - Directly mutates this.tiles to the cleared state
-   *   - Updates frontierTilesByOwner and activeFortAnchorsByOwner
-   *   - Handles player summaries (O(1) per tile)
-   *   - Defers planner/playerCandidateIndex work until after all mutations
-   *
-   * Then does ONE deduped refresh pass over the union of all affected candidate keys.
-   */
-  private bulkClearFrontierOwnership(
-    expiredTilesByOwner: Map<string, Array<[string, DomainTileState]>>,
-    nowMs: number
-  ): void {
-    // Dedupe keys that need planner-candidate-index refresh.
-    const dirtyPlannerKeysByPlayer = new Map<string, Set<string>>();
-    const dirtyWatchedKeys = new Set<string>();
-    const commandIdPrefix = `frontier-decay-expired-bulk:${nowMs}`;
-
-    for (const [ownerId, pairs] of expiredTilesByOwner) {
-      for (const [tileKey, expiredTile] of pairs) {
-        const previous = this.tiles.get(tileKey);
-
-        // 1. Invalidate stringify cache (cheap, keep per-tile).
+    updateFrontierDecayImpl({
+      nowMs,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      frontierTilesByOwner: this.frontierTilesByOwner,
+      activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
+      accumulators: {
+        changedByOwner: this.frontierDecayChangedByOwner,
+        expiredByOwner: this.frontierDecayExpiredByOwner
+      },
+      supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),
+      setFrontierDecayTimerFields: (tileKey, tile) => {
+        this.tiles.set(tileKey, tile);
         this.tileDeltaStringifyCache.invalidate(tileKey);
-
-        // 2. Update player summaries (O(1) per tile, keep per-tile).
-        if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
-        this.tiles.set(tileKey, expiredTile);
-        this.applyTileToPlayerSummaries(tileKey, expiredTile);
-
-        // 3. Settle-at bookkeeping (expiredTile is unowned, so clear).
-        this.tileSettledAtByKey.delete(tileKey);
-
-        // 4. Fort patrol grace (clear on expiry).
-        this.fortPatrolGraceUntilByTile.delete(tileKey);
-
-        // 5. Part 1: update frontierTilesByOwner — tile is no longer FRONTIER.
-        this.removeFrontierTileFromOwnerIndex(tileKey, ownerId);
-
-        // 6. Part 2: update activeFortAnchorsByOwner — expired tile loses any anchor status.
-        this.refreshFortAnchorIndexForTile(tileKey, previous, expiredTile);
-
-        // 7. Cancel pending settlement if owner changed (it always does on expiry).
-        this.cancelPendingSettlementIfOwnerChanged(tileKey, expiredTile.ownerId, commandIdPrefix);
-
-        // 8 & 9. Collect planner dirty keys and playerCandidateIndex watched keys (deduped).
-        // Use numeric coordinates to avoid per-tile string-parse overhead from
-        // candidateIndexKeysAroundTileKey. Expand 2 hops inline.
-        {
-          const ex = expiredTile.x;
-          const ey = expiredTile.y;
-          let ownerSet = dirtyPlannerKeysByPlayer.get(ownerId);
-          if (!ownerSet) { ownerSet = new Set<string>(); dirtyPlannerKeysByPlayer.set(ownerId, ownerSet); }
-          // Include the tile itself and all tiles within 2 hops (Chebyshev radius 2 = 5x5 - 1 = 24 neighbors).
-          for (let dy = -2; dy <= 2; dy++) {
-            for (let dx = -2; dx <= 2; dx++) {
-              const nx = ((ex + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
-              const ny = ((ey + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
-              const nk = `${nx},${ny}`;
-              ownerSet.add(nk);
-              dirtyWatchedKeys.add(nk);
-              // Check for other affected players in the neighborhood.
-              const neighborTile = this.tiles.get(nk);
-              const neighborOwner = neighborTile?.ownerId;
-              if (neighborOwner && neighborOwner !== ownerId) {
-                let nset = dirtyPlannerKeysByPlayer.get(neighborOwner);
-                if (!nset) { nset = new Set<string>(); dirtyPlannerKeysByPlayer.set(neighborOwner, nset); }
-                nset.add(nk);
-              }
-            }
-          }
-        }
-
-        // 10. PlayerCandidateIndex anchor: unregister if this tile was an anchor.
-        // refreshPlayerCandidateIndexAnchorForTile logic inline:
-        const prevOwnerId = previous?.ownerId;
-        if (previous && prevOwnerId) {
-          // Use anchorKindMaxRadius detection: fort, wooden-fort, town, sweep outpost.
-          const hadFort =
-            (previous.economicStructure?.ownerId === prevOwnerId &&
-              previous.economicStructure.type === "WOODEN_FORT" &&
-              previous.economicStructure.status === "active") ||
-            (previous.fort?.ownerId === prevOwnerId && previous.fort.status === "active");
-          const hadTown = isSettledTownAnchor(previous, prevOwnerId);
-          const hadSweep =
-            previous.siegeOutpost?.ownerId === prevOwnerId &&
-            previous.siegeOutpost.status === "active" &&
-            previous.siegeOutpost.sweepActive;
-          if (hadFort || hadTown || hadSweep) {
-            this.playerCandidateIndex.unregisterAnchor(tileKey);
-          }
-        }
-        // expiredTile has no owner, so no re-register.
-      }
-    }
-
-    // 11. Deduped planner-candidate-index refresh.
-    for (const [pid, candidateKeys] of dirtyPlannerKeysByPlayer) {
-      const summary = this.summaryForPlayer(pid);
-      for (const candidateKey of candidateKeys) {
-        summary.hotFrontierTileKeys.delete(candidateKey);
-        summary.strategicFrontierTileKeys.delete(candidateKey);
-        summary.buildCandidateTileKeys.delete(candidateKey);
-        const candidateTile = this.tiles.get(candidateKey);
-        if (!candidateTile || candidateTile.ownerId !== pid) continue;
-        if (isHotFrontierTile(pid, candidateTile, this.tiles)) summary.hotFrontierTileKeys.add(candidateKey);
-        if (isStrategicFrontierTile(pid, candidateTile, this.tiles)) summary.strategicFrontierTileKeys.add(candidateKey);
-        if (isBuildCandidateTile(pid, candidateTile, this.tiles)) summary.buildCandidateTileKeys.add(candidateKey);
-      }
-      this.markPlannerPlayerTileCollectionDirty(pid);
-    }
-
-    // 12. Deduped playerCandidateIndex refresh.
-    for (const watchedKey of dirtyWatchedKeys) {
-      this.playerCandidateIndex.refreshAroundTile(watchedKey, (k) => this.tiles.get(k));
-    }
+      },
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
+        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
+      emitTileDeltaBatch: ({ commandId, playerId, tileDeltas }) => {
+        this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas });
+      },
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      bulkClearFrontierOwnership: (expiredTilesByOwner, at) => {
+        bulkClearFrontierOwnershipImpl({
+          expiredTilesByOwner,
+          nowMs: at,
+          tiles: this.tiles,
+          playerCandidateIndex: this.playerCandidateIndex,
+          invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
+          removeTileFromPlayerSummaries: (tileKey, tile) => this.removeTileFromPlayerSummaries(tileKey, tile),
+          applyTileToPlayerSummaries: (tileKey, tile) => this.applyTileToPlayerSummaries(tileKey, tile),
+          tileSettledAtByKey: this.tileSettledAtByKey,
+          fortPatrolGraceUntilByTile: this.fortPatrolGraceUntilByTile,
+          removeFrontierTileFromOwnerIndex: (tileKey, ownerId) => this.removeFrontierTileFromOwnerIndex(tileKey, ownerId),
+          refreshFortAnchorIndexForTile: (tileKey, previous, next) => this.refreshFortAnchorIndexForTile(tileKey, previous, next),
+          cancelPendingSettlementIfOwnerChanged: (tileKey, nextOwnerId, commandId) =>
+            this.cancelPendingSettlementIfOwnerChanged(tileKey, nextOwnerId, commandId),
+          summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+          markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
+        });
+      },
+      applyEncirclement: (changedKeys, playerId, commandId) => this.applyEncirclement(changedKeys, playerId, commandId)
+    });
   }
 
   private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
