@@ -74,7 +74,7 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
       if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y)) continue;
       out.push(candidate);
     }
-    return out.sort((a, b) => a.x - b.x || a.y - b.y);
+    return out.sort((a, b) => a.x - b.x || a.y - b.y).slice(0, 1);
   };
 
   const townHasSupportStructure = (
