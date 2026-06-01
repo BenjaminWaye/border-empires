@@ -218,6 +218,7 @@ export const createInitialState = () => ({
   activeAetherBridges: [] as ActiveAetherBridgeView[],
   activeAetherWalls: [] as ActiveAetherWallView[],
   aetherLanceFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "WOOD" | "IRON" | "GEMS"; queuedAt: number }>,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
   replayPlaying: false,
