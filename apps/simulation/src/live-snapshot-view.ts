@@ -905,7 +905,7 @@ export const buildLivePlayerEconomySnapshot = (
   // trickle each tick — fold it into the breakdown so the income panel
   // attributes it, matching buildPlayerUpdateEconomySnapshot.
   const trickle = player
-    ? chosenTrickleRateForPlayer({ domainIds: player.domainIds, chosenTrickleResource: player.chosenTrickleResource })
+    ? chosenTrickleRateForPlayer({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource })
     : undefined;
   if (trickle && trickle.ratePerMinute > 0) {
     const target =
