@@ -14,7 +14,7 @@
     "ai:labeling:sample": "node ./scripts/sample-ai-labeling-records.mjs",
     "ai:labeling:qa": "node ./scripts/validate-ai-labels.mjs",
     "ai:labeling:triage": "node ./scripts/build-ai-labeling-escalation-set.mjs",
-    "ops:staging:login-probe": "test -n \"$STAGING_LOGIN_PROBE_AUTH_TOKEN\" && node ./scripts/staging-login-latency-probe.mjs --attempts 12 --timeout-ms 8000 --max-p95-ms 5000 --min-success-rate 1 || (echo 'STAGING_LOGIN_PROBE_AUTH_TOKEN is required for pnpm ops:staging:login-probe' >&2; exit 2)",
+    "ops:staging:login-probe": "(test -n \"$STAGING_LOGIN_PROBE_AUTH_TOKEN\" || test -n \"$PROBE_FIREBASE_REFRESH_TOKEN\") && node ./scripts/staging-login-latency-probe.mjs --attempts 12 --timeout-ms 8000 --max-p95-ms 5000 --min-success-rate 1 || (echo 'STAGING_LOGIN_PROBE_AUTH_TOKEN or PROBE_FIREBASE_REFRESH_TOKEN is required for pnpm ops:staging:login-probe' >&2; exit 2)",
     "ops:staging:drift-check": "node ./scripts/check-staging-fly-env-drift.mjs",
     "ops:prod-shape:gate": "node ./scripts/rewrite-prod-shape-gate.mjs",
     "ops:prod-shape:verify": "node ./scripts/check-prod-shape-gate-result.mjs",
