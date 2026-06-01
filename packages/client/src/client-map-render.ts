@@ -636,9 +636,10 @@ export const drawAetherBridgeLane = (
   toX: number,
   toY: number,
   nowMs: number,
-  options?: { compact?: boolean }
+  options?: { compact?: boolean; anchors?: boolean }
 ): void => {
   const compact = options?.compact ?? false;
+  const drawAnchors = options?.anchors ?? true;
   const dx = toX - fromX;
   const dy = toY - fromY;
   const distance = Math.hypot(dx, dy);
@@ -700,8 +701,10 @@ export const drawAetherBridgeLane = (
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.lineDashOffset = 0;
-  drawAnchorGlyph(fromX, fromY, laneAngle);
-  drawAnchorGlyph(toX, toY, laneAngle + Math.PI);
+  if (drawAnchors) {
+    drawAnchorGlyph(fromX, fromY, laneAngle);
+    drawAnchorGlyph(toX, toY, laneAngle + Math.PI);
+  }
   const pulseCount = compact ? 2 : 3;
   for (let i = 0; i < pulseCount; i += 1) {
     const t = (pulseOffset + i / pulseCount) % 1;

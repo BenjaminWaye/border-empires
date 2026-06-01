@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.1",
+  version: "2026.06.01.2",
   title: "What's New",
-  summary: "Observatories on crystal-casting cooldown now show a floating badge and a countdown in the tile overview.",
+  summary: "Observatories on crystal-casting cooldown now show a floating badge and a countdown, and the Aether Bridge now plants glowing 3D pylons at each coast.",
   entries: [
+    {
+      introducedIn: "2026.06.01.2",
+      title: "Aether Bridge raises 3D anchor pylons",
+      why: "In the 3D map the bridge only had flat painted anchor marks, which read poorly in perspective and made the span feel like a 2D doodle rather than a built structure.",
+      changes: [
+        "Each end of an active Aether Bridge now raises a glowing crystal pylon — twin faceted spires around a pulsing energy core — that stands on the coast in 3D.",
+        "The flat anchor glyphs are kept for the 2D map; the 3D map uses the new pylons instead."
+      ]
+    },
     {
       introducedIn: "2026.06.01.1",
       title: "Observatory crystal-cooldown is now visible",
