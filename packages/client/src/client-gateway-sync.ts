@@ -66,7 +66,7 @@ export type GatewayTileUpdate = {
 type GatewayTileSyncDeps = {
   state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
     me?: string | undefined;
-    mods?: ClientState["mods"];
+    mods?: Partial<ClientState["mods"]>;
     upkeepLastTick: { foodCoverage?: number };
   };
   keyFor: (x: number, y: number) => string;
