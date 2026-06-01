@@ -277,4 +277,72 @@ describe("buildWorldStatusSnapshot", () => {
     expect(snapshot.leaderboard.overall[0]?.name).toMatch(/^Empire [0-9A-Z]{6}$/);
     expect(snapshot.leaderboard.overall[0]?.name).not.toBe("orz1OiQwxGS5LKwcAwG5wzNCd3P2");
   });
+
+  it("excludes players listed in nonCompetitivePlayerIds from all leaderboard arrays", () => {
+    const runtimeState = {
+      tiles: [
+        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 20, y: 20, terrain: "LAND", ownerId: "probe-1", ownershipState: "SETTLED" },
+        { x: 30, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
+      ],
+      players: [
+        {
+          id: "player-1",
+          name: "Nauticus",
+          points: 100,
+          incomePerMinute: 5,
+          settledTileCount: 1,
+          techIds: ["tech-1"],
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10"]
+        },
+        {
+          id: "probe-1",
+          name: "Probe Player",
+          points: 500,
+          incomePerMinute: 20,
+          settledTileCount: 1,
+          techIds: ["tech-1", "tech-2", "tech-3"],
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["20,20"]
+        },
+        {
+          id: "ai-1",
+          name: "AI Player",
+          points: 50,
+          incomePerMinute: 2,
+          settledTileCount: 1,
+          techIds: [],
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["30,30"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    } as ReturnType<SimulationRuntime["exportState"]>;
+
+    const snapshot = buildWorldStatusSnapshot("player-1", runtimeState, undefined, {
+      nonCompetitivePlayerIds: new Set(["probe-1"])
+    });
+
+    const ids = snapshot.leaderboard.overall.map((entry) => entry.id);
+    expect(ids).not.toContain("probe-1");
+    expect(ids).toContain("player-1");
+    expect(ids).toContain("ai-1");
+
+    const byTilesIds = snapshot.leaderboard.byTiles.map((entry) => entry.id);
+    expect(byTilesIds).not.toContain("probe-1");
+
+    const byIncomeIds = snapshot.leaderboard.byIncome.map((entry) => entry.id);
+    expect(byIncomeIds).not.toContain("probe-1");
+
+    const byTechsIds = snapshot.leaderboard.byTechs.map((entry) => entry.id);
+    expect(byTechsIds).not.toContain("probe-1");
+  });
 });
