@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { WORLD_WIDTH } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
 import { townHasSupportStructureType } from "./client-support-structures.js";
 
@@ -61,5 +62,21 @@ describe("townHasSupportStructureType", () => {
     const town = townTile(10, 10);
     const tiles = [town, supportTile(11, 11, "MARKET", "active")];
     expect(townHasSupportStructureType(tiles, town, "me", "FUR_SYNTHESIZER")).toBe(false);
+  });
+
+  it("assigns a shared support structure to only the lowest-coordinate town", () => {
+    const westTown = townTile(10, 10);
+    const eastTown = townTile(12, 10);
+    const tiles = [westTown, supportTile(11, 10, "MARKET", "active"), eastTown];
+
+    expect(townHasSupportStructureType(tiles, westTown, "me", "MARKET")).toBe(true);
+    expect(townHasSupportStructureType(tiles, eastTown, "me", "MARKET")).toBe(false);
+  });
+
+  it("detects support structures across the wrapped world seam", () => {
+    const town = townTile(0, 10);
+    const tiles = [town, supportTile(WORLD_WIDTH - 1, 10, "MARKET", "active")];
+
+    expect(townHasSupportStructureType(tiles, town, "me", "MARKET")).toBe(true);
   });
 });

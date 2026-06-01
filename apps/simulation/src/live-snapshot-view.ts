@@ -430,6 +430,7 @@ const supportSummaryForTown = (
       if (dx === 0 && dy === 0) continue;
       const tile = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!tile || tile.terrain !== "LAND") continue;
+      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
       supportMax += 1;
       if (tile.ownerId === ownerId && tile.ownershipState === "SETTLED") supportCurrent += 1;
     }
@@ -477,11 +478,34 @@ const hasSupportedStructure = (
       if (dx === 0 && dy === 0) continue;
       const tile = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
+      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
       const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
       if (structure?.status === "active" && structure.type && allowed.has(structure.type)) return true;
     }
   }
   return false;
+};
+
+const supportTileBelongsToTown = (
+  supportTile: RuntimeState["tiles"][number],
+  townX: number,
+  townY: number,
+  ownerId: string,
+  tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
+): boolean => {
+  let assignedTown: RuntimeState["tiles"][number] | undefined;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const candidate = tilesByKey.get(keyFor(supportTile.x + dx, supportTile.y + dy));
+      if (!candidate || candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
+      if (!candidate.townType || candidate.townPopulationTier === "SETTLEMENT") continue;
+      if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
+        assignedTown = candidate;
+      }
+    }
+  }
+  return assignedTown?.x === townX && assignedTown.y === townY;
 };
 
 // Island map only changes when terrain changes (create_mountain / remove_mountain).
