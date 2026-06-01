@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import { buildPlayerSubscriptionSnapshot, buildPlayerSubscriptionSnapshotAsync } from "./player-snapshot.js";
+import { buildLivePlayerEconomySnapshot } from "./live-snapshot-view.js";
 import { SimulationRuntime } from "./runtime.js";
 import { yieldToEventLoop } from "./event-loop-yield.js";
 
@@ -1230,6 +1231,44 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         .sort();
       expect(derivedKeys).toEqual(internalKeys);
     }
+  });
+});
+
+describe("buildLivePlayerEconomySnapshot (Clockwork Stipend trickle)", () => {
+  it("folds the Clockwork Stipend SUPPLY trickle into the breakdown sources and strategicProductionPerMinute", () => {
+    // Regression: buildLivePlayerEconomySnapshot was never patched to include
+    // the trickle, so the economyBreakdown in the detailed income view showed
+    // the correct total (from the runtime-cached strategicProductionPerMinute)
+    // but no "Clockwork Stipend" source row explaining it.
+    const runtimeState = {
+      tiles: [
+        { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
+      ],
+      players: [
+        {
+          id: "player-1",
+          points: 100,
+          manpower: 200,
+          techIds: [],
+          domainIds: ["clockwork-stipend"],
+          chosenTrickleResource: "SUPPLY",
+          strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0
+        }
+      ]
+    };
+
+    const economy = buildLivePlayerEconomySnapshot("player-1", runtimeState);
+
+    expect(economy.strategicProductionPerMinute.SUPPLY).toBeCloseTo(0.2);
+    expect(economy.economyBreakdown.SUPPLY.sources).toContainEqual(
+      expect.objectContaining({ label: "Clockwork Stipend", amountPerMinute: 0.2 })
+    );
+    expect(economy.economyBreakdown.IRON.sources).not.toContainEqual(
+      expect.objectContaining({ label: "Clockwork Stipend" })
+    );
   });
 });
 
