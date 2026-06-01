@@ -2097,10 +2097,22 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   fullVisibility: subscribeOptions.fullVisibility,
                   ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
                 })
-              : await buildAndCachePlayerSnapshotAsync(call.request.player_id, {
-                  fullVisibility: subscribeOptions.fullVisibility,
-                  ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
-                });
+              : await (() => {
+                  // Phase B3: reuse the cached snapshot from the bootstrap-only
+                  // build when it exists and visibility matches (same-tick fresh
+                  // per Q3, gateway ignores the payload per Q1). Only short-circuit
+                  // when NOT full-visibility — admin/spectator/season-ended paths
+                  // don't cache and must always build.
+                  const useFullVisibility = subscribeOptions.fullVisibility === true || currentSeasonState.status === "ended";
+                  if (!useFullVisibility) {
+                    const cached = snapshotCacheByPlayerId.get(call.request.player_id);
+                    if (cached) return cached;
+                  }
+                  return buildAndCachePlayerSnapshotAsync(call.request.player_id, {
+                    fullVisibility: subscribeOptions.fullVisibility,
+                    ...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})
+                  });
+                })()
           } finally {
             inFlightSubscribeBuilds.delete(key);
           }
