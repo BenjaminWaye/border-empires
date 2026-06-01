@@ -1171,6 +1171,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         messageType !== "SET_CONVERTER_STRUCTURE_ENABLED" &&
         messageType !== "REVEAL_EMPIRE" &&
         messageType !== "REVEAL_EMPIRE_STATS" &&
+        messageType !== "AETHER_LANCE" &&
         messageType !== "CAST_AETHER_BRIDGE" &&
         messageType !== "CAST_AETHER_WALL" &&
         messageType !== "SIPHON_TILE" &&
@@ -2702,6 +2703,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "SET_CONVERTER_STRUCTURE_ENABLED" &&
             message.type !== "REVEAL_EMPIRE" &&
             message.type !== "REVEAL_EMPIRE_STATS" &&
+            message.type !== "AETHER_LANCE" &&
             message.type !== "CAST_AETHER_BRIDGE" &&
             message.type !== "CAST_AETHER_WALL" &&
             message.type !== "SIPHON_TILE" &&
@@ -3084,6 +3086,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   type: "REVEAL_EMPIRE_STATS",
                   payload: {
                     targetPlayerId: message.targetPlayerId
+                  },
+                  ...metadata
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "AETHER_LANCE") {
+            const metadata = optionalCommandMetadata(message);
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "AETHER_LANCE",
+                  payload: {
+                    x: message.x,
+                    y: message.y
                   },
                   ...metadata
                 },
