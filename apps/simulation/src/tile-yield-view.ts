@@ -8,7 +8,9 @@ import {
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TILE_YIELD_CAP_GOLD,
-  TILE_YIELD_CAP_RESOURCE
+  TILE_YIELD_CAP_RESOURCE,
+  WATERWORKS_OUTPUT_MULT,
+  WATERWORKS_RADIUS
 } from "@border-empires/game-domain";
 import { dockBaseGoldPerMinuteForPlayer, type DockEconomyContext, type EconomyPlayer } from "./economy-network.js";
 import { townGoldPerMinuteForPlayer } from "./player-update-economy.js";
@@ -133,6 +135,31 @@ export const buildTileYieldView = (
     tile.economicStructure.type === "FARMSTEAD"
   ) {
     delete converterDaily.FOOD;
+  }
+  // Waterworks radius boost: if this is a FARM tile with an active Farmstead,
+  // scan for an active Waterworks within WATERWORKS_RADIUS owned by the same
+  // player. Apply the multiplier to the farmstead bonus portion only (not base).
+  if (
+    tile.resource === "FARM" &&
+    tile.economicStructure?.type === "FARMSTEAD" &&
+    tile.economicStructure.status === "active" &&
+    typeof converterDaily.FOOD === "number" &&
+    economyContext?.tiles
+  ) {
+    const tiles = economyContext.tiles;
+    for (const [candidateKey, candidate] of tiles) {
+      if (
+        candidate.ownerId !== tile.ownerId ||
+        candidate.economicStructure?.type !== "WATERWORKS" ||
+        candidate.economicStructure.status !== "active"
+      ) continue;
+      const dx = Math.abs(tile.x - candidate.x);
+      const dy = Math.abs(tile.y - candidate.y);
+      if (Math.max(dx, dy) <= WATERWORKS_RADIUS) {
+        converterDaily.FOOD *= WATERWORKS_OUTPUT_MULT;
+        break;
+      }
+    }
   }
   // Merge resource and converter output additively so a farmstead on a
   // FARM tile gives 72 + 36 = 108/day, not 36/day (overwrite).
