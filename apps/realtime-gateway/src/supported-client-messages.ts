@@ -37,6 +37,7 @@ export const supportedClientMessageTypes = [
   "AIRPORT_BOMBARD",
   "IMPERIAL_EXCHANGE_LEVY",
   "WORLD_ENGINE_STRIKE",
+  "UPGRADE_TOWN_TIER",
   "COLLECT_SHARD",
   "SET_TILE_COLOR",
   "SET_PROFILE",

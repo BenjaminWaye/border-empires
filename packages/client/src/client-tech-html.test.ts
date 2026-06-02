@@ -114,7 +114,7 @@ describe("tech benefit summaries", () => {
     };
 
     expect(formatTechBenefitSummary(signalFires)).toContain("Unlocks Aether Lance");
-    expect(formatTechBenefitSummary(irrigation)).toContain("Upgrades Farmstead (+50%) to Waterworks (+80% farm food)");
+    expect(formatTechBenefitSummary(irrigation)).toContain("Unlocks Waterworks (+50% farmstead food within 10 tiles)");
   });
 
   it("surfaces Survey Sweep, Siphon, and Lockworks Port as visible unlocks", () => {
