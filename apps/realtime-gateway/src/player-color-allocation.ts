@@ -96,7 +96,7 @@ function hslToHex(hsl: Hsl): string {
   else if (h < 240) { r1 = 0; g1 = x; b1 = c; }
   else if (h < 300) { r1 = x; g1 = 0; b1 = c; }
   else              { r1 = c; g1 = 0; b1 = x; }
-  const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, "0").slice(0, 2);
+  const toHex = (v: number) => Math.min(255, Math.round((v + m) * 255)).toString(16).padStart(2, "0");
   return `#${toHex(r1)}${toHex(g1)}${toHex(b1)}`;
 }
 
@@ -145,10 +145,11 @@ export function pickSuggestedPalette(count: number, taken: ReadonlySet<string>):
   // generate additional colours by rotating hue evenly
   const result = [...free];
   let hue = 0;
-  while (result.length < count) {
+  let iter = 0;
+  while (result.length < count && iter++ < 720) {
     const generated = hslToHex({ h: hue, s: 0.6, l: 0.5 });
     if (!isTaken(generated, taken)) result.push(generated);
-    hue = (hue + Math.ceil(360 / (count - free.length || 1))) % 360;
+    hue = (hue + 1) % 360;
   }
   return result.slice(0, count);
 }
