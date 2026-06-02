@@ -101,6 +101,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
   });
 
   it("marks live rewrite towns with a nearby-war growth modifier when combat is on their support ring", () => {
+    const now = Date.now();
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [
         {
@@ -115,7 +116,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             populationTier: "TOWN",
             population: 25_000,
             maxPopulation: 100_000,
-            nearbyWarPausedUntil: Date.now() + 30_000
+            nearbyWarPausedUntil: now + 30_000,
+            nearbyWarLastAt: now
           }),
           townType: "MARKET",
           townName: "Warwick",
@@ -142,7 +144,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           actionType: "ATTACK",
           originKey: "12,10",
           targetKey: "11,10",
-          resolvesAt: Date.now() + 30_000
+          resolvesAt: now + 30_000
         }
       ]
     });
