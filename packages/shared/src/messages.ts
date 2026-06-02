@@ -114,7 +114,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     y: z.number().int(),
     ...FrontierCommandMetadataSchema
   }),
-  z.object({ type: z.literal("GROW_TOWN"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("UPGRADE_TOWN_TIER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("BUILD_SIEGE_OUTPOST"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("SET_SIEGE_OUTPOST_SWEEP"), x: z.number().int(), y: z.number().int(), enabled: z.boolean(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),

@@ -47,7 +47,7 @@ describe("town growth tile actions", () => {
   it("shows a city growth action once a town is ready", () => {
     const state = createInitialState();
     state.me = "me";
-    state.gold = 4_000;
+    state.strategicResources.FOOD = 4_000;
     const tile: Tile = {
       x: 12,
       y: 8,
@@ -78,7 +78,7 @@ describe("town growth tile actions", () => {
         nextPopulationTierUpgrade: {
           targetTier: "CITY",
           requiredPopulation: 100_000,
-          goldCost: 1_500,
+          foodCost: 500,
           available: true
         }
       }
@@ -88,17 +88,17 @@ describe("town growth tile actions", () => {
 
     expect(action).toMatchObject({
       id: "grow_town_to_city",
-      label: "Grow Town to City",
-      cost: "1500 gold",
-      detail: "Unlocks city-tier income and manpower. Food upkeep rises to 0.2/m."
+      label: "Upgrade Town to City",
+      cost: "500 food",
+      detail: "Unlocks city-tier income and manpower. Food upkeep rises to 0.3/m."
     });
     expect(action?.disabled).toBe(false);
   });
 
-  it("keeps the growth action disabled when gold is short", () => {
+  it("keeps the growth action disabled when food is short", () => {
     const state = createInitialState();
     state.me = "me";
-    state.gold = 1_000;
+    state.strategicResources.FOOD = 100;
     const tile: Tile = {
       x: 12,
       y: 8,
@@ -129,7 +129,7 @@ describe("town growth tile actions", () => {
         nextPopulationTierUpgrade: {
           targetTier: "CITY",
           requiredPopulation: 100_000,
-          goldCost: 1_500,
+          foodCost: 500,
           available: true
         }
       }
@@ -140,15 +140,15 @@ describe("town growth tile actions", () => {
     expect(action).toMatchObject({
       id: "grow_town_to_city",
       disabled: true,
-      disabledReason: "Need 1500 gold",
-      cost: "1500 gold"
+      disabledReason: "Need 500 food",
+      cost: "500 food"
     });
   });
 
   it("shows a monumental city growth action for great cities", () => {
     const state = createInitialState();
     state.me = "me";
-    state.gold = 20_000;
+    state.strategicResources.FOOD = 20_000;
     const tile: Tile = {
       x: 14,
       y: 9,
@@ -179,7 +179,7 @@ describe("town growth tile actions", () => {
         nextPopulationTierUpgrade: {
           targetTier: "METROPOLIS",
           requiredPopulation: 5_000_000,
-          goldCost: 15_000,
+          foodCost: 8_000,
           available: true
         }
       }
@@ -189,9 +189,9 @@ describe("town growth tile actions", () => {
 
     expect(action).toMatchObject({
       id: "grow_great_city_to_monumental_city",
-      label: "Grow Great City to Monumental City",
-      cost: "15000 gold",
-      detail: "Unlocks metropolis-tier income and manpower. Food upkeep rises to 0.8/m."
+      label: "Upgrade Great City to Metropolis",
+      cost: "8000 food",
+      detail: "Unlocks metropolis-tier income and manpower. Food upkeep rises to 1.0/m."
     });
     expect(action?.disabled).toBe(false);
   });
