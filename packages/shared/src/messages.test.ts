@@ -14,9 +14,9 @@ describe("ClientMessageSchema", () => {
     });
   });
 
-  it("accepts grow-town messages", () => {
-    expect(ClientMessageSchema.parse({ type: "GROW_TOWN", x: 4, y: 9 })).toEqual({
-      type: "GROW_TOWN",
+  it("accepts upgrade-town-tier messages", () => {
+    expect(ClientMessageSchema.parse({ type: "UPGRADE_TOWN_TIER", x: 4, y: 9 })).toEqual({
+      type: "UPGRADE_TOWN_TIER",
       x: 4,
       y: 9
     });

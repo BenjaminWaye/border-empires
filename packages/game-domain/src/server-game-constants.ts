@@ -179,6 +179,8 @@ export const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 export const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
 export const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
 export const POPULATION_GROWTH_BASE_RATE = 0.00032;
+/** Food consumed per unit of population grown (food / pop). A town growing by N pop/min costs N * GROWTH_FOOD_COST_PER_POP food/min. */
+export const GROWTH_FOOD_COST_PER_POP = 0.05;
 export const POPULATION_MIN = 3_000;
 export const POPULATION_MAX = 10_000_000;
 export const POPULATION_START_SPREAD = 2_000;
@@ -186,6 +188,12 @@ export const POPULATION_TOWN_MIN = 10_000;
 export const WORLD_TOWN_POPULATION_MIN = 15_000;
 export const WORLD_TOWN_POPULATION_START_SPREAD = 10_000;
 export const POPULATION_GROWTH_TICK_MS = 60_000;
+/** Food cost to manually upgrade a town tier (lump sum). Tier thresholds: CITY=100k, GREAT_CITY=1M, METROPOLIS=5M pop. */
+export const TIER_UPGRADE_FOOD_COST: Record<"CITY" | "GREAT_CITY" | "METROPOLIS", number> = {
+  CITY: 500,
+  GREAT_CITY: 2000,
+  METROPOLIS: 8000
+};
 export const GROWTH_PAUSE_MS = 60 * 60_000;
 export const GROWTH_PAUSE_MAX_MS = 6 * 60 * 60_000;
 export const NEARBY_WAR_RADIUS = 10;

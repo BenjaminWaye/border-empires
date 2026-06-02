@@ -20,19 +20,19 @@ describe("town growth", () => {
     expect(nextTownGrowthUpgrade("TOWN", 120_000)).toEqual({
       targetTier: "CITY",
       requiredPopulation: 100_000,
-      goldCost: 1_500,
+      foodCost: 500,
       available: true
     });
     expect(nextTownGrowthUpgrade("CITY", 500_000)).toEqual({
       targetTier: "GREAT_CITY",
       requiredPopulation: 1_000_000,
-      goldCost: 6_000,
+      foodCost: 2_000,
       available: false
     });
     expect(nextTownGrowthUpgrade("GREAT_CITY", 6_000_000)).toEqual({
       targetTier: "METROPOLIS",
       requiredPopulation: 5_000_000,
-      goldCost: 15_000,
+      foodCost: 8_000,
       available: true
     });
     expect(nextTownGrowthUpgrade("METROPOLIS", 6_000_000)).toBeUndefined();
