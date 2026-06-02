@@ -172,7 +172,7 @@ const parsePersistedDevelopmentAction = (value: unknown): PersistedDevelopmentAc
     typeof value.payload.type === "string" &&
     typeof value.payload.x === "number" &&
     typeof value.payload.y === "number" &&
-    (value.payload.type !== "BUILD_ECONOMIC_STRUCTURE" || typeof value.payload.structureType === "string")
+    (value.payload.type !== "BUILD_STRUCTURE" || typeof value.payload.structureType === "string")
   ) {
     return {
       kind: "BUILD",
@@ -181,21 +181,21 @@ const parsePersistedDevelopmentAction = (value: unknown): PersistedDevelopmentAc
       tileKey: value.tileKey,
       label: value.label,
       payload:
-        value.payload.type === "BUILD_ECONOMIC_STRUCTURE"
+        value.payload.type === "BUILD_STRUCTURE"
           ? {
-              type: "BUILD_ECONOMIC_STRUCTURE",
+              type: "BUILD_STRUCTURE",
               x: value.payload.x,
               y: value.payload.y,
               structureType: value.payload.structureType as Extract<
                 Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["payload"],
-                { type: "BUILD_ECONOMIC_STRUCTURE" }
+                { type: "BUILD_STRUCTURE" }
               >["structureType"]
             }
           : ({
               type: value.payload.type,
               x: value.payload.x,
               y: value.payload.y
-            } as Exclude<Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["payload"], { type: "BUILD_ECONOMIC_STRUCTURE" }>),
+            } as Exclude<Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["payload"], { type: "BUILD_STRUCTURE" }>),
       optimisticKind: value.optimisticKind as Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["optimisticKind"]
     };
   }
