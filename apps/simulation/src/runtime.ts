@@ -7955,9 +7955,50 @@ export class SimulationRuntime {
     // "barbs pent up waiting for room to spawn" behavior once a barb dies.
     const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
     if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount < BARBARIAN_POPULATION_CAP) {
+      this.runtimeLogInfo(
+        {
+          type: "barb_multiply",
+          originKey: lock.originKey,
+          targetKey: lock.targetKey,
+          eatenOwnerId: previousTarget?.ownerId ?? null,
+          eatenResource: previousTarget?.resource ?? null,
+          eatenHasTown: !!previousTarget?.town,
+          gain,
+          sourceProgress,
+          barbTileCount: barbTileCount + 1
+        },
+        "barbarian multiplied"
+      );
       this.barbarianTileProgress.set(lock.originKey, 0);
       this.barbarianTileProgress.set(lock.targetKey, 0);
       return;
+    }
+    if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount >= BARBARIAN_POPULATION_CAP) {
+      this.runtimeLogInfo(
+        {
+          type: "barb_multiply_capped",
+          originKey: lock.originKey,
+          targetKey: lock.targetKey,
+          barbTileCount
+        },
+        "barbarian multiply blocked by population cap"
+      );
+    }
+    if (gain > 0) {
+      this.runtimeLogInfo(
+        {
+          type: "barb_eat_walk",
+          originKey: lock.originKey,
+          targetKey: lock.targetKey,
+          eatenOwnerId: previousTarget?.ownerId ?? null,
+          eatenResource: previousTarget?.resource ?? null,
+          eatenHasTown: !!previousTarget?.town,
+          gain,
+          sourceProgress,
+          newProgress
+        },
+        "barbarian ate player tile (walk, no multiply yet)"
+      );
     }
     this.barbarianTileProgress.delete(lock.originKey);
     this.barbarianTileProgress.set(lock.targetKey, newProgress);
@@ -8041,6 +8082,18 @@ export class SimulationRuntime {
     if (!actor.isAi && !this.pendingRespawnNoticeByPlayerId.has(playerId)) {
       this.preparePlayerRespawnNotice(playerId, "eliminated", commandId, { wasOnline: true });
     }
+
+    const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
+    this.runtimeLogInfo(
+      {
+        type: "player_respawn_eliminated",
+        playerId,
+        commandId,
+        isAi: actor.isAi,
+        barbTileCount
+      },
+      "player respawned after elimination"
+    );
 
     const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
     const spawn = chooseLegacySpawnPlacement({
