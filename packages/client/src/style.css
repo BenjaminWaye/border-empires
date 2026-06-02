@@ -819,6 +819,7 @@ body {
 #hud #changelog-overlay,
 #hud #guide-overlay,
 #hud #respawn-overlay,
+#hud #intel-overlay,
 #hud #structure-info-overlay,
 #hud #tech-detail-overlay {
   pointer-events: auto;
@@ -1388,7 +1389,8 @@ body {
 
 #changelog-overlay,
 #guide-overlay,
-#respawn-overlay {
+#respawn-overlay,
+#intel-overlay {
   position: fixed;
   inset: 0;
   display: none;
@@ -1400,7 +1402,8 @@ body {
 
 .changelog-backdrop,
 .guide-backdrop,
-.respawn-backdrop {
+.respawn-backdrop,
+.intel-backdrop {
   position: absolute;
   inset: 0;
   background: rgba(1, 6, 12, 0.72);
@@ -1409,7 +1412,8 @@ body {
 
 .changelog-modal,
 .guide-modal,
-.respawn-modal {
+.respawn-modal,
+.intel-modal {
   position: relative;
   width: min(780px, calc(100vw - 40px));
   max-height: calc(100dvh - 48px);
@@ -1425,6 +1429,150 @@ body {
   gap: 20px;
   color: #f3f6f1;
   overflow: hidden;
+}
+
+.intel-modal {
+  width: min(820px, calc(100vw - 40px));
+  padding: 0;
+  gap: 0;
+  border-color: rgba(148, 218, 255, 0.22);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(88, 209, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 90% 12%, rgba(244, 200, 108, 0.15), transparent 34%),
+    linear-gradient(180deg, rgba(11, 21, 34, 0.98), rgba(5, 10, 18, 0.98));
+}
+
+.intel-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 26px 28px 24px;
+  border-bottom: 1px solid rgba(160, 218, 255, 0.14);
+  background:
+    linear-gradient(135deg, rgba(16, 38, 60, 0.92), rgba(8, 18, 31, 0.78)),
+    repeating-linear-gradient(90deg, rgba(164, 232, 255, 0.04) 0 1px, transparent 1px 12px);
+}
+
+.intel-hero-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.intel-kicker,
+.intel-section-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(137, 226, 255, 0.88);
+}
+
+.intel-title {
+  margin: 0;
+  font-size: clamp(34px, 4vw, 54px);
+  line-height: 1;
+  letter-spacing: -0.045em;
+  color: #f4fbff;
+}
+
+.intel-summary {
+  margin: 0;
+  max-width: 58ch;
+  color: rgba(222, 238, 248, 0.82);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.intel-hero-sigil {
+  width: 76px;
+  height: 76px;
+  flex: 0 0 auto;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(245, 208, 122, 0.28);
+  background:
+    radial-gradient(circle, rgba(244, 209, 122, 0.2), rgba(100, 212, 255, 0.08) 58%, rgba(255, 255, 255, 0.04));
+  color: #ffe29a;
+  font-size: 34px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 18px 48px rgba(0, 0, 0, 0.26);
+}
+
+.intel-stat-grid,
+.intel-stockpile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px 20px 0;
+}
+
+.intel-stockpile {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+}
+
+.intel-stockpile .intel-section-label {
+  padding-left: 2px;
+}
+
+.intel-stockpile-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  padding: 0;
+}
+
+.intel-stat-card {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(171, 220, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.intel-stat-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(150, 224, 255, 0.76);
+}
+
+.intel-stat-value {
+  margin-top: 7px;
+  color: #fff7df;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+}
+
+.intel-stat-detail {
+  margin-top: 7px;
+  color: rgba(222, 238, 248, 0.72);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.intel-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 20px 20px;
+}
+
+.intel-primary-btn {
+  min-width: 128px;
+  border-color: rgba(247, 212, 124, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 247, 222, 0.98), rgba(238, 218, 164, 0.94));
+  color: #20170a;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .changelog-modal-scroll,
@@ -5069,7 +5217,8 @@ button:disabled,
 
   #changelog-overlay,
   #guide-overlay,
-  #respawn-overlay {
+  #respawn-overlay,
+  #intel-overlay {
     align-items: end;
     padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
   }
@@ -5086,7 +5235,8 @@ button:disabled,
 
   .changelog-modal,
   .guide-modal,
-  .respawn-modal {
+  .respawn-modal,
+  .intel-modal {
     width: calc(100vw - 24px);
     max-width: 560px;
     max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px);
@@ -5099,6 +5249,36 @@ button:disabled,
 
   .changelog-modal {
     padding-right: 18px;
+  }
+
+  .intel-modal {
+    padding: 0;
+    max-width: 560px;
+  }
+
+  .intel-hero {
+    padding: 20px 18px;
+  }
+
+  .intel-hero-sigil {
+    display: none;
+  }
+
+  .intel-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 14px 14px 0;
+  }
+
+  .intel-stockpile {
+    padding: 16px 14px;
+  }
+
+  .intel-stockpile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .intel-actions {
+    padding: 0 14px 16px;
   }
 
   .changelog-topbar {

@@ -2,6 +2,7 @@ import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared"
 import { formatGoldAmount } from "./client-constants.js";
 import type { ClientState } from "./client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
+import type { RevealEmpireStatsView } from "./client-types.js";
 import {
   applyGatewayRecoveryNextClientSeq,
   bindQueuedFrontierCommandIdentity,
@@ -31,6 +32,35 @@ type NetworkDeps = Record<string, any> & {
   ws: RealtimeSocket;
   wsUrl: string;
   firebaseAuth?: any;
+};
+
+const revealStatsNumberKeys = [
+  "revealedAt",
+  "tiles",
+  "settledTiles",
+  "frontierTiles",
+  "controlledTowns",
+  "incomePerMinute",
+  "techCount",
+  "gold",
+  "manpower",
+  "manpowerCap"
+] as const;
+const revealStatsResourceKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const;
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
+
+const isRevealEmpireStatsView = (value: unknown): value is RevealEmpireStatsView => {
+  if (!isRecord(value)) return false;
+  if (typeof value.playerId !== "string" || typeof value.playerName !== "string") return false;
+  for (const key of revealStatsNumberKeys) {
+    if (typeof value[key] !== "number") return false;
+  }
+  if (!isRecord(value.strategicResources)) return false;
+  for (const key of revealStatsResourceKeys) {
+    if (typeof value.strategicResources[key] !== "number") return false;
+  }
+  return true;
 };
 
 export const bindClientNetwork = (deps: NetworkDeps): void => {
@@ -1238,6 +1268,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
       state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
       state.revealedEmpireStatsByPlayer.clear();
+      state.activeRevealEmpireStatsPopup = undefined;
       if (!preserveDiscoveredTilesOnReconnect) {
         state.discoveredTiles.clear();
         state.discoveredDockTiles.clear();
@@ -2420,9 +2451,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
-      const stats = (msg.stats as any) ?? undefined;
-      if (stats?.playerId) {
+      const stats = isRevealEmpireStatsView(msg.stats) ? msg.stats : undefined;
+      if (stats) {
         state.revealedEmpireStatsByPlayer.set(stats.playerId, stats);
+        state.activeRevealEmpireStatsPopup = stats;
         pushFeed(revealEmpireStatsFeedText(stats), "combat", "success");
       }
       renderHud();
