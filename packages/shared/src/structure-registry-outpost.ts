@@ -56,7 +56,7 @@ function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
     techIds,
     consumesDevelopmentSlot: true,
     placement: outpostPlacement,
-    upkeep: [],
+    upkeep: [{ label: "Siege outpost", perMinute: { GOLD: 1, SUPPLY: 0.025 } }],
     tileField: "siegeOutpost",
   };
 }

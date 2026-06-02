@@ -44,7 +44,7 @@ function fortSpec(variant: FortVariant): StructureSpec {
     techIds,
     consumesDevelopmentSlot: true,
     placement: fortPlacement,
-    upkeep: [],
+    upkeep: [{ label: "Fort", perMinute: { GOLD: 1, IRON: 0.025 } }],
     tileField: "fort",
   };
 }

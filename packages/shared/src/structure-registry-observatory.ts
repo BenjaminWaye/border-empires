@@ -1,4 +1,4 @@
-import { OBSERVATORY_BUILD_MS } from "./config.js";
+import { OBSERVATORY_BUILD_MS, OBSERVATORY_UPKEEP_PER_MIN } from "./config.js";
 import type { StructureSpec } from "./structure-registry.js";
 import {
   noConflictingStructure,
@@ -27,6 +27,6 @@ export const OBSERVATORY_SPEC: StructureSpec = {
     noConflictingStructure,
     // structureShowsOnTile("OBSERVATORY", ...) is applied by the handler.
   ],
-  upkeep: [],
+  upkeep: [{ label: "Observatory", perMinute: { CRYSTAL: OBSERVATORY_UPKEEP_PER_MIN } }],
   tileField: "observatory",
 };

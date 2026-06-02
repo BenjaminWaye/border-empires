@@ -283,7 +283,8 @@ describe("upkeep parity", () => {
   // player-update-economy.ts. Constants divided by 10 where the source
   // uses per-10-minute interval buckets.
 
-  const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL", number>>> = {
+  const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "IRON" | "SUPPLY", number>>> = {
+    // Economic structures — per-minute from structureUpkeepPerMinute switch
     FARMSTEAD: { GOLD: 0.1 },
     CAMP: { GOLD: 0.12 },
     MINE: { GOLD: 0.12 },
@@ -305,6 +306,15 @@ describe("upkeep parity", () => {
     GOVERNORS_OFFICE: { GOLD: 3 },
     RADAR_SYSTEM: { GOLD: 4.5 },
     AIRPORT: { CRYSTAL: 0.025 },
+
+    // Non-economic structures — per-tile upkeep loop at L448-456
+    FORT: { GOLD: 1, IRON: 0.025 },
+    IRON_BASTION: { GOLD: 1, IRON: 0.025 },
+    THUNDER_BASTION: { GOLD: 1, IRON: 0.025 },
+    SIEGE_OUTPOST: { GOLD: 1, SUPPLY: 0.025 },
+    SIEGE_TOWER: { GOLD: 1, SUPPLY: 0.025 },
+    DREAD_TOWER: { GOLD: 1, SUPPLY: 0.025 },
+    OBSERVATORY: { CRYSTAL: 0.025 },
   };
 
   const noUpkeepTypes = new Set([
@@ -313,8 +323,6 @@ describe("upkeep parity", () => {
     "IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART",
     "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
     "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
-    "FORT", "IRON_BASTION", "THUNDER_BASTION",
-    "OBSERVATORY", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
   ]);
 
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
@@ -332,6 +340,12 @@ describe("upkeep parity", () => {
     } else if (noUpkeepTypes.has(type)) {
       test(`${type}: has no upkeep`, () => {
         expect(spec.upkeep, `${type} should have empty upkeep`).toEqual([]);
+      });
+    } else {
+      test(`${type}: covered by upkeep parity`, () => {
+        expect.fail(
+          `${type} is not in expected upkeep map or noUpkeepTypes — add it`,
+        );
       });
     }
   }
