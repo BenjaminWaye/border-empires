@@ -7949,12 +7949,10 @@ export class SimulationRuntime {
     const gain = this.barbarianProgressGain(previousTarget);
     const sourceProgress = this.barbarianTileProgress.get(lock.originKey) ?? 0;
     const newProgress = sourceProgress + gain;
-    // Population cap: at/over cap, an otherwise-multiplying walk becomes a
-    // plain walk that carries the over-threshold progress to the target,
-    // so the target re-attempts the multiply on its next action — natural
-    // "barbs pent up waiting for room to spawn" behavior once a barb dies.
     const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
+
     if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount < BARBARIAN_POPULATION_CAP) {
+      // Multiply: keep both origin and target — net +1 tile.
       this.runtimeLogInfo(
         {
           type: "barb_multiply",
@@ -7973,17 +7971,61 @@ export class SimulationRuntime {
       this.barbarianTileProgress.set(lock.targetKey, 0);
       return;
     }
-    if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount >= BARBARIAN_POPULATION_CAP) {
+
+    // Over cap: drain — release BOTH origin and target back to neutral, net -1.
+    // The outer combat resolution already stamped target as barbarian-1 before
+    // this function runs, so we must explicitly un-claim it here to get a real
+    // net -1. This lets an inflated population (e.g. grown before the cap was
+    // deployed) shrink back to BARBARIAN_POPULATION_CAP over time.
+    if (barbTileCount >= BARBARIAN_POPULATION_CAP) {
       this.runtimeLogInfo(
         {
-          type: "barb_multiply_capped",
+          type: "barb_drain",
           originKey: lock.originKey,
           targetKey: lock.targetKey,
           barbTileCount
         },
-        "barbarian multiply blocked by population cap"
+        "barbarian over cap — draining tile"
       );
+      this.barbarianTileProgress.delete(lock.originKey);
+      this.barbarianTileProgress.delete(lock.targetKey);
+      const tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[] = [];
+      const previousOrigin = this.tiles.get(lock.originKey);
+      if (previousOrigin?.ownerId === "barbarian-1") {
+        const releasedOrigin: DomainTileState = {
+          x: previousOrigin.x,
+          y: previousOrigin.y,
+          terrain: previousOrigin.terrain,
+          ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
+          ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {})
+        };
+        this.replaceTileState(lock.originKey, releasedOrigin);
+        tileDeltas.push(this.tileDeltaFromState(releasedOrigin));
+      }
+      const currentTarget = this.tiles.get(lock.targetKey);
+      if (currentTarget?.ownerId === "barbarian-1") {
+        const releasedTarget: DomainTileState = {
+          x: currentTarget.x,
+          y: currentTarget.y,
+          terrain: currentTarget.terrain,
+          ...(currentTarget.resource ? { resource: currentTarget.resource } : {}),
+          ...(currentTarget.dockId ? { dockId: currentTarget.dockId } : {})
+        };
+        this.replaceTileState(lock.targetKey, releasedTarget);
+        tileDeltas.push(this.tileDeltaFromState(releasedTarget));
+      }
+      if (tileDeltas.length > 0) {
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: lock.commandId,
+          playerId: lock.playerId,
+          tileDeltas
+        });
+      }
+      return;
     }
+
+    // Normal walk: release origin, carry progress to target, net 0.
     if (gain > 0) {
       this.runtimeLogInfo(
         {
