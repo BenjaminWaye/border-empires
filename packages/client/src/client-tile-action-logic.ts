@@ -773,7 +773,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const crystalAmt = state.strategicResources.CRYSTAL ?? 0;
     const isOwnTile = Boolean(tile.ownerId && tile.ownerId === state.me);
-    const isFrontier = !tile.ownerId;
+    const isUnclaimed = !tile.ownerId;
+    const targetHasPurgeableOwnership = tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER";
     const economicStructureType = tile.economicStructure?.type;
     const isMonumentType =
       economicStructureType === "IMPERIAL_EXCHANGE" ||
@@ -786,45 +787,31 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       economicStructureType === "AEGIS_DOME_PART" ||
       economicStructureType === "ASTRAL_DOCK_PART";
 
-    // Aether Lance
+    // Aether Purge (wire command remains AETHER_LANCE for compatibility).
     if (state.techIds.includes("signal-fires")) {
       const lanceCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_lance"));
-      const hasTargetStructure =
-        !tile.town &&
-        !tile.dockId &&
-        (Boolean(tile.fort) ||
-          Boolean(tile.observatory) ||
-          Boolean(tile.siegeOutpost) ||
-          (economicStructureType !== undefined && !isMonumentType && !isMonumentPartType));
-      const targetsMonument = isMonumentType;
       const lanceCost = 3000;
       const lanceCrystal = 100;
       const reason =
         !obsInRange
           ? "Need active observatory in range"
           : isOwnTile
-            ? "Cannot lance your own tiles"
-            : isFrontier
-              ? "Cannot lance unclaimed land"
-              : tile.town
-                ? "Target a structure, not a town"
-                : targetsMonument
-                  ? "Monuments require Aether EMP"
-                  : !hasTargetStructure
-                    ? "No hostile structure here"
-                    : observatoryProtection
-                      ? "Blocked by observatory field"
-                      : lanceCooldown > 0
-                        ? `Cooldown ${deps.formatCooldownShort(lanceCooldown)}`
-                        : state.gold < lanceCost
-                          ? `Need ${lanceCost} gold`
-                          : crystalAmt < lanceCrystal
-                            ? `Need ${lanceCrystal} CRYSTAL`
-                            : "";
+            ? "Cannot purge your own tiles"
+            : isUnclaimed || !targetHasPurgeableOwnership
+              ? "Target enemy settled or frontier land"
+              : observatoryProtection
+                ? "Blocked by observatory field"
+                : lanceCooldown > 0
+                  ? `Cooldown ${deps.formatCooldownShort(lanceCooldown)}`
+                  : state.gold < lanceCost
+                    ? `Need ${lanceCost} gold`
+                    : crystalAmt < lanceCrystal
+                      ? `Need ${lanceCrystal} CRYSTAL`
+                      : "";
       out.push({
         id: "aether_lance",
-        label: "Aether Lance",
-        ...tileActionAvailability(reason === "", reason, "3000 gold + 100 CRYSTAL • destroy one hostile structure")
+        label: "Aether Purge",
+        ...tileActionAvailability(reason === "", reason, "3000 gold + 100 CRYSTAL • turn enemy control neutral")
       });
     }
 
@@ -837,9 +824,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ? "Need active observatory in range"
           : isOwnTile
             ? "Cannot EMP your own tiles"
-            : isFrontier
+            : isUnclaimed
               ? "Cannot EMP unclaimed land"
               : !isMonumentType &&
+                !isMonumentPartType &&
                 economicStructureType !== "AETHER_TOWER" &&
                 economicStructureType !== "AIRPORT" &&
                 economicStructureType !== "RADAR_SYSTEM"

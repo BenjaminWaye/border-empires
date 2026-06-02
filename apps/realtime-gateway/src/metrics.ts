@@ -64,6 +64,7 @@ export type GatewayMetricsSnapshot = {
   revealChunksSent: number;
   revealCacheEntries: number;
   gatewaySqliteRetryTotal: number;
+  colorCollisionRejectedTotal: number;
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
@@ -93,6 +94,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let revealChunksSent = 0;
   let revealCacheEntries = 0;
   let gatewaySqliteRetryTotal = 0;
+  let colorCollisionRejectedTotal = 0;
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -124,7 +126,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     revealActiveStreams,
     revealChunksSent,
     revealCacheEntries,
-    gatewaySqliteRetryTotal
+    gatewaySqliteRetryTotal,
+    colorCollisionRejectedTotal
   });
 
   return {
@@ -187,6 +190,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementGatewaySqliteRetryTotal(count = 1): void {
       gatewaySqliteRetryTotal += Math.max(0, Math.floor(count));
+    },
+    incrementColorCollisionRejectedTotal(count = 1): void {
+      colorCollisionRejectedTotal += Math.max(0, Math.floor(count));
     },
     snapshot,
     renderPrometheus(): string {
@@ -257,7 +263,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         "# TYPE gateway_reveal_cache_entries gauge",
         `gateway_reveal_cache_entries ${formatMetricValue(sample.revealCacheEntries)}`,
         "# TYPE gateway_sqlite_retry_total counter",
-        `gateway_sqlite_retry_total ${formatMetricValue(sample.gatewaySqliteRetryTotal)}`
+        `gateway_sqlite_retry_total ${formatMetricValue(sample.gatewaySqliteRetryTotal)}`,
+        "# TYPE gateway_color_collision_rejected_total counter",
+        `gateway_color_collision_rejected_total ${formatMetricValue(sample.colorCollisionRejectedTotal)}`
       ].join("\n");
     }
   };

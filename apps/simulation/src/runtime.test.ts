@@ -4643,6 +4643,127 @@ describe("simulation runtime", () => {
     expect(duplicateTarget?.economicStructureJson).toBeUndefined();
   });
 
+  it("builds a garrison hall with organized-supply tech and sufficient resources", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 5_000,
+              manpower: 10_000,
+              techIds: new Set<string>(["organized-supply"]),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>(),
+              strategicResources: { CRYSTAL: 200 }
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+
+      const events: Array<{ code: string; message: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") events.push({ code: event.code, message: event.message });
+      });
+
+      runtime.submitCommand({
+        commandId: "garrison-hall-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_ECONOMIC_STRUCTURE",
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "GARRISON_HALL" })
+      });
+
+      await Promise.resolve();
+      expect(events).toHaveLength(0);
+
+      vi.advanceTimersByTime(structureBuildDurationMs("GARRISON_HALL"));
+
+      const exported = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      expect(exported?.economicStructureJson).toContain("\"type\":\"GARRISON_HALL\"");
+      expect(exported?.economicStructureJson).toContain("\"status\":\"active\"");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects garrison hall build when player lacks organized-supply", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 5_000,
+            manpower: 10_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { CRYSTAL: 200 }
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const events: Array<{ code: string; message: string }> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMMAND_REJECTED") events.push({ code: event.code, message: event.message });
+    });
+
+    runtime.submitCommand({
+      commandId: "garrison-hall-no-tech-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "BUILD_ECONOMIC_STRUCTURE",
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "GARRISON_HALL" })
+    });
+
+    await Promise.resolve();
+    expect(events).toHaveLength(1);
+    expect(events[0].code).toBe("BUILD_INVALID");
+    expect(events[0].message).toBe("unlock garrison hall first");
+  });
+
   it("uncaptures an owned tile through the rewrite simulation path and clears owned structures on it", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -8727,7 +8848,7 @@ describe("imperial exchange levy", () => {
   });
 });
 
-describe("aether lance", () => {
+describe("aether purge", () => {
   const buildAetherLanceRuntime = (options: { enemyAegisDome?: boolean; crystal?: number; points?: number } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
       {
@@ -8745,6 +8866,14 @@ describe("aether lance", () => {
         ownerId: "player-2",
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-2", type: "GRANARY", status: "active" }
+      },
+      {
+        x: 5,
+        y: 1,
+        terrain: "LAND",
+        ownerId: "player-2",
+        ownershipState: "FRONTIER",
+        fort: { ownerId: "player-2", status: "active" }
       }
     ];
     if (options.enemyAegisDome) {
@@ -8798,7 +8927,7 @@ describe("aether lance", () => {
     });
   };
 
-  it("destroys one hostile structure and stamps the casting observatory cooldown", async () => {
+  it("purges hostile settled control without destroying structures and stamps the casting observatory cooldown", async () => {
     const runtime = buildAetherLanceRuntime();
     runtime.submitCommand({
       commandId: "aether-lance-1",
@@ -8817,10 +8946,31 @@ describe("aether lance", () => {
       ? JSON.parse(observatoryTile.observatoryJson) as { cooldownUntil?: number }
       : undefined;
     const actor = state.players.find((player) => player.id === "player-1");
-    expect(target?.economicStructureJson).toBeUndefined();
+    expect(target?.ownerId).toBeUndefined();
+    expect(target?.ownershipState).toBeUndefined();
+    expect(target?.economicStructureJson).toContain("\"GRANARY\"");
     expect(observatory?.cooldownUntil).toBe(601_000);
     expect(actor?.points).toBe(2_000);
     expect(actor?.strategicResources?.CRYSTAL).toBe(400);
+  });
+
+  it("purges hostile frontier control", async () => {
+    const runtime = buildAetherLanceRuntime();
+    runtime.submitCommand({
+      commandId: "aether-purge-frontier",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "AETHER_LANCE",
+      payloadJson: JSON.stringify({ x: 5, y: 1 })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const target = state.tiles.find((tile) => tile.x === 5 && tile.y === 1);
+    expect(target?.ownerId).toBeUndefined();
+    expect(target?.ownershipState).toBeUndefined();
+    expect(target?.fortJson).toContain("\"ownerId\":\"player-2\"");
   });
 
   it("rejects through an enemy Aegis Dome without spending resources", async () => {
