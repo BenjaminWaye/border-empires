@@ -73,12 +73,12 @@ describe("tech benefit summaries", () => {
     expect(formatTechBenefitSummary(tech)).toBe("Unlocks Aether Bridge");
   });
 
-  it("surfaces Aether Purge and Waterworks as visible unlocks", () => {
+  it("surfaces Aether Lance and Waterworks as visible unlocks", () => {
     const signalFires: TechInfo = {
       id: "signal-fires",
       tier: 2,
       name: "Signal Fires",
-      description: "Unlocks Aether Purge.",
+      description: "Unlocks Aether Lance.",
       mods: {},
       effects: {
         unlockAetherLance: true,
@@ -113,8 +113,8 @@ describe("tech benefit summaries", () => {
       }
     };
 
-    expect(formatTechBenefitSummary(signalFires)).toContain("Unlocks Aether Purge");
-    expect(formatTechBenefitSummary(irrigation)).toContain("Upgrades Farmstead to Waterworks");
+    expect(formatTechBenefitSummary(signalFires)).toContain("Unlocks Aether Lance");
+    expect(formatTechBenefitSummary(irrigation)).toContain("Upgrades Farmstead (+50%) to Waterworks (+80% farm food)");
   });
 
   it("surfaces Survey Sweep, Siphon, and Lockworks Port as visible unlocks", () => {
