@@ -26,6 +26,7 @@ import {
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "./frontier-submit.js";
 import { registerGatewayHttpRoutes } from "./http-routes.js";
 import { createGatewayMetrics } from "./metrics.js";
+import { normalizeHex, isTaken, suggestAlternative, pickSuggestedPalette, assignUniqueColor, RESERVED_COLORS } from "./player-color-allocation.js";
 import { createPlayerSubscriptions } from "./player-subscriptions.js";
 import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
 import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "./player-profile-store.js";
@@ -964,6 +965,36 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       .map((player) => player.id),
     ...seasonalAiPlayerIds
   ]);
+
+  // -- Phase 6: AI empire color seeding -----------------------------------
+  // Assign each AI a unique colour from BASE_PALETTE and register it in
+  // profileOverrides so the taken-set sees it immediately.
+  const aiTaken = new Set<string>(RESERVED_COLORS);
+  for (const aiId of [...seededAiPlayerIds].sort()) {
+    const color = assignUniqueColor(aiId, aiTaken);
+    aiTaken.add(color);
+    await profileStore.setTileColor(aiId, color);
+    profileOverrides.upsert(aiId, { tileColor: color });
+  }
+
+  // -- Phase 4: buildTakenColorSet helper ----------------------------------
+  const buildTakenColorSet = async (excludePlayerId: string): Promise<Set<string>> => {
+    const taken = new Set<string>(RESERVED_COLORS);
+    // 1. stored profiles
+    for (const profile of await profileStore.listAllNamed()) {
+      if (profile.playerId === excludePlayerId) continue;
+      const n = normalizeHex(profile.tileColor ?? "");
+      if (n) taken.add(n);
+    }
+    // 2. live overrides (supersede stored for active sessions)
+    for (const [pid, override] of profileOverrides.entries()) {
+      if (pid === excludePlayerId) continue;
+      const n = normalizeHex(override.tileColor ?? "");
+      if (n) taken.add(n);
+    }
+    return taken;
+  };
+
   const initialSocialPlayerNamesById = new Map<string, string>();
   if (legacySnapshotBootstrap) {
     for (const profile of legacySnapshotBootstrap.playerProfiles.values()) {
@@ -2312,6 +2343,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 session.canToggleFog
               );
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
+              // Phase 7: include suggested colour swatches in the init payload
+              (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, await buildTakenColorSet(playerIdentity.playerId));
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
               authTrace.endStep("build_init");
               // Stringify the ~256KB init message off the main thread so the
@@ -2495,7 +2528,24 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "SET_TILE_COLOR") {
-            const storedProfile = await profileStore.setTileColor(session.playerId, message.color);
+            const normalized = normalizeHex(message.color);
+            if (!normalized) {
+              sendJson(socket, { type: "ERROR", code: "COLOR_INVALID", message: "Color must be a valid hex code (#rrggbb)." });
+              return;
+            }
+            const taken = await buildTakenColorSet(session.playerId);
+            if (isTaken(normalized, taken)) {
+              const suggestion = suggestAlternative(normalized, taken);
+              metrics.incrementColorCollisionRejectedTotal();
+              sendJson(socket, {
+                type: "ERROR",
+                code: "COLOR_TAKEN",
+                message: "That colour is already taken by another empire.",
+                suggestion,
+              });
+              return;
+            }
+            const storedProfile = await profileStore.setTileColor(session.playerId, normalized);
             invalidateProfileCache(session.playerId);
             const override = profileOverrides.upsert(session.playerId, {
               ...(storedProfile.name ? { name: storedProfile.name } : {}),
@@ -2504,25 +2554,44 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 ? { profileComplete: storedProfile.profileComplete }
                 : {})
             });
+            const suggestedColors = pickSuggestedPalette(6, await buildTakenColorSet(session.playerId));
             const payload = {
               type: "PLAYER_STYLE",
               playerId: session.playerId,
               ...(override.name ? { name: override.name } : {}),
-              tileColor: message.color
+              tileColor: normalized
             };
             for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, payload);
             for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {
               queueOrSendSessionPayload(targetSocket, {
                 type: "PLAYER_UPDATE",
-                tileColor: message.color,
-                canToggleFog: session.canToggleFog
+                tileColor: normalized,
+                canToggleFog: session.canToggleFog,
+                suggestedColors
               });
             }
             return;
           }
 
           if (message.type === "SET_PROFILE") {
-            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, message.color);
+            const normalized = normalizeHex(message.color);
+            if (!normalized) {
+              sendJson(socket, { type: "ERROR", code: "COLOR_INVALID", message: "Color must be a valid hex code (#rrggbb)." });
+              return;
+            }
+            const taken = await buildTakenColorSet(session.playerId);
+            if (isTaken(normalized, taken)) {
+              const suggestion = suggestAlternative(normalized, taken);
+              metrics.incrementColorCollisionRejectedTotal();
+              sendJson(socket, {
+                type: "ERROR",
+                code: "COLOR_TAKEN",
+                message: "That colour is already taken by another empire.",
+                suggestion,
+              });
+              return;
+            }
+            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, normalized);
             invalidateProfileCache(session.playerId);
             const override = profileOverrides.upsert(session.playerId, {
               ...(storedProfile.name ? { name: storedProfile.name } : {}),
@@ -2532,11 +2601,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 : {})
             });
             socialState.renamePlayer(session.playerId, override.name ?? message.displayName);
+            const suggestedColors = pickSuggestedPalette(6, await buildTakenColorSet(session.playerId));
             const stylePayload = {
               type: "PLAYER_STYLE",
               playerId: session.playerId,
               name: override.name ?? message.displayName,
-              tileColor: override.tileColor ?? message.color
+              tileColor: override.tileColor ?? normalized
             };
             for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);
             for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {
@@ -2545,7 +2615,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 name: override.name,
                 tileColor: override.tileColor,
                 profileNeedsSetup: false,
-                canToggleFog: session.canToggleFog
+                canToggleFog: session.canToggleFog,
+                suggestedColors
               });
             }
             return;
