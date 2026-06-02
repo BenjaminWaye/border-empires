@@ -121,7 +121,7 @@ export type Tile = {
     nextPopulationTierUpgrade?: {
       targetTier: "CITY" | "GREAT_CITY" | "METROPOLIS";
       requiredPopulation: number;
-      goldCost: number;
+      foodCost: number;
       available: boolean;
     };
   };

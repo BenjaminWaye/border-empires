@@ -35,7 +35,7 @@ const makePlayer = (id: string): TestPlayer => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 5 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+  strategicResources: { FOOD: 999_999, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
 });
 
 const makeTownTile = (
@@ -352,7 +352,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
     expect(townPop(tile!)).toBe(TOWN_MAX);
   });
 
-  it("upgrades population tier when crossing thresholds", () => {
+  it("grows population past tier threshold without auto-promoting", () => {
     const almostCityTile = makeTownTile(10, 10, "p1", {
       population: 99_900,
       maxPopulation: POPULATION_MAX
@@ -374,7 +374,9 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
     runtime.tickPopulationGrowth(now);
     const exported = runtime.exportState();
     const tile = exported.tiles.find((t) => t.x === 10 && t.y === 10);
-    expect(tile!.townPopulationTier).toBe("CITY");
+    // Population grows past the threshold, but tier stays TOWN (manual upgrade only).
+    expect(townPop(tile!)).toBeGreaterThan(100_000);
+    expect(tile!.townPopulationTier).toBe("TOWN");
   });
 
   it("does not grow when at max cap (logistic factor = 0)", () => {

@@ -498,7 +498,7 @@ describe("client gateway sync", () => {
             nextPopulationTierUpgrade: {
               targetTier: "CITY",
               requiredPopulation: 100000,
-              goldCost: 1500,
+               foodCost: 500,
               available: false
             }
           })

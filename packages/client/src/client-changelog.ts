@@ -19,37 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.9",
+  version: "2026.06.02.7",
   title: "What's New",
-  summary: "Attacks and expansions no longer launch from cut-off encircled frontier tiles, so waypoints route from a supplied tile instead of stalling. Aether Lance is now Aether Purge: it strips enemy control from a tile instead of destroying a building.",
+  summary: "The food economy has been reworked: fish is perishable, town growth costs food, and tier upgrades are manual food-paid commands. Farmstead boosts farm tiles (+50%), and Waterworks is a radius-support building that boosts all farmsteads within 10 tiles.",
   entries: [
     {
-      introducedIn: "2026.06.02.9",
-      title: "Attacks/expansions no longer launch from cut-off frontier tiles",
-      why: "A waypoint or single-tap attack could pick a frontier origin tile encircled and cut off from supply, which the server rejects as ORIGIN_CUT_OFF — the waypoint would stall instead of routing from a supplied tile.",
-      changes: [
-        "Waypoint planner now skips cut-off encircled frontier tiles as both sources and free-movement corridors.",
-        "Single-tap attack origin picker now excludes cut-off frontier tiles from adjacent, dock, and bridge origin candidates.",
-        "The server's ORIGIN_CUT_OFF rejection is now anticipated client-side so the UI never offers an attack from a dead tile."
-      ]
-    },
-    {
-      introducedIn: "2026.06.02.8",
-      title: "Aether Lance is now Aether Purge",
-      why: "The old version competed with Worldbreaker Cannon by deleting structures. Aether Purge now has a cleaner role: precision territory disruption.",
-      changes: [
-        "Aether Purge purges enemy control from settled or frontier land, turning the target tile neutral.",
-        "The ability no longer destroys the building, town, dock, or monument on the target tile as its primary effect.",
-        "The 3D cast feedback now reads as a control-drain purge with an expanding neutral ring and rising aether motes."
-      ]
-    },
-    {
       introducedIn: "2026.06.02.7",
-      title: "Garrison Hall now unlocks correctly with Organized Supply",
-      why: "The server checked for a nonexistent 'organization' tech instead of 'organized-supply', which blocked Garrison Hall construction for all players even after researching the correct tech.",
+      title: "Food economy rework",
+      why: "Food was a near-dead currency — once every town was fed, all surplus was silently discarded with no way to spend it. Fish and farm were mechanically identical despite their different strategic themes.",
       changes: [
-        "Garrison Hall now requires the Organized Supply tech (organized-supply) instead of the legacy Organization tech (organization).",
-        "Added regression tests to prevent this mismatch from recurring."
+        "Fish tiles now have zero yield cap — fish food must be used as produced or it is lost.",
+        "Town population growth now costs food per tick on top of building/town upkeep.",
+        "Town tier upgrades (CITY, GREAT_CITY, METROPOLIS) are now manual commands that cost food instead of happening automatically.",
+        "The tier upgrade button shows in the town tile menu when population meets the threshold.",
+        "Farmstead gives +50% food on farm tiles (fish unaffected). Waterworks is now a radius-support building that boosts all farmstead food within 10 tiles."
       ]
     },
     {
@@ -61,7 +44,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Barbarian tiles always render grey (#2f3842) in both 2D and 3D regardless of owner id variant.",
         "Suggested colour swatches in the profile picker are always free (no other empire holds them).",
         "AI empires (ai-1..ai-20) are seeded with unique, stable colours from the curated 100-colour palette.",
-      ]
+      ],
     },
     {
       introducedIn: "2026.06.02.5",

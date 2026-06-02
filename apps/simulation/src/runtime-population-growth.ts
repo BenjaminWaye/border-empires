@@ -1,5 +1,6 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import {
+  GROWTH_FOOD_COST_PER_POP,
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
   NEARBY_WAR_PAUSE_MS,
@@ -150,17 +151,24 @@ export function tickPopulationGrowth(input: {
       const growth = growthPerMinute * elapsedMinutes;
       if (growth <= 0) continue;
 
+      // Food affordability gate: a growing town costs food on top of upkeep.
+      // If the player can't afford it, skip growth this tick — town stays fed and earns gold.
+      const growthFoodCost = growth * GROWTH_FOOD_COST_PER_POP;
+      const foodAvailable = player.strategicResources?.FOOD ?? 0;
+      if (foodAvailable + 1e-6 < growthFoodCost) {
+        input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+        continue;
+      }
+      if (player.strategicResources) {
+        player.strategicResources.FOOD = (player.strategicResources.FOOD ?? 0) - growthFoodCost;
+      }
+
       const newPopulation = Math.min(town.maxPopulation, town.population + growth);
-      const nextTier = newPopulation >= 5_000_000 ? "METROPOLIS" as const
-        : newPopulation >= 1_000_000 ? "GREAT_CITY" as const
-        : newPopulation >= 100_000 ? "CITY" as const
-        : "TOWN" as const;
 
       const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
       const updatedTown = {
         ...townWithoutPause,
-        population: newPopulation,
-        ...(nextTier !== town.populationTier ? { populationTier: nextTier } : {})
+        population: newPopulation
       };
       const updatedTile = { ...tile, town: updatedTown };
       input.tiles.set(tileKey, updatedTile);
@@ -172,10 +180,6 @@ export function tickPopulationGrowth(input: {
         playerId: player.id,
         tileDeltas: [input.tileDeltaFromState(updatedTile)]
       });
-
-      if (nextTier !== town.populationTier) {
-        summary.ownedTownTierByTile.set(tileKey, nextTier);
-      }
 
       dirtyPlayerIds.add(player.id);
     }
