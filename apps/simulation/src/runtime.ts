@@ -7953,20 +7953,19 @@ export class SimulationRuntime {
 
     if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount < BARBARIAN_POPULATION_CAP) {
       // Multiply: keep both origin and target — net +1 tile.
-      this.runtimeLogInfo(
-        {
-          type: "barb_multiply",
-          originKey: lock.originKey,
-          targetKey: lock.targetKey,
-          eatenOwnerId: previousTarget?.ownerId ?? null,
-          eatenResource: previousTarget?.resource ?? null,
-          eatenHasTown: !!previousTarget?.town,
-          gain,
-          sourceProgress,
-          barbTileCount: barbTileCount + 1
-        },
-        "barbarian multiplied"
-      );
+      this.emitEvent({
+        eventType: "BARB_MULTIPLIED",
+        commandId: lock.commandId,
+        playerId: "barbarian-1",
+        originKey: lock.originKey,
+        targetKey: lock.targetKey,
+        eatenOwnerId: previousTarget?.ownerId ?? null,
+        eatenResource: previousTarget?.resource ?? null,
+        eatenHasTown: !!previousTarget?.town,
+        gain,
+        sourceProgress,
+        barbTileCount: barbTileCount + 1
+      });
       this.barbarianTileProgress.set(lock.originKey, 0);
       this.barbarianTileProgress.set(lock.targetKey, 0);
       return;
@@ -7974,21 +7973,20 @@ export class SimulationRuntime {
 
     // At/over cap: fall through to normal walk (net 0) — multiply blocked.
     if (gain > 0) {
-      this.runtimeLogInfo(
-        {
-          type: "barb_eat_walk",
-          originKey: lock.originKey,
-          targetKey: lock.targetKey,
-          eatenOwnerId: previousTarget?.ownerId ?? null,
-          eatenResource: previousTarget?.resource ?? null,
-          eatenHasTown: !!previousTarget?.town,
-          gain,
-          sourceProgress,
-          newProgress,
-          capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD
-        },
-        "barbarian ate player tile (walk)"
-      );
+      this.emitEvent({
+        eventType: "BARB_ATE_TILE",
+        commandId: lock.commandId,
+        playerId: "barbarian-1",
+        originKey: lock.originKey,
+        targetKey: lock.targetKey,
+        eatenOwnerId: previousTarget!.ownerId!,
+        eatenResource: previousTarget?.resource ?? null,
+        eatenHasTown: !!previousTarget?.town,
+        gain,
+        sourceProgress,
+        newProgress,
+        capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD
+      });
     }
     this.barbarianTileProgress.delete(lock.originKey);
     this.barbarianTileProgress.set(lock.targetKey, newProgress);
