@@ -14,6 +14,7 @@ import {
 } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { Tile } from "./client-types.js";
+import { isFrontierOriginCutOff } from "./client-tile-menu-status.js";
 
 export type WaypointAction = "EXPAND" | "ATTACK";
 
@@ -113,12 +114,18 @@ const classifyTile = (
   me: string | undefined,
   attackDurationMs: number,
   truceTargetIds: ReadonlySet<string>,
-  expandDurationMsAt: (x: number, y: number) => number
+  expandDurationMsAt: (x: number, y: number) => number,
+  now: number
 ): ClassifiedTile => {
   // Unexplored tiles return undefined; we cannot plan through them.
   if (!tile) return { kind: "IMPASSABLE" };
   if (tile.terrain !== "LAND") return { kind: "IMPASSABLE" };
-  if (tile.ownerId && me && tile.ownerId === me) return { kind: "OWN" };
+  if (tile.ownerId && me && tile.ownerId === me) {
+    // Cut-off frontier tiles cannot serve as action origins or as free
+    // corridors — treat them as impassable so the planner routes around them.
+    if (isFrontierOriginCutOff(tile, now)) return { kind: "IMPASSABLE" };
+    return { kind: "OWN" };
+  }
   if (!tile.ownerId) return { kind: "NEUTRAL", durationMs: expandDurationMsAt(x, y) };
   if (truceTargetIds.has(tile.ownerId)) return { kind: "IMPASSABLE" };
   return { kind: "ENEMY", durationMs: attackDurationMs };
@@ -251,6 +258,7 @@ export const planWaypoint = (
   for (const tile of state.tiles.values()) {
     if (tile.ownerId !== me) continue;
     if (tile.terrain !== "LAND") continue;
+    if (isFrontierOriginCutOff(tile, now)) continue;
     const idx = worldIndex(tile.x, tile.y);
     sources.push(idx);
     preOwned.add(idx);
@@ -315,7 +323,7 @@ export const planWaypoint = (
       const ny = wrapY(cy + dy, WORLD_HEIGHT);
       const neighborIdx = worldIndex(nx, ny);
       const neighborTile = state.tiles.get(keyFor(nx, ny));
-      const classified = classifyTile(neighborTile, nx, ny, me, attackDurationMs, truceTargetIds, expandDurationMsAt);
+      const classified = classifyTile(neighborTile, nx, ny, me, attackDurationMs, truceTargetIds, expandDurationMsAt, now);
       if (classified.kind === "IMPASSABLE") continue;
       const baseCost = classified.kind === "OWN" ? 0 : classified.durationMs;
       const turnPenalty = parentDir === NO_DIR || parentDir === dirIdx ? 0 : TURN_PENALTY_MS;
@@ -340,7 +348,7 @@ export const planWaypoint = (
         for (const destIdx of links) {
           const { x: dxw, y: dyw } = coordFromIndex(destIdx);
           const destTile = state.tiles.get(keyFor(dxw, dyw));
-          const classified = classifyTile(destTile, dxw, dyw, me, attackDurationMs, truceTargetIds, expandDurationMsAt);
+          const classified = classifyTile(destTile, dxw, dyw, me, attackDurationMs, truceTargetIds, expandDurationMsAt, now);
           if (classified.kind === "IMPASSABLE") continue;
           const stepCost = classified.kind === "OWN" ? 0 : classified.durationMs;
           const tentative = currentG + stepCost;
@@ -388,7 +396,7 @@ export const planWaypoint = (
     const prev = coordFromIndex(prevIdx);
     const next = coordFromIndex(nextIdx);
     const nextTile = state.tiles.get(keyFor(next.x, next.y));
-    const classified = classifyTile(nextTile, next.x, next.y, me, attackDurationMs, truceTargetIds, expandDurationMsAt);
+    const classified = classifyTile(nextTile, next.x, next.y, me, attackDurationMs, truceTargetIds, expandDurationMsAt, now);
     if (classified.kind === "OWN" || classified.kind === "IMPASSABLE") {
       // Should not happen — A* never traverses impassable, and own tiles
       // are sources which terminate reconstruction.
