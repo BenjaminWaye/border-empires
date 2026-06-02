@@ -387,7 +387,7 @@ export const borderColorForOwner = (
   stateName: Tile["ownershipState"] | undefined,
   visualStyleForOwner: VisualStyleLookup
 ): string => {
-  if (ownerId === "barbarian") return "rgba(95, 108, 122, 0.8)";
+  if (ownerId.startsWith("barbarian")) return "rgba(95, 108, 122, 0.8)";
   const style = visualStyleForOwner(ownerId);
   if (!style) return stateName === "FRONTIER" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.55)";
   if (style.borderStyle === "HEAVY") return "rgba(58, 66, 82, 0.9)";
@@ -399,7 +399,7 @@ export const borderColorForOwner = (
 
 export const shouldDrawOwnershipBorder = (tile: Tile, visualStyleForOwner: VisualStyleLookup): boolean => {
   if (!tile.ownerId || tile.ownershipState === "FRONTIER") return false;
-  if (tile.ownerId === "barbarian") return true;
+  if (tile.ownerId?.startsWith("barbarian")) return true;
   const style = visualStyleForOwner(tile.ownerId);
   return Boolean(style && style.borderStyle !== "SHARP");
 };
