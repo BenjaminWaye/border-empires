@@ -36,7 +36,7 @@ describe("crystal ability tech previews", () => {
     expect(html).toContain("Target coastal land");
   });
 
-  it("maps Signal Fires to the Aether Lance preview", () => {
+  it("maps Signal Fires to the Aether Purge preview", () => {
     const tech: Pick<TechInfo, "effects"> = {
       effects: {
         unlockAetherLance: true

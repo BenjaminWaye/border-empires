@@ -4361,60 +4361,21 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!target || target.terrain !== "LAND" || !target.ownerId || target.ownerId === actor.id || actor.allies.has(target.ownerId)) {
+    const targetIsPurgeableOwnership = target?.ownershipState === "SETTLED" || target?.ownershipState === "FRONTIER";
+    if (
+      !target ||
+      target.terrain !== "LAND" ||
+      !target.ownerId ||
+      target.ownerId === actor.id ||
+      actor.allies.has(target.ownerId) ||
+      !targetIsPurgeableOwnership
+    ) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "AETHER_LANCE_INVALID",
-        message: "target hostile structure"
-      });
-      return;
-    }
-    if (target.town) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "target a structure, not a town"
-      });
-      return;
-    }
-    if (target.dockId) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "cannot target docks"
-      });
-      return;
-    }
-    const monumentTypes = new Set<string>(["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK"]);
-    const monumentPartTypes = new Set<string>(["IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART", "AEGIS_DOME_PART", "ASTRAL_DOCK_PART"]);
-    const economicType = target.economicStructure?.type;
-    if (economicType && (monumentTypes.has(economicType) || monumentPartTypes.has(economicType))) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "monuments require Aether EMP"
-      });
-      return;
-    }
-    const destroysEconomicStructure = Boolean(target.economicStructure);
-    const destroysSiegeOutpost = !destroysEconomicStructure && Boolean(target.siegeOutpost);
-    const destroysObservatory = !destroysEconomicStructure && !destroysSiegeOutpost && Boolean(target.observatory);
-    const destroysFort = !destroysEconomicStructure && !destroysSiegeOutpost && !destroysObservatory && Boolean(target.fort);
-    if (!destroysEconomicStructure && !destroysSiegeOutpost && !destroysObservatory && !destroysFort) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "no hostile structure here"
+        message: "target hostile settled or frontier land"
       });
       return;
     }
@@ -4446,7 +4407,7 @@ export class SimulationRuntime {
         commandId: command.commandId,
         playerId: command.playerId,
         code: "AETHER_LANCE_INVALID",
-        message: "insufficient gold for aether lance"
+        message: "insufficient gold for aether purge"
       });
       return;
     }
@@ -4456,7 +4417,7 @@ export class SimulationRuntime {
         commandId: command.commandId,
         playerId: command.playerId,
         code: "AETHER_LANCE_INVALID",
-        message: "insufficient CRYSTAL for aether lance"
+        message: "insufficient CRYSTAL for aether purge"
       });
       return;
     }
@@ -4464,10 +4425,10 @@ export class SimulationRuntime {
     this.stampObservatoryCooldown(lanceObservatoryKey, AETHER_LANCE_COOLDOWN_MS, lanceNow, command.commandId, command.playerId);
     const updatedTile: DomainTileState = {
       ...target,
-      ...(destroysEconomicStructure ? { economicStructure: undefined } : {}),
-      ...(destroysSiegeOutpost ? { siegeOutpost: undefined } : {}),
-      ...(destroysObservatory ? { observatory: undefined } : {}),
-      ...(destroysFort ? { fort: undefined } : {})
+      ownerId: undefined,
+      ownershipState: undefined,
+      frontierDecayAt: undefined,
+      frontierDecayKind: undefined
     };
     this.replaceTileState(targetKey, updatedTile, command.commandId);
     this.emitEvent({
