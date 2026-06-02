@@ -69,6 +69,10 @@ const converterDailyOutput = (
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
+    // Farmstead/Waterworks: +50% food only on FARM tiles. FISH gets nothing.
+    case "FARMSTEAD":
+    case "WATERWORKS":
+      return { FOOD: 72 * 0.5 };
     default:
       return {};
   }
@@ -118,9 +122,20 @@ export const buildTileYieldView = (
       ? dockBaseGoldPerMinuteForPlayer(tile, economyPlayer, dockContext) * incomeMultiplier * PASSIVE_INCOME_MULT
       : tile.dockId ? DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT : 0;
   const goldPerMinute = townGoldPerMinute + dockGoldPerMinute;
+  const resourceDaily = strategicDailyFromResource(tile.resource);
+  const converterDaily = converterDailyOutput(tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined);
+  // Farmstead and Waterworks only boost FARM tiles — strip the structure food
+  // bonus on non-FARM tiles but keep the base resource food rate intact.
+  if (
+    tile.resource !== "FARM" &&
+    tile.economicStructure?.status === "active" &&
+    (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS")
+  ) {
+    delete converterDaily.FOOD;
+  }
   const strategicPerDay = {
-    ...strategicDailyFromResource(tile.resource),
-    ...converterDailyOutput(tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined)
+    ...resourceDaily,
+    ...converterDaily
   };
   const maxDaily = Math.max(0, ...Object.values(strategicPerDay).map((value) => Number(value) || 0));
   const yieldCap = {
@@ -130,7 +145,7 @@ export const buildTileYieldView = (
         : goldPerMinute > 0
           ? goldPerMinute * 60 * 8
           : TILE_YIELD_CAP_GOLD,
-    strategicEach: maxDaily > 0 ? maxDaily / 3 : TILE_YIELD_CAP_RESOURCE
+    strategicEach: tile.resource === "FISH" ? 0 : (maxDaily > 0 ? maxDaily / 3 : TILE_YIELD_CAP_RESOURCE)
   };
   // Clamp at OFFLINE_YIELD_ACCUM_MAX_MS so a missing or stale lastCollectedAt
   // (e.g. recovery edge case, manual DB edit) can never grant more than the

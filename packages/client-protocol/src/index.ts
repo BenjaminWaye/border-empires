@@ -33,7 +33,8 @@ export const DurableCommandTypeSchema = z.enum([
   "AIRPORT_BOMBARD",
   "IMPERIAL_EXCHANGE_LEVY",
   "WORLD_ENGINE_STRIKE",
-  "COLLECT_SHARD"
+  "COLLECT_SHARD",
+  "UPGRADE_TOWN_TIER"
 ]);
 
 export type DurableCommandType = z.infer<typeof DurableCommandTypeSchema>;
