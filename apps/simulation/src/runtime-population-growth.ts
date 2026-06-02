@@ -51,8 +51,9 @@ export function tickPopulationGrowth(input: {
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   invalidateEconomyCachesForPlayer: (playerId: string) => void;
-}): void {
+}): { growthStalledNoFood: number } {
   const dirtyPlayerIds = new Set<string>();
+  let growthStalledNoFood = 0;
   const attackCoords: number[] = [];
   const seenLockCommandIds = new Set<string>();
   for (const lock of input.locksByTile.values()) {
@@ -157,6 +158,7 @@ export function tickPopulationGrowth(input: {
       const foodAvailable = player.strategicResources?.FOOD ?? 0;
       if (foodAvailable + 1e-6 < growthFoodCost) {
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+        growthStalledNoFood += 1;
         continue;
       }
       if (player.strategicResources) {
@@ -186,4 +188,5 @@ export function tickPopulationGrowth(input: {
   }
 
   for (const playerId of dirtyPlayerIds) input.invalidateEconomyCachesForPlayer(playerId);
+  return { growthStalledNoFood };
 }

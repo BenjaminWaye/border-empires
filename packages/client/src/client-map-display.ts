@@ -266,8 +266,8 @@ export const structureInfoForKey = (
     if (key === "SIEGE_OUTPOST") return ["+25% local offense", "Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.25x to 2x"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 2x to 3x against heavy fortified targets"];
-    if (key === "FARMSTEAD") return ["+50% food output on FARM and FISH tiles"];
-    if (key === "WATERWORKS") return ["+80% food output on FARM and FISH tiles", "Upgrades an existing Farmstead"];
+    if (key === "FARMSTEAD") return ["+50% food output on FARM tiles only"];
+    if (key === "WATERWORKS") return ["+50% farmstead food within 10 tiles", "Radius support building — does not need a resource tile"];
     if (key === "CAMP") return ["+50% supply output on WOOD and FUR tiles"];
     if (key === "MINE") return ["+50% iron or crystal output on mineral tiles"];
     if (key === "MARKET") return ["+50% fed town gold output", "+50% town gold storage cap"];
@@ -634,9 +634,9 @@ export const structureInfoForKey = (
   if (type === "WATERWORKS") {
     return structure({
       title: "Waterworks",
-      detail: "Waterworks upgrade a Farmstead from +50% to +80% food output on farm and fish tiles.",
+      detail: "A network of irrigation canals that boosts all Farmstead food output by +50% within a 10-tile radius.",
       glyph: "💧",
-      placement: "Upgrade an existing Farmstead on its current tile.",
+      placement: "Build on any settled land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
