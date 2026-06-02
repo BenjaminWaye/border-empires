@@ -150,8 +150,8 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "AEGIS_DOME_PART") return "One of three monument parts needed to assemble the Aegis Dome.";
   if (kind === "AEGIS_DOME") return "Unique world monument. Projects a 25-tile shield and can trigger a 15-minute Aegis Lock for 220 crystal every 60 minutes.";
   if (kind === "WORLD_ENGINE") return "Unique world monument. Every 90 minutes, it can fire one Worldbreaker shot that shatters an enemy land tile into mountain for 300 crystal.";
-  if (kind === "FARMSTEAD") return "Improves food output on this tile.";
-  if (kind === "WATERWORKS") return "Upgrades a farmstead from +50% to +80% food output.";
+  if (kind === "FARMSTEAD") return "Improves food output on this tile (+50% on farm tiles only).";
+  if (kind === "WATERWORKS") return "Upgrades a farmstead from +50% to +80% food output on farm tiles only.";
   if (kind === "CAMP") return "Improves supply output on this tile.";
   if (kind === "MINE") return "Improves iron or crystal output on this tile.";
   return "Strengthens this tile's economy.";
