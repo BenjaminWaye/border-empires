@@ -8727,7 +8727,7 @@ describe("imperial exchange levy", () => {
   });
 });
 
-describe("aether lance", () => {
+describe("aether purge", () => {
   const buildAetherLanceRuntime = (options: { enemyAegisDome?: boolean; crystal?: number; points?: number } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
       {
@@ -8745,6 +8745,14 @@ describe("aether lance", () => {
         ownerId: "player-2",
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-2", type: "GRANARY", status: "active" }
+      },
+      {
+        x: 5,
+        y: 1,
+        terrain: "LAND",
+        ownerId: "player-2",
+        ownershipState: "FRONTIER",
+        fort: { ownerId: "player-2", status: "active" }
       }
     ];
     if (options.enemyAegisDome) {
@@ -8798,7 +8806,7 @@ describe("aether lance", () => {
     });
   };
 
-  it("destroys one hostile structure and stamps the casting observatory cooldown", async () => {
+  it("purges hostile settled control without destroying structures and stamps the casting observatory cooldown", async () => {
     const runtime = buildAetherLanceRuntime();
     runtime.submitCommand({
       commandId: "aether-lance-1",
@@ -8817,10 +8825,31 @@ describe("aether lance", () => {
       ? JSON.parse(observatoryTile.observatoryJson) as { cooldownUntil?: number }
       : undefined;
     const actor = state.players.find((player) => player.id === "player-1");
-    expect(target?.economicStructureJson).toBeUndefined();
+    expect(target?.ownerId).toBeUndefined();
+    expect(target?.ownershipState).toBeUndefined();
+    expect(target?.economicStructureJson).toContain("\"GRANARY\"");
     expect(observatory?.cooldownUntil).toBe(601_000);
     expect(actor?.points).toBe(2_000);
     expect(actor?.strategicResources?.CRYSTAL).toBe(400);
+  });
+
+  it("purges hostile frontier control", async () => {
+    const runtime = buildAetherLanceRuntime();
+    runtime.submitCommand({
+      commandId: "aether-purge-frontier",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "AETHER_LANCE",
+      payloadJson: JSON.stringify({ x: 5, y: 1 })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const target = state.tiles.find((tile) => tile.x === 5 && tile.y === 1);
+    expect(target?.ownerId).toBeUndefined();
+    expect(target?.ownershipState).toBeUndefined();
+    expect(target?.fortJson).toContain("\"ownerId\":\"player-2\"");
   });
 
   it("rejects through an enemy Aegis Dome without spending resources", async () => {

@@ -39,7 +39,7 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
 };
 
 const ACTION_UNLOCK_LABELS: Record<string, string> = {
-  unlockAetherLance: "Aether Lance",
+  unlockAetherLance: "Aether Purge",
   unlockSurveySweep: "Survey Sweep",
   unlockRetortRecasting: "Retort Transmutation",
   unlockNavalInfiltration: "Aether Bridge",
