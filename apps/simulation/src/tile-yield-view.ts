@@ -94,6 +94,8 @@ export const buildTileYieldView = (
     player?: EconomyPlayer | undefined;
     fedTownKeys?: ReadonlySet<string> | undefined;
     firstThreeTownKeys?: ReadonlySet<string> | undefined;
+    /** Precomputed set of active Waterworks positions (tileKey) owned by the tile's player. */
+    waterworksKeys?: ReadonlySet<string> | undefined;
   }
 ): TileYieldView | undefined => {
   if (tile.ownerId === undefined || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return undefined;
@@ -137,25 +139,22 @@ export const buildTileYieldView = (
     delete converterDaily.FOOD;
   }
   // Waterworks radius boost: if this is a FARM tile with an active Farmstead,
-  // scan for an active Waterworks within WATERWORKS_RADIUS owned by the same
-  // player. Apply the multiplier to the farmstead bonus portion only (not base).
+  // check the precomputed Waterworks key set for any active Waterworks within
+  // WATERWORKS_RADIUS. Apply the multiplier to the farmstead bonus portion only.
   if (
     tile.resource === "FARM" &&
     tile.economicStructure?.type === "FARMSTEAD" &&
     tile.economicStructure.status === "active" &&
     typeof converterDaily.FOOD === "number" &&
-    economyContext?.tiles
+    economyContext?.waterworksKeys &&
+    economyContext.waterworksKeys.size > 0
   ) {
-    const tiles = economyContext.tiles;
-    for (const [candidateKey, candidate] of tiles) {
-      if (
-        candidate.ownerId !== tile.ownerId ||
-        candidate.economicStructure?.type !== "WATERWORKS" ||
-        candidate.economicStructure.status !== "active"
-      ) continue;
-      const dx = Math.abs(tile.x - candidate.x);
-      const dy = Math.abs(tile.y - candidate.y);
-      if (Math.max(dx, dy) <= WATERWORKS_RADIUS) {
+    for (const candidateKey of economyContext.waterworksKeys) {
+      const comma = candidateKey.indexOf(",");
+      if (comma < 0) continue;
+      const cx = Number(candidateKey.slice(0, comma));
+      const cy = Number(candidateKey.slice(comma + 1));
+      if (Math.max(Math.abs(tile.x - cx), Math.abs(tile.y - cy)) <= WATERWORKS_RADIUS) {
         converterDaily.FOOD *= WATERWORKS_OUTPUT_MULT;
         break;
       }
