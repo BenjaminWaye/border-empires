@@ -109,6 +109,7 @@ import {
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
 import { frontierNeighborCoords } from "./frontier-topology.js";
 import {
+  chooseSweepExpansionStep,
   coordsInChebyshevRadius,
   FRONTIER_DECAY_MS,
   FORT_AUTO_FRONTIER_RADIUS,
@@ -1263,39 +1264,106 @@ export class SimulationRuntime {
       return;
     }
 
-    // We have targets and budget — fire.
-    const sweepTarget = candidates[0]!;
-    const afterAttackBudget = newBudget - SWEEP_ATTACK_COST;
-    const attackedTile = applyUpdate({ sweepBudget: afterAttackBudget, sweepBudgetUpdatedAt: nowMs });
-    this.replaceTileState(tileKey, attackedTile);
+    // We have targets and budget — determine how to act. Candidates are sorted
+    // nearest-first; attack the nearest one that already borders owned land
+    // (the origin must be a bordering owned tile so isFrontierAdjacent passes).
+    // Only fall back to expansion when NO candidate borders our territory, so a
+    // reachable enemy is never skipped in favour of expanding toward a closer
+    // but unreachable one.
+    const findBorderingOwned = (target: DomainTileState): DomainTileState | undefined =>
+      this.adjacentTileStates(target.x, target.y).find(
+        (candidate) =>
+          candidate.ownerId === playerId &&
+          candidate.terrain === "LAND" &&
+          !(candidate.ownershipState === "FRONTIER" && candidate.frontierDecayKind === "ENCIRCLEMENT")
+      );
+
+    let attackTarget: DomainTileState | undefined;
+    let attackOrigin: DomainTileState | undefined;
+    for (const candidate of candidates) {
+      const owned = findBorderingOwned(candidate);
+      if (owned) {
+        attackTarget = candidate;
+        attackOrigin = owned;
+        break;
+      }
+    }
 
     // The fire command uses just the prefix without a suffix for the attack itself
     // (e.g. "sweep" and "lo-sweep", not "sweep-attack").
     const attackPrefix = commandIdPrefix === "sweep" ? "sweep" : commandIdPrefix;
-    const sweepCommandId = this.nextTerritoryAutomationCommandId(attackPrefix, playerId, simulationTileKey(sweepTarget.x, sweepTarget.y), nowMs);
-    // Enqueue via the existing attack path — encirclement, global MP, and gold
-    // are handled there. Sweep budget is deducted above only; global resources
-    // are NOT double-deducted here.
-    this.handleFrontierCommand(
-      {
-        commandId: sweepCommandId,
-        sessionId: `system-runtime:territory-automation:${playerId}`,
-        playerId,
-        clientSeq: 0,
-        issuedAt: nowMs,
-        type: "ATTACK",
-        payloadJson: JSON.stringify({ fromX: tile.x, fromY: tile.y, toX: sweepTarget.x, toY: sweepTarget.y })
-      },
-      "ATTACK"
-    );
 
-    const budgetDeltaCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-budget`, playerId, tileKey, nowMs);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: budgetDeltaCommandId,
-      playerId,
-      tileDeltas: [this.tileDeltaFromState(attackedTile)]
-    });
+    let commandAccepted = false;
+
+    if (attackTarget && attackOrigin) {
+      // Attack from the bordering owned tile so isFrontierAdjacent passes.
+      const sweepCommandId = this.nextTerritoryAutomationCommandId(attackPrefix, playerId, simulationTileKey(attackTarget.x, attackTarget.y), nowMs);
+      commandAccepted = this.handleFrontierCommand(
+        {
+          commandId: sweepCommandId,
+          sessionId: `system-runtime:territory-automation:${playerId}`,
+          playerId,
+          clientSeq: 0,
+          issuedAt: nowMs,
+          type: "ATTACK",
+          payloadJson: JSON.stringify({ fromX: attackOrigin.x, fromY: attackOrigin.y, toX: attackTarget.x, toY: attackTarget.y })
+        },
+        "ATTACK"
+      );
+    } else {
+      // No candidate borders owned territory yet — expand one step toward the
+      // nearest target.
+      const step = chooseSweepExpansionStep(
+        tile,
+        candidates[0]!,
+        playerId,
+        sweepRadius,
+        (x, y) => this.tiles.get(simulationTileKey(x, y))
+      );
+      if (step) {
+        const expandCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-expand`, playerId, simulationTileKey(step.to.x, step.to.y), nowMs);
+        commandAccepted = this.handleFrontierCommand(
+          {
+            commandId: expandCommandId,
+            sessionId: `system-runtime:territory-automation:${playerId}`,
+            playerId,
+            clientSeq: 0,
+            issuedAt: nowMs,
+            type: "EXPAND",
+            payloadJson: JSON.stringify({ fromX: step.origin.x, fromY: step.origin.y, toX: step.to.x, toY: step.to.y })
+          },
+          "EXPAND"
+        );
+      }
+      // If step is undefined (no neutral land reachable), skip this tick entirely.
+    }
+
+    // Only deduct sweep budget when the command was actually accepted.
+    if (commandAccepted) {
+      const afterAttackBudget = newBudget - SWEEP_ATTACK_COST;
+      const attackedTile = applyUpdate({ sweepBudget: afterAttackBudget, sweepBudgetUpdatedAt: nowMs });
+      this.replaceTileState(tileKey, attackedTile);
+      const budgetDeltaCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-budget`, playerId, tileKey, nowMs);
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: budgetDeltaCommandId,
+        playerId,
+        tileDeltas: [this.tileDeltaFromState(attackedTile)]
+      });
+    } else {
+      // Persist the regen'd budget without the attack cost deduction (same as pause branch).
+      if (Math.abs(newBudget - (structure.sweepBudget ?? 0)) > 0.001) {
+        const regenOnlyTile = applyUpdate({ sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs });
+        this.replaceTileState(tileKey, regenOnlyTile);
+        const regenCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-regen`, playerId, tileKey, nowMs);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: regenCommandId,
+          playerId,
+          tileDeltas: [this.tileDeltaFromState(regenOnlyTile)]
+        });
+      }
+    }
   }
 
   emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
@@ -3279,7 +3347,7 @@ export class SimulationRuntime {
     return priorityOrder.some((lane) => this.jobsByLane[lane].length > 0);
   }
 
-  private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): void {
+  private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): boolean {
     const actor = this.players.get(command.playerId);
     const payload = parseFrontierPayload(command.payloadJson);
     if (!actor || !payload) {
@@ -3290,7 +3358,7 @@ export class SimulationRuntime {
         code: "BAD_COMMAND",
         message: "invalid command payload"
       });
-      return;
+      return false;
     }
     this.applyManpowerRegen(actor);
 
@@ -3304,7 +3372,7 @@ export class SimulationRuntime {
         code: "UNKNOWN_TILE",
         message: "origin or target tile not found"
       });
-      return;
+      return false;
     }
 
     // Recover from stale client origin selection by re-picking a valid owned adjacent origin.
@@ -3346,7 +3414,7 @@ export class SimulationRuntime {
         code: "ORIGIN_CUT_OFF",
         message: "origin tile is cut off from supply and cannot launch actions"
       });
-      return;
+      return false;
     }
 
     const isDockCrossing = this.isDockCrossingTarget(from, to.x, to.y);
@@ -3400,7 +3468,7 @@ export class SimulationRuntime {
         code: validation.code,
         message: validation.message
       });
-      return;
+      return false;
     }
 
     const baseLock: LockRecord = {
@@ -3488,6 +3556,7 @@ export class SimulationRuntime {
       });
     }
     this.scheduleLockResolution(lock);
+    return true;
   }
 
   private nextTerritoryAutomationCommandId(label: string, playerId: string, tileKey: string, nowMs: number): string {

@@ -791,3 +791,174 @@ describe("LIGHT_OUTPOST sweep toggle", () => {
     expect(rejected.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Fix 1 & 2: bordering-attack, expansion, and no-budget-deduction-on-reject
+// ---------------------------------------------------------------------------
+
+describe("sweep attack uses bordering owned tile as origin", () => {
+  it("attacks from a bordering owned neighbour (not the outpost) when target borders territory", () => {
+    // Layout:
+    //   (10,10) SETTLED outpost (player-1)
+    //   (11,10) SETTLED player-1 (borders the target)
+    //   (12,10) FRONTIER player-2  <- sweep target, borders (11,10)
+    const nowMs = { value: 1_000 };
+    const events: SimulationEvent[] = [];
+    const runtime = mkRuntime(
+      [
+        {
+          x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_BUDGET_CAP, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
+        },
+        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+      ],
+      ["player-1", "player-2"],
+      () => nowMs.value
+    );
+    runtime.onEvent((e) => events.push(e));
+
+    runtime.tickTerritoryAutomation(nowMs.value);
+
+    // The attack must be accepted (origin (11,10) is adjacent to target (12,10))
+    const accepted = events.filter((e) => e.eventType === "COMMAND_ACCEPTED");
+    expect(accepted.length).toBeGreaterThan(0);
+    const acceptedEvent = accepted[0] as Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }>;
+    expect(acceptedEvent.originX).toBe(11);
+    expect(acceptedEvent.originY).toBe(10);
+    expect(acceptedEvent.targetX).toBe(12);
+    expect(acceptedEvent.targetY).toBe(10);
+    // Budget should be deducted
+    const outpost = tileSiegeOutpost(runtime, 10, 10);
+    expect(outpost?.sweepBudget).toBe(SWEEP_BUDGET_CAP - SWEEP_ATTACK_COST);
+  });
+
+  it("attacks a farther bordering candidate rather than expanding toward a closer non-bordering one", () => {
+    // Layout (all distances measured from the outpost at (10,10)):
+    //   (10,10) SETTLED outpost (player-1)
+    //   (11,11) SETTLED player-1 — borders enemy A at (12,12)
+    //   (8,10)  FRONTIER player-2  — enemy C, dist 2, borders NO owned tile (closer, sorts first)
+    //   (12,12) FRONTIER player-2  — enemy A, dist 2, borders (11,11) (reachable)
+    // Tie-break is x asc, so C (x=8) sorts before A (x=12): the old single-candidate
+    // logic would have expanded toward C; the fix must attack A instead.
+    const nowMs = { value: 1_000 };
+    const events: SimulationEvent[] = [];
+    const runtime = mkRuntime(
+      [
+        {
+          x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_BUDGET_CAP, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
+        },
+        { x: 11, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 8, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+        { x: 12, y: 12, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+      ],
+      ["player-1", "player-2"],
+      () => nowMs.value
+    );
+    runtime.onEvent((e) => events.push(e));
+
+    runtime.tickTerritoryAutomation(nowMs.value);
+
+    const accepted = events.filter((e) => e.eventType === "COMMAND_ACCEPTED") as Array<Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }>>;
+    expect(accepted.length).toBeGreaterThan(0);
+    // Must ATTACK the bordering enemy A (12,12) from (11,11), not EXPAND toward C.
+    expect(accepted[0]!.actionType).toBe("ATTACK");
+    expect(accepted[0]!.originX).toBe(11);
+    expect(accepted[0]!.originY).toBe(11);
+    expect(accepted[0]!.targetX).toBe(12);
+    expect(accepted[0]!.targetY).toBe(12);
+  });
+});
+
+describe("sweep expands toward target when it does not border owned territory", () => {
+  it("issues EXPAND toward the target when target is out of reach", () => {
+    // Layout:
+    //   (10,10) SETTLED outpost (player-1)
+    //   (12,10) FRONTIER player-2  <- 2 tiles away; no owned tile at (11,10)
+    //   (11,10) unowned neutral land
+    const nowMs = { value: 1_000 };
+    const events: SimulationEvent[] = [];
+    const runtime = mkRuntime(
+      [
+        {
+          x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+          siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_BUDGET_CAP, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
+        },
+        { x: 11, y: 10, terrain: "LAND" }, // neutral, no owner
+        { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+      ],
+      ["player-1", "player-2"],
+      () => nowMs.value
+    );
+    runtime.onEvent((e) => events.push(e));
+
+    runtime.tickTerritoryAutomation(nowMs.value);
+
+    // An EXPAND command should be accepted (not an ATTACK)
+    const accepted = events.filter((e) => e.eventType === "COMMAND_ACCEPTED") as Array<Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }>>;
+    expect(accepted.length).toBeGreaterThan(0);
+    expect(accepted[0]!.actionType).toBe("EXPAND");
+    // The expansion target should be the neutral tile (11,10)
+    expect(accepted[0]!.targetX).toBe(11);
+    expect(accepted[0]!.targetY).toBe(10);
+    // Budget should be deducted since the EXPAND was accepted
+    const outpost = tileSiegeOutpost(runtime, 10, 10);
+    expect(outpost?.sweepBudget).toBe(SWEEP_BUDGET_CAP - SWEEP_ATTACK_COST);
+  });
+});
+
+describe("sweep budget not deducted when command is rejected", () => {
+  it("does NOT deduct budget when sweep fires but the command is rejected (e.g. target already locked)", async () => {
+    // Submit a player-issued attack to lock the target tile first,
+    // then tick sweep so the same tile is targeted but locked → rejected.
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1); // attacker loses so lock is placed
+    try {
+      const now = { value: 1_000 };
+      const runtime = new SimulationRuntime({
+        now: () => now.value,
+        initialPlayers: new Map([
+          ["player-1", { ...mkPlayer("player-1"), manpower: 10_000, points: 10_000 }],
+          ["player-2", mkPlayer("player-2")]
+        ]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            {
+              x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+              siegeOutpost: { ownerId: "player-1", status: "active", sweepBudget: SWEEP_BUDGET_CAP, sweepActive: true, sweepBudgetUpdatedAt: 1_000 }
+            },
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      // Issue a player attack that places a lock on (11,10)
+      runtime.submitCommand({
+        commandId: "player-attack-1",
+        sessionId: "player-session",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: now.value,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+      });
+      await Promise.resolve();
+
+      // Budget before sweep tick (may have been affected by player attack path spending MP — but sweep budget is separate)
+      const budgetBefore = tileSiegeOutpost(runtime, 10, 10)?.sweepBudget ?? 0;
+
+      // Now tick sweep — target (11,10) is locked, so the sweep ATTACK will be rejected.
+      runtime.tickTerritoryAutomation(now.value);
+
+      const budgetAfter = tileSiegeOutpost(runtime, 10, 10)?.sweepBudget ?? 0;
+      // Budget should NOT have decreased by SWEEP_ATTACK_COST
+      expect(budgetAfter).toBeGreaterThanOrEqual(budgetBefore - 0.001); // allow tiny regen difference
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+});

@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.5",
+  version: "2026.06.01.6",
   title: "What's New",
-  summary: "Retort Transmutation and Aether Lance now have one-shot 3D cast feedback, alongside the Aether Bridge pylon and observatory cooldown improvements.",
+  summary: "Attack-rejection errors now show as popups instead of only appearing in the activity log. Retort Transmutation and Aether Lance now have one-shot 3D cast feedback, alongside the Aether Bridge pylon and observatory cooldown improvements.",
   entries: [
+    {
+      introducedIn: "2026.06.01.6",
+      title: "Attack rejections now surface as popups",
+      why: "Errors like NOT_ADJACENT, ATTACK_COOLDOWN, LOCKED, SHIELDED, ALLY_TARGET, BARRIER, and ORIGIN_CUT_OFF were only written to the activity log, which players frequently miss. They now trigger the capture-alert popup so the reason for a blocked action is immediately visible.",
+      changes: [
+        "NOT_ADJACENT, ATTACK_TARGET_INVALID, ATTACK_COOLDOWN, LOCKED, ALLY_TARGET, SHIELDED, BARRIER, and ORIGIN_CUT_OFF now show the \"Action blocked\" popup in addition to the activity log entry."
+      ]
+    },
     {
       introducedIn: "2026.06.01.5",
       title: "Retort Transmutation gets a 3D recast flourish",
