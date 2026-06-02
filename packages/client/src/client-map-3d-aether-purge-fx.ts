@@ -1,6 +1,5 @@
 import {
   AdditiveBlending,
-  BoxGeometry,
   CylinderGeometry,
   Group,
   Mesh,
@@ -17,9 +16,9 @@ const CHARGE_END_MS = 720;
 const IMPACT_END_MS = 980;
 const AFTERGLOW_END_MS = DURATION_MS;
 const BEAM_HEIGHT = 6.2;
-const DEBRIS_COUNT = 12;
+const MOTE_COUNT = 12;
 
-type Debris = {
+type ControlMote = {
   readonly mesh: Mesh;
   readonly dx: number;
   readonly dz: number;
@@ -27,21 +26,21 @@ type Debris = {
   readonly lift: number;
 };
 
-type LanceEntry = {
+type PurgeEntry = {
   readonly group: Group;
   readonly targetRing: Mesh;
   readonly arcA: Mesh;
   readonly arcB: Mesh;
   readonly chargeColumn: Mesh;
   readonly beam: Mesh;
-  readonly shockRing: Mesh;
+  readonly neutralRing: Mesh;
   readonly afterglow: Mesh;
-  readonly debris: Debris[];
+  readonly motes: ControlMote[];
   readonly startedAt: number;
   readonly surfaceY: number;
 };
 
-export type AetherLanceFxLayer = {
+export type AetherPurgeFxLayer = {
   readonly group: Group;
   readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number) => void;
   readonly update: (nowMs: number) => void;
@@ -54,20 +53,20 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
   (material as MeshBasicMaterial).opacity = Math.max(0, Math.min(1, opacity));
 };
 
-export const createAetherLanceFxLayer = (scene: Scene): AetherLanceFxLayer => {
+export const createAetherPurgeFxLayer = (scene: Scene): AetherPurgeFxLayer => {
   const group = new Group();
-  group.name = "aether-lance-fx";
+  group.name = "aether-purge-fx";
   scene.add(group);
 
   const targetRingGeometry = new TorusGeometry(0.44, 0.012, 8, 36);
   const arcGeometry = new TorusGeometry(0.54, 0.01, 6, 18, Math.PI * 1.25);
   const chargeGeometry = new CylinderGeometry(0.12, 0.05, BEAM_HEIGHT, 10, 1, true);
   const beamGeometry = new CylinderGeometry(0.035, 0.026, BEAM_HEIGHT, 8, 1, true);
-  const shockGeometry = new TorusGeometry(0.16, 0.018, 8, 28);
+  const neutralGeometry = new TorusGeometry(0.18, 0.018, 8, 32);
   const afterglowGeometry = new RingGeometry(0.14, 0.38, 24);
-  const debrisGeometry = new OctahedronGeometry(0.045, 0);
+  const moteGeometry = new OctahedronGeometry(0.045, 0);
 
-  const entries: LanceEntry[] = [];
+  const entries: PurgeEntry[] = [];
 
   const makeMaterial = (color: string, opacity: number): MeshBasicMaterial =>
     new MeshBasicMaterial({
@@ -101,23 +100,23 @@ export const createAetherLanceFxLayer = (scene: Scene): AetherLanceFxLayer => {
     beam.position.y = BEAM_HEIGHT / 2;
     entryGroup.add(beam);
 
-    const shockRing = new Mesh(shockGeometry, makeMaterial("#c6f7ff", 0));
-    shockRing.rotation.x = Math.PI / 2;
-    shockRing.position.y = 0.05;
-    entryGroup.add(shockRing);
+    const neutralRing = new Mesh(neutralGeometry, makeMaterial("#f4fbff", 0));
+    neutralRing.rotation.x = Math.PI / 2;
+    neutralRing.position.y = 0.05;
+    entryGroup.add(neutralRing);
 
     const afterglow = new Mesh(afterglowGeometry, makeMaterial("#4fd3e9", 0));
     afterglow.rotation.x = -Math.PI / 2;
     afterglow.position.y = 0.035;
     entryGroup.add(afterglow);
 
-    const debris: Debris[] = [];
-    for (let i = 0; i < DEBRIS_COUNT; i += 1) {
-      const angle = (i / DEBRIS_COUNT) * Math.PI * 2 + (i % 3) * 0.17;
-      const mesh = new Mesh(debrisGeometry, makeMaterial(i % 2 === 0 ? "#7ee8ff" : "#1f3034", 0));
-      mesh.position.y = 0.08;
+    const motes: ControlMote[] = [];
+    for (let i = 0; i < MOTE_COUNT; i += 1) {
+      const angle = (i / MOTE_COUNT) * Math.PI * 2 + (i % 3) * 0.17;
+      const mesh = new Mesh(moteGeometry, makeMaterial(i % 2 === 0 ? "#7ee8ff" : "#f6d27a", 0));
+      mesh.position.set(Math.cos(angle) * 0.34, 0.08, Math.sin(angle) * 0.34);
       entryGroup.add(mesh);
-      debris.push({
+      motes.push({
         mesh,
         dx: Math.cos(angle),
         dz: Math.sin(angle),
@@ -134,15 +133,15 @@ export const createAetherLanceFxLayer = (scene: Scene): AetherLanceFxLayer => {
       arcB,
       chargeColumn,
       beam,
-      shockRing,
+      neutralRing,
       afterglow,
-      debris,
+      motes,
       startedAt: performance.now(),
       surfaceY
     });
   };
 
-  const disposeEntry = (entry: LanceEntry): void => {
+  const disposeEntry = (entry: PurgeEntry): void => {
     group.remove(entry.group);
     entry.group.traverse((child) => {
       if (!(child instanceof Mesh)) return;
@@ -184,20 +183,20 @@ export const createAetherLanceFxLayer = (scene: Scene): AetherLanceFxLayer => {
       entry.beam.scale.set(1 + beamOpacity * 0.6, 1, 1 + beamOpacity * 0.6);
       setOpacity(entry.beam.material, beamOpacity);
 
-      const shockScale = 0.4 + impactT * 3.2;
-      entry.shockRing.scale.set(shockScale, shockScale, shockScale);
-      setOpacity(entry.shockRing.material, age >= CHARGE_END_MS ? 0.9 * (1 - impactT) : 0);
+      const neutralScale = 0.65 + impactT * 2.7;
+      entry.neutralRing.scale.set(neutralScale, neutralScale, neutralScale);
+      setOpacity(entry.neutralRing.material, age >= CHARGE_END_MS ? 0.78 * (1 - impactT) : 0);
 
       entry.afterglow.scale.setScalar(1 + fadeT * 0.22);
       setOpacity(entry.afterglow.material, age >= CHARGE_END_MS ? 0.32 * (1 - fadeT) : 0);
 
-      const debrisT = Math.min(1, Math.max(0, (age - CHARGE_END_MS) / 900));
-      for (const shard of entry.debris) {
-        const distance = shard.speed * debrisT;
-        shard.mesh.position.set(shard.dx * distance, 0.08 + shard.lift * Math.sin(debrisT * Math.PI), shard.dz * distance);
+      const moteT = Math.min(1, Math.max(0, (age - CHARGE_END_MS) / 900));
+      for (const shard of entry.motes) {
+        const pull = 0.34 * (1 - moteT * 0.82);
+        shard.mesh.position.set(shard.dx * pull, 0.08 + shard.lift * moteT + shard.speed * moteT, shard.dz * pull);
         shard.mesh.rotation.x += 0.08;
         shard.mesh.rotation.y += 0.11;
-        setOpacity(shard.mesh.material, age >= CHARGE_END_MS ? 0.75 * (1 - debrisT) : 0);
+        setOpacity(shard.mesh.material, age >= CHARGE_END_MS ? 0.75 * (1 - moteT) : 0);
       }
       entry.group.position.y = entry.surfaceY + 0.02;
     }
@@ -216,9 +215,9 @@ export const createAetherLanceFxLayer = (scene: Scene): AetherLanceFxLayer => {
     arcGeometry.dispose();
     chargeGeometry.dispose();
     beamGeometry.dispose();
-    shockGeometry.dispose();
+    neutralGeometry.dispose();
     afterglowGeometry.dispose();
-    debrisGeometry.dispose();
+    moteGeometry.dispose();
   };
 
   return { group, spawn, update, clear, dispose };

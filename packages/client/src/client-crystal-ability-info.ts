@@ -56,7 +56,7 @@ export const crystalAbilityNameForKey = (key: CrystalAbilityInfoKey): string => 
   if (key === "reveal_empire_stats") return "Reveal Empire Stats";
   if (key === "aether_wall") return "Aether Wall";
   if (key === "survey_sweep") return "Survey Sweep";
-  if (key === "aether_lance") return "Aether Lance";
+  if (key === "aether_lance") return "Aether Purge";
   if (key === "retort_recasting") return "Retort Transmutation";
   if (key === "aether_bridge") return "Aether Bridge";
   if (key === "siphon") return "Siphon";
@@ -122,10 +122,10 @@ export const crystalAbilityInfoForKey = (
   }
   if (key === "aether_lance") {
     return {
-      title: "Aether Lance",
-      detail: "Fires a focused observatory strike that destroys one hostile structure without flattening the whole tile.",
+      title: "Aether Purge",
+      detail: "Purge enemy control from a tile, turning it neutral.",
       glyph: "✦",
-      target: "Enemy fort, observatory, siege tower, or economic structure within observatory range. Cannot target towns, docks, or monuments.",
+      target: "Enemy settled or frontier tile within observatory range.",
       costBits: ["3,000 gold", "100 CRYSTAL"],
       cooldownLabel: deps.formatCooldownShort(AETHER_LANCE_COOLDOWN_MS)
     };
