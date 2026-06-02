@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.6",
+  version: "2026.06.02.7",
   title: "What's New",
-  summary: "Each empire's colour is now unique. Barbarian tiles always render grey. Aether Bridge crossing works for expand and attack.",
+  summary: "Garrison Hall now requires Organized Supply instead of the nonexistent Organization tech. Each empire's colour is now unique and barbarians always render grey.",
   entries: [
+    {
+      introducedIn: "2026.06.02.7",
+      title: "Garrison Hall now unlocks correctly with Organized Supply",
+      why: "The server checked for a nonexistent 'organization' tech instead of 'organized-supply', which blocked Garrison Hall construction for all players even after researching the correct tech.",
+      changes: [
+        "Garrison Hall now requires the Organized Supply tech (organized-supply) instead of the legacy Organization tech (organization).",
+        "Added regression tests to prevent this mismatch from recurring."
+      ]
+    },
     {
       introducedIn: "2026.06.02.6",
       title: "Unique empire colours + barbarian always grey",
@@ -32,7 +41,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Barbarian tiles always render grey (#2f3842) in both 2D and 3D regardless of owner id variant.",
         "Suggested colour swatches in the profile picker are always free (no other empire holds them).",
         "AI empires (ai-1..ai-20) are seeded with unique, stable colours from the curated 100-colour palette.",
-      ],
+      ]
     },
     {
       introducedIn: "2026.06.02.5",
