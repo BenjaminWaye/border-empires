@@ -62,6 +62,20 @@ export const parseConverterTogglePayload = (payloadJson: string): { x: number; y
 export const parseSiegeOutpostAutoAttackPayload = parseConverterTogglePayload;
 export const parseSiegeOutpostSweepPayload = parseConverterTogglePayload;
 
+export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.structureType !== "string") return null;
+    return {
+      x: parsed.x,
+      y: parsed.y,
+      structureType: parsed.structureType
+    };
+  } catch {
+    return null;
+  }
+};
+
 export const parseEconomicStructurePayload = (payloadJson: string): { x: number; y: number; structureType: EconomicStructureType } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
