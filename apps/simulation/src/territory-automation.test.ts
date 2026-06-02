@@ -7,7 +7,7 @@ import {
   finalizeRecoveredSimulationAccumulator
 } from "./event-recovery.js";
 import { SimulationRuntime } from "./runtime.js";
-import { FRONTIER_DECAY_MS } from "./territory-automation.js";
+import { chooseSweepExpansionStep, FRONTIER_DECAY_MS } from "./territory-automation.js";
 
 const player = (id: string, points = 1_000, manpower = 1_000) => ({
   id,
@@ -859,5 +859,102 @@ describe("territory automation", () => {
 
     runtime.tickTerritoryAutomation(1_000);
     expect(scheduled).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// chooseSweepExpansionStep unit tests
+// ---------------------------------------------------------------------------
+
+type TileSpec = {
+  x: number;
+  y: number;
+  terrain?: "LAND" | "SEA";
+  ownerId?: string;
+  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+  frontierDecayKind?: "ENCIRCLEMENT" | "NATURAL";
+};
+
+const mkTileMap = (specs: TileSpec[]) => {
+  const map = new Map<string, TileSpec & { terrain: "LAND" | "SEA" }>();
+  for (const spec of specs) {
+    map.set(`${spec.x},${spec.y}`, { terrain: "LAND", ...spec });
+  }
+  return (x: number, y: number) => map.get(`${x},${y}`) as (TileSpec & { terrain: "LAND" | "SEA" }) | undefined;
+};
+
+describe("chooseSweepExpansionStep", () => {
+  it("returns undefined when no owned tiles exist in radius", () => {
+    const getTile = mkTileMap([
+      { x: 15, y: 15, terrain: "LAND" } // neutral, no owner
+    ]);
+    const result = chooseSweepExpansionStep({ x: 10, y: 10 }, { x: 15, y: 15 }, "player-1", 5, getTile);
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined when owned tiles have no neutral land neighbours", () => {
+    // Owned tile at (11,10) but all neighbours are enemy-owned or sea
+    const getTile = mkTileMap([
+      { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+      { x: 10, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+      { x: 11, y: 11, terrain: "SEA" },
+      { x: 11, y: 9,  terrain: "SEA" },
+      { x: 12, y: 11, terrain: "SEA" },
+      { x: 10, y: 11, terrain: "SEA" },
+      { x: 12, y: 9,  terrain: "SEA" },
+      { x: 10, y: 9,  terrain: "SEA" },
+    ]);
+    const result = chooseSweepExpansionStep({ x: 10, y: 10 }, { x: 20, y: 20 }, "player-1", 5, getTile);
+    expect(result).toBeUndefined();
+  });
+
+  it("picks the neutral neighbour closest to the target", () => {
+    // Outpost at (10,10). Owned tile at (11,10).
+    // Two neutral neighbours of (11,10): (12,10) and (11,11).
+    // Target at (20,20). (12,10) is closer to (20,20) in Chebyshev than (11,11).
+    // chebyshev(12,10, 20,20) = max(8,10) = 10
+    // chebyshev(11,11, 20,20) = max(9,9) = 9  <- closer
+    const getTile = mkTileMap([
+      { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 12, y: 10, terrain: "LAND" }, // neutral, dist 10 to (20,20)
+      { x: 11, y: 11, terrain: "LAND" }, // neutral, dist 9 to (20,20)
+    ]);
+    const result = chooseSweepExpansionStep({ x: 10, y: 10 }, { x: 20, y: 20 }, "player-1", 5, getTile);
+    expect(result).toBeDefined();
+    expect(result!.to).toEqual({ x: 11, y: 11 });
+    expect(result!.origin).toEqual({ x: 11, y: 10 });
+  });
+
+  it("tie-breaks by lower x then lower y when distances are equal", () => {
+    // Owned at (10,10). Two neutral neighbours equidistant from target (30,30).
+    // chebyshev(11,10, 30,30) = max(19,20) = 20
+    // chebyshev(10,11, 30,30) = max(20,19) = 20   <- same distance, higher x
+    // (11,10) has lower x, should be picked first
+    const getTile = mkTileMap([
+      { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 11, y: 10, terrain: "LAND" }, // neutral, x=11
+      { x: 10, y: 11, terrain: "LAND" }, // neutral, x=10 (lower x)
+    ]);
+    const result = chooseSweepExpansionStep({ x: 10, y: 10 }, { x: 30, y: 30 }, "player-1", 3, getTile);
+    expect(result).toBeDefined();
+    // Lower x tie-break: (10,11) has x=10, (11,10) has x=11 → pick (10,11)
+    expect(result!.to).toEqual({ x: 10, y: 11 });
+  });
+
+  it("skips encirclement-blocked owned tiles as origins", () => {
+    // Encircled tile at (11,10) has a neutral neighbour at (12,10).
+    // Healthy tile at (11,11) has a neutral neighbour at (12,11).
+    // Only (12,11) should be reachable since (11,10) is encircled.
+    const getTile = mkTileMap([
+      { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayKind: "ENCIRCLEMENT" },
+      { x: 12, y: 10, terrain: "LAND" }, // neutral neighbour of encircled tile — should be skipped
+      { x: 11, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+      { x: 12, y: 11, terrain: "LAND" }, // neutral neighbour of healthy tile
+    ]);
+    const result = chooseSweepExpansionStep({ x: 10, y: 10 }, { x: 20, y: 20 }, "player-1", 5, getTile);
+    expect(result).toBeDefined();
+    expect(result!.origin).toEqual({ x: 11, y: 11 });
+    expect(result!.to).toEqual({ x: 12, y: 11 });
   });
 });

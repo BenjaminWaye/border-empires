@@ -8464,6 +8464,131 @@ describe("imperial exchange levy", () => {
   });
 });
 
+describe("aether lance", () => {
+  const buildAetherLanceRuntime = (options: { enemyAegisDome?: boolean; crystal?: number; points?: number } = {}): SimulationRuntime => {
+    const tiles: Array<Record<string, unknown>> = [
+      {
+        x: 0,
+        y: 0,
+        terrain: "LAND",
+        ownerId: "player-1",
+        ownershipState: "SETTLED",
+        observatory: { ownerId: "player-1", status: "active" }
+      },
+      {
+        x: 5,
+        y: 0,
+        terrain: "LAND",
+        ownerId: "player-2",
+        ownershipState: "SETTLED",
+        economicStructure: { ownerId: "player-2", type: "GRANARY", status: "active" }
+      }
+    ];
+    if (options.enemyAegisDome) {
+      tiles.push(
+        {
+          x: 6,
+          y: 0,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: "player-2", type: "AEGIS_DOME", status: "active" }
+        },
+        {
+          x: 7,
+          y: 0,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
+        }
+      );
+    }
+    return new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", {
+          id: "player-1",
+          isAi: false,
+          points: options.points ?? 5_000,
+          manpower: 10_000,
+          techIds: new Set<string>(["signal-fires"]),
+          domainIds: new Set<string>(),
+          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+          techRootId: "rewrite-local",
+          allies: new Set<string>(),
+          strategicResources: { CRYSTAL: options.crystal ?? 500 }
+        }],
+        ["player-2", {
+          id: "player-2",
+          isAi: true,
+          points: 100,
+          manpower: 100,
+          techIds: new Set<string>(),
+          domainIds: new Set<string>(),
+          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+          techRootId: "rewrite-local",
+          allies: new Set<string>()
+        }]
+      ]) as never,
+      initialState: { tiles: tiles as never, activeLocks: [] }
+    });
+  };
+
+  it("destroys one hostile structure and stamps the casting observatory cooldown", async () => {
+    const runtime = buildAetherLanceRuntime();
+    runtime.submitCommand({
+      commandId: "aether-lance-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "AETHER_LANCE",
+      payloadJson: JSON.stringify({ x: 5, y: 0 })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const target = state.tiles.find((tile) => tile.x === 5 && tile.y === 0);
+    const observatoryTile = state.tiles.find((tile) => tile.x === 0 && tile.y === 0);
+    const observatory = observatoryTile?.observatoryJson
+      ? JSON.parse(observatoryTile.observatoryJson) as { cooldownUntil?: number }
+      : undefined;
+    const actor = state.players.find((player) => player.id === "player-1");
+    expect(target?.economicStructureJson).toBeUndefined();
+    expect(observatory?.cooldownUntil).toBe(601_000);
+    expect(actor?.points).toBe(2_000);
+    expect(actor?.strategicResources?.CRYSTAL).toBe(400);
+  });
+
+  it("rejects through an enemy Aegis Dome without spending resources", async () => {
+    const runtime = buildAetherLanceRuntime({ enemyAegisDome: true });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "aether-lance-aegis",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "AETHER_LANCE",
+      payloadJson: JSON.stringify({ x: 5, y: 0 })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const target = state.tiles.find((tile) => tile.x === 5 && tile.y === 0);
+    const actor = state.players.find((player) => player.id === "player-1");
+    expect(events).toContainEqual(expect.objectContaining({
+      eventType: "COMMAND_REJECTED",
+      commandId: "aether-lance-aegis",
+      code: "AETHER_LANCE_INVALID",
+      message: "blocked by an Aegis Dome"
+    }));
+    expect(target?.economicStructureJson).toContain("\"GRANARY\"");
+    expect(actor?.points).toBe(5_000);
+    expect(actor?.strategicResources?.CRYSTAL).toBe(500);
+  });
+});
+
 describe("worldbreaker shot", () => {
   const buildStrikeRuntime = (options: {
     techIds?: string[];
