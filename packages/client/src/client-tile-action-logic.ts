@@ -1640,6 +1640,31 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           )
         });
       }
+      if (buildShowsOnTile("WATERWORKS", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_waterworks",
+          label: "Build Waterworks",
+          detail: deps.buildDetailTextForAction("build_waterworks", tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            state.techIds.includes("irrigation") &&
+              state.gold >= 600 &&
+              (state.strategicResources?.FOOD ?? 0) >= 20 &&
+              !tile.fort &&
+              !tile.siegeOutpost &&
+              !tile.observatory,
+            !state.techIds.includes("irrigation")
+              ? "Requires Irrigation"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : state.gold < 600
+                  ? "Need 600 gold"
+                  : "Need 20 FOOD",
+            `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +50% farmstead food within 10 tiles`,
+            slots,
+            deps
+          )
+        });
+      }
       if (buildShowsOnTile("GARRISON_HALL", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_garrison_hall",
@@ -1745,20 +1770,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             deps
           )
         });
-        if (tile.economicStructure?.type === "FARMSTEAD") {
-          out.push({
-            id: "build_waterworks",
-            label: "Upgrade to Waterworks",
-            detail: deps.buildDetailTextForAction("build_waterworks", tile),
-            ...tileActionAvailabilityWithDevelopmentSlot(
-              state.techIds.includes("irrigation") && state.gold >= 600 && (state.strategicResources.FOOD ?? 0) >= 20,
-              !state.techIds.includes("irrigation") ? "Requires Irrigation" : state.gold < 600 ? "Need 600 gold" : "Need 20 FOOD",
-              `600 gold + 20 FOOD • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +80% food output`,
-              slots,
-              deps
-            )
-          });
-        }
+
       }
       if (tile.resource === "WOOD" || tile.resource === "FUR") {
         out.push({

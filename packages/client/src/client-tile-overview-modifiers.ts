@@ -46,8 +46,8 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
 const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
   if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "CAMP") {
     return [{
-      reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (farm food only)" : "Camp",
-      effect: tile.type === "WATERWORKS" ? "+80% farm food" : "+50% farm food",
+      reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Camp",
+      effect: tile.type === "WATERWORKS" ? "+50% farmstead food within 10 tiles" : "+50% farm food",
       tone: "positive"
     }];
   }

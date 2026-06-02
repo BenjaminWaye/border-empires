@@ -1212,6 +1212,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         messageType !== "AIRPORT_BOMBARD" &&
         messageType !== "IMPERIAL_EXCHANGE_LEVY" &&
         messageType !== "WORLD_ENGINE_STRIKE" &&
+        messageType !== "UPGRADE_TOWN_TIER" &&
         messageType !== "COLLECT_SHARD"
     )
   );
@@ -2786,6 +2787,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "AIRPORT_BOMBARD" &&
             message.type !== "IMPERIAL_EXCHANGE_LEVY" &&
             message.type !== "WORLD_ENGINE_STRIKE" &&
+            message.type !== "UPGRADE_TOWN_TIER" &&
             message.type !== "COLLECT_SHARD"
           ) {
             sendJson(socket, {
@@ -3326,6 +3328,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                     fromY: message.fromY,
                     toX: message.toX,
                     toY: message.toY
+                  },
+                  ...metadata
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "UPGRADE_TOWN_TIER") {
+            const metadata = optionalCommandMetadata(message);
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "UPGRADE_TOWN_TIER",
+                  payload: {
+                    x: message.x,
+                    y: message.y
                   },
                   ...metadata
                 },
