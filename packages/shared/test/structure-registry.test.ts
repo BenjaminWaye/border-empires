@@ -276,47 +276,65 @@ describe("prerequisiteStructureTypes parity", () => {
   });
 });
 
-// ── Converter gold upkeep parity ───────────────────────────────────
+// ── Upkeep parity (per-minute rates from structureUpkeepPerMinute) ─
 
-describe("converter goldUpkeepPerMinute", () => {
-  test("FUR_SYNTHESIZER has 60 gold/min upkeep", () => {
-    expect(STRUCTURE_REGISTRY["FUR_SYNTHESIZER"].goldUpkeepPerMinute).toBe(60);
-  });
+describe("upkeep parity", () => {
+  // Per-minute rates derived from structureUpkeepPerMinute in
+  // player-update-economy.ts. Constants divided by 10 where the source
+  // uses per-10-minute interval buckets.
 
-  test("ADVANCED_FUR_SYNTHESIZER has 60 gold/min upkeep", () => {
-    expect(STRUCTURE_REGISTRY["ADVANCED_FUR_SYNTHESIZER"].goldUpkeepPerMinute).toBe(60);
-  });
+  const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL", number>>> = {
+    FARMSTEAD: { GOLD: 0.1 },
+    CAMP: { GOLD: 0.12 },
+    MINE: { GOLD: 0.12 },
+    MARKET: { FOOD: 0.05 },
+    GRANARY: { GOLD: 0.1 },
+    BANK: { FOOD: 0.1 },
+    WOODEN_FORT: { GOLD: 0.05 },
+    LIGHT_OUTPOST: { GOLD: 0.05 },
+    CARAVANARY: { FOOD: 0.075 },
+    FUR_SYNTHESIZER: { GOLD: 6 },
+    ADVANCED_FUR_SYNTHESIZER: { GOLD: 6 },
+    IRONWORKS: { GOLD: 6 },
+    ADVANCED_IRONWORKS: { GOLD: 6 },
+    CRYSTAL_SYNTHESIZER: { GOLD: 8 },
+    ADVANCED_CRYSTAL_SYNTHESIZER: { GOLD: 8 },
+    FOUNDRY: { GOLD: 5 },
+    CUSTOMS_HOUSE: { GOLD: 1.5 },
+    GARRISON_HALL: { GOLD: 2.5 },
+    GOVERNORS_OFFICE: { GOLD: 3 },
+    RADAR_SYSTEM: { GOLD: 4.5 },
+    AIRPORT: { CRYSTAL: 0.025 },
+  };
 
-  test("IRONWORKS has 60 gold/min upkeep", () => {
-    expect(STRUCTURE_REGISTRY["IRONWORKS"].goldUpkeepPerMinute).toBe(60);
-  });
+  const noUpkeepTypes = new Set([
+    "WATERWORKS", "SEED_GRANARY", "CENSUS_HALL", "CLEARING_HOUSE",
+    "AETHER_TOWER", "EXCHANGE_HOUSE", "RAIL_DEPOT",
+    "IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART",
+    "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
+    "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
+    "FORT", "IRON_BASTION", "THUNDER_BASTION",
+    "OBSERVATORY", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
+  ]);
 
-  test("ADVANCED_IRONWORKS has 60 gold/min upkeep", () => {
-    expect(STRUCTURE_REGISTRY["ADVANCED_IRONWORKS"].goldUpkeepPerMinute).toBe(60);
-  });
+  for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
+    const expectedUpkeep = expected[type];
 
-  test("CRYSTAL_SYNTHESIZER has 80 gold/min upkeep", () => {
-    expect(STRUCTURE_REGISTRY["CRYSTAL_SYNTHESIZER"].goldUpkeepPerMinute).toBe(80);
-  });
-
-  test("ADVANCED_CRYSTAL_SYNTHESIZER has 80 gold/min upkeep", () => {
-    expect(STRUCTURE_REGISTRY["ADVANCED_CRYSTAL_SYNTHESIZER"].goldUpkeepPerMinute).toBe(80);
-  });
-
-  test("non-converter structures have no goldUpkeepPerMinute", () => {
-    const converters = new Set([
-      "FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER",
-      "IRONWORKS", "ADVANCED_IRONWORKS",
-      "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER",
-    ]);
-    for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
-      if (converters.has(type)) continue;
-      expect(
-        spec.goldUpkeepPerMinute ?? 0,
-        `${type} should have no gold upkeep`,
-      ).toBe(0);
+    if (expectedUpkeep) {
+      test(`${type}: upkeep matches structureUpkeepPerMinute`, () => {
+        expect(spec.upkeep.length, `${type} should have upkeep entries`).toBe(1);
+        const actual = spec.upkeep[0]!.perMinute;
+        for (const [res, val] of Object.entries(expectedUpkeep)) {
+          const key = res as keyof typeof actual;
+          expect(actual[key], `${type} ${res} upkeep`).toBe(val);
+        }
+      });
+    } else if (noUpkeepTypes.has(type)) {
+      test(`${type}: has no upkeep`, () => {
+        expect(spec.upkeep, `${type} should have empty upkeep`).toEqual([]);
+      });
     }
-  });
+  }
 });
 
 // ── Placement check parity ─────────────────────────────────────────

@@ -84,14 +84,13 @@ export interface StructureSpec {
   /** Placement validators. Each returns null if placement is OK or a reason
    *  string otherwise. Composable so families share generic checks. */
   placement: ReadonlyArray<PlacementCheck>;
-  /** Upkeep entries per interval. Empty array for no upkeep.
-   *  TileUpkeepEntry models food/iron/crystal/supply/oil upkeep.
-   *  Gold upkeep is modelled separately via goldUpkeepPerMinute. */
+  /** Upkeep per minute. Each entry models one resource cost (food, iron,
+   *  crystal, supply, gold, oil). Empty array for no upkeep.
+   *
+   *  Populated in Phase 1 for the 21 structures with active upkeep in the
+   *  live sim (per `structureUpkeepPerMinute` in player-update-economy.ts).
+   *  Empty entries are correct for structures with no active upkeep. */
   upkeep: ReadonlyArray<TileUpkeepEntry>;
-  /** Gold upkeep per minute. 0 or undefined means no gold upkeep.
-   *  Applies to converter structures (FUR/IRON/CRYSTAL_SYNTHESIZER
-   *  and their advanced variants). */
-  goldUpkeepPerMinute?: number;
   /** Tile field this structure populates. Phase 2 collapses to a single field;
    *  Phase 1 keeps this as the routing key. */
   tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure";

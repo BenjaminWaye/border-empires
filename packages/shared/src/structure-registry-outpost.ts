@@ -79,7 +79,7 @@ export const LIGHT_OUTPOST_SPEC: StructureSpec = {
     noConflictingStructure,
     noDuplicateStructureType,
   ],
-  upkeep: [],
+  upkeep: [{ label: "Gold upkeep", perMinute: { GOLD: 0.05 } }],
   // Acknowledged debt: LIGHT_OUTPOST lives on economicStructure in Phase 1.
   // Phase 4 collapses to tile.structure.
   tileField: "economicStructure",
