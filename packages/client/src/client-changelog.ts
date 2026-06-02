@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.8",
+  version: "2026.06.02.9",
   title: "What's New",
-  summary: "Aether Lance is now Aether Purge: it strips enemy control from a tile instead of destroying a building.",
+  summary: "Attacks and expansions no longer launch from cut-off encircled frontier tiles, so waypoints route from a supplied tile instead of stalling. Aether Lance is now Aether Purge: it strips enemy control from a tile instead of destroying a building.",
   entries: [
+    {
+      introducedIn: "2026.06.02.9",
+      title: "Attacks/expansions no longer launch from cut-off frontier tiles",
+      why: "A waypoint or single-tap attack could pick a frontier origin tile encircled and cut off from supply, which the server rejects as ORIGIN_CUT_OFF — the waypoint would stall instead of routing from a supplied tile.",
+      changes: [
+        "Waypoint planner now skips cut-off encircled frontier tiles as both sources and free-movement corridors.",
+        "Single-tap attack origin picker now excludes cut-off frontier tiles from adjacent, dock, and bridge origin candidates.",
+        "The server's ORIGIN_CUT_OFF rejection is now anticipated client-side so the UI never offers an attack from a dead tile."
+      ]
+    },
     {
       introducedIn: "2026.06.02.8",
       title: "Aether Lance is now Aether Purge",

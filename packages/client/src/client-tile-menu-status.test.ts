@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encirclementRemainingMsForTile, isFrontierNaturallyDecaying, naturalDecayRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
+import { encirclementRemainingMsForTile, isFrontierNaturallyDecaying, isFrontierOriginCutOff, naturalDecayRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
 import type { Tile } from "./client-types.js";
 
 const ENCIRCLEMENT_DECAY_MS = 60_000;
@@ -42,6 +42,38 @@ describe("encirclementRemainingMsForTile", () => {
     const nowMs = 1_000;
     const tile = makeFrontierTile({ frontierDecayAt: nowMs - 1, frontierDecayKind: "ENCIRCLEMENT" }); // already expired
     expect(encirclementRemainingMsForTile(tile, nowMs)).toBeUndefined();
+  });
+});
+
+describe("isFrontierOriginCutOff", () => {
+  it("returns true for FRONTIER + ENCIRCLEMENT in-window", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
+    expect(isFrontierOriginCutOff(tile, nowMs)).toBe(true);
+  });
+
+  it("returns false for SETTLED tiles even with encirclement decay params", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ ownershipState: "SETTLED", frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
+    expect(isFrontierOriginCutOff(tile, nowMs)).toBe(false);
+  });
+
+  it("returns false for NATURAL decay kind (not encirclement)", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "NATURAL" });
+    expect(isFrontierOriginCutOff(tile, nowMs)).toBe(false);
+  });
+
+  it("returns false when encirclement timer has expired", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs - 1, frontierDecayKind: "ENCIRCLEMENT" });
+    expect(isFrontierOriginCutOff(tile, nowMs)).toBe(false);
+  });
+
+  it("returns false when no frontierDecayAt is set", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayKind: "ENCIRCLEMENT" });
+    expect(isFrontierOriginCutOff(tile, nowMs)).toBe(false);
   });
 });
 
