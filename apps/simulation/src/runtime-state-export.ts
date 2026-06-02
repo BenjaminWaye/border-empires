@@ -87,6 +87,8 @@ export type RuntimeExportState = {
   tileYieldCollectedAtByTile: Array<{ tileKey: string; collectedAt: number }>;
   playerYieldCollectionEpochByPlayer: Array<{ playerId: string; collectedAt: number }>;
   terrainEpoch: number;
+  /** Cumulative count of town growth ticks skipped due to insufficient food. */
+  growthStalledNoFoodCounter?: number;
 };
 
 export type RuntimePlayerDebugSnapshot = Array<{
@@ -213,6 +215,7 @@ type RuntimeExportInput = Omit<SnapshotExportInput, "collectVisibleCooldownByPla
   playerManpowerCap: (player: DomainPlayer) => number;
   playerManpowerRegenPerMinute: (player: DomainPlayer) => number;
   playerManpowerBreakdown: (player: DomainPlayer) => ManpowerBreakdown;
+  growthStalledNoFoodCounter: number;
 };
 
 export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExportState {
@@ -294,7 +297,8 @@ export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExpor
     docks: input.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
     tileYieldCollectedAtByTile: sortedCollectionEpochs(input.tileYieldCollectedAtByTile, "tileKey"),
     playerYieldCollectionEpochByPlayer: sortedCollectionEpochs(input.playerYieldCollectionEpochByPlayer, "playerId"),
-    terrainEpoch: input.terrainEpoch
+    terrainEpoch: input.terrainEpoch,
+    growthStalledNoFoodCounter: input.growthStalledNoFoodCounter
   };
 }
 

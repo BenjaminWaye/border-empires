@@ -14,6 +14,8 @@ export type RuntimeTileYieldEconomyContext = {
   townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
   fedTownKeys: Set<string>;
   firstThreeTownKeys: Set<string>;
+  /** Precomputed tile keys of active WATERWORKS structures owned by this player. */
+  waterworksKeys: Set<string>;
 };
 
 export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL"] as const;
