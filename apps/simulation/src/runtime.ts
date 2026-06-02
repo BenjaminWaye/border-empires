@@ -6132,7 +6132,7 @@ export class SimulationRuntime {
   private normalizeLegacyBuildCommand(command: CommandEnvelope): CommandEnvelope {
     let payload: Record<string, unknown>;
     try { payload = JSON.parse(command.payloadJson) as Record<string, unknown>; }
-    catch { return command; }
+    catch { /* TODO: emit counter command_legacy_normalize_parse_error{type} */ return command; }
     let structureType: string;
     if (command.type === "BUILD_FORT") structureType = "FORT";
     else if (command.type === "BUILD_OBSERVATORY") structureType = "OBSERVATORY";
@@ -6304,9 +6304,10 @@ export class SimulationRuntime {
     if (!strategicCost) {
       // Use registry as the single source of truth. Phase 1 parity tests
       // guarantee these agree with structure-costs.ts.
+      const strategicDef = structureCostDefinition(payload.structureType as BuildableStructureType);
       strategicCost = spec.cost.strategic as Record<string, number> | undefined
-        ?? (structureCostDefinition(payload.structureType as BuildableStructureType)?.resourceCost
-          ? { [structureCostDefinition(payload.structureType as BuildableStructureType)!.resourceCost!.resource]: structureCostDefinition(payload.structureType as BuildableStructureType)!.resourceCost!.amount }
+        ?? (strategicDef?.resourceCost
+          ? { [strategicDef.resourceCost.resource]: strategicDef.resourceCost.amount }
           : undefined);
     }
     if (strategicCost) {

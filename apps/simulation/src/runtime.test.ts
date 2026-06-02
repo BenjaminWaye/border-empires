@@ -3846,7 +3846,7 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("persists the variant through completeFortBuild", async () => {
+  it("persists the fort variant through build completion", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -4388,7 +4388,7 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("persists the siege variant through completeSiegeOutpostBuild", async () => {
+  it("persists the siege variant through build completion", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
