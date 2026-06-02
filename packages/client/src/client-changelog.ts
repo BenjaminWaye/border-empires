@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.02.2",
   title: "What's New",
-  summary: "Reveal Empire Stats now opens an intel dossier popup and gets 3D cast feedback. Shared support tiles resolve to one town, and attack-rejection errors now show as popups.",
+  summary: "Reveal Empire Stats now opens an intel dossier popup and gets 3D cast feedback. Capture population-loss labels now fade out cleanly after staying readable.",
   entries: [
     {
       introducedIn: "2026.06.02.2",
@@ -34,11 +34,10 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
     },
     {
       introducedIn: "2026.06.02.1",
-      title: "Shared support tiles can build again",
-      why: "Support tiles that touched multiple towns were blocked with 'Support tile touches multiple towns' even when the player owned the land. The block avoided double-counting support effects, but it made valid settled support tiles unusable.",
+      title: "Capture pop-loss labels now disappear cleanly",
+      why: "The floating negative-population label could appear to hang in the air after a capture, even though its job is only to call out the population loss once.",
       changes: [
-        "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
-        "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
+        "The 3D \"-N pop\" label now stays fully readable first, then fades and is removed at the fade endpoint so it does not linger above the town."
       ]
     },
     {
@@ -86,6 +85,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
+      introducedIn: "2026.06.01.2",
+      title: "Shared support tiles can build again",
+      why: "Support tiles that touched multiple towns were blocked with 'Support tile touches multiple towns' even when the player owned the land. The block avoided double-counting support effects, but it made valid settled support tiles unusable.",
+      changes: [
+        "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
+        "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
+      ]
+    },
+    {
       introducedIn: "2026.06.01.1",
       title: "Client backs off when the server is busy",
       why: "The gateway now rejects auth with SERVER_BUSY when too many players are connecting at once. Without this change, the client treated SERVER_BUSY as a fatal error and stopped retrying, which made the reconnection cascade worse.",
@@ -101,6 +109,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Simulation now reads manpower cap and regen constants through game-domain, which mirrors the shared balance table instead of keeping a duplicate fast table.",
         "Added a regression test that fails if base regen or any town tier stops taking about 720 minutes to refill its manpower cap."
+      ]
+    },
+    {
+      introducedIn: "2026.05.30.3",
+      title: "Income multiplier and advanced converter display fixes (PR #440 follow-up)",
+      why: "Two regressions from the bootstrap-payload-shrink work. (1) The player's income mod from tech was applied to every tile's yield display — even enemy tiles — so clicking another empire showed inflated yields. (2) Advanced converter structures (ADVANCED_FUR_SYNTHESIZER, ADVANCED_IRONWORKS, ADVANCED_CRYSTAL_SYNTHESIZER) displayed their theoretically-correct higher values (21.6 / 21.6 / 14.4), but the sim currently returns the basic values (18 / 18 / 12) for these structures. The client now matches the sim so displayed yield equals actual production. The sim-side fix will be a separate gameplay PR.",
+      changes: [
+        "Income multiplier from tech now only applies to tiles owned by the viewer. Enemy tiles display their owner-appropriate yield.",
+        "Advanced converter daily output now matches the sim's current behavior (basic values). Will update in lockstep when the sim honors ADVANCED_* constants."
       ]
     },
     {
@@ -226,271 +243,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Frontier tile menu now shows 'Settle Connected (N)' when 2+ of your frontier tiles are connected.",
         "Each tile still costs the standard settle gold and uses a development slot — extras are queued FIFO like manual settles."
-      ]
-    },
-    {
-      introducedIn: "2026.05.26.5",
-      title: "Tile menu shows a countdown for natural frontier decay",
-      why: "The 3D map already blinks frontier tiles white in the last 60s of their ~10-minute natural decay window, but the tile menu header only surfaced a timer for encirclement (cut-off) decay. Players who clicked a blinking tile to see how long they had left got no number.",
-      changes: [
-        "Tile menu header now shows 'Frontier collapsing in Ns' for the final 60s of natural frontier decay, mirroring the existing encirclement 'Cut off from supply' countdown."
-      ]
-    },
-    {
-      introducedIn: "2026.05.26.4",
-      title: "3D buildings no longer double up with 2D sprites",
-      why: "The 3D structure overlay now renders ~28 building kinds (economic + late-game + civic + infrastructure + industrial), but the 2D fallback in client-runtime-loop.ts only suppressed a hardcoded 7-type Tier-1 list. Every newer building (Bank, Caravanary, Foundry, Airport, etc.) was being drawn twice — 3D mesh plus 2D PNG/marker on top.",
-      changes: [
-        "Both 2D structure-draw passes now consult STRUCTURE_KINDS_HANDLED_BY_3D (the authoritative set from client-map-3d-structure-overlay.ts) instead of a stale hardcoded Tier-1 allowlist, so any kind the 3D overlay can render hides its 2D fallback automatically as new families are added."
-      ]
-    },
-    {
-      introducedIn: "2026.05.26.3",
-      title: "Light Outpost sweep toggle now works",
-      why: "The sim already ticked Light Outpost sweep budget every tick AND the SET_SIEGE_OUTPOST_SWEEP handler already accepted LIGHT_OUTPOST tiles (since PR #390) — but the Start/Stop Sweep tile action only rendered for tile.siegeOutpost. Because LIGHT_OUTPOST lives on tile.economicStructure the toggle never appeared, leaving sweepActive permanently false.",
-      changes: [
-        "Start/Stop Sweep action now appears on owned, active Light Outposts in the tile action panel.",
-        "Client-only fix — no sim or wire changes. The semantic mismatch (message named SET_SIEGE_OUTPOST_SWEEP also flips Light Outposts) is acknowledged debt for the planned structure-pipeline rewrite.",
-        "No game balance changes."
-      ]
-    },
-    {
-      introducedIn: "2026.05.26.2",
-      title: "Tile inspector shows real town production again",
-      why: "REQUEST_TILE_DETAIL returned a townJson with baseGoldPerMinute=2 but no goldPerMinute, and yieldRate.goldPerMinute=0. Root cause: the gateway-cached tile-detail path (buildSnapshotTileDetail) forwarded the snapshot's missing goldPerMinute through to buildTileYieldView, which — called without an economyContext — returns 0 for TOWN-tier tiles whose town.goldPerMinute isn't set. Compounding it, the client sent a fresh REQUEST_TILE_DETAIL on every click of the same tile even when the previous request was still in flight, piling up duplicate work on a backed-up gateway.",
-      changes: [
-        "buildSnapshotTileDetail now backfills goldPerMinute and cap inline using the same formula as the live snapshot when the snapshot tile's townJson lacks them, so owned-town inspectors show the real Production value (e.g. 4.4/m on a TOWN with +120% connected-town bonus) instead of 0.",
-        "refreshTownEconomyFields re-stamps isFed from the freshly computed fed-key set, so the wire payload's townJson.isFed can no longer contradict the live goldPerMinute it ships alongside.",
-        "Tile-detail requests are deduped by tile: a click is suppressed if a full-detail response landed within the last 60s, or if a request for the same tile is still in flight (15s timeout protects against dropped responses)."
-      ]
-    },
-    {
-      introducedIn: "2026.05.26.1",
-      title: "Frontier decay no longer blocks supplied expansion",
-      why: "The simulation uses the same frontierDecayAt field for natural 10-minute frontier expiry and 60-second encirclement decay. Action validation treated any timer as cut off, so supplied frontier tiles with normal decay could incorrectly reject expand, attack, or settle commands with ORIGIN_CUT_OFF.",
-      changes: [
-        "Simulation now checks actual 8-neighbor supply connectivity before rejecting frontier origins or settlements as cut off.",
-        "Connected frontier tiles with natural decay timers can expand, attack, and settle normally; genuinely disconnected frontier tiles remain blocked."
-      ]
-    },
-    {
-      introducedIn: "2026.05.25.1",
-      title: "Collect no longer floods live tile updates",
-      why: "Production telemetry showed COLLECT_VISIBLE spending over a second applying tile-delta fanout after large empires gathered stored yield. The command was clearing each tile individually, then broadcasting and filtering thousands of zero-yield tile deltas even though collection is a player-level economy action.",
-      changes: [
-        "Visible collect now advances a player collection epoch and emits the collect result/player update without sending a giant TILE_DELTA_BATCH.",
-        "Snapshots and tile detail use that player epoch when deriving stored yield, so collected tiles still show cleared yield after reconnects or restarts."
-      ]
-    },
-    {
-      introducedIn: "2026.05.24.5",
-      title: "Expansion accepts more reliably under AI load",
-      why: "AI and system automation jobs could drain from the simulation queue in the microtask phase immediately after being submitted. That preserved lane priority for already-queued human commands, but it still let background jobs start too aggressively between socket events and delay a later human expansion until the client showed the 2s sync warning.",
-      changes: [
-        "Human and gateway commands still schedule immediate runtime drains, while ai-runtime and system-runtime automation jobs now yield to the event loop before draining.",
-        "The load harness now keeps successful latency samples when a soak stops because the test player runs out of manpower, so nightly gates evaluate real accept timings instead of failing with null samples."
-      ]
-    },
-    {
-      introducedIn: "2026.05.24.4",
-      title: "Outpost-family sweep + aura overhaul",
-      why: "Sweep and aura bonuses now cover all four outpost-family structures uniformly. The old 1-tile auto-attack loop has been removed in favour of the sweep system, which offers the same automation with explicit budget control.",
-      changes: [
-        "Sweep is now available on all four outpost-family structures: Light Outpost, Siege Outpost, Siege Tower, and Dread Tower. Each has its own rechargeable budget (0–300) and a Start Sweep / Stop Sweep toggle.",
-        "Removed 'Enable Auto Attack' / 'Cancel Auto Attack' from siege outpost panels. The SET_SIEGE_OUTPOST_AUTO_ATTACK command has been removed from the protocol entirely — the sweep system replaces it.",
-        "Attack aura is now target-based at radius 5 (was origin-based at radius 2). The bonus applies when the tile being attacked is within Chebyshev 5 of any friendly outpost-family structure, regardless of where the attacker is standing.",
-        "Per-variant aura multipliers: Light Outpost 1.25×, Siege Outpost 1.6×, Siege Tower 1.8×, Dread Tower 2.0×. When multiple auras overlap the maximum multiplier wins (no stacking).",
-        "Light Outpost sweep state (sweepBudget, sweepActive) is now tracked on the economic structure and initialised at completion (budget=300, active=false)."
-      ]
-    },
-    {
-      introducedIn: "2026.05.24.3",
-      title: "Siege outpost sweep",
-      why: "Manual micro on outposts was tedious for players who built forward siege lines. Sweep adds a structure-bound budget (0–300) that recharges at the same rate as your global manpower. Toggle it on and the outpost attacks the closest enemy tile in a 5-tile Chebyshev radius once per tick, deducting 60 from the budget each time. When the budget runs dry the outpost pauses; when there are no enemies in range it deactivates and needs a manual re-toggle.",
-      changes: [
-        "Siege outpost panel: 'Start Sweep' / 'Stop Sweep' toggle button and a budget progress bar (0–300).",
-        "Selecting an active outpost now shows an orange 11×11 sweep-radius highlight on the 3D map.",
-        "Budget recharges at the player's MP-regen-per-minute rate but is rate-limiting only — it does not generate global manpower.",
-        "New outposts start with sweepBudget=300, sweepActive=false (immediately usable after build completes)."
-      ]
-    },
-    {
-      introducedIn: "2026.05.24.2",
-      title: "Encirclement — cut-off frontier tiles decay in 60 s",
-      why: "Players reported that cleaning up enemy tiles scattered inside their territory was tedious. Encirclement makes isolated frontier tiles self-destruct: a frontier tile with no 8-neighbor path back to your settled core goes into a 60-second countdown, shown as a blinking overlay and a 'Cut off from supply' warning in the tile panel. Cut-off tiles cannot launch attacks. The natural 10-minute decay still applies; encirclement only shortens it.",
-      changes: [
-        "Simulation: when a tile changes ownership, the sim re-checks 8-neighbor connectivity for all affected player frontier tiles in the changed region. Disconnected tiles get frontierDecayAt = now + 60 s (min with any existing shorter timer). Reconnected tiles have their timer cleared immediately with no debt.",
-        "Simulation: attack commands from a cut-off (blinking) frontier tile are rejected with ORIGIN_CUT_OFF.",
-        "Client: the tile panel shows 'Cut off from supply — disappears in Xs' as a warning header for blinking frontier tiles."
-      ]
-    },
-    {
-      introducedIn: "2026.05.24.1",
-      title: "Large connected-town empires no longer stall AI ticks",
-      why: "Connected-town bonuses were being computed by walking the same settled-land component once per town. On a large empire, an economy update could rebuild the same network thousands of times and also materialize huge connected-town name lists, blocking the simulation event loop and making AI worker replies look like 30s planner stalls.",
-      changes: [
-        "Simulation now builds connected-town components once per player economy refresh and derives every town's connected count from that shared component.",
-        "Connected-town bonuses and counts are preserved, while giant connected-town name lists are capped on runtime tile payloads and skipped entirely for internal economy math."
-      ]
-    },
-    {
-      introducedIn: "2026.05.23.7",
-      title: "Town Production keeps connected-town bonuses on stale tile detail",
-      why: "The prior fix still left one fallback path in the gateway: when the cached town's isFed value disagreed with the gateway's derived fed-state, buildSnapshotTileDetail recomputed goldPerMinute and cap locally. That local formula only knew base production, support, market, and bank, so a town showing '3 connected towns: +120% gold production' could still render Production: 2.00/m and Stored yield cap 960 instead of the simulation's 4.4/m and 2112.",
-      changes: [
-        "Gateway tile detail now preserves finite townJson.goldPerMinute and townJson.cap from the simulation regardless of fed-state mismatch; the gateway can still update support/fed display fields, but it no longer rewrites production or cap.",
-        "Updated the stale-fed-state gateway tests so they no longer expect the gateway to invent town production, and added helper plus WebSocket tile-detail regressions matching the Gloamspire shape: isFed corrected to true while goldPerMinute=4.4 and cap=2112 survive into yieldRate/yieldCap."
-      ]
-    },
-    {
-      introducedIn: "2026.05.23.6",
-      title: "Release notes stay limited to the current week",
-      why: "The client changelog had accumulated every release note since it was introduced, so the bundle still shipped old April and early-May entries even though the popup filtered most of them at runtime.",
-      changes: [
-        "Pruned the bundled changelog entries to the current seven-day release window.",
-        "Added regression coverage so future changelog updates fail if entries older than the current week are kept in the client bundle."
-      ]
-    },
-    {
-      introducedIn: "2026.05.23.5",
-      title: "Login bootstrap is no longer starved by fog admin refreshes",
-      why: "A production debug trace on 2026-05-23 showed login wall-time of 60.6s with bootstrap_subscribe alone taking 45.9s, while the gateway event loop p99 was 21.3s and the simulation was idle (sim_rpc_p99=0). Each TILE_DELTA_BATCH for a player whose session had fog disabled awaited a synchronous full-world resubscribe; with AI commands firing every second this monopolized the event loop and starved incoming logins.",
-      changes: [
-        "Gateway: fog-admin live refresh now runs through a per-player coalescing scheduler (max one in flight, FOG_LIVE_REFRESH_MIN_INTERVAL_MS=1s) instead of being awaited inside the TILE_DELTA_BATCH handler. Fog admin views may lag by up to ~1s between refreshes; gameplay logins no longer wait on those refreshes.",
-        "Gateway: every AUTH explicitly resets session.fogDisabled=false so a reconnecting fog admin starts with fog ON and must opt in again.",
-        "Client: Firebase sign-in clears the persisted map-reveal preference (be-map-reveal:*) so the admin must re-toggle reveal each session — prevents a stale tab from auto-re-enabling reveal on connect."
-      ]
-    },
-    {
-      introducedIn: "2026.05.23.4",
-      title: "3D map pan is smoother",
-      why: "A Chrome performance trace of normal play showed the renderer main thread blocked ~89% of the time during pan, with three.js's computeVertexNormals (and its BufferAttribute.fromBufferAttribute read path) plus per-vertex Array.filter allocations dominating the heightfield rebuild. Together they accounted for ~3s of self-time across a 32s trace, and the filter chain churned ~30k array allocations per rebuild that fed back into GC.",
-      changes: [
-        "Heightfield rebuild now accumulates vertex normals by reading the positions Float32Array directly (same face-cross-product algorithm as three.js's computeVertexNormals, just without the BufferAttribute round-trip).",
-        "Per-vertex category counting in the rebuild loop replaces three chained Array.filter() calls (and their closures) with inline boolean math — no allocations per vertex, identical position/color outputs."
-      ]
-    },
-    {
-      introducedIn: "2026.05.23.3",
-      title: "Server build SHA visible in the bridge debug card",
-      why: "When a feature works on staging but not prod (or vice versa), the question that's hard to answer is 'is your client running the same commit as the gateway+sim?'. The card showed Client build but had no parallel value for the server, so a stale-server-vs-fresh-client deploy state was invisible.",
-      changes: [
-        "Deploy scripts (deploy-staging-all.mjs, deploy-prod-all.mjs) now pass --env BUILD_SHA=<targetSha> on fly deploy; the gateway reads it at startup and includes serverBuildSha on every INIT payload.",
-        "Bridge debug card adds a Server build line (first 8 chars, matches the Client build format) and flags ⚠ mismatch when the SHA does not start with CLIENT_BUILD_VERSION.",
-        "Copy Bridge Debug payload now includes both Client build and Server build lines so a pasted snapshot is self-diagnosing for client/server skew."
-      ]
-    },
-    {
-      introducedIn: "2026.05.23.2",
-      title: "Tile inspector Production stops dropping the connected-town bonus",
-      why: "The gateway's tile-detail builder was unconditionally recomputing goldPerMinute and cap from a stripped-down local formula — baseGoldPerMinute * supportRatio * marketMult * bankMult — and writing that value into the townJson sent to the client. That formula doesn't apply connectedTownBonus, townPopulationMultiplier, firstThreeTownMult, incomeMultiplier, PASSIVE_INCOME_MULT, or the +1 bank flat, so an owned town with 3 connected towns (+120%) showed Production: 2.00/m and gold cap 960 even though the sim correctly computed 4.4/m and cap 2112. Every sim-side fix shipped over the last day computed the right number — the gateway then threw it away.",
-      changes: [
-        "buildSnapshotTileDetail now trusts the sim's authoritative goldPerMinute and cap when the cached snapshot's isFed matches the gateway's freshly-derived isFed (i.e. the snapshot is in sync). The local recompute path is preserved only as a fallback when isFed disagrees, so the existing 'gateway corrects stale fed state from current neighbors' tests still pass.",
-        "Added a gateway regression test for the prod scenario: a TOWN-tier town with 3 connected towns shipping goldPerMinute=4.4 / cap=2112 now survives buildSnapshotTileDetail end-to-end instead of being silently rewritten to 2 / 960."
-      ]
-    },
-    {
-      introducedIn: "2026.05.23.1",
-      title: "3D world fills out: late-game structures, fur tripods, unfed-town shield, and a Storybook asset viewer",
-      why: "Two gaps were visible to anyone playing on the 3D map: only 9 of the 38 structure kinds had hand-modeled 3D representations, and the unfed-town warning glyph didn't read as 'food problem'. The fur drying rack also didn't match its 2D pictogram. This batch closes the SVG↔3D gap across every kind, redesigns the fur tripod (and the matching camp drying frame) to look like a real tepee with a stretched hide, and replaces the floating warning triangle with a 🍞-on-a-shield badge so the meaning lands instantly.",
-      changes: [
-        "20 new 3D structures: Bank, Aether Tower, Aegis Dome, World Engine, Imperial Exchange, Airport, Caravanary, Customs House, Exchange House, Garrison Hall, Governor's Office, Rail Depot, Radar System, Foundry, Advanced Ironworks, Fur Synthesizer + Advanced, Crystal Synthesizer + Advanced, Astral Dock. Every OptimisticStructureKind backed by an SVG overlay now has a procedurally-built 3D silhouette in StructureOverlay.",
-        "IRONWORKS and ADVANCED_IRONWORKS redesigned as synthesizer chambers (chamber + iron-glow window + tubes) to match the FUR/CRYSTAL synthesizer family — ironworks is a synthesizer in border-empires, not a forge. FOUNDRY keeps its forge silhouette (twin chimneys + glowing slag pile) so the two read as distinct.",
-        "Fur resource 3D redesigned: rectangular drying frame replaced with a tepee tripod — three thicker posts leaning to a common apex with a small dark binding at the top and a stretched diamond hide (OctahedronGeometry scaled to a flat diamond) draped on the front. Camp structure's drying frame now uses the same tripod.",
-        "Unfed-town badge swapped from a generic warning triangle to a slowly-bobbing canvas-textured shield carrying the in-game 🍞 food glyph with a red diagonal slash drawn across it. Per-instance bob phase offset so a cluster of unfed towns doesn't lock-step.",
-        "Internal: structure-overlay refactored from 1457 lines into a per-family composition (builder + economic/late-game/civic/infrastructure/industrial files, each well under 500 lines).",
-        "Internal: a new @border-empires/storybook workspace package catalogs every 2D SVG and every 3D overlay layer in Storybook 10.4 with side-by-side variant comparisons — use `pnpm --filter @border-empires/storybook dev` to browse the catalog."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.7",
-      title: "Attack win chance result no longer reopens into loading",
-      why: "The client accepted ATTACK_PREVIEW_RESULT from the gateway, stored the authoritative win chance, then re-rendered the open enemy tile menu through the normal fresh-open path. That path immediately started another preview request and cleared the accepted result before it could render, so the action row stayed on \"Calculating win chance...\" even when production had answered.",
-      changes: [
-        "Network-driven action menu re-renders now reuse the just-accepted attack preview instead of starting a new request.",
-        "Added regression coverage for an open enemy action menu receiving a current attack preview result."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.6",
-      title: "Clockwork Stipend trickle shows up in income sources",
-      why: "The trickle was already being applied to the stockpile each tick, but it was never folded into strategicProductionPerMinute or the economy breakdown, so the income panel showed 0/min for the resource even while the stockpile climbed. Players had no way to attribute the income to the domain.",
-      changes: [
-        "buildPlayerUpdateEconomySnapshot now reads chosenTrickleRateForPlayer and adds the rate to both strategicProductionPerMinute[resource] and a 'Clockwork Stipend' bucket under economyBreakdown[resource].sources.",
-        "Regression test pins the SUPPLY case and verifies the bucket isn't added to other resources."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.6",
-      title: "Locked trickle resource appears on the domain detail card",
-      why: "After picking SUPPLY (or IRON/CRYSTAL) for Clockwork Stipend, the detail card just showed 'Chosen' with no indication of which resource was locked. The owned-summary card carried the suffix but the detail card — the one you click into — did not, forcing a second navigation to confirm the pick.",
-      changes: [
-        "renderDomainDetailCardHtml now accepts chosenTrickleResource and renders a 'Your pick: SUPPLY (+0.20/min, locked)' section under the description when the player owns the domain and the resource is one this domain offered.",
-        "Same gate as the owned-summary card: a future narrower trickle table can't claim credit for a pick made on a different domain."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.5",
-      title: "Restore Fog after reveal clears the revealed tiles",
-      why: "TILE_SNAPSHOT_REPLACE handling early-returned on an empty tiles array, so when the gateway sent the fog-on snapshot back after a reveal toggle, any visibility-zero slice left the previously revealed tiles in place and the map kept rendering them.",
-      changes: [
-        "applyGatewayInitialState now treats an empty tiles array as a valid replacement and clears state.tiles + discoveredTiles + incomingAttacksByTile + pendingCollectVisibleKeys, while still treating a missing tiles field as a no-op so partial INIT payloads do not wipe state.",
-        "Regression test covers both the empty-replacement case and the missing-field no-op."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.4",
-      title: "Clockwork Stipend resource picks no longer dropped at the gateway",
-      why: "ClientMessageSchema for CHOOSE_DOMAIN did not declare the chosenTrickleResource field. Zod's default object mode silently strips unknown keys, so the gateway parsed an empty payload, forwarded an empty payload, and the sim rejected with 'trickle resource choice required' even when the player had picked IRON/SUPPLY/CRYSTAL. The schema now declares the field as an optional TRICKLE_RESOURCE_KEYS enum, with a regression test that fails loud if it's removed.",
-      changes: [
-        "ClientMessageSchema.CHOOSE_DOMAIN now declares chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional(), so the field survives the gateway's safeParse.",
-        "Regression test verifies the field round-trips and that unknown resource keys are rejected up front."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.4",
-      title: "Domain and tech rejections surface as banner alerts",
-      why: "When the server rejected a domain pick — for example Clockwork Stipend returning 'trickle resource choice required' — the only feedback was a single line in the activity feed. The button quietly reverted to 'Choose Tier N' and players assumed the click was broken. Frontier/diplomacy/build rejections already use banner alerts, so domain and tech now match that pattern.",
-      changes: [
-        "DOMAIN_INVALID and TECH_INVALID rejections now raise a 12-second 'Domain pick failed' / 'Research failed' banner alongside the existing feed entry.",
-        "The default 'Error CODE: message' fallback string is replaced with a friendlier 'Domain pick failed: …' / 'Research failed: …' for these codes."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.3",
-      title: "Fog admin map-reveal toggle works on production and is no longer named staging-only",
-      why: "The client suppressed the reveal-map toggle on production hostnames even when the server told the session it was allowed to toggle fog, which blocked screenshotting prod-only AI state. The server-side FOG_ADMIN_EMAIL gate already scopes the capability to a single account, so the client hostname check was redundant. While the gate was being removed, every staging-prefixed symbol around it was renamed to match the actual scope.",
-      changes: [
-        "Map reveal availability now relies solely on the server-issued canToggleFog flag and no longer checks the hostname.",
-        "Renamed the helper module, state fields, storage key, CSS class, and data attribute from the staging-only naming (stagingMapReveal*) to the hostname-agnostic name (mapReveal*) so the code matches the actual scope.",
-        "Existing fog admin browsers will see their staged toggle preference reset once (storage key changed from be-staging-map-reveal to be-map-reveal); re-toggling restores it."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.2",
-      title: "Stored yield can't get stranded above the cap anymore",
-      why: "After the prior fix routed FetchTileDetail through tileDeltaFromState, the on-open inspector still showed e.g. \"Stored yield: 2105 / 960\" on a town that no longer had a market. Root cause: buildTileYieldView omitted the `yield` field whenever the live buffer rounded to ≤ 0.0001 (the common case right after an upkeep tick drained the buffer). The gateway's shallow `{ ...cached, ...fresh }` merge then preserved whatever stale buffer the client had cached from when the town's cap was higher.",
-      changes: [
-        "buildTileYieldView now always emits `yield` (with `gold: 0` when the live buffer is empty) for any tile that can produce gold or strategic resources, so fresh tile-delta and FetchTileDetail responses authoritatively overwrite stale cached buffer values instead of leaving them untouched."
-      ]
-    },
-    {
-      introducedIn: "2026.05.22.1",
-      title: "Attack win chance loading stops retrying itself",
-      why: "The watchdog for stranded attack preview requests did fire, but its menu re-render reopened the same enemy tile through the normal fresh-preview path. That immediately started another request, cleared the timeout state, and put the row back into \"Calculating win chance...\".",
-      changes: [
-        "Timeout-driven action menu re-renders now reuse the computed preview-unavailable state instead of starting another fresh preview request.",
-        "Normal player-opened enemy tile menus still request fresh authoritative odds.",
-        "Added regression coverage that fails when the timeout re-render restarts the preview request loop."
-      ]
-    },
-    {
-      introducedIn: "2026.05.30.3",
-      title: "Income multiplier and advanced converter display fixes (PR #440 follow-up)",
-      why: "Two regressions from the bootstrap-payload-shrink work. (1) The player's income mod from tech was applied to every tile's yield display — even enemy tiles — so clicking another empire showed inflated yields. (2) Advanced converter structures (ADVANCED_FUR_SYNTHESIZER, ADVANCED_IRONWORKS, ADVANCED_CRYSTAL_SYNTHESIZER) displayed their theoretically-correct higher values (21.6 / 21.6 / 14.4), but the sim currently returns the basic values (18 / 18 / 12) for these structures. The client now matches the sim so displayed yield equals actual production. The sim-side fix will be a separate gameplay PR.",
-      changes: [
-        "Income multiplier from tech now only applies to tiles owned by the viewer. Enemy tiles display their owner-appropriate yield.",
-        "Advanced converter daily output now matches the sim's current behavior (basic values). Will update in lockstep when the sim honors ADVANCED_* constants."
       ]
     },
   ]
