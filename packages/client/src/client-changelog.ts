@@ -19,17 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.2",
+  version: "2026.06.02.3",
   title: "What's New",
-  summary: "Reveal Empire Stats now opens an intel dossier popup and gets 3D cast feedback. Capture population-loss labels now fade out cleanly after staying readable.",
+  summary: "Reveal Empire Stats now opens an intel dossier popup and gets 3D cast feedback. Domain progression now opens the next tier correctly after your previous tier choice.",
   entries: [
     {
-      introducedIn: "2026.06.02.2",
+      introducedIn: "2026.06.02.3",
       title: "Reveal Empire Stats now opens an intel dossier",
       why: "The ability returned useful empire numbers, but the client only posted a short feed line that was easy to miss and did not feel like a real intelligence report.",
       changes: [
         "Reveal Empire Stats now opens a civilization-style intel dossier popup with economy, territory, town, manpower, tech, gold, and strategic stockpile details.",
         "Casting the ability on a hostile tile now triggers a one-shot 3D scan-and-dossier extraction flourish on that selected tile."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.2",
+      title: "Domain tiers advance after your chosen doctrine",
+      why: "Tier 2 domain cards could still say Tier 1 needed to be unlocked first after the player had already chosen a Tier 1 domain, because the UI treated only currently tech-eligible domains as the open tier.",
+      changes: [
+        "After choosing a Tier 1 domain, the domain panel now shows Tier 2 as the active tier.",
+        "Tier 2 cards now show the real blocker, such as a missing required tech or resources, instead of the stale Tier 1 prerequisite message."
       ]
     },
     {
