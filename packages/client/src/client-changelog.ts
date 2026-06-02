@@ -19,18 +19,38 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.6",
+  version: "2026.06.02.8",
   title: "What's New",
   summary: "Aether Lance is now Aether Purge: it strips enemy control from a tile instead of destroying a building.",
   entries: [
     {
-      introducedIn: "2026.06.02.6",
+      introducedIn: "2026.06.02.8",
       title: "Aether Lance is now Aether Purge",
       why: "The old version competed with Worldbreaker Cannon by deleting structures. Aether Purge now has a cleaner role: precision territory disruption.",
       changes: [
         "Aether Purge purges enemy control from settled or frontier land, turning the target tile neutral.",
         "The ability no longer destroys the building, town, dock, or monument on the target tile as its primary effect.",
         "The 3D cast feedback now reads as a control-drain purge with an expanding neutral ring and rising aether motes."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.7",
+      title: "Garrison Hall now unlocks correctly with Organized Supply",
+      why: "The server checked for a nonexistent 'organization' tech instead of 'organized-supply', which blocked Garrison Hall construction for all players even after researching the correct tech.",
+      changes: [
+        "Garrison Hall now requires the Organized Supply tech (organized-supply) instead of the legacy Organization tech (organization).",
+        "Added regression tests to prevent this mismatch from recurring."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.6",
+      title: "Unique empire colours + barbarian always grey",
+      why: "Players who picked red collided with barbarian tiles (owner id `barbarian-1` missed the `barbarian` grey guard). All 100 palette colours are now curated and server-enforced unique per empire; the 6 suggested swatches are always free; AI empires reserve distinct colours at startup.",
+      changes: [
+        "Each empire's colour is unique — the gateway rejects duplicates and suggests a nearby-but-distinct alternative.",
+        "Barbarian tiles always render grey (#2f3842) in both 2D and 3D regardless of owner id variant.",
+        "Suggested colour swatches in the profile picker are always free (no other empire holds them).",
+        "AI empires (ai-1..ai-20) are seeded with unique, stable colours from the curated 100-colour palette.",
       ]
     },
     {
