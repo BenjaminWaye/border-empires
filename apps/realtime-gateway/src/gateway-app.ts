@@ -2536,7 +2536,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             const taken = await buildTakenColorSet(session.playerId);
             if (isTaken(normalized, taken)) {
               const suggestion = suggestAlternative(normalized, taken);
-              metrics.incrementColorCollisionRejectedTotal();
+              gatewayMetrics.incrementColorCollisionRejectedTotal();
               sendJson(socket, {
                 type: "ERROR",
                 code: "COLOR_TAKEN",
@@ -2583,7 +2583,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             const taken = await buildTakenColorSet(session.playerId);
             if (isTaken(normalized, taken)) {
               const suggestion = suggestAlternative(normalized, taken);
-              metrics.incrementColorCollisionRejectedTotal();
+              gatewayMetrics.incrementColorCollisionRejectedTotal();
               sendJson(socket, {
                 type: "ERROR",
                 code: "COLOR_TAKEN",
