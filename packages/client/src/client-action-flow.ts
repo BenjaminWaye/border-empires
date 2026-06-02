@@ -1641,7 +1641,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
     }
     if (actionId === "reveal_empire_stats" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
-      sendGameMessage({ type: "REVEAL_EMPIRE_STATS", targetPlayerId: selected.ownerId });
+      if (sendGameMessage({ type: "REVEAL_EMPIRE_STATS", targetPlayerId: selected.ownerId })) {
+        state.revealEmpireStatsFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
     }
     if (actionId === "aether_wall") {
       const selectedDirections = validAetherWallDirectionsForTile(selected);

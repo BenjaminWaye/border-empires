@@ -3,6 +3,7 @@ import type { ChosenTrickleResource } from "@border-empires/shared";
 import { CLIENT_BUILD_VERSION } from "./client-build-version.js";
 import { renderClientChangelogOverlay } from "./client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
+import { revealEmpireStatsDossierHtml } from "./client-empire-intel.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY, guideSteps } from "./client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "./client-debug.js";
 import { renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
@@ -683,6 +684,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       ? renderCrystalAbilityInfoOverlay(state.crystalAbilityInfoKey, { formatCooldownShort })
       : "";
   dom.structureInfoOverlayEl.style.display = state.structureInfoKey || state.crystalAbilityInfoKey ? "grid" : "none";
+  dom.intelOverlayEl.innerHTML = state.activeRevealEmpireStatsPopup ? revealEmpireStatsDossierHtml(state.activeRevealEmpireStatsPopup) : "";
+  dom.intelOverlayEl.style.display = state.activeRevealEmpireStatsPopup ? "grid" : "none";
   const mobileDetailOverlayHtml = deps.techDetailsUseOverlay()
     ? state.techDetailOpen
       ? deps.renderTechDetailOverlay()
@@ -765,6 +768,13 @@ export const renderClientHud = (deps: HudDeps): void => {
   crystalAbilityInfoCloseButtons.forEach((btn: HTMLElement) => {
     btn.onclick = () => {
       state.crystalAbilityInfoKey = "";
+      renderClientHud(deps);
+    };
+  });
+  const intelCloseButtons = dom.intelOverlayEl.querySelectorAll("[data-intel-close]") as NodeListOf<HTMLElement>;
+  intelCloseButtons.forEach((btn: HTMLElement) => {
+    btn.onclick = () => {
+      state.activeRevealEmpireStatsPopup = undefined;
       renderClientHud(deps);
     };
   });
