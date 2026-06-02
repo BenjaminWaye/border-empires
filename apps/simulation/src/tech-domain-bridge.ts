@@ -127,13 +127,26 @@ const reachableTechChoices = (ownedTechIds: string[]): string[] =>
     })
     .map((tech) => tech.id);
 
-const reachableDomainChoices = (ownedTechIds: string[], ownedDomainIds: string[]): string[] => {
+const nextDomainTier = (ownedDomainIds: string[]): number | undefined => {
   const chosenTierMax = domainTree.domains.reduce((maxTier, domain) => (
     ownedDomainIds.includes(domain.id) ? Math.max(maxTier, domain.tier) : maxTier
   ), 0);
   const targetTier = Math.min(5, chosenTierMax + 1);
   const pickedAtTargetTier = domainTree.domains.some((domain) => domain.tier === targetTier && ownedDomainIds.includes(domain.id));
-  if (pickedAtTargetTier) return [];
+  return pickedAtTargetTier ? undefined : targetTier;
+};
+
+const openDomainChoices = (ownedDomainIds: string[]): string[] => {
+  const targetTier = nextDomainTier(ownedDomainIds);
+  if (targetTier === undefined) return [];
+  return domainTree.domains
+    .filter((domain) => domain.tier === targetTier && !ownedDomainIds.includes(domain.id))
+    .map((domain) => domain.id);
+};
+
+const reachableDomainChoices = (ownedTechIds: string[], ownedDomainIds: string[]): string[] => {
+  const targetTier = nextDomainTier(ownedDomainIds);
+  if (targetTier === undefined) return [];
   return domainTree.domains
     .filter((domain) => domain.tier === targetTier && !ownedDomainIds.includes(domain.id) && ownedTechIds.includes(domain.requiresTechId))
     .map((domain) => domain.id);
@@ -473,8 +486,10 @@ export const chooseDomainForPlayer = (
   const domain = domainTree.domains.find((entry) => entry.id === domainId);
   if (!domain) return { ok: false, reason: "domain not found" };
   const ownedDomainIds = [...(player.domainIds ?? [])];
-  const choices = reachableDomainChoices([...player.techIds], ownedDomainIds);
-  if (!choices.includes(domainId)) return { ok: false, reason: "requirements not met" };
+  const openChoices = openDomainChoices(ownedDomainIds);
+  if (!openChoices.includes(domainId) || !player.techIds.has(domain.requiresTechId)) {
+    return { ok: false, reason: "requirements not met" };
+  }
   const available = player.strategicResources ?? {};
   const required = toResources(domain.cost);
   if (player.points < (domain.cost?.gold ?? 0) || !hasResources(required, available)) {
@@ -510,7 +525,8 @@ export const buildTechUpdatePayload = (
   const techIds = [...player.techIds];
   const domainIds = [...(player.domainIds ?? [])];
   const techChoices = reachableTechChoices(techIds);
-  const domainChoices = reachableDomainChoices(techIds, domainIds);
+  const domainChoices = openDomainChoices(domainIds);
+  const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds));
   const available = player.strategicResources ?? {};
   const strategicResources = {
     FOOD: available.FOOD ?? 0,
@@ -564,7 +580,7 @@ export const buildTechUpdatePayload = (
       requirements: {
         gold: domain.cost?.gold ?? 0,
         resources: toResources(domain.cost),
-        canResearch: domainChoices.includes(domain.id) && player.points >= (domain.cost?.gold ?? 0) && hasResources(toResources(domain.cost), available)
+        canResearch: reachableDomainChoiceSet.has(domain.id) && player.points >= (domain.cost?.gold ?? 0) && hasResources(toResources(domain.cost), available)
       }
     })),
     revealCapacity: 0,

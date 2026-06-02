@@ -8,6 +8,7 @@ import {
   DOMAIN_TREE_RELATIVE_CANDIDATES,
   TECH_TREE_PATH,
   TECH_TREE_RELATIVE_CANDIDATES,
+  buildGatewayInitPayload,
   resolveDataPath
 } from "./init-payload.js";
 
@@ -53,5 +54,34 @@ describe("gateway init progression sources", () => {
     });
 
     expect(resolved).toBe(EXPECTED_TECH_TREE_PATH);
+  });
+
+  it("keeps tier 2 domain choices open on init after a tier 1 domain is chosen", () => {
+    const initialState: NonNullable<Parameters<typeof buildGatewayInitPayload>[1]> = {
+      playerId: "player-1",
+      player: {
+        id: "player-1",
+        name: "Nauticus",
+        gold: 100_000,
+        manpower: 150,
+        manpowerCap: 150,
+        incomePerMinute: 0,
+        strategicResources: { FOOD: 10_000, IRON: 10_000, CRYSTAL: 10_000, SUPPLY: 10_000, SHARD: 10_000, OIL: 0 },
+        strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+        techIds: ["toolmaking"],
+        domainIds: ["frontier-doctrine"]
+      },
+      tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }]
+    };
+    const init = buildGatewayInitPayload(
+      { playerId: "player-1", playerName: "Nauticus" },
+      initialState,
+      "default"
+    );
+
+    expect(init.domainChoices).toEqual(expect.arrayContaining(["frontier-bureau", "stone-curtain"]));
+    expect(init.domainChoices).not.toContain("frontier-doctrine");
+    expect(init.domainCatalog.find((domain) => domain.id === "frontier-bureau")?.requirements.canResearch).toBe(false);
   });
 });
