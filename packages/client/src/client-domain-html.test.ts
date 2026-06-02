@@ -233,6 +233,34 @@ describe("domain card previews", () => {
     expect(html).toContain("Choosing Tier 1...");
     expect(html).toContain("Sending your domain choice to the server...");
   });
+
+  it("disables the detail action for an already chosen domain", () => {
+    const domain: DomainInfo = {
+      id: "sharding",
+      tier: 1,
+      name: "Sharding",
+      description: "Lets early expansion breathe.",
+      requiresTechId: "toolmaking",
+      mods: {},
+      requirements: {
+        gold: 6000,
+        resources: { FOOD: 120 },
+        canResearch: true,
+        checklist: [{ label: "Requires tech toolmaking", met: true }]
+      }
+    };
+
+    const html = renderDomainDetailCardHtml({
+      domain,
+      domainIds: ["sharding"],
+      chosenInTier: domain,
+      currentTier: 2,
+      requiresTechName: "Toolmaking"
+    });
+
+    expect(html).toContain(">Chosen</button>");
+    expect(html).toContain('data-domain-unlock="sharding" disabled');
+  });
 });
 
 describe("domainOwnedHtml — trickle suffix", () => {
