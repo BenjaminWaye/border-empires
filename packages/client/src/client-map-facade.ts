@@ -147,7 +147,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     toX: number,
     toY: number,
     nowMs: number,
-    options?: { compact?: boolean }
+    options?: { compact?: boolean; anchors?: boolean }
   ): void => drawAetherBridgeLaneOnCanvas(renderCtx, fromX, fromY, toX, toY, nowMs, options);
   const drawAetherWallSegment = (
     renderCtx: CanvasRenderingContext2D,
