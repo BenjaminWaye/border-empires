@@ -811,7 +811,7 @@ export const renderDomainDetailCardHtml = (args: {
     </div>
     <div class="tech-detail-actions">
       <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal domain-unlock-btn" data-domain-unlock="${domain.id}" ${
-        canUnlock || owned || pendingUnlock ? "" : "disabled"
+        canUnlock || pendingUnlock ? "" : "disabled"
       }>${buttonLabel}</button>
     </div>
   </article>`;

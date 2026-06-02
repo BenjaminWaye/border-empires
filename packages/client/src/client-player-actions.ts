@@ -145,6 +145,18 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
     deps.pushFeed("That domain is no longer available.", "tech", "warn");
     return;
   }
+  if (deps.state.domainIds.includes(domainId)) {
+    deps.pushFeed(`${domain.name} is already chosen.`, "tech", "warn");
+    return;
+  }
+  if (!deps.state.domainChoices.includes(domainId)) {
+    deps.pushFeed("That domain tier is not available right now.", "tech", "warn");
+    return;
+  }
+  if (!domain.requirements.canResearch) {
+    deps.pushFeed("Domain requirements are not met yet.", "tech", "warn");
+    return;
+  }
   // Some domains (e.g. Clockwork Stipend) require a sub-choice — the player
   // picks one resource that will trickle forever. The catalog effect carries
   // the offered { RESOURCE: ratePerMinute } map; if the option list is
