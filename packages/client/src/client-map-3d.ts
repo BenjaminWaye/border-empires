@@ -41,6 +41,10 @@ import { createForest } from "./client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
+import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
+import { createAetherBridgePylonOverlay } from "./client-map-3d-aether-bridge-pylon-overlay.js";
+import { createAetherLanceFxLayer } from "./client-map-3d-aether-lance-fx.js";
+import { createRetortRecastFxLayer } from "./client-map-3d-retort-recast-fx.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "./client-town-growth.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
@@ -85,6 +89,7 @@ type ClientThreeTerrainRendererDeps = {
 };
 
 const MAX_VISIBLE_TILES = 14000;
+const MAX_BRIDGE_PYLONS = 16;
 const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
@@ -122,6 +127,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
+  const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
+  const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
+  const aetherLanceFx = createAetherLanceFxLayer(scene);
+  const retortRecastFx = createRetortRecastFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
@@ -1005,6 +1014,71 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     );
     frontierClaimPlate.visible = true;
   };
+  const aetherBridgeTileSurfaceY = (wx: number, wy: number): number => {
+    const wxNext = deps.wrapX(wx + 1);
+    const wyNext = deps.wrapY(wy + 1);
+    return (
+      (heightfield.cornerYAt(wx, wy) +
+        heightfield.cornerYAt(wxNext, wy) +
+        heightfield.cornerYAt(wx, wyNext) +
+        heightfield.cornerYAt(wxNext, wyNext)) /
+      4
+    );
+  };
+  const syncAetherLanceFxQueue = (): void => {
+    while (deps.state.aetherLanceFxQueue.length > 0) {
+      const cast = deps.state.aetherLanceFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      aetherLanceFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
+      );
+    }
+  };
+  const syncRetortRecastFxQueue = (): void => {
+    while (deps.state.retortRecastFxQueue.length > 0) {
+      const cast = deps.state.retortRecastFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      retortRecastFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        cast.targetResource
+      );
+    }
+  };
+  const syncAetherBridgePylons = (nowMs: number): void => {
+    aetherBridgePylonOverlay.beginFrame();
+    const now = Date.now();
+    for (const bridge of deps.state.activeAetherBridges) {
+      if (bridge.endsAt <= now) continue;
+      const fromX = toroidDelta(deps.state.camX, bridge.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const fromZ = toroidDelta(deps.state.camY, bridge.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      const toX = toroidDelta(deps.state.camX, bridge.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const toZ = toroidDelta(deps.state.camY, bridge.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      // Rotate each pylon so its twin spires straddle the lane (the energy
+      // gate opens toward the far coast).
+      const faceAngle = Math.atan2(toX - fromX, toZ - fromZ);
+      aetherBridgePylonOverlay.place(
+        fromX,
+        aetherBridgeTileSurfaceY(bridge.from.x, bridge.from.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        fromZ,
+        faceAngle,
+        nowMs
+      );
+      aetherBridgePylonOverlay.place(
+        toX,
+        aetherBridgeTileSurfaceY(bridge.to.x, bridge.to.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        toZ,
+        faceAngle + Math.PI,
+        nowMs
+      );
+    }
+    aetherBridgePylonOverlay.endFrame();
+  };
   const writeObservatoryRangeGeometry = (
     lineMarker: LineSegments,
     fillMesh: Mesh,
@@ -1129,6 +1203,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       wrapY: deps.wrapY
     });
     unfedBadgeOverlay.clear();
+    observatoryCooldownBadgeOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
@@ -1342,6 +1417,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // status differentiation can come later.
         if (tile?.observatory && terrain === "LAND") {
           structureOverlay.addInstance(x, z, surfaceY, "OBSERVATORY");
+          // Float a "recharging" badge over our own active observatory
+          // while its crystal-casting cooldown is still running, so the
+          // map shows at a glance why a cast just did nothing. Exact
+          // remaining time is in the tile-menu overview.
+          if (
+            ownerId === deps.state.me &&
+            tile.observatory.status === "active" &&
+            (tile.observatory.cooldownUntil ?? 0) > Date.now()
+          ) {
+            observatoryCooldownBadgeOverlay.addInstance(x, z, surfaceY);
+          }
         }
         // ?structuredemo=1: drop each structure kind on a fake row two
         // tiles north of the camera. Only fires when the URL flag is
@@ -1444,6 +1530,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.commit();
     roadOverlay.commit();
     unfedBadgeOverlay.commit();
+    observatoryCooldownBadgeOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -1489,12 +1576,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncFrontierClaimPlate();
     syncObservatoryRangeMarkers();
     syncSweepRangeMarker();
+    syncAetherBridgePylons(nowMs);
+    syncAetherLanceFxQueue();
+    syncRetortRecastFxQueue();
     villageEffects.update(nowMs);
+    aetherLanceFx.update(nowMs);
+    retortRecastFx.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
     unfedBadgeOverlay.tick(nowMs);
+    observatoryCooldownBadgeOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -1591,6 +1684,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.dispose();
     roadOverlay.dispose();
     unfedBadgeOverlay.dispose();
+    observatoryCooldownBadgeOverlay.dispose();
+    aetherBridgePylonOverlay.dispose();
+    aetherLanceFx.dispose();
+    retortRecastFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     fortOverlay.dispose();

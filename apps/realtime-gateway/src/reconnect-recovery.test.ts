@@ -33,6 +33,7 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "UNCAPTURE_TILE":
     case "COLLECT_TILE":
     case "OVERLOAD_SYNTHESIZER":
+    case "AETHER_LANCE":
     case "SIPHON_TILE":
     case "PURGE_SIPHON":
     case "CREATE_MOUNTAIN":
