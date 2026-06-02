@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.6",
+  version: "2026.06.02.1",
   title: "What's New",
-  summary: "Attack-rejection errors now show as popups instead of only appearing in the activity log. Retort Transmutation and Aether Lance now have one-shot 3D cast feedback, alongside the Aether Bridge pylon and observatory cooldown improvements.",
+  summary: "Shared support tiles resolve to one town. Attack-rejection errors now show as popups. Retort Transmutation and Aether Lance now have one-shot 3D cast feedback.",
   entries: [
+    {
+      introducedIn: "2026.06.02.1",
+      title: "Shared support tiles can build again",
+      why: "Support tiles that touched multiple towns were blocked with 'Support tile touches multiple towns' even when the player owned the land. The block avoided double-counting support effects, but it made valid settled support tiles unusable.",
+      changes: [
+        "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
+        "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
+      ]
+    },
     {
       introducedIn: "2026.06.01.6",
       title: "Attack rejections now surface as popups",
@@ -65,15 +74,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "A floating hourglass badge now hovers over your own active observatory while its crystal-casting cooldown is running.",
         "The tile overview for an active observatory now shows a live \"Crystal casting recharging — ready in MM:SS\" countdown."
-      ]
-    },
-    {
-      introducedIn: "2026.06.01.2",
-      title: "Shared support tiles can build again",
-      why: "Support tiles that touched multiple towns were blocked with 'Support tile touches multiple towns' even when the player owned the land. The block avoided double-counting support effects, but it made valid settled support tiles unusable.",
-      changes: [
-        "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
-        "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
       ]
     },
     {
