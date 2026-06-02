@@ -259,7 +259,7 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
   },
   aether_lance: {
     id: "aether_lance",
-    name: "Aether Lance",
+    name: "Aether Purge",
     requiredTechIds: ["signal-fires"],
     crystalCost: AETHER_LANCE_CRYSTAL_COST,
     cooldownMs: AETHER_LANCE_COOLDOWN_MS
