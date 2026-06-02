@@ -324,7 +324,7 @@ export type SimulationEvent =
        *  either progress below threshold or population cap blocking. */
       eventType: "BARB_ATE_TILE";
       commandId: string;
-      playerId: "barbarian-1";
+      playerId: string;
       originKey: string;
       targetKey: string;
       eatenOwnerId: string;
@@ -339,7 +339,7 @@ export type SimulationEvent =
       /** Barbarian multiplied: origin tile kept, target tile also kept, net +1. */
       eventType: "BARB_MULTIPLIED";
       commandId: string;
-      playerId: "barbarian-1";
+      playerId: string;
       originKey: string;
       targetKey: string;
       eatenOwnerId: string | null;
