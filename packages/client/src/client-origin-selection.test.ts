@@ -75,4 +75,60 @@ describe("createClientOriginSelection", () => {
 
     expect(selector.pickOriginForTarget(20, 20)).toMatchObject({ x: 21, y: 20 });
   });
+
+  it("picks a bridge origin when target is a bridged tile", () => {
+    const { state, selector } = createSelector();
+    addTile(state, { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+    addTile(state, { x: 0, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" });
+    addTile(state, { x: 0, y: 8, terrain: "LAND" });
+    state.activeAetherBridges = [
+      {
+        bridgeId: "br-1",
+        ownerId: "me",
+        from: { x: 0, y: 0 },
+        to: { x: 0, y: 8 },
+        startedAt: Date.now(),
+        endsAt: Date.now() + 1_000_000
+      }
+    ];
+
+    expect(selector.pickOriginForTarget(0, 8)).toMatchObject({ x: 0, y: 0 });
+  });
+
+  it("returns undefined for bridged target after bridge expires", () => {
+    const { state, selector } = createSelector();
+    addTile(state, { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+    addTile(state, { x: 0, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" });
+    addTile(state, { x: 0, y: 8, terrain: "LAND" });
+    state.activeAetherBridges = [
+      {
+        bridgeId: "br-1",
+        ownerId: "me",
+        from: { x: 0, y: 0 },
+        to: { x: 0, y: 8 },
+        startedAt: Date.now() - 2_000,
+        endsAt: Date.now() - 1 // already expired
+      }
+    ];
+
+    expect(selector.pickOriginForTarget(0, 8)).toBeUndefined();
+  });
+
+  it("ignores bridges owned by another player", () => {
+    const { state, selector } = createSelector();
+    addTile(state, { x: 0, y: 0, terrain: "LAND", ownerId: "other", ownershipState: "SETTLED" });
+    addTile(state, { x: 0, y: 8, terrain: "LAND" });
+    state.activeAetherBridges = [
+      {
+        bridgeId: "br-1",
+        ownerId: "other",
+        from: { x: 0, y: 0 },
+        to: { x: 0, y: 8 },
+        startedAt: Date.now(),
+        endsAt: Date.now() + 1_000_000
+      }
+    ];
+
+    expect(selector.pickOriginForTarget(0, 8)).toBeUndefined();
+  });
 });

@@ -157,6 +157,24 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     return pickBestOrigin(candidates);
   };
 
+  const pickAetherBridgeOriginForTarget = (
+    tx: number,
+    ty: number,
+    allowOptimisticExpandOrigin = true
+  ): Tile | undefined => {
+    const now = Date.now();
+    const candidates: Tile[] = [];
+    for (const bridge of state.activeAetherBridges) {
+      if (bridge.ownerId !== state.me || bridge.endsAt <= now) continue;
+      if (bridge.to.x !== tx || bridge.to.y !== ty) continue;
+      const origin = state.tiles.get(keyFor(bridge.from.x, bridge.from.y));
+      if (!origin || origin.ownerId !== state.me || origin.fogged) continue;
+      if (!allowOptimisticExpandOrigin && origin.optimisticPending === "expand") continue;
+      candidates.push(origin);
+    }
+    return pickBestOrigin(candidates);
+  };
+
   const pickOriginForTarget = (
     tx: number,
     ty: number,
@@ -177,7 +195,9 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
       candidates.filter((t) => t.ownerId === state.me && (allowOptimisticExpandOrigin || t.optimisticPending !== "expand"))
     );
     if (adjacent) return adjacent;
-    return pickDockOriginForTarget(tx, ty, allowAdjacentToDock, allowOptimisticExpandOrigin);
+    const dockOrigin = pickDockOriginForTarget(tx, ty, allowAdjacentToDock, allowOptimisticExpandOrigin);
+    if (dockOrigin) return dockOrigin;
+    return pickAetherBridgeOriginForTarget(tx, ty, allowOptimisticExpandOrigin);
   };
 
   const startingExpansionArrowTargets = (): Array<{ x: number; y: number; dx: number; dy: number }> => {
@@ -225,6 +245,7 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     isAdjacentCardinal,
     dockDestinationsFor,
     pickDockOriginForTarget,
+    pickAetherBridgeOriginForTarget,
     pickOriginForTarget,
     startingExpansionArrowTargets
   };
