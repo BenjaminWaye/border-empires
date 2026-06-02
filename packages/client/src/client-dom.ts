@@ -152,12 +152,12 @@ const hudMarkup = `
           <div class="auth-color-block">
             <div class="auth-color-label">Nation color</div>
             <div id="auth-color-presets" class="auth-color-presets">
-              <button type="button" class="auth-color-swatch" data-color="#38b000" style="--swatch:#38b000"></button>
-              <button type="button" class="auth-color-swatch" data-color="#f59e0b" style="--swatch:#f59e0b"></button>
-              <button type="button" class="auth-color-swatch" data-color="#3b82f6" style="--swatch:#3b82f6"></button>
-              <button type="button" class="auth-color-swatch" data-color="#ef4444" style="--swatch:#ef4444"></button>
-              <button type="button" class="auth-color-swatch" data-color="#8b5cf6" style="--swatch:#8b5cf6"></button>
-              <button type="button" class="auth-color-swatch" data-color="#ec4899" style="--swatch:#ec4899"></button>
+              <button type="button" class="auth-color-swatch"></button>
+              <button type="button" class="auth-color-swatch"></button>
+              <button type="button" class="auth-color-swatch"></button>
+              <button type="button" class="auth-color-swatch"></button>
+              <button type="button" class="auth-color-swatch"></button>
+              <button type="button" class="auth-color-swatch"></button>
             </div>
             <label class="auth-color-custom">
               <span>Custom</span>

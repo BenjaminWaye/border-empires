@@ -9,6 +9,7 @@ export type PlayerProfileOverrides = {
   upsert: (playerId: string, override: PlayerProfileOverride) => PlayerProfileOverride;
   setTileColor: (playerId: string, tileColor: string) => PlayerProfileOverride;
   setProfile: (playerId: string, name: string, tileColor: string) => PlayerProfileOverride;
+  entries: () => IterableIterator<[string, PlayerProfileOverride]>;
 };
 
 export const createPlayerProfileOverrides = (): PlayerProfileOverrides => {
@@ -44,6 +45,9 @@ export const createPlayerProfileOverrides = (): PlayerProfileOverrides => {
       override.tileColor = tileColor;
       override.profileComplete = true;
       return override;
+    },
+    entries() {
+      return overridesByPlayerId.entries();
     }
   };
 };

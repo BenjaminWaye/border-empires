@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.5",
+  version: "2026.06.02.6",
   title: "What's New",
-  summary: "Aether Bridge: can now expand/attack onto the bridged tile.",
+  summary: "Each empire's colour is now unique. Barbarian tiles always render grey. Aether Bridge crossing works for expand and attack.",
   entries: [
+    {
+      introducedIn: "2026.06.02.6",
+      title: "Unique empire colours + barbarian always grey",
+      why: "Players who picked red collided with barbarian tiles (owner id `barbarian-1` missed the `barbarian` grey guard). All 100 palette colours are now curated and server-enforced unique per empire; the 6 suggested swatches are always free; AI empires reserve distinct colours at startup.",
+      changes: [
+        "Each empire's colour is unique — the gateway rejects duplicates and suggests a nearby-but-distinct alternative.",
+        "Barbarian tiles always render grey (#2f3842) in both 2D and 3D regardless of owner id variant.",
+        "Suggested colour swatches in the profile picker are always free (no other empire holds them).",
+        "AI empires (ai-1..ai-20) are seeded with unique, stable colours from the curated 100-colour palette.",
+      ],
+    },
     {
       introducedIn: "2026.06.02.5",
       title: "Aether Bridge crossing now works for expand and attack",
