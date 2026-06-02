@@ -13,7 +13,7 @@ export const setAuthStatus = (
 };
 
 export const syncAuthPanelState = (
-  state: Pick<ClientState, "profileSetupRequired">,
+  state: Pick<ClientState, "profileSetupRequired" | "suggestedColors">,
   deps: {
     authEmailLinkSentTo: string;
     authPanelEl: HTMLElement;
@@ -24,6 +24,16 @@ export const syncAuthPanelState = (
 ): void => {
   deps.authPanelEl.dataset.mode = state.profileSetupRequired ? "setup" : deps.authEmailLinkSentTo ? "sent" : "login";
   deps.authEmailSentAddressEl.textContent = deps.authEmailLinkSentTo;
+  // Phase 9: populate swatch buttons from server-suggested colours
+  if (state.suggestedColors.length) {
+    deps.authColorPresetButtons.forEach((btn, i) => {
+      const c = state.suggestedColors[i];
+      if (c) {
+        btn.dataset.color = c;
+        btn.style.setProperty("--swatch", c);
+      }
+    });
+  }
   const activeColor = deps.authProfileColorEl.value.toLowerCase();
   deps.authColorPresetButtons.forEach((btn) => {
     btn.dataset.selected = btn.dataset.color?.toLowerCase() === activeColor ? "true" : "false";

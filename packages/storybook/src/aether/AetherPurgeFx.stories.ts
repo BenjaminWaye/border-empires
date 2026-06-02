@@ -6,7 +6,7 @@ import {
   MeshStandardMaterial,
   PlaneGeometry
 } from "three";
-import { createAetherLanceFxLayer } from "@client/client-map-3d-aether-lance-fx.js";
+import { createAetherPurgeFxLayer } from "@client/client-map-3d-aether-purge-fx.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
@@ -16,7 +16,7 @@ type Args = {
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#0b1620" });
-  const fx = createAetherLanceFxLayer(stage.scene);
+  const fx = createAetherPurgeFxLayer(stage.scene);
 
   const tile = new Mesh(
     new PlaneGeometry(1, 1),
@@ -88,7 +88,7 @@ const render = (args: Args): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Aether Abilities/Aether Lance FX (3D)",
+  title: "Aether Abilities/Aether Purge FX (3D)",
   argTypes: {
     cameraDistance: { control: { type: "range", min: 2, max: 12, step: 0.5 } },
     autoReplay: { control: "boolean" }

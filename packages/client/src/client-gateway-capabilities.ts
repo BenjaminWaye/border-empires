@@ -12,7 +12,7 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
   CANCEL_STRUCTURE_BUILD: "Build cancellation",
   CAST_AETHER_BRIDGE: "Aether Bridge",
   CAST_AETHER_WALL: "Aether Wall",
-  AETHER_LANCE: "Aether Lance",
+  AETHER_LANCE: "Aether Purge",
   CHOOSE_DOMAIN: "Domain choices",
   CHOOSE_TECH: "Technology unlocks",
   COLLECT_SHARD: "Shard collection",

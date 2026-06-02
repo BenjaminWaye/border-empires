@@ -1296,6 +1296,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.playerColors.set(state.me, myTileColor);
         authProfileColorEl.value = myTileColor;
       }
+      if (Array.isArray(player.suggestedColors)) state.suggestedColors = player.suggestedColors as string[];
       const myVisualStyle = player.visualStyle as any;
       if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
       seedProfileSetupFields((player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value);
@@ -1611,6 +1612,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.playerColors.set(state.me, myTileColor);
         authProfileColorEl.value = myTileColor;
       }
+      if (Array.isArray(msg.suggestedColors)) state.suggestedColors = msg.suggestedColors as string[];
       const myVisualStyle = msg.visualStyle as any;
       if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
       syncAuthOverlay();
@@ -2620,6 +2622,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
+      }
+      if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
+        authProfileColorEl.value = state.playerColors.get(state.me) ?? authProfileColorEl.value;
+        const suggestion = typeof (msg as any).suggestion === "string" ? (msg as any).suggestion : undefined;
+        setAuthStatus(
+          `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`,
+          "error"
+        );
+        syncAuthOverlay();
+        return;
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
       const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
