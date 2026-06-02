@@ -21,10 +21,9 @@
     "resourceTypes": ["FARM", "FISH"]
   },
   "WATERWORKS": {
-    "showOn": ["resource"],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
-    "sortGroup": "resource",
-    "resourceTypes": ["FARM", "FISH"]
+    "sortGroup": "support"
   },
   "CAMP": {
     "showOn": ["resource"],
