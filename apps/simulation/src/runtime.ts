@@ -50,8 +50,10 @@ import {
   bestSiegeTierForTech,
   nextSiegeTierForUpgrade,
   isChosenTrickleResource,
+  STRUCTURE_REGISTRY,
   type BuildableStructureType,
-  type EconomicStructureType
+  type EconomicStructureType,
+  type StructureSpec
 } from "@border-empires/shared";
 import {
   AETHER_BRIDGE_COOLDOWN_MS,
@@ -216,6 +218,7 @@ import {
   parseAetherWallPayload,
   parseAirportBombardPayload,
   parseAllianceSyncPayload,
+  parseBuildStructurePayload,
   parseConverterTogglePayload,
   parseEconomicStructurePayload,
   parseFrontierPayload,
@@ -6124,6 +6127,272 @@ export class SimulationRuntime {
     }
   }
 
+  // ── Unified build handler (Phase 2) ──────────────────────────────
+
+  private normalizeLegacyBuildCommand(command: CommandEnvelope): CommandEnvelope {
+    const payload = JSON.parse(command.payloadJson) as Record<string, unknown>;
+    let structureType: string;
+    if (command.type === "BUILD_FORT") structureType = "FORT";
+    else if (command.type === "BUILD_OBSERVATORY") structureType = "OBSERVATORY";
+    else if (command.type === "BUILD_SIEGE_OUTPOST") structureType = "SIEGE_OUTPOST";
+    else if (command.type === "BUILD_ECONOMIC_STRUCTURE") structureType = payload.structureType as string;
+    else structureType = command.type;
+    return {
+      ...command,
+      type: "BUILD_STRUCTURE",
+      payloadJson: JSON.stringify({ x: payload.x, y: payload.y, structureType })
+    } as unknown as CommandEnvelope;
+  }
+
+  private handleBuildStructureCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseBuildStructurePayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BAD_COMMAND", message: "invalid command payload" });
+      return;
+    }
+    const spec = STRUCTURE_REGISTRY[payload.structureType];
+    if (!spec) {
+      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "UNKNOWN_STRUCTURE", message: `unknown structure type: ${payload.structureType}` });
+      return;
+    }
+    this.applyManpowerRegen(actor);
+
+    let target = this.tiles.get(simulationTileKey(payload.x, payload.y));
+    if (!target) {
+      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "UNKNOWN_TILE", message: "tile not found" });
+      return;
+    }
+
+    // Tech gates
+    for (const techId of spec.techIds) {
+      if (!actor.techIds.has(techId)) {
+        this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `unlock ${payload.structureType.toLowerCase().replaceAll("_", " ")} first` });
+        return;
+      }
+    }
+
+    const hasTech = (id: string) => actor.techIds.has(id);
+
+    // Town-support resolution
+    if (spec.kind === "ECONOMIC") {
+      const placement = structurePlacementMetadata(payload.structureType as any);
+      const placementMode = placement?.placementMode;
+      if (placementMode === "town_support" && target.town) {
+        if (target.town.populationTier === "SETTLEMENT") {
+          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "settlements cannot support economic structures — grow this town first" });
+          return;
+        }
+        if (this.economicStructureForSupportedTown(command.playerId, simulationTileKey(target.x, target.y), payload.structureType as EconomicStructureType)) {
+          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `town already has ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
+          return;
+        }
+        const supportTarget = this.firstAvailableTownSupportTile(command.playerId, simulationTileKey(target.x, target.y), payload.structureType as EconomicStructureType);
+        if (!supportTarget) {
+          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `${payload.structureType.toLowerCase().replaceAll("_", " ")} needs an open support tile next to this town` });
+          return;
+        }
+        target = supportTarget;
+      } else if (placementMode === "town_support" && !target.town) {
+        // Target is a support tile — check for duplicates via the assigned town
+        const supportedTownKey = this.assignedTownKeyForSupportTile(command.playerId, target.x, target.y);
+        if (supportedTownKey && this.economicStructureForSupportedTown(command.playerId, supportedTownKey, payload.structureType as EconomicStructureType)) {
+          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `town already has ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
+          return;
+        }
+      }
+    }
+
+    // Placement
+    if (target.terrain !== "LAND") {
+      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "structure requires land tile" });
+      return;
+    }
+    if (!structureShowsOnTile(payload.structureType as any, { ownershipState: target.ownershipState, resource: target.resource, dockId: target.dockId, townPopulationTier: target.town?.populationTier, supportedTownCount: this.supportedTownKeysForTile(command.playerId, target.x, target.y).length, supportedDockCount: this.supportedDockKeysForTile(command.playerId, target.x, target.y).length })) {
+      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `${payload.structureType.toLowerCase().replaceAll("_", " ")} cannot be built on this tile` });
+      return;
+    }
+    if (target.ownerId !== command.playerId) {
+      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "tile must be owned" });
+      return;
+    }
+    // SETTLED required for all except siege outposts (not LIGHT_OUTPOST)
+    if (spec.kind !== "OUTPOST" || payload.structureType === "LIGHT_OUTPOST") {
+      if (target.ownershipState !== "SETTLED") {
+        this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "tile must be settled" });
+        return;
+      }
+    }
+
+    // Upgrade detection
+    let upgrading = false;
+    if (spec.kind === "FORT") {
+      upgrading = target.economicStructure?.ownerId === command.playerId && target.economicStructure.type === "WOODEN_FORT" && (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
+    }
+    if (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST") {
+      upgrading = target.economicStructure?.ownerId === command.playerId && target.economicStructure.type === "LIGHT_OUTPOST" && (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
+    }
+    if (spec.kind === "ECONOMIC") {
+      const base = payload.structureType === "ADVANCED_FUR_SYNTHESIZER" ? "FUR_SYNTHESIZER" : payload.structureType === "ADVANCED_IRONWORKS" ? "IRONWORKS" : payload.structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? "CRYSTAL_SYNTHESIZER" : payload.structureType === "SEED_GRANARY" ? "GRANARY" : undefined;
+      upgrading = !!base && target.economicStructure?.ownerId === command.playerId && target.economicStructure.type === base && (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
+    }
+    // Allow upgrading existing same-family structure; block others
+    const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) || (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST" && target.siegeOutpost?.ownerId === command.playerId);
+    if (!upgrading && !sameFamilyUpgrade && (target.fort || target.observatory || target.siegeOutpost || target.economicStructure)) {
+      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "tile already has structure" });
+      return;
+    }
+
+    // Tier upgrade checks
+    if (spec.kind === "FORT" && target.fort) {
+      const tier = nextFortTierForUpgrade(target.fort.variant, hasTech);
+      if (!tier) {
+        this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: target.fort.variant === "THUNDER_BASTION" ? "fort already at maximum tier" : "research the next tier first" });
+        return;
+      }
+    }
+    if (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST" && target.siegeOutpost) {
+      const tier = nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech);
+      if (!tier) {
+        this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: target.siegeOutpost.variant === "DREAD_TOWER" ? "siege outpost already at maximum tier" : "research the next tier first" });
+        return;
+      }
+    }
+
+    if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
+
+    // Cost (forts and outposts use tier-ladder costs for upgrades)
+    let goldCost: number;
+    let manpowerCost: number;
+    let strategicCost: Record<string, number> | undefined;
+
+    if (spec.kind === "FORT") {
+      const fortTier = target.fort
+        ? nextFortTierForUpgrade(target.fort.variant, hasTech)!
+        : bestFortTierForTech(hasTech);
+      const mult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
+      goldCost = Math.max(0, Math.round(fortTier.gold * mult));
+      manpowerCost = fortTier.manpower;
+      strategicCost = { IRON: fortTier.iron };
+    } else if (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST") {
+      const siegeTier = target.siegeOutpost
+        ? nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)!
+        : bestSiegeTierForTech(hasTech);
+      goldCost = siegeTier.gold;
+      manpowerCost = siegeTier.manpower;
+      strategicCost = { SUPPLY: siegeTier.supply };
+      if (siegeTier.iron > 0) strategicCost.IRON = siegeTier.iron;
+    } else {
+      goldCost = structureBuildGoldCost(payload.structureType as BuildableStructureType, this.ownedStructureCountForPlayer(command.playerId, payload.structureType as BuildableStructureType));
+      manpowerCost = structureBuildManpowerCost(payload.structureType as BuildableStructureType);
+    }
+    if (actor.points < goldCost) {
+      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "INSUFFICIENT_GOLD", message: `insufficient gold for ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
+      return;
+    }
+    if (actor.manpower < manpowerCost) {
+      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerCost.toFixed(0)} manpower for ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
+      return;
+    }
+
+    // Strategic resource
+    if (!strategicCost) {
+      const strategicDef = structureCostDefinition(payload.structureType as BuildableStructureType);
+      strategicCost = spec.cost.strategic as Record<string, number> | undefined
+        ?? (strategicDef?.resourceCost ? { [strategicDef.resourceCost.resource]: strategicDef.resourceCost.amount } : undefined);
+    }
+    if (strategicCost) {
+      const orderedKeys = Object.keys(strategicCost).sort();
+      for (const res of orderedKeys) {
+        const amount = strategicCost[res]!;
+        if (amount > 0 && !this.spendStrategicResource(actor, res as any, amount)) {
+          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `insufficient ${res} for ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
+          return;
+        }
+      }
+    }
+
+    actor.points -= goldCost;
+    actor.manpower = Math.max(0, actor.manpower - manpowerCost);
+
+    // Build speed
+    let buildMs: number;
+    if (spec.kind === "FORT") {
+      const mult = multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult");
+      buildMs = Math.max(1, Math.round(spec.buildMs / mult));
+    } else if (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST") {
+      const mult = multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult");
+      buildMs = Math.max(1, Math.round(spec.buildMs / mult));
+    } else {
+      buildMs = spec.buildMs;
+    }
+    const completesAt = this.now() + buildMs;
+    const targetKey = simulationTileKey(target.x, target.y);
+
+    // Write under-construction state
+    const isSiegeFamily = spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST";
+    const isEcoStruct = spec.kind === "ECONOMIC" || payload.structureType === "LIGHT_OUTPOST";
+
+    // Resolve target variant (fort and siege tier-upgrade)
+    let resolvedVariant: string | undefined;
+    if (spec.kind === "FORT") {
+      if (target.fort) {
+        const tier = nextFortTierForUpgrade(target.fort.variant, hasTech);
+        resolvedVariant = tier?.variant;
+      } else {
+        resolvedVariant = bestFortTierForTech(hasTech).variant;
+      }
+    } else if (isSiegeFamily) {
+      if (target.siegeOutpost) {
+        const tier = nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech);
+        resolvedVariant = tier?.variant;
+      } else {
+        resolvedVariant = bestSiegeTierForTech(hasTech).variant;
+      }
+    }
+
+    const startedTile: DomainTileState = {
+      ...target,
+      [spec.tileField]: {
+        ownerId: command.playerId,
+        status: "under_construction" as const,
+        ...(resolvedVariant ? { variant: resolvedVariant } : {}),
+        ...(isEcoStruct ? { type: payload.structureType } : {}),
+        completesAt
+      }
+    } as unknown as DomainTileState;
+
+    this.replaceTileState(targetKey, startedTile);
+    this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [this.tileDeltaFromState(startedTile)] });
+    this.emitPlayerStateUpdate(command);
+    this.scheduleAfter(buildMs, () => { this.completeStructureBuild(targetKey, command.playerId, payload.structureType, command.commandId); });
+  }
+
+  private completeStructureBuild(targetKey: string, ownerId: string, structureType: string, commandId: string): void {
+    const spec = STRUCTURE_REGISTRY[structureType];
+    if (!spec) return;
+    const latest = this.tiles.get(targetKey);
+    if (!latest || latest.ownerId !== ownerId) return;
+    const structure = latest[spec.tileField] as Record<string, unknown> | undefined;
+    if (!structure || structure.ownerId !== ownerId || structure.status !== "under_construction") return;
+    if (spec.tileField === "economicStructure" && structure.type !== structureType) return;
+
+    const { completesAt: _, ...activeStructure } = structure;
+    const sweepInit = (spec.kind === "OUTPOST" || structureType === "LIGHT_OUTPOST")
+      ? { sweepBudget: SWEEP_BUDGET_CAP, sweepActive: false as const, sweepBudgetUpdatedAt: this.now() }
+      : {};
+
+    const completedTile: DomainTileState = {
+      ...latest,
+      ...(spec.tileField === "fort" ? { economicStructure: undefined } : {}),
+      [spec.tileField]: { ...activeStructure, status: "active", ...sweepInit }
+    } as unknown as DomainTileState;
+
+    this.replaceTileState(targetKey, completedTile);
+    this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [this.tileDeltaFromState(completedTile)] });
+    this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
+  }
+
   private handleBuildFortCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseStructureTilePayload(command.payloadJson);
@@ -8177,28 +8446,24 @@ export class SimulationRuntime {
         return;
       }
 
-      if (command.type === "BUILD_FORT") {
-        this.handleBuildFortCommand(command);
+      if ((command.type as string) === "BUILD_STRUCTURE") {
+        this.handleBuildStructureCommand(command);
         return;
       }
 
-      if (command.type === "BUILD_OBSERVATORY") {
-        this.handleBuildObservatoryCommand(command);
-        return;
-      }
-
-      if (command.type === "BUILD_SIEGE_OUTPOST") {
-        this.handleBuildSiegeOutpostCommand(command);
+      // Legacy aliases — keep for one release window
+      if (
+        command.type === "BUILD_FORT" ||
+        command.type === "BUILD_OBSERVATORY" ||
+        command.type === "BUILD_SIEGE_OUTPOST" ||
+        command.type === "BUILD_ECONOMIC_STRUCTURE"
+      ) {
+        this.handleBuildStructureCommand(this.normalizeLegacyBuildCommand(command));
         return;
       }
 
       if (command.type === "SET_SIEGE_OUTPOST_SWEEP") {
         this.handleSetSiegeOutpostSweepCommand(command);
-        return;
-      }
-
-      if (command.type === "BUILD_ECONOMIC_STRUCTURE") {
-        this.handleBuildEconomicStructureCommand(command);
         return;
       }
 
