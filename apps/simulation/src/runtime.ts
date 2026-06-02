@@ -3381,6 +3381,7 @@ export class SimulationRuntime {
         ? submittedFrom
         : this.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND") ??
           this.findOwnedDockOriginForCrossing(actor.id, to.x, to.y) ??
+          this.findOwnedAetherBridgeOriginForCrossing(actor.id, to.x, to.y) ??
           submittedFrom;
 
     const originLock = this.locksByTile.get(simulationTileKey(from.x, from.y));
@@ -3441,7 +3442,7 @@ export class SimulationRuntime {
       actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
       isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
       isDockCrossing,
-      isBridgeCrossing: false,
+      isBridgeCrossing: this.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
       targetShielded: isDockCrossing ? false : this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
       defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId)),
       expandClaimDurationMs
@@ -6010,10 +6011,41 @@ export class SimulationRuntime {
     return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey);
   }
 
+  private isAetherBridgeCrossingTarget(
+    playerId: string,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number
+  ): boolean {
+    for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
+      if (
+        bridge.from.x === fromX &&
+        bridge.from.y === fromY &&
+        bridge.to.x === toX &&
+        bridge.to.y === toY
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
     for (const tile of this.tiles.values()) {
       if (tile.ownerId !== playerId || tile.terrain !== "LAND" || !tile.dockId) continue;
       if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
+    }
+    return undefined;
+  }
+
+  private findOwnedAetherBridgeOriginForCrossing(
+    playerId: string, toX: number, toY: number
+  ): DomainTileState | undefined {
+    for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
+      if (bridge.to.x !== toX || bridge.to.y !== toY) continue;
+      const origin = this.tiles.get(simulationTileKey(bridge.from.x, bridge.from.y));
+      if (origin?.ownerId === playerId) return origin;
     }
     return undefined;
   }
