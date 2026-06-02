@@ -15,6 +15,8 @@ import {
   FOUNDRY_OUTPUT_MULT,
   FOUNDRY_RADIUS,
   FOUNDRY_GOLD_UPKEEP,
+  WATERWORKS_OUTPUT_MULT,
+  WATERWORKS_RADIUS,
   GARRISON_HALL_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
@@ -221,6 +223,7 @@ const economicStructureOutputMultAt = (
     structure.type === "CRYSTAL_SYNTHESIZER" ||
     structure.type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
     structure.type === "FOUNDRY" ||
+    structure.type === "WATERWORKS" ||
     structure.type === "GOVERNORS_OFFICE" ||
     structure.type === "RADAR_SYSTEM"
   ) {
@@ -236,6 +239,20 @@ const economicStructureOutputMultAt = (
         if (!candidateCoords) continue;
         if (chebyshevDistance(origin, candidateCoords) <= FOUNDRY_RADIUS) {
           multiplier *= FOUNDRY_OUTPUT_MULT;
+          break;
+        }
+      }
+    }
+  }
+  if (structure.type === "FARMSTEAD") {
+    const origin = parseTileKey(tileKey);
+    if (origin) {
+      for (const [candidateTileKey, candidate] of structuresByTile) {
+        if (candidate.ownerId !== ownerId || candidate.status !== "active" || candidate.type !== "WATERWORKS") continue;
+        const candidateCoords = parseTileKey(candidateTileKey);
+        if (!candidateCoords) continue;
+        if (chebyshevDistance(origin, candidateCoords) <= WATERWORKS_RADIUS) {
+          multiplier *= WATERWORKS_OUTPUT_MULT;
           break;
         }
       }
