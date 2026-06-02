@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.3",
+  version: "2026.06.02.4",
   title: "What's New",
-  summary: "Reveal Empire Stats now opens an intel dossier popup and gets 3D cast feedback. Domain progression now opens the next tier correctly after your previous tier choice.",
+  summary: "Domain choice buttons now block already-chosen or unavailable picks before they hit the server. Reveal Empire Stats now opens an intel dossier popup and gets 3D cast feedback.",
   entries: [
+    {
+      introducedIn: "2026.06.02.4",
+      title: "Domain picks no longer send stale mobile taps",
+      why: "On mobile, an already-chosen domain detail could still expose a tappable action, sending a duplicate domain pick that the server rejected as requirements not met.",
+      changes: [
+        "Already-chosen domain detail actions are disabled instead of sending another CHOOSE_DOMAIN command.",
+        "The client now blocks owned, unavailable-tier, and unmet-requirement domain picks locally with a clear activity message before they reach the server."
+      ]
+    },
     {
       introducedIn: "2026.06.02.3",
       title: "Reveal Empire Stats now opens an intel dossier",
