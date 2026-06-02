@@ -318,6 +318,36 @@ export type SimulationEvent =
       playerId: string;
       messageType: string;
       payloadJson: string;
+    }
+  | {
+      /** Barbarian ate a non-barb player tile (gain > 0) but did not multiply —
+       *  either progress below threshold or population cap blocking. */
+      eventType: "BARB_ATE_TILE";
+      commandId: string;
+      playerId: string;
+      originKey: string;
+      targetKey: string;
+      eatenOwnerId: string;
+      eatenResource: string | null;
+      eatenHasTown: boolean;
+      gain: number;
+      sourceProgress: number;
+      newProgress: number;
+      capBlocked: boolean;
+    }
+  | {
+      /** Barbarian multiplied: origin tile kept, target tile also kept, net +1. */
+      eventType: "BARB_MULTIPLIED";
+      commandId: string;
+      playerId: string;
+      originKey: string;
+      targetKey: string;
+      eatenOwnerId: string | null;
+      eatenResource: string | null;
+      eatenHasTown: boolean;
+      gain: number;
+      sourceProgress: number;
+      barbTileCount: number;
     };
 
 export type PlayerSubscriptionDock = {
