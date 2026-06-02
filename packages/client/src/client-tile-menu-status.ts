@@ -45,6 +45,11 @@ export const encirclementRemainingMsForTile = (tile: Tile, nowMs = Date.now()): 
   return remaining;
 };
 
+/** True iff this owned tile is an encircled (cut-off-from-supply) frontier
+ *  tile, which the sim rejects as an ATTACK/EXPAND origin (ORIGIN_CUT_OFF). */
+export const isFrontierOriginCutOff = (tile: Tile, nowMs = Date.now()): boolean =>
+  encirclementRemainingMsForTile(tile, nowMs) !== undefined;
+
 /**
  * Returns the remaining ms if this frontier tile is in the final 60 s of its
  * natural (~10 min) decay window. Matches the 3D map's blink threshold so the
