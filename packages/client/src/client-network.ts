@@ -2837,6 +2837,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         pushFeedSafely(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
       } else if (errorCode === "TOWN_UNFED") {
         pushFeedSafely(errorMessage, "info", "warn");
+      } else if (
+        errorCode === "NOT_ADJACENT" ||
+        errorCode === "ATTACK_TARGET_INVALID" ||
+        errorCode === "ATTACK_COOLDOWN" ||
+        errorCode === "LOCKED" ||
+        errorCode === "ALLY_TARGET" ||
+        errorCode === "SHIELDED" ||
+        errorCode === "BARRIER" ||
+        errorCode === "ORIGIN_CUT_OFF"
+      ) {
+        showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
       } else {
         pushFeedSafely(
           actionFailureExplanation,

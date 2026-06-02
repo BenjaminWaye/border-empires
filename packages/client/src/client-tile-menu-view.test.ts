@@ -643,6 +643,29 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("0.03/m"))).toBe(true);
   });
 
+  it("shows a crystal-casting recharge countdown on our own active observatory still on cooldown", () => {
+    const tile = settledObservatoryTile("active");
+    tile.observatory!.cooldownUntil = Date.now() + 90_000;
+    const lines = menuOverviewForTile(tile, deps);
+    expect(lines.some((line) => line.html.includes("Crystal casting recharging") && line.html.includes("01:3"))).toBe(true);
+  });
+
+  it("omits the recharge countdown once the observatory cooldown has elapsed", () => {
+    const tile = settledObservatoryTile("active");
+    tile.observatory!.cooldownUntil = Date.now() - 1_000;
+    const lines = menuOverviewForTile(tile, deps);
+    expect(lines.some((line) => line.html.includes("Crystal casting recharging"))).toBe(false);
+  });
+
+  it("omits the recharge countdown for a foreign observatory on cooldown", () => {
+    const tile = settledObservatoryTile("active");
+    tile.ownerId = "enemy";
+    tile.observatory!.ownerId = "enemy";
+    tile.observatory!.cooldownUntil = Date.now() + 90_000;
+    const lines = menuOverviewForTile(tile, deps);
+    expect(lines.some((line) => line.html.includes("Crystal casting recharging"))).toBe(false);
+  });
+
   it("shows a dedicated upkeep section with one row per active upkeep source", () => {
     const lines = menuOverviewForTile(
       {

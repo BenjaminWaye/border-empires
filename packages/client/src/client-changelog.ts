@@ -19,10 +19,54 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.2",
+  version: "2026.06.01.6",
   title: "What's New",
-  summary: "Shared support tiles resolve to one town. Client backs off on SERVER_BUSY. Manpower regen constants aligned.",
+  summary: "Attack-rejection errors now show as popups instead of only appearing in the activity log. Retort Transmutation and Aether Lance now have one-shot 3D cast feedback, alongside the Aether Bridge pylon and observatory cooldown improvements.",
   entries: [
+    {
+      introducedIn: "2026.06.01.6",
+      title: "Attack rejections now surface as popups",
+      why: "Errors like NOT_ADJACENT, ATTACK_COOLDOWN, LOCKED, SHIELDED, ALLY_TARGET, BARRIER, and ORIGIN_CUT_OFF were only written to the activity log, which players frequently miss. They now trigger the capture-alert popup so the reason for a blocked action is immediately visible.",
+      changes: [
+        "NOT_ADJACENT, ATTACK_TARGET_INVALID, ATTACK_COOLDOWN, LOCKED, ALLY_TARGET, SHIELDED, BARRIER, and ORIGIN_CUT_OFF now show the \"Action blocked\" popup in addition to the activity log entry."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.5",
+      title: "Retort Transmutation gets a 3D recast flourish",
+      why: "Retort Transmutation changes a resource tile, but the 3D map did not show the alchemical cast moment when the player triggered it.",
+      changes: [
+        "Casting a retort recast now triggers an alchemical transmutation circle, glass retort glow, orbiting motes, target-resource core, and fading ground wash on the selected tile.",
+        "The effect is client-only and one-shot, so it provides immediate cast feedback without adding synced persistent state."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.4",
+      title: "Aether Lance gets a focused 3D strike",
+      why: "Aether Lance is a precise structure-breaking crystal cast, but the 3D map gave no cast feedback when the player fired it.",
+      changes: [
+        "Casting Aether Lance now triggers a target lock, charging column, needle beam, shock ring, debris burst, and fading afterglow on the target tile.",
+        "The effect is client-only and one-shot, so it gives immediate feedback without adding persistent map state."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.3",
+      title: "Aether Bridge raises 3D anchor pylons",
+      why: "In the 3D map the bridge only had flat painted anchor marks, which read poorly in perspective and made the span feel like a 2D doodle rather than a built structure.",
+      changes: [
+        "Each end of an active Aether Bridge now raises a brass-and-copper pylon — riveted iron base, twin towers, a turning cog, and a glowing aether core — that stands on the coast in 3D.",
+        "The flat anchor glyphs are kept for the 2D map; the 3D map uses the new pylons instead."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.3",
+      title: "Observatory crystal-cooldown is now visible",
+      why: "After casting a crystal action like Aether Bridge, the source observatory goes on cooldown, but nothing on the map or in the tile menu showed it — so a follow-up cast appeared to silently do nothing.",
+      changes: [
+        "A floating hourglass badge now hovers over your own active observatory while its crystal-casting cooldown is running.",
+        "The tile overview for an active observatory now shows a live \"Crystal casting recharging — ready in MM:SS\" countdown."
+      ]
+    },
     {
       introducedIn: "2026.06.01.2",
       title: "Shared support tiles can build again",
