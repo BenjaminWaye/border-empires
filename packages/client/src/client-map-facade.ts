@@ -117,7 +117,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   };
 
   const ownerColor = (ownerId: string): string => {
-    if (ownerId === "barbarian") return "#2f3842";
+    if (ownerId.startsWith("barbarian")) return "#2f3842";
     const hue = hashString(ownerId) % 360;
     return `hsl(${hue} 70% 48%)`;
   };
