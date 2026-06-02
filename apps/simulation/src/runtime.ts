@@ -18,8 +18,6 @@ import {
 } from "@border-empires/game-domain";
 import {
   ATTACK_MANPOWER_MIN,
-  ATTACK_MANPOWER_COST,
-  SWEEP_ATTACK_COST,
   SWEEP_BUDGET_CAP,
   SWEEP_RADIUS_BY_VARIANT,
   BARBARIAN_MULTIPLY_THRESHOLD,
@@ -109,19 +107,15 @@ import {
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
 import { frontierNeighborCoords } from "./frontier-topology.js";
 import {
-  chooseSweepExpansionStep,
   coordsInChebyshevRadius,
   FRONTIER_DECAY_MS,
-  FORT_AUTO_FRONTIER_RADIUS,
   fortAutoAttackCandidates,
   fortAutoFrontierRadiusForTile,
   FORT_PATROL_GRACE_MS,
   isActiveFortAnchor,
-  isAutoClaimTarget,
   isSettledTownAnchor,
   MAX_FORT_AUTO_FRONTIER_RADIUS,
   orderedAutoSettlementTileKeys,
-  sweepAttackCandidates,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "./territory-automation.js";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
@@ -258,17 +252,6 @@ import {
   upgradeBaseTypeForEconomicStructure
 } from "./runtime-structure-rules.js";
 import {
-  SHARD_RAIN_COMMAND_ID_PREFIX,
-  SHARD_RAIN_SITE_MAX,
-  SHARD_RAIN_SITE_MIN,
-  SHARD_RAIN_SYSTEM_PLAYER_ID,
-  SHARD_RAIN_TTL_MS,
-  canHostShardFallSiteAt,
-  computeShardRainNotice,
-  isScheduledShardRainMinute,
-  shouldBroadcastShardRainWarningAt
-} from "./runtime-shard-rain-rules.js";
-import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,
   playerManpowerCapFromSummary,
@@ -338,6 +321,8 @@ import {
   tickOrphanedLockSweep as tickOrphanedLockSweepImpl,
   tickTileShedding as tickTileSheddingImpl
 } from "./runtime-maintenance-ticks.js";
+import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "./runtime-shard-rain-tick.js";
+import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "./runtime-territory-automation-tick.js";
 import {
   bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
   updateFrontierDecay as updateFrontierDecayImpl
@@ -891,609 +876,83 @@ export class SimulationRuntime {
   }
 
   tickShardRain(nowMs: number = this.now()): void {
-    this.expireShardFallSites(nowMs);
-    this.maybeBroadcastShardRainWarning(nowMs);
-    this.maybeSpawnScheduledShardRain(nowMs);
+    tickShardRainImpl({
+      now: this.now,
+      players: this.players,
+      tiles: this.tiles,
+      recentShardRainTileKeys: this.recentShardRainTileKeys,
+      lastShardRainHelloByPlayer: this.lastShardRainHelloByPlayer,
+      getCurrentShardRainExpiresAt: () => this.currentShardRainExpiresAt,
+      setCurrentShardRainExpiresAt: (expiresAt) => { this.currentShardRainExpiresAt = expiresAt; },
+      getCurrentShardRainSiteCount: () => this.currentShardRainSiteCount,
+      setCurrentShardRainSiteCount: (siteCount) => { this.currentShardRainSiteCount = siteCount; },
+      getLastShardRainSpawnSlotKey: () => this.lastShardRainSpawnSlotKey,
+      setLastShardRainSpawnSlotKey: (slotKey) => { this.lastShardRainSpawnSlotKey = slotKey; },
+      getLastShardRainWarningSlotKey: () => this.lastShardRainWarningSlotKey,
+      setLastShardRainWarningSlotKey: (slotKey) => { this.lastShardRainWarningSlotKey = slotKey; },
+      incrementShardRainTickCounter: () => {
+        this.shardRainTickCounter += 1;
+        return this.shardRainTickCounter;
+      },
+      replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+    }, nowMs);
   }
 
   tickTerritoryAutomation(nowMs: number = this.now()): void {
-    const _ttaStart = Date.now();
-    const autoClaimedKeys = new Set<string>();
-
-    // --- Inner claim-loop accumulators ---
-    let _claimSummaryForPlayerMs = 0;
-    let _claimAnchorScanMs = 0;
-    let _claimReplaceTileStateMs = 0;
-    let _claimEmitMs = 0;
-    let _playersProcessed = 0;
-    let _anchorsIterated = 0;
-    let _claimCandidatesEvaluated = 0;
-    let _tilesActuallyClaimed = 0;
-
-    for (const playerId of this.players.keys()) {
-      if (playerId.startsWith("barbarian-")) continue;
-      const _t0 = Date.now();
-      const summary = this.summaryForPlayer(playerId);
-      const actor = this.players.get(playerId);
-      if (!actor) continue;
-      this.applyEconomyAccrual(actor, nowMs);
-      _claimSummaryForPlayerMs += Date.now() - _t0;
-      _playersProcessed++;
-
-      const claimDeltas: Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> = [];
-      let claimCommandId: string | undefined;
-
-      // Use the activeFortAnchorsByOwner index (forts + towns) instead of
-      // iterating all territoryTileKeys. O(anchors) vs O(territory) — typically
-      // 1–5 entries per player instead of 250k.
-      const fortAnchorMap = this.activeFortAnchorsByOwner.get(playerId);
-      for (const anchorKey of (fortAnchorMap ? fortAnchorMap.keys() : [])) {
-        _anchorsIterated++;
-        const _tAnchor = Date.now();
-        const anchor = this.tiles.get(anchorKey);
-        if (!anchor) {
-          _claimAnchorScanMs += Date.now() - _tAnchor;
-          continue;
-        }
-        // Re-derive the effective radius from the tile — the index stores
-        // the static max radius but forts may be time-gated (disabledUntil).
-        const fortRadius = fortAutoFrontierRadiusForTile(anchor, playerId, nowMs);
-        const radius = fortRadius > 0
-          ? fortRadius
-          : isSettledTownAnchor(anchor, playerId)
-            ? TOWN_AUTO_FRONTIER_RADIUS
-            : 0;
-        if (radius <= 0) {
-          _claimAnchorScanMs += Date.now() - _tAnchor;
-          continue;
-        }
-        for (const targetKey of this.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
-          _claimCandidatesEvaluated++;
-          if (actor.points < FRONTIER_CLAIM_COST) break;
-          if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || this.locksByTile.has(targetKey)) continue;
-          const target = this.tiles.get(targetKey);
-          if (!isAutoClaimTarget(target)) continue;
-          autoClaimedKeys.add(targetKey);
-          actor.points -= FRONTIER_CLAIM_COST;
-          claimCommandId ??= this.nextTerritoryAutomationCommandId("frontier", playerId, "batch", nowMs);
-          const claimedTile: DomainTileState = {
-            ...target,
-            ownerId: playerId,
-            ownershipState: "FRONTIER"
-          };
-          const _tReplace = Date.now();
-          this.replaceTileState(targetKey, claimedTile, claimCommandId);
-          const _replaceDuration = Date.now() - _tReplace;
-          _claimReplaceTileStateMs += _replaceDuration;
-          _claimAnchorScanMs -= _replaceDuration; // replaceTileState already charged separately
-          this.extendFortPatrolGrace(targetKey, nowMs + FORT_PATROL_GRACE_MS);
-          claimDeltas.push(this.tileDeltaFromState(claimedTile));
-          _tilesActuallyClaimed++;
-        }
-        _claimAnchorScanMs += Date.now() - _tAnchor;
-      }
-
-      if (claimCommandId && claimDeltas.length > 0) {
-        const _tEmit = Date.now();
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: claimCommandId,
-          playerId,
-          goldCost: FRONTIER_CLAIM_COST * claimDeltas.length,
-          tileDeltas: claimDeltas
-        });
-        this.emitPlayerStateUpdate({ commandId: claimCommandId, playerId });
-        _claimEmitMs += Date.now() - _tEmit;
-      }
-    }
-
-    const _ttaAfterClaim = Date.now();
-    this.updateFrontierDecay(nowMs);
-    const _ttaAfterDecay = Date.now();
-
-    // --- Settle queue block ---
-    let _settleQueueNotifyMs = 0;
-    let _settleQueueNotifications = 0;
-
-    for (const playerId of this.players.keys()) {
-      if (!playerId.startsWith("barbarian-") && this.autoSettlementQueueForPlayer(playerId).length > 0) {
-        const _tSettle = Date.now();
-        this.emitPlayerStateUpdate({
-          commandId: this.nextTerritoryAutomationCommandId("settle-queue", playerId, "batch", nowMs),
-          playerId
-        });
-        _settleQueueNotifyMs += Date.now() - _tSettle;
-        _settleQueueNotifications++;
-      }
-    }
-
-    // --- Siege/sweep block inner accumulators ---
-    let _siegeAttackLoopMs = 0;
-    let _siegeHandleFrontierCommandMs = 0;
-    let _siegeOutpostSweepMs = 0;
-    let _siegeLightSweepMs = 0;
-    let _siegeAttacksIssued = 0;
-    let _siegeOutpostSweepsTicked = 0;
-    let _lightOutpostSweepsTicked = 0;
-
-    for (const playerId of this.players.keys()) {
-      if (playerId.startsWith("barbarian-")) continue;
-      const actor = this.players.get(playerId);
-      if (!actor) continue;
-      this.applyManpowerRegen(actor, nowMs);
-      let availableSiegeManpower = actor.manpower;
-      let availableSiegeGold = actor.points;
-      if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) continue;
-      const summary = this.summaryForPlayer(playerId);
-
-      // --- siege auto-attack loop ---
-      // Use the fort-anchor index (forts + wooden-forts + towns) rather than
-      // all territory tiles.  Towns return fortRadius=0 from
-      // fortAutoFrontierRadiusForTile and are skipped cheaply; what matters is
-      // we skip the O(all-territory) scan entirely — O(fort-anchors) is
-      // typically 1–5 entries per player.
-      const _tAttackLoop = Date.now();
-      const fortAnchors = this.activeFortAnchorsByOwner.get(playerId);
-      for (const tileKey of (fortAnchors ? fortAnchors.keys() : [])) {
-        const fortTile = this.tiles.get(tileKey);
-        const fortRadius = fortTile ? fortAutoFrontierRadiusForTile(fortTile, playerId, nowMs) : 0;
-        if (!fortTile || fortRadius <= 0) continue;
-        if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) break;
-        if (this.locksByTile.has(tileKey)) continue;
-        const target = this.playerCandidateIndex.sortedFortAttackCandidates(tileKey, FORT_AUTO_FRONTIER_RADIUS)
-          .find((candidate) => {
-            const targetKey = simulationTileKey(candidate.x, candidate.y);
-            return (
-              !this.locksByTile.has(targetKey) &&
-              !actor.allies.has(candidate.ownerId ?? "") &&
-              !this.tileHasActiveFortPatrolGrace(targetKey, nowMs)
-            );
-          });
-        if (!target) continue;
-        const commandId = this.nextTerritoryAutomationCommandId("fort", playerId, simulationTileKey(target.x, target.y), nowMs);
-        const _tHandleCmd = Date.now();
-        this.handleFrontierCommand(
-          {
-            commandId,
-            sessionId: `system-runtime:territory-automation:${playerId}`,
-            playerId,
-            clientSeq: 0,
-            issuedAt: nowMs,
-            type: "ATTACK",
-            payloadJson: JSON.stringify({ fromX: fortTile.x, fromY: fortTile.y, toX: target.x, toY: target.y })
-          },
-          "ATTACK"
-        );
-        _siegeHandleFrontierCommandMs += Date.now() - _tHandleCmd;
-        availableSiegeManpower -= ATTACK_MANPOWER_COST;
-        availableSiegeGold -= FRONTIER_CLAIM_COST;
-        _siegeAttacksIssued++;
-      }
-      _siegeAttackLoopMs += Date.now() - _tAttackLoop;
-
-      // --- Sweep tick: siege outposts (SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER) ---
-      // Iterates only tiles in activeSiegeOutpostsByOwner index — O(active outposts)
-      // instead of O(territory).
-      const _tOutpostSweep = Date.now();
-      for (const tileKey of (this.activeSiegeOutpostsByOwner.get(playerId) ?? [])) {
-        const outpostTile = this.tiles.get(tileKey);
-        if (
-          !outpostTile ||
-          outpostTile.siegeOutpost?.ownerId !== playerId ||
-          outpostTile.siegeOutpost.status !== "active"
-        ) {
-          continue;
-        }
-        const outpostData = outpostTile.siegeOutpost;
-        const variant = outpostData.variant ?? "SIEGE_OUTPOST";
-        const sweepRadius = SWEEP_RADIUS_BY_VARIANT[variant] ?? 5;
-        this.tickSweepStructure(
-          {
-            tileKey,
-            tile: outpostTile,
-            sweepBudget: outpostData.sweepBudget,
-            sweepActive: outpostData.sweepActive,
-            sweepBudgetUpdatedAt: outpostData.sweepBudgetUpdatedAt,
-            sweepRadius,
-            commandIdPrefix: "sweep",
-            applyUpdate: (fields) => ({ ...outpostTile, siegeOutpost: { ...outpostData, ...fields } })
-          },
-          playerId,
-          actor,
-          nowMs
-        );
-        _siegeOutpostSweepsTicked++;
-      }
-      _siegeOutpostSweepMs += Date.now() - _tOutpostSweep;
-
-      // --- Sweep tick: LIGHT_OUTPOST ---
-      // Iterates only tiles in activeLightOutpostsByOwner index — O(active light outposts)
-      // instead of O(territory).
-      const _tLightSweep = Date.now();
-      for (const tileKey of (this.activeLightOutpostsByOwner.get(playerId) ?? [])) {
-        const outpostTile = this.tiles.get(tileKey);
-        if (
-          !outpostTile ||
-          outpostTile.economicStructure?.ownerId !== playerId ||
-          outpostTile.economicStructure.type !== "LIGHT_OUTPOST" ||
-          outpostTile.economicStructure.status !== "active"
-        ) {
-          continue;
-        }
-        const econData = outpostTile.economicStructure;
-        this.tickSweepStructure(
-          {
-            tileKey,
-            tile: outpostTile,
-            sweepBudget: econData.sweepBudget,
-            sweepActive: econData.sweepActive,
-            sweepBudgetUpdatedAt: econData.sweepBudgetUpdatedAt,
-            sweepRadius: SWEEP_RADIUS_BY_VARIANT["LIGHT_OUTPOST"],
-            commandIdPrefix: "lo-sweep",
-            applyUpdate: (fields) => ({ ...outpostTile, economicStructure: { ...econData, ...fields } })
-          },
-          playerId,
-          actor,
-          nowMs
-        );
-        _lightOutpostSweepsTicked++;
-      }
-      _siegeLightSweepMs += Date.now() - _tLightSweep;
-    }
-
-    const _ttaEnd = Date.now();
-    const totalMs = _ttaEnd - _ttaStart;
-    if (totalMs >= 100) {
-      this.runtimeLogInfo(
-        {
-          totalMs,
-          claimLoopMs: _ttaAfterClaim - _ttaStart,
-          updateFrontierDecayMs: _ttaAfterDecay - _ttaAfterClaim,
-          settleAndSiegeMs: _ttaEnd - _ttaAfterDecay,
-          claim: {
-            summaryForPlayerMs: _claimSummaryForPlayerMs,
-            anchorScanMs: _claimAnchorScanMs,
-            replaceTileStateMs: _claimReplaceTileStateMs,
-            emitMs: _claimEmitMs,
-            playersProcessed: _playersProcessed,
-            anchorsIterated: _anchorsIterated,
-            claimCandidatesEvaluated: _claimCandidatesEvaluated,
-            tilesActuallyClaimed: _tilesActuallyClaimed
-          },
-          settle: {
-            queueNotifyMs: _settleQueueNotifyMs,
-            settleQueueNotifications: _settleQueueNotifications
-          },
-          siege: {
-            attackLoopMs: _siegeAttackLoopMs,
-            outpostSweepMs: _siegeOutpostSweepMs,
-            lightSweepMs: _siegeLightSweepMs,
-            handleFrontierCommandMs: _siegeHandleFrontierCommandMs,
-            attacksIssued: _siegeAttacksIssued,
-            outpostSweepsTicked: _siegeOutpostSweepsTicked,
-            lightSweepsTicked: _lightOutpostSweepsTicked
-          }
-        },
-        "[tick_territory_automation] phase breakdown"
-      );
-    }
-  }
-
-  /**
-   * Shared sweep-tick logic for both siege outposts and light outposts.
-   * Handles budget regen, pause (no budget), deactivate (no targets), and fire.
-   * The caller projects the tile's sweep fields and provides an `applyUpdate`
-   * function that returns a new `DomainTileState` with updated sweep fields.
-   */
-  private tickSweepStructure(
-    structure: {
-      tileKey: string;
-      tile: DomainTileState;
-      sweepBudget: number | undefined;
-      sweepActive: boolean | undefined;
-      sweepBudgetUpdatedAt: number | undefined;
-      sweepRadius: number;
-      commandIdPrefix: string;
-      applyUpdate: (fields: { sweepBudget: number; sweepBudgetUpdatedAt: number; sweepActive?: boolean }) => DomainTileState;
-    },
-    playerId: string,
-    actor: RuntimePlayer,
-    nowMs: number
-  ): void {
-    const { tileKey, tile, sweepRadius, commandIdPrefix, applyUpdate } = structure;
-
-    // Regen sweep budget at the same rate as global MP regen.
-    const elapsedMins = (nowMs - (structure.sweepBudgetUpdatedAt ?? nowMs)) / 60_000;
-    const regenPerMin = this.playerManpowerRegenPerMinute(actor);
-    const rawBudget = (structure.sweepBudget ?? 0) + Math.max(0, elapsedMins * regenPerMin);
-    const newBudget = Math.min(SWEEP_BUDGET_CAP, rawBudget);
-
-    if (!structure.sweepActive) {
-      // Budget still regens even when sweep is off.
-      if (Math.abs(newBudget - (structure.sweepBudget ?? 0)) > 0.001) {
-        const regenedTile = applyUpdate({ sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs });
-        this.replaceTileState(tileKey, regenedTile);
-        const regenCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-regen`, playerId, tileKey, nowMs);
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: regenCommandId,
-          playerId,
-          tileDeltas: [this.tileDeltaFromState(regenedTile)]
-        });
-      }
-      return;
-    }
-
-    // Use index when available; fall back to sweepAttackCandidates only if anchor not registered.
-    // The fallback is an intentional safety net: a sweep outpost that was activated
-    // before its anchor registration had a chance to run will still function correctly.
-    // Frequent misses here would indicate a registration gap and should be investigated.
-    const candidates = this.playerCandidateIndex.hasAnchor(tileKey)
-      ? this.playerCandidateIndex.sortedAttackCandidates(tileKey, sweepRadius)
-      : sweepAttackCandidates(tile, playerId, sweepRadius, (x, y) => this.tiles.get(simulationTileKey(x, y)));
-    const noTargets = candidates.length === 0;
-    const nobudget = newBudget < SWEEP_ATTACK_COST;
-
-    if (noTargets) {
-      // Deactivate — player must re-toggle.
-      const deactivatedTile = applyUpdate({ sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs, sweepActive: false });
-      this.replaceTileState(tileKey, deactivatedTile);
-      const deactivateCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-deact`, playerId, tileKey, nowMs);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: deactivateCommandId,
-        playerId,
-        tileDeltas: [this.tileDeltaFromState(deactivatedTile)]
-      });
-      return;
-    }
-
-    if (nobudget) {
-      // Pause — sweepActive stays true; just update regen.
-      if (Math.abs(newBudget - (structure.sweepBudget ?? 0)) > 0.001) {
-        const pausedTile = applyUpdate({ sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs });
-        this.replaceTileState(tileKey, pausedTile);
-        const pauseCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-pause`, playerId, tileKey, nowMs);
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: pauseCommandId,
-          playerId,
-          tileDeltas: [this.tileDeltaFromState(pausedTile)]
-        });
-      }
-      return;
-    }
-
-    // We have targets and budget — determine how to act. Candidates are sorted
-    // nearest-first; attack the nearest one that already borders owned land
-    // (the origin must be a bordering owned tile so isFrontierAdjacent passes).
-    // Only fall back to expansion when NO candidate borders our territory, so a
-    // reachable enemy is never skipped in favour of expanding toward a closer
-    // but unreachable one.
-    const findBorderingOwned = (target: DomainTileState): DomainTileState | undefined =>
-      this.adjacentTileStates(target.x, target.y).find(
-        (candidate) =>
-          candidate.ownerId === playerId &&
-          candidate.terrain === "LAND" &&
-          !(candidate.ownershipState === "FRONTIER" && candidate.frontierDecayKind === "ENCIRCLEMENT")
-      );
-
-    let attackTarget: DomainTileState | undefined;
-    let attackOrigin: DomainTileState | undefined;
-    for (const candidate of candidates) {
-      const owned = findBorderingOwned(candidate);
-      if (owned) {
-        attackTarget = candidate;
-        attackOrigin = owned;
-        break;
-      }
-    }
-
-    // The fire command uses just the prefix without a suffix for the attack itself
-    // (e.g. "sweep" and "lo-sweep", not "sweep-attack").
-    const attackPrefix = commandIdPrefix === "sweep" ? "sweep" : commandIdPrefix;
-
-    let commandAccepted = false;
-
-    if (attackTarget && attackOrigin) {
-      // Attack from the bordering owned tile so isFrontierAdjacent passes.
-      const sweepCommandId = this.nextTerritoryAutomationCommandId(attackPrefix, playerId, simulationTileKey(attackTarget.x, attackTarget.y), nowMs);
-      commandAccepted = this.handleFrontierCommand(
-        {
-          commandId: sweepCommandId,
-          sessionId: `system-runtime:territory-automation:${playerId}`,
-          playerId,
-          clientSeq: 0,
-          issuedAt: nowMs,
-          type: "ATTACK",
-          payloadJson: JSON.stringify({ fromX: attackOrigin.x, fromY: attackOrigin.y, toX: attackTarget.x, toY: attackTarget.y })
-        },
-        "ATTACK"
-      );
-    } else {
-      // No candidate borders owned territory yet — expand one step toward the
-      // nearest target.
-      const step = chooseSweepExpansionStep(
-        tile,
-        candidates[0]!,
-        playerId,
-        sweepRadius,
-        (x, y) => this.tiles.get(simulationTileKey(x, y))
-      );
-      if (step) {
-        const expandCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-expand`, playerId, simulationTileKey(step.to.x, step.to.y), nowMs);
-        commandAccepted = this.handleFrontierCommand(
-          {
-            commandId: expandCommandId,
-            sessionId: `system-runtime:territory-automation:${playerId}`,
-            playerId,
-            clientSeq: 0,
-            issuedAt: nowMs,
-            type: "EXPAND",
-            payloadJson: JSON.stringify({ fromX: step.origin.x, fromY: step.origin.y, toX: step.to.x, toY: step.to.y })
-          },
-          "EXPAND"
-        );
-      }
-      // If step is undefined (no neutral land reachable), skip this tick entirely.
-    }
-
-    // Only deduct sweep budget when the command was actually accepted.
-    if (commandAccepted) {
-      const afterAttackBudget = newBudget - SWEEP_ATTACK_COST;
-      const attackedTile = applyUpdate({ sweepBudget: afterAttackBudget, sweepBudgetUpdatedAt: nowMs });
-      this.replaceTileState(tileKey, attackedTile);
-      const budgetDeltaCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-budget`, playerId, tileKey, nowMs);
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: budgetDeltaCommandId,
-        playerId,
-        tileDeltas: [this.tileDeltaFromState(attackedTile)]
-      });
-    } else {
-      // Persist the regen'd budget without the attack cost deduction (same as pause branch).
-      if (Math.abs(newBudget - (structure.sweepBudget ?? 0)) > 0.001) {
-        const regenOnlyTile = applyUpdate({ sweepBudget: newBudget, sweepBudgetUpdatedAt: nowMs });
-        this.replaceTileState(tileKey, regenOnlyTile);
-        const regenCommandId = this.nextTerritoryAutomationCommandId(`${commandIdPrefix}-regen`, playerId, tileKey, nowMs);
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: regenCommandId,
-          playerId,
-          tileDeltas: [this.tileDeltaFromState(regenOnlyTile)]
-        });
-      }
-    }
+    tickTerritoryAutomationImpl({
+      nowMs,
+      players: this.players,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
+      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
+      playerCandidateIndex: this.playerCandidateIndex,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
+      applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
+      updateFrontierDecay: (at) => this.updateFrontierDecay(at),
+      autoSettlementQueueLengthForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId).length,
+      emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
+      extendFortPatrolGrace: (tileKey, graceUntil) => this.extendFortPatrolGrace(tileKey, graceUntil),
+      tileHasActiveFortPatrolGrace: (tileKey, at) => this.tileHasActiveFortPatrolGrace(tileKey, at),
+      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
+      adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
+        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
+      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+    });
   }
 
   emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
-    const player = this.players.get(playerId);
-    if (!player) return;
-    if (player.id === SHARD_RAIN_SYSTEM_PLAYER_ID) return;
-    if (player.id.startsWith("barbarian-")) return;
-    if (player.isAi) return;
-    const notice = computeShardRainNotice({
-      nowMs,
-      currentSiteCount: this.currentShardRainSiteCount,
-      currentExpiresAt: this.currentShardRainExpiresAt
-    });
-    if (!notice) return;
-    const dedupKey = notice.phase === "started" ? (notice.expiresAt as number) : (notice.startsAt as number);
-    if (this.lastShardRainHelloByPlayer.get(playerId) === dedupKey) return;
-    this.lastShardRainHelloByPlayer.set(playerId, dedupKey);
-    this.emitEvent({
-      eventType: "PLAYER_MESSAGE",
-      commandId: this.nextShardRainCommandId("hello"),
-      playerId,
-      messageType: "SHARD_RAIN_EVENT",
-      payloadJson: JSON.stringify(notice)
-    });
-  }
-
-  private nextShardRainCommandId(label: string): string {
-    this.shardRainTickCounter += 1;
-    return `${SHARD_RAIN_COMMAND_ID_PREFIX}:${label}:${this.shardRainTickCounter}:${this.now()}`;
-  }
-
-  private broadcastShardRainNotice(payload: Record<string, unknown>): void {
-    const commandId = this.nextShardRainCommandId("notice");
-    const payloadJson = JSON.stringify(payload);
-    for (const player of this.players.values()) {
-      if (player.id === SHARD_RAIN_SYSTEM_PLAYER_ID) continue;
-      if (player.id.startsWith("barbarian-")) continue;
-      if (player.isAi) continue;
-      this.emitEvent({
-        eventType: "PLAYER_MESSAGE",
-        commandId,
-        playerId: player.id,
-        messageType: "SHARD_RAIN_EVENT",
-        payloadJson
-      });
-    }
-  }
-
-  private maybeBroadcastShardRainWarning(nowMs: number): void {
-    const warning = shouldBroadcastShardRainWarningAt(nowMs);
-    if (!warning) return;
-    if (this.lastShardRainWarningSlotKey === warning.slotKey) return;
-    this.lastShardRainWarningSlotKey = warning.slotKey;
-    this.broadcastShardRainNotice({ type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: warning.nextStart });
-  }
-
-  private maybeSpawnScheduledShardRain(nowMs: number): void {
-    const scheduled = isScheduledShardRainMinute(nowMs);
-    if (!scheduled) return;
-    if (this.lastShardRainSpawnSlotKey === scheduled.slotKey) return;
-    this.lastShardRainSpawnSlotKey = scheduled.slotKey;
-    this.spawnShardRain(nowMs);
-  }
-
-  private spawnShardRain(nowMs: number): void {
-    this.recentShardRainTileKeys.clear();
-    const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
-    const expiresAt = nowMs + SHARD_RAIN_TTL_MS;
-    const startsAt = nowMs;
-    const placed: { tileKey: string; tile: DomainTileState }[] = [];
-    let attempts = 0;
-    while (placed.length < count && attempts < count * 300) {
-      attempts += 1;
-      const x = Math.floor(Math.random() * WORLD_WIDTH);
-      const y = Math.floor(Math.random() * WORLD_HEIGHT);
-      const tileKey = simulationTileKey(x, y);
-      const tile = this.tiles.get(tileKey);
-      if (!canHostShardFallSiteAt(tile, tileKey, this.recentShardRainTileKeys)) continue;
-      const amount = Math.random() > 0.8 ? 2 : 1;
-      const updated: DomainTileState = { ...(tile as DomainTileState), shardSite: { kind: "FALL", amount, expiresAt } };
-      this.replaceTileState(tileKey, updated);
-      this.recentShardRainTileKeys.add(tileKey);
-      placed.push({ tileKey, tile: updated });
-    }
-    if (placed.length === 0) return;
-    this.currentShardRainExpiresAt =
-      typeof this.currentShardRainExpiresAt === "number"
-        ? Math.max(this.currentShardRainExpiresAt, expiresAt)
-        : expiresAt;
-    this.currentShardRainSiteCount += placed.length;
-    const commandId = this.nextShardRainCommandId("spawn");
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId,
-      playerId: SHARD_RAIN_SYSTEM_PLAYER_ID,
-      tileDeltas: placed.map((entry) => this.tileDeltaFromState(entry.tile))
-    });
-    this.broadcastShardRainNotice({
-      type: "SHARD_RAIN_EVENT",
-      phase: "started",
-      startsAt,
-      expiresAt,
-      siteCount: placed.length,
-      sites: placed.map((entry) => ({ x: entry.tile.x, y: entry.tile.y }))
-    });
-  }
-
-  private expireShardFallSites(nowMs: number): void {
-    const expired: { tileKey: string; tile: DomainTileState }[] = [];
-    for (const [tileKey, tile] of this.tiles) {
-      const site = tile.shardSite;
-      if (!site || site.kind !== "FALL") continue;
-      if (typeof site.expiresAt !== "number" || site.expiresAt > nowMs) continue;
-      const updated: DomainTileState = { ...tile, shardSite: undefined };
-      this.replaceTileState(tileKey, updated);
-      expired.push({ tileKey, tile: updated });
-    }
-    if (expired.length === 0) return;
-    this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - expired.length);
-    if (this.currentShardRainSiteCount === 0) {
-      this.currentShardRainExpiresAt = undefined;
-      this.lastShardRainHelloByPlayer.clear();
-    }
-    const commandId = this.nextShardRainCommandId("expire");
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId,
-      playerId: SHARD_RAIN_SYSTEM_PLAYER_ID,
-      tileDeltas: expired.map((entry) => ({ ...this.tileDeltaFromState(entry.tile), shardSiteJson: "" }))
-    });
+    emitShardRainHelloForImpl({
+      now: this.now,
+      players: this.players,
+      tiles: this.tiles,
+      recentShardRainTileKeys: this.recentShardRainTileKeys,
+      lastShardRainHelloByPlayer: this.lastShardRainHelloByPlayer,
+      getCurrentShardRainExpiresAt: () => this.currentShardRainExpiresAt,
+      setCurrentShardRainExpiresAt: (expiresAt) => { this.currentShardRainExpiresAt = expiresAt; },
+      getCurrentShardRainSiteCount: () => this.currentShardRainSiteCount,
+      setCurrentShardRainSiteCount: (siteCount) => { this.currentShardRainSiteCount = siteCount; },
+      getLastShardRainSpawnSlotKey: () => this.lastShardRainSpawnSlotKey,
+      setLastShardRainSpawnSlotKey: (slotKey) => { this.lastShardRainSpawnSlotKey = slotKey; },
+      getLastShardRainWarningSlotKey: () => this.lastShardRainWarningSlotKey,
+      setLastShardRainWarningSlotKey: (slotKey) => { this.lastShardRainWarningSlotKey = slotKey; },
+      incrementShardRainTickCounter: () => {
+        this.shardRainTickCounter += 1;
+        return this.shardRainTickCounter;
+      },
+      replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+    }, playerId, nowMs);
   }
 
   preparePlayerRespawnNotice(
