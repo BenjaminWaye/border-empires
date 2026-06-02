@@ -235,6 +235,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "SET_CONVERTER_STRUCTURE_ENABLED",
     "REVEAL_EMPIRE",
     "REVEAL_EMPIRE_STATS",
+    "AETHER_LANCE",
     "CAST_AETHER_BRIDGE",
     "CAST_AETHER_WALL",
     "SIPHON_TILE",
@@ -1619,11 +1620,26 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId });
     }
     if (actionId === "survey_sweep") sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y });
-    if (actionId === "aether_lance") sendGameMessage({ type: "AETHER_LANCE", x: selected.x, y: selected.y });
-    if (actionId === "retort_recast_food") sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: "FARM" });
-    if (actionId === "retort_recast_supply") sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: "WOOD" });
-    if (actionId === "retort_recast_iron") sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: "IRON" });
-    if (actionId === "retort_recast_crystal") sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: "GEMS" });
+    if (actionId === "aether_lance") {
+      if (sendGameMessage({ type: "AETHER_LANCE", x: selected.x, y: selected.y })) {
+        state.aetherLanceFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
+    }
+    const retortTargetResource =
+      actionId === "retort_recast_food"
+        ? "FARM"
+        : actionId === "retort_recast_supply"
+          ? "WOOD"
+          : actionId === "retort_recast_iron"
+            ? "IRON"
+            : actionId === "retort_recast_crystal"
+              ? "GEMS"
+              : undefined;
+    if (retortTargetResource) {
+      if (sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: retortTargetResource })) {
+        state.retortRecastFxQueue.push({ x: selected.x, y: selected.y, targetResource: retortTargetResource, queuedAt: Date.now() });
+      }
+    }
     if (actionId === "reveal_empire_stats" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
       sendGameMessage({ type: "REVEAL_EMPIRE_STATS", targetPlayerId: selected.ownerId });
     }

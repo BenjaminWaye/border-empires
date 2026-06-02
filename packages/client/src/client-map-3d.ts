@@ -43,6 +43,8 @@ import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.j
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createAetherBridgePylonOverlay } from "./client-map-3d-aether-bridge-pylon-overlay.js";
+import { createAetherLanceFxLayer } from "./client-map-3d-aether-lance-fx.js";
+import { createRetortRecastFxLayer } from "./client-map-3d-retort-recast-fx.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "./client-town-growth.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
@@ -127,6 +129,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
+  const aetherLanceFx = createAetherLanceFxLayer(scene);
+  const retortRecastFx = createRetortRecastFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
@@ -1021,6 +1025,31 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       4
     );
   };
+  const syncAetherLanceFxQueue = (): void => {
+    while (deps.state.aetherLanceFxQueue.length > 0) {
+      const cast = deps.state.aetherLanceFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      aetherLanceFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
+      );
+    }
+  };
+  const syncRetortRecastFxQueue = (): void => {
+    while (deps.state.retortRecastFxQueue.length > 0) {
+      const cast = deps.state.retortRecastFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      retortRecastFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        cast.targetResource
+      );
+    }
+  };
   const syncAetherBridgePylons = (nowMs: number): void => {
     aetherBridgePylonOverlay.beginFrame();
     const now = Date.now();
@@ -1548,7 +1577,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncObservatoryRangeMarkers();
     syncSweepRangeMarker();
     syncAetherBridgePylons(nowMs);
+    syncAetherLanceFxQueue();
+    syncRetortRecastFxQueue();
     villageEffects.update(nowMs);
+    aetherLanceFx.update(nowMs);
+    retortRecastFx.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
@@ -1653,6 +1686,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     unfedBadgeOverlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     aetherBridgePylonOverlay.dispose();
+    aetherLanceFx.dispose();
+    retortRecastFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     fortOverlay.dispose();

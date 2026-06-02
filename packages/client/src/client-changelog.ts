@@ -19,16 +19,34 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.01.4",
+  version: "2026.06.01.6",
   title: "What's New",
-  summary: "Attack-rejection errors now show as popups instead of only appearing in the activity log. Observatories on crystal-casting cooldown show a floating badge and countdown, and the Aether Bridge now plants glowing 3D pylons at each coast.",
+  summary: "Attack-rejection errors now show as popups instead of only appearing in the activity log. Retort Transmutation and Aether Lance now have one-shot 3D cast feedback, alongside the Aether Bridge pylon and observatory cooldown improvements.",
   entries: [
     {
-      introducedIn: "2026.06.01.4",
+      introducedIn: "2026.06.01.6",
       title: "Attack rejections now surface as popups",
       why: "Errors like NOT_ADJACENT, ATTACK_COOLDOWN, LOCKED, SHIELDED, ALLY_TARGET, BARRIER, and ORIGIN_CUT_OFF were only written to the activity log, which players frequently miss. They now trigger the capture-alert popup so the reason for a blocked action is immediately visible.",
       changes: [
         "NOT_ADJACENT, ATTACK_TARGET_INVALID, ATTACK_COOLDOWN, LOCKED, ALLY_TARGET, SHIELDED, BARRIER, and ORIGIN_CUT_OFF now show the \"Action blocked\" popup in addition to the activity log entry."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.5",
+      title: "Retort Transmutation gets a 3D recast flourish",
+      why: "Retort Transmutation changes a resource tile, but the 3D map did not show the alchemical cast moment when the player triggered it.",
+      changes: [
+        "Casting a retort recast now triggers an alchemical transmutation circle, glass retort glow, orbiting motes, target-resource core, and fading ground wash on the selected tile.",
+        "The effect is client-only and one-shot, so it provides immediate cast feedback without adding synced persistent state."
+      ]
+    },
+    {
+      introducedIn: "2026.06.01.4",
+      title: "Aether Lance gets a focused 3D strike",
+      why: "Aether Lance is a precise structure-breaking crystal cast, but the 3D map gave no cast feedback when the player fired it.",
+      changes: [
+        "Casting Aether Lance now triggers a target lock, charging column, needle beam, shock ring, debris burst, and fading afterglow on the target tile.",
+        "The effect is client-only and one-shot, so it gives immediate feedback without adding persistent map state."
       ]
     },
     {

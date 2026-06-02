@@ -61,6 +61,9 @@ import {
   AETHER_WALL_COOLDOWN_MS,
   AETHER_WALL_CRYSTAL_COST,
   AETHER_WALL_DURATION_MS,
+  AETHER_LANCE_COOLDOWN_MS,
+  AETHER_LANCE_CRYSTAL_COST,
+  AETHER_LANCE_GOLD_COST,
   AIRPORT_BOMBARD_CRYSTAL_COST,
   AETHER_TOWER_RADIUS,
   AEGIS_DOME_PROTECTION_RADIUS,
@@ -4332,6 +4335,153 @@ export class SimulationRuntime {
     });
   }
 
+  private handleAetherLanceCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseTilePayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+    const target = this.tiles.get(targetKey);
+    if (!actor.techIds.has("signal-fires")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "requires Signal Fires"
+      });
+      return;
+    }
+    if (!target || target.terrain !== "LAND" || !target.ownerId || target.ownerId === actor.id || actor.allies.has(target.ownerId)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "target hostile structure"
+      });
+      return;
+    }
+    if (target.town) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "target a structure, not a town"
+      });
+      return;
+    }
+    if (target.dockId) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "cannot target docks"
+      });
+      return;
+    }
+    const monumentTypes = new Set<string>(["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK"]);
+    const monumentPartTypes = new Set<string>(["IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART", "AEGIS_DOME_PART", "ASTRAL_DOCK_PART"]);
+    const economicType = target.economicStructure?.type;
+    if (economicType && (monumentTypes.has(economicType) || monumentPartTypes.has(economicType))) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "monuments require Aether EMP"
+      });
+      return;
+    }
+    const destroysEconomicStructure = Boolean(target.economicStructure);
+    const destroysSiegeOutpost = !destroysEconomicStructure && Boolean(target.siegeOutpost);
+    const destroysObservatory = !destroysEconomicStructure && !destroysSiegeOutpost && Boolean(target.observatory);
+    const destroysFort = !destroysEconomicStructure && !destroysSiegeOutpost && !destroysObservatory && Boolean(target.fort);
+    if (!destroysEconomicStructure && !destroysSiegeOutpost && !destroysObservatory && !destroysFort) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "no hostile structure here"
+      });
+      return;
+    }
+    if (this.isTileShieldedByEnemyAegisDome(actor.id, target.x, target.y)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "blocked by an Aegis Dome"
+      });
+      return;
+    }
+    const lanceNow = this.now();
+    const lanceObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, lanceNow);
+    if (!lanceObservatoryKey) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "no ready observatory in range"
+      });
+      return;
+    }
+    if (actor.points < AETHER_LANCE_GOLD_COST) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "insufficient gold for aether lance"
+      });
+      return;
+    }
+    if (!this.spendStrategicResource(actor, "CRYSTAL", AETHER_LANCE_CRYSTAL_COST)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "AETHER_LANCE_INVALID",
+        message: "insufficient CRYSTAL for aether lance"
+      });
+      return;
+    }
+    actor.points -= AETHER_LANCE_GOLD_COST;
+    this.stampObservatoryCooldown(lanceObservatoryKey, AETHER_LANCE_COOLDOWN_MS, lanceNow, command.commandId, command.playerId);
+    const updatedTile: DomainTileState = {
+      ...target,
+      ...(destroysEconomicStructure ? { economicStructure: undefined } : {}),
+      ...(destroysSiegeOutpost ? { siegeOutpost: undefined } : {}),
+      ...(destroysObservatory ? { observatory: undefined } : {}),
+      ...(destroysFort ? { fort: undefined } : {})
+    };
+    this.replaceTileState(targetKey, updatedTile, command.commandId);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+    this.emitPlayerMessage(command, {
+      type: "PLAYER_UPDATE",
+      points: actor.points,
+      strategicResources: actor.strategicResources
+    });
+  }
+
   private handleCastAetherBridgeCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseTilePayload(command.payloadJson);
@@ -7958,6 +8108,7 @@ export class SimulationRuntime {
         command.type !== "SET_CONVERTER_STRUCTURE_ENABLED" &&
         command.type !== "REVEAL_EMPIRE" &&
         command.type !== "REVEAL_EMPIRE_STATS" &&
+        command.type !== "AETHER_LANCE" &&
         command.type !== "CAST_AETHER_BRIDGE" &&
         command.type !== "CAST_AETHER_WALL" &&
         command.type !== "SIPHON_TILE" &&
@@ -8077,6 +8228,11 @@ export class SimulationRuntime {
 
       if (command.type === "REVEAL_EMPIRE_STATS") {
         this.handleRevealEmpireStatsCommand(command);
+        return;
+      }
+
+      if (command.type === "AETHER_LANCE") {
+        this.handleAetherLanceCommand(command);
         return;
       }
 
