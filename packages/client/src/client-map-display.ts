@@ -404,9 +404,9 @@ export const structureInfoForKey = (
   if (type === "FARMSTEAD") {
     return structure({
       title: "Farmstead",
-      detail: "Farmsteads increase food yield on farm and fish tiles by 50%.",
+      detail: "Farmsteads increase food yield on farm tiles by 50%. Has no effect on fish tiles.",
       glyph: "🌾",
-      placement: "Build on a settled farm or fish resource tile you own.",
+      placement: "Build on a settled farm resource tile you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
