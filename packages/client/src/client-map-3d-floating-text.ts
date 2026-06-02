@@ -5,6 +5,10 @@ const FLOAT_RISE_HEIGHT = 4.2;
 const SPRITE_BASE_SCALE_X = 3.2;
 const SPRITE_BASE_SCALE_Y = 1.0;
 const POP_IN_SCALE = 1.35;
+const FADE_START_PROGRESS = 0.55;
+const FADE_END_PROGRESS = 0.9;
+const POP_IN_END_PROGRESS = 0.12;
+const POP_IN_OPACITY_END_PROGRESS = 0.08;
 
 const buildLabelTexture = (text: string, color: string): CanvasTexture => {
   const canvas = document.createElement("canvas");
@@ -74,7 +78,7 @@ export const createFloatingTextLayer = (scene: Scene): FloatingTextLayer => {
     for (let i = entries.length - 1; i >= 0; i -= 1) {
       const entry = entries[i]!;
       const t = (nowMs - entry.startMs) / FLOAT_DURATION_MS;
-      if (t >= 1) {
+      if (t >= FADE_END_PROGRESS) {
         disposeEntry(entry);
         entries.splice(i, 1);
         continue;
@@ -83,11 +87,16 @@ export const createFloatingTextLayer = (scene: Scene): FloatingTextLayer => {
       const rise = 1 - Math.pow(1 - t, 2);
       entry.sprite.position.y = entry.baseY + rise * FLOAT_RISE_HEIGHT;
       // Pop-in scale: briefly larger than rest size for the first ~120ms.
-      const popPhase = Math.min(1, t / 0.12);
+      const popPhase = Math.min(1, t / POP_IN_END_PROGRESS);
       const popScale = 1 + (POP_IN_SCALE - 1) * (1 - popPhase);
       entry.sprite.scale.set(SPRITE_BASE_SCALE_X * popScale, SPRITE_BASE_SCALE_Y * popScale, 1);
-      // Hold full opacity longer, then fade in the final third.
-      entry.material.opacity = t < 0.08 ? t / 0.08 : t < 0.65 ? 1 : 1 - (t - 0.65) / 0.35;
+      // Hold full opacity long enough to read the loss, then remove at fade completion.
+      entry.material.opacity =
+        t < POP_IN_OPACITY_END_PROGRESS
+          ? t / POP_IN_OPACITY_END_PROGRESS
+          : t < FADE_START_PROGRESS
+            ? 1
+            : Math.max(0, 1 - (t - FADE_START_PROGRESS) / (FADE_END_PROGRESS - FADE_START_PROGRESS));
     }
   };
 
