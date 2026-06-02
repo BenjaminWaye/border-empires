@@ -6896,6 +6896,269 @@ describe("simulation runtime", () => {
     );
   });
 
+  it("allows expand across an active aether bridge", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 20_000,
+            manpower: 10_000,
+            techIds: new Set<string>(["navigation", "harborcraft"]),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { CRYSTAL: 2_000 }
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          { x: 0, y: 1, terrain: "SEA" },
+          { x: 0, y: 2, terrain: "SEA" },
+          { x: 0, y: 3, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => {
+      events.push(event as unknown as Record<string, unknown>);
+    });
+
+    // Cast a bridge from (0,0) to (0,3)
+    runtime.submitCommand({
+      commandId: "bridge-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "CAST_AETHER_BRIDGE",
+      payloadJson: JSON.stringify({ x: 0, y: 3 })
+    });
+
+    await Promise.resolve();
+
+    // Expand across the bridge
+    runtime.submitCommand({
+      commandId: "expand-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 0, toY: 3 })
+    });
+
+    await Promise.resolve();
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "expand-1",
+        actionType: "EXPAND"
+      })
+    );
+
+    // Verify no NOT_ADJACENT rejection
+    expect(events).not.toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_REJECTED",
+        commandId: "expand-1",
+        code: "NOT_ADJACENT"
+      })
+    );
+  });
+
+  it("rejects expand across an aether bridge after expiry", async () => {
+    let clock = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => clock,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 20_000,
+            manpower: 10_000,
+            techIds: new Set<string>(["navigation", "harborcraft"]),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { CRYSTAL: 2_000 }
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          { x: 0, y: 1, terrain: "SEA" },
+          { x: 0, y: 2, terrain: "SEA" },
+          { x: 0, y: 3, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => {
+      events.push(event as unknown as Record<string, unknown>);
+    });
+
+    // Cast a bridge
+    runtime.submitCommand({
+      commandId: "bridge-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "CAST_AETHER_BRIDGE",
+      payloadJson: JSON.stringify({ x: 0, y: 3 })
+    });
+
+    await Promise.resolve();
+
+    // Prove the bridge is active before expiry
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "PLAYER_MESSAGE",
+        commandId: "bridge-1",
+        messageType: "AETHER_BRIDGE_UPDATE"
+      })
+    );
+
+    // Pre-expiry expand: must be accepted
+    runtime.submitCommand({
+      commandId: "expand-pre",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 0, toY: 3 })
+    });
+
+    await Promise.resolve();
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "expand-pre",
+        actionType: "EXPAND"
+      })
+    );
+
+    // Advance past bridge expiry
+    clock = 1_000_000_000;
+
+    // Same expand should now be rejected
+    runtime.submitCommand({
+      commandId: "expand-post",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 3,
+      issuedAt: 1_000_000_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 0, toY: 3 })
+    });
+
+    await Promise.resolve();
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_REJECTED",
+        commandId: "expand-post",
+        code: "NOT_ADJACENT"
+      })
+    );
+  });
+
+  it("rejects expand to a non-bridged target when only aether bridge crossing could apply", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 20_000,
+            manpower: 10_000,
+            techIds: new Set<string>(["navigation", "harborcraft"]),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { CRYSTAL: 2_000 }
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          { x: 0, y: 1, terrain: "SEA" },
+          { x: 0, y: 2, terrain: "SEA" },
+          { x: 0, y: 3, terrain: "LAND" },
+          { x: 0, y: 4, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => {
+      events.push(event as unknown as Record<string, unknown>);
+    });
+
+    // Cast a bridge to (0,3)
+    runtime.submitCommand({
+      commandId: "bridge-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "CAST_AETHER_BRIDGE",
+      payloadJson: JSON.stringify({ x: 0, y: 3 })
+    });
+
+    await Promise.resolve();
+
+    // Prove the bridge is active
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "PLAYER_MESSAGE",
+        commandId: "bridge-1",
+        messageType: "AETHER_BRIDGE_UPDATE"
+      })
+    );
+
+    // Try to expand to (0,4) which is NOT a bridge endpoint
+    runtime.submitCommand({
+      commandId: "expand-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 0, toY: 4 })
+    });
+
+    await Promise.resolve();
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_REJECTED",
+        commandId: "expand-1",
+        code: "NOT_ADJACENT"
+      })
+    );
+  });
+
   it("resolves airport bombardment through rewrite tile deltas", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

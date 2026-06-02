@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.4",
+  version: "2026.06.02.5",
   title: "What's New",
-  summary: "Domain choice buttons now block already-chosen or unavailable picks before they hit the server. Reveal Empire Stats now opens an intel dossier popup and gets 3D cast feedback.",
+  summary: "Aether Bridge: can now expand/attack onto the bridged tile.",
   entries: [
+    {
+      introducedIn: "2026.06.02.5",
+      title: "Aether Bridge crossing now works for expand and attack",
+      why: "Tapping a tile bridged by Aether Bridge did nothing — the client never sent the command and the sim always rejected it as non-adjacent.",
+      changes: [
+        "Expand and attack actions now resolve across an active Aether Bridge from the bridge origin to the bridged tile.",
+        "The client now picks the correct bridge origin so the expand/attack command is dispatched instead of silently dropped."
+      ]
+    },
     {
       introducedIn: "2026.06.02.4",
       title: "Domain picks no longer send stale mobile taps",

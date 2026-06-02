@@ -282,4 +282,61 @@ describe("game domain frontier validation", () => {
       target: { x: 10, y: 11 }
     });
   });
+
+  it("accepts a non-adjacent expand when isBridgeCrossing is true", () => {
+    const result = validateFrontierCommand({
+      now: 1_000,
+      actor: {
+        id: "p1",
+        isAi: false,
+        points: 100,
+        manpower: 100,
+        techIds: new Set<string>(),
+        allies: new Set<string>()
+      },
+      actionType: "EXPAND",
+      from: { x: 0, y: 0, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+      to: { x: 0, y: 5, terrain: "LAND" },
+      actionGoldCost: 10,
+      isAdjacent: false,
+      isDockCrossing: false,
+      isBridgeCrossing: true,
+      targetShielded: false,
+      defenderIsAlliedOrTruced: false
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      origin: { x: 0, y: 0 },
+      target: { x: 0, y: 5 }
+    });
+  });
+
+  it("rejects a non-adjacent expand when isBridgeCrossing is false", () => {
+    const result = validateFrontierCommand({
+      now: 1_000,
+      actor: {
+        id: "p1",
+        isAi: false,
+        points: 100,
+        manpower: 100,
+        techIds: new Set<string>(),
+        allies: new Set<string>()
+      },
+      actionType: "EXPAND",
+      from: { x: 0, y: 0, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+      to: { x: 0, y: 5, terrain: "LAND" },
+      actionGoldCost: 10,
+      isAdjacent: false,
+      isDockCrossing: false,
+      isBridgeCrossing: false,
+      targetShielded: false,
+      defenderIsAlliedOrTruced: false
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "NOT_ADJACENT"
+    });
+  });
 });
