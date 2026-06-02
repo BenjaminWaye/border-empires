@@ -371,10 +371,31 @@ const reachableTechChoices = (ownedTechIds: string[]): string[] =>
     })
     .map((tech) => tech.id);
 
-const reachableDomainChoices = (ownedTechIds: string[], ownedDomainIds: string[]): string[] =>
-  domainTree.domains
-    .filter((domain) => !ownedDomainIds.includes(domain.id) && ownedTechIds.includes(domain.requiresTechId))
+const nextDomainTier = (ownedDomainIds: readonly string[]): number | undefined => {
+  const chosenTierMax = domainTree.domains.reduce(
+    (maxTier, domain) => (ownedDomainIds.includes(domain.id) ? Math.max(maxTier, domain.tier) : maxTier),
+    0
+  );
+  const targetTier = Math.min(5, chosenTierMax + 1);
+  const pickedAtTargetTier = domainTree.domains.some((domain) => domain.tier === targetTier && ownedDomainIds.includes(domain.id));
+  return pickedAtTargetTier ? undefined : targetTier;
+};
+
+const openDomainChoices = (ownedDomainIds: readonly string[]): string[] => {
+  const targetTier = nextDomainTier(ownedDomainIds);
+  if (targetTier === undefined) return [];
+  return domainTree.domains
+    .filter((domain) => domain.tier === targetTier && !ownedDomainIds.includes(domain.id))
     .map((domain) => domain.id);
+};
+
+const reachableDomainChoices = (ownedTechIds: readonly string[], ownedDomainIds: readonly string[]): string[] => {
+  const targetTier = nextDomainTier(ownedDomainIds);
+  if (targetTier === undefined) return [];
+  return domainTree.domains
+    .filter((domain) => domain.tier === targetTier && !ownedDomainIds.includes(domain.id) && ownedTechIds.includes(domain.requiresTechId))
+    .map((domain) => domain.id);
+};
 
 const rankMetric = <T extends { id: string; name: string; value: number }>(entries: T[]) =>
   entries
@@ -744,7 +765,8 @@ export const buildGatewayInitPayload = (
   const techIds = liveSnapshotPlayer?.techIds ?? bootstrapProfile?.techIds ?? (player ? [...player.techIds] : []);
   const domainIds: string[] = liveSnapshotPlayer?.domainIds ?? bootstrapProfile?.domainIds ?? [];
   const techChoices = reachableTechChoices(techIds);
-  const domainChoices = reachableDomainChoices(techIds, domainIds);
+  const domainChoices = openDomainChoices(domainIds);
+  const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds));
   const liveWorldStatus = initialState?.worldStatus;
   const tileCounts = new Map<string, number>();
   for (const tile of initialState?.tiles ?? []) {
@@ -968,7 +990,7 @@ export const buildGatewayInitPayload = (
           gold: domain.cost?.gold ?? 0,
           resources,
           canResearch:
-            domainChoices.includes(domain.id) &&
+            reachableDomainChoiceSet.has(domain.id) &&
             availableGold >= (domain.cost?.gold ?? 0) &&
             hasResources(resources, availableStrategic)
         }
