@@ -7410,7 +7410,8 @@ describe("simulation runtime", () => {
     });
 
     it("walks instead of multiplying once barb population is at the cap", () => {
-      // 200 barb tiles already + this resolution puts the count at 201.
+      // 200 barb tiles already. At cap, multiply is blocked — falls through to
+      // plain walk (origin released, target claimed, net 0).
       const barbTiles: Array<{ x: number; y: number }> = [];
       for (let i = 0; i < 200; i += 1) {
         barbTiles.push({ x: 100 + (i % 20), y: 100 + Math.floor(i / 20) });
@@ -7422,8 +7423,7 @@ describe("simulation runtime", () => {
         lockTarget: { x: 50, y: 50 },
         attackerId: "barbarian-1"
       });
-      // Stamp the origin with at-threshold progress so without the cap the
-      // resolution would multiply.
+      // Stamp origin with at-threshold progress so without the cap it would multiply.
       readProgress(runtime).set("100,100", 3);
 
       runResolve();
@@ -7436,8 +7436,8 @@ describe("simulation runtime", () => {
       expect(target?.ownerId).toBe("barbarian-1");
       // Population stays at 200, not 201.
       expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(200);
-      // The over-threshold progress is preserved on the target so as soon as
-      // the population drops below the cap, the next walk multiplies again.
+      // Over-threshold progress carries to target so the next walk multiplies
+      // as soon as the population drops below cap.
       const progress = readProgress(runtime);
       expect(progress.get("100,100")).toBeUndefined();
       expect(progress.get("50,50")).toBe(3);

@@ -7949,12 +7949,10 @@ export class SimulationRuntime {
     const gain = this.barbarianProgressGain(previousTarget);
     const sourceProgress = this.barbarianTileProgress.get(lock.originKey) ?? 0;
     const newProgress = sourceProgress + gain;
-    // Population cap: at/over cap, an otherwise-multiplying walk becomes a
-    // plain walk that carries the over-threshold progress to the target,
-    // so the target re-attempts the multiply on its next action — natural
-    // "barbs pent up waiting for room to spawn" behavior once a barb dies.
     const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
+
     if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount < BARBARIAN_POPULATION_CAP) {
+      // Multiply: keep both origin and target — net +1 tile.
       this.runtimeLogInfo(
         {
           type: "barb_multiply",
@@ -7973,17 +7971,8 @@ export class SimulationRuntime {
       this.barbarianTileProgress.set(lock.targetKey, 0);
       return;
     }
-    if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount >= BARBARIAN_POPULATION_CAP) {
-      this.runtimeLogInfo(
-        {
-          type: "barb_multiply_capped",
-          originKey: lock.originKey,
-          targetKey: lock.targetKey,
-          barbTileCount
-        },
-        "barbarian multiply blocked by population cap"
-      );
-    }
+
+    // At/over cap: fall through to normal walk (net 0) — multiply blocked.
     if (gain > 0) {
       this.runtimeLogInfo(
         {
@@ -7995,9 +7984,10 @@ export class SimulationRuntime {
           eatenHasTown: !!previousTarget?.town,
           gain,
           sourceProgress,
-          newProgress
+          newProgress,
+          capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD
         },
-        "barbarian ate player tile (walk, no multiply yet)"
+        "barbarian ate player tile (walk)"
       );
     }
     this.barbarianTileProgress.delete(lock.originKey);
@@ -8086,13 +8076,13 @@ export class SimulationRuntime {
     const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
     this.runtimeLogInfo(
       {
-        type: "player_respawn_eliminated",
+        type: "player_eliminated",
         playerId,
         commandId,
         isAi: actor.isAi,
         barbTileCount
       },
-      "player respawned after elimination"
+      "player eliminated — attempting respawn"
     );
 
     const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
