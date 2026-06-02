@@ -69,6 +69,7 @@ import {
   IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
   IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
   IMPERIAL_EXCHANGE_LEVY_SHARE,
+  TIER_UPGRADE_FOOD_COST,
   WORLD_ENGINE_STRIKE_CRYSTAL_COST,
   WORLD_ENGINE_STRIKE_COOLDOWN_MS,
   WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO,
@@ -4709,6 +4710,94 @@ export class SimulationRuntime {
     this.setAbilityCooldownUntil(actor.id, "world_engine_strike", now + WORLD_ENGINE_STRIKE_COOLDOWN_MS);
   }
 
+  private handleUpgradeTownTierCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseTilePayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const tileKey = simulationTileKey(payload.x, payload.y);
+    const tile = this.tiles.get(tileKey);
+    if (!tile || tile.ownerId !== actor.id || tile.ownershipState !== "SETTLED" || !tile.town) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "UPGRADE_TOWN_TIER_INVALID",
+        message: "not your settled town"
+      });
+      return;
+    }
+    const town = tile.town;
+    const currentTier = town.populationTier;
+    // Determine the next tier: SETTLEMENT→TOWN→CITY→GREAT_CITY→METROPOLIS
+    const nextTier = currentTier === "SETTLEMENT" ? "TOWN" as const
+      : currentTier === "TOWN" ? "CITY" as const
+      : currentTier === "CITY" ? "GREAT_CITY" as const
+      : currentTier === "GREAT_CITY" ? "METROPOLIS" as const
+      : null;
+    if (!nextTier) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "UPGRADE_TOWN_TIER_INVALID",
+        message: "already at max tier"
+      });
+      return;
+    }
+    // TOWN upgrade from SETTLEMENT is free — no food cost, no pop threshold
+    if (nextTier !== "TOWN") {
+      const threshold = nextTier === "CITY" ? 100_000
+        : nextTier === "GREAT_CITY" ? 1_000_000
+        : 5_000_000;
+      if ((town.population ?? 0) < threshold) {
+        this.emitEvent({
+          eventType: "COMMAND_REJECTED",
+          commandId: command.commandId,
+          playerId: command.playerId,
+          code: "UPGRADE_TOWN_TIER_INVALID",
+          message: "population too low to upgrade"
+        });
+        return;
+      }
+      if (!this.spendStrategicResource(actor, "FOOD", TIER_UPGRADE_FOOD_COST[nextTier])) {
+        this.emitEvent({
+          eventType: "COMMAND_REJECTED",
+          commandId: command.commandId,
+          playerId: command.playerId,
+          code: "UPGRADE_TOWN_TIER_INVALID",
+          message: "insufficient FOOD"
+        });
+        return;
+      }
+    }
+    // Apply the upgrade
+    const updatedTown = { ...town, populationTier: nextTier };
+    const updatedTile = { ...tile, town: updatedTown };
+    this.tiles.set(tileKey, updatedTile);
+    this.tileDeltaStringifyCache.invalidate(tileKey);
+    // Update the tier index
+    const summary = this.summaryForPlayer(actor.id);
+    summary.ownedTownTierByTile.set(tileKey, nextTier);
+    // Invalidate economy caches since tier affects goldPerMinute
+    this.economySnapshotCacheByPlayer.delete(actor.id);
+    this.tileYieldContextCacheByPlayer.delete(actor.id);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+  }
+
   private handleCollectShardCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseTilePayload(command.payloadJson);
@@ -7611,6 +7700,7 @@ export class SimulationRuntime {
         command.type !== "AIRPORT_BOMBARD" &&
         command.type !== "IMPERIAL_EXCHANGE_LEVY" &&
         command.type !== "WORLD_ENGINE_STRIKE" &&
+        command.type !== "UPGRADE_TOWN_TIER" &&
         command.type !== "COLLECT_SHARD" &&
         command.type !== "SYNC_ALLIANCE"
       ) {
@@ -7771,6 +7861,11 @@ export class SimulationRuntime {
 
       if (command.type === "WORLD_ENGINE_STRIKE") {
         this.handleWorldEngineStrikeCommand(command);
+        return;
+      }
+
+      if (command.type === "UPGRADE_TOWN_TIER") {
+        this.handleUpgradeTownTierCommand(command);
         return;
       }
 

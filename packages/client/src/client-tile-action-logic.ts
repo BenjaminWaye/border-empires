@@ -63,7 +63,8 @@ const townGrowthActionForUpgrade = (
   upgrade: TownGrowthUpgradeView | undefined
 ): TileActionDef | undefined => {
   if (!upgrade?.available) return undefined;
-  const enabled = state.gold >= upgrade.goldCost;
+  const food = state.strategicResources?.FOOD ?? 0;
+  const enabled = food >= upgrade.foodCost;
   const id =
     upgrade.targetTier === "CITY"
       ? "grow_town_to_city"
@@ -72,21 +73,21 @@ const townGrowthActionForUpgrade = (
         : "grow_great_city_to_monumental_city";
   const label =
     upgrade.targetTier === "CITY"
-      ? "Grow Town to City"
+      ? "Upgrade Town to City"
       : upgrade.targetTier === "GREAT_CITY"
-        ? "Grow City to Great City"
-        : "Grow Great City to Monumental City";
+        ? "Upgrade City to Great City"
+        : "Upgrade Great City to Metropolis";
   const detail =
     upgrade.targetTier === "CITY"
-      ? "Unlocks city-tier income and manpower. Food upkeep rises to 0.2/m."
+      ? "Unlocks city-tier income and manpower. Food upkeep rises to 0.3/m."
       : upgrade.targetTier === "GREAT_CITY"
-        ? "Unlocks great-city income and manpower. Food upkeep rises to 0.4/m."
-        : "Unlocks metropolis-tier income and manpower. Food upkeep rises to 0.8/m.";
+        ? "Unlocks great-city income and manpower. Food upkeep rises to 0.6/m."
+        : "Unlocks metropolis-tier income and manpower. Food upkeep rises to 1.0/m.";
   return {
     id,
     label,
     ...(enabled ? { detail } : {}),
-    ...tileActionAvailability(enabled, `Need ${upgrade.goldCost} gold`, `${upgrade.goldCost} gold`)
+    ...tileActionAvailability(enabled, `Need ${upgrade.foodCost} food`, `${upgrade.foodCost} food`)
   };
 };
 

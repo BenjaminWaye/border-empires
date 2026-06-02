@@ -93,11 +93,11 @@ const isGrowthModifierArray = (value: unknown): value is NonNullable<TownSummary
 
 const isNextPopulationTierUpgrade = (value: unknown): value is NonNullable<TownSummary["nextPopulationTierUpgrade"]> => {
   if (!value || typeof value !== "object") return false;
-  const upgrade = value as { targetTier?: unknown; requiredPopulation?: unknown; goldCost?: unknown; available?: unknown };
+  const upgrade = value as { targetTier?: unknown; requiredPopulation?: unknown; foodCost?: unknown; available?: unknown };
   return (
     (upgrade.targetTier === "CITY" || upgrade.targetTier === "GREAT_CITY" || upgrade.targetTier === "METROPOLIS") &&
     isFiniteNumber(upgrade.requiredPopulation) &&
-    isFiniteNumber(upgrade.goldCost) &&
+    isFiniteNumber(upgrade.foodCost) &&
     typeof upgrade.available === "boolean"
   );
 };
