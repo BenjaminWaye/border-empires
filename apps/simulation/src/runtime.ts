@@ -444,6 +444,9 @@ export class SimulationRuntime {
   // Epoch ms of the last population growth tick for each settled town tile key.
   // Used by tickPopulationGrowth to compute elapsed minutes since the last update.
   private readonly townLastGrowthTickAtByKey = new Map<string, number>();
+  // Running counter of growth ticks skipped due to insufficient food.
+  // Exposed for diagnostics / metrics.
+  growthStalledNoFoodCounter = 0;
   // Per-player territorial vision expansion cache.  Avoids O(territory×r²)
   // recomputation on every classifyVisibilityForPlayer call; invalidated lazily
   // via signature (tileCollectionVersion:vision:visionRadiusBonus) and
@@ -859,7 +862,7 @@ export class SimulationRuntime {
   }
 
   tickPopulationGrowth(nowMs: number = this.now()): void {
-    tickPopulationGrowthImpl({
+    const result = tickPopulationGrowthImpl({
       nowMs,
       players: this.players,
       tiles: this.tiles,
@@ -874,6 +877,9 @@ export class SimulationRuntime {
         this.tileYieldContextCacheByPlayer.delete(playerId);
       }
     });
+    if (result.growthStalledNoFood > 0) {
+      this.growthStalledNoFoodCounter += result.growthStalledNoFood;
+    }
   }
 
   tickShardRain(nowMs: number = this.now()): void {
