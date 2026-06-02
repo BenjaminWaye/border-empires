@@ -69,9 +69,10 @@ const converterDailyOutput = (
     case "CRYSTAL_SYNTHESIZER":
     case "ADVANCED_CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-    // Farmstead/Waterworks: +50% food only on FARM tiles. FISH gets nothing.
+    // Farmstead: +50% food only on FARM tiles. FISH gets nothing.
+    // (Waterworks is a radius-support building like Foundry — it boosts nearby
+    //  Farmsteads rather than producing food itself.)
     case "FARMSTEAD":
-    case "WATERWORKS":
       return { FOOD: 72 * 0.5 };
     default:
       return {};
@@ -124,19 +125,21 @@ export const buildTileYieldView = (
   const goldPerMinute = townGoldPerMinute + dockGoldPerMinute;
   const resourceDaily = strategicDailyFromResource(tile.resource);
   const converterDaily = converterDailyOutput(tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined);
-  // Farmstead and Waterworks only boost FARM tiles — strip the structure food
-  // bonus on non-FARM tiles but keep the base resource food rate intact.
+  // Farmstead only boosts FARM tiles — strip the structure food bonus on
+  // non-FARM tiles (e.g. FISH) but keep the base resource food rate intact.
   if (
     tile.resource !== "FARM" &&
     tile.economicStructure?.status === "active" &&
-    (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS")
+    tile.economicStructure.type === "FARMSTEAD"
   ) {
     delete converterDaily.FOOD;
   }
-  const strategicPerDay = {
-    ...resourceDaily,
-    ...converterDaily
-  };
+  // Merge resource and converter output additively so a farmstead on a
+  // FARM tile gives 72 + 36 = 108/day, not 36/day (overwrite).
+  const strategicPerDay = { ...resourceDaily };
+  for (const [key, value] of Object.entries(converterDaily) as Array<[StrategicYieldKey, number]>) {
+    strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
+  }
   const maxDaily = Math.max(0, ...Object.values(strategicPerDay).map((value) => Number(value) || 0));
   const yieldCap = {
     gold:
