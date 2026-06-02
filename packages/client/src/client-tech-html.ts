@@ -22,7 +22,7 @@ const formatSignedPercent = (mult: number): string => {
 };
 
 const effectSummaryLabel = (key: string, value: unknown): string | null => {
-  if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads";
+  if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads (boost farm food)";
   if (key === "unlockCamp" && value === true) return "Unlocks camps";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMarket" && value === true) return "Unlocks markets";
@@ -72,7 +72,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
   if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
-  if (key === "unlockWaterworksUpgrade" && value === true) return "Upgrades Farmstead to Waterworks";
+  if (key === "unlockWaterworksUpgrade" && value === true) return "Upgrades Farmstead to Waterworks (boost farm food)";
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
