@@ -3,6 +3,7 @@ import { townHasSupportStructureType } from "./client-support-structures.js";
 import type { SupportTownStructureKey } from "./client-support-structures.js";
 import type { ClientState } from "./client-state.js";
 import type { Tile } from "./client-types.js";
+import { isFrontierOriginCutOff } from "./client-tile-menu-status.js";
 
 type OriginSelectionDeps = {
   state: ClientState;
@@ -144,6 +145,7 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
         t.terrain !== "LAND" ||
         t.fogged ||
         !t.dockId ||
+        isFrontierOriginCutOff(t) ||
         (!allowOptimisticExpandOrigin && t.optimisticPending === "expand")
       ) continue;
       const linked = dockDestinationsFor(t.x, t.y);
@@ -169,6 +171,7 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
       if (bridge.to.x !== tx || bridge.to.y !== ty) continue;
       const origin = state.tiles.get(keyFor(bridge.from.x, bridge.from.y));
       if (!origin || origin.ownerId !== state.me || origin.fogged) continue;
+      if (isFrontierOriginCutOff(origin)) continue;
       if (!allowOptimisticExpandOrigin && origin.optimisticPending === "expand") continue;
       candidates.push(origin);
     }
@@ -192,7 +195,7 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
       state.tiles.get(keyFor(wrapX(tx - 1), wrapY(ty + 1)))
     ].filter((t): t is Tile => Boolean(t));
     const adjacent = pickBestOrigin(
-      candidates.filter((t) => t.ownerId === state.me && (allowOptimisticExpandOrigin || t.optimisticPending !== "expand"))
+      candidates.filter((t) => t.ownerId === state.me && (allowOptimisticExpandOrigin || t.optimisticPending !== "expand") && !isFrontierOriginCutOff(t))
     );
     if (adjacent) return adjacent;
     const dockOrigin = pickDockOriginForTarget(tx, ty, allowAdjacentToDock, allowOptimisticExpandOrigin);
