@@ -1434,6 +1434,7 @@ export class SimulationRuntime {
         player,
         fedTownKeys: economyContext.fedTownKeys,
         firstThreeTownKeys: economyContext.firstThreeTownKeys,
+        waterworksKeys: economyContext.waterworksKeys,
         tiles: this.tiles,
         dockLinksByDockTileKey: this.dockLinksByDockTileKey
       });
@@ -2329,7 +2330,8 @@ export class SimulationRuntime {
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
       playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      growthStalledNoFoodCounter: this.growthStalledNoFoodCounter
     });
   }
 
@@ -2510,11 +2512,18 @@ export class SimulationRuntime {
     const cached = this.tileYieldContextCacheByPlayer.get(player.id);
     if (cached) return cached;
     const settledTiles = this.settledTilesForPlayer(player.id);
+    const waterworksKeys = new Set<string>();
+    for (const tile of settledTiles) {
+      if (tile.economicStructure?.type === "WATERWORKS" && tile.economicStructure.status === "active") {
+        waterworksKeys.add(`${tile.x},${tile.y}`);
+      }
+    }
     const context: RuntimeTileYieldEconomyContext = {
       player,
       townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames: 16 }),
       fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles),
-      firstThreeTownKeys: firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id))
+      firstThreeTownKeys: firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id)),
+      waterworksKeys
     };
     this.tileYieldContextCacheByPlayer.set(player.id, context);
     return context;
