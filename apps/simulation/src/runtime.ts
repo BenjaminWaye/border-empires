@@ -6130,7 +6130,9 @@ export class SimulationRuntime {
   // ── Unified build handler (Phase 2) ──────────────────────────────
 
   private normalizeLegacyBuildCommand(command: CommandEnvelope): CommandEnvelope {
-    const payload = JSON.parse(command.payloadJson) as Record<string, unknown>;
+    let payload: Record<string, unknown>;
+    try { payload = JSON.parse(command.payloadJson) as Record<string, unknown>; }
+    catch { return command; }
     let structureType: string;
     if (command.type === "BUILD_FORT") structureType = "FORT";
     else if (command.type === "BUILD_OBSERVATORY") structureType = "OBSERVATORY";
@@ -6295,7 +6297,10 @@ export class SimulationRuntime {
       return;
     }
 
-    // Strategic resource
+    // Strategic resource — atomically pre-check all then spend.
+    // spendStrategicResource deducts on success; a multi-resource check
+    // where first succeeds and a later one fails would silently steal the
+    // first resource without a refund path.
     if (!strategicCost) {
       const strategicDef = structureCostDefinition(payload.structureType as BuildableStructureType);
       strategicCost = spec.cost.strategic as Record<string, number> | undefined
@@ -6303,12 +6308,18 @@ export class SimulationRuntime {
     }
     if (strategicCost) {
       const orderedKeys = Object.keys(strategicCost).sort();
+      // Pre-check: all resources must be sufficient before spending any.
       for (const res of orderedKeys) {
         const amount = strategicCost[res]!;
-        if (amount > 0 && !this.spendStrategicResource(actor, res as any, amount)) {
+        if (amount > 0 && this.strategicResourceAmount(actor, res as any) + 1e-6 < amount) {
           this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `insufficient ${res} for ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
           return;
         }
+      }
+      // All spends are now guaranteed to succeed.
+      for (const res of orderedKeys) {
+        const amount = strategicCost[res]!;
+        if (amount > 0) this.spendStrategicResource(actor, res as any, amount);
       }
     }
 
@@ -6382,9 +6393,15 @@ export class SimulationRuntime {
       ? { sweepBudget: SWEEP_BUDGET_CAP, sweepActive: false as const, sweepBudgetUpdatedAt: this.now() }
       : {};
 
+    // Only clear economicStructure when upgrading from WOODEN_FORT → FORT
+    const clearingWoodenFort =
+      spec.tileField === "fort" &&
+      latest.economicStructure?.type === "WOODEN_FORT" &&
+      latest.economicStructure?.ownerId === ownerId;
+
     const completedTile: DomainTileState = {
       ...latest,
-      ...(spec.tileField === "fort" ? { economicStructure: undefined } : {}),
+      ...(clearingWoodenFort ? { economicStructure: undefined } : {}),
       [spec.tileField]: { ...activeStructure, status: "active", ...sweepInit }
     } as unknown as DomainTileState;
 
