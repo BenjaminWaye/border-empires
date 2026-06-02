@@ -46,11 +46,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_BREAK"), targetPlayerId: z.string().min(1) }),
-  z.object({ type: z.literal("SET_TILE_COLOR"), color: z.string().regex(/^#[0-9a-fA-F]{6}$/) }),
+  z.object({ type: z.literal("SET_TILE_COLOR"), color: z.string().regex(/^#[0-9a-fA-F]{3,6}$/) }),
   z.object({
     type: z.literal("SET_PROFILE"),
     displayName: z.string().trim().min(2).max(24),
-    color: z.string().regex(/^#[0-9a-fA-F]{6}$/)
+    color: z.string().regex(/^#[0-9a-fA-F]{3,6}$/)
   }),
   z.object({ type: z.literal("BUILD_FORT"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("BUILD_OBSERVATORY"), x: z.number().int(), y: z.number().int() }),
