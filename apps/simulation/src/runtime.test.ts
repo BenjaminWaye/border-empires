@@ -7024,15 +7024,45 @@ describe("simulation runtime", () => {
 
     await Promise.resolve();
 
-    // Advance past bridge expiry
-    clock = 1_000_000_000;
+    // Prove the bridge is active before expiry
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "PLAYER_MESSAGE",
+        commandId: "bridge-1",
+        messageType: "AETHER_BRIDGE_UPDATE"
+      })
+    );
 
-    // Expand should now be rejected
+    // Pre-expiry expand: must be accepted
     runtime.submitCommand({
-      commandId: "expand-1",
+      commandId: "expand-pre",
       sessionId: "session-1",
       playerId: "player-1",
       clientSeq: 2,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 0, toY: 3 })
+    });
+
+    await Promise.resolve();
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "expand-pre",
+        actionType: "EXPAND"
+      })
+    );
+
+    // Advance past bridge expiry
+    clock = 1_000_000_000;
+
+    // Same expand should now be rejected
+    runtime.submitCommand({
+      commandId: "expand-post",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 3,
       issuedAt: 1_000_000_000,
       type: "EXPAND",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 0, toY: 3 })
@@ -7043,7 +7073,7 @@ describe("simulation runtime", () => {
     expect(events).toContainEqual(
       expect.objectContaining({
         eventType: "COMMAND_REJECTED",
-        commandId: "expand-1",
+        commandId: "expand-post",
         code: "NOT_ADJACENT"
       })
     );
@@ -7097,6 +7127,15 @@ describe("simulation runtime", () => {
     });
 
     await Promise.resolve();
+
+    // Prove the bridge is active
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        eventType: "PLAYER_MESSAGE",
+        commandId: "bridge-1",
+        messageType: "AETHER_BRIDGE_UPDATE"
+      })
+    );
 
     // Try to expand to (0,4) which is NOT a bridge endpoint
     runtime.submitCommand({
