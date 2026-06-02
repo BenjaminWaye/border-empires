@@ -1981,4 +1981,255 @@ describe("rewrite stack integration", () => {
     await waitUntil(async () => (await gatewayCommandStore.get(removeCommandId))?.status === "RESOLVED");
   }, 20_000);
 
+  // -- Phase 11: colour uniqueness integration tests ---------------------------
+
+  describe("colour uniqueness", () => {
+    const cleanup: Array<() => Promise<void>> = [];
+    afterEach(async () => {
+      for (const fn of cleanup.reverse()) await fn();
+      cleanup.length = 0;
+    });
+
+    it("A: rejects duplicate colour with COLOR_TAKEN", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const createGateway = async (playerId: string) =>
+        await createRealtimeGatewayApp({
+          host: "127.0.0.1",
+          port: 0,
+          logger: false,
+          simulationAddress: simulationAddress.address,
+          commandStore: gatewayCommandStore,
+          profileStore: gatewayProfileStore,
+          defaultHumanPlayerId: playerId
+        });
+
+      const gatewayOne = await createGateway("player-1");
+      cleanup.push(() => gatewayOne.close());
+      const gw1Addr = await gatewayOne.start();
+      const sock1 = await openSocket(gw1Addr.wsUrl);
+      cleanup.push(() => closeSocket(sock1.socket));
+      sock1.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock1, "init", "INIT");
+      sock1.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      await nextTypedMessage(sock1, "profile", "PLAYER_STYLE");
+
+      const gatewayTwo = await createGateway("player-2");
+      cleanup.push(() => gatewayTwo.close());
+      const gw2Addr = await gatewayTwo.start();
+      const sock2 = await openSocket(gw2Addr.wsUrl);
+      cleanup.push(() => closeSocket(sock2.socket));
+      sock2.socket.send(JSON.stringify({ type: "AUTH", token: "player-2" }));
+      await nextTypedMessage(sock2, "init", "INIT");
+      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: "#123456" }));
+
+      const error = await nextTypedMessage(sock2, "color error", "ERROR");
+      expect(error.code).toBe("COLOR_TAKEN");
+      expect(typeof error.suggestion).toBe("string");
+    }, 15_000);
+
+    it("B: suggestion is a valid hex, not the taken colour, not barbarian grey", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const createGateway = async (playerId: string) =>
+        await createRealtimeGatewayApp({
+          host: "127.0.0.1",
+          port: 0,
+          logger: false,
+          simulationAddress: simulationAddress.address,
+          commandStore: gatewayCommandStore,
+          profileStore: gatewayProfileStore,
+          defaultHumanPlayerId: playerId
+        });
+
+      const gatewayOne = await createGateway("player-1");
+      cleanup.push(() => gatewayOne.close());
+      const gw1Addr = await gatewayOne.start();
+      const sock1 = await openSocket(gw1Addr.wsUrl);
+      cleanup.push(() => closeSocket(sock1.socket));
+      sock1.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock1, "init", "INIT");
+      sock1.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      await nextTypedMessage(sock1, "profile", "PLAYER_STYLE");
+
+      const gatewayTwo = await createGateway("player-2");
+      cleanup.push(() => gatewayTwo.close());
+      const gw2Addr = await gatewayTwo.start();
+      const sock2 = await openSocket(gw2Addr.wsUrl);
+      cleanup.push(() => closeSocket(sock2.socket));
+      sock2.socket.send(JSON.stringify({ type: "AUTH", token: "player-2" }));
+      await nextTypedMessage(sock2, "init", "INIT");
+      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: "#123456" }));
+
+      const error = await nextTypedMessage(sock2, "color error", "ERROR");
+      const suggestion = error.suggestion as string;
+      expect(suggestion).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(suggestion).not.toBe("#123456");
+      expect(suggestion).not.toBe("#2f3842");
+    }, 15_000);
+
+    it("C: player can use the suggestion colour and succeed", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const createGateway = async (playerId: string) =>
+        await createRealtimeGatewayApp({
+          host: "127.0.0.1",
+          port: 0,
+          logger: false,
+          simulationAddress: simulationAddress.address,
+          commandStore: gatewayCommandStore,
+          profileStore: gatewayProfileStore,
+          defaultHumanPlayerId: playerId
+        });
+
+      const gatewayOne = await createGateway("player-1");
+      cleanup.push(() => gatewayOne.close());
+      const gw1Addr = await gatewayOne.start();
+      const sock1 = await openSocket(gw1Addr.wsUrl);
+      cleanup.push(() => closeSocket(sock1.socket));
+      sock1.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock1, "init", "INIT");
+      sock1.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      await nextTypedMessage(sock1, "profile", "PLAYER_STYLE");
+
+      const gatewayTwo = await createGateway("player-2");
+      cleanup.push(() => gatewayTwo.close());
+      const gw2Addr = await gatewayTwo.start();
+      const sock2 = await openSocket(gw2Addr.wsUrl);
+      cleanup.push(() => closeSocket(sock2.socket));
+      sock2.socket.send(JSON.stringify({ type: "AUTH", token: "player-2" }));
+      await nextTypedMessage(sock2, "init", "INIT");
+      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: "#123456" }));
+
+      const error = await nextTypedMessage(sock2, "color error", "ERROR");
+      const suggestion = error.suggestion as string;
+      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: suggestion }));
+      const style = await nextTypedMessage(sock2, "style", "PLAYER_STYLE");
+      expect(style.tileColor).toBe(suggestion);
+    }, 15_000);
+
+    it("D: barbarian grey #2f3842 rejected with COLOR_TAKEN", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const gateway = await createRealtimeGatewayApp({
+        host: "127.0.0.1",
+        port: 0,
+        logger: false,
+        simulationAddress: simulationAddress.address,
+        commandStore: gatewayCommandStore,
+        profileStore: gatewayProfileStore,
+        defaultHumanPlayerId: "player-1"
+      });
+      cleanup.push(() => gateway.close());
+      const addr = await gateway.start();
+      const sock = await openSocket(addr.wsUrl);
+      cleanup.push(() => closeSocket(sock.socket));
+      sock.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock, "init", "INIT");
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "Barb", color: "#2f3842" }));
+
+      const error = await nextTypedMessage(sock, "color error", "ERROR");
+      expect(error.code).toBe("COLOR_TAKEN");
+    }, 15_000);
+
+    it("E: invalid hex rejected with COLOR_INVALID", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const gateway = await createRealtimeGatewayApp({
+        host: "127.0.0.1",
+        port: 0,
+        logger: false,
+        simulationAddress: simulationAddress.address,
+        commandStore: gatewayCommandStore,
+        profileStore: gatewayProfileStore,
+        defaultHumanPlayerId: "player-1"
+      });
+      cleanup.push(() => gateway.close());
+      const addr = await gateway.start();
+      const sock = await openSocket(addr.wsUrl);
+      cleanup.push(() => closeSocket(sock.socket));
+      sock.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock, "init", "INIT");
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "Bad", color: "notacolor" }));
+
+      const error = await nextTypedMessage(sock, "color error", "ERROR");
+      expect(error.code).toBe("COLOR_INVALID");
+    }, 15_000);
+
+    it("F: player can re-save own colour without self-collision", async () => {
+      const simulation = await createSimulationService({
+        host: "127.0.0.1",
+        port: 0,
+        log: silentLog
+      });
+      cleanup.push(() => simulation.close());
+      const simulationAddress = await simulation.start();
+
+      const gatewayCommandStore = new InMemoryGatewayCommandStore();
+      const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+      const gateway = await createRealtimeGatewayApp({
+        host: "127.0.0.1",
+        port: 0,
+        logger: false,
+        simulationAddress: simulationAddress.address,
+        commandStore: gatewayCommandStore,
+        profileStore: gatewayProfileStore,
+        defaultHumanPlayerId: "player-1"
+      });
+      cleanup.push(() => gateway.close());
+      const addr = await gateway.start();
+      const sock = await openSocket(addr.wsUrl);
+      cleanup.push(() => closeSocket(sock.socket));
+      sock.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+      await nextTypedMessage(sock, "init", "INIT");
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      await nextTypedMessage(sock, "profile", "PLAYER_STYLE");
+
+      // Re-save the same colour — should succeed (self is excluded from taken set)
+      sock.socket.send(JSON.stringify({ type: "SET_TILE_COLOR", color: "#123456" }));
+      const update = await nextTypedMessage(sock, "player update", "PLAYER_UPDATE");
+      expect(update.tileColor).toBe("#123456");
+    }, 15_000);
+  });
+
 });

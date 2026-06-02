@@ -206,6 +206,7 @@ export const createInitialState = () => ({
   activeTruces: [] as ActiveTruceView[],
   playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
+  suggestedColors: ["#38b000", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899"] as string[],
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   playerShieldUntil: new Map<string, number>(),
   serverSupportedMessageTypes: new Set<string>(),
