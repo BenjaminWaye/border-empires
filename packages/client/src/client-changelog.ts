@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.1",
+  version: "2026.06.02.2",
   title: "What's New",
-  summary: "Shared support tiles resolve to one town. Attack-rejection errors now show as popups. Retort Transmutation and Aether Lance now have one-shot 3D cast feedback.",
+  summary: "Reveal Empire Stats now opens an intel dossier popup and gets 3D cast feedback. Shared support tiles resolve to one town, and attack-rejection errors now show as popups.",
   entries: [
+    {
+      introducedIn: "2026.06.02.2",
+      title: "Reveal Empire Stats now opens an intel dossier",
+      why: "The ability returned useful empire numbers, but the client only posted a short feed line that was easy to miss and did not feel like a real intelligence report.",
+      changes: [
+        "Reveal Empire Stats now opens a civilization-style intel dossier popup with economy, territory, town, manpower, tech, gold, and strategic stockpile details.",
+        "Casting the ability on a hostile tile now triggers a one-shot 3D scan-and-dossier extraction flourish on that selected tile."
+      ]
+    },
     {
       introducedIn: "2026.06.02.1",
       title: "Shared support tiles can build again",

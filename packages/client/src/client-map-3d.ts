@@ -45,6 +45,7 @@ import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observato
 import { createAetherBridgePylonOverlay } from "./client-map-3d-aether-bridge-pylon-overlay.js";
 import { createAetherLanceFxLayer } from "./client-map-3d-aether-lance-fx.js";
 import { createRetortRecastFxLayer } from "./client-map-3d-retort-recast-fx.js";
+import { createRevealEmpireStatsFxLayer } from "./client-map-3d-reveal-empire-stats-fx.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "./client-town-growth.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "./client-map-3d-barbarian-overlay.js";
@@ -131,6 +132,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
   const aetherLanceFx = createAetherLanceFxLayer(scene);
   const retortRecastFx = createRetortRecastFxLayer(scene);
+  const revealEmpireStatsFx = createRevealEmpireStatsFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
@@ -1050,6 +1052,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       );
     }
   };
+  const syncRevealEmpireStatsFxQueue = (): void => {
+    while (deps.state.revealEmpireStatsFxQueue.length > 0) {
+      const cast = deps.state.revealEmpireStatsFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      revealEmpireStatsFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
+      );
+    }
+  };
   const syncAetherBridgePylons = (nowMs: number): void => {
     aetherBridgePylonOverlay.beginFrame();
     const now = Date.now();
@@ -1579,9 +1593,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
     syncRetortRecastFxQueue();
+    syncRevealEmpireStatsFxQueue();
     villageEffects.update(nowMs);
     aetherLanceFx.update(nowMs);
     retortRecastFx.update(nowMs);
+    revealEmpireStatsFx.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(nowMs);
     settleOverlay.tick(nowMs);
@@ -1688,6 +1704,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     aetherBridgePylonOverlay.dispose();
     aetherLanceFx.dispose();
     retortRecastFx.dispose();
+    revealEmpireStatsFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     fortOverlay.dispose();
