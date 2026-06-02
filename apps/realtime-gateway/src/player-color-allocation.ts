@@ -129,7 +129,7 @@ export function suggestAlternative(desired: string, taken: ReadonlySet<string>):
   }
 
   // fall through — pick from palette
-  return pickSuggestedPalette(1, taken)[0];
+  return pickSuggestedPalette(1, taken)[0] ?? "#ff00ff";
 }
 
 // -- palette selection ---------------------------------------------------------
