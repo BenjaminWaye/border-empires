@@ -16,3 +16,6 @@ export * from "./frontier-combat.js";
 export * from "./outpost-aura.js";
 export * from "./player-display-name.js";
 export * from "./town-growth.js";
+export * from "./structure-registry.js";
+export * from "./structure-registry-index.js";
+export { TECH_REQUIREMENTS_BY_STRUCTURE } from "./structure-registry-economic.js";
