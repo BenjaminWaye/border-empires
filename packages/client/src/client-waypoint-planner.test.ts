@@ -254,6 +254,53 @@ describe("planWaypoint", () => {
     }
   });
 
+  it("skips cut-off frontier tiles in source seeding — target only reachable from healthy tile", () => {
+    // (5,3) is a healthy (SETTLED) owned tile adjacent to target.
+    // (4,4) is a cut-off encircled frontier owned by me, also adjacent to target.
+    // The healthy tile must be the origin of the single ATTACK step.
+    const now = 1_000_000;
+    const tiles = [
+      tile(5, 3, { ownerId: "me", ownershipState: "SETTLED" }),
+      tile(4, 4, { ownerId: "me", ownershipState: "FRONTIER", frontierDecayAt: now + 30_000, frontierDecayKind: "ENCIRCLEMENT" }),
+      tile(5, 4, { ownerId: "enemy" })
+    ];
+    const state = stateWith(tiles);
+    const plan = planWaypoint({ x: 5, y: 4 }, { ...baseDeps(state), now });
+    expect(plan.reachable).toBe(true);
+    expect(plan.steps).toHaveLength(1);
+    expect(plan.steps[0]!.action).toBe("ATTACK");
+    // The origin must be (5,3), not (4,4).
+    expect(plan.steps[0]!.origin).toEqual({ x: 5, y: 3 });
+    expect(plan.steps[0]!.target).toEqual({ x: 5, y: 4 });
+  });
+
+  it("blocks when the only route to the target is through a cut-off frontier tile", () => {
+    // (3,3) is a cut-off encircled frontier. Target is beyond it.
+    // No healthy owned tile touches the enemy — the cut-off is the only bridge.
+    const now = 1_000_000;
+    const tiles = [
+      tile(2, 3, { ownerId: "me", ownershipState: "SETTLED" }),
+      tile(3, 3, { ownerId: "me", ownershipState: "FRONTIER", frontierDecayAt: now + 30_000, frontierDecayKind: "ENCIRCLEMENT" }),
+      tile(4, 3, { ownerId: "enemy" })
+    ];
+    const state = stateWith(tiles);
+    const plan = planWaypoint({ x: 4, y: 3 }, { ...baseDeps(state), now });
+    expect(plan.reachable).toBe(false);
+  });
+
+  it("treats SETTLED tiles as valid origins (no over-exclusion)", () => {
+    // SETTLED tiles are never cut off — verify they still work fine.
+    const tiles = [
+      tile(3, 3, { ownerId: "me", ownershipState: "SETTLED" }),
+      tile(4, 3, { ownerId: "enemy" })
+    ];
+    const state = stateWith(tiles);
+    const plan = planWaypoint({ x: 4, y: 3 }, baseDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.steps).toHaveLength(1);
+    expect(plan.steps[0]!.origin).toEqual({ x: 3, y: 3 });
+  });
+
   it("groups straight runs together on a mixed target (one direction change)", () => {
     // Source (0,5) to target (5,3): 5 east + 2 north over 5 chebyshev steps.
     // Expect contiguous runs (E-E-E-NE-NE or NE-NE-E-E-E), one turn, no
