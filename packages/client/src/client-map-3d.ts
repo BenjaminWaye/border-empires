@@ -43,7 +43,7 @@ import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.j
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createAetherBridgePylonOverlay } from "./client-map-3d-aether-bridge-pylon-overlay.js";
-import { createAetherLanceFxLayer } from "./client-map-3d-aether-lance-fx.js";
+import { createAetherPurgeFxLayer } from "./client-map-3d-aether-purge-fx.js";
 import { createRetortRecastFxLayer } from "./client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireStatsFxLayer } from "./client-map-3d-reveal-empire-stats-fx.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "./client-town-growth.js";
@@ -130,7 +130,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
-  const aetherLanceFx = createAetherLanceFxLayer(scene);
+  const aetherLanceFx = createAetherPurgeFxLayer(scene);
   const retortRecastFx = createRetortRecastFxLayer(scene);
   const revealEmpireStatsFx = createRevealEmpireStatsFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);

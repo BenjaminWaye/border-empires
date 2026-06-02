@@ -56,7 +56,7 @@ const stateWithSignalFires = (): ReturnType<typeof createInitialState> => {
 };
 
 describe("crystal core actions regression", () => {
-  it("shows Aether Lance disabled with 'observatory in range' reason on enemy tile when no observatory is owned", () => {
+  it("shows Aether Purge disabled with 'observatory in range' reason on enemy tile when no observatory is owned", () => {
     const state = stateWithSignalFires();
     const enemyTile: Tile = {
       x: 5,
@@ -77,7 +77,7 @@ describe("crystal core actions regression", () => {
     });
   });
 
-  it("shows Aether Lance disabled with 'Cannot lance your own tiles' on own tile", () => {
+  it("shows Aether Purge disabled with 'Cannot purge your own tiles' on own tile", () => {
     const state = stateWithSignalFires();
     const obsTile: Tile = {
       x: 0,
@@ -102,11 +102,11 @@ describe("crystal core actions regression", () => {
     expect(lance).toBeDefined();
     expect(lance).toMatchObject({
       disabled: true,
-      disabledReason: "Cannot lance your own tiles"
+      disabledReason: "Cannot purge your own tiles"
     });
   });
 
-  it("shows Aether Lance disabled with 'Target a structure, not a town' on enemy town tile", () => {
+  it("shows Aether Purge enabled on enemy town tiles", () => {
     const state = stateWithSignalFires();
     const obsTile: Tile = {
       x: 0,
@@ -130,13 +130,10 @@ describe("crystal core actions regression", () => {
     const actions = menuActionsForSingleTile(state, enemyTown, baseDeps as never);
     const lance = findAction(actions, "aether_lance");
     expect(lance).toBeDefined();
-    expect(lance).toMatchObject({
-      disabled: true,
-      disabledReason: "Target a structure, not a town"
-    });
+    expect(lance?.disabled).not.toBe(true);
   });
 
-  it("shows Aether Lance disabled with 'Monuments require Aether EMP' on enemy monument tile", () => {
+  it("shows Aether Purge enabled on enemy monument tiles because it only purges ownership", () => {
     const state = stateWithSignalFires();
     const obsTile: Tile = {
       x: 0,
@@ -160,13 +157,10 @@ describe("crystal core actions regression", () => {
     const actions = menuActionsForSingleTile(state, enemyMonument, baseDeps as never);
     const lance = findAction(actions, "aether_lance");
     expect(lance).toBeDefined();
-    expect(lance).toMatchObject({
-      disabled: true,
-      disabledReason: "Monuments require Aether EMP"
-    });
+    expect(lance?.disabled).not.toBe(true);
   });
 
-  it("shows Aether Lance ENABLED when all gates pass on enemy fort within observatory range", () => {
+  it("shows Aether Purge ENABLED when all gates pass on enemy fort within observatory range", () => {
     const state = stateWithSignalFires();
     const obsTile: Tile = {
       x: 0,
@@ -193,7 +187,7 @@ describe("crystal core actions regression", () => {
     expect(lance?.disabled).not.toBe(true);
   });
 
-  it("surfaces Aether Lance row on unclaimed frontier tile (disabled, with reason)", () => {
+  it("surfaces Aether Purge row on unclaimed frontier tile (disabled, with reason)", () => {
     const state = stateWithSignalFires();
     const obsTile: Tile = {
       x: 0,
@@ -212,7 +206,33 @@ describe("crystal core actions regression", () => {
     expect(lance).toBeDefined();
     expect(lance).toMatchObject({
       disabled: true,
-      disabledReason: "Cannot lance unclaimed land"
+      disabledReason: "Target enemy settled or frontier land"
     });
+  });
+
+  it("shows Aether Purge enabled on enemy frontier tiles", () => {
+    const state = stateWithSignalFires();
+    const obsTile: Tile = {
+      x: 0,
+      y: 0,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      observatory: { ownerId: "me", status: "active" }
+    } as Tile;
+    state.tiles.set(keyFor(0, 0), obsTile);
+    const frontier: Tile = {
+      x: 3,
+      y: 3,
+      terrain: "LAND",
+      ownerId: "ai-1",
+      ownershipState: "FRONTIER"
+    } as Tile;
+    state.tiles.set(keyFor(3, 3), frontier);
+
+    const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
+    const lance = findAction(actions, "aether_lance");
+    expect(lance).toBeDefined();
+    expect(lance?.disabled).not.toBe(true);
   });
 });

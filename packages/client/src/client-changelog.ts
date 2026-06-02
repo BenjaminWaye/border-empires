@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.7",
+  version: "2026.06.02.8",
   title: "What's New",
-  summary: "Garrison Hall now requires Organized Supply instead of the nonexistent Organization tech. Each empire's colour is now unique and barbarians always render grey.",
+  summary: "Aether Lance is now Aether Purge: it strips enemy control from a tile instead of destroying a building.",
   entries: [
+    {
+      introducedIn: "2026.06.02.8",
+      title: "Aether Lance is now Aether Purge",
+      why: "The old version competed with Worldbreaker Cannon by deleting structures. Aether Purge now has a cleaner role: precision territory disruption.",
+      changes: [
+        "Aether Purge purges enemy control from settled or frontier land, turning the target tile neutral.",
+        "The ability no longer destroys the building, town, dock, or monument on the target tile as its primary effect.",
+        "The 3D cast feedback now reads as a control-drain purge with an expanding neutral ring and rising aether motes."
+      ]
+    },
     {
       introducedIn: "2026.06.02.7",
       title: "Garrison Hall now unlocks correctly with Organized Supply",
