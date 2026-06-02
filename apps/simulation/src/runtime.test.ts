@@ -7409,9 +7409,9 @@ describe("simulation runtime", () => {
       randomSpy.mockRestore();
     });
 
-    it("drains a tile (net -1) when barb population is at the cap", () => {
-      // 200 barb tiles already. Any action at-or-over cap releases BOTH origin
-      // and target, draining the empire back toward the cap over time.
+    it("walks instead of multiplying once barb population is at the cap", () => {
+      // 200 barb tiles already. At cap, multiply is blocked — falls through to
+      // plain walk (origin released, target claimed, net 0).
       const barbTiles: Array<{ x: number; y: number }> = [];
       for (let i = 0; i < 200; i += 1) {
         barbTiles.push({ x: 100 + (i % 20), y: 100 + Math.floor(i / 20) });
@@ -7423,6 +7423,7 @@ describe("simulation runtime", () => {
         lockTarget: { x: 50, y: 50 },
         attackerId: "barbarian-1"
       });
+      // Stamp origin with at-threshold progress so without the cap it would multiply.
       readProgress(runtime).set("100,100", 3);
 
       runResolve();
@@ -7430,39 +7431,16 @@ describe("simulation runtime", () => {
       const state = runtime.exportState();
       const origin = state.tiles.find((tile) => tile.x === 100 && tile.y === 100);
       const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
-      // Drain: both origin and target released to neutral.
+      // Cap held: source released (walk), target captured.
       expect(origin?.ownerId).toBeUndefined();
-      expect(target?.ownerId).toBeUndefined();
-      // Population drops from 200 to 199.
-      expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(199);
-      // Progress cleared on both tiles.
+      expect(target?.ownerId).toBe("barbarian-1");
+      // Population stays at 200, not 201.
+      expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(200);
+      // Over-threshold progress carries to target so the next walk multiplies
+      // as soon as the population drops below cap.
       const progress = readProgress(runtime);
       expect(progress.get("100,100")).toBeUndefined();
-      expect(progress.get("50,50")).toBeUndefined();
-
-      randomSpy.mockRestore();
-    });
-
-    it("drains even without at-threshold progress when over cap", () => {
-      // Drain fires on any action when over cap, regardless of progress level.
-      const barbTiles: Array<{ x: number; y: number }> = [];
-      for (let i = 0; i < 200; i += 1) {
-        barbTiles.push({ x: 100 + (i % 20), y: 100 + Math.floor(i / 20) });
-      }
-      const { runtime, randomSpy, runResolve } = buildBarbRuntime({
-        barbTiles,
-        targetTile: { x: 50, y: 50 },
-        lockOrigin: { x: 100, y: 100 },
-        lockTarget: { x: 50, y: 50 },
-        attackerId: "barbarian-1"
-      });
-      // No progress on origin — gain is 0 (neutral target).
-      runResolve();
-
-      const state = runtime.exportState();
-      const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
-      expect(target?.ownerId).toBeUndefined();
-      expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(199);
+      expect(progress.get("50,50")).toBe(3);
 
       randomSpy.mockRestore();
     });
