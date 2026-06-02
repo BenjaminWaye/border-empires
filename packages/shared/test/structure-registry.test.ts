@@ -224,6 +224,17 @@ describe("techIds parity with existing handlers (non-economic)", () => {
   });
 });
 
+// ── Tech requirement regression tests ─────────────────────────────
+
+describe("tech requirement regression", () => {
+  test("GARRISON_HALL requires organized-supply (not organization)", () => {
+    const spec = STRUCTURE_REGISTRY["GARRISON_HALL"];
+    expect(spec, "GARRISON_HALL spec must exist").toBeDefined();
+    expect(spec.techIds, "GARRISON_HALL must require organized-supply").toContain("organized-supply");
+    expect(spec.techIds, "GARRISON_HALL must not require the legacy 'organization' key").not.toContain("organization");
+  });
+});
+
 // ── Upgrade prerequisite parity ────────────────────────────────────
 
 describe("prerequisiteStructureTypes parity", () => {

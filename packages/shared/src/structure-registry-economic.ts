@@ -38,7 +38,7 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   ADVANCED_CRYSTAL_SYNTHESIZER: "advanced-synthetication",
   CARAVANARY: "ledger-keeping",
   FOUNDRY: "industrial-extraction",
-  GARRISON_HALL: "organization",
+  GARRISON_HALL: "organized-supply",
   CUSTOMS_HOUSE: "trade",
   GOVERNORS_OFFICE: "civil-service",
   RADAR_SYSTEM: "radar",
