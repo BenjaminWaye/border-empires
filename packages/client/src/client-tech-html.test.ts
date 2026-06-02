@@ -113,7 +113,7 @@ describe("tech benefit summaries", () => {
       }
     };
 
-    expect(formatTechBenefitSummary(signalFires)).toContain("Unlocks Aether Lance");
+    expect(formatTechBenefitSummary(signalFires)).toContain("Unlocks Aether Purge");
     expect(formatTechBenefitSummary(irrigation)).toContain("Unlocks Waterworks (+50% farmstead food within 10 tiles)");
   });
 
