@@ -93,6 +93,44 @@ describe("tech-domain bridge progression sources", () => {
 
     expect(buildDomainUpdatePayload(player, [], { incomePerMinute: 15.4 }).incomePerMinute).toBe(15.4);
   });
+
+  it("keeps tier 2 open after a tier 1 domain is chosen even before tier 2 tech requirements are met", () => {
+    const player = {
+      id: "player-1",
+      isAi: false,
+      points: 100_000,
+      manpower: 0,
+      techIds: new Set<string>(["toolmaking"]),
+      domainIds: new Set<string>(["frontier-doctrine"]),
+      allies: new Set<string>(),
+      strategicResources: { FOOD: 10_000, IRON: 10_000, CRYSTAL: 10_000, SUPPLY: 10_000, SHARD: 10_000 }
+    };
+
+    const payload = buildDomainUpdatePayload(player, []);
+
+    expect(payload.domainChoices).toEqual(expect.arrayContaining(["frontier-bureau", "stone-curtain"]));
+    expect(payload.domainChoices).not.toContain("frontier-doctrine");
+    expect(payload.domainCatalog.find((domain) => domain.id === "frontier-bureau")?.requirements.canResearch).toBe(false);
+  });
+
+  it("still rejects choosing a domain whose tier is open but required tech is missing", () => {
+    const player = {
+      id: "player-1",
+      isAi: false,
+      points: 100_000,
+      manpower: 0,
+      techIds: new Set<string>(["toolmaking"]),
+      domainIds: new Set<string>(["frontier-doctrine"]),
+      allies: new Set<string>(),
+      strategicResources: { FOOD: 10_000, IRON: 10_000, CRYSTAL: 10_000, SUPPLY: 10_000, SHARD: 10_000 }
+    };
+
+    const outcome = chooseDomainForPlayer(player, "frontier-bureau", []);
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("requirements not met");
+    expect(player.domainIds.has("frontier-bureau")).toBe(false);
+  });
 });
 
 describe("tier-1 domain effects are wired", () => {
