@@ -7984,9 +7984,10 @@ export class SimulationRuntime {
           eatenHasTown: !!previousTarget?.town,
           gain,
           sourceProgress,
-          newProgress
+          newProgress,
+          capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD
         },
-        "barbarian ate player tile (walk, no multiply yet)"
+        "barbarian ate player tile (walk)"
       );
     }
     this.barbarianTileProgress.delete(lock.originKey);
@@ -8075,13 +8076,13 @@ export class SimulationRuntime {
     const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
     this.runtimeLogInfo(
       {
-        type: "player_respawn_eliminated",
+        type: "player_eliminated",
         playerId,
         commandId,
         isAi: actor.isAi,
         barbTileCount
       },
-      "player respawned after elimination"
+      "player eliminated — attempting respawn"
     );
 
     const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
