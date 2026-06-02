@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.1",
+  version: "2026.06.02.2",
   title: "What's New",
-  summary: "Capture population-loss labels now fade out cleanly after staying readable. Attack-rejection errors still show as popups, and crystal casts retain their one-shot 3D feedback.",
+  summary: "Domain progression now opens the next tier correctly after your previous tier choice. Capture population-loss labels now fade out cleanly after staying readable.",
   entries: [
+    {
+      introducedIn: "2026.06.02.2",
+      title: "Domain tiers advance after your chosen doctrine",
+      why: "Tier 2 domain cards could still say Tier 1 needed to be unlocked first after the player had already chosen a Tier 1 domain, because the UI treated only currently tech-eligible domains as the open tier.",
+      changes: [
+        "After choosing a Tier 1 domain, the domain panel now shows Tier 2 as the active tier.",
+        "Tier 2 cards now show the real blocker, such as a missing required tech or resources, instead of the stale Tier 1 prerequisite message."
+      ]
+    },
     {
       introducedIn: "2026.06.02.1",
       title: "Capture pop-loss labels now disappear cleanly",

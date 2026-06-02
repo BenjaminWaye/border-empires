@@ -29,6 +29,9 @@ const buildChecklist = (
   return out;
 };
 
+const techNameById = (state: Pick<ClientState, "techCatalog">): Map<string, string> =>
+  new Map(state.techCatalog.map((tech) => [tech.id, tech.name]));
+
 const isAffordable = (
   requirements: Pick<Requirements, "gold" | "resources">,
   liveGold: number,
@@ -46,6 +49,7 @@ export const refreshLiveTechRequirements = (state: ClientState): void => {
   const liveGold = state.gold;
   const liveResources = state.strategicResources;
   const techChoices = new Set(state.techChoices);
+  const techNames = techNameById(state);
   for (const tech of state.techCatalog) {
     const prereqMet = techChoices.has(tech.id);
     const affordable = isAffordable(tech.requirements, liveGold, liveResources);
@@ -55,8 +59,12 @@ export const refreshLiveTechRequirements = (state: ClientState): void => {
   const domainChoices = new Set(state.domainChoices);
   for (const domain of state.domainCatalog) {
     const prereqMet = domainChoices.has(domain.id);
+    const techMet = state.techIds.includes(domain.requiresTechId);
     const affordable = isAffordable(domain.requirements, liveGold, liveResources);
-    domain.requirements.canResearch = prereqMet && affordable;
-    domain.requirements.checklist = buildChecklist(domain.requirements, liveGold, liveResources);
+    domain.requirements.canResearch = prereqMet && techMet && affordable;
+    domain.requirements.checklist = [
+      { label: `Requires ${techNames.get(domain.requiresTechId) ?? domain.requiresTechId}`, met: techMet },
+      ...buildChecklist(domain.requirements, liveGold, liveResources)
+    ];
   }
 };
