@@ -85,6 +85,16 @@ describe("BASE_PALETTE spacing", () => {
       expect(d).toBeGreaterThanOrEqual(18);
     }
   });
+
+  test("cross-pair spot-check: colour groups are visually distinct", () => {
+    // Reds should be far from greens, blues far from oranges, etc.
+    expect(colorDistance("#ff0000", "#39ff14")).toBeGreaterThanOrEqual(80);
+    expect(colorDistance("#ff0000", "#00ffff")).toBeGreaterThanOrEqual(80);
+    expect(colorDistance("#e6194b", "#2ca02c")).toBeGreaterThanOrEqual(50);
+    expect(colorDistance("#1f77b4", "#ff7f0e")).toBeGreaterThanOrEqual(50);
+    expect(colorDistance("#9467bd", "#bcbd22")).toBeGreaterThanOrEqual(30);
+    expect(colorDistance("#2b3d26", "#ff0000")).toBeGreaterThanOrEqual(30);
+  });
 });
 
 // ---------------------------------------------------------------------------

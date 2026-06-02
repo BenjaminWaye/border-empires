@@ -2554,7 +2554,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 ? { profileComplete: storedProfile.profileComplete }
                 : {})
             });
-            const suggestedColors = pickSuggestedPalette(6, await buildTakenColorSet(session.playerId));
+            taken.add(normalized);
+            const suggestedColors = pickSuggestedPalette(6, taken);
             const payload = {
               type: "PLAYER_STYLE",
               playerId: session.playerId,
@@ -2601,7 +2602,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 : {})
             });
             socialState.renamePlayer(session.playerId, override.name ?? message.displayName);
-            const suggestedColors = pickSuggestedPalette(6, await buildTakenColorSet(session.playerId));
+            taken.add(normalized);
+            const suggestedColors = pickSuggestedPalette(6, taken);
             const stylePayload = {
               type: "PLAYER_STYLE",
               playerId: session.playerId,
