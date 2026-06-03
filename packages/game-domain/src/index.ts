@@ -12,8 +12,10 @@ export * from "./victory-pressure-utils.js";
 import {
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,
+  BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
   FRONTIER_CLAIM_MS,
+  MUSTER_ATTACK_COST,
   type ChosenTrickleResource,
   type Tile
 } from "@border-empires/shared";
@@ -116,6 +118,9 @@ export type DomainTileState = {
         completesAt?: number | undefined;
         disabledUntil?: number | undefined;
         previousStatus?: "active" | undefined;
+        garrison?: number | undefined;
+        garrisonCap?: number | undefined;
+        garrisonUpdatedAt?: number | undefined;
       }
     | undefined;
   observatory?:
@@ -162,6 +167,16 @@ export type DomainTileState = {
         outputMultiplier: number;
       }
     | undefined;
+  muster?:
+    | {
+        ownerId: string;
+        amount: number;
+        mode: "HOLD" | "ADVANCE";
+        targetX?: number;
+        targetY?: number;
+        updatedAt: number;
+      }
+    | undefined;
 };
 
 export type ValidateFrontierCommandInput = {
@@ -181,6 +196,12 @@ export type ValidateFrontierCommandInput = {
   targetShielded: boolean;
   defenderIsAlliedOrTruced: boolean;
   expandClaimDurationMs?: number | undefined;
+  /** Mustering system: when true, attacks consume the origin tile's muster. */
+  musterSystemEnabled?: boolean | undefined;
+  /** Manpower currently mustered on the origin tile (used when the flag is on). */
+  originMuster?: number | undefined;
+  /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
+  requiredMuster?: number | undefined;
 };
 
 export type ValidateFrontierCommandResult =
@@ -213,7 +234,17 @@ const manpowerRequirements = (
 export const validateFrontierCommand = (
   input: ValidateFrontierCommandInput
 ): ValidateFrontierCommandResult => {
-  const { manpowerMin, manpowerCost } = manpowerRequirements(input.actionType, input.to);
+  const legacy = manpowerRequirements(input.actionType, input.to);
+  const musterAttack = input.musterSystemEnabled === true && input.actionType === "ATTACK";
+  const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
+  const isBarbRaid = musterAttack && input.to.ownerId === "barbarian-1";
+  // Under the muster system an attack is paid from the origin tile's muster
+  // reservoir (a single, legible number), not from the global pool times the
+  // legacy fort multiplier. Barbarian raids skip muster wind-up and are funded
+  // from the player pool at BARBARIAN_RAID_COST.
+  const effectiveCost = isBarbRaid ? BARBARIAN_RAID_COST : requiredMuster;
+  const manpowerMin = musterAttack ? effectiveCost : legacy.manpowerMin;
+  const manpowerCost = musterAttack ? effectiveCost : legacy.manpowerCost;
   if (input.actionType === "EXPAND" && input.to.ownerId) {
     return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
   }
@@ -262,7 +293,24 @@ export const validateFrontierCommand = (
       message: input.actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
     };
   }
-  if (input.actor.manpower < manpowerMin) {
+  if (isBarbRaid) {
+    // Barbarian raid: cheap pool-funded strike, no muster wind-up required.
+    if (input.actor.manpower < BARBARIAN_RAID_COST) {
+      return {
+        ok: false,
+        code: "INSUFFICIENT_MANPOWER",
+        message: `need ${BARBARIAN_RAID_COST} manpower for barbarian raid`
+      };
+    }
+  } else if (musterAttack) {
+    if ((input.originMuster ?? 0) < requiredMuster) {
+      return {
+        ok: false,
+        code: "INSUFFICIENT_MUSTER",
+        message: `need ${requiredMuster.toFixed(0)} mustered manpower to launch attack`
+      };
+    }
+  } else if (input.actor.manpower < manpowerMin) {
     return {
       ok: false,
       code: "INSUFFICIENT_MANPOWER",

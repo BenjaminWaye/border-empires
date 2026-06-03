@@ -4,6 +4,7 @@ import {
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,
   FRONTIER_CLAIM_COST,
+  MUSTER_SYSTEM_ENABLED,
   SWEEP_RADIUS_BY_VARIANT
 } from "@border-empires/shared";
 import type { PlayerCandidateIndex } from "./player-candidate-index.js";
@@ -244,60 +245,64 @@ const tickTerritorySiegeAndSweeps = (input: TickTerritoryAutomationInput): Siege
     stats.attackLoopMs += Date.now() - _tAttackLoop;
 
     const _tOutpostSweep = Date.now();
-    for (const tileKey of (input.activeSiegeOutpostsByOwner.get(playerId) ?? [])) {
-      const outpostTile = input.tiles.get(tileKey);
-      if (!outpostTile || outpostTile.siegeOutpost?.ownerId !== playerId || outpostTile.siegeOutpost.status !== "active") continue;
-      const outpostData = outpostTile.siegeOutpost;
-      const variant = outpostData.variant ?? "SIEGE_OUTPOST";
-      tickSweepStructure(
-        input,
-        {
-          tileKey,
-          tile: outpostTile,
-          sweepBudget: outpostData.sweepBudget,
-          sweepActive: outpostData.sweepActive,
-          sweepBudgetUpdatedAt: outpostData.sweepBudgetUpdatedAt,
-          sweepRadius: SWEEP_RADIUS_BY_VARIANT[variant] ?? 5,
-          commandIdPrefix: "sweep",
-          applyUpdate: (fields) => ({ ...outpostTile, siegeOutpost: { ...outpostData, ...fields } })
-        },
-        playerId,
-        actor,
-        input.nowMs
-      );
-      stats.outpostSweepsTicked++;
+    if (!MUSTER_SYSTEM_ENABLED) {
+      for (const tileKey of (input.activeSiegeOutpostsByOwner.get(playerId) ?? [])) {
+        const outpostTile = input.tiles.get(tileKey);
+        if (!outpostTile || outpostTile.siegeOutpost?.ownerId !== playerId || outpostTile.siegeOutpost.status !== "active") continue;
+        const outpostData = outpostTile.siegeOutpost;
+        const variant = outpostData.variant ?? "SIEGE_OUTPOST";
+        tickSweepStructure(
+          input,
+          {
+            tileKey,
+            tile: outpostTile,
+            sweepBudget: outpostData.sweepBudget,
+            sweepActive: outpostData.sweepActive,
+            sweepBudgetUpdatedAt: outpostData.sweepBudgetUpdatedAt,
+            sweepRadius: SWEEP_RADIUS_BY_VARIANT[variant] ?? 5,
+            commandIdPrefix: "sweep",
+            applyUpdate: (fields) => ({ ...outpostTile, siegeOutpost: { ...outpostData, ...fields } })
+          },
+          playerId,
+          actor,
+          input.nowMs
+        );
+        stats.outpostSweepsTicked++;
+      }
     }
     stats.outpostSweepMs += Date.now() - _tOutpostSweep;
 
     const _tLightSweep = Date.now();
-    for (const tileKey of (input.activeLightOutpostsByOwner.get(playerId) ?? [])) {
-      const outpostTile = input.tiles.get(tileKey);
-      if (
-        !outpostTile ||
-        outpostTile.economicStructure?.ownerId !== playerId ||
-        outpostTile.economicStructure.type !== "LIGHT_OUTPOST" ||
-        outpostTile.economicStructure.status !== "active"
-      ) {
-        continue;
+    if (!MUSTER_SYSTEM_ENABLED) {
+      for (const tileKey of (input.activeLightOutpostsByOwner.get(playerId) ?? [])) {
+        const outpostTile = input.tiles.get(tileKey);
+        if (
+          !outpostTile ||
+          outpostTile.economicStructure?.ownerId !== playerId ||
+          outpostTile.economicStructure.type !== "LIGHT_OUTPOST" ||
+          outpostTile.economicStructure.status !== "active"
+        ) {
+          continue;
+        }
+        const econData = outpostTile.economicStructure;
+        tickSweepStructure(
+          input,
+          {
+            tileKey,
+            tile: outpostTile,
+            sweepBudget: econData.sweepBudget,
+            sweepActive: econData.sweepActive,
+            sweepBudgetUpdatedAt: econData.sweepBudgetUpdatedAt,
+            sweepRadius: SWEEP_RADIUS_BY_VARIANT["LIGHT_OUTPOST"],
+            commandIdPrefix: "lo-sweep",
+            applyUpdate: (fields) => ({ ...outpostTile, economicStructure: { ...econData, ...fields } })
+          },
+          playerId,
+          actor,
+          input.nowMs
+        );
+        stats.lightSweepsTicked++;
       }
-      const econData = outpostTile.economicStructure;
-      tickSweepStructure(
-        input,
-        {
-          tileKey,
-          tile: outpostTile,
-          sweepBudget: econData.sweepBudget,
-          sweepActive: econData.sweepActive,
-          sweepBudgetUpdatedAt: econData.sweepBudgetUpdatedAt,
-          sweepRadius: SWEEP_RADIUS_BY_VARIANT["LIGHT_OUTPOST"],
-          commandIdPrefix: "lo-sweep",
-          applyUpdate: (fields) => ({ ...outpostTile, economicStructure: { ...econData, ...fields } })
-        },
-        playerId,
-        actor,
-        input.nowMs
-      );
-      stats.lightSweepsTicked++;
     }
     stats.lightSweepMs += Date.now() - _tLightSweep;
   }

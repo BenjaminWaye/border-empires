@@ -8,6 +8,8 @@ export type RuntimeCommandDispatchHandlers = {
   handleBuildStructureCommand: (command: CommandEnvelope) => void;
   normalizeLegacyBuildCommand: (command: CommandEnvelope) => CommandEnvelope;
   handleSetSiegeOutpostSweepCommand: (command: CommandEnvelope) => void;
+  handleSetMusterCommand: (command: CommandEnvelope) => void;
+  handleClearMusterCommand: (command: CommandEnvelope) => void;
   handleCancelCaptureCommand: (command: CommandEnvelope) => void;
   handleCancelFortBuildCommand: (command: CommandEnvelope) => void;
   handleCancelStructureBuildCommand: (command: CommandEnvelope) => void;
@@ -53,6 +55,8 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if ((command.type as string) === "BUILD_STRUCTURE") return handlers.handleBuildStructureCommand(command);
   if (isLegacyBuildCommand(command)) return handlers.handleBuildStructureCommand(handlers.normalizeLegacyBuildCommand(command));
   if (command.type === "SET_SIEGE_OUTPOST_SWEEP") return handlers.handleSetSiegeOutpostSweepCommand(command);
+  if ((command.type as string) === "SET_MUSTER") return handlers.handleSetMusterCommand(command);
+  if ((command.type as string) === "CLEAR_MUSTER") return handlers.handleClearMusterCommand(command);
   if (command.type === "CANCEL_CAPTURE") return handlers.handleCancelCaptureCommand(command);
   if (command.type === "CANCEL_FORT_BUILD") return handlers.handleCancelFortBuildCommand(command);
   if (command.type === "CANCEL_STRUCTURE_BUILD") return handlers.handleCancelStructureBuildCommand(command);
@@ -98,6 +102,8 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   (command.type as string) === "BUILD_STRUCTURE" ||
   isLegacyBuildCommand(command) ||
   command.type === "SET_SIEGE_OUTPOST_SWEEP" ||
+  (command.type as string) === "SET_MUSTER" ||
+  (command.type as string) === "CLEAR_MUSTER" ||
   command.type === "CANCEL_CAPTURE" ||
   command.type === "CANCEL_FORT_BUILD" ||
   command.type === "CANCEL_STRUCTURE_BUILD" ||
