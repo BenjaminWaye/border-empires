@@ -1,162 +1,224 @@
 # Mustering & The Advance — Beta Feature Story
 
-> **Status:** Design pitch for beta feedback. Nothing here is final — the whole
-> point of this doc is to get your reactions before we build it. Numbers are
-> placeholders.
+> **Status:** Design pitch for beta feedback. Nothing here is shipped yet, and
+> every number below is a placeholder we want to tune *with you*. The point of
+> this doc is to explain where combat is today, where we want to take it, and to
+> get your reactions and playtest notes before we build it.
+>
+> **How to read it:** Part 1 is how attacking works right now. Part 2 is the
+> problem we're solving. Part 3 is the new system in detail. Part 4 is what
+> changes for you. Part 5 is the actionable bit — specific things to try and a
+> feedback form.
 
 ---
 
-## The one-liner
+## Part 1 — How combat works today
 
-**You no longer spend manpower instantly to attack. Instead you *muster* it at
-the border — troops physically gather at a tile over time — and that buildup is
-the only way to launch an attack.** Put a muster flag down, watch the columns
-form, and send them forward. Outposts become the railheads that make it fast.
+Border Empires has no army units. **Combat is tiles changing owner.** You select
+one of your tiles, target an adjacent enemy tile, and attack. Here's the full
+loop as it exists today:
+
+- **Manpower is a single empire-wide pool.** Your towns generate it. A small
+  settlement caps you around 150 manpower; a sprawling metropolis around 2,400.
+  It regenerates *slowly* — very roughly, a town refills its own cap over about
+  12 hours. So manpower is genuinely scarce and you spend it deliberately.
+- **An attack costs ~60 manpower, spent instantly,** from that one global pool —
+  no matter where on the map the fight is. A town on your eastern coast can fund
+  an attack on your western frontier this very second.
+- **Combat is a dice roll weighted by power.** Your attack power vs. the
+  defender's defense power decides your win chance. Then there's a **3-second
+  combat lock** on both tiles so nobody can interfere mid-fight.
+- **Defense comes from how "walled-in" a tile is** (we call it exposure). A tile
+  surrounded by friendly tiles is tough; a lone tile jutting into enemy land is
+  weak. Freshly-claimed frontier tiles barely defend at all; settled tiles,
+  towns, and especially **forts** (which can multiply the manpower cost to crack
+  them by 5×, 10×, even 20×) are hard targets.
+- **Losing an attack can cost you the tile you attacked *from*.** A failed
+  assault can let the defender counter-capture your origin.
+- **Outposts today auto-fight.** A built outpost automatically attacks enemy
+  tiles within a radius around it, spending from a per-outpost budget. It's a
+  "set it down and it grinds" structure.
+
+**It works — but attacking is essentially a click.** Manpower teleports, fights
+resolve in 3 seconds, and your geography barely matters to *how* you attack, only
+*where*.
 
 ---
 
-## Why we're doing this
+## Part 2 — The problem we're solving
 
-Right now, attacking is a click: if you have 60 manpower anywhere in your empire,
-you can capture a tile on the far side of the map this instant. Manpower
-teleports. It works, but it's flat — there's no sense of an army, no buildup, no
-"oh no, I can see them massing on my border," and no real reason your geography
-matters.
+Three things bug us about today's combat:
 
-Mustering fixes that. It turns attacking into a **visible, physical operation**
-that takes place *somewhere*, takes *time*, and can be *raced, reinforced, or
-overrun*. It also cuts down on clicking: you set a muster flag once and the front
-advances on its own.
+1. **No sense of an army.** There's no buildup, no staging, no "I can see them
+   massing on my border." You either have 60 manpower or you don't.
+2. **Geography is flat.** Because manpower teleports to any front instantly,
+   where your towns and forts sit doesn't shape your offensives — only your
+   defenses.
+3. **It's either too clicky or too hands-off.** Manual attacking is
+   click-click-click along a border; the auto-sweep outpost is the opposite —
+   it grinds with no intent behind it.
 
-This is the steampunk fantasy we want — winding up the clockwork columns at the
-frontier, running troop trains and coal tenders up to the railhead, and
-releasing the advance.
+We want combat that feels like a **physical operation**: it happens *somewhere*,
+takes *time*, can be *seen, raced, reinforced, or overrun* — and that reads as
+the steampunk fantasy of winding up clockwork columns and running troop trains up
+to the front before you unleash the advance.
 
 ---
 
-## How it works (player's-eye view)
+## Part 3 — Where we're going: Mustering
 
-### 1. Your manpower is a *pool* and a *pipeline*
-- Your towns still raise manpower into your **pool** (same as today — this is your cap).
-- New: you also have a **logistics throughput** — how fast you can push that
-  pool *forward to the front*. Think of it as how many trains you can run.
+The core change in one sentence:
 
-You can't muster troops you haven't raised, and you can't push them forward
-faster than your logistics allow. The pool is the ceiling; the pipeline is the speed.
+> **You no longer spend manpower instantly to attack. You *muster* it at the
+> border — troops gather on a tile over time — and that buildup is the only way
+> to launch an attack.**
 
-### 2. You attack by placing a muster flag
+Here's how we expect it to work.
+
+### 3.1 — Your manpower becomes a *pool* and a *pipeline*
+- **Pool (unchanged):** your towns still raise manpower into an empire-wide pool.
+  This is still your hard ceiling — *you can never muster troops you haven't
+  raised.*
+- **Pipeline (new):** a **logistics throughput** stat — how fast you can push
+  that pool *forward to the front*. Think of it as how many troop trains you can
+  run at once. It's set by your economy.
+
+So the pool says *how much* you have; the pipeline says *how fast you can get it
+to where the fighting is.*
+
+### 3.2 — You attack by placing a muster flag
 Select a border tile and **muster** there. Troops accumulate on that tile over
-time (you can watch it fill). Once it banks the cost of an attack (~60 manpower),
-it can strike the adjacent enemy tile. Each muster flag has a mode:
+time, and you can watch the buildup fill. Once it banks the cost of an attack
+(~60 manpower), it can strike the adjacent enemy tile.
 
-- **HOLD** — gather up to a cap and wait. You fire manually. Good for stockpiling
-  a big hit against a fortress.
-- **ADVANCE** — the moment it can afford an attack, it fires at the best adjacent
-  enemy, then refills and does it again. This is the "set it and forget it"
-  parasite-style advance — it eats into enemy land on its own, just rate-limited
-  and pointed where you aimed it.
+Each muster flag has a **mode**:
 
-A flag can sit slightly behind the line and **claw its way forward**, expanding
-one tile at a time toward the objective you pointed it at.
+- **HOLD** — gather up to a cap and wait. *You* decide when to fire. Use it to
+  stockpile a heavy blow against a fortress, or to bait a reaction.
+- **ADVANCE** — the instant it can afford an attack, it fires at the best
+  adjacent enemy, then refills and repeats. A flag set to ADVANCE will **eat into
+  enemy land on its own**, advancing tile by tile toward the direction you
+  pointed it — but it's rate-limited by your pipeline and won't throw itself at
+  hopeless targets (it respects fort multipliers, so it won't suicide into a
+  bastion).
 
-### 3. Outposts are now railheads
-We're **removing the old auto-sweep behavior from outposts.** Instead, an outpost
-projects a **5×5 zone** that:
-- **speeds up mustering** for your tiles inside it (the forward depot), and
+A flag can even sit a tile or two *behind* the line and **claw its way forward**,
+claiming a step at a time toward the objective.
+
+### 3.3 — Outposts become railheads, not auto-fighters
+We're **removing the outpost auto-sweep.** Outposts stop fighting on their own.
+Instead, an outpost projects a **5×5 zone** that:
+- **speeds up mustering** for your tiles inside it (a forward supply depot), and
 - **boosts attack power** for strikes launched from inside it.
 
-So you build outposts to *stage* offensives, not to fight on their own.
+You build outposts to *stage* offensives — they're the railhead that makes your
+army gather fast and hit hard.
 
-### 4. It's a race, and everyone can see it
-A muster is **visible** — no Observatory needed to see troops gathering against
-your own border (an Observatory only lets you spot buildups deeper in enemy
-land). That means:
+### 3.4 — Mustering is visible, and that creates a race
+A muster is **visible to anyone who can see the tile** — and since you can always
+see the tiles bordering your own land, **any muster aimed at you shows up
+automatically.** No Observatory needed for that (an Observatory only helps you
+spot buildups *deeper* in enemy territory, before they reach your border).
+
+This turns every attack into a **tempo race**:
+
 - The defender gets a **window to react** — reinforce, build a fort, or muster a
   counter-strike of their own.
-- If the defender **captures your mustering tile before it fires, the gathered
-  troops are lost.** Same if they take it mid-attack.
-- Whoever has better forward infrastructure (an outpost near the contested tile)
-  musters faster — so you can **out-tempo** an opponent and land your blow before
-  theirs is ready.
+- If the defender **captures your mustering tile before it fires, the troops
+  gathered there are lost.** Same if they take it mid-attack.
+- Whoever has better forward infrastructure musters faster — so a well-placed
+  outpost lets you **land your blow before the enemy's is ready.**
 
-### 5. Forts hold a garrison
-New tension: **active forts reserve a slice of your manpower pool as garrison.**
-That manpower is walled off — you can't muster it for attacks. Build a wall of
-forts and your defenses are rock-solid, but you'll have *less* manpower free to
-push offensives. Go all-in on attacking and your fortifications stay manned, but
-your offensive runs dry first. An unmanned fort shouldn't be a fortress, and now
-it won't be.
+### 3.5 — Forts hold a garrison
+**Active forts reserve a slice of your manpower pool as their garrison.** That
+manpower is walled off — you can't muster it for attacks while the fort is
+manned. The trade-off:
 
-### 6. Concentration beats spreading
-You **can** put muster flags on many tiles at once — but your logistics
-throughput is **split across all of them.** Ten flags each fill at a tenth the
-speed. Mustering on every border tile buys you nothing; it just thins you out.
-One concentrated push — especially backed by an outpost depot — fills far faster
-than scattered probes. **Pick your spear point.**
+- Build a wall of forts → rock-solid defense, but **less manpower free** to fund
+  offensives.
+- Pour everything into attacking → your forts stay manned, but your offensive
+  **runs dry first**.
 
----
+An unmanned fort shouldn't be a fortress — and now over-extending on offense has
+a real cost to your defense.
 
-## A couple of vignettes
-
-**The breakthrough.** You want the enemy's river town. You build an outpost two
-tiles back, drop a single HOLD flag on the bordering tile, and let it stockpile
-inside the depot's speed bonus. The enemy sees it coming and starts a fort — but
-your railhead fills you first. You launch, take the tile, and your flag advances
-onto the next one.
-
-**The counter-punch.** Your neighbor masses a muster against your mining tile.
-You can't out-build their stack in time — but you *can* drop your own flag on the
-tile next to *their* muster and race them. Your outpost makes you faster. You
-strike first, capture their staging tile, and their entire gathered army
-evaporates.
-
-**The overreach.** You pour everything into a three-front ADVANCE. It works —
-land floods in. Then a rival hits your heartland, and you discover your forts are
-hollow: you spent the pool that would have manned them. The walls fall because
-nobody was home.
+### 3.6 — Concentration beats spreading
+You **can** place muster flags on many tiles at once — but your logistics
+pipeline is **split across all of them.** Ten flags each fill at a tenth of the
+speed. Mustering on every border tile buys you *nothing* in total speed; it just
+thins you out everywhere. **One concentrated spear point — especially backed by
+an outpost depot — fills dramatically faster than scattered probes.** Pick where
+you push.
 
 ---
 
-## What this changes about how you play
+## Part 4 — What changes for you
 
-- **Geography matters.** Where your depots and forts sit decides where you can
-  strike fast and where you're slow.
-- **Attacks are commitments, not clicks.** You telegraph them; you can be
-  interrupted; timing is a skill.
-- **Offense and defense compete for the same manpower.** You can't be all-in
-  everywhere.
-- **Less micro, more intent.** Set a flag to ADVANCE and a front manages itself.
+| | **Today** | **With Mustering** |
+|---|---|---|
+| Launching an attack | Instant click if you have 60 manpower | Place a flag; troops gather over time, then strike |
+| Where manpower comes from | One global pool, spent anywhere instantly | Same pool, but it must *flow* to the front via your pipeline |
+| Can the enemy see it coming? | No | Yes — musters are visible; you can be raced or interrupted |
+| What outposts do | Auto-attack a radius | Speed up mustering + boost attack power in a 5×5 (no auto-fight) |
+| Forts | Pure walls | Walls that reserve garrison from your pool |
+| Many fronts at once | Free (manpower teleports) | Possible, but splits your pipeline — concentration wins |
+| Clicking | One click per attack | One flag per front; ADVANCE mode runs itself |
 
-## What we're *not* changing
-
-- The core combat math (exposure/defensiveness, fort multipliers, the 3-second
-  combat lock, counter-capture on a lost attack).
-- How towns generate manpower, or the tech tree, economy, victory paths, seasons.
-- Frontier claiming/settling of neutral land (that stays as-is; this is about
-  *attacks*).
+### What is **not** changing
+- The core combat math: exposure/defensiveness, fort multipliers, the 3-second
+  combat lock, and counter-capture on a lost attack.
+- How towns generate manpower; the tech tree; economy; victory paths; seasons.
+- Claiming and settling **neutral** land — that stays exactly as-is. This change
+  is about **attacks on enemy tiles**, not expansion into empty land.
 
 ---
 
-## What we want your feedback on
+## Part 5 — Help us test it (the actionable bit)
 
-Please react to any of these — this is the stuff we're unsure about:
+We can't tune this without you. Below are specific things to try once it's in a
+playtest build, then a short feedback form. Even reactions to *this doc* (before
+any build) are useful — tell us what sounds fun and what sounds broken.
 
-1. **Pacing.** How long should a single muster take with *no* outpost help —
-   ~20s? ~60s? Longer? Where does "tense buildup" become "boring wait"?
-2. **The ADVANCE flag.** Does a self-advancing front feel satisfying, or does it
-   feel like the game is playing itself? Should ADVANCE be the default, or HOLD?
-3. **Forts reserving garrison.** Is "all-in offense hollows your defense" a fun
-   trade-off, or an annoying tax? Should the reserved amount be small (flavor) or
-   big enough to force real choices?
-4. **The tempo race.** Is racing an opponent's muster (and capturing their
-   staging tile) exciting, or frustrating to be on the losing end of?
-5. **Visibility.** Should *all* musters be visible, or should there be a way to
-   stage a surprise attack (e.g. a tech/structure that hides a buildup)?
-6. **Concentration vs. spread.** Does "one spear point fills fast, ten probes
-   crawl" feel right? Or do you want to be able to pressure a whole border at once?
-7. **Outposts as depots.** Now that they don't auto-fight, are outposts still
-   worth building? What would make a depot feel essential?
-8. **Anything that sounds like it'd be exploitable or unfun** — tell us before we
-   build it.
+### Test missions — try these and tell us how they felt
+1. **The slow burn.** Drop a single HOLD flag on a quiet border with no outpost
+   nearby. Time how long it takes to bank one attack. Was the wait tense or
+   boring?
+2. **The railhead.** Build an outpost behind the same border, then muster inside
+   its zone. How much faster did it feel? Was building the depot worth it?
+3. **Set-and-forget.** Put one flag on ADVANCE pointed at an enemy town and walk
+   away for a few minutes. Did the front advance the way you wanted, or did it do
+   something dumb?
+4. **The duel.** Find an opponent (or AI) massing against you. Drop your own flag
+   next to *their* staging tile and try to capture it before they fire. Did the
+   race feel winnable / fair?
+5. **The overreach.** Spend your whole pool on a big multi-front ADVANCE, then
+   check your forts. Did "hollow defenses" punish you in a way that felt fair?
+6. **Spread vs. spear.** Try mustering on five border tiles at once, then try one
+   concentrated push of the same length. Which actually broke through faster?
 
-Drop your thoughts in the beta channel. Brutal honesty welcome.
+### Feedback form — copy/paste and fill in
+```
+1. Muster pacing (no outpost): too slow / about right / too fast — and the number you'd pick (sec per attack):
+2. Muster pacing (with outpost depot): too slow / about right / too fast:
+3. ADVANCE flag: satisfying / "game plays itself" / didn't trust it — why:
+4. HOLD vs ADVANCE: which did you use more, and should ADVANCE or HOLD be the default?
+5. Forts reserving garrison: fun trade-off / annoying tax / didn't notice it:
+6. The tempo race (seeing + capturing musters): exciting / frustrating / never came up:
+7. Visibility: are you OK that all musters are visible, or do you want a way to hide a surprise attack?
+8. Concentration vs. spread: did "one spear beats ten probes" feel right?
+9. Are outposts still worth building now that they don't auto-fight? What would make a depot feel essential?
+10. Anything that felt exploitable, confusing, or unfun:
+11. Overall: does this make combat better than today? (1–5) and one sentence why:
+```
+
+### The big open questions we're stuck on
+These are the design forks where your input matters most:
+- **Pacing:** what's the right base muster time with no help — 20s? 60s? More?
+- **Default mode:** should new flags default to HOLD (deliberate) or ADVANCE (low-click)?
+- **Garrison weight:** should forts reserve a token amount (flavor) or enough to
+  force real offense-vs-defense choices?
+- **Surprise attacks:** should there *ever* be a way to hide a muster (a tech, a
+  structure), or is "you can always see the army gathering" a core promise?
+
+Drop your notes in the beta channel. Brutal honesty welcome — it's cheaper to
+change our minds now than after we build it.
