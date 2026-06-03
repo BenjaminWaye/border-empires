@@ -18,6 +18,7 @@ import {
 } from "@border-empires/game-domain";
 import {
   ATTACK_MANPOWER_MIN,
+  BARBARIAN_RAID_COST,
   MUSTER_SYSTEM_ENABLED,
   MUSTER_ATTACK_COST,
   FORT_GARRISON_ATTRITION_MIN,
@@ -6865,13 +6866,17 @@ export class SimulationRuntime {
     });
     if (attacker && typeof combatResult?.manpowerDelta === "number") {
       if (MUSTER_SYSTEM_ENABLED && lock.actionType === "ATTACK") {
-        // Muster system: the strike is paid from the origin tile's muster, not
-        // the global pool. Spend the committed force regardless of outcome.
-        this.consumeOriginMuster(lock.originKey, lock.playerId, lock.manpowerCost);
-        // Fort garrison attrition: on a failed assault, reduce the defending fort's
-        // garrison by a random fraction of the attacking force.
-        if (!attackerWon) {
-          this.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
+        const isBarbRaid = previousTarget?.ownerId === "barbarian-1";
+        if (isBarbRaid) {
+          // Barbarian raid: funded directly from player pool.
+          attacker.manpower = Math.max(0, attacker.manpower - lock.manpowerCost);
+        } else {
+          // Regular muster attack: paid from the origin tile's muster reservoir.
+          this.consumeOriginMuster(lock.originKey, lock.playerId, lock.manpowerCost);
+          // Fort garrison attrition on a failed assault.
+          if (!attackerWon) {
+            this.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
+          }
         }
       } else {
         this.applyLockedManpowerDelta(attacker, combatResult.manpowerDelta);
@@ -7333,6 +7338,8 @@ export class SimulationRuntime {
    * target fort's garrison; Phase 8 lowers it for barbarian raids.
    */
   private requiredMusterForTarget(target: DomainTileState): number {
+    // Barbarian tiles are raided cheaply from the pool (handled in validateFrontierCommand).
+    if (target.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
     const fortGarrison = (target.fort?.status === "active" && target.fort.garrison != null)
       ? target.fort.garrison
       : 0;

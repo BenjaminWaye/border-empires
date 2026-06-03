@@ -12,6 +12,7 @@ export * from "./victory-pressure-utils.js";
 import {
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,
+  BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
@@ -236,11 +237,14 @@ export const validateFrontierCommand = (
   const legacy = manpowerRequirements(input.actionType, input.to);
   const musterAttack = input.musterSystemEnabled === true && input.actionType === "ATTACK";
   const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
+  const isBarbRaid = musterAttack && input.to.ownerId === "barbarian-1";
   // Under the muster system an attack is paid from the origin tile's muster
   // reservoir (a single, legible number), not from the global pool times the
-  // legacy fort multiplier.
-  const manpowerMin = musterAttack ? requiredMuster : legacy.manpowerMin;
-  const manpowerCost = musterAttack ? requiredMuster : legacy.manpowerCost;
+  // legacy fort multiplier. Barbarian raids skip muster wind-up and are funded
+  // from the player pool at BARBARIAN_RAID_COST.
+  const effectiveCost = isBarbRaid ? BARBARIAN_RAID_COST : requiredMuster;
+  const manpowerMin = musterAttack ? effectiveCost : legacy.manpowerMin;
+  const manpowerCost = musterAttack ? effectiveCost : legacy.manpowerCost;
   if (input.actionType === "EXPAND" && input.to.ownerId) {
     return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
   }
@@ -289,7 +293,16 @@ export const validateFrontierCommand = (
       message: input.actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
     };
   }
-  if (musterAttack) {
+  if (isBarbRaid) {
+    // Barbarian raid: cheap pool-funded strike, no muster wind-up required.
+    if (input.actor.manpower < BARBARIAN_RAID_COST) {
+      return {
+        ok: false,
+        code: "INSUFFICIENT_MANPOWER",
+        message: `need ${BARBARIAN_RAID_COST} manpower for barbarian raid`
+      };
+    }
+  } else if (musterAttack) {
     if ((input.originMuster ?? 0) < requiredMuster) {
       return {
         ok: false,
