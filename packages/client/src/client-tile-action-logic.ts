@@ -45,6 +45,7 @@ import type {
 } from "./client-types.js";
 import { ownedActiveObservatoryWithinRange } from "./client-tile-action-support.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
+import { buildMusterActions } from "./client-muster-tile-actions.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -2164,6 +2165,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     actions.push(...retortRecastActions());
     actions.push(...crystalCoreActions());
     actions.push(createMountainAction());
+    actions.push(...buildMusterActions(tile, state));
     return actions;
   }
   const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);

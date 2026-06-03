@@ -126,6 +126,7 @@ export const createInitialState = () => ({
   manpower: MANPOWER_BASE_CAP,
   manpowerCap: MANPOWER_BASE_CAP,
   manpowerRegenPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
+  logisticsThroughputPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
   manpowerBreakdown: {
     cap: [{ label: "Base", amount: MANPOWER_BASE_CAP }],
     regen: [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]

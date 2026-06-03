@@ -16,7 +16,8 @@ import {
   TorusGeometry,
   WebGLRenderer
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_TILE_CAP } from "@border-empires/shared";
+const MUSTER_TILE_CAP_CLIENT = MUSTER_TILE_CAP;
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
 import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile } from "./client-constants.js";
@@ -42,6 +43,7 @@ import { createOwnershipOverlay, FRONTIER_OPACITY } from "./client-map-3d-owners
 import { createTownOverlay, type TownTier } from "./client-map-3d-town-overlay.js";
 import { createUnfedBadgeOverlay } from "./client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
+import { createMusterOverlay } from "./client-map-3d-muster-overlay.js";
 import { createAetherBridgePylonOverlay } from "./client-map-3d-aether-bridge-pylon-overlay.js";
 import { createAetherPurgeFxLayer } from "./client-map-3d-aether-purge-fx.js";
 import { createRetortRecastFxLayer } from "./client-map-3d-retort-recast-fx.js";
@@ -130,6 +132,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const roadOverlay = createRoadOverlay(scene);
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
+  const musterOverlay = createMusterOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
   const aetherLanceFx = createAetherPurgeFxLayer(scene);
   const retortRecastFx = createRetortRecastFxLayer(scene);
@@ -1232,6 +1235,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
     unfedBadgeOverlay.clear();
     observatoryCooldownBadgeOverlay.clear();
+    musterOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
@@ -1461,6 +1465,23 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // tiles north of the camera. Only fires when the URL flag is
         // set, so it's harmless in production. The MINE entry passes a
         // resource hint so the iron/crystal variant is exercised.
+        // Muster fill bar: visible to anyone with vision, shows amount/cap.
+        if (tile?.muster && ownerId && terrain === "LAND") {
+          const fillRatio = Math.min(1, tile.muster.amount / MUSTER_TILE_CAP_CLIENT);
+          const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
+          musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor);
+        }
+        // Fort garrison bar: shown on active fort tiles with garrison data.
+        if (
+          tile?.fort?.status === "active" &&
+          tile.fort.garrison != null &&
+          tile.fort.garrisonCap != null &&
+          tile.fort.garrisonCap > 0 &&
+          terrain === "LAND"
+        ) {
+          const fillRatio = Math.min(1, tile.fort.garrison / tile.fort.garrisonCap);
+          musterOverlay.addGarrison(x, z, surfaceY, fillRatio);
+        }
         const demoStructureEntry = structureDemoEntryFor(wx, wy);
         if (demoStructureEntry && terrain === "LAND") {
           structureOverlay.addInstance(x, z, surfaceY, demoStructureEntry.kind, demoStructureEntry.resource);
@@ -1559,6 +1580,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     roadOverlay.commit();
     unfedBadgeOverlay.commit();
     observatoryCooldownBadgeOverlay.commit();
+    musterOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -1717,6 +1739,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     roadOverlay.dispose();
     unfedBadgeOverlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
+    musterOverlay.dispose();
     aetherBridgePylonOverlay.dispose();
     aetherLanceFx.dispose();
     retortRecastFx.dispose();

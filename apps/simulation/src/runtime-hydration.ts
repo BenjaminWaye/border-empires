@@ -112,7 +112,8 @@ export const createTilesFromInitialState = (
       ...(tile.observatory ? { observatory: tile.observatory } : {}),
       ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
       ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-      ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
+      ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
+      ...(tile.muster ? { muster: tile.muster } : {})
     });
   }
   return mergedTiles;
