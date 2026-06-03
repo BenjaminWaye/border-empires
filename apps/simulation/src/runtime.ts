@@ -1,9 +1,8 @@
 import { EventEmitter } from "node:events";
 
-import type { CommandEnvelope, LockedFrontierCombatResult, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
 import {
-  buildRewritePlayerRespawnNotice,
   type PendingRespawnNoticeContext
 } from "./player-respawn-notice.js";
 import {
@@ -34,9 +33,6 @@ import {
   landBiomeAt,
   terrainAt,
   type Terrain,
-  targetOutpostMult,
-  type OutpostPosition,
-  rollFrontierCombat,
   structureBuildDurationMs,
   structureBuildGoldCost,
   structureBuildManpowerCost,
@@ -90,7 +86,6 @@ import {
   SIPHON_SHARE,
   SYNTH_OVERLOAD_DISABLE_MS,
   SYNTH_OVERLOAD_GOLD_COST,
-  POPULATION_MAX,
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
@@ -155,7 +150,6 @@ import {
   type ChosenTrickleResource,
   chosenTrickleRateForPlayer,
   chooseTechForPlayer,
-  effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
   observatoryCastRadiusForPlayer,
   recomputeMods
@@ -165,7 +159,6 @@ import {
   type VisibilityAuditSample
 } from "./tile-delta-visibility-filter.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
-import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
 import { VisionExpansionCache } from "./vision-expansion-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./planner-world-view.js";
 import {
@@ -313,8 +306,28 @@ import {
   supportedTownKeysForTile as supportedTownKeysForTileImpl
 } from "./runtime-structure-support.js";
 import { tickPopulationGrowth as tickPopulationGrowthImpl } from "./runtime-population-growth.js";
+import {
+  ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl,
+  finalizeRespawnNotice as finalizeRespawnNoticeImpl,
+  preparePlayerRespawnNotice as preparePlayerRespawnNoticeImpl,
+  respawnIfEliminated as respawnIfEliminatedImpl,
+  respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
+  type RuntimeRespawnContext
+} from "./runtime-respawn-helpers.js";
+import { seedLiveBarbarians as seedLiveBarbariansImpl, type SeedLiveBarbariansResult } from "./runtime-live-barbarians.js";
 import { ownedTileCountForPlayer } from "./runtime-owned-tile-count.js";
 import { addStrategicResource, spendStrategicResource, strategicResourceAmount } from "./runtime-player-resources.js";
+import {
+  applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
+  applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
+  applySettledCapturePlunder as applySettledCapturePlunderImpl,
+  buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
+  buildLockedCombatResolution as buildLockedCombatResolutionImpl,
+  handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
+  plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
+  type LockedCombatInput,
+  type RuntimeCombatSupportContext
+} from "./runtime-combat-support.js";
 import {
   applyEconomyAccrual as applyEconomyAccrualImpl,
   applyManpowerRegen as applyManpowerRegenImpl,
@@ -958,27 +971,52 @@ export class SimulationRuntime {
     }, playerId, nowMs);
   }
 
+  private respawnContext(): RuntimeRespawnContext {
+    return {
+      now: this.now,
+      players: this.players,
+      tiles: this.tiles,
+      playerSummaries: this.playerSummaries,
+      plannerPlayerTileCollectionVersionByPlayer: this.plannerPlayerTileCollectionVersionByPlayer,
+      pendingRespawnNoticeByPlayerId: this.pendingRespawnNoticeByPlayerId,
+      lastRespawnNoticeByPlayerId: this.lastRespawnNoticeByPlayerId,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      locksByTile: this.locksByTile,
+      rememberedAutomationVictoryPathByPlayer: this.rememberedAutomationVictoryPathByPlayer,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      setTileYieldCollectedAt: (commandId, playerId, tileKey, collectedAt) => this.setTileYieldCollectedAt(commandId, playerId, tileKey, collectedAt),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitEvent: (event) => this.emitEvent(event),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
+      incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId)
+    };
+  }
+
+  private combatSupportContext(): RuntimeCombatSupportContext {
+    return {
+      now: this.now,
+      players: this.players,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      locksByCommandId: this.locksByCommandId,
+      barbarianTileProgress: this.barbarianTileProgress,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitEvent: (event) => this.emitEvent(event),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+    };
+  }
+
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
     triggerEvent: string,
     options?: { wasOnline?: boolean }
   ): void {
-    const player = this.players.get(playerId);
-    const territoryTiles = this.summaryForPlayer(playerId).territoryTileKeys.size;
-    const isAi = player?.isAi === true;
-    if (isAi) return;
-    this.pendingRespawnNoticeByPlayerId.set(playerId, {
-      at: this.now(),
-      reasonCode,
-      triggerEvent,
-      previousTerritoryTiles: territoryTiles,
-      previousTerritoryStrength: 0,
-      previousExposure: 0,
-      wasEliminated: false,
-      respawnPending: territoryTiles === 0,
-      ...(typeof options?.wasOnline === "boolean" ? { wasOnline: options.wasOnline } : {})
-    });
+    preparePlayerRespawnNoticeImpl(this.respawnContext(), playerId, reasonCode, triggerEvent, options);
   }
 
   peekRespawnNoticeForPlayer(playerId: string): PlayerRespawnNotice | undefined {
@@ -992,18 +1030,7 @@ export class SimulationRuntime {
   }
 
   private finalizeRespawnNotice(playerId: string, spawnTileKey: string): void {
-    const pending = this.pendingRespawnNoticeByPlayerId.get(playerId);
-    if (!pending) return;
-    const player = this.players.get(playerId);
-    const playerName = player?.name ?? playerId;
-    const notice = buildRewritePlayerRespawnNotice({
-      playerId,
-      playerName,
-      context: pending,
-      spawnTileKey: spawnTileKey as `${number},${number}`
-    });
-    this.lastRespawnNoticeByPlayerId.set(playerId, notice);
-    this.pendingRespawnNoticeByPlayerId.delete(playerId);
+    finalizeRespawnNoticeImpl(this.respawnContext(), playerId, spawnTileKey);
   }
 
   private runtimeLogInfo(payload: Record<string, unknown>, message: string): void {
@@ -1016,66 +1043,7 @@ export class SimulationRuntime {
   }
 
   ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
-    let player = this.players.get(playerId);
-    if (!player) {
-      player = createHumanRuntimePlayer(playerId);
-      this.players.set(playerId, player);
-      // Only initialize an empty summary if one does not already exist. The
-      // recovery constructor lazily populates per-player summaries from owned
-      // tile state via applyTileToPlayerSummaries, so a returning player who
-      // owns recovered tiles but is missing from initialState.players already
-      // has a populated summary here. Overwriting it would silently wipe
-      // their territory and force a respawn at the next zero-territory check.
-      if (!this.playerSummaries.has(playerId)) {
-        this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
-        this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
-      }
-    }
-
-    const territoryTiles = this.summaryForPlayer(playerId).territoryTileKeys.size;
-    const hasPendingNotice = this.pendingRespawnNoticeByPlayerId.has(playerId);
-
-    if (territoryTiles > 0) return false;
-    if (!player.isAi && !hasPendingNotice) {
-      this.preparePlayerRespawnNotice(playerId, "auth_recovery", "ensure_player_has_spawn_territory");
-    }
-
-    const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
-    this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
-    const spawn = chooseLegacySpawnPlacement({
-      playerId,
-      tiles: this.tiles.values(),
-      blockedTileKeys,
-      ...(rallyAnchor ? { rallyAnchor } : {})
-    });
-    if (!spawn) return false;
-    const tileKey = simulationTileKey(spawn.x, spawn.y);
-    const tile = this.tiles.get(tileKey);
-    if (!tile || tile.terrain !== "LAND" || tile.ownerId) return false;
-    const spawnedTile: DomainTileState = {
-      ...tile,
-      ownerId: playerId,
-      ownershipState: "SETTLED",
-      town: tile.town ?? {
-        name: `Settlement ${tile.x},${tile.y}`,
-        type: "FARMING",
-        populationTier: "SETTLEMENT",
-        population: 800,
-        maxPopulation: POPULATION_MAX
-      }
-    };
-    const commandId = `bootstrap-spawn:${playerId}:${this.now()}`;
-    this.setTileYieldCollectedAt(commandId, playerId, tileKey, this.now());
-    this.replaceTileState(tileKey, spawnedTile);
-    this.finalizeRespawnNotice(playerId, tileKey);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId,
-      playerId,
-      tileDeltas: [this.tileDeltaFromState(spawnedTile)]
-    });
-    this.emitPlayerStateUpdate({ commandId, playerId });
-    return true;
+    return ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor);
   }
 
   enqueueBackgroundJob(job: () => void): void {
@@ -5551,202 +5519,21 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate(command);
   }
 
-  // Player-ids with at least one *player-issued* frontier lock — i.e. locks
-  // that should gate the AI strategic planner. Passive defensive fire from
-  // forts and siege/light outposts (sweep) also creates playerId-scoped
-  // combat locks via `handleFrontierCommand` from territory-automation; those
-  // carry `source: "automation"` and are filtered out here so they don't
-  // starve the planner with a perpetual `active_lock` noop (territory-
-  // automation re-locks every ~3 s as long as a valid target stays in range).
+  // Player-ids with at least one *player-issued* frontier lock; automation locks do not gate planner strategy.
   private plannerGatingLockPlayerIds(): Set<string> {
-    const lockPlayerIds = new Set<string>();
-    for (const lock of this.locksByTile.values()) {
-      if (lock.source === "automation") continue;
-      lockPlayerIds.add(lock.playerId);
-    }
-    return lockPlayerIds;
-  }
-
-  private activeFrontierLocksForPlayer(playerId: string): LockRecord[] {
-    const locks = new Map<string, LockRecord>();
-    for (const lock of this.locksByTile.values()) {
-      if (lock.playerId !== playerId) continue;
-      if (lock.actionType !== "EXPAND" && lock.actionType !== "ATTACK") continue;
-      locks.set(lock.commandId, lock);
-    }
-    return [...locks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId));
+    return plannerGatingLockPlayerIdsImpl(this.locksByTile);
   }
 
   private handleCancelCaptureCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    if (!actor) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-
-    const activeLocks = this.activeFrontierLocksForPlayer(command.playerId);
-    if (activeLocks.length === 0) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "NO_ACTIVE_CAPTURE",
-        message: "no active capture to cancel"
-      });
-      return;
-    }
-
-    for (const lock of activeLocks) {
-      this.locksByTile.delete(lock.originKey);
-      this.locksByTile.delete(lock.targetKey);
-      this.locksByCommandId.delete(lock.commandId);
-    }
-
-    this.emitEvent({
-      eventType: "COMBAT_CANCELLED",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      count: activeLocks.length,
-      cancelledCommandIds: activeLocks.map((lock) => lock.commandId)
-    });
-    this.emitPlayerStateUpdate(command);
+    handleCancelCaptureCommandImpl(this.combatSupportContext(), command);
   }
 
-  private visibleRadiusForPlayer(playerId: string): number {
-    const player = this.players.get(playerId);
-    return player ? effectiveVisionRadiusForPlayer(player) : 1;
+  private buildCaptureRevealTileDeltas(playerId: string, centerX: number, centerY: number): SimulationTileWireDelta[] {
+    return buildCaptureRevealTileDeltasImpl(this.combatSupportContext(), playerId, centerX, centerY);
   }
 
-  private buildCaptureRevealTileDeltas(playerId: string, centerX: number, centerY: number): Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> {
-    const radius = this.visibleRadiusForPlayer(playerId);
-    const deltas = new Map<string, ReturnType<SimulationRuntime["tileDeltaFromState"]>>();
-    for (let dy = -radius; dy <= radius; dy += 1) {
-      for (let dx = -radius; dx <= radius; dx += 1) {
-        const tile = this.tiles.get(simulationTileKey(centerX + dx, centerY + dy));
-        if (!tile) continue;
-        deltas.set(simulationTileKey(tile.x, tile.y), this.tileDeltaFromState(tile));
-      }
-    }
-    return [...deltas.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y));
-  }
-
-  private originTileHeldByActiveFort(playerId: string, originKey: string): boolean {
-    const origin = this.tiles.get(originKey);
-    if (!origin || origin.terrain !== "LAND" || origin.ownerId !== playerId) return false;
-    const activeFort =
-      origin.fort?.ownerId === playerId &&
-      origin.fort.status === "active" &&
-      (origin.fort.disabledUntil ?? 0) <= this.now();
-    const activeWoodenFort =
-      origin.economicStructure?.ownerId === playerId &&
-      origin.economicStructure.type === "WOODEN_FORT" &&
-      origin.economicStructure.status === "active";
-    return activeFort || activeWoodenFort;
-  }
-
-  private attackerOutpostMult(playerId: string, targetX: number, targetY: number): number {
-    // Gather the player's active outposts from their territory (O(territory) one-time,
-    // but iterates a much smaller set than 121 grid tiles when outpost count is low).
-    // TODO(perf): maintain a per-player outpost index to make this O(outposts).
-    const summary = this.summaryForPlayer(playerId);
-    const outposts: OutpostPosition[] = [];
-    for (const tileKey of summary.territoryTileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (!tile) continue;
-      if (
-        tile.siegeOutpost?.ownerId === playerId &&
-        tile.siegeOutpost.status === "active"
-      ) {
-        outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeOutpost.variant ?? "SIEGE_OUTPOST" });
-      } else if (
-        tile.economicStructure?.ownerId === playerId &&
-        tile.economicStructure.type === "LIGHT_OUTPOST" &&
-        tile.economicStructure.status === "active"
-      ) {
-        outposts.push({ x: tile.x, y: tile.y, variant: "LIGHT_OUTPOST" });
-      }
-    }
-    return targetOutpostMult(outposts, targetX, targetY);
-  }
-
-  private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
-    const previousTarget = this.tiles.get(lock.targetKey);
-    const attackerOutpostMult = this.attackerOutpostMult(lock.playerId, lock.targetX, lock.targetY);
-    const attacker = this.players.get(lock.playerId);
-    const defenderOwnerId = previousTarget?.ownerId;
-    const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
-    const targetHasActiveFort =
-      Boolean(
-        previousTarget?.fort &&
-        previousTarget.fort.status === "active" &&
-        previousTarget.fort.ownerId === defenderOwnerId
-      );
-    const combatModifiers = {
-      attackerOutpostMult,
-      attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
-      attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
-      fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1
-    };
-    const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
-      ? {
-          terrain: previousTarget.terrain,
-          ownershipState: previousTarget.ownershipState,
-          dockId: previousTarget.dockId,
-          townType: previousTarget.town?.type,
-          hasFort: targetHasActiveFort
-        }
-      : { terrain: "LAND" };
-    const combat =
-      lock.actionType === "EXPAND"
-        ? {
-            ...rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers),
-            attackerWon: true
-          }
-        : rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers);
-    const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
-    const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, this.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
-    const plunder =
-      combat.attackerWon && defender && targetWasSettled
-        ? this.previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
-        : undefined;
-    const manpowerDelta =
-      lock.actionType === "ATTACK"
-        ? -this.attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
-        : 0;
-    const originHeldByFort = this.originTileHeldByActiveFort(lock.playerId, lock.originKey);
-    const result: LockedFrontierCombatResult = {
-      attackType: lock.actionType,
-      attackerWon: combat.attackerWon,
-      ...(combat.attackerWon ? { winnerId: lock.playerId } : defenderOwnerId ? { winnerId: defenderOwnerId } : {}),
-      ...(defenderOwnerId ? { defenderOwnerId } : {}),
-      origin: { x: lock.originX, y: lock.originY },
-      target: { x: lock.targetX, y: lock.targetY },
-      changes:
-        combat.attackerWon
-          ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
-          : defenderOwnerId && !originHeldByFort
-            ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: defenderOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
-            : [],
-      pointsDelta: 0,
-      manpowerDelta,
-      pillagedGold: plunder?.gold ?? 0,
-      pillagedShare: plunder?.share ?? 0,
-      pillagedStrategic: plunder?.strategic ?? {},
-      atkEff: combat.atkEff,
-      defEff: combat.defEff,
-      winChance: combat.winChance,
-      levelDelta: 0
-    };
-    return {
-      result,
-      defenderGoldLoss: plunder?.defenderGoldLoss ?? 0
-    };
+  private buildLockedCombatResolution(lock: LockedCombatInput): LockedCombatResolution | undefined {
+    return buildLockedCombatResolutionImpl(this.combatSupportContext(), lock);
   }
 
   private resolveLock(lock: LockRecord): void {
@@ -6093,291 +5880,31 @@ export class SimulationRuntime {
   }
 
   private respawnPlayerOnUnownedLand(playerId: string, commandId: string): boolean {
-    const actor = this.players.get(playerId);
-    if (!actor) return false;
-    if (!actor.isAi && !this.pendingRespawnNoticeByPlayerId.has(playerId)) {
-      this.preparePlayerRespawnNotice(playerId, "auth_recovery", commandId, { wasOnline: true });
-    }
-    const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
-    const spawn = chooseLegacySpawnPlacement({
-      playerId,
-      tiles: this.tiles.values(),
-      blockedTileKeys
-    });
-    if (!spawn) return false;
-    const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
-    const tile = this.tiles.get(respawnedTileKey);
-    if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
-    const respawnedTile: DomainTileState = {
-      ...tile,
-      ownerId: playerId,
-      ownershipState: "SETTLED",
-      town: {
-        name: `Respawn ${tile.x},${tile.y}`,
-        type: "FARMING",
-        populationTier: "SETTLEMENT",
-        population: SYNTHETIC_SETTLEMENT_POPULATION,
-        maxPopulation: POPULATION_MAX
-      }
-    };
-    actor.manpower = Math.max(actor.manpower, 100);
-    const respawnCommandId = `${commandId}:respawn:${playerId}`;
-    this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
-    this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
-    this.finalizeRespawnNotice(playerId, respawnedTileKey);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: respawnCommandId,
-      playerId,
-      tileDeltas: [this.tileDeltaFromState(respawnedTile)]
-    });
-    this.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
-    this.runtimeLogInfo(
-      {
-        type: "respawn_placed",
-        playerId,
-        commandId: respawnCommandId,
-        tileKey: respawnedTileKey,
-        goldIncomePerMinute: this.summaryForPlayer(playerId).goldIncomePerMinute,
-        incomePerMinute: this.incomePerMinuteForPlayer(playerId)
-      },
-      "placed respawn settlement"
-    );
-    return true;
+    return respawnPlayerOnUnownedLandImpl(this.respawnContext(), playerId, commandId);
   }
 
-  /**
-   * Ops-only live barbarian reintroduction. Seeds up to `targetCount`
-   * barbarian-1-owned SETTLED tiles onto currently-unowned LAND that is far
-   * enough from every non-barb player's territory to survive long enough for
-   * the planner to start walking/multiplying them.
-   *
-   * Worldgen is the only other place barbs are created and there is NO
-   * maintenance spawner, so once barbs are eaten to extinction in a running
-   * season this is the only non-destructive way to bring them back (the
-   * alternative — a new season — wipes all player progress).
-   *
-   * Non-destructive: writes only to tiles that are currently unowned LAND with
-   * no town/dock/shard. Persistence + fog-of-war broadcast happen for free via
-   * the emitted TILE_DELTA_BATCH (same path as respawn placement above).
-   */
   seedLiveBarbarians(
     targetCount: number,
     commandId = `barb-seed:${this.now()}`
-  ): {
-    requested: number;
-    placed: number;
-    candidates: number;
-    scanned: number;
-    skippedNearOwned: number;
-    skippedNearBarb: number;
-    skippedBlocked: number;
-    cappedScan: boolean;
-    barbTilesAfter: number;
-  } {
-    const requested = Math.max(0, Math.floor(targetCount));
-    const result = {
-      requested,
-      placed: 0,
-      candidates: 0,
-      scanned: 0,
-      skippedNearOwned: 0,
-      skippedNearBarb: 0,
-      skippedBlocked: 0,
-      cappedScan: false,
-      barbTilesAfter: this.summaryForPlayer("barbarian-1").territoryTileKeys.size
-    };
-    if (requested === 0) return result;
-    if (!this.players.get("barbarian-1")) {
-      this.runtimeLogInfo(
-        { type: "barb_seed_skipped", reason: "no_barbarian_player", commandId, ...result },
-        "live barbarian seed skipped: barbarian-1 player record missing"
-      );
-      return result;
-    }
-
-    const MIN_DISTANCE_FROM_OWNED = 8;
-    const MIN_BARB_SEPARATION = 4;
-    const cheb = (ax: number, ay: number, bx: number, by: number): number =>
-      Math.max(Math.abs(ax - bx), Math.abs(ay - by));
-
-    // Single pass over the world: collect unowned LAND candidates and the
-    // anchors of any barbs that already exist (so new placements respect
-    // separation even on a not-quite-extinct world).
-    const candidates: DomainTileState[] = [];
-    const barbAnchors: Array<{ x: number; y: number }> = [];
-    for (const tile of this.tiles.values()) {
-      if (tile.ownerId === "barbarian-1") {
-        barbAnchors.push({ x: tile.x, y: tile.y });
-        continue;
-      }
-      if (tile.terrain !== "LAND") continue;
-      if (tile.ownerId) continue;
-      if (tile.town || tile.dockId || tile.shardSite) continue;
-      candidates.push(tile);
-    }
-    result.candidates = candidates.length;
-
-    // Deterministic Fisher–Yates seeded from commandId so placements are
-    // reproducible per-call but spread across the map rather than clustered in
-    // scan order.
-    let seed = 0;
-    for (let i = 0; i < commandId.length; i += 1) seed = (Math.imul(seed, 31) + commandId.charCodeAt(i)) >>> 0;
-    const rand = (): number => {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      return seed / 0x1_0000_0000;
-    };
-    for (let i = candidates.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(rand() * (i + 1));
-      const tmp = candidates[i]!;
-      candidates[i] = candidates[j]!;
-      candidates[j] = tmp;
-    }
-
-    const ownedNearby = (x: number, y: number): boolean => {
-      for (let dx = -MIN_DISTANCE_FROM_OWNED; dx <= MIN_DISTANCE_FROM_OWNED; dx += 1) {
-        for (let dy = -MIN_DISTANCE_FROM_OWNED; dy <= MIN_DISTANCE_FROM_OWNED; dy += 1) {
-          const neighbor = this.tiles.get(simulationTileKey(x + dx, y + dy));
-          if (neighbor?.ownerId && neighbor.ownerId !== "barbarian-1") return true;
-        }
-      }
-      return false;
-    };
-
-    // Bound the work so a dense, mostly-owned world can't block the sim thread
-    // indefinitely scanning rejects. cappedScan is surfaced so ops can tell the
-    // difference between "no room left" and "stopped early".
-    const MAX_SCAN = Math.max(2_000, requested * 1_000);
-    const placedDeltas: SimulationTileWireDelta[] = [];
-    for (const tile of candidates) {
-      if (result.placed >= requested) break;
-      if (result.scanned >= MAX_SCAN) {
-        result.cappedScan = true;
-        break;
-      }
-      result.scanned += 1;
-      const tileKey = simulationTileKey(tile.x, tile.y);
-      if (this.pendingSettlementsByTile.has(tileKey) || this.locksByTile.has(tileKey)) {
-        result.skippedBlocked += 1;
-        continue;
-      }
-      if (ownedNearby(tile.x, tile.y)) {
-        result.skippedNearOwned += 1;
-        continue;
-      }
-      if (barbAnchors.some((anchor) => cheb(anchor.x, anchor.y, tile.x, tile.y) < MIN_BARB_SEPARATION)) {
-        result.skippedNearBarb += 1;
-        continue;
-      }
-      const barbTile: DomainTileState = { ...tile, ownerId: "barbarian-1", ownershipState: "SETTLED" };
-      this.replaceTileState(tileKey, barbTile, commandId);
-      placedDeltas.push(this.tileDeltaFromState(barbTile));
-      barbAnchors.push({ x: tile.x, y: tile.y });
-      result.placed += 1;
-    }
-
-    if (placedDeltas.length > 0) {
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId,
-        playerId: "barbarian-1",
-        tileDeltas: placedDeltas
-      });
-    }
-    result.barbTilesAfter = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
-    this.runtimeLogInfo({ type: "barb_seed_placed", commandId, ...result }, "live barbarian seed");
-    return result;
-  }
-
-  private barbarianProgressGain(target: DomainTileState | undefined): number {
-    // Multiply progress only accumulates when a barb actually CAPTURES a
-    // non-barb player's tile. Walking into neutral land or shuffling between
-    // own tiles contributes zero — otherwise barbs multiply every 3 steps
-    // even when no one's territory is being eaten, which is what was
-    // spreading them across the map.
-    if (!target?.ownerId || target.ownerId === "barbarian-1") return 0;
-    return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
-  }
-
-  private applyBarbarianWalkOrMultiply(lock: LockRecord, previousTarget: DomainTileState | undefined): void {
-    const gain = this.barbarianProgressGain(previousTarget);
-    const sourceProgress = this.barbarianTileProgress.get(lock.originKey) ?? 0;
-    const newProgress = sourceProgress + gain;
-    const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
-
-    if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount < BARBARIAN_POPULATION_CAP) {
-      // Multiply: keep both origin and target — net +1 tile.
-      this.emitEvent({
-        eventType: "BARB_MULTIPLIED",
-        commandId: lock.commandId,
-        playerId: "barbarian-1",
-        originKey: lock.originKey,
-        targetKey: lock.targetKey,
-        eatenOwnerId: previousTarget?.ownerId ?? null,
-        eatenResource: previousTarget?.resource ?? null,
-        eatenHasTown: !!previousTarget?.town,
-        gain,
-        sourceProgress,
-        barbTileCount: barbTileCount + 1
-      });
-      this.barbarianTileProgress.set(lock.originKey, 0);
-      this.barbarianTileProgress.set(lock.targetKey, 0);
-      return;
-    }
-
-    // At/over cap: fall through to normal walk (net 0) — multiply blocked.
-    if (gain > 0) {
-      this.emitEvent({
-        eventType: "BARB_ATE_TILE",
-        commandId: lock.commandId,
-        playerId: "barbarian-1",
-        originKey: lock.originKey,
-        targetKey: lock.targetKey,
-        eatenOwnerId: previousTarget!.ownerId!,
-        eatenResource: previousTarget?.resource ?? null,
-        eatenHasTown: !!previousTarget?.town,
-        gain,
-        sourceProgress,
-        newProgress,
-        capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD
-      });
-    }
-    this.barbarianTileProgress.delete(lock.originKey);
-    this.barbarianTileProgress.set(lock.targetKey, newProgress);
-    const previousOrigin = this.tiles.get(lock.originKey);
-    if (!previousOrigin || previousOrigin.ownerId !== "barbarian-1") return;
-    const releasedOrigin: DomainTileState = {
-      x: previousOrigin.x,
-      y: previousOrigin.y,
-      terrain: previousOrigin.terrain,
-      ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
-      ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {})
-    };
-    this.replaceTileState(lock.originKey, releasedOrigin);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: lock.commandId,
-      playerId: lock.playerId,
-      tileDeltas: [this.tileDeltaFromState(releasedOrigin)]
+  ): SeedLiveBarbariansResult {
+    return seedLiveBarbariansImpl({
+      targetCount,
+      commandId,
+      players: this.players,
+      tiles: this.tiles,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      locksByTile: this.locksByTile,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      replaceTileState: (tileKey, tile, id) => this.replaceTileState(tileKey, tile, id),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitTileDeltaBatch: ({ commandId: id, playerId, tileDeltas }) =>
+        this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: id, playerId, tileDeltas }),
+      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
     });
   }
 
-  private previewSettledCapturePlunder(input: {
-    defender: DomainPlayer;
-    defenderTileCountBeforeCapture: number;
-    target: DomainTileState;
-  }): { gold: number; share: number; defenderGoldLoss: number; strategic: Partial<Record<StrategicResourceKey, number>> } {
-    const share = 1 / Math.max(1, input.defenderTileCountBeforeCapture);
-    const defenderGoldShare = Math.max(0, input.defender.points * share);
-    const storedYieldGold = input.target.town ? 1 : 0;
-    const gold = Math.round((defenderGoldShare + storedYieldGold) * 100) / 100;
-
-    const strategic: Partial<Record<StrategicResourceKey, number>> = {};
-    const strategicResource = strategicResourceForTile(input.target.resource);
-    if (strategicResource) {
-      strategic[strategicResource] = 1;
-    }
-    return { gold, share, defenderGoldLoss: defenderGoldShare, strategic };
+  private applyBarbarianWalkOrMultiply(lock: LockRecord, previousTarget: DomainTileState | undefined): void {
+    applyBarbarianWalkOrMultiplyImpl(this.combatSupportContext(), lock, previousTarget);
   }
 
   private applySettledCapturePlunder(input: {
@@ -6386,90 +5913,15 @@ export class SimulationRuntime {
     gold: number;
     defenderGoldLoss: number;
   }): void {
-    if (input.gold <= 0) return;
-    input.defender.points = Math.max(0, input.defender.points - input.defenderGoldLoss);
-    input.attacker.points += input.gold;
-  }
-
-  private attackManpowerLoss(committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number {
-    if (committedManpower <= 0) return 0;
-    if (attackerWon) return Math.max(10, committedManpower * 0.16);
-    const combatRatio = defEff / Math.max(1, atkEff);
-    return committedManpower * Math.min(1.25, 0.6 + combatRatio * 0.35);
+    applySettledCapturePlunderImpl(input);
   }
 
   private applyLockedManpowerDelta(player: DomainPlayer, manpowerDelta: number): number {
-    if (manpowerDelta >= -0.01) return 0;
-    const loss = Math.abs(manpowerDelta);
-    player.manpower = Math.max(0, player.manpower - loss);
-    return loss;
-  }
-
-  private settleAttackManpower(
-    player: DomainPlayer,
-    committedManpower: number,
-    attackerWon: boolean,
-    atkEff: number,
-    defEff: number
-  ): number {
-    const loss = this.attackManpowerLoss(committedManpower, attackerWon, atkEff, defEff);
-    player.manpower = Math.max(0, player.manpower - loss);
-    return loss;
+    return applyLockedManpowerDeltaImpl(player, manpowerDelta);
   }
 
   private respawnIfEliminated(playerId: string, commandId: string): void {
-    const actor = this.players.get(playerId);
-    if (!actor) return;
-    if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return;
-    if (!actor.isAi && !this.pendingRespawnNoticeByPlayerId.has(playerId)) {
-      this.preparePlayerRespawnNotice(playerId, "eliminated", commandId, { wasOnline: true });
-    }
-
-    const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
-    this.runtimeLogInfo(
-      {
-        type: "player_eliminated",
-        playerId,
-        commandId,
-        isAi: actor.isAi,
-        barbTileCount
-      },
-      "player eliminated — attempting respawn"
-    );
-
-    const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
-    const spawn = chooseLegacySpawnPlacement({
-      playerId,
-      tiles: this.tiles.values(),
-      blockedTileKeys
-    });
-    if (!spawn) return;
-    const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
-    const tile = this.tiles.get(respawnedTileKey);
-    if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return;
-    const respawnedTile: DomainTileState = {
-      ...tile,
-      ownerId: playerId,
-      ownershipState: "SETTLED",
-      town: {
-        name: `Respawn ${tile.x},${tile.y}`,
-        type: "FARMING",
-        populationTier: "SETTLEMENT",
-        population: SYNTHETIC_SETTLEMENT_POPULATION,
-        maxPopulation: POPULATION_MAX
-      }
-    };
-    actor.manpower = Math.max(actor.manpower, 100);
-    const respawnCommandId = `${commandId}:respawn:${playerId}`;
-    this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
-    this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
-    this.finalizeRespawnNotice(playerId, respawnedTileKey);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: respawnCommandId,
-      playerId,
-      tileDeltas: [this.tileDeltaFromState(respawnedTile)]
-    });
+    respawnIfEliminatedImpl(this.respawnContext(), playerId, commandId);
   }
 
   private queueCommandForProcessing(command: CommandEnvelope): void {
