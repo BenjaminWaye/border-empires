@@ -228,7 +228,7 @@ describe("development queue helpers", () => {
   it("prunes expired auto-settle visible holds even when the tile is not first in queue", () => {
     const state = createInitialState();
     state.developmentQueue = [
-      { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build at (1, 1)", payload: { type: "BUILD_FORT", x: 1, y: 1 }, optimisticKind: "FORT" },
+      { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build at (1, 1)", payload: { type: "BUILD_STRUCTURE", x: 1, y: 1, structureType: "FORT" }, optimisticKind: "FORT" },
       { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Settlement at (9, 10)" }
     ];
     state.autoSettlementQueueVisibleUntilByTile.set("9,10", 9_000);
@@ -441,7 +441,7 @@ describe("development queue helpers", () => {
 
     const queued = sendDevelopmentBuild(
       state,
-      { type: "BUILD_ECONOMIC_STRUCTURE", x: 2, y: 2, structureType: "GRANARY" },
+      { type: "BUILD_STRUCTURE", x: 2, y: 2, structureType: "GRANARY" },
       optimistic,
       { x: 2, y: 2, label: "Granary at (2, 2)", optimisticKind: "GRANARY" },
       {
