@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.03.1",
+  version: "2026.06.03.2",
   title: "What's New",
   summary: "Town food-upkeep is now always visible in the tile overview for CITY+ towns. Reveal Empire now launches a one-shot 3D beacon when cast, and the build pipeline has been unified behind a single structure command.",
   entries: [
+    {
+      introducedIn: "2026.06.03.2",
+      title: "Attack-blocked errors now surface in the activity log",
+      why: "NOT_ADJACENT, ATTACK_COOLDOWN, LOCKED, and related block codes showed only the capture-alert popup but never pushed a feed line, so the activity log had no record of the block after the popup was dismissed.",
+      changes: [
+        "Action-blocked errors (ATTACK_COOLDOWN, LOCKED, NOT_ADJACENT, ATTACK_TARGET_INVALID, ALLY_TARGET, SHIELDED, BARRIER, ORIGIN_CUT_OFF) now push to the activity feed in addition to showing the popup.",
+        "Siege Tower and Dread Tower upgrade descriptions now cite the authoritative attack multipliers from SIEGE_TIER_LADDER (1.6x→1.8x and 1.8x→2.0x) instead of the old stale values."
+      ]
+    },
     {
       introducedIn: "2026.06.03.1",
       title: "Town food upkeep always visible in tile overview",
@@ -302,26 +311,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "The waypoint planner picked any shortest path, so among equal-length routes it could weave (N-E-N-E) or overshoot before doubling back, even when a clean straight or diagonal line reached the target.",
       changes: [
         "Waypoint routing now adds a tiny per-turn tiebreaker so equal-length paths prefer the fewest direction changes: a target due in one direction expands in a straight line, a pure-diagonal target expands diagonally, and mixed targets keep their straight runs grouped (and connected) rather than zigzagging."
-      ]
-    },
-    {
-      introducedIn: "2026.05.27.2",
-      title: "Capture pop-loss indicator now readable through smoke",
-      why: "The floating \"-N pop\" label spawned inside the captured-town smoke column at a small size with a heavy black outline, so the red fill was largely covered and the text read as white at a glance. It also barely moved, making it easy to miss next to the dramatic smoke effect.",
-      changes: [
-        "Label is larger (3.2x sprite scale, 96px bold canvas font) with a soft shadow instead of a chunky outline, so the red fill dominates and the text reads at a glance.",
-        "Color saturated to #ff2d2d so it reads as red, not washed-out coral.",
-        "Now rises ~4.2 world units over 3.2s with an ease-out curve and a brief pop-in scale, so it clearly floats away above the smoke instead of sitting inside it.",
-        "renderOrder bumped to 9999 so the label always paints over the smoke puffs."
-      ]
-    },
-    {
-      introducedIn: "2026.05.27.1",
-      title: "Settle a whole frontier pocket in one tap",
-      why: "Settling each tile of a freshly captured pocket one click at a time was tedious; the new 'Settle Connected (N)' action in the tile menu queues every connected frontier tile you own.",
-      changes: [
-        "Frontier tile menu now shows 'Settle Connected (N)' when 2+ of your frontier tiles are connected.",
-        "Each tile still costs the standard settle gold and uses a development slot — extras are queued FIFO like manual settles."
       ]
     },
   ]

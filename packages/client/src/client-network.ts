@@ -2891,6 +2891,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "BARRIER" ||
         errorCode === "ORIGIN_CUT_OFF"
       ) {
+        // Show popup AND push to the activity log — per changelog 2026.06.01.6
+        pushFeedSafely(actionFailureExplanation, "error", "error");
         showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
       } else {
         pushFeedSafely(
