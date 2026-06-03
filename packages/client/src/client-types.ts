@@ -131,6 +131,8 @@ export type Tile = {
     variant?: "FORT" | "IRON_BASTION" | "THUNDER_BASTION";
     completesAt?: number;
     disabledUntil?: number;
+    garrison?: number;
+    garrisonCap?: number;
   };
   observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; cooldownUntil?: number };
   siegeOutpost?: {

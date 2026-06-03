@@ -20,6 +20,8 @@ import {
   ATTACK_MANPOWER_MIN,
   MUSTER_SYSTEM_ENABLED,
   MUSTER_ATTACK_COST,
+  FORT_GARRISON_ATTRITION_MIN,
+  FORT_GARRISON_ATTRITION_MAX,
   SWEEP_BUDGET_CAP,
   SWEEP_RADIUS_BY_VARIANT,
   BARBARIAN_MULTIPLY_THRESHOLD,
@@ -332,6 +334,7 @@ import {
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "./runtime-shard-rain-tick.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "./runtime-territory-automation-tick.js";
 import { tickMuster as tickMusterImpl } from "./runtime-muster-tick.js";
+import { tickFortGarrison as tickFortGarrisonImpl, garrisonCapForVariant, initialGarrisonForVariant } from "./runtime-fort-garrison-tick.js";
 import {
   bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
   updateFrontierDecay as updateFrontierDecayImpl
@@ -423,6 +426,10 @@ export class SimulationRuntime {
   // Maintained in replaceTileState via refreshMusterIndexForTile. Lets the
   // muster accumulation tick enumerate active musters without scanning the map.
   private readonly musterTilesByOwner = new Map<string, Set<string>>();
+  // Index of tiles with an active fort per owner (garrison system).
+  // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
+  // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
+  private readonly fortTilesByOwner = new Map<string, Set<string>>();
   // Index of yield-bearing SETTLED LAND tiles per owner. A tile is yield-bearing
   // iff it has town, dockId, a strategic resource, or an active converter
   // economicStructure. Maintained in replaceTileState; rebuilt from this.tiles
@@ -741,6 +748,12 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.musterTilesByOwner.set(tile.muster.ownerId, set); }
         set.add(tileKey);
       }
+      // Populate fortTilesByOwner index (garrison system).
+      if (tile.fort?.ownerId && tile.fort.status === "active") {
+        let set = this.fortTilesByOwner.get(tile.fort.ownerId);
+        if (!set) { set = new Set<string>(); this.fortTilesByOwner.set(tile.fort.ownerId, set); }
+        set.add(tileKey);
+      }
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
@@ -955,6 +968,21 @@ export class SimulationRuntime {
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
     });
     this.tickMuster(nowMs);
+    this.tickFortGarrison(nowMs);
+  }
+
+  tickFortGarrison(nowMs: number = this.now()): void {
+    tickFortGarrisonImpl({
+      nowMs,
+      players: this.players,
+      fortTilesByOwner: this.fortTilesByOwner,
+      tiles: this.tiles,
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+    });
   }
 
   tickMuster(nowMs: number = this.now()): void {
@@ -1661,6 +1689,8 @@ export class SimulationRuntime {
     this.refreshLightOutpostIndexForTile(tileKey, previous, tile);
     // Muster flag index: maintain musterTilesByOwner.
     this.refreshMusterIndexForTile(tileKey, previous, tile);
+    // Fort garrison index: maintain fortTilesByOwner.
+    this.refreshFortGarrisonIndexForTile(tileKey, previous, tile);
     // Structure count index: keep ownedStructureCountByPlayerByType consistent
     // across capture / build / cancel / removal transitions. Each slot is
     // tracked by the STRUCTURE's ownerId (not the tile's), to match the
@@ -2019,6 +2049,33 @@ export class SimulationRuntime {
     if (nextOwnerId) {
       let set = this.musterTilesByOwner.get(nextOwnerId);
       if (!set) { set = new Set<string>(); this.musterTilesByOwner.set(nextOwnerId, set); }
+      set.add(tileKey);
+    }
+  }
+
+  // ---- Fort garrison index helpers ----
+
+  private isFortActive(tile: DomainTileState): boolean {
+    return tile.fort?.status === "active" && tile.fort.ownerId != null;
+  }
+
+  private refreshFortGarrisonIndexForTile(
+    tileKey: string,
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    const prevActive = previous ? this.isFortActive(previous) : false;
+    const prevOwnerId = prevActive ? previous!.fort!.ownerId : undefined;
+    const nextActive = this.isFortActive(next);
+    const nextOwnerId = nextActive ? next.fort!.ownerId : undefined;
+    if (prevOwnerId === nextOwnerId) return;
+    if (prevOwnerId) {
+      const set = this.fortTilesByOwner.get(prevOwnerId);
+      if (set) set.delete(tileKey);
+    }
+    if (nextOwnerId) {
+      let set = this.fortTilesByOwner.get(nextOwnerId);
+      if (!set) { set = new Set<string>(); this.fortTilesByOwner.set(nextOwnerId, set); }
       set.add(tileKey);
     }
   }
@@ -6024,6 +6081,13 @@ export class SimulationRuntime {
     const sweepInit = (spec.kind === "OUTPOST" || structureType === "LIGHT_OUTPOST")
       ? { sweepBudget: SWEEP_BUDGET_CAP, sweepActive: false as const, sweepBudgetUpdatedAt: this.now() }
       : {};
+    const garrisonInit = (spec.tileField === "fort" && MUSTER_SYSTEM_ENABLED)
+      ? {
+          garrison: initialGarrisonForVariant(activeStructure.variant as string | undefined),
+          garrisonCap: garrisonCapForVariant(activeStructure.variant as string | undefined),
+          garrisonUpdatedAt: this.now()
+        }
+      : {};
 
     // Only clear economicStructure when upgrading from WOODEN_FORT → FORT
     const clearingWoodenFort =
@@ -6034,7 +6098,7 @@ export class SimulationRuntime {
     const completedTile: DomainTileState = {
       ...latest,
       ...(clearingWoodenFort ? { economicStructure: undefined } : {}),
-      [spec.tileField]: { ...activeStructure, status: "active", ...sweepInit }
+      [spec.tileField]: { ...activeStructure, status: "active", ...sweepInit, ...garrisonInit }
     } as unknown as DomainTileState;
 
     this.replaceTileState(targetKey, completedTile);
@@ -6690,7 +6754,10 @@ export class SimulationRuntime {
       attackerOutpostMult,
       attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
       attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
-      fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1
+      fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
+      musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
+      fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
+      fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined
     };
     const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
       ? {
@@ -6801,6 +6868,11 @@ export class SimulationRuntime {
         // Muster system: the strike is paid from the origin tile's muster, not
         // the global pool. Spend the committed force regardless of outcome.
         this.consumeOriginMuster(lock.originKey, lock.playerId, lock.manpowerCost);
+        // Fort garrison attrition: on a failed assault, reduce the defending fort's
+        // garrison by a random fraction of the attacking force.
+        if (!attackerWon) {
+          this.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
+        }
       } else {
         this.applyLockedManpowerDelta(attacker, combatResult.manpowerDelta);
       }
@@ -7260,8 +7332,11 @@ export class SimulationRuntime {
    * target. Phase 5 baseline: the flat attack cost. Phase 7 raises it to the
    * target fort's garrison; Phase 8 lowers it for barbarian raids.
    */
-  private requiredMusterForTarget(_target: DomainTileState): number {
-    return MUSTER_ATTACK_COST;
+  private requiredMusterForTarget(target: DomainTileState): number {
+    const fortGarrison = (target.fort?.status === "active" && target.fort.garrison != null)
+      ? target.fort.garrison
+      : 0;
+    return Math.max(MUSTER_ATTACK_COST, Math.ceil(fortGarrison));
   }
 
   /**
@@ -7282,6 +7357,29 @@ export class SimulationRuntime {
       eventType: "TILE_DELTA_BATCH",
       commandId: `muster-spend:${originKey}:${this.now()}`,
       playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+  }
+
+  /**
+   * Reduce a defending fort's garrison after a repulsed assault.
+   * The attrittion fraction is a random draw in [MIN, MAX] applied to the attacking force.
+   */
+  private applyFortGarrisonAttrition(targetKey: string, attackingForce: number): void {
+    const tile = this.tiles.get(targetKey);
+    if (!tile?.fort || tile.fort.status !== "active" || tile.fort.garrison == null) return;
+    const fraction = FORT_GARRISON_ATTRITION_MIN +
+      Math.random() * (FORT_GARRISON_ATTRITION_MAX - FORT_GARRISON_ATTRITION_MIN);
+    const loss = fraction * attackingForce;
+    const updatedTile: DomainTileState = {
+      ...tile,
+      fort: { ...tile.fort, garrison: Math.max(0, tile.fort.garrison - loss), garrisonUpdatedAt: this.now() }
+    };
+    this.replaceTileState(targetKey, updatedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `fort-attrition:${targetKey}:${this.now()}`,
+      playerId: tile.fort.ownerId,
       tileDeltas: [this.tileDeltaFromState(updatedTile)]
     });
   }
