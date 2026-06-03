@@ -264,8 +264,8 @@ export const structureInfoForKey = (
     if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
     if (key === "LIGHT_OUTPOST") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Outpost"];
     if (key === "SIEGE_OUTPOST") return ["+25% local offense", "Improves attacks launched from this tile"];
-    if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.25x to 2x"];
-    if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 2x to 3x against heavy fortified targets"];
+    if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.6x to 1.8x"];
+    if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 1.8x to 2.0x against heavy fortified targets"];
     if (key === "FARMSTEAD") return ["+50% food output on FARM tiles only"];
     if (key === "WATERWORKS") return ["+50% farmstead food within 10 tiles", "Radius support building — does not need a resource tile"];
     if (key === "CAMP") return ["+50% supply output on WOOD and FUR tiles"];
@@ -524,7 +524,7 @@ export const structureInfoForKey = (
   if (type === "SIEGE_TOWER") {
     return structure({
       title: "Siege Tower",
-      detail: "Siege Towers upgrade Siege Outposts and raise their attack from 1.25x to 2x.",
+      detail: "Siege Towers upgrade Siege Outposts and raise their attack from 1.6x to 1.8x.",
       glyph: "⚔",
       placement: "Upgrade an existing Siege Outpost on its current tile.",
       costBits: costBitsFor(type),
@@ -534,7 +534,7 @@ export const structureInfoForKey = (
   if (type === "DREAD_TOWER") {
     return structure({
       title: "Dread Tower",
-      detail: "Dread Towers upgrade Siege Towers and raise siege attack from 2x to 3x for assaults against the heaviest fortified targets.",
+      detail: "Dread Towers upgrade Siege Towers and raise siege attack from 1.8x to 2.0x for assaults against the heaviest fortified targets.",
       glyph: "⚔",
       placement: "Upgrade an existing Siege Tower on its current tile.",
       costBits: costBitsFor(type),
