@@ -15,7 +15,9 @@ type Args = {
 };
 
 const render = (args: Args): HTMLElement => {
-  const stage = createStage({ cameraDistance: args.cameraDistance, background: "#07131d" });
+  const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: 0.82, background: "#07131d" });
+  stage.camera.position.set(0, 3.6, 6.8);
+  stage.camera.lookAt(0, 1.35, 0);
   const fx = createRevealEmpireFxLayer(stage.scene);
 
   const tile = new Mesh(
@@ -93,7 +95,7 @@ const meta: Meta<Args> = {
     cameraDistance: { control: { type: "range", min: 2, max: 12, step: 0.5 } },
     autoReplay: { control: "boolean" }
   },
-  args: { cameraDistance: 5, autoReplay: true },
+  args: { cameraDistance: 6.8, autoReplay: true },
   render
 };
 

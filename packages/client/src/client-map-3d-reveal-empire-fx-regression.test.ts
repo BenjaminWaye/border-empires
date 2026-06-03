@@ -14,6 +14,9 @@ describe("3d reveal empire fx regression guard", () => {
     expect(source).toContain("LOCK_END_MS");
     expect(source).toContain("BEACON_END_MS");
     expect(source).toContain("REVEAL_END_MS");
+    expect(source).toContain("beaconTrail");
+    expect(source).toContain("beaconCore");
+    expect(source).toContain("beaconGlow");
     expect(source).toContain("haloA");
     expect(source).toContain("revealRingA");
     expect(source).toContain("MapFragment");

@@ -8,13 +8,14 @@ import {
   PlaneGeometry,
   RingGeometry,
   Scene,
+  SphereGeometry,
   TorusGeometry
 } from "three";
 
-const DURATION_MS = 2400;
-const LOCK_END_MS = 360;
-const BEACON_END_MS = 920;
-const REVEAL_END_MS = 1720;
+const DURATION_MS = 2600;
+const LOCK_END_MS = 280;
+const BEACON_END_MS = 1540;
+const REVEAL_END_MS = 2120;
 const FRAGMENT_COUNT = 8;
 
 type MapFragment = {
@@ -27,7 +28,9 @@ type MapFragment = {
 type RevealEmpireEntry = {
   readonly group: Group;
   readonly targetRing: Mesh;
-  readonly beacon: Mesh;
+  readonly beaconTrail: Mesh;
+  readonly beaconCore: Mesh;
+  readonly beaconGlow: Mesh;
   readonly haloA: Mesh;
   readonly haloB: Mesh;
   readonly revealRingA: Mesh;
@@ -60,7 +63,9 @@ export const createRevealEmpireFxLayer = (scene: Scene): RevealEmpireFxLayer => 
   scene.add(group);
 
   const targetRingGeometry = new TorusGeometry(0.46, 0.012, 8, 42);
-  const beaconGeometry = new CylinderGeometry(0.045, 0.1, 1.45, 10, 1, true);
+  const beaconTrailGeometry = new CylinderGeometry(0.025, 0.09, 1, 10, 1, true);
+  const beaconCoreGeometry = new SphereGeometry(0.095, 16, 10);
+  const beaconGlowGeometry = new SphereGeometry(0.18, 16, 10);
   const haloGeometry = new TorusGeometry(0.34, 0.012, 8, 36);
   const revealRingGeometry = new RingGeometry(0.18, 0.23, 42);
   const mapBandGeometry = new PlaneGeometry(0.74, 0.06);
@@ -85,15 +90,23 @@ export const createRevealEmpireFxLayer = (scene: Scene): RevealEmpireFxLayer => 
     targetRing.rotation.x = Math.PI / 2;
     entryGroup.add(targetRing);
 
-    const beacon = new Mesh(beaconGeometry, makeMaterial("#79e9ff", 0));
-    beacon.position.y = 0.72;
-    entryGroup.add(beacon);
+    const beaconTrail = new Mesh(beaconTrailGeometry, makeMaterial("#79e9ff", 0));
+    beaconTrail.position.y = 0.5;
+    entryGroup.add(beaconTrail);
+
+    const beaconCore = new Mesh(beaconCoreGeometry, makeMaterial("#d8fbff", 0));
+    beaconCore.position.y = 0.24;
+    entryGroup.add(beaconCore);
+
+    const beaconGlow = new Mesh(beaconGlowGeometry, makeMaterial("#6be8ff", 0));
+    beaconGlow.position.y = 0.24;
+    entryGroup.add(beaconGlow);
 
     const haloA = new Mesh(haloGeometry, makeMaterial("#d8fbff", 0));
-    haloA.position.y = 1.52;
+    haloA.position.y = 0.24;
     haloA.rotation.x = Math.PI / 2;
     const haloB = new Mesh(haloGeometry, makeMaterial("#f4ca6a", 0));
-    haloB.position.y = 1.58;
+    haloB.position.y = 0.24;
     haloB.rotation.x = Math.PI / 2;
     entryGroup.add(haloA, haloB);
 
@@ -123,7 +136,9 @@ export const createRevealEmpireFxLayer = (scene: Scene): RevealEmpireFxLayer => 
     entries.push({
       group: entryGroup,
       targetRing,
-      beacon,
+      beaconTrail,
+      beaconCore,
+      beaconGlow,
       haloA,
       haloB,
       revealRingA,
@@ -166,14 +181,28 @@ export const createRevealEmpireFxLayer = (scene: Scene): RevealEmpireFxLayer => 
       entry.targetRing.rotation.z = age / 420;
       setOpacity(entry.targetRing.material, age < REVEAL_END_MS ? 0.82 * (1 - revealT * 0.25) : 0.42 * (1 - fadeT));
 
-      const beaconOpacity = age >= LOCK_END_MS ? Math.sin(beaconT * Math.PI) * 0.62 * (1 - fadeT * 0.7) : 0;
-      entry.beacon.scale.set(0.7 + beaconT * 0.45, 1, 0.7 + beaconT * 0.45);
-      setOpacity(entry.beacon.material, beaconOpacity);
+      const beaconLift = easeOut(beaconT);
+      const beaconY = 0.22 + beaconLift * 3.05;
+      const beaconFade = age < REVEAL_END_MS ? 1 : 1 - fadeT;
+      const beaconOpacity = age >= LOCK_END_MS ? Math.sin(beaconT * Math.PI * 0.86) * 0.92 * beaconFade : 0;
+      entry.beaconTrail.position.y = beaconY / 2;
+      entry.beaconTrail.scale.set(0.72 + beaconT * 0.55, Math.max(0.08, beaconY), 0.72 + beaconT * 0.55);
+      setOpacity(entry.beaconTrail.material, beaconOpacity * 0.62);
+
+      entry.beaconCore.position.y = beaconY;
+      entry.beaconCore.scale.setScalar(0.82 + Math.sin(age / 78) * 0.18);
+      setOpacity(entry.beaconCore.material, beaconOpacity);
+
+      entry.beaconGlow.position.y = beaconY;
+      entry.beaconGlow.scale.setScalar(0.85 + beaconLift * 1.35 + Math.sin(age / 96) * 0.16);
+      setOpacity(entry.beaconGlow.material, beaconOpacity * 0.36);
 
       entry.haloA.rotation.z = age / 360;
       entry.haloB.rotation.z = -age / 480;
       entry.haloA.scale.setScalar(0.74 + easeOut(beaconT) * 0.3);
       entry.haloB.scale.setScalar(0.58 + easeOut(beaconT) * 0.42);
+      entry.haloA.position.y = beaconY - 0.035;
+      entry.haloB.position.y = beaconY + 0.05;
       setOpacity(entry.haloA.material, age >= LOCK_END_MS ? 0.68 * (1 - fadeT) : 0);
       setOpacity(entry.haloB.material, age >= LOCK_END_MS + 120 ? 0.48 * (1 - fadeT) : 0);
 
@@ -189,8 +218,9 @@ export const createRevealEmpireFxLayer = (scene: Scene): RevealEmpireFxLayer => 
       for (const fragment of entry.fragments) {
         const fragmentT = clamp01((age - LOCK_END_MS - fragment.delay) / 980);
         const orbit = fragment.angle + age / 900;
-        const radius = fragment.radius + easeOut(fragmentT) * 0.34;
-        fragment.mesh.position.set(Math.cos(orbit) * radius, 0.12 + easeOut(fragmentT) * 0.42, Math.sin(orbit) * radius);
+        const fragmentLift = easeOut(fragmentT);
+        const radius = fragment.radius + fragmentLift * 0.34;
+        fragment.mesh.position.set(Math.cos(orbit) * radius, 0.12 + fragmentLift * 1.62, Math.sin(orbit) * radius);
         fragment.mesh.rotation.y = -orbit;
         fragment.mesh.rotation.x += 0.04;
         setOpacity(fragment.mesh.material, age >= LOCK_END_MS + fragment.delay ? 0.72 * (1 - fadeT) : 0);
@@ -210,7 +240,9 @@ export const createRevealEmpireFxLayer = (scene: Scene): RevealEmpireFxLayer => 
     clear();
     scene.remove(group);
     targetRingGeometry.dispose();
-    beaconGeometry.dispose();
+    beaconTrailGeometry.dispose();
+    beaconCoreGeometry.dispose();
+    beaconGlowGeometry.dispose();
     haloGeometry.dispose();
     revealRingGeometry.dispose();
     mapBandGeometry.dispose();

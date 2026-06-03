@@ -28,7 +28,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       title: "Reveal Empire gets a beacon cast flourish",
       why: "Reveal Empire changes long-running visibility, but the cast moment itself had no 3D feedback when the player selected a hostile tile.",
       changes: [
-        "Casting Reveal Empire now triggers a one-shot 3D beacon, reveal halo, cartography sweep, and rising map-fragment motes on the selected hostile tile.",
+        "Casting Reveal Empire now launches a one-shot 3D beacon upward from the selected hostile tile, with a light trail, reveal halo, cartography sweep, and rising map-fragment motes.",
         "The effect is client-only feedback and does not add synced persistent state."
       ]
     },
