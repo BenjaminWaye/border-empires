@@ -94,7 +94,7 @@ describe("buildSnapshotTileDetail", () => {
             granaryActive: false,
             hasBank: false,
             bankActive: false,
-            // foodUpkeepPerMinute intentionally omitted — the regression shape.
+            // foodUpkeepPerMinute intentionally omitted - the regression shape.
             baseGoldPerMinute: 2
           }),
           townType: "FARMING",
@@ -112,6 +112,41 @@ describe("buildSnapshotTileDetail", () => {
           { label: "Town", perMinute: { FOOD: 0.3 } },
           { label: "Settled land", perMinute: { GOLD: 0.04 } }
         ])
+      })
+    );
+  });
+
+  it("derives town food upkeep from tile town fields when townJson is missing", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townType: "FARMING",
+          townPopulationTier: "GREAT_CITY"
+        }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 10, 10);
+
+    expect(detail).toEqual(
+      expect.objectContaining({
+        detailLevel: "full",
+        upkeepEntries: expect.arrayContaining([
+          { label: "Town", perMinute: { FOOD: 0.6 } },
+          { label: "Settled land", perMinute: { GOLD: 0.04 } }
+        ])
+      })
+    );
+    expect(JSON.parse(detail?.townJson ?? "{}")).toEqual(
+      expect.objectContaining({
+        populationTier: "GREAT_CITY",
+        foodUpkeepPerMinute: 0.6
       })
     );
   });
