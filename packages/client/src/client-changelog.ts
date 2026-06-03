@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.8",
+  version: "2026.06.02.9",
   title: "What's New",
-  summary: "The food economy has been reworked: fish is perishable, town growth costs food, and tier upgrades are manual food-paid commands. Farmstead boosts farm tiles (+50%), and Waterworks is a radius-support building that boosts all farmsteads within 10 tiles.",
+  summary: "Reveal Empire now launches a one-shot 3D beacon when cast. The build pipeline has been unified behind a single structure command, and the food economy has been reworked with perishable fish, food-paid growth, and manual tier upgrades.",
   entries: [
+    {
+      introducedIn: "2026.06.02.9",
+      title: "Reveal Empire gets a beacon cast flourish",
+      why: "Reveal Empire changes long-running visibility, but the cast moment itself had no 3D feedback when the player selected a hostile tile.",
+      changes: [
+        "Casting Reveal Empire now launches a one-shot 3D beacon upward from the selected hostile tile, with a light trail, reveal halo, cartography sweep, and rising map-fragment motes.",
+        "The effect is client-only feedback and does not add synced persistent state."
+      ]
+    },
     {
       introducedIn: "2026.06.02.8",
       title: "Unified build pipeline",
