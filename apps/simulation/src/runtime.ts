@@ -1176,6 +1176,11 @@ export class SimulationRuntime {
     return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id));
   }
 
+  playerLogisticsThroughputPerMinute(player: RuntimePlayer): number {
+    // Logistics throughput = same as manpower regen for now; tune later.
+    return this.playerManpowerRegenPerMinute(player);
+  }
+
   private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
     return playerManpowerBreakdownFromSummary(this.summaryForPlayer(player.id));
   }
@@ -2331,6 +2336,7 @@ export class SimulationRuntime {
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
+      playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
       playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -2623,6 +2629,7 @@ export class SimulationRuntime {
         manpower: player.manpower,
         manpowerCap: this.playerManpowerCap(player),
         manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+        logisticsThroughputPerMinute: this.playerLogisticsThroughputPerMinute(player),
         manpowerBreakdown: this.playerManpowerBreakdown(player),
         incomePerMinute: economy.incomePerMinute,
         strategicResources: {

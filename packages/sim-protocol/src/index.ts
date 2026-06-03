@@ -367,6 +367,7 @@ export type PlayerSubscriptionSnapshot = {
     manpower: number;
     manpowerCap: number;
     manpowerRegenPerMinute?: number;
+    logisticsThroughputPerMinute?: number;
     manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;
     strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
