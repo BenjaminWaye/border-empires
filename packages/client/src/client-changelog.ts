@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.03.1",
+  version: "2026.06.03.2",
   title: "What's New",
-  summary: "Mustering system (beta, flag-gated): stage manpower on border tiles and set ADVANCE for auto-fire attacks. Forts now hold a garrison that scales their defense bonus. Barbarian tiles can be cheaply raided directly from your manpower pool.",
+  summary: "Survey Sweep now gets a one-shot 3D scan flourish when cast. Mustering adds staged border manpower and fort garrisons, and town food-upkeep is always visible in the tile overview for CITY+ towns.",
   entries: [
+    {
+      introducedIn: "2026.06.03.2",
+      title: "Survey Sweep gets a 3D scan pulse",
+      why: "Survey Sweep temporarily reveals a huge area, but the cast moment had no map feedback beyond the command taking effect.",
+      changes: [
+        "Casting Survey Sweep from an active observatory now triggers a one-shot 3D scan flourish with compass rings, rotating sweep beams, expanding reveal waves, and lifted survey markers.",
+        "The effect is client-only feedback and does not add synced persistent state."
+      ]
+    },
     {
       introducedIn: "2026.06.03.1",
       title: "Mustering & The Advance (beta)",

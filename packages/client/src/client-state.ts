@@ -216,6 +216,7 @@ export const createInitialState = () => ({
   activeAetherBridges: [] as ActiveAetherBridgeView[],
   activeAetherWalls: [] as ActiveAetherWallView[],
   aetherLanceFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  surveySweepFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "WOOD" | "IRON" | "GEMS"; queuedAt: number }>,
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,

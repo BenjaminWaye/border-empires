@@ -1624,7 +1624,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         state.revealEmpireFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
       }
     }
-    if (actionId === "survey_sweep") sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y });
+    if (actionId === "survey_sweep") {
+      if (sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y })) {
+        state.surveySweepFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
+    }
     if (actionId === "aether_lance") {
       if (sendGameMessage({ type: "AETHER_LANCE", x: selected.x, y: selected.y })) {
         state.aetherLanceFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
