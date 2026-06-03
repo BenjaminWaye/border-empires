@@ -183,19 +183,24 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
     expect(events[0]?.code).toBe("UNKNOWN_STRUCTURE");
   });
 
-  it("does not steal SUPPLY when IRON is insufficient for DREAD_TOWER", async () => {
+  // Atomic spend: alphabetic-first resource (IRON) succeeds, later (SUPPLY)
+  // fails. Without atomic pre-check, IRON is silently stolen.
+  it("preserves IRON when SUPPLY is insufficient for SIEGE_TOWER upgrade", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
-        techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]),
+        techIds: new Set<string>(["leatherworking", "siegecraft"]),
         domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        strategicResources: { SUPPLY: 200, IRON: 10 },
+        // SIEGE_TOWER costs: SUPPLY 90 + IRON 60
+        // Alphabetically: [IRON, SUPPLY]. IRON is sufficient, SUPPLY is not.
+        // Atomic path: IRON stays at 100. Broken path: IRON drops to 40.
+        strategicResources: { IRON: 100, SUPPLY: 10 },
       }]]),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_TOWER" as const } }],
+        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }],
         activeLocks: [],
       },
     });
@@ -211,7 +216,8 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
 
     expect(events[0]?.code).toBe("BUILD_INVALID");
     const player = runtime.exportState().players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources?.SUPPLY).toBe(200);
+    // IRON must still be 100 — atomic pre-check prevented the spend.
+    expect(player?.strategicResources?.IRON).toBe(100);
   });
 });
 

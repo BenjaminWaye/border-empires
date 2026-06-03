@@ -47,7 +47,6 @@ export type ClientWaypoint = {
   consecutiveRetries?: number;
 };
 
-type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 type QueuedOptimisticKind = OptimisticStructureKind;
 type QueuedBuildPayload =
   | { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string }
