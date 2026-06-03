@@ -6673,6 +6673,7 @@ export class SimulationRuntime {
         command.type !== "ATTACK" &&
         command.type !== "EXPAND" &&
         command.type !== "SETTLE" &&
+        command.type !== "BUILD_STRUCTURE" &&
         command.type !== "BUILD_FORT" &&
         command.type !== "BUILD_OBSERVATORY" &&
         command.type !== "BUILD_SIEGE_OUTPOST" &&
