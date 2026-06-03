@@ -6146,6 +6146,149 @@ export class SimulationRuntime {
     return true;
   }
 
+  /**
+   * Ops-only live barbarian reintroduction. Seeds up to `targetCount`
+   * barbarian-1-owned SETTLED tiles onto currently-unowned LAND that is far
+   * enough from every non-barb player's territory to survive long enough for
+   * the planner to start walking/multiplying them.
+   *
+   * Worldgen is the only other place barbs are created and there is NO
+   * maintenance spawner, so once barbs are eaten to extinction in a running
+   * season this is the only non-destructive way to bring them back (the
+   * alternative — a new season — wipes all player progress).
+   *
+   * Non-destructive: writes only to tiles that are currently unowned LAND with
+   * no town/dock/shard. Persistence + fog-of-war broadcast happen for free via
+   * the emitted TILE_DELTA_BATCH (same path as respawn placement above).
+   */
+  seedLiveBarbarians(
+    targetCount: number,
+    commandId = `barb-seed:${this.now()}`
+  ): {
+    requested: number;
+    placed: number;
+    candidates: number;
+    scanned: number;
+    skippedNearOwned: number;
+    skippedNearBarb: number;
+    skippedBlocked: number;
+    cappedScan: boolean;
+    barbTilesAfter: number;
+  } {
+    const requested = Math.max(0, Math.floor(targetCount));
+    const result = {
+      requested,
+      placed: 0,
+      candidates: 0,
+      scanned: 0,
+      skippedNearOwned: 0,
+      skippedNearBarb: 0,
+      skippedBlocked: 0,
+      cappedScan: false,
+      barbTilesAfter: this.summaryForPlayer("barbarian-1").territoryTileKeys.size
+    };
+    if (requested === 0) return result;
+    if (!this.players.get("barbarian-1")) {
+      this.runtimeLogInfo(
+        { type: "barb_seed_skipped", reason: "no_barbarian_player", commandId, ...result },
+        "live barbarian seed skipped: barbarian-1 player record missing"
+      );
+      return result;
+    }
+
+    const MIN_DISTANCE_FROM_OWNED = 8;
+    const MIN_BARB_SEPARATION = 4;
+    const cheb = (ax: number, ay: number, bx: number, by: number): number =>
+      Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+
+    // Single pass over the world: collect unowned LAND candidates and the
+    // anchors of any barbs that already exist (so new placements respect
+    // separation even on a not-quite-extinct world).
+    const candidates: DomainTileState[] = [];
+    const barbAnchors: Array<{ x: number; y: number }> = [];
+    for (const tile of this.tiles.values()) {
+      if (tile.ownerId === "barbarian-1") {
+        barbAnchors.push({ x: tile.x, y: tile.y });
+        continue;
+      }
+      if (tile.terrain !== "LAND") continue;
+      if (tile.ownerId) continue;
+      if (tile.town || tile.dockId || tile.shardSite) continue;
+      candidates.push(tile);
+    }
+    result.candidates = candidates.length;
+
+    // Deterministic Fisher–Yates seeded from commandId so placements are
+    // reproducible per-call but spread across the map rather than clustered in
+    // scan order.
+    let seed = 0;
+    for (let i = 0; i < commandId.length; i += 1) seed = (Math.imul(seed, 31) + commandId.charCodeAt(i)) >>> 0;
+    const rand = (): number => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 0x1_0000_0000;
+    };
+    for (let i = candidates.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rand() * (i + 1));
+      const tmp = candidates[i]!;
+      candidates[i] = candidates[j]!;
+      candidates[j] = tmp;
+    }
+
+    const ownedNearby = (x: number, y: number): boolean => {
+      for (let dx = -MIN_DISTANCE_FROM_OWNED; dx <= MIN_DISTANCE_FROM_OWNED; dx += 1) {
+        for (let dy = -MIN_DISTANCE_FROM_OWNED; dy <= MIN_DISTANCE_FROM_OWNED; dy += 1) {
+          const neighbor = this.tiles.get(simulationTileKey(x + dx, y + dy));
+          if (neighbor?.ownerId && neighbor.ownerId !== "barbarian-1") return true;
+        }
+      }
+      return false;
+    };
+
+    // Bound the work so a dense, mostly-owned world can't block the sim thread
+    // indefinitely scanning rejects. cappedScan is surfaced so ops can tell the
+    // difference between "no room left" and "stopped early".
+    const MAX_SCAN = Math.max(2_000, requested * 1_000);
+    const placedDeltas: SimulationTileWireDelta[] = [];
+    for (const tile of candidates) {
+      if (result.placed >= requested) break;
+      if (result.scanned >= MAX_SCAN) {
+        result.cappedScan = true;
+        break;
+      }
+      result.scanned += 1;
+      const tileKey = simulationTileKey(tile.x, tile.y);
+      if (this.pendingSettlementsByTile.has(tileKey) || this.locksByTile.has(tileKey)) {
+        result.skippedBlocked += 1;
+        continue;
+      }
+      if (ownedNearby(tile.x, tile.y)) {
+        result.skippedNearOwned += 1;
+        continue;
+      }
+      if (barbAnchors.some((anchor) => cheb(anchor.x, anchor.y, tile.x, tile.y) < MIN_BARB_SEPARATION)) {
+        result.skippedNearBarb += 1;
+        continue;
+      }
+      const barbTile: DomainTileState = { ...tile, ownerId: "barbarian-1", ownershipState: "SETTLED" };
+      this.replaceTileState(tileKey, barbTile, commandId);
+      placedDeltas.push(this.tileDeltaFromState(barbTile));
+      barbAnchors.push({ x: tile.x, y: tile.y });
+      result.placed += 1;
+    }
+
+    if (placedDeltas.length > 0) {
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId,
+        playerId: "barbarian-1",
+        tileDeltas: placedDeltas
+      });
+    }
+    result.barbTilesAfter = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
+    this.runtimeLogInfo({ type: "barb_seed_placed", commandId, ...result }, "live barbarian seed");
+    return result;
+  }
+
   private barbarianProgressGain(target: DomainTileState | undefined): number {
     // Multiply progress only accumulates when a barb actually CAPTURES a
     // non-barb player's tile. Walking into neutral land or shuffling between
