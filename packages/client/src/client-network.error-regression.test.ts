@@ -302,7 +302,7 @@ describe("client network regression guards", () => {
       y: 299,
       tileKey: "14,299",
       label: "Build Market",
-      payload: { type: "BUILD_ECONOMIC_STRUCTURE", x: 14, y: 299, structureType: "MARKET" },
+      payload: { type: "BUILD_STRUCTURE", x: 14, y: 299, structureType: "MARKET" },
       optimisticKind: "MARKET"
     };
     state.queuedDevelopmentDispatchPending = true;
@@ -1349,7 +1349,7 @@ describe("client network regression guards", () => {
       y: 44,
       tileKey: "33,44",
       label: "Fort at (33, 44)",
-      payload: { type: "BUILD_FORT", x: 33, y: 44 },
+      payload: { type: "BUILD_STRUCTURE", x: 33, y: 44, structureType: "FORT" },
       optimisticKind: "FORT"
     };
     state.tiles.set("33,44", {
@@ -1377,7 +1377,7 @@ describe("client network regression guards", () => {
         y: 44,
         tileKey: "33,44",
         label: "Fort at (33, 44)",
-        payload: { type: "BUILD_FORT", x: 33, y: 44 },
+        payload: { type: "BUILD_STRUCTURE", x: 33, y: 44, structureType: "FORT" },
         optimisticKind: "FORT"
       }
     ]);

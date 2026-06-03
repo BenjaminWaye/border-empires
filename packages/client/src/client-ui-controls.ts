@@ -372,14 +372,14 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
     fortBtn.onclick = () => {
       if (canBuildAdvancedFort) {
         const fortLabel = fortUpgradeVariant?.label ?? "Fort";
-        sendDevelopmentBuild({ type: "BUILD_FORT", x, y }, () => applyOptimisticStructureBuild(x, y, "FORT"), {
+        sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "FORT" }, () => applyOptimisticStructureBuild(x, y, "FORT"), {
           x,
           y,
           label: `${canUpgradeWoodenFort ? `${fortLabel} upgrade` : fortLabel} at (${x}, ${y})`,
           optimisticKind: "FORT"
         });
       } else if (canBuildStarterWoodenFort) {
-        sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "WOODEN_FORT" }, () => applyOptimisticStructureBuild(x, y, "WOODEN_FORT"), {
+        sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "WOODEN_FORT" }, () => applyOptimisticStructureBuild(x, y, "WOODEN_FORT"), {
           x,
           y,
           label: `Wooden Fort at (${x}, ${y})`,
@@ -393,14 +393,14 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
     siegeBtn.onclick = () => {
       if (canBuildAdvancedSiegeOutpost) {
         const siegeLabel = siegeUpgradeVariant?.label ?? "Siege Outpost";
-        sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x, y }, () => applyOptimisticStructureBuild(x, y, "SIEGE_OUTPOST"), {
+        sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "SIEGE_OUTPOST" }, () => applyOptimisticStructureBuild(x, y, "SIEGE_OUTPOST"), {
           x,
           y,
           label: `${canUpgradeLightOutpost ? `${siegeLabel} upgrade` : siegeLabel} at (${x}, ${y})`,
           optimisticKind: "SIEGE_OUTPOST"
         });
       } else if (canBuildStarterLightOutpost) {
-        sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "LIGHT_OUTPOST" }, () => applyOptimisticStructureBuild(x, y, "LIGHT_OUTPOST"), {
+        sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "LIGHT_OUTPOST" }, () => applyOptimisticStructureBuild(x, y, "LIGHT_OUTPOST"), {
           x,
           y,
           label: `Light Outpost at (${x}, ${y})`,
@@ -412,7 +412,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   }
   if (observatoryBtn) {
     observatoryBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_OBSERVATORY", x, y }, () => applyOptimisticStructureBuild(x, y, "OBSERVATORY"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "OBSERVATORY" }, () => applyOptimisticStructureBuild(x, y, "OBSERVATORY"), {
         x,
         y,
         label: `Observatory at (${x}, ${y})`,
@@ -423,7 +423,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   }
   if (farmsteadBtn) {
     farmsteadBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "FARMSTEAD" }, () => applyOptimisticStructureBuild(x, y, "FARMSTEAD"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "FARMSTEAD" }, () => applyOptimisticStructureBuild(x, y, "FARMSTEAD"), {
         x,
         y,
         label: `Farmstead at (${x}, ${y})`,
@@ -434,7 +434,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   }
   if (campBtn) {
     campBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(x, y, "CAMP"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(x, y, "CAMP"), {
         x,
         y,
         label: `Camp at (${x}, ${y})`,
@@ -445,7 +445,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   }
   if (mineBtn) {
     mineBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MINE" }, () => applyOptimisticStructureBuild(x, y, "MINE"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "MINE" }, () => applyOptimisticStructureBuild(x, y, "MINE"), {
         x,
         y,
         label: `Mine at (${x}, ${y})`,
@@ -456,7 +456,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   }
   if (marketBtn) {
     marketBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(x, y, "MARKET"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(x, y, "MARKET"), {
         x,
         y,
         label: `Market at (${x}, ${y})`,
@@ -467,7 +467,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   }
   if (granaryBtn) {
     granaryBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(x, y, "GRANARY"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x, y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(x, y, "GRANARY"), {
         x,
         y,
         label: `Granary at (${x}, ${y})`,

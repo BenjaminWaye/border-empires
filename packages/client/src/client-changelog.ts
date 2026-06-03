@@ -36,6 +36,35 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
+      introducedIn: "2026.06.03.1",
+      title: "Town food upkeep always visible in tile overview",
+      why: "The Town food-upkeep line (\"Town: 🍖 0.30/m\") was disappearing from the tile detail panel for CITY, GREAT_CITY, and METROPOLIS towns when the server snapshot didn't carry the foodUpkeepPerMinute field. The gateway now derives it from population tier instead of trusting the stored field.",
+      changes: [
+        "Town food-upkeep entry now always appears for TOWN/CITY/GREAT_CITY/METROPOLIS tiers in the tile detail panel.",
+        "Values: TOWN 0.10/m, CITY 0.30/m, GREAT_CITY 0.60/m, METROPOLIS 1.00/m — matching the actual food drain.",
+        "Settlements correctly show no Town food entry (they don't consume food)."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.9",
+      title: "Reveal Empire gets a beacon cast flourish",
+      why: "Reveal Empire changes long-running visibility, but the cast moment itself had no 3D feedback when the player selected a hostile tile.",
+      changes: [
+        "Casting Reveal Empire now launches a one-shot 3D beacon upward from the selected hostile tile, with a light trail, reveal halo, cartography sweep, and rising map-fragment motes.",
+        "The effect is client-only feedback and does not add synced persistent state."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.8",
+      title: "Unified build pipeline",
+      why: "Four separate build messages (BUILD_FORT, BUILD_OBSERVATORY, BUILD_SIEGE_OUTPOST, BUILD_ECONOMIC_STRUCTURE) each had their own handler, costing tables, and validation paths — making it hard to add new structures, inconsistent between upgrade tiers, and the source of the LIGHT_OUTPOST type-lie.",
+      changes: [
+        "All build actions now use a single BUILD_STRUCTURE message with a structureType field.",
+        "Build menus and queuing are unchanged — this is a behind-the-scenes consolidation.",
+        "No gameplay changes."
+      ]
+    },
+    {
       introducedIn: "2026.06.02.7",
       title: "Food economy rework",
       why: "Food was a near-dead currency — once every town was fed, all surplus was silently discarded with no way to spend it. Fish and farm were mechanically identical despite their different strategic themes.",

@@ -172,30 +172,31 @@ const parsePersistedDevelopmentAction = (value: unknown): PersistedDevelopmentAc
     typeof value.payload.type === "string" &&
     typeof value.payload.x === "number" &&
     typeof value.payload.y === "number" &&
-    (value.payload.type !== "BUILD_ECONOMIC_STRUCTURE" || typeof value.payload.structureType === "string")
+    (value.payload.type !== "BUILD_STRUCTURE" || typeof value.payload.structureType === "string")
   ) {
+    // Migrate legacy wire types to BUILD_STRUCTURE so queued builds survive
+    // the v2026.06.02.7 → v2026.06.02.8 client upgrade.
+    let normalizedType: string;
+    let normalizedStructureType: string;
+    const rawType = value.payload.type;
+    if (rawType === "BUILD_FORT") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "FORT"; }
+    else if (rawType === "BUILD_OBSERVATORY") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "OBSERVATORY"; }
+    else if (rawType === "BUILD_SIEGE_OUTPOST") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "SIEGE_OUTPOST"; }
+    else if (rawType === "BUILD_ECONOMIC_STRUCTURE" && typeof (value.payload as any).structureType === "string") {
+      normalizedType = "BUILD_STRUCTURE";
+      normalizedStructureType = (value.payload as any).structureType as string;
+    }
+    else { normalizedType = rawType; normalizedStructureType = ""; }
+
     return {
       kind: "BUILD",
       x: value.x,
       y: value.y,
       tileKey: value.tileKey,
       label: value.label,
-      payload:
-        value.payload.type === "BUILD_ECONOMIC_STRUCTURE"
-          ? {
-              type: "BUILD_ECONOMIC_STRUCTURE",
-              x: value.payload.x,
-              y: value.payload.y,
-              structureType: value.payload.structureType as Extract<
-                Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["payload"],
-                { type: "BUILD_ECONOMIC_STRUCTURE" }
-              >["structureType"]
-            }
-          : ({
-              type: value.payload.type,
-              x: value.payload.x,
-              y: value.payload.y
-            } as Exclude<Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["payload"], { type: "BUILD_ECONOMIC_STRUCTURE" }>),
+      payload: normalizedType === "BUILD_STRUCTURE"
+        ? { type: "BUILD_STRUCTURE", x: value.payload.x, y: value.payload.y, structureType: normalizedStructureType }
+        : ({ type: value.payload.type, x: value.payload.x, y: value.payload.y } as Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["payload"]),
       optimisticKind: value.optimisticKind as Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["optimisticKind"]
     };
   }
