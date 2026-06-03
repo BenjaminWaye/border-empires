@@ -31,10 +31,15 @@ loop as it exists today:
 - **Defense comes from how "walled-in" a tile is** (we call it exposure). A tile
   surrounded by friendly tiles is tough; a lone tile jutting into enemy land is
   weak. Freshly-claimed frontier tiles barely defend at all; settled tiles,
-  towns, and especially **forts** (which can multiply the manpower cost to crack
-  them by 5×, 10×, even 20×) are hard targets.
+  towns, and especially **forts** (which today multiply the manpower cost to
+  crack them by 5×, 10×, even 20× — up to a brutal ~1,200 for a Thunder Bastion)
+  are hard targets.
 - **Losing an attack can cost you the tile you attacked *from*.** A failed
   assault can let the defender counter-capture your origin.
+- **Gold income pauses while your manpower is below cap.** Even a well-fed town
+  stops earning until your empire manpower is topped back up. This is the catch
+  that shapes the new fort design below — anything that *spends* manpower also
+  freezes your economy until it regrows.
 - **Outposts today auto-fight.** A built outpost automatically attacks enemy
   tiles within a radius around it, spending from a per-outpost budget. It's a
   "set it down and it grinds" structure.
@@ -99,8 +104,8 @@ Each muster flag has a **mode**:
   adjacent enemy, then refills and repeats. A flag set to ADVANCE will **eat into
   enemy land on its own**, advancing tile by tile toward the direction you
   pointed it — but it's rate-limited by your pipeline and won't throw itself at
-  hopeless targets (it respects fort multipliers, so it won't suicide into a
-  bastion).
+  hopeless targets (it won't attack a fort it can't out-muster, so it won't
+  suicide into a full bastion).
 
 A flag can even sit a tile or two *behind* the line and **claw its way forward**,
 claiming a step at a time toward the objective.
@@ -129,18 +134,35 @@ This turns every attack into a **tempo race**:
 - Whoever has better forward infrastructure musters faster — so a well-placed
   outpost lets you **land your blow before the enemy's is ready.**
 
-### 3.5 — Forts hold a garrison
-**Active forts reserve a slice of your manpower pool as their garrison.** That
-manpower is walled off — you can't muster it for attacks while the fort is
-manned. The trade-off:
+### 3.5 — Forts are manpower containers that fill over time
+This is the mirror image of mustering. Where an attacker gathers troops on a
+border tile, **a fort gathers a garrison on a defensive tile** — and that
+garrison *is* its defense.
 
-- Build a wall of forts → rock-solid defense, but **less manpower free** to fund
-  offensives.
-- Pour everything into attacking → your forts stay manned, but your offensive
-  **runs dry first**.
+- **Forts don't cost a manpower lump to build.** (Good — a lump would drop your
+  empire below cap and freeze your gold; see Part 1.) Instead, a fort fills its
+  garrison **gradually**, and the trickle **starts while it's still under
+  construction**, so it comes online already part-manned.
+- **The garrison fills from your *spare* manpower** — the overflow once your
+  empire pool is already topped up. So forts garrison while you're consolidating,
+  and **don't** fill while you're spending manpower on attacks.
+- **A fort's garrison is the number an attacker must out-muster.** No more
+  abstract ×5/×10/×20 (the old ~1,200 wall is gone). A *freshly built* fort holds
+  little and is easy to crack; a fort you've **held and let fill for a while**
+  becomes a genuine siege. Placeholder caps: base fort ~120, Iron Bastion ~240,
+  Thunder Bastion ~360.
 
-An unmanned fort shouldn't be a fortress — and now over-extending on offense has
-a real cost to your defense.
+The trade-off this creates:
+- Sit and consolidate → your forts fill and your walls harden.
+- Pour everything into attacks → your pool never tops up, the overflow dries up,
+  and **your forts stay hollow.** Over-extending on offense quietly weakens your
+  defense — an unmanned fort isn't a fortress.
+
+**How you'll see it (important):** reserved garrison is **not** subtracted from
+your manpower number — that number stays honest and always trends toward cap.
+Instead, **each fort shows its own fill meter** right on the map (`⚙ 180 / 360`),
+glowing as it garrisons and visibly hollow when it's been bled. If a wall is
+weak, you can see exactly which fort is empty — no hidden math on your pool.
 
 ### 3.6 — Concentration beats spreading
 You **can** place muster flags on many tiles at once — but your logistics
@@ -160,13 +182,15 @@ you push.
 | Where manpower comes from | One global pool, spent anywhere instantly | Same pool, but it must *flow* to the front via your pipeline |
 | Can the enemy see it coming? | No | Yes — musters are visible; you can be raced or interrupted |
 | What outposts do | Auto-attack a radius | Speed up mustering + boost attack power in a 5×5 (no auto-fight) |
-| Forts | Pure walls | Walls that reserve garrison from your pool |
+| Forts | Walls with a flat ×5/10/20 cost to crack (up to ~1,200) | Containers that fill a garrison over time; that garrison is what an attacker must out-muster |
+| Building a fort | Costs a manpower lump (which freezes your gold) | Costs no manpower lump; garrison trickles in instead — economy keeps running |
 | Many fronts at once | Free (manpower teleports) | Possible, but splits your pipeline — concentration wins |
 | Clicking | One click per attack | One flag per front; ADVANCE mode runs itself |
 
 ### What is **not** changing
-- The core combat math: exposure/defensiveness, fort multipliers, the 3-second
-  combat lock, and counter-capture on a lost attack.
+- The core combat math: exposure/defensiveness, the 3-second combat lock, and
+  counter-capture on a lost attack. (Fort defense changes — see §3.5 — from a
+  flat multiplier to a real, fillable garrison.)
 - How towns generate manpower; the tech tree; economy; victory paths; seasons.
 - Claiming and settling **neutral** land — that stays exactly as-is. This change
   is about **attacks on enemy tiles**, not expansion into empty land.
@@ -192,9 +216,14 @@ any build) are useful — tell us what sounds fun and what sounds broken.
    next to *their* staging tile and try to capture it before they fire. Did the
    race feel winnable / fair?
 5. **The overreach.** Spend your whole pool on a big multi-front ADVANCE, then
-   check your forts. Did "hollow defenses" punish you in a way that felt fair?
+   check your forts. Were they hollow because nothing overflowed into them, and
+   did that punishment feel fair?
 6. **Spread vs. spear.** Try mustering on five border tiles at once, then try one
    concentrated push of the same length. Which actually broke through faster?
+7. **The fresh fort vs. the old fort.** Attack a fort someone *just* built, then
+   attack one that's been standing a while. Could you feel the difference in how
+   much you had to muster? Could you *read* a fort's garrison meter at a glance to
+   know whether it was worth attacking?
 
 ### Feedback form — copy/paste and fill in
 ```
@@ -202,21 +231,27 @@ any build) are useful — tell us what sounds fun and what sounds broken.
 2. Muster pacing (with outpost depot): too slow / about right / too fast:
 3. ADVANCE flag: satisfying / "game plays itself" / didn't trust it — why:
 4. HOLD vs ADVANCE: which did you use more, and should ADVANCE or HOLD be the default?
-5. Forts reserving garrison: fun trade-off / annoying tax / didn't notice it:
-6. The tempo race (seeing + capturing musters): exciting / frustrating / never came up:
-7. Visibility: are you OK that all musters are visible, or do you want a way to hide a surprise attack?
-8. Concentration vs. spread: did "one spear beats ten probes" feel right?
-9. Are outposts still worth building now that they don't auto-fight? What would make a depot feel essential?
-10. Anything that felt exploitable, confusing, or unfun:
-11. Overall: does this make combat better than today? (1–5) and one sentence why:
+5. Forts filling a garrison over time: fun trade-off / annoying / didn't notice it:
+6. Could you easily SEE how much garrison a fort held (the meter), and use it to decide whether to attack? yes / sort of / no:
+7. The tempo race (seeing + capturing musters): exciting / frustrating / never came up:
+8. Visibility: are you OK that all musters are visible, or do you want a way to hide a surprise attack?
+9. Concentration vs. spread: did "one spear beats ten probes" feel right?
+10. Are outposts still worth building now that they don't auto-fight? What would make a depot feel essential?
+11. Did your gold/economy ever pause unexpectedly because of manpower? Was it clear why?
+12. Anything that felt exploitable, confusing, or unfun:
+13. Overall: does this make combat better than today? (1–5) and one sentence why:
 ```
 
 ### The big open questions we're stuck on
 These are the design forks where your input matters most:
 - **Pacing:** what's the right base muster time with no help — 20s? 60s? More?
 - **Default mode:** should new flags default to HOLD (deliberate) or ADVANCE (low-click)?
-- **Garrison weight:** should forts reserve a token amount (flavor) or enough to
-  force real offense-vs-defense choices?
+- **Garrison weight & fill speed:** how big should a full garrison be (120? 360?),
+  and how fast should it trickle in? Slow fill makes a fresh fort a real
+  opportunity window; fast fill makes forts reliable but less interesting.
+- **Combat math:** are you comfortable with fort defense becoming literal
+  manpower-you-must-out-muster (one clean number), or do you prefer the current
+  power-vs-power dice roll with garrison just feeding into it?
 - **Surprise attacks:** should there *ever* be a way to hide a muster (a tech, a
   structure), or is "you can always see the army gathering" a core promise?
 
