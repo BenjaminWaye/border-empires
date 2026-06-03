@@ -183,6 +183,20 @@ const townPopulationGrowthPerMinute = (input: {
   return Number(growth.toFixed(4));
 };
 
+// Mirrors townFoodUpkeepPerMinute in apps/simulation/src/player-update-economy.ts
+// (the authoritative food drain). Kept local so the gateway never depends on
+// townJson carrying the field - same backfill philosophy as goldPerMinute/cap.
+const townFoodUpkeepForTier = (populationTier: string | undefined): number => {
+  switch (populationTier) {
+    case "CITY": return 0.3;
+    case "GREAT_CITY": return 0.6;
+    case "METROPOLIS": return 1;
+    case "SETTLEMENT":
+    case undefined: return 0;
+    default: return 0.1; // TOWN
+  }
+};
+
 const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "OIL", number>> => {
   switch (structureType) {
     case "FARMSTEAD": return { GOLD: FARMSTEAD_GOLD_UPKEEP / 10 };
@@ -283,7 +297,9 @@ export const buildSnapshotTileDetail = (
     (typeof populationGrowthPerMinute === "number" && populationGrowthPerMinute > 0
       ? [{ label: "Long time peace" as const, deltaPerMinute: populationGrowthPerMinute }]
       : undefined);
-  const town = tile.townType || parsedTown
+  const hasTown = Boolean(tile.townType || parsedTown);
+  const townFoodUpkeep = hasTown ? townFoodUpkeepForTier(populationTier) : 0;
+  const town = hasTown
     ? {
         ...(parsedTown ?? {}),
         type: parsedTown?.type ?? tile.townType,
@@ -298,6 +314,7 @@ export const buildSnapshotTileDetail = (
         hasBank: supportStructures.hasBank,
         bankActive: supportStructures.hasBank,
         baseGoldPerMinute,
+        foodUpkeepPerMinute: townFoodUpkeep,
         ...(typeof goldPerMinute === "number" ? { goldPerMinute } : {}),
         ...(typeof cap === "number" ? { cap } : {}),
         ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
@@ -305,8 +322,8 @@ export const buildSnapshotTileDetail = (
       }
     : undefined;
   if (town) update.townJson = JSON.stringify(town);
-  if (town && typeof town.foodUpkeepPerMinute === "number" && town.foodUpkeepPerMinute > 0.0001) {
-    upkeepEntries.push({ label: "Town", perMinute: { FOOD: Number(town.foodUpkeepPerMinute.toFixed(4)) } });
+  if (townFoodUpkeep > 0.0001) {
+    upkeepEntries.push({ label: "Town", perMinute: { FOOD: Number(townFoodUpkeep.toFixed(4)) } });
   }
   upkeepEntries.push({ label: "Settled land", perMinute: { GOLD: 0.04 } });
 
