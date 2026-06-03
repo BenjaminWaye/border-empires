@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.7",
+  version: "2026.06.02.8",
   title: "What's New",
   summary: "The food economy has been reworked: fish is perishable, town growth costs food, and tier upgrades are manual food-paid commands. Farmstead boosts farm tiles (+50%), and Waterworks is a radius-support building that boosts all farmsteads within 10 tiles.",
   entries: [
+    {
+      introducedIn: "2026.06.02.8",
+      title: "Unified build pipeline",
+      why: "Four separate build messages (BUILD_FORT, BUILD_OBSERVATORY, BUILD_SIEGE_OUTPOST, BUILD_ECONOMIC_STRUCTURE) each had their own handler, costing tables, and validation paths — making it hard to add new structures, inconsistent between upgrade tiers, and the source of the LIGHT_OUTPOST type-lie.",
+      changes: [
+        "All build actions now use a single BUILD_STRUCTURE message with a structureType field.",
+        "Build menus and queuing are unchanged — this is a behind-the-scenes consolidation.",
+        "No gameplay changes."
+      ]
+    },
     {
       introducedIn: "2026.06.02.7",
       title: "Food economy rework",

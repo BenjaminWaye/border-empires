@@ -35,7 +35,7 @@ export const buildFortOnSelected = (
     deps.renderHud();
     return;
   }
-  deps.sendGameMessage({ type: "BUILD_FORT", x: selected.x, y: selected.y });
+  deps.sendGameMessage({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FORT" });
 };
 
 export const settleSelected = (
@@ -77,7 +77,7 @@ export const buildSiegeOutpostOnSelected = (
     deps.renderHud();
     return;
   }
-  deps.sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y });
+  deps.sendGameMessage({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "SIEGE_OUTPOST" });
 };
 
 export const uncaptureSelected = (
