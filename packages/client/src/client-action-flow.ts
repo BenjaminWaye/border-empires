@@ -1617,7 +1617,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       breakTruce(selected.ownerId);
     }
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
-      sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId });
+      if (sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId })) {
+        state.revealEmpireFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
     }
     if (actionId === "survey_sweep") sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y });
     if (actionId === "aether_lance") {
