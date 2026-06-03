@@ -1233,6 +1233,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.manpower = (player.manpower as number | undefined) ?? state.manpower;
       state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
       state.manpowerRegenPerMinute = (player.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
+      state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
       state.territoryT = (player.T as number) ?? state.territoryT;
       state.exposureE = (player.E as number) ?? state.exposureE;
       state.settledT = (player.Ts as number) ?? state.settledT;
@@ -1502,6 +1503,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
       state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
       state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
+      state.logisticsThroughputPerMinute = (msg.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
       state.upkeepPerMinute = (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
       state.upkeepLastTick = (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
       refreshAllGatewayDerivedTownSummaries({ state, keyFor });
