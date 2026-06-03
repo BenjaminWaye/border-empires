@@ -21,6 +21,19 @@ type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
 type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
 type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
 type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
+type ProtoSeedBarbariansAck = {
+  ok: boolean;
+  requested?: number;
+  placed?: number;
+  detail_json?: string;
+  detailJson?: string;
+};
+
+export type SeedBarbariansResult = {
+  requested: number;
+  placed: number;
+  detail: Record<string, unknown>;
+};
 type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean };
 export type PreparePlayerRallyAnchor = { x: number; y: number; island?: string };
 type ProtoTileDelta = {
@@ -185,6 +198,10 @@ type SimulationClientLike = {
   StartNextSeason?: (
     request: { force?: boolean },
     callback: (error: Error | null, response: ProtoStartNextSeasonAck) => void
+  ) => void;
+  SeedBarbarians?: (
+    request: { count?: number },
+    callback: (error: Error | null, response: ProtoSeedBarbariansAck) => void
   ) => void;
   StreamEvents: (request: Record<string, unknown>) => ClientReadableStream<ProtoSimulationEvent>;
 };
@@ -774,6 +791,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
+  seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
     options?: {
@@ -956,6 +974,26 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
+  seedBarbarians(count) {
+    return new Promise<SeedBarbariansResult>((resolve, reject) => {
+      if (typeof client.SeedBarbarians !== "function") {
+        reject(new Error("simulation client SeedBarbarians RPC is unavailable"));
+        return;
+      }
+      client.SeedBarbarians(typeof count === "number" ? { count } : {}, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const detailJson = response.detail_json ?? response.detailJson;
+        resolve({
+          requested: response.requested ?? 0,
+          placed: response.placed ?? 0,
+          detail: detailJson ? (JSON.parse(detailJson) as Record<string, unknown>) : {}
+        });
+      });
+    });
+  },
   streamEvents(listener, options) {
     return startSimulationEventStream(() => client.StreamEvents({ at: Date.now() }), listener, options);
   }
@@ -972,6 +1010,7 @@ export const createSimulationClient = (address: string): {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
+  seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
     options?: {

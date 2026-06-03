@@ -1242,6 +1242,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     listSeasonArchives: async () =>
       hydrateSeasonArchiveDisplayNames(await simulationClient.listSeasonArchives(), profileStore),
     startNextSeason: (force?: boolean) => simulationClient.startNextSeason(force),
+    seedBarbarians: (count?: number) => simulationClient.seedBarbarians(count),
     ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
     authenticateBearer: resolveHttpBearerIdentity,
     rallyLinkStore,
