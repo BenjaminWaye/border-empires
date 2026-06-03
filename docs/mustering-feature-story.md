@@ -110,6 +110,13 @@ Each muster flag has a **mode**:
 A flag can even sit a tile or two *behind* the line and **claw its way forward**,
 claiming a step at a time toward the objective.
 
+**Barbarians are raided, not besieged.** Barbarian tiles move around (every few
+seconds), so a slow muster would never catch one. Attacking a barbarian is
+therefore a quick, cheap **raid** — closer to an expansion (~10 manpower, little
+or no wind-up) than a mustered assault — and it resolves against whatever's on the
+tile when it lands, so if the barb wandered off you simply take the ground it
+left. Barb-clearing stays fast; only fortified *players* require a real muster.
+
 ### 3.3 — Outposts become railheads, not auto-fighters
 We're **removing the outpost auto-sweep.** Outposts stop fighting on their own.
 Instead, an outpost projects a **5×5 zone** that:
@@ -151,6 +158,19 @@ garrison *is* its defense.
   little and is easy to crack; a fort you've **held and let fill for a while**
   becomes a genuine siege. Placeholder caps: base fort ~120, Iron Bastion ~240,
   Thunder Bastion ~360.
+- **A fort's defense scales with how full its garrison is.** A fort at half
+  garrison gives about half its defense — fill ratio drives strength.
+- **Every assault bleeds the garrison — even a failed one.** When the fort holds,
+  it still loses ~5–15% of the attacking force from its garrison. So you don't
+  need one giant stack to crack a bastion: **wear it down in waves.** Each repulse
+  lowers both its strength *and* the manpower you'll need next time. The catch is
+  the heal — see below.
+
+**The siege is a heal race, and hitting many forts at once wins it.** A fort
+refills its garrison from your *overflow regen*. So if you attack **several forts
+at the same time, they all draw from the same regen and each heals slower** — a
+fort-heavy turtle can be cracked by coordinated multi-front pressure, while a few
+concentrated forts heal fast. (Mirror image of "concentrate your offense.")
 
 The trade-off this creates:
 - Sit and consolidate → your forts fill and your walls harden.
