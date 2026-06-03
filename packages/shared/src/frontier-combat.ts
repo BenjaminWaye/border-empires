@@ -25,6 +25,10 @@ export type FrontierCombatModifiers = {
   attackVsSettledMult?: number;
   attackVsFortsMult?: number;
   fortDefenseMult?: number;
+  // Muster system garrison scaling: when set, fort defense is proportional to fill ratio.
+  musterSystemEnabled?: boolean;
+  fortGarrison?: number;
+  fortGarrisonCap?: number;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
@@ -39,8 +43,15 @@ const defenseMultiplierForTile = (
   if (target.ownershipState === "SETTLED") defMult *= 1.35;
   if (target.townType) defMult *= 1.2;
   if (target.dockId) defMult *= 1.1;
-  if (target.terrain === "MOUNTAIN") defMult *= 1.15;
-  if (target.hasFort) defMult *= modifiers.fortDefenseMult ?? 1;
+  if (target.hasFort) {
+    const baseMult = modifiers.fortDefenseMult ?? 1;
+    if (modifiers.musterSystemEnabled && modifiers.fortGarrisonCap != null && modifiers.fortGarrisonCap > 0) {
+      const fillRatio = Math.min(1, (modifiers.fortGarrison ?? 0) / modifiers.fortGarrisonCap);
+      defMult *= 1 + (baseMult - 1) * fillRatio;
+    } else {
+      defMult *= baseMult;
+    }
+  }
   return defMult;
 };
 

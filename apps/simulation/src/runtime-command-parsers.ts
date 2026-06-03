@@ -62,6 +62,27 @@ export const parseConverterTogglePayload = (payloadJson: string): { x: number; y
 export const parseSiegeOutpostAutoAttackPayload = parseConverterTogglePayload;
 export const parseSiegeOutpostSweepPayload = parseConverterTogglePayload;
 
+export const parseSetMusterPayload = (
+  payloadJson: string
+): { x: number; y: number; mode: "HOLD" | "ADVANCE"; targetX?: number; targetY?: number } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return null;
+    if (parsed.mode !== "HOLD" && parsed.mode !== "ADVANCE") return null;
+    return {
+      x: parsed.x,
+      y: parsed.y,
+      mode: parsed.mode,
+      ...(typeof parsed.targetX === "number" ? { targetX: parsed.targetX } : {}),
+      ...(typeof parsed.targetY === "number" ? { targetY: parsed.targetY } : {})
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const parseClearMusterPayload = parseTilePayload;
+
 export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
