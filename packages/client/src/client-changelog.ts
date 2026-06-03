@@ -21,15 +21,16 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.03.2",
   title: "What's New",
-  summary: "Survey Sweep now gets a one-shot 3D scan flourish when cast. Mustering adds staged border manpower and fort garrisons, and town food-upkeep is always visible in the tile overview for CITY+ towns.",
+  summary: "Survey Sweep now pings hidden towns and resource sites instead of revealing terrain. Mustering adds staged border manpower and fort garrisons, and town food-upkeep is always visible in the tile overview for CITY+ towns.",
   entries: [
     {
       introducedIn: "2026.06.03.2",
-      title: "Survey Sweep gets a 3D scan pulse",
-      why: "Survey Sweep temporarily reveals a huge area, but the cast moment had no map feedback beyond the command taking effect.",
+      title: "Survey Sweep becomes hidden-intel pings",
+      why: "Survey Sweep overlapped too much with hard map reveal effects. It now gives useful scouting direction without exposing exact terrain or resource types.",
       changes: [
-        "Casting Survey Sweep from an active observatory now triggers a one-shot 3D scan flourish with compass rings, rotating sweep beams, expanding reveal waves, and lifted survey markers.",
-        "The effect is client-only feedback and does not add synced persistent state."
+        "Casting Survey Sweep from an active observatory scans a centered 50x50 area and reports only towns plus generic resource sites outside your current vision.",
+        "Hidden resource pings do not reveal whether the site is crystal, iron, or supply.",
+        "The cast still triggers the one-shot 3D scan flourish, followed by hovering hidden-intel badges for the detected sites."
       ]
     },
     {

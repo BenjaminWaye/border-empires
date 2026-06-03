@@ -2,7 +2,7 @@ import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared"
 import { formatGoldAmount } from "./client-constants.js";
 import type { ClientState } from "./client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
-import type { RevealEmpireStatsView } from "./client-types.js";
+import type { RevealEmpireStatsView, SurveySweepPingKind } from "./client-types.js";
 import {
   applyGatewayRecoveryNextClientSeq,
   bindQueuedFrontierCommandIdentity,
@@ -49,6 +49,20 @@ const revealStatsNumberKeys = [
 const revealStatsResourceKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
+
+const isSurveySweepPingKind = (value: unknown): value is SurveySweepPingKind =>
+  value === "resource" || value === "town";
+
+const surveySweepPingsFromPayload = (value: unknown): Array<{ x: number; y: number; kind: SurveySweepPingKind }> => {
+  if (!Array.isArray(value)) return [];
+  const out: Array<{ x: number; y: number; kind: SurveySweepPingKind }> = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    if (typeof entry.x !== "number" || typeof entry.y !== "number" || !isSurveySweepPingKind(entry.kind)) continue;
+    out.push({ x: entry.x, y: entry.y, kind: entry.kind });
+  }
+  return out;
+};
 
 const isRevealEmpireStatsView = (value: unknown): value is RevealEmpireStatsView => {
   if (!isRecord(value)) return false;
@@ -2462,6 +2476,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.activeRevealEmpireStatsPopup = stats;
         pushFeed(revealEmpireStatsFeedText(stats), "combat", "success");
       }
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "SURVEY_SWEEP_RESULT") {
+      const nowMs = Date.now();
+      const pings = surveySweepPingsFromPayload(msg.pings);
+      state.surveySweepPings.push(
+        ...pings.map((ping) => ({
+          ...ping,
+          createdAt: nowMs,
+          expiresAt: nowMs + 12_000
+        }))
+      );
+      const resourceCount = pings.filter((ping) => ping.kind === "resource").length;
+      const townCount = pings.filter((ping) => ping.kind === "town").length;
+      pushFeed(`Survey Sweep found ${resourceCount} resource ${resourceCount === 1 ? "site" : "sites"} and ${townCount} ${townCount === 1 ? "town" : "towns"} outside current vision.`, "info", "success");
       renderHud();
       return;
     }

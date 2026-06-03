@@ -24,4 +24,16 @@ describe("3d survey sweep fx regression guard", () => {
     expect(source).toContain('sendGameMessage({ type: "SURVEY_SWEEP"');
     expect(source).toContain("state.surveySweepFxQueue.push");
   });
+
+  it("renders coarse hidden-intel pings without resource-specific badge kinds", () => {
+    const overlaySource = clientSource("./client-map-3d-survey-sweep-ping-overlay.ts");
+    const networkSource = clientSource("./client-network.ts");
+    expect(overlaySource).toContain('kind === "resource"');
+    expect(overlaySource).toContain("townMesh");
+    expect(networkSource).toContain('value === "resource" || value === "town"');
+    expect(networkSource).toContain("state.surveySweepPings.push");
+    expect(overlaySource).not.toContain('"GEMS"');
+    expect(overlaySource).not.toContain('"IRON"');
+    expect(overlaySource).not.toContain('"WOOD"');
+  });
 });

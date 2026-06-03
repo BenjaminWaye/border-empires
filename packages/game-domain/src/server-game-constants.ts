@@ -144,6 +144,9 @@ export const WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO = 0.30;
 export const AEGIS_DOME_PROTECTION_RADIUS = 30;
 export const REVEAL_EMPIRE_ACTIVATION_COST = 20;
 export const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.015;
+export const SURVEY_SWEEP_CRYSTAL_COST = 30;
+export const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
+export const SURVEY_SWEEP_HALF_EXTENT = 25;
 export const REVEAL_EMPIRE_STATS_CRYSTAL_COST = 15;
 export const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
 export const AETHER_LANCE_GOLD_COST = 3_000;
@@ -266,6 +269,13 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
     requiredTechIds: ["surveying"],
     crystalCost: REVEAL_EMPIRE_STATS_CRYSTAL_COST,
     cooldownMs: REVEAL_EMPIRE_STATS_COOLDOWN_MS
+  },
+  survey_sweep: {
+    id: "survey_sweep",
+    name: "Survey Sweep",
+    requiredTechIds: ["surveying"],
+    crystalCost: SURVEY_SWEEP_CRYSTAL_COST,
+    cooldownMs: SURVEY_SWEEP_COOLDOWN_MS
   },
   aether_lance: {
     id: "aether_lance",

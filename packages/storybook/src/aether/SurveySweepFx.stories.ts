@@ -8,6 +8,7 @@ import {
   PlaneGeometry
 } from "three";
 import { createSurveySweepFxLayer } from "@client/client-map-3d-survey-sweep-fx.js";
+import { createSurveySweepPingOverlay } from "@client/client-map-3d-survey-sweep-ping-overlay.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
@@ -18,6 +19,7 @@ type Args = {
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#08151a" });
   const fx = createSurveySweepFxLayer(stage.scene);
+  const pingOverlay = createSurveySweepPingOverlay(stage.scene);
 
   const tile = new Mesh(
     new PlaneGeometry(1, 1),
@@ -62,13 +64,31 @@ const render = (args: Args): HTMLElement => {
   button.style.cursor = "pointer";
   button.style.borderRadius = "4px";
 
-  const spawn = (): void => fx.spawn(0, 0, 0);
+  const demoPings = [
+    { kind: "resource" as const, x: -1.25, z: -0.55, delayMs: 900 },
+    { kind: "town" as const, x: 1.05, z: -0.85, delayMs: 1_050 },
+    { kind: "resource" as const, x: 0.55, z: 1.15, delayMs: 1_220 },
+    { kind: "town" as const, x: -0.85, z: 1.25, delayMs: 1_380 }
+  ];
+  let spawnedAt = performance.now();
+  const spawn = (): void => {
+    spawnedAt = performance.now();
+    fx.spawn(0, 0, 0);
+  };
   button.addEventListener("click", spawn);
   spawn();
 
   let rafId = 0;
   const animateFx = (): void => {
-    fx.update(performance.now());
+    const nowMs = performance.now();
+    fx.update(nowMs);
+    pingOverlay.beginFrame();
+    for (const ping of demoPings) {
+      const createdAt = spawnedAt + ping.delayMs;
+      if (nowMs < createdAt) continue;
+      pingOverlay.addPing(ping.kind, ping.x, ping.z, 0, nowMs, createdAt, createdAt + 5_200);
+    }
+    pingOverlay.commit();
     rafId = requestAnimationFrame(animateFx);
   };
   animateFx();
@@ -84,6 +104,7 @@ const render = (args: Args): HTMLElement => {
       if (intervalId) window.clearInterval(intervalId);
       button.removeEventListener("click", spawn);
       fx.dispose();
+      pingOverlay.dispose();
       tile.geometry.dispose();
       (tile.material as MeshStandardMaterial).dispose();
       tower.geometry.dispose();

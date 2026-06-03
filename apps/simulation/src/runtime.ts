@@ -88,6 +88,9 @@ import {
   REVEAL_EMPIRE_ACTIVATION_COST,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
   REVEAL_EMPIRE_STATS_CRYSTAL_COST,
+  SURVEY_SWEEP_COOLDOWN_MS,
+  SURVEY_SWEEP_CRYSTAL_COST,
+  SURVEY_SWEEP_HALF_EXTENT,
   SIPHON_COOLDOWN_MS,
   SIPHON_CRYSTAL_COST,
   SIPHON_DURATION_MS,
@@ -354,6 +357,13 @@ const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 export { FOREST_SETTLEMENT_MULT, MAX_SETTLE_DURATION_MS, SETTLE_DURATION_MS };
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 export { settlementBaseDurationMsForTile, settlementDurationMsForPlayer };
+
+type SurveySweepPingKind = "resource" | "town";
+type SurveySweepPing = {
+  x: number;
+  y: number;
+  kind: SurveySweepPingKind;
+};
 
 // Grace beyond resolvesAt before the sweep drops a lock. Normal locks resolve
 // inside their setTimeout window; anything still present 60s after its scheduled
@@ -3943,6 +3953,108 @@ export class SimulationRuntime {
     });
   }
 
+  private surveySweepPingKind(tile: DomainTileState): SurveySweepPingKind | undefined {
+    if (tile.town) return "town";
+    if (tile.resource === "GEMS" || tile.resource === "IRON" || tile.resource === "WOOD") return "resource";
+    return undefined;
+  }
+
+  private buildSurveySweepPings(playerId: string, centerX: number, centerY: number): SurveySweepPing[] {
+    const pings: SurveySweepPing[] = [];
+    for (let dy = -SURVEY_SWEEP_HALF_EXTENT; dy < SURVEY_SWEEP_HALF_EXTENT; dy += 1) {
+      const y = ((centerY + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
+      for (let dx = -SURVEY_SWEEP_HALF_EXTENT; dx < SURVEY_SWEEP_HALF_EXTENT; dx += 1) {
+        const x = ((centerX + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+        const tile = this.tiles.get(simulationTileKey(x, y));
+        if (!tile) continue;
+        const kind = this.surveySweepPingKind(tile);
+        if (!kind) continue;
+        if (this.filterTileDeltasForPlayer([this.tileDeltaFromState(tile)], playerId).length > 0) continue;
+        pings.push({ x, y, kind });
+      }
+    }
+    return pings.sort((left, right) => left.kind.localeCompare(right.kind) || left.y - right.y || left.x - right.x);
+  }
+
+  private handleSurveySweepCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseTilePayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    if (!actor.techIds.has("surveying")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "SURVEY_SWEEP_INVALID",
+        message: "requires Surveying"
+      });
+      return;
+    }
+    const observatoryKey = simulationTileKey(payload.x, payload.y);
+    const observatoryTile = this.tiles.get(observatoryKey);
+    const observatory = observatoryTile?.observatory;
+    if (
+      !observatoryTile ||
+      observatoryTile.ownerId !== actor.id ||
+      observatoryTile.terrain !== "LAND" ||
+      !observatory ||
+      observatory.ownerId !== actor.id ||
+      observatory.status !== "active"
+    ) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "SURVEY_SWEEP_INVALID",
+        message: "target an active owned observatory"
+      });
+      return;
+    }
+    const now = this.now();
+    if ((observatory.cooldownUntil ?? 0) > now) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "SURVEY_SWEEP_INVALID",
+        message: "observatory is cooling down"
+      });
+      return;
+    }
+    if (!spendStrategicResource(actor, "CRYSTAL", SURVEY_SWEEP_CRYSTAL_COST)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "SURVEY_SWEEP_INVALID",
+        message: "insufficient CRYSTAL for survey sweep"
+      });
+      return;
+    }
+    const pings = this.buildSurveySweepPings(actor.id, observatoryTile.x, observatoryTile.y);
+    this.stampObservatoryCooldown(observatoryKey, SURVEY_SWEEP_COOLDOWN_MS, now, command.commandId, command.playerId);
+    this.emitPlayerMessage(command, {
+      type: "SURVEY_SWEEP_RESULT",
+      center: { x: observatoryTile.x, y: observatoryTile.y },
+      halfExtent: SURVEY_SWEEP_HALF_EXTENT,
+      pings
+    });
+    this.emitPlayerMessage(command, {
+      type: "PLAYER_UPDATE",
+      points: actor.points,
+      strategicResources: actor.strategicResources
+    });
+  }
+
   private handleAetherLanceCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseTilePayload(command.payloadJson);
@@ -7503,6 +7615,7 @@ export class SimulationRuntime {
         command.type !== "SET_CONVERTER_STRUCTURE_ENABLED" &&
         command.type !== "REVEAL_EMPIRE" &&
         command.type !== "REVEAL_EMPIRE_STATS" &&
+        command.type !== "SURVEY_SWEEP" &&
         command.type !== "AETHER_LANCE" &&
         command.type !== "CAST_AETHER_BRIDGE" &&
         command.type !== "CAST_AETHER_WALL" &&
@@ -7632,6 +7745,11 @@ export class SimulationRuntime {
 
       if (command.type === "REVEAL_EMPIRE_STATS") {
         this.handleRevealEmpireStatsCommand(command);
+        return;
+      }
+
+      if (command.type === "SURVEY_SWEEP") {
+        this.handleSurveySweepCommand(command);
         return;
       }
 

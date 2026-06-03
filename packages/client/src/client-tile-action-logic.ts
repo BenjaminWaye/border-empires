@@ -987,13 +987,13 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "survey_sweep",
         label: "Survey Sweep",
         ...tileActionAvailability(
-          state.techIds.includes("beacon-towers") && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
-          !state.techIds.includes("beacon-towers")
+          state.techIds.includes("surveying") && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
+          !state.techIds.includes("surveying")
             ? "Requires Surveying"
             : cooldown > 0
               ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
               : "Need 30 CRYSTAL",
-          "30 CRYSTAL • reveals 50 tiles in each direction for 2m"
+          "30 CRYSTAL • pings hidden resources + towns in a 50x50 area"
         )
       });
     }
