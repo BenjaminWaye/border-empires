@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.7",
+  version: "2026.06.03.1",
   title: "What's New",
-  summary: "The food economy has been reworked: fish is perishable, town growth costs food, and tier upgrades are manual food-paid commands. Farmstead boosts farm tiles (+50%), and Waterworks is a radius-support building that boosts all farmsteads within 10 tiles.",
+  summary: "Town food-upkeep is now always visible in the tile overview for CITY+ towns — it was silently hidden when the snapshot didn't carry the field.",
   entries: [
+    {
+      introducedIn: "2026.06.03.1",
+      title: "Town food upkeep always visible in tile overview",
+      why: "The Town food-upkeep line (\"Town: 🍖 0.30/m\") was disappearing from the tile detail panel for CITY, GREAT_CITY, and METROPOLIS towns when the server snapshot didn't carry the foodUpkeepPerMinute field. The gateway now derives it from population tier instead of trusting the stored field.",
+      changes: [
+        "Town food-upkeep entry now always appears for TOWN/CITY/GREAT_CITY/METROPOLIS tiers in the tile detail panel.",
+        "Values: TOWN 0.10/m, CITY 0.30/m, GREAT_CITY 0.60/m, METROPOLIS 1.00/m — matching the actual food drain.",
+        "Settlements correctly show no Town food entry (they don't consume food)."
+      ]
+    },
     {
       introducedIn: "2026.06.02.7",
       title: "Food economy rework",
