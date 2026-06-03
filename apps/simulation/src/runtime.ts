@@ -117,24 +117,14 @@ import {
   FORT_PATROL_GRACE_MS,
   isActiveFortAnchor,
   isSettledTownAnchor,
-  MAX_FORT_AUTO_FRONTIER_RADIUS,
   orderedAutoSettlementTileKeys,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "./territory-automation.js";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import {
-  candidateIndexKeysAroundTileKey,
-  isBuildCandidateTile,
-  isHotFrontierTile,
-  isStrategicFrontierTile,
-  playerIdsAffectedByTileChange
-} from "./planner-candidate-index.js";
-import {
-  addPendingSettlementToSummary,
   applyTileToPlayerSummary,
   cloneStrategicProduction,
   createEmptyPlayerRuntimeSummary,
-  removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
   type PendingSettlementRecord,
   type PlayerRuntimeSummary
@@ -183,6 +173,7 @@ import {
   type AutomationPlannerDiagnostic
 } from "./automation-command-planner.js";
 import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
+import { rememberedAutomationVictoryPathCounts } from "./runtime-automation-victory-path-counts.js";
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import {
   AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS,
@@ -237,7 +228,7 @@ import {
 } from "./runtime-hydration.js";
 import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "./encirclement.js";
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
-import { PlayerCandidateIndex, MAX_SWEEP_RADIUS } from "./player-candidate-index.js";
+import { PlayerCandidateIndex } from "./player-candidate-index.js";
 import { domainTileToWireDelta } from "./runtime-tile-deltas.js";
 import {
   FOREST_SETTLEMENT_MULT,
@@ -322,11 +313,39 @@ import {
 } from "./runtime-structure-support.js";
 import { tickPopulationGrowth as tickPopulationGrowthImpl } from "./runtime-population-growth.js";
 import {
+  addPendingSettlement as addPendingSettlementImpl,
+  cancelPendingSettlementIfOwnerChanged as cancelPendingSettlementIfOwnerChangedImpl,
+  pendingSettlementMatches,
+  pendingSettlementsSnapshotForPlayer,
+  removePendingSettlement as removePendingSettlementImpl
+} from "./runtime-pending-settlements.js";
+import {
   tickOrphanedLockSweep as tickOrphanedLockSweepImpl,
   tickTileShedding as tickTileSheddingImpl
 } from "./runtime-maintenance-ticks.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "./runtime-shard-rain-tick.js";
+import {
+  drainQueues as drainQueuesImpl,
+  enqueueJob as enqueueJobImpl,
+  queueBacklogMs as queueBacklogMsImpl,
+  queueDepths as queueDepthsImpl,
+  scheduleDrain as scheduleDrainImpl,
+  type RuntimeJobQueueState
+} from "./runtime-job-queue.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "./runtime-territory-automation-tick.js";
+import {
+  addFrontierTileToOwnerIndex,
+  addYieldBearingTileToOwnerIndex,
+  assertYieldIndexCorrect as assertYieldIndexCorrectImpl,
+  refreshFortAnchorIndexForTile,
+  refreshPlayerCandidateIndexAnchorForTile,
+  refreshPlannerCandidateIndexesAroundTileChange,
+  refreshRuntimeTileIndexesForChange,
+  registerRuntimeTileAnchor,
+  removeFrontierTileFromOwnerIndex,
+  rebuildPlannerCandidateIndexesForPlayer,
+  isYieldBearingTile
+} from "./runtime-tile-index-maintenance.js";
 import {
   bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
   updateFrontierDecay as updateFrontierDecayImpl
@@ -574,21 +593,6 @@ export class SimulationRuntime {
     return focus;
   }
 
-  private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
-    const counts: Partial<Record<AutomationVictoryPath, number>> = {
-      TOWN_CONTROL: 0,
-      ECONOMIC_HEGEMONY: 0,
-      RESOURCE_MONOPOLY: 0,
-      MARITIME_SUPREMACY: 0,
-      DIPLOMATIC_DOMINANCE: 0
-    };
-    for (const [playerId, victoryPath] of this.rememberedAutomationVictoryPathByPlayer.entries()) {
-      if ((this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0) <= 0) continue;
-      counts[victoryPath] = (counts[victoryPath] ?? 0) + 1;
-    }
-    return counts;
-  }
-
   constructor(options: SimulationRuntimeOptions = {}) {
     const seedWorld = options.initialPlayers && options.seedTiles ? undefined : createSeedWorld(options.seedProfile);
     this.now = options.now ?? (() => Date.now());
@@ -648,17 +652,11 @@ export class SimulationRuntime {
             ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
             : site.expiresAt;
       }
-      // Part 1: populate frontierTilesByOwner index.
       if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
-        let set = this.frontierTilesByOwner.get(tile.ownerId);
-        if (!set) { set = new Set<string>(); this.frontierTilesByOwner.set(tile.ownerId, set); }
-        set.add(tileKey);
+        addFrontierTileToOwnerIndex(this.frontierTilesByOwner, tileKey, tile.ownerId);
       }
-      // Populate yieldBearingTilesByOwner index.
-      if (this.isYieldBearing(tile) && tile.ownerId) {
-        let set = this.yieldBearingTilesByOwner.get(tile.ownerId);
-        if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(tile.ownerId, set); }
-        set.add(tileKey);
+      if (isYieldBearingTile(tile) && tile.ownerId) {
+        addYieldBearingTileToOwnerIndex(this.yieldBearingTilesByOwner, this.sortedYieldBearingKeysByOwner, tileKey, tile.ownerId);
       }
       // Populate ownedStructureCountByPlayerByType. Each structure slot has its
       // own ownerId — count by structure ownership, not by tile ownership,
@@ -679,52 +677,15 @@ export class SimulationRuntime {
     // kind — time-dependent radius (e.g. FORT_PATROL_GRACE_MS) is applied at the
     // call site, not stored here, to prevent stale maxRadius bugs.
     for (const [tileKey, tile] of this.tiles.entries()) {
-      if (!tile.ownerId) continue;
-      const ownerId = tile.ownerId;
-      // Fort kind: active fort (any variant, including patrol-grace) or active WOODEN_FORT.
-      if (
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "WOODEN_FORT" &&
-        tile.economicStructure.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        this.registerFortSupportAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
-      } else if (
-        tile.fort?.ownerId === ownerId &&
-        tile.fort.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        this.registerFortSupportAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
-      } else if (isSettledTownAnchor(tile, ownerId)) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        this.registerFortSupportAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS);
-      } else if (
-        tile.siegeOutpost?.ownerId === ownerId &&
-        tile.siegeOutpost.status === "active" &&
-        tile.siegeOutpost.sweepActive
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_SWEEP_RADIUS, (k) => this.tiles.get(k));
-        // NOTE: siege outposts are NOT registered in activeFortAnchorsByOwner (by design)
-      }
-      // Populate activeSiegeOutpostsByOwner index
-      if (tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active") {
-        let set = this.activeSiegeOutpostsByOwner.get(ownerId);
-        if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(ownerId, set); }
-        set.add(tileKey);
-      }
-      // Populate activeLightOutpostsByOwner index
-      if (
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "LIGHT_OUTPOST" &&
-        tile.economicStructure.status === "active"
-      ) {
-        let set = this.activeLightOutpostsByOwner.get(ownerId);
-        if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(ownerId, set); }
-        set.add(tileKey);
-      }
+      registerRuntimeTileAnchor({
+        playerCandidateIndex: this.playerCandidateIndex,
+        activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
+        activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+        activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
+        tiles: this.tiles,
+        tileKey,
+        tile
+      });
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
@@ -741,17 +702,32 @@ export class SimulationRuntime {
       for (const [tileKey, tier] of currentTowns) summary.ownedTownTierByTile.set(tileKey, tier);
     }
     for (const playerId of this.players.keys()) {
-      this.rebuildPlannerCandidateIndexesForPlayer(playerId);
+      rebuildPlannerCandidateIndexesForPlayer({
+        playerId,
+        tiles: this.tiles,
+        summary: this.summaryForPlayer(playerId),
+        markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
+      });
     }
     for (const pendingSettlement of options.initialState?.pendingSettlements ?? []) {
       const pendingTile = this.tiles.get(pendingSettlement.tileKey);
       if (!pendingTile || pendingTile.ownerId !== pendingSettlement.ownerId || pendingTile.ownershipState !== "FRONTIER") continue;
-      this.addPendingSettlement({ ...pendingSettlement });
+      addPendingSettlementImpl({
+        pendingSettlementsByTile: this.pendingSettlementsByTile,
+        record: { ...pendingSettlement },
+        summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+        markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
+      });
       const delayMs = Math.max(0, pendingSettlement.resolvesAt - this.now());
       this.scheduleAfter(delayMs, () => {
         const currentSettlement = this.pendingSettlementsByTile.get(pendingSettlement.tileKey);
-        if (!this.pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
-        this.removePendingSettlement(pendingSettlement.tileKey);
+        if (!pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
+        removePendingSettlementImpl({
+          pendingSettlementsByTile: this.pendingSettlementsByTile,
+          tileKey: pendingSettlement.tileKey,
+          summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+          markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
+        });
         const latest = this.tiles.get(pendingSettlement.tileKey);
         if (!latest || latest.ownerId !== pendingSettlement.ownerId) {
           this.emitPlayerStateUpdate({ commandId: `recovered-settle:${pendingSettlement.tileKey}`, playerId: pendingSettlement.ownerId });
@@ -1105,25 +1081,29 @@ export class SimulationRuntime {
   }
 
   queueDepths(): Record<QueueLane, number> {
-    return {
-      human_interactive: this.jobsByLane.human_interactive.length,
-      human_noninteractive: this.jobsByLane.human_noninteractive.length,
-      system: this.jobsByLane.system.length,
-      ai: this.jobsByLane.ai.length
-    };
+    return queueDepthsImpl({ jobsByLane: this.jobsByLane });
   }
 
   queueBacklogMs(nowMs = this.now()): Record<QueueLane, number> {
-    const backlogFor = (lane: QueueLane): number => {
-      const oldest = this.jobsByLane[lane][0];
-      if (!oldest) return 0;
-      return Math.max(0, nowMs - oldest.enqueuedAt);
-    };
+    return queueBacklogMsImpl({ jobsByLane: this.jobsByLane }, nowMs);
+  }
+
+  private jobQueueState(): RuntimeJobQueueState {
     return {
-      human_interactive: backlogFor("human_interactive"),
-      human_noninteractive: backlogFor("human_noninteractive"),
-      system: backlogFor("system"),
-      ai: backlogFor("ai")
+      jobsByLane: this.jobsByLane,
+      priorityOrder,
+      backgroundBatchSize: this.backgroundBatchSize,
+      now: this.now,
+      scheduleSoon: this.scheduleSoon,
+      scheduleAfter: this.scheduleAfter,
+      getDraining: () => this.draining,
+      setDraining: (value) => { this.draining = value; },
+      getDrainScheduled: () => this.drainScheduled,
+      setDrainScheduled: (value) => { this.drainScheduled = value; },
+      getImmediateDrainScheduled: () => this.immediateDrainScheduled,
+      setImmediateDrainScheduled: (value) => { this.immediateDrainScheduled = value; },
+      ...(this.onQueueDrain ? { onQueueDrain: this.onQueueDrain } : {}),
+      ...(this.onJobApplied ? { onJobApplied: this.onJobApplied } : {})
     };
   }
 
@@ -1595,33 +1575,47 @@ export class SimulationRuntime {
       }
       for (const [key, tier] of currentTowns) summary.ownedTownTierByTile.set(key, tier);
     }
-    this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
-    this.refreshPlayerCandidateIndexAnchorForTile(tileKey, previous, tile);
-    // Part 1: maintain frontierTilesByOwner index.
-    const prevIsFrontier = previous?.ownershipState === "FRONTIER" && previous?.ownerId && !previous.ownerId.startsWith("barbarian-");
-    const nextIsFrontier = tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-");
-    if (prevIsFrontier && previous!.ownerId !== tile.ownerId) {
-      this.removeFrontierTileFromOwnerIndex(tileKey, previous!.ownerId!);
-    }
-    if (nextIsFrontier) {
-      this.addFrontierTileToOwnerIndex(tileKey, tile.ownerId!);
-    } else if (prevIsFrontier && previous!.ownerId === tile.ownerId) {
-      // Was frontier for this owner, no longer frontier
-      this.removeFrontierTileFromOwnerIndex(tileKey, tile.ownerId!);
-    }
-    // Part 2: maintain activeFortAnchorsByOwner index.
-    this.refreshFortAnchorIndexForTile(tileKey, previous, tile);
-    // Yield-bearing index: maintain yieldBearingTilesByOwner.
-    this.refreshYieldBearingIndexForTile(tileKey, previous, tile);
-    // Sweep outpost indexes: maintain activeSiegeOutpostsByOwner and activeLightOutpostsByOwner.
-    this.refreshSiegeOutpostIndexForTile(tileKey, previous, tile);
-    this.refreshLightOutpostIndexForTile(tileKey, previous, tile);
+    refreshPlannerCandidateIndexesAroundTileChange({
+      tileKey,
+      previous,
+      next: tile,
+      tiles: this.tiles,
+      playerCandidateIndex: this.playerCandidateIndex,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
+    });
+    refreshPlayerCandidateIndexAnchorForTile({
+      playerCandidateIndex: this.playerCandidateIndex,
+      tiles: this.tiles,
+      tileKey,
+      previous,
+      next: tile
+    });
+    refreshRuntimeTileIndexesForChange({
+      tileKey,
+      previous,
+      next: tile,
+      frontierTilesByOwner: this.frontierTilesByOwner,
+      activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
+      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+      sortedYieldBearingKeysByOwner: this.sortedYieldBearingKeysByOwner,
+      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner
+    });
     // Structure count index: keep ownedStructureCountByPlayerByType consistent
     // across capture / build / cancel / removal transitions. Each slot is
     // tracked by the STRUCTURE's ownerId (not the tile's), to match the
     // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
-    if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
+    if (previous?.ownerId !== tile.ownerId) cancelPendingSettlementIfOwnerChangedImpl({
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      tileKey,
+      nextOwnerId: tile.ownerId,
+      commandId,
+      summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+      markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId),
+      emitPlayerStateUpdate: (update) => this.emitPlayerStateUpdate(update)
+    });
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -1654,417 +1648,6 @@ export class SimulationRuntime {
     const playerAnchor = ownerId ? this.playerYieldCollectionEpochByPlayer.get(ownerId) : undefined;
     if (typeof tileAnchor === "number" && typeof playerAnchor === "number") return Math.max(tileAnchor, playerAnchor);
     return tileAnchor ?? playerAnchor;
-  }
-
-  private rebuildPlannerCandidateIndexesForPlayer(playerId: string): void {
-    const summary = this.summaryForPlayer(playerId);
-    summary.hotFrontierTileKeys.clear();
-    summary.strategicFrontierTileKeys.clear();
-    summary.buildCandidateTileKeys.clear();
-    for (const tileKey of summary.territoryTileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (!tile || tile.ownerId !== playerId) continue;
-      if (isHotFrontierTile(playerId, tile, this.tiles)) summary.hotFrontierTileKeys.add(tileKey);
-      if (isStrategicFrontierTile(playerId, tile, this.tiles)) summary.strategicFrontierTileKeys.add(tileKey);
-      if (isBuildCandidateTile(playerId, tile, this.tiles)) summary.buildCandidateTileKeys.add(tileKey);
-    }
-    this.markPlannerPlayerTileCollectionDirty(playerId);
-  }
-
-  private refreshPlannerCandidateIndexesAroundTileChange(
-    tileKey: string,
-    previous?: DomainTileState,
-    next?: DomainTileState
-  ): void {
-    const affectedKeys = candidateIndexKeysAroundTileKey(tileKey);
-    const affectedPlayerIds = playerIdsAffectedByTileChange(tileKey, this.tiles, previous, next);
-    for (const playerId of affectedPlayerIds) {
-      const summary = this.summaryForPlayer(playerId);
-      for (const candidateKey of affectedKeys) {
-        summary.hotFrontierTileKeys.delete(candidateKey);
-        summary.strategicFrontierTileKeys.delete(candidateKey);
-        summary.buildCandidateTileKeys.delete(candidateKey);
-        const candidateTile = this.tiles.get(candidateKey);
-        if (!candidateTile || candidateTile.ownerId !== playerId) continue;
-        if (isHotFrontierTile(playerId, candidateTile, this.tiles)) summary.hotFrontierTileKeys.add(candidateKey);
-        if (isStrategicFrontierTile(playerId, candidateTile, this.tiles)) summary.strategicFrontierTileKeys.add(candidateKey);
-        if (isBuildCandidateTile(playerId, candidateTile, this.tiles)) summary.buildCandidateTileKeys.add(candidateKey);
-      }
-      this.markPlannerPlayerTileCollectionDirty(playerId);
-    }
-    this.playerCandidateIndex.refreshAroundTile(tileKey, (k) => this.tiles.get(k));
-  }
-
-  /**
-   * Keep PlayerCandidateIndex anchor registrations consistent with tile state.
-   * Called from replaceTileState after the tile is already written to this.tiles.
-   * Registers/unregisters anchors when a tile gains or loses a fort, town,
-   * active WOODEN_FORT, or active siege outpost (for sweep).
-   *
-   * Each anchor is stored at the MAXIMUM possible radius for its kind, not the
-   * current effective radius.  This prevents stale maxRadius when time-dependent
-   * conditions (e.g. FORT_PATROL_GRACE_MS) change the effective radius without
-   * triggering a tile mutation.  Re-registration fires only when the anchor KIND
-   * or OWNER changes, not on radius drift.
-   */
-  private refreshPlayerCandidateIndexAnchorForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevOwnerId = previous?.ownerId;
-    const nextOwnerId = next.ownerId;
-
-    // Detect anchor kind (ignoring time-dependent radius factors like patrol grace).
-    // Returns the max-possible radius for the kind, or 0 if not an anchor.
-    const anchorKindMaxRadius = (tile: DomainTileState, ownerId: string): number => {
-      // Fort kind: active fort (any variant, including grace state) or active WOODEN_FORT.
-      if (
-        tile.ownerId === ownerId &&
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "WOODEN_FORT" &&
-        tile.economicStructure.status === "active"
-      ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-      if (
-        tile.ownerId === ownerId &&
-        tile.fort?.ownerId === ownerId &&
-        tile.fort.status === "active"
-      ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-      // Town kind.
-      if (isSettledTownAnchor(tile, ownerId)) return TOWN_AUTO_FRONTIER_RADIUS;
-      // Active siege outpost with sweep enabled.
-      if (
-        tile.siegeOutpost?.ownerId === ownerId &&
-        tile.siegeOutpost.status === "active" &&
-        tile.siegeOutpost.sweepActive
-      ) return MAX_SWEEP_RADIUS;
-      return 0;
-    };
-
-    const prevMaxRadius = previous && prevOwnerId ? anchorKindMaxRadius(previous, prevOwnerId) : 0;
-    const nextMaxRadius = nextOwnerId ? anchorKindMaxRadius(next, nextOwnerId) : 0;
-
-    if (prevMaxRadius <= 0 && nextMaxRadius <= 0) return;
-    if (prevMaxRadius > 0 && nextMaxRadius <= 0) {
-      this.playerCandidateIndex.unregisterAnchor(tileKey);
-      return;
-    }
-    if (prevMaxRadius <= 0 && nextMaxRadius > 0) {
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
-      return;
-    }
-    // Both are anchors — re-register only if owner or anchor KIND (max radius) changed.
-    // Radius drift from time-dependent conditions does NOT trigger re-registration.
-    if (prevOwnerId !== nextOwnerId || prevMaxRadius !== nextMaxRadius) {
-      this.playerCandidateIndex.unregisterAnchor(tileKey);
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
-    }
-  }
-
-  // ---- Part 1 helpers: frontierTilesByOwner index ----
-
-  private addFrontierTileToOwnerIndex(tileKey: string, ownerId: string): void {
-    let set = this.frontierTilesByOwner.get(ownerId);
-    if (!set) { set = new Set<string>(); this.frontierTilesByOwner.set(ownerId, set); }
-    set.add(tileKey);
-  }
-
-  private removeFrontierTileFromOwnerIndex(tileKey: string, ownerId: string): void {
-    const set = this.frontierTilesByOwner.get(ownerId);
-    if (set) set.delete(tileKey);
-  }
-
-  // ---- Part 2 helpers: activeFortAnchorsByOwner index ----
-
-  /**
-   * Returns the max radius this tile contributes as a fort-support anchor for its owner,
-   * considering only FORT + WOODEN_FORT + town kinds (NOT siege outposts).
-   * Returns 0 if the tile is not a fort-support anchor.
-   */
-  private fortSupportAnchorMaxRadius(tile: DomainTileState, ownerId: string): number {
-    if (
-      tile.ownerId === ownerId &&
-      tile.economicStructure?.ownerId === ownerId &&
-      tile.economicStructure.type === "WOODEN_FORT" &&
-      tile.economicStructure.status === "active"
-    ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-    if (
-      tile.ownerId === ownerId &&
-      tile.fort?.ownerId === ownerId &&
-      tile.fort.status === "active"
-    ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-    if (isSettledTownAnchor(tile, ownerId)) return TOWN_AUTO_FRONTIER_RADIUS;
-    return 0;
-  }
-
-  private registerFortSupportAnchor(tileKey: string, ownerId: string, maxRadius: number): void {
-    let map = this.activeFortAnchorsByOwner.get(ownerId);
-    if (!map) { map = new Map<string, number>(); this.activeFortAnchorsByOwner.set(ownerId, map); }
-    map.set(tileKey, maxRadius);
-  }
-
-  private unregisterFortSupportAnchor(tileKey: string, ownerId: string): void {
-    const map = this.activeFortAnchorsByOwner.get(ownerId);
-    if (map) map.delete(tileKey);
-  }
-
-  /**
-   * Called from replaceTileState to keep activeFortAnchorsByOwner in sync.
-   * Mirrors the logic in refreshPlayerCandidateIndexAnchorForTile but only for
-   * fort-support kinds (forts + towns, NOT siege outposts).
-   */
-  private refreshFortAnchorIndexForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevOwnerId = previous?.ownerId;
-    const nextOwnerId = next.ownerId;
-    const prevMaxRadius = previous && prevOwnerId ? this.fortSupportAnchorMaxRadius(previous, prevOwnerId) : 0;
-    const nextMaxRadius = nextOwnerId ? this.fortSupportAnchorMaxRadius(next, nextOwnerId) : 0;
-
-    if (prevMaxRadius <= 0 && nextMaxRadius <= 0) return;
-    if (prevMaxRadius > 0 && prevOwnerId) {
-      this.unregisterFortSupportAnchor(tileKey, prevOwnerId);
-    }
-    if (nextMaxRadius > 0 && nextOwnerId) {
-      this.registerFortSupportAnchor(tileKey, nextOwnerId, nextMaxRadius);
-    }
-  }
-
-  // ---- Yield-bearing tile index helpers ----
-
-  /**
-   * Returns true iff the tile would produce a non-zero yield buffer when passed
-   * to buildTileYieldView — i.e., it is SETTLED LAND owned by someone AND has at
-   * least one income source (town, dock, strategic resource, or active converter).
-   *
-   * This predicate mirrors the "would produce a non-undefined yield field" logic
-   * in buildTileYieldView (tile-yield-view.ts:82). The outer gate (SETTLED + LAND
-   * + ownerId) is the same as line 92 of that function; the income conditions
-   * below correspond to: townGoldPerMinute > 0, dockGoldPerMinute > 0, and
-   * strategicPerDay having at least one entry (lines 96–124).
-   *
-   * Critically: a tile with only `town: undefined` / `dockId: undefined` /
-   * `resource: undefined` / no active converter earns zero yield and is NOT
-   * yield-bearing. Plain settled land tiles — the vast majority at scale — are
-   * intentionally excluded.
-   */
-  private isYieldBearing(tile: DomainTileState): boolean {
-    if (!tile.ownerId || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return false;
-    // Town income (any town, including SETTLEMENT tier — those earn base gold)
-    if (tile.town) return true;
-    // Dock income (any dock earns at least DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT)
-    if (tile.dockId) return true;
-    // Strategic resource terrain — only the resources that strategicDailyFromResource
-    // maps to a non-empty result (all cases except `default: return {}`)
-    if (tile.resource !== undefined && tile.resource !== null) {
-      switch (tile.resource) {
-        case "FARM":
-        case "FISH":
-        case "IRON":
-        case "WOOD":
-        case "FUR":
-        case "GEMS":
-        case "OIL":
-          return true;
-        default:
-          break;
-      }
-    }
-    // Active converter economicStructure — only the types that converterDailyOutput maps
-    // to a non-empty result (FUR_SYNTHESIZER, ADVANCED_FUR_SYNTHESIZER, IRONWORKS,
-    // ADVANCED_IRONWORKS, CRYSTAL_SYNTHESIZER, ADVANCED_CRYSTAL_SYNTHESIZER)
-    if (tile.economicStructure?.status === "active") {
-      switch (tile.economicStructure.type) {
-        case "FUR_SYNTHESIZER":
-        case "ADVANCED_FUR_SYNTHESIZER":
-        case "IRONWORKS":
-        case "ADVANCED_IRONWORKS":
-        case "CRYSTAL_SYNTHESIZER":
-        case "ADVANCED_CRYSTAL_SYNTHESIZER":
-          return true;
-        default:
-          break;
-      }
-    }
-    return false;
-  }
-
-  private addYieldBearingTileToOwnerIndex(tileKey: string, ownerId: string): void {
-    let set = this.yieldBearingTilesByOwner.get(ownerId);
-    if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(ownerId, set); }
-    set.add(tileKey);
-    this.sortedYieldBearingKeysByOwner.delete(ownerId);
-  }
-
-  private removeYieldBearingTileFromOwnerIndex(tileKey: string, ownerId: string): void {
-    const set = this.yieldBearingTilesByOwner.get(ownerId);
-    if (set) { set.delete(tileKey); this.sortedYieldBearingKeysByOwner.delete(ownerId); }
-  }
-
-  private refreshYieldBearingIndexForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevIsYieldBearing = previous ? this.isYieldBearing(previous) : false;
-    const prevOwnerId = previous?.ownerId;
-    const nextIsYieldBearing = this.isYieldBearing(next);
-    const nextOwnerId = next.ownerId;
-
-    // Remove from previous owner's index if it was yield-bearing
-    if (prevIsYieldBearing && prevOwnerId) {
-      this.removeYieldBearingTileFromOwnerIndex(tileKey, prevOwnerId);
-    }
-    // Add to new owner's index if it is yield-bearing
-    if (nextIsYieldBearing && nextOwnerId) {
-      this.addYieldBearingTileToOwnerIndex(tileKey, nextOwnerId);
-    }
-  }
-
-  // ---- Siege outpost index helpers ----
-
-  private isSiegeOutpostActive(tile: DomainTileState, ownerId: string): boolean {
-    return tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active";
-  }
-
-  private refreshSiegeOutpostIndexForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevOwnerId = previous?.ownerId;
-    const prevActive = previous && prevOwnerId ? this.isSiegeOutpostActive(previous, prevOwnerId) : false;
-    const nextOwnerId = next.ownerId;
-    const nextActive = nextOwnerId ? this.isSiegeOutpostActive(next, nextOwnerId) : false;
-
-    if (!prevActive && !nextActive) return;
-    // When owner changes, remove from old owner and add to new.
-    // When active state changes for same owner, add or remove.
-    // When active state is unchanged for same owner, do nothing — avoids
-    // mutating the set while it is being iterated in tickTerritoryAutomation,
-    // which would cause JavaScript Set iteration to revisit the key after re-add.
-    if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
-    if (prevActive && prevOwnerId) {
-      const set = this.activeSiegeOutpostsByOwner.get(prevOwnerId);
-      if (set) set.delete(tileKey);
-    }
-    if (nextActive && nextOwnerId) {
-      let set = this.activeSiegeOutpostsByOwner.get(nextOwnerId);
-      if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(nextOwnerId, set); }
-      set.add(tileKey);
-    }
-  }
-
-  // ---- Light outpost index helpers ----
-
-  private isLightOutpostActive(tile: DomainTileState, ownerId: string): boolean {
-    return (
-      tile.economicStructure?.ownerId === ownerId &&
-      tile.economicStructure.type === "LIGHT_OUTPOST" &&
-      tile.economicStructure.status === "active"
-    );
-  }
-
-  private refreshLightOutpostIndexForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevOwnerId = previous?.ownerId;
-    const prevActive = previous && prevOwnerId ? this.isLightOutpostActive(previous, prevOwnerId) : false;
-    const nextOwnerId = next.ownerId;
-    const nextActive = nextOwnerId ? this.isLightOutpostActive(next, nextOwnerId) : false;
-
-    if (!prevActive && !nextActive) return;
-    // Same-owner, same-active-state: no-op to avoid mutating the set while
-    // it is being iterated in tickTerritoryAutomation (re-add after delete
-    // would cause JavaScript Set iteration to revisit the key).
-    if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
-    if (prevActive && prevOwnerId) {
-      const set = this.activeLightOutpostsByOwner.get(prevOwnerId);
-      if (set) set.delete(tileKey);
-    }
-    if (nextActive && nextOwnerId) {
-      let set = this.activeLightOutpostsByOwner.get(nextOwnerId);
-      if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(nextOwnerId, set); }
-      set.add(tileKey);
-    }
-  }
-
-  /**
-   * DEV_ASSERT_YIELD_INDEX=1 cross-check: rebuild the expected yield-bearing set
-   * from territoryTileKeys and compare against yieldBearingTilesByOwner. Logs
-   * a loud error on any divergence but does NOT throw (prod-safe if accidentally
-   * enabled). Off by default.
-   */
-  private assertYieldIndexCorrect(playerId: string, _now: number, _yieldContext: RuntimeTileYieldEconomyContext): void {
-    const summary = this.summaryForPlayer(playerId);
-    const expected = new Set<string>();
-    for (const tileKey of summary.territoryTileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (tile && this.isYieldBearing(tile)) expected.add(tileKey);
-    }
-    const actual = this.yieldBearingTilesByOwner.get(playerId) ?? new Set<string>();
-    let ok = true;
-    for (const key of expected) {
-      if (!actual.has(key)) { ok = false; console.error(`[YIELD-INDEX] player=${playerId} MISSING from index: ${key}`); }
-    }
-    for (const key of actual) {
-      if (!expected.has(key)) { ok = false; console.error(`[YIELD-INDEX] player=${playerId} SPURIOUS in index: ${key}`); }
-    }
-    if (ok) console.debug(`[YIELD-INDEX] player=${playerId} OK expected=${expected.size} actual=${actual.size}`);
-  }
-
-  private addPendingSettlement(record: PendingSettlementRecord): void {
-    this.pendingSettlementsByTile.set(record.tileKey, record);
-    addPendingSettlementToSummary(this.summaryForPlayer(record.ownerId), record);
-    this.markPlannerPlayerTileCollectionDirty(record.ownerId);
-  }
-
-  private removePendingSettlement(tileKey: string): PendingSettlementRecord | undefined {
-    const record = this.pendingSettlementsByTile.get(tileKey);
-    if (!record) return undefined;
-    this.pendingSettlementsByTile.delete(tileKey);
-    removePendingSettlementFromSummary(this.summaryForPlayer(record.ownerId), tileKey);
-    this.markPlannerPlayerTileCollectionDirty(record.ownerId);
-    return record;
-  }
-
-  private pendingSettlementMatches(record: PendingSettlementRecord | undefined, expected: PendingSettlementRecord): boolean {
-    return Boolean(
-      record &&
-        record.ownerId === expected.ownerId &&
-        record.tileKey === expected.tileKey &&
-        record.startedAt === expected.startedAt &&
-        record.resolvesAt === expected.resolvesAt &&
-        record.goldCost === expected.goldCost
-    );
-  }
-
-  private cancelPendingSettlementIfOwnerChanged(
-    tileKey: string,
-    nextOwnerId: string | undefined,
-    commandId: string
-  ): PendingSettlementRecord | undefined {
-    const pendingSettlement = this.pendingSettlementsByTile.get(tileKey);
-    if (!pendingSettlement || pendingSettlement.ownerId === nextOwnerId) return undefined;
-    this.removePendingSettlement(tileKey);
-    this.emitPlayerStateUpdate({ commandId, playerId: pendingSettlement.ownerId });
-    return pendingSettlement;
-  }
-
-  private pendingSettlementsSnapshotForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
-    return [...this.summaryForPlayer(playerId).pendingSettlementsByTile.values()]
-      .map((settlement) => {
-        const [rawX, rawY] = settlement.tileKey.split(",");
-        const x = Number(rawX);
-        const y = Number(rawY);
-        return Number.isFinite(x) && Number.isFinite(y) ? { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt } : undefined;
-      })
-      .filter((settlement): settlement is NonNullable<typeof settlement> => Boolean(settlement))
-      .sort((left, right) => (left.resolvesAt - right.resolvesAt) || (left.x - right.x) || (left.y - right.y));
   }
 
   chooseNextOwnedFrontierCommand(
@@ -2177,7 +1760,7 @@ export class SimulationRuntime {
       playerScopeKeyCount: plannerPlayerScopeKeyCount(summary),
       playerScopeTileCount: plannerPlayerScopeKeyCount(summary),
       previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
-      pathPopulationCounts: this.rememberedAutomationVictoryPathCounts(),
+      pathPopulationCounts: rememberedAutomationVictoryPathCounts(this.rememberedAutomationVictoryPathByPlayer),
       onStrategicSnapshot: (snapshot) => {
         if (summary.territoryTileKeys.size <= 0) return;
         this.rememberedAutomationVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
@@ -2577,7 +2160,7 @@ export class SimulationRuntime {
   }
 
   private pendingSettlementsForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
-    return this.pendingSettlementsSnapshotForPlayer(playerId);
+    return pendingSettlementsSnapshotForPlayer(this.summaryForPlayer(playerId));
   }
 
   private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
@@ -2701,128 +2284,15 @@ export class SimulationRuntime {
     commandType?: CommandEnvelope["type"],
     scheduling: "immediate" | "background" = "immediate"
   ): void {
-    const job: SimulationJob = { lane, run, enqueuedAt: this.now(), scheduling };
-    if (commandType !== undefined) job.commandType = commandType;
-    this.jobsByLane[lane].push(job);
-    this.scheduleDrain(scheduling);
+    enqueueJobImpl(this.jobQueueState(), lane, run, commandType, scheduling);
   }
 
   private scheduleDrain(scheduling: "immediate" | "background" = "immediate"): void {
-    if (this.draining) return;
-    if (scheduling === "immediate") {
-      if (this.immediateDrainScheduled) return;
-      this.immediateDrainScheduled = true;
-      this.scheduleSoon(() => {
-        this.immediateDrainScheduled = false;
-        this.drainQueues();
-      });
-      return;
-    }
-    if (this.drainScheduled || this.immediateDrainScheduled) return;
-    this.drainScheduled = true;
-    this.scheduleAfter(0, () => {
-      this.drainScheduled = false;
-      this.drainQueues();
-    });
+    scheduleDrainImpl(this.jobQueueState(), scheduling);
   }
 
   private drainQueues(): void {
-    if (this.draining) return;
-    this.draining = true;
-    const drainStartedAt = this.now();
-    const queueDepthsBefore = this.queueDepths();
-    const processedByLane: Record<QueueLane, number> = {
-      human_interactive: 0,
-      human_noninteractive: 0,
-      system: 0,
-      ai: 0
-    };
-    let processedJobs = 0;
-    let shouldYieldForBackground = false;
-    let backgroundJobsProcessed = 0;
-    let currentDrainScheduling: "immediate" | "background" = "immediate";
-    try {
-      let next = this.shiftNextJob();
-      while (next) {
-        currentDrainScheduling = next.scheduling ?? "immediate";
-        if (currentDrainScheduling === "background") {
-          const hasImmediateWork =
-            this.jobsByLane.human_interactive.some((job) => (job.scheduling ?? "immediate") === "immediate") ||
-            this.jobsByLane.human_noninteractive.some((job) => (job.scheduling ?? "immediate") === "immediate");
-          if (hasImmediateWork) {
-            this.jobsByLane[next.lane].unshift(next);
-            shouldYieldForBackground = true;
-            break;
-          }
-        }
-        if ((next.lane === "system" || next.lane === "ai") && backgroundJobsProcessed >= this.backgroundBatchSize) {
-          this.jobsByLane[next.lane].unshift(next);
-          shouldYieldForBackground = true;
-          break;
-        }
-        const jobStartedAt = this.now();
-        next.run();
-        if (this.onJobApplied) {
-          const jobDurationMs = Math.max(0, this.now() - jobStartedAt);
-          this.onJobApplied({
-            lane: next.lane,
-            durationMs: jobDurationMs,
-            ...(next.commandType ? { commandType: next.commandType } : {})
-          });
-        }
-        processedJobs += 1;
-        processedByLane[next.lane] += 1;
-        if (next.lane === "system" || next.lane === "ai") {
-          backgroundJobsProcessed += 1;
-        }
-        next = this.shiftNextJob();
-        if (currentDrainScheduling === "immediate" && next && (next.scheduling ?? "immediate") === "background") {
-          this.jobsByLane[next.lane].unshift(next);
-          shouldYieldForBackground = true;
-          break;
-        }
-      }
-    } finally {
-      this.draining = false;
-      if (processedJobs > 0) {
-        this.onQueueDrain?.({
-          durationMs: Math.max(0, this.now() - drainStartedAt),
-          processedJobs,
-          backgroundJobsProcessed,
-          yieldedForBackground: shouldYieldForBackground,
-          processedByLane,
-          queueDepthsBefore,
-          queueDepthsAfter: this.queueDepths()
-        });
-      }
-      if (this.hasQueuedJobs()) {
-        if (shouldYieldForBackground) {
-          this.scheduleAfter(0, () => this.drainQueues());
-        } else {
-          this.scheduleDrain(this.nextQueuedScheduling());
-        }
-      }
-    }
-  }
-
-  private nextQueuedScheduling(): "immediate" | "background" {
-    for (const lane of priorityOrder) {
-      const next = this.jobsByLane[lane][0];
-      if (next) return next.scheduling ?? "immediate";
-    }
-    return "immediate";
-  }
-
-  private shiftNextJob(): SimulationJob | undefined {
-    for (const lane of priorityOrder) {
-      const next = this.jobsByLane[lane].shift();
-      if (next) return next;
-    }
-    return undefined;
-  }
-
-  private hasQueuedJobs(): boolean {
-    return priorityOrder.some((lane) => this.jobsByLane[lane].length > 0);
+    drainQueuesImpl(this.jobQueueState());
   }
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): boolean {
@@ -3056,12 +2526,17 @@ export class SimulationRuntime {
     actor.points -= SETTLE_COST;
     const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target));
     const resolvesAt = input.startedAt + settleDurationMs;
-    this.addPendingSettlement({
-      ownerId: input.playerId,
-      tileKey: input.targetKey,
-      startedAt: input.startedAt,
-      resolvesAt,
-      goldCost: SETTLE_COST
+    addPendingSettlementImpl({
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      record: {
+        ownerId: input.playerId,
+        tileKey: input.targetKey,
+        startedAt: input.startedAt,
+        resolvesAt,
+        goldCost: SETTLE_COST
+      },
+      summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+      markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
     });
     this.emitEvent({
       eventType: "SETTLEMENT_STARTED",
@@ -3085,8 +2560,13 @@ export class SimulationRuntime {
         goldCost: SETTLE_COST
       };
       const currentSettlement = this.pendingSettlementsByTile.get(input.targetKey);
-      if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
-      this.removePendingSettlement(input.targetKey);
+      if (!pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
+      removePendingSettlementImpl({
+        pendingSettlementsByTile: this.pendingSettlementsByTile,
+        tileKey: input.targetKey,
+        summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+        markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
+      });
       const latest = this.tiles.get(input.targetKey);
       if (
         !latest ||
@@ -3265,7 +2745,14 @@ export class SimulationRuntime {
     }
     // DEV_ASSERT: cross-check index vs full scan in dev mode
     if (process.env.DEV_ASSERT_YIELD_INDEX === "1") {
-      this.assertYieldIndexCorrect(command.playerId, now, yieldContext);
+      assertYieldIndexCorrectImpl({
+          playerId: command.playerId,
+          tiles: this.tiles,
+          yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+          summary: this.summaryForPlayer(command.playerId),
+          now,
+          yieldContext
+        });
     }
     this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
     this.setPlayerYieldCollectionEpoch(command.commandId, command.playerId, now);
@@ -5521,10 +5008,23 @@ export class SimulationRuntime {
           applyTileToPlayerSummaries: (tileKey, tile) => this.applyTileToPlayerSummaries(tileKey, tile),
           tileSettledAtByKey: this.tileSettledAtByKey,
           fortPatrolGraceUntilByTile: this.fortPatrolGraceUntilByTile,
-          removeFrontierTileFromOwnerIndex: (tileKey, ownerId) => this.removeFrontierTileFromOwnerIndex(tileKey, ownerId),
-          refreshFortAnchorIndexForTile: (tileKey, previous, next) => this.refreshFortAnchorIndexForTile(tileKey, previous, next),
+          removeFrontierTileFromOwnerIndex: (tileKey, ownerId) => removeFrontierTileFromOwnerIndex(this.frontierTilesByOwner, tileKey, ownerId),
+          refreshFortAnchorIndexForTile: (tileKey, previous, next) => refreshFortAnchorIndexForTile({
+            activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
+            tileKey,
+            previous,
+            next
+          }),
           cancelPendingSettlementIfOwnerChanged: (tileKey, nextOwnerId, commandId) =>
-            this.cancelPendingSettlementIfOwnerChanged(tileKey, nextOwnerId, commandId),
+            cancelPendingSettlementIfOwnerChangedImpl({
+            pendingSettlementsByTile: this.pendingSettlementsByTile,
+            tileKey,
+            nextOwnerId,
+            commandId,
+            summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+            markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId),
+            emitPlayerStateUpdate: (update) => this.emitPlayerStateUpdate(update)
+          }),
           summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
           markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
         });
