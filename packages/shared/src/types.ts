@@ -285,7 +285,7 @@ export interface Tile {
     gold: number;
     strategicEach: number;
   };
-  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; disabledUntil?: number };
+  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; disabledUntil?: number; garrison?: number; garrisonCap?: number; garrisonUpdatedAt?: number };
   siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number };
   observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; cooldownUntil?: number };
   economicStructure?: {
@@ -300,6 +300,14 @@ export interface Tile {
   sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number };
   history?: TileHistory;
   lastChangedAt: number;
+  muster?: {
+    ownerId: string;
+    amount: number;
+    mode: "HOLD" | "ADVANCE";
+    targetX?: number;
+    targetY?: number;
+    updatedAt: number;
+  };
 }
 
 export interface StatsMods {

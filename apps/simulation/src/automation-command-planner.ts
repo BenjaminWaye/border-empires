@@ -311,6 +311,7 @@ const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
     hasWeakEnemyBorder,
     hasSiegeOutpostSite: Boolean(siegeOutpostBuild && frontierAnalysis.enemyAttack),
     attackReady: strategic.attackReady,
+    musterReady: strategic.musterReady,
     needsSettlement: Boolean(actionableFallbackSettlementCandidate),
     frontierDebtHigh: frontierAnalysis.frontierNeutralTargetCount >= 3,
     foodCoverageLow: context.needsFood,
@@ -358,6 +359,16 @@ const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
     case "attack_enemy_border_tile":
       return frontierAnalysis.enemyAttack && canAttack && strategic.attackReady && hasWeakEnemyBorder
         ? buildPlannerFrontierCommand(context, frontierAnalysis.enemyAttack, "ATTACK")
+        : undefined;
+    case "place_muster":
+      // Under muster system, AI stages manpower on the best attack origin with ADVANCE
+      // mode. The muster tick + ADVANCE auto-fire handle the actual attack.
+      return frontierAnalysis.enemyAttack && strategic.musterReady && hasWeakEnemyBorder
+        ? buildPlannerCommand(context, "SET_MUSTER", {
+            x: frontierAnalysis.enemyAttack.from.x,
+            y: frontierAnalysis.enemyAttack.from.y,
+            mode: "ADVANCE"
+          })
         : undefined;
     case "build_siege_outpost":
       return siegeOutpostBuild

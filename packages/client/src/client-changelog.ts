@@ -21,8 +21,20 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.03.1",
   title: "What's New",
-  summary: "Town food-upkeep is now always visible in the tile overview for CITY+ towns. Reveal Empire now launches a one-shot 3D beacon when cast, and the build pipeline has been unified behind a single structure command.",
+  summary: "Mustering system (beta, flag-gated): stage manpower on border tiles and set ADVANCE for auto-fire attacks. Forts now hold a garrison that scales their defense bonus. Barbarian tiles can be cheaply raided directly from your manpower pool.",
   entries: [
+    {
+      introducedIn: "2026.06.03.1",
+      title: "Mustering & The Advance (beta)",
+      why: "Direct pool attacks give no tactical readout — muster accumulation makes the build-up visible so defenders can counter-prepare, and slows the pace of border fights to match strategic intent.",
+      changes: [
+        "Tile menu: 'Stage Muster' on owned land tiles — set HOLD to accumulate, ADVANCE to auto-fire when full",
+        "Muster fill bars appear above tiles as manpower accumulates (owner-colored). Outposts act as depot zones that fill at 2× speed.",
+        "Forts show a gold garrison bar. Garrison scales defense bonus — attack a fort repeatedly to wear it down before breaking through. Garrison refills from overflow regen when your pool is full.",
+        "Barbarian raid: attacking a barb tile costs only a small pool fee, no staging required — great for clearing territory fast.",
+        "Manpower HUD chip now shows logistics throughput (→ X/m) alongside your regen rate.",
+      ]
+    },
     {
       introducedIn: "2026.06.03.1",
       title: "Town food upkeep always visible in tile overview",
@@ -302,26 +314,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "The waypoint planner picked any shortest path, so among equal-length routes it could weave (N-E-N-E) or overshoot before doubling back, even when a clean straight or diagonal line reached the target.",
       changes: [
         "Waypoint routing now adds a tiny per-turn tiebreaker so equal-length paths prefer the fewest direction changes: a target due in one direction expands in a straight line, a pure-diagonal target expands diagonally, and mixed targets keep their straight runs grouped (and connected) rather than zigzagging."
-      ]
-    },
-    {
-      introducedIn: "2026.05.27.2",
-      title: "Capture pop-loss indicator now readable through smoke",
-      why: "The floating \"-N pop\" label spawned inside the captured-town smoke column at a small size with a heavy black outline, so the red fill was largely covered and the text read as white at a glance. It also barely moved, making it easy to miss next to the dramatic smoke effect.",
-      changes: [
-        "Label is larger (3.2x sprite scale, 96px bold canvas font) with a soft shadow instead of a chunky outline, so the red fill dominates and the text reads at a glance.",
-        "Color saturated to #ff2d2d so it reads as red, not washed-out coral.",
-        "Now rises ~4.2 world units over 3.2s with an ease-out curve and a brief pop-in scale, so it clearly floats away above the smoke instead of sitting inside it.",
-        "renderOrder bumped to 9999 so the label always paints over the smoke puffs."
-      ]
-    },
-    {
-      introducedIn: "2026.05.27.1",
-      title: "Settle a whole frontier pocket in one tap",
-      why: "Settling each tile of a freshly captured pocket one click at a time was tedious; the new 'Settle Connected (N)' action in the tile menu queues every connected frontier tile you own.",
-      changes: [
-        "Frontier tile menu now shows 'Settle Connected (N)' when 2+ of your frontier tiles are connected.",
-        "Each tile still costs the standard settle gold and uses a development slot — extras are queued FIFO like manual settles."
       ]
     },
   ]

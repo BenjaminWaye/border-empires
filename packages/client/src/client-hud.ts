@@ -441,10 +441,11 @@ export const renderClientHud = (deps: HudDeps): void => {
   const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(1)}/m`;
   const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
   const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
+  const logisticsText = state.logisticsThroughputPerMinute > 0 ? `→ ${state.logisticsThroughputPerMinute.toFixed(1)}/m` : "";
   dom.statsChipsEl.innerHTML = `
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
-    <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}</strong></button>
+    <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}${logisticsText ? `<em class="stat-chip-rate stat-chip-logistics" title="Muster logistics throughput">${logisticsText}</em>` : ""}</strong></button>
     <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Fat blob shapes with fewer open sides are easier to defend. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
