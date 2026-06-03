@@ -18,6 +18,7 @@ import {
 } from "@border-empires/game-domain";
 import {
   ATTACK_MANPOWER_MIN,
+  MUSTER_SYSTEM_ENABLED,
   SWEEP_BUDGET_CAP,
   SWEEP_RADIUS_BY_VARIANT,
   BARBARIAN_MULTIPLY_THRESHOLD,
@@ -221,6 +222,8 @@ import {
   parseRevealPayload,
   parseSettlePayload,
   parseSiegeOutpostSweepPayload,
+  parseSetMusterPayload,
+  parseClearMusterPayload,
   parseStructureTilePayload,
   parseTilePayload,
   parseWorldEngineStrikePayload
@@ -6052,6 +6055,101 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate(command);
   }
 
+  private handleSetMusterCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseSetMusterPayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    if (!MUSTER_SYSTEM_ENABLED) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "MUSTER_DISABLED",
+        message: "muster system is not enabled"
+      });
+      return;
+    }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+    const target = this.tiles.get(targetKey);
+    if (!target || target.ownerId !== command.playerId || target.terrain !== "LAND") {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "MUSTER_INVALID",
+        message: "owned LAND tile required to muster"
+      });
+      return;
+    }
+    const updatedTile: DomainTileState = {
+      ...target,
+      muster: {
+        ownerId: command.playerId,
+        amount: target.muster?.ownerId === command.playerId ? target.muster.amount : 0,
+        mode: payload.mode,
+        ...(typeof payload.targetX === "number" ? { targetX: payload.targetX } : {}),
+        ...(typeof payload.targetY === "number" ? { targetY: payload.targetY } : {}),
+        updatedAt: this.now()
+      }
+    };
+    this.replaceTileState(targetKey, updatedTile, command.commandId);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+    this.emitPlayerStateUpdate(command);
+  }
+
+  private handleClearMusterCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseClearMusterPayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+    const target = this.tiles.get(targetKey);
+    if (!target || target.ownerId !== command.playerId || !target.muster) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "MUSTER_INVALID",
+        message: "no muster on owned tile"
+      });
+      return;
+    }
+    // Mustered manpower is destroyed, not refunded.
+    const updatedTile: DomainTileState = { ...target, muster: undefined };
+    this.replaceTileState(targetKey, updatedTile, command.commandId);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      // Explicit empty string signals a clear over the wire (JSON drops
+      // `undefined` keys), mirroring how structure clears are emitted.
+      tileDeltas: [{ ...this.tileDeltaFromState(updatedTile), musterJson: "" }]
+    });
+    this.emitPlayerStateUpdate(command);
+  }
+
   private handleCancelFortBuildCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseStructureTilePayload(command.payloadJson);
@@ -7212,6 +7310,8 @@ export class SimulationRuntime {
         command.type !== "WORLD_ENGINE_STRIKE" &&
         command.type !== "UPGRADE_TOWN_TIER" &&
         command.type !== "COLLECT_SHARD" &&
+        command.type !== "SET_MUSTER" &&
+        command.type !== "CLEAR_MUSTER" &&
         command.type !== "SYNC_ALLIANCE"
       ) {
         this.emitEvent({
@@ -7247,6 +7347,16 @@ export class SimulationRuntime {
 
       if (command.type === "SET_SIEGE_OUTPOST_SWEEP") {
         this.handleSetSiegeOutpostSweepCommand(command);
+        return;
+      }
+
+      if (command.type === "SET_MUSTER") {
+        this.handleSetMusterCommand(command);
+        return;
+      }
+
+      if (command.type === "CLEAR_MUSTER") {
+        this.handleClearMusterCommand(command);
         return;
       }
 
