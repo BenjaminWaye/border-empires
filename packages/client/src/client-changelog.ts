@@ -19,17 +19,27 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.8",
+  version: "2026.06.02.9",
   title: "What's New",
-  summary: "Reveal Empire now has one-shot 3D cast feedback. The food economy has been reworked with perishable fish, food-paid growth, and manual tier upgrades.",
+  summary: "Reveal Empire now launches a one-shot 3D beacon when cast. The build pipeline has been unified behind a single structure command, and the food economy has been reworked with perishable fish, food-paid growth, and manual tier upgrades.",
   entries: [
     {
-      introducedIn: "2026.06.02.8",
+      introducedIn: "2026.06.02.9",
       title: "Reveal Empire gets a beacon cast flourish",
       why: "Reveal Empire changes long-running visibility, but the cast moment itself had no 3D feedback when the player selected a hostile tile.",
       changes: [
         "Casting Reveal Empire now launches a one-shot 3D beacon upward from the selected hostile tile, with a light trail, reveal halo, cartography sweep, and rising map-fragment motes.",
         "The effect is client-only feedback and does not add synced persistent state."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.8",
+      title: "Unified build pipeline",
+      why: "Four separate build messages (BUILD_FORT, BUILD_OBSERVATORY, BUILD_SIEGE_OUTPOST, BUILD_ECONOMIC_STRUCTURE) each had their own handler, costing tables, and validation paths — making it hard to add new structures, inconsistent between upgrade tiers, and the source of the LIGHT_OUTPOST type-lie.",
+      changes: [
+        "All build actions now use a single BUILD_STRUCTURE message with a structureType field.",
+        "Build menus and queuing are unchanged — this is a behind-the-scenes consolidation.",
+        "No gameplay changes."
       ]
     },
     {

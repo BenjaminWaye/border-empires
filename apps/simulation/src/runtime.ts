@@ -100,6 +100,7 @@ import {
   DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY
 } from "./command-event-lifecycle.js";
 import { laneForCommand, type QueueLane } from "./command-lane.js";
+import { commandScheduling, dispatchRuntimeCommand } from "./runtime-command-dispatch.js";
 import { isFrontierAdjacent } from "./frontier-adjacency.js";
 import {
   buildDockLinksByDockTileKey,
@@ -117,24 +118,14 @@ import {
   FORT_PATROL_GRACE_MS,
   isActiveFortAnchor,
   isSettledTownAnchor,
-  MAX_FORT_AUTO_FRONTIER_RADIUS,
   orderedAutoSettlementTileKeys,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "./territory-automation.js";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import {
-  candidateIndexKeysAroundTileKey,
-  isBuildCandidateTile,
-  isHotFrontierTile,
-  isStrategicFrontierTile,
-  playerIdsAffectedByTileChange
-} from "./planner-candidate-index.js";
-import {
-  addPendingSettlementToSummary,
   applyTileToPlayerSummary,
   cloneStrategicProduction,
   createEmptyPlayerRuntimeSummary,
-  removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
   type PendingSettlementRecord,
   type PlayerRuntimeSummary
@@ -183,6 +174,7 @@ import {
   type AutomationPlannerDiagnostic
 } from "./automation-command-planner.js";
 import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
+import { rememberedAutomationVictoryPathCounts } from "./runtime-automation-victory-path-counts.js";
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import {
   AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS,
@@ -237,7 +229,7 @@ import {
 } from "./runtime-hydration.js";
 import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "./encirclement.js";
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
-import { PlayerCandidateIndex, MAX_SWEEP_RADIUS } from "./player-candidate-index.js";
+import { PlayerCandidateIndex } from "./player-candidate-index.js";
 import { domainTileToWireDelta } from "./runtime-tile-deltas.js";
 import {
   FOREST_SETTLEMENT_MULT,
@@ -321,12 +313,55 @@ import {
   supportedTownKeysForTile as supportedTownKeysForTileImpl
 } from "./runtime-structure-support.js";
 import { tickPopulationGrowth as tickPopulationGrowthImpl } from "./runtime-population-growth.js";
+import { ownedTileCountForPlayer } from "./runtime-owned-tile-count.js";
+import { addStrategicResource, spendStrategicResource, strategicResourceAmount } from "./runtime-player-resources.js";
+import {
+  applyEconomyAccrual as applyEconomyAccrualImpl,
+  applyManpowerRegen as applyManpowerRegenImpl,
+  cachedDefensibilityMetrics as cachedDefensibilityMetricsImpl,
+  cachedEconomySnapshot as cachedEconomySnapshotImpl,
+  cachedUpkeepAccrual as cachedUpkeepAccrualImpl,
+  effectiveRuntimeManpowerAt,
+  playerManpowerBreakdown as playerManpowerBreakdownImpl,
+  playerManpowerCap as playerManpowerCapImpl,
+  playerManpowerRegenPerMinute as playerManpowerRegenPerMinuteImpl,
+  refreshManpowerOnly as refreshManpowerOnlyImpl,
+  type RuntimeEconomyAccrualContext
+} from "./runtime-economy-accrual.js";
+import {
+  addPendingSettlement as addPendingSettlementImpl,
+  cancelPendingSettlementIfOwnerChanged as cancelPendingSettlementIfOwnerChangedImpl,
+  pendingSettlementMatches,
+  pendingSettlementsSnapshotForPlayer,
+  removePendingSettlement as removePendingSettlementImpl
+} from "./runtime-pending-settlements.js";
 import {
   tickOrphanedLockSweep as tickOrphanedLockSweepImpl,
   tickTileShedding as tickTileSheddingImpl
 } from "./runtime-maintenance-ticks.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "./runtime-shard-rain-tick.js";
+import {
+  drainQueues as drainQueuesImpl,
+  enqueueJob as enqueueJobImpl,
+  queueBacklogMs as queueBacklogMsImpl,
+  queueDepths as queueDepthsImpl,
+  scheduleDrain as scheduleDrainImpl,
+  type RuntimeJobQueueState
+} from "./runtime-job-queue.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "./runtime-territory-automation-tick.js";
+import {
+  addFrontierTileToOwnerIndex,
+  addYieldBearingTileToOwnerIndex,
+  assertYieldIndexCorrect as assertYieldIndexCorrectImpl,
+  refreshFortAnchorIndexForTile,
+  refreshPlayerCandidateIndexAnchorForTile,
+  refreshPlannerCandidateIndexesAroundTileChange,
+  refreshRuntimeTileIndexesForChange,
+  registerRuntimeTileAnchor,
+  removeFrontierTileFromOwnerIndex,
+  rebuildPlannerCandidateIndexesForPlayer,
+  isYieldBearingTile
+} from "./runtime-tile-index-maintenance.js";
 import {
   bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
   updateFrontierDecay as updateFrontierDecayImpl
@@ -574,21 +609,6 @@ export class SimulationRuntime {
     return focus;
   }
 
-  private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
-    const counts: Partial<Record<AutomationVictoryPath, number>> = {
-      TOWN_CONTROL: 0,
-      ECONOMIC_HEGEMONY: 0,
-      RESOURCE_MONOPOLY: 0,
-      MARITIME_SUPREMACY: 0,
-      DIPLOMATIC_DOMINANCE: 0
-    };
-    for (const [playerId, victoryPath] of this.rememberedAutomationVictoryPathByPlayer.entries()) {
-      if ((this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0) <= 0) continue;
-      counts[victoryPath] = (counts[victoryPath] ?? 0) + 1;
-    }
-    return counts;
-  }
-
   constructor(options: SimulationRuntimeOptions = {}) {
     const seedWorld = options.initialPlayers && options.seedTiles ? undefined : createSeedWorld(options.seedProfile);
     this.now = options.now ?? (() => Date.now());
@@ -648,26 +668,21 @@ export class SimulationRuntime {
             ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
             : site.expiresAt;
       }
-      // Part 1: populate frontierTilesByOwner index.
       if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
-        let set = this.frontierTilesByOwner.get(tile.ownerId);
-        if (!set) { set = new Set<string>(); this.frontierTilesByOwner.set(tile.ownerId, set); }
-        set.add(tileKey);
+        addFrontierTileToOwnerIndex(this.frontierTilesByOwner, tileKey, tile.ownerId);
       }
-      // Populate yieldBearingTilesByOwner index.
-      if (this.isYieldBearing(tile) && tile.ownerId) {
-        let set = this.yieldBearingTilesByOwner.get(tile.ownerId);
-        if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(tile.ownerId, set); }
-        set.add(tileKey);
+      if (isYieldBearingTile(tile) && tile.ownerId) {
+        addYieldBearingTileToOwnerIndex(this.yieldBearingTilesByOwner, this.sortedYieldBearingKeysByOwner, tileKey, tile.ownerId);
       }
       // Populate ownedStructureCountByPlayerByType. Each structure slot has its
       // own ownerId — count by structure ownership, not by tile ownership,
       // to mirror the original ownedStructureCountForPlayer semantics.
-      if (tile.fort?.ownerId) this.adjustOwnedStructureCount(tile.fort.ownerId, "FORT", 1);
-      if (tile.observatory?.ownerId) this.adjustOwnedStructureCount(tile.observatory.ownerId, "OBSERVATORY", 1);
-      if (tile.siegeOutpost?.ownerId) this.adjustOwnedStructureCount(tile.siegeOutpost.ownerId, "SIEGE_OUTPOST", 1);
+      if (tile.fort?.ownerId) adjustOwnedStructureCountImpl(this.ownedStructureCountByPlayerByType, tile.fort.ownerId, "FORT", 1);
+      if (tile.observatory?.ownerId) adjustOwnedStructureCountImpl(this.ownedStructureCountByPlayerByType, tile.observatory.ownerId, "OBSERVATORY", 1);
+      if (tile.siegeOutpost?.ownerId) adjustOwnedStructureCountImpl(this.ownedStructureCountByPlayerByType, tile.siegeOutpost.ownerId, "SIEGE_OUTPOST", 1);
       if (tile.economicStructure?.ownerId) {
-        this.adjustOwnedStructureCount(
+        adjustOwnedStructureCountImpl(
+          this.ownedStructureCountByPlayerByType,
           tile.economicStructure.ownerId,
           tile.economicStructure.type as BuildableStructureType,
           1
@@ -679,52 +694,15 @@ export class SimulationRuntime {
     // kind — time-dependent radius (e.g. FORT_PATROL_GRACE_MS) is applied at the
     // call site, not stored here, to prevent stale maxRadius bugs.
     for (const [tileKey, tile] of this.tiles.entries()) {
-      if (!tile.ownerId) continue;
-      const ownerId = tile.ownerId;
-      // Fort kind: active fort (any variant, including patrol-grace) or active WOODEN_FORT.
-      if (
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "WOODEN_FORT" &&
-        tile.economicStructure.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        this.registerFortSupportAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
-      } else if (
-        tile.fort?.ownerId === ownerId &&
-        tile.fort.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        this.registerFortSupportAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
-      } else if (isSettledTownAnchor(tile, ownerId)) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        this.registerFortSupportAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS);
-      } else if (
-        tile.siegeOutpost?.ownerId === ownerId &&
-        tile.siegeOutpost.status === "active" &&
-        tile.siegeOutpost.sweepActive
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_SWEEP_RADIUS, (k) => this.tiles.get(k));
-        // NOTE: siege outposts are NOT registered in activeFortAnchorsByOwner (by design)
-      }
-      // Populate activeSiegeOutpostsByOwner index
-      if (tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active") {
-        let set = this.activeSiegeOutpostsByOwner.get(ownerId);
-        if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(ownerId, set); }
-        set.add(tileKey);
-      }
-      // Populate activeLightOutpostsByOwner index
-      if (
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "LIGHT_OUTPOST" &&
-        tile.economicStructure.status === "active"
-      ) {
-        let set = this.activeLightOutpostsByOwner.get(ownerId);
-        if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(ownerId, set); }
-        set.add(tileKey);
-      }
+      registerRuntimeTileAnchor({
+        playerCandidateIndex: this.playerCandidateIndex,
+        activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
+        activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+        activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
+        tiles: this.tiles,
+        tileKey,
+        tile
+      });
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
@@ -741,17 +719,32 @@ export class SimulationRuntime {
       for (const [tileKey, tier] of currentTowns) summary.ownedTownTierByTile.set(tileKey, tier);
     }
     for (const playerId of this.players.keys()) {
-      this.rebuildPlannerCandidateIndexesForPlayer(playerId);
+      rebuildPlannerCandidateIndexesForPlayer({
+        playerId,
+        tiles: this.tiles,
+        summary: this.summaryForPlayer(playerId),
+        markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
+      });
     }
     for (const pendingSettlement of options.initialState?.pendingSettlements ?? []) {
       const pendingTile = this.tiles.get(pendingSettlement.tileKey);
       if (!pendingTile || pendingTile.ownerId !== pendingSettlement.ownerId || pendingTile.ownershipState !== "FRONTIER") continue;
-      this.addPendingSettlement({ ...pendingSettlement });
+      addPendingSettlementImpl({
+        pendingSettlementsByTile: this.pendingSettlementsByTile,
+        record: { ...pendingSettlement },
+        summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+        markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
+      });
       const delayMs = Math.max(0, pendingSettlement.resolvesAt - this.now());
       this.scheduleAfter(delayMs, () => {
         const currentSettlement = this.pendingSettlementsByTile.get(pendingSettlement.tileKey);
-        if (!this.pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
-        this.removePendingSettlement(pendingSettlement.tileKey);
+        if (!pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
+        removePendingSettlementImpl({
+          pendingSettlementsByTile: this.pendingSettlementsByTile,
+          tileKey: pendingSettlement.tileKey,
+          summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+          markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
+        });
         const latest = this.tiles.get(pendingSettlement.tileKey);
         if (!latest || latest.ownerId !== pendingSettlement.ownerId) {
           this.emitPlayerStateUpdate({ commandId: `recovered-settle:${pendingSettlement.tileKey}`, playerId: pendingSettlement.ownerId });
@@ -1105,25 +1098,29 @@ export class SimulationRuntime {
   }
 
   queueDepths(): Record<QueueLane, number> {
-    return {
-      human_interactive: this.jobsByLane.human_interactive.length,
-      human_noninteractive: this.jobsByLane.human_noninteractive.length,
-      system: this.jobsByLane.system.length,
-      ai: this.jobsByLane.ai.length
-    };
+    return queueDepthsImpl({ jobsByLane: this.jobsByLane });
   }
 
   queueBacklogMs(nowMs = this.now()): Record<QueueLane, number> {
-    const backlogFor = (lane: QueueLane): number => {
-      const oldest = this.jobsByLane[lane][0];
-      if (!oldest) return 0;
-      return Math.max(0, nowMs - oldest.enqueuedAt);
-    };
+    return queueBacklogMsImpl({ jobsByLane: this.jobsByLane }, nowMs);
+  }
+
+  private jobQueueState(): RuntimeJobQueueState {
     return {
-      human_interactive: backlogFor("human_interactive"),
-      human_noninteractive: backlogFor("human_noninteractive"),
-      system: backlogFor("system"),
-      ai: backlogFor("ai")
+      jobsByLane: this.jobsByLane,
+      priorityOrder,
+      backgroundBatchSize: this.backgroundBatchSize,
+      now: this.now,
+      scheduleSoon: this.scheduleSoon,
+      scheduleAfter: this.scheduleAfter,
+      getDraining: () => this.draining,
+      setDraining: (value) => { this.draining = value; },
+      getDrainScheduled: () => this.drainScheduled,
+      setDrainScheduled: (value) => { this.drainScheduled = value; },
+      getImmediateDrainScheduled: () => this.immediateDrainScheduled,
+      setImmediateDrainScheduled: (value) => { this.immediateDrainScheduled = value; },
+      ...(this.onQueueDrain ? { onQueueDrain: this.onQueueDrain } : {}),
+      ...(this.onJobApplied ? { onJobApplied: this.onJobApplied } : {})
     };
   }
 
@@ -1167,336 +1164,68 @@ export class SimulationRuntime {
     return next;
   }
 
+  private economyAccrualContext(): RuntimeEconomyAccrualContext {
+    return {
+      tiles: this.tiles,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey,
+      economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
+      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
+      upkeepAccrualReadCountByPlayer: this.upkeepAccrualReadCountByPlayer,
+      defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
+      lastEconomyAccrualAtByPlayer: this.lastEconomyAccrualAtByPlayer,
+      playerSummaries: this.playerSummaries,
+      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+      sortedYieldBearingKeysByOwner: this.sortedYieldBearingKeysByOwner,
+      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
+      replayCache: this.replayCache,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
+      tileYieldCollectedAt: (tileKey, ownerId) => this.tileYieldCollectedAt(tileKey, ownerId),
+      emitEvent: (event) => this.emitEvent(event)
+    };
+  }
+
   private playerManpowerCap(player: RuntimePlayer): number {
-    if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
-    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id));
+    return playerManpowerCapImpl(this.economyAccrualContext(), player);
   }
 
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
-    return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id));
+    return playerManpowerRegenPerMinuteImpl(this.economyAccrualContext(), player);
   }
 
   private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
-    return playerManpowerBreakdownFromSummary(this.summaryForPlayer(player.id));
+    return playerManpowerBreakdownImpl(this.economyAccrualContext(), player);
   }
 
   private effectiveManpowerAt(player: RuntimePlayer, nowMs = this.now()): number {
-    const cap = this.playerManpowerCap(player);
-    return effectiveManpowerAt(player, cap, this.playerManpowerRegenPerMinute(player), nowMs);
+    return effectiveRuntimeManpowerAt(this.economyAccrualContext(), player, nowMs);
   }
 
   private applyManpowerRegen(player: RuntimePlayer, nowMs = this.now()): void {
-    this.applyEconomyAccrual(player, nowMs);
-    this.refreshManpowerOnly(player, nowMs);
+    applyManpowerRegenImpl(this.economyAccrualContext(), player, nowMs);
   }
 
-  /**
-   * Manpower-only variant of {@link applyManpowerRegen} that skips the
-   * economy-accrual side effect. The accrual is O(territory tiles) per call
-   * (it sorts the player's territory tile keys for upkeep collection); doing
-   * it per player on every planner-state export was the dominant source of
-   * the recurring 1.4-2.0 s `sync_players_export` block on staging. Skipping
-   * here is safe because the accrual still runs on every real command path
-   * and on the periodic tick, so player gold/resources catch up within a
-   * single planner cycle.
-   */
   private refreshManpowerOnly(player: RuntimePlayer, nowMs = this.now()): void {
-    const cap = this.playerManpowerCap(player);
-    if (!Number.isFinite(player.manpower)) {
-      player.manpower = cap;
-      player.manpowerUpdatedAt = nowMs;
-      player.manpowerCapSnapshot = cap;
-      return;
-    }
-    const previousCap = Number.isFinite(player.manpowerCapSnapshot) ? player.manpowerCapSnapshot! : cap;
-    if (cap > previousCap) {
-      player.manpower = Math.min(cap, Math.max(0, player.manpower) + (cap - previousCap));
-    }
-    if (!Number.isFinite(player.manpowerUpdatedAt)) {
-      player.manpower = Math.max(0, Math.min(cap, player.manpower));
-      player.manpowerUpdatedAt = nowMs;
-      player.manpowerCapSnapshot = cap;
-      return;
-    }
-    player.manpower = this.effectiveManpowerAt(player, nowMs);
-    player.manpowerUpdatedAt = nowMs;
-    player.manpowerCapSnapshot = cap;
+    refreshManpowerOnlyImpl(this.economyAccrualContext(), player, nowMs);
   }
 
-  /**
-   * Returns a cached PlayerUpdateEconomySnapshot for the player, rebuilding it
-   * only when the cache has been invalidated (i.e., a tile affecting this
-   * player's income changed via replaceTileState).
-   *
-   * The snapshot is built with full dock context so both the accrual path and
-   * the emit path share a single entry.  The dock context affects only
-   * `incomePerMinute` (display), not the upkeep rates consumed by accrual math,
-   * so this is safe for all callers.
-   *
-   * Cache miss cost: O(settled tiles).  Cache hit cost: O(1).
-   * Invalidated on every replaceTileState — O(1) per mutation.
-   */
   private cachedEconomySnapshot(player: RuntimePlayer): PlayerUpdateEconomySnapshot {
-    const cached = this.economySnapshotCacheByPlayer.get(player.id);
-    if (cached) return cached;
-    const summary = this.summaryForPlayer(player.id);
-    const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
-      dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    });
-    this.economySnapshotCacheByPlayer.set(player.id, snapshot);
-    return snapshot;
+    return cachedEconomySnapshotImpl(this.economyAccrualContext(), player);
   }
 
-  /**
-   * Returns the incremental upkeep accrual snapshot for `player`.
-   * Cache hit: O(1).  Cache miss (first access or after tech/domain change): O(settled tiles).
-   * Kept warm by replaceTileState O(1) add/subtract on every tile mutation.
-   *
-   * Every UPKEEP_ACCRUAL_REBUILD_INTERVAL reads we force a full rebuild to bound
-   * floating-point drift from the running add/subtract sum over a long-lived
-   * season. Drift per op is ~1e-16 relative, so this is defense-in-depth; the
-   * interval keeps the periodic O(settled-tiles) rebuild rare.
-   */
   private cachedUpkeepAccrual(player: RuntimePlayer): UpkeepAccrualSnapshot {
-    const reads = (this.upkeepAccrualReadCountByPlayer.get(player.id) ?? 0) + 1;
-    this.upkeepAccrualReadCountByPlayer.set(player.id, reads);
-    if (reads % UPKEEP_ACCRUAL_REBUILD_INTERVAL === 0) {
-      this.upkeepAccrualCacheByPlayer.delete(player.id);
-    }
-    const cached = this.upkeepAccrualCacheByPlayer.get(player.id);
-    if (cached) return cached;
-    const snapshot = buildUpkeepAccrualSnapshot(player.id, player, this.tiles);
-    this.upkeepAccrualCacheByPlayer.set(player.id, snapshot);
-    return snapshot;
+    return cachedUpkeepAccrualImpl(this.economyAccrualContext(), player);
   }
 
   private cachedDefensibilityMetrics(
     playerId: string,
     summary: PlayerRuntimeSummary
   ): { T: number; E: number; Ts: number; Es: number } {
-    const cached = this.defensibilityMetricsCacheByPlayer.get(playerId);
-    if (cached) return cached;
-    const metrics = buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys);
-    this.defensibilityMetricsCacheByPlayer.set(playerId, metrics);
-    return metrics;
+    return cachedDefensibilityMetricsImpl(this.economyAccrualContext(), playerId, summary);
   }
 
   private applyEconomyAccrual(player: RuntimePlayer, nowMs = this.now()): void {
-    const last = this.lastEconomyAccrualAtByPlayer.get(player.id);
-    if (last === undefined) {
-      this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
-      return;
-    }
-    const elapsedMs = nowMs - last;
-    if (elapsedMs <= 0) return;
-    if (!this.playerSummaries.has(player.id)) {
-      this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
-      return;
-    }
-    // Use the incremental upkeep cache (stays warm across mutations via
-    // replaceTileState; O(1) per tile change).  The full cachedEconomySnapshot
-    // is NOT read here — that would rebuild O(settled-tiles) on every cache miss
-    // caused by a tile mutation.  Income accrual (gold/min from towns) is handled
-    // separately in the tile-yield path; this path covers upkeep drain only.
-    const upkeep = this.cachedUpkeepAccrual(player);
-    // DEV_ASSERT_ECONOMY_INCREMENTAL: on-demand cross-check against full snapshot.
-    // Enable with DEV_ASSERT_ECONOMY_INCREMENTAL=1 in env; OFF by default.
-    if (process.env["DEV_ASSERT_ECONOMY_INCREMENTAL"] === "1") {
-      const full = buildPlayerUpdateEconomySnapshot(player, this.summaryForPlayer(player.id), this.tiles, {
-        dockLinksByDockTileKey: this.dockLinksByDockTileKey
-      });
-      // Round both sides to 4dp to match buildPlayerUpdateEconomySnapshot's
-      // toFixed(4) on upkeepPerMinute — avoids false positives from raw-float
-      // rounding noise below the gameplay-significant precision.
-      const round4 = (n: number): number => Number(n.toFixed(4));
-      const mismatches: string[] = [];
-      for (const key of ["gold", "food", "iron", "crystal", "supply", "oil"] as const) {
-        const inc = round4(upkeep[key]);
-        const fullV = round4((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
-        if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);
-      }
-      if (mismatches.length > 0) {
-        // eslint-disable-next-line no-console
-        console.error(`[DEV_ASSERT_ECONOMY_INCREMENTAL] player=${player.id} mismatch: ${mismatches.join(", ")}`);
-      }
-    }
-    const summary = this.summaryForPlayer(player.id);
-    const elapsedMinutes = elapsedMs / 60_000;
-    // Clockwork Stipend: credit the player's chosen resource trickle BEFORE
-    // upkeep drain, so the trickle helps cover upkeep on a starved empire
-    // instead of being instantly clawed back.
-    const trickle = chosenTrickleRateForPlayer(player);
-    if (trickle && trickle.ratePerMinute > 0) {
-      const credit = trickle.ratePerMinute * elapsedMinutes;
-      if (credit > 0) {
-        const current = player.strategicResources ?? {};
-        player.strategicResources = {
-          ...current,
-          [trickle.resource]: (current[trickle.resource] ?? 0) + credit
-        };
-      }
-    }
-    const need: UpkeepNeed = {
-      gold: Math.max(0, upkeep.gold) * elapsedMinutes,
-      FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
-      IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
-      CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
-      SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes,
-      OIL: Math.max(0, upkeep.oil) * elapsedMinutes
-    };
-    // Towns pay their own upkeep from accumulated yield before raiding the
-    // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
-    // so an offline player whose tile income covers upkeep keeps the
-    // stockpile they logged out with.
-    this.consumeUpkeepFromTileYield(player, summary, need, nowMs);
-    if (need.gold > 0) {
-      player.points = Math.max(0, (player.points ?? 0) - need.gold);
-    }
-    const stock = {
-      FOOD: player.strategicResources?.FOOD ?? 0,
-      IRON: player.strategicResources?.IRON ?? 0,
-      CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-      SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-      SHARD: player.strategicResources?.SHARD ?? 0,
-      OIL: player.strategicResources?.OIL ?? 0
-    };
-    let mutated = false;
-    if (need.FOOD > 0) {
-      stock.FOOD = Math.max(0, stock.FOOD - need.FOOD);
-      mutated = true;
-    }
-    if (need.IRON > 0) {
-      stock.IRON = Math.max(0, stock.IRON - need.IRON);
-      mutated = true;
-    }
-    if (need.CRYSTAL > 0) {
-      stock.CRYSTAL = Math.max(0, stock.CRYSTAL - need.CRYSTAL);
-      mutated = true;
-    }
-    if (need.SUPPLY > 0) {
-      stock.SUPPLY = Math.max(0, stock.SUPPLY - need.SUPPLY);
-      mutated = true;
-    }
-    if (need.OIL > 0) {
-      stock.OIL = Math.max(0, stock.OIL - need.OIL);
-      mutated = true;
-    }
-    if (mutated) player.strategicResources = stock;
-    this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
-  }
-
-  private consumeUpkeepFromTileYield(
-    player: RuntimePlayer,
-    summary: PlayerRuntimeSummary,
-    need: UpkeepNeed,
-    nowMs: number
-  ): void {
-    if (!hasOutstandingUpkeepNeed(need)) return;
-    if (summary.territoryTileKeys.size <= 0) return;
-    let economyContext: RuntimeTileYieldEconomyContext | undefined;
-    // Use yield-bearing index to skip plain settled tiles that produce nothing.
-    // Sort for deterministic drain order — same as the old full-territory sort.
-    // The sorted array is cached (sortedYieldBearingKeysByOwner) and invalidated
-    // only when the underlying set changes, avoiding O(n log n) spread+sort
-    // on every tick for players whose yield-bearing set is stable.
-    const yieldBearingSet = this.yieldBearingTilesByOwner.get(player.id);
-    let tileKeys: readonly string[];
-    if (!yieldBearingSet || yieldBearingSet.size === 0) {
-      tileKeys = [];
-    } else {
-      let cached = this.sortedYieldBearingKeysByOwner.get(player.id);
-      if (!cached) {
-        cached = [...yieldBearingSet].sort();
-        this.sortedYieldBearingKeysByOwner.set(player.id, cached);
-      }
-      tileKeys = cached;
-    }
-    const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
-    // Collect anchor updates locally and emit ONE batch event at the end of
-    // the loop. Pre-batch, each updated tile fired a TILE_YIELD_ANCHOR_UPDATED
-    // event → separate SQLite appendEvent each. At ~2,000 owned tiles staging
-    // observed 84 pending appendEvents from a single upkeep tick, blocking
-    // the main event loop for 25s+. One batch event = one appendEvent.
-    const batchedAnchors: Array<{ tileKey: string; collectedAt: number }> = [];
-    for (const tileKey of tileKeys) {
-      if (!hasOutstandingUpkeepNeed(need)) return;
-      const tile = this.tiles.get(tileKey);
-      if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
-      if (!economyContext) economyContext = this.tileYieldEconomyContextForPlayer(player);
-      const enrichedTile = tile.town
-        ? (() => {
-            const networkTown = enrichTownWithConnectedNetwork(tile, economyContext!.townNetwork);
-            const refreshedTown = networkTown
-              ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, economyContext!.fedTownKeys, economyContext!.firstThreeTownKeys)
-              : networkTown;
-            return { ...tile, town: refreshedTown };
-          })()
-        : tile;
-      const lastCollectedAt = this.tileYieldCollectedAt(tileKey, player.id);
-      const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, nowMs, {
-        player,
-        fedTownKeys: economyContext.fedTownKeys,
-        firstThreeTownKeys: economyContext.firstThreeTownKeys,
-        waterworksKeys: economyContext.waterworksKeys,
-        tiles: this.tiles,
-        dockLinksByDockTileKey: this.dockLinksByDockTileKey
-      });
-      if (!yieldView?.yield) continue;
-      const anchorWas = lastCollectedAt ?? 0;
-      // The single per-tile anchor is shared across every resource the tile
-      // produces. We compute a per-resource candidate anchor from the
-      // remaining buffer (newAnchor = now - remaining/rate) and pick the
-      // latest — so no resource is ever credited with more than its math
-      // allows. The trade-off: when upkeep consumes one resource on a
-      // mixed-yield tile, the unconsumed resource's remaining yield is
-      // drained too (lost, not banked). Mixed-yield tiles are rare, and
-      // per-resource anchors would cost a snapshot-schema change.
-      let candidateAnchorMs = anchorWas;
-      const updateCandidate = (remaining: number, ratePerMs: number): void => {
-        if (ratePerMs <= 0) return;
-        const resourceAnchor = nowMs - remaining / ratePerMs;
-        if (resourceAnchor > candidateAnchorMs) candidateAnchorMs = resourceAnchor;
-      };
-      const availableGold = yieldView.yield.gold ?? 0;
-      if (availableGold > 0 && need.gold > 0) {
-        const consumed = Math.min(availableGold, need.gold);
-        need.gold -= consumed;
-        updateCandidate(availableGold - consumed, yieldView.yieldRate.goldPerMinute / 60_000);
-      }
-      for (const resource of UPKEEP_STRATEGIC_KEYS) {
-        const available = yieldView.yield.strategic[resource] ?? 0;
-        if (available > 0 && need[resource] > 0) {
-          const consumed = Math.min(available, need[resource]);
-          need[resource] -= consumed;
-          const ratePerMs = (yieldView.yieldRate.strategicPerDay[resource] ?? 0) / (1440 * 60_000);
-          updateCandidate(available - consumed, ratePerMs);
-        }
-      }
-      if (candidateAnchorMs > anchorWas) {
-        const collectedAt = Math.min(nowMs, candidateAnchorMs);
-        // Update the in-memory map immediately so subsequent tiles in this
-        // loop see fresh anchor state. Defer the event emission until after
-        // the loop so we can emit one batch event instead of N singletons.
-        this.tileYieldCollectedAtByTile.set(tileKey, collectedAt);
-        batchedAnchors.push({ tileKey, collectedAt });
-      }
-    }
-    if (batchedAnchors.length > 0) {
-      this.emitEvent({
-        eventType: "TILE_YIELD_ANCHOR_BATCH",
-        commandId: syntheticCommandId,
-        playerId: player.id,
-        anchors: batchedAnchors
-      });
-    }
-    // Drop the synthetic commandId from the in-memory replay cache. The
-    // anchor events are already durably persisted via emitEvent →
-    // persistence.recordEvent, so event-store recovery still reconstructs
-    // anchors. The cache only retains entries until a terminal event marks
-    // their commandId prunable — accrual never emits terminal events, so
-    // these would otherwise accumulate forever (and bloat every snapshot
-    // built from this map).
-    this.replayCache.recordedEventsByCommandId.delete(syntheticCommandId);
+    applyEconomyAccrualImpl(this.economyAccrualContext(), player, nowMs);
   }
 
   private applyTileToPlayerSummaries(tileKey: string, tile: DomainTileState): void {
@@ -1595,33 +1324,52 @@ export class SimulationRuntime {
       }
       for (const [key, tier] of currentTowns) summary.ownedTownTierByTile.set(key, tier);
     }
-    this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
-    this.refreshPlayerCandidateIndexAnchorForTile(tileKey, previous, tile);
-    // Part 1: maintain frontierTilesByOwner index.
-    const prevIsFrontier = previous?.ownershipState === "FRONTIER" && previous?.ownerId && !previous.ownerId.startsWith("barbarian-");
-    const nextIsFrontier = tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-");
-    if (prevIsFrontier && previous!.ownerId !== tile.ownerId) {
-      this.removeFrontierTileFromOwnerIndex(tileKey, previous!.ownerId!);
-    }
-    if (nextIsFrontier) {
-      this.addFrontierTileToOwnerIndex(tileKey, tile.ownerId!);
-    } else if (prevIsFrontier && previous!.ownerId === tile.ownerId) {
-      // Was frontier for this owner, no longer frontier
-      this.removeFrontierTileFromOwnerIndex(tileKey, tile.ownerId!);
-    }
-    // Part 2: maintain activeFortAnchorsByOwner index.
-    this.refreshFortAnchorIndexForTile(tileKey, previous, tile);
-    // Yield-bearing index: maintain yieldBearingTilesByOwner.
-    this.refreshYieldBearingIndexForTile(tileKey, previous, tile);
-    // Sweep outpost indexes: maintain activeSiegeOutpostsByOwner and activeLightOutpostsByOwner.
-    this.refreshSiegeOutpostIndexForTile(tileKey, previous, tile);
-    this.refreshLightOutpostIndexForTile(tileKey, previous, tile);
+    refreshPlannerCandidateIndexesAroundTileChange({
+      tileKey,
+      previous,
+      next: tile,
+      tiles: this.tiles,
+      playerCandidateIndex: this.playerCandidateIndex,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
+    });
+    refreshPlayerCandidateIndexAnchorForTile({
+      playerCandidateIndex: this.playerCandidateIndex,
+      tiles: this.tiles,
+      tileKey,
+      previous,
+      next: tile
+    });
+    refreshRuntimeTileIndexesForChange({
+      tileKey,
+      previous,
+      next: tile,
+      frontierTilesByOwner: this.frontierTilesByOwner,
+      activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
+      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+      sortedYieldBearingKeysByOwner: this.sortedYieldBearingKeysByOwner,
+      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner
+    });
     // Structure count index: keep ownedStructureCountByPlayerByType consistent
     // across capture / build / cancel / removal transitions. Each slot is
     // tracked by the STRUCTURE's ownerId (not the tile's), to match the
     // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
-    this.refreshOwnedStructureCountIndexForTile(previous, tile);
-    if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
+    refreshOwnedStructureCountIndexForTileImpl({
+      previous,
+      next: tile,
+      adjustOwnedStructureCount: (ownerId, structureType, delta) =>
+        adjustOwnedStructureCountImpl(this.ownedStructureCountByPlayerByType, ownerId, structureType, delta)
+    });
+    if (previous?.ownerId !== tile.ownerId) cancelPendingSettlementIfOwnerChangedImpl({
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      tileKey,
+      nextOwnerId: tile.ownerId,
+      commandId,
+      summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+      markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId),
+      emitPlayerStateUpdate: (update) => this.emitPlayerStateUpdate(update)
+    });
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -1654,417 +1402,6 @@ export class SimulationRuntime {
     const playerAnchor = ownerId ? this.playerYieldCollectionEpochByPlayer.get(ownerId) : undefined;
     if (typeof tileAnchor === "number" && typeof playerAnchor === "number") return Math.max(tileAnchor, playerAnchor);
     return tileAnchor ?? playerAnchor;
-  }
-
-  private rebuildPlannerCandidateIndexesForPlayer(playerId: string): void {
-    const summary = this.summaryForPlayer(playerId);
-    summary.hotFrontierTileKeys.clear();
-    summary.strategicFrontierTileKeys.clear();
-    summary.buildCandidateTileKeys.clear();
-    for (const tileKey of summary.territoryTileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (!tile || tile.ownerId !== playerId) continue;
-      if (isHotFrontierTile(playerId, tile, this.tiles)) summary.hotFrontierTileKeys.add(tileKey);
-      if (isStrategicFrontierTile(playerId, tile, this.tiles)) summary.strategicFrontierTileKeys.add(tileKey);
-      if (isBuildCandidateTile(playerId, tile, this.tiles)) summary.buildCandidateTileKeys.add(tileKey);
-    }
-    this.markPlannerPlayerTileCollectionDirty(playerId);
-  }
-
-  private refreshPlannerCandidateIndexesAroundTileChange(
-    tileKey: string,
-    previous?: DomainTileState,
-    next?: DomainTileState
-  ): void {
-    const affectedKeys = candidateIndexKeysAroundTileKey(tileKey);
-    const affectedPlayerIds = playerIdsAffectedByTileChange(tileKey, this.tiles, previous, next);
-    for (const playerId of affectedPlayerIds) {
-      const summary = this.summaryForPlayer(playerId);
-      for (const candidateKey of affectedKeys) {
-        summary.hotFrontierTileKeys.delete(candidateKey);
-        summary.strategicFrontierTileKeys.delete(candidateKey);
-        summary.buildCandidateTileKeys.delete(candidateKey);
-        const candidateTile = this.tiles.get(candidateKey);
-        if (!candidateTile || candidateTile.ownerId !== playerId) continue;
-        if (isHotFrontierTile(playerId, candidateTile, this.tiles)) summary.hotFrontierTileKeys.add(candidateKey);
-        if (isStrategicFrontierTile(playerId, candidateTile, this.tiles)) summary.strategicFrontierTileKeys.add(candidateKey);
-        if (isBuildCandidateTile(playerId, candidateTile, this.tiles)) summary.buildCandidateTileKeys.add(candidateKey);
-      }
-      this.markPlannerPlayerTileCollectionDirty(playerId);
-    }
-    this.playerCandidateIndex.refreshAroundTile(tileKey, (k) => this.tiles.get(k));
-  }
-
-  /**
-   * Keep PlayerCandidateIndex anchor registrations consistent with tile state.
-   * Called from replaceTileState after the tile is already written to this.tiles.
-   * Registers/unregisters anchors when a tile gains or loses a fort, town,
-   * active WOODEN_FORT, or active siege outpost (for sweep).
-   *
-   * Each anchor is stored at the MAXIMUM possible radius for its kind, not the
-   * current effective radius.  This prevents stale maxRadius when time-dependent
-   * conditions (e.g. FORT_PATROL_GRACE_MS) change the effective radius without
-   * triggering a tile mutation.  Re-registration fires only when the anchor KIND
-   * or OWNER changes, not on radius drift.
-   */
-  private refreshPlayerCandidateIndexAnchorForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevOwnerId = previous?.ownerId;
-    const nextOwnerId = next.ownerId;
-
-    // Detect anchor kind (ignoring time-dependent radius factors like patrol grace).
-    // Returns the max-possible radius for the kind, or 0 if not an anchor.
-    const anchorKindMaxRadius = (tile: DomainTileState, ownerId: string): number => {
-      // Fort kind: active fort (any variant, including grace state) or active WOODEN_FORT.
-      if (
-        tile.ownerId === ownerId &&
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "WOODEN_FORT" &&
-        tile.economicStructure.status === "active"
-      ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-      if (
-        tile.ownerId === ownerId &&
-        tile.fort?.ownerId === ownerId &&
-        tile.fort.status === "active"
-      ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-      // Town kind.
-      if (isSettledTownAnchor(tile, ownerId)) return TOWN_AUTO_FRONTIER_RADIUS;
-      // Active siege outpost with sweep enabled.
-      if (
-        tile.siegeOutpost?.ownerId === ownerId &&
-        tile.siegeOutpost.status === "active" &&
-        tile.siegeOutpost.sweepActive
-      ) return MAX_SWEEP_RADIUS;
-      return 0;
-    };
-
-    const prevMaxRadius = previous && prevOwnerId ? anchorKindMaxRadius(previous, prevOwnerId) : 0;
-    const nextMaxRadius = nextOwnerId ? anchorKindMaxRadius(next, nextOwnerId) : 0;
-
-    if (prevMaxRadius <= 0 && nextMaxRadius <= 0) return;
-    if (prevMaxRadius > 0 && nextMaxRadius <= 0) {
-      this.playerCandidateIndex.unregisterAnchor(tileKey);
-      return;
-    }
-    if (prevMaxRadius <= 0 && nextMaxRadius > 0) {
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
-      return;
-    }
-    // Both are anchors — re-register only if owner or anchor KIND (max radius) changed.
-    // Radius drift from time-dependent conditions does NOT trigger re-registration.
-    if (prevOwnerId !== nextOwnerId || prevMaxRadius !== nextMaxRadius) {
-      this.playerCandidateIndex.unregisterAnchor(tileKey);
-      this.playerCandidateIndex.registerAnchor(tileKey, nextOwnerId!, nextMaxRadius, (k) => this.tiles.get(k));
-    }
-  }
-
-  // ---- Part 1 helpers: frontierTilesByOwner index ----
-
-  private addFrontierTileToOwnerIndex(tileKey: string, ownerId: string): void {
-    let set = this.frontierTilesByOwner.get(ownerId);
-    if (!set) { set = new Set<string>(); this.frontierTilesByOwner.set(ownerId, set); }
-    set.add(tileKey);
-  }
-
-  private removeFrontierTileFromOwnerIndex(tileKey: string, ownerId: string): void {
-    const set = this.frontierTilesByOwner.get(ownerId);
-    if (set) set.delete(tileKey);
-  }
-
-  // ---- Part 2 helpers: activeFortAnchorsByOwner index ----
-
-  /**
-   * Returns the max radius this tile contributes as a fort-support anchor for its owner,
-   * considering only FORT + WOODEN_FORT + town kinds (NOT siege outposts).
-   * Returns 0 if the tile is not a fort-support anchor.
-   */
-  private fortSupportAnchorMaxRadius(tile: DomainTileState, ownerId: string): number {
-    if (
-      tile.ownerId === ownerId &&
-      tile.economicStructure?.ownerId === ownerId &&
-      tile.economicStructure.type === "WOODEN_FORT" &&
-      tile.economicStructure.status === "active"
-    ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-    if (
-      tile.ownerId === ownerId &&
-      tile.fort?.ownerId === ownerId &&
-      tile.fort.status === "active"
-    ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-    if (isSettledTownAnchor(tile, ownerId)) return TOWN_AUTO_FRONTIER_RADIUS;
-    return 0;
-  }
-
-  private registerFortSupportAnchor(tileKey: string, ownerId: string, maxRadius: number): void {
-    let map = this.activeFortAnchorsByOwner.get(ownerId);
-    if (!map) { map = new Map<string, number>(); this.activeFortAnchorsByOwner.set(ownerId, map); }
-    map.set(tileKey, maxRadius);
-  }
-
-  private unregisterFortSupportAnchor(tileKey: string, ownerId: string): void {
-    const map = this.activeFortAnchorsByOwner.get(ownerId);
-    if (map) map.delete(tileKey);
-  }
-
-  /**
-   * Called from replaceTileState to keep activeFortAnchorsByOwner in sync.
-   * Mirrors the logic in refreshPlayerCandidateIndexAnchorForTile but only for
-   * fort-support kinds (forts + towns, NOT siege outposts).
-   */
-  private refreshFortAnchorIndexForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevOwnerId = previous?.ownerId;
-    const nextOwnerId = next.ownerId;
-    const prevMaxRadius = previous && prevOwnerId ? this.fortSupportAnchorMaxRadius(previous, prevOwnerId) : 0;
-    const nextMaxRadius = nextOwnerId ? this.fortSupportAnchorMaxRadius(next, nextOwnerId) : 0;
-
-    if (prevMaxRadius <= 0 && nextMaxRadius <= 0) return;
-    if (prevMaxRadius > 0 && prevOwnerId) {
-      this.unregisterFortSupportAnchor(tileKey, prevOwnerId);
-    }
-    if (nextMaxRadius > 0 && nextOwnerId) {
-      this.registerFortSupportAnchor(tileKey, nextOwnerId, nextMaxRadius);
-    }
-  }
-
-  // ---- Yield-bearing tile index helpers ----
-
-  /**
-   * Returns true iff the tile would produce a non-zero yield buffer when passed
-   * to buildTileYieldView — i.e., it is SETTLED LAND owned by someone AND has at
-   * least one income source (town, dock, strategic resource, or active converter).
-   *
-   * This predicate mirrors the "would produce a non-undefined yield field" logic
-   * in buildTileYieldView (tile-yield-view.ts:82). The outer gate (SETTLED + LAND
-   * + ownerId) is the same as line 92 of that function; the income conditions
-   * below correspond to: townGoldPerMinute > 0, dockGoldPerMinute > 0, and
-   * strategicPerDay having at least one entry (lines 96–124).
-   *
-   * Critically: a tile with only `town: undefined` / `dockId: undefined` /
-   * `resource: undefined` / no active converter earns zero yield and is NOT
-   * yield-bearing. Plain settled land tiles — the vast majority at scale — are
-   * intentionally excluded.
-   */
-  private isYieldBearing(tile: DomainTileState): boolean {
-    if (!tile.ownerId || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return false;
-    // Town income (any town, including SETTLEMENT tier — those earn base gold)
-    if (tile.town) return true;
-    // Dock income (any dock earns at least DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT)
-    if (tile.dockId) return true;
-    // Strategic resource terrain — only the resources that strategicDailyFromResource
-    // maps to a non-empty result (all cases except `default: return {}`)
-    if (tile.resource !== undefined && tile.resource !== null) {
-      switch (tile.resource) {
-        case "FARM":
-        case "FISH":
-        case "IRON":
-        case "WOOD":
-        case "FUR":
-        case "GEMS":
-        case "OIL":
-          return true;
-        default:
-          break;
-      }
-    }
-    // Active converter economicStructure — only the types that converterDailyOutput maps
-    // to a non-empty result (FUR_SYNTHESIZER, ADVANCED_FUR_SYNTHESIZER, IRONWORKS,
-    // ADVANCED_IRONWORKS, CRYSTAL_SYNTHESIZER, ADVANCED_CRYSTAL_SYNTHESIZER)
-    if (tile.economicStructure?.status === "active") {
-      switch (tile.economicStructure.type) {
-        case "FUR_SYNTHESIZER":
-        case "ADVANCED_FUR_SYNTHESIZER":
-        case "IRONWORKS":
-        case "ADVANCED_IRONWORKS":
-        case "CRYSTAL_SYNTHESIZER":
-        case "ADVANCED_CRYSTAL_SYNTHESIZER":
-          return true;
-        default:
-          break;
-      }
-    }
-    return false;
-  }
-
-  private addYieldBearingTileToOwnerIndex(tileKey: string, ownerId: string): void {
-    let set = this.yieldBearingTilesByOwner.get(ownerId);
-    if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(ownerId, set); }
-    set.add(tileKey);
-    this.sortedYieldBearingKeysByOwner.delete(ownerId);
-  }
-
-  private removeYieldBearingTileFromOwnerIndex(tileKey: string, ownerId: string): void {
-    const set = this.yieldBearingTilesByOwner.get(ownerId);
-    if (set) { set.delete(tileKey); this.sortedYieldBearingKeysByOwner.delete(ownerId); }
-  }
-
-  private refreshYieldBearingIndexForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevIsYieldBearing = previous ? this.isYieldBearing(previous) : false;
-    const prevOwnerId = previous?.ownerId;
-    const nextIsYieldBearing = this.isYieldBearing(next);
-    const nextOwnerId = next.ownerId;
-
-    // Remove from previous owner's index if it was yield-bearing
-    if (prevIsYieldBearing && prevOwnerId) {
-      this.removeYieldBearingTileFromOwnerIndex(tileKey, prevOwnerId);
-    }
-    // Add to new owner's index if it is yield-bearing
-    if (nextIsYieldBearing && nextOwnerId) {
-      this.addYieldBearingTileToOwnerIndex(tileKey, nextOwnerId);
-    }
-  }
-
-  // ---- Siege outpost index helpers ----
-
-  private isSiegeOutpostActive(tile: DomainTileState, ownerId: string): boolean {
-    return tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active";
-  }
-
-  private refreshSiegeOutpostIndexForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevOwnerId = previous?.ownerId;
-    const prevActive = previous && prevOwnerId ? this.isSiegeOutpostActive(previous, prevOwnerId) : false;
-    const nextOwnerId = next.ownerId;
-    const nextActive = nextOwnerId ? this.isSiegeOutpostActive(next, nextOwnerId) : false;
-
-    if (!prevActive && !nextActive) return;
-    // When owner changes, remove from old owner and add to new.
-    // When active state changes for same owner, add or remove.
-    // When active state is unchanged for same owner, do nothing — avoids
-    // mutating the set while it is being iterated in tickTerritoryAutomation,
-    // which would cause JavaScript Set iteration to revisit the key after re-add.
-    if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
-    if (prevActive && prevOwnerId) {
-      const set = this.activeSiegeOutpostsByOwner.get(prevOwnerId);
-      if (set) set.delete(tileKey);
-    }
-    if (nextActive && nextOwnerId) {
-      let set = this.activeSiegeOutpostsByOwner.get(nextOwnerId);
-      if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(nextOwnerId, set); }
-      set.add(tileKey);
-    }
-  }
-
-  // ---- Light outpost index helpers ----
-
-  private isLightOutpostActive(tile: DomainTileState, ownerId: string): boolean {
-    return (
-      tile.economicStructure?.ownerId === ownerId &&
-      tile.economicStructure.type === "LIGHT_OUTPOST" &&
-      tile.economicStructure.status === "active"
-    );
-  }
-
-  private refreshLightOutpostIndexForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    const prevOwnerId = previous?.ownerId;
-    const prevActive = previous && prevOwnerId ? this.isLightOutpostActive(previous, prevOwnerId) : false;
-    const nextOwnerId = next.ownerId;
-    const nextActive = nextOwnerId ? this.isLightOutpostActive(next, nextOwnerId) : false;
-
-    if (!prevActive && !nextActive) return;
-    // Same-owner, same-active-state: no-op to avoid mutating the set while
-    // it is being iterated in tickTerritoryAutomation (re-add after delete
-    // would cause JavaScript Set iteration to revisit the key).
-    if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
-    if (prevActive && prevOwnerId) {
-      const set = this.activeLightOutpostsByOwner.get(prevOwnerId);
-      if (set) set.delete(tileKey);
-    }
-    if (nextActive && nextOwnerId) {
-      let set = this.activeLightOutpostsByOwner.get(nextOwnerId);
-      if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(nextOwnerId, set); }
-      set.add(tileKey);
-    }
-  }
-
-  /**
-   * DEV_ASSERT_YIELD_INDEX=1 cross-check: rebuild the expected yield-bearing set
-   * from territoryTileKeys and compare against yieldBearingTilesByOwner. Logs
-   * a loud error on any divergence but does NOT throw (prod-safe if accidentally
-   * enabled). Off by default.
-   */
-  private assertYieldIndexCorrect(playerId: string, _now: number, _yieldContext: RuntimeTileYieldEconomyContext): void {
-    const summary = this.summaryForPlayer(playerId);
-    const expected = new Set<string>();
-    for (const tileKey of summary.territoryTileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (tile && this.isYieldBearing(tile)) expected.add(tileKey);
-    }
-    const actual = this.yieldBearingTilesByOwner.get(playerId) ?? new Set<string>();
-    let ok = true;
-    for (const key of expected) {
-      if (!actual.has(key)) { ok = false; console.error(`[YIELD-INDEX] player=${playerId} MISSING from index: ${key}`); }
-    }
-    for (const key of actual) {
-      if (!expected.has(key)) { ok = false; console.error(`[YIELD-INDEX] player=${playerId} SPURIOUS in index: ${key}`); }
-    }
-    if (ok) console.debug(`[YIELD-INDEX] player=${playerId} OK expected=${expected.size} actual=${actual.size}`);
-  }
-
-  private addPendingSettlement(record: PendingSettlementRecord): void {
-    this.pendingSettlementsByTile.set(record.tileKey, record);
-    addPendingSettlementToSummary(this.summaryForPlayer(record.ownerId), record);
-    this.markPlannerPlayerTileCollectionDirty(record.ownerId);
-  }
-
-  private removePendingSettlement(tileKey: string): PendingSettlementRecord | undefined {
-    const record = this.pendingSettlementsByTile.get(tileKey);
-    if (!record) return undefined;
-    this.pendingSettlementsByTile.delete(tileKey);
-    removePendingSettlementFromSummary(this.summaryForPlayer(record.ownerId), tileKey);
-    this.markPlannerPlayerTileCollectionDirty(record.ownerId);
-    return record;
-  }
-
-  private pendingSettlementMatches(record: PendingSettlementRecord | undefined, expected: PendingSettlementRecord): boolean {
-    return Boolean(
-      record &&
-        record.ownerId === expected.ownerId &&
-        record.tileKey === expected.tileKey &&
-        record.startedAt === expected.startedAt &&
-        record.resolvesAt === expected.resolvesAt &&
-        record.goldCost === expected.goldCost
-    );
-  }
-
-  private cancelPendingSettlementIfOwnerChanged(
-    tileKey: string,
-    nextOwnerId: string | undefined,
-    commandId: string
-  ): PendingSettlementRecord | undefined {
-    const pendingSettlement = this.pendingSettlementsByTile.get(tileKey);
-    if (!pendingSettlement || pendingSettlement.ownerId === nextOwnerId) return undefined;
-    this.removePendingSettlement(tileKey);
-    this.emitPlayerStateUpdate({ commandId, playerId: pendingSettlement.ownerId });
-    return pendingSettlement;
-  }
-
-  private pendingSettlementsSnapshotForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
-    return [...this.summaryForPlayer(playerId).pendingSettlementsByTile.values()]
-      .map((settlement) => {
-        const [rawX, rawY] = settlement.tileKey.split(",");
-        const x = Number(rawX);
-        const y = Number(rawY);
-        return Number.isFinite(x) && Number.isFinite(y) ? { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt } : undefined;
-      })
-      .filter((settlement): settlement is NonNullable<typeof settlement> => Boolean(settlement))
-      .sort((left, right) => (left.resolvesAt - right.resolvesAt) || (left.x - right.x) || (left.y - right.y));
   }
 
   chooseNextOwnedFrontierCommand(
@@ -2177,7 +1514,7 @@ export class SimulationRuntime {
       playerScopeKeyCount: plannerPlayerScopeKeyCount(summary),
       playerScopeTileCount: plannerPlayerScopeKeyCount(summary),
       previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
-      pathPopulationCounts: this.rememberedAutomationVictoryPathCounts(),
+      pathPopulationCounts: rememberedAutomationVictoryPathCounts(this.rememberedAutomationVictoryPathByPlayer),
       onStrategicSnapshot: (snapshot) => {
         if (summary.territoryTileKeys.size <= 0) return;
         this.rememberedAutomationVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
@@ -2577,7 +1914,7 @@ export class SimulationRuntime {
   }
 
   private pendingSettlementsForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
-    return this.pendingSettlementsSnapshotForPlayer(playerId);
+    return pendingSettlementsSnapshotForPlayer(this.summaryForPlayer(playerId));
   }
 
   private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
@@ -2701,128 +2038,15 @@ export class SimulationRuntime {
     commandType?: CommandEnvelope["type"],
     scheduling: "immediate" | "background" = "immediate"
   ): void {
-    const job: SimulationJob = { lane, run, enqueuedAt: this.now(), scheduling };
-    if (commandType !== undefined) job.commandType = commandType;
-    this.jobsByLane[lane].push(job);
-    this.scheduleDrain(scheduling);
+    enqueueJobImpl(this.jobQueueState(), lane, run, commandType, scheduling);
   }
 
   private scheduleDrain(scheduling: "immediate" | "background" = "immediate"): void {
-    if (this.draining) return;
-    if (scheduling === "immediate") {
-      if (this.immediateDrainScheduled) return;
-      this.immediateDrainScheduled = true;
-      this.scheduleSoon(() => {
-        this.immediateDrainScheduled = false;
-        this.drainQueues();
-      });
-      return;
-    }
-    if (this.drainScheduled || this.immediateDrainScheduled) return;
-    this.drainScheduled = true;
-    this.scheduleAfter(0, () => {
-      this.drainScheduled = false;
-      this.drainQueues();
-    });
+    scheduleDrainImpl(this.jobQueueState(), scheduling);
   }
 
   private drainQueues(): void {
-    if (this.draining) return;
-    this.draining = true;
-    const drainStartedAt = this.now();
-    const queueDepthsBefore = this.queueDepths();
-    const processedByLane: Record<QueueLane, number> = {
-      human_interactive: 0,
-      human_noninteractive: 0,
-      system: 0,
-      ai: 0
-    };
-    let processedJobs = 0;
-    let shouldYieldForBackground = false;
-    let backgroundJobsProcessed = 0;
-    let currentDrainScheduling: "immediate" | "background" = "immediate";
-    try {
-      let next = this.shiftNextJob();
-      while (next) {
-        currentDrainScheduling = next.scheduling ?? "immediate";
-        if (currentDrainScheduling === "background") {
-          const hasImmediateWork =
-            this.jobsByLane.human_interactive.some((job) => (job.scheduling ?? "immediate") === "immediate") ||
-            this.jobsByLane.human_noninteractive.some((job) => (job.scheduling ?? "immediate") === "immediate");
-          if (hasImmediateWork) {
-            this.jobsByLane[next.lane].unshift(next);
-            shouldYieldForBackground = true;
-            break;
-          }
-        }
-        if ((next.lane === "system" || next.lane === "ai") && backgroundJobsProcessed >= this.backgroundBatchSize) {
-          this.jobsByLane[next.lane].unshift(next);
-          shouldYieldForBackground = true;
-          break;
-        }
-        const jobStartedAt = this.now();
-        next.run();
-        if (this.onJobApplied) {
-          const jobDurationMs = Math.max(0, this.now() - jobStartedAt);
-          this.onJobApplied({
-            lane: next.lane,
-            durationMs: jobDurationMs,
-            ...(next.commandType ? { commandType: next.commandType } : {})
-          });
-        }
-        processedJobs += 1;
-        processedByLane[next.lane] += 1;
-        if (next.lane === "system" || next.lane === "ai") {
-          backgroundJobsProcessed += 1;
-        }
-        next = this.shiftNextJob();
-        if (currentDrainScheduling === "immediate" && next && (next.scheduling ?? "immediate") === "background") {
-          this.jobsByLane[next.lane].unshift(next);
-          shouldYieldForBackground = true;
-          break;
-        }
-      }
-    } finally {
-      this.draining = false;
-      if (processedJobs > 0) {
-        this.onQueueDrain?.({
-          durationMs: Math.max(0, this.now() - drainStartedAt),
-          processedJobs,
-          backgroundJobsProcessed,
-          yieldedForBackground: shouldYieldForBackground,
-          processedByLane,
-          queueDepthsBefore,
-          queueDepthsAfter: this.queueDepths()
-        });
-      }
-      if (this.hasQueuedJobs()) {
-        if (shouldYieldForBackground) {
-          this.scheduleAfter(0, () => this.drainQueues());
-        } else {
-          this.scheduleDrain(this.nextQueuedScheduling());
-        }
-      }
-    }
-  }
-
-  private nextQueuedScheduling(): "immediate" | "background" {
-    for (const lane of priorityOrder) {
-      const next = this.jobsByLane[lane][0];
-      if (next) return next.scheduling ?? "immediate";
-    }
-    return "immediate";
-  }
-
-  private shiftNextJob(): SimulationJob | undefined {
-    for (const lane of priorityOrder) {
-      const next = this.jobsByLane[lane].shift();
-      if (next) return next;
-    }
-    return undefined;
-  }
-
-  private hasQueuedJobs(): boolean {
-    return priorityOrder.some((lane) => this.jobsByLane[lane].length > 0);
+    drainQueuesImpl(this.jobQueueState());
   }
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): boolean {
@@ -3056,12 +2280,17 @@ export class SimulationRuntime {
     actor.points -= SETTLE_COST;
     const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target));
     const resolvesAt = input.startedAt + settleDurationMs;
-    this.addPendingSettlement({
-      ownerId: input.playerId,
-      tileKey: input.targetKey,
-      startedAt: input.startedAt,
-      resolvesAt,
-      goldCost: SETTLE_COST
+    addPendingSettlementImpl({
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      record: {
+        ownerId: input.playerId,
+        tileKey: input.targetKey,
+        startedAt: input.startedAt,
+        resolvesAt,
+        goldCost: SETTLE_COST
+      },
+      summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+      markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
     });
     this.emitEvent({
       eventType: "SETTLEMENT_STARTED",
@@ -3085,8 +2314,13 @@ export class SimulationRuntime {
         goldCost: SETTLE_COST
       };
       const currentSettlement = this.pendingSettlementsByTile.get(input.targetKey);
-      if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
-      this.removePendingSettlement(input.targetKey);
+      if (!pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
+      removePendingSettlementImpl({
+        pendingSettlementsByTile: this.pendingSettlementsByTile,
+        tileKey: input.targetKey,
+        summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+        markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId)
+      });
       const latest = this.tiles.get(input.targetKey);
       if (
         !latest ||
@@ -3265,13 +2499,20 @@ export class SimulationRuntime {
     }
     // DEV_ASSERT: cross-check index vs full scan in dev mode
     if (process.env.DEV_ASSERT_YIELD_INDEX === "1") {
-      this.assertYieldIndexCorrect(command.playerId, now, yieldContext);
+      assertYieldIndexCorrectImpl({
+          playerId: command.playerId,
+          tiles: this.tiles,
+          yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+          summary: this.summaryForPlayer(command.playerId),
+          now,
+          yieldContext
+        });
     }
     this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
     this.setPlayerYieldCollectionEpoch(command.commandId, command.playerId, now);
     actor.points += gold;
     for (const [resource, amount] of Object.entries(strategic) as Array<[StrategicResourceKey, number]>) {
-      if (amount > 0) this.addStrategicResource(actor, resource, amount);
+      if (amount > 0) addStrategicResource(actor, resource, amount);
     }
     // COLLECT_VISIBLE is a player-level economy operation. The player epoch
     // below clears derived tile buffers without emitting one zero-yield tile
@@ -3399,7 +2640,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (this.ownedTileCountForPlayer(command.playerId) <= 1) {
+    if (ownedTileCountForPlayer(this.tiles, command.playerId) <= 1) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -3546,11 +2787,11 @@ export class SimulationRuntime {
 
     actor.points -= SYNTH_OVERLOAD_GOLD_COST;
     if (structure.type === "FUR_SYNTHESIZER" || structure.type === "ADVANCED_FUR_SYNTHESIZER") {
-      this.addStrategicResource(actor, "SUPPLY", FUR_SYNTHESIZER_OVERLOAD_SUPPLY);
+      addStrategicResource(actor, "SUPPLY", FUR_SYNTHESIZER_OVERLOAD_SUPPLY);
     } else if (structure.type === "IRONWORKS" || structure.type === "ADVANCED_IRONWORKS") {
-      this.addStrategicResource(actor, "IRON", IRONWORKS_OVERLOAD_IRON);
+      addStrategicResource(actor, "IRON", IRONWORKS_OVERLOAD_IRON);
     } else {
-      this.addStrategicResource(actor, "CRYSTAL", CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL);
+      addStrategicResource(actor, "CRYSTAL", CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL);
     }
 
     const reenabledAt = this.now() + SYNTH_OVERLOAD_DISABLE_MS;
@@ -3731,7 +2972,7 @@ export class SimulationRuntime {
         });
         return;
       }
-      if (!this.spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_ACTIVATION_COST)) {
+      if (!spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_ACTIVATION_COST)) {
         this.emitEvent({
           eventType: "COMMAND_REJECTED",
           commandId: command.commandId,
@@ -3797,7 +3038,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_STATS_CRYSTAL_COST)) {
+    if (!spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_STATS_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -3889,7 +3130,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", AETHER_LANCE_CRYSTAL_COST)) {
+    if (!spendStrategicResource(actor, "CRYSTAL", AETHER_LANCE_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -3979,7 +3220,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", AETHER_BRIDGE_CRYSTAL_COST)) {
+    if (!spendStrategicResource(actor, "CRYSTAL", AETHER_BRIDGE_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4076,7 +3317,7 @@ export class SimulationRuntime {
         return;
       }
     }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", AETHER_WALL_CRYSTAL_COST)) {
+    if (!spendStrategicResource(actor, "CRYSTAL", AETHER_WALL_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4171,7 +3412,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", SIPHON_CRYSTAL_COST)) {
+    if (!spendStrategicResource(actor, "CRYSTAL", SIPHON_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4224,7 +3465,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", SIPHON_PURGE_CRYSTAL_COST)) {
+    if (!spendStrategicResource(actor, "CRYSTAL", SIPHON_PURGE_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4310,7 +3551,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (actor.points < TERRAIN_SHAPING_GOLD_COST || !this.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
+    if (actor.points < TERRAIN_SHAPING_GOLD_COST || !spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4390,7 +3631,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (actor.points < TERRAIN_SHAPING_GOLD_COST || !this.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
+    if (actor.points < TERRAIN_SHAPING_GOLD_COST || !spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4463,7 +3704,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) {
+    if (!spendStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4578,7 +3819,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST)) {
+    if (!spendStrategicResource(actor, "CRYSTAL", IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4592,7 +3833,7 @@ export class SimulationRuntime {
     for (const other of this.players.values()) {
       if (other.id === actor.id) continue;
       if (actor.allies.has(other.id)) continue;
-      const stock = this.strategicResourceAmount(other, payload.resource);
+      const stock = strategicResourceAmount(other, payload.resource);
       const take = Math.floor(stock * IMPERIAL_EXCHANGE_LEVY_SHARE);
       if (take <= 0) continue;
       other.strategicResources = {
@@ -4601,7 +3842,7 @@ export class SimulationRuntime {
       };
       totalTransferred += take;
     }
-    if (totalTransferred > 0) this.addStrategicResource(actor, payload.resource, totalTransferred);
+    if (totalTransferred > 0) addStrategicResource(actor, payload.resource, totalTransferred);
     this.setAbilityCooldownUntil(actor.id, "imperial_exchange_levy", now + IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS);
   }
 
@@ -4679,7 +3920,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_STRIKE_CRYSTAL_COST)) {
+    if (!spendStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_STRIKE_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4786,7 +4027,7 @@ export class SimulationRuntime {
         });
         return;
       }
-      if (!this.spendStrategicResource(actor, "FOOD", TIER_UPGRADE_FOOD_COST[nextTier])) {
+      if (!spendStrategicResource(actor, "FOOD", TIER_UPGRADE_FOOD_COST[nextTier])) {
         this.emitEvent({
           eventType: "COMMAND_REJECTED",
           commandId: command.commandId,
@@ -4855,7 +4096,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    this.addStrategicResource(actor, "SHARD", amount);
+    addStrategicResource(actor, "SHARD", amount);
     if (target.shardSite?.kind === "FALL") {
       this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
       if (this.currentShardRainSiteCount === 0) {
@@ -5428,43 +4669,13 @@ export class SimulationRuntime {
     >) {
       if (amount > 0) {
         strategic[resource] = amount;
-        if (creditStrategic && player) this.addStrategicResource(player, resource, amount);
+        if (creditStrategic && player) addStrategicResource(player, resource, amount);
       }
     }
     if (persistAnchor && (gold > 0 || Object.keys(strategic).length > 0)) {
       this.setTileYieldCollectedAt(command.commandId, command.playerId, tileKey, now);
     }
     return { gold, strategic };
-  }
-
-  private strategicResourceAmount(player: DomainPlayer, resource: StrategicResourceKey): number {
-    return player.strategicResources?.[resource] ?? 0;
-  }
-
-  private spendStrategicResource(player: DomainPlayer, resource: StrategicResourceKey, amount: number): boolean {
-    const current = this.strategicResourceAmount(player, resource);
-    if (current + 1e-6 < amount) return false;
-    player.strategicResources = {
-      ...(player.strategicResources ?? {}),
-      [resource]: Math.max(0, current - amount)
-    };
-    return true;
-  }
-
-  private addStrategicResource(player: DomainPlayer, resource: StrategicResourceKey, amount: number): void {
-    const current = this.strategicResourceAmount(player, resource);
-    player.strategicResources = {
-      ...(player.strategicResources ?? {}),
-      [resource]: current + amount
-    };
-  }
-
-  private ownedTileCountForPlayer(playerId: string): number {
-    let count = 0;
-    for (const tile of this.tiles.values()) {
-      if (tile.ownerId === playerId) count += 1;
-    }
-    return count;
   }
 
   private adjacentTileStates(x: number, y: number): DomainTileState[] {
@@ -5521,10 +4732,23 @@ export class SimulationRuntime {
           applyTileToPlayerSummaries: (tileKey, tile) => this.applyTileToPlayerSummaries(tileKey, tile),
           tileSettledAtByKey: this.tileSettledAtByKey,
           fortPatrolGraceUntilByTile: this.fortPatrolGraceUntilByTile,
-          removeFrontierTileFromOwnerIndex: (tileKey, ownerId) => this.removeFrontierTileFromOwnerIndex(tileKey, ownerId),
-          refreshFortAnchorIndexForTile: (tileKey, previous, next) => this.refreshFortAnchorIndexForTile(tileKey, previous, next),
+          removeFrontierTileFromOwnerIndex: (tileKey, ownerId) => removeFrontierTileFromOwnerIndex(this.frontierTilesByOwner, tileKey, ownerId),
+          refreshFortAnchorIndexForTile: (tileKey, previous, next) => refreshFortAnchorIndexForTile({
+            activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
+            tileKey,
+            previous,
+            next
+          }),
           cancelPendingSettlementIfOwnerChanged: (tileKey, nextOwnerId, commandId) =>
-            this.cancelPendingSettlementIfOwnerChanged(tileKey, nextOwnerId, commandId),
+            cancelPendingSettlementIfOwnerChangedImpl({
+            pendingSettlementsByTile: this.pendingSettlementsByTile,
+            tileKey,
+            nextOwnerId,
+            commandId,
+            summaryForPlayer: (summaryPlayerId) => this.summaryForPlayer(summaryPlayerId),
+            markPlannerPlayerTileCollectionDirty: (dirtyPlayerId) => this.markPlannerPlayerTileCollectionDirty(dirtyPlayerId),
+            emitPlayerStateUpdate: (update) => this.emitPlayerStateUpdate(update)
+          }),
           summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
           markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
         });
@@ -5625,62 +4849,6 @@ export class SimulationRuntime {
         supportedDockCount: this.supportedDockKeysForTile(playerId, tile.x, tile.y).length
       });
     });
-  }
-
-  private ownedStructureCountForPlayer(playerId: string, structureType: BuildableStructureType): number {
-    return this.ownedStructureCountByPlayerByType.get(playerId)?.get(structureType) ?? 0;
-  }
-
-  private adjustOwnedStructureCount(ownerId: string, structureType: BuildableStructureType, delta: number): void {
-    let byType = this.ownedStructureCountByPlayerByType.get(ownerId);
-    if (!byType) {
-      if (delta <= 0) return;
-      byType = new Map();
-      this.ownedStructureCountByPlayerByType.set(ownerId, byType);
-    }
-    const next = (byType.get(structureType) ?? 0) + delta;
-    if (next <= 0) {
-      byType.delete(structureType);
-      if (byType.size === 0) this.ownedStructureCountByPlayerByType.delete(ownerId);
-    } else {
-      byType.set(structureType, next);
-    }
-  }
-
-  private refreshOwnedStructureCountIndexForTile(
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    // Each slot's ownerId is independent of the tile's ownerId — a captured tile
-    // can retain a previous owner's fort until the new owner razes/replaces it.
-    // Track each slot separately by structure ownership, decrement only when the
-    // slot changes occupant.
-    const prevFortOwner = previous?.fort?.ownerId;
-    const nextFortOwner = next.fort?.ownerId;
-    if (prevFortOwner !== nextFortOwner) {
-      if (prevFortOwner) this.adjustOwnedStructureCount(prevFortOwner, "FORT", -1);
-      if (nextFortOwner) this.adjustOwnedStructureCount(nextFortOwner, "FORT", 1);
-    }
-    const prevObsOwner = previous?.observatory?.ownerId;
-    const nextObsOwner = next.observatory?.ownerId;
-    if (prevObsOwner !== nextObsOwner) {
-      if (prevObsOwner) this.adjustOwnedStructureCount(prevObsOwner, "OBSERVATORY", -1);
-      if (nextObsOwner) this.adjustOwnedStructureCount(nextObsOwner, "OBSERVATORY", 1);
-    }
-    const prevSiegeOwner = previous?.siegeOutpost?.ownerId;
-    const nextSiegeOwner = next.siegeOutpost?.ownerId;
-    if (prevSiegeOwner !== nextSiegeOwner) {
-      if (prevSiegeOwner) this.adjustOwnedStructureCount(prevSiegeOwner, "SIEGE_OUTPOST", -1);
-      if (nextSiegeOwner) this.adjustOwnedStructureCount(nextSiegeOwner, "SIEGE_OUTPOST", 1);
-    }
-    const prevEcoOwner = previous?.economicStructure?.ownerId;
-    const prevEcoType = previous?.economicStructure?.type as BuildableStructureType | undefined;
-    const nextEcoOwner = next.economicStructure?.ownerId;
-    const nextEcoType = next.economicStructure?.type as BuildableStructureType | undefined;
-    if (prevEcoOwner !== nextEcoOwner || prevEcoType !== nextEcoType) {
-      if (prevEcoOwner && prevEcoType) this.adjustOwnedStructureCount(prevEcoOwner, prevEcoType, -1);
-      if (nextEcoOwner && nextEcoType) this.adjustOwnedStructureCount(nextEcoOwner, nextEcoType, 1);
-    }
   }
 
   // ── Unified build handler (Phase 2) ──────────────────────────────
@@ -5841,7 +5009,7 @@ export class SimulationRuntime {
       strategicCost = { SUPPLY: siegeTier.supply };
       if (siegeTier.iron > 0) strategicCost.IRON = siegeTier.iron;
     } else {
-      goldCost = structureBuildGoldCost(payload.structureType as BuildableStructureType, this.ownedStructureCountForPlayer(command.playerId, payload.structureType as BuildableStructureType));
+      goldCost = structureBuildGoldCost(payload.structureType as BuildableStructureType, ownedStructureCountForPlayerImpl(this.ownedStructureCountByPlayerByType, command.playerId, payload.structureType as BuildableStructureType));
       manpowerCost = structureBuildManpowerCost(payload.structureType as BuildableStructureType);
     }
     if (actor.points < goldCost) {
@@ -5871,7 +5039,7 @@ export class SimulationRuntime {
       // Pre-check: all resources must be sufficient before spending any.
       for (const res of orderedKeys) {
         const amount = strategicCost[res]!;
-        if (amount > 0 && this.strategicResourceAmount(actor, res as any) + 1e-6 < amount) {
+        if (amount > 0 && strategicResourceAmount(actor, res as any) + 1e-6 < amount) {
           this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `insufficient ${res} for ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
           return;
         }
@@ -5879,7 +5047,7 @@ export class SimulationRuntime {
       // All spends are now guaranteed to succeed.
       for (const res of orderedKeys) {
         const amount = strategicCost[res]!;
-        if (amount > 0) this.spendStrategicResource(actor, res as any, amount);
+        if (amount > 0) spendStrategicResource(actor, res as any, amount);
       }
     }
 
@@ -7163,221 +6331,50 @@ export class SimulationRuntime {
 
   private queueCommandForProcessing(command: CommandEnvelope): void {
     const lane = laneForCommand(command);
-    const scheduling =
-      command.type !== "SYNC_ALLIANCE" &&
-      (command.sessionId.startsWith("ai-runtime:") || command.sessionId.startsWith("system-runtime:"))
-        ? "background"
-        : "immediate";
+    const scheduling = commandScheduling(command);
     this.enqueueJob(lane, () => {
-      if (
-        command.type !== "ATTACK" &&
-        command.type !== "EXPAND" &&
-        command.type !== "SETTLE" &&
-        command.type !== "BUILD_FORT" &&
-        command.type !== "BUILD_OBSERVATORY" &&
-        command.type !== "BUILD_SIEGE_OUTPOST" &&
-        command.type !== "SET_SIEGE_OUTPOST_SWEEP" &&
-        command.type !== "BUILD_ECONOMIC_STRUCTURE" &&
-        command.type !== "CANCEL_CAPTURE" &&
-        command.type !== "CANCEL_FORT_BUILD" &&
-        command.type !== "CANCEL_STRUCTURE_BUILD" &&
-        command.type !== "REMOVE_STRUCTURE" &&
-        command.type !== "CANCEL_SIEGE_OUTPOST_BUILD" &&
-        command.type !== "UNCAPTURE_TILE" &&
-        command.type !== "COLLECT_VISIBLE" &&
-        command.type !== "COLLECT_TILE" &&
-        command.type !== "CHOOSE_TECH" &&
-        command.type !== "CHOOSE_DOMAIN" &&
-        command.type !== "OVERLOAD_SYNTHESIZER" &&
-        command.type !== "SET_CONVERTER_STRUCTURE_ENABLED" &&
-        command.type !== "REVEAL_EMPIRE" &&
-        command.type !== "REVEAL_EMPIRE_STATS" &&
-        command.type !== "AETHER_LANCE" &&
-        command.type !== "CAST_AETHER_BRIDGE" &&
-        command.type !== "CAST_AETHER_WALL" &&
-        command.type !== "SIPHON_TILE" &&
-        command.type !== "PURGE_SIPHON" &&
-        command.type !== "CREATE_MOUNTAIN" &&
-        command.type !== "REMOVE_MOUNTAIN" &&
-        command.type !== "AIRPORT_BOMBARD" &&
-        command.type !== "IMPERIAL_EXCHANGE_LEVY" &&
-        command.type !== "WORLD_ENGINE_STRIKE" &&
-        command.type !== "UPGRADE_TOWN_TIER" &&
-        command.type !== "COLLECT_SHARD" &&
-        command.type !== "SYNC_ALLIANCE"
-      ) {
-        this.emitEvent({
+      dispatchRuntimeCommand(command, {
+        emitUnsupported: (unsupportedCommand) => this.emitEvent({
           eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
+          commandId: unsupportedCommand.commandId,
+          playerId: unsupportedCommand.playerId,
           code: "UNSUPPORTED",
-          message: `${command.type} not yet migrated to the new simulation service`
-        });
-        return;
-      }
-
-      if (command.type === "SETTLE") {
-        this.handleSettleCommand(command);
-        return;
-      }
-
-      if ((command.type as string) === "BUILD_STRUCTURE") {
-        this.handleBuildStructureCommand(command);
-        return;
-      }
-
-      // Legacy aliases — keep for one release window
-      if (
-        command.type === "BUILD_FORT" ||
-        command.type === "BUILD_OBSERVATORY" ||
-        command.type === "BUILD_SIEGE_OUTPOST" ||
-        command.type === "BUILD_ECONOMIC_STRUCTURE"
-      ) {
-        this.handleBuildStructureCommand(this.normalizeLegacyBuildCommand(command));
-        return;
-      }
-
-      if (command.type === "SET_SIEGE_OUTPOST_SWEEP") {
-        this.handleSetSiegeOutpostSweepCommand(command);
-        return;
-      }
-
-      if (command.type === "CANCEL_CAPTURE") {
-        this.handleCancelCaptureCommand(command);
-        return;
-      }
-
-      if (command.type === "CANCEL_FORT_BUILD") {
-        this.handleCancelFortBuildCommand(command);
-        return;
-      }
-
-      if (command.type === "CANCEL_STRUCTURE_BUILD") {
-        this.handleCancelStructureBuildCommand(command);
-        return;
-      }
-
-      if (command.type === "REMOVE_STRUCTURE") {
-        this.handleRemoveStructureCommand(command);
-        return;
-      }
-
-      if (command.type === "CANCEL_SIEGE_OUTPOST_BUILD") {
-        this.handleCancelSiegeOutpostBuildCommand(command);
-        return;
-      }
-
-      if (command.type === "COLLECT_VISIBLE") {
-        this.handleCollectVisibleCommand(command);
-        return;
-      }
-
-      if (command.type === "COLLECT_TILE") {
-        this.handleCollectTileCommand(command);
-        return;
-      }
-
-      if (command.type === "UNCAPTURE_TILE") {
-        this.handleUncaptureTileCommand(command);
-        return;
-      }
-
-      if (command.type === "CHOOSE_TECH") {
-        this.handleChooseTechCommand(command);
-        return;
-      }
-
-      if (command.type === "CHOOSE_DOMAIN") {
-        this.handleChooseDomainCommand(command);
-        return;
-      }
-
-      if (command.type === "OVERLOAD_SYNTHESIZER") {
-        this.handleOverloadSynthesizerCommand(command);
-        return;
-      }
-
-      if (command.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
-        this.handleSetConverterStructureEnabledCommand(command);
-        return;
-      }
-
-      if (command.type === "REVEAL_EMPIRE") {
-        this.handleRevealEmpireCommand(command);
-        return;
-      }
-
-      if (command.type === "REVEAL_EMPIRE_STATS") {
-        this.handleRevealEmpireStatsCommand(command);
-        return;
-      }
-
-      if (command.type === "AETHER_LANCE") {
-        this.handleAetherLanceCommand(command);
-        return;
-      }
-
-      if (command.type === "CAST_AETHER_BRIDGE") {
-        this.handleCastAetherBridgeCommand(command);
-        return;
-      }
-
-      if (command.type === "CAST_AETHER_WALL") {
-        this.handleCastAetherWallCommand(command);
-        return;
-      }
-
-      if (command.type === "SIPHON_TILE") {
-        this.handleSiphonTileCommand(command);
-        return;
-      }
-
-      if (command.type === "PURGE_SIPHON") {
-        this.handlePurgeSiphonCommand(command);
-        return;
-      }
-
-      if (command.type === "CREATE_MOUNTAIN") {
-        this.handleCreateMountainCommand(command);
-        return;
-      }
-
-      if (command.type === "REMOVE_MOUNTAIN") {
-        this.handleRemoveMountainCommand(command);
-        return;
-      }
-
-      if (command.type === "AIRPORT_BOMBARD") {
-        this.handleAirportBombardCommand(command);
-        return;
-      }
-
-      if (command.type === "IMPERIAL_EXCHANGE_LEVY") {
-        this.handleImperialExchangeLevyCommand(command);
-        return;
-      }
-
-      if (command.type === "WORLD_ENGINE_STRIKE") {
-        this.handleWorldEngineStrikeCommand(command);
-        return;
-      }
-
-      if (command.type === "UPGRADE_TOWN_TIER") {
-        this.handleUpgradeTownTierCommand(command);
-        return;
-      }
-
-      if (command.type === "COLLECT_SHARD") {
-        this.handleCollectShardCommand(command);
-        return;
-      }
-
-      if (command.type === "SYNC_ALLIANCE") {
-        this.handleSyncAllianceCommand(command);
-        return;
-      }
-
-      this.handleFrontierCommand(command, command.type);
+          message: `${unsupportedCommand.type} not yet migrated to the new simulation service`
+        }),
+        handleSettleCommand: (queuedCommand) => this.handleSettleCommand(queuedCommand),
+        handleBuildStructureCommand: (queuedCommand) => this.handleBuildStructureCommand(queuedCommand),
+        normalizeLegacyBuildCommand: (queuedCommand) => this.normalizeLegacyBuildCommand(queuedCommand),
+        handleSetSiegeOutpostSweepCommand: (queuedCommand) => this.handleSetSiegeOutpostSweepCommand(queuedCommand),
+        handleCancelCaptureCommand: (queuedCommand) => this.handleCancelCaptureCommand(queuedCommand),
+        handleCancelFortBuildCommand: (queuedCommand) => this.handleCancelFortBuildCommand(queuedCommand),
+        handleCancelStructureBuildCommand: (queuedCommand) => this.handleCancelStructureBuildCommand(queuedCommand),
+        handleRemoveStructureCommand: (queuedCommand) => this.handleRemoveStructureCommand(queuedCommand),
+        handleCancelSiegeOutpostBuildCommand: (queuedCommand) => this.handleCancelSiegeOutpostBuildCommand(queuedCommand),
+        handleCollectVisibleCommand: (queuedCommand) => this.handleCollectVisibleCommand(queuedCommand),
+        handleCollectTileCommand: (queuedCommand) => this.handleCollectTileCommand(queuedCommand),
+        handleUncaptureTileCommand: (queuedCommand) => this.handleUncaptureTileCommand(queuedCommand),
+        handleChooseTechCommand: (queuedCommand) => this.handleChooseTechCommand(queuedCommand),
+        handleChooseDomainCommand: (queuedCommand) => this.handleChooseDomainCommand(queuedCommand),
+        handleOverloadSynthesizerCommand: (queuedCommand) => this.handleOverloadSynthesizerCommand(queuedCommand),
+        handleSetConverterStructureEnabledCommand: (queuedCommand) => this.handleSetConverterStructureEnabledCommand(queuedCommand),
+        handleRevealEmpireCommand: (queuedCommand) => this.handleRevealEmpireCommand(queuedCommand),
+        handleRevealEmpireStatsCommand: (queuedCommand) => this.handleRevealEmpireStatsCommand(queuedCommand),
+        handleAetherLanceCommand: (queuedCommand) => this.handleAetherLanceCommand(queuedCommand),
+        handleCastAetherBridgeCommand: (queuedCommand) => this.handleCastAetherBridgeCommand(queuedCommand),
+        handleCastAetherWallCommand: (queuedCommand) => this.handleCastAetherWallCommand(queuedCommand),
+        handleSiphonTileCommand: (queuedCommand) => this.handleSiphonTileCommand(queuedCommand),
+        handlePurgeSiphonCommand: (queuedCommand) => this.handlePurgeSiphonCommand(queuedCommand),
+        handleCreateMountainCommand: (queuedCommand) => this.handleCreateMountainCommand(queuedCommand),
+        handleRemoveMountainCommand: (queuedCommand) => this.handleRemoveMountainCommand(queuedCommand),
+        handleAirportBombardCommand: (queuedCommand) => this.handleAirportBombardCommand(queuedCommand),
+        handleImperialExchangeLevyCommand: (queuedCommand) => this.handleImperialExchangeLevyCommand(queuedCommand),
+        handleWorldEngineStrikeCommand: (queuedCommand) => this.handleWorldEngineStrikeCommand(queuedCommand),
+        handleUpgradeTownTierCommand: (queuedCommand) => this.handleUpgradeTownTierCommand(queuedCommand),
+        handleCollectShardCommand: (queuedCommand) => this.handleCollectShardCommand(queuedCommand),
+        handleSyncAllianceCommand: (queuedCommand) => this.handleSyncAllianceCommand(queuedCommand),
+        handleFrontierCommand: (queuedCommand, actionType) => { this.handleFrontierCommand(queuedCommand, actionType); }
+      });
     }, command.type, scheduling);
   }
+
 }
