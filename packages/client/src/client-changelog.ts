@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.03.1",
+  version: "2026.06.03.2",
   title: "What's New",
   summary: "Town food-upkeep is now always visible in the tile overview for CITY+ towns. Reveal Empire now launches a one-shot 3D beacon when cast, and the build pipeline has been unified behind a single structure command.",
   entries: [
+    {
+      introducedIn: "2026.06.03.2",
+      title: "Queued builds survive a page reload again",
+      why: "The BUILD_STRUCTURE migration in v2026.06.02.8 had a missing branch for the current wire type itself — fresh BUILD_STRUCTURE persisted entries had their structureType silently dropped on reload, then rejected by the sim as UNKNOWN_STRUCTURE.",
+      changes: [
+        "parsePersistedDevelopmentAction now preserves structureType for BUILD_STRUCTURE entries.",
+        "Round-trip test covers fresh BUILD_STRUCTURE and legacy BUILD_FORT/BUILD_ECONOMIC_STRUCTURE entries."
+      ]
+    },
     {
       introducedIn: "2026.06.03.1",
       title: "Town food upkeep always visible in tile overview",

@@ -541,4 +541,117 @@ describe("development queue helpers", () => {
     expect(requestSettlementSpy).not.toHaveBeenCalled();
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
   });
+
+  it("round-trips a fresh BUILD_STRUCTURE entry preserving structureType after reload", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    persistDevelopmentQueueForPlayer("me", [
+      {
+        kind: "BUILD",
+        x: 3,
+        y: 4,
+        tileKey: "3,4",
+        label: "Market at (3, 4)",
+        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MARKET" },
+        optimisticKind: "MARKET"
+      }
+    ]);
+
+    const restored = restorePersistedDevelopmentQueueForPlayer(
+      "me",
+      new Map([["3,4", { ownerId: "me", ownershipState: "SETTLED" }]])
+    );
+
+    expect(restored).toEqual([
+      {
+        kind: "BUILD",
+        x: 3,
+        y: 4,
+        tileKey: "3,4",
+        label: "Market at (3, 4)",
+        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MARKET" },
+        optimisticKind: "MARKET"
+      }
+    ]);
+  });
+
+  it("migrates a legacy BUILD_FORT entry to BUILD_STRUCTURE with structureType FORT", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    // Simulate what an old client persisted (raw BUILD_FORT, no structureType field).
+    globalThis.sessionStorage.setItem(
+      "border-empires-development-queue-v1",
+      JSON.stringify({
+        playerId: "me",
+        queue: [
+          {
+            kind: "BUILD",
+            x: 5,
+            y: 6,
+            tileKey: "5,6",
+            label: "Fort at (5, 6)",
+            payload: { type: "BUILD_FORT", x: 5, y: 6 },
+            optimisticKind: "FORT"
+          }
+        ]
+      })
+    );
+
+    const restored = restorePersistedDevelopmentQueueForPlayer(
+      "me",
+      new Map([["5,6", { ownerId: "me", ownershipState: "SETTLED" }]])
+    );
+
+    expect(restored).toEqual([
+      {
+        kind: "BUILD",
+        x: 5,
+        y: 6,
+        tileKey: "5,6",
+        label: "Fort at (5, 6)",
+        payload: { type: "BUILD_STRUCTURE", x: 5, y: 6, structureType: "FORT" },
+        optimisticKind: "FORT"
+      }
+    ]);
+  });
+
+  it("migrates a legacy BUILD_ECONOMIC_STRUCTURE entry to BUILD_STRUCTURE preserving structureType", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    // Simulate what an old client persisted (BUILD_ECONOMIC_STRUCTURE with structureType).
+    globalThis.sessionStorage.setItem(
+      "border-empires-development-queue-v1",
+      JSON.stringify({
+        playerId: "me",
+        queue: [
+          {
+            kind: "BUILD",
+            x: 7,
+            y: 8,
+            tileKey: "7,8",
+            label: "Granary at (7, 8)",
+            payload: { type: "BUILD_ECONOMIC_STRUCTURE", x: 7, y: 8, structureType: "GRANARY" },
+            optimisticKind: "GRANARY"
+          }
+        ]
+      })
+    );
+
+    const restored = restorePersistedDevelopmentQueueForPlayer(
+      "me",
+      new Map([["7,8", { ownerId: "me", ownershipState: "SETTLED" }]])
+    );
+
+    expect(restored).toEqual([
+      {
+        kind: "BUILD",
+        x: 7,
+        y: 8,
+        tileKey: "7,8",
+        label: "Granary at (7, 8)",
+        payload: { type: "BUILD_STRUCTURE", x: 7, y: 8, structureType: "GRANARY" },
+        optimisticKind: "GRANARY"
+      }
+    ]);
+  });
 });
