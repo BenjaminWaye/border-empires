@@ -47,14 +47,10 @@ export type ClientWaypoint = {
   consecutiveRetries?: number;
 };
 
-type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 type QueuedOptimisticKind = OptimisticStructureKind;
 type QueuedBuildPayload =
-  | { type: "BUILD_FORT"; x: number; y: number }
-  | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
-  | { type: "REMOVE_STRUCTURE"; x: number; y: number }
-  | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
+  | { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string }
+  | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
 export const storageGet = (keyName: string): string | null => {
   try {
@@ -220,6 +216,7 @@ export const createInitialState = () => ({
   activeAetherWalls: [] as ActiveAetherWallView[],
   aetherLanceFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "WOOD" | "IRON" | "GEMS"; queuedAt: number }>,
+  revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
