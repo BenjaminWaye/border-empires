@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.9",
+  version: "2026.06.03.1",
   title: "What's New",
-  summary: "Reveal Empire now launches a one-shot 3D beacon when cast. The build pipeline has been unified behind a single structure command, and the food economy has been reworked with perishable fish, food-paid growth, and manual tier upgrades.",
+  summary: "Town food-upkeep is now always visible in the tile overview for CITY+ towns. Reveal Empire now launches a one-shot 3D beacon when cast, and the build pipeline has been unified behind a single structure command.",
   entries: [
+    {
+      introducedIn: "2026.06.03.1",
+      title: "Town food upkeep always visible in tile overview",
+      why: "The Town food-upkeep line (\"Town: 🍖 0.30/m\") was disappearing from the tile detail panel for CITY, GREAT_CITY, and METROPOLIS towns when the server snapshot didn't carry the foodUpkeepPerMinute field. The gateway now derives it from population tier instead of trusting the stored field.",
+      changes: [
+        "Town food-upkeep entry now always appears for TOWN/CITY/GREAT_CITY/METROPOLIS tiers in the tile detail panel.",
+        "Values: TOWN 0.10/m, CITY 0.30/m, GREAT_CITY 0.60/m, METROPOLIS 1.00/m — matching the actual food drain.",
+        "Settlements correctly show no Town food entry (they don't consume food)."
+      ]
+    },
     {
       introducedIn: "2026.06.02.9",
       title: "Reveal Empire gets a beacon cast flourish",
