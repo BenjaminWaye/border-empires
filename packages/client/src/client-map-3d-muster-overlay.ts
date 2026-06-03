@@ -118,7 +118,7 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
   const commitMeshes = () => {
     for (const m of meshes) {
       scene.remove(m);
-      m.geometry.dispose();
+      // Do NOT dispose m.geometry — it is the shared `geom` instance.
       (m.material as MeshBasicMaterial).map?.dispose();
       (m.material as MeshBasicMaterial).dispose();
     }
@@ -184,7 +184,7 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
     dispose() {
       for (const m of meshes) {
         scene.remove(m);
-        m.geometry.dispose();
+        // Do NOT dispose m.geometry here — it is the shared `geom` instance.
         (m.material as MeshBasicMaterial).map?.dispose();
         (m.material as MeshBasicMaterial).dispose();
       }
