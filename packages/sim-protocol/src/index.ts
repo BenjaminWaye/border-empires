@@ -261,6 +261,7 @@ export type SimulationEvent =
         economicStructureJson?: string | undefined;
         sabotageJson?: string | undefined;
         shardSiteJson?: string | undefined;
+        musterJson?: string | undefined;
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
@@ -412,6 +413,7 @@ export type PlayerSubscriptionSnapshot = {
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
+    musterJson?: string | undefined;
     yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
     yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;

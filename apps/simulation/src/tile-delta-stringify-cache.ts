@@ -28,6 +28,8 @@ interface Entry {
   sabotageRef: unknown;
   shardSiteJson: string | undefined;
   shardSiteRef: unknown;
+  musterJson: string | undefined;
+  musterRef: unknown;
 }
 
 export type AllSubstructureJson = {
@@ -38,6 +40,7 @@ export type AllSubstructureJson = {
   economicStructureJson: string | undefined;
   sabotageJson: string | undefined;
   shardSiteJson: string | undefined;
+  musterJson: string | undefined;
 };
 
 export class TileDeltaStringifyCache {
@@ -57,7 +60,8 @@ export class TileDeltaStringifyCache {
         siegeOutpostJson: undefined, siegeOutpostRef: undefined,
         economicStructureJson: undefined, economicStructureRef: undefined,
         sabotageJson: undefined, sabotageRef: undefined,
-        shardSiteJson: undefined, shardSiteRef: undefined
+        shardSiteJson: undefined, shardSiteRef: undefined,
+        musterJson: undefined, musterRef: undefined
       };
       this.entries.set(tileKey, entry);
     }
@@ -90,6 +94,10 @@ export class TileDeltaStringifyCache {
       entry.shardSiteRef = tile.shardSite;
       entry.shardSiteJson = tile.shardSite ? JSON.stringify(tile.shardSite) : undefined;
     }
+    if (tile.muster !== entry.musterRef) {
+      entry.musterRef = tile.muster;
+      entry.musterJson = tile.muster ? JSON.stringify(tile.muster) : undefined;
+    }
 
     return {
       townJson: entry.townJson,
@@ -98,7 +106,8 @@ export class TileDeltaStringifyCache {
       siegeOutpostJson: entry.siegeOutpostJson,
       economicStructureJson: entry.economicStructureJson,
       sabotageJson: entry.sabotageJson,
-      shardSiteJson: entry.shardSiteJson
+      shardSiteJson: entry.shardSiteJson,
+      musterJson: entry.musterJson
     };
   }
 

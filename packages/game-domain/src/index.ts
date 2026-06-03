@@ -162,6 +162,16 @@ export type DomainTileState = {
         outputMultiplier: number;
       }
     | undefined;
+  muster?:
+    | {
+        ownerId: string;
+        amount: number;
+        mode: "HOLD" | "ADVANCE";
+        targetX?: number;
+        targetY?: number;
+        updatedAt: number;
+      }
+    | undefined;
 };
 
 export type ValidateFrontierCommandInput = {

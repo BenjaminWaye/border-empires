@@ -2129,6 +2129,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "economicStructureJson" in update ||
             "sabotageJson" in update ||
             "shardSiteJson" in update ||
+            "musterJson" in update ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
                 existing: state.tiles.get(keyFor(update.x, update.y)),

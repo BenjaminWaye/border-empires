@@ -5384,6 +5384,7 @@ export class SimulationRuntime {
       siegeOutpostJson: cached.siegeOutpostJson,
       economicStructureJson: cached.economicStructureJson,
       sabotageJson: cached.sabotageJson,
+      musterJson: cached.musterJson,
       ...(yieldView?.yield ? { yield: yieldView.yield } : {})
       // yieldRate and yieldCap are derived client-side from static yield tables
       // + townJson (goldPerMinute/cap). See packages/client/src/yield-derivation.ts.

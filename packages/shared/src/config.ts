@@ -115,3 +115,33 @@ export const BARBARIAN_CLEAR_GOLD_REWARD = 5;
 export const BARBARIAN_ATTACK_POWER = 1.0;
 export const BARBARIAN_DEFENSE_POWER = 0.67;
 export const INITIAL_BARBARIAN_COUNT = 80;
+
+// --- Mustering system (Phase 0) ---
+// Master switch. When false, the game behaves exactly as before.
+export const MUSTER_SYSTEM_ENABLED =
+  process.env.MUSTER_SYSTEM_ENABLED === "true";
+
+// How much mustered manpower one ordinary attack costs (placeholder).
+export const MUSTER_ATTACK_COST = 60;
+// Max manpower a single muster tile can hold (placeholder).
+export const MUSTER_TILE_CAP = 120;
+// Base muster inflow a single tile gets if it had the WHOLE pipeline (per min).
+export const MUSTER_BASE_RATE_PER_MIN = 180; // ~20s per 60 with full pipeline
+// Multiplier to muster inflow when the tile is inside an outpost depot zone.
+export const MUSTER_DEPOT_SPEED_MULT = 2.0;
+// Chebyshev radius of an outpost depot's effect (5x5 => radius 2).
+export const OUTPOST_DEPOT_RADIUS = 2;
+
+// --- Barbarian raids ---
+export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
+
+// --- Fort garrison (Phase 7) ---
+export const FORT_GARRISON_CAP_BY_VARIANT: Record<string, number> = {
+  WOODEN_FORT: 120,
+  FORT: 120,
+  IRON_BASTION: 240,
+  THUNDER_BASTION: 360,
+};
+// Fraction of the attacking force the garrison loses on a REPULSED assault.
+export const FORT_GARRISON_ATTRITION_MIN = 0.05;
+export const FORT_GARRISON_ATTRITION_MAX = 0.15;
