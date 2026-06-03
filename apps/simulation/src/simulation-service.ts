@@ -15,7 +15,7 @@ import {
   type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
-import { WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed, type Terrain } from "@border-empires/shared";
+import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed, type Terrain } from "@border-empires/shared";
 
 import { createSimulationCommandStore } from "./command-store-factory.js";
 import type { SimulationCommandStore } from "./command-store.js";
@@ -123,6 +123,15 @@ type ProtoStartNextSeasonRequest = {
 type ProtoStartNextSeasonResponse = {
   ok: boolean;
   season_id: string;
+};
+type ProtoSeedBarbariansRequest = {
+  count?: number;
+};
+type ProtoSeedBarbariansResponse = {
+  ok: boolean;
+  requested: number;
+  placed: number;
+  detail_json: string;
 };
 
 const formatNoFrontierDiagnostic = (
@@ -1925,6 +1934,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
 
+  // Ops-only live barbarian reintroduction (see runtime.seedLiveBarbarians).
+  // Reads the live `runtime` handle so it targets the current season even after
+  // a rollover. The TILE_DELTA_BATCH the runtime emits flows through the normal
+  // onEvent path → persistence + fog-of-war broadcast, so no extra wiring here.
+  const DEFAULT_BARB_SEED_COUNT = INITIAL_BARBARIAN_COUNT;
+  const MAX_BARB_SEED_COUNT = 500;
+  const seedBarbarians = async (
+    count = DEFAULT_BARB_SEED_COUNT
+  ): Promise<{ requested: number; placed: number; detail: Record<string, unknown> }> => {
+    if (currentSeasonState.status === "ended") {
+      throw new Error("cannot seed barbarians while season is ended");
+    }
+    const requested = Math.min(MAX_BARB_SEED_COUNT, Math.max(0, Math.floor(count)));
+    const detail = runtime.seedLiveBarbarians(requested);
+    return { requested: detail.requested, placed: detail.placed, detail };
+  };
+
   const serviceImplementation: UntypedServiceImplementation = {
     SubmitCommand(
       call: { request: ProtoCommandEnvelope },
@@ -2336,6 +2362,30 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           callback(error instanceof Error ? error : new Error("failed to start next season"), {
             ok: false,
             season_id: ""
+          })
+        );
+    },
+    SeedBarbarians(
+      call: { request: ProtoSeedBarbariansRequest },
+      callback: (error: Error | null, response: ProtoSeedBarbariansResponse) => void
+    ) {
+      const requestedCount =
+        typeof call.request.count === "number" && call.request.count > 0 ? call.request.count : undefined;
+      void seedBarbarians(requestedCount)
+        .then((result) =>
+          callback(null, {
+            ok: true,
+            requested: result.requested,
+            placed: result.placed,
+            detail_json: JSON.stringify(result.detail)
+          })
+        )
+        .catch((error) =>
+          callback(error instanceof Error ? error : new Error("failed to seed barbarians"), {
+            ok: false,
+            requested: 0,
+            placed: 0,
+            detail_json: ""
           })
         );
     },
