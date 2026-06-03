@@ -1289,7 +1289,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "collect_shard") collectSelectedShard();
     if (actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
     if (actionId === "build_fortification")
-      sendDevelopmentBuild({ type: "BUILD_FORT", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FORT"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FORT"), {
         x: selected.x,
         y: selected.y,
         label: `${fortVariantLabel} at (${selected.x}, ${selected.y})`,
@@ -1297,12 +1297,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     if (actionId === "build_wooden_fort")
       sendDevelopmentBuild(
-        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "WOODEN_FORT" },
+        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "WOODEN_FORT" },
         () => applyOptimisticStructureBuild(selected.x, selected.y, "WOODEN_FORT"),
         { x: selected.x, y: selected.y, label: `Wooden Fort at (${selected.x}, ${selected.y})`, optimisticKind: "WOODEN_FORT" }
       );
     if (actionId === "build_observatory")
-      sendDevelopmentBuild({ type: "BUILD_OBSERVATORY", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "OBSERVATORY"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "OBSERVATORY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "OBSERVATORY"), {
         x: selected.x,
         y: selected.y,
         label: `Observatory at (${selected.x}, ${selected.y})`,
@@ -1310,88 +1310,88 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     if (actionId === "build_farmstead")
       sendDevelopmentBuild(
-        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" },
+        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" },
         () => applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD"),
         { x: selected.x, y: selected.y, label: `Farmstead at (${selected.x}, ${selected.y})`, optimisticKind: "FARMSTEAD" }
       );
     if (actionId === "build_waterworks")
       sendDevelopmentBuild(
-        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "WATERWORKS" },
+        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "WATERWORKS" },
         () => applyOptimisticStructureBuild(selected.x, selected.y, "WATERWORKS"),
         { x: selected.x, y: selected.y, label: `Waterworks at (${selected.x}, ${selected.y})`, optimisticKind: "WATERWORKS" }
       );
     if (actionId === "build_camp")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"), {
         x: selected.x,
         y: selected.y,
         label: `Camp at (${selected.x}, ${selected.y})`,
         optimisticKind: "CAMP"
       });
     if (actionId === "build_mine")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MINE"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MINE"), {
         x: selected.x,
         y: selected.y,
         label: `Mine at (${selected.x}, ${selected.y})`,
         optimisticKind: "MINE"
       });
     if (actionId === "build_market")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, optimisticStructureBuildForAction(actionId, selected, "MARKET"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, optimisticStructureBuildForAction(actionId, selected, "MARKET"), {
         x: selected.x,
         y: selected.y,
         label: `Market at (${selected.x}, ${selected.y})`,
         optimisticKind: "MARKET"
       });
     if (actionId === "build_granary")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, optimisticStructureBuildForAction(actionId, selected, "GRANARY"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, optimisticStructureBuildForAction(actionId, selected, "GRANARY"), {
         x: selected.x,
         y: selected.y,
         label: `Granary at (${selected.x}, ${selected.y})`,
         optimisticKind: "GRANARY"
       });
     if (actionId === "build_census_hall")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CENSUS_HALL" }, optimisticStructureBuildForAction(actionId, selected, "CENSUS_HALL"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CENSUS_HALL" }, optimisticStructureBuildForAction(actionId, selected, "CENSUS_HALL"), {
         x: selected.x,
         y: selected.y,
         label: `Census Hall at (${selected.x}, ${selected.y})`,
         optimisticKind: "CENSUS_HALL"
       });
     if (actionId === "build_bank")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "BANK" }, optimisticStructureBuildForAction(actionId, selected, "BANK"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "BANK" }, optimisticStructureBuildForAction(actionId, selected, "BANK"), {
         x: selected.x,
         y: selected.y,
         label: `Bank at (${selected.x}, ${selected.y})`,
         optimisticKind: "BANK"
       });
     if (actionId === "build_clearing_house")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CLEARING_HOUSE" }, optimisticStructureBuildForAction(actionId, selected, "CLEARING_HOUSE"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CLEARING_HOUSE" }, optimisticStructureBuildForAction(actionId, selected, "CLEARING_HOUSE"), {
         x: selected.x,
         y: selected.y,
         label: `Clearing House at (${selected.x}, ${selected.y})`,
         optimisticKind: "CLEARING_HOUSE"
       });
     if (actionId === "build_airport")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AIRPORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AIRPORT"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "AIRPORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AIRPORT"), {
         x: selected.x,
         y: selected.y,
         label: `Airport at (${selected.x}, ${selected.y})`,
         optimisticKind: "AIRPORT"
       });
     if (actionId === "build_aether_tower")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AETHER_TOWER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AETHER_TOWER"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "AETHER_TOWER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AETHER_TOWER"), {
         x: selected.x,
         y: selected.y,
         label: `Aether Tower at (${selected.x}, ${selected.y})`,
         optimisticKind: "AETHER_TOWER"
       });
     if (actionId === "build_caravanary")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CARAVANARY" }, optimisticStructureBuildForAction(actionId, selected, "CARAVANARY"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CARAVANARY" }, optimisticStructureBuildForAction(actionId, selected, "CARAVANARY"), {
         x: selected.x,
         y: selected.y,
         label: `Caravanary at (${selected.x}, ${selected.y})`,
         optimisticKind: "CARAVANARY"
       });
     if (actionId === "build_fur_synthesizer")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUR_SYNTHESIZER" }, optimisticStructureBuildForAction(actionId, selected, "FUR_SYNTHESIZER"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUR_SYNTHESIZER" }, optimisticStructureBuildForAction(actionId, selected, "FUR_SYNTHESIZER"), {
         x: selected.x,
         y: selected.y,
         label: `Fur Synthesizer at (${selected.x}, ${selected.y})`,
@@ -1399,12 +1399,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     if (actionId === "upgrade_fur_synthesizer")
       sendDevelopmentBuild(
-        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_FUR_SYNTHESIZER" },
+        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_FUR_SYNTHESIZER" },
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_FUR_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Advanced Fur Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_FUR_SYNTHESIZER" }
       );
     if (actionId === "build_ironworks")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IRONWORKS" }, optimisticStructureBuildForAction(actionId, selected, "IRONWORKS"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "IRONWORKS" }, optimisticStructureBuildForAction(actionId, selected, "IRONWORKS"), {
         x: selected.x,
         y: selected.y,
         label: `Ironworks at (${selected.x}, ${selected.y})`,
@@ -1412,108 +1412,108 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     if (actionId === "upgrade_ironworks")
       sendDevelopmentBuild(
-        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_IRONWORKS" },
+        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_IRONWORKS" },
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_IRONWORKS"),
         { x: selected.x, y: selected.y, label: `Advanced Ironworks at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_IRONWORKS" }
       );
     if (actionId === "build_crystal_synthesizer")
       sendDevelopmentBuild(
-        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CRYSTAL_SYNTHESIZER" },
+        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CRYSTAL_SYNTHESIZER" },
         optimisticStructureBuildForAction(actionId, selected, "CRYSTAL_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "CRYSTAL_SYNTHESIZER" }
       );
     if (actionId === "upgrade_crystal_synthesizer")
       sendDevelopmentBuild(
-        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_CRYSTAL_SYNTHESIZER" },
+        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_CRYSTAL_SYNTHESIZER" },
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_CRYSTAL_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Advanced Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_CRYSTAL_SYNTHESIZER" }
       );
     if (actionId === "build_foundry")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FOUNDRY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FOUNDRY"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "FOUNDRY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FOUNDRY"), {
         x: selected.x,
         y: selected.y,
         label: `Foundry at (${selected.x}, ${selected.y})`,
         optimisticKind: "FOUNDRY"
       });
     if (actionId === "build_garrison_hall")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GARRISON_HALL" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GARRISON_HALL"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "GARRISON_HALL" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GARRISON_HALL"), {
         x: selected.x,
         y: selected.y,
         label: `Garrison Hall at (${selected.x}, ${selected.y})`,
         optimisticKind: "GARRISON_HALL"
       });
     if (actionId === "build_customs_house")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CUSTOMS_HOUSE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CUSTOMS_HOUSE"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "CUSTOMS_HOUSE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CUSTOMS_HOUSE"), {
         x: selected.x,
         y: selected.y,
         label: `Harbor Exchange at (${selected.x}, ${selected.y})`,
         optimisticKind: "CUSTOMS_HOUSE"
       });
     if (actionId === "build_rail_depot")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "RAIL_DEPOT" }, optimisticStructureBuildForAction(actionId, selected, "RAIL_DEPOT"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "RAIL_DEPOT" }, optimisticStructureBuildForAction(actionId, selected, "RAIL_DEPOT"), {
         x: selected.x,
         y: selected.y,
         label: `Rail Depot at (${selected.x}, ${selected.y})`,
         optimisticKind: "RAIL_DEPOT"
       });
     if (actionId === "build_exchange_house")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "EXCHANGE_HOUSE" }, optimisticStructureBuildForAction(actionId, selected, "EXCHANGE_HOUSE"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "EXCHANGE_HOUSE" }, optimisticStructureBuildForAction(actionId, selected, "EXCHANGE_HOUSE"), {
         x: selected.x,
         y: selected.y,
         label: `Exchange House at (${selected.x}, ${selected.y})`,
         optimisticKind: "EXCHANGE_HOUSE"
       });
     if (actionId === "build_imperial_exchange_part")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IMPERIAL_EXCHANGE_PART" }, optimisticStructureBuildForAction(actionId, selected, "IMPERIAL_EXCHANGE_PART"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "IMPERIAL_EXCHANGE_PART" }, optimisticStructureBuildForAction(actionId, selected, "IMPERIAL_EXCHANGE_PART"), {
         x: selected.x,
         y: selected.y,
         label: `Imperial Exchange Part at (${selected.x}, ${selected.y})`,
         optimisticKind: "IMPERIAL_EXCHANGE_PART"
       });
     if (actionId === "build_world_engine_part")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "WORLD_ENGINE_PART" }, optimisticStructureBuildForAction(actionId, selected, "WORLD_ENGINE_PART"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "WORLD_ENGINE_PART" }, optimisticStructureBuildForAction(actionId, selected, "WORLD_ENGINE_PART"), {
         x: selected.x,
         y: selected.y,
         label: `Worldbreaker Cannon Part at (${selected.x}, ${selected.y})`,
         optimisticKind: "WORLD_ENGINE_PART"
       });
     if (actionId === "build_aegis_dome_part")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AEGIS_DOME_PART" }, optimisticStructureBuildForAction(actionId, selected, "AEGIS_DOME_PART"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "AEGIS_DOME_PART" }, optimisticStructureBuildForAction(actionId, selected, "AEGIS_DOME_PART"), {
         x: selected.x,
         y: selected.y,
         label: `Aegis Dome Part at (${selected.x}, ${selected.y})`,
         optimisticKind: "AEGIS_DOME_PART"
       });
     if (actionId === "build_astral_dock_part")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ASTRAL_DOCK_PART" }, optimisticStructureBuildForAction(actionId, selected, "ASTRAL_DOCK_PART"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ASTRAL_DOCK_PART" }, optimisticStructureBuildForAction(actionId, selected, "ASTRAL_DOCK_PART"), {
         x: selected.x,
         y: selected.y,
         label: `Astral Dock Part at (${selected.x}, ${selected.y})`,
         optimisticKind: "ASTRAL_DOCK_PART"
       });
     if (actionId === "build_imperial_exchange")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IMPERIAL_EXCHANGE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "IMPERIAL_EXCHANGE"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "IMPERIAL_EXCHANGE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "IMPERIAL_EXCHANGE"), {
         x: selected.x,
         y: selected.y,
         label: `Imperial Exchange at (${selected.x}, ${selected.y})`,
         optimisticKind: "IMPERIAL_EXCHANGE"
       });
     if (actionId === "build_world_engine")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "WORLD_ENGINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "WORLD_ENGINE"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "WORLD_ENGINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "WORLD_ENGINE"), {
         x: selected.x,
         y: selected.y,
         label: `Worldbreaker Cannon at (${selected.x}, ${selected.y})`,
         optimisticKind: "WORLD_ENGINE"
       });
     if (actionId === "build_aegis_dome")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AEGIS_DOME" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AEGIS_DOME"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "AEGIS_DOME" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AEGIS_DOME"), {
         x: selected.x,
         y: selected.y,
         label: `Aegis Dome at (${selected.x}, ${selected.y})`,
         optimisticKind: "AEGIS_DOME"
       });
     if (actionId === "build_astral_dock")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ASTRAL_DOCK" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "ASTRAL_DOCK"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "ASTRAL_DOCK" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "ASTRAL_DOCK"), {
         x: selected.x,
         y: selected.y,
         label: `Astral Dock at (${selected.x}, ${selected.y})`,
@@ -1521,19 +1521,19 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     if (actionId === "build_governors_office")
       sendDevelopmentBuild(
-        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GOVERNORS_OFFICE" },
+        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "GOVERNORS_OFFICE" },
         () => applyOptimisticStructureBuild(selected.x, selected.y, "GOVERNORS_OFFICE"),
         { x: selected.x, y: selected.y, label: `Ministry Hall at (${selected.x}, ${selected.y})`, optimisticKind: "GOVERNORS_OFFICE" }
       );
     if (actionId === "build_radar_system")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "RADAR_SYSTEM" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "RADAR_SYSTEM"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "RADAR_SYSTEM" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "RADAR_SYSTEM"), {
         x: selected.x,
         y: selected.y,
         label: `Radar System at (${selected.x}, ${selected.y})`,
         optimisticKind: "RADAR_SYSTEM"
       });
     if (actionId === "build_siege_camp")
-      sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST"), {
+      sendDevelopmentBuild({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "SIEGE_OUTPOST" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST"), {
         x: selected.x,
         y: selected.y,
         label: `${siegeVariantLabel} at (${selected.x}, ${selected.y})`,
@@ -1541,7 +1541,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     if (actionId === "build_light_outpost")
       sendDevelopmentBuild(
-        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "LIGHT_OUTPOST" },
+        { type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "LIGHT_OUTPOST" },
         () => applyOptimisticStructureBuild(selected.x, selected.y, "LIGHT_OUTPOST"),
         { x: selected.x, y: selected.y, label: `Light Outpost at (${selected.x}, ${selected.y})`, optimisticKind: "LIGHT_OUTPOST" }
       );
@@ -1617,7 +1617,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       breakTruce(selected.ownerId);
     }
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
-      sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId });
+      if (sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId })) {
+        state.revealEmpireFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
     }
     if (actionId === "survey_sweep") sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y });
     if (actionId === "aether_lance") {
