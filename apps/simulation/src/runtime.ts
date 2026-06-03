@@ -19,6 +19,7 @@ import {
 import {
   ATTACK_MANPOWER_MIN,
   MUSTER_SYSTEM_ENABLED,
+  MUSTER_ATTACK_COST,
   SWEEP_BUDGET_CAP,
   SWEEP_RADIUS_BY_VARIANT,
   BARBARIAN_MULTIPLY_THRESHOLD,
@@ -968,7 +969,12 @@ export class SimulationRuntime {
       playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
+      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
+        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
+      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
+      locksByTile: this.locksByTile
     });
   }
 
@@ -2985,7 +2991,10 @@ export class SimulationRuntime {
       isBridgeCrossing: this.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
       targetShielded: isDockCrossing ? false : this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
       defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId)),
-      expandClaimDurationMs
+      expandClaimDurationMs,
+      musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
+      originMuster: from.muster?.ownerId === actor.id ? from.muster.amount : 0,
+      requiredMuster: MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" ? this.requiredMusterForTarget(to) : undefined
     });
 
     if (!validation.ok) {
@@ -6787,7 +6796,15 @@ export class SimulationRuntime {
       ...(combatResult?.pillagedStrategic && Object.keys(combatResult.pillagedStrategic).length > 0 ? { pillagedStrategic: combatResult.pillagedStrategic } : {}),
       ...(combatResult ? { combatResult } : {})
     });
-    if (attacker && typeof combatResult?.manpowerDelta === "number") this.applyLockedManpowerDelta(attacker, combatResult.manpowerDelta);
+    if (attacker && typeof combatResult?.manpowerDelta === "number") {
+      if (MUSTER_SYSTEM_ENABLED && lock.actionType === "ATTACK") {
+        // Muster system: the strike is paid from the origin tile's muster, not
+        // the global pool. Spend the committed force regardless of outcome.
+        this.consumeOriginMuster(lock.originKey, lock.playerId, lock.manpowerCost);
+      } else {
+        this.applyLockedManpowerDelta(attacker, combatResult.manpowerDelta);
+      }
+    }
     if (attackerWon && attacker && defender && targetWasSettled && combatResolution) {
       this.applySettledCapturePlunder({
         attacker,
@@ -7236,6 +7253,37 @@ export class SimulationRuntime {
     if (input.gold <= 0) return;
     input.defender.points = Math.max(0, input.defender.points - input.defenderGoldLoss);
     input.attacker.points += input.gold;
+  }
+
+  /**
+   * Manpower an attacker must have mustered on the origin tile to strike this
+   * target. Phase 5 baseline: the flat attack cost. Phase 7 raises it to the
+   * target fort's garrison; Phase 8 lowers it for barbarian raids.
+   */
+  private requiredMusterForTarget(_target: DomainTileState): number {
+    return MUSTER_ATTACK_COST;
+  }
+
+  /**
+   * Spend mustered manpower from the origin tile after a resolved attack under
+   * the muster system. The pool is untouched (it was already drained into the
+   * muster during accumulation).
+   */
+  private consumeOriginMuster(originKey: string, playerId: string, amount: number): void {
+    const tile = this.tiles.get(originKey);
+    if (!tile?.muster || tile.muster.ownerId !== playerId) return;
+    const nextAmount = Math.max(0, tile.muster.amount - amount);
+    const updatedTile: DomainTileState = {
+      ...tile,
+      muster: { ...tile.muster, amount: nextAmount, updatedAt: this.now() }
+    };
+    this.replaceTileState(originKey, updatedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `muster-spend:${originKey}:${this.now()}`,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
   }
 
   private attackManpowerLoss(committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number {

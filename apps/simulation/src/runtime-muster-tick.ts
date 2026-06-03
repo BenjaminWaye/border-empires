@@ -1,12 +1,12 @@
-import type { SimulationEvent } from "@border-empires/sim-protocol";
-import type { DomainTileState } from "@border-empires/game-domain";
+import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   MUSTER_SYSTEM_ENABLED,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_TILE_CAP,
   OUTPOST_DEPOT_RADIUS
 } from "@border-empires/shared";
-import { coordsInChebyshevRadius } from "./territory-automation.js";
+import { coordsInChebyshevRadius, sweepAttackCandidates } from "./territory-automation.js";
 import { simulationTileKey } from "./seed-state.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 
@@ -22,6 +22,11 @@ export type MusterTickInput = {
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
+  // ADVANCE auto-fire wiring.
+  requiredMusterForTarget: (target: DomainTileState) => number;
+  nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, nowMs: number) => string;
+  handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => boolean;
+  locksByTile: ReadonlyMap<string, unknown>;
 };
 
 /**
@@ -60,36 +65,78 @@ export const tickMuster = (input: MusterTickInput): void => {
       const headroom = MUSTER_TILE_CAP - tile.muster.amount;
       const inflow = Math.min(sharePerTile * depotMult * elapsedMin, player.manpower, headroom);
 
-      if (inflow <= 0.0001) {
-        // Still stamp updatedAt so elapsed time doesn't accumulate while the
-        // pool is empty or the tile is full.
-        if (elapsedMin > 0) {
-          const stampedTile: DomainTileState = {
-            ...tile,
-            muster: { ...tile.muster, updatedAt: input.nowMs }
-          };
-          input.replaceTileState(tileKey, stampedTile);
-        }
-        continue;
+      let currentTile = tile;
+      if (inflow > 0.0001) {
+        player.manpower -= inflow;
+        currentTile = {
+          ...tile,
+          muster: {
+            ...tile.muster,
+            amount: tile.muster.amount + inflow,
+            updatedAt: input.nowMs
+          }
+        };
+        input.replaceTileState(tileKey, currentTile);
+        input.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: `muster-tick:${tileKey}:${input.nowMs}`,
+          playerId,
+          tileDeltas: [input.tileDeltaFromState(currentTile)]
+        });
+      } else if (elapsedMin > 0) {
+        // Stamp updatedAt so elapsed time doesn't accumulate while the pool is
+        // empty or the tile is full.
+        currentTile = {
+          ...tile,
+          muster: { ...tile.muster, updatedAt: input.nowMs }
+        };
+        input.replaceTileState(tileKey, currentTile);
       }
 
-      player.manpower -= inflow;
-      const updatedTile: DomainTileState = {
-        ...tile,
-        muster: {
-          ...tile.muster,
-          amount: tile.muster.amount + inflow,
-          updatedAt: input.nowMs
-        }
-      };
-      input.replaceTileState(tileKey, updatedTile);
-      input.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: `muster-tick:${tileKey}:${input.nowMs}`,
-        playerId,
-        tileDeltas: [input.tileDeltaFromState(updatedTile)]
-      });
+      // ADVANCE auto-fire runs regardless of inflow so a full flag still strikes.
+      if (currentTile.muster?.mode === "ADVANCE") {
+        maybeAdvanceFire(input, currentTile, playerId);
+      }
     }
+  }
+};
+
+/**
+ * ADVANCE auto-fire: if the muster tile can afford an adjacent enemy target,
+ * launch an ATTACK from the muster tile itself. The actual muster spend happens
+ * at combat resolution (consumeOriginMuster); the origin lock created by the
+ * attack prevents this flag from firing again until that resolves.
+ */
+const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
+  const musterAmount = musterTile.muster?.amount ?? 0;
+  const originKey = simulationTileKey(musterTile.x, musterTile.y);
+  // Don't stack a second strike while the origin is locked in combat.
+  if (input.locksByTile.has(originKey)) return;
+
+  const candidates = sweepAttackCandidates(musterTile, playerId, 1, (x, y) =>
+    input.tiles.get(simulationTileKey(x, y))
+  );
+  for (const target of candidates) {
+    if (musterAmount < input.requiredMusterForTarget(target)) continue;
+    const commandId = input.nextTerritoryAutomationCommandId(
+      "muster-advance",
+      playerId,
+      simulationTileKey(target.x, target.y),
+      input.nowMs
+    );
+    const accepted = input.handleFrontierCommand(
+      {
+        commandId,
+        sessionId: `system-runtime:territory-automation:${playerId}`,
+        playerId,
+        clientSeq: 0,
+        issuedAt: input.nowMs,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: musterTile.x, fromY: musterTile.y, toX: target.x, toY: target.y })
+      },
+      "ATTACK"
+    );
+    if (accepted) return;
   }
 };
 
