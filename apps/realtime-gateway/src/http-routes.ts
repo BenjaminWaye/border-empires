@@ -68,6 +68,7 @@ type RegisterGatewayHttpRoutesDeps = {
   getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
+  seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   adminApiToken?: string;
   playOrigin?: string;
   authenticateBearer?: (authorizationHeader: string | undefined) => Promise<GatewayResolvedIdentity | undefined>;
@@ -341,6 +342,35 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
       return {
         ok: false,
         error: error instanceof Error ? error.message : "failed to start next season"
+      };
+    }
+  });
+
+  // Ops-only: non-destructively reintroduce barbarians into the live world.
+  // Barbs only spawn at worldgen and have no maintenance respawn, so this is
+  // how an extinct barbarian population is brought back without a season reset.
+  // ?count=N overrides the default (INITIAL_BARBARIAN_COUNT); the sim caps it.
+  app.post("/admin/barbarians/seed", async (request, reply) => {
+    const authorization = typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
+    if (!adminAuthorized(authorization)) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    if (!deps.seedBarbarians) {
+      reply.code(501);
+      return { ok: false, error: "seedBarbarians not wired" };
+    }
+    try {
+      const query = request.query as { count?: string | number } | undefined;
+      const parsedCount = typeof query?.count !== "undefined" ? Number(query.count) : undefined;
+      const count = typeof parsedCount === "number" && Number.isFinite(parsedCount) ? parsedCount : undefined;
+      const result = await deps.seedBarbarians(count);
+      return { ok: true, requested: result.requested, placed: result.placed, detail: result.detail };
+    } catch (error) {
+      reply.code(409);
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "failed to seed barbarians"
       };
     }
   });
