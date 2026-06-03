@@ -117,6 +117,9 @@ export type DomainTileState = {
         completesAt?: number | undefined;
         disabledUntil?: number | undefined;
         previousStatus?: "active" | undefined;
+        garrison?: number | undefined;
+        garrisonCap?: number | undefined;
+        garrisonUpdatedAt?: number | undefined;
       }
     | undefined;
   observatory?:
