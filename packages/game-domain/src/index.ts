@@ -14,6 +14,7 @@ import {
   ATTACK_MANPOWER_MIN,
   COMBAT_LOCK_MS,
   FRONTIER_CLAIM_MS,
+  MUSTER_ATTACK_COST,
   type ChosenTrickleResource,
   type Tile
 } from "@border-empires/shared";
@@ -191,6 +192,12 @@ export type ValidateFrontierCommandInput = {
   targetShielded: boolean;
   defenderIsAlliedOrTruced: boolean;
   expandClaimDurationMs?: number | undefined;
+  /** Mustering system: when true, attacks consume the origin tile's muster. */
+  musterSystemEnabled?: boolean | undefined;
+  /** Manpower currently mustered on the origin tile (used when the flag is on). */
+  originMuster?: number | undefined;
+  /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
+  requiredMuster?: number | undefined;
 };
 
 export type ValidateFrontierCommandResult =
@@ -223,7 +230,14 @@ const manpowerRequirements = (
 export const validateFrontierCommand = (
   input: ValidateFrontierCommandInput
 ): ValidateFrontierCommandResult => {
-  const { manpowerMin, manpowerCost } = manpowerRequirements(input.actionType, input.to);
+  const legacy = manpowerRequirements(input.actionType, input.to);
+  const musterAttack = input.musterSystemEnabled === true && input.actionType === "ATTACK";
+  const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
+  // Under the muster system an attack is paid from the origin tile's muster
+  // reservoir (a single, legible number), not from the global pool times the
+  // legacy fort multiplier.
+  const manpowerMin = musterAttack ? requiredMuster : legacy.manpowerMin;
+  const manpowerCost = musterAttack ? requiredMuster : legacy.manpowerCost;
   if (input.actionType === "EXPAND" && input.to.ownerId) {
     return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
   }
@@ -272,7 +286,15 @@ export const validateFrontierCommand = (
       message: input.actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
     };
   }
-  if (input.actor.manpower < manpowerMin) {
+  if (musterAttack) {
+    if ((input.originMuster ?? 0) < requiredMuster) {
+      return {
+        ok: false,
+        code: "INSUFFICIENT_MUSTER",
+        message: `need ${requiredMuster.toFixed(0)} mustered manpower to launch attack`
+      };
+    }
+  } else if (input.actor.manpower < manpowerMin) {
     return {
       ok: false,
       code: "INSUFFICIENT_MANPOWER",
