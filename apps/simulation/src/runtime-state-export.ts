@@ -44,6 +44,7 @@ export type RuntimeExportState = {
     siegeOutpostJson?: string;
     economicStructureJson?: string;
     sabotageJson?: string;
+    musterJson?: string;
   }>;
   players: Array<{
     id: string;
@@ -247,6 +248,7 @@ export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExpor
         if (cached.siegeOutpostJson) entry.siegeOutpostJson = cached.siegeOutpostJson;
         if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
         if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
+        if (cached.musterJson) entry.musterJson = cached.musterJson;
         result[i] = entry;
         i += 1;
       }

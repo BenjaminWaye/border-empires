@@ -300,6 +300,14 @@ export interface Tile {
   sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number };
   history?: TileHistory;
   lastChangedAt: number;
+  muster?: {
+    ownerId: string;
+    amount: number;
+    mode: "HOLD" | "ADVANCE";
+    targetX?: number;
+    targetY?: number;
+    updatedAt: number;
+  };
 }
 
 export interface StatsMods {

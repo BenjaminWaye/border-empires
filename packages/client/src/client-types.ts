@@ -268,6 +268,14 @@ export type Tile = {
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
+  muster?: {
+    ownerId: string;
+    amount: number;
+    mode: "HOLD" | "ADVANCE";
+    targetX?: number;
+    targetY?: number;
+    updatedAt: number;
+  };
 };
 
 export type SeasonVictoryObjectiveView = {
