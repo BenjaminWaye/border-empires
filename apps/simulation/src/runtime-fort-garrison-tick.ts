@@ -54,7 +54,10 @@ export const tickFortGarrison = (input: FortGarrisonTickInput): void => {
     const cap = input.playerManpowerCap(player);
     if (player.manpower < cap) continue; // pool not full — no overflow this tick
     const regenPerMin = input.playerManpowerRegenPerMinute(player);
-    const elapsedMs = input.nowMs - (depletedForts[0].tile.fort?.garrisonUpdatedAt ?? input.nowMs);
+    // Use player's last manpower-update timestamp as the overflow interval start.
+    // This is semantically correct: overflow = regen since the last time the
+    // player's pool was updated (which is when manpower was last applied).
+    const elapsedMs = input.nowMs - (player.manpowerUpdatedAt ?? input.nowMs);
     if (elapsedMs <= 0) continue;
     const overflowTotal = regenPerMin * (elapsedMs / 60_000);
     if (overflowTotal <= 0) continue;
