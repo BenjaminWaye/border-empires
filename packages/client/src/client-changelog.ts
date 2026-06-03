@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.06.03.1",
   title: "What's New",
-  summary: "Town food-upkeep is now always visible in the tile overview for CITY+ towns — it was silently hidden when the snapshot didn't carry the field.",
+  summary: "Town food-upkeep is now always visible in the tile overview for CITY+ towns. Reveal Empire now launches a one-shot 3D beacon when cast, and the build pipeline has been unified behind a single structure command.",
   entries: [
     {
       introducedIn: "2026.06.03.1",
@@ -31,6 +31,25 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Town food-upkeep entry now always appears for TOWN/CITY/GREAT_CITY/METROPOLIS tiers in the tile detail panel.",
         "Values: TOWN 0.10/m, CITY 0.30/m, GREAT_CITY 0.60/m, METROPOLIS 1.00/m — matching the actual food drain.",
         "Settlements correctly show no Town food entry (they don't consume food)."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.9",
+      title: "Reveal Empire gets a beacon cast flourish",
+      why: "Reveal Empire changes long-running visibility, but the cast moment itself had no 3D feedback when the player selected a hostile tile.",
+      changes: [
+        "Casting Reveal Empire now launches a one-shot 3D beacon upward from the selected hostile tile, with a light trail, reveal halo, cartography sweep, and rising map-fragment motes.",
+        "The effect is client-only feedback and does not add synced persistent state."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.8",
+      title: "Unified build pipeline",
+      why: "Four separate build messages (BUILD_FORT, BUILD_OBSERVATORY, BUILD_SIEGE_OUTPOST, BUILD_ECONOMIC_STRUCTURE) each had their own handler, costing tables, and validation paths — making it hard to add new structures, inconsistent between upgrade tiers, and the source of the LIGHT_OUTPOST type-lie.",
+      changes: [
+        "All build actions now use a single BUILD_STRUCTURE message with a structureType field.",
+        "Build menus and queuing are unchanged — this is a behind-the-scenes consolidation.",
+        "No gameplay changes."
       ]
     },
     {
