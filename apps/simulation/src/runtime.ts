@@ -330,6 +330,7 @@ import {
 } from "./runtime-maintenance-ticks.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "./runtime-shard-rain-tick.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "./runtime-territory-automation-tick.js";
+import { tickMuster as tickMusterImpl } from "./runtime-muster-tick.js";
 import {
   bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
   updateFrontierDecay as updateFrontierDecayImpl
@@ -416,6 +417,11 @@ export class SimulationRuntime {
   // Maintained in replaceTileState via refreshLightOutpostIndexForTile.
   // Replaces the O(territory) sweep in tickTerritoryAutomation.
   private readonly activeLightOutpostsByOwner = new Map<string, Set<string>>();
+  // Index of tiles carrying a muster flag per owner (mustering system).
+  // Key: ownerId, Value: Set of tileKeys whose `muster.ownerId` is that player.
+  // Maintained in replaceTileState via refreshMusterIndexForTile. Lets the
+  // muster accumulation tick enumerate active musters without scanning the map.
+  private readonly musterTilesByOwner = new Map<string, Set<string>>();
   // Index of yield-bearing SETTLED LAND tiles per owner. A tile is yield-bearing
   // iff it has town, dockId, a strategic resource, or an active converter
   // economicStructure. Maintained in replaceTileState; rebuilt from this.tiles
@@ -728,6 +734,12 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(ownerId, set); }
         set.add(tileKey);
       }
+      // Populate musterTilesByOwner index (mustering system).
+      if (tile.muster?.ownerId) {
+        let set = this.musterTilesByOwner.get(tile.muster.ownerId);
+        if (!set) { set = new Set<string>(); this.musterTilesByOwner.set(tile.muster.ownerId, set); }
+        set.add(tileKey);
+      }
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
@@ -940,6 +952,23 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+    });
+    this.tickMuster(nowMs);
+  }
+
+  tickMuster(nowMs: number = this.now()): void {
+    tickMusterImpl({
+      nowMs,
+      players: this.players,
+      tiles: this.tiles,
+      musterTilesByOwner: this.musterTilesByOwner,
+      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
+      applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
+      playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
     });
   }
 
@@ -1624,6 +1653,8 @@ export class SimulationRuntime {
     // Sweep outpost indexes: maintain activeSiegeOutpostsByOwner and activeLightOutpostsByOwner.
     this.refreshSiegeOutpostIndexForTile(tileKey, previous, tile);
     this.refreshLightOutpostIndexForTile(tileKey, previous, tile);
+    // Muster flag index: maintain musterTilesByOwner.
+    this.refreshMusterIndexForTile(tileKey, previous, tile);
     // Structure count index: keep ownedStructureCountByPlayerByType consistent
     // across capture / build / cancel / removal transitions. Each slot is
     // tracked by the STRUCTURE's ownerId (not the tile's), to match the
@@ -1961,6 +1992,27 @@ export class SimulationRuntime {
     if (nextActive && nextOwnerId) {
       let set = this.activeSiegeOutpostsByOwner.get(nextOwnerId);
       if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(nextOwnerId, set); }
+      set.add(tileKey);
+    }
+  }
+
+  // ---- Muster flag index helpers ----
+
+  private refreshMusterIndexForTile(
+    tileKey: string,
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    const prevOwnerId = previous?.muster?.ownerId;
+    const nextOwnerId = next.muster?.ownerId;
+    if (prevOwnerId === nextOwnerId) return;
+    if (prevOwnerId) {
+      const set = this.musterTilesByOwner.get(prevOwnerId);
+      if (set) set.delete(tileKey);
+    }
+    if (nextOwnerId) {
+      let set = this.musterTilesByOwner.get(nextOwnerId);
+      if (!set) { set = new Set<string>(); this.musterTilesByOwner.set(nextOwnerId, set); }
       set.add(tileKey);
     }
   }
