@@ -185,7 +185,7 @@ const townPopulationGrowthPerMinute = (input: {
 
 // Mirrors townFoodUpkeepPerMinute in apps/simulation/src/player-update-economy.ts
 // (the authoritative food drain). Kept local so the gateway never depends on
-// townJson carrying the field — same backfill philosophy as goldPerMinute/cap.
+// townJson carrying the field - same backfill philosophy as goldPerMinute/cap.
 const townFoodUpkeepForTier = (populationTier: string | undefined): number => {
   switch (populationTier) {
     case "CITY": return 0.3;
@@ -297,8 +297,9 @@ export const buildSnapshotTileDetail = (
     (typeof populationGrowthPerMinute === "number" && populationGrowthPerMinute > 0
       ? [{ label: "Long time peace" as const, deltaPerMinute: populationGrowthPerMinute }]
       : undefined);
-  const townFoodUpkeep = parsedTown ? townFoodUpkeepForTier(populationTier) : 0;
-  const town = tile.townType || parsedTown
+  const hasTown = Boolean(tile.townType || parsedTown);
+  const townFoodUpkeep = hasTown ? townFoodUpkeepForTier(populationTier) : 0;
+  const town = hasTown
     ? {
         ...(parsedTown ?? {}),
         type: parsedTown?.type ?? tile.townType,
