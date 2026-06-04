@@ -35,6 +35,7 @@ export type WaypointBlockReason =
   | "TARGET_OWN"
   | "TARGET_BARRIER"
   | "TARGET_UNEXPLORED"
+  | "TARGET_ALLIED"
   | "TARGET_TRUCED"
   | "NO_OWNED_TERRITORY";
 
@@ -56,7 +57,7 @@ export type WaypointPlan = {
 };
 
 export type WaypointPlannerDeps = {
-  state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "activeTruces">;
+  state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces">;
   keyFor: (x: number, y: number) => string;
   // Test override; defaults to wall-clock combat lock.
   attackDurationMs?: number;
@@ -113,6 +114,7 @@ const classifyTile = (
   y: number,
   me: string | undefined,
   attackDurationMs: number,
+  alliedPlayerIds: ReadonlySet<string>,
   truceTargetIds: ReadonlySet<string>,
   expandDurationMsAt: (x: number, y: number) => number,
   now: number
@@ -127,6 +129,7 @@ const classifyTile = (
     return { kind: "OWN" };
   }
   if (!tile.ownerId) return { kind: "NEUTRAL", durationMs: expandDurationMsAt(x, y) };
+  if (alliedPlayerIds.has(tile.ownerId)) return { kind: "IMPASSABLE" };
   if (truceTargetIds.has(tile.ownerId)) return { kind: "IMPASSABLE" };
   return { kind: "ENEMY", durationMs: attackDurationMs };
 };
@@ -215,6 +218,8 @@ const truceTargetIdsOf = (
   return out;
 };
 
+const alliedPlayerIdsOf = (state: Pick<ClientState, "allies">): Set<string> => new Set(state.allies ?? []);
+
 export const planWaypoint = (
   target: { x: number; y: number },
   deps: WaypointPlannerDeps
@@ -244,9 +249,11 @@ export const planWaypoint = (
   if (!me) return blockedPlan("NO_OWNED_TERRITORY");
 
   const goalTile = state.tiles.get(keyFor(goalX, goalY));
+  const alliedPlayerIds = alliedPlayerIdsOf(state);
   if (!goalTile) return blockedPlan("TARGET_UNEXPLORED");
   if (goalTile.terrain !== "LAND") return blockedPlan("TARGET_BARRIER");
   if (goalTile.ownerId === me) return blockedPlan("TARGET_OWN");
+  if (goalTile.ownerId && alliedPlayerIds.has(goalTile.ownerId)) return blockedPlan("TARGET_ALLIED");
   if (goalTile.ownerId && truceTargetIds.has(goalTile.ownerId)) return blockedPlan("TARGET_TRUCED");
 
   // Collect sources: all currently-owned land tiles (gScore 0 each).
@@ -323,7 +330,7 @@ export const planWaypoint = (
       const ny = wrapY(cy + dy, WORLD_HEIGHT);
       const neighborIdx = worldIndex(nx, ny);
       const neighborTile = state.tiles.get(keyFor(nx, ny));
-      const classified = classifyTile(neighborTile, nx, ny, me, attackDurationMs, truceTargetIds, expandDurationMsAt, now);
+      const classified = classifyTile(neighborTile, nx, ny, me, attackDurationMs, alliedPlayerIds, truceTargetIds, expandDurationMsAt, now);
       if (classified.kind === "IMPASSABLE") continue;
       const baseCost = classified.kind === "OWN" ? 0 : classified.durationMs;
       const turnPenalty = parentDir === NO_DIR || parentDir === dirIdx ? 0 : TURN_PENALTY_MS;
@@ -348,7 +355,7 @@ export const planWaypoint = (
         for (const destIdx of links) {
           const { x: dxw, y: dyw } = coordFromIndex(destIdx);
           const destTile = state.tiles.get(keyFor(dxw, dyw));
-          const classified = classifyTile(destTile, dxw, dyw, me, attackDurationMs, truceTargetIds, expandDurationMsAt, now);
+          const classified = classifyTile(destTile, dxw, dyw, me, attackDurationMs, alliedPlayerIds, truceTargetIds, expandDurationMsAt, now);
           if (classified.kind === "IMPASSABLE") continue;
           const stepCost = classified.kind === "OWN" ? 0 : classified.durationMs;
           const tentative = currentG + stepCost;
@@ -396,7 +403,7 @@ export const planWaypoint = (
     const prev = coordFromIndex(prevIdx);
     const next = coordFromIndex(nextIdx);
     const nextTile = state.tiles.get(keyFor(next.x, next.y));
-    const classified = classifyTile(nextTile, next.x, next.y, me, attackDurationMs, truceTargetIds, expandDurationMsAt, now);
+    const classified = classifyTile(nextTile, next.x, next.y, me, attackDurationMs, alliedPlayerIds, truceTargetIds, expandDurationMsAt, now);
     if (classified.kind === "OWN" || classified.kind === "IMPASSABLE") {
       // Should not happen — A* never traverses impassable, and own tiles
       // are sources which terminate reconstruction.

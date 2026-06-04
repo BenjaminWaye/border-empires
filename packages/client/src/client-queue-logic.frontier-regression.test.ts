@@ -42,6 +42,7 @@ describe("frontier queue regressions", () => {
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       isAdjacent: () => true,
+      isTileOwnedByAlly: () => false,
       pickOriginForTarget: () => origin,
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       applyOptimisticTileState,
@@ -86,6 +87,7 @@ describe("frontier queue regressions", () => {
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       isAdjacent: () => true,
+      isTileOwnedByAlly: () => false,
       pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       applyOptimisticTileState: vi.fn(),
@@ -120,6 +122,7 @@ describe("frontier queue regressions", () => {
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
       isAdjacent: () => true,
+      isTileOwnedByAlly: () => false,
       pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       applyOptimisticTileState: vi.fn(),
@@ -132,5 +135,39 @@ describe("frontier queue regressions", () => {
     expect(state.actionQueue).toEqual([{ x: 12, y: 18, retries: 0 }]);
     expect(state.queuedTargetKeys.has("12,18")).toBe(true);
     expect(state.frontierSyncWaitUntilByTarget.get("12,18")).toBeGreaterThan(Date.now());
+  });
+
+  it("drops waypoint targets owned by allies instead of dispatching attacks", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+    state.allies = ["ally"];
+    state.actionQueue = [{ x: 12, y: 18, retries: 0, fromWaypoint: true }];
+    state.queuedTargetKeys = new Set<string>(["12,18"]);
+
+    const origin = makeTile({ x: 11, y: 18, ownerId: "me", ownershipState: "FRONTIER" });
+    const allyTarget = makeTile({ x: 12, y: 18, ownerId: "ally", ownershipState: "FRONTIER" });
+    state.tiles.set("11,18", origin);
+    state.tiles.set("12,18", allyTarget);
+
+    const send = vi.fn();
+    const started = processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => true,
+      isTileOwnedByAlly: (tile) => Boolean(tile.ownerId && state.allies.includes(tile.ownerId)),
+      pickOriginForTarget: () => origin,
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn()
+    });
+
+    expect(started).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+    expect(state.actionQueue).toEqual([]);
+    expect(state.queuedTargetKeys.has("12,18")).toBe(false);
   });
 });
