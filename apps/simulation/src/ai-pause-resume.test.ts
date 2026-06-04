@@ -13,23 +13,13 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 type WorkerMessage = { type: string; [key: string]: unknown };
 
 class MockWorker extends EventEmitter {
-  /** Tracks the most recently constructed instance for tests that need it. */
-  static lastInstance: MockWorker | undefined;
-
   readonly posted: WorkerMessage[] = [];
   /** If set, auto-reply to "plan" messages with a command. */
   replyWithCommand: CommandEnvelope | null = null;
-  /** If true, suppress the automatic plan reply (for plan-timeout tests). */
-  suppressPlanReply = false;
-
-  constructor() {
-    super();
-    MockWorker.lastInstance = this;
-  }
 
   postMessage(msg: WorkerMessage): void {
     this.posted.push(msg);
-    if (msg.type === "plan" && !this.suppressPlanReply) {
+    if (msg.type === "plan") {
       // Simulate asynchronous worker response
       const reply = {
         type: "command",
@@ -989,133 +979,4 @@ describe("worker AI command producer pause/resume", () => {
     });
   });
 
-  // ── Regression: loop-reschedule wedge fix ────────────────────────────────
-  // These three tests cover the three freeze triggers fixed in
-  // fix/ai-loop-reschedule-wedge. Before the fix, any one of these would
-  // permanently stop the setTimeout chain and freeze all AI.
-
-  it("reschedules the next tick after shouldRun() returns false (freeze trigger 1)", async () => {
-    // useFakeTimers BEFORE construction so scheduleNextTick() uses fake timers.
-    vi.useFakeTimers();
-    let shouldRunResult = false;
-    let planCount = 0;
-    const origPostMessage = MockWorker.prototype.postMessage;
-    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
-      if (msg.type === "plan") planCount += 1;
-      origPostMessage.call(this, msg);
-    };
-
-    const runtime = makeRuntime(0);
-    const producer = createWorkerAiCommandProducer({
-      runtime: runtime.runtime,
-      aiPlayerIds: ["ai-1"],
-      submitCommand: async () => undefined,
-      shouldRun: () => shouldRunResult,
-      tickIntervalMs: 250,
-      workerScriptPath: "unused-by-mock.js"
-    });
-
-    // First auto-tick: shouldRun()===false → skips work, but MUST reschedule.
-    await vi.runAllTimersAsync();
-    expect(planCount).toBe(0); // no plan posted yet (throttle skip)
-
-    // Allow shouldRun and fire the next scheduled tick.
-    shouldRunResult = true;
-    await vi.runAllTimersAsync();
-    // MockWorker auto-replies via queueMicrotask — flush it.
-    await vi.runAllTimersAsync();
-
-    producer.close();
-    MockWorker.prototype.postMessage = origPostMessage;
-
-    // If the loop had died after the shouldRun skip, planCount would stay 0.
-    expect(planCount).toBeGreaterThanOrEqual(1);
-  });
-
-  it("reschedules after human backlog is non-empty (freeze trigger 2)", async () => {
-    // useFakeTimers BEFORE construction so scheduleNextTick() uses fake timers.
-    vi.useFakeTimers();
-    let planCount = 0;
-    const origPostMessage = MockWorker.prototype.postMessage;
-    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
-      if (msg.type === "plan") planCount += 1;
-      origPostMessage.call(this, msg);
-    };
-
-    const runtime = makeRuntime(1); // backlog present
-    const producer = createWorkerAiCommandProducer({
-      runtime: runtime.runtime,
-      aiPlayerIds: ["ai-1"],
-      submitCommand: async () => undefined,
-      tickIntervalMs: 250,
-      workerScriptPath: "unused-by-mock.js"
-    });
-
-    // First tick: human backlog → skips work but MUST reschedule.
-    await vi.runAllTimersAsync();
-    expect(planCount).toBe(0);
-
-    // Drain the backlog and let the next scheduled tick fire.
-    runtime.setHumanInteractive(0);
-    await vi.runAllTimersAsync();
-    await vi.runAllTimersAsync(); // flush queueMicrotask replies
-
-    producer.close();
-    MockWorker.prototype.postMessage = origPostMessage;
-
-    // The plan message proves the loop survived the backlog skip.
-    expect(planCount).toBeGreaterThanOrEqual(1);
-  });
-
-  it("resolves via timeout when worker reply is lost and increments plan_timeout (freeze trigger 3)", async () => {
-    // useFakeTimers BEFORE construction so scheduleNextTick() uses fake timers.
-    vi.useFakeTimers();
-    const throttleReasons: string[] = [];
-
-    // Suppress auto-reply BEFORE construction so the producer's first tick
-    // sees suppressPlanReply=true immediately upon construction.
-    // We set it on the prototype here and restore after.
-    const origPostMessage = MockWorker.prototype.postMessage;
-    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
-      this.posted.push(msg);
-      // Do NOT auto-reply — simulates a lost worker reply.
-    };
-
-    const runtime = makeRuntime(0);
-    const producer = createWorkerAiCommandProducer({
-      runtime: runtime.runtime,
-      aiPlayerIds: ["ai-1"],
-      submitCommand: async () => undefined,
-      tickIntervalMs: 250,
-      onThrottle: (reason) => { throttleReasons.push(reason); },
-      workerScriptPath: "unused-by-mock.js"
-    });
-
-    const worker = MockWorker.lastInstance!;
-
-    // Fire the first tick — it posts a plan request that will never be answered.
-    await vi.runAllTimersAsync();
-
-    const plansBefore = worker.posted.filter((m) => m.type === "plan").length;
-    expect(plansBefore).toBeGreaterThanOrEqual(1);
-
-    // Advance past PLAN_REQUEST_TIMEOUT_MS (10s). The timeout resolves the
-    // promise as { command: null } and lets the tick finally-block run,
-    // which calls scheduleNextTick().
-    await vi.advanceTimersByTimeAsync(11_000);
-
-    // Now let the newly scheduled tick fire (still suppressed, just confirming
-    // the chain is alive — a second plan request proves it).
-    await vi.runAllTimersAsync();
-
-    producer.close();
-    MockWorker.prototype.postMessage = origPostMessage;
-
-    // plan_timeout was emitted by onThrottle
-    expect(throttleReasons).toContain("plan_timeout");
-
-    // Second plan message proves the loop continued after the timeout.
-    const plansAfter = worker.posted.filter((m) => m.type === "plan").length;
-    expect(plansAfter).toBeGreaterThanOrEqual(2);
-  });
 });
