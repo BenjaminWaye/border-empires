@@ -315,42 +315,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
       ]
     },
-    {
-      introducedIn: "2026.05.28.3",
-      title: "Manpower regen slowed; rate shows a decimal",
-      why: "Manpower filled in ~15-20 minutes, which made the game largely about who could stay online longest to bank attacks. Regen is now tuned so a settlement takes ~12 hours to fill its cap, making manpower a strategic resource rather than a faucet. Because per-minute regen is now well under 1 for small empires, the HUD rate chip rounded it to '+0/m' and looked broken.",
-      changes: [
-        "Manpower regeneration is roughly 48x slower across all population tiers (a settlement now takes ~12 hours to refill its cap). Caps are unchanged.",
-        "The manpower rate chip now shows one decimal place (e.g. '+0.2/m') so slow regen is visible instead of rounding to '+0/m'."
-      ]
-    },
-    {
-      introducedIn: "2026.05.28.2",
-      title: "Tile overview warns about unsupported frontier decay immediately",
-      why: "The tile overview header only showed a countdown in the final 60 seconds of a frontier tile's natural 10-minute decay window. Players who checked a freshly claimed frontier tile saw no indication it was decaying until the last minute.",
-      changes: [
-        "Tile overview now shows 'This tile is unsupported and will soon decay.' for the full decay window, not just the final 60 seconds."
-      ]
-    },
-    {
-      introducedIn: "2026.05.28.2",
-      title: "Town population growth is live in the rewrite stack",
-      why: "Town population growth was never ported from the old server to the new simulation runtime, so town populations have been frozen since the 2026-05-15 rewrite cutover. The display showed growth rates, but no tick was applying them.",
-      changes: [
-        "Simulation now runs a 60-second population growth tick for every settled, fed, non-shocked town (TOWN tier and above; settlements are excluded).",
-        "Growth formula: logistic curve (1 − pop/maxPop), base rate 0.00032/min, granary bonus (×1.15 or ×1.30 for buffed seed granaries), first-three-town growth multiplier from techs/domains.",
-        "Towns near active combat (within 10 tiles) have growth paused for 60 minutes after the battle. Towns with 24+ hours of peace get a ×1.20 long-peace growth bonus.",
-        "Towns in capture shock do not grow until the shock expires. Population is capped at 10M; tier upgrades (TOWN → CITY → GREAT_CITY → METROPOLIS) fire automatically."
-      ]
-    },
-    {
-      introducedIn: "2026.05.28.1",
-      title: "Waypoint paths run straight instead of zigzagging",
-      why: "The waypoint planner picked any shortest path, so among equal-length routes it could weave (N-E-N-E) or overshoot before doubling back, even when a clean straight or diagonal line reached the target.",
-      changes: [
-        "Waypoint routing now adds a tiny per-turn tiebreaker so equal-length paths prefer the fewest direction changes: a target due in one direction expands in a straight line, a pure-diagonal target expands diagonally, and mixed targets keep their straight runs grouped (and connected) rather than zigzagging."
-      ]
-    },
   ]
 };
 
