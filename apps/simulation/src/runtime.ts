@@ -340,6 +340,10 @@ import {
   bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
   updateFrontierDecay as updateFrontierDecayImpl
 } from "./runtime-frontier-decay.js";
+import {
+  seedLiveBarbarians as seedLiveBarbariansImpl,
+  type SeedLiveBarbariansResult
+} from "./runtime-live-barbarians.js";
 
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
@@ -7702,5 +7706,24 @@ export class SimulationRuntime {
 
       this.handleFrontierCommand(command, command.type);
     }, command.type, scheduling);
+  }
+
+  seedLiveBarbarians(targetCount: number): SeedLiveBarbariansResult {
+    const commandId = `ops-seed-barbs:${this.now()}`;
+    return seedLiveBarbariansImpl({
+      targetCount,
+      commandId,
+      players: this.players,
+      tiles: this.tiles,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      locksByTile: this.locksByTile,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      replaceTileState: (tileKey, tile, cid) => this.replaceTileState(tileKey, tile, cid),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitTileDeltaBatch: ({ commandId: cid, playerId, tileDeltas }) => {
+        this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: cid, playerId, tileDeltas });
+      },
+      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+    });
   }
 }
