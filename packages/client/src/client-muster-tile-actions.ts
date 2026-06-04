@@ -1,6 +1,10 @@
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
-import { tileActionAvailability } from "./client-tile-action-logic.js";
+
+// Inline to avoid circular dependency with client-tile-action-logic.ts
+// (which imports buildMusterActions from here).
+const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
+  ({ disabled: false, disabledReason: undefined, cost: undefined });
 
 /**
  * Muster tile-menu actions: shown on owned land tiles, gated on ownership
@@ -23,7 +27,7 @@ export const buildMusterActions = (
       id: "muster_hold",
       label: "Stage Muster",
       detail: "Fill this tile with manpower (HOLD). Toggle to ADVANCE when ready to auto-attack.",
-      ...tileActionAvailability(true, "", "")
+      ...avail()
     });
   } else {
     // Muster flag exists — offer mode toggle and clear.
@@ -32,21 +36,21 @@ export const buildMusterActions = (
         id: "muster_advance",
         label: "Set Advance",
         detail: "Switch to ADVANCE mode: auto-fire at an adjacent enemy when full.",
-        ...tileActionAvailability(true, "", "ADVANCE mode")
+        ...avail()
       });
     } else {
       out.push({
         id: "muster_hold",
         label: "Set Hold",
         detail: "Switch to HOLD mode: accumulate manpower without auto-firing.",
-        ...tileActionAvailability(true, "", "HOLD mode")
+        ...avail()
       });
     }
     out.push({
       id: "muster_clear",
       label: "Clear Muster",
       detail: "Discard the mustered manpower and remove the flag.",
-      ...tileActionAvailability(true, "", "")
+      ...avail()
     });
   }
 
