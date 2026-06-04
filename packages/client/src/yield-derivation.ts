@@ -69,6 +69,7 @@ type YieldInput = {
   dockId?: string | null;
   resource?: string;
   economicStructure?: { type?: string; status?: string } | null;
+  sabotage?: { endsAt: number; outputMultiplier: number } | null;
 };
 
 export const deriveTileYieldRate = (
@@ -101,7 +102,8 @@ export const deriveTileYieldRate = (
   const dockGoldPerMinute = tile.dockId
     ? DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT * incomeMultiplier
     : 0;
-  const goldPerMinute = townGoldPerMinute + dockGoldPerMinute;
+  const outputMultiplier = tile.sabotage && tile.sabotage.endsAt > Date.now() ? Math.max(0, Math.min(1, tile.sabotage.outputMultiplier)) : 1;
+  const goldPerMinute = (townGoldPerMinute + dockGoldPerMinute) * outputMultiplier;
 
   const strategicPerDay: Record<string, number> = {
     ...strategicDailyFromResource(tile.resource)
@@ -109,6 +111,10 @@ export const deriveTileYieldRate = (
 
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type) {
     Object.assign(strategicPerDay, converterDailyOutput(tile.economicStructure.type));
+  }
+
+  for (const key of Object.keys(strategicPerDay)) {
+    strategicPerDay[key] = (strategicPerDay[key] ?? 0) * outputMultiplier;
   }
 
   if (goldPerMinute < 0.0001 && Object.keys(strategicPerDay).length === 0) return undefined;

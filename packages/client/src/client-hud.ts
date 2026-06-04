@@ -547,7 +547,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       ability === "aether_bridge"
         ? "Pick a coastal land tile. The server links the nearest settled coast and opens a temporary sea lane."
         : ability === "siphon"
-          ? "Pick an enemy town or resource tile to siphon 50% of its output for 30 minutes."
+          ? "Pick an enemy town or resource tile to siphon a 3x3 area at 100% output for 60 minutes."
           : "Pick an enemy land tile to shatter into mountain and erase whatever was built there.";
     const status = selectedOrigin
       ? `Origin ${selectedOrigin.x}, ${selectedOrigin.y} → Target ${state.selected?.x}, ${state.selected?.y}`

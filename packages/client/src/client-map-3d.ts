@@ -46,6 +46,9 @@ import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observato
 import { createMusterOverlay } from "./client-map-3d-muster-overlay.js";
 import { createAetherBridgePylonOverlay } from "./client-map-3d-aether-bridge-pylon-overlay.js";
 import { createAetherPurgeFxLayer } from "./client-map-3d-aether-purge-fx.js";
+import { createSurveySweepFxLayer } from "./client-map-3d-survey-sweep-fx.js";
+import { createSurveySweepPingOverlay } from "./client-map-3d-survey-sweep-ping-overlay.js";
+import { createSiphonFxLayer } from "./client-map-3d-siphon-fx.js";
 import { createRetortRecastFxLayer } from "./client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "./client-map-3d-reveal-empire-fx.js";
 import { createRevealEmpireStatsFxLayer } from "./client-map-3d-reveal-empire-stats-fx.js";
@@ -135,6 +138,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const musterOverlay = createMusterOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
   const aetherLanceFx = createAetherPurgeFxLayer(scene);
+  const surveySweepFx = createSurveySweepFxLayer(scene);
+  const surveySweepPingOverlay = createSurveySweepPingOverlay(scene);
+  const siphonFx = createSiphonFxLayer(scene);
   const retortRecastFx = createRetortRecastFxLayer(scene);
   const revealEmpireFx = createRevealEmpireFxLayer(scene);
   const revealEmpireStatsFx = createRevealEmpireStatsFxLayer(scene);
@@ -1044,6 +1050,49 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       );
     }
   };
+  const syncSurveySweepFxQueue = (): void => {
+    while (deps.state.surveySweepFxQueue.length > 0) {
+      const cast = deps.state.surveySweepFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      surveySweepFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
+      );
+    }
+  };
+  const syncSurveySweepPings = (): void => {
+    const wallNowMs = Date.now();
+    surveySweepPingOverlay.beginFrame();
+    deps.state.surveySweepPings = deps.state.surveySweepPings.filter((ping) => ping.expiresAt > wallNowMs);
+    for (const ping of deps.state.surveySweepPings) {
+      const sceneX = toroidDelta(deps.state.camX, ping.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, ping.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      surveySweepPingOverlay.addPing(
+        ping.kind,
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(ping.x, ping.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        wallNowMs,
+        ping.createdAt,
+        ping.expiresAt
+      );
+    }
+    surveySweepPingOverlay.commit();
+  };
+  const syncSiphonFxQueue = (): void => {
+    while (deps.state.siphonFxQueue.length > 0) {
+      const cast = deps.state.siphonFxQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      siphonFx.spawn(
+        sceneX,
+        sceneZ,
+        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
+      );
+    }
+  };
   const syncRetortRecastFxQueue = (): void => {
     while (deps.state.retortRecastFxQueue.length > 0) {
       const cast = deps.state.retortRecastFxQueue.shift()!;
@@ -1628,11 +1677,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncSweepRangeMarker();
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
+    syncSurveySweepFxQueue();
+    syncSurveySweepPings();
+    syncSiphonFxQueue();
     syncRetortRecastFxQueue();
     syncRevealEmpireFxQueue();
     syncRevealEmpireStatsFxQueue();
     villageEffects.update(nowMs);
     aetherLanceFx.update(nowMs);
+    surveySweepFx.update(nowMs);
+    siphonFx.update(nowMs);
     retortRecastFx.update(nowMs);
     revealEmpireFx.update(nowMs);
     revealEmpireStatsFx.update(nowMs);
@@ -1742,6 +1796,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     musterOverlay.dispose();
     aetherBridgePylonOverlay.dispose();
     aetherLanceFx.dispose();
+    surveySweepFx.dispose();
+    surveySweepPingOverlay.dispose();
+    siphonFx.dispose();
     retortRecastFx.dispose();
     revealEmpireFx.dispose();
     revealEmpireStatsFx.dispose();
