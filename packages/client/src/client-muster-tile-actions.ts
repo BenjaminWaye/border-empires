@@ -4,7 +4,7 @@ import type { Tile, TileActionDef } from "./client-types.js";
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
 const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
-  ({ disabled: false, disabledReason: undefined, cost: undefined });
+  ({ disabled: false });
 
 /**
  * Muster tile-menu actions: shown on owned land tiles, gated on ownership
