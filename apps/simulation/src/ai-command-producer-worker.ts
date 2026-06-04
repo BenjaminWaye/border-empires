@@ -101,6 +101,7 @@ type WorkerAiCommandProducerOptions = {
   startingClientSeqByPlayer?: Record<string, number>;
   now?: () => number;
   tickIntervalMs?: number;
+  minCommandIntervalMs?: number;
   playerSyncIntervalMs?: number;
   periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
@@ -193,6 +194,7 @@ type PlannedCommandResult = {
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
   const initialTickMs = Math.max(25, options.tickIntervalMs ?? 250);
+  const minCommandIntervalMs = Math.max(0, options.minCommandIntervalMs ?? 0);
   let nextTickDelayMs = initialTickMs;
   const playerSyncIntervalMs = Math.max(25, options.playerSyncIntervalMs ?? 5_000);
   const periodicPlayerSyncBatchSize = Math.max(1, options.periodicPlayerSyncBatchSize ?? 1);
@@ -209,6 +211,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const nextClientSeqByPlayer = new Map<string, number>(
     options.aiPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
   );
+  const lastCommandAtByPlayer = new Map<string, number>();
   const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
@@ -819,6 +822,14 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       for (const playerIndex of iterationOrder) {
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
+        const lastCommandAt = lastCommandAtByPlayer.get(playerId);
+        if (
+          minCommandIntervalMs > 0 &&
+          lastCommandAt !== undefined &&
+          now() - lastCommandAt < minCommandIntervalMs
+        ) {
+          continue;
+        }
         const playerTerritoryVersion = territoryVersionForPlayer(playerId);
         const probe = probeAiLatchedIntent(intentLatchState, {
           playerId,
@@ -862,6 +873,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
                 nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
                 return;
               }
+              nextClientSeqByPlayer.set(playerId, clientSeq);
+              nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+              urgentByPlayerId.delete(playerId);
               break;
             }
             if (plan.command.type === "COLLECT_VISIBLE") {
@@ -893,6 +907,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               submitCount += 1;
               lastCommandType = plan.command.type;
               await options.submitCommand(plan.command);
+              lastCommandAtByPlayer.set(playerId, issuedAt);
               nextClientSeqByPlayer.set(playerId, clientSeq + 1);
               options.onCommand?.({ playerId, commandType: plan.command.type });
               if (plan.command.type === "COLLECT_VISIBLE") {
@@ -963,6 +978,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             submitCount += 1;
             lastCommandType = plan.command.type;
             await options.submitCommand(plan.command);
+            lastCommandAtByPlayer.set(playerId, issuedAt);
             options.onCommand?.({ playerId, commandType: plan.command.type });
             if (plan.command.type === "ATTACK" && targetTileKey) {
               attackStalemate.recordAttempt(playerId, targetTileKey, issuedAt);
