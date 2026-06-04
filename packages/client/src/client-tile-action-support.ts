@@ -16,7 +16,6 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "aether_wall" ||
   id === "aether_bridge" ||
   id === "siphon_tile" ||
-  id === "purge_siphon" ||
   id === "aether_emp" ||
   id === "city_overclock" ||
   id === "astral_dock_launch" ||

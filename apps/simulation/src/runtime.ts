@@ -94,7 +94,6 @@ import {
   SIPHON_COOLDOWN_MS,
   SIPHON_CRYSTAL_COST,
   SIPHON_DURATION_MS,
-  SIPHON_PURGE_CRYSTAL_COST,
   SIPHON_SHARE,
   SYNTH_OVERLOAD_DISABLE_MS,
   SYNTH_OVERLOAD_GOLD_COST,
@@ -4345,6 +4344,16 @@ export class SimulationRuntime {
     });
   }
 
+  private isActiveSiphon(tile: DomainTileState, now = this.now()): boolean {
+    return Boolean(tile.sabotage && tile.sabotage.endsAt > now);
+  }
+
+  private siphonableTileForActor(tile: DomainTileState | undefined, actor: DomainPlayer, now: number): tile is DomainTileState {
+    if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) return false;
+    if (!tile.town && !tile.resource) return false;
+    return !this.isActiveSiphon(tile, now);
+  }
+
   private handleSiphonTileCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseTilePayload(command.payloadJson);
@@ -4370,7 +4379,8 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!target || target.terrain !== "LAND" || !target.ownerId || target.ownerId === actor.id || actor.allies.has(target.ownerId)) {
+    const siphonNow = this.now();
+    if (!this.siphonableTileForActor(target, actor, siphonNow)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4380,17 +4390,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!target.town && !target.resource) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIPHON_INVALID",
-        message: "target must be a town or resource tile"
-      });
-      return;
-    }
-    const siphonNow = this.now();
     const siphonObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, siphonNow);
     if (!siphonObservatoryKey) {
       this.emitEvent({
@@ -4402,13 +4401,20 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (target.sabotage) {
+    const affectedTiles: DomainTileState[] = [];
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        const candidate = this.tiles.get(simulationTileKey(target.x + dx, target.y + dy));
+        if (this.siphonableTileForActor(candidate, actor, siphonNow)) affectedTiles.push(candidate);
+      }
+    }
+    if (affectedTiles.length === 0) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "SIPHON_INVALID",
-        message: "tile already siphoned"
+        message: "no eligible town or resource tiles in siphon area"
       });
       return;
     }
@@ -4423,65 +4429,31 @@ export class SimulationRuntime {
       return;
     }
     this.stampObservatoryCooldown(siphonObservatoryKey, SIPHON_COOLDOWN_MS, siphonNow, command.commandId, command.playerId);
-    const updatedTile: DomainTileState = {
-      ...target,
+    const endsAt = siphonNow + SIPHON_DURATION_MS;
+    const updatedTiles = affectedTiles.map((tile): DomainTileState => ({
+      ...tile,
       sabotage: {
         ownerId: actor.id,
-        endsAt: this.now() + SIPHON_DURATION_MS,
+        endsAt,
         outputMultiplier: 1 - SIPHON_SHARE
       }
-    };
-    this.replaceTileState(targetKey, updatedTile);
+    }));
+    for (const updatedTile of updatedTiles) this.replaceTileState(simulationTileKey(updatedTile.x, updatedTile.y), updatedTile);
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,
       playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+      tileDeltas: updatedTiles.map((updatedTile) => this.tileDeltaFromState(updatedTile))
     });
   }
 
   private handlePurgeSiphonCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!target || target.ownerId !== actor.id || !target.sabotage) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "PURGE_SIPHON_INVALID",
-        message: "tile is not siphoned"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", SIPHON_PURGE_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "PURGE_SIPHON_INVALID",
-        message: "insufficient CRYSTAL to purge siphon"
-      });
-      return;
-    }
-    const updatedTile: DomainTileState = { ...target, sabotage: undefined };
-    this.replaceTileState(targetKey, updatedTile);
     this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
+      eventType: "COMMAND_REJECTED",
       commandId: command.commandId,
       playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+      code: "PURGE_SIPHON_INVALID",
+      message: "siphons cannot be purged"
     });
   }
 

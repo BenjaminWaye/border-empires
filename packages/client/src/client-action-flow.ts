@@ -1678,7 +1678,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "astral_dock_launch") sendGameMessage({ type: "ASTRAL_DOCK_LAUNCH", fromX: selected.x, fromY: selected.y });
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
-    if (actionId === "purge_siphon") sendGameMessage({ type: "PURGE_SIPHON", x: selected.x, y: selected.y });
     hideTileActionMenu();
   };
 

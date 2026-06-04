@@ -19,10 +19,15 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.04.1",
+  version: "2026.06.04.2",
   title: "What's New",
-  summary: "Siphon now gets a one-shot 3D drain flourish. Survey Sweep now pings hidden towns and resource sites instead of revealing terrain, and mustering adds staged border manpower and fort garrisons.",
+  summary: "Siphon now hits a 3x3 area for longer, harder Observatory-based economy pressure. Survey Sweep now pings hidden towns and resource sites instead of revealing terrain, and mustering adds staged border manpower and fort garrisons.",
   entries: [
+    {
+      introducedIn: "2026.06.04.2",
+      title: "Siphon becomes an Observatory pressure field", why: "Siphon was too narrow and overlapped with other single-target disruption; its real limiter is the Observatory cast slot.",
+      changes: ["Siphon now costs 15 CRYSTAL, uses a 10-minute Observatory cooldown, lasts 60 minutes, and affects eligible hostile town/resource tiles in a 3x3 area.", "Affected tiles show the existing siphon badge to players with vision, and the old purge action is gone."]
+    },
     {
       introducedIn: "2026.06.04.1",
       title: "Siphon gets a 3D drain flourish",

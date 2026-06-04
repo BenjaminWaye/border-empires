@@ -448,8 +448,8 @@ export const beginCrystalTargeting = (
       deps.pushFeed("Siphon requires Logistics.", "combat", "warn");
       return;
     }
-    if ((state.strategicResources.CRYSTAL ?? 0) < 20) {
-      deps.pushFeed("Siphon needs 20 CRYSTAL.", "combat", "warn");
+    if ((state.strategicResources.CRYSTAL ?? 0) < 15) {
+      deps.pushFeed("Siphon needs 15 CRYSTAL.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {
@@ -975,13 +975,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       tile.town && tile.town.populationTier !== "SETTLEMENT" && tile.ownershipState === "SETTLED" ? tile : supportedTown;
     const supportPlacementBlocked = Boolean(hasBlockingStructure && townBuildSource && townBuildSource !== tile);
     if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
-    if (tile.sabotage) {
-      out.push({
-        id: "purge_siphon",
-        label: "Purge Siphon",
-        ...tileActionAvailability((state.strategicResources.CRYSTAL ?? 0) >= 10, "Need 10 CRYSTAL", "10 CRYSTAL")
-      });
-    }
     if (tile.observatory?.ownerId === state.me && tile.observatory.status === "active") {
       const cooldown = deps.abilityCooldownRemainingMs("survey_sweep");
       out.push({
@@ -2285,7 +2278,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         hasSiphonCapability(state) &&
           !observatoryProtection &&
           sabotageCooldown <= 0 &&
-          (state.strategicResources.CRYSTAL ?? 0) >= 20 &&
+          (state.strategicResources.CRYSTAL ?? 0) >= 15 &&
           Boolean(tile.resource || tile.town) &&
           !tile.sabotage,
         !hasSiphonCapability(state)
@@ -2298,8 +2291,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Town or resource only"
                 : sabotageCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(sabotageCooldown)}`
-                  : "Need 20 CRYSTAL",
-        "20 CRYSTAL • steals 50% for 30m"
+                  : "Need 15 CRYSTAL",
+        "15 CRYSTAL • siphons a 3x3 for 60m"
       )
     });
   }
