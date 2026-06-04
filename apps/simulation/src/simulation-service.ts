@@ -1268,7 +1268,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
     const runtimeExportStartedAt = Date.now();
-    const worldStatusRuntimeState = options?.includeWorldStatus === true || useFullVisibility ? runtime.exportState() : undefined;
+    const worldStatusRuntimeState =
+      options?.includeWorldStatus === true || useFullVisibility
+        ? await runtime.exportStateAsync(yieldToEventLoop)
+        : undefined;
     // Route the per-player visible export through the async chunked path
     // when we don't already have a full-world runtime state captured.
     // exportVisibleStateForPlayer was the last contiguous sync block in
