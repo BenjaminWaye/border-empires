@@ -1,5 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import { ATTACK_MANPOWER_MIN } from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, MUSTER_SYSTEM_ENABLED } from "@border-empires/shared";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
@@ -65,6 +65,8 @@ export type AutomationStrategicSnapshot = {
   pressureAttackScore: number;
   pressureThreatensCore: boolean;
   attackReady: boolean;
+  /** Under the muster system, AI stages manpower via SET_MUSTER rather than direct ATTACK. */
+  musterReady: boolean;
   manpowerSufficient: boolean;
   victoryPathContender: boolean;
   hasActiveTown: boolean;
@@ -482,6 +484,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     pressureAttackScore,
     pressureThreatensCore,
     attackReady,
+    musterReady: MUSTER_SYSTEM_ENABLED && attackReady,
     manpowerSufficient,
     victoryPathContender,
     hasActiveTown,

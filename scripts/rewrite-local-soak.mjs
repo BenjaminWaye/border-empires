@@ -294,6 +294,7 @@ const runIteration = (session, iteration) =>
         }
         if (
           message.code === "INSUFFICIENT_MANPOWER" ||
+          message.code === "INSUFFICIENT_GOLD" ||
           message.code === "INSUFFICIENT_RESOURCES"
         ) {
           // Player-wide resource exhaustion — bail up to outer loop for regen pause.
@@ -349,7 +350,10 @@ for (let iteration = 1; iteration <= iterations + warmupIterations; iteration +=
         continue;
       }
       if (!refreshOnEmptyFrontier || refreshedForIteration || !message.includes("found no frontier action candidate")) {
-        if (message.includes("resource exhausted") && results.length > 0) {
+        if (message.includes("resource exhausted")) {
+          // Manpower/resources globally exhausted and regen pauses didn't help.
+          // Stop this batch gracefully (exit 0 with a summary) so already-collected
+          // samples survive and the parent harness can pause for regen before retrying.
           stoppedReason = message;
           break;
         }

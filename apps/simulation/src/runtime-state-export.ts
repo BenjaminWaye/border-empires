@@ -44,6 +44,7 @@ export type RuntimeExportState = {
     siegeOutpostJson?: string;
     economicStructureJson?: string;
     sabotageJson?: string;
+    musterJson?: string;
   }>;
   players: Array<{
     id: string;
@@ -52,6 +53,7 @@ export type RuntimeExportState = {
     manpower: number;
     manpowerCap?: number;
     manpowerRegenPerMinute?: number;
+    logisticsThroughputPerMinute?: number;
     manpowerBreakdown?: ManpowerBreakdown;
     manpowerCapSnapshot?: number;
     techIds: string[];
@@ -214,6 +216,7 @@ type RuntimeExportInput = Omit<SnapshotExportInput, "collectVisibleCooldownByPla
   applyManpowerRegen: (player: DomainPlayer) => void;
   playerManpowerCap: (player: DomainPlayer) => number;
   playerManpowerRegenPerMinute: (player: DomainPlayer) => number;
+  playerLogisticsThroughputPerMinute: (player: DomainPlayer) => number;
   playerManpowerBreakdown: (player: DomainPlayer) => ManpowerBreakdown;
   growthStalledNoFoodCounter: number;
 };
@@ -247,6 +250,7 @@ export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExpor
         if (cached.siegeOutpostJson) entry.siegeOutpostJson = cached.siegeOutpostJson;
         if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
         if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
+        if (cached.musterJson) entry.musterJson = cached.musterJson;
         result[i] = entry;
         i += 1;
       }
@@ -264,6 +268,7 @@ export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExpor
           manpower: player.manpower,
           manpowerCap: input.playerManpowerCap(player),
           manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
+          logisticsThroughputPerMinute: input.playerLogisticsThroughputPerMinute(player),
           manpowerBreakdown: input.playerManpowerBreakdown(player),
           ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
           techIds: [...player.techIds].sort(),

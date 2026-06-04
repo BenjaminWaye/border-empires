@@ -19,18 +19,94 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.04.1",
+  version: "2026.06.04.4",
   title: "What's New",
   summary: "Waypoint attacks now respect alliances, and captured settlement capitals relocate or respawn cleanly with a small gold reserve.",
   entries: [
     {
-      introducedIn: "2026.06.04.1",
+      introducedIn: "2026.06.04.4",
       title: "Alliance-safe waypoints and cleaner settlement respawns",
       why: "Waypoint automation could treat an allied tile like a hostile target, and captured SETTLEMENT capitals could leave the defender with an inconsistent fallback settlement.",
       changes: [
         "Waypoint queues now drop allied-owned targets instead of dispatching ATTACK commands.",
         "Captured SETTLEMENT capitals are stripped from the captured tile and moved to the defender's oldest valid owned tile, or respawned on unowned land when no valid owned tile exists.",
         "Players respawn with at least 100 gold so they can rebuild immediately."
+      ]
+    },
+    {
+      introducedIn: "2026.06.04.3",
+      title: "Observatory range unified to 20 tiles",
+      why: "The separate 30-tile cast radius and 10-tile protection field were structurally unsynchronised and confusing. A single 20-tile range covers both roles, grows with tech, and keeps both values provably in sync.",
+      changes: [
+        "Observatory now has a single 20-tile range for both crystal action casting and the enemy-blocking protection field (was 30 / 10 respectively). Tech and domain bonuses still apply as before — max effective range is 36.",
+        "The vision ring has been removed from the map overlay; the one remaining ring is the unified range ring, shown at the actual bonus-adjusted distance.",
+        "Crystal menu tab no longer disappears while abilities are on cooldown — disabled rows are always shown so you can see why.",
+        "Cooldown badge on observatory is positioned closer to the building (was floating too high)."
+      ]
+    },
+    {
+      introducedIn: "2026.06.04.2",
+      title: "Siphon becomes an Observatory pressure field", why: "Siphon was too narrow and overlapped with other single-target disruption; its real limiter is the Observatory cast slot.",
+      changes: ["Siphon now costs 15 CRYSTAL, uses a 10-minute Observatory cooldown, lasts 60 minutes, and affects eligible hostile town/resource tiles in a 3x3 area.", "Affected tiles show the existing siphon badge to players with vision, and the old purge action is gone."]
+    },
+    {
+      introducedIn: "2026.06.04.1",
+      title: "Siphon gets a 3D drain flourish",
+      why: "Siphon applies a long-running sabotage marker, but the cast moment itself had no immediate 3D feedback after targeting a hostile town or resource tile.",
+      changes: [
+        "Casting Siphon now triggers a one-shot 3D drain sigil over the target tile, with a locking ring, shadow pool, extraction hooks, and rising stolen-yield motes.",
+        "The effect is client-only cast feedback and does not add synced persistent state."
+      ]
+    },
+    {
+      introducedIn: "2026.06.03.2",
+      title: "Survey Sweep becomes hidden-intel pings",
+      why: "Survey Sweep overlapped too much with hard map reveal effects. It now gives useful scouting direction without exposing exact terrain or resource types.",
+      changes: [
+        "Casting Survey Sweep from an active observatory scans a centered 50x50 area and reports only towns plus generic resource sites outside your current vision.",
+        "Hidden resource pings do not reveal whether the site is crystal, iron, or supply.",
+        "The cast still triggers the one-shot 3D scan flourish, followed by hovering hidden-intel badges for the detected sites."
+      ]
+    },
+    {
+      introducedIn: "2026.06.03.1",
+      title: "Mustering & The Advance (beta)",
+      why: "Direct pool attacks give no tactical readout — muster accumulation makes the build-up visible so defenders can counter-prepare, and slows the pace of border fights to match strategic intent.",
+      changes: [
+        "Tile menu: 'Stage Muster' on owned land tiles — set HOLD to accumulate, ADVANCE to auto-fire when full",
+        "Muster fill bars appear above tiles as manpower accumulates (owner-colored). Outposts act as depot zones that fill at 2× speed.",
+        "Forts show a gold garrison bar. Garrison scales defense bonus — attack a fort repeatedly to wear it down before breaking through. Garrison refills from overflow regen when your pool is full.",
+        "Barbarian raid: attacking a barb tile costs only a small pool fee, no staging required — great for clearing territory fast.",
+        "Manpower HUD chip now shows logistics throughput (→ X/m) alongside your regen rate.",
+      ]
+    },
+    {
+      introducedIn: "2026.06.03.1",
+      title: "Town food upkeep always visible in tile overview",
+      why: "The Town food-upkeep line (\"Town: 🍖 0.30/m\") was disappearing from the tile detail panel for CITY, GREAT_CITY, and METROPOLIS towns when the server snapshot didn't carry the foodUpkeepPerMinute field. The gateway now derives it from population tier instead of trusting the stored field.",
+      changes: [
+        "Town food-upkeep entry now always appears for TOWN/CITY/GREAT_CITY/METROPOLIS tiers in the tile detail panel.",
+        "Values: TOWN 0.10/m, CITY 0.30/m, GREAT_CITY 0.60/m, METROPOLIS 1.00/m — matching the actual food drain.",
+        "Settlements correctly show no Town food entry (they don't consume food)."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.9",
+      title: "Reveal Empire gets a beacon cast flourish",
+      why: "Reveal Empire changes long-running visibility, but the cast moment itself had no 3D feedback when the player selected a hostile tile.",
+      changes: [
+        "Casting Reveal Empire now launches a one-shot 3D beacon upward from the selected hostile tile, with a light trail, reveal halo, cartography sweep, and rising map-fragment motes.",
+        "The effect is client-only feedback and does not add synced persistent state."
+      ]
+    },
+    {
+      introducedIn: "2026.06.02.8",
+      title: "Unified build pipeline",
+      why: "Four separate build messages (BUILD_FORT, BUILD_OBSERVATORY, BUILD_SIEGE_OUTPOST, BUILD_ECONOMIC_STRUCTURE) each had their own handler, costing tables, and validation paths — making it hard to add new structures, inconsistent between upgrade tiers, and the source of the LIGHT_OUTPOST type-lie.",
+      changes: [
+        "All build actions now use a single BUILD_STRUCTURE message with a structureType field.",
+        "Build menus and queuing are unchanged — this is a behind-the-scenes consolidation.",
+        "No gameplay changes."
       ]
     },
     {
@@ -247,62 +323,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Corrected Harbor Exchange (Customs House) upkeep from 0.5 to 1.5 gold/min.",
         "Removed phantom '1.5 gold/min' from Caravanary — the sim charges food upkeep only.",
         "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
-      ]
-    },
-    {
-      introducedIn: "2026.05.28.3",
-      title: "Manpower regen slowed; rate shows a decimal",
-      why: "Manpower filled in ~15-20 minutes, which made the game largely about who could stay online longest to bank attacks. Regen is now tuned so a settlement takes ~12 hours to fill its cap, making manpower a strategic resource rather than a faucet. Because per-minute regen is now well under 1 for small empires, the HUD rate chip rounded it to '+0/m' and looked broken.",
-      changes: [
-        "Manpower regeneration is roughly 48x slower across all population tiers (a settlement now takes ~12 hours to refill its cap). Caps are unchanged.",
-        "The manpower rate chip now shows one decimal place (e.g. '+0.2/m') so slow regen is visible instead of rounding to '+0/m'."
-      ]
-    },
-    {
-      introducedIn: "2026.05.28.2",
-      title: "Tile overview warns about unsupported frontier decay immediately",
-      why: "The tile overview header only showed a countdown in the final 60 seconds of a frontier tile's natural 10-minute decay window. Players who checked a freshly claimed frontier tile saw no indication it was decaying until the last minute.",
-      changes: [
-        "Tile overview now shows 'This tile is unsupported and will soon decay.' for the full decay window, not just the final 60 seconds."
-      ]
-    },
-    {
-      introducedIn: "2026.05.28.2",
-      title: "Town population growth is live in the rewrite stack",
-      why: "Town population growth was never ported from the old server to the new simulation runtime, so town populations have been frozen since the 2026-05-15 rewrite cutover. The display showed growth rates, but no tick was applying them.",
-      changes: [
-        "Simulation now runs a 60-second population growth tick for every settled, fed, non-shocked town (TOWN tier and above; settlements are excluded).",
-        "Growth formula: logistic curve (1 − pop/maxPop), base rate 0.00032/min, granary bonus (×1.15 or ×1.30 for buffed seed granaries), first-three-town growth multiplier from techs/domains.",
-        "Towns near active combat (within 10 tiles) have growth paused for 60 minutes after the battle. Towns with 24+ hours of peace get a ×1.20 long-peace growth bonus.",
-        "Towns in capture shock do not grow until the shock expires. Population is capped at 10M; tier upgrades (TOWN → CITY → GREAT_CITY → METROPOLIS) fire automatically."
-      ]
-    },
-    {
-      introducedIn: "2026.05.28.1",
-      title: "Waypoint paths run straight instead of zigzagging",
-      why: "The waypoint planner picked any shortest path, so among equal-length routes it could weave (N-E-N-E) or overshoot before doubling back, even when a clean straight or diagonal line reached the target.",
-      changes: [
-        "Waypoint routing now adds a tiny per-turn tiebreaker so equal-length paths prefer the fewest direction changes: a target due in one direction expands in a straight line, a pure-diagonal target expands diagonally, and mixed targets keep their straight runs grouped (and connected) rather than zigzagging."
-      ]
-    },
-    {
-      introducedIn: "2026.05.27.2",
-      title: "Capture pop-loss indicator now readable through smoke",
-      why: "The floating \"-N pop\" label spawned inside the captured-town smoke column at a small size with a heavy black outline, so the red fill was largely covered and the text read as white at a glance. It also barely moved, making it easy to miss next to the dramatic smoke effect.",
-      changes: [
-        "Label is larger (3.2x sprite scale, 96px bold canvas font) with a soft shadow instead of a chunky outline, so the red fill dominates and the text reads at a glance.",
-        "Color saturated to #ff2d2d so it reads as red, not washed-out coral.",
-        "Now rises ~4.2 world units over 3.2s with an ease-out curve and a brief pop-in scale, so it clearly floats away above the smoke instead of sitting inside it.",
-        "renderOrder bumped to 9999 so the label always paints over the smoke puffs."
-      ]
-    },
-    {
-      introducedIn: "2026.05.27.1",
-      title: "Settle a whole frontier pocket in one tap",
-      why: "Settling each tile of a freshly captured pocket one click at a time was tedious; the new 'Settle Connected (N)' action in the tile menu queues every connected frontier tile you own.",
-      changes: [
-        "Frontier tile menu now shows 'Settle Connected (N)' when 2+ of your frontier tiles are connected.",
-        "Each tile still costs the standard settle gold and uses a development slot — extras are queued FIFO like manual settles."
       ]
     },
   ]

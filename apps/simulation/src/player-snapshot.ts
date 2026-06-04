@@ -250,6 +250,7 @@ export const buildPlayerSubscriptionSnapshot = (
             manpower: livePlayer.manpower,
             manpowerCap: livePlayer.manpowerCap ?? Math.max(livePlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
             manpowerRegenPerMinute: livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
+            logisticsThroughputPerMinute: livePlayer.logisticsThroughputPerMinute ?? livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
             manpowerBreakdown: livePlayer.manpowerBreakdown ?? {
               cap: [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
               regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
@@ -534,6 +535,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
             manpower: livePlayer.manpower,
             manpowerCap: livePlayer.manpowerCap ?? Math.max(livePlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
             manpowerRegenPerMinute: livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
+            logisticsThroughputPerMinute: livePlayer.logisticsThroughputPerMinute ?? livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
             manpowerBreakdown: livePlayer.manpowerBreakdown ?? {
               cap: [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
               regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
