@@ -73,7 +73,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "aether_wall") return "║";
   if (id === "aether_bridge") return "≈";
   if (id === "siphon_tile") return "☍";
-  if (id === "purge_siphon") return "◌";
   if (id === "create_mountain") return "⛰";
   if (id === "remove_mountain") return "⌵";
   return "⛺";

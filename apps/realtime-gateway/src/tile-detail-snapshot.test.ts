@@ -63,6 +63,94 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
+  it("derives town food upkeep from populationTier when townJson lacks foodUpkeepPerMinute", () => {
+    // Regression: before the fix, the town food-upkeep entry only appeared when
+    // townJson carried foodUpkeepPerMinute. Thin snapshots that omitted the
+    // field silently dropped the Town line from tile-detail upkeep.
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            type: "FARMING",
+            populationTier: "CITY",
+            supportCurrent: 4,
+            supportMax: 8,
+            goldPerMinute: 4.0,
+            cap: 1920,
+            isFed: true,
+            population: 50_000,
+            maxPopulation: 100_000,
+            connectedTownCount: 1,
+            connectedTownBonus: 0.1,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false,
+            // foodUpkeepPerMinute intentionally omitted - the regression shape.
+            baseGoldPerMinute: 2
+          }),
+          townType: "FARMING",
+          townPopulationTier: "CITY"
+        }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 10, 10);
+
+    expect(detail).toEqual(
+      expect.objectContaining({
+        detailLevel: "full",
+        upkeepEntries: expect.arrayContaining([
+          { label: "Town", perMinute: { FOOD: 0.3 } },
+          { label: "Settled land", perMinute: { GOLD: 0.04 } }
+        ])
+      })
+    );
+  });
+
+  it("derives town food upkeep from tile town fields when townJson is missing", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townType: "FARMING",
+          townPopulationTier: "GREAT_CITY"
+        }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 10, 10);
+
+    expect(detail).toEqual(
+      expect.objectContaining({
+        detailLevel: "full",
+        upkeepEntries: expect.arrayContaining([
+          { label: "Town", perMinute: { FOOD: 0.6 } },
+          { label: "Settled land", perMinute: { GOLD: 0.04 } }
+        ])
+      })
+    );
+    expect(JSON.parse(detail?.townJson ?? "{}")).toEqual(
+      expect.objectContaining({
+        populationTier: "GREAT_CITY",
+        foodUpkeepPerMinute: 0.6
+      })
+    );
+  });
+
   it("backfills yield rate and cap for owned settled tiles when the snapshot tile is thin", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",

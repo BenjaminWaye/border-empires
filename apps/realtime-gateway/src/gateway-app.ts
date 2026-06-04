@@ -1213,7 +1213,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         messageType !== "IMPERIAL_EXCHANGE_LEVY" &&
         messageType !== "WORLD_ENGINE_STRIKE" &&
         messageType !== "UPGRADE_TOWN_TIER" &&
-        messageType !== "COLLECT_SHARD"
+        messageType !== "COLLECT_SHARD" &&
+        messageType !== "SET_MUSTER" &&
+        messageType !== "CLEAR_MUSTER"
     )
   );
 
@@ -1242,6 +1244,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     listSeasonArchives: async () =>
       hydrateSeasonArchiveDisplayNames(await simulationClient.listSeasonArchives(), profileStore),
     startNextSeason: (force?: boolean) => simulationClient.startNextSeason(force),
+    seedBarbarians: (count?: number) => simulationClient.seedBarbarians(count),
     ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
     authenticateBearer: resolveHttpBearerIdentity,
     rallyLinkStore,
@@ -2788,7 +2791,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "IMPERIAL_EXCHANGE_LEVY" &&
             message.type !== "WORLD_ENGINE_STRIKE" &&
             message.type !== "UPGRADE_TOWN_TIER" &&
-            message.type !== "COLLECT_SHARD"
+            message.type !== "COLLECT_SHARD" &&
+            message.type !== "SET_MUSTER" &&
+            message.type !== "CLEAR_MUSTER"
           ) {
             sendJson(socket, {
               type: "ERROR",
@@ -2947,6 +2952,37 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                     x: message.x,
                     y: message.y,
                     enabled: message.enabled
+                  }
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "SET_MUSTER") {
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "SET_MUSTER",
+                  payload: {
+                    x: message.x,
+                    y: message.y,
+                    mode: message.mode,
+                    ...(typeof message.targetX === "number" ? { targetX: message.targetX } : {}),
+                    ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {})
+                  }
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "CLEAR_MUSTER") {
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CLEAR_MUSTER",
+                  payload: {
+                    x: message.x,
+                    y: message.y
                   }
                 },
                 submitDeps

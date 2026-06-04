@@ -54,6 +54,17 @@ message StartNextSeasonResponse {
   string season_id = 2;
 }
 
+message SeedBarbariansRequest {
+  int32 count = 1;
+}
+
+message SeedBarbariansResponse {
+  bool ok = 1;
+  int32 requested = 2;
+  int32 placed = 3;
+  string detail_json = 4;
+}
+
 message Ack {
   bool ok = 1;
 }
@@ -168,5 +179,6 @@ service SimulationService {
   rpc GetCurrentSeasonSummary(SeasonSummaryRequest) returns (SeasonSummaryResponse);
   rpc ListSeasonArchives(SeasonSummaryRequest) returns (SeasonArchivesResponse);
   rpc StartNextSeason(StartNextSeasonRequest) returns (StartNextSeasonResponse);
+  rpc SeedBarbarians(SeedBarbariansRequest) returns (SeedBarbariansResponse);
   rpc StreamEvents(PingRequest) returns (stream SimulationEvent);
 }

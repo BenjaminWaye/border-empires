@@ -35,6 +35,7 @@ describe("client observatory cooldown helpers", () => {
 
   it("returns the shortest remaining cooldown among owned observatories in range", () => {
     const target = baseTile(30, 30);
+    // Base range 20: tiles at distance 1 and 2 are both in range.
     expect(
       readyOwnedObservatoryCooldownRemainingMs(
         [
@@ -51,8 +52,29 @@ describe("client observatory cooldown helpers", () => {
         ],
         "me",
         target,
-        100
+        100,
+        20
       )
     ).toBe(150);
+  });
+
+  it("returns 0 when no owned observatory is within the given cast radius", () => {
+    const target = baseTile(30, 30);
+    // Observatory at distance 5 is outside a radius-3 cast window.
+    expect(
+      readyOwnedObservatoryCooldownRemainingMs(
+        [
+          {
+            ...baseTile(35, 35),
+            ownerId: "me",
+            observatory: { ownerId: "me", status: "active", cooldownUntil: 500 }
+          } as Tile
+        ],
+        "me",
+        target,
+        100,
+        3
+      )
+    ).toBe(0);
   });
 });

@@ -14,6 +14,8 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "BUILD_OBSERVATORY":
     case "BUILD_SIEGE_OUTPOST":
     case "SET_SIEGE_OUTPOST_SWEEP":
+    case "SET_MUSTER":
+    case "CLEAR_MUSTER":
     case "BUILD_ECONOMIC_STRUCTURE":
     case "CANCEL_FORT_BUILD":
     case "CANCEL_STRUCTURE_BUILD":
@@ -25,6 +27,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "SET_CONVERTER_STRUCTURE_ENABLED":
     case "REVEAL_EMPIRE":
     case "REVEAL_EMPIRE_STATS":
+    case "SURVEY_SWEEP":
     case "AETHER_LANCE":
     case "CAST_AETHER_BRIDGE":
     case "CAST_AETHER_WALL":

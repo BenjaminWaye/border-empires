@@ -384,7 +384,7 @@ export interface PlayerEconomyIndex {
 }
 
 export interface AbilityDefinition {
-  id: "reveal_empire" | "reveal_empire_stats" | "aether_lance" | "aether_bridge" | "aether_wall" | "siphon" | "create_mountain" | "remove_mountain";
+  id: "reveal_empire" | "reveal_empire_stats" | "survey_sweep" | "aether_lance" | "aether_bridge" | "aether_wall" | "siphon" | "create_mountain" | "remove_mountain";
   name: string;
   requiredTechIds: string[];
   crystalCost: number;
