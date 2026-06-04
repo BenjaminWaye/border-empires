@@ -15,6 +15,7 @@ import { buildDockLinksByDockTileKey, collectLinkedDockRevealKeysForOwners } fro
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge.js";
 import { frontierNeighborCoords } from "./frontier-topology.js";
+import { shouldYieldAt } from "./event-loop-yield.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 
@@ -324,7 +325,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
 ): Promise<PlayerSubscriptionSnapshot> => {
   const sourceTiles =
     runtimeState.tiles.length > 0
-      ? [...runtimeState.tiles]
+      ? runtimeState.tiles
       : fallbackTiles
         ? [...fallbackTiles].map((tile) => ({
             x: tile.x,
@@ -360,7 +361,9 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   };
 
   const ownedTileKeysByPlayer = new Map<string, string[]>();
+  let sourceTileIndex = 0;
   for (const tile of sourceTiles) {
+    if (shouldYieldAt(sourceTileIndex++, 2_000)) await yieldToEventLoop();
     if (!tile.ownerId) continue;
     let keys = ownedTileKeysByPlayer.get(tile.ownerId);
     if (!keys) {
@@ -401,7 +404,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   const tiles =
     options?.fullVisibility === true
       ? sourceTiles
-      : (() => {
+      : await (async () => {
           const visibleKeys = new Set<string>();
           const primaryPlayer = playersById.get(playerId);
           if (primaryPlayer) {
@@ -426,11 +429,12 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
           }
           if (primaryPlayer && (runtimeState.docks?.length ?? 0) > 0) {
             const visibilityOwnerIds = new Set<string>([playerId, ...primaryPlayer.allies]);
-            const settledOwnerByKey = new Map(
-              sourceTiles
-                .filter((tile) => tile.ownershipState === "SETTLED" && tile.ownerId)
-                .map((tile) => [keyFor(tile.x, tile.y), tile.ownerId] as const)
-            );
+            const settledOwnerByKey = new Map<string, string>();
+            let settledOwnerIndex = 0;
+            for (const tile of sourceTiles) {
+              if (shouldYieldAt(settledOwnerIndex++, 2_000)) await yieldToEventLoop();
+              if (tile.ownershipState === "SETTLED" && tile.ownerId) settledOwnerByKey.set(keyFor(tile.x, tile.y), tile.ownerId);
+            }
             const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
             for (const revealKey of collectLinkedDockRevealKeysForOwners(
               visibilityOwnerIds,
@@ -444,9 +448,13 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
             }
           }
 
-          return sourceTiles
-            .filter((tile) => visibleKeys.has(keyFor(tile.x, tile.y)))
-            .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+          const visibleTiles: Array<(typeof sourceTiles)[number]> = [];
+          let visibleScanIndex = 0;
+          for (const tile of sourceTiles) {
+            if (shouldYieldAt(visibleScanIndex++, 2_000)) await yieldToEventLoop();
+            if (visibleKeys.has(keyFor(tile.x, tile.y))) visibleTiles.push(tile);
+          }
+          return visibleTiles.sort((left, right) => (left.x - right.x) || (left.y - right.y));
         })();
   await yieldToEventLoop();
   const pendingSettlements = runtimeState.pendingSettlements
