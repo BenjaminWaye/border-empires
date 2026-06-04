@@ -344,6 +344,7 @@ const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive",
 const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 export { FOREST_SETTLEMENT_MULT, MAX_SETTLE_DURATION_MS, SETTLE_DURATION_MS };
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+const RESPAWN_MINIMUM_GOLD = 100;
 export { settlementBaseDurationMsForTile, settlementDurationMsForPlayer };
 
 // Grace beyond resolvesAt before the sweep drops a lock. Normal locks resolve
@@ -6790,15 +6791,18 @@ export class SimulationRuntime {
     if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
     if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
     if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) {
-      // If we captured the previous owner's SETTLEMENT and they still have other territory,
-      // re-root a fresh SETTLEMENT town on one of their remaining tiles. If they have
-      // no territory left, respawnIfEliminated places a settlement on unowned land instead.
+      // If we captured the previous owner's SETTLEMENT, re-root it onto a valid
+      // remaining owned tile. If no owned tile can receive it, use the respawn
+      // placement path so the defender still has a playable settlement.
       if (settlementCaptureRelocationPopulation !== undefined) {
-        this.relocateSettlementForPlayer(
+        const relocated = this.relocateSettlementForPlayer(
           previousOwnerId,
           lock.commandId,
           settlementCaptureRelocationPopulation
         );
+        if (!relocated && this.summaryForPlayer(previousOwnerId).territoryTileKeys.size > 0) {
+          this.respawnPlayerOnUnownedLand(previousOwnerId, lock.commandId);
+        }
       }
       this.respawnIfEliminated(previousOwnerId, lock.commandId);
       this.ensureGrossIncomeSettlementForPlayer(previousOwnerId, lock.commandId);
@@ -6874,7 +6878,6 @@ export class SimulationRuntime {
   ): boolean {
     const summary = this.summaryForPlayer(playerId);
     if (summary.territoryTileKeys.size === 0) return false; // respawnIfEliminated handles full eliminations.
-    if (summary.ownedTownTierByTile.size > 0) return false;
     return this.placeSettlementOnOwnedLandForPlayer(playerId, commandId, population, {
       namePrefix: "Refuge"
     });
@@ -6887,20 +6890,15 @@ export class SimulationRuntime {
     options: { namePrefix: string }
   ): boolean {
     const summary = this.summaryForPlayer(playerId);
-    // Prefer a remaining SETTLED tile that does NOT already have a town. If none
-    // exists, fall back to any owned land tile without overwriting world towns.
+    // Use the oldest remaining owned land tile that does not already have a town.
     let targetKey: string | undefined;
-    let fallbackKey: string | undefined;
     for (const tileKey of summary.territoryTileKeys) {
       const tile = this.tiles.get(tileKey);
       if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
       if (tile.town) continue;
-      if (!fallbackKey) fallbackKey = tileKey;
-      if (tile.ownershipState === "SETTLED" && !targetKey) {
-        targetKey = tileKey;
-      }
+      targetKey = tileKey;
+      break;
     }
-    targetKey ??= fallbackKey;
     if (!targetKey) return false;
     const target = this.tiles.get(targetKey);
     if (!target) return false;
@@ -6953,6 +6951,7 @@ export class SimulationRuntime {
       }
     };
     actor.manpower = Math.max(actor.manpower, 100);
+    actor.points = Math.max(actor.points, RESPAWN_MINIMUM_GOLD);
     const respawnCommandId = `${commandId}:respawn:${playerId}`;
     this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
     this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
@@ -7149,6 +7148,7 @@ export class SimulationRuntime {
       }
     };
     actor.manpower = Math.max(actor.manpower, 100);
+    actor.points = Math.max(actor.points, RESPAWN_MINIMUM_GOLD);
     const respawnCommandId = `${commandId}:respawn:${playerId}`;
     this.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, this.now());
     this.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
@@ -7159,6 +7159,7 @@ export class SimulationRuntime {
       playerId,
       tileDeltas: [this.tileDeltaFromState(respawnedTile)]
     });
+    this.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
   }
 
   private queueCommandForProcessing(command: CommandEnvelope): void {

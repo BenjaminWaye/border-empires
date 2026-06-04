@@ -81,6 +81,26 @@ describe("topUpFromWaypoint", () => {
     expect(state.actionQueue).toHaveLength(0);
   });
 
+  it("blocks allied waypoint targets without enqueueing an attack step", () => {
+    const state = stateWithTiles([
+      tile(3, 3, { ownerId: "me" }),
+      tile(4, 3, { ownerId: "ally" })
+    ]);
+    state.allies = ["ally"];
+    state.waypoint = {
+      target: { x: 4, y: 3 },
+      plan: { target: { x: 4, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
+    };
+
+    const ok = topUpFromWaypoint(state, keyFor, () => {});
+
+    expect(ok).toBe(false);
+    expect(state.actionQueue).toHaveLength(0);
+    expect(state.waypoint?.plan.reachable).toBe(false);
+    expect(state.waypoint?.plan.blockReason).toBe("TARGET_ALLIED");
+    expect(state.waypoint?.lastEnqueuedKey).toBeUndefined();
+  });
+
   it("enqueues the first step of a reachable plan and leaves the queue with one entry", () => {
     const state = stateWithTiles([
       tile(3, 3, { ownerId: "me" }),

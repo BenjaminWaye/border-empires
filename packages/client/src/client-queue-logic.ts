@@ -937,6 +937,7 @@ export const processActionQueue = (
     authSessionReady: boolean;
     keyFor: (x: number, y: number) => string;
     isAdjacent: (ax: number, ay: number, bx: number, by: number) => boolean;
+    isTileOwnedByAlly: (tile: Tile) => boolean;
     pickOriginForTarget: (x: number, y: number, preferBreakthrough?: boolean, allowOptimisticOrigin?: boolean) => Tile | undefined;
     notifyInsufficientGoldForFrontierAction: (action: "claim" | "attack") => void;
     applyOptimisticTileState: (x: number, y: number, update: (tile: Tile) => void) => void;
@@ -1007,6 +1008,24 @@ export const processActionQueue = (
       });
       logFrontierQueue("frontier-queue-drop-missing", {
         extra: {
+          queueLength: state.actionQueue.length
+        }
+      });
+      state.actionQueue.shift();
+      state.queuedTargetKeys.delete(targetKey);
+      continue;
+    }
+    if (to.ownerId && to.ownerId !== state.me && deps.isTileOwnedByAlly(to)) {
+      logActionQueue("action-queue-drop-ally-target", {
+        targetKey,
+        toOwnerId: to.ownerId,
+        queueLength: state.actionQueue.length
+      });
+      logFrontierQueue("frontier-queue-drop-ally", {
+        before: to,
+        after: to,
+        extra: {
+          toOwnerId: to.ownerId,
           queueLength: state.actionQueue.length
         }
       });
