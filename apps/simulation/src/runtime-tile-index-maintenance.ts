@@ -207,6 +207,8 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   sortedYieldBearingKeysByOwner: Map<string, string[]>;
   activeSiegeOutpostsByOwner: Map<string, Set<string>>;
   activeLightOutpostsByOwner: Map<string, Set<string>>;
+  musterTilesByOwner: Map<string, Set<string>>;
+  fortTilesByOwner: Map<string, Set<string>>;
 }): void => {
   const prevIsFrontier = input.previous?.ownershipState === "FRONTIER" && input.previous?.ownerId && !input.previous.ownerId.startsWith("barbarian-");
   const nextIsFrontier = input.next.ownershipState === "FRONTIER" && input.next.ownerId && !input.next.ownerId.startsWith("barbarian-");
@@ -222,6 +224,8 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshYieldBearingIndexForTile(input);
   refreshSiegeOutpostIndexForTile(input);
   refreshLightOutpostIndexForTile(input);
+  refreshMusterIndexForTile(input);
+  refreshFortGarrisonIndexForTile(input);
 };
 
 export const rebuildPlannerCandidateIndexesForPlayer = (input: {
@@ -326,6 +330,37 @@ const refreshLightOutpostIndexForTile = (input: {
   if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
   if (prevActive && prevOwnerId) input.activeLightOutpostsByOwner.get(prevOwnerId)?.delete(input.tileKey);
   if (nextActive && nextOwnerId) addTileToOwnerSet(input.activeLightOutpostsByOwner, input.tileKey, nextOwnerId);
+};
+
+const refreshMusterIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  musterTilesByOwner: Map<string, Set<string>>;
+}): void => {
+  const prevOwnerId = input.previous?.muster?.ownerId;
+  const nextOwnerId = input.next.muster?.ownerId;
+  if (prevOwnerId === nextOwnerId) return;
+  if (prevOwnerId) input.musterTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
+  if (nextOwnerId) addTileToOwnerSet(input.musterTilesByOwner, input.tileKey, nextOwnerId);
+};
+
+export const isFortActive = (tile: DomainTileState): boolean =>
+  tile.fort?.status === "active" && tile.fort.ownerId != null;
+
+const refreshFortGarrisonIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  fortTilesByOwner: Map<string, Set<string>>;
+}): void => {
+  const prevActive = input.previous ? isFortActive(input.previous) : false;
+  const prevOwnerId = prevActive ? input.previous!.fort!.ownerId : undefined;
+  const nextActive = isFortActive(input.next);
+  const nextOwnerId = nextActive ? input.next.fort!.ownerId : undefined;
+  if (prevOwnerId === nextOwnerId) return;
+  if (prevOwnerId) input.fortTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
+  if (nextOwnerId) addTileToOwnerSet(input.fortTilesByOwner, input.tileKey, nextOwnerId);
 };
 
 const addTileToOwnerSet = (index: Map<string, Set<string>>, tileKey: string, ownerId: string): void => {
