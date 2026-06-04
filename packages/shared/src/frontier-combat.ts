@@ -27,8 +27,8 @@ export type FrontierCombatModifiers = {
   fortDefenseMult?: number;
   // Muster system garrison scaling: when set, fort defense is proportional to fill ratio.
   musterSystemEnabled?: boolean;
-  fortGarrison?: number;
-  fortGarrisonCap?: number;
+  fortGarrison?: number | undefined;
+  fortGarrisonCap?: number | undefined;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
