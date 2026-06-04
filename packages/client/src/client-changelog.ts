@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.04.3",
+  version: "2026.06.04.4",
   title: "What's New",
-  summary: "Siphon now hits a 3x3 area for longer, harder Observatory-based economy pressure. Survey Sweep now pings hidden towns and resource sites instead of revealing terrain, and mustering adds staged border manpower and fort garrisons.",
+  summary: "AI empires keep rotating after an idle player noops, so eliminated or broke AI can no longer pin the scheduler and starve active AI turns.",
   entries: [
+    {
+      introducedIn: "2026.06.04.4",
+      title: "AI turn rotation fixed",
+      why: "A no-command result from one AI could leave the worker scheduler pointed at the same player forever, so an eliminated or broke AI repeatedly nooped while richer AI empires stopped receiving turns.",
+      changes: [
+        "AI turn scheduling now advances after a first-pass noop, letting the next AI empire plan on the following tick.",
+        "AI command submissions are now rate-limited per empire, so a recovered loop cannot flood the simulation with rapid expand/attack/build commands.",
+        "Staging's repeated `ai-2:insufficient_points` loop is now covered by a regression test."
+      ]
+    },
     {
       introducedIn: "2026.06.04.3",
       title: "Observatory range unified to 20 tiles",
