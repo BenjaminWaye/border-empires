@@ -20,6 +20,7 @@ const stateWith = (tiles: Tile[], me = "me", overrides: Partial<StateShape> = {}
   me,
   tiles: new Map(tiles.map((t) => [keyFor(t.x, t.y), t])),
   dockPairs: [],
+  allies: [],
   activeTruces: [],
   ...overrides
 });
@@ -101,6 +102,20 @@ describe("planWaypoint", () => {
     const plan = planWaypoint({ x: 4, y: 3 }, baseDeps(state));
     expect(plan.reachable).toBe(false);
     expect(plan.blockReason).toBe("TARGET_TRUCED");
+  });
+
+  it("blocks when the target owner is allied", () => {
+    const state = stateWith(
+      [
+        tile(3, 3, { ownerId: "me" }),
+        tile(4, 3, { ownerId: "ally" })
+      ],
+      "me",
+      { allies: ["ally"] }
+    );
+    const plan = planWaypoint({ x: 4, y: 3 }, baseDeps(state));
+    expect(plan.reachable).toBe(false);
+    expect(plan.blockReason).toBe("TARGET_ALLIED");
   });
 
   it("emits a straight-line expand chain through neutral land", () => {
