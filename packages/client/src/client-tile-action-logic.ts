@@ -45,6 +45,8 @@ import type {
 } from "./client-types.js";
 import { ownedActiveObservatoryWithinRange } from "./client-tile-action-support.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
+import { ownObservatoryRange } from "./client-observatory-rules.js";
+import { buildMusterActions } from "./client-muster-tile-actions.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -447,8 +449,8 @@ export const beginCrystalTargeting = (
       deps.pushFeed("Siphon requires Logistics.", "combat", "warn");
       return;
     }
-    if ((state.strategicResources.CRYSTAL ?? 0) < 20) {
-      deps.pushFeed("Siphon needs 20 CRYSTAL.", "combat", "warn");
+    if ((state.strategicResources.CRYSTAL ?? 0) < 15) {
+      deps.pushFeed("Siphon needs 15 CRYSTAL.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {
@@ -555,6 +557,7 @@ export const executeCrystalTargeting = (
     deps.ws.send(JSON.stringify({ type: "WORLD_ENGINE_STRIKE", fromX, fromY, toX: tile.x, toY: tile.y }));
   } else {
     deps.ws.send(JSON.stringify({ type: "SIPHON_TILE", x: tile.x, y: tile.y }));
+    if (ability === "siphon") state.siphonFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });
   }
   clearCrystalTargeting(state);
   deps.hideTileActionMenu();
@@ -653,7 +656,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.terrain === "MOUNTAIN") {
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const inObsRange = ownedActiveObservatoryWithinRange(state, tile);
-    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now());
+    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
     const removeCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("remove_mountain"));
     return [
       {
@@ -687,7 +690,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   const createMountainAction = (): TileActionDef => {
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const inObsRange = ownedActiveObservatoryWithinRange(state, tile);
-    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now());
+    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
     const createCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("create_mountain"));
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     return {
@@ -725,7 +728,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     const cooldown = Math.max(
-      readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now()),
+      readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state)),
       deps.abilityCooldownRemainingMs("retort_recasting")
     );
     const canCast =
@@ -770,7 +773,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const out: TileActionDef[] = [];
     const now = Date.now();
     const obsInRange = ownedActiveObservatoryWithinRange(state, tile);
-    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now);
+    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now, ownObservatoryRange(state));
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const crystalAmt = state.strategicResources.CRYSTAL ?? 0;
     const isOwnTile = Boolean(tile.ownerId && tile.ownerId === state.me);
@@ -973,26 +976,19 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       tile.town && tile.town.populationTier !== "SETTLEMENT" && tile.ownershipState === "SETTLED" ? tile : supportedTown;
     const supportPlacementBlocked = Boolean(hasBlockingStructure && townBuildSource && townBuildSource !== tile);
     if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
-    if (tile.sabotage) {
-      out.push({
-        id: "purge_siphon",
-        label: "Purge Siphon",
-        ...tileActionAvailability((state.strategicResources.CRYSTAL ?? 0) >= 10, "Need 10 CRYSTAL", "10 CRYSTAL")
-      });
-    }
     if (tile.observatory?.ownerId === state.me && tile.observatory.status === "active") {
       const cooldown = deps.abilityCooldownRemainingMs("survey_sweep");
       out.push({
         id: "survey_sweep",
         label: "Survey Sweep",
         ...tileActionAvailability(
-          state.techIds.includes("beacon-towers") && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
-          !state.techIds.includes("beacon-towers")
+          state.techIds.includes("surveying") && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
+          !state.techIds.includes("surveying")
             ? "Requires Surveying"
             : cooldown > 0
               ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
               : "Need 30 CRYSTAL",
-          "30 CRYSTAL • reveals 50 tiles in each direction for 2m"
+          "30 CRYSTAL • pings hidden resources + towns in a 50x50 area"
         )
       });
     }
@@ -2164,6 +2160,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     actions.push(...retortRecastActions());
     actions.push(...crystalCoreActions());
     actions.push(createMountainAction());
+    actions.push(...buildMusterActions(tile, state));
     return actions;
   }
   const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);
@@ -2254,7 +2251,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         revealActive ? "Cancel current reveal" : "20 CRYSTAL • 0.15 / 10m"
       )
     });
-    const obsCooldownForOther = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now());
+    const obsCooldownForOther = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
     const revealStatsCooldown = Math.max(obsCooldownForOther, deps.abilityCooldownRemainingMs("reveal_empire_stats"));
     out.push({
       id: "reveal_empire_stats",
@@ -2282,7 +2279,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         hasSiphonCapability(state) &&
           !observatoryProtection &&
           sabotageCooldown <= 0 &&
-          (state.strategicResources.CRYSTAL ?? 0) >= 20 &&
+          (state.strategicResources.CRYSTAL ?? 0) >= 15 &&
           Boolean(tile.resource || tile.town) &&
           !tile.sabotage,
         !hasSiphonCapability(state)
@@ -2295,8 +2292,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Town or resource only"
                 : sabotageCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(sabotageCooldown)}`
-                  : "Need 20 CRYSTAL",
-        "20 CRYSTAL • steals 50% for 30m"
+                  : "Need 15 CRYSTAL",
+        "15 CRYSTAL • siphons a 3x3 for 60m"
       )
     });
   }

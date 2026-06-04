@@ -4,7 +4,8 @@ import {
   structureBuildDurationMs,
   structureCostDefinition
 } from "@border-empires/shared";
-import { OBSERVATORY_CAST_RADIUS, OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS } from "./client-constants.js";
+import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
+import { OBSERVATORY_RANGE } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
 
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
@@ -260,7 +261,7 @@ export const structureInfoForKey = (
     if (key === "FORT") return ["2.5x local defense", "Prevents failed attacks from immediately flipping the fortified origin tile"];
     if (key === "IRON_BASTION") return ["Upgrades Forts into Iron Bastions", "Raises Fort defense from 2.5x to 4x and keeps the +10% settled defense from Bastion Walls"];
     if (key === "THUNDER_BASTION") return ["Upgrades Iron Bastions into Thunder Bastions", "Raises Fort defense from 4x to 8x and improves resistance to siege and lance pressure"];
-    if (key === "OBSERVATORY") return [`+${OBSERVATORY_VISION_BONUS} local vision`, `${OBSERVATORY_PROTECTION_RADIUS}-tile crystal protection field`, `${OBSERVATORY_CAST_RADIUS}-tile crystal action range`];
+    if (key === "OBSERVATORY") return [`+${OBSERVATORY_VISION_BONUS} local vision`, `${OBSERVATORY_RANGE}-tile crystal range (protection + casting, grows with tech)`];
     if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
     if (key === "LIGHT_OUTPOST") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Outpost"];
     if (key === "SIEGE_OUTPOST") return ["+25% local offense", "Improves attacks launched from this tile"];

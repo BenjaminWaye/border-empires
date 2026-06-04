@@ -27,7 +27,7 @@ const CANVAS_SIZE = 192;
 
 // The observatory mesh is shorter than the tallest town spire, but reuse
 // the same float base/bob as the unfed badge for a consistent feel.
-const FLOAT_BASE = 1.30;
+const FLOAT_BASE = 0.85;
 const BOB_AMPLITUDE = 0.07;
 const BOB_PERIOD_MS = 2400;
 const PHASE_PER_INSTANCE = Math.PI * 0.37;

@@ -18,6 +18,11 @@ import {
 } from "@border-empires/game-domain";
 import {
   ATTACK_MANPOWER_MIN,
+  BARBARIAN_RAID_COST,
+  MUSTER_SYSTEM_ENABLED,
+  MUSTER_ATTACK_COST,
+  FORT_GARRISON_ATTRITION_MIN,
+  FORT_GARRISON_ATTRITION_MAX,
   SWEEP_BUDGET_CAP,
   SWEEP_RADIUS_BY_VARIANT,
   BARBARIAN_MULTIPLY_THRESHOLD,
@@ -83,10 +88,12 @@ import {
   REVEAL_EMPIRE_ACTIVATION_COST,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
   REVEAL_EMPIRE_STATS_CRYSTAL_COST,
+  SURVEY_SWEEP_COOLDOWN_MS,
+  SURVEY_SWEEP_CRYSTAL_COST,
+  SURVEY_SWEEP_HALF_EXTENT,
   SIPHON_COOLDOWN_MS,
   SIPHON_CRYSTAL_COST,
   SIPHON_DURATION_MS,
-  SIPHON_PURGE_CRYSTAL_COST,
   SIPHON_SHARE,
   SYNTH_OVERLOAD_DISABLE_MS,
   SYNTH_OVERLOAD_GOLD_COST,
@@ -221,6 +228,8 @@ import {
   parseRevealPayload,
   parseSettlePayload,
   parseSiegeOutpostSweepPayload,
+  parseSetMusterPayload,
+  parseClearMusterPayload,
   parseStructureTilePayload,
   parseTilePayload,
   parseWorldEngineStrikePayload
@@ -327,10 +336,16 @@ import {
 } from "./runtime-maintenance-ticks.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "./runtime-shard-rain-tick.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "./runtime-territory-automation-tick.js";
+import { tickMuster as tickMusterImpl } from "./runtime-muster-tick.js";
+import { tickFortGarrison as tickFortGarrisonImpl, garrisonCapForVariant, initialGarrisonForVariant } from "./runtime-fort-garrison-tick.js";
 import {
   bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
   updateFrontierDecay as updateFrontierDecayImpl
 } from "./runtime-frontier-decay.js";
+import {
+  seedLiveBarbarians as seedLiveBarbariansImpl,
+  type SeedLiveBarbariansResult
+} from "./runtime-live-barbarians.js";
 
 
 export { InMemorySimulationPersistence } from "./runtime-types.js";
@@ -346,6 +361,13 @@ export { FOREST_SETTLEMENT_MULT, MAX_SETTLE_DURATION_MS, SETTLE_DURATION_MS };
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 const RESPAWN_MINIMUM_GOLD = 100;
 export { settlementBaseDurationMsForTile, settlementDurationMsForPlayer };
+
+type SurveySweepPingKind = "resource" | "town";
+type SurveySweepPing = {
+  x: number;
+  y: number;
+  kind: SurveySweepPingKind;
+};
 
 // Grace beyond resolvesAt before the sweep drops a lock. Normal locks resolve
 // inside their setTimeout window; anything still present 60s after its scheduled
@@ -414,6 +436,15 @@ export class SimulationRuntime {
   // Maintained in replaceTileState via refreshLightOutpostIndexForTile.
   // Replaces the O(territory) sweep in tickTerritoryAutomation.
   private readonly activeLightOutpostsByOwner = new Map<string, Set<string>>();
+  // Index of tiles carrying a muster flag per owner (mustering system).
+  // Key: ownerId, Value: Set of tileKeys whose `muster.ownerId` is that player.
+  // Maintained in replaceTileState via refreshMusterIndexForTile. Lets the
+  // muster accumulation tick enumerate active musters without scanning the map.
+  private readonly musterTilesByOwner = new Map<string, Set<string>>();
+  // Index of tiles with an active fort per owner (garrison system).
+  // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
+  // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
+  private readonly fortTilesByOwner = new Map<string, Set<string>>();
   // Index of yield-bearing SETTLED LAND tiles per owner. A tile is yield-bearing
   // iff it has town, dockId, a strategic resource, or an active converter
   // economicStructure. Maintained in replaceTileState; rebuilt from this.tiles
@@ -726,6 +757,18 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(ownerId, set); }
         set.add(tileKey);
       }
+      // Populate musterTilesByOwner index (mustering system).
+      if (tile.muster?.ownerId) {
+        let set = this.musterTilesByOwner.get(tile.muster.ownerId);
+        if (!set) { set = new Set<string>(); this.musterTilesByOwner.set(tile.muster.ownerId, set); }
+        set.add(tileKey);
+      }
+      // Populate fortTilesByOwner index (garrison system).
+      if (tile.fort?.ownerId && tile.fort.status === "active") {
+        let set = this.fortTilesByOwner.get(tile.fort.ownerId);
+        if (!set) { set = new Set<string>(); this.fortTilesByOwner.set(tile.fort.ownerId, set); }
+        set.add(tileKey);
+      }
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
@@ -938,6 +981,43 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+    });
+    this.tickMuster(nowMs);
+    this.tickFortGarrison(nowMs);
+  }
+
+  tickFortGarrison(nowMs: number = this.now()): void {
+    tickFortGarrisonImpl({
+      nowMs,
+      players: this.players,
+      fortTilesByOwner: this.fortTilesByOwner,
+      tiles: this.tiles,
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+    });
+  }
+
+  tickMuster(nowMs: number = this.now()): void {
+    tickMusterImpl({
+      nowMs,
+      players: this.players,
+      tiles: this.tiles,
+      musterTilesByOwner: this.musterTilesByOwner,
+      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
+      applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
+      playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
+      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
+        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
+      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
+      locksByTile: this.locksByTile
     });
   }
 
@@ -1175,6 +1255,11 @@ export class SimulationRuntime {
 
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
     return playerManpowerRegenPerMinuteFromSummary(this.summaryForPlayer(player.id));
+  }
+
+  playerLogisticsThroughputPerMinute(player: RuntimePlayer): number {
+    // Logistics throughput = same as manpower regen for now; tune later.
+    return this.playerManpowerRegenPerMinute(player);
   }
 
   private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
@@ -1617,6 +1702,10 @@ export class SimulationRuntime {
     // Sweep outpost indexes: maintain activeSiegeOutpostsByOwner and activeLightOutpostsByOwner.
     this.refreshSiegeOutpostIndexForTile(tileKey, previous, tile);
     this.refreshLightOutpostIndexForTile(tileKey, previous, tile);
+    // Muster flag index: maintain musterTilesByOwner.
+    this.refreshMusterIndexForTile(tileKey, previous, tile);
+    // Fort garrison index: maintain fortTilesByOwner.
+    this.refreshFortGarrisonIndexForTile(tileKey, previous, tile);
     // Structure count index: keep ownedStructureCountByPlayerByType consistent
     // across capture / build / cancel / removal transitions. Each slot is
     // tracked by the STRUCTURE's ownerId (not the tile's), to match the
@@ -1954,6 +2043,54 @@ export class SimulationRuntime {
     if (nextActive && nextOwnerId) {
       let set = this.activeSiegeOutpostsByOwner.get(nextOwnerId);
       if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(nextOwnerId, set); }
+      set.add(tileKey);
+    }
+  }
+
+  // ---- Muster flag index helpers ----
+
+  private refreshMusterIndexForTile(
+    tileKey: string,
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    const prevOwnerId = previous?.muster?.ownerId;
+    const nextOwnerId = next.muster?.ownerId;
+    if (prevOwnerId === nextOwnerId) return;
+    if (prevOwnerId) {
+      const set = this.musterTilesByOwner.get(prevOwnerId);
+      if (set) set.delete(tileKey);
+    }
+    if (nextOwnerId) {
+      let set = this.musterTilesByOwner.get(nextOwnerId);
+      if (!set) { set = new Set<string>(); this.musterTilesByOwner.set(nextOwnerId, set); }
+      set.add(tileKey);
+    }
+  }
+
+  // ---- Fort garrison index helpers ----
+
+  private isFortActive(tile: DomainTileState): boolean {
+    return tile.fort?.status === "active" && tile.fort.ownerId != null;
+  }
+
+  private refreshFortGarrisonIndexForTile(
+    tileKey: string,
+    previous: DomainTileState | undefined,
+    next: DomainTileState
+  ): void {
+    const prevActive = previous ? this.isFortActive(previous) : false;
+    const prevOwnerId = prevActive ? previous!.fort!.ownerId : undefined;
+    const nextActive = this.isFortActive(next);
+    const nextOwnerId = nextActive ? next.fort!.ownerId : undefined;
+    if (prevOwnerId === nextOwnerId) return;
+    if (prevOwnerId) {
+      const set = this.fortTilesByOwner.get(prevOwnerId);
+      if (set) set.delete(tileKey);
+    }
+    if (nextOwnerId) {
+      let set = this.fortTilesByOwner.get(nextOwnerId);
+      if (!set) { set = new Set<string>(); this.fortTilesByOwner.set(nextOwnerId, set); }
       set.add(tileKey);
     }
   }
@@ -2332,6 +2469,7 @@ export class SimulationRuntime {
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
+      playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
       playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -2624,6 +2762,7 @@ export class SimulationRuntime {
         manpower: player.manpower,
         manpowerCap: this.playerManpowerCap(player),
         manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
+        logisticsThroughputPerMinute: this.playerLogisticsThroughputPerMinute(player),
         manpowerBreakdown: this.playerManpowerBreakdown(player),
         incomePerMinute: economy.incomePerMinute,
         strategicResources: {
@@ -2924,7 +3063,10 @@ export class SimulationRuntime {
       isBridgeCrossing: this.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
       targetShielded: isDockCrossing ? false : this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
       defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId)),
-      expandClaimDurationMs
+      expandClaimDurationMs,
+      musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
+      originMuster: from.muster?.ownerId === actor.id ? from.muster.amount : 0,
+      requiredMuster: MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" ? this.requiredMusterForTarget(to) : undefined
     });
 
     if (!validation.ok) {
@@ -3815,6 +3957,108 @@ export class SimulationRuntime {
     });
   }
 
+  private surveySweepPingKind(tile: DomainTileState): SurveySweepPingKind | undefined {
+    if (tile.town) return "town";
+    if (tile.resource === "GEMS" || tile.resource === "IRON" || tile.resource === "WOOD") return "resource";
+    return undefined;
+  }
+
+  private buildSurveySweepPings(playerId: string, centerX: number, centerY: number): SurveySweepPing[] {
+    const pings: SurveySweepPing[] = [];
+    for (let dy = -SURVEY_SWEEP_HALF_EXTENT; dy < SURVEY_SWEEP_HALF_EXTENT; dy += 1) {
+      const y = ((centerY + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
+      for (let dx = -SURVEY_SWEEP_HALF_EXTENT; dx < SURVEY_SWEEP_HALF_EXTENT; dx += 1) {
+        const x = ((centerX + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+        const tile = this.tiles.get(simulationTileKey(x, y));
+        if (!tile) continue;
+        const kind = this.surveySweepPingKind(tile);
+        if (!kind) continue;
+        if (this.filterTileDeltasForPlayer([this.tileDeltaFromState(tile)], playerId).length > 0) continue;
+        pings.push({ x, y, kind });
+      }
+    }
+    return pings.sort((left, right) => left.kind.localeCompare(right.kind) || left.y - right.y || left.x - right.x);
+  }
+
+  private handleSurveySweepCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseTilePayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    if (!actor.techIds.has("surveying")) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "SURVEY_SWEEP_INVALID",
+        message: "requires Surveying"
+      });
+      return;
+    }
+    const observatoryKey = simulationTileKey(payload.x, payload.y);
+    const observatoryTile = this.tiles.get(observatoryKey);
+    const observatory = observatoryTile?.observatory;
+    if (
+      !observatoryTile ||
+      observatoryTile.ownerId !== actor.id ||
+      observatoryTile.terrain !== "LAND" ||
+      !observatory ||
+      observatory.ownerId !== actor.id ||
+      observatory.status !== "active"
+    ) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "SURVEY_SWEEP_INVALID",
+        message: "target an active owned observatory"
+      });
+      return;
+    }
+    const now = this.now();
+    if ((observatory.cooldownUntil ?? 0) > now) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "SURVEY_SWEEP_INVALID",
+        message: "observatory is cooling down"
+      });
+      return;
+    }
+    if (!this.spendStrategicResource(actor, "CRYSTAL", SURVEY_SWEEP_CRYSTAL_COST)) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "SURVEY_SWEEP_INVALID",
+        message: "insufficient CRYSTAL for survey sweep"
+      });
+      return;
+    }
+    const pings = this.buildSurveySweepPings(actor.id, observatoryTile.x, observatoryTile.y);
+    this.stampObservatoryCooldown(observatoryKey, SURVEY_SWEEP_COOLDOWN_MS, now, command.commandId, command.playerId);
+    this.emitPlayerMessage(command, {
+      type: "SURVEY_SWEEP_RESULT",
+      center: { x: observatoryTile.x, y: observatoryTile.y },
+      halfExtent: SURVEY_SWEEP_HALF_EXTENT,
+      pings
+    });
+    this.emitPlayerMessage(command, {
+      type: "PLAYER_UPDATE",
+      points: actor.points,
+      strategicResources: actor.strategicResources
+    });
+  }
+
   private handleAetherLanceCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseTilePayload(command.payloadJson);
@@ -4105,6 +4349,16 @@ export class SimulationRuntime {
     });
   }
 
+  private isActiveSiphon(tile: DomainTileState, now = this.now()): boolean {
+    return Boolean(tile.sabotage && tile.sabotage.endsAt > now);
+  }
+
+  private siphonableTileForActor(tile: DomainTileState | undefined, actor: DomainPlayer, now: number): tile is DomainTileState {
+    if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) return false;
+    if (!tile.town && !tile.resource) return false;
+    return !this.isActiveSiphon(tile, now);
+  }
+
   private handleSiphonTileCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseTilePayload(command.payloadJson);
@@ -4130,7 +4384,8 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!target || target.terrain !== "LAND" || !target.ownerId || target.ownerId === actor.id || actor.allies.has(target.ownerId)) {
+    const siphonNow = this.now();
+    if (!this.siphonableTileForActor(target, actor, siphonNow)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -4140,17 +4395,6 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!target.town && !target.resource) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIPHON_INVALID",
-        message: "target must be a town or resource tile"
-      });
-      return;
-    }
-    const siphonNow = this.now();
     const siphonObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, siphonNow);
     if (!siphonObservatoryKey) {
       this.emitEvent({
@@ -4162,13 +4406,20 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (target.sabotage) {
+    const affectedTiles: DomainTileState[] = [];
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        const candidate = this.tiles.get(simulationTileKey(target.x + dx, target.y + dy));
+        if (this.siphonableTileForActor(candidate, actor, siphonNow)) affectedTiles.push(candidate);
+      }
+    }
+    if (affectedTiles.length === 0) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
         playerId: command.playerId,
         code: "SIPHON_INVALID",
-        message: "tile already siphoned"
+        message: "no eligible town or resource tiles in siphon area"
       });
       return;
     }
@@ -4183,65 +4434,31 @@ export class SimulationRuntime {
       return;
     }
     this.stampObservatoryCooldown(siphonObservatoryKey, SIPHON_COOLDOWN_MS, siphonNow, command.commandId, command.playerId);
-    const updatedTile: DomainTileState = {
-      ...target,
+    const endsAt = siphonNow + SIPHON_DURATION_MS;
+    const updatedTiles = affectedTiles.map((tile): DomainTileState => ({
+      ...tile,
       sabotage: {
         ownerId: actor.id,
-        endsAt: this.now() + SIPHON_DURATION_MS,
+        endsAt,
         outputMultiplier: 1 - SIPHON_SHARE
       }
-    };
-    this.replaceTileState(targetKey, updatedTile);
+    }));
+    for (const updatedTile of updatedTiles) this.replaceTileState(simulationTileKey(updatedTile.x, updatedTile.y), updatedTile);
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: command.commandId,
       playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+      tileDeltas: updatedTiles.map((updatedTile) => this.tileDeltaFromState(updatedTile))
     });
   }
 
   private handlePurgeSiphonCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!target || target.ownerId !== actor.id || !target.sabotage) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "PURGE_SIPHON_INVALID",
-        message: "tile is not siphoned"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", SIPHON_PURGE_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "PURGE_SIPHON_INVALID",
-        message: "insufficient CRYSTAL to purge siphon"
-      });
-      return;
-    }
-    const updatedTile: DomainTileState = { ...target, sabotage: undefined };
-    this.replaceTileState(targetKey, updatedTile);
     this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
+      eventType: "COMMAND_REJECTED",
       commandId: command.commandId,
       playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+      code: "PURGE_SIPHON_INVALID",
+      message: "siphons cannot be purged"
     });
   }
 
@@ -5385,6 +5602,7 @@ export class SimulationRuntime {
       siegeOutpostJson: cached.siegeOutpostJson,
       economicStructureJson: cached.economicStructureJson,
       sabotageJson: cached.sabotageJson,
+      musterJson: cached.musterJson,
       ...(yieldView?.yield ? { yield: yieldView.yield } : {})
       // yieldRate and yieldCap are derived client-side from static yield tables
       // + townJson (goldPerMinute/cap). See packages/client/src/yield-derivation.ts.
@@ -5953,6 +6171,13 @@ export class SimulationRuntime {
     const sweepInit = (spec.kind === "OUTPOST" || structureType === "LIGHT_OUTPOST")
       ? { sweepBudget: SWEEP_BUDGET_CAP, sweepActive: false as const, sweepBudgetUpdatedAt: this.now() }
       : {};
+    const garrisonInit = (spec.tileField === "fort" && MUSTER_SYSTEM_ENABLED)
+      ? {
+          garrison: initialGarrisonForVariant(activeStructure.variant as string | undefined),
+          garrisonCap: garrisonCapForVariant(activeStructure.variant as string | undefined),
+          garrisonUpdatedAt: this.now()
+        }
+      : {};
 
     // Only clear economicStructure when upgrading from WOODEN_FORT → FORT
     const clearingWoodenFort =
@@ -5963,7 +6188,7 @@ export class SimulationRuntime {
     const completedTile: DomainTileState = {
       ...latest,
       ...(clearingWoodenFort ? { economicStructure: undefined } : {}),
-      [spec.tileField]: { ...activeStructure, status: "active", ...sweepInit }
+      [spec.tileField]: { ...activeStructure, status: "active", ...sweepInit, ...garrisonInit }
     } as unknown as DomainTileState;
 
     this.replaceTileState(targetKey, completedTile);
@@ -6041,6 +6266,101 @@ export class SimulationRuntime {
       commandId: command.commandId,
       playerId: command.playerId,
       tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+    this.emitPlayerStateUpdate(command);
+  }
+
+  private handleSetMusterCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseSetMusterPayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    if (!MUSTER_SYSTEM_ENABLED) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "MUSTER_DISABLED",
+        message: "muster system is not enabled"
+      });
+      return;
+    }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+    const target = this.tiles.get(targetKey);
+    if (!target || target.ownerId !== command.playerId || target.terrain !== "LAND") {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "MUSTER_INVALID",
+        message: "owned LAND tile required to muster"
+      });
+      return;
+    }
+    const updatedTile: DomainTileState = {
+      ...target,
+      muster: {
+        ownerId: command.playerId,
+        amount: target.muster?.ownerId === command.playerId ? target.muster.amount : 0,
+        mode: payload.mode,
+        ...(typeof payload.targetX === "number" ? { targetX: payload.targetX } : {}),
+        ...(typeof payload.targetY === "number" ? { targetY: payload.targetY } : {}),
+        updatedAt: this.now()
+      }
+    };
+    this.replaceTileState(targetKey, updatedTile, command.commandId);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+    this.emitPlayerStateUpdate(command);
+  }
+
+  private handleClearMusterCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    const payload = parseClearMusterPayload(command.payloadJson);
+    if (!actor || !payload) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "invalid command payload"
+      });
+      return;
+    }
+    const targetKey = simulationTileKey(payload.x, payload.y);
+    const target = this.tiles.get(targetKey);
+    if (!target || target.ownerId !== command.playerId || !target.muster) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "MUSTER_INVALID",
+        message: "no muster on owned tile"
+      });
+      return;
+    }
+    // Mustered manpower is destroyed, not refunded.
+    const updatedTile: DomainTileState = { ...target, muster: undefined };
+    this.replaceTileState(targetKey, updatedTile, command.commandId);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      // Explicit empty string signals a clear over the wire (JSON drops
+      // `undefined` keys), mirroring how structure clears are emitted.
+      tileDeltas: [{ ...this.tileDeltaFromState(updatedTile), musterJson: "" }]
     });
     this.emitPlayerStateUpdate(command);
   }
@@ -6524,7 +6844,10 @@ export class SimulationRuntime {
       attackerOutpostMult,
       attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
       attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
-      fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1
+      fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
+      musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
+      fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
+      fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined
     };
     const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
       ? {
@@ -6630,7 +6953,24 @@ export class SimulationRuntime {
       ...(combatResult?.pillagedStrategic && Object.keys(combatResult.pillagedStrategic).length > 0 ? { pillagedStrategic: combatResult.pillagedStrategic } : {}),
       ...(combatResult ? { combatResult } : {})
     });
-    if (attacker && typeof combatResult?.manpowerDelta === "number") this.applyLockedManpowerDelta(attacker, combatResult.manpowerDelta);
+    if (attacker && typeof combatResult?.manpowerDelta === "number") {
+      if (MUSTER_SYSTEM_ENABLED && lock.actionType === "ATTACK") {
+        const isBarbRaid = previousTarget?.ownerId === "barbarian-1";
+        if (isBarbRaid) {
+          // Barbarian raid: funded directly from player pool.
+          attacker.manpower = Math.max(0, attacker.manpower - lock.manpowerCost);
+        } else {
+          // Regular muster attack: paid from the origin tile's muster reservoir.
+          this.consumeOriginMuster(lock.originKey, lock.playerId, lock.manpowerCost);
+          // Fort garrison attrition on a failed assault.
+          if (!attackerWon) {
+            this.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
+          }
+        }
+      } else {
+        this.applyLockedManpowerDelta(attacker, combatResult.manpowerDelta);
+      }
+    }
     if (attackerWon && attacker && defender && targetWasSettled && combatResolution) {
       this.applySettledCapturePlunder({
         attacker,
@@ -7079,6 +7419,65 @@ export class SimulationRuntime {
     input.attacker.points += input.gold;
   }
 
+  /**
+   * Manpower an attacker must have mustered on the origin tile to strike this
+   * target. Phase 5 baseline: the flat attack cost. Phase 7 raises it to the
+   * target fort's garrison; Phase 8 lowers it for barbarian raids.
+   */
+  private requiredMusterForTarget(target: DomainTileState): number {
+    // Barbarian tiles are raided cheaply from the pool (handled in validateFrontierCommand).
+    if (target.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
+    const fortGarrison = (target.fort?.status === "active" && target.fort.garrison != null)
+      ? target.fort.garrison
+      : 0;
+    return Math.max(MUSTER_ATTACK_COST, Math.ceil(fortGarrison));
+  }
+
+  /**
+   * Spend mustered manpower from the origin tile after a resolved attack under
+   * the muster system. The pool is untouched (it was already drained into the
+   * muster during accumulation).
+   */
+  private consumeOriginMuster(originKey: string, playerId: string, amount: number): void {
+    const tile = this.tiles.get(originKey);
+    if (!tile?.muster || tile.muster.ownerId !== playerId) return;
+    const nextAmount = Math.max(0, tile.muster.amount - amount);
+    const updatedTile: DomainTileState = {
+      ...tile,
+      muster: { ...tile.muster, amount: nextAmount, updatedAt: this.now() }
+    };
+    this.replaceTileState(originKey, updatedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `muster-spend:${originKey}:${this.now()}`,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+  }
+
+  /**
+   * Reduce a defending fort's garrison after a repulsed assault.
+   * The attrittion fraction is a random draw in [MIN, MAX] applied to the attacking force.
+   */
+  private applyFortGarrisonAttrition(targetKey: string, attackingForce: number): void {
+    const tile = this.tiles.get(targetKey);
+    if (!tile?.fort || tile.fort.status !== "active" || tile.fort.garrison == null) return;
+    const fraction = FORT_GARRISON_ATTRITION_MIN +
+      Math.random() * (FORT_GARRISON_ATTRITION_MAX - FORT_GARRISON_ATTRITION_MIN);
+    const loss = fraction * attackingForce;
+    const updatedTile: DomainTileState = {
+      ...tile,
+      fort: { ...tile.fort, garrison: Math.max(0, tile.fort.garrison - loss), garrisonUpdatedAt: this.now() }
+    };
+    this.replaceTileState(targetKey, updatedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `fort-attrition:${targetKey}:${this.now()}`,
+      playerId: tile.fort.ownerId,
+      tileDeltas: [this.tileDeltaFromState(updatedTile)]
+    });
+  }
+
   private attackManpowerLoss(committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number {
     if (committedManpower <= 0) return 0;
     if (attackerWon) return Math.max(10, committedManpower * 0.16);
@@ -7193,6 +7592,7 @@ export class SimulationRuntime {
         command.type !== "SET_CONVERTER_STRUCTURE_ENABLED" &&
         command.type !== "REVEAL_EMPIRE" &&
         command.type !== "REVEAL_EMPIRE_STATS" &&
+        command.type !== "SURVEY_SWEEP" &&
         command.type !== "AETHER_LANCE" &&
         command.type !== "CAST_AETHER_BRIDGE" &&
         command.type !== "CAST_AETHER_WALL" &&
@@ -7205,6 +7605,8 @@ export class SimulationRuntime {
         command.type !== "WORLD_ENGINE_STRIKE" &&
         command.type !== "UPGRADE_TOWN_TIER" &&
         command.type !== "COLLECT_SHARD" &&
+        command.type !== "SET_MUSTER" &&
+        command.type !== "CLEAR_MUSTER" &&
         command.type !== "SYNC_ALLIANCE"
       ) {
         this.emitEvent({
@@ -7240,6 +7642,16 @@ export class SimulationRuntime {
 
       if (command.type === "SET_SIEGE_OUTPOST_SWEEP") {
         this.handleSetSiegeOutpostSweepCommand(command);
+        return;
+      }
+
+      if (command.type === "SET_MUSTER") {
+        this.handleSetMusterCommand(command);
+        return;
+      }
+
+      if (command.type === "CLEAR_MUSTER") {
+        this.handleClearMusterCommand(command);
         return;
       }
 
@@ -7313,6 +7725,11 @@ export class SimulationRuntime {
         return;
       }
 
+      if (command.type === "SURVEY_SWEEP") {
+        this.handleSurveySweepCommand(command);
+        return;
+      }
+
       if (command.type === "AETHER_LANCE") {
         this.handleAetherLanceCommand(command);
         return;
@@ -7380,5 +7797,23 @@ export class SimulationRuntime {
 
       this.handleFrontierCommand(command, command.type);
     }, command.type, scheduling);
+  }
+
+  seedLiveBarbarians(targetCount: number, commandId?: string): SeedLiveBarbariansResult {
+    return seedLiveBarbariansImpl({
+      targetCount,
+      commandId: commandId ?? `ops-seed-barbs:${this.now()}`,
+      players: this.players,
+      tiles: this.tiles,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      locksByTile: this.locksByTile,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      replaceTileState: (tileKey, tile, cid) => this.replaceTileState(tileKey, tile, cid),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitTileDeltaBatch: ({ commandId: cid, playerId, tileDeltas }) => {
+        this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: cid, playerId, tileDeltas });
+      },
+      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+    });
   }
 }

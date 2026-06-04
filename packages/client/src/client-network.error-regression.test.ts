@@ -302,7 +302,7 @@ describe("client network regression guards", () => {
       y: 299,
       tileKey: "14,299",
       label: "Build Market",
-      payload: { type: "BUILD_ECONOMIC_STRUCTURE", x: 14, y: 299, structureType: "MARKET" },
+      payload: { type: "BUILD_STRUCTURE", x: 14, y: 299, structureType: "MARKET" },
       optimisticKind: "MARKET"
     };
     state.queuedDevelopmentDispatchPending = true;
@@ -462,10 +462,12 @@ describe("client network regression guards", () => {
   it("explains attack cooldown errors and applies only a short retry backoff", () => {
     const state = createState();
     const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
     const deps = bindWithDeps(state, ws, {
       shouldResetFrontierActionStateForError: vi.fn(() => true),
       explainActionFailure: vi.fn(explainActionFailureFromServer),
-      formatCooldownShort: vi.fn((ms: number) => `${Math.ceil(ms / 1000)}s`)
+      formatCooldownShort: vi.fn((ms: number) => `${Math.ceil(ms / 1000)}s`),
+      showCaptureAlert
     });
 
     ws.emit("message", {
@@ -487,7 +489,7 @@ describe("client network regression guards", () => {
     ).toBe(
       "Action blocked: that origin tile is still on attack cooldown for 3s."
     );
-    expect(deps.pushFeed).toHaveBeenCalledWith("Action blocked: that origin tile is still on attack cooldown for 3s.", "error", "error");
+    expect(showCaptureAlert).toHaveBeenCalledWith("Action blocked", "Action blocked: that origin tile is still on attack cooldown for 3s.", "warn", undefined);
     expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("60,302", true);
     expect(deps.reconcileActionQueue).toHaveBeenCalled();
@@ -1349,7 +1351,7 @@ describe("client network regression guards", () => {
       y: 44,
       tileKey: "33,44",
       label: "Fort at (33, 44)",
-      payload: { type: "BUILD_FORT", x: 33, y: 44 },
+      payload: { type: "BUILD_STRUCTURE", x: 33, y: 44, structureType: "FORT" },
       optimisticKind: "FORT"
     };
     state.tiles.set("33,44", {
@@ -1377,7 +1379,7 @@ describe("client network regression guards", () => {
         y: 44,
         tileKey: "33,44",
         label: "Fort at (33, 44)",
-        payload: { type: "BUILD_FORT", x: 33, y: 44 },
+        payload: { type: "BUILD_STRUCTURE", x: 33, y: 44, structureType: "FORT" },
         optimisticKind: "FORT"
       }
     ]);
