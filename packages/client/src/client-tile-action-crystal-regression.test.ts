@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createInitialState } from "./client-state.js";
 import { menuActionsForSingleTile } from "./client-tile-action-logic.js";
+import { splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
@@ -234,5 +235,30 @@ describe("crystal core actions regression", () => {
     const lance = findAction(actions, "aether_lance");
     expect(lance).toBeDefined();
     expect(lance?.disabled).not.toBe(true);
+  });
+});
+
+describe("crystal tab visibility regression", () => {
+  it("crystal tab stays visible when all crystal actions are disabled (e.g. on cooldown)", () => {
+    // Signal-fires gives aether_lance. No observatory is placed, so all crystal actions
+    // will be disabled with 'Need active observatory in range'. The crystal tab must still
+    // be emitted so the player can see the disabled reason.
+    const state = stateWithSignalFires();
+    const enemyTile: Tile = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: "ai-1",
+      ownershipState: "SETTLED"
+    } as Tile;
+    state.tiles.set(keyFor(10, 10), enemyTile);
+
+    const actions = menuActionsForSingleTile(state, enemyTile, baseDeps as never);
+    const tabs = splitTileActionsIntoTabs(actions, state);
+
+    // All crystal rows disabled — tab must still be non-empty
+    expect(tabs.crystal.length).toBeGreaterThan(0);
+    // Every row in the crystal tab should be disabled
+    expect(tabs.crystal.every((a) => a.disabled)).toBe(true);
   });
 });

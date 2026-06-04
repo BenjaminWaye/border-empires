@@ -45,6 +45,7 @@ import type {
 } from "./client-types.js";
 import { ownedActiveObservatoryWithinRange } from "./client-tile-action-support.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
+import { ownObservatoryRange } from "./client-observatory-rules.js";
 import { buildMusterActions } from "./client-muster-tile-actions.js";
 
 type BuildableStructureId = BuildableStructureType;
@@ -655,7 +656,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.terrain === "MOUNTAIN") {
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const inObsRange = ownedActiveObservatoryWithinRange(state, tile);
-    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now());
+    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
     const removeCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("remove_mountain"));
     return [
       {
@@ -689,7 +690,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   const createMountainAction = (): TileActionDef => {
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const inObsRange = ownedActiveObservatoryWithinRange(state, tile);
-    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now());
+    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
     const createCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("create_mountain"));
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     return {
@@ -727,7 +728,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     const cooldown = Math.max(
-      readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now()),
+      readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state)),
       deps.abilityCooldownRemainingMs("retort_recasting")
     );
     const canCast =
@@ -772,7 +773,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const out: TileActionDef[] = [];
     const now = Date.now();
     const obsInRange = ownedActiveObservatoryWithinRange(state, tile);
-    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now);
+    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now, ownObservatoryRange(state));
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const crystalAmt = state.strategicResources.CRYSTAL ?? 0;
     const isOwnTile = Boolean(tile.ownerId && tile.ownerId === state.me);
@@ -2250,7 +2251,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         revealActive ? "Cancel current reveal" : "20 CRYSTAL • 0.15 / 10m"
       )
     });
-    const obsCooldownForOther = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now());
+    const obsCooldownForOther = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
     const revealStatsCooldown = Math.max(obsCooldownForOther, deps.abilityCooldownRemainingMs("reveal_empire_stats"));
     out.push({
       id: "reveal_empire_stats",
