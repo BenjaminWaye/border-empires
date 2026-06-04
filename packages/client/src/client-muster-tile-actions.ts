@@ -1,4 +1,5 @@
-import type { ClientTile, ClientState, TileActionDef } from "./client-types.js";
+import type { ClientState } from "./client-state.js";
+import type { Tile, TileActionDef } from "./client-types.js";
 import { tileActionAvailability } from "./client-tile-action-logic.js";
 
 /**
@@ -8,7 +9,7 @@ import { tileActionAvailability } from "./client-tile-action-logic.js";
  * check is needed.
  */
 export const buildMusterActions = (
-  tile: ClientTile,
+  tile: Tile,
   state: Pick<ClientState, "me">
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
