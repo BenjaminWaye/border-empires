@@ -29,6 +29,7 @@ export type RuntimeRespawnContext = {
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
   incomePerMinuteForPlayer: (playerId: string) => number;
+  respawnMinimumGold: number;
 };
 
 export const preparePlayerRespawnNotice = (
@@ -131,6 +132,7 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
     }
   };
   actor.manpower = Math.max(actor.manpower, 100);
+  actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   ctx.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, ctx.now());
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
@@ -184,6 +186,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     }
   };
   actor.manpower = Math.max(actor.manpower, 100);
+  actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   ctx.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, ctx.now());
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
@@ -194,4 +197,5 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     playerId,
     tileDeltas: [ctx.tileDeltaFromState(respawnedTile)]
   });
+  if (!actor.isAi) ctx.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
 };
