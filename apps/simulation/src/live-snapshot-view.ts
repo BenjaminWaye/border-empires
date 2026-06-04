@@ -1,5 +1,6 @@
 import { OBSERVATORY_UPKEEP_PER_MIN, WORLD_HEIGHT, WORLD_WIDTH, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
+import { shouldYieldAt } from "./event-loop-yield.js";
 
 import {
   AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
@@ -165,6 +166,29 @@ const buildFirstThreeTownKeysByPlayer = (
   return result;
 };
 
+const buildFirstThreeTownKeysByPlayerAsync = async (
+  runtimeState: RuntimeState,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, Set<string>>> => {
+  const result = new Map<string, Set<string>>();
+  for (const player of runtimeState.players) {
+    const firstThree = new Set<string>();
+    let count = 0;
+    let tileIndex = 0;
+    for (const tile of runtimeState.tiles) {
+      if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+      if (count >= 3) break;
+      if (tile.ownerId !== player.id) continue;
+      const tileKey = keyFor(tile.x, tile.y);
+      if (tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
+      firstThree.add(tileKey);
+      count += 1;
+    }
+    result.set(player.id, firstThree);
+  }
+  return result;
+};
+
 const parseTown = (tile: RuntimeState["tiles"][number]): Partial<NonNullable<Tile["town"]>> | undefined => {
   if (tile.townJson) {
     try {
@@ -218,6 +242,25 @@ const buildSettledDomainTilesByPlayerId = (
 ): Map<string, DomainTileState[]> => {
   const byPlayerId = new Map<string, DomainTileState[]>();
   for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const domainTile = domainTilesByKey.get(keyFor(tile.x, tile.y));
+    if (!domainTile) continue;
+    const current = byPlayerId.get(tile.ownerId) ?? [];
+    current.push(domainTile);
+    byPlayerId.set(tile.ownerId, current);
+  }
+  return byPlayerId;
+};
+
+const buildSettledDomainTilesByPlayerIdAsync = async (
+  runtimeState: RuntimeState,
+  domainTilesByKey: ReadonlyMap<string, DomainTileState>,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, DomainTileState[]>> => {
+  const byPlayerId = new Map<string, DomainTileState[]>();
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
     if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
     const domainTile = domainTilesByKey.get(keyFor(tile.x, tile.y));
     if (!domainTile) continue;
@@ -644,6 +687,7 @@ const buildFedTownKeysByPlayer = (
   return result;
 };
 
+
 const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Map<string, Record<StrategicResourceKey, number>> => {
   const production = new Map<string, Record<StrategicResourceKey, number>>();
   for (const player of runtimeState.players) production.set(player.id, emptyStrategic());
@@ -661,6 +705,7 @@ const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Map<strin
   }
   return production;
 };
+
 
 const buildTownSummary = (
   tile: RuntimeState["tiles"][number],
@@ -1140,6 +1185,58 @@ const buildEnrichmentContext = (
   };
 };
 
+const buildEnrichmentContextAsync = async (
+  runtimeState: RuntimeState,
+  playerEconomy: LivePlayerEconomySnapshot,
+  yieldToEventLoop: () => Promise<void>
+): Promise<EnrichmentContext> => {
+  const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
+  const playerYieldCollectionEpochByPlayer = new Map(
+    (runtimeState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt] as const)
+  );
+  const tilesByKey = new Map<string, RuntimeState["tiles"][number]>();
+  const domainTilesByKey = new Map<string, DomainTileState>();
+  let tileIndex = 0;
+  for (const entry of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+    const tileKey = keyFor(entry.x, entry.y);
+    tilesByKey.set(tileKey, entry);
+    domainTilesByKey.set(tileKey, toDomainTile(entry));
+  }
+  const settledDomainTilesByPlayerId = await buildSettledDomainTilesByPlayerIdAsync(runtimeState, domainTilesByKey, yieldToEventLoop);
+  const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
+  const economyPlayersById = new Map(runtimeState.players.map((entry) => [entry.id, snapshotEconomyPlayer(entry)!] as const));
+  const townNetworksByPlayerId = new Map<string, ReturnType<typeof buildConnectedTownNetworkForPlayer>>();
+  for (const [id, economyPlayer] of economyPlayersById) {
+    townNetworksByPlayerId.set(
+      id,
+      buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [], {
+        maxConnectedTownNames: 16
+      })
+    );
+    await yieldToEventLoop();
+  }
+  const firstThreeTownKeysByPlayer = await buildFirstThreeTownKeysByPlayerAsync(runtimeState, yieldToEventLoop);
+  const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
+  await yieldToEventLoop();
+  const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
+  await yieldToEventLoop();
+  return {
+    collectedAtByTile,
+    playerYieldCollectionEpochByPlayer,
+    tilesByKey,
+    domainTilesByKey,
+    dockLinksByDockTileKey,
+    economyPlayersById,
+    townNetworksByPlayerId,
+    firstThreeTownKeysByPlayer,
+    nearbyWarTownKeys,
+    fedTownKeysByPlayer: playerEconomy.fedTownKeysByPlayer,
+    fedTownKeys: playerEconomy.fedTownKeys,
+    seedGranaryBuffedTileKeys
+  };
+};
+
 const buildEnrichedTile = (
   playerId: string,
   tile: RuntimeState["tiles"][number],
@@ -1209,7 +1306,7 @@ export const enrichSnapshotTilesForPlayerAsync = async (
   playerEconomy: LivePlayerEconomySnapshot,
   yieldToEventLoop: () => Promise<void>
 ): Promise<RuntimeState["tiles"]> => {
-  const ctx = buildEnrichmentContext(runtimeState, playerEconomy);
+  const ctx = await buildEnrichmentContextAsync(runtimeState, playerEconomy, yieldToEventLoop);
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
   const out: RuntimeState["tiles"] = new Array(visibleTiles.length);
   for (let i = 0; i < visibleTiles.length; i += 1) {
