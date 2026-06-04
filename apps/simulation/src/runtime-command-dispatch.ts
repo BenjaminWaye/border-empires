@@ -24,6 +24,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleSetConverterStructureEnabledCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireStatsCommand: (command: CommandEnvelope) => void;
+  handleSurveySweepCommand: (command: CommandEnvelope) => void;
   handleAetherLanceCommand: (command: CommandEnvelope) => void;
   handleCastAetherBridgeCommand: (command: CommandEnvelope) => void;
   handleCastAetherWallCommand: (command: CommandEnvelope) => void;
@@ -71,6 +72,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "SET_CONVERTER_STRUCTURE_ENABLED") return handlers.handleSetConverterStructureEnabledCommand(command);
   if (command.type === "REVEAL_EMPIRE") return handlers.handleRevealEmpireCommand(command);
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
+  if (command.type === "SURVEY_SWEEP") return handlers.handleSurveySweepCommand(command);
   if (command.type === "AETHER_LANCE") return handlers.handleAetherLanceCommand(command);
   if (command.type === "CAST_AETHER_BRIDGE") return handlers.handleCastAetherBridgeCommand(command);
   if (command.type === "CAST_AETHER_WALL") return handlers.handleCastAetherWallCommand(command);
@@ -118,6 +120,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||
   command.type === "REVEAL_EMPIRE" ||
   command.type === "REVEAL_EMPIRE_STATS" ||
+  command.type === "SURVEY_SWEEP" ||
   command.type === "AETHER_LANCE" ||
   command.type === "CAST_AETHER_BRIDGE" ||
   command.type === "CAST_AETHER_WALL" ||

@@ -548,6 +548,14 @@ export type GuideStep = {
 
 export type TileVisibilityState = "unexplored" | "fogged" | "visible";
 
+export type SurveySweepPingKind = "resource" | "town";
+export type SurveySweepPing = {
+  x: number;
+  y: number;
+  kind: SurveySweepPingKind;
+  createdAt: number;
+  expiresAt: number;
+};
 
 export type TerrainTextureId =
   | "SEA_DEEP"
@@ -620,6 +628,9 @@ export type TileActionDef = {
     | "overload_crystal_synthesizer"
     | "enable_converter_structure"
     | "disable_converter_structure"
+    | "muster_hold"
+    | "muster_advance"
+    | "muster_clear"
     | "offer_truce_12h"
     | "offer_truce_24h"
     | "break_truce"
