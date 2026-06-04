@@ -19,10 +19,21 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.04.2",
+  version: "2026.06.04.3",
   title: "What's New",
   summary: "Siphon now hits a 3x3 area for longer, harder Observatory-based economy pressure. Survey Sweep now pings hidden towns and resource sites instead of revealing terrain, and mustering adds staged border manpower and fort garrisons.",
   entries: [
+    {
+      introducedIn: "2026.06.04.3",
+      title: "Observatory range unified to 20 tiles",
+      why: "The separate 30-tile cast radius and 10-tile protection field were structurally unsynchronised and confusing. A single 20-tile range covers both roles, grows with tech, and keeps both values provably in sync.",
+      changes: [
+        "Observatory now has a single 20-tile range for both crystal action casting and the enemy-blocking protection field (was 30 / 10 respectively). Tech and domain bonuses still apply as before — max effective range is 36.",
+        "The vision ring has been removed from the map overlay; the one remaining ring is the unified range ring, shown at the actual bonus-adjusted distance.",
+        "Crystal menu tab no longer disappears while abilities are on cooldown — disabled rows are always shown so you can see why.",
+        "Cooldown badge on observatory is positioned closer to the building (was floating too high)."
+      ]
+    },
     {
       introducedIn: "2026.06.04.2",
       title: "Siphon becomes an Observatory pressure field", why: "Siphon was too narrow and overlapped with other single-target disruption; its real limiter is the Observatory cast slot.",

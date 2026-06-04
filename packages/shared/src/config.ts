@@ -64,8 +64,14 @@ export const WOODEN_FORT_DEFENSE_MULT = 1.35;
 export const OBSERVATORY_BUILD_MS = 10 * 60_000;
 export const OBSERVATORY_VISION_BONUS = 5;
 export const OBSERVATORY_UPKEEP_PER_MIN = 0.025;
-export const OBSERVATORY_PROTECTION_RADIUS = 10;
-export const OBSERVATORY_CAST_RADIUS = 30;
+/** Single unified base range for both cast radius and protection field. */
+export const OBSERVATORY_RANGE = 20;
+/** Max effective range after all tech/domain bonuses (real max 36, buffer at 40). */
+export const OBSERVATORY_RANGE_MAX = 40;
+/** Alias kept so existing imports continue to compile. Now equals OBSERVATORY_RANGE. */
+export const OBSERVATORY_PROTECTION_RADIUS = OBSERVATORY_RANGE;
+/** Alias kept so existing imports continue to compile. Now equals OBSERVATORY_RANGE. */
+export const OBSERVATORY_CAST_RADIUS = OBSERVATORY_RANGE;
 
 export const ECONOMIC_STRUCTURE_BUILD_MS = 5 * 60_000;
 export const ECONOMIC_STRUCTURE_REMOVE_MS = 5 * 60_000;
