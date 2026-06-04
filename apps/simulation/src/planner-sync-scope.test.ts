@@ -8,6 +8,7 @@ const makePlayer = (overrides: Partial<PlannerPlayerView> = {}): PlannerPlayerVi
   points: 0,
   manpower: 0,
   tileCollectionVersion: 1,
+  topologyVersion: 1,
   hasActiveLock: false,
   territoryTileKeys: [],
   frontierTileKeys: [],
@@ -75,21 +76,21 @@ describe("buildPlannerRelevantTileKeys", () => {
 
     expect(index.keys()).toEqual(new Set(["10,10", "50,50"]));
 
-    // Bump tileCollectionVersion: in production the runtime's
+    // Bump topologyVersion: in production the runtime's
     // markPlannerPlayerTileCollectionDirty increments this on any tile
     // ownership / state change, which is the cache-invalidation signal
     // for the relevance set. A test that mutated territory without
     // bumping the version would represent a runtime bug, not a use case.
     index.replacePlayers(
-      [makePlayer({ id: "p1", tileCollectionVersion: 2, territoryTileKeys: ["12,12"] })],
+      [makePlayer({ id: "p1", tileCollectionVersion: 2, topologyVersion: 2, territoryTileKeys: ["12,12"] })],
       new Map()
     );
 
     expect(index.keys()).toEqual(new Set(["12,12", "50,50"]));
   });
 
-  it("skips the rebuild when tileCollectionVersion is unchanged", () => {
-    const player = makePlayer({ id: "p1", tileCollectionVersion: 7, territoryTileKeys: ["10,10"] });
+  it("skips the rebuild when topologyVersion is unchanged", () => {
+    const player = makePlayer({ id: "p1", tileCollectionVersion: 7, topologyVersion: 7, territoryTileKeys: ["10,10"] });
     const rebuilds: Array<{ playerId: string; inputTileKeyCount: number }> = [];
     const index = createPlannerRelevantTileKeyIndex({
       players: [player],
@@ -106,7 +107,7 @@ describe("buildPlannerRelevantTileKeys", () => {
     // input (which would never happen in production without a version bump),
     // the cache holds the previous result.
     index.replacePlayers(
-      [makePlayer({ id: "p1", tileCollectionVersion: 7, territoryTileKeys: ["99,99"] })],
+      [makePlayer({ id: "p1", tileCollectionVersion: 7, topologyVersion: 7, territoryTileKeys: ["99,99"] })],
       new Map()
     );
 
@@ -121,6 +122,7 @@ describe("buildPlannerRelevantTileKeys", () => {
       makePlayer({
         id: `p${index + 1}`,
         tileCollectionVersion: 3,
+        topologyVersion: 3,
         territoryTileKeys: makeTerritory(index * 100, 100)
       })
     );
@@ -140,7 +142,7 @@ describe("buildPlannerRelevantTileKeys", () => {
     index.replacePlayers(
       [
         ...players.slice(0, 3),
-        makePlayer({ ...players[3]!, tileCollectionVersion: 4, territoryTileKeys: ["50,50"] }),
+        makePlayer({ ...players[3]!, tileCollectionVersion: 4, topologyVersion: 4, territoryTileKeys: ["50,50"] }),
         ...players.slice(4)
       ],
       new Map()

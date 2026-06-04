@@ -51,6 +51,13 @@ export type PlannerPlayerView = {
   incomePerMinute?: number;
   /** Bumped whenever territory/frontier/pending-settlement key sets change. */
   tileCollectionVersion: number;
+  /**
+   * Bumped only when tile *ownership* changes (EXPAND, ATTACK, tile loss).
+   * Building placements, tech updates, and ownershipState transitions do NOT
+   * bump this version, so planner-sync-scope.ts skips the O(territory×25)
+   * relevance rebuild for non-topology mutations.
+   */
+  topologyVersion: number;
   /** Whether this player currently holds any combat lock (origin or target). */
   hasActiveLock: boolean;
   territoryTileKeys: string[];

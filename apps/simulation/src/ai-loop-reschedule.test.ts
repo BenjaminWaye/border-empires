@@ -73,7 +73,8 @@ const makeRuntime = (humanInteractive = 0) => {
       buildCandidateTileKeys: [] as string[],
       pendingSettlementTileKeys: [] as string[],
       activeDevelopmentProcessCount: 0,
-      tileCollectionVersion: 1
+      tileCollectionVersion: 1,
+      topologyVersion: 1
     }
   ];
   return {
