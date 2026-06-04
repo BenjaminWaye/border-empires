@@ -2942,7 +2942,8 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } }
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } },
+            { x: 21, y: 20, terrain: "LAND" }
           ],
           activeLocks: []
         }
@@ -2985,6 +2986,16 @@ describe("simulation runtime", () => {
           ownershipState: "SETTLED"
         })
       );
+      expect(exported.players.find((entry) => entry.id === "player-1")?.points).toBe(100);
+      const respawnPlayerUpdate = seen.find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
+          event.eventType === "PLAYER_MESSAGE" &&
+          event.playerId === "player-1" &&
+          event.commandId === "lose-attack-1:respawn:player-1" &&
+          event.messageType === "PLAYER_UPDATE"
+      );
+      const respawnPayload = respawnPlayerUpdate?.payloadJson ? JSON.parse(respawnPlayerUpdate.payloadJson) as { gold?: number } : {};
+      expect(respawnPayload.gold).toBe(100);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -8381,7 +8392,7 @@ describe("simulation runtime — shard rain", () => {
       allies: new Set<string>()
     });
 
-    it("evacuates a captured SETTLEMENT onto a remaining town-less SETTLED tile of the previous owner", async () => {
+    it("evacuates a captured SETTLEMENT onto the oldest remaining town-less tile of the previous owner", async () => {
       vi.useFakeTimers();
       const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
       try {
@@ -8403,7 +8414,15 @@ describe("simulation runtime — shard rain", () => {
                 ownershipState: "SETTLED",
                 town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
               },
-              { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+              { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+              {
+                x: 30,
+                y: 30,
+                terrain: "LAND",
+                ownerId: "player-2",
+                ownershipState: "SETTLED",
+                town: { name: "Second Town", type: "FARMING", populationTier: "TOWN", population: 2_000 }
+              }
             ],
             activeLocks: []
           }
@@ -8437,6 +8456,8 @@ describe("simulation runtime — shard rain", () => {
         const refugePop = refugeTown?.population ?? 0;
         expect(refugePop).toBeGreaterThan(0);
         expect(refugePop).toBeLessThan(800);
+        const existingTown = runtime.exportState().tiles.find((tile) => tile.x === 30 && tile.y === 30);
+        expect(existingTown?.townPopulationTier).toBe("TOWN");
       } finally {
         randomSpy.mockRestore();
         vi.useRealTimers();
@@ -8451,7 +8472,7 @@ describe("simulation runtime — shard rain", () => {
           now: () => 1_000,
           initialPlayers: new Map([
             ["player-1", winningAttacker("player-1")],
-            ["player-2", weakDefender("player-2")]
+            ["player-2", { ...weakDefender("player-2"), points: 0 }]
           ]),
           seedTiles: new Map(),
           initialState: {
@@ -8514,6 +8535,7 @@ describe("simulation runtime — shard rain", () => {
           })
         );
         expect(runtime.exportState().players.find((player) => player.id === "player-2")?.incomePerMinute).toBeGreaterThan(0);
+        expect(runtime.exportState().players.find((player) => player.id === "player-2")?.points).toBe(100);
       } finally {
         randomSpy.mockRestore();
         vi.useRealTimers();

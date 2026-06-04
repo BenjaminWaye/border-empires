@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.02.7",
+  version: "2026.06.04.1",
   title: "What's New",
-  summary: "The food economy has been reworked: fish is perishable, town growth costs food, and tier upgrades are manual food-paid commands. Farmstead boosts farm tiles (+50%), and Waterworks is a radius-support building that boosts all farmsteads within 10 tiles.",
+  summary: "Waypoint attacks now respect alliances, and captured settlement capitals relocate or respawn cleanly with a small gold reserve.",
   entries: [
+    {
+      introducedIn: "2026.06.04.1",
+      title: "Alliance-safe waypoints and cleaner settlement respawns",
+      why: "Waypoint automation could treat an allied tile like a hostile target, and captured SETTLEMENT capitals could leave the defender with an inconsistent fallback settlement.",
+      changes: [
+        "Waypoint queues now drop allied-owned targets instead of dispatching ATTACK commands.",
+        "Captured SETTLEMENT capitals are stripped from the captured tile and moved to the defender's oldest valid owned tile, or respawned on unowned land when no valid owned tile exists.",
+        "Players respawn with at least 100 gold so they can rebuild immediately."
+      ]
+    },
     {
       introducedIn: "2026.06.02.7",
       title: "Food economy rework",

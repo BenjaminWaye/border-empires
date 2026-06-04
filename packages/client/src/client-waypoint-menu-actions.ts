@@ -31,7 +31,7 @@ export const formatWaypointSummary = (plan: WaypointPlan): string => {
 export const injectWaypointActions = (
   view: TileMenuView,
   tile: Tile,
-  state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "activeTruces" | "waypoint">,
+  state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint">,
   deps: WaypointMenuDeps
 ): void => {
   // Idempotent: renderTileActionMenu fires repeatedly for the same
