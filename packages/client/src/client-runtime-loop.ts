@@ -1,4 +1,5 @@
-import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile } from "./client-constants.js";
+import { isForestTile } from "./client-constants.js";
+import { ownObservatoryRange } from "./client-observatory-rules.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
@@ -1329,42 +1330,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const selectedWorld = deps.selectedTile();
     if (!isTrue3DRendererActive() && selectedWorld && selectedWorld.observatory) {
       const selectedVisibility = deps.tileVisibilityStateAt(selectedWorld.x, selectedWorld.y, selectedWorld);
-      if (selectedVisibility === "visible") {
+      if (
+        selectedVisibility === "visible" &&
+        selectedWorld.ownerId === state.me &&
+        selectedWorld.observatory.status === "active"
+      ) {
         const center = deps.worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
-        const ringRadius = OBSERVATORY_VISION_BONUS + 0.5;
-        const squareSize = ringRadius * 2 * size;
+        const effectiveRange = ownObservatoryRange(state);
+        const rangeRadius = effectiveRange + 0.5;
+        const squareSize = rangeRadius * 2 * size;
         deps.ctx.save();
-        deps.ctx.strokeStyle =
-          selectedWorld.observatory.status === "active" ? "rgba(122, 214, 255, 0.55)" : "rgba(122, 214, 255, 0.28)";
-        deps.ctx.fillStyle =
-          selectedWorld.observatory.status === "active" ? "rgba(122, 214, 255, 0.05)" : "rgba(122, 214, 255, 0.025)";
-        deps.ctx.setLineDash([8, 6]);
+        deps.ctx.strokeStyle = "rgba(106, 180, 255, 0.35)";
+        deps.ctx.fillStyle = "rgba(106, 180, 255, 0.02)";
+        deps.ctx.setLineDash([14, 10]);
         deps.ctx.lineWidth = 2;
         deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
         deps.ctx.fillRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
         deps.ctx.restore();
-        if (selectedWorld.ownerId === state.me && selectedWorld.observatory.status === "active") {
-          const protectionRadius = OBSERVATORY_PROTECTION_RADIUS + 0.5;
-          const protectionSquareSize = protectionRadius * 2 * size;
-          deps.ctx.save();
-          deps.ctx.strokeStyle = "rgba(106, 180, 255, 0.35)";
-          deps.ctx.fillStyle = "rgba(106, 180, 255, 0.02)";
-          deps.ctx.setLineDash([14, 10]);
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(
-            center.sx - protectionSquareSize / 2,
-            center.sy - protectionSquareSize / 2,
-            protectionSquareSize,
-            protectionSquareSize
-          );
-          deps.ctx.fillRect(
-            center.sx - protectionSquareSize / 2,
-            center.sy - protectionSquareSize / 2,
-            protectionSquareSize,
-            protectionSquareSize
-          );
-          deps.ctx.restore();
-        }
       }
     }
     const selectedStructurePreview = selectedWorld ? structureAreaPreviewForTile(selectedWorld) : undefined;

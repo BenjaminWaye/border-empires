@@ -2,6 +2,7 @@ import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
+import { ownObservatoryRange } from "./client-observatory-rules.js";
 import {
   activeTruceWithPlayerFromState,
   breakAllianceFromUi,
@@ -706,7 +707,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const abilityCooldownRemainingMs = (abilityId: keyof ClientState["abilityCooldowns"]): number => {
     const selectedTile = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
     if (selectedTile && (abilityId === "siphon" || abilityId === "create_mountain" || abilityId === "remove_mountain")) {
-      return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now());
+      return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now(), ownObservatoryRange(state));
     }
     return Math.max(0, (state.abilityCooldowns[abilityId] ?? 0) - Date.now());
   };
