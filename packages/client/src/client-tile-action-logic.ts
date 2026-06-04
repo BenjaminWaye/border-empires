@@ -556,6 +556,7 @@ export const executeCrystalTargeting = (
     deps.ws.send(JSON.stringify({ type: "WORLD_ENGINE_STRIKE", fromX, fromY, toX: tile.x, toY: tile.y }));
   } else {
     deps.ws.send(JSON.stringify({ type: "SIPHON_TILE", x: tile.x, y: tile.y }));
+    if (ability === "siphon") state.siphonFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });
   }
   clearCrystalTargeting(state);
   deps.hideTileActionMenu();

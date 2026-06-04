@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.03.2",
+  version: "2026.06.04.1",
   title: "What's New",
-  summary: "Survey Sweep now pings hidden towns and resource sites instead of revealing terrain. Mustering adds staged border manpower and fort garrisons, and town food-upkeep is always visible in the tile overview for CITY+ towns.",
+  summary: "Siphon now gets a one-shot 3D drain flourish. Survey Sweep now pings hidden towns and resource sites instead of revealing terrain, and mustering adds staged border manpower and fort garrisons.",
   entries: [
+    {
+      introducedIn: "2026.06.04.1",
+      title: "Siphon gets a 3D drain flourish",
+      why: "Siphon applies a long-running sabotage marker, but the cast moment itself had no immediate 3D feedback after targeting a hostile town or resource tile.",
+      changes: [
+        "Casting Siphon now triggers a one-shot 3D drain sigil over the target tile, with a locking ring, shadow pool, extraction hooks, and rising stolen-yield motes.",
+        "The effect is client-only cast feedback and does not add synced persistent state."
+      ]
+    },
     {
       introducedIn: "2026.06.03.2",
       title: "Survey Sweep becomes hidden-intel pings",
