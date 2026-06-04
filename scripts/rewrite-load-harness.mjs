@@ -31,7 +31,9 @@ const fetchMetrics = async (url) => {
   return parsePrometheus(await response.text());
 };
 
-const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs }) => {
+const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+
+const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs, waitForResult, settleAfterAcceptedMs, refreshOnEmptyFrontier }) => {
   const soakScript = resolve(cwd, "scripts", "rewrite-local-soak.mjs");
   const env = {
     ...process.env,
@@ -41,7 +43,9 @@ const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs }) => {
     SOAK_TIMEOUT_MS: String(timeoutMs),
     SOAK_LOG_EACH_ITERATION: "0",
     SOAK_EMIT_LATENCIES: "1",
-    SOAK_WAIT_FOR_RESULT: "0"
+    SOAK_WAIT_FOR_RESULT: waitForResult ? "1" : "0",
+    SOAK_SETTLE_AFTER_ACCEPTED_MS: String(settleAfterAcceptedMs),
+    SOAK_REFRESH_ON_EMPTY_FRONTIER: refreshOnEmptyFrontier ? "1" : "0"
   };
 
   return new Promise((resolvePromise, rejectPromise) => {
@@ -85,8 +89,7 @@ const runSoakBatch = async ({ cwd, wsUrl, iterations, timeoutMs }) => {
 };
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const now = new Date();
-const dateStamp = now.toISOString().slice(0, 10);
+const dateStamp = new Date().toISOString().slice(0, 10);
 const outputPath = resolve(root, "docs", "load-results", `${dateStamp}.json`);
 
 const gatewayMetricsUrl = process.env.GATEWAY_METRICS_URL ?? "http://127.0.0.1:3101/metrics";
@@ -96,19 +99,74 @@ const soakMinutes = Math.max(1, Number(process.env.LOAD_HARNESS_SOAK_MINUTES ?? 
 const pollIntervalMs = Math.max(250, Number(process.env.LOAD_HARNESS_POLL_MS ?? "1000"));
 const soakBatchIterations = Math.max(10, Number(process.env.LOAD_HARNESS_BATCH_ITERATIONS ?? "120"));
 const soakTimeoutMs = Math.max(3_000, Number(process.env.LOAD_HARNESS_SOAK_TIMEOUT_MS ?? "15000"));
+const waitForResult = process.env.LOAD_HARNESS_WAIT_FOR_RESULT !== "0";
+const settleAfterAcceptedMs = Math.max(0, Number(process.env.LOAD_HARNESS_SETTLE_AFTER_ACCEPTED_MS ?? "250"));
 const interBatchPauseMs = Math.max(0, Number(process.env.LOAD_HARNESS_INTER_BATCH_PAUSE_MS ?? "0"));
 const minAcceptedSamples = Math.max(1, Number(process.env.LOAD_HARNESS_MIN_ACCEPTED_SAMPLES ?? "30"));
+const refreshOnEmptyFrontier = process.env.LOAD_HARNESS_REFRESH_ON_EMPTY_FRONTIER === "1";
+const eventLoopGateLimitMs = 100;
+const metricsWarmupStableMs = Math.max(0, Number(process.env.LOAD_HARNESS_METRICS_WARMUP_STABLE_MS ?? "3000"));
+const metricsWarmupTimeoutMs = Math.max(
+  metricsWarmupStableMs,
+  Number(process.env.LOAD_HARNESS_METRICS_WARMUP_TIMEOUT_MS ?? "30000")
+);
 
-const startedAt = Date.now();
-const deadlineAt = startedAt + soakMinutes * 60_000;
+const readMetricsSample = async () => {
+  const [gateway, simulation] = await Promise.all([fetchMetrics(gatewayMetricsUrl), fetchMetrics(simulationMetricsUrl)]);
+  return { at: Date.now(), gateway, simulation };
+};
 
 const metricsSamples = [];
 let monitorTimer;
 
 const collectMetricsSample = async () => {
-  const [gateway, simulation] = await Promise.all([fetchMetrics(gatewayMetricsUrl), fetchMetrics(simulationMetricsUrl)]);
-  metricsSamples.push({ at: Date.now(), gateway, simulation });
+  metricsSamples.push(await readMetricsSample());
 };
+
+const waitForMetricsWarmup = async () => {
+  if (metricsWarmupStableMs === 0) {
+    return { ok: true, samples: 0, stableMs: 0, timeoutMs: metricsWarmupTimeoutMs };
+  }
+  const warmupDeadlineAt = Date.now() + metricsWarmupTimeoutMs;
+  let stableSince = null;
+  let lastGatewayEventLoopMaxMs = null;
+  let lastSimEventLoopMaxMs = null;
+  let samples = 0;
+  while (Date.now() < warmupDeadlineAt) {
+    const sample = await readMetricsSample();
+    samples += 1;
+    lastGatewayEventLoopMaxMs = sample.gateway["gateway_event_loop_max_ms"] ?? 0;
+    lastSimEventLoopMaxMs = sample.simulation["sim_event_loop_max_ms"] ?? 0;
+    if (lastGatewayEventLoopMaxMs < eventLoopGateLimitMs && lastSimEventLoopMaxMs < eventLoopGateLimitMs) {
+      stableSince ??= Date.now();
+      if (Date.now() - stableSince >= metricsWarmupStableMs) {
+        return {
+          ok: true,
+          samples,
+          stableMs: metricsWarmupStableMs,
+          timeoutMs: metricsWarmupTimeoutMs,
+          lastGatewayEventLoopMaxMs,
+          lastSimEventLoopMaxMs
+        };
+      }
+    } else {
+      stableSince = null;
+    }
+    await sleep(Math.min(pollIntervalMs, Math.max(0, warmupDeadlineAt - Date.now())));
+  }
+  return {
+    ok: false,
+    samples,
+    stableMs: metricsWarmupStableMs,
+    timeoutMs: metricsWarmupTimeoutMs,
+    lastGatewayEventLoopMaxMs,
+    lastSimEventLoopMaxMs
+  };
+};
+
+const metricsWarmup = await waitForMetricsWarmup();
+const startedAt = Date.now();
+const deadlineAt = startedAt + soakMinutes * 60_000;
 
 await collectMetricsSample();
 monitorTimer = setInterval(() => {
@@ -128,7 +186,10 @@ try {
         cwd: root,
         wsUrl,
         iterations: soakBatchIterations,
-        timeoutMs: soakTimeoutMs
+        timeoutMs: soakTimeoutMs,
+        waitForResult,
+        settleAfterAcceptedMs,
+        refreshOnEmptyFrontier
       });
       soakBatches.push({
         at: Date.now(),
@@ -136,7 +197,8 @@ try {
         acceptedSamples: summary.acceptedSamples,
         acceptedP95Ms: summary.acceptedP95Ms,
         acceptedP99Ms: summary.acceptedP99Ms,
-        acceptedMaxMs: summary.acceptedMaxMs
+        acceptedMaxMs: summary.acceptedMaxMs,
+        diagnostics: summary.diagnostics ?? {}
       });
       if (Array.isArray(summary.acceptedLatenciesMs)) {
         for (const latency of summary.acceptedLatenciesMs) {
@@ -147,7 +209,7 @@ try {
       soakErrors.push({ at: Date.now(), message: error instanceof Error ? error.message.slice(0, 400) : String(error).slice(0, 400) });
     }
     if (interBatchPauseMs > 0 && Date.now() + interBatchPauseMs < deadlineAt) {
-      await new Promise((r) => setTimeout(r, interBatchPauseMs));
+      await sleep(interBatchPauseMs);
     }
   }
 } finally {
@@ -172,36 +234,59 @@ const simHumanInteractiveBacklogMaxMs = metricsSamples.length > 0
 const simCheckpointRssMaxMb = metricsSamples.length > 0
   ? Math.max(...metricsSamples.map((sample) => sample.simulation["sim_checkpoint_rss_mb"] ?? 0))
   : null;
+const soakDiagnostics = soakBatches.reduce(
+  (accumulator, batch) => {
+    const diagnostics = batch.diagnostics ?? {};
+    accumulator.openedSessions += Number(diagnostics.openedSessions ?? 0);
+    accumulator.frontierRefreshes += Number(diagnostics.frontierRefreshes ?? 0);
+    accumulator.emptyFrontierRejections += Number(diagnostics.emptyFrontierRejections ?? 0);
+    accumulator.speculativeInvalidTargets += Number(diagnostics.speculativeInvalidTargets ?? 0);
+    accumulator.resourcePauses += Number(diagnostics.resourcePauses ?? 0);
+    return accumulator;
+  },
+  {
+    openedSessions: 0,
+    frontierRefreshes: 0,
+    emptyFrontierRejections: 0,
+    speculativeInvalidTargets: 0,
+    resourcePauses: 0
+  }
+);
 
 const gates = {
   acceptedSamplesAtLeastMinimum: acceptedLatenciesMs.length >= minAcceptedSamples,
   actionAcceptedP95Under100: typeof acceptedP95Ms === "number" && acceptedP95Ms < 100,
   actionAcceptedP99Under250: typeof acceptedP99Ms === "number" && acceptedP99Ms < 250,
   actionAcceptedMaxUnder500: typeof acceptedMaxMs === "number" && acceptedMaxMs < 500,
-  gatewayEventLoopMaxUnder100: typeof gatewayEventLoopMaxMs === "number" && gatewayEventLoopMaxMs < 100,
-  simEventLoopMaxUnder100: typeof simEventLoopMaxMs === "number" && simEventLoopMaxMs < 100,
+  gatewayEventLoopMaxUnder100: typeof gatewayEventLoopMaxMs === "number" && gatewayEventLoopMaxMs < eventLoopGateLimitMs,
+  simEventLoopMaxUnder100: typeof simEventLoopMaxMs === "number" && simEventLoopMaxMs < eventLoopGateLimitMs,
   simHumanInteractiveBacklogMaxUnder500: typeof simHumanInteractiveBacklogMaxMs === "number" && simHumanInteractiveBacklogMaxMs < 500,
   simCheckpointRssMaxUnder400: typeof simCheckpointRssMaxMb === "number" && simCheckpointRssMaxMb < 400
 };
 
 const payload = {
-  at: now.toISOString(),
+  at: new Date(startedAt).toISOString(),
   soak: {
     wsUrl,
     startedAt: new Date(startedAt).toISOString(),
     endedAt: new Date().toISOString(),
     soakMinutes,
     minAcceptedSamples,
+    waitForResult,
+    settleAfterAcceptedMs,
+    refreshOnEmptyFrontier,
     acceptedSamples: acceptedLatenciesMs.length,
     acceptedP95Ms,
     acceptedP99Ms,
     acceptedMaxMs,
+    diagnostics: soakDiagnostics,
     batches: soakBatches,
     batchErrors: soakErrors
   },
   metrics: {
     gatewayMetricsUrl,
     simulationMetricsUrl,
+    warmup: metricsWarmup,
     sampleCount: metricsSamples.length,
     gatewayEventLoopMaxMs,
     simEventLoopMaxMs,
