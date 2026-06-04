@@ -1,5 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { OBSERVATORY_CAST_RADIUS, OBSERVATORY_PROTECTION_RADIUS } from "./client-constants.js";
+import { OBSERVATORY_PROTECTION_RADIUS } from "./client-constants.js";
 import type { Tile } from "./client-types.js";
 
 const wrappedDelta = (a: number, b: number, size: number): number => Math.min(Math.abs(a - b), size - Math.abs(a - b));
@@ -33,14 +33,15 @@ export const readyOwnedObservatoryCooldownRemainingMs = (
   tiles: Iterable<Tile>,
   me: string,
   target: Tile,
-  nowMs: number
+  nowMs: number,
+  castRadius: number
 ): number => {
   let earliestPositive: number | undefined;
   let hasInRange = false;
   for (const tile of tiles) {
     if (!tile.observatory || tile.observatory.status !== "active" || tile.ownerId !== me) continue;
     if (tile.fogged) continue;
-    if (chebyshevDistanceWrapped(tile.x, tile.y, target.x, target.y) > OBSERVATORY_CAST_RADIUS) continue;
+    if (chebyshevDistanceWrapped(tile.x, tile.y, target.x, target.y) > castRadius) continue;
     hasInRange = true;
     const remaining = Math.max(0, (tile.observatory.cooldownUntil ?? 0) - nowMs);
     if (remaining <= 0) return 0;

@@ -1,7 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureSortRank, type BuildableStructureType } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { hostileObservatoryProtectingTileAt } from "./client-observatory-cooldown.js";
-import { ownObservatoryCastRadius } from "./client-observatory-rules.js";
+import { ownObservatoryRange } from "./client-observatory-rules.js";
 import type { Tile, TileActionDef, TileMenuView } from "./client-types.js";
 
 export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
@@ -228,7 +228,7 @@ export const splitTileActionsIntoTabs = (
   return {
     actions: actionRows.some(visibleIfShown) ? actionRows : [],
     buildings: buildingRows.length ? buildingRows : [],
-    crystal: crystalRows.some(visibleIfShown) || (state.localhostDevAetherWall && crystalRows.some((action) => action.id === "aether_wall")) ? crystalRows : []
+    crystal: crystalRows.length > 0 ? crystalRows : []
   };
 };
 
@@ -250,7 +250,7 @@ export const ownedActiveObservatoryWithinRange = (
   state: Pick<ClientState, "tiles" | "me" | "techIds" | "techCatalog" | "domainIds" | "domainCatalog">,
   tile: Tile
 ): boolean => {
-  const range = ownObservatoryCastRadius(state);
+  const range = ownObservatoryRange(state);
   for (const candidate of state.tiles.values()) {
     if (candidate.fogged || candidate.ownerId !== state.me || candidate.terrain !== "LAND") continue;
     if (candidate.observatory?.ownerId !== state.me || candidate.observatory.status !== "active") continue;

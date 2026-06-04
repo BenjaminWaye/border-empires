@@ -20,7 +20,9 @@ import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_TILE_CAP } from "@border
 const MUSTER_TILE_CAP_CLIENT = MUSTER_TILE_CAP;
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
-import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile } from "./client-constants.js";
+import { isForestTile } from "./client-constants.js";
+import { OBSERVATORY_RANGE_MAX } from "@border-empires/shared";
+import { ownObservatoryRange } from "./client-observatory-rules.js";
 import { applyPerspectiveCamera, createPerspectiveCamera } from "./client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "./client-map-3d-atmosphere.js";
 import { createPointerPick, toroidDelta } from "./client-map-3d-pointer-pick.js";
@@ -485,34 +487,19 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     marker.visible = false;
     return { marker, material };
   });
-  const observatoryRangeMaxSegments = observatoryRangeBorderSegmentCount(OBSERVATORY_PROTECTION_RADIUS);
-  const observatoryRangeMaxFillVertices = observatoryRangeFillVertexCount(OBSERVATORY_PROTECTION_RADIUS);
+  const observatoryRangeMaxSegments = observatoryRangeBorderSegmentCount(OBSERVATORY_RANGE_MAX);
+  const observatoryRangeMaxFillVertices = observatoryRangeFillVertexCount(OBSERVATORY_RANGE_MAX);
   const SWEEP_RANGE_RADIUS = 5;
   const sweepRangeMaxSegments = observatoryRangeBorderSegmentCount(SWEEP_RANGE_RADIUS);
   const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
-  const observatoryVisionRangeMaterial = new LineBasicMaterial({
-    color: "#7ad6ff",
-    transparent: true,
-    opacity: 0.55,
-    depthTest: false,
-    depthWrite: false
-  });
-  const observatoryProtectionRangeMaterial = new LineBasicMaterial({
+  const observatoryRangeMaterial = new LineBasicMaterial({
     color: "#6ab4ff",
     transparent: true,
     opacity: 0.35,
     depthTest: false,
     depthWrite: false
   });
-  const observatoryVisionFillMaterial = new MeshBasicMaterial({
-    color: "#7ad6ff",
-    transparent: true,
-    opacity: 0.05,
-    depthTest: false,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const observatoryProtectionFillMaterial = new MeshBasicMaterial({
+  const observatoryRangeFillMaterial = new MeshBasicMaterial({
     color: "#6ab4ff",
     transparent: true,
     opacity: 0.02,
@@ -520,21 +507,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     depthWrite: false,
     side: DoubleSide
   });
-  const observatoryVisionRangeMarker = new LineSegments(
+  const observatoryRangeMarker = new LineSegments(
     createObservatoryRangeBorderGeometry(observatoryRangeMaxSegments),
-    observatoryVisionRangeMaterial
+    observatoryRangeMaterial
   );
-  const observatoryProtectionRangeMarker = new LineSegments(
-    createObservatoryRangeBorderGeometry(observatoryRangeMaxSegments),
-    observatoryProtectionRangeMaterial
-  );
-  const observatoryVisionRangeFill = new Mesh(
+  const observatoryRangeFill = new Mesh(
     createObservatoryRangeFillGeometry(observatoryRangeMaxFillVertices),
-    observatoryVisionFillMaterial
-  );
-  const observatoryProtectionRangeFill = new Mesh(
-    createObservatoryRangeFillGeometry(observatoryRangeMaxFillVertices),
-    observatoryProtectionFillMaterial
+    observatoryRangeFillMaterial
   );
   const sweepRangeMaterial = new LineBasicMaterial({
     color: "#ff8c42",
@@ -561,18 +540,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   );
   selectedMarker.visible = false;
   hoverMarker.visible = false;
-  observatoryVisionRangeMarker.visible = false;
-  observatoryProtectionRangeMarker.visible = false;
-  observatoryVisionRangeFill.visible = false;
-  observatoryProtectionRangeFill.visible = false;
+  observatoryRangeMarker.visible = false;
+  observatoryRangeFill.visible = false;
   sweepRangeMarker.visible = false;
   sweepRangeFill.visible = false;
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
-  observatoryVisionRangeMarker.renderOrder = 27;
-  observatoryProtectionRangeMarker.renderOrder = 26;
-  observatoryVisionRangeFill.renderOrder = 25;
-  observatoryProtectionRangeFill.renderOrder = 24;
+  observatoryRangeMarker.renderOrder = 26;
+  observatoryRangeFill.renderOrder = 24;
   sweepRangeMarker.renderOrder = 23;
   sweepRangeFill.renderOrder = 22;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
@@ -606,10 +581,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   frontierClaimPlate.renderOrder = 7;
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
-  observatoryVisionRangeMarker.frustumCulled = false;
-  observatoryProtectionRangeMarker.frustumCulled = false;
-  observatoryVisionRangeFill.frustumCulled = false;
-  observatoryProtectionRangeFill.frustumCulled = false;
+  observatoryRangeMarker.frustumCulled = false;
+  observatoryRangeFill.frustumCulled = false;
   sweepRangeMarker.frustumCulled = false;
   sweepRangeFill.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
@@ -625,10 +598,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     hoverMarker,
     sweepRangeFill,
     sweepRangeMarker,
-    observatoryProtectionRangeFill,
-    observatoryVisionRangeFill,
-    observatoryVisionRangeMarker,
-    observatoryProtectionRangeMarker,
+    observatoryRangeFill,
+    observatoryRangeMarker,
     ...townSupportMarkers.map(({ marker }) => marker),
     ...queuedActionMarkers.map(({ marker }) => marker),
     ...queuedSettlementMarkers.map(({ marker }) => marker),
@@ -1184,29 +1155,19 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fillMesh.visible = true;
   };
   const syncObservatoryRangeMarkers = (): void => {
-    observatoryVisionRangeMarker.visible = false;
-    observatoryProtectionRangeMarker.visible = false;
-    observatoryVisionRangeFill.visible = false;
-    observatoryProtectionRangeFill.visible = false;
+    observatoryRangeMarker.visible = false;
+    observatoryRangeFill.visible = false;
     const selectedCoord = deps.state.selected;
     if (!selectedCoord) return;
     const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
     if (!selectedTile?.observatory) return;
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
-
-    const active = selectedTile.observatory.status === "active";
-    observatoryVisionRangeMaterial.opacity = active ? 0.55 : 0.28;
-    observatoryVisionFillMaterial.opacity = active ? 0.05 : 0.025;
-    writeObservatoryRangeGeometry(observatoryVisionRangeMarker, observatoryVisionRangeFill, selectedTile, OBSERVATORY_VISION_BONUS);
-    if (selectedTile.ownerId !== deps.state.me || !active) return;
-    observatoryProtectionRangeMaterial.opacity = 0.35;
-    observatoryProtectionFillMaterial.opacity = 0.02;
-    writeObservatoryRangeGeometry(
-      observatoryProtectionRangeMarker,
-      observatoryProtectionRangeFill,
-      selectedTile,
-      OBSERVATORY_PROTECTION_RADIUS
-    );
+    if (selectedTile.ownerId !== deps.state.me) return;
+    if (selectedTile.observatory.status !== "active") return;
+    const effectiveRange = ownObservatoryRange(deps.state);
+    observatoryRangeMaterial.opacity = 0.35;
+    observatoryRangeFillMaterial.opacity = 0.02;
+    writeObservatoryRangeGeometry(observatoryRangeMarker, observatoryRangeFill, selectedTile, effectiveRange);
   };
 
   const syncSweepRangeMarker = (): void => {
@@ -1714,18 +1675,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ownershipOverlay.dispose();
     selectedMarker.geometry.dispose();
     hoverMarker.geometry.dispose();
-    observatoryVisionRangeMarker.geometry.dispose();
-    observatoryProtectionRangeMarker.geometry.dispose();
-    observatoryVisionRangeFill.geometry.dispose();
-    observatoryProtectionRangeFill.geometry.dispose();
+    observatoryRangeMarker.geometry.dispose();
+    observatoryRangeFill.geometry.dispose();
     sweepRangeMarker.geometry.dispose();
     sweepRangeFill.geometry.dispose();
     (selectedMarker.material as LineBasicMaterial).dispose();
     (hoverMarker.material as LineBasicMaterial).dispose();
-    observatoryVisionRangeMaterial.dispose();
-    observatoryProtectionRangeMaterial.dispose();
-    observatoryVisionFillMaterial.dispose();
-    observatoryProtectionFillMaterial.dispose();
+    observatoryRangeMaterial.dispose();
+    observatoryRangeFillMaterial.dispose();
     sweepRangeMaterial.dispose();
     sweepRangeFillMaterial.dispose();
     for (const { marker, material } of townSupportMarkers) {
