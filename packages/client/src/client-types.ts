@@ -131,6 +131,8 @@ export type Tile = {
     variant?: "FORT" | "IRON_BASTION" | "THUNDER_BASTION";
     completesAt?: number;
     disabledUntil?: number;
+    garrison?: number;
+    garrisonCap?: number;
   };
   observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; cooldownUntil?: number };
   siegeOutpost?: {
@@ -268,6 +270,14 @@ export type Tile = {
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
+  muster?: {
+    ownerId: string;
+    amount: number;
+    mode: "HOLD" | "ADVANCE";
+    targetX?: number;
+    targetY?: number;
+    updatedAt: number;
+  };
 };
 
 export type SeasonVictoryObjectiveView = {
@@ -538,6 +548,14 @@ export type GuideStep = {
 
 export type TileVisibilityState = "unexplored" | "fogged" | "visible";
 
+export type SurveySweepPingKind = "resource" | "town";
+export type SurveySweepPing = {
+  x: number;
+  y: number;
+  kind: SurveySweepPingKind;
+  createdAt: number;
+  expiresAt: number;
+};
 
 export type TerrainTextureId =
   | "SEA_DEEP"
@@ -610,6 +628,9 @@ export type TileActionDef = {
     | "overload_crystal_synthesizer"
     | "enable_converter_structure"
     | "disable_converter_structure"
+    | "muster_hold"
+    | "muster_advance"
+    | "muster_clear"
     | "offer_truce_12h"
     | "offer_truce_24h"
     | "break_truce"

@@ -89,6 +89,16 @@ describe("deriveTileYieldRate — income multiplier (PR #440, Issue 1)", () => {
     );
     expect(rate!.goldPerMinute).toBe(100);
   });
+
+  it("suppresses visible yield while Siphon is active", () => {
+    const rate = deriveTileYieldRate({
+      town: { goldPerMinute: 4, populationTier: "CITY" },
+      resource: "GEMS",
+      sabotage: { endsAt: Date.now() + 60_000, outputMultiplier: 0 }
+    });
+    expect(rate!.goldPerMinute).toBe(0);
+    expect(rate!.strategicPerDay.CRYSTAL).toBeUndefined();
+  });
 });
 
 describe("ensureTileYield", () => {

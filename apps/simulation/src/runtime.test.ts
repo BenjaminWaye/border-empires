@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
-import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
+import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
@@ -6673,6 +6673,80 @@ describe("simulation runtime", () => {
         })
       ])
     );
+  });
+
+  it("applies Siphon as a 15-crystal 3x3 full-output suppression", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 10_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            ...testRuntimePlayer("player-1"),
+            points: 20_000,
+            techIds: new Set<string>(["logistics"]),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ],
+        ["player-2", { ...testRuntimePlayer("player-2"), isAi: true }]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 0,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            observatory: { ownerId: "player-1", status: "active" }
+          },
+          { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 0, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "IRON" },
+          { x: 2, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", resource: "WOOD" },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
+          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationRuntimeEventShape[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.submitCommand({
+      commandId: "siphon-radius",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 10_000,
+      type: "SIPHON_TILE",
+      payloadJson: JSON.stringify({ x: 1, y: 1 })
+    });
+    await Promise.resolve();
+
+    const batch = seen.find(
+      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "TILE_DELTA_BATCH" }> =>
+        event.eventType === "TILE_DELTA_BATCH" &&
+        event.commandId === "siphon-radius" &&
+        event.tileDeltas.some((delta) => typeof delta.sabotageJson === "string")
+    );
+    expect(batch?.tileDeltas).toHaveLength(4);
+    const sabotaged = batch?.tileDeltas.map((delta) => ({
+      x: delta.x,
+      y: delta.y,
+      sabotage: JSON.parse(delta.sabotageJson ?? "null") as { ownerId: string; endsAt: number; outputMultiplier: number } | null
+    })) ?? [];
+    expect(sabotaged.map((tile) => tile.x + "," + tile.y).sort()).toEqual(["0,1", "1,0", "1,1", "2,1"]);
+    for (const tile of sabotaged) {
+      expect(tile.sabotage?.ownerId).toBe("player-1");
+      expect(tile.sabotage?.endsAt).toBe(10_000 + SIPHON_DURATION_MS);
+      expect(tile.sabotage?.outputMultiplier).toBe(0);
+    }
+    const actor = runtime.exportState().players.find((player) => player.id === "player-1");
+    expect(actor?.strategicResources?.CRYSTAL).toBe(100 - SIPHON_CRYSTAL_COST);
+    const visible = runtime.exportTilesInAreaForPlayer("player-2", 1, 1, 1, { fullVisibility: true });
+    const crystalTile = visible.find((tile) => tile.x === 1 && tile.y === 1);
+    expect(crystalTile?.yieldRate?.strategicPerDay?.CRYSTAL ?? 0).toBe(0);
   });
 
   it("migrates siphon, purge, shard collection, and terrain shaping through authoritative tile deltas", async () => {
