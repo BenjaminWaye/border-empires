@@ -862,6 +862,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
                 nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
                 return;
               }
+              nextClientSeqByPlayer.set(playerId, clientSeq);
+              nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+              urgentByPlayerId.delete(playerId);
               break;
             }
             if (plan.command.type === "COLLECT_VISIBLE") {
