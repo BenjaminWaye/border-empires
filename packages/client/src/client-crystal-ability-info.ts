@@ -33,11 +33,10 @@ const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
 const AETHER_WALL_COOLDOWN_MS = 8 * 60_000;
 const AETHER_WALL_DURATION_MS = 20 * 60_000;
 const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
-const SIPHON_COOLDOWN_MS = 15 * 60_000;
-const SIPHON_DURATION_MS = 30 * 60_000;
+const SIPHON_COOLDOWN_MS = 10 * 60_000;
+const SIPHON_DURATION_MS = 60 * 60_000;
 const RETORT_RECAST_COOLDOWN_MS = 20 * 60_000;
 const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
-const SURVEY_SWEEP_DURATION_MS = 2 * 60_000;
 const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
 const AETHER_EMP_COOLDOWN_MS = 45 * 60_000;
 const AETHER_EMP_DURATION_MS = 15 * 60_000;
@@ -112,12 +111,11 @@ export const crystalAbilityInfoForKey = (
   if (key === "survey_sweep") {
     return {
       title: "Survey Sweep",
-      detail: "Pulses one of your active observatories to temporarily reveal a huge surrounding area, then lets it fade back into fog.",
+      detail: "Pulses one of your active observatories to mark hidden resource sites and towns without revealing tile details.",
       glyph: "⌖",
-      target: "Owned active observatory. Reveals up to 50 tiles in each direction around that observatory.",
+      target: "Owned active observatory. Pings towns and resource sites outside current vision in a centered 50x50 survey area.",
       costBits: ["30 CRYSTAL"],
-      cooldownLabel: deps.formatCooldownShort(SURVEY_SWEEP_COOLDOWN_MS),
-      durationLabel: deps.formatCooldownShort(SURVEY_SWEEP_DURATION_MS)
+      cooldownLabel: deps.formatCooldownShort(SURVEY_SWEEP_COOLDOWN_MS)
     };
   }
   if (key === "aether_lance") {
@@ -175,10 +173,10 @@ export const crystalAbilityInfoForKey = (
   if (key === "siphon") {
     return {
       title: "Siphon",
-      detail: "Steals 50% of a hostile town or resource tile's output for 30 minutes.",
+      detail: "Siphons a hostile town or resource tile plus nearby eligible town and resource tiles at 100% output for 60 minutes.",
       glyph: "☍",
       target: "Enemy town or resource tile within 30 tiles of one of your observatories.",
-      costBits: ["20 CRYSTAL"],
+      costBits: ["15 CRYSTAL"],
       cooldownLabel: deps.formatCooldownShort(SIPHON_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(SIPHON_DURATION_MS)
     };

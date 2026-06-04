@@ -19,10 +19,34 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.03.1",
+  version: "2026.06.04.2",
   title: "What's New",
-  summary: "Mustering system (beta, flag-gated): stage manpower on border tiles and set ADVANCE for auto-fire attacks. Forts now hold a garrison that scales their defense bonus. Barbarian tiles can be cheaply raided directly from your manpower pool.",
+  summary: "Siphon now hits a 3x3 area for longer, harder Observatory-based economy pressure. Survey Sweep now pings hidden towns and resource sites instead of revealing terrain, and mustering adds staged border manpower and fort garrisons.",
   entries: [
+    {
+      introducedIn: "2026.06.04.2",
+      title: "Siphon becomes an Observatory pressure field", why: "Siphon was too narrow and overlapped with other single-target disruption; its real limiter is the Observatory cast slot.",
+      changes: ["Siphon now costs 15 CRYSTAL, uses a 10-minute Observatory cooldown, lasts 60 minutes, and affects eligible hostile town/resource tiles in a 3x3 area.", "Affected tiles show the existing siphon badge to players with vision, and the old purge action is gone."]
+    },
+    {
+      introducedIn: "2026.06.04.1",
+      title: "Siphon gets a 3D drain flourish",
+      why: "Siphon applies a long-running sabotage marker, but the cast moment itself had no immediate 3D feedback after targeting a hostile town or resource tile.",
+      changes: [
+        "Casting Siphon now triggers a one-shot 3D drain sigil over the target tile, with a locking ring, shadow pool, extraction hooks, and rising stolen-yield motes.",
+        "The effect is client-only cast feedback and does not add synced persistent state."
+      ]
+    },
+    {
+      introducedIn: "2026.06.03.2",
+      title: "Survey Sweep becomes hidden-intel pings",
+      why: "Survey Sweep overlapped too much with hard map reveal effects. It now gives useful scouting direction without exposing exact terrain or resource types.",
+      changes: [
+        "Casting Survey Sweep from an active observatory scans a centered 50x50 area and reports only towns plus generic resource sites outside your current vision.",
+        "Hidden resource pings do not reveal whether the site is crystal, iron, or supply.",
+        "The cast still triggers the one-shot 3D scan flourish, followed by hovering hidden-intel badges for the detected sites."
+      ]
+    },
     {
       introducedIn: "2026.06.03.1",
       title: "Mustering & The Advance (beta)",

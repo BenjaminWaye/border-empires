@@ -126,7 +126,8 @@ export const buildTileYieldView = (
     tile.dockId && economyPlayer?.id === tile.ownerId
       ? dockBaseGoldPerMinuteForPlayer(tile, economyPlayer, dockContext) * incomeMultiplier * PASSIVE_INCOME_MULT
       : tile.dockId ? DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT : 0;
-  const goldPerMinute = townGoldPerMinute + dockGoldPerMinute;
+  const outputMultiplier = tile.sabotage && tile.sabotage.endsAt > now ? Math.max(0, Math.min(1, tile.sabotage.outputMultiplier)) : 1;
+  const goldPerMinute = (townGoldPerMinute + dockGoldPerMinute) * outputMultiplier;
   const resourceDaily = strategicDailyFromResource(tile.resource);
   const converterDaily = converterDailyOutput(tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined);
   // Farmstead only boosts FARM tiles — strip the structure food bonus on
@@ -165,6 +166,9 @@ export const buildTileYieldView = (
   const strategicPerDay = { ...resourceDaily };
   for (const [key, value] of Object.entries(converterDaily) as Array<[StrategicYieldKey, number]>) {
     strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
+  }
+  for (const key of Object.keys(strategicPerDay) as StrategicYieldKey[]) {
+    strategicPerDay[key] = (strategicPerDay[key] ?? 0) * outputMultiplier;
   }
   const maxDaily = Math.max(0, ...Object.values(strategicPerDay).map((value) => Number(value) || 0));
   const yieldCap = {
