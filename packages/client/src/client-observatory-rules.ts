@@ -1,9 +1,6 @@
-import { OBSERVATORY_CAST_RADIUS, OBSERVATORY_PROTECTION_RADIUS } from "@border-empires/shared";
+import { OBSERVATORY_RANGE } from "@border-empires/shared";
 
 import type { DomainInfo, TechInfo } from "./client-types.js";
-
-const BASE_OBSERVATORY_CAST_RADIUS = OBSERVATORY_CAST_RADIUS;
-const BASE_OBSERVATORY_PROTECTION_RADIUS = OBSERVATORY_PROTECTION_RADIUS;
 
 type ObservatoryProgressionState = {
   techIds: string[];
@@ -14,34 +11,32 @@ type ObservatoryProgressionState = {
 
 const numericEffect = (
   effects: Record<string, unknown> | undefined,
-  key: "observatoryRangeBonus" | "observatoryCastRadiusBonus" | "observatoryProtectionRadiusBonus"
+  key: "observatoryRangeBonus"
 ): number => {
   const raw = effects?.[key];
   return typeof raw === "number" ? raw : 0;
 };
 
-const ownObservatoryBonus = (
-  state: ObservatoryProgressionState,
-  effectKey: "observatoryCastRadiusBonus" | "observatoryProtectionRadiusBonus"
-): number => {
+const ownObservatoryRangeBonus = (state: ObservatoryProgressionState): number => {
   let bonus = 0;
   for (const techId of state.techIds) {
     const tech = state.techCatalog.find((entry) => entry.id === techId);
     bonus += numericEffect(tech?.effects, "observatoryRangeBonus");
-    bonus += numericEffect(tech?.effects, effectKey);
   }
   for (const domainId of state.domainIds) {
     const domain = state.domainCatalog.find((entry) => entry.id === domainId);
     bonus += numericEffect(domain?.effects, "observatoryRangeBonus");
-    bonus += numericEffect(domain?.effects, effectKey);
   }
   return bonus;
 };
 
-export const ownObservatoryCastRadius = (
-  state: ObservatoryProgressionState
-): number => BASE_OBSERVATORY_CAST_RADIUS + ownObservatoryBonus(state, "observatoryCastRadiusBonus");
-
-export const ownObservatoryProtectionRadius = (
-  state: ObservatoryProgressionState
-): number => BASE_OBSERVATORY_PROTECTION_RADIUS + ownObservatoryBonus(state, "observatoryProtectionRadiusBonus");
+/**
+ * Effective observatory range for the local player: base OBSERVATORY_RANGE (20) plus
+ * the sum of observatoryRangeBonus from all unlocked techs and domains. This single value
+ * governs both crystal action casting range and the protection field radius.
+ *
+ * For enemy observatories use the raw OBSERVATORY_PROTECTION_RADIUS constant — you
+ * cannot know an enemy player's tech progression.
+ */
+export const ownObservatoryRange = (state: ObservatoryProgressionState): number =>
+  OBSERVATORY_RANGE + ownObservatoryRangeBonus(state);
