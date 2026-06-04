@@ -24,12 +24,13 @@ const view = (overrides: Partial<TileMenuView> = {}): TileMenuView => ({
   ...overrides
 });
 
-type StateShape = Pick<ClientState, "me" | "tiles" | "dockPairs" | "activeTruces" | "waypoint">;
+type StateShape = Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint">;
 
 const stateWith = (tiles: Tile[], overrides: Partial<StateShape> = {}): StateShape => ({
   me: "me",
   tiles: new Map(tiles.map((t) => [keyFor(t.x, t.y), t])),
   dockPairs: [],
+  allies: [],
   activeTruces: [],
   waypoint: undefined,
   ...overrides
