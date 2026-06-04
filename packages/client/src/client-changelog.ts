@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.04.3",
+  version: "2026.06.04.4",
   title: "What's New",
-  summary: "Siphon now hits a 3x3 area for longer, harder Observatory-based economy pressure. Survey Sweep now pings hidden towns and resource sites instead of revealing terrain, and mustering adds staged border manpower and fort garrisons.",
+  summary: "Waypoint attacks now respect alliances, and captured settlement capitals relocate or respawn cleanly with a small gold reserve.",
   entries: [
+    {
+      introducedIn: "2026.06.04.4",
+      title: "Alliance-safe waypoints and cleaner settlement respawns",
+      why: "Waypoint automation could treat an allied tile like a hostile target, and captured SETTLEMENT capitals could leave the defender with an inconsistent fallback settlement.",
+      changes: [
+        "Waypoint queues now drop allied-owned targets instead of dispatching ATTACK commands.",
+        "Captured SETTLEMENT capitals are stripped from the captured tile and moved to the defender's oldest valid owned tile, or respawned on unowned land when no valid owned tile exists.",
+        "Players respawn with at least 100 gold so they can rebuild immediately."
+      ]
+    },
     {
       introducedIn: "2026.06.04.3",
       title: "Observatory range unified to 20 tiles",

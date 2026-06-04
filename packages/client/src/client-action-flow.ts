@@ -498,6 +498,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       authSessionReady: state.authSessionReady,
       keyFor,
       isAdjacent,
+      isTileOwnedByAlly,
       pickOriginForTarget,
       notifyInsufficientGoldForFrontierAction,
       applyOptimisticTileState,
