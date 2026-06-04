@@ -7708,11 +7708,10 @@ export class SimulationRuntime {
     }, command.type, scheduling);
   }
 
-  seedLiveBarbarians(targetCount: number): SeedLiveBarbariansResult {
-    const commandId = `ops-seed-barbs:${this.now()}`;
+  seedLiveBarbarians(targetCount: number, commandId?: string): SeedLiveBarbariansResult {
     return seedLiveBarbariansImpl({
       targetCount,
-      commandId,
+      commandId: commandId ?? `ops-seed-barbs:${this.now()}`,
       players: this.players,
       tiles: this.tiles,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
