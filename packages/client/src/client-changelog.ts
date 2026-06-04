@@ -19,10 +19,29 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.04.4",
+  version: "2026.06.04.5",
   title: "What's New",
-  summary: "Waypoint attacks now respect alliances, and captured settlement capitals relocate or respawn cleanly with a small gold reserve.",
+  summary: "AI event loop stalls eliminated, turn rotation fixed, and alliance-safe waypoints.",
   entries: [
+    {
+      introducedIn: "2026.06.04.5",
+      title: "AI sync no longer blocks the event loop",
+      why: "syncPlayers was blocking the main thread for 322-403ms p99 on staging, causing gateway gRPC latency of 3s+ and periodic AI throttling. Three root causes fixed: relevance rebuild now skips building/tech mutations (only fires on ownership changes), the unseen-tile scan now only checks newly-relevant keys instead of all 100k+ global keys, and the 100k-key Set copy is eliminated.",
+      changes: [
+        "syncPlayers main-thread block drops from 403ms p99 to near-zero at steady state.",
+        "Gateway command submit latency expected to drop from 3s p99 to under 500ms."
+      ]
+    },
+    {
+      introducedIn: "2026.06.04.4",
+      title: "AI turn rotation fixed",
+      why: "A no-command result from one AI could leave the worker scheduler pointed at the same player forever, so an eliminated or broke AI repeatedly nooped while richer AI empires stopped receiving turns.",
+      changes: [
+        "AI turn scheduling now advances after a first-pass noop, letting the next AI empire plan on the following tick.",
+        "AI command submissions are now rate-limited per empire, so a recovered loop cannot flood the simulation with rapid expand/attack/build commands.",
+        "Staging's repeated `ai-2:insufficient_points` loop is now covered by a regression test."
+      ]
+    },
     {
       introducedIn: "2026.06.04.4",
       title: "Alliance-safe waypoints and cleaner settlement respawns",
