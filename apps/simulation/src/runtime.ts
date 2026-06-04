@@ -4030,7 +4030,7 @@ export class SimulationRuntime {
       });
       return;
     }
-    if (!spendStrategicResource(actor, "CRYSTAL", SURVEY_SWEEP_CRYSTAL_COST)) {
+    if (!this.spendStrategicResource(actor, "CRYSTAL", SURVEY_SWEEP_CRYSTAL_COST)) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
