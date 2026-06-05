@@ -354,6 +354,7 @@ export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): Runtim
 
 type PlannerTileKeys = {
   tileCollectionVersion: number;
+  topologyVersion: number;
   territoryTileKeys: string[];
   frontierTileKeys: string[];
   hotFrontierTileKeys: string[];
@@ -407,6 +408,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       townCount: summary.townCount,
       incomePerMinute: input.estimatedIncomePerMinuteForPlayer(playerId),
       tileCollectionVersion: tileKeys.tileCollectionVersion,
+      topologyVersion: tileKeys.topologyVersion,
       hasActiveLock: lockPlayerIds.has(player.id),
       territoryTileKeys: tileKeys.territoryTileKeys,
       frontierTileKeys: tileKeys.frontierTileKeys,

@@ -101,6 +101,7 @@ type WorkerAiCommandProducerOptions = {
   startingClientSeqByPlayer?: Record<string, number>;
   now?: () => number;
   tickIntervalMs?: number;
+  minCommandIntervalMs?: number;
   playerSyncIntervalMs?: number;
   periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
@@ -193,6 +194,7 @@ type PlannedCommandResult = {
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
   const initialTickMs = Math.max(25, options.tickIntervalMs ?? 250);
+  const minCommandIntervalMs = Math.max(0, options.minCommandIntervalMs ?? 0);
   let nextTickDelayMs = initialTickMs;
   const playerSyncIntervalMs = Math.max(25, options.playerSyncIntervalMs ?? 5_000);
   const periodicPlayerSyncBatchSize = Math.max(1, options.periodicPlayerSyncBatchSize ?? 1);
@@ -203,12 +205,15 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const aiPlayerIdSet = new Set(options.aiPlayerIds);
   const plannerPlayersById = new Map<string, PlannerPlayerView>();
   const plannerTilesByKey = new Map<string, PlannerTileView>();
-  let relevantTileKeys = new Set<string>();
+  // Live reference to the index's internal Set — no copy needed.
+  // replacePlayers mutates the underlying Set in place, so this stays current.
+  let relevantTileKeys: ReadonlySet<string> = new Set<string>();
   let nextPeriodicPlayerSyncIndex = 0;
 
   const nextClientSeqByPlayer = new Map<string, number>(
     options.aiPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
   );
+  const lastCommandAtByPlayer = new Map<string, number>();
   const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
@@ -378,7 +383,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
     }
     relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(worldView);
-    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
+    relevantTileKeys = relevantTileKeyIndex.keys();
     worker.postMessage({
       type: "init",
       worldView
@@ -404,11 +409,14 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     });
     for (const player of players) plannerPlayersById.set(player.id, player);
     const replacePlayersStartedAt = now();
-    relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
+    // replacePlayers returns only the keys that are newly relevant to the
+    // rebuilt players. We scope the unseen-tile backfill scan to these keys
+    // instead of scanning all relevantTileKeys (was O(global_100k), now
+    // O(newly_relevant) ≈ 0 at steady state, small on territory expansion).
+    const newlyRelevantKeys = relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
     const replacePlayersDurationMs = Math.max(0, now() - replacePlayersStartedAt);
-    const relevantSetAllocStartedAt = now();
-    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
-    const relevantSetAllocDurationMs = Math.max(0, now() - relevantSetAllocStartedAt);
+    // relevantTileKeys is a live reference to the index's internal Set —
+    // no copy needed; it reflects the update replacePlayers just made.
     const relevantKeyCount = relevantTileKeys.size;
     options.onDiagnostic?.({
       phase: "sync_players_replace_players",
@@ -416,30 +424,28 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       playerCount: players.length,
       relevantKeyCount
     });
+    // relevant_set_alloc is now 0ms (no copy); keep the diagnostic at 0 for
+    // dashboards that already watch it.
     options.onDiagnostic?.({
       phase: "sync_players_relevant_set_alloc",
-      durationMs: relevantSetAllocDurationMs,
+      durationMs: 0,
       playerCount: players.length,
       relevantKeyCount
     });
-    // Legacy aggregate kept for dashboards/alerts that already watch it. The
-    // sum is correct (replace + set alloc); historical sync_players_relevance
-    // measured exactly these two steps before the 2026-05-24 split.
+    // Legacy aggregate: replace + alloc (alloc is now 0).
     options.onDiagnostic?.({
       phase: "sync_players_relevance",
-      durationMs: replacePlayersDurationMs + relevantSetAllocDurationMs,
+      durationMs: replacePlayersDurationMs,
       playerCount: players.length,
       relevantKeyCount
     });
-    // Backfill any tiles that have just entered scope but were never sent to the
-    // worker. This happens when territory expands: new frontier neighbors become
-    // relevant but were never included in the initial worldView slice and have
-    // never triggered a TILE_DELTA_BATCH event (neutral tiles that were always
-    // neutral don't generate deltas). Without this, the planner can't see those
-    // tiles and returns "no_frontier_targets" noop forever.
+    // Backfill tiles that just entered scope but were never sent to the worker.
+    // Only scan keys newly relevant to the rebuilt players — neutral tiles at
+    // the frontier edge that have never generated a TILE_DELTA_BATCH event.
+    // In steady state (no territory change) newlyRelevantKeys is empty → 0ms.
     const unseenScanStartedAt = now();
     const unseenTileKeys: string[] = [];
-    for (const tileKey of relevantTileKeys) {
+    for (const tileKey of newlyRelevantKeys) {
       if (!plannerTilesByKey.has(tileKey)) unseenTileKeys.push(tileKey);
     }
     const unseenScanDurationMs = Math.max(0, now() - unseenScanStartedAt);
@@ -819,6 +825,14 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       for (const playerIndex of iterationOrder) {
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
+        const lastCommandAt = lastCommandAtByPlayer.get(playerId);
+        if (
+          minCommandIntervalMs > 0 &&
+          lastCommandAt !== undefined &&
+          now() - lastCommandAt < minCommandIntervalMs
+        ) {
+          continue;
+        }
         const playerTerritoryVersion = territoryVersionForPlayer(playerId);
         const probe = probeAiLatchedIntent(intentLatchState, {
           playerId,
@@ -862,6 +876,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
                 nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
                 return;
               }
+              nextClientSeqByPlayer.set(playerId, clientSeq);
+              nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+              urgentByPlayerId.delete(playerId);
               break;
             }
             if (plan.command.type === "COLLECT_VISIBLE") {
@@ -893,6 +910,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               submitCount += 1;
               lastCommandType = plan.command.type;
               await options.submitCommand(plan.command);
+              lastCommandAtByPlayer.set(playerId, issuedAt);
               nextClientSeqByPlayer.set(playerId, clientSeq + 1);
               options.onCommand?.({ playerId, commandType: plan.command.type });
               if (plan.command.type === "COLLECT_VISIBLE") {
@@ -963,6 +981,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             submitCount += 1;
             lastCommandType = plan.command.type;
             await options.submitCommand(plan.command);
+            lastCommandAtByPlayer.set(playerId, issuedAt);
             options.onCommand?.({ playerId, commandType: plan.command.type });
             if (plan.command.type === "ATTACK" && targetTileKey) {
               attackStalemate.recordAttempt(playerId, targetTileKey, issuedAt);

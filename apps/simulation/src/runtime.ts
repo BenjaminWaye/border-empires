@@ -408,6 +408,7 @@ export class SimulationRuntime {
   private readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
+  private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
   // Bounded per-AI focus front (BFS of owned tiles around a persistent
   // hot-frontier origin) used to cap planner CPU. Refreshed each tick from
@@ -416,6 +417,7 @@ export class SimulationRuntime {
   private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>();
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, {
     tileCollectionVersion: number;
+    topologyVersion: number;
     territoryTileKeys: string[];
     frontierTileKeys: string[];
     hotFrontierTileKeys: string[];
@@ -1173,6 +1175,11 @@ export class SimulationRuntime {
     return summary;
   }
 
+  private markPlannerPlayerTopologyDirty(playerId: string): void {
+    const nextVersion = (this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0) + 1;
+    this.plannerPlayerTopologyVersionByPlayer.set(playerId, nextVersion);
+  }
+
   private markPlannerPlayerTileCollectionDirty(playerId: string): void {
     const nextVersion = (this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, nextVersion);
@@ -1181,6 +1188,7 @@ export class SimulationRuntime {
 
   private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
     tileCollectionVersion: number;
+    topologyVersion: number;
     territoryTileKeys: string[];
     frontierTileKeys: string[];
     hotFrontierTileKeys: string[];
@@ -1189,10 +1197,12 @@ export class SimulationRuntime {
     pendingSettlementTileKeys: string[];
   } {
     const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
+    const topologyVersion = this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0;
     const cached = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
     if (cached && cached.tileCollectionVersion === tileCollectionVersion) return cached;
     const next = {
       tileCollectionVersion,
+      topologyVersion,
       territoryTileKeys: [...summary.territoryTileKeys],
       frontierTileKeys: [...summary.frontierTileKeys],
       hotFrontierTileKeys: [...summary.hotFrontierTileKeys],
@@ -1615,6 +1625,10 @@ export class SimulationRuntime {
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
     this.applyTileToPlayerSummaries(tileKey, tile);
+    if (!sameOwner) {
+      if (previous?.ownerId) this.markPlannerPlayerTopologyDirty(previous.ownerId);
+      if (tile.ownerId) this.markPlannerPlayerTopologyDirty(tile.ownerId);
+    }
     if (previousOwnerTileOrder && tile.ownerId) {
       const summary = this.summaryForPlayer(tile.ownerId);
       const currentKeys = new Set(summary.territoryTileKeys);
