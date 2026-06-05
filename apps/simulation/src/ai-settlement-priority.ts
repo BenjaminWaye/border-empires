@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { EMPIRE_INTEGRITY_ENABLED } from "@border-empires/shared";
 
 import { frontierNeighborKeys } from "./frontier-topology.js";
 import { computeTownSupport } from "./town-support.js";
@@ -181,6 +182,9 @@ export const evaluateSettlementCandidate = (
   if (!economicallyInteresting && !strategic) score -= 120;
   if (adjacency.ownedNeighbors <= 1 && !economicallyInteresting) score -= 70;
   if (adjacency.exposedSides >= 3 && !economicallyInteresting && adjacency.hostileInterest < 25) score -= 55;
+  // When Empire Integrity is enabled, reward the AI for picking interior/
+  // consolidating tiles that will improve the empire's integrity score.
+  score += EMPIRE_INTEGRITY_ENABLED && defensivelyCompact ? 20 : 0;
   score -= Math.abs(tile.x) * 0.0001 + Math.abs(tile.y) * 0.0001;
 
   return {
