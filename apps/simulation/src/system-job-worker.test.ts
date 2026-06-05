@@ -340,7 +340,8 @@ describe("worker system command producer backpressure", () => {
         buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
-        tileCollectionVersion: 1
+        tileCollectionVersion: 1,
+        topologyVersion: 1
       }
     ];
     const producer = createWorkerSystemCommandProducer({
@@ -397,7 +398,8 @@ describe("worker system command producer backpressure", () => {
         buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
-        tileCollectionVersion: 1
+        tileCollectionVersion: 1,
+        topologyVersion: 1
       }
     ];
     const producer = createWorkerSystemCommandProducer({

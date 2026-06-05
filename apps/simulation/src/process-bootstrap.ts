@@ -79,6 +79,7 @@ export const bootstrapSimulationProcess = async (
     mapStyle: runtimeEnv.mapStyle,
     enableAiAutopilot: runtimeEnv.enableAiAutopilot,
     aiTickMs: runtimeEnv.aiTickMs,
+    aiMinCommandIntervalMs: runtimeEnv.aiMinCommandIntervalMs,
     aiMaxEventLoopLagMs: runtimeEnv.aiMaxEventLoopLagMs,
     enableSystemAutopilot: runtimeEnv.enableSystemAutopilot,
     systemTickMs: runtimeEnv.systemTickMs,
