@@ -1,76 +1,64 @@
 import {
+  BufferAttribute,
+  BufferGeometry,
   CanvasTexture,
-  InstancedMesh,
-  Matrix4,
-  MeshStandardMaterial,
-  PlaneGeometry,
+  Color,
+  Mesh,
+  MeshPhysicalMaterial,
   RepeatWrapping,
   Scene,
-  SRGBColorSpace
+  Vector2
 } from "three";
 
 export const WATER_SURFACE_Y = -0.06;
 
-const WATER_TEXTURE_SIZE = 64;
-const clamp255 = (v: number): number => Math.max(0, Math.min(255, Math.round(v)));
+// Normal map repeats every UV_WORLD_SCALE world units (tiles).
+const UV_WORLD_SCALE = 4.0;
 
-type WaterTextureTone = {
-  readonly baseR: number;
-  readonly baseG: number;
-  readonly baseB: number;
-  readonly waveContrast: number;
-};
+// Deep navy / shallow teal — lerped per-vertex based on proximity to shore.
+const DEEP_COLOR = new Color(0x1a4f70);
+const SHALLOW_COLOR = new Color(0x3ec8d8);
 
-const SHALLOW_TONE: WaterTextureTone = { baseR: 132, baseG: 198, baseB: 210, waveContrast: 22 };
-const DEEP_TONE: WaterTextureTone = { baseR: 56, baseG: 110, baseB: 156, waveContrast: 18 };
-
-const createWaterTexture = (tone: WaterTextureTone): CanvasTexture => {
-  const size = WATER_TEXTURE_SIZE;
+// Generate a seamless tangent-space normal map from overlapping sine waves.
+// `freq` controls wave frequency; `amp` controls slope steepness.
+const createNormalMap = (freq: number, amp: number): CanvasTexture => {
+  const size = 256;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("failed to create water texture canvas context");
+  if (!ctx) throw new Error("water normal map: failed to get 2d context");
   const img = ctx.createImageData(size, size);
-  const data = img.data;
-  // All wave frequencies are integer multiples of (2π / size) so the
-  // pattern wraps cleanly at the texture edge — RepeatWrapping then
-  // tiles without visible seams. Pre-Jan-2026 build used non-seamless
-  // 0.42 / 0.18 etc., which produced obvious per-tile boundaries.
+  const d = img.data;
   const k = (Math.PI * 2) / size;
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
       const idx = (y * size + x) * 4;
-      const wave1 = Math.sin(k * (5 * x + 2 * y)) * 0.5;
-      const wave2 = Math.cos(k * (2 * x - 3 * y)) * 0.5;
-      const wave3 = Math.sin(k * (1 * x + 1 * y)) * 0.4;
-      const grain =
-        Math.sin(k * (13 * x + 7 * y)) * 0.35 +
-        Math.cos(k * (9 * x - 11 * y)) * 0.35;
-      const delta =
-        wave1 * tone.waveContrast * 0.6 +
-        wave2 * tone.waveContrast * 0.45 +
-        wave3 * tone.waveContrast +
-        grain * (tone.waveContrast * 0.5);
-      data[idx + 0] = clamp255(tone.baseR + delta * 0.7);
-      data[idx + 1] = clamp255(tone.baseG + delta * 1.0);
-      data[idx + 2] = clamp255(tone.baseB + delta * 0.5);
-      data[idx + 3] = 255;
+      // Two wave directions give a cross-swell appearance.
+      const dhu =
+        amp * Math.cos(k * freq * (3 * x + 1 * y)) +
+        amp * 0.5 * Math.cos(k * freq * (5 * x - 2 * y));
+      const dhv =
+        amp * Math.cos(k * freq * (1 * x + 3 * y)) +
+        amp * 0.5 * Math.cos(k * freq * (-2 * x + 5 * y));
+      const len = Math.sqrt(dhu * dhu + dhv * dhv + 1);
+      const nx = -dhu / len;
+      const ny = -dhv / len;
+      d[idx]     = Math.round((nx * 0.5 + 0.5) * 255);
+      d[idx + 1] = Math.round((ny * 0.5 + 0.5) * 255);
+      d[idx + 2] = 255;
+      d[idx + 3] = 255;
     }
   }
   ctx.putImageData(img, 0, 0);
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.wrapS = RepeatWrapping;
-  texture.wrapT = RepeatWrapping;
-  texture.repeat.set(1, 1);
-  texture.needsUpdate = true;
-  return texture;
+  const tex = new CanvasTexture(canvas);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.needsUpdate = true;
+  return tex;
 };
 
 export type WaterSurface = {
-  readonly deepMesh: InstancedMesh;
-  readonly shallowMesh: InstancedMesh;
   readonly clear: () => void;
   readonly addTile: (centerX: number, centerZ: number, shallow: boolean) => void;
   readonly commit: () => void;
@@ -78,113 +66,175 @@ export type WaterSurface = {
   readonly dispose: () => void;
 };
 
-// Subdividing the plane gives interior vertices we can displace each
-// frame to fake a swell. Edges stay at Y=0 so neighbouring water tiles
-// meet flush — see `applyWaveDisplacement` below for the math.
-const PLANE_SEGMENTS = 6;
-const PLANE_VERTEX_COUNT = (PLANE_SEGMENTS + 1) * (PLANE_SEGMENTS + 1);
+type TileEntry = { gc: number; gr: number; shallow: boolean };
 
-const buildMesh = (maxTiles: number, opacity: number, tone: WaterTextureTone, renderOrder: number): {
-  geometry: PlaneGeometry;
-  material: MeshStandardMaterial;
-  texture: CanvasTexture;
-  mesh: InstancedMesh;
-} => {
-  const geometry = new PlaneGeometry(1, 1, PLANE_SEGMENTS, PLANE_SEGMENTS);
-  geometry.rotateX(-Math.PI / 2);
-  const texture = createWaterTexture(tone);
-  // Lower roughness + higher metalness gives more visible sun glints
-  // off the water surface; texture stays the dominant colour source.
-  const material = new MeshStandardMaterial({
-    color: "#ffffff",
-    map: texture,
-    roughness: 0.22,
-    metalness: 0.55,
+const tileKey = (gc: number, gr: number): string => `${gc},${gr}`;
+
+export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurface => {
+  // _maxTiles kept for API compatibility — merged geometry sizes itself.
+
+  let tiles: TileEntry[] = [];
+  const tileMap = new Map<string, boolean>(); // grid-coord key → shallow
+
+  // Low-freq swell + high-freq chop scrolled independently for a
+  // two-wave-system look.
+  const swellMap = createNormalMap(1, 0.8);
+  const choppyMap = createNormalMap(2, 0.35);
+
+  const material = new MeshPhysicalMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    roughness: 0.06,
+    metalness: 0.0,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.12,
     transparent: true,
-    opacity,
+    opacity: 0.90,
+    normalMap: swellMap,
+    normalScale: new Vector2(0.55, 0.55),
+    clearcoatNormalMap: choppyMap,
+    clearcoatNormalScale: new Vector2(0.3, 0.3),
     depthWrite: false
   });
-  const mesh = new InstancedMesh(geometry, material, maxTiles);
-  mesh.frustumCulled = false;
-  mesh.count = 0;
-  mesh.renderOrder = renderOrder;
-  return { geometry, material, texture, mesh };
-};
 
-export const createWaterSurface = (scene: Scene, maxTiles: number): WaterSurface => {
-  const deep = buildMesh(maxTiles, 0.94, DEEP_TONE, 12);
-  const shallow = buildMesh(maxTiles, 0.86, SHALLOW_TONE, 13);
-  scene.add(deep.mesh, shallow.mesh);
-
-  const tempMatrix = new Matrix4();
-  let deepCount = 0;
-  let shallowCount = 0;
+  let mesh: Mesh | null = null;
+  let geometry: BufferGeometry | null = null;
 
   const clear = (): void => {
-    deepCount = 0;
-    shallowCount = 0;
+    tiles = [];
+    tileMap.clear();
   };
 
-  const addTile = (centerX: number, centerZ: number, shallowTile: boolean): void => {
-    const target = shallowTile ? shallow : deep;
-    const count = shallowTile ? shallowCount : deepCount;
-    if (count >= maxTiles) return;
-    tempMatrix.makeTranslation(centerX, WATER_SURFACE_Y, centerZ);
-    target.mesh.setMatrixAt(count, tempMatrix);
-    if (shallowTile) shallowCount += 1;
-    else deepCount += 1;
+  const addTile = (centerX: number, centerZ: number, shallow: boolean): void => {
+    // Tile centers arrive as dx+0.5, dy+0.5. Floor gives the integer
+    // grid column/row (top-left corner of each tile in world space).
+    const gc = Math.floor(centerX);
+    const gr = Math.floor(centerZ);
+    tiles.push({ gc, gr, shallow });
+    tileMap.set(tileKey(gc, gr), shallow);
   };
 
   const commit = (): void => {
-    deep.mesh.count = deepCount;
-    shallow.mesh.count = shallowCount;
-    deep.mesh.instanceMatrix.needsUpdate = true;
-    shallow.mesh.instanceMatrix.needsUpdate = true;
-  };
-
-  // Animate the water by scrolling the texture's UV offset over time
-  // and bobbing the subdivided plane vertices. Wave is sin(u·π)·sin(v·π)
-  // so it's zero along all four plane edges → adjacent tiles meet flush
-  // regardless of phase. All instances share the geometry, so writing
-  // once per tick updates every tile.
-  const applyWaveDisplacement = (geom: PlaneGeometry, seconds: number, phase: number, amplitude: number): void => {
-    const positions = geom.attributes.position;
-    if (!positions) return;
-    const arr = positions.array as Float32Array;
-    const swell = Math.sin(seconds * 1.4 + phase);
-    const ripple = Math.cos(seconds * 2.3 + phase);
-    for (let i = 0; i < PLANE_VERTEX_COUNT; i += 1) {
-      const idx = i * 3;
-      const u = arr[idx]! + 0.5; // local X mapped to [0,1]
-      const v = arr[idx + 2]! + 0.5; // local Z mapped to [0,1]
-      const edgeMask = Math.sin(u * Math.PI) * Math.sin(v * Math.PI);
-      const detail = Math.sin(u * Math.PI * 2) * Math.sin(v * Math.PI);
-      arr[idx + 1] = amplitude * edgeMask * swell + amplitude * 0.5 * detail * edgeMask * ripple;
+    if (mesh) {
+      scene.remove(mesh);
+      mesh = null;
     }
-    positions.needsUpdate = true;
+    if (geometry) {
+      geometry.dispose();
+      geometry = null;
+    }
+    if (tiles.length === 0) return;
+
+    // Bounding box in grid coords.
+    let minGC = Infinity, maxGC = -Infinity;
+    let minGR = Infinity, maxGR = -Infinity;
+    for (const t of tiles) {
+      if (t.gc < minGC) minGC = t.gc;
+      if (t.gc > maxGC) maxGC = t.gc;
+      if (t.gr < minGR) minGR = t.gr;
+      if (t.gr > maxGR) maxGR = t.gr;
+    }
+
+    const tileCols = maxGC - minGC + 1;
+    const tileRows = maxGR - minGR + 1;
+    const vCols = tileCols + 1; // vertex columns
+    const vRows = tileRows + 1; // vertex rows
+    const vCount = vCols * vRows;
+
+    const positions = new Float32Array(vCount * 3);
+    const uvs = new Float32Array(vCount * 2);
+    const colors = new Float32Array(vCount * 3);
+    const indices = new Uint32Array(tiles.length * 6); // 2 triangles × 3 indices
+
+    // Vertex at (vc, vr) sits at world (minGC+vc, WATER_Y, minGR+vr).
+    // Corners are integer world coords; tile centers sit between them.
+    for (let vr = 0; vr < vRows; vr++) {
+      for (let vc = 0; vc < vCols; vc++) {
+        const vi = (vr * vCols + vc) * 3;
+        const worldX = minGC + vc;
+        const worldZ = minGR + vr;
+        positions[vi]     = worldX;
+        positions[vi + 1] = WATER_SURFACE_Y;
+        positions[vi + 2] = worldZ;
+        const ui = (vr * vCols + vc) * 2;
+        uvs[ui]     = worldX / UV_WORLD_SCALE;
+        uvs[ui + 1] = worldZ / UV_WORLD_SCALE;
+      }
+    }
+
+    // Vertex color: blend deep/shallow based on how many of the up-to-4
+    // surrounding tiles are shallow. This gives a gradient at coastlines.
+    for (let vr = 0; vr < vRows; vr++) {
+      for (let vc = 0; vc < vCols; vc++) {
+        const adj: [number, number][] = [
+          [minGC + vc - 1, minGR + vr - 1],
+          [minGC + vc,     minGR + vr - 1],
+          [minGC + vc - 1, minGR + vr    ],
+          [minGC + vc,     minGR + vr    ]
+        ];
+        let waterCount = 0;
+        let shallowCount = 0;
+        for (const [agc, agr] of adj) {
+          const sh = tileMap.get(tileKey(agc, agr));
+          if (sh !== undefined) {
+            waterCount++;
+            if (sh) shallowCount++;
+          }
+        }
+        const t = waterCount > 0 ? shallowCount / waterCount : 0;
+        const ci = (vr * vCols + vc) * 3;
+        colors[ci]     = DEEP_COLOR.r + t * (SHALLOW_COLOR.r - DEEP_COLOR.r);
+        colors[ci + 1] = DEEP_COLOR.g + t * (SHALLOW_COLOR.g - DEEP_COLOR.g);
+        colors[ci + 2] = DEEP_COLOR.b + t * (SHALLOW_COLOR.b - DEEP_COLOR.b);
+      }
+    }
+
+    // Index buffer: one quad (2 triangles) per tile.
+    let ii = 0;
+    for (const { gc, gr } of tiles) {
+      const vc = gc - minGC;
+      const vr = gr - minGR;
+      const tl = vr * vCols + vc;
+      const tr = tl + 1;
+      const bl = (vr + 1) * vCols + vc;
+      const br = bl + 1;
+      // CCW winding for top-view (normal pointing up).
+      indices[ii++] = tl;
+      indices[ii++] = bl;
+      indices[ii++] = tr;
+      indices[ii++] = tr;
+      indices[ii++] = bl;
+      indices[ii++] = br;
+    }
+
+    geometry = new BufferGeometry();
+    geometry.setAttribute("position", new BufferAttribute(positions, 3));
+    geometry.setAttribute("uv",       new BufferAttribute(uvs, 2));
+    geometry.setAttribute("color",    new BufferAttribute(colors, 3));
+    geometry.setIndex(new BufferAttribute(indices, 1));
+    geometry.computeVertexNormals();
+
+    mesh = new Mesh(geometry, material);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 12;
+    scene.add(mesh);
   };
 
   const tick = (nowMs: number): void => {
-    const seconds = nowMs / 1000;
-    const deepU = (seconds * 0.018) % 1;
-    const deepV = (seconds * 0.012) % 1;
-    const shallowU = (seconds * 0.024) % 1;
-    const shallowV = (seconds * 0.016) % 1;
-    deep.texture.offset.set(deepU, deepV);
-    shallow.texture.offset.set(shallowU, shallowV);
-    applyWaveDisplacement(deep.geometry, seconds, 0, 0.045);
-    applyWaveDisplacement(shallow.geometry, seconds, 1.7, 0.03);
+    const s = nowMs / 1000;
+    // Swell and chop scroll in slightly different directions at different
+    // speeds so they produce an organic interference pattern over time.
+    swellMap.offset.set((s * 0.013) % 1,  (s * 0.009) % 1);
+    choppyMap.offset.set((-s * 0.008) % 1, (s * 0.015) % 1);
   };
 
   const dispose = (): void => {
-    scene.remove(deep.mesh, shallow.mesh);
-    deep.geometry.dispose();
-    shallow.geometry.dispose();
-    deep.material.dispose();
-    shallow.material.dispose();
-    deep.texture.dispose();
-    shallow.texture.dispose();
+    if (mesh) scene.remove(mesh);
+    geometry?.dispose();
+    material.dispose();
+    swellMap.dispose();
+    choppyMap.dispose();
   };
 
-  return { deepMesh: deep.mesh, shallowMesh: shallow.mesh, clear, addTile, commit, tick, dispose };
+  return { clear, addTile, commit, tick, dispose };
 };
