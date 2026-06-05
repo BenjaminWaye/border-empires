@@ -240,6 +240,9 @@ export const explainActionFailureFromServer = (
     return `Action blocked: that dock crossing endpoint is still on cooldown for ${remainingLabel}.`;
   }
   if (code === "INSUFFICIENT_MANPOWER") return `Action blocked: ${message}.`;
+  if (code === "INSUFFICIENT_MUSTER") return "Attack blocked: stage manpower on this tile first. Tap the tile → Stage Muster, then wait for it to fill.";
+  if (code === "MUSTER_DISABLED") return "Mustering is not enabled on this server.";
+  if (code === "MUSTER_INVALID") return "Action blocked: you can only stage muster on your own land tiles.";
   if (code === "LOCKED") return "Action blocked: the tile is already in combat.";
   if (code === "BARRIER") return "Action blocked: only land tiles can be claimed or attacked.";
   if (code === "AETHER_WALL_BLOCKED") return "Action blocked: that border is sealed by an Aether Wall.";

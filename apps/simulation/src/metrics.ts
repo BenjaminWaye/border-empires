@@ -74,6 +74,11 @@ export const AI_PLANNER_PHASES = [
   // sim_tick_duration_ms p95 = 7s.
   "sync_players_relevance",
   "sync_players_replace_players",
+  // Fires once per player per incremental delta application (not full rebuild).
+  // durationMs = number of dirty tiles processed (repurposed — timing is
+  // subsumed in sync_players_replace_players). A silent counter means the
+  // incremental path isn't firing; replace_players p99 staying high confirms.
+  "sync_players_incremental_delta",
   "sync_players_relevant_set_alloc",
   "sync_players_unseen_scan",
   "sync_players_export_unseen_tiles",
