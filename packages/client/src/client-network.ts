@@ -2110,6 +2110,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (resolvedQueuedFrontierCapture) {
         resolveFrontierCapture("TILE_DELTA_BATCH");
       }
+      // Re-render the tile action menu if the delta touched the currently selected
+      // own tile (e.g. SET_MUSTER returns a tile delta that changes muster state).
+      if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
+        const touchedKeys = new Set<string>((tileUpdates as Array<{ x: number; y: number }>).map((u) => keyFor(u.x, u.y)));
+        if (touchedKeys.has(state.tileActionMenu.currentTileKey)) {
+          const refreshedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
+          if (refreshedTile) {
+            openSingleTileActionMenu(refreshedTile, state.tileActionMenu.x, state.tileActionMenu.y, { requestAttackPreview: false });
+          }
+        }
+      }
       renderHud();
       return;
     }
