@@ -357,7 +357,7 @@ const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
         ? buildPlannerFrontierCommand(context, frontierAnalysis.barbarianAttack, "ATTACK")
         : undefined;
     case "attack_enemy_border_tile":
-      return frontierAnalysis.enemyAttack && canAttack && strategic.attackReady && hasWeakEnemyBorder
+      return frontierAnalysis.enemyAttack && canAttack && strategic.attackReady && !strategic.musterReady && hasWeakEnemyBorder
         ? buildPlannerFrontierCommand(context, frontierAnalysis.enemyAttack, "ATTACK")
         : undefined;
     case "place_muster":
@@ -706,6 +706,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     preferredEnemyAttack &&
     !isStalematedAttackTarget(preferredEnemyAttack) &&
     strategic.attackReady &&
+    !strategic.musterReady &&
     strategic.frontPosture === "BREAK" &&
     strategic.pressureThreatensCore &&
     strategic.pressureAttackScore >= 220
@@ -766,6 +767,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   if (
     frontierAnalysis.attack &&
     strategic.attackReady &&
+    !strategic.musterReady &&
     strategic.frontPosture === "BREAK" &&
     (
       strategic.primaryVictoryPath === "TOWN_CONTROL" ||
@@ -918,6 +920,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     preferredEnemyAttack &&
     !isStalematedAttackTarget(preferredEnemyAttack) &&
     strategic.attackReady &&
+    !strategic.musterReady &&
     frontierAnalysis.frontierEnemyTargetCount > 0 &&
     (frontierAnalysis.frontierNeutralTargetCount === 0 ||
       (!needsFood && !needsEconomy && !settlementCandidate && frontierAnalysis.frontierEnemyTargetCount > 1))
@@ -929,6 +932,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   if (
     preferredEnemyAttack &&
     !isStalematedAttackTarget(preferredEnemyAttack) &&
+    !strategic.musterReady &&
     !(
       strategic.frontPosture === "CONTAIN" &&
       frontierAnalysis.frontierNeutralTargetCount > 0 &&
