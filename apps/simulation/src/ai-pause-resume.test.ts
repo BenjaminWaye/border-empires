@@ -525,7 +525,8 @@ describe("worker AI command producer pause/resume", () => {
       frontierTileKeys: [] as string[],
       pendingSettlementTileKeys: [] as string[],
       activeDevelopmentProcessCount: 0,
-      tileCollectionVersion: 1
+      tileCollectionVersion: 1,
+      topologyVersion: 1
     }));
     const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
       plannerPlayers.filter((player) => playerIds.includes(player.id))
@@ -671,6 +672,122 @@ describe("worker AI command producer pause/resume", () => {
     expect(postedPlans).toHaveLength(2);
   });
 
+  it("advances to the next AI player after a first-pass worker noop", async () => {
+    const runtime = makeRuntime(0);
+    const submitted: CommandEnvelope[] = [];
+    const postedPlanPlayers: string[] = [];
+
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        postedPlanPlayers.push(String(msg.playerId));
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: msg.playerId === "ai-2" ? makeCommand("ai-2") : null,
+            diagnostic: msg.playerId === "ai-1"
+              ? {
+                  playerId: "ai-1",
+                  sessionPrefix: "ai-runtime",
+                  settlementEligible: false,
+                  settlementCandidateFound: false,
+                  frontierEnemyTargetCount: 0,
+                  frontierNeutralTargetCount: 0,
+                  canAttack: false,
+                  canExpand: false,
+                  noCommandReason: "insufficient_points"
+                }
+              : undefined
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1", "ai-2"],
+      submitCommand: async (command) => {
+        submitted.push(command);
+      },
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(postedPlanPlayers).toEqual(["ai-1", "ai-2"]);
+    expect(submitted.map((command) => command.playerId)).toEqual(["ai-2"]);
+  });
+
+  it("skips a command-throttled AI and lets the next AI plan", async () => {
+    let nowMs = 1_000;
+    const runtime = makeRuntime(0);
+    const submitted: CommandEnvelope[] = [];
+    const postedPlanPlayers: string[] = [];
+
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        postedPlanPlayers.push(String(msg.playerId));
+        queueMicrotask(() => {
+          const playerId = String(msg.playerId);
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: {
+              commandId: `ai-runtime-${playerId}-1-1000`,
+              sessionId: `ai-runtime:${playerId}`,
+              playerId,
+              clientSeq: 1,
+              issuedAt: 1000,
+              type: "BUILD_ECONOMIC_STRUCTURE",
+              payloadJson: JSON.stringify({ x: 0, y: 0, structureType: "FARMSTEAD" })
+            }
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1", "ai-2"],
+      submitCommand: async (command) => {
+        submitted.push(command);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000,
+      minCommandIntervalMs: 5_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    runtime.emitEvent({
+      eventType: "COMMAND_REJECTED",
+      playerId: "ai-1",
+      commandId: "ai-runtime-ai-1-1-1000"
+    });
+
+    nowMs = 1_500;
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(postedPlanPlayers).toEqual(["ai-1", "ai-2"]);
+    expect(submitted.map((command) => command.playerId)).toEqual(["ai-1", "ai-2"]);
+  });
+
   it("syncs worker player state immediately when a timed-out tech update arrives late", async () => {
     vi.useFakeTimers();
     const eventEmitter = new EventEmitter();
@@ -687,7 +804,8 @@ describe("worker AI command producer pause/resume", () => {
         buildCandidateTileKeys: [] as string[],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
-        tileCollectionVersion: 1
+        tileCollectionVersion: 1,
+        topologyVersion: 1
       }
     ];
     const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
@@ -780,7 +898,8 @@ describe("worker AI command producer pause/resume", () => {
         buildCandidateTileKeys: [] as string[],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
-        tileCollectionVersion: 1
+        tileCollectionVersion: 1,
+        topologyVersion: 1
       }
     ];
     const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
@@ -886,7 +1005,8 @@ describe("worker AI command producer pause/resume", () => {
         buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
-        tileCollectionVersion: 1
+        tileCollectionVersion: 1,
+        topologyVersion: 1
       }
     ];
     const producer = createWorkerAiCommandProducer({
@@ -941,7 +1061,8 @@ describe("worker AI command producer pause/resume", () => {
         buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
-        tileCollectionVersion: 1
+        tileCollectionVersion: 1,
+        topologyVersion: 1
       }
     ];
     const producer = createWorkerAiCommandProducer({

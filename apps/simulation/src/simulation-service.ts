@@ -261,6 +261,7 @@ type SimulationServiceOptions = {
   snapshotDir?: string;
   enableAiAutopilot?: boolean;
   aiTickMs?: number;
+  aiMinCommandIntervalMs?: number;
   aiMaxEventLoopLagMs?: number;
   enableSystemAutopilot?: boolean;
   systemTickMs?: number;
@@ -1556,6 +1557,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             shouldRun: aiShouldRun,
             startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
             tickIntervalMs: options.aiTickMs ?? 250,
+            minCommandIntervalMs: options.aiMinCommandIntervalMs ?? 1_000,
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },

@@ -20,6 +20,7 @@ export type SimulationRuntimeEnv = {
   aiPlayerCount?: number;
   enableAiAutopilot: boolean;
   aiTickMs: number;
+  aiMinCommandIntervalMs: number;
   aiMaxEventLoopLagMs: number;
   enableSystemAutopilot: boolean;
   systemTickMs: number;
@@ -144,6 +145,11 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     ...(typeof aiPlayerCountHint === "number" ? { aiPlayerCount: aiPlayerCountHint } : {}),
     enableAiAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_AI_AUTOPILOT),
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
+    aiMinCommandIntervalMs: parsePositiveNumber(
+      env.SIMULATION_AI_MIN_COMMAND_INTERVAL_MS,
+      1_000,
+      "simulation ai min command interval"
+    ),
     aiMaxEventLoopLagMs: parsePositiveNumber(
       env.SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS,
       250,
