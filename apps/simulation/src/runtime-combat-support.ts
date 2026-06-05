@@ -3,6 +3,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import {
   BARBARIAN_MULTIPLY_THRESHOLD,
   BARBARIAN_POPULATION_CAP,
+  MUSTER_SYSTEM_ENABLED,
   rollFrontierCombat,
   targetOutpostMult,
   type OutpostPosition
@@ -164,7 +165,10 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     attackerOutpostMult: outpostMult,
     attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
     attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
-    fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1
+    fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
+    musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
+    fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
+    fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
     ? {
