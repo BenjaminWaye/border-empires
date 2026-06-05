@@ -269,6 +269,7 @@ import {
 } from "./runtime-manpower.js";
 import {
   buildRuntimeExportState,
+  buildRuntimeExportStateAsync,
   buildRuntimePlannerPlayerViews,
   buildRuntimePlannerWorldView,
   buildRuntimePlayerDebugSnapshot,
@@ -2093,6 +2094,31 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter
     });
+  }
+
+  async exportStateAsync(yieldToEventLoop: () => Promise<void>): Promise<RuntimeExportState> {
+    return buildRuntimeExportStateAsync(
+      {
+        tiles: this.tiles,
+        locksByCommandId: this.locksByCommandId,
+        players: this.players,
+        pendingSettlementsByTile: this.pendingSettlementsByTile,
+        tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
+        playerYieldCollectionEpochByPlayer: this.playerYieldCollectionEpochByPlayer,
+        docks: this.docks,
+        terrainEpoch: this.terrainEpoch,
+        tileDeltaStringifyCache: this.tileDeltaStringifyCache,
+        applyManpowerRegen: (player) => this.applyManpowerRegen(player),
+        playerManpowerCap: (player) => this.playerManpowerCap(player),
+        playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
+        playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
+        playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
+        incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
+        summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+        growthStalledNoFoodCounter: this.growthStalledNoFoodCounter
+      },
+      yieldToEventLoop
+    );
   }
 
   private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
