@@ -55,7 +55,11 @@ import {
   STRUCTURE_REGISTRY,
   type BuildableStructureType,
   type EconomicStructureType,
-  type StructureSpec
+  type StructureSpec,
+  HEARTLAND_TIDINESS_ENABLED,
+  tidinessScore,
+  tidinessEconomyMult,
+  tidinessGrowthMult
 } from "@border-empires/shared";
 import {
   AETHER_BRIDGE_COOLDOWN_MS,
@@ -940,7 +944,14 @@ export class SimulationRuntime {
       invalidateEconomyCachesForPlayer: (playerId) => {
         this.economySnapshotCacheByPlayer.delete(playerId);
         this.tileYieldContextCacheByPlayer.delete(playerId);
-      }
+      },
+      tidinessGrowthMultForPlayer: HEARTLAND_TIDINESS_ENABLED
+        ? (playerId) => {
+            const summary = this.summaryForPlayer(playerId);
+            const metrics = this.cachedDefensibilityMetrics(playerId, summary);
+            return tidinessGrowthMult(tidinessScore(metrics.Ts, metrics.Es));
+          }
+        : undefined
     });
     if (result.growthStalledNoFood > 0) {
       this.growthStalledNoFoodCounter += result.growthStalledNoFood;
@@ -1292,9 +1303,14 @@ export class SimulationRuntime {
     const cached = this.economySnapshotCacheByPlayer.get(player.id);
     if (cached) return cached;
     const summary = this.summaryForPlayer(player.id);
+    let econMult = 1;
+    if (HEARTLAND_TIDINESS_ENABLED) {
+      const metrics = this.cachedDefensibilityMetrics(player.id, summary);
+      econMult = tidinessEconomyMult(tidinessScore(metrics.Ts, metrics.Es));
+    }
     const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
-    });
+    }, econMult);
     this.economySnapshotCacheByPlayer.set(player.id, snapshot);
     return snapshot;
   }
