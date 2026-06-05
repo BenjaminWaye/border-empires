@@ -9,6 +9,7 @@ const makePlayer = (overrides: Partial<PlannerPlayerView> = {}): PlannerPlayerVi
   manpower: 0,
   tileCollectionVersion: 1,
   topologyVersion: 1,
+  topologyDirtyTileKeys: [],
   hasActiveLock: false,
   territoryTileKeys: [],
   frontierTileKeys: [],
@@ -76,12 +77,13 @@ describe("buildPlannerRelevantTileKeys", () => {
 
     expect(index.keys()).toEqual(new Set(["10,10", "50,50"]));
 
-    // Bump topologyVersion: in production replaceTileState calls
-    // markPlannerPlayerTopologyDirty only when tile ownership changes
-    // (!sameOwner). A test that mutated territory without bumping the
-    // topologyVersion would represent a runtime bug, not a use case.
+    // In production, topologyDirtyTileKeys carries the tiles whose ownership
+    // changed. The incremental path reads these to compute the delta without
+    // touching the rest of the player's territory.
     index.replacePlayers(
-      [makePlayer({ id: "p1", tileCollectionVersion: 2, topologyVersion: 2, territoryTileKeys: ["12,12"] })],
+      [makePlayer({ id: "p1", tileCollectionVersion: 2, topologyVersion: 2,
+        topologyDirtyTileKeys: ["10,10", "12,12"], // 10,10 removed, 12,12 added
+        territoryTileKeys: ["12,12"] })],
       new Map()
     );
 
@@ -89,7 +91,7 @@ describe("buildPlannerRelevantTileKeys", () => {
   });
 
   it("skips the rebuild when topologyVersion is unchanged", () => {
-    const player = makePlayer({ id: "p1", tileCollectionVersion: 7, topologyVersion: 7, territoryTileKeys: ["10,10"] });
+    const player = makePlayer({ id: "p1", tileCollectionVersion: 7, topologyVersion: 7, topologyDirtyTileKeys: [], territoryTileKeys: ["10,10"] });
     const rebuilds: Array<{ playerId: string; inputTileKeyCount: number }> = [];
     const index = createPlannerRelevantTileKeyIndex({
       players: [player],
@@ -106,7 +108,7 @@ describe("buildPlannerRelevantTileKeys", () => {
     // input (which would never happen in production without a version bump),
     // the cache holds the previous result.
     index.replacePlayers(
-      [makePlayer({ id: "p1", tileCollectionVersion: 7, topologyVersion: 7, territoryTileKeys: ["99,99"] })],
+      [makePlayer({ id: "p1", tileCollectionVersion: 7, topologyVersion: 7, topologyDirtyTileKeys: [], territoryTileKeys: ["99,99"] })],
       new Map()
     );
 
@@ -114,7 +116,7 @@ describe("buildPlannerRelevantTileKeys", () => {
     expect(rebuilds).toEqual([{ playerId: "p1", inputTileKeyCount: 1 }]);
   });
 
-  it("does not rescan large unchanged empires during incremental player replacement", () => {
+  it("does not scan unchanged empires when only one player's territory changes", () => {
     const makeTerritory = (offset: number, count: number): string[] =>
       Array.from({ length: count }, (_, index) => `${offset + index},10`);
     const players = Array.from({ length: 8 }, (_, index) =>
@@ -122,6 +124,7 @@ describe("buildPlannerRelevantTileKeys", () => {
         id: `p${index + 1}`,
         tileCollectionVersion: 3,
         topologyVersion: 3,
+        topologyDirtyTileKeys: [],
         territoryTileKeys: makeTerritory(index * 100, 100)
       })
     );
@@ -135,19 +138,59 @@ describe("buildPlannerRelevantTileKeys", () => {
     });
 
     expect(index.keys().size).toBe(800);
-    expect(rebuilds).toHaveLength(8);
+    expect(rebuilds).toHaveLength(8); // full rebuild on first sync for all 8
     rebuilds.length = 0;
 
+    // p4 swaps its 100-tile territory for a single new tile. The incremental
+    // path applies the dirty-tile delta directly without touching the other 7
+    // players (their topologyVersion and dirty sets are unchanged).
+    const p4OldTerritory = makeTerritory(3 * 100, 100);
+    const dirtyTilesForP4 = [...p4OldTerritory, "50,50"]; // all old removed + new added
     index.replacePlayers(
       [
         ...players.slice(0, 3),
-        makePlayer({ ...players[3]!, tileCollectionVersion: 4, topologyVersion: 4, territoryTileKeys: ["50,50"] }),
+        makePlayer({ ...players[3]!, tileCollectionVersion: 4, topologyVersion: 4,
+          topologyDirtyTileKeys: dirtyTilesForP4,
+          territoryTileKeys: ["50,50"] }),
         ...players.slice(4)
       ],
       new Map()
     );
 
-    expect(rebuilds).toEqual([{ playerId: "p4", inputTileKeyCount: 1 }]);
+    // Incremental path: no full rebuild fired (onPlayerRelevanceRebuild not called).
+    expect(rebuilds).toHaveLength(0);
     expect(index.keys().has("50,50")).toBe(true);
+    // "300,10"–"349,10" stay in scope via p8 wrapping (wrapX(750–799, 450) = 300–349).
+    // "350,10"–"399,10" were exclusively p4's — they must be evicted.
+    expect(index.keys().has("350,10")).toBe(false);
+    expect(index.keys().has("399,10")).toBe(false);
+  });
+
+  it("applies incremental add and remove correctly for a single ownership change", () => {
+    const playerOne = makePlayer({ id: "p1", topologyVersion: 1, topologyDirtyTileKeys: [], territoryTileKeys: ["10,10"] });
+    const index = createPlannerRelevantTileKeyIndex({ players: [playerOne], tiles: [], docks: [] }, 0);
+    expect(index.keys()).toEqual(new Set(["10,10"]));
+
+    // Tile 10,10 lost; tile 20,20 gained.
+    index.replacePlayers(
+      [makePlayer({ id: "p1", topologyVersion: 2, topologyDirtyTileKeys: ["10,10", "20,20"],
+        territoryTileKeys: ["20,20"] })],
+      new Map()
+    );
+    expect(index.keys()).toEqual(new Set(["20,20"]));
+  });
+
+  it("handles oscillating tile ownership as a no-op", () => {
+    const player = makePlayer({ id: "p1", topologyVersion: 1, topologyDirtyTileKeys: [], territoryTileKeys: ["10,10"] });
+    const index = createPlannerRelevantTileKeyIndex({ players: [player], tiles: [], docks: [] }, 0);
+
+    // Tile 10,10 was removed then re-added: ends up in territory, dirty but net zero.
+    index.replacePlayers(
+      [makePlayer({ id: "p1", topologyVersion: 3, topologyDirtyTileKeys: ["10,10"],
+        territoryTileKeys: ["10,10"] })],
+      new Map()
+    );
+    // 10,10 is currentlyOwned AND previouslyOwned → no-op; key stays in scope
+    expect(index.keys()).toEqual(new Set(["10,10"]));
   });
 });

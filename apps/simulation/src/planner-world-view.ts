@@ -58,6 +58,15 @@ export type PlannerPlayerView = {
    * relevance rebuild for non-topology mutations.
    */
   topologyVersion: number;
+  /**
+   * Tile keys whose ownership changed for this player since the last
+   * syncPlayers call. Drained on export — empty between syncs.
+   *
+   * replacePlayers uses these to apply the relevance rebuild incrementally
+   * (O(delta×650)) instead of rebuilding from scratch (O(territory×25)).
+   * Empty at steady state → 0ms rebuild.
+   */
+  topologyDirtyTileKeys: string[];
   /** Whether this player currently holds any combat lock (origin or target). */
   hasActiveLock: boolean;
   territoryTileKeys: string[];
