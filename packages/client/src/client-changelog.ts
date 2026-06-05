@@ -88,6 +88,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
     },
     {
       introducedIn: "2026.06.03.2",
+      title: "Queued builds survive a page reload again",
+      why: "The BUILD_STRUCTURE migration in v2026.06.02.8 had a missing branch for the current wire type itself — fresh BUILD_STRUCTURE persisted entries had their structureType silently dropped on reload, then rejected by the sim as UNKNOWN_STRUCTURE.",
+      changes: [
+        "parsePersistedDevelopmentAction now preserves structureType for BUILD_STRUCTURE entries.",
+        "Round-trip test covers fresh BUILD_STRUCTURE and legacy BUILD_FORT/BUILD_ECONOMIC_STRUCTURE entries."
+      ]
+    },
+    {
+      introducedIn: "2026.06.03.2",
       title: "Survey Sweep becomes hidden-intel pings",
       why: "Survey Sweep overlapped too much with hard map reveal effects. It now gives useful scouting direction without exposing exact terrain or resource types.",
       changes: [
@@ -105,7 +114,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Muster fill bars appear above tiles as manpower accumulates (owner-colored). Outposts act as depot zones that fill at 2× speed.",
         "Forts show a gold garrison bar. Garrison scales defense bonus — attack a fort repeatedly to wear it down before breaking through. Garrison refills from overflow regen when your pool is full.",
         "Barbarian raid: attacking a barb tile costs only a small pool fee, no staging required — great for clearing territory fast.",
-        "Manpower HUD chip now shows logistics throughput (→ X/m) alongside your regen rate.",
+        "Manpower HUD chip now shows logistics throughput (→ X/m) alongside your regen rate."
       ]
     },
     {

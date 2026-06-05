@@ -179,7 +179,11 @@ const parsePersistedDevelopmentAction = (value: unknown): PersistedDevelopmentAc
     let normalizedType: string;
     let normalizedStructureType: string;
     const rawType = value.payload.type;
-    if (rawType === "BUILD_FORT") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "FORT"; }
+    if (rawType === "BUILD_STRUCTURE" && typeof (value.payload as any).structureType === "string") {
+      normalizedType = "BUILD_STRUCTURE";
+      normalizedStructureType = (value.payload as any).structureType as string;
+    }
+    else if (rawType === "BUILD_FORT") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "FORT"; }
     else if (rawType === "BUILD_OBSERVATORY") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "OBSERVATORY"; }
     else if (rawType === "BUILD_SIEGE_OUTPOST") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "SIEGE_OUTPOST"; }
     else if (rawType === "BUILD_ECONOMIC_STRUCTURE" && typeof (value.payload as any).structureType === "string") {
