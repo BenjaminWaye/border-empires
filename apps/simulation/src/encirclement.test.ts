@@ -121,6 +121,23 @@ describe("encirclement connectivity", () => {
     expect(isFrontierConnected("11,11", "player-1", tiles)).toBe(true);
   });
 
+  it("E6b: active aether bridge connects a remote frontier endpoint to settled supply", () => {
+    const tiles = mkTileMap({
+      "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
+      "30,30": { ownerId: "player-1", ownershipState: "FRONTIER" }
+    });
+    const bridgeNeighbors = new Map<string, string[]>([
+      ["10,10", ["30,30"]],
+      ["30,30", ["10,10"]]
+    ]);
+    const extraNeighborKeys = (tileKey: string): string[] => bridgeNeighbors.get(tileKey) ?? [];
+
+    expect(isFrontierConnected("30,30", "player-1", tiles, { extraNeighborKeys })).toBe(true);
+
+    const { cutOff } = computeEncirclementDeltas(["30,30"], "player-1", tiles, 1_000, { extraNeighborKeys });
+    expect(cutOff.has("30,30")).toBe(false);
+  });
+
   it("E7a: frontier tile adjacent to own settled tile is connected", () => {
     const tiles = mkTileMap({
       "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
@@ -557,6 +574,76 @@ describe("encirclement settle guard", () => {
 // ---------------------------------------------------------------------------
 
 describe("encirclement expand reconnection", () => {
+  it("E8-bridge: EXPAND across an active aether bridge does not mark the endpoint cut off", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => Date.now(),
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              ...player("player-1"),
+              techIds: new Set<string>(["navigation", "harborcraft"]),
+              strategicResources: { CRYSTAL: 2_000 }
+            }
+          ]
+        ]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+            { x: 0, y: 1, terrain: "SEA" },
+            { x: 0, y: 2, terrain: "SEA" },
+            { x: 0, y: 3, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+      const events: SimulationEvent[] = [];
+      runtime.onEvent((event) => events.push(event));
+
+      runtime.submitCommand({
+        commandId: "bridge-1",
+        sessionId: "s1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: Date.now(),
+        type: "CAST_AETHER_BRIDGE",
+        payloadJson: JSON.stringify({ x: 0, y: 3 })
+      });
+      await Promise.resolve();
+
+      runtime.submitCommand({
+        commandId: "expand-across-bridge",
+        sessionId: "s1",
+        playerId: "player-1",
+        clientSeq: 2,
+        issuedAt: Date.now(),
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 0, toY: 3 })
+      });
+      await Promise.resolve();
+
+      vi.advanceTimersByTime(4_000);
+
+      const tileDeltas = events
+        .filter((event) => event.eventType === "TILE_DELTA_BATCH")
+        .flatMap((event) => (event as Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>).tileDeltas);
+      const endpointDeltas = tileDeltas.filter((delta) => delta.x === 0 && delta.y === 3);
+      const lastEndpointDelta = endpointDeltas[endpointDeltas.length - 1];
+
+      expect(events).toContainEqual(expect.objectContaining({ eventType: "COMMAND_ACCEPTED", commandId: "expand-across-bridge" }));
+      expect(lastEndpointDelta).toBeDefined();
+      expect(lastEndpointDelta?.ownerId).toBe("player-1");
+      expect(lastEndpointDelta?.ownershipState).toBe("FRONTIER");
+      expect(lastEndpointDelta?.frontierDecayAt).toBeUndefined();
+      expect(lastEndpointDelta?.frontierDecayKind).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // E8: A successful EXPAND that bridges a cut-off pocket back to settled supply
   // clears frontierDecayAt on the reconnected tiles in the same tick.
   it("E8: EXPAND that reconnects a cut-off region clears frontierDecayAt on reconnected tiles", async () => {
@@ -740,4 +827,3 @@ describe("encirclement BFS cap (Option C)", () => {
   });
 
 });
-
