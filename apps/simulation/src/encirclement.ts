@@ -29,6 +29,23 @@ const NEIGHBOR_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
   { dx:  1, dy:  1 }
 ];
 
+type ExtraNeighborKeys = (tileKey: string) => Iterable<string>;
+
+const connectedNeighborKeys = (tileKey: string, extraNeighborKeys?: ExtraNeighborKeys): string[] => {
+  const [xStr, yStr] = tileKey.split(",");
+  const cx = Number(xStr);
+  const cy = Number(yStr);
+  const keys = NEIGHBOR_OFFSETS.map(({ dx, dy }) => {
+    const nx = wrapX(cx + dx, WORLD_WIDTH);
+    const ny = wrapY(cy + dy, WORLD_HEIGHT);
+    return `${nx},${ny}`;
+  });
+  if (extraNeighborKeys) {
+    for (const extraKey of extraNeighborKeys(tileKey)) keys.push(extraKey);
+  }
+  return keys;
+};
+
 /**
  * Minimal tile shape this module needs from the runtime tile map.
  * Runtime uses DomainTileState; pure functions here only require what they
@@ -51,7 +68,8 @@ export interface EncirclementTileView {
 export const isFrontierConnected = (
   tileKey: string,
   playerId: string,
-  getTile: (key: string) => EncirclementTileView | undefined
+  getTile: (key: string) => EncirclementTileView | undefined,
+  options?: { extraNeighborKeys?: ExtraNeighborKeys }
 ): boolean => {
   const tile = getTile(tileKey);
   if (!tile || tile.ownerId !== playerId || tile.ownershipState !== "FRONTIER") return false;
@@ -63,14 +81,7 @@ export const isFrontierConnected = (
   while (queue.length > 0) {
     // biome-ignore lint: queue.shift() is fine here; BFS over bounded territory
     const current = queue.shift()!;
-    const [xStr, yStr] = current.split(",");
-    const cx = Number(xStr);
-    const cy = Number(yStr);
-
-    for (const { dx, dy } of NEIGHBOR_OFFSETS) {
-      const nx = wrapX(cx + dx, WORLD_WIDTH);
-      const ny = wrapY(cy + dy, WORLD_HEIGHT);
-      const nk = `${nx},${ny}`;
+    for (const nk of connectedNeighborKeys(current, options?.extraNeighborKeys)) {
       if (visited.has(nk)) continue;
 
       const neighbor = getTile(nk);
@@ -133,6 +144,7 @@ export const computeEncirclementDeltas = (
   nowMs: number,
   options?: {
     bfsCap?: number;
+    extraNeighborKeys?: ExtraNeighborKeys;
     onCapExceeded?: (playerId: string, visitedCount: number, capLimit: number) => void;
   }
 ): { cutOff: Set<string>; reconnected: Set<string> } => {
@@ -161,14 +173,7 @@ export const computeEncirclementDeltas = (
       toCheck.add(current);
     }
 
-    const [xStr, yStr] = current.split(",");
-    const cx = Number(xStr);
-    const cy = Number(yStr);
-
-    for (const { dx, dy } of NEIGHBOR_OFFSETS) {
-      const nx = wrapX(cx + dx, WORLD_WIDTH);
-      const ny = wrapY(cy + dy, WORLD_HEIGHT);
-      const nk = `${nx},${ny}`;
+    for (const nk of connectedNeighborKeys(current, options?.extraNeighborKeys)) {
       if (bfsVisited.has(nk)) continue;
       bfsVisited.add(nk);
 
@@ -202,13 +207,7 @@ export const computeEncirclementDeltas = (
   const fwdVisited = new Set<string>();
 
   for (const key of bfsVisited) {
-    const [xStr, yStr] = key.split(",");
-    const cx = Number(xStr);
-    const cy = Number(yStr);
-    for (const { dx, dy } of NEIGHBOR_OFFSETS) {
-      const nx = wrapX(cx + dx, WORLD_WIDTH);
-      const ny = wrapY(cy + dy, WORLD_HEIGHT);
-      const nk = `${nx},${ny}`;
+    for (const nk of connectedNeighborKeys(key, options?.extraNeighborKeys)) {
       if (fwdVisited.has(nk)) continue;
       const neighbor = getTile(nk);
       if (neighbor?.ownerId === affectedPlayerId && neighbor.ownershipState === "SETTLED") {
@@ -221,14 +220,8 @@ export const computeEncirclementDeltas = (
   while (fwdQueue.length > 0) {
     // biome-ignore lint: queue.shift() fine for bounded BFS
     const current = fwdQueue.shift()!;
-    const [xStr, yStr] = current.split(",");
-    const cx = Number(xStr);
-    const cy = Number(yStr);
 
-    for (const { dx, dy } of NEIGHBOR_OFFSETS) {
-      const nx = wrapX(cx + dx, WORLD_WIDTH);
-      const ny = wrapY(cy + dy, WORLD_HEIGHT);
-      const nk = `${nx},${ny}`;
+    for (const nk of connectedNeighborKeys(current, options?.extraNeighborKeys)) {
       if (fwdVisited.has(nk)) continue;
       fwdVisited.add(nk);
 

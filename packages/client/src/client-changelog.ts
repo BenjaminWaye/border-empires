@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.04.5",
+  version: "2026.06.05.1",
   title: "What's New",
-  summary: "AI event loop stalls eliminated, turn rotation fixed, and alliance-safe waypoints.",
+  summary: "Aether bridge frontier connections now prevent immediate encirclement decay.",
   entries: [
+    {
+      introducedIn: "2026.06.05.1",
+      title: "Aether bridge expansions stay connected",
+      why: "Frontier encirclement checks only followed physical neighboring tiles, so a tile expanded across an active Aether Bridge could be treated as cut off even though it was supplied through the bridge.",
+      changes: [
+        "Active Aether Bridge endpoints now count as connected territory edges for frontier encirclement checks.",
+        "Expanding through an Aether Bridge no longer starts immediate encirclement decay on the new frontier endpoint."
+      ]
+    },
     {
       introducedIn: "2026.06.04.5",
       title: "AI sync no longer blocks the event loop",

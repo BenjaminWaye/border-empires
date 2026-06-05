@@ -6652,7 +6652,9 @@ export class SimulationRuntime {
   private applyEncirclement(changedKeys: string[], playerId: string, commandId: string): void {
     const getTile = (key: string) => this.tiles.get(key);
     const nowMs = this.now();
+    const aetherBridgeNeighborKeys = this.activeAetherBridgeNeighborKeysForPlayer(playerId);
     const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs, {
+      extraNeighborKeys: (tileKey) => aetherBridgeNeighborKeys.get(tileKey) ?? [],
       onCapExceeded: (pid, visited, cap) => {
         this.runtimeLogInfo(
           {
@@ -6702,6 +6704,21 @@ export class SimulationRuntime {
         tileDeltas
       });
     }
+  }
+
+  private activeAetherBridgeNeighborKeysForPlayer(playerId: string): Map<string, string[]> {
+    const neighborKeys = new Map<string, string[]>();
+    for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
+      const fromKey = simulationTileKey(bridge.from.x, bridge.from.y);
+      const toKey = simulationTileKey(bridge.to.x, bridge.to.y);
+      const fromNeighbors = neighborKeys.get(fromKey);
+      if (fromNeighbors) fromNeighbors.push(toKey);
+      else neighborKeys.set(fromKey, [toKey]);
+      const toNeighbors = neighborKeys.get(toKey);
+      if (toNeighbors) toNeighbors.push(fromKey);
+      else neighborKeys.set(toKey, [fromKey]);
+    }
+    return neighborKeys;
   }
 
   private relocateSettlementForPlayer(
