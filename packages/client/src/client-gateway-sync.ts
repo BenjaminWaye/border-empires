@@ -66,7 +66,7 @@ export type GatewayTileUpdate = {
 };
 
 type GatewayTileSyncDeps = {
-  state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
+  state: Pick<ClientState, "tiles" | "tilesRevision" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
     me?: string | undefined;
     mods?: Partial<ClientState["mods"]>;
     upkeepLastTick: { foodCoverage?: number };
@@ -460,6 +460,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
       : 1.0;
   ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], ownIncomeMultiplier);
   deps.state.tiles.set(tileKey, resolved);
+  deps.state.tilesRevision += 1;
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
 };
@@ -492,6 +493,7 @@ export const applyGatewayInitialState = (
     deps.state.pendingCollectVisibleKeys.clear();
     deps.state.discoveredTiles.clear();
   }
+  deps.state.tilesRevision += 1;
   let invalidatedTerrainCache = false;
   for (const tile of tiles) {
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile) || invalidatedTerrainCache;

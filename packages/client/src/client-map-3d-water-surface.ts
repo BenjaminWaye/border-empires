@@ -13,11 +13,12 @@ import {
 export const WATER_SURFACE_Y = -0.06;
 
 // Normal map repeats every UV_WORLD_SCALE world units (tiles).
-const UV_WORLD_SCALE = 4.0;
+const UV_WORLD_SCALE = 6.0;
 
-// Deep navy / shallow teal — lerped per-vertex based on proximity to shore.
-const DEEP_COLOR = new Color(0x1a4f70);
-const SHALLOW_COLOR = new Color(0x3ec8d8);
+// Deep dark navy — reads as opaque depth.
+// Shallow is washed-out light blue — combined with lower opacity lets terrain show through.
+const DEEP_COLOR = new Color(0x0a2e42);
+const SHALLOW_COLOR = new Color(0x6abbc8);
 
 // Generate a seamless tangent-space normal map from overlapping sine waves.
 // `freq` controls wave frequency; `amp` controls slope steepness.
@@ -78,22 +79,25 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
 
   // Low-freq swell + high-freq chop scrolled independently for a
   // two-wave-system look.
-  const swellMap = createNormalMap(1, 0.8);
-  const choppyMap = createNormalMap(2, 0.35);
+  // Swell: large lazy undulations. Chop: fine wind-riffled texture on top.
+  const swellMap = createNormalMap(1, 0.3);
+  const choppyMap = createNormalMap(2, 0.15);
 
   const material = new MeshPhysicalMaterial({
     color: 0xffffff,
     vertexColors: true,
-    roughness: 0.06,
+    roughness: 0.28,             // broad but visible specular — shimmer, not lightning
     metalness: 0.0,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.12,
+    clearcoat: 0.4,
+    clearcoatRoughness: 0.4,
     transparent: true,
-    opacity: 0.90,
+    opacity: 0.78,
+    emissive: new Color(0x030e18), // faint inner glow so deep water stays alive in shadow
+    emissiveIntensity: 1.0,
     normalMap: swellMap,
-    normalScale: new Vector2(0.55, 0.55),
+    normalScale: new Vector2(0.32, 0.32),
     clearcoatNormalMap: choppyMap,
-    clearcoatNormalScale: new Vector2(0.3, 0.3),
+    clearcoatNormalScale: new Vector2(0.12, 0.12),
     depthWrite: false
   });
 
@@ -222,10 +226,26 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
 
   const tick = (nowMs: number): void => {
     const s = nowMs / 1000;
-    // Swell and chop scroll in slightly different directions at different
-    // speeds so they produce an organic interference pattern over time.
-    swellMap.offset.set((s * 0.013) % 1,  (s * 0.009) % 1);
-    choppyMap.offset.set((-s * 0.008) % 1, (s * 0.015) % 1);
+
+    // Vertex Y displacement — two overlapping sine waves in world space.
+    // Amplitude 0.10 is clearly visible at isometric zoom without being absurd.
+    if (geometry) {
+      const posAttr = geometry.attributes["position"] as BufferAttribute;
+      const pos = posAttr.array as Float32Array;
+      const n = pos.length / 3;
+      for (let i = 0; i < n; i++) {
+        const wx = pos[i * 3] ?? 0;
+        const wz = pos[i * 3 + 2] ?? 0;
+        const swell = Math.sin(wx * 0.7 + s * 0.65) * Math.cos(wz * 0.55 + s * 0.5) * 0.16;
+        const chop  = Math.sin(wx * 1.4 - s * 0.45) * Math.cos(wz * 1.2 + s * 0.7) * 0.06;
+        pos[i * 3 + 1] = WATER_SURFACE_Y + swell + chop;
+      }
+      posAttr.needsUpdate = true;
+    }
+
+    // Normal map scroll for surface texture shimmer.
+    swellMap.offset.set((s * 0.009) % 1,  (s * 0.006) % 1);
+    choppyMap.offset.set((-s * 0.005) % 1, (s * 0.010) % 1);
   };
 
   const dispose = (): void => {
