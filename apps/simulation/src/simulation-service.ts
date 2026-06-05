@@ -565,6 +565,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const commandTraceEnabled = process.env.SIMULATION_COMMAND_TRACE === "1";
   const slowSubmitWarnMs = Math.max(50, Number(process.env.SIMULATION_SLOW_SUBMIT_WARN_MS ?? 250));
   const slowRuntimeSubmitWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_RUNTIME_SUBMIT_WARN_MS ?? 50));
+  const verboseSnapshotDiagnostics = process.env.SIMULATION_VERBOSE_SNAPSHOT_DIAGNOSTICS === "1";
+  const slowSnapshotBuildWarnMs = Math.max(0, Number(process.env.SIMULATION_SLOW_SNAPSHOT_BUILD_WARN_MS ?? 100));
+  const simulationMetricsLogIntervalMs = Math.max(0, Number(process.env.SIMULATION_METRICS_LOG_INTERVAL_MS ?? 0));
   // Threshold for "filter fanout took too long on a single TILE_DELTA_BATCH"
   // diagnostic. Set 0 to disable. Captures total + max-per-subscriber filter
   // time so we can tell whether filterTileDeltasForPlayer is the source of
@@ -602,6 +605,18 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const commandTraceSample = (sample: Record<string, unknown>): void => {
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
+  };
+  const recordSnapshotBuildTiming = (
+    phase: string,
+    durationMs: number,
+    payload: Record<string, unknown> = {}
+  ): void => {
+    if (slowSnapshotBuildWarnMs <= 0 || durationMs < slowSnapshotBuildWarnMs) return;
+    recordLagDiagnostic("warn", "simulation_snapshot_build_slow", {
+      phase,
+      durationMs,
+      ...payload
+    });
   };
   const visibilityAuditAttributedEnabled = process.env.SIMULATION_VISIBILITY_AUDIT === "1";
   const visibilityAuditDedupMs = Math.max(1000, Number(process.env.SIMULATION_VISIBILITY_AUDIT_DEDUP_MS ?? 30_000));
@@ -1120,28 +1135,30 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       rssMb,
       heapUsedMb
     });
-    log.info(
-      {
-        trigger: options.trigger,
-        playerId,
-        fullVisibility: options.fullVisibility,
-        seasonEnded: options.seasonEnded,
-        tileCount: measure.tileCount,
-        worldTileCount: options.worldTileCount,
-        snapshotJsonBytes: measure.snapshotJsonBytes,
-        tilesJsonBytes: measure.tilesJsonBytes,
-        playerJsonBytes: measure.playerJsonBytes,
-        worldStatusJsonBytes: measure.worldStatusJsonBytes,
-        seasonJsonBytes: measure.seasonJsonBytes,
-        docksJsonBytes: measure.docksJsonBytes,
-        cacheEntries: cacheSummary.entryCount,
-        cacheBytes: cacheSummary.totalSnapshotJsonBytes,
-        cacheTopPlayers: cacheSummary.topEntries,
-        rssMb,
-        heapUsedMb
-      },
-      "simulation snapshot diagnostics"
-    );
+    if (verboseSnapshotDiagnostics) {
+      log.info(
+        {
+          trigger: options.trigger,
+          playerId,
+          fullVisibility: options.fullVisibility,
+          seasonEnded: options.seasonEnded,
+          tileCount: measure.tileCount,
+          worldTileCount: options.worldTileCount,
+          snapshotJsonBytes: measure.snapshotJsonBytes,
+          tilesJsonBytes: measure.tilesJsonBytes,
+          playerJsonBytes: measure.playerJsonBytes,
+          worldStatusJsonBytes: measure.worldStatusJsonBytes,
+          seasonJsonBytes: measure.seasonJsonBytes,
+          docksJsonBytes: measure.docksJsonBytes,
+          cacheEntries: cacheSummary.entryCount,
+          cacheBytes: cacheSummary.totalSnapshotJsonBytes,
+          cacheTopPlayers: cacheSummary.topEntries,
+          rssMb,
+          heapUsedMb
+        },
+        "simulation snapshot diagnostics"
+      );
+    }
   };
   const preparePlayerSlowLogMs = 250;
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 1000;
@@ -1157,6 +1174,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
+  let lastSimulationMetricsLogAt = 0;
   let currentSummary = bootstrappedCurrentSummary;
   let currentSummarySignature = currentSummary ? leaderboardSignature(currentSummary) : "";
   let lastCurrentSummaryPersistedAt = currentSummary?.updatedAt ?? 0;
@@ -1174,11 +1192,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     playerId: string,
     options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
   ): PlayerSubscriptionSnapshot => {
+    const totalStartedAt = Date.now();
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
+    const runtimeExportStartedAt = Date.now();
     const worldStatusRuntimeState = options?.includeWorldStatus === true || useFullVisibility ? runtime.exportState() : undefined;
     const runtimeState = worldStatusRuntimeState ?? runtime.exportVisibleStateForPlayer(playerId);
+    recordSnapshotBuildTiming("runtime_export", Date.now() - runtimeExportStartedAt, {
+      playerId,
+      trigger: options?.trigger ?? "",
+      fullVisibility: useFullVisibility,
+      includeWorldStatus: options?.includeWorldStatus === true
+    });
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
+    const snapshotBuildStartedAt = Date.now();
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
       includeWorldStatus: options?.includeWorldStatus === true,
       fullVisibility: useFullVisibility,
@@ -1186,9 +1213,33 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
       ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {}),
+      onAsyncPhaseTiming: (phase, durationMs, details) => {
+        recordSnapshotBuildTiming(phase, durationMs, {
+          playerId,
+          trigger: options?.trigger ?? "",
+          fullVisibility: useFullVisibility,
+          includeWorldStatus: options?.includeWorldStatus === true,
+          ...(details ?? {})
+        });
+      }
     });
-    if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
+    recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
+      playerId,
+      trigger: options?.trigger ?? "",
+      fullVisibility: useFullVisibility,
+      tileCount: snapshot.tiles.length
+    });
+    if (!useFullVisibility) {
+      const cacheStartedAt = Date.now();
+      setCachedSnapshot(playerId, snapshot);
+      recordSnapshotBuildTiming("cache_snapshot", Date.now() - cacheStartedAt, {
+        playerId,
+        trigger: options?.trigger ?? "",
+        tileCount: snapshot.tiles.length
+      });
+    }
+    const diagnosticsStartedAt = Date.now();
     recordSnapshotDiagnostics(playerId, snapshot, {
       trigger:
         options?.trigger ??
@@ -1200,6 +1251,18 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       fullVisibility: useFullVisibility,
       seasonEnded,
       worldTileCount: WORLD_WIDTH * WORLD_HEIGHT
+    });
+    recordSnapshotBuildTiming("snapshot_diagnostics", Date.now() - diagnosticsStartedAt, {
+      playerId,
+      trigger: options?.trigger ?? "",
+      tileCount: snapshot.tiles.length
+    });
+    recordSnapshotBuildTiming("total", Date.now() - totalStartedAt, {
+      playerId,
+      trigger: options?.trigger ?? "",
+      fullVisibility: useFullVisibility,
+      includeWorldStatus: options?.includeWorldStatus === true,
+      tileCount: snapshot.tiles.length
     });
     return snapshot;
   };
@@ -1210,9 +1273,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     playerId: string,
     options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
   ): Promise<PlayerSubscriptionSnapshot> => {
+    const totalStartedAt = Date.now();
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
-    const worldStatusRuntimeState = options?.includeWorldStatus === true || useFullVisibility ? runtime.exportState() : undefined;
+    const runtimeExportStartedAt = Date.now();
+    const worldStatusRuntimeState =
+      options?.includeWorldStatus === true || useFullVisibility
+        ? await runtime.exportStateAsync(yieldToEventLoop)
+        : undefined;
     // Route the per-player visible export through the async chunked path
     // when we don't already have a full-world runtime state captured.
     // exportVisibleStateForPlayer was the last contiguous sync block in
@@ -1221,7 +1289,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // raster + visible-tile map was its own multi-second main-thread block.
     const runtimeState =
       worldStatusRuntimeState ?? (await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop));
+    recordSnapshotBuildTiming("runtime_export_async", Date.now() - runtimeExportStartedAt, {
+      playerId,
+      trigger: options?.trigger ?? "",
+      fullVisibility: useFullVisibility,
+      includeWorldStatus: options?.includeWorldStatus === true
+    });
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
+    const snapshotBuildStartedAt = Date.now();
     const snapshot = await buildPlayerSubscriptionSnapshotAsync(playerId, runtimeState, undefined, yieldToEventLoop, {
       includeWorldStatus: options?.includeWorldStatus === true,
       fullVisibility: useFullVisibility,
@@ -1229,9 +1304,33 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
       ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {}),
+      onAsyncPhaseTiming: (phase, durationMs, details) => {
+        recordSnapshotBuildTiming(phase, durationMs, {
+          playerId,
+          trigger: options?.trigger ?? "",
+          fullVisibility: useFullVisibility,
+          includeWorldStatus: options?.includeWorldStatus === true,
+          ...(details ?? {})
+        });
+      }
     });
-    if (!useFullVisibility) setCachedSnapshot(playerId, snapshot);
+    recordSnapshotBuildTiming("snapshot_materialize_async", Date.now() - snapshotBuildStartedAt, {
+      playerId,
+      trigger: options?.trigger ?? "",
+      fullVisibility: useFullVisibility,
+      tileCount: snapshot.tiles.length
+    });
+    if (!useFullVisibility) {
+      const cacheStartedAt = Date.now();
+      setCachedSnapshot(playerId, snapshot);
+      recordSnapshotBuildTiming("cache_snapshot", Date.now() - cacheStartedAt, {
+        playerId,
+        trigger: options?.trigger ?? "",
+        tileCount: snapshot.tiles.length
+      });
+    }
+    const diagnosticsStartedAt = Date.now();
     recordSnapshotDiagnostics(playerId, snapshot, {
       trigger:
         options?.trigger ??
@@ -1243,6 +1342,18 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       fullVisibility: useFullVisibility,
       seasonEnded,
       worldTileCount: WORLD_WIDTH * WORLD_HEIGHT
+    });
+    recordSnapshotBuildTiming("snapshot_diagnostics", Date.now() - diagnosticsStartedAt, {
+      playerId,
+      trigger: options?.trigger ?? "",
+      tileCount: snapshot.tiles.length
+    });
+    recordSnapshotBuildTiming("total_async", Date.now() - totalStartedAt, {
+      playerId,
+      trigger: options?.trigger ?? "",
+      fullVisibility: useFullVisibility,
+      includeWorldStatus: options?.includeWorldStatus === true,
+      tileCount: snapshot.tiles.length
     });
     return snapshot;
   };
@@ -2511,113 +2622,117 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             simulationMetrics.observeSimGcPauseMs(durationMs);
           }
         }
-        const sample = simulationMetrics.snapshot();
-        const workerMemoryMb = (() => {
-          const toMb = (bytes?: number): number | undefined =>
-            typeof bytes === "number" ? Math.round((bytes / (1024 * 1024)) * 10) / 10 : undefined;
-          type HasWorkerMetrics = { getWorkerMetrics: () => WorkerMemoryMetrics };
-          const snapshotMetrics =
-            snapshotStringifier && "getWorkerMetrics" in snapshotStringifier
-              ? (snapshotStringifier as HasWorkerMetrics).getWorkerMetrics()
-              : undefined;
-          const aiMetrics =
-            aiCommandProducer && "getWorkerMetrics" in aiCommandProducer
-              ? (aiCommandProducer as HasWorkerMetrics).getWorkerMetrics()
-              : undefined;
-          const systemMetrics =
-            systemCommandProducer && "getWorkerMetrics" in systemCommandProducer
-              ? (systemCommandProducer as HasWorkerMetrics).getWorkerMetrics()
-              : undefined;
-          // Per-worker rss is intentionally dropped — process.memoryUsage().rss
-          // inside a Worker returns the shared-process RSS, not the worker's
-          // contribution. Heap, external, and arrayBuffers are per-V8-isolate
-          // (per-worker) and useful.
-          return {
-            snapshot: snapshotMetrics
-              ? {
-                  heap_used_mb: toMb(snapshotMetrics.heapUsedBytes),
-                  external_mb: toMb(snapshotMetrics.externalBytes),
-                  array_buffers_mb: toMb(snapshotMetrics.arrayBuffersBytes),
-                  respawn_count: snapshotMetrics.respawnCount,
-                  last_exit_code: snapshotMetrics.lastExitCode
-                }
-              : undefined,
-            ai: aiMetrics
-              ? {
-                  heap_used_mb: toMb(aiMetrics.heapUsedBytes),
-                  external_mb: toMb(aiMetrics.externalBytes),
-                  array_buffers_mb: toMb(aiMetrics.arrayBuffersBytes),
-                  respawn_count: aiMetrics.respawnCount,
-                  last_exit_code: aiMetrics.lastExitCode
-                }
-              : undefined,
-            system: systemMetrics
-              ? {
-                  heap_used_mb: toMb(systemMetrics.heapUsedBytes),
-                  external_mb: toMb(systemMetrics.externalBytes),
-                  array_buffers_mb: toMb(systemMetrics.arrayBuffersBytes),
-                  respawn_count: systemMetrics.respawnCount,
-                  last_exit_code: systemMetrics.lastExitCode
-                }
-              : undefined
-          };
-        })();
-        const toMbRounded = (bytes: number): number =>
-          Math.round((bytes / (1024 * 1024)) * 10) / 10;
-        log.info(
-          {
-            sim_event_loop_max_ms: sample.simEventLoopMaxMs,
-            sim_event_loop_delay_ms: sample.simEventLoopDelayMs,
-            sim_tick_duration_ms: sample.simTickDurationMs,
-            sim_prepare_player_latency_ms: sample.simPreparePlayerLatencyMs,
-            sim_human_interactive_backlog_ms: sample.simHumanInteractiveBacklogMs,
-            sim_ai_autopilot_enabled: sample.simAiAutopilotEnabled,
-            sim_ai_autopilot_player_count: sample.simAiAutopilotPlayerCount,
-            sim_ai_planner_breaches: sample.simAiPlannerBreaches,
-            sim_ai_command_total: sample.simAiCommandTotalByType,
-            sim_ai_command_recent: sample.simAiCommandRecent,
-            sim_ai_preplan_total: sample.simAiPreplanTotalByReason,
-            sim_ai_preplan_recent: sample.simAiPreplanRecent,
-            sim_ai_preplan_progress_total: sample.simAiPreplanProgressTotalByState,
-            sim_ai_preplan_progress_recent: sample.simAiPreplanProgressRecent,
-            sim_ai_noop_total: sample.simAiNoopTotalByReason,
-            sim_ai_noop_recent: sample.simAiNoopRecent,
-            sim_ai_no_frontier_recent: sample.simAiNoFrontierRecent,
-            sim_ai_settle_decision_total: sample.simAiSettleDecisionTotalByReason,
-            sim_ai_settle_decision_recent: sample.simAiSettleDecisionRecent,
-            sim_ai_settle_decision_top_score: sample.simAiSettleDecisionTopScore,
-            sim_ai_planner_phase_ms: sample.simAiPlannerPhaseMs,
-            sim_runtime_drain_ms: sample.simRuntimeDrainMs,
-            sim_runtime_drain_jobs_per_call: sample.simRuntimeDrainJobsPerCall,
-            sim_runtime_drain_ms_by_lane: sample.simRuntimeDrainMsByLane,
-            sim_runtime_apply_ms_by_command: sample.simRuntimeApplyMsByCommandType,
-            sim_collect_visible_yield_ms: sample.simCollectVisibleYieldMs,
-            sim_collect_visible_delta_ms: sample.simCollectVisibleDeltaMs,
-            sim_collect_visible_tile_delta_batch_emit_ms: sample.simCollectVisibleTileDeltaBatchEmitMs,
-            sim_collect_visible_collect_result_emit_ms: sample.simCollectVisibleCollectResultEmitMs,
-            sim_collect_visible_player_state_update_ms: sample.simCollectVisiblePlayerStateUpdateMs,
-            sim_collect_visible_tiles_considered: sample.simCollectVisibleTilesConsidered,
-            sim_collect_visible_tiles_touched: sample.simCollectVisibleTilesTouched,
-            sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
-            sim_cpu_percent: sample.simCpuPercent,
-            sim_rss_mb: toMbRounded(memory.rss),
-            sim_heap_used_mb: sample.simHeapUsedMb,
-            sim_heap_total_mb: sample.simHeapTotalMb,
-            sim_external_mb: toMbRounded(memory.external),
-            sim_array_buffers_mb: toMbRounded(memory.arrayBuffers),
-            sim_gc_pause_ms: sample.simGcPauseMs,
-            sim_command_accept_latency_ms: sample.simCommandAcceptLatencyMsByLane,
-            sim_event_store_write_ms: sample.simEventStoreWriteMs,
-            sim_snapshot_tile_count: sample.simSnapshotTileCount,
-            sim_snapshot_json_bytes: sample.simSnapshotJsonBytes,
-            sim_snapshot_tiles_json_bytes: sample.simSnapshotTilesJsonBytes,
-            sim_snapshot_cache_entries: sample.simSnapshotCacheEntries,
-            sim_snapshot_cache_bytes: sample.simSnapshotCacheBytes,
-            sim_snapshot_recent: sample.simSnapshotRecent,
-            sim_worker_memory: workerMemoryMb
-          },
-          "simulation metrics sample"
-        );
+        const now = Date.now();
+        if (simulationMetricsLogIntervalMs > 0 && now - lastSimulationMetricsLogAt >= simulationMetricsLogIntervalMs) {
+          lastSimulationMetricsLogAt = now;
+          const sample = simulationMetrics.snapshot();
+          const workerMemoryMb = (() => {
+            const toMb = (bytes?: number): number | undefined =>
+              typeof bytes === "number" ? Math.round((bytes / (1024 * 1024)) * 10) / 10 : undefined;
+            type HasWorkerMetrics = { getWorkerMetrics: () => WorkerMemoryMetrics };
+            const snapshotMetrics =
+              snapshotStringifier && "getWorkerMetrics" in snapshotStringifier
+                ? (snapshotStringifier as HasWorkerMetrics).getWorkerMetrics()
+                : undefined;
+            const aiMetrics =
+              aiCommandProducer && "getWorkerMetrics" in aiCommandProducer
+                ? (aiCommandProducer as HasWorkerMetrics).getWorkerMetrics()
+                : undefined;
+            const systemMetrics =
+              systemCommandProducer && "getWorkerMetrics" in systemCommandProducer
+                ? (systemCommandProducer as HasWorkerMetrics).getWorkerMetrics()
+                : undefined;
+            // Per-worker rss is intentionally dropped — process.memoryUsage().rss
+            // inside a Worker returns the shared-process RSS, not the worker's
+            // contribution. Heap, external, and arrayBuffers are per-V8-isolate
+            // (per-worker) and useful.
+            return {
+              snapshot: snapshotMetrics
+                ? {
+                    heap_used_mb: toMb(snapshotMetrics.heapUsedBytes),
+                    external_mb: toMb(snapshotMetrics.externalBytes),
+                    array_buffers_mb: toMb(snapshotMetrics.arrayBuffersBytes),
+                    respawn_count: snapshotMetrics.respawnCount,
+                    last_exit_code: snapshotMetrics.lastExitCode
+                  }
+                : undefined,
+              ai: aiMetrics
+                ? {
+                    heap_used_mb: toMb(aiMetrics.heapUsedBytes),
+                    external_mb: toMb(aiMetrics.externalBytes),
+                    array_buffers_mb: toMb(aiMetrics.arrayBuffersBytes),
+                    respawn_count: aiMetrics.respawnCount,
+                    last_exit_code: aiMetrics.lastExitCode
+                  }
+                : undefined,
+              system: systemMetrics
+                ? {
+                    heap_used_mb: toMb(systemMetrics.heapUsedBytes),
+                    external_mb: toMb(systemMetrics.externalBytes),
+                    array_buffers_mb: toMb(systemMetrics.arrayBuffersBytes),
+                    respawn_count: systemMetrics.respawnCount,
+                    last_exit_code: systemMetrics.lastExitCode
+                  }
+                : undefined
+            };
+          })();
+          const toMbRounded = (bytes: number): number =>
+            Math.round((bytes / (1024 * 1024)) * 10) / 10;
+          log.info(
+            {
+              sim_event_loop_max_ms: sample.simEventLoopMaxMs,
+              sim_event_loop_delay_ms: sample.simEventLoopDelayMs,
+              sim_tick_duration_ms: sample.simTickDurationMs,
+              sim_prepare_player_latency_ms: sample.simPreparePlayerLatencyMs,
+              sim_human_interactive_backlog_ms: sample.simHumanInteractiveBacklogMs,
+              sim_ai_autopilot_enabled: sample.simAiAutopilotEnabled,
+              sim_ai_autopilot_player_count: sample.simAiAutopilotPlayerCount,
+              sim_ai_planner_breaches: sample.simAiPlannerBreaches,
+              sim_ai_command_total: sample.simAiCommandTotalByType,
+              sim_ai_command_recent: sample.simAiCommandRecent,
+              sim_ai_preplan_total: sample.simAiPreplanTotalByReason,
+              sim_ai_preplan_recent: sample.simAiPreplanRecent,
+              sim_ai_preplan_progress_total: sample.simAiPreplanProgressTotalByState,
+              sim_ai_preplan_progress_recent: sample.simAiPreplanProgressRecent,
+              sim_ai_noop_total: sample.simAiNoopTotalByReason,
+              sim_ai_noop_recent: sample.simAiNoopRecent,
+              sim_ai_no_frontier_recent: sample.simAiNoFrontierRecent,
+              sim_ai_settle_decision_total: sample.simAiSettleDecisionTotalByReason,
+              sim_ai_settle_decision_recent: sample.simAiSettleDecisionRecent,
+              sim_ai_settle_decision_top_score: sample.simAiSettleDecisionTopScore,
+              sim_ai_planner_phase_ms: sample.simAiPlannerPhaseMs,
+              sim_runtime_drain_ms: sample.simRuntimeDrainMs,
+              sim_runtime_drain_jobs_per_call: sample.simRuntimeDrainJobsPerCall,
+              sim_runtime_drain_ms_by_lane: sample.simRuntimeDrainMsByLane,
+              sim_runtime_apply_ms_by_command: sample.simRuntimeApplyMsByCommandType,
+              sim_collect_visible_yield_ms: sample.simCollectVisibleYieldMs,
+              sim_collect_visible_delta_ms: sample.simCollectVisibleDeltaMs,
+              sim_collect_visible_tile_delta_batch_emit_ms: sample.simCollectVisibleTileDeltaBatchEmitMs,
+              sim_collect_visible_collect_result_emit_ms: sample.simCollectVisibleCollectResultEmitMs,
+              sim_collect_visible_player_state_update_ms: sample.simCollectVisiblePlayerStateUpdateMs,
+              sim_collect_visible_tiles_considered: sample.simCollectVisibleTilesConsidered,
+              sim_collect_visible_tiles_touched: sample.simCollectVisibleTilesTouched,
+              sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
+              sim_cpu_percent: sample.simCpuPercent,
+              sim_rss_mb: toMbRounded(memory.rss),
+              sim_heap_used_mb: sample.simHeapUsedMb,
+              sim_heap_total_mb: sample.simHeapTotalMb,
+              sim_external_mb: toMbRounded(memory.external),
+              sim_array_buffers_mb: toMbRounded(memory.arrayBuffers),
+              sim_gc_pause_ms: sample.simGcPauseMs,
+              sim_command_accept_latency_ms: sample.simCommandAcceptLatencyMsByLane,
+              sim_event_store_write_ms: sample.simEventStoreWriteMs,
+              sim_snapshot_tile_count: sample.simSnapshotTileCount,
+              sim_snapshot_json_bytes: sample.simSnapshotJsonBytes,
+              sim_snapshot_tiles_json_bytes: sample.simSnapshotTilesJsonBytes,
+              sim_snapshot_cache_entries: sample.simSnapshotCacheEntries,
+              sim_snapshot_cache_bytes: sample.simSnapshotCacheBytes,
+              sim_snapshot_recent: sample.simSnapshotRecent,
+              sim_worker_memory: workerMemoryMb
+            },
+            "simulation metrics sample"
+          );
+        }
       }, 1_000);
       const recoveredAiPlayerCount = [...activePlayers.values()].filter((player) => player.isAi).length;
       log.info(
