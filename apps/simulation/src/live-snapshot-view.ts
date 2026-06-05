@@ -150,18 +150,12 @@ const buildFirstThreeTownKeysByPlayer = (
   runtimeState: RuntimeState
 ): Map<string, Set<string>> => {
   const result = new Map<string, Set<string>>();
-  for (const player of runtimeState.players) {
-    const firstThree = new Set<string>();
-    let count = 0;
-    for (const tile of runtimeState.tiles) {
-      if (count >= 3) break;
-      if (tile.ownerId !== player.id) continue;
-      const tileKey = keyFor(tile.x, tile.y);
-      if (tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
-      firstThree.add(tileKey);
-      count += 1;
-    }
-    result.set(player.id, firstThree);
+  for (const player of runtimeState.players) result.set(player.id, new Set<string>());
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
+    const firstThree = result.get(tile.ownerId);
+    if (!firstThree || firstThree.size >= 3) continue;
+    firstThree.add(keyFor(tile.x, tile.y));
   }
   return result;
 };
@@ -171,20 +165,14 @@ const buildFirstThreeTownKeysByPlayerAsync = async (
   yieldToEventLoop: () => Promise<void>
 ): Promise<Map<string, Set<string>>> => {
   const result = new Map<string, Set<string>>();
-  for (const player of runtimeState.players) {
-    const firstThree = new Set<string>();
-    let count = 0;
-    let tileIndex = 0;
-    for (const tile of runtimeState.tiles) {
-      if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
-      if (count >= 3) break;
-      if (tile.ownerId !== player.id) continue;
-      const tileKey = keyFor(tile.x, tile.y);
-      if (tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
-      firstThree.add(tileKey);
-      count += 1;
-    }
-    result.set(player.id, firstThree);
+  for (const player of runtimeState.players) result.set(player.id, new Set<string>());
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
+    const firstThree = result.get(tile.ownerId);
+    if (!firstThree || firstThree.size >= 3) continue;
+    firstThree.add(keyFor(tile.x, tile.y));
   }
   return result;
 };
@@ -662,14 +650,20 @@ const buildFedTownKeysByPlayer = (
   strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>
 ): Map<string, Set<string>> => {
   const result = new Map<string, Set<string>>();
+  const ownedSettledTownsByPlayerId = new Map<string, RuntimeState["tiles"]>();
+  for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
+    const ownedSettledTowns = ownedSettledTownsByPlayerId.get(tile.ownerId) ?? [];
+    ownedSettledTowns.push(tile);
+    ownedSettledTownsByPlayerId.set(tile.ownerId, ownedSettledTowns);
+  }
   for (const player of runtimeState.players) {
     const availableFood =
       (player.strategicResources?.FOOD ?? 0) + (strategicProductionByPlayer.get(player.id)?.FOOD ?? 0);
     let remainingFood = availableFood;
     const fedTownKeys = new Set<string>();
-    const ownedSettledTowns = runtimeState.tiles
-      .filter((tile) => tile.ownerId === player.id && tile.ownershipState === "SETTLED" && (tile.townJson || tile.townType))
-      .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+    const ownedSettledTowns = ownedSettledTownsByPlayerId.get(player.id) ?? [];
+    ownedSettledTowns.sort((left, right) => (left.x - right.x) || (left.y - right.y));
     for (const tile of ownedSettledTowns) {
       const town = parseTown(tile);
       const upkeep = townFoodUpkeepPerMinute(town?.populationTier);
@@ -879,6 +873,7 @@ export const buildLivePlayerEconomySnapshot = (
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
+  const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -908,7 +903,7 @@ export const buildLivePlayerEconomySnapshot = (
         oilSources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : tile.resource === "OIL" ? "Oil" : "Supply", resourceRate, { count: 1, resourceKey });
     }
-    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys, computeSeedGranaryBuffedTileKeys(runtimeState));
+    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys, seedGranaryBuffedTileKeys);
     if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
@@ -1147,7 +1142,8 @@ type EnrichmentContext = {
 
 const buildEnrichmentContext = (
   runtimeState: RuntimeState,
-  playerEconomy: LivePlayerEconomySnapshot
+  playerEconomy: LivePlayerEconomySnapshot,
+  visibleTiles: RuntimeState["tiles"]
 ): EnrichmentContext => {
   const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
   const playerYieldCollectionEpochByPlayer = new Map(
@@ -1158,14 +1154,18 @@ const buildEnrichmentContext = (
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
   const economyPlayersById = new Map(runtimeState.players.map((entry) => [entry.id, snapshotEconomyPlayer(entry)!] as const));
-  const townNetworksByPlayerId = new Map(
-    [...economyPlayersById].map(([id, economyPlayer]) => [
+  const visibleOwnerIds = new Set(visibleTiles.map((tile) => tile.ownerId).filter((id): id is string => Boolean(id)));
+  const townNetworksByPlayerId = new Map<string, ReturnType<typeof buildConnectedTownNetworkForPlayer>>();
+  for (const id of visibleOwnerIds) {
+    const economyPlayer = economyPlayersById.get(id);
+    if (!economyPlayer) continue;
+    townNetworksByPlayerId.set(
       id,
       buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [], {
         maxConnectedTownNames: 16
       })
-    ] as const)
-  );
+    );
+  }
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
@@ -1188,6 +1188,7 @@ const buildEnrichmentContext = (
 const buildEnrichmentContextAsync = async (
   runtimeState: RuntimeState,
   playerEconomy: LivePlayerEconomySnapshot,
+  visibleTiles: RuntimeState["tiles"],
   yieldToEventLoop: () => Promise<void>
 ): Promise<EnrichmentContext> => {
   const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
@@ -1206,8 +1207,11 @@ const buildEnrichmentContextAsync = async (
   const settledDomainTilesByPlayerId = await buildSettledDomainTilesByPlayerIdAsync(runtimeState, domainTilesByKey, yieldToEventLoop);
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
   const economyPlayersById = new Map(runtimeState.players.map((entry) => [entry.id, snapshotEconomyPlayer(entry)!] as const));
+  const visibleOwnerIds = new Set(visibleTiles.map((tile) => tile.ownerId).filter((id): id is string => Boolean(id)));
   const townNetworksByPlayerId = new Map<string, ReturnType<typeof buildConnectedTownNetworkForPlayer>>();
-  for (const [id, economyPlayer] of economyPlayersById) {
+  for (const id of visibleOwnerIds) {
+    const economyPlayer = economyPlayersById.get(id);
+    if (!economyPlayer) continue;
     townNetworksByPlayerId.set(
       id,
       buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(id) ?? [], {
@@ -1283,7 +1287,7 @@ export const enrichSnapshotTilesForPlayer = (
   visibleTiles: RuntimeState["tiles"],
   playerEconomy: LivePlayerEconomySnapshot
 ): RuntimeState["tiles"] => {
-  const ctx = buildEnrichmentContext(runtimeState, playerEconomy);
+  const ctx = buildEnrichmentContext(runtimeState, playerEconomy, visibleTiles);
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
   return visibleTiles.map((tile) => buildEnrichedTile(playerId, tile, ctx, playersById));
 };
@@ -1306,7 +1310,7 @@ export const enrichSnapshotTilesForPlayerAsync = async (
   playerEconomy: LivePlayerEconomySnapshot,
   yieldToEventLoop: () => Promise<void>
 ): Promise<RuntimeState["tiles"]> => {
-  const ctx = await buildEnrichmentContextAsync(runtimeState, playerEconomy, yieldToEventLoop);
+  const ctx = await buildEnrichmentContextAsync(runtimeState, playerEconomy, visibleTiles, yieldToEventLoop);
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
   const out: RuntimeState["tiles"] = new Array(visibleTiles.length);
   for (let i = 0; i < visibleTiles.length; i += 1) {
