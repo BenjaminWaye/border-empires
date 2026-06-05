@@ -293,7 +293,7 @@ describe("refreshTownEconomyFields", () => {
   });
 });
 
-describe("buildPlayerUpdateEconomySnapshot — tidinessEconMult", () => {
+describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {
   const makeSettledTownTile = (x: number, y: number): DomainTileState => ({
     x,
     y,

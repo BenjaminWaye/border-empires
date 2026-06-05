@@ -51,8 +51,8 @@ export function tickPopulationGrowth(input: {
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   invalidateEconomyCachesForPlayer: (playerId: string) => void;
-  /** Optional per-player tidiness growth multiplier. Returns 1 if absent. */
-  tidinessGrowthMultForPlayer?: ((playerId: string) => number) | undefined;
+  /** Optional per-player integrity growth multiplier. Returns 1 if absent. */
+  integrityGrowthMultForPlayer?: ((playerId: string) => number) | undefined;
 }): { growthStalledNoFood: number } {
   const dirtyPlayerIds = new Set<string>();
   let growthStalledNoFood = 0;
@@ -144,14 +144,14 @@ export function tickPopulationGrowth(input: {
         continue;
       }
 
-      const tidinessGrowthMult = input.tidinessGrowthMultForPlayer?.(player.id) ?? 1;
+      const integrityGrowthMult = input.integrityGrowthMultForPlayer?.(player.id) ?? 1;
       const growthPerMinute =
         town.population *
         POPULATION_GROWTH_BASE_RATE *
         granaryGrowthMult *
         firstThreeMult *
         longPeaceMult *
-        tidinessGrowthMult *
+        integrityGrowthMult *
         logisticFactor;
       const growth = growthPerMinute * elapsedMinutes;
       if (growth <= 0) continue;
