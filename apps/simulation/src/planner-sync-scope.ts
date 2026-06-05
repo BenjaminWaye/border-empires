@@ -26,6 +26,8 @@ const addScopedKey = (target: Set<string>, tileKey: string, radius: number): voi
 
 type PlannerRelevantTileKeyIndexOptions = {
   onPlayerRelevanceRebuild?: (playerId: string, inputTileKeyCount: number) => void;
+  /** Fires on each incremental delta application (not full rebuild). */
+  onPlayerIncrementalDelta?: (playerId: string, dirtyTileCount: number) => void;
 };
 
 export const buildPlannerRelevantTileKeys = (
@@ -237,6 +239,7 @@ export const createPlannerRelevantTileKeyIndex = (
         }
       }
 
+      options.onPlayerIncrementalDelta?.(player.id, dirtyTileKeys.length);
       versionByPlayerId.set(player.id, nextVersion);
       playerTerritoryByPlayerId.set(player.id, currentTerritory);
     }
