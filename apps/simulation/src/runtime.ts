@@ -59,7 +59,11 @@ import {
   EMPIRE_INTEGRITY_ENABLED,
   empireIntegrity,
   integrityEconomyMult,
-  integrityGrowthMult
+  integrityGrowthMult,
+  isEnclosedBy,
+  wrapX,
+  wrapY,
+  type EnclosureLookup
 } from "@border-empires/shared";
 import {
   AETHER_BRIDGE_COOLDOWN_MS,
@@ -543,6 +547,11 @@ export class SimulationRuntime {
   private readonly activeAetherBridgesByPlayer = new Map<string, ActiveAetherBridgeView[]>();
   private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>();
   private readonly pendingSettlementsByTile = new Map<string, PendingSettlementRecord>();
+  // Enclosure auto-fill queue: tiles to settle for free because they are now
+  // enclosed by a player's territory + natural barriers.  Drained after each
+  // replaceTileState call to avoid recursive stack overflows.
+  private readonly enclosureSettleQueue: Array<{ tileKey: string; ownerId: string }> = [];
+  private inEnclosureSettle = false;
   private readonly jobsByLane: Record<QueueLane, SimulationJob[]> = {
     human_interactive: [],
     human_noninteractive: [],
@@ -1688,6 +1697,114 @@ export class SimulationRuntime {
     // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
+    // Enclosure auto-fill: when a tile changes ownership, check if any
+    // neighbouring tiles are now enclosed by the new owner.  Only fires when
+    // EMPIRE_INTEGRITY_ENABLED.  The queue-drain approach avoids recursion.
+    if (EMPIRE_INTEGRITY_ENABLED && !this.inEnclosureSettle) {
+      this.checkAndApplyEnclosureAroundTile(tileKey, tile);
+      this.drainEnclosureSettleQueue();
+    }
+  }
+
+  /** Build a lightweight EnclosureLookup over the current tile map. */
+  private enclosureLookup(): EnclosureLookup {
+    return (x: number, y: number): { terrain?: string | undefined; ownerId?: string | undefined } | undefined => {
+      const key = simulationTileKey(x, y);
+      const t = this.tiles.get(key);
+      if (t) return { terrain: t.terrain, ownerId: t.ownerId };
+      // Off-map: use worldgen terrain (no owner)
+      return { terrain: terrainAt(x, y), ownerId: undefined };
+    };
+  }
+
+  /**
+   * For each of the 5 tiles (changed tile + 4 cardinal neighbours), check
+   * whether any land tile that isn't already SETTLED for the relevant player
+   * is now enclosed.  Enqueues tiles to settle; does NOT call replaceTileState.
+   */
+  private checkAndApplyEnclosureAroundTile(changedKey: string, changedTile: DomainTileState): void {
+    const enclosingPlayerId = changedTile.ownerId;
+    if (!enclosingPlayerId) return;
+
+    const lookup = this.enclosureLookup();
+    const cx = changedTile.x;
+    const cy = changedTile.y;
+
+    const candidates: Array<[number, number]> = [
+      [cx, cy],
+      [cx, cy - 1],
+      [cx + 1, cy],
+      [cx, cy + 1],
+      [cx - 1, cy]
+    ];
+
+    for (const [rx, ry] of candidates) {
+      const wx = wrapX(rx, WORLD_WIDTH);
+      const wy = wrapY(ry, WORLD_HEIGHT);
+      const tileKey = simulationTileKey(wx, wy);
+      const tile = this.tiles.get(tileKey);
+      if (!tile) continue;
+      // Only check unowned or frontier/settled-for-same-player land tiles
+      if (tile.terrain !== "LAND") continue;
+      // Already settled for the enclosing player — nothing to do
+      if (tile.ownerId === enclosingPlayerId && tile.ownershipState === "SETTLED") continue;
+      // Owned by someone else — they can't be auto-settled by this player
+      if (tile.ownerId && tile.ownerId !== enclosingPlayerId) continue;
+
+      if (isEnclosedBy(wx, wy, enclosingPlayerId, lookup, WORLD_WIDTH, WORLD_HEIGHT)) {
+        // Only enqueue if not already queued
+        const alreadyQueued = this.enclosureSettleQueue.some(
+          (e) => e.tileKey === tileKey && e.ownerId === enclosingPlayerId
+        );
+        if (!alreadyQueued) {
+          this.enclosureSettleQueue.push({ tileKey, ownerId: enclosingPlayerId });
+        }
+      }
+    }
+  }
+
+  /**
+   * Drain the enclosure settle queue: for each queued tile, auto-settle it
+   * for free, emit TILE_DELTA_BATCH.  Uses a re-entrancy guard so that calls
+   * to replaceTileState from within this method don't re-trigger the check.
+   */
+  private drainEnclosureSettleQueue(): void {
+    if (this.inEnclosureSettle) return;
+    this.inEnclosureSettle = true;
+    try {
+      while (this.enclosureSettleQueue.length > 0) {
+        const entry = this.enclosureSettleQueue.shift();
+        if (!entry) continue;
+        const { tileKey, ownerId } = entry;
+        const tile = this.tiles.get(tileKey);
+        if (!tile) continue;
+        // Re-check: might have been settled already by a prior entry in this batch
+        if (tile.ownerId === ownerId && tile.ownershipState === "SETTLED") continue;
+        // Only settle unowned or same-owner non-settled land tiles
+        if (tile.terrain !== "LAND") continue;
+        if (tile.ownerId && tile.ownerId !== ownerId) continue;
+
+        const commandId = `enclosure-autofill:${tileKey}`;
+        const settledTile: DomainTileState = {
+          ...tile,
+          ownerId,
+          ownershipState: "SETTLED",
+          frontierDecayAt: undefined,
+          frontierDecayKind: undefined
+        };
+        this.setTileYieldCollectedAt(commandId, ownerId, tileKey, this.now());
+        this.replaceTileState(tileKey, settledTile, commandId);
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId,
+          playerId: ownerId,
+          tileDeltas: [this.tileDeltaFromState(settledTile)]
+        });
+        this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
+      }
+    } finally {
+      this.inEnclosureSettle = false;
+    }
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
