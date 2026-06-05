@@ -76,11 +76,10 @@ describe("buildPlannerRelevantTileKeys", () => {
 
     expect(index.keys()).toEqual(new Set(["10,10", "50,50"]));
 
-    // Bump topologyVersion: in production the runtime's
-    // markPlannerPlayerTileCollectionDirty increments this on any tile
-    // ownership / state change, which is the cache-invalidation signal
-    // for the relevance set. A test that mutated territory without
-    // bumping the version would represent a runtime bug, not a use case.
+    // Bump topologyVersion: in production replaceTileState calls
+    // markPlannerPlayerTopologyDirty only when tile ownership changes
+    // (!sameOwner). A test that mutated territory without bumping the
+    // topologyVersion would represent a runtime bug, not a use case.
     index.replacePlayers(
       [makePlayer({ id: "p1", tileCollectionVersion: 2, topologyVersion: 2, territoryTileKeys: ["12,12"] })],
       new Map()
