@@ -421,6 +421,7 @@ export class SimulationRuntime {
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
+  private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
   // Bounded per-AI focus front (BFS of owned tiles around a persistent
   // hot-frontier origin) used to cap planner CPU. Refreshed each tick from
@@ -1203,9 +1204,15 @@ export class SimulationRuntime {
     return summary;
   }
 
-  private markPlannerPlayerTopologyDirty(playerId: string): void {
+  private markPlannerPlayerTopologyTileChanged(playerId: string, tileKey: string): void {
     const nextVersion = (this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTopologyVersionByPlayer.set(playerId, nextVersion);
+    let dirty = this.plannerPlayerTopologyDirtyTilesByPlayer.get(playerId);
+    if (!dirty) {
+      dirty = new Set();
+      this.plannerPlayerTopologyDirtyTilesByPlayer.set(playerId, dirty);
+    }
+    dirty.add(tileKey);
   }
 
   private markPlannerPlayerTileCollectionDirty(playerId: string): void {
@@ -1217,6 +1224,7 @@ export class SimulationRuntime {
   private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
     tileCollectionVersion: number;
     topologyVersion: number;
+    topologyDirtyTileKeys: string[];
     territoryTileKeys: string[];
     frontierTileKeys: string[];
     hotFrontierTileKeys: string[];
@@ -1224,10 +1232,19 @@ export class SimulationRuntime {
     buildCandidateTileKeys: string[];
     pendingSettlementTileKeys: string[];
   } {
+    // Drain dirty tiles on every call — they are transient (consumed per sync)
+    // and must NOT be cached, so they are read and cleared here before the
+    // cache check, ensuring each syncPlayers call gets the correct delta.
+    const dirtySet = this.plannerPlayerTopologyDirtyTilesByPlayer.get(playerId);
+    const topologyDirtyTileKeys: string[] = dirtySet && dirtySet.size > 0 ? [...dirtySet] : [];
+    dirtySet?.clear();
+
     const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
     const topologyVersion = this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0;
     const cached = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
-    if (cached && cached.tileCollectionVersion === tileCollectionVersion) return cached;
+    if (cached && cached.tileCollectionVersion === tileCollectionVersion) {
+      return { ...cached, topologyDirtyTileKeys };
+    }
     const next = {
       tileCollectionVersion,
       topologyVersion,
@@ -1239,7 +1256,7 @@ export class SimulationRuntime {
       pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()]
     };
     this.plannerPlayerTileKeyCacheByPlayer.set(playerId, next);
-    return next;
+    return { ...next, topologyDirtyTileKeys };
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
@@ -1654,8 +1671,8 @@ export class SimulationRuntime {
     this.tiles.set(tileKey, tile);
     this.applyTileToPlayerSummaries(tileKey, tile);
     if (!sameOwner) {
-      if (previous?.ownerId) this.markPlannerPlayerTopologyDirty(previous.ownerId);
-      if (tile.ownerId) this.markPlannerPlayerTopologyDirty(tile.ownerId);
+      if (previous?.ownerId) this.markPlannerPlayerTopologyTileChanged(previous.ownerId, tileKey);
+      if (tile.ownerId) this.markPlannerPlayerTopologyTileChanged(tile.ownerId, tileKey);
     }
     if (previousOwnerTileOrder && tile.ownerId) {
       const summary = this.summaryForPlayer(tile.ownerId);

@@ -37,6 +37,7 @@ const player: PlannerPlayerView = {
   hasActiveLock: false,
   tileCollectionVersion: 1,
   topologyVersion: 1,
+  topologyDirtyTileKeys: [],
   activeDevelopmentProcessCount: 0,
   territoryTileKeys,
   frontierTileKeys,
