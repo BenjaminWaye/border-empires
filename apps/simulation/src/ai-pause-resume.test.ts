@@ -526,7 +526,8 @@ describe("worker AI command producer pause/resume", () => {
       pendingSettlementTileKeys: [] as string[],
       activeDevelopmentProcessCount: 0,
       tileCollectionVersion: 1,
-      topologyVersion: 1
+      topologyVersion: 1,
+      topologyDirtyTileKeys: []
     }));
     const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
       plannerPlayers.filter((player) => playerIds.includes(player.id))
@@ -805,7 +806,8 @@ describe("worker AI command producer pause/resume", () => {
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1,
-        topologyVersion: 1
+        topologyVersion: 1,
+        topologyDirtyTileKeys: []
       }
     ];
     const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
@@ -899,7 +901,8 @@ describe("worker AI command producer pause/resume", () => {
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1,
-        topologyVersion: 1
+        topologyVersion: 1,
+        topologyDirtyTileKeys: []
       }
     ];
     const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
@@ -1006,7 +1009,8 @@ describe("worker AI command producer pause/resume", () => {
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1,
-        topologyVersion: 1
+        topologyVersion: 1,
+        topologyDirtyTileKeys: []
       }
     ];
     const producer = createWorkerAiCommandProducer({
@@ -1062,7 +1066,8 @@ describe("worker AI command producer pause/resume", () => {
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1,
-        topologyVersion: 1
+        topologyVersion: 1,
+        topologyDirtyTileKeys: []
       }
     ];
     const producer = createWorkerAiCommandProducer({
