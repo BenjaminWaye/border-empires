@@ -1213,7 +1213,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
       ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {}),
+      onAsyncPhaseTiming: (phase, durationMs, details) => {
+        recordSnapshotBuildTiming(phase, durationMs, {
+          playerId,
+          trigger: options?.trigger ?? "",
+          fullVisibility: useFullVisibility,
+          includeWorldStatus: options?.includeWorldStatus === true,
+          ...(details ?? {})
+        });
+      }
     });
     recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
@@ -1295,7 +1304,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
       seasonState: currentSeasonState,
       ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
+      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {}),
+      onAsyncPhaseTiming: (phase, durationMs, details) => {
+        recordSnapshotBuildTiming(phase, durationMs, {
+          playerId,
+          trigger: options?.trigger ?? "",
+          fullVisibility: useFullVisibility,
+          includeWorldStatus: options?.includeWorldStatus === true,
+          ...(details ?? {})
+        });
+      }
     });
     recordSnapshotBuildTiming("snapshot_materialize_async", Date.now() - snapshotBuildStartedAt, {
       playerId,
