@@ -15,8 +15,29 @@ import { buildDockLinksByDockTileKey, collectLinkedDockRevealKeysForOwners } fro
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge.js";
 import { frontierNeighborCoords } from "./frontier-topology.js";
+import { shouldYieldAt } from "./event-loop-yield.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
+
+type SnapshotMaterializeTimingPhase =
+  | "source_tiles_async"
+  | "owned_tile_index_async"
+  | "visible_tiles_async"
+  | "queue_state_async"
+  | "live_economy_async"
+  | "enrich_tiles_async"
+  | "world_status_async";
+
+type SnapshotMaterializeTimingDetails = {
+  tileCount?: number;
+  sourceTileCount?: number;
+  visibleTileCount?: number;
+  playerCount?: number;
+  pendingSettlementCount?: number;
+  autoSettlementQueueCount?: number;
+  fullVisibility?: boolean;
+  includeWorldStatus?: boolean;
+};
 
 type BuildOptions = {
   includeWorldStatus?: boolean;
@@ -26,6 +47,11 @@ type BuildOptions = {
   seasonState?: PlayerSubscriptionSnapshot["season"];
   respawnNotice?: PlayerRespawnNotice;
   nonCompetitivePlayerIds?: ReadonlySet<string>;
+  onAsyncPhaseTiming?: (
+    phase: SnapshotMaterializeTimingPhase,
+    durationMs: number,
+    details?: SnapshotMaterializeTimingDetails
+  ) => void;
 };
 
 export const buildPlayerSubscriptionSnapshot = (
@@ -322,9 +348,17 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   yieldToEventLoop: () => Promise<void>,
   options?: BuildOptions
 ): Promise<PlayerSubscriptionSnapshot> => {
+  const recordPhaseTiming = (
+    phase: SnapshotMaterializeTimingPhase,
+    startedAt: number,
+    details?: SnapshotMaterializeTimingDetails
+  ): void => {
+    options?.onAsyncPhaseTiming?.(phase, Date.now() - startedAt, details);
+  };
+  const sourceTilesStartedAt = Date.now();
   const sourceTiles =
     runtimeState.tiles.length > 0
-      ? [...runtimeState.tiles]
+      ? runtimeState.tiles
       : fallbackTiles
         ? [...fallbackTiles].map((tile) => ({
             x: tile.x,
@@ -347,6 +381,11 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
             ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {})
           }))
         : [];
+  recordPhaseTiming("source_tiles_async", sourceTilesStartedAt, {
+    sourceTileCount: sourceTiles.length,
+    fullVisibility: options?.fullVisibility === true,
+    includeWorldStatus: options?.includeWorldStatus === true
+  });
 
   const keyFor = (x: number, y: number): string => `${x},${y}`;
   const wrapX = (x: number): number => ((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
@@ -360,7 +399,10 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   };
 
   const ownedTileKeysByPlayer = new Map<string, string[]>();
+  const ownedTileIndexStartedAt = Date.now();
+  let sourceTileIndex = 0;
   for (const tile of sourceTiles) {
+    if (shouldYieldAt(sourceTileIndex++, 2_000)) await yieldToEventLoop();
     if (!tile.ownerId) continue;
     let keys = ownedTileKeysByPlayer.get(tile.ownerId);
     if (!keys) {
@@ -372,6 +414,10 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   for (const keys of ownedTileKeysByPlayer.values()) {
     keys.sort((a, b) => a.localeCompare(b));
   }
+  recordPhaseTiming("owned_tile_index_async", ownedTileIndexStartedAt, {
+    sourceTileCount: sourceTiles.length,
+    playerCount: ownedTileKeysByPlayer.size
+  });
   const ownedTileKeys = (pid: string): string[] => ownedTileKeysByPlayer.get(pid) ?? [];
 
   const playersById = new Map(runtimeState.players.map((player) => [player.id, player] as const));
@@ -398,10 +444,11 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
     addVision(targetKeys, ownedTileKeys(nextPlayerId), nextPlayer.vision, nextPlayer.visionRadiusBonus);
   };
 
+  const visibleTilesStartedAt = Date.now();
   const tiles =
     options?.fullVisibility === true
       ? sourceTiles
-      : (() => {
+      : await (async () => {
           const visibleKeys = new Set<string>();
           const primaryPlayer = playersById.get(playerId);
           if (primaryPlayer) {
@@ -426,11 +473,12 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
           }
           if (primaryPlayer && (runtimeState.docks?.length ?? 0) > 0) {
             const visibilityOwnerIds = new Set<string>([playerId, ...primaryPlayer.allies]);
-            const settledOwnerByKey = new Map(
-              sourceTiles
-                .filter((tile) => tile.ownershipState === "SETTLED" && tile.ownerId)
-                .map((tile) => [keyFor(tile.x, tile.y), tile.ownerId] as const)
-            );
+            const settledOwnerByKey = new Map<string, string>();
+            let settledOwnerIndex = 0;
+            for (const tile of sourceTiles) {
+              if (shouldYieldAt(settledOwnerIndex++, 2_000)) await yieldToEventLoop();
+              if (tile.ownershipState === "SETTLED" && tile.ownerId) settledOwnerByKey.set(keyFor(tile.x, tile.y), tile.ownerId);
+            }
             const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
             for (const revealKey of collectLinkedDockRevealKeysForOwners(
               visibilityOwnerIds,
@@ -444,11 +492,21 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
             }
           }
 
-          return sourceTiles
-            .filter((tile) => visibleKeys.has(keyFor(tile.x, tile.y)))
-            .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+          const visibleTiles: Array<(typeof sourceTiles)[number]> = [];
+          let visibleScanIndex = 0;
+          for (const tile of sourceTiles) {
+            if (shouldYieldAt(visibleScanIndex++, 2_000)) await yieldToEventLoop();
+            if (visibleKeys.has(keyFor(tile.x, tile.y))) visibleTiles.push(tile);
+          }
+          return visibleTiles.sort((left, right) => (left.x - right.x) || (left.y - right.y));
         })();
+  recordPhaseTiming("visible_tiles_async", visibleTilesStartedAt, {
+    sourceTileCount: sourceTiles.length,
+    visibleTileCount: tiles.length,
+    fullVisibility: options?.fullVisibility === true
+  });
   await yieldToEventLoop();
+  const queueStateStartedAt = Date.now();
   const pendingSettlements = runtimeState.pendingSettlements
     .filter((settlement) => settlement.ownerId === playerId)
     .map((settlement) => {
@@ -480,8 +538,17 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
         })
         .filter((tile): tile is { x: number; y: number } => Boolean(tile))
     : [];
+  recordPhaseTiming("queue_state_async", queueStateStartedAt, {
+    pendingSettlementCount: pendingSettlements.length,
+    autoSettlementQueueCount: autoSettlementQueue.length
+  });
   const hasLivePlayerState = livePlayer && typeof livePlayer.points === "number" && typeof livePlayer.manpower === "number";
+  const liveEconomyStartedAt = Date.now();
   const liveEconomy = buildLivePlayerEconomySnapshot(playerId, runtimeState);
+  recordPhaseTiming("live_economy_async", liveEconomyStartedAt, {
+    sourceTileCount: runtimeState.tiles.length,
+    playerCount: runtimeState.players.length
+  });
   const liveProgressionPlayer = livePlayer
     ? {
         techIds: new Set(livePlayer.techIds),
@@ -513,16 +580,37 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
     typeof livePlayer?.incomePerMinute === "number"
       ? livePlayer.incomePerMinute
       : liveEconomy.incomePerMinute ?? estimateIncomePerMinuteFromTiles(playerId, runtimeState.tiles);
+  const enrichTilesStartedAt = Date.now();
   const enrichedTiles =
     options?.fullVisibility === true && options?.sharedFullVisibilityTiles
       ? options.sharedFullVisibilityTiles
       : await enrichSnapshotTilesForPlayerAsync(playerId, runtimeState, tiles, liveEconomy, yieldToEventLoop);
+  recordPhaseTiming("enrich_tiles_async", enrichTilesStartedAt, {
+    visibleTileCount: tiles.length,
+    tileCount: enrichedTiles.length,
+    fullVisibility: options?.fullVisibility === true
+  });
   const docks: PlayerSubscriptionDock[] = (runtimeState.docks ?? []).map((dock) => ({
     dockId: dock.dockId,
     tileKey: dock.tileKey,
     pairedDockId: dock.pairedDockId,
     ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
   }));
+  const worldStatusStartedAt = Date.now();
+  const worldStatus =
+    options?.includeWorldStatus === false
+      ? undefined
+      : buildWorldStatusSnapshot(
+          playerId,
+          options?.worldStatusRuntimeState ?? runtimeState,
+          fallbackTiles,
+          options?.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : undefined
+        );
+  recordPhaseTiming("world_status_async", worldStatusStartedAt, {
+    sourceTileCount: (options?.worldStatusRuntimeState ?? runtimeState).tiles.length,
+    playerCount: (options?.worldStatusRuntimeState ?? runtimeState).players.length,
+    includeWorldStatus: options?.includeWorldStatus === true
+  });
 
   return {
     playerId,
@@ -573,14 +661,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
       : {}),
     ...(options?.includeWorldStatus === false
       ? {}
-      : {
-          worldStatus: buildWorldStatusSnapshot(
-            playerId,
-            options?.worldStatusRuntimeState ?? runtimeState,
-            fallbackTiles,
-            options?.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : undefined
-          )
-        }),
+      : { worldStatus: worldStatus! }),
     ...(options?.seasonState ? { season: options.seasonState } : {}),
     ...(docks.length ? { docks } : {}),
     ...(options?.respawnNotice ? { respawnNotice: options.respawnNotice } : {}),
