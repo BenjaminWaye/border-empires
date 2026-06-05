@@ -1357,4 +1357,24 @@ describe("buildPlayerSubscriptionSnapshotAsync (parity with sync)", () => {
     // yield, plus the pre-enrichment phase yield = 2+.
     expect(yieldCount).toBeGreaterThanOrEqual(2);
   });
+
+  it("reports async materialization subphase timings", async () => {
+    const runtimeState = buildRuntimeStateFixture();
+    const phases: string[] = [];
+    await buildPlayerSubscriptionSnapshotAsync("player-1", runtimeState, undefined, yieldToEventLoop, {
+      onAsyncPhaseTiming: (phase, durationMs) => {
+        phases.push(phase);
+        expect(durationMs).toBeGreaterThanOrEqual(0);
+      }
+    });
+    expect(phases).toEqual([
+      "source_tiles_async",
+      "owned_tile_index_async",
+      "visible_tiles_async",
+      "queue_state_async",
+      "live_economy_async",
+      "enrich_tiles_async",
+      "world_status_async"
+    ]);
+  });
 });
