@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.04.5",
+  version: "2026.06.05.1",
   title: "What's New",
-  summary: "AI event loop stalls eliminated, turn rotation fixed, and alliance-safe waypoints.",
+  summary: "Empire Integrity, AI event loop stalls eliminated, turn rotation fixed, and alliance-safe waypoints.",
   entries: [
+    {
+      introducedIn: "2026.06.05.1",
+      title: "Empire Integrity",
+      why: "Your kingdom's shape now earns you more gold and faster city growth. A tight, fully-painted island scores higher and gets a bigger economy bonus. Open the Integrity panel to see your score and the bonus it gives you.",
+      changes: [
+        "The defensibility panel is now the Empire Integrity panel.",
+        "Your integrity score drives an economy bonus — compact, well-painted empires earn more gold and grow cities faster.",
+        "The panel now shows your current income and growth bonus from integrity."
+      ]
+    },
     {
       introducedIn: "2026.06.04.5",
       title: "AI sync no longer blocks the event loop",

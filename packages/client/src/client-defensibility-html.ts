@@ -1,4 +1,9 @@
-import { fullDefensibilityExposureForTiles, idealExposureForTiles } from "@border-empires/shared";
+import {
+  fullDefensibilityExposureForTiles,
+  idealExposureForTiles,
+  integrityEconomyMult,
+  integrityGrowthMult
+} from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "./client-defensibility-tile.js";
 
@@ -11,13 +16,14 @@ type DefensibilityBreakdown = {
   tips: string[];
 };
 
-type DefensibilityArgs = {
+export type DefensibilityArgs = {
   tiles: Map<string, Tile>;
   me: string;
   defensibilityPct: number;
   settledT: number;
   settledE: number;
   showWeakDefensibility: boolean;
+  empireIntegrityEnabled: boolean;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -64,10 +70,10 @@ const defensibilityBreakdown = (args: Pick<DefensibilityArgs, "tiles" | "me" | "
   }
   const borderEdges = naturalShieldEdges + exposedEdges;
   const tips: string[] = [];
-  if (exposedEdges > naturalShieldEdges) tips.push("Build next to water or mountains. They work like walls that enemies can't walk through.");
+  if (exposedEdges > naturalShieldEdges) tips.push("Build next to water or mountains — they work like walls that enemies can't walk through, and filling in your island earns more gold.");
   if (tiles.length > 0 && exposedEdges / tiles.length > 1.6) tips.push("Your land is too long and thin. Fill the gaps so your shape looks like a fat blob, not a snake.");
-  if (internalEdges < borderEdges * 1.4) tips.push("Fat blobs are safer than long lines. Connect your scattered tiles into one big chunk.");
-  if (tips.length === 0) tips.push("Nice shape! Keep growing in fat chunks and keep your water and mountain walls.");
+  if (internalEdges < borderEdges * 1.4) tips.push("Fat blobs score higher. Connect your scattered tiles into one big chunk to boost your integrity bonus.");
+  if (tips.length === 0) tips.push("Nice shape! Keep growing in fat chunks and keep your water and mountain walls to maintain a high integrity bonus.");
   return {
     settledTiles: tiles.length,
     exposedEdges,
@@ -76,6 +82,11 @@ const defensibilityBreakdown = (args: Pick<DefensibilityArgs, "tiles" | "me" | "
     borderEdges,
     tips
   };
+};
+
+const formatMultPct = (mult: number): string => {
+  const pct = Math.round((mult - 1) * 100);
+  return pct >= 0 ? `+${pct}%` : `${pct}%`;
 };
 
 export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string => {
@@ -99,17 +110,33 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
     rounded >= 100
       ? "Great shape! Your kingdom is squished into a tight blob, so very few sides face open ground for enemies to attack."
       : "Your kingdom has too many sides facing open ground where enemies can attack. Try to grow into one fat blob instead of long thin shapes.";
+
+  const integrityT = args.defensibilityPct / 100;
+  const econMult = integrityEconomyMult(integrityT);
+  const growthMult = integrityGrowthMult(integrityT);
+  const bonusCard = args.empireIntegrityEnabled
+    ? `<article class="card defense-breakdown-card">
+      <strong>Your Empire Integrity bonus</strong>
+      <p class="defense-copy">A solid, well-painted empire earns more gold and grows faster. Fill in your island and keep your borders tight to maximise the bonus.</p>
+      <div class="defense-stat-grid">
+        <div class="defense-stat"><span>Income bonus</span><strong class="${econMult >= 1 ? "is-positive" : "is-negative"}">${formatMultPct(econMult)} income</strong></div>
+        <div class="defense-stat"><span>Growth bonus</span><strong class="${growthMult >= 1 ? "is-positive" : "is-negative"}">${formatMultPct(growthMult)} growth</strong></div>
+      </div>
+    </article>`
+    : "";
+
   return `<div class="defense-panel">
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
         <div>
-          <div class="defense-kicker">How safe is your kingdom?</div>
-          <strong>${rounded}% safe</strong>
+          <div class="defense-kicker">Empire Integrity</div>
+          <strong>${rounded}% integrity</strong>
         </div>
       </div>
       <p class="defense-copy">${scoreCopy}</p>
       <button class="panel-btn defense-toggle-btn" type="button" data-toggle-weak-def="true">${args.showWeakDefensibility ? "Hide weak tiles" : "Show weak tiles"}${weakCount > 0 ? ` (${weakCount})` : ""}</button>
     </article>
+    ${bonusCard}
     <article class="card defense-breakdown-card">
       <strong>What is an "open side"?</strong>
       <p class="defense-copy">Every land tile you own has 4 sides. A side is <em>open</em> if it touches enemy land or empty land — that's where enemies can walk in. Water and mountains block enemies, so those sides do <em>not</em> count as open. <strong>Fewer open sides = harder to invade = higher score.</strong></p>
