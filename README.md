@@ -72,7 +72,9 @@ Run the full local gate from a clean worktree with:
 pnpm ci:local
 ```
 
-This runs install, builds `@border-empires/shared` first, then lints, tests, and builds each workspace package in a fixed order so local checks are deterministic.
+This first runs `pnpm check:file-lines`, then builds `@border-empires/shared`, lints, tests, and builds each workspace package in a fixed order so local checks are deterministic.
+
+The file-line gate is debt-aware: new source files must be 500 lines or fewer, files at or below 500 lines may not cross 500, and files already over 500 lines may not grow. Split or extract before adding logic to an oversized file.
 
 Install the local git hook for this checkout with:
 

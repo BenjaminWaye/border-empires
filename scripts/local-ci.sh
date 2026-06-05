@@ -26,6 +26,7 @@ if ! pnpm --filter @border-empires/client exec vitest --version >/dev/null 2>&1;
   exit 1
 fi
 
+run_step "file-lines" pnpm check:file-lines
 run_step "shared:build" pnpm --filter @border-empires/shared build
 run_step "scripts:test" pnpm test:scripts
 run_step "shared:lint" pnpm --filter @border-empires/shared lint
