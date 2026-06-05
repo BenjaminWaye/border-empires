@@ -141,17 +141,17 @@ export const OUTPOST_DEPOT_RADIUS = 2;
 // --- Barbarian raids ---
 export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
 
-// --- Heartland Tidiness (wide-vs-tall, flag-gated) ---
+// --- Empire Integrity (wide-vs-tall, flag-gated) ---
 // When false, economy behaves exactly as before.
-export const HEARTLAND_TIDINESS_ENABLED = process.env["HEARTLAND_TIDINESS_ENABLED"] === "true";
-// Tidiness → economy multiplier (town gold + resources). Spans below/above 1.0;
-// tidiness ~0.5 ≈ neutral so this redistributes rather than inflates. Placeholders — tunable.
-export const TIDINESS_ECON_MIN_MULT = 0.8;
-export const TIDINESS_ECON_MAX_MULT = 1.25;
-// Tidiness → growth multiplier. Deliberately gentle: growth already stacks
+export const EMPIRE_INTEGRITY_ENABLED = process.env["EMPIRE_INTEGRITY_ENABLED"] === "true";
+// Integrity → economy multiplier (town gold + resources). Spans below/above 1.0;
+// integrity ~0.5 ≈ neutral so this redistributes rather than inflates. Placeholders — tunable.
+export const INTEGRITY_ECON_MIN_MULT = 0.8;
+export const INTEGRITY_ECON_MAX_MULT = 1.25;
+// Integrity → growth multiplier. Deliberately gentle: growth already stacks
 // LONG_PEACE_GROWTH_MULT × firstThreeTowns mult, so keep this light.
-export const TIDINESS_GROWTH_MIN_MULT = 0.95;
-export const TIDINESS_GROWTH_MAX_MULT = 1.10;
+export const INTEGRITY_GROWTH_MIN_MULT = 0.95;
+export const INTEGRITY_GROWTH_MAX_MULT = 1.10;
 
 // --- Fort garrison (Phase 7) ---
 export const FORT_GARRISON_CAP_BY_VARIANT: Record<string, number> = {

@@ -19,4 +19,4 @@ export * from "./town-growth.js";
 export * from "./structure-registry.js";
 export * from "./structure-registry-index.js";
 export { TECH_REQUIREMENTS_BY_STRUCTURE } from "./structure-registry-economic.js";
-export * from "./tidiness.js";
+export * from "./empire-integrity.js";

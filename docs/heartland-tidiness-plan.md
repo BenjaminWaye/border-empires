@@ -1,4 +1,4 @@
-# Heartland, Tidiness & Wide-vs-Tall — Implementation Plan
+# Heartland & Empire Integrity — Wide-vs-Tall — Implementation Plan
 
 > **Status:** Committed design (June 2026), distilled from the design conversation
 > that started from `defense-consolidation` exploration. This **supersedes** the
@@ -41,7 +41,7 @@ interior auto-claims + auto-settles. You paint the outline; the island fills its
 and stays. Self-limiting: you can only auto-fill land you already fully surround, so
 it removes busywork, never a decision (the contested front stays manual + costed).
 
-### 2.2 Tidiness meter (measures tall — the defensibility calc reborn)
+### 2.2 Empire Integrity meter (measures tall — the defensibility calc reborn)
 The existing `defensibilityScore` (`math.ts:45`) already measures exactly this: it
 reaches **1.0 when your settled territory is a solid block up to its natural borders**
 (`E → 0`, because sea/mountain edges are not "exposed" — `exposure.ts` `isExposedSide`,
@@ -50,28 +50,28 @@ reaches **1.0 when your settled territory is a solid block up to its natural bor
 (b) it did nothing (display-only).
 
 **We keep the calculation, change its job.** It becomes a **global, per-player
-Tidiness meter** ∈ [0,1], computed from the already-cached
+Empire Integrity meter** ∈ [0,1], computed from the already-cached
 `buildPlayerDefensibilityMetrics` (settled `Ts`/`Es`). One headline number per
 empire.
 
 **Global, not local** — deliberately. There's already a *local* per-town growth
 reward (`LONG_PEACE_GROWTH_MULT`, `live-snapshot-view.ts:764`, triggered by ~24h of
-no nearby war). Tidiness is the *empire-scale* complement: local peace = "this town
-is calm," global tidiness = "my whole realm is solid." Different axes, no
+no nearby war). Empire Integrity is the *empire-scale* complement: local peace = "this town
+is calm," global integrity = "my whole realm is solid." Different axes, no
 double-count.
 
 ### 2.3 Economic-density bonus (pays tall)
-Tidiness multiplies the **tall** levers:
+Empire Integrity multiplies the **tall** levers:
 
 - **Town gold production**
 - **Strategic resource production**
 - **Town growth** — *gently* (it already stacks `LONG_PEACE_GROWTH_MULT` ×
-  `firstThreeTownsPopulationGrowthMult`; tidiness is a 4th multiplier on the same
+  `firstThreeTownsPopulationGrowthMult`; integrity is a 4th multiplier on the same
   number, so keep it light or growth runs away).
 
 **Calibration = redistribution, not power creep.** The multiplier spans **below and
-above 1.0**, centered so that *typical* tidiness (~0.5, where most players sit today)
-≈ neutral. Low tidiness (wide, ragged) < 1.0; high tidiness (tall, solid) > 1.0. This
+above 1.0**, centered so that *typical* integrity (~0.5, where most players sit today)
+≈ neutral. Low integrity (wide, ragged) < 1.0; high integrity (tall, solid) > 1.0. This
 is the implicit "lower the base" the design calls for, achieved with a single
 flag-gated multiplier instead of editing base constants (fully reversible, lower
 blast radius).
@@ -81,11 +81,11 @@ a fat **per-unit** multiplier. Tall identity = *few, fast-growing, high-tier,
 resource-dense cities*.
 
 ## 3. Why wide and tall stay at parity (the math, not a leash)
-Tidiness is **easy to max when small, hard to max when sprawling**: a compact island
+Empire Integrity is **easy to max when small, hard to max when sprawling**: a compact island
 painted to its sea borders hits ~100%; a wide empire on ragged multi-enemy fronts
-always has exposed perimeter, so its tidiness sits lower. So the bonus is a *big
+always has exposed perimeter, so its integrity sits lower. So the bonus is a *big
 multiplier on a small base* (tall) vs a *small multiplier on a big base* (wide) —
-they land in the same ballpark by construction. One tuning knob (how hard tidiness
+they land in the same ballpark by construction. One tuning knob (how hard integrity
 scales output) sets where parity lands.
 
 **Tradeoffs each accepts:** Tall = efficient, safe, hard to crack, but lower
@@ -97,8 +97,8 @@ stalling a game. The merged muster/siege rules already answer this — coordinat
 multi-front pressure bleeds forts faster than they heal.
 
 ## 4. Flag gating
-Everything ships behind a new env flag `HEARTLAND_TIDINESS_ENABLED`
-(`process.env.HEARTLAND_TIDINESS_ENABLED === "true"`, default **false**), mirroring
+Everything ships behind a new env flag `EMPIRE_INTEGRITY_ENABLED`
+(`process.env.EMPIRE_INTEGRITY_ENABLED === "true"`, default **false**), mirroring
 `MUSTER_SYSTEM_ENABLED`. Flag off ⇒ byte-for-byte legacy behaviour. Lets us A/B and
 tune parity in a live game without a deploy.
 
@@ -106,34 +106,34 @@ tune parity in a live game without a deploy.
 
 | Phase | Scope | Touches | Risk |
 |---|---|---|---|
-| **A. Tidiness → economy bonus** | Tidiness meter from cached metrics; flag-gated multiplier on town gold + resources + (gentle) growth | shared, sim | low–med |
+| **A. Empire Integrity → economy bonus** | Empire Integrity meter from cached metrics; flag-gated multiplier on town gold + resources + (gentle) growth | shared, sim | low–med |
 | **B. Auto-fill via enclosure** | Flood-fill enclosure test; auto-claim + auto-settle enclosed interior (free, decay-immune); reconcile decay/encirclement; perf hook at `replaceTileState` | sim | med–high |
-| **C. Tidiness meter UI** | Surface the global Tidiness % + the bonus it grants (repurpose the defensibility readout) | client (⚠ changelog hook) | low |
+| **C. Empire Integrity meter UI** | Surface the global Empire Integrity % + the bonus it grants (repurpose the defensibility readout) | client (⚠ changelog hook) | low |
 | **D. AI parity + tuning** | AI values consolidation; tune magnitudes for wide/tall parity | sim | med |
 
 Phase A is the headline value and fully sim-side — build + verify first. Phase B
 makes the meter *reachable* and is the bigger engineering lift. C/D follow.
 
 ## 6. Phase A detail (first build)
-- **Flag + constants** in `packages/shared/src/config.ts`: `HEARTLAND_TIDINESS_ENABLED`,
+- **Flag + constants** in `packages/shared/src/config.ts`: `EMPIRE_INTEGRITY_ENABLED`,
   plus the multiplier curve constants (gold/resource range, gentler growth range).
-- **`tidinessScore(player)`** ∈ [0,1] from `buildPlayerDefensibilityMetrics`'s settled
+- **`empireIntegrity(Ts, Es)`** ∈ [0,1] from `buildPlayerDefensibilityMetrics`'s settled
   `Ts`/`Es` via the existing `defensibilityScore`. Reuse the cached
   `defensibilityMetricsCacheByPlayer` so it's O(1) on the hot path.
-- **Multiplier helpers** (pure, in shared): `tidinessEconomyMult(t)` and
-  `tidinessGrowthMult(t)`, both centered so t≈0.5 ⇒ ~1.0, spanning below/above.
+- **Multiplier helpers** (pure, in shared): `integrityEconomyMult(t)` and
+  `integrityGrowthMult(t)`, both centered so t≈0.5 ⇒ ~1.0, spanning below/above.
 - **Apply** in the sim economy: town gold (`player-update-economy` /
   `townGoldPerMinuteForPlayer`), strategic resource production
   (`strategicProductionPerMinute`), and population growth
-  (`runtime-population-growth`) — each `× tidiness*Mult` **only when the flag is on**.
-- **Tests:** solid island ⇒ high tidiness ⇒ >1 mult; ragged ⇒ <1; flag-off parity;
-  curve centered at ~1.0 for mid tidiness.
+  (`runtime-population-growth`) — each `× integrity*Mult` **only when the flag is on**.
+- **Tests:** solid island ⇒ high integrity ⇒ >1 mult; ragged ⇒ <1; flag-off parity;
+  curve centered at ~1.0 for mid integrity.
 - No client changes (no changelog hook).
 
 ## 7. What's shelved
 The per-tile **local-support combat** model (branch `agent/local-support-defense`,
 commits make settled-tile defence scale with friendly-settled neighbours + the
 "wedge softens a pocket" feel) is **parked, not merged**. It's flag-off and costs
-nothing to leave on its branch. The headline is now the **paint → tidiness → economic
+nothing to leave on its branch. The headline is now the **paint → integrity → economic
 density** loop; combat stays on its legacy multipliers. We can revisit the wedge feel
 later.

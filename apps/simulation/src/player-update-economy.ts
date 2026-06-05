@@ -398,7 +398,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   summary: PlayerRuntimeSummary,
   tiles: ReadonlyMap<string, DomainTileState>,
   dockContext?: Pick<DockEconomyContext, "dockLinksByDockTileKey">,
-  tidinessEconMult: number = 1
+  integrityEconMult: number = 1
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const fortGoldUpkeepMult = multiplicativeEffectForPlayer(player, "fortGoldUpkeepMult");
@@ -521,20 +521,20 @@ export const buildPlayerUpdateEconomySnapshot = (
       ? 1
       : Math.max(0, Math.min(1, (((player.strategicResources?.FOOD ?? 0) + strategicProductionPerMinute.FOOD) / upkeepPerMinute.food)));
 
-  // Apply tidiness economy multiplier to gold income and strategic production.
+  // Apply integrity economy multiplier to gold income and strategic production.
   // Done after the food-affordability gate (which reads strategicProductionPerMinute.FOOD)
   // so intermediate logic is not disturbed. Default mult = 1 (flag off → no change).
-  const incomePerMinute = Number((rawIncomePerMinute * tidinessEconMult).toFixed(4));
+  const incomePerMinute = Number((rawIncomePerMinute * integrityEconMult).toFixed(4));
 
   return {
     incomePerMinute,
     strategicProductionPerMinute: {
-      FOOD: Number((strategicProductionPerMinute.FOOD * tidinessEconMult).toFixed(4)),
-      IRON: Number((strategicProductionPerMinute.IRON * tidinessEconMult).toFixed(4)),
-      CRYSTAL: Number((strategicProductionPerMinute.CRYSTAL * tidinessEconMult).toFixed(4)),
-      SUPPLY: Number((strategicProductionPerMinute.SUPPLY * tidinessEconMult).toFixed(4)),
-      SHARD: Number((strategicProductionPerMinute.SHARD * tidinessEconMult).toFixed(4)),
-      OIL: Number((strategicProductionPerMinute.OIL * tidinessEconMult).toFixed(4))
+      FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(4)),
+      IRON: Number((strategicProductionPerMinute.IRON * integrityEconMult).toFixed(4)),
+      CRYSTAL: Number((strategicProductionPerMinute.CRYSTAL * integrityEconMult).toFixed(4)),
+      SUPPLY: Number((strategicProductionPerMinute.SUPPLY * integrityEconMult).toFixed(4)),
+      SHARD: Number((strategicProductionPerMinute.SHARD * integrityEconMult).toFixed(4)),
+      OIL: Number((strategicProductionPerMinute.OIL * integrityEconMult).toFixed(4))
     },
     upkeepPerMinute,
     upkeepLastTick: {

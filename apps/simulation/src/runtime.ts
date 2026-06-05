@@ -56,10 +56,10 @@ import {
   type BuildableStructureType,
   type EconomicStructureType,
   type StructureSpec,
-  HEARTLAND_TIDINESS_ENABLED,
-  tidinessScore,
-  tidinessEconomyMult,
-  tidinessGrowthMult
+  EMPIRE_INTEGRITY_ENABLED,
+  empireIntegrity,
+  integrityEconomyMult,
+  integrityGrowthMult
 } from "@border-empires/shared";
 import {
   AETHER_BRIDGE_COOLDOWN_MS,
@@ -945,11 +945,11 @@ export class SimulationRuntime {
         this.economySnapshotCacheByPlayer.delete(playerId);
         this.tileYieldContextCacheByPlayer.delete(playerId);
       },
-      tidinessGrowthMultForPlayer: HEARTLAND_TIDINESS_ENABLED
+      integrityGrowthMultForPlayer: EMPIRE_INTEGRITY_ENABLED
         ? (playerId) => {
             const summary = this.summaryForPlayer(playerId);
             const metrics = this.cachedDefensibilityMetrics(playerId, summary);
-            return tidinessGrowthMult(tidinessScore(metrics.Ts, metrics.Es));
+            return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es));
           }
         : undefined
     });
@@ -1304,9 +1304,9 @@ export class SimulationRuntime {
     if (cached) return cached;
     const summary = this.summaryForPlayer(player.id);
     let econMult = 1;
-    if (HEARTLAND_TIDINESS_ENABLED) {
+    if (EMPIRE_INTEGRITY_ENABLED) {
       const metrics = this.cachedDefensibilityMetrics(player.id, summary);
-      econMult = tidinessEconomyMult(tidinessScore(metrics.Ts, metrics.Es));
+      econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
     }
     const snapshot = buildPlayerUpdateEconomySnapshot(player, summary, this.tiles, {
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
