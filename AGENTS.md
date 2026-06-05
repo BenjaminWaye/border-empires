@@ -19,7 +19,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 
 ## File and type discipline
 
-- Keep source files at 500 lines or fewer when reasonable. If a file grows past 500, split into focused modules — do not add net-new feature logic, rendering, state shaping, or helpers to an already-oversized file.
+- Source files have a hard 500-line limit for new growth. Local CI enforces this with `pnpm check:file-lines`: new source files must be 500 lines or fewer, files at or below 500 may not cross 500, and files already over 500 may not increase in line count. If an oversized file must change, split/extract first so the file is net smaller in the same branch.
 - If a branch touches a large integration file, review the diff for nearby regressions and extract helpers first, so later branches don't overwrite unrelated code paths.
 - Treat strict TypeScript as a hard requirement. No `Record<string, any>`, no untyped dependency bags, no broad `unknown`/`any` casts for module wiring. Factories must declare explicit dependency interfaces and return types. No `as any` at composition roots — fix the contract.
 - When touching loosely typed legacy areas, tighten the boundary you are working in as part of the change.
