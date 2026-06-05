@@ -23,6 +23,7 @@ describe("renderDefensibilityPanelHtml", () => {
       settledT: 4,
       settledE: 4,
       showWeakDefensibility: false,
+      empireIntegrityEnabled: false,
       keyFor,
       wrapX: (x) => x,
       wrapY: (y) => y,
@@ -54,6 +55,7 @@ describe("renderDefensibilityPanelHtml", () => {
       settledT: 20,
       settledE: 30,
       showWeakDefensibility: false,
+      empireIntegrityEnabled: false,
       keyFor,
       wrapX: (x) => x,
       wrapY: (y) => y,
@@ -66,5 +68,56 @@ describe("renderDefensibilityPanelHtml", () => {
     expect(html).toContain('<span>You score 100% if you stay at or below</span><strong>22.5</strong>');
     expect(html).toContain('<span>You actually have</span><strong class="is-negative">30</strong>');
     expect(html).toContain('<span>Tiles you own</span><strong>4</strong>');
+  });
+
+  it("shows Empire Integrity kicker and integrity% when empireIntegrityEnabled is true", () => {
+    const tiles = new Map<string, Tile>();
+    const settled: Tile[] = [
+      { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" },
+      { x: 11, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }
+    ];
+    for (const tile of settled) tiles.set(keyFor(tile.x, tile.y), tile);
+
+    const html = renderDefensibilityPanelHtml({
+      tiles,
+      me: "me",
+      defensibilityPct: 75,
+      settledT: 2,
+      settledE: 3,
+      showWeakDefensibility: false,
+      empireIntegrityEnabled: true,
+      keyFor,
+      wrapX: (x) => x,
+      wrapY: (y) => y,
+      terrainAt: (x, y) => tiles.get(keyFor(x, y))?.terrain ?? "LAND"
+    });
+
+    expect(html).toContain("Empire Integrity");
+    expect(html).toContain("75% integrity");
+    expect(html).toContain("Your Empire Integrity bonus");
+    expect(html).toContain("income");
+    expect(html).toContain("growth");
+  });
+
+  it("does not show bonus card when empireIntegrityEnabled is false", () => {
+    const tiles = new Map<string, Tile>();
+
+    const html = renderDefensibilityPanelHtml({
+      tiles,
+      me: "me",
+      defensibilityPct: 75,
+      settledT: 0,
+      settledE: 0,
+      showWeakDefensibility: false,
+      empireIntegrityEnabled: false,
+      keyFor,
+      wrapX: (x) => x,
+      wrapY: (y) => y,
+      terrainAt: () => "LAND"
+    });
+
+    expect(html).not.toContain("Your Empire Integrity bonus");
+    expect(html).toContain("Empire Integrity");
+    expect(html).toContain("75% integrity");
   });
 });
