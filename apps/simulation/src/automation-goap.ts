@@ -162,6 +162,7 @@ export interface AiEmpireGoapState {
   canBuildSiegeOutpost: boolean;
   goldHealthy: boolean;
   staminaHealthy: boolean;
+  musterReady: boolean;
 }
 
 export type AiSeasonVictoryPathId = "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY";
@@ -265,7 +266,9 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       hasWeakEnemyBorder: true,
       attackReady: true,
       canAffordFrontierAction: true,
-      staminaHealthy: true
+      staminaHealthy: true,
+      // Under the muster system, direct pool attacks are replaced by place_muster.
+      musterReady: false
     },
     effects: {
       hasWeakEnemyBorder: false,
@@ -274,6 +277,25 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     meta: {
       goalIds: ["remove_core_threat", "season_town_control", "season_economic_hegemony"],
       description: "Push a weak neighboring border."
+    }
+  },
+  {
+    key: "place_muster",
+    cost: 4,
+    preconditions: {
+      hasWeakEnemyBorder: true,
+      attackReady: true,
+      canAffordFrontierAction: true,
+      staminaHealthy: true,
+      musterReady: true
+    },
+    effects: {
+      hasWeakEnemyBorder: false,
+      needsSettlement: true
+    },
+    meta: {
+      goalIds: ["remove_core_threat", "season_town_control", "season_economic_hegemony"],
+      description: "Stage manpower on frontier tile for ADVANCE auto-fire."
     }
   },
   {
@@ -489,6 +511,7 @@ export type AutomationGoapActionKey =
   | "claim_scaffold_border_tile"
   | "attack_barbarian_border_tile"
   | "attack_enemy_border_tile"
+  | "place_muster"
   | "build_siege_outpost"
   | "settle_owned_frontier_tile"
   | "build_fort_on_exposed_tile"

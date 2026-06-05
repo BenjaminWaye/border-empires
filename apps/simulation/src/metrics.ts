@@ -86,7 +86,7 @@ export const AI_PLANNER_PHASES = [
 ] as const;
 export type AiPlannerPhase = (typeof AI_PLANNER_PHASES)[number];
 
-const AI_TICK_THROTTLE_REASONS = ["adaptive", "budget", "loop_lag"] as const;
+const AI_TICK_THROTTLE_REASONS = ["adaptive", "budget", "loop_lag", "plan_timeout"] as const;
 export type AiTickThrottleReason = (typeof AI_TICK_THROTTLE_REASONS)[number];
 
 export type SimulationSnapshotMetricSample = {

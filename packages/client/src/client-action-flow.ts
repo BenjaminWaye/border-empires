@@ -2,6 +2,7 @@ import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
+import { ownObservatoryRange } from "./client-observatory-rules.js";
 import {
   activeTruceWithPlayerFromState,
   breakAllianceFromUi,
@@ -497,6 +498,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       authSessionReady: state.authSessionReady,
       keyFor,
       isAdjacent,
+      isTileOwnedByAlly,
       pickOriginForTarget,
       notifyInsufficientGoldForFrontierAction,
       applyOptimisticTileState,
@@ -706,7 +708,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const abilityCooldownRemainingMs = (abilityId: keyof ClientState["abilityCooldowns"]): number => {
     const selectedTile = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
     if (selectedTile && (abilityId === "siphon" || abilityId === "create_mountain" || abilityId === "remove_mountain")) {
-      return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now());
+      return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now(), ownObservatoryRange(state));
     }
     return Math.max(0, (state.abilityCooldowns[abilityId] ?? 0) - Date.now());
   };
@@ -1580,6 +1582,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "disable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "enable_outpost_sweep") sendGameMessage({ type: "SET_SIEGE_OUTPOST_SWEEP", x: selected.x, y: selected.y, enabled: true });
     if (actionId === "disable_outpost_sweep") sendGameMessage({ type: "SET_SIEGE_OUTPOST_SWEEP", x: selected.x, y: selected.y, enabled: false });
+    if (actionId === "muster_hold") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
+    if (actionId === "muster_advance") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "ADVANCE" });
+    if (actionId === "muster_clear") sendGameMessage({ type: "CLEAR_MUSTER", x: selected.x, y: selected.y });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
@@ -1621,7 +1626,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         state.revealEmpireFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
       }
     }
-    if (actionId === "survey_sweep") sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y });
+    if (actionId === "survey_sweep") {
+      if (sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y })) {
+        state.surveySweepFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
+      }
+    }
     if (actionId === "aether_lance") {
       if (sendGameMessage({ type: "AETHER_LANCE", x: selected.x, y: selected.y })) {
         state.aetherLanceFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
@@ -1671,7 +1680,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "astral_dock_launch") sendGameMessage({ type: "ASTRAL_DOCK_LAUNCH", fromX: selected.x, fromY: selected.y });
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
-    if (actionId === "purge_siphon") sendGameMessage({ type: "PURGE_SIPHON", x: selected.x, y: selected.y });
     hideTileActionMenu();
   };
 

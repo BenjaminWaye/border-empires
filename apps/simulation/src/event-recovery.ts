@@ -25,6 +25,7 @@ type RecoveredTileState = {
   siegeOutpost?: DomainTileState["siegeOutpost"];
   economicStructure?: DomainTileState["economicStructure"];
   sabotage?: DomainTileState["sabotage"];
+  muster?: DomainTileState["muster"];
 };
 
 export type RecoveredLock = {
@@ -303,6 +304,13 @@ const applyTileDeltaToRecoveredAccumulator = (
       ? { sabotage: parseOptionalJson<DomainTileState["sabotage"]>(tileDelta.sabotageJson) }
       : existing?.sabotage
         ? { sabotage: existing.sabotage }
+        : {}),
+    ...("musterJson" in tileDelta
+      ? (tileDelta.musterJson
+          ? { muster: parseOptionalJson<DomainTileState["muster"]>(tileDelta.musterJson) }
+          : {})
+      : existing?.muster
+        ? { muster: existing.muster }
         : {})
   });
 };

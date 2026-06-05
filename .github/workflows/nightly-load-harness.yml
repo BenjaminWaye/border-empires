@@ -39,6 +39,9 @@ jobs:
       LOAD_HARNESS_BATCH_ITERATIONS: "120"
       LOAD_HARNESS_SOAK_TIMEOUT_MS: "15000"
       LOAD_HARNESS_MIN_ACCEPTED_SAMPLES: "30"
+      # Pause between soak batches so player-1 manpower regenerates; without this
+      # every batch after the first starts drained and collects zero samples.
+      LOAD_HARNESS_INTER_BATCH_PAUSE_MS: "20000"
 
       # Fly API token for waking staging apps before the run.
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -484,6 +484,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   });
   const slowGatewaySubmitWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_SUBMIT_WARN_MS ?? 1_000));
   const slowGatewayRpcWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_RPC_WARN_MS ?? 1_000));
+  const slowGatewayAuthStepWarnMs = Math.max(0, Number(process.env.GATEWAY_SLOW_AUTH_STEP_WARN_MS ?? 100));
+  const gatewayMetricsLogIntervalMs = Math.max(0, Number(process.env.GATEWAY_METRICS_LOG_INTERVAL_MS ?? 0));
   // Threshold for "single processSimulationEvent handler took too long" warning.
   // The gateway serializes all sim events through a single Promise chain
   // (simulationEventChain), so any slow handler stalls every subsequent event.
@@ -497,8 +499,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let expectedEventLoopTickAt = Date.now() + 100;
   let lastCpuSampleAt = Date.now();
   let lastCpuUsage = process.cpuUsage();
+  let lastGatewayMetricsLogAt = 0;
   const pendingGcDurationsMs: number[] = [];
   const gatewayBootstrapStringifier = createGatewayStringifier();
+  const inlineBootstrapStringifyTileLimit = Math.max(
+    0,
+    Number(process.env.GATEWAY_INLINE_BOOTSTRAP_STRINGIFY_TILE_LIMIT ?? 512)
+  );
   // Phase B bootstrap admission control. Caps concurrent full-snapshot
   // bootstraps and throttles per-player re-bootstrap so a reconnect loop
   // cannot stall the event loop. Purely additive — the happy path is unchanged.
@@ -507,6 +514,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const minBootstrapIntervalMs = Math.max(0, Number(process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS ?? 0));
   const lastBootstrapAtByPlayerId = new Map<string, number>();
   const pendingInputToStateByCommandId = new Map<string, number>();
+  const recordGatewayAuthStepTiming = (
+    step: string,
+    durationMs: number,
+    payload: Record<string, unknown> = {}
+  ): void => {
+    if (slowGatewayAuthStepWarnMs <= 0 || durationMs < slowGatewayAuthStepWarnMs) return;
+    recordGatewayEvent("warn", "gateway_auth_step_slow", {
+      step,
+      durationMs,
+      ...payload
+    });
+  };
   const controlPathEventNames = new Set([
     "gateway_auth",
     "gateway_auth_binding_override",
@@ -1213,7 +1232,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         messageType !== "IMPERIAL_EXCHANGE_LEVY" &&
         messageType !== "WORLD_ENGINE_STRIKE" &&
         messageType !== "UPGRADE_TOWN_TIER" &&
-        messageType !== "COLLECT_SHARD"
+        messageType !== "COLLECT_SHARD" &&
+        messageType !== "SET_MUSTER" &&
+        messageType !== "CLEAR_MUSTER"
     )
   );
 
@@ -1242,6 +1263,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     listSeasonArchives: async () =>
       hydrateSeasonArchiveDisplayNames(await simulationClient.listSeasonArchives(), profileStore),
     startNextSeason: (force?: boolean) => simulationClient.startNextSeason(force),
+    seedBarbarians: (count?: number) => simulationClient.seedBarbarians(count),
     ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
     authenticateBearer: resolveHttpBearerIdentity,
     rallyLinkStore,
@@ -1951,30 +1973,34 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       if (submittedAt < staleBeforeMs) pendingInputToStateByCommandId.delete(commandId);
     }
     refreshGatewaySnapshotCacheMetrics();
-    const sample = gatewayMetrics.snapshot();
-    app.log.info(
-      {
-        gateway_event_loop_max_ms: sample.gatewayEventLoopMaxMs,
-        gateway_event_loop_delay_ms: sample.gatewayEventLoopDelayMs,
-        gateway_ws_sessions: sample.gatewayWsSessions,
-        gateway_backend_connected: sample.gatewayBackendConnected,
-        gateway_cpu_percent: sample.gatewayCpuPercent,
-        gateway_rss_mb: sample.gatewayRssMb,
-        gateway_heap_used_mb: sample.gatewayHeapUsedMb,
-        gateway_heap_total_mb: sample.gatewayHeapTotalMb,
-        gateway_gc_pause_ms: sample.gatewayGcPauseMs,
-        gateway_input_to_state_update_latency_ms: sample.gatewayInputToStateUpdateLatencyMs,
-        gateway_command_submit_latency_ms: sample.gatewayCommandSubmitLatencyMs,
-        gateway_sim_rpc_latency_ms: sample.gatewaySimRpcLatencyMs,
-        gateway_snapshot_tile_count: sample.gatewaySnapshotTileCount,
-        gateway_snapshot_json_bytes: sample.gatewaySnapshotJsonBytes,
-        gateway_snapshot_tiles_json_bytes: sample.gatewaySnapshotTilesJsonBytes,
-        gateway_snapshot_cache_entries: sample.gatewaySnapshotCacheEntries,
-        gateway_snapshot_cache_bytes: sample.gatewaySnapshotCacheBytes,
-        gateway_snapshot_recent: sample.gatewaySnapshotRecent
-      },
-      "gateway metrics sample"
-    );
+    const now = Date.now();
+    if (gatewayMetricsLogIntervalMs > 0 && now - lastGatewayMetricsLogAt >= gatewayMetricsLogIntervalMs) {
+      lastGatewayMetricsLogAt = now;
+      const sample = gatewayMetrics.snapshot();
+      app.log.info(
+        {
+          gateway_event_loop_max_ms: sample.gatewayEventLoopMaxMs,
+          gateway_event_loop_delay_ms: sample.gatewayEventLoopDelayMs,
+          gateway_ws_sessions: sample.gatewayWsSessions,
+          gateway_backend_connected: sample.gatewayBackendConnected,
+          gateway_cpu_percent: sample.gatewayCpuPercent,
+          gateway_rss_mb: sample.gatewayRssMb,
+          gateway_heap_used_mb: sample.gatewayHeapUsedMb,
+          gateway_heap_total_mb: sample.gatewayHeapTotalMb,
+          gateway_gc_pause_ms: sample.gatewayGcPauseMs,
+          gateway_input_to_state_update_latency_ms: sample.gatewayInputToStateUpdateLatencyMs,
+          gateway_command_submit_latency_ms: sample.gatewayCommandSubmitLatencyMs,
+          gateway_sim_rpc_latency_ms: sample.gatewaySimRpcLatencyMs,
+          gateway_snapshot_tile_count: sample.gatewaySnapshotTileCount,
+          gateway_snapshot_json_bytes: sample.gatewaySnapshotJsonBytes,
+          gateway_snapshot_tiles_json_bytes: sample.gatewaySnapshotTilesJsonBytes,
+          gateway_snapshot_cache_entries: sample.gatewaySnapshotCacheEntries,
+          gateway_snapshot_cache_bytes: sample.gatewaySnapshotCacheBytes,
+          gateway_snapshot_recent: sample.gatewaySnapshotRecent
+        },
+        "gateway metrics sample"
+      );
+    }
   }, 1_000);
 
   // Slow-event Slack alert latency poll (every 30s)
@@ -2277,12 +2303,24 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
             if (bootstrapInitialState) {
+              const seedSnapshotStartedAt = Date.now();
               playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
+              recordGatewayAuthStepTiming("seed_snapshot", Date.now() - seedSnapshotStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                tileCount: bootstrapInitialState.tiles.length
+              });
+              const gatewaySnapshotDiagnosticsStartedAt = Date.now();
               recordGatewaySnapshotDiagnostics(playerIdentity.playerId, bootstrapInitialState, {
                 trigger: "gateway_auth_bootstrap",
                 fullVisibility: false,
                 socketCount: 1,
                 payloadJsonBytes: 0
+              });
+              recordGatewayAuthStepTiming("gateway_snapshot_diagnostics", Date.now() - gatewaySnapshotDiagnosticsStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                tileCount: bootstrapInitialState.tiles.length
               });
             }
             authTrace.startStep("live_subscribe");
@@ -2320,6 +2358,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", "live_subscribe_failed");
               return;
             }
+            const resolveInitialStateStartedAt = Date.now();
             const initialState = resolveInitialState({
               playerId: playerIdentity.playerId,
               authoritativeSnapshot: bootstrapInitialState,
@@ -2328,11 +2367,17 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,
               allowSeedFallback: allowNonAuthoritativeInitialState
             });
+            recordGatewayAuthStepTiming("resolve_initial_state", Date.now() - resolveInitialStateStartedAt, {
+              playerId: playerIdentity.playerId,
+              channel,
+              tileCount: initialState?.tiles.length ?? 0
+            });
             authTrace.startStep("hydrate_leaderboard_profiles");
             await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
             authTrace.endStep("hydrate_leaderboard_profiles");
             if (session.channel === "control") {
               authTrace.startStep("build_init");
+              const buildInitMessageStartedAt = Date.now();
               const initMessage = await buildInitMessage(
                 playerIdentity,
                 commandStore,
@@ -2343,21 +2388,36 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 socialState,
                 session.canToggleFog
               );
+              recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                tileCount: initMessage.initialState?.tiles?.length ?? 0
+              });
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
               // Phase 7: include suggested colour swatches in the init payload
-              (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, await buildTakenColorSet(playerIdentity.playerId));
+              const buildTakenColorSetStartedAt = Date.now();
+              const takenColorSet = await buildTakenColorSet(playerIdentity.playerId);
+              recordGatewayAuthStepTiming("build_taken_color_set", Date.now() - buildTakenColorSetStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel
+              });
+              (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
               authTrace.endStep("build_init");
               // Stringify the ~256KB init message off the main thread so the
               // event loop stays free for gRPC acks and healthz during bootstrap.
               authTrace.startStep("stringify_init");
               let initJson: string;
-              try {
-                initJson = await gatewayBootstrapStringifier(initMessage);
-              } catch (err) {
-                // Worker OOM/crash — respawn is automatic; fall back to inline once.
-                app.log.warn({ err }, "[gateway-stringifier] worker stringify failed, using inline fallback");
+              if (initInitialTileCount <= inlineBootstrapStringifyTileLimit) {
                 initJson = JSON.stringify(initMessage);
+              } else {
+                try {
+                  initJson = await gatewayBootstrapStringifier(initMessage);
+                } catch (err) {
+                  // Worker OOM/crash — respawn is automatic; fall back to inline once.
+                  app.log.warn({ err }, "[gateway-stringifier] worker stringify failed, using inline fallback");
+                  initJson = JSON.stringify(initMessage);
+                }
               }
               authTrace.endStep("stringify_init");
               if (socket.readyState !== socket.OPEN) {
@@ -2385,11 +2445,24 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   simulationLastError: simulationHealth.lastError ?? ""
                 }
               );
+              const sendInitStartedAt = Date.now();
               socket.send(initJson);
+              recordGatewayAuthStepTiming("send_init", Date.now() - sendInitStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                initJsonBytes: initJson.length,
+                initialTileCount: initInitialTileCount
+              });
+              const flushPendingStartedAt = Date.now();
               for (const payload of session.pendingPayloads) {
                 sendJson(socket, payload);
                 recordCommandSocketDelivery("gateway_command_payload_sent", socket, payload);
               }
+              recordGatewayAuthStepTiming("flush_pending_payloads", Date.now() - flushPendingStartedAt, {
+                playerId: playerIdentity.playerId,
+                channel,
+                pendingPayloadCount: session.pendingPayloads.length
+              });
               session.pendingPayloads = [];
               authTrace.complete("init_sent");
             } else {
@@ -2788,7 +2861,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "IMPERIAL_EXCHANGE_LEVY" &&
             message.type !== "WORLD_ENGINE_STRIKE" &&
             message.type !== "UPGRADE_TOWN_TIER" &&
-            message.type !== "COLLECT_SHARD"
+            message.type !== "COLLECT_SHARD" &&
+            message.type !== "SET_MUSTER" &&
+            message.type !== "CLEAR_MUSTER"
           ) {
             sendJson(socket, {
               type: "ERROR",
@@ -2947,6 +3022,37 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                     x: message.x,
                     y: message.y,
                     enabled: message.enabled
+                  }
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "SET_MUSTER") {
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "SET_MUSTER",
+                  payload: {
+                    x: message.x,
+                    y: message.y,
+                    mode: message.mode,
+                    ...(typeof message.targetX === "number" ? { targetX: message.targetX } : {}),
+                    ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {})
+                  }
+                },
+                submitDeps
+              )
+            );
+          } else if (message.type === "CLEAR_MUSTER") {
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CLEAR_MUSTER",
+                  payload: {
+                    x: message.x,
+                    y: message.y
                   }
                 },
                 submitDeps

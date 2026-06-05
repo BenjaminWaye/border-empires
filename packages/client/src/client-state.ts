@@ -24,6 +24,7 @@ import type {
   RevealEmpireStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
+  SurveySweepPing,
   TechInfo,
   Tile,
   TruceRequest,
@@ -126,6 +127,7 @@ export const createInitialState = () => ({
   manpower: MANPOWER_BASE_CAP,
   manpowerCap: MANPOWER_BASE_CAP,
   manpowerRegenPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
+  logisticsThroughputPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
   manpowerBreakdown: {
     cap: [{ label: "Base", amount: MANPOWER_BASE_CAP }],
     regen: [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
@@ -215,6 +217,9 @@ export const createInitialState = () => ({
   activeAetherBridges: [] as ActiveAetherBridgeView[],
   activeAetherWalls: [] as ActiveAetherWallView[],
   aetherLanceFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  surveySweepFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  surveySweepPings: [] as SurveySweepPing[],
+  siphonFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "WOOD" | "IRON" | "GEMS"; queuedAt: number }>,
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,

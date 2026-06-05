@@ -20,6 +20,7 @@
     "ops:prod-shape:gate": "node ./scripts/rewrite-prod-shape-gate.mjs",
     "ops:prod-shape:verify": "node ./scripts/check-prod-shape-gate-result.mjs",
     "check:client-changelog": "node ./scripts/check-client-changelog-update.mjs",
+    "check:file-lines": "node ./scripts/check-file-line-limits.mjs",
     "ci:local": "./scripts/local-ci.sh",
     "worktree:new": "./scripts/create-worktree.sh",
     "worktree:migrate": "./scripts/migrate-worktrees.sh",
@@ -31,7 +32,7 @@
     "deploy:prod:all": "node ./scripts/deploy-prod-all.mjs",
     "build": "pnpm -r build",
     "test": "pnpm test:scripts && pnpm -r test",
-    "test:scripts": "node --test scripts/ai-labeling-common.test.mjs scripts/ai-labeling-sample.test.mjs scripts/ai-labeling-qa.test.mjs scripts/prod-shape-gate-guards.test.mjs scripts/rewrite-concurrent-load.test.mjs",
+    "test:scripts": "node --test scripts/ai-labeling-common.test.mjs scripts/ai-labeling-sample.test.mjs scripts/ai-labeling-qa.test.mjs scripts/check-file-line-limits.test.mjs scripts/prod-shape-gate-guards.test.mjs scripts/rewrite-concurrent-load.test.mjs",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {

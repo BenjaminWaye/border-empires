@@ -101,14 +101,17 @@ type WorkerAiCommandProducerOptions = {
   startingClientSeqByPlayer?: Record<string, number>;
   now?: () => number;
   tickIntervalMs?: number;
+  minCommandIntervalMs?: number;
   playerSyncIntervalMs?: number;
   periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
+  /** Injectable factory for tests — defaults to `new Worker(path, opts)`. */
+  workerFactory?: (path: string | URL, opts: { resourceLimits: { maxOldGenerationSizeMb: number } }) => Worker;
   maxOldGenerationSizeMb?: number;
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
-  onThrottle?: (reason: "adaptive") => void;
+  onThrottle?: (reason: "adaptive" | "plan_timeout") => void;
   onIntervalChange?: (intervalMs: number) => void;
   // Fires when a single ai tick exceeds slowTickThresholdMs. The histograms
   // capture per-call stats but the rare 5s ai tick p99 hasn't been explained
@@ -177,6 +180,9 @@ const ADAPTIVE_RECOVER_THRESHOLD_MS = 25;
 const isAutomationPreplanCommand = (type: CommandEnvelope["type"]): boolean =>
   type === "COLLECT_VISIBLE" || type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
 const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
+// If the planner worker doesn't reply within this window the pending request is
+// resolved as { command: null } so a dropped reply can never wedge the tick loop.
+const PLAN_REQUEST_TIMEOUT_MS = 10_000;
 const TRACKED_PREPLAN_RETENTION_MS = 90_000;
 type PreplanOutcome = "applied" | "cooldown_rejected" | "rejected" | "timed_out";
 type TrackedPreplanCommand = { playerId: string; trackedAt: number };
@@ -188,6 +194,7 @@ type PlannedCommandResult = {
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
   const initialTickMs = Math.max(25, options.tickIntervalMs ?? 250);
+  const minCommandIntervalMs = Math.max(0, options.minCommandIntervalMs ?? 0);
   let nextTickDelayMs = initialTickMs;
   const playerSyncIntervalMs = Math.max(25, options.playerSyncIntervalMs ?? 5_000);
   const periodicPlayerSyncBatchSize = Math.max(1, options.periodicPlayerSyncBatchSize ?? 1);
@@ -198,12 +205,15 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const aiPlayerIdSet = new Set(options.aiPlayerIds);
   const plannerPlayersById = new Map<string, PlannerPlayerView>();
   const plannerTilesByKey = new Map<string, PlannerTileView>();
-  let relevantTileKeys = new Set<string>();
+  // Live reference to the index's internal Set — no copy needed.
+  // replacePlayers mutates the underlying Set in place, so this stays current.
+  let relevantTileKeys: ReadonlySet<string> = new Set<string>();
   let nextPeriodicPlayerSyncIndex = 0;
 
   const nextClientSeqByPlayer = new Map<string, number>(
     options.aiPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
   );
+  const lastCommandAtByPlayer = new Map<string, number>();
   const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
@@ -257,7 +267,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   let relevantTileKeyIndex!: ReturnType<typeof createPlannerRelevantTileKeyIndex>;
 
   const spawnWorker = (): void => {
-    worker = new Worker(workerScriptPath, {
+    const factory = options.workerFactory ?? ((path, opts) => new Worker(path, opts));
+    worker = factory(workerScriptPath, {
       resourceLimits: { maxOldGenerationSizeMb }
     });
 
@@ -372,7 +383,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
     }
     relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(worldView);
-    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
+    relevantTileKeys = relevantTileKeyIndex.keys();
     worker.postMessage({
       type: "init",
       worldView
@@ -398,11 +409,14 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     });
     for (const player of players) plannerPlayersById.set(player.id, player);
     const replacePlayersStartedAt = now();
-    relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
+    // replacePlayers returns only the keys that are newly relevant to the
+    // rebuilt players. We scope the unseen-tile backfill scan to these keys
+    // instead of scanning all relevantTileKeys (was O(global_100k), now
+    // O(newly_relevant) ≈ 0 at steady state, small on territory expansion).
+    const newlyRelevantKeys = relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
     const replacePlayersDurationMs = Math.max(0, now() - replacePlayersStartedAt);
-    const relevantSetAllocStartedAt = now();
-    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
-    const relevantSetAllocDurationMs = Math.max(0, now() - relevantSetAllocStartedAt);
+    // relevantTileKeys is a live reference to the index's internal Set —
+    // no copy needed; it reflects the update replacePlayers just made.
     const relevantKeyCount = relevantTileKeys.size;
     options.onDiagnostic?.({
       phase: "sync_players_replace_players",
@@ -410,30 +424,28 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       playerCount: players.length,
       relevantKeyCount
     });
+    // relevant_set_alloc is now 0ms (no copy); keep the diagnostic at 0 for
+    // dashboards that already watch it.
     options.onDiagnostic?.({
       phase: "sync_players_relevant_set_alloc",
-      durationMs: relevantSetAllocDurationMs,
+      durationMs: 0,
       playerCount: players.length,
       relevantKeyCount
     });
-    // Legacy aggregate kept for dashboards/alerts that already watch it. The
-    // sum is correct (replace + set alloc); historical sync_players_relevance
-    // measured exactly these two steps before the 2026-05-24 split.
+    // Legacy aggregate: replace + alloc (alloc is now 0).
     options.onDiagnostic?.({
       phase: "sync_players_relevance",
-      durationMs: replacePlayersDurationMs + relevantSetAllocDurationMs,
+      durationMs: replacePlayersDurationMs,
       playerCount: players.length,
       relevantKeyCount
     });
-    // Backfill any tiles that have just entered scope but were never sent to the
-    // worker. This happens when territory expands: new frontier neighbors become
-    // relevant but were never included in the initial worldView slice and have
-    // never triggered a TILE_DELTA_BATCH event (neutral tiles that were always
-    // neutral don't generate deltas). Without this, the planner can't see those
-    // tiles and returns "no_frontier_targets" noop forever.
+    // Backfill tiles that just entered scope but were never sent to the worker.
+    // Only scan keys newly relevant to the rebuilt players — neutral tiles at
+    // the frontier edge that have never generated a TILE_DELTA_BATCH event.
+    // In steady state (no territory change) newlyRelevantKeys is empty → 0ms.
     const unseenScanStartedAt = now();
     const unseenTileKeys: string[] = [];
-    for (const tileKey of relevantTileKeys) {
+    for (const tileKey of newlyRelevantKeys) {
       if (!plannerTilesByKey.has(tileKey)) unseenTileKeys.push(tileKey);
     }
     const unseenScanDurationMs = Math.max(0, now() - unseenScanStartedAt);
@@ -665,13 +677,39 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     playerId: string,
     clientSeq: number,
     issuedAt: number,
-    options?: {
+    requestOptions?: {
       skipPreplan?: boolean;
       collectVisibleOnCooldown?: boolean;
     }
   ): Promise<PlannedCommandResult> => {
     return new Promise((resolve) => {
+      // Guard: if a prior request for this player is still pending (shouldn't
+      // happen in normal flow but defensive), resolve it as null before overwriting.
+      const existingResolve = pendingRequests.get(playerId);
+      if (existingResolve) {
+        pendingRequests.delete(playerId);
+        existingResolve({ command: null });
+      }
       pendingRequests.set(playerId, resolve);
+
+      // Safety net: if the worker reply is ever lost (worker alive but message
+      // dropped), resolve after PLAN_REQUEST_TIMEOUT_MS so the tick finally-
+      // block runs and the loop reschedules. Without this, a single lost reply
+      // would wedge the chain indefinitely.
+      const timeoutHandle = setTimeout(() => {
+        const stillPending = pendingRequests.get(playerId);
+        if (stillPending === resolve) {
+          pendingRequests.delete(playerId);
+          options.onThrottle?.("plan_timeout");
+          console.warn(`[ai-planner-worker] plan request timed out for player=${playerId} after ${PLAN_REQUEST_TIMEOUT_MS}ms`);
+          resolve({ command: null });
+        }
+      }, PLAN_REQUEST_TIMEOUT_MS);
+      // Don't let the timeout keep the process alive if everything else is done.
+      if (typeof timeoutHandle === "object" && "unref" in timeoutHandle) {
+        (timeoutHandle as { unref(): void }).unref();
+      }
+
       const stalemateTargets = attackStalemate.stalemateTargetsForPlayer(playerId);
       // Lazy-init so the heartbeat fires 60s after a player's first tick even
       // if they never run a heartbeat — otherwise an AI that gets stuck
@@ -688,8 +726,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         clientSeq,
         issuedAt,
         sessionPrefix: "ai-runtime",
-        ...(options?.skipPreplan ? { skipPreplan: true } : {}),
-        ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
+        ...(requestOptions?.skipPreplan ? { skipPreplan: true } : {}),
+        ...(requestOptions?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
         ...(typeof lastHeartbeatAtMs === "number"
           ? { lastHeartbeatAtMs }
           : {}),
@@ -699,38 +737,57 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   };
 
   const tick = async (): Promise<void> => {
+    // Reentrancy guard: the in-flight tick owns the reschedule via its own
+    // finally block (guaranteed by the outer try below), so returning here
+    // is safe — we will NOT double-schedule.
     if (tickInFlight) return;
-    if (!shouldRun()) return;
+    if (closed) return;
 
-    const queueDepths = options.runtime.queueDepths();
-    const humanBacklogNonEmpty = hasHumanInteractiveBacklog(queueDepths);
-
-    // Sync pause/resume state with worker
-    if (humanBacklogNonEmpty && !humanBacklogWasNonEmpty) {
-      worker.postMessage({ type: "pause" });
-    } else if (!humanBacklogNonEmpty && humanBacklogWasNonEmpty) {
-      worker.postMessage({ type: "resume" });
-    }
-    humanBacklogWasNonEmpty = humanBacklogNonEmpty;
-
-    if (humanBacklogNonEmpty) return;
-
-    tickInFlight = true;
-    const tickStartedAt = now();
-    // Slow-tick capture: most ticks return in <5ms but rare ticks hit 5s+.
-    // Per-call histograms show every phase under 200ms, so the outlier must
-    // be a combination — capture context per tick and emit when threshold
-    // is crossed.
+    // Every path below this point (throttle skip, backlog skip, real work)
+    // reaches the outer finally and calls scheduleNextTick(). This is the
+    // critical invariant: no early-return before the try means the
+    // setTimeout chain can never die from a transient guard.
+    let didWork = false;
+    let tickStartedAt = 0;
     let planRequestCount = 0;
     let submitCount = 0;
     let preplanWaitMs = 0;
     let lastPlayerId: string | undefined;
     let lastCommandType: string | undefined;
-    const queueDepthAiAtStart = queueDepths.ai;
-    const pendingPlayerSyncAtStart = pendingPlayerSyncIds.size > 0;
-    const pendingTileDeltasAtStart = pendingTileDeltasByKey.size;
+    let queueDepthAiAtStart = 0;
+    let pendingPlayerSyncAtStart = false;
+    let pendingTileDeltasAtStart = 0;
     let iterationOrderLength = 0;
+
     try {
+      if (!shouldRun()) return;
+
+      const queueDepths = options.runtime.queueDepths();
+      const humanBacklogNonEmpty = hasHumanInteractiveBacklog(queueDepths);
+
+      // Sync pause/resume state with worker
+      if (humanBacklogNonEmpty && !humanBacklogWasNonEmpty) {
+        worker.postMessage({ type: "pause" });
+      } else if (!humanBacklogNonEmpty && humanBacklogWasNonEmpty) {
+        worker.postMessage({ type: "resume" });
+      }
+      humanBacklogWasNonEmpty = humanBacklogNonEmpty;
+
+      if (humanBacklogNonEmpty) return;
+
+      // --- Work phase begins. Set tickInFlight so the reentrancy guard above
+      // knows a real tick is active (and won't double-schedule).
+      didWork = true;
+      tickInFlight = true;
+      tickStartedAt = now();
+      // Slow-tick capture: most ticks return in <5ms but rare ticks hit 5s+.
+      // Per-call histograms show every phase under 200ms, so the outlier must
+      // be a combination — capture context per tick and emit when threshold
+      // is crossed.
+      queueDepthAiAtStart = queueDepths.ai;
+      pendingPlayerSyncAtStart = pendingPlayerSyncIds.size > 0;
+      pendingTileDeltasAtStart = pendingTileDeltasByKey.size;
+
       if (options.aiPlayerIds.length === 0) return;
 
       // Clear timed-out pending commands (90s timeout)
@@ -768,6 +825,14 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       for (const playerIndex of iterationOrder) {
         const playerId = options.aiPlayerIds[playerIndex]!;
         if (pendingCommandByPlayer.has(playerId)) continue;
+        const lastCommandAt = lastCommandAtByPlayer.get(playerId);
+        if (
+          minCommandIntervalMs > 0 &&
+          lastCommandAt !== undefined &&
+          now() - lastCommandAt < minCommandIntervalMs
+        ) {
+          continue;
+        }
         const playerTerritoryVersion = territoryVersionForPlayer(playerId);
         const probe = probeAiLatchedIntent(intentLatchState, {
           playerId,
@@ -811,6 +876,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
                 nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
                 return;
               }
+              nextClientSeqByPlayer.set(playerId, clientSeq);
+              nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+              urgentByPlayerId.delete(playerId);
               break;
             }
             if (plan.command.type === "COLLECT_VISIBLE") {
@@ -842,6 +910,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               submitCount += 1;
               lastCommandType = plan.command.type;
               await options.submitCommand(plan.command);
+              lastCommandAtByPlayer.set(playerId, issuedAt);
               nextClientSeqByPlayer.set(playerId, clientSeq + 1);
               options.onCommand?.({ playerId, commandType: plan.command.type });
               if (plan.command.type === "COLLECT_VISIBLE") {
@@ -912,6 +981,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             submitCount += 1;
             lastCommandType = plan.command.type;
             await options.submitCommand(plan.command);
+            lastCommandAtByPlayer.set(playerId, issuedAt);
             options.onCommand?.({ playerId, commandType: plan.command.type });
             if (plan.command.type === "ATTACK" && targetTileKey) {
               attackStalemate.recordAttempt(playerId, targetTileKey, issuedAt);
@@ -949,35 +1019,41 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         return; // one player per tick
       }
     } finally {
-      const tickDurationMs = Math.max(0, now() - tickStartedAt);
-      options.onTick?.({ durationMs: tickDurationMs });
-      if (options.onSlowTick && tickDurationMs >= AI_TICK_SLOW_THRESHOLD_MS) {
-        options.onSlowTick({
-          durationMs: tickDurationMs,
-          planRequestCount,
-          submitCount,
-          preplanWaitMs,
-          queueDepthAiAtStart,
-          pendingPlayerSyncAtStart,
-          pendingTileDeltasAtStart,
-          iterationOrderLength,
-          ...(lastPlayerId ? { lastPlayerId } : {}),
-          ...(lastCommandType ? { lastCommandType } : {})
-        });
+      if (didWork) {
+        const tickDurationMs = Math.max(0, now() - tickStartedAt);
+        options.onTick?.({ durationMs: tickDurationMs });
+        if (options.onSlowTick && tickDurationMs >= AI_TICK_SLOW_THRESHOLD_MS) {
+          options.onSlowTick({
+            durationMs: tickDurationMs,
+            planRequestCount,
+            submitCount,
+            preplanWaitMs,
+            queueDepthAiAtStart,
+            pendingPlayerSyncAtStart,
+            pendingTileDeltasAtStart,
+            iterationOrderLength,
+            ...(lastPlayerId ? { lastPlayerId } : {}),
+            ...(lastCommandType ? { lastCommandType } : {})
+          });
+        }
+        tickInFlight = false;
+        // Adaptive tick interval (Layer 1): back off when AI work is heavy,
+        // recover when it's light. Never drop below MIN or above MAX.
+        const prevDelayMs = nextTickDelayMs;
+        if (tickDurationMs > ADAPTIVE_BACKOFF_THRESHOLD_MS) {
+          nextTickDelayMs = Math.min(MAX_TICK_MS, nextTickDelayMs * 2);
+          options.onThrottle?.("adaptive");
+        } else if (tickDurationMs < ADAPTIVE_RECOVER_THRESHOLD_MS && nextTickDelayMs > MIN_TICK_MS) {
+          nextTickDelayMs = Math.max(MIN_TICK_MS, Math.floor(nextTickDelayMs / 2));
+        }
+        if (nextTickDelayMs !== prevDelayMs) {
+          options.onIntervalChange?.(nextTickDelayMs);
+        }
       }
-      tickInFlight = false;
-      // Adaptive tick interval (Layer 1): back off when AI work is heavy,
-      // recover when it's light. Never drop below MIN or above MAX.
-      const prevDelayMs = nextTickDelayMs;
-      if (tickDurationMs > ADAPTIVE_BACKOFF_THRESHOLD_MS) {
-        nextTickDelayMs = Math.min(MAX_TICK_MS, nextTickDelayMs * 2);
-        options.onThrottle?.("adaptive");
-      } else if (tickDurationMs < ADAPTIVE_RECOVER_THRESHOLD_MS && nextTickDelayMs > MIN_TICK_MS) {
-        nextTickDelayMs = Math.max(MIN_TICK_MS, Math.floor(nextTickDelayMs / 2));
-      }
-      if (nextTickDelayMs !== prevDelayMs) {
-        options.onIntervalChange?.(nextTickDelayMs);
-      }
+      // Always reschedule the next tick (unless closed). This outer finally
+      // runs on every exit — throttle skips, backlog skips, and real work.
+      // The reentrancy guard (tickInFlight) early-returns before this try, so
+      // there is exactly one outstanding scheduleNextTick per live tick cycle.
       scheduleNextTick();
     }
   };

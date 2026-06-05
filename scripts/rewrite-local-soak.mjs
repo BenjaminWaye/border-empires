@@ -6,12 +6,20 @@ const iterations = Math.max(1, Number(process.env.SOAK_ITERATIONS ?? "20"));
 const warmupIterations = Math.max(0, Number(process.env.SOAK_WARMUP_ITERATIONS ?? "1"));
 const timeoutMs = Math.max(1_000, Number(process.env.SOAK_TIMEOUT_MS ?? "15000"));
 const waitForResult = process.env.SOAK_WAIT_FOR_RESULT === "1";
+const settleAfterAcceptedMs = Math.max(0, Number(process.env.SOAK_SETTLE_AFTER_ACCEPTED_MS ?? "250"));
 const reconnectEachIteration = process.env.SOAK_RECONNECT_EACH_ITERATION === "1";
 const allowAttacks = process.env.SOAK_ALLOW_ATTACKS === "1";
 const logEachIteration = process.env.SOAK_LOG_EACH_ITERATION !== "0";
 const refreshOnEmptyFrontier = process.env.SOAK_REFRESH_ON_EMPTY_FRONTIER !== "0";
 const candidateVisionRadius = Math.max(1, Number(process.env.SOAK_CANDIDATE_VISION_RADIUS ?? "4"));
 const emitAcceptedLatencies = process.env.SOAK_EMIT_LATENCIES === "1";
+const diagnostics = {
+  openedSessions: 0,
+  frontierRefreshes: 0,
+  emptyFrontierRejections: 0,
+  speculativeInvalidTargets: 0,
+  resourcePauses: 0
+};
 
 const percentile = (values, fraction) => {
   if (values.length === 0) return null;
@@ -72,11 +80,23 @@ const collectCandidatePayloads = (tilesByKey, playerId, invalidTargets = new Set
   for (const tile of tilesByKey.values()) {
     if (!tile || tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
     for (const [dx, dy] of directions) {
-      const neighbor = tilesByKey.get(tileKey(tile.x + dx, tile.y + dy));
-      if (!neighbor || neighbor.terrain !== "LAND") continue;
       const nextOriginKey = tileKey(tile.x, tile.y);
-      const nextTargetKey = tileKey(neighbor.x, neighbor.y);
+      const nextX = tile.x + dx;
+      const nextY = tile.y + dy;
+      const nextTargetKey = tileKey(nextX, nextY);
       if (invalidOrigins.has(nextOriginKey) || invalidTargets.has(nextTargetKey)) continue;
+      const neighbor = tilesByKey.get(nextTargetKey);
+      if (!neighbor) {
+        expandPayloads.push({
+          type: "EXPAND",
+          fromX: tile.x,
+          fromY: tile.y,
+          toX: nextX,
+          toY: nextY
+        });
+        continue;
+      }
+      if (neighbor.terrain !== "LAND") continue;
       if (!neighbor.ownerId) {
         expandPayloads.push({
           type: "EXPAND",
@@ -117,12 +137,14 @@ const collectCandidatePayloads = (tilesByKey, playerId, invalidTargets = new Set
 
 const openSession = () =>
   new Promise((resolve, reject) => {
+    diagnostics.openedSessions += 1;
     const socket = new WebSocket(wsUrl);
     const state = {
       socket,
       playerId: "player-1",
       nextClientSeq: 1,
       tilesByKey: new Map(),
+      speculativeInvalidTargets: new Set(),
       ready: false
     };
     const timeoutId = setTimeout(() => {
@@ -191,9 +213,11 @@ const runIteration = (session, iteration) =>
     const invalidTargets = new Set();
     const invalidOrigins = new Set();
     let timeoutId;
+    let acceptedFinishTimer;
 
     const cleanup = () => {
       clearTimeout(timeoutId);
+      clearTimeout(acceptedFinishTimer);
       session.socket.off?.("message", onMessage);
       session.socket.off?.("error", onError);
       session.socket.removeListener?.("message", onMessage);
@@ -201,7 +225,8 @@ const runIteration = (session, iteration) =>
     };
 
     const sendNextCandidate = () => {
-      const candidatePayloads = collectCandidatePayloads(session.tilesByKey, session.playerId, invalidTargets, invalidOrigins);
+      const mergedInvalidTargets = new Set([...invalidTargets, ...session.speculativeInvalidTargets]);
+      const candidatePayloads = collectCandidatePayloads(session.tilesByKey, session.playerId, mergedInvalidTargets, invalidOrigins);
       if (candidatePayloads.length === 0) {
         cleanup();
         reject(new Error(`iteration ${iteration} found no frontier action candidate`));
@@ -224,6 +249,13 @@ const runIteration = (session, iteration) =>
     const finish = (result) => {
       cleanup();
       resolve(result);
+    };
+
+    const finishAfterSettle = (result) => {
+      clearTimeout(acceptedFinishTimer);
+      acceptedFinishTimer = setTimeout(() => {
+        finish(result);
+      }, settleAfterAcceptedMs);
     };
 
     const onError = (error) => {
@@ -254,7 +286,7 @@ const runIteration = (session, iteration) =>
       if (message.type === "ACTION_ACCEPTED") {
         acceptedAt = Date.now();
         if (!waitForResult) {
-          finish({
+          finishAfterSettle({
             iteration,
             attack: activePayload,
             resultType: "ACTION_ACCEPTED",
@@ -271,6 +303,8 @@ const runIteration = (session, iteration) =>
           message.code === "ATTACK_TARGET_INVALID" ||
           message.code === "NOT_OWNER" ||
           message.code === "NOT_ADJACENT" ||
+          message.code === "ORIGIN_CUT_OFF" ||
+          message.code === "UNKNOWN_TILE" ||
           message.code === "LOCKED" ||
           message.code === "EXPAND_TARGET_OWNED" ||
           message.code === "BARRIER" ||
@@ -279,14 +313,21 @@ const runIteration = (session, iteration) =>
           if (activePayload) {
             const originKey = tileKey(activePayload.fromX, activePayload.fromY);
             const targetKey = tileKey(activePayload.toX, activePayload.toY);
-            if (message.code === "NOT_OWNER") invalidOrigins.add(originKey);
+            if (message.code === "NOT_OWNER" || message.code === "ORIGIN_CUT_OFF") invalidOrigins.add(originKey);
             if (
               message.code === "ATTACK_TARGET_INVALID" ||
               message.code === "LOCKED" ||
+              message.code === "UNKNOWN_TILE" ||
               message.code === "EXPAND_TARGET_OWNED" ||
               message.code === "BARRIER"
             ) {
               invalidTargets.add(targetKey);
+            }
+            if (message.code === "UNKNOWN_TILE" || message.code === "BARRIER") {
+              if (!session.speculativeInvalidTargets.has(targetKey)) {
+                session.speculativeInvalidTargets.add(targetKey);
+                diagnostics.speculativeInvalidTargets += 1;
+              }
             }
           }
           sendNextCandidate();
@@ -294,6 +335,7 @@ const runIteration = (session, iteration) =>
         }
         if (
           message.code === "INSUFFICIENT_MANPOWER" ||
+          message.code === "INSUFFICIENT_GOLD" ||
           message.code === "INSUFFICIENT_RESOURCES"
         ) {
           // Player-wide resource exhaustion — bail up to outer loop for regen pause.
@@ -307,7 +349,7 @@ const runIteration = (session, iteration) =>
       }
       if (message.type === "COMBAT_RESULT" || message.type === "FRONTIER_RESULT") {
         resultAt = Date.now();
-        finish({
+        finishAfterSettle({
           iteration,
           attack: activePayload,
           resultType: message.type,
@@ -345,18 +387,28 @@ for (let iteration = 1; iteration <= iterations + warmupIterations; iteration +=
       if (message.includes("resource exhausted") && resourcePausesForIteration < 3) {
         // Manpower/resources globally exhausted — pause briefly to let regen catch up.
         resourcePausesForIteration += 1;
+        diagnostics.resourcePauses += 1;
         await new Promise((resolvePause) => setTimeout(resolvePause, 2500));
         continue;
       }
       if (!refreshOnEmptyFrontier || refreshedForIteration || !message.includes("found no frontier action candidate")) {
-        if (message.includes("resource exhausted") && results.length > 0) {
+        if (message.includes("found no frontier action candidate")) {
+          stoppedReason = message;
+          break;
+        }
+        if (message.includes("resource exhausted")) {
+          // Manpower/resources globally exhausted and regen pauses didn't help.
+          // Stop this batch gracefully (exit 0 with a summary) so already-collected
+          // samples survive and the parent harness can pause for regen before retrying.
           stoppedReason = message;
           break;
         }
         throw error;
       }
+      diagnostics.emptyFrontierRejections += 1;
       await closeSession(session);
       session = await openSession();
+      diagnostics.frontierRefreshes += 1;
       refreshedForIteration = true;
     }
   }
@@ -385,12 +437,14 @@ const summary = {
   warmupIterations,
   iterations,
   reconnectEachIteration,
+  settleAfterAcceptedMs,
   acceptedSamples: acceptedLatencies.length,
   acceptedMinMs: acceptedLatencies.length > 0 ? Math.min(...acceptedLatencies) : null,
   acceptedMaxMs: acceptedLatencies.length > 0 ? Math.max(...acceptedLatencies) : null,
   acceptedP95Ms: percentile(acceptedLatencies, 0.95),
   acceptedP99Ms: percentile(acceptedLatencies, 0.99),
   acceptanceOver500Ms: acceptedLatencies.filter((value) => value > 500).length,
+  diagnostics,
   ...(stoppedReason ? { stoppedReason } : {})
 };
 if (emitAcceptedLatencies) summary.acceptedLatenciesMs = acceptedLatencies;
