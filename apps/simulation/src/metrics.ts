@@ -150,18 +150,8 @@ export type SimulationMetricsSnapshot = {
   // etc.). Only command types we've actually seen get an entry — saves the
   // histogram from carrying ~30 zero-valued types on every metrics sample.
   simRuntimeApplyMsByCommandType: Record<string, QuantileSample>;
-  // Inner-loop breakdown for COLLECT_VISIBLE, the dominant apply path.
+  // Inner-loop breakdown for the runtime apply path.
   // Splits the per-call wall clock into yield computation vs tile-delta
-  // build, and tracks tiles iterated vs tiles that actually produced yield.
-  // Tells us whether the optimisation lever is cheapen-yield, skip-delta,
-  // or maintain-collectible-index.
-  simCollectVisibleYieldMs: QuantileSample;
-  simCollectVisibleDeltaMs: QuantileSample;
-  simCollectVisibleTileDeltaBatchEmitMs: QuantileSample;
-  simCollectVisibleCollectResultEmitMs: QuantileSample;
-  simCollectVisiblePlayerStateUpdateMs: QuantileSample;
-  simCollectVisibleTilesConsidered: QuantileSample;
-  simCollectVisibleTilesTouched: QuantileSample;
   simCheckpointRssMb: number;
   simCpuPercent: number;
   simHeapUsedMb: number;
@@ -225,13 +215,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simRuntimeDrainJobsPerCall: number[] = [];
   const simRuntimeDrainMsByLane = new Map<QueueLane, number[]>(LANES.map((lane) => [lane, []]));
   const simRuntimeApplyMsByCommandType = new Map<string, number[]>();
-  const simCollectVisibleYieldMs: number[] = [];
-  const simCollectVisibleDeltaMs: number[] = [];
-  const simCollectVisibleTileDeltaBatchEmitMs: number[] = [];
-  const simCollectVisibleCollectResultEmitMs: number[] = [];
-  const simCollectVisiblePlayerStateUpdateMs: number[] = [];
-  const simCollectVisibleTilesConsidered: number[] = [];
-  const simCollectVisibleTilesTouched: number[] = [];
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
   const simAiBroadFallbackSkipped = new Map<string, number>();
@@ -310,13 +293,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simRuntimeApplyMsByCommandType: Object.fromEntries(
       [...simRuntimeApplyMsByCommandType.entries()].map(([type, samples]) => [type, quantileSample(samples)])
     ),
-    simCollectVisibleYieldMs: quantileSample(simCollectVisibleYieldMs),
-    simCollectVisibleDeltaMs: quantileSample(simCollectVisibleDeltaMs),
-    simCollectVisibleTileDeltaBatchEmitMs: quantileSample(simCollectVisibleTileDeltaBatchEmitMs),
-    simCollectVisibleCollectResultEmitMs: quantileSample(simCollectVisibleCollectResultEmitMs),
-    simCollectVisiblePlayerStateUpdateMs: quantileSample(simCollectVisiblePlayerStateUpdateMs),
-    simCollectVisibleTilesConsidered: quantileSample(simCollectVisibleTilesConsidered),
-    simCollectVisibleTilesTouched: quantileSample(simCollectVisibleTilesTouched),
     simCheckpointRssMb,
     simCpuPercent,
     simHeapUsedMb,
@@ -405,23 +381,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       const target = simAiPlannerPhaseMs.get(phase);
       if (!target) return;
       appendSample(target, value, limit);
-    },
-    observeSimCollectVisible(sample: {
-      yieldMs: number;
-      deltaMs: number;
-      tileDeltaBatchEmitMs: number;
-      collectResultEmitMs: number;
-      playerStateUpdateMs: number;
-      tilesConsidered: number;
-      tilesTouched: number;
-    }): void {
-      appendSample(simCollectVisibleYieldMs, sample.yieldMs, limit);
-      appendSample(simCollectVisibleDeltaMs, sample.deltaMs, limit);
-      appendSample(simCollectVisibleTileDeltaBatchEmitMs, sample.tileDeltaBatchEmitMs, limit);
-      appendSample(simCollectVisibleCollectResultEmitMs, sample.collectResultEmitMs, limit);
-      appendSample(simCollectVisiblePlayerStateUpdateMs, sample.playerStateUpdateMs, limit);
-      appendSample(simCollectVisibleTilesConsidered, sample.tilesConsidered, limit);
-      appendSample(simCollectVisibleTilesTouched, sample.tilesTouched, limit);
     },
     observeSimRuntimeApply(sample: {
       lane: QueueLane;

@@ -174,16 +174,6 @@ export type SimulationRuntimeOptions = {
     durationMs: number;
     commandType?: CommandEnvelope["type"];
   }) => void;
-  onCollectVisibleSample?: (sample: {
-    playerId: string;
-    yieldMs: number;
-    deltaMs: number;
-    tileDeltaBatchEmitMs: number;
-    collectResultEmitMs: number;
-    playerStateUpdateMs: number;
-    tilesConsidered: number;
-    tilesTouched: number;
-  }) => void;
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
   onVisibilityAudit?: (sample: VisibilityAuditSample) => void;

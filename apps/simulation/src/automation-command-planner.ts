@@ -19,7 +19,7 @@ import {
   chooseBestFortBuild,
   chooseBestSiegeOutpostBuild
 } from "./structure-command-planner.js";
-import { economyWeak, foodCoverageLow, hasCollectibleVisibleYieldSource } from "./ai-economic-heuristics.js";
+import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import { chooseAutomationGoapDecision, type AiSeasonVictoryPathId } from "./automation-goap.js";
@@ -65,14 +65,10 @@ export const AUTOMATION_NOOP_REASONS = [
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
-  "collect_for_active_lock",
-  "collect_for_unaffordable_progression",
-  "collect_for_economic_recovery",
-  "collect_heartbeat",
   "choose_tech",
   "choose_domain",
   "defer_no_reachable_progression",
-  "defer_unaffordable_progression_without_collect",
+  "defer_unaffordable_progression",
   "defer_to_main_planner"
 ] as const;
 
@@ -138,7 +134,6 @@ export type AutomationPlannerDiagnostic = {
   playerScopeKeyCount?: number;
   playerScopeTileCount?: number;
   preplanReason?: AutomationPreplanReason;
-  preplanHasCollectibleVisibleYieldSource?: boolean;
   preplanNeedsEconomy?: boolean;
   preplanNeedsFood?: boolean;
   preplanTechChoiceAffordable?: boolean;
@@ -204,7 +199,6 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
   onStrategicSnapshot?: (snapshot: AutomationStrategicSnapshot) => void;
   preplanProgressState?: AutomationPreplanProgressState | undefined;
-  collectVisibleOnCooldown?: boolean;
   // Tile keys this player has been pounding without breakthrough — the
   // attack gates below skip targets in this set so the planner falls through
   // to SETTLE/EXPAND/BUILD. See ai-attack-stalemate.ts for the policy.
@@ -287,7 +281,6 @@ const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
   frontierAnalysis: FrontierAnalysis,
   points: number,
   manpower: number,
-  hasCollectibleVisibleYieldSource: boolean,
   strategic: AutomationStrategicSnapshot,
   canAttack: boolean,
   canExpand: boolean,
@@ -390,7 +383,6 @@ const buildGoapFallbackResult = <TTile extends AutomationPlannerTile>(
         : undefined;
     case "wait_and_recover":
       if (
-        hasCollectibleVisibleYieldSource ||
         frontierAnalysis.economicExpand ||
         frontierAnalysis.scaffoldExpand ||
         frontierAnalysis.attack ||
@@ -831,7 +823,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     frontierAnalysis,
     input.points,
     input.manpower,
-    hasCollectibleVisibleYieldSource(input.ownedTiles),
     strategic,
     canAttack,
     canExpand,
@@ -946,16 +937,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   if (frontierAnalysis.expand) {
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return buildPlannerFrontierCommand(context, frontierAnalysis.expand, "EXPAND");
-  }
-
-  if (
-    input.sessionPrefix === "ai-runtime" &&
-    !canExpand &&
-    !input.collectVisibleOnCooldown &&
-    hasCollectibleVisibleYieldSource(input.ownedTiles)
-  ) {
-    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-    return buildPlannerCommand(context, "COLLECT_VISIBLE", {});
   }
 
   let noCommandReason: AutomationNoopReason;
