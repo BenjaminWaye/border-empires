@@ -57,12 +57,8 @@ const createTownOverlaySet = (
   return set;
 };
 
-const aetherBridgeAnchorImage = new Image();
-aetherBridgeAnchorImage.decoding = "async";
-aetherBridgeAnchorImage.src = overlaySrc("aether-pylon-overlay.svg");
-const aetherWallPylonImage = new Image();
-aetherWallPylonImage.decoding = "async";
-aetherWallPylonImage.src = overlaySrc("aether-wall-pylon-overlay.svg");
+const aetherBridgeAnchorImage = loadOverlayImage("aether-pylon-overlay.svg");
+const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.svg");
 
 const defaultTownOverlayByTier = createTownOverlaySet({
   SETTLEMENT: overlaySrc("settlement-overlay-sand.svg"),
@@ -85,6 +81,7 @@ export const structureOverlayImages = {
   MARKET: loadOverlayImage("market-overlay.svg"),
   GRANARY: loadOverlayImage("granary-overlay.svg"),
   BANK: loadOverlayImage("bank-overlay.svg"),
+  CLEARING_HOUSE: loadOverlayImage("clearing-house-overlay.svg"),
   AIRPORT: loadOverlayImage("airport-overlay.svg"),
   FUR_SYNTHESIZER: loadOverlayImage("fur-synthesizer-overlay.svg"),
   ADVANCED_FUR_SYNTHESIZER: loadOverlayImage("advanced-fur-synthesizer-overlay.svg"),
