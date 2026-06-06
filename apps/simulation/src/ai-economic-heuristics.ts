@@ -18,10 +18,3 @@ export const foodCoverageLow = (
 export const economyWeak = (incomePerMinute: number, settledTileCount: number): boolean =>
   incomePerMinute < Math.max(3, settledTileCount * 0.45);
 
-export const hasCollectibleVisibleYieldSource = <TTile extends EconomyHeuristicTile>(ownedTiles: readonly TTile[]): boolean =>
-  ownedTiles.some(
-    (tile) =>
-      tile.ownershipState === "SETTLED" &&
-      tile.terrain === "LAND" &&
-      (Boolean(tile.town) || Boolean(tile.dockId))
-  );

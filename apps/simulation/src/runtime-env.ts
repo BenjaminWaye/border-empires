@@ -21,7 +21,6 @@ export type SimulationRuntimeEnv = {
   enableAiAutopilot: boolean;
   aiTickMs: number;
   aiMinCommandIntervalMs: number;
-  aiCollectVisibleCooldownMs: number;
   aiMaxEventLoopLagMs: number;
   enableSystemAutopilot: boolean;
   systemTickMs: number;
@@ -150,11 +149,6 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       env.SIMULATION_AI_MIN_COMMAND_INTERVAL_MS,
       1_000,
       "simulation ai min command interval"
-    ),
-    aiCollectVisibleCooldownMs: parsePositiveNumber(
-      env.SIMULATION_AI_COLLECT_VISIBLE_COOLDOWN_MS,
-      20_000,
-      "simulation ai collect-visible cooldown"
     ),
     aiMaxEventLoopLagMs: parsePositiveNumber(
       env.SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS,

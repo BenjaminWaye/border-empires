@@ -18,7 +18,7 @@ describe("simulation runtime env", () => {
       enableAiAutopilot: false,
       aiTickMs: 250,
       aiMinCommandIntervalMs: 1000,
-      aiCollectVisibleCooldownMs: 20000,
+
       aiMaxEventLoopLagMs: 250,
       enableSystemAutopilot: false,
       systemTickMs: 500,
@@ -82,7 +82,7 @@ describe("simulation runtime env", () => {
       enableAiAutopilot: true,
       aiTickMs: 100,
       aiMinCommandIntervalMs: 5000,
-      aiCollectVisibleCooldownMs: 20000,
+
       aiMaxEventLoopLagMs: 250,
       enableSystemAutopilot: true,
       systemTickMs: 250,

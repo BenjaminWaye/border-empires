@@ -394,9 +394,6 @@ const choosePlannerCommand = (
     plan.diagnostic = {
       ...plan.diagnostic,
       preplanReason: preplanDiagnostic.preplanReason,
-      ...(typeof preplanDiagnostic.preplanHasCollectibleVisibleYieldSource === "boolean"
-        ? { preplanHasCollectibleVisibleYieldSource: preplanDiagnostic.preplanHasCollectibleVisibleYieldSource }
-        : {}),
       ...(typeof preplanDiagnostic.preplanNeedsEconomy === "boolean"
         ? { preplanNeedsEconomy: preplanDiagnostic.preplanNeedsEconomy }
         : {}),
