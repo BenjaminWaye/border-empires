@@ -19,19 +19,17 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.06.1",
+  version: "2026.06.06.2",
   title: "What's New",
-  summary: "Build actions use the currently supported rewrite gateway messages again.",
+  summary: "Clearing Houses now have dedicated map overlays.",
   entries: [
     {
-      introducedIn: "2026.06.06.1",
-      title: "Build actions work on the rewrite gateway",
-      why: "The client started sending the unfinished unified BUILD_STRUCTURE command before the rewrite gateway advertised that wire message, so structure builds could be blocked as unavailable.",
-      changes: [
-        "Structure build clicks now send the gateway-supported build message while keeping the internal queued build state intact.",
-        "Queued structure builds replay through the same compatible send path."
-      ]
+      introducedIn: "2026.06.06.2",
+      title: "Clearing Houses get their own map art",
+      why: "Clearing Houses could appear as generic or Bank-like markers instead of a distinct building, making it harder to scan connected-town economy upgrades on the map.",
+      changes: ["Clearing Houses now render with a dedicated 3D building overlay and a matching 2D/info-panel asset."]
     },
+    { introducedIn: "2026.06.06.1", title: "Build actions work on the rewrite gateway", why: "The client started sending the unfinished unified BUILD_STRUCTURE command before the rewrite gateway advertised that wire message, so structure builds could be blocked as unavailable.", changes: ["Structure build clicks now send the gateway-supported build message while keeping the internal queued build state intact.", "Queued structure builds replay through the same compatible send path."] },
     {
       introducedIn: "2026.06.05.1",
       title: "Aether bridge expansions stay connected",
@@ -50,16 +48,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Gateway command submit latency expected to drop from 3s p99 to under 500ms."
       ]
     },
-    {
-      introducedIn: "2026.06.04.4",
-      title: "AI turn rotation fixed",
-      why: "A no-command result from one AI could leave the worker scheduler pointed at the same player forever, so an eliminated or broke AI repeatedly nooped while richer AI empires stopped receiving turns.",
-      changes: [
-        "AI turn scheduling now advances after a first-pass noop, letting the next AI empire plan on the following tick.",
-        "AI command submissions are now rate-limited per empire, so a recovered loop cannot flood the simulation with rapid expand/attack/build commands.",
-        "Staging's repeated `ai-2:insufficient_points` loop is now covered by a regression test."
-      ]
-    },
+    { introducedIn: "2026.06.04.4", title: "AI turn rotation fixed", why: "A no-command result from one AI could leave the worker scheduler pointed at the same player forever, so an eliminated or broke AI repeatedly nooped while richer AI empires stopped receiving turns.", changes: ["AI turn scheduling now advances after a first-pass noop, letting the next AI empire plan on the following tick.", "AI command submissions are now rate-limited per empire, so a recovered loop cannot flood the simulation with rapid expand/attack/build commands.", "Staging's repeated `ai-2:insufficient_points` loop is now covered by a regression test."] },
     {
       introducedIn: "2026.06.04.4",
       title: "Alliance-safe waypoints and cleaner settlement respawns",
