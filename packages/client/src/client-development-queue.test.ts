@@ -464,6 +464,66 @@ describe("development queue helpers", () => {
     expect(state.developmentQueue.map((e) => `${e.kind}:${e.tileKey}`)).toEqual(["SETTLE:1,1", "BUILD:2,2"]);
   });
 
+  it("sends fort builds with the currently supported gateway message", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const sendGameMessage = vi.fn(() => true);
+    const optimistic = vi.fn();
+
+    const sent = sendDevelopmentBuild(
+      state,
+      { type: "BUILD_STRUCTURE", x: 4, y: 5, structureType: "FORT" },
+      optimistic,
+      { x: 4, y: 5, label: "Fort at (4, 5)", optimisticKind: "FORT" },
+      {
+        keyFor: (x, y) => `${x},${y}`,
+        queueDevelopmentAction: vi.fn(() => true),
+        developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+        developmentSlotReason: () => "busy",
+        pushFeed: vi.fn(),
+        renderHud: vi.fn(),
+        sendGameMessage
+      }
+    );
+
+    expect(sent).toBe(true);
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "BUILD_FORT", x: 4, y: 5 });
+    expect(state.lastDevelopmentAttempt).toMatchObject({
+      payload: { type: "BUILD_STRUCTURE", x: 4, y: 5, structureType: "FORT" }
+    });
+    expect(optimistic).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends economic builds with the currently supported gateway message", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const sendGameMessage = vi.fn(() => true);
+    const optimistic = vi.fn();
+
+    const sent = sendDevelopmentBuild(
+      state,
+      { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MARKET" },
+      optimistic,
+      { x: 6, y: 7, label: "Market at (6, 7)", optimisticKind: "MARKET" },
+      {
+        keyFor: (x, y) => `${x},${y}`,
+        queueDevelopmentAction: vi.fn(() => true),
+        developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+        developmentSlotReason: () => "busy",
+        pushFeed: vi.fn(),
+        renderHud: vi.fn(),
+        sendGameMessage
+      }
+    );
+
+    expect(sent).toBe(true);
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "BUILD_ECONOMIC_STRUCTURE", x: 6, y: 7, structureType: "MARKET" });
+    expect(state.lastDevelopmentAttempt).toMatchObject({
+      payload: { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MARKET" }
+    });
+    expect(optimistic).toHaveBeenCalledTimes(1);
+  });
+
   it("uses settlement speed effects for optimistic settlement progress", () => {
     const state = createInitialState();
     state.me = "me";
