@@ -324,7 +324,7 @@ export const structureInfoForKey = (
     if (key === "ADVANCED_FOUNDRY") return "/overlays/foundry-overlay.svg";
     if (key === "EXCHANGE_HOUSE") return "/overlays/exchange-house-overlay.svg";
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
-    if (key === "CLEARING_HOUSE") return "/overlays/bank-overlay.svg";
+    if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
     if (key === "GARRISON_HALL") return "/overlays/garrison-hall-overlay.svg";
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
