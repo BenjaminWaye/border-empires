@@ -124,7 +124,6 @@ type SnapshotExportInput = {
   pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
   tileYieldCollectedAtByTile: ReadonlyMap<string, number>;
   playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>;
-  collectVisibleCooldownByPlayer: ReadonlyMap<string, number>;
   docks: readonly DockRouteDefinition[];
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
   incomePerMinuteForPlayer: (playerId: string) => number;
@@ -193,9 +192,6 @@ export function buildRuntimeSnapshotSections(input: SnapshotExportInput): Simula
       pendingSettlements: sortedPendingSettlements(input.pendingSettlementsByTile),
       tileYieldCollectedAtByTile: sortedCollectionEpochs(input.tileYieldCollectedAtByTile, "tileKey"),
       playerYieldCollectionEpochByPlayer: sortedCollectionEpochs(input.playerYieldCollectionEpochByPlayer, "playerId"),
-      collectVisibleCooldownByPlayer: [...input.collectVisibleCooldownByPlayer.entries()]
-        .map(([playerId, cooldownUntil]) => ({ playerId, cooldownUntil }))
-        .sort((left, right) => left.playerId.localeCompare(right.playerId)),
       ...(input.docks.length
         ? {
             docks: input.docks.map((dock) => ({
@@ -211,7 +207,7 @@ export function buildRuntimeSnapshotSections(input: SnapshotExportInput): Simula
   };
 }
 
-type RuntimeExportInput = Omit<SnapshotExportInput, "collectVisibleCooldownByPlayer" | "recordedEventsByCommandId"> & {
+type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
   terrainEpoch: number;
   tileDeltaStringifyCache: TileDeltaStringifyCache;
   applyManpowerRegen: (player: DomainPlayer) => void;
