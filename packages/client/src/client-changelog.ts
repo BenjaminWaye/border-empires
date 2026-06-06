@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.06.2",
+  version: "2026.06.06.3",
   title: "What's New",
-  summary: "Clearing Houses now have dedicated map overlays.",
+  summary: "Frontier automation now avoids empire-wide support scans during combat-heavy play.",
   entries: [
+    {
+      introducedIn: "2026.06.06.3",
+      title: "Combat accepts stay responsive under large empires",
+      why: "Frontier decay support checks could scan every fort and town anchor for every frontier tile, blocking the simulation thread while players were attacking across dense borders.",
+      changes: [
+        "Large support-anchor checks now use local radius lookups instead of empire-wide scans.",
+        "The frontier decay perf gate now covers thousands of frontier tiles plus thousands of support anchors, keeping the tick well below the combat submit budget."
+      ]
+    },
     {
       introducedIn: "2026.06.06.2",
       title: "Clearing Houses get their own map art",
