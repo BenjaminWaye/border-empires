@@ -140,16 +140,25 @@ export const dockGoldOutputMultiplierForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">
 ): number => multiplicativeEffectForPlayer(player, "dockGoldOutputMult");
 
+/**
+ * Returns the keys of the player's first three settled town tiles in the
+ * iteration order of the supplied iterable — the same semantics as the old
+ * implementation that scanned all tiles, but O(3) instead of O(all_map_tiles).
+ *
+ * Callers should pass `summary.ownedTownTierByTile.keys()` (or equivalent)
+ * rather than `tiles.values()`, avoiding the full tile-map scan.
+ */
 export const firstThreeTownKeysForPlayer = (
-  playerId: string,
-  tiles: Iterable<Pick<DomainTileState, "x" | "y" | "ownerId" | "ownershipState" | "town">>
-): Set<string> =>
-  new Set(
-    [...tiles]
-      .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.town)
-      .slice(0, 3)
-      .map((tile) => keyFor(tile.x, tile.y))
-  );
+  _playerId: string,
+  ownedSettledTownTileKeys: Iterable<string>
+): Set<string> => {
+  const result = new Set<string>();
+  for (const key of ownedSettledTownTileKeys) {
+    result.add(key);
+    if (result.size >= 3) break;
+  }
+  return result;
+};
 
 export const firstThreeTownsGoldOutputMultiplierForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">

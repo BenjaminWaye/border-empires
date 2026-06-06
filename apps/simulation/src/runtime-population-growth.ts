@@ -82,7 +82,17 @@ export function tickPopulationGrowth(input: {
     );
     if (fedTownKeys.size === 0) continue;
 
-    const firstThreeKeys = firstThreeTownKeysForPlayer(player.id, input.tiles.values());
+    // Only compute first-three-town keys if the player has a domain that grants
+    // firstThreeTownsPopulationGrowthMult. Without such a domain the multiplier
+    // is 1.0 and the key set has no effect — skip the O(towns) sort entirely.
+    const firstThreePopMult = firstThreeTownsPopulationGrowthMultiplierForPlayer(player);
+    const firstThreeKeys = firstThreePopMult !== 1
+      ? firstThreeTownKeysForPlayer(player.id, ownedTowns.keys())
+      : new Set<string>();
+
+    // Accumulate all tile deltas for this player and emit ONE batch event per
+    // player instead of one per town. Reduces ~50 event pipeline calls to ~6.
+    const playerTileDeltas: ReturnType<typeof input.tileDeltaFromState>[] = [];
 
     for (const tileKey of ownedTowns.keys()) {
       const tile = input.tiles.get(tileKey);
@@ -110,12 +120,7 @@ export function tickPopulationGrowth(input: {
           const updatedTile = { ...tile, town: updatedTown };
           input.tiles.set(tileKey, updatedTile);
           input.invalidateTileStringifyCache(tileKey);
-          input.emitEvent({
-            eventType: "TILE_DELTA_BATCH",
-            commandId: `population-growth-tick:war-pause:${tileKey}`,
-            playerId: player.id,
-            tileDeltas: [input.tileDeltaFromState(updatedTile)]
-          });
+          playerTileDeltas.push(input.tileDeltaFromState(updatedTile));
           dirtyPlayerIds.add(player.id);
         }
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
@@ -130,9 +135,7 @@ export function tickPopulationGrowth(input: {
       if (logisticFactor <= 0) continue;
 
       const granaryGrowthMult = seedGranaryGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles });
-      const firstThreeMult = firstThreeKeys.has(tileKey)
-        ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player)
-        : 1;
+      const firstThreeMult = firstThreeKeys.has(tileKey) ? firstThreePopMult : 1;
       const hasLongPeace = !town.nearbyWarLastAt || input.nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
       const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
       const lastTick = input.townLastGrowthTickAtByKey.get(tileKey) ?? input.nowMs;
@@ -152,8 +155,6 @@ export function tickPopulationGrowth(input: {
       const growth = growthPerMinute * elapsedMinutes;
       if (growth <= 0) continue;
 
-      // Food affordability gate: a growing town costs food on top of upkeep.
-      // If the player can't afford it, skip growth this tick — town stays fed and earns gold.
       const growthFoodCost = growth * GROWTH_FOOD_COST_PER_POP;
       const foodAvailable = player.strategicResources?.FOOD ?? 0;
       if (foodAvailable + 1e-6 < growthFoodCost) {
@@ -166,24 +167,24 @@ export function tickPopulationGrowth(input: {
       }
 
       const newPopulation = Math.min(town.maxPopulation, town.population + growth);
-
       const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
-      const updatedTown = {
-        ...townWithoutPause,
-        population: newPopulation
-      };
+      const updatedTown = { ...townWithoutPause, population: newPopulation };
       const updatedTile = { ...tile, town: updatedTown };
       input.tiles.set(tileKey, updatedTile);
       input.invalidateTileStringifyCache(tileKey);
       input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+      playerTileDeltas.push(input.tileDeltaFromState(updatedTile));
+      dirtyPlayerIds.add(player.id);
+    }
+
+    // Emit one batched event for all of this player's town changes this tick.
+    if (playerTileDeltas.length > 0) {
       input.emitEvent({
         eventType: "TILE_DELTA_BATCH",
-        commandId: `population-growth-tick:${tileKey}`,
+        commandId: `population-growth-tick:${player.id}:${input.nowMs}`,
         playerId: player.id,
-        tileDeltas: [input.tileDeltaFromState(updatedTile)]
+        tileDeltas: playerTileDeltas
       });
-
-      dirtyPlayerIds.add(player.id);
     }
   }
 

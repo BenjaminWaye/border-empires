@@ -157,7 +157,7 @@ import {
   removeTileUpkeepFromCache,
   type UpkeepAccrualSnapshot
 } from "./player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer } from "./economy-network.js";
+import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer } from "./economy-network.js";
 import { capturedStructureFields } from "./capture-structures.js";
 import { createSeedWorld, simulationTileKey } from "./seed-state.js";
 import type { SimulationSnapshotSections } from "./snapshot-store.js";
@@ -2397,7 +2397,12 @@ export class SimulationRuntime {
       player,
       townNetwork: buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, { maxConnectedTownNames: 16 }),
       fedTownKeys: this.fedTownKeysForPlayer(player, settledTiles),
-      firstThreeTownKeys: firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id)),
+      // Skip expensive first-three-town key computation if the player has no
+      // domain granting firstThreeTownsGoldOutputMult — multiplier is 1.0 so
+      // the key set has no effect. Skips O(towns) sort for most players.
+      firstThreeTownKeys: firstThreeTownsGoldOutputMultiplierForPlayer(player) !== 1
+        ? firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id).map(t => `${t.x},${t.y}`))
+        : new Set<string>(),
       waterworksKeys
     };
     this.tileYieldContextCacheByPlayer.set(player.id, context);
