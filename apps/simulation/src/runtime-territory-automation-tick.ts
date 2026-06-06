@@ -53,6 +53,10 @@ export const tickTerritoryAutomation = (input: TickTerritoryAutomationInput): vo
   let _anchorsIterated = 0;
   let _claimCandidatesEvaluated = 0;
   let _tilesActuallyClaimed = 0;
+  // Cap claims per player per tick to bound replaceTileState cascade cost.
+  // Each claim triggers topology dirty + event emission; uncapped this is
+  // O(anchors × candidates) replaceTileState calls per tick.
+  const MAX_CLAIMS_PER_PLAYER = 8;
 
   for (const playerId of input.players.keys()) {
     if (playerId.startsWith("barbarian-")) continue;
@@ -65,6 +69,7 @@ export const tickTerritoryAutomation = (input: TickTerritoryAutomationInput): vo
     _playersProcessed++;
 
     const claimDeltas: Array<ReturnType<TickTerritoryAutomationInput["tileDeltaFromState"]>> = [];
+    let claimsThisPlayer = 0;
     let claimCommandId: string | undefined;
     const fortAnchorMap = input.activeFortAnchorsByOwner.get(playerId);
     for (const anchorKey of (fortAnchorMap ? fortAnchorMap.keys() : [])) {
@@ -88,6 +93,7 @@ export const tickTerritoryAutomation = (input: TickTerritoryAutomationInput): vo
       for (const targetKey of input.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
         _claimCandidatesEvaluated++;
         if (actor.points < FRONTIER_CLAIM_COST) break;
+        if (claimsThisPlayer >= MAX_CLAIMS_PER_PLAYER) break;
         if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || input.locksByTile.has(targetKey)) continue;
         const target = input.tiles.get(targetKey);
         if (!isAutoClaimTarget(target)) continue;
@@ -107,6 +113,7 @@ export const tickTerritoryAutomation = (input: TickTerritoryAutomationInput): vo
         input.extendFortPatrolGrace(targetKey, input.nowMs + FORT_PATROL_GRACE_MS);
         claimDeltas.push(input.tileDeltaFromState(claimedTile));
         _tilesActuallyClaimed++;
+        claimsThisPlayer++;
       }
       _claimAnchorScanMs += Date.now() - _tAnchor;
     }
