@@ -550,9 +550,9 @@ export const menuOverviewForTile = (
   }
   if (tile.muster) {
     const cap = 120;
-    const pct = Math.min(100, Math.round((tile.muster.amount / cap) * 100));
-    const mode = tile.muster.mode === "ADVANCE" ? "ADVANCE — auto-fires when full" : "HOLD";
-    pushLine(`Muster: ${tile.muster.amount.toFixed(0)}/${cap} (${pct}%) · ${mode}`);
+    const staged = tile.muster.amount.toFixed(0);
+    const mode = tile.muster.mode === "ADVANCE" ? "ADVANCE — will auto-attack when full" : "HOLD";
+    pushLine(`Manpower staged: ${staged} / ${cap} · ${mode}`);
   }
   if (tile.fort?.status === "removing") {
     pushLine("Fort removal is underway. Defensive fortification from this tile is currently disabled.");

@@ -1474,22 +1474,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // tiles north of the camera. Only fires when the URL flag is
         // set, so it's harmless in production. The MINE entry passes a
         // resource hint so the iron/crystal variant is exercised.
-        // Muster fill bar: visible to anyone with vision, shows amount/cap.
-        if (tile?.muster && ownerId && terrain === "LAND") {
+        // Muster flag + gathering soldiers: visible to anyone with vision.
+        if (tile?.muster && terrain === "LAND") {
           const fillRatio = Math.min(1, tile.muster.amount / MUSTER_TILE_CAP_CLIENT);
           const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
-          musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor);
-        }
-        // Fort garrison bar: shown on active fort tiles with garrison data.
-        if (
-          tile?.fort?.status === "active" &&
-          tile.fort.garrison != null &&
-          tile.fort.garrisonCap != null &&
-          tile.fort.garrisonCap > 0 &&
-          terrain === "LAND"
-        ) {
-          const fillRatio = Math.min(1, tile.fort.garrison / tile.fort.garrisonCap);
-          musterOverlay.addGarrison(x, z, surfaceY, fillRatio);
+          const advance = tile.muster.mode === "ADVANCE";
+          musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy);
         }
         const demoStructureEntry = structureDemoEntryFor(wx, wy);
         if (demoStructureEntry && terrain === "LAND") {
@@ -1658,6 +1648,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     waterSurface.tick(nowMs);
     unfedBadgeOverlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
+    musterOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
