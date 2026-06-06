@@ -1670,7 +1670,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
             tickIntervalMs: options.aiTickMs ?? 250,
             minCommandIntervalMs: options.aiMinCommandIntervalMs ?? 1_000,
-            collectVisibleCooldownMs: options.aiCollectVisibleCooldownMs,
+            ...(options.aiCollectVisibleCooldownMs !== undefined ? { collectVisibleCooldownMs: options.aiCollectVisibleCooldownMs } : {}),
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
