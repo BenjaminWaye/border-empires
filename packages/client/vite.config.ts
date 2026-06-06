@@ -34,6 +34,9 @@ export default defineConfig({
     }
   },
   define: {
-    __APP_VERSION__: JSON.stringify(resolveBuildVersion())
+    __APP_VERSION__: JSON.stringify(resolveBuildVersion()),
+    // Shared package dist files reference Node's `process.env` directly.
+    // Replace with an empty object so browser builds don't throw.
+    "process.env": JSON.stringify({})
   }
 });
