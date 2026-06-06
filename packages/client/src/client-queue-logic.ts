@@ -22,6 +22,12 @@ export type DevelopmentSlotSummary = {
 
 type QueuedDevelopmentAction = ClientState["developmentQueue"][number];
 type QueuedBuildPayload = Extract<QueuedDevelopmentAction, { kind: "BUILD" }>["payload"];
+type GatewayBuildWirePayload =
+  | { type: "BUILD_FORT"; x: number; y: number }
+  | { type: "BUILD_OBSERVATORY"; x: number; y: number }
+  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
+  | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: string }
+  | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
 const SETTLEMENT_CONFIRM_REFRESH_MS = 4_000;
 const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 4_000;
@@ -29,6 +35,14 @@ const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 4_000;
 const numericEffect = (effects: Record<string, unknown> | undefined, key: string): number => {
   const raw = effects?.[key];
   return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : 1;
+};
+
+export const gatewayBuildWirePayload = (payload: QueuedBuildPayload): GatewayBuildWirePayload => {
+  if (payload.type !== "BUILD_STRUCTURE") return payload;
+  if (payload.structureType === "FORT") return { type: "BUILD_FORT", x: payload.x, y: payload.y };
+  if (payload.structureType === "OBSERVATORY") return { type: "BUILD_OBSERVATORY", x: payload.x, y: payload.y };
+  if (payload.structureType === "SIEGE_OUTPOST") return { type: "BUILD_SIEGE_OUTPOST", x: payload.x, y: payload.y };
+  return { type: "BUILD_ECONOMIC_STRUCTURE", x: payload.x, y: payload.y, structureType: payload.structureType };
 };
 
 export const settlementSpeedMultiplierForState = (
@@ -544,7 +558,7 @@ export const sendDevelopmentBuild = (
     payload,
     optimisticKind: opts.optimisticKind
   };
-  if (!deps.sendGameMessage(payload)) {
+  if (!deps.sendGameMessage(gatewayBuildWirePayload(payload))) {
     state.lastDevelopmentAttempt = undefined;
     return false;
   }
