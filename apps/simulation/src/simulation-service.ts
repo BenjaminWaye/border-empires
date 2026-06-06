@@ -262,7 +262,6 @@ type SimulationServiceOptions = {
   enableAiAutopilot?: boolean;
   aiTickMs?: number;
   aiMinCommandIntervalMs?: number;
-  aiCollectVisibleCooldownMs?: number;
   aiMaxEventLoopLagMs?: number;
   enableSystemAutopilot?: boolean;
   systemTickMs?: number;
@@ -933,17 +932,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(sample.commandType ? { commandType: sample.commandType } : {})
       });
     },
-    onCollectVisibleSample: (sample) => {
-      simulationMetrics.observeSimCollectVisible({
-        yieldMs: sample.yieldMs,
-        deltaMs: sample.deltaMs,
-        tileDeltaBatchEmitMs: sample.tileDeltaBatchEmitMs,
-        collectResultEmitMs: sample.collectResultEmitMs,
-        playerStateUpdateMs: sample.playerStateUpdateMs,
-        tilesConsidered: sample.tilesConsidered,
-        tilesTouched: sample.tilesTouched
-      });
-    },
     onVisibilityAudit: handleVisibilityAudit,
     onShardCollected: () => {
       onShardCollectedCallback?.();
@@ -1545,7 +1533,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         playerId: command.playerId,
         type: command.type
       },
-      () => runtime.submitCommand(command)
+      () => {
+        runtime.updatePlayerLastActive(command.playerId, runtimeSubmitStartedAt);
+        runtime.submitCommand(command);
+      }
     );
     const runtimeSubmitDurationMs = Date.now() - runtimeSubmitStartedAt;
     if (runtimeSubmitDurationMs >= slowRuntimeSubmitWarnMs) {
@@ -1670,7 +1661,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
             tickIntervalMs: options.aiTickMs ?? 250,
             minCommandIntervalMs: options.aiMinCommandIntervalMs ?? 1_000,
-            ...(options.aiCollectVisibleCooldownMs !== undefined ? { collectVisibleCooldownMs: options.aiCollectVisibleCooldownMs } : {}),
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
@@ -2580,6 +2570,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "orphan lock sweep tick failed");
         }
       }, 30_000);
+      setInterval(() => {
+        try {
+          mainThreadTasks.trackSync("tick_passive_income", undefined, () => {
+            runtime.applyPassiveIncome(Date.now(), 12 * 60 * 60 * 1000);
+          });
+        } catch (error) {
+          log.error({ err: error }, "passive income tick failed");
+        }
+      }, 15_000);
       eventLoopSampler = setInterval(() => {
         const now = Date.now();
         const lagMs = Math.max(0, now - expectedEventLoopTickAt);
@@ -2709,13 +2708,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               sim_runtime_drain_jobs_per_call: sample.simRuntimeDrainJobsPerCall,
               sim_runtime_drain_ms_by_lane: sample.simRuntimeDrainMsByLane,
               sim_runtime_apply_ms_by_command: sample.simRuntimeApplyMsByCommandType,
-              sim_collect_visible_yield_ms: sample.simCollectVisibleYieldMs,
-              sim_collect_visible_delta_ms: sample.simCollectVisibleDeltaMs,
-              sim_collect_visible_tile_delta_batch_emit_ms: sample.simCollectVisibleTileDeltaBatchEmitMs,
-              sim_collect_visible_collect_result_emit_ms: sample.simCollectVisibleCollectResultEmitMs,
-              sim_collect_visible_player_state_update_ms: sample.simCollectVisiblePlayerStateUpdateMs,
-              sim_collect_visible_tiles_considered: sample.simCollectVisibleTilesConsidered,
-              sim_collect_visible_tiles_touched: sample.simCollectVisibleTilesTouched,
               sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
               sim_cpu_percent: sample.simCpuPercent,
               sim_rss_mb: toMbRounded(memory.rss),

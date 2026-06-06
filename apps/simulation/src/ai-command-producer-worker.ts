@@ -102,7 +102,6 @@ type WorkerAiCommandProducerOptions = {
   now?: () => number;
   tickIntervalMs?: number;
   minCommandIntervalMs?: number;
-  collectVisibleCooldownMs?: number;
   playerSyncIntervalMs?: number;
   periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
@@ -170,7 +169,6 @@ const resolveWorkerScript = (given?: string): string | URL =>
 
 const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean =>
   queueDepths.human_interactive > 0;
-const DEFAULT_COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 // Tick duration that triggers the onSlowTick context emit. Steady-state ticks
 // are p50=2ms / p95=5ms; p99=5000ms+ is a rare outlier we want to capture.
 // 1s threshold catches the outliers without flooding logs with normal ticks.
@@ -180,13 +178,13 @@ const MAX_TICK_MS = 3_200; // 16x backoff ceiling
 const ADAPTIVE_BACKOFF_THRESHOLD_MS = 50;
 const ADAPTIVE_RECOVER_THRESHOLD_MS = 25;
 const isAutomationPreplanCommand = (type: CommandEnvelope["type"]): boolean =>
-  type === "COLLECT_VISIBLE" || type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
+  type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
 const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
 // If the planner worker doesn't reply within this window the pending request is
 // resolved as { command: null } so a dropped reply can never wedge the tick loop.
 const PLAN_REQUEST_TIMEOUT_MS = 10_000;
 const TRACKED_PREPLAN_RETENTION_MS = 90_000;
-type PreplanOutcome = "applied" | "cooldown_rejected" | "rejected" | "timed_out";
+type PreplanOutcome = "applied" | "rejected" | "timed_out";
 type TrackedPreplanCommand = { playerId: string; trackedAt: number };
 type PlannedCommandResult = {
   command: CommandEnvelope | null;
@@ -197,7 +195,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const now = options.now ?? (() => Date.now());
   const initialTickMs = Math.max(25, options.tickIntervalMs ?? 250);
   const minCommandIntervalMs = Math.max(0, options.minCommandIntervalMs ?? 0);
-  const collectVisibleCooldownMs = Math.max(0, options.collectVisibleCooldownMs ?? DEFAULT_COLLECT_VISIBLE_COOLDOWN_MS);
   let nextTickDelayMs = initialTickMs;
   const playerSyncIntervalMs = Math.max(25, options.playerSyncIntervalMs ?? 5_000);
   const periodicPlayerSyncBatchSize = Math.max(1, options.periodicPlayerSyncBatchSize ?? 1);
@@ -220,19 +217,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
-  const collectVisibleCooldownUntilByPlayer = new Map<string, number>();
   // Tracks the last time a HEARTBEAT collect fired for each AI (NOT organic
   // collects). The preplan uses this to gate the 60s heartbeat — if we
   // shared this with organic collects (collect_for_unaffordable_progression,
   // collect_for_active_lock, collect_for_economic_recovery), then any AI
   // already firing organic collects every 20–40s would keep resetting the
-  // gap below 60s and the heartbeat would never fire. The heartbeat is
-  // specifically for AIs that don't trigger organic collects (e.g.,
-  // canAffordExpansion=true → preplan defers → no collect), so they need
-  // their own clock independent of organic activity. Lazy-initialised to
-  // first-tick time so an AI that never fires a heartbeat still has the
-  // gap grow from process-start.
-  const lastHeartbeatAtByPlayer = new Map<string, number>();
   const urgentByPlayerId = new Set<string>();
   const intentLatchState = createAiIntentLatchState();
   const attackStalemate = createAttackStalemateTracker();
@@ -245,10 +234,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   let tickInFlight = false;
   let nextPlayerIndex = 0;
   let humanBacklogWasNonEmpty = false;
-
-  const backOffCollectVisible = (playerId: string, eventAt: number): void => {
-    collectVisibleCooldownUntilByPlayer.set(playerId, eventAt + collectVisibleCooldownMs);
-  };
 
   const resolvePendingPreplanOutcome = (commandId: string, outcome: PreplanOutcome): void => {
     const pending = pendingPreplanOutcomeByCommandId.get(commandId);
@@ -644,17 +629,10 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     const trackedPreplan = trackedPreplanByCommandId.get(event.commandId);
     const trackedPreplanMatches = trackedPreplan?.playerId === event.playerId;
     if (!pendingMatches && !trackedPreplanMatches) return;
-    if (event.eventType === "COMMAND_REJECTED" && event.code === "COLLECT_COOLDOWN") {
-      backOffCollectVisible(event.playerId, now());
-    }
-    if (event.eventType === "COLLECT_RESULT") {
-      backOffCollectVisible(event.playerId, now());
-    }
     if (
       event.eventType === "COMMAND_REJECTED" ||
       event.eventType === "COMBAT_RESOLVED" ||
       event.eventType === "TILE_DELTA_BATCH" ||
-      event.eventType === "COLLECT_RESULT" ||
       event.eventType === "TECH_UPDATE" ||
       event.eventType === "DOMAIN_UPDATE"
     ) {
@@ -679,9 +657,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
       resolvePendingPreplanOutcome(
         event.commandId,
-        event.eventType === "COMMAND_REJECTED"
-          ? (event.code === "COLLECT_COOLDOWN" ? "cooldown_rejected" : "rejected")
-          : "applied"
+        event.eventType === "COMMAND_REJECTED" ? "rejected" : "applied"
       );
     }
   });
@@ -703,7 +679,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     issuedAt: number,
     requestOptions?: {
       skipPreplan?: boolean;
-      collectVisibleOnCooldown?: boolean;
     }
   ): Promise<PlannedCommandResult> => {
     return new Promise((resolve) => {
@@ -735,15 +710,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
 
       const stalemateTargets = attackStalemate.stalemateTargetsForPlayer(playerId);
-      // Lazy-init so the heartbeat fires 60s after a player's first tick even
-      // if they never run a heartbeat — otherwise an AI that gets stuck
-      // before its first heartbeat would have `lastHeartbeatAtMs === undefined`
-      // and never trigger the heartbeat branch in preplan.
-      let lastHeartbeatAtMs = lastHeartbeatAtByPlayer.get(playerId);
-      if (lastHeartbeatAtMs === undefined) {
-        lastHeartbeatAtMs = issuedAt;
-        lastHeartbeatAtByPlayer.set(playerId, lastHeartbeatAtMs);
-      }
       worker.postMessage({
         type: "plan",
         playerId,
@@ -751,10 +717,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         issuedAt,
         sessionPrefix: "ai-runtime",
         ...(requestOptions?.skipPreplan ? { skipPreplan: true } : {}),
-        ...(requestOptions?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
-        ...(typeof lastHeartbeatAtMs === "number"
-          ? { lastHeartbeatAtMs }
-          : {}),
         ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {})
       });
     });
@@ -875,12 +837,10 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           for (let pass = 0; pass < 2; pass += 1) {
             const issuedAt = now();
             const plannerStartedAt = now();
-            const collectVisibleOnCooldown = (collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0) > issuedAt;
             planRequestCount += 1;
             lastPlayerId = playerId;
             const plan = await requestPlan(playerId, clientSeq, issuedAt, {
-              skipPreplan,
-              collectVisibleOnCooldown
+              skipPreplan
             });
             const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
             options.onDiagnostic?.({
@@ -905,13 +865,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               urgentByPlayerId.delete(playerId);
               break;
             }
-            if (plan.command.type === "COLLECT_VISIBLE") {
-              const blockedUntil = collectVisibleCooldownUntilByPlayer.get(playerId) ?? 0;
-              if (blockedUntil > issuedAt) {
-                skipPreplan = true;
-                continue;
-              }
-            }
             if (plan.diagnostic) {
               options.onDecision?.(plan.diagnostic);
             }
@@ -919,15 +872,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               trackedPreplanByCommandId.set(plan.command.commandId, { playerId, trackedAt: issuedAt });
               pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
               activePreplanCommandId = plan.command.commandId;
-              // Register the preplan-outcome resolver BEFORE submitting. The
-              // runtime drain emits COLLECT_RESULT synchronously during the
-              // awaited submit's microtask phase; if the resolver were
-              // registered AFTER `await submitCommand` resolves (the previous
-              // ordering), the runtime event listener would fire first, find
-              // pendingPreplanOutcomeByCommandId empty, and the outcome
-              // signal would be lost — leading to a 5s wall every
-              // COLLECT_VISIBLE per the PREPLAN_OUTCOME_TIMEOUT_MS timeout.
-              // Pre-registering eliminates the race.
+              // Register the preplan-outcome resolver BEFORE submitting so the
+              // runtime event listener can signal the outcome without a race.
               const preplanWaitStartedAt = now();
               const outcomePromise = waitForPreplanOutcome(playerId, plan.command.commandId);
               const submitStartedAt = now();
@@ -937,15 +883,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               lastCommandAtByPlayer.set(playerId, issuedAt);
               nextClientSeqByPlayer.set(playerId, clientSeq + 1);
               options.onCommand?.({ playerId, commandType: plan.command.type });
-              if (plan.command.type === "COLLECT_VISIBLE") {
-                backOffCollectVisible(playerId, issuedAt);
-                // Only stamp the heartbeat clock when this collect WAS the
-                // heartbeat. Organic preplan collects must not reset the
-                // heartbeat clock — see the comment on lastHeartbeatAtByPlayer.
-                if (plan.diagnostic?.preplanReason === "collect_heartbeat") {
-                  lastHeartbeatAtByPlayer.set(playerId, issuedAt);
-                }
-              }
               options.onDiagnostic?.({
                 phase: "submit_command",
                 durationMs: Math.max(0, now() - submitStartedAt),

@@ -40,7 +40,6 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "WORLD_ENGINE_STRIKE":
       return "human_interactive";
     case "COLLECT_TILE":
-    case "COLLECT_VISIBLE":
     case "COLLECT_SHARD":
     case "CHOOSE_TECH":
     case "CHOOSE_DOMAIN":
