@@ -3,6 +3,7 @@ import {
   BufferGeometry,
   CanvasTexture,
   Color,
+  DynamicDrawUsage,
   Mesh,
   MeshPhysicalMaterial,
   RepeatWrapping,
@@ -114,8 +115,10 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     // grid column/row (top-left corner of each tile in world space).
     const gc = Math.floor(centerX);
     const gr = Math.floor(centerZ);
+    const key = tileKey(gc, gr);
+    if (tileMap.has(key)) return; // guard against double-add within one rebuild cycle
     tiles.push({ gc, gr, shallow });
-    tileMap.set(tileKey(gc, gr), shallow);
+    tileMap.set(key, shallow);
   };
 
   const commit = (): void => {
@@ -212,7 +215,9 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     }
 
     geometry = new BufferGeometry();
-    geometry.setAttribute("position", new BufferAttribute(positions, 3));
+    const posAttr = new BufferAttribute(positions, 3);
+    posAttr.setUsage(DynamicDrawUsage); // updated every frame in tick()
+    geometry.setAttribute("position", posAttr);
     geometry.setAttribute("uv",       new BufferAttribute(uvs, 2));
     geometry.setAttribute("color",    new BufferAttribute(colors, 3));
     geometry.setIndex(new BufferAttribute(indices, 1));
