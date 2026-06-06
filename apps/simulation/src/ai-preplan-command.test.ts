@@ -31,7 +31,7 @@ const makeTile = (
 });
 
 describe("automation preplan command", () => {
-  it("collects visible yield during an active lock instead of idling", () => {
+  it("defers to main planner when AI has an active lock but income is passive", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -54,14 +54,13 @@ describe("automation preplan command", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    expect(result.diagnostic.preplanReason).toBe("collect_for_active_lock");
+    // With passive income, there's no more COLLECT_VISIBLE preempt.
+    // Low-points AIs without affordable progression defer to main planner.
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.preplanReason).toBeDefined();
   });
 
-  it("collects visible yield when AI is too poor to expand and the best tech is still unaffordable", () => {
+  it("defers to main planner when AI is too poor and has no affordable progression", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -84,11 +83,7 @@ describe("automation preplan command", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    expect(result.diagnostic.preplanReason).toBe("collect_for_unaffordable_progression");
+    expect(result.command).toBeUndefined();
     expect(result.diagnostic.preplanProgressState).toBe("tech_unaffordable");
   });
 
@@ -191,7 +186,7 @@ describe("automation preplan command", () => {
     expect(result.diagnostic.preplanProgressState).toBe("tech_and_domain_affordable");
   });
 
-  it("reports economic-recovery collection when progression is not available yet", () => {
+  it("defers with no-reachable-progression when all tech/domain is already unlocked", () => {
     const settlement = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -215,14 +210,12 @@ describe("automation preplan command", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    expect(result.diagnostic.preplanReason).toBe("collect_for_economic_recovery");
+    expect(result.command).toBeUndefined();
+    // All progression choices exhausted — this is no_reachable_progression
+    expect(result.diagnostic.preplanReason).toBe("defer_no_reachable_progression");
   });
 
-  it("emits a heartbeat COLLECT_VISIBLE when the producer hasn't collected for over a minute", () => {
+  it("defers to main planner for a wealthy AI with rich town — no heartbeat collect needed with passive income", () => {
     const town = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -242,70 +235,13 @@ describe("automation preplan command", () => {
       ownedTiles: [town],
       clientSeq: 7,
       issuedAt: 1_000_000,
-      sessionPrefix: "ai-runtime",
-      lastHeartbeatAtMs: 1_000_000 - 60_000
+      sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    expect(result.diagnostic.preplanReason).toBe("collect_heartbeat");
-  });
-
-  it("does not emit a heartbeat collect before the interval has elapsed", () => {
-    const town = makeTile(0, 0, {
-      ownerId: "ai-1",
-      ownershipState: "SETTLED",
-      town: { name: "Recent", populationTier: "TOWN" }
-    });
-
-    const result = chooseAutomationPreplanCommand({
-      playerId: "ai-1",
-      points: 10_000,
-      techIds: techCatalog.techs.map((tech) => tech.id),
-      domainIds: domainCatalog.domains.map((domain) => domain.id),
-      strategicResources: { FOOD: 500, IRON: 500, CRYSTAL: 500, SUPPLY: 500 },
-      settledTileCount: 20,
-      townCount: 5,
-      incomePerMinute: 200,
-      hasActiveLock: false,
-      ownedTiles: [town],
-      clientSeq: 8,
-      issuedAt: 1_000_000,
-      sessionPrefix: "ai-runtime",
-      lastHeartbeatAtMs: 1_000_000 - 30_000
-    });
-
-    expect(result.diagnostic.preplanReason).not.toBe("collect_heartbeat");
-  });
-
-  it("suppresses the heartbeat collect while the producer cooldown is active", () => {
-    const town = makeTile(0, 0, {
-      ownerId: "ai-1",
-      ownershipState: "SETTLED",
-      town: { name: "Cooldown", populationTier: "TOWN" }
-    });
-
-    const result = chooseAutomationPreplanCommand({
-      playerId: "ai-1",
-      points: 10_000,
-      techIds: techCatalog.techs.map((tech) => tech.id),
-      domainIds: domainCatalog.domains.map((domain) => domain.id),
-      strategicResources: { FOOD: 500, IRON: 500, CRYSTAL: 500, SUPPLY: 500 },
-      settledTileCount: 20,
-      townCount: 5,
-      incomePerMinute: 200,
-      hasActiveLock: false,
-      ownedTiles: [town],
-      clientSeq: 9,
-      issuedAt: 1_000_000,
-      sessionPrefix: "ai-runtime",
-      lastHeartbeatAtMs: 1_000_000 - 90_000,
-      collectVisibleOnCooldown: true
-    });
-
-    expect(result.diagnostic.preplanReason).not.toBe("collect_heartbeat");
+    // With passive income there is no collect heartbeat — wealthy AIs with all
+    // techs/domains should defer to the main planner.
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.preplanReason).toBe("defer_no_reachable_progression");
   });
 
   it("reports missing progression reachability when there is nothing legal to pick", () => {

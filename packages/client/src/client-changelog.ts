@@ -19,10 +19,23 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.06.3",
+  version: "2026.06.06.4",
   title: "What's New",
-  summary: "Frontier automation now avoids empire-wide support scans during combat-heavy play.",
+  summary: "Resource income now flows passively every 15 seconds — no more manual collect actions causing server stalls.",
   entries: [
+    {
+      introducedIn: "2026.06.06.4",
+      title: "Passive empire income replaces manual COLLECT_VISIBLE",
+      why: "The COLLECT_VISIBLE command required scanning every settled tile on each AI turn, causing 500–2000ms main-thread stalls on large empires and blocking player actions during those windows.",
+      changes: [
+        "Gold and strategic resources now accrue automatically via a server-side 15-second tick.",
+        "Storage caps are computed from empire production rates: 12 hours of gold, food, iron, crystal, supply, oil, and shard.",
+        "Fish-tile food fills the food storage cap but does not extend it (fish food is perishable).",
+        "Ironworks, Crystal Synthesizer, and Fur Synthesizer buildings add a flat bonus to their resource cap.",
+        "Players inactive for more than 12 hours stop receiving passive income until they reconnect.",
+        "Combat tile capture now steals a proportional share of the defender's resources.",
+      ]
+    },
     {
       introducedIn: "2026.06.06.3",
       title: "Combat accepts stay responsive under large empires",

@@ -24,10 +24,11 @@ const testRuntimePlayer = (id: string) => ({
 const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const;
 
 describe("simulation runtime", () => {
-  it("collects visible yield through a player epoch without emitting per-tile deltas", async () => {
-    const nowMs = Date.now();
+  it("applyPassiveIncome credits gold proportional to elapsed time for active players", () => {
+    const startMs = 1_000_000;
+    const elapsedMs = 60_000; // 1 minute
     const runtime = new SimulationRuntime({
-      now: () => nowMs,
+      now: () => startMs,
       initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
       seedTiles: new Map(),
       initialState: {
@@ -39,75 +40,58 @@ describe("simulation runtime", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED",
             town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Gold Town" }
-          },
-          { x: 6, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-          { x: 7, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+          }
         ],
         activeLocks: []
       }
     });
-    const before = runtime.exportTilesInAreaForPlayer("player-1", 6, 5, 3, { fullVisibility: true });
-    const expected = before.reduce(
-      (acc, tile) => {
-        const hasYield = (tile.yield?.gold ?? 0) > 0 || Object.values(tile.yield?.strategic ?? {}).some((value) => Number(value) > 0);
-        if (!hasYield) return acc;
-        acc.tiles += 1;
-        acc.gold += tile.yield?.gold ?? 0;
-        for (const resource of strategicKeys) acc.strategic[resource] += Number(tile.yield?.strategic?.[resource] ?? 0);
-        return acc;
-      },
-      { tiles: 0, gold: 0, strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } }
-    );
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => seen.push(event));
-
-    runtime.submitCommand({
-      commandId: "collect-visible-epoch",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: nowMs,
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    await Promise.resolve();
-
-    const collectResult = seen.find(
-      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COLLECT_RESULT" }> =>
-        event.eventType === "COLLECT_RESULT" && event.commandId === "collect-visible-epoch"
-    );
-    expect(collectResult).toEqual(
-      expect.objectContaining({
-        mode: "visible",
-        tiles: expected.tiles,
-        gold: expected.gold
-      })
-    );
-    expect(collectResult?.strategic.FOOD ?? 0).toBeCloseTo(expected.strategic.FOOD, 5);
-    expect(collectResult?.strategic.IRON ?? 0).toBeCloseTo(expected.strategic.IRON, 5);
-    expect(seen.some((event) => event.eventType === "TILE_DELTA_BATCH" && event.commandId === "collect-visible-epoch")).toBe(false);
-    expect(seen).toContainEqual(
-      expect.objectContaining({
-        eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED",
-        commandId: "collect-visible-epoch",
-        playerId: "player-1",
-        collectedAt: nowMs
-      })
-    );
-    expect(seen).toContainEqual(
-      expect.objectContaining({
-        eventType: "PLAYER_MESSAGE",
-        commandId: "collect-visible-epoch",
-        messageType: "PLAYER_UPDATE"
-      })
-    );
-    const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
-    expect(player?.points).toBeCloseTo(100 + expected.gold, 5);
-    expect(player?.strategicResources.FOOD ?? 0).toBeCloseTo(expected.strategic.FOOD, 5);
-    expect(player?.strategicResources.IRON ?? 0).toBeCloseTo(expected.strategic.IRON, 5);
+    // Mark player as recently active
+    runtime.updatePlayerLastActive("player-1", startMs);
+    // Seed the income tick anchor
+    runtime.applyPassiveIncome(startMs, 12 * 60 * 60 * 1000);
+    const playerBefore = runtime.exportState().players.find((entry) => entry.id === "player-1");
+    const pointsBefore = playerBefore?.points ?? 0;
+    // Apply income for 1 minute elapsed
+    runtime.applyPassiveIncome(startMs + elapsedMs, 12 * 60 * 60 * 1000);
+    const playerAfter = runtime.exportState().players.find((entry) => entry.id === "player-1");
+    // Should have earned some gold (town produces gold per minute)
+    expect(playerAfter?.points ?? 0).toBeGreaterThan(pointsBefore);
   });
 
-  it("does not double-credit visible collect while the cooldown is active", async () => {
+  it("applyPassiveIncome skips inactive players beyond the inactivity cap", () => {
+    const startMs = 1_000_000;
+    const inactivityCapMs = 60_000; // 1 minute cap for this test
+    const runtime = new SimulationRuntime({
+      now: () => startMs,
+      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 5,
+            y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Gold Town" }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+    // Player was last active 2 minutes ago (exceeds 1 minute cap)
+    runtime.updatePlayerLastActive("player-1", startMs - 2 * inactivityCapMs);
+    // Seed the income tick anchor
+    runtime.applyPassiveIncome(startMs - 60_000, inactivityCapMs);
+    const playerBefore = runtime.exportState().players.find((entry) => entry.id === "player-1");
+    const pointsBefore = playerBefore?.points ?? 0;
+    // Apply income — player is inactive so should be skipped
+    runtime.applyPassiveIncome(startMs, inactivityCapMs);
+    const playerAfter = runtime.exportState().players.find((entry) => entry.id === "player-1");
+    expect(playerAfter?.points ?? 0).toBe(pointsBefore);
+  });
+
+  it("COLLECT_VISIBLE command is rejected as an unknown command", async () => {
     const nowMs = Date.now();
     const runtime = new SimulationRuntime({
       now: () => nowMs,
@@ -129,60 +113,8 @@ describe("simulation runtime", () => {
     });
     const seen: SimulationRuntimeEventShape[] = [];
     runtime.onEvent((event) => seen.push(event));
-
-    for (const commandId of ["collect-visible-first", "collect-visible-second"]) {
-      runtime.submitCommand({
-        commandId,
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: commandId.endsWith("first") ? 1 : 2,
-        issuedAt: nowMs,
-        type: "COLLECT_VISIBLE",
-        payloadJson: "{}"
-      });
-      await Promise.resolve();
-    }
-
-    const firstGold = (seen.find(
-      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COLLECT_RESULT" }> =>
-        event.eventType === "COLLECT_RESULT" && event.commandId === "collect-visible-first"
-    )?.gold ?? 0);
-    expect(firstGold).toBeGreaterThan(0);
-    expect(seen).toContainEqual(
-      expect.objectContaining({
-        eventType: "COMMAND_REJECTED",
-        commandId: "collect-visible-second",
-        code: "COLLECT_COOLDOWN"
-      })
-    );
-    const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
-    expect(player?.points).toBeCloseTo(100 + firstGold, 5);
-  });
-
-  it("visible collect clears yield through snapshots without per-tile anchors", async () => {
-    const nowMs = Date.now();
-    const runtime = new SimulationRuntime({
-      now: () => nowMs,
-      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Gold Town" }
-          },
-          { x: 6, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
-        ],
-        activeLocks: []
-      }
-    });
-
     runtime.submitCommand({
-      commandId: "collect-visible-snapshot",
+      commandId: "collect-visible-gone",
       sessionId: "session-1",
       playerId: "player-1",
       clientSeq: 1,
@@ -191,63 +123,7 @@ describe("simulation runtime", () => {
       payloadJson: "{}"
     });
     await Promise.resolve();
-
-    const exported = runtime.exportState();
-    expect(exported.playerYieldCollectionEpochByPlayer).toEqual([{ playerId: "player-1", collectedAt: nowMs }]);
-    expect(exported.tileYieldCollectedAtByTile).toEqual([]);
-    const snapshot = buildPlayerSubscriptionSnapshot("player-1", runtime.exportVisibleStateForPlayer("player-1"));
-    const collectedTown = snapshot.tiles.find((tile) => tile.x === 5 && tile.y === 5);
-    expect(collectedTown?.yield?.gold ?? -1).toBeLessThan(0.01);
-    expect(collectedTown?.yield?.strategic ?? {}).toEqual({});
-    // yieldRate/yieldCap removed from tile export (bootstrap-payload-shrink PR A).
-    // The client derives them from townJson (goldPerMinute/cap) + static tables.
-    // Just verify the collected buffer is cleared — rate/cap are now client-side.
-    const [tileDetail] = runtime.exportTilesInAreaForPlayer("player-1", 5, 5, 0, { fullVisibility: true });
-    expect(tileDetail?.yield).toEqual({ gold: 0, strategic: {} });
-  });
-
-  it("does not emit per-tile events when collecting visible yield for a large empire", async () => {
-    const nowMs = Date.now();
-    const tiles = Array.from({ length: 2_500 }, (_, index) => ({
-      x: index % 50,
-      y: Math.floor(index / 50),
-      terrain: "LAND" as const,
-      ownerId: "player-1",
-      ownershipState: "SETTLED" as const,
-      resource: index % 2 === 0 ? "FARM" as const : "IRON" as const
-    }));
-    const runtime = new SimulationRuntime({
-      now: () => nowMs,
-      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles,
-        activeLocks: []
-      }
-    });
-    const seen: SimulationRuntimeEventShape[] = [];
-    runtime.onEvent((event) => seen.push(event));
-
-    runtime.submitCommand({
-      commandId: "collect-visible-large-empire",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: nowMs,
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    await Promise.resolve();
-
-    const commandEvents = seen.filter((event) => event.commandId === "collect-visible-large-empire");
-    expect(commandEvents.map((event) => event.eventType)).toEqual([
-      "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED",
-      "COLLECT_RESULT",
-      "PLAYER_MESSAGE"
-    ]);
-    expect(commandEvents.some((event) => event.eventType === "TILE_YIELD_ANCHOR_UPDATED")).toBe(false);
-    expect(commandEvents.some((event) => event.eventType === "TILE_YIELD_ANCHOR_BATCH")).toBe(false);
-    expect(commandEvents.some((event) => event.eventType === "TILE_DELTA_BATCH")).toBe(false);
+    expect(seen.some((event) => event.eventType === "COMMAND_REJECTED")).toBe(true);
   });
 
   it("syncs gateway alliance changes into runtime player state", async () => {
@@ -6473,8 +6349,7 @@ describe("simulation runtime", () => {
             goldCost: 3
           }
         ],
-        tileYieldCollectedAtByTile: [{ tileKey: "10,10", collectedAt: 9_000 }],
-        collectVisibleCooldownByPlayer: [{ playerId: "player-1", cooldownUntil: 25_000 }]
+        tileYieldCollectedAtByTile: [{ tileKey: "10,10", collectedAt: 9_000 }]
       }
     });
 

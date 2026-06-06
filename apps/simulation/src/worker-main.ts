@@ -1,5 +1,5 @@
 // Worker-thread entry for the simulation service. Spawned by apps/realtime-
-// gateway/src/main-merged.ts so heavy sim compute (COLLECT_VISIBLE, snapshot
+// gateway/src/main-merged.ts so heavy sim compute (snapshot
 // writes, etc.) runs on an isolated event loop and can never block the
 // gateway's /healthz or WebSocket upgrades.
 //

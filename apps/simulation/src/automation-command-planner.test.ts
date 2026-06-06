@@ -126,7 +126,7 @@ describe("automation command planner", () => {
     expect(result.diagnostic.noCommandReason).toBe("insufficient_manpower_for_attack");
   });
 
-  it("collects visible yield before idling on insufficient points when a settled town can pay out", () => {
+  it("idles with insufficient_points when no frontier exists (passive income handles resource credit)", () => {
     const settlement = makeTile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -146,11 +146,10 @@ describe("automation command planner", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    expect(result.diagnostic.noCommandReason).toBeUndefined();
+    // With passive income, the planner no longer emits COLLECT_VISIBLE when stuck.
+    // Income arrives via the server-side tick instead.
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.noCommandReason).toBe("insufficient_points");
   });
 
   it("reports no_frontier_targets when no legal land expansion or attack exists", () => {
