@@ -262,6 +262,7 @@ type SimulationServiceOptions = {
   enableAiAutopilot?: boolean;
   aiTickMs?: number;
   aiMinCommandIntervalMs?: number;
+  aiCollectVisibleCooldownMs?: number;
   aiMaxEventLoopLagMs?: number;
   enableSystemAutopilot?: boolean;
   systemTickMs?: number;
@@ -1669,6 +1670,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
             tickIntervalMs: options.aiTickMs ?? 250,
             minCommandIntervalMs: options.aiMinCommandIntervalMs ?? 1_000,
+            collectVisibleCooldownMs: options.aiCollectVisibleCooldownMs,
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
@@ -2567,7 +2569,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         } catch (error) {
           log.error({ err: error }, "territory automation tick failed");
         }
-      }, 15_000);
+      }, 30_000);
       orphanLockSweepTicker = setInterval(() => {
         try {
           mainThreadTasks.trackSync("tick_orphan_lock_sweep", undefined, () => {
