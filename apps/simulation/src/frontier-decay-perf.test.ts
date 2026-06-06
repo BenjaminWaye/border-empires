@@ -119,6 +119,49 @@ describe("frontier-decay perf gate", () => {
     // improvement and guards against regressions.
     expect(elapsed, `10k frontier decays took ${elapsed}ms — must be < 300ms`).toBeLessThan(300);
   });
+
+  it("frontier support checks stay local with thousands of support anchors", () => {
+    const NOW_MS = 1_000_000;
+    const seedTiles: DomainTileState[] = [];
+
+    for (let y = 0; y < 40; y += 1) {
+      for (let x = 0; x < 100; x += 1) {
+        seedTiles.push(
+          landTile(x, y, {
+            ownerId: "p1",
+            ownershipState: "FRONTIER"
+          })
+        );
+      }
+    }
+
+    for (let y = 100; y < 140; y += 1) {
+      for (let x = 200; x < 250; x += 1) {
+        seedTiles.push(
+          landTile(x, y, {
+            ownerId: "p1",
+            ownershipState: "SETTLED",
+            town: { populationTier: "TOWN" }
+          })
+        );
+      }
+    }
+
+    const runtime = new SimulationRuntime({
+      now: () => NOW_MS,
+      initialPlayers: new Map([["p1", makePlayer("p1", 0)]]),
+      seedTiles: new Map(seedTiles.map((tile) => [`${tile.x},${tile.y}`, tile])),
+      seedDocks: []
+    });
+
+    const start = performance.now();
+    runtime.tickTerritoryAutomation(NOW_MS);
+    const elapsed = performance.now() - start;
+
+    console.log(`[perf-gate] 4k frontier / 2k support anchors: ${elapsed.toFixed(1)}ms`);
+
+    expect(elapsed, `frontier support scan took ${elapsed.toFixed(1)}ms — must be < 300ms`).toBeLessThan(300);
+  });
 });
 
 // ---------------------------------------------------------------------------
