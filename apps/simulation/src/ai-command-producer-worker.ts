@@ -102,6 +102,7 @@ type WorkerAiCommandProducerOptions = {
   now?: () => number;
   tickIntervalMs?: number;
   minCommandIntervalMs?: number;
+  collectVisibleCooldownMs?: number;
   playerSyncIntervalMs?: number;
   periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
@@ -169,7 +170,7 @@ const resolveWorkerScript = (given?: string): string | URL =>
 
 const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean =>
   queueDepths.human_interactive > 0;
-const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+const DEFAULT_COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 // Tick duration that triggers the onSlowTick context emit. Steady-state ticks
 // are p50=2ms / p95=5ms; p99=5000ms+ is a rare outlier we want to capture.
 // 1s threshold catches the outliers without flooding logs with normal ticks.
@@ -196,6 +197,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const now = options.now ?? (() => Date.now());
   const initialTickMs = Math.max(25, options.tickIntervalMs ?? 250);
   const minCommandIntervalMs = Math.max(0, options.minCommandIntervalMs ?? 0);
+  const collectVisibleCooldownMs = Math.max(0, options.collectVisibleCooldownMs ?? DEFAULT_COLLECT_VISIBLE_COOLDOWN_MS);
   let nextTickDelayMs = initialTickMs;
   const playerSyncIntervalMs = Math.max(25, options.playerSyncIntervalMs ?? 5_000);
   const periodicPlayerSyncBatchSize = Math.max(1, options.periodicPlayerSyncBatchSize ?? 1);
@@ -245,7 +247,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   let humanBacklogWasNonEmpty = false;
 
   const backOffCollectVisible = (playerId: string, eventAt: number): void => {
-    collectVisibleCooldownUntilByPlayer.set(playerId, eventAt + COLLECT_VISIBLE_COOLDOWN_MS);
+    collectVisibleCooldownUntilByPlayer.set(playerId, eventAt + collectVisibleCooldownMs);
   };
 
   const resolvePendingPreplanOutcome = (commandId: string, outcome: PreplanOutcome): void => {
@@ -486,9 +488,22 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     }
 
     const postStartedAt = now();
+    // When topology is unchanged, omit the large tile-key arrays from the
+    // postMessage payload. The worker merges with its cached player state,
+    // saving ~140KB of structured-clone per sync → reduces sync_players_post
+    // from 80ms p99 to <5ms for the common (no ownership-change) case.
+    const playersForPost = players.map((p) => {
+      if ((p.topologyDirtyTileKeys?.length ?? 0) === 0) {
+        const { territoryTileKeys: _t, frontierTileKeys: _f, hotFrontierTileKeys: _h,
+          strategicFrontierTileKeys: _s, buildCandidateTileKeys: _b,
+          pendingSettlementTileKeys: _p, ...compact } = p;
+        return compact;
+      }
+      return p;
+    });
     worker.postMessage({
       type: "sync_players",
-      players
+      players: playersForPost
     });
     options.onDiagnostic?.({
       phase: "sync_players_post",
