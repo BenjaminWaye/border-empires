@@ -329,7 +329,7 @@ export const townGoldPerMinuteForPlayer = (
   town: NonNullable<DomainTileState["town"]>,
   tiles: ReadonlyMap<string, DomainTileState>,
   fedTownKeys: ReadonlySet<string>,
-  firstThreeTownKeys: ReadonlySet<string> = firstThreeTownKeysForPlayer(player.id, tiles.values())
+  firstThreeTownKeys: ReadonlySet<string> = new Set<string>()
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
@@ -432,7 +432,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const oilSinks = new Map<string, EconomyBucket>();
   const dockEconomyContext = dockContext ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey } : undefined;
   const townNetwork = buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0 });
-  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, orderedTownTiles);
+  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.keys());
 
   for (const tile of settledTiles) {
     addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
