@@ -519,16 +519,23 @@ parentPort.on("message", (msg: unknown) => {
     }
 
     case "sync_players": {
-      const players = (message.players as PlannerPlayerView[]) ?? [];
+      const players = (message.players as Partial<PlannerPlayerView>[]) ?? [];
       for (const player of players) {
-        if (player.territoryTileKeys.length <= 0) {
-          rememberedVictoryPathByPlayer.delete(player.id);
+        // When topology is unchanged the main thread sends a compact view
+        // (no large tile-key arrays). Merge with the cached player so the
+        // planner always has a complete view.
+        const existing = playersById.get(player.id!);
+        const merged: PlannerPlayerView = existing
+          ? { ...existing, ...player } as PlannerPlayerView
+          : player as PlannerPlayerView;
+        if ((merged.territoryTileKeys?.length ?? 0) <= 0) {
+          rememberedVictoryPathByPlayer.delete(merged.id);
         }
-        const cached = playerTileCacheById.get(player.id);
-        if (cached && cached.tileCollectionVersion !== player.tileCollectionVersion) {
-          playerTileCacheById.delete(player.id);
+        const cached = playerTileCacheById.get(merged.id);
+        if (cached && cached.tileCollectionVersion !== merged.tileCollectionVersion) {
+          playerTileCacheById.delete(merged.id);
         }
-        playersById.set(player.id, player);
+        playersById.set(merged.id, merged);
       }
       break;
     }
