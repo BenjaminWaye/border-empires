@@ -6436,6 +6436,13 @@ export class SimulationRuntime {
         defenderGoldLoss: combatResolution.defenderGoldLoss
       });
     }
+    // Resource tile steal: when any resource tile is captured, steal a proportional
+    // share of the defender's balance of that resource type.
+    // Formula: stolen = defenderBalance / max(1, defenderCountOfThatResourceType)
+    // This makes each tile capture meaningful without requiring a tile scan.
+    if (attackerWon && attacker && defender && previousTarget?.resource && previousOwnerId && previousOwnerId !== lock.playerId) {
+      this.applyResourceTileSteal(attacker, defender, previousTarget.resource, previousTarget.economicStructure?.type);
+    }
     // When the captured town is a SETTLEMENT (the previous owner's home), it evacuates:
     // the town disappears from the captured tile and is re-rooted on one of the previous
     // owner's remaining SETTLED tiles. If they have no remaining territory, the existing
@@ -6742,6 +6749,63 @@ export class SimulationRuntime {
 
   private applyBarbarianWalkOrMultiply(lock: LockRecord, previousTarget: DomainTileState | undefined): void {
     applyBarbarianWalkOrMultiplyImpl(this.combatSupportContext(), lock, previousTarget);
+  }
+
+  private applyResourceTileSteal(
+    attacker: DomainPlayer,
+    defender: DomainPlayer,
+    tileResource: string | undefined,
+    structureType?: string
+  ): void {
+    // Map tile resource to strategic resource key
+    const resourceMap: Record<string, "IRON" | "CRYSTAL" | "SUPPLY" | "FOOD" | "OIL"> = {
+      IRON: "IRON",
+      GEMS: "CRYSTAL",
+      FUR: "SUPPLY",
+      WOOD: "SUPPLY",
+      FARM: "FOOD",
+      FISH: "FOOD",
+      OIL: "OIL"
+    };
+    // Synthesizer buildings also steal from the converted resource
+    const synthMap: Record<string, "IRON" | "CRYSTAL" | "SUPPLY"> = {
+      IRONWORKS: "IRON",
+      ADVANCED_IRONWORKS: "IRON",
+      CRYSTAL_SYNTHESIZER: "CRYSTAL",
+      ADVANCED_CRYSTAL_SYNTHESIZER: "CRYSTAL",
+      FUR_SYNTHESIZER: "SUPPLY",
+      ADVANCED_FUR_SYNTHESIZER: "SUPPLY"
+    };
+    const resource = (tileResource ? resourceMap[tileResource] : undefined)
+      ?? (structureType ? synthMap[structureType] : undefined);
+    if (!resource) return;
+
+    const defenderBalance = (defender.strategicResources?.[resource] ?? 0);
+    if (defenderBalance <= 0) return;
+
+    // Count defender's sources of this resource (tiles + synthesizers) from summary
+    const defenderSummary = this.summaryForPlayer(defender.id);
+    const sp = defenderSummary.strategicProductionPerMinute;
+    const syn = defenderSummary.synthesizerCapBonus;
+
+    // Approximate source count: scale from production rate compared to one tile's rate
+    // One iron tile produces 60/1440 = 0.0417/min. Count ≈ production / perTileRate.
+    const perTileRateByResource: Record<string, number> = {
+      IRON: 60 / 1440,
+      CRYSTAL: 36 / 1440,
+      SUPPLY: 60 / 1440,
+      FOOD: 72 / 1440,
+      OIL: 48 / 1440
+    };
+    const perTileRate = perTileRateByResource[resource] ?? (60 / 1440);
+    const synthBonusUnits = (syn[resource as "IRON" | "CRYSTAL" | "SUPPLY"] ?? 0) / 30; // 30 = 1 tile equiv
+    const tileEquivCount = Math.max(1, Math.round((sp[resource] ?? 0) / perTileRate + synthBonusUnits));
+
+    const stolen = defenderBalance / tileEquivCount;
+    if (stolen <= 0.01) return;
+
+    defender.strategicResources = { ...(defender.strategicResources ?? {}), [resource]: Math.max(0, defenderBalance - stolen) };
+    attacker.strategicResources = { ...(attacker.strategicResources ?? {}), [resource]: ((attacker.strategicResources?.[resource] ?? 0) + stolen) };
   }
 
   private applySettledCapturePlunder(input: {

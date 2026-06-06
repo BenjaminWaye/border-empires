@@ -2321,10 +2321,26 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 payloadJson: JSON.stringify({ type: "PLAYER_UPDATE", ...snapshotPayload.player })
               })
             : undefined;
+          // Emit a WELCOME_BACK message showing how much the player earned
+          // since their last active session (capped at 12h of accrual).
+          const welcomeBack = runtime.welcomeBackSummary(call.request.player_id, Date.now());
+          const welcomeBackEvent = welcomeBack.elapsedMs > 60_000
+            ? toProtoEvent({
+                eventType: "PLAYER_MESSAGE",
+                commandId: `welcome-back:${call.request.player_id}:${Date.now()}`,
+                playerId: call.request.player_id,
+                messageType: "WELCOME_BACK",
+                payloadJson: JSON.stringify({ type: "WELCOME_BACK", goldEarned: welcomeBack.goldEarned, elapsedMs: welcomeBack.elapsedMs })
+              })
+            : undefined;
+          runtime.updatePlayerLastActive(call.request.player_id, Date.now());
           queueMicrotask(() => {
             for (const stream of eventStreams) stream.write(bootstrapEvent);
             if (hydrateEvent) {
               for (const stream of eventStreams) stream.write(hydrateEvent);
+            }
+            if (welcomeBackEvent) {
+              for (const stream of eventStreams) stream.write(welcomeBackEvent);
             }
           });
         },
