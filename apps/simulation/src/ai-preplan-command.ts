@@ -1,6 +1,6 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey } from "@border-empires/game-domain";
-import { FRONTIER_CLAIM_COST, SETTLE_COST, type ChosenTrickleResource, type Terrain } from "@border-empires/shared";
+import { type ChosenTrickleResource, type Terrain } from "@border-empires/shared";
 
 import { createAutomationCommand } from "./automation-command-factory.js";
 import type {
@@ -9,7 +9,7 @@ import type {
   AutomationPreplanReason,
   AutomationSessionPrefix
 } from "./automation-command-planner.js";
-import { economyWeak, foodCoverageLow, hasCollectibleVisibleYieldSource } from "./ai-economic-heuristics.js";
+import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { chooseAiDomainChoiceForPlayer, chooseAiTechChoiceForPlayer } from "./tech-domain-bridge.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -35,23 +35,7 @@ export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
   clientSeq: number;
   issuedAt: number;
   sessionPrefix: AutomationSessionPrefix;
-  // True when the producer has gated COLLECT_VISIBLE for this AI (per-player
-  // 20s cooldown — see ai-command-producer*.ts COLLECT_VISIBLE_COOLDOWN_MS).
-  // When set, the preplan must not emit a COLLECT_VISIBLE preempt; otherwise
-  // the producer would gate it after the fact and the AI would loop through
-  // both planner passes without dispatching anything useful — exactly the
-  // failure mode we saw on staging (58 dispatched + many silent ticks).
-  collectVisibleOnCooldown?: boolean;
-  // Last time the producer fired a HEARTBEAT collect for this player (epoch ms;
-  // NOT shared with organic collects — organic activity must not reset this).
-  // When the gap to `issuedAt` exceeds COLLECT_HEARTBEAT_INTERVAL_MS the
-  // preplan emits a heartbeat collect before the main planner runs — without
-  // this, upkeep accrual drains the treasury below SETTLE_COST/FRONTIER_CLAIM_COST
-  // and the main planner sits in `insufficient_points` for thousands of ticks.
-  lastHeartbeatAtMs?: number;
 };
-
-export const COLLECT_HEARTBEAT_INTERVAL_MS = 60_000;
 
 const createDiagnostic = (
   playerId: string,
@@ -72,16 +56,11 @@ const createDiagnostic = (
 const summarizeDeferReason = (options: {
   techChoiceAffordable: boolean;
   domainChoiceAffordable: boolean;
-  hasCollectibleVisibleYieldSource: boolean;
   hasAnyProgressionChoice: boolean;
 }): AutomationPreplanReason => {
   if (!options.hasAnyProgressionChoice) return "defer_no_reachable_progression";
-  if (
-    !options.techChoiceAffordable &&
-    !options.domainChoiceAffordable &&
-    !options.hasCollectibleVisibleYieldSource
-  ) {
-    return "defer_unaffordable_progression_without_collect";
+  if (!options.techChoiceAffordable && !options.domainChoiceAffordable) {
+    return "defer_unaffordable_progression";
   }
   return "defer_to_main_planner";
 };
@@ -114,7 +93,6 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
   const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
-  const hasCollectibleSource = hasCollectibleVisibleYieldSource(input.ownedTiles);
   const techChoice = chooseAiTechChoiceForPlayer(
     {
       id: input.playerId,
@@ -148,84 +126,12 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
     hasDomainChoice: domainChoice !== undefined
   });
   const diagnosticBase = {
-    preplanHasCollectibleVisibleYieldSource: hasCollectibleSource,
     preplanNeedsEconomy: needsEconomy,
     preplanNeedsFood: needsFood,
     preplanTechChoiceAffordable: techChoiceAffordable,
     preplanDomainChoiceAffordable: domainChoiceAffordable,
     preplanProgressState: progressState
   } satisfies Partial<AutomationPlannerDiagnostic>;
-
-  const canAffordExpansion = input.points >= FRONTIER_CLAIM_COST + SETTLE_COST;
-  // Heartbeat: force a COLLECT_VISIBLE before any other planning if the
-  // producer last collected for this player over a minute ago. Tile yield
-  // is netted against upkeep inside applyEconomyAccrual before it ever
-  // reaches player.points, so without a periodic collect the treasury bleeds
-  // below FRONTIER_CLAIM_COST and the main planner gets stuck noop'ing
-  // `insufficient_points`. Gated on `hasCollectibleSource` so we never spam
-  // empties at AI players that genuinely have no settled town/dock yet, and
-  // on `!collectVisibleOnCooldown` so the producer's 20s gate still wins
-  // when it's active (60s > 20s so they shouldn't collide).
-  if (
-    hasCollectibleSource &&
-    !input.collectVisibleOnCooldown &&
-    input.lastHeartbeatAtMs !== undefined &&
-    input.issuedAt - input.lastHeartbeatAtMs >= COLLECT_HEARTBEAT_INTERVAL_MS
-  ) {
-    return {
-      command: createAutomationCommand(
-        input.sessionPrefix,
-        input.playerId,
-        input.clientSeq,
-        input.issuedAt,
-        "COLLECT_VISIBLE",
-        {}
-      ),
-      diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, {
-        ...diagnosticBase,
-        preplanReason: "collect_heartbeat"
-      })
-    };
-  }
-  // Suppress the COLLECT_VISIBLE preempt while it's on cooldown — otherwise we
-  // emit COLLECT, the producer gates the dispatch, the same AI loops back into
-  // preplan, and we get a silent tick. With cooldown respected here we fall
-  // through to CHOOSE_TECH / CHOOSE_DOMAIN / main-planner instead.
-  if (
-    hasCollectibleSource &&
-    !input.collectVisibleOnCooldown &&
-    (
-      input.hasActiveLock ||
-      (
-        !canAffordExpansion &&
-        !hasAffordableProgression &&
-        (
-          (techChoice !== undefined && !techChoice.affordable) ||
-          (domainChoice !== undefined && !domainChoice.affordable) ||
-          ((needsEconomy || needsFood) && input.points < 2_000)
-        )
-      )
-    )
-  ) {
-    return {
-      command: createAutomationCommand(
-        input.sessionPrefix,
-        input.playerId,
-        input.clientSeq,
-        input.issuedAt,
-        "COLLECT_VISIBLE",
-        {}
-      ),
-      diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, {
-        ...diagnosticBase,
-        preplanReason: input.hasActiveLock
-          ? "collect_for_active_lock"
-          : (techChoice !== undefined || domainChoice !== undefined)
-            ? "collect_for_unaffordable_progression"
-            : "collect_for_economic_recovery"
-      })
-    };
-  }
 
   const progressionChoice =
     techChoice?.affordable && domainChoice?.affordable
@@ -299,7 +205,6 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
       preplanReason: summarizeDeferReason({
         techChoiceAffordable,
         domainChoiceAffordable,
-        hasCollectibleVisibleYieldSource: hasCollectibleSource,
         hasAnyProgressionChoice
       })
     })

@@ -355,6 +355,7 @@ import {
   removeFrontierTileFromOwnerIndex as removeFrontierTileFromOwnerIndexImpl
 } from "./runtime-tile-index-maintenance.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "./runtime-shard-rain-tick.js";
+import { computeEmpireStorageCap } from "./runtime-empire-storage.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "./runtime-territory-automation-tick.js";
 import { tickMuster as tickMusterImpl } from "./runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl, garrisonCapForVariant, initialGarrisonForVariant } from "./runtime-fort-garrison-tick.js";
@@ -386,7 +387,6 @@ const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive",
 // from the incremental add/subtract sum over a long-lived season.
 const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 export { FOREST_SETTLEMENT_MULT, MAX_SETTLE_DURATION_MS, SETTLE_DURATION_MS };
-const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 const RESPAWN_MINIMUM_GOLD = 100;
 export { settlementBaseDurationMsForTile, settlementDurationMsForPlayer };
 
@@ -479,7 +479,7 @@ export class SimulationRuntime {
   // Index of yield-bearing SETTLED LAND tiles per owner. A tile is yield-bearing
   // iff it has town, dockId, a strategic resource, or an active converter
   // economicStructure. Maintained in replaceTileState; rebuilt from this.tiles
-  // in the constructor. Used by handleCollectVisibleCommand to skip the 99% of
+  // in the constructor. Used by consumeUpkeepFromTileYield to skip the 99% of
   // settled tiles that produce zero yield (plain land).
   private readonly yieldBearingTilesByOwner = new Map<string, Set<string>>();
   // Sorted (deterministic drain order) snapshot of yieldBearingTilesByOwner.
@@ -495,10 +495,10 @@ export class SimulationRuntime {
   // populated in the constructor's first-pass tile loop.
   private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
-  private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
-  private readonly playerYieldCollectionEpochByPlayer = new Map<string, number>();
+  private readonly lastIncomeTickAtMsByPlayer = new Map<string, number>();
+  private readonly lastActiveAtMsByPlayer = new Map<string, number>();
   private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
   // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
   // inside replaceTileState; consumed by tickTileShedding to shed newest-first
@@ -538,9 +538,8 @@ export class SimulationRuntime {
   private readonly upkeepAccrualReadCountByPlayer = new Map<string, number>();
   // Cached tile-yield economy context per player. Includes town network, fed-town
   // keys, and first-three-town keys. Invalidated alongside economySnapshotCacheByPlayer
-  // (same replaceTileState triggers). Without this cache, COLLECT_VISIBLE calls
-  // tileYieldEconomyContextForPlayer which rebuilds the town network from all
-  // settled tiles — O(250k) at target scale.
+  // (same replaceTileState triggers). Used by consumeUpkeepFromTileYield and
+  // applyPassiveIncome to avoid rebuilding the town network from all settled tiles.
   private readonly tileYieldContextCacheByPlayer = new Map<string, RuntimeTileYieldEconomyContext>();
   // Cached defensibility metrics per player.  Invalidated alongside the
   // economy snapshot cache because the same tile mutations that change income
@@ -589,18 +588,6 @@ export class SimulationRuntime {
     | undefined;
   private readonly onJobApplied:
     | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"] }) => void)
-    | undefined;
-  private readonly onCollectVisibleSample:
-    | ((sample: {
-        playerId: string;
-        yieldMs: number;
-        deltaMs: number;
-        tileDeltaBatchEmitMs: number;
-        collectResultEmitMs: number;
-        playerStateUpdateMs: number;
-        tilesConsidered: number;
-        tilesTouched: number;
-      }) => void)
     | undefined;
   private drainScheduled = false;
   private immediateDrainScheduled = false;
@@ -666,7 +653,6 @@ export class SimulationRuntime {
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
-    this.onCollectVisibleSample = options.onCollectVisibleSample;
     this.onVisibilityAudit = options.onVisibilityAudit;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.onShardCollected = options.onShardCollected;
@@ -688,10 +674,7 @@ export class SimulationRuntime {
       this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
     }
     for (const yieldEntry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) {
-      this.playerYieldCollectionEpochByPlayer.set(yieldEntry.playerId, yieldEntry.collectedAt);
-    }
-    for (const cooldown of options.initialState?.collectVisibleCooldownByPlayer ?? []) {
-      this.collectVisibleCooldownByPlayer.set(cooldown.playerId, cooldown.cooldownUntil);
+      this.lastIncomeTickAtMsByPlayer.set(yieldEntry.playerId, yieldEntry.collectedAt);
     }
     for (const playerId of this.players.keys()) {
       this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
@@ -937,6 +920,75 @@ export class SimulationRuntime {
       locksByTile: this.locksByTile,
       locksByCommandId: this.locksByCommandId
     });
+  }
+
+  updatePlayerLastActive(playerId: string, nowMs: number): void {
+    this.lastActiveAtMsByPlayer.set(playerId, nowMs);
+  }
+
+  applyPassiveIncome(nowMs: number, inactivityCapMs: number): void {
+    for (const player of this.players.values()) {
+      const lastActiveAt = this.lastActiveAtMsByPlayer.get(player.id) ?? 0;
+      if (nowMs - lastActiveAt > inactivityCapMs) continue;
+
+      const lastTickAt = this.lastIncomeTickAtMsByPlayer.get(player.id);
+      if (lastTickAt === undefined) {
+        // First tick: seed the anchor at nowMs so we start accruing from here
+        this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
+        continue;
+      }
+
+      const elapsedMs = nowMs - lastTickAt;
+      if (elapsedMs <= 0) continue;
+      const elapsedMinutes = elapsedMs / 60_000;
+
+      const economy = this.cachedEconomySnapshot(player);
+      const goldPerMinute = economy.incomePerMinute;
+      const summary = this.summaryForPlayer(player.id);
+      const storageCap = computeEmpireStorageCap(summary, goldPerMinute);
+
+      // Credit gold
+      const goldEarned = goldPerMinute * elapsedMinutes;
+      if (goldEarned > 0) {
+        const availableGoldCap = Math.max(0, storageCap.GOLD - player.points);
+        player.points += Math.min(goldEarned, availableGoldCap);
+      }
+
+      // Credit strategic resources
+      const sp = summary.strategicProductionPerMinute;
+      const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL", "SHARD"] as const;
+      for (const resource of strategicKeys) {
+        const ratePerMinute = sp[resource] ?? 0;
+        if (ratePerMinute <= 0) continue;
+        const earned = ratePerMinute * elapsedMinutes;
+        const cap = storageCap[resource as keyof typeof storageCap] ?? 0;
+        const current = (player.strategicResources ?? {})[resource] ?? 0;
+        const available = Math.max(0, cap - current);
+        const credited = Math.min(earned, available);
+        if (credited > 0) {
+          this.addStrategicResource(player, resource, credited);
+        }
+      }
+
+      this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
+    }
+  }
+
+  welcomeBackSummary(
+    playerId: string,
+    nowMs: number
+  ): { goldEarned: number; elapsedMs: number } {
+    const lastTickAt = this.lastIncomeTickAtMsByPlayer.get(playerId);
+    if (lastTickAt === undefined) {
+      return { goldEarned: 0, elapsedMs: 0 };
+    }
+    const elapsedMs = Math.max(0, nowMs - lastTickAt);
+    const player = this.players.get(playerId);
+    if (!player) return { goldEarned: 0, elapsedMs };
+    const economy = this.cachedEconomySnapshot(player);
+    const goldPerMinute = economy.incomePerMinute;
+    const goldEarned = goldPerMinute * (elapsedMs / 60_000);
+    return { goldEarned: Math.floor(goldEarned), elapsedMs };
   }
 
   tickPopulationGrowth(nowMs: number = this.now()): void {
@@ -1735,7 +1787,7 @@ export class SimulationRuntime {
   }
 
   private setPlayerYieldCollectionEpoch(commandId: string, playerId: string, collectedAt: number): void {
-    this.playerYieldCollectionEpochByPlayer.set(playerId, collectedAt);
+    this.lastIncomeTickAtMsByPlayer.set(playerId, collectedAt);
     this.emitEvent({
       eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED",
       commandId,
@@ -1746,7 +1798,7 @@ export class SimulationRuntime {
 
   private tileYieldCollectedAt(tileKey: string, ownerId?: string): number | undefined {
     const tileAnchor = this.tileYieldCollectedAtByTile.get(tileKey);
-    const playerAnchor = ownerId ? this.playerYieldCollectionEpochByPlayer.get(ownerId) : undefined;
+    const playerAnchor = ownerId ? this.lastIncomeTickAtMsByPlayer.get(ownerId) : undefined;
     if (typeof tileAnchor === "number" && typeof playerAnchor === "number") return Math.max(tileAnchor, playerAnchor);
     return tileAnchor ?? playerAnchor;
   }
@@ -1895,7 +1947,6 @@ export class SimulationRuntime {
     sessionPrefix: "ai-runtime" | "system-runtime",
     options?: {
       skipPreplan?: boolean;
-      collectVisibleOnCooldown?: boolean;
     }
   ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
     const player = this.players.get(playerId);
@@ -1941,8 +1992,7 @@ export class SimulationRuntime {
         ownedTiles,
         clientSeq,
         issuedAt,
-        sessionPrefix,
-        ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {})
+        sessionPrefix
       });
       preplanDiagnostic = preplan.diagnostic;
       if (preplan.command) return preplan;
@@ -1984,7 +2034,6 @@ export class SimulationRuntime {
         this.rememberedAutomationVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
       },
       ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
-      ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
       ...(spatialFocus ? { spatialFocusFront: spatialFocus.primaryFront } : {}),
       clientSeq,
       issuedAt,
@@ -1994,9 +2043,6 @@ export class SimulationRuntime {
       plan.diagnostic = {
         ...plan.diagnostic,
         preplanReason: preplanDiagnostic.preplanReason,
-        ...(typeof preplanDiagnostic.preplanHasCollectibleVisibleYieldSource === "boolean"
-          ? { preplanHasCollectibleVisibleYieldSource: preplanDiagnostic.preplanHasCollectibleVisibleYieldSource }
-          : {}),
         ...(typeof preplanDiagnostic.preplanNeedsEconomy === "boolean"
           ? { preplanNeedsEconomy: preplanDiagnostic.preplanNeedsEconomy }
           : {}),
@@ -2065,8 +2111,7 @@ export class SimulationRuntime {
       players: this.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
-      playerYieldCollectionEpochByPlayer: this.playerYieldCollectionEpochByPlayer,
-      collectVisibleCooldownByPlayer: this.collectVisibleCooldownByPlayer,
+      playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
       docks: this.docks,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
@@ -2125,7 +2170,7 @@ export class SimulationRuntime {
       players: this.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
-      playerYieldCollectionEpochByPlayer: this.playerYieldCollectionEpochByPlayer,
+      playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
       docks: this.docks,
       terrainEpoch: this.terrainEpoch,
       tileDeltaStringifyCache: this.tileDeltaStringifyCache,
@@ -2148,7 +2193,7 @@ export class SimulationRuntime {
         players: this.players,
         pendingSettlementsByTile: this.pendingSettlementsByTile,
         tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
-        playerYieldCollectionEpochByPlayer: this.playerYieldCollectionEpochByPlayer,
+        playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
         docks: this.docks,
         terrainEpoch: this.terrainEpoch,
         tileDeltaStringifyCache: this.tileDeltaStringifyCache,
@@ -2229,7 +2274,7 @@ export class SimulationRuntime {
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       docks: this.docks,
       tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
-      playerYieldCollectionEpochByPlayer: this.playerYieldCollectionEpochByPlayer,
+      playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
       terrainEpoch: this.terrainEpoch,
       classifyVisibilityForPlayer: (visiblePlayerId: string) => this.classifyVisibilityForPlayer(visiblePlayerId),
       emitVisibilityAudit: (
@@ -3033,104 +3078,6 @@ export class SimulationRuntime {
       targetKey,
       target,
       startedAt: this.now()
-    });
-  }
-
-  private handleCollectVisibleCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    if (!actor) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "unknown player"
-      });
-      return;
-    }
-    this.applyManpowerRegen(actor);
-
-    const now = this.now();
-    const cooldownUntil = this.collectVisibleCooldownByPlayer.get(command.playerId) ?? 0;
-    if (cooldownUntil > now) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "COLLECT_COOLDOWN",
-        message: "collect visible is on cooldown"
-      });
-      return;
-    }
-
-    let tiles = 0;
-    let gold = 0;
-    const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
-    const yieldContext = this.tileYieldEconomyContextForPlayer(actor);
-    let yieldMs = 0;
-    let tilesConsidered = 0;
-    const sampleNow = this.now.bind(this);
-    // Use the yieldBearingTilesByOwner index so we iterate only tiles with
-    // income potential (O(yield-bearing) instead of O(all-settled)). The inner
-    // SETTLED guard is kept as a safety net for index drift.
-    const yieldBearingKeys = this.yieldBearingTilesByOwner.get(command.playerId);
-    if (yieldBearingKeys) {
-      for (const tileKey of yieldBearingKeys) {
-        const tile = this.tiles.get(tileKey);
-        if (!tile || tile.ownershipState !== "SETTLED") continue;
-        tilesConsidered += 1;
-        const yieldStartedAt = sampleNow();
-        const collected = this.collectTileYield(tile, now, command, yieldContext, {
-          creditStrategic: false,
-          persistAnchor: false
-        });
-        yieldMs += sampleNow() - yieldStartedAt;
-        const touched = collected.gold > 0 || Object.values(collected.strategic).some((value) => Number(value) > 0);
-        if (!touched) continue;
-        tiles += 1;
-        gold += collected.gold;
-        for (const [resource, amount] of Object.entries(collected.strategic) as Array<[StrategicResourceKey, number]>) {
-          strategic[resource] = (strategic[resource] ?? 0) + amount;
-        }
-      }
-    }
-    // DEV_ASSERT: cross-check index vs full scan in dev mode
-    if (process.env.DEV_ASSERT_YIELD_INDEX === "1") {
-      this.assertYieldIndexCorrect(command.playerId, now, yieldContext);
-    }
-    this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
-    this.setPlayerYieldCollectionEpoch(command.commandId, command.playerId, now);
-    actor.points += gold;
-    for (const [resource, amount] of Object.entries(strategic) as Array<[StrategicResourceKey, number]>) {
-      if (amount > 0) this.addStrategicResource(actor, resource, amount);
-    }
-    // COLLECT_VISIBLE is a player-level economy operation. The player epoch
-    // below clears derived tile buffers without emitting one zero-yield tile
-    // delta per touched tile.
-    const tileDeltaBatchEmitMs = 0;
-    const collectResultStartedAt = sampleNow();
-    this.emitEvent({
-      eventType: "COLLECT_RESULT",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      mode: "visible",
-      tiles,
-      gold,
-      strategic
-    });
-    const collectResultEmitMs = sampleNow() - collectResultStartedAt;
-    const playerStateUpdateStartedAt = sampleNow();
-    this.emitPlayerStateUpdate(command);
-    const playerStateUpdateMs = sampleNow() - playerStateUpdateStartedAt;
-    this.onCollectVisibleSample?.({
-      playerId: command.playerId,
-      yieldMs,
-      deltaMs: 0,
-      tileDeltaBatchEmitMs,
-      collectResultEmitMs,
-      playerStateUpdateMs,
-      tilesConsidered,
-      tilesTouched: tiles
     });
   }
 
@@ -6489,6 +6436,13 @@ export class SimulationRuntime {
         defenderGoldLoss: combatResolution.defenderGoldLoss
       });
     }
+    // Resource tile steal: when any resource tile is captured, steal a proportional
+    // share of the defender's balance of that resource type.
+    // Formula: stolen = defenderBalance / max(1, defenderCountOfThatResourceType)
+    // This makes each tile capture meaningful without requiring a tile scan.
+    if (attackerWon && attacker && defender && previousTarget?.resource && previousOwnerId && previousOwnerId !== lock.playerId) {
+      this.applyResourceTileSteal(attacker, defender, previousTarget.resource, previousTarget.economicStructure?.type);
+    }
     // When the captured town is a SETTLEMENT (the previous owner's home), it evacuates:
     // the town disappears from the captured tile and is re-rooted on one of the previous
     // owner's remaining SETTLED tiles. If they have no remaining territory, the existing
@@ -6797,6 +6751,63 @@ export class SimulationRuntime {
     applyBarbarianWalkOrMultiplyImpl(this.combatSupportContext(), lock, previousTarget);
   }
 
+  private applyResourceTileSteal(
+    attacker: DomainPlayer,
+    defender: DomainPlayer,
+    tileResource: string | undefined,
+    structureType?: string
+  ): void {
+    // Map tile resource to strategic resource key
+    const resourceMap: Record<string, "IRON" | "CRYSTAL" | "SUPPLY" | "FOOD" | "OIL"> = {
+      IRON: "IRON",
+      GEMS: "CRYSTAL",
+      FUR: "SUPPLY",
+      WOOD: "SUPPLY",
+      FARM: "FOOD",
+      FISH: "FOOD",
+      OIL: "OIL"
+    };
+    // Synthesizer buildings also steal from the converted resource
+    const synthMap: Record<string, "IRON" | "CRYSTAL" | "SUPPLY"> = {
+      IRONWORKS: "IRON",
+      ADVANCED_IRONWORKS: "IRON",
+      CRYSTAL_SYNTHESIZER: "CRYSTAL",
+      ADVANCED_CRYSTAL_SYNTHESIZER: "CRYSTAL",
+      FUR_SYNTHESIZER: "SUPPLY",
+      ADVANCED_FUR_SYNTHESIZER: "SUPPLY"
+    };
+    const resource = (tileResource ? resourceMap[tileResource] : undefined)
+      ?? (structureType ? synthMap[structureType] : undefined);
+    if (!resource) return;
+
+    const defenderBalance = (defender.strategicResources?.[resource] ?? 0);
+    if (defenderBalance <= 0) return;
+
+    // Count defender's sources of this resource (tiles + synthesizers) from summary
+    const defenderSummary = this.summaryForPlayer(defender.id);
+    const sp = defenderSummary.strategicProductionPerMinute;
+    const syn = defenderSummary.synthesizerCapBonus;
+
+    // Approximate source count: scale from production rate compared to one tile's rate
+    // One iron tile produces 60/1440 = 0.0417/min. Count ≈ production / perTileRate.
+    const perTileRateByResource: Record<string, number> = {
+      IRON: 60 / 1440,
+      CRYSTAL: 36 / 1440,
+      SUPPLY: 60 / 1440,
+      FOOD: 72 / 1440,
+      OIL: 48 / 1440
+    };
+    const perTileRate = perTileRateByResource[resource] ?? (60 / 1440);
+    const synthBonusUnits = (syn[resource as "IRON" | "CRYSTAL" | "SUPPLY"] ?? 0) / 30; // 30 = 1 tile equiv
+    const tileEquivCount = Math.max(1, Math.round((sp[resource] ?? 0) / perTileRate + synthBonusUnits));
+
+    const stolen = defenderBalance / tileEquivCount;
+    if (stolen <= 0.01) return;
+
+    defender.strategicResources = { ...(defender.strategicResources ?? {}), [resource]: Math.max(0, defenderBalance - stolen) };
+    attacker.strategicResources = { ...(attacker.strategicResources ?? {}), [resource]: ((attacker.strategicResources?.[resource] ?? 0) + stolen) };
+  }
+
   private applySettledCapturePlunder(input: {
     attacker: DomainPlayer;
     defender: DomainPlayer;
@@ -6909,7 +6920,6 @@ export class SimulationRuntime {
       handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
       handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
-      handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
       handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
       handleChooseTechCommand: (command) => this.handleChooseTechCommand(command),

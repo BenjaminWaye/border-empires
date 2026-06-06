@@ -35,6 +35,9 @@ export type PlayerRuntimeSummary = {
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   activeDevelopmentProcessCount: number;
   pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
+  fishFoodPerMinute: number;
+  synthesizerCapBonus: { IRON: number; CRYSTAL: number; SUPPLY: number };
+  lastActiveAtMs: number;
 };
 
 const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
@@ -144,7 +147,10 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   goldIncomePerMinute: 0,
   strategicProductionPerMinute: emptyStrategicProduction(),
   activeDevelopmentProcessCount: 0,
-  pendingSettlementsByTile: new Map<string, PendingSettlementRecord>()
+  pendingSettlementsByTile: new Map<string, PendingSettlementRecord>(),
+  fishFoodPerMinute: 0,
+  synthesizerCapBonus: { IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+  lastActiveAtMs: 0
 });
 
 export const cloneStrategicProduction = (
@@ -193,6 +199,10 @@ export const applyTileToPlayerSummary = (
     summary.settledTileCount += 1;
     const resourceKey = strategicResourceForTile(tile.resource);
     if (resourceKey) summary.strategicProductionPerMinute[resourceKey] += strategicProductionPerMinuteForResource(tile.resource);
+    // Track fish food separately — fish tiles fill the food cap but don't extend it
+    if (tile.resource === "FISH") {
+      summary.fishFoodPerMinute += 48 / 1440;
+    }
   }
   if (tile.ownershipState === "SETTLED" && hasTownOnTile(tile)) {
     summary.townCount += 1;
@@ -201,6 +211,23 @@ export const applyTileToPlayerSummary = (
   }
   summary.goldIncomePerMinute += goldIncomePerMinuteForTile(tile);
   summary.activeDevelopmentProcessCount += activeStructureProcessCount(tile, tile.ownerId);
+  // Track synthesizer cap bonuses from active economic structures
+  if (tile.economicStructure?.status === "active") {
+    const structureType = tile.economicStructure.type;
+    if (structureType === "IRONWORKS") {
+      summary.synthesizerCapBonus.IRON += 30;
+    } else if (structureType === "ADVANCED_IRONWORKS") {
+      summary.synthesizerCapBonus.IRON += 45;
+    } else if (structureType === "CRYSTAL_SYNTHESIZER") {
+      summary.synthesizerCapBonus.CRYSTAL += 18;
+    } else if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") {
+      summary.synthesizerCapBonus.CRYSTAL += 27;
+    } else if (structureType === "FUR_SYNTHESIZER") {
+      summary.synthesizerCapBonus.SUPPLY += 30;
+    } else if (structureType === "ADVANCED_FUR_SYNTHESIZER") {
+      summary.synthesizerCapBonus.SUPPLY += 45;
+    }
+  }
 };
 
 export const removeTileFromPlayerSummary = (
@@ -220,6 +247,9 @@ export const removeTileFromPlayerSummary = (
         summary.strategicProductionPerMinute[resourceKey] - strategicProductionPerMinuteForResource(tile.resource)
       );
     }
+    if (tile.resource === "FISH") {
+      summary.fishFoodPerMinute = Math.max(0, summary.fishFoodPerMinute - 48 / 1440);
+    }
   }
   if (tile.ownershipState === "SETTLED" && hasTownOnTile(tile)) {
     summary.townCount = Math.max(0, summary.townCount - 1);
@@ -227,6 +257,23 @@ export const removeTileFromPlayerSummary = (
   }
   summary.goldIncomePerMinute = Math.max(0, summary.goldIncomePerMinute - goldIncomePerMinuteForTile(tile));
   summary.activeDevelopmentProcessCount = Math.max(0, summary.activeDevelopmentProcessCount - activeStructureProcessCount(tile, tile.ownerId));
+  // Mirror synthesizer cap bonus subtractions
+  if (tile.economicStructure?.status === "active") {
+    const structureType = tile.economicStructure.type;
+    if (structureType === "IRONWORKS") {
+      summary.synthesizerCapBonus.IRON = Math.max(0, summary.synthesizerCapBonus.IRON - 30);
+    } else if (structureType === "ADVANCED_IRONWORKS") {
+      summary.synthesizerCapBonus.IRON = Math.max(0, summary.synthesizerCapBonus.IRON - 45);
+    } else if (structureType === "CRYSTAL_SYNTHESIZER") {
+      summary.synthesizerCapBonus.CRYSTAL = Math.max(0, summary.synthesizerCapBonus.CRYSTAL - 18);
+    } else if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") {
+      summary.synthesizerCapBonus.CRYSTAL = Math.max(0, summary.synthesizerCapBonus.CRYSTAL - 27);
+    } else if (structureType === "FUR_SYNTHESIZER") {
+      summary.synthesizerCapBonus.SUPPLY = Math.max(0, summary.synthesizerCapBonus.SUPPLY - 30);
+    } else if (structureType === "ADVANCED_FUR_SYNTHESIZER") {
+      summary.synthesizerCapBonus.SUPPLY = Math.max(0, summary.synthesizerCapBonus.SUPPLY - 45);
+    }
+  }
 };
 
 export const addPendingSettlementToSummary = (

@@ -15,7 +15,6 @@ export type RuntimeCommandDispatchHandlers = {
   handleCancelStructureBuildCommand: (command: CommandEnvelope) => void;
   handleRemoveStructureCommand: (command: CommandEnvelope) => void;
   handleCancelSiegeOutpostBuildCommand: (command: CommandEnvelope) => void;
-  handleCollectVisibleCommand: (command: CommandEnvelope) => void;
   handleCollectTileCommand: (command: CommandEnvelope) => void;
   handleUncaptureTileCommand: (command: CommandEnvelope) => void;
   handleChooseTechCommand: (command: CommandEnvelope) => void;
@@ -63,7 +62,6 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CANCEL_STRUCTURE_BUILD") return handlers.handleCancelStructureBuildCommand(command);
   if (command.type === "REMOVE_STRUCTURE") return handlers.handleRemoveStructureCommand(command);
   if (command.type === "CANCEL_SIEGE_OUTPOST_BUILD") return handlers.handleCancelSiegeOutpostBuildCommand(command);
-  if (command.type === "COLLECT_VISIBLE") return handlers.handleCollectVisibleCommand(command);
   if (command.type === "COLLECT_TILE") return handlers.handleCollectTileCommand(command);
   if (command.type === "UNCAPTURE_TILE") return handlers.handleUncaptureTileCommand(command);
   if (command.type === "CHOOSE_TECH") return handlers.handleChooseTechCommand(command);
@@ -112,7 +110,6 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "REMOVE_STRUCTURE" ||
   command.type === "CANCEL_SIEGE_OUTPOST_BUILD" ||
   command.type === "UNCAPTURE_TILE" ||
-  command.type === "COLLECT_VISIBLE" ||
   command.type === "COLLECT_TILE" ||
   command.type === "CHOOSE_TECH" ||
   command.type === "CHOOSE_DOMAIN" ||
