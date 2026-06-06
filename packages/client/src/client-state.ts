@@ -155,6 +155,7 @@ export const createInitialState = () => ({
   homeTile: undefined as { x: number; y: number } | undefined,
   localhostDevAetherWall: false,
   tiles: new Map<string, Tile>(),
+  tilesRevision: 0,
   camX: 0,
   camY: 0,
   zoom: 22,

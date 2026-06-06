@@ -32,6 +32,18 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
     { introducedIn: "2026.06.06.1", title: "Build actions work on the rewrite gateway", why: "The client started sending the unfinished unified BUILD_STRUCTURE command before the rewrite gateway advertised that wire message, so structure builds could be blocked as unavailable.", changes: ["Structure build clicks now send the gateway-supported build message while keeping the internal queued build state intact.", "Queued structure builds replay through the same compatible send path."] },
     {
       introducedIn: "2026.06.05.1",
+      title: "Water tiles rebuilt as a single seamless mesh",
+      why: "The previous per-tile InstancedMesh produced a visible grid pattern regardless of material quality. The ocean is now one merged BufferGeometry with shared edge vertices, world-space UVs, and vertex-color depth gradient (shallow teal near coasts, deep navy in open ocean).",
+      changes: [
+        "No more tile grid seams on water — adjacent tiles share edge vertices.",
+        "Shallow/deep color gradient derived per-vertex from coast proximity.",
+        "Two overlapping normal maps (swell + chop) scrolled at different speeds replace the old baked canvas texture.",
+        "MeshPhysicalMaterial with clearcoat Fresnel replaces MeshStandardMaterial with metalness.",
+        "Black specular blobs eliminated — metalness dropped to 0."
+      ]
+    },
+    {
+      introducedIn: "2026.06.05.1",
       title: "Aether bridge expansions stay connected",
       why: "Frontier encirclement checks only followed physical neighboring tiles, so a tile expanded across an active Aether Bridge could be treated as cut off even though it was supplied through the bridge.",
       changes: [

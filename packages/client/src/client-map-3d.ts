@@ -99,7 +99,6 @@ type ClientThreeTerrainRendererDeps = {
 
 const MAX_VISIBLE_TILES = 14000;
 const MAX_BRIDGE_PYLONS = 16;
-const UPDATE_THROTTLE_MS = 70;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
@@ -609,7 +608,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     frontierClaimPlate
   );
 
-  const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0 };
+  const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1 };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
   const ownershipDebugWindow = (): (Window & { __be3dOwnershipDebug?: unknown }) | undefined =>
@@ -1611,8 +1610,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       deps.state.camY !== lastUpdate.camY ||
       zoomChanged ||
       width !== lastUpdate.width ||
-      height !== lastUpdate.height;
-    if (!changed && nowMs - lastUpdate.at < UPDATE_THROTTLE_MS) return;
+      height !== lastUpdate.height ||
+      deps.state.tilesRevision !== lastUpdate.tilesRevision;
+    if (!changed) return;
     if (width !== lastUpdate.width || height !== lastUpdate.height) resize();
     else if (zoomChanged) applyCamera();
     rebuildVisibleTerrain();
@@ -1622,6 +1622,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     lastUpdate.width = width;
     lastUpdate.height = height;
     lastUpdate.at = nowMs;
+    lastUpdate.tilesRevision = deps.state.tilesRevision;
   };
 
   const renderLoop = (): void => {

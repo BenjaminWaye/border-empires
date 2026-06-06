@@ -66,7 +66,7 @@ export type GatewayTileUpdate = {
 };
 
 type GatewayTileSyncDeps = {
-  state: Pick<ClientState, "tiles" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
+  state: Pick<ClientState, "tiles" | "tilesRevision" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
     me?: string | undefined;
     mods?: Partial<ClientState["mods"]>;
     upkeepLastTick: { foodCoverage?: number };
@@ -302,7 +302,7 @@ export const refreshGatewayDerivedTownSummariesAroundTile = (
   _y: number
 ): void => {};
 
-const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUpdate): boolean => {
+const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUpdate, skipRevision = false): boolean => {
   const tileKey = deps.keyFor(update.x, update.y);
   deps.state.incomingAttacksByTile.delete(tileKey);
   deps.state.pendingCollectVisibleKeys.delete(tileKey);
@@ -460,6 +460,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
       : 1.0;
   ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], ownIncomeMultiplier);
   deps.state.tiles.set(tileKey, resolved);
+  if (!skipRevision) deps.state.tilesRevision += 1;
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
 };
@@ -492,9 +493,10 @@ export const applyGatewayInitialState = (
     deps.state.pendingCollectVisibleKeys.clear();
     deps.state.discoveredTiles.clear();
   }
+  deps.state.tilesRevision += 1; // single bump for the whole batch
   let invalidatedTerrainCache = false;
   for (const tile of tiles) {
-    invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile) || invalidatedTerrainCache;
+    invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile, true) || invalidatedTerrainCache;
   }
   if (invalidatedTerrainCache) {
     deps.clearRenderCaches?.();
