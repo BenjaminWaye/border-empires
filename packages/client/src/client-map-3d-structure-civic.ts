@@ -9,13 +9,14 @@ import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js
 
 export type CivicStructureKind =
   | "CARAVANARY"
+  | "CLEARING_HOUSE"
   | "CUSTOMS_HOUSE"
   | "EXCHANGE_HOUSE"
   | "GARRISON_HALL"
   | "GOVERNORS_OFFICE";
 
 export const CIVIC_STRUCTURE_KINDS: ReadonlySet<CivicStructureKind> = new Set([
-  "CARAVANARY", "CUSTOMS_HOUSE", "EXCHANGE_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE"
+  "CARAVANARY", "CLEARING_HOUSE", "CUSTOMS_HOUSE", "EXCHANGE_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE"
 ]);
 
 export type CivicStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -49,6 +50,12 @@ export const registerCivicStructures = (
   const exchangeHouseWallMaterial = new MeshStandardMaterial({ color: "#d8cca8", roughness: 0.88, metalness: 0, flatShading: true });
   const exchangeHouseTrimMaterial = new MeshStandardMaterial({ color: "#f0e6d0", roughness: 0.86, metalness: 0, flatShading: true });
   const exchangeHouseSignMaterial = new MeshStandardMaterial({ color: "#e0b850", roughness: 0.4, metalness: 0.55, flatShading: true, emissive: "#7a5818", emissiveIntensity: 0.2 });
+  const clearingHouseWallMaterial = new MeshStandardMaterial({ color: "#d6cfbd", roughness: 0.86, metalness: 0, flatShading: true });
+  const clearingHouseRoofMaterial = new MeshStandardMaterial({ color: "#587080", roughness: 0.74, metalness: 0.08, flatShading: true });
+  const clearingHouseTrimMaterial = new MeshStandardMaterial({ color: "#efe3c3", roughness: 0.82, metalness: 0, flatShading: true });
+  const clearingHouseLedgerMaterial = new MeshStandardMaterial({ color: "#2f3f4f", roughness: 0.8, metalness: 0.12, flatShading: true });
+  const clearingHouseSealMaterial = new MeshStandardMaterial({ color: "#d7b756", roughness: 0.42, metalness: 0.45, flatShading: true, emissive: "#6f5517", emissiveIntensity: 0.16 });
+  const clearingHouseScaleMaterial = new MeshStandardMaterial({ color: "#e5c35f", roughness: 0.38, metalness: 0.5, flatShading: true, emissive: "#70551a", emissiveIntensity: 0.14 });
   const garrisonWallMaterial = new MeshStandardMaterial({ color: "#5e6a52", roughness: 0.9, metalness: 0, flatShading: true });
   const garrisonRoofMaterial = new MeshStandardMaterial({ color: "#3a342a", roughness: 0.92, metalness: 0, flatShading: true });
   const garrisonSandbagMaterial = new MeshStandardMaterial({ color: "#a89878", roughness: 0.94, metalness: 0, flatShading: true });
@@ -83,6 +90,16 @@ export const registerCivicStructures = (
   const exchangeHouseRoofGeo = new ConeGeometry(0.16, 0.08, 4);
   const exchangeHouseColumnGeo = new CylinderGeometry(0.018, 0.018, 0.12, 8);
   const exchangeHouseSignGeo = new OctahedronGeometry(0.025, 0);
+  const clearingHouseBaseGeo = new BoxGeometry(0.40, 0.055, 0.26);
+  const clearingHouseBodyGeo = new BoxGeometry(0.33, 0.155, 0.20);
+  const clearingHouseWingGeo = new BoxGeometry(0.11, 0.12, 0.16);
+  const clearingHouseRoofGeo = new BoxGeometry(0.38, 0.05, 0.24);
+  const clearingHouseColumnGeo = new CylinderGeometry(0.016, 0.018, 0.155, 8);
+  const clearingHouseLedgerGeo = new BoxGeometry(0.13, 0.026, 0.075);
+  const clearingHouseSealGeo = new CylinderGeometry(0.038, 0.038, 0.012, 16);
+  const clearingHouseScalePoleGeo = new CylinderGeometry(0.006, 0.006, 0.18, 6);
+  const clearingHouseScaleBeamGeo = new BoxGeometry(0.18, 0.01, 0.01);
+  const clearingHouseScalePanGeo = new CylinderGeometry(0.028, 0.035, 0.012, 10);
   const garrisonBodyGeo = new BoxGeometry(0.34, 0.13, 0.18);
   const garrisonRoofGeo = new ConeGeometry(0.22, 0.10, 4);
   const garrisonSandbagGeo = new BoxGeometry(0.07, 0.035, 0.035);
@@ -113,6 +130,16 @@ export const registerCivicStructures = (
   builder.makeSlot("exchangeHouseRoof", exchangeHouseRoofGeo, exchangeHouseTrimMaterial, C);
   builder.makeSlot("exchangeHouseColumn", exchangeHouseColumnGeo, exchangeHouseTrimMaterial, C * 2);
   builder.makeSlot("exchangeHouseSign", exchangeHouseSignGeo, exchangeHouseSignMaterial, C);
+  builder.makeSlot("clearingHouseBase", clearingHouseBaseGeo, clearingHouseTrimMaterial, C);
+  builder.makeSlot("clearingHouseBody", clearingHouseBodyGeo, clearingHouseWallMaterial, C);
+  builder.makeSlot("clearingHouseWing", clearingHouseWingGeo, clearingHouseWallMaterial, C * 2);
+  builder.makeSlot("clearingHouseRoof", clearingHouseRoofGeo, clearingHouseRoofMaterial, C);
+  builder.makeSlot("clearingHouseColumn", clearingHouseColumnGeo, clearingHouseTrimMaterial, C * 4);
+  builder.makeSlot("clearingHouseLedger", clearingHouseLedgerGeo, clearingHouseLedgerMaterial, C * 2);
+  builder.makeSlot("clearingHouseSeal", clearingHouseSealGeo, clearingHouseSealMaterial, C);
+  builder.makeSlot("clearingHouseScalePole", clearingHouseScalePoleGeo, clearingHouseScaleMaterial, C);
+  builder.makeSlot("clearingHouseScaleBeam", clearingHouseScaleBeamGeo, clearingHouseScaleMaterial, C);
+  builder.makeSlot("clearingHouseScalePan", clearingHouseScalePanGeo, clearingHouseScaleMaterial, C * 2);
   builder.makeSlot("garrisonBody", garrisonBodyGeo, garrisonWallMaterial, C);
   builder.makeSlot("garrisonRoof", garrisonRoofGeo, garrisonRoofMaterial, C);
   builder.makeSlot("garrisonSandbag", garrisonSandbagGeo, garrisonSandbagMaterial, C * 3);
@@ -173,6 +200,25 @@ export const registerCivicStructures = (
     builder.addPiece("exchangeHouseSign", sx, sy, sz, 0, 0.17, 0.085, 1, 1.4, 1);
   };
 
+  const addClearingHouse: CivicStructureLayout = (sx, sy, sz) => {
+    builder.addPiece("clearingHouseBase", sx, sy, sz, 0, 0.025, 0.03);
+    builder.addPiece("clearingHouseBody", sx, sy, sz, 0, 0.132, -0.005);
+    builder.addPiece("clearingHouseWing", sx, sy, sz, -0.195, 0.10, 0.005);
+    builder.addPiece("clearingHouseWing", sx, sy, sz, 0.195, 0.10, 0.005);
+    builder.addPiece("clearingHouseRoof", sx, sy, sz, 0, 0.235, -0.005);
+    builder.addPiece("clearingHouseColumn", sx, sy, sz, -0.125, 0.112, 0.125);
+    builder.addPiece("clearingHouseColumn", sx, sy, sz, -0.042, 0.112, 0.125);
+    builder.addPiece("clearingHouseColumn", sx, sy, sz, 0.042, 0.112, 0.125);
+    builder.addPiece("clearingHouseColumn", sx, sy, sz, 0.125, 0.112, 0.125);
+    builder.addPiece("clearingHouseLedger", sx, sy, sz, -0.08, 0.04, 0.19, 1, 1, 1, -0.18);
+    builder.addPiece("clearingHouseLedger", sx, sy, sz, 0.08, 0.04, 0.19, 1, 1, 1, 0.18);
+    builder.addPiece("clearingHouseSeal", sx, sy, sz, 0, 0.17, 0.122, 1, 1, 1, 0, Math.PI * 0.5);
+    builder.addPiece("clearingHouseScalePole", sx, sy, sz, 0, 0.335, 0.018);
+    builder.addPiece("clearingHouseScaleBeam", sx, sy, sz, 0, 0.405, 0.018);
+    builder.addPiece("clearingHouseScalePan", sx, sy, sz, -0.075, 0.37, 0.018);
+    builder.addPiece("clearingHouseScalePan", sx, sy, sz, 0.075, 0.37, 0.018);
+  };
+
   const addGarrisonHall: CivicStructureLayout = (sx, sy, sz) => {
     builder.addPiece("garrisonBody", sx, sy, sz, 0, 0.085, -0.02);
     builder.addPiece("garrisonRoof", sx, sy, sz, 0, 0.21, -0.02, 1, 1, 1, Math.PI * 0.25);
@@ -195,6 +241,7 @@ export const registerCivicStructures = (
   return {
     layouts: {
       CARAVANARY: addCaravanary,
+      CLEARING_HOUSE: addClearingHouse,
       CUSTOMS_HOUSE: addCustomsHouse,
       EXCHANGE_HOUSE: addExchangeHouse,
       GARRISON_HALL: addGarrisonHall,

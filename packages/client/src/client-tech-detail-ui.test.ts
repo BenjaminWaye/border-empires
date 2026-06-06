@@ -262,6 +262,7 @@ describe("tech detail crystal ability previews", () => {
     };
 
     expect(structureInfoForKey("EXCHANGE_HOUSE", deps).image).toBe("/overlays/exchange-house-overlay.svg");
+    expect(structureInfoForKey("CLEARING_HOUSE", deps).image).toBe("/overlays/clearing-house-overlay.svg");
     expect(structureInfoForKey("RAIL_DEPOT", deps).image).toBe("/overlays/rail-depot-overlay.svg");
     expect(structureInfoForKey("AEGIS_DOME", deps).image).toBe("/overlays/aegis-dome-overlay.svg");
     expect(structureInfoForKey("ASTRAL_DOCK", deps).image).toBe("/overlays/astral-dock-overlay.svg");
