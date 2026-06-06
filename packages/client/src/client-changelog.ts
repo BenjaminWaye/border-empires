@@ -19,10 +19,17 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.05.1",
+  version: "2026.06.06.2",
   title: "What's New",
-  summary: "Ocean water rebuilt — single continuous mesh with depth-gradient coloring and animated wave normals.",
+  summary: "Clearing Houses now have dedicated map overlays.",
   entries: [
+    {
+      introducedIn: "2026.06.06.2",
+      title: "Clearing Houses get their own map art",
+      why: "Clearing Houses could appear as generic or Bank-like markers instead of a distinct building, making it harder to scan connected-town economy upgrades on the map.",
+      changes: ["Clearing Houses now render with a dedicated 3D building overlay and a matching 2D/info-panel asset."]
+    },
+    { introducedIn: "2026.06.06.1", title: "Build actions work on the rewrite gateway", why: "The client started sending the unfinished unified BUILD_STRUCTURE command before the rewrite gateway advertised that wire message, so structure builds could be blocked as unavailable.", changes: ["Structure build clicks now send the gateway-supported build message while keeping the internal queued build state intact.", "Queued structure builds replay through the same compatible send path."] },
     {
       introducedIn: "2026.06.05.1",
       title: "Water tiles rebuilt as a single seamless mesh",
@@ -36,6 +43,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
+      introducedIn: "2026.06.05.1",
+      title: "Aether bridge expansions stay connected",
+      why: "Frontier encirclement checks only followed physical neighboring tiles, so a tile expanded across an active Aether Bridge could be treated as cut off even though it was supplied through the bridge.",
+      changes: [
+        "Active Aether Bridge endpoints now count as connected territory edges for frontier encirclement checks.",
+        "Expanding through an Aether Bridge no longer starts immediate encirclement decay on the new frontier endpoint."
+      ]
+    },
+    {
       introducedIn: "2026.06.04.5",
       title: "AI sync no longer blocks the event loop",
       why: "syncPlayers was blocking the main thread for 322-403ms p99 on staging, causing gateway gRPC latency of 3s+ and periodic AI throttling. Three root causes fixed: relevance rebuild now skips building/tech mutations (only fires on ownership changes), the unseen-tile scan now only checks newly-relevant keys instead of all 100k+ global keys, and the 100k-key Set copy is eliminated.",
@@ -44,16 +60,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Gateway command submit latency expected to drop from 3s p99 to under 500ms."
       ]
     },
-    {
-      introducedIn: "2026.06.04.4",
-      title: "AI turn rotation fixed",
-      why: "A no-command result from one AI could leave the worker scheduler pointed at the same player forever, so an eliminated or broke AI repeatedly nooped while richer AI empires stopped receiving turns.",
-      changes: [
-        "AI turn scheduling now advances after a first-pass noop, letting the next AI empire plan on the following tick.",
-        "AI command submissions are now rate-limited per empire, so a recovered loop cannot flood the simulation with rapid expand/attack/build commands.",
-        "Staging's repeated `ai-2:insufficient_points` loop is now covered by a regression test."
-      ]
-    },
+    { introducedIn: "2026.06.04.4", title: "AI turn rotation fixed", why: "A no-command result from one AI could leave the worker scheduler pointed at the same player forever, so an eliminated or broke AI repeatedly nooped while richer AI empires stopped receiving turns.", changes: ["AI turn scheduling now advances after a first-pass noop, letting the next AI empire plan on the following tick.", "AI command submissions are now rate-limited per empire, so a recovered loop cannot flood the simulation with rapid expand/attack/build commands.", "Staging's repeated `ai-2:insufficient_points` loop is now covered by a regression test."] },
     {
       introducedIn: "2026.06.04.4",
       title: "Alliance-safe waypoints and cleaner settlement respawns",
@@ -91,6 +98,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
     },
     {
       introducedIn: "2026.06.03.2",
+      title: "Queued builds survive a page reload again",
+      why: "The BUILD_STRUCTURE migration in v2026.06.02.8 had a missing branch for the current wire type itself — fresh BUILD_STRUCTURE persisted entries had their structureType silently dropped on reload, then rejected by the sim as UNKNOWN_STRUCTURE.",
+      changes: [
+        "parsePersistedDevelopmentAction now preserves structureType for BUILD_STRUCTURE entries.",
+        "Round-trip test covers fresh BUILD_STRUCTURE and legacy BUILD_FORT/BUILD_ECONOMIC_STRUCTURE entries."
+      ]
+    },
+    {
+      introducedIn: "2026.06.03.2",
       title: "Survey Sweep becomes hidden-intel pings",
       why: "Survey Sweep overlapped too much with hard map reveal effects. It now gives useful scouting direction without exposing exact terrain or resource types.",
       changes: [
@@ -108,7 +124,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Muster fill bars appear above tiles as manpower accumulates (owner-colored). Outposts act as depot zones that fill at 2× speed.",
         "Forts show a gold garrison bar. Garrison scales defense bonus — attack a fort repeatedly to wear it down before breaking through. Garrison refills from overflow regen when your pool is full.",
         "Barbarian raid: attacking a barb tile costs only a small pool fee, no staging required — great for clearing territory fast.",
-        "Manpower HUD chip now shows logistics throughput (→ X/m) alongside your regen rate.",
+        "Manpower HUD chip now shows logistics throughput (→ X/m) alongside your regen rate."
       ]
     },
     {
@@ -267,93 +283,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "SERVER_BUSY auth errors now flow into the existing reconnect backoff (exponential with jitter), same as SERVER_STARTING.",
         "No new backoff logic — the existing scheduleAuthReconnect path handles the retry spacing."
-      ]
-    },
-    {
-      introducedIn: "2026.05.30.3",
-      title: "Manpower regen slowdown now uses one runtime source",
-      why: "The shared balance constants had been slowed so a settlement takes about 12 hours to refill manpower, but game-domain still exported the old fast per-tier table. That left room for runtime paths and tooling to drift back to pre-slowdown rates.",
-      changes: [
-        "Simulation now reads manpower cap and regen constants through game-domain, which mirrors the shared balance table instead of keeping a duplicate fast table.",
-        "Added a regression test that fails if base regen or any town tier stops taking about 720 minutes to refill its manpower cap."
-      ]
-    },
-    {
-      introducedIn: "2026.05.30.3",
-      title: "Income multiplier and advanced converter display fixes (PR #440 follow-up)",
-      why: "Two regressions from the bootstrap-payload-shrink work. (1) The player's income mod from tech was applied to every tile's yield display — even enemy tiles — so clicking another empire showed inflated yields. (2) Advanced converter structures (ADVANCED_FUR_SYNTHESIZER, ADVANCED_IRONWORKS, ADVANCED_CRYSTAL_SYNTHESIZER) displayed their theoretically-correct higher values (21.6 / 21.6 / 14.4), but the sim currently returns the basic values (18 / 18 / 12) for these structures. The client now matches the sim so displayed yield equals actual production. The sim-side fix will be a separate gameplay PR.",
-      changes: [
-        "Income multiplier from tech now only applies to tiles owned by the viewer. Enemy tiles display their owner-appropriate yield.",
-        "Advanced converter daily output now matches the sim's current behavior (basic values). Will update in lockstep when the sim honors ADVANCED_* constants."
-      ]
-    },
-    {
-      introducedIn: "2026.05.30.2",
-      title: "Barbarian counter-captures stay settled",
-      why: "When a player attack against barbarians failed, the counter-captured origin tile was being converted to barbarian FRONTIER land. That could make the tile blink like cut-off frontier even though barbarian territory should always be settled.",
-      changes: [
-        "Failed attacks against barbarians now leave the counter-captured player origin as barbarian SETTLED land.",
-        "Any stale frontier decay timer on that captured origin is cleared during the ownership change."
-      ]
-    },
-    {
-      introducedIn: "2026.05.30.1",
-      title: "Smaller initial world payload — faster load times",
-      why: "The bootstrap init message was 512KB and growing with the world. Per-tile fields yieldRate and yieldCap were redundant for town tiles (townJson already carries goldPerMinute and cap) and derivable for non-town tiles from static yield tables and tile resource/dock/economicStructure fields. Moving them to client-side derivation shrinks the payload ~30%.",
-      changes: [
-        "yieldRate and yieldCap are no longer sent in the bootstrap init payload. The client derives them from the tile's townJson, resource, dockId, and economicStructure fields.",
-        "Town tiles still carry goldPerMinute and cap inside townJson — no loss of accuracy.",
-        "Gateway tile-detail endpoint still computes and returns yieldRate/yieldCap for live tile detail fetches."
-      ]
-    },
-    {
-      introducedIn: "2026.05.29.2",
-      title: "Fort and siege outpost tiers persist — Iron/Thunder Bastion defense and Siege/Dread Tower attack work correctly",
-      why: "Fort and siege variants existed only as client-side optimistic labels. The simulation never stored a structure's tier, so combat multipliers defaulted to base values (5x for all forts, 1.6x for all siege). Upgrade menus offered bogus actions on maxed structures, and menu text showed wrong defense/attack numbers. Displayed siege attack multipliers are also corrected — they now match the authoritative config values.",
-      changes: [
-        "Forts: BUILD_FORT creates the best available tier and upgrades follow FORT → Iron Bastion → Thunder Bastion. Costs: Iron 1800g/90 iron, Thunder 4200g/180 iron.",
-        "Siege: BUILD_SIEGE_OUTPOST creates the best available tier and upgrades follow Siege Outpost → Siege Tower → Dread Tower. Costs: Tower 1800g/90 SUPPLY/60 IRON, Dread 4200g/140 SUPPLY/120 IRON.",
-        "Attack multiplier labels on Siege Tower (was 2x, now 1.8x) and Dread Tower (was 3x, now 2.0x) corrected — no behavior change, just accurate labels.",
-        "buildDetailTextForAction now shows correct tier-based defense and attack numbers."
-      ]
-    },
-    {
-      introducedIn: "2026.05.29.2",
-      title: "Shard rain now pings on the minimap when it starts",
-      why: "Shard rain sites appeared on the map but never triggered minimap location pings, so players had to scan the entire map to find them. The server was broadcasting site coordinates but only to system-internal subscribers — clients never received them.",
-      changes: [
-        "Shard rain start broadcasts now include the x/y of each placed site alongside the site count.",
-        "Client registers minimap pings for each site immediately when the shard rain alert arrives, using the same staged fall-delay timing as tile-delta-based pings.",
-        "Reconnecting players also get pings from the init-payload shard rain notice."
-      ]
-    },
-    {
-      introducedIn: "2026.05.29.2",
-      title: "Shard rain no longer places sites on tiles used in the previous rain event",
-      why: "When the valid land tile pool is small (e.g. late-game with many claimed tiles), the random placement could land on the exact same tile multiple events in a row, making it look like a stale duplicate.",
-      changes: [
-        "Shard rain now tracks recently-placed tile keys and excludes them from candidate selection during the same event.",
-        "The exclusion set is cleared at the start of each new rain event."
-      ]
-    },
-    {
-      introducedIn: "2026.05.29.2",
-      title: "CACHE shard collections now survive process restarts",
-      why: "One-time CACHE shards could reappear after a simulation process restart because the cleared state wasn't durably checkpointed before the process exited. FALL shards were immune because they expire naturally on the next tick.",
-      changes: [
-        "Collecting a non-FALL (CACHE) shard now requests an immediate checkpoint write, making the cleared state durable before the next process restart."
-      ]
-    },
-    {
-      introducedIn: "2026.05.29.1",
-      title: "Upkeep shown on every building action",
-      why: "The buildings tab showed build cost and time but omitted the ongoing upkeep, so players had no way to see what a building would cost per minute before committing.",
-      changes: [
-        "All buildings with gold, food, or crystal upkeep now display it in the action menu detail line (e.g. '0.1 gold/min', '0.05 food/min').",
-        "Corrected the Fur Synthesizer, Ironworks, and Aether Condenser upkeep display from 12/12/16 gold/min to the correct 6/6/8 gold/min.",
-        "Corrected Harbor Exchange (Customs House) upkeep from 0.5 to 1.5 gold/min.",
-        "Removed phantom '1.5 gold/min' from Caravanary — the sim charges food upkeep only.",
-        "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
       ]
     },
   ]

@@ -17,7 +17,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { SimulationRuntime } from "./runtime.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import { createAutomationNoopDiagnostic } from "./automation-command-planner.js";
-import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
+import { createPlannerRelevantTileKeyIndex, DEFAULT_PLANNER_SYNC_RADIUS } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
 import type { WorkerMemoryMetrics } from "./snapshot-stringifier.js";
@@ -137,6 +137,7 @@ type WorkerAiCommandProducerOptions = {
       | "sync_players_export"
       | "sync_players_relevance"
       | "sync_players_replace_players"
+      | "sync_players_incremental_delta"
       | "sync_players_relevant_set_alloc"
       | "sync_players_unseen_scan"
       | "sync_players_export_unseen_tiles"
@@ -382,7 +383,15 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     for (const tile of worldView.tiles) {
       plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
     }
-    relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(worldView);
+    relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(worldView, DEFAULT_PLANNER_SYNC_RADIUS, {
+      onPlayerIncrementalDelta: (playerId, dirtyTileCount) => {
+        options.onDiagnostic?.({
+          phase: "sync_players_incremental_delta",
+          durationMs: dirtyTileCount, // dirty-tile count, not wall-clock time
+          playerId
+        });
+      }
+    });
     relevantTileKeys = relevantTileKeyIndex.keys();
     worker.postMessage({
       type: "init",

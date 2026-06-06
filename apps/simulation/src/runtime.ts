@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import type { CommandEnvelope, LockedFrontierCombatResult, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
 import {
   type PendingRespawnNoticeContext
@@ -24,8 +24,6 @@ import {
   FORT_GARRISON_ATTRITION_MAX,
   SWEEP_BUDGET_CAP,
   SWEEP_RADIUS_BY_VARIANT,
-  BARBARIAN_MULTIPLY_THRESHOLD,
-  BARBARIAN_POPULATION_CAP,
   DEVELOPMENT_PROCESS_LIMIT,
   FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
@@ -38,9 +36,6 @@ import {
   landBiomeAt,
   terrainAt,
   type Terrain,
-  targetOutpostMult,
-  type OutpostPosition,
-  rollFrontierCombat,
   structureBuildDurationMs,
   structureBuildGoldCost,
   structureBuildManpowerCost,
@@ -105,6 +100,11 @@ import {
   DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY
 } from "./command-event-lifecycle.js";
 import { laneForCommand, type QueueLane } from "./command-lane.js";
+import {
+  commandScheduling,
+  dispatchRuntimeCommand,
+  type RuntimeCommandDispatchHandlers
+} from "./runtime-command-dispatch.js";
 import { isFrontierAdjacent } from "./frontier-adjacency.js";
 import {
   buildDockLinksByDockTileKey,
@@ -169,7 +169,6 @@ import {
   type ChosenTrickleResource,
   chosenTrickleRateForPlayer,
   chooseTechForPlayer,
-  effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
   observatoryCastRadiusForPlayer,
   recomputeMods
@@ -258,9 +257,21 @@ import {
   TOWN_CAPTURE_POPULATION_LOSS_MULT,
   economicStructureGoldUpkeepPerInterval,
   isConverterStructureType,
-  strategicResourceForTile,
   upgradeBaseTypeForEconomicStructure
 } from "./runtime-structure-rules.js";
+import {
+  applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
+  applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
+  applySettledCapturePlunder as applySettledCapturePlunderImpl,
+  attackManpowerLoss as attackManpowerLossImpl,
+  buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
+  buildLockedCombatResolution as buildLockedCombatResolutionImpl,
+  handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
+  plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
+  settleAttackManpower as settleAttackManpowerImpl,
+  type LockedCombatInput,
+  type RuntimeCombatSupportContext
+} from "./runtime-combat-support.js";
 import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,
@@ -410,6 +421,7 @@ export class SimulationRuntime {
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
+  private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
   // Bounded per-AI focus front (BFS of owned tiles around a persistent
   // hot-frontier origin) used to cap planner CPU. Refreshed each tick from
@@ -1089,6 +1101,22 @@ export class SimulationRuntime {
     };
   }
 
+  private combatSupportContext(): RuntimeCombatSupportContext {
+    return {
+      now: this.now,
+      players: this.players,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      locksByCommandId: this.locksByCommandId,
+      barbarianTileProgress: this.barbarianTileProgress,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitEvent: (event) => this.emitEvent(event),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+    };
+  }
+
   preparePlayerRespawnNotice(
     playerId: string,
     reasonCode: PlayerRespawnReasonCode,
@@ -1176,9 +1204,15 @@ export class SimulationRuntime {
     return summary;
   }
 
-  private markPlannerPlayerTopologyDirty(playerId: string): void {
+  private markPlannerPlayerTopologyTileChanged(playerId: string, tileKey: string): void {
     const nextVersion = (this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0) + 1;
     this.plannerPlayerTopologyVersionByPlayer.set(playerId, nextVersion);
+    let dirty = this.plannerPlayerTopologyDirtyTilesByPlayer.get(playerId);
+    if (!dirty) {
+      dirty = new Set();
+      this.plannerPlayerTopologyDirtyTilesByPlayer.set(playerId, dirty);
+    }
+    dirty.add(tileKey);
   }
 
   private markPlannerPlayerTileCollectionDirty(playerId: string): void {
@@ -1190,6 +1224,7 @@ export class SimulationRuntime {
   private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
     tileCollectionVersion: number;
     topologyVersion: number;
+    topologyDirtyTileKeys: string[];
     territoryTileKeys: string[];
     frontierTileKeys: string[];
     hotFrontierTileKeys: string[];
@@ -1197,10 +1232,19 @@ export class SimulationRuntime {
     buildCandidateTileKeys: string[];
     pendingSettlementTileKeys: string[];
   } {
+    // Drain dirty tiles on every call — they are transient (consumed per sync)
+    // and must NOT be cached, so they are read and cleared here before the
+    // cache check, ensuring each syncPlayers call gets the correct delta.
+    const dirtySet = this.plannerPlayerTopologyDirtyTilesByPlayer.get(playerId);
+    const topologyDirtyTileKeys: string[] = dirtySet && dirtySet.size > 0 ? [...dirtySet] : [];
+    dirtySet?.clear();
+
     const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
     const topologyVersion = this.plannerPlayerTopologyVersionByPlayer.get(playerId) ?? 0;
     const cached = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
-    if (cached && cached.tileCollectionVersion === tileCollectionVersion) return cached;
+    if (cached && cached.tileCollectionVersion === tileCollectionVersion) {
+      return { ...cached, topologyDirtyTileKeys };
+    }
     const next = {
       tileCollectionVersion,
       topologyVersion,
@@ -1212,7 +1256,7 @@ export class SimulationRuntime {
       pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()]
     };
     this.plannerPlayerTileKeyCacheByPlayer.set(playerId, next);
-    return next;
+    return { ...next, topologyDirtyTileKeys };
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
@@ -1627,8 +1671,8 @@ export class SimulationRuntime {
     this.tiles.set(tileKey, tile);
     this.applyTileToPlayerSummaries(tileKey, tile);
     if (!sameOwner) {
-      if (previous?.ownerId) this.markPlannerPlayerTopologyDirty(previous.ownerId);
-      if (tile.ownerId) this.markPlannerPlayerTopologyDirty(tile.ownerId);
+      if (previous?.ownerId) this.markPlannerPlayerTopologyTileChanged(previous.ownerId, tileKey);
+      if (tile.ownerId) this.markPlannerPlayerTopologyTileChanged(tile.ownerId, tileKey);
     }
     if (previousOwnerTileOrder && tile.ownerId) {
       const summary = this.summaryForPlayer(tile.ownerId);
@@ -6348,205 +6392,27 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate(command);
   }
 
-  // Player-ids with at least one *player-issued* frontier lock — i.e. locks
-  // that should gate the AI strategic planner. Passive defensive fire from
-  // forts and siege/light outposts (sweep) also creates playerId-scoped
-  // combat locks via `handleFrontierCommand` from territory-automation; those
-  // carry `source: "automation"` and are filtered out here so they don't
-  // starve the planner with a perpetual `active_lock` noop (territory-
-  // automation re-locks every ~3 s as long as a valid target stays in range).
+  // Player-ids with at least one *player-issued* frontier lock - i.e. locks
+  // that should gate the AI strategic planner. Automation combat locks are
+  // filtered so defensive sweeps do not starve the planner.
   private plannerGatingLockPlayerIds(): Set<string> {
-    const lockPlayerIds = new Set<string>();
-    for (const lock of this.locksByTile.values()) {
-      if (lock.source === "automation") continue;
-      lockPlayerIds.add(lock.playerId);
-    }
-    return lockPlayerIds;
-  }
-
-  private activeFrontierLocksForPlayer(playerId: string): LockRecord[] {
-    const locks = new Map<string, LockRecord>();
-    for (const lock of this.locksByTile.values()) {
-      if (lock.playerId !== playerId) continue;
-      if (lock.actionType !== "EXPAND" && lock.actionType !== "ATTACK") continue;
-      locks.set(lock.commandId, lock);
-    }
-    return [...locks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId));
+    return plannerGatingLockPlayerIdsImpl(this.locksByTile);
   }
 
   private handleCancelCaptureCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    if (!actor) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-
-    const activeLocks = this.activeFrontierLocksForPlayer(command.playerId);
-    if (activeLocks.length === 0) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "NO_ACTIVE_CAPTURE",
-        message: "no active capture to cancel"
-      });
-      return;
-    }
-
-    for (const lock of activeLocks) {
-      this.locksByTile.delete(lock.originKey);
-      this.locksByTile.delete(lock.targetKey);
-      this.locksByCommandId.delete(lock.commandId);
-    }
-
-    this.emitEvent({
-      eventType: "COMBAT_CANCELLED",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      count: activeLocks.length,
-      cancelledCommandIds: activeLocks.map((lock) => lock.commandId)
-    });
-    this.emitPlayerStateUpdate(command);
+    handleCancelCaptureCommandImpl(this.combatSupportContext(), command);
   }
 
-  private visibleRadiusForPlayer(playerId: string): number {
-    const player = this.players.get(playerId);
-    return player ? effectiveVisionRadiusForPlayer(player) : 1;
+  private buildCaptureRevealTileDeltas(
+    playerId: string,
+    centerX: number,
+    centerY: number
+  ): ReturnType<SimulationRuntime["tileDeltaFromState"]>[] {
+    return buildCaptureRevealTileDeltasImpl(this.combatSupportContext(), playerId, centerX, centerY);
   }
 
-  private buildCaptureRevealTileDeltas(playerId: string, centerX: number, centerY: number): Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> {
-    const radius = this.visibleRadiusForPlayer(playerId);
-    const deltas = new Map<string, ReturnType<SimulationRuntime["tileDeltaFromState"]>>();
-    for (let dy = -radius; dy <= radius; dy += 1) {
-      for (let dx = -radius; dx <= radius; dx += 1) {
-        const tile = this.tiles.get(simulationTileKey(centerX + dx, centerY + dy));
-        if (!tile) continue;
-        deltas.set(simulationTileKey(tile.x, tile.y), this.tileDeltaFromState(tile));
-      }
-    }
-    return [...deltas.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y));
-  }
-
-  private originTileHeldByActiveFort(playerId: string, originKey: string): boolean {
-    const origin = this.tiles.get(originKey);
-    if (!origin || origin.terrain !== "LAND" || origin.ownerId !== playerId) return false;
-    const activeFort =
-      origin.fort?.ownerId === playerId &&
-      origin.fort.status === "active" &&
-      (origin.fort.disabledUntil ?? 0) <= this.now();
-    const activeWoodenFort =
-      origin.economicStructure?.ownerId === playerId &&
-      origin.economicStructure.type === "WOODEN_FORT" &&
-      origin.economicStructure.status === "active";
-    return activeFort || activeWoodenFort;
-  }
-
-  private attackerOutpostMult(playerId: string, targetX: number, targetY: number): number {
-    // Gather the player's active outposts from their territory (O(territory) one-time,
-    // but iterates a much smaller set than 121 grid tiles when outpost count is low).
-    // TODO(perf): maintain a per-player outpost index to make this O(outposts).
-    const summary = this.summaryForPlayer(playerId);
-    const outposts: OutpostPosition[] = [];
-    for (const tileKey of summary.territoryTileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (!tile) continue;
-      if (
-        tile.siegeOutpost?.ownerId === playerId &&
-        tile.siegeOutpost.status === "active"
-      ) {
-        outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeOutpost.variant ?? "SIEGE_OUTPOST" });
-      } else if (
-        tile.economicStructure?.ownerId === playerId &&
-        tile.economicStructure.type === "LIGHT_OUTPOST" &&
-        tile.economicStructure.status === "active"
-      ) {
-        outposts.push({ x: tile.x, y: tile.y, variant: "LIGHT_OUTPOST" });
-      }
-    }
-    return targetOutpostMult(outposts, targetX, targetY);
-  }
-
-  private buildLockedCombatResolution(lock: Pick<LockRecord, "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey">): LockedCombatResolution | undefined {
-    const previousTarget = this.tiles.get(lock.targetKey);
-    const attackerOutpostMult = this.attackerOutpostMult(lock.playerId, lock.targetX, lock.targetY);
-    const attacker = this.players.get(lock.playerId);
-    const defenderOwnerId = previousTarget?.ownerId;
-    const defender = defenderOwnerId ? this.players.get(defenderOwnerId) : undefined;
-    const targetHasActiveFort =
-      Boolean(
-        previousTarget?.fort &&
-        previousTarget.fort.status === "active" &&
-        previousTarget.fort.ownerId === defenderOwnerId
-      );
-    const combatModifiers = {
-      attackerOutpostMult,
-      attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
-      attackVsFortsMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsFortsMult") : 1,
-      fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
-      musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
-      fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
-      fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined
-    };
-    const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
-      ? {
-          terrain: previousTarget.terrain,
-          ownershipState: previousTarget.ownershipState,
-          dockId: previousTarget.dockId,
-          townType: previousTarget.town?.type,
-          hasFort: targetHasActiveFort
-        }
-      : { terrain: "LAND" };
-    const combat =
-      lock.actionType === "EXPAND"
-        ? {
-            ...rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers),
-            attackerWon: true
-          }
-        : rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers);
-    const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
-    const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, this.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
-    const plunder =
-      combat.attackerWon && defender && targetWasSettled
-        ? this.previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
-        : undefined;
-    const manpowerDelta =
-      lock.actionType === "ATTACK"
-        ? -this.attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
-        : 0;
-    const originHeldByFort = this.originTileHeldByActiveFort(lock.playerId, lock.originKey);
-    const result: LockedFrontierCombatResult = {
-      attackType: lock.actionType,
-      attackerWon: combat.attackerWon,
-      ...(combat.attackerWon ? { winnerId: lock.playerId } : defenderOwnerId ? { winnerId: defenderOwnerId } : {}),
-      ...(defenderOwnerId ? { defenderOwnerId } : {}),
-      origin: { x: lock.originX, y: lock.originY },
-      target: { x: lock.targetX, y: lock.targetY },
-      changes:
-        combat.attackerWon
-          ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
-          : defenderOwnerId && !originHeldByFort
-            ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: defenderOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
-            : [],
-      pointsDelta: 0,
-      manpowerDelta,
-      pillagedGold: plunder?.gold ?? 0,
-      pillagedShare: plunder?.share ?? 0,
-      pillagedStrategic: plunder?.strategic ?? {},
-      atkEff: combat.atkEff,
-      defEff: combat.defEff,
-      winChance: combat.winChance,
-      levelDelta: 0
-    };
-    return {
-      result,
-      defenderGoldLoss: plunder?.defenderGoldLoss ?? 0
-    };
+  private buildLockedCombatResolution(lock: LockedCombatInput): LockedCombatResolution | undefined {
+    return buildLockedCombatResolutionImpl(this.combatSupportContext(), lock);
   }
 
   private resolveLock(lock: LockRecord): void {
@@ -6803,7 +6669,9 @@ export class SimulationRuntime {
   private applyEncirclement(changedKeys: string[], playerId: string, commandId: string): void {
     const getTile = (key: string) => this.tiles.get(key);
     const nowMs = this.now();
+    const aetherBridgeNeighborKeys = this.activeAetherBridgeNeighborKeysForPlayer(playerId);
     const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs, {
+      extraNeighborKeys: (tileKey) => aetherBridgeNeighborKeys.get(tileKey) ?? [],
       onCapExceeded: (pid, visited, cap) => {
         this.runtimeLogInfo(
           {
@@ -6853,6 +6721,21 @@ export class SimulationRuntime {
         tileDeltas
       });
     }
+  }
+
+  private activeAetherBridgeNeighborKeysForPlayer(playerId: string): Map<string, string[]> {
+    const neighborKeys = new Map<string, string[]>();
+    for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
+      const fromKey = simulationTileKey(bridge.from.x, bridge.from.y);
+      const toKey = simulationTileKey(bridge.to.x, bridge.to.y);
+      const fromNeighbors = neighborKeys.get(fromKey);
+      if (fromNeighbors) fromNeighbors.push(toKey);
+      else neighborKeys.set(fromKey, [toKey]);
+      const toNeighbors = neighborKeys.get(toKey);
+      if (toNeighbors) toNeighbors.push(fromKey);
+      else neighborKeys.set(toKey, [fromKey]);
+    }
+    return neighborKeys;
   }
 
   private relocateSettlementForPlayer(
@@ -6910,95 +6793,8 @@ export class SimulationRuntime {
     return respawnPlayerOnUnownedLandImpl(this.respawnContext(), playerId, commandId);
   }
 
-  private barbarianProgressGain(target: DomainTileState | undefined): number {
-    // Multiply progress only accumulates when a barb actually CAPTURES a
-    // non-barb player's tile. Walking into neutral land or shuffling between
-    // own tiles contributes zero — otherwise barbs multiply every 3 steps
-    // even when no one's territory is being eaten, which is what was
-    // spreading them across the map.
-    if (!target?.ownerId || target.ownerId === "barbarian-1") return 0;
-    return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
-  }
-
   private applyBarbarianWalkOrMultiply(lock: LockRecord, previousTarget: DomainTileState | undefined): void {
-    const gain = this.barbarianProgressGain(previousTarget);
-    const sourceProgress = this.barbarianTileProgress.get(lock.originKey) ?? 0;
-    const newProgress = sourceProgress + gain;
-    const barbTileCount = this.summaryForPlayer("barbarian-1").territoryTileKeys.size;
-
-    if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount < BARBARIAN_POPULATION_CAP) {
-      // Multiply: keep both origin and target — net +1 tile.
-      this.emitEvent({
-        eventType: "BARB_MULTIPLIED",
-        commandId: lock.commandId,
-        playerId: "barbarian-1",
-        originKey: lock.originKey,
-        targetKey: lock.targetKey,
-        eatenOwnerId: previousTarget?.ownerId ?? null,
-        eatenResource: previousTarget?.resource ?? null,
-        eatenHasTown: !!previousTarget?.town,
-        gain,
-        sourceProgress,
-        barbTileCount: barbTileCount + 1
-      });
-      this.barbarianTileProgress.set(lock.originKey, 0);
-      this.barbarianTileProgress.set(lock.targetKey, 0);
-      return;
-    }
-
-    // At/over cap: fall through to normal walk (net 0) — multiply blocked.
-    if (gain > 0) {
-      this.emitEvent({
-        eventType: "BARB_ATE_TILE",
-        commandId: lock.commandId,
-        playerId: "barbarian-1",
-        originKey: lock.originKey,
-        targetKey: lock.targetKey,
-        eatenOwnerId: previousTarget!.ownerId!,
-        eatenResource: previousTarget?.resource ?? null,
-        eatenHasTown: !!previousTarget?.town,
-        gain,
-        sourceProgress,
-        newProgress,
-        capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD
-      });
-    }
-    this.barbarianTileProgress.delete(lock.originKey);
-    this.barbarianTileProgress.set(lock.targetKey, newProgress);
-    const previousOrigin = this.tiles.get(lock.originKey);
-    if (!previousOrigin || previousOrigin.ownerId !== "barbarian-1") return;
-    const releasedOrigin: DomainTileState = {
-      x: previousOrigin.x,
-      y: previousOrigin.y,
-      terrain: previousOrigin.terrain,
-      ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
-      ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {})
-    };
-    this.replaceTileState(lock.originKey, releasedOrigin);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: lock.commandId,
-      playerId: lock.playerId,
-      tileDeltas: [this.tileDeltaFromState(releasedOrigin)]
-    });
-  }
-
-  private previewSettledCapturePlunder(input: {
-    defender: DomainPlayer;
-    defenderTileCountBeforeCapture: number;
-    target: DomainTileState;
-  }): { gold: number; share: number; defenderGoldLoss: number; strategic: Partial<Record<StrategicResourceKey, number>> } {
-    const share = 1 / Math.max(1, input.defenderTileCountBeforeCapture);
-    const defenderGoldShare = Math.max(0, input.defender.points * share);
-    const storedYieldGold = input.target.town ? 1 : 0;
-    const gold = Math.round((defenderGoldShare + storedYieldGold) * 100) / 100;
-
-    const strategic: Partial<Record<StrategicResourceKey, number>> = {};
-    const strategicResource = strategicResourceForTile(input.target.resource);
-    if (strategicResource) {
-      strategic[strategicResource] = 1;
-    }
-    return { gold, share, defenderGoldLoss: defenderGoldShare, strategic };
+    applyBarbarianWalkOrMultiplyImpl(this.combatSupportContext(), lock, previousTarget);
   }
 
   private applySettledCapturePlunder(input: {
@@ -7007,9 +6803,25 @@ export class SimulationRuntime {
     gold: number;
     defenderGoldLoss: number;
   }): void {
-    if (input.gold <= 0) return;
-    input.defender.points = Math.max(0, input.defender.points - input.defenderGoldLoss);
-    input.attacker.points += input.gold;
+    applySettledCapturePlunderImpl(input);
+  }
+
+  private attackManpowerLoss(committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number {
+    return attackManpowerLossImpl(committedManpower, attackerWon, atkEff, defEff);
+  }
+
+  private applyLockedManpowerDelta(player: DomainPlayer, manpowerDelta: number): number {
+    return applyLockedManpowerDeltaImpl(player, manpowerDelta);
+  }
+
+  private settleAttackManpower(
+    player: DomainPlayer,
+    committedManpower: number,
+    attackerWon: boolean,
+    atkEff: number,
+    defEff: number
+  ): number {
+    return settleAttackManpowerImpl(player, committedManpower, attackerWon, atkEff, defEff);
   }
 
   /**
@@ -7071,84 +6883,13 @@ export class SimulationRuntime {
     });
   }
 
-  private attackManpowerLoss(committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number {
-    if (committedManpower <= 0) return 0;
-    if (attackerWon) return Math.max(10, committedManpower * 0.16);
-    const combatRatio = defEff / Math.max(1, atkEff);
-    return committedManpower * Math.min(1.25, 0.6 + combatRatio * 0.35);
-  }
-
-  private applyLockedManpowerDelta(player: DomainPlayer, manpowerDelta: number): number {
-    if (manpowerDelta >= -0.01) return 0;
-    const loss = Math.abs(manpowerDelta);
-    player.manpower = Math.max(0, player.manpower - loss);
-    return loss;
-  }
-
-  private settleAttackManpower(
-    player: DomainPlayer,
-    committedManpower: number,
-    attackerWon: boolean,
-    atkEff: number,
-    defEff: number
-  ): number {
-    const loss = this.attackManpowerLoss(committedManpower, attackerWon, atkEff, defEff);
-    player.manpower = Math.max(0, player.manpower - loss);
-    return loss;
-  }
-
   private respawnIfEliminated(playerId: string, commandId: string): void {
     respawnIfEliminatedImpl(this.respawnContext(), playerId, commandId);
   }
 
-  private queueCommandForProcessing(command: CommandEnvelope): void {
-    const lane = laneForCommand(command);
-    const scheduling =
-      command.type !== "SYNC_ALLIANCE" &&
-      (command.sessionId.startsWith("ai-runtime:") || command.sessionId.startsWith("system-runtime:"))
-        ? "background"
-        : "immediate";
-    this.enqueueJob(lane, () => {
-      if (
-        command.type !== "ATTACK" &&
-        command.type !== "EXPAND" &&
-        command.type !== "SETTLE" &&
-        command.type !== "BUILD_FORT" &&
-        command.type !== "BUILD_OBSERVATORY" &&
-        command.type !== "BUILD_SIEGE_OUTPOST" &&
-        command.type !== "SET_SIEGE_OUTPOST_SWEEP" &&
-        command.type !== "BUILD_ECONOMIC_STRUCTURE" &&
-        command.type !== "CANCEL_CAPTURE" &&
-        command.type !== "CANCEL_FORT_BUILD" &&
-        command.type !== "CANCEL_STRUCTURE_BUILD" &&
-        command.type !== "REMOVE_STRUCTURE" &&
-        command.type !== "CANCEL_SIEGE_OUTPOST_BUILD" &&
-        command.type !== "UNCAPTURE_TILE" &&
-        command.type !== "COLLECT_VISIBLE" &&
-        command.type !== "COLLECT_TILE" &&
-        command.type !== "CHOOSE_TECH" &&
-        command.type !== "CHOOSE_DOMAIN" &&
-        command.type !== "OVERLOAD_SYNTHESIZER" &&
-        command.type !== "SET_CONVERTER_STRUCTURE_ENABLED" &&
-        command.type !== "REVEAL_EMPIRE" &&
-        command.type !== "REVEAL_EMPIRE_STATS" &&
-        command.type !== "SURVEY_SWEEP" &&
-        command.type !== "AETHER_LANCE" &&
-        command.type !== "CAST_AETHER_BRIDGE" &&
-        command.type !== "CAST_AETHER_WALL" &&
-        command.type !== "SIPHON_TILE" &&
-        command.type !== "PURGE_SIPHON" &&
-        command.type !== "CREATE_MOUNTAIN" &&
-        command.type !== "REMOVE_MOUNTAIN" &&
-        command.type !== "AIRPORT_BOMBARD" &&
-        command.type !== "IMPERIAL_EXCHANGE_LEVY" &&
-        command.type !== "WORLD_ENGINE_STRIKE" &&
-        command.type !== "UPGRADE_TOWN_TIER" &&
-        command.type !== "COLLECT_SHARD" &&
-        command.type !== "SET_MUSTER" &&
-        command.type !== "CLEAR_MUSTER" &&
-        command.type !== "SYNC_ALLIANCE"
-      ) {
+  private commandDispatchHandlers(): RuntimeCommandDispatchHandlers {
+    return {
+      emitUnsupported: (command) => {
         this.emitEvent({
           eventType: "COMMAND_REJECTED",
           commandId: command.commandId,
@@ -7156,187 +6897,48 @@ export class SimulationRuntime {
           code: "UNSUPPORTED",
           message: `${command.type} not yet migrated to the new simulation service`
         });
-        return;
-      }
+      },
+      handleSettleCommand: (command) => this.handleSettleCommand(command),
+      handleBuildStructureCommand: (command) => this.handleBuildStructureCommand(command),
+      normalizeLegacyBuildCommand: (command) => this.normalizeLegacyBuildCommand(command),
+      handleSetSiegeOutpostSweepCommand: (command) => this.handleSetSiegeOutpostSweepCommand(command),
+      handleSetMusterCommand: (command) => this.handleSetMusterCommand(command),
+      handleClearMusterCommand: (command) => this.handleClearMusterCommand(command),
+      handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),
+      handleCancelFortBuildCommand: (command) => this.handleCancelFortBuildCommand(command),
+      handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
+      handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
+      handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
+      handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
+      handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
+      handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
+      handleChooseTechCommand: (command) => this.handleChooseTechCommand(command),
+      handleChooseDomainCommand: (command) => this.handleChooseDomainCommand(command),
+      handleOverloadSynthesizerCommand: (command) => this.handleOverloadSynthesizerCommand(command),
+      handleSetConverterStructureEnabledCommand: (command) => this.handleSetConverterStructureEnabledCommand(command),
+      handleRevealEmpireCommand: (command) => this.handleRevealEmpireCommand(command),
+      handleRevealEmpireStatsCommand: (command) => this.handleRevealEmpireStatsCommand(command),
+      handleSurveySweepCommand: (command) => this.handleSurveySweepCommand(command),
+      handleAetherLanceCommand: (command) => this.handleAetherLanceCommand(command),
+      handleCastAetherBridgeCommand: (command) => this.handleCastAetherBridgeCommand(command),
+      handleCastAetherWallCommand: (command) => this.handleCastAetherWallCommand(command),
+      handleSiphonTileCommand: (command) => this.handleSiphonTileCommand(command),
+      handlePurgeSiphonCommand: (command) => this.handlePurgeSiphonCommand(command),
+      handleCreateMountainCommand: (command) => this.handleCreateMountainCommand(command),
+      handleRemoveMountainCommand: (command) => this.handleRemoveMountainCommand(command),
+      handleAirportBombardCommand: (command) => this.handleAirportBombardCommand(command),
+      handleImperialExchangeLevyCommand: (command) => this.handleImperialExchangeLevyCommand(command),
+      handleWorldEngineStrikeCommand: (command) => this.handleWorldEngineStrikeCommand(command),
+      handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
+      handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
+      handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
+      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType)
+    };
+  }
 
-      if (command.type === "SETTLE") {
-        this.handleSettleCommand(command);
-        return;
-      }
-
-      if ((command.type as string) === "BUILD_STRUCTURE") {
-        this.handleBuildStructureCommand(command);
-        return;
-      }
-
-      // Legacy aliases — keep for one release window
-      if (
-        command.type === "BUILD_FORT" ||
-        command.type === "BUILD_OBSERVATORY" ||
-        command.type === "BUILD_SIEGE_OUTPOST" ||
-        command.type === "BUILD_ECONOMIC_STRUCTURE"
-      ) {
-        this.handleBuildStructureCommand(this.normalizeLegacyBuildCommand(command));
-        return;
-      }
-
-      if (command.type === "SET_SIEGE_OUTPOST_SWEEP") {
-        this.handleSetSiegeOutpostSweepCommand(command);
-        return;
-      }
-
-      if (command.type === "SET_MUSTER") {
-        this.handleSetMusterCommand(command);
-        return;
-      }
-
-      if (command.type === "CLEAR_MUSTER") {
-        this.handleClearMusterCommand(command);
-        return;
-      }
-
-      if (command.type === "CANCEL_CAPTURE") {
-        this.handleCancelCaptureCommand(command);
-        return;
-      }
-
-      if (command.type === "CANCEL_FORT_BUILD") {
-        this.handleCancelFortBuildCommand(command);
-        return;
-      }
-
-      if (command.type === "CANCEL_STRUCTURE_BUILD") {
-        this.handleCancelStructureBuildCommand(command);
-        return;
-      }
-
-      if (command.type === "REMOVE_STRUCTURE") {
-        this.handleRemoveStructureCommand(command);
-        return;
-      }
-
-      if (command.type === "CANCEL_SIEGE_OUTPOST_BUILD") {
-        this.handleCancelSiegeOutpostBuildCommand(command);
-        return;
-      }
-
-      if (command.type === "COLLECT_VISIBLE") {
-        this.handleCollectVisibleCommand(command);
-        return;
-      }
-
-      if (command.type === "COLLECT_TILE") {
-        this.handleCollectTileCommand(command);
-        return;
-      }
-
-      if (command.type === "UNCAPTURE_TILE") {
-        this.handleUncaptureTileCommand(command);
-        return;
-      }
-
-      if (command.type === "CHOOSE_TECH") {
-        this.handleChooseTechCommand(command);
-        return;
-      }
-
-      if (command.type === "CHOOSE_DOMAIN") {
-        this.handleChooseDomainCommand(command);
-        return;
-      }
-
-      if (command.type === "OVERLOAD_SYNTHESIZER") {
-        this.handleOverloadSynthesizerCommand(command);
-        return;
-      }
-
-      if (command.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
-        this.handleSetConverterStructureEnabledCommand(command);
-        return;
-      }
-
-      if (command.type === "REVEAL_EMPIRE") {
-        this.handleRevealEmpireCommand(command);
-        return;
-      }
-
-      if (command.type === "REVEAL_EMPIRE_STATS") {
-        this.handleRevealEmpireStatsCommand(command);
-        return;
-      }
-
-      if (command.type === "SURVEY_SWEEP") {
-        this.handleSurveySweepCommand(command);
-        return;
-      }
-
-      if (command.type === "AETHER_LANCE") {
-        this.handleAetherLanceCommand(command);
-        return;
-      }
-
-      if (command.type === "CAST_AETHER_BRIDGE") {
-        this.handleCastAetherBridgeCommand(command);
-        return;
-      }
-
-      if (command.type === "CAST_AETHER_WALL") {
-        this.handleCastAetherWallCommand(command);
-        return;
-      }
-
-      if (command.type === "SIPHON_TILE") {
-        this.handleSiphonTileCommand(command);
-        return;
-      }
-
-      if (command.type === "PURGE_SIPHON") {
-        this.handlePurgeSiphonCommand(command);
-        return;
-      }
-
-      if (command.type === "CREATE_MOUNTAIN") {
-        this.handleCreateMountainCommand(command);
-        return;
-      }
-
-      if (command.type === "REMOVE_MOUNTAIN") {
-        this.handleRemoveMountainCommand(command);
-        return;
-      }
-
-      if (command.type === "AIRPORT_BOMBARD") {
-        this.handleAirportBombardCommand(command);
-        return;
-      }
-
-      if (command.type === "IMPERIAL_EXCHANGE_LEVY") {
-        this.handleImperialExchangeLevyCommand(command);
-        return;
-      }
-
-      if (command.type === "WORLD_ENGINE_STRIKE") {
-        this.handleWorldEngineStrikeCommand(command);
-        return;
-      }
-
-      if (command.type === "UPGRADE_TOWN_TIER") {
-        this.handleUpgradeTownTierCommand(command);
-        return;
-      }
-
-      if (command.type === "COLLECT_SHARD") {
-        this.handleCollectShardCommand(command);
-        return;
-      }
-
-      if (command.type === "SYNC_ALLIANCE") {
-        this.handleSyncAllianceCommand(command);
-        return;
-      }
-
-      this.handleFrontierCommand(command, command.type);
-    }, command.type, scheduling);
+  private queueCommandForProcessing(command: CommandEnvelope): void {
+    const lane = laneForCommand(command);
+    this.enqueueJob(lane, () => dispatchRuntimeCommand(command, this.commandDispatchHandlers()), command.type, commandScheduling(command));
   }
 
   seedLiveBarbarians(targetCount: number, commandId?: string): SeedLiveBarbariansResult {

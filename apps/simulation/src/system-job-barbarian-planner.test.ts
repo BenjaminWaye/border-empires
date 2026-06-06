@@ -24,6 +24,7 @@ const makeBarbPlayer = (territoryTileKeys: string[]): PlannerPlayerView => ({
   manpower: 9999,
   tileCollectionVersion: 1,
   topologyVersion: 1,
+  topologyDirtyTileKeys: [],
   hasActiveLock: false,
   territoryTileKeys,
   frontierTileKeys: territoryTileKeys,

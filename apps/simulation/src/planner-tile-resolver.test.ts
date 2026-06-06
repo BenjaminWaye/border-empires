@@ -29,6 +29,7 @@ const mkPlayer = (
   hasActiveLock: false,
   tileCollectionVersion: 1,
   topologyVersion: 1,
+  topologyDirtyTileKeys: [],
   activeDevelopmentProcessCount: 0,
   territoryTileKeys: [],
   frontierTileKeys: [],
@@ -79,7 +80,7 @@ describe("resolvePlayerTiles", () => {
     const tile = mkTile(5, 5);
     const tilesByKey = new Map([["5,5", tile]]);
     const cache = new Map();
-    const player = mkPlayer({ territoryTileKeys: ["5,5"], tileCollectionVersion: 42, topologyVersion: 42 });
+    const player = mkPlayer({ territoryTileKeys: ["5,5"], tileCollectionVersion: 42, topologyVersion: 42, topologyDirtyTileKeys: [] });
 
     // First call populates cache
     resolvePlayerTiles(player, tilesByKey, cache);
@@ -98,10 +99,10 @@ describe("resolvePlayerTiles", () => {
     const tile2 = mkTile(6, 6);
     const tilesByKey = new Map([["5,5", tile1], ["6,6", tile2]]);
     const cache = new Map();
-    const playerV1 = mkPlayer({ territoryTileKeys: ["5,5"], tileCollectionVersion: 1, topologyVersion: 1 });
+    const playerV1 = mkPlayer({ territoryTileKeys: ["5,5"], tileCollectionVersion: 1, topologyVersion: 1, topologyDirtyTileKeys: [] });
     resolvePlayerTiles(playerV1, tilesByKey, cache);
 
-    const playerV2 = mkPlayer({ territoryTileKeys: ["5,5", "6,6"], tileCollectionVersion: 2, topologyVersion: 2 });
+    const playerV2 = mkPlayer({ territoryTileKeys: ["5,5", "6,6"], tileCollectionVersion: 2, topologyVersion: 2, topologyDirtyTileKeys: [] });
     const result = resolvePlayerTiles(playerV2, tilesByKey, cache);
     expect(result.ownedTiles).toHaveLength(2);
   });
