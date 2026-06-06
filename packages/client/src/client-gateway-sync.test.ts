@@ -7,6 +7,7 @@ const createDeps = (overrides?: { me?: string; mods?: { income?: number } }) => 
   const state = {
       me: "",
       tiles: new Map<string, Tile>(),
+      tilesRevision: 0,
       incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
       pendingCollectVisibleKeys: new Set<string>(),
       discoveredTiles: new Set<string>(),

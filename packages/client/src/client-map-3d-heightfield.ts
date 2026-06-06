@@ -56,7 +56,7 @@ const GRASS_TINT_DEEP: [number, number, number] = legacy3DTerrainPalette.grassDa
 const GRASS_TINT_LIGHT: [number, number, number] = legacy3DTerrainPalette.grassLight;
 // Distinct turquoise for the shoreline so it reads clearly through the
 // transparent water plane and contrasts with the darker deep-sea floor.
-const COASTAL_SEA_FLOOR: [number, number, number] = [122, 200, 214];
+const COASTAL_SEA_FLOOR: [number, number, number] = [188, 162, 112];
 const DEEP_SEA_FLOOR: [number, number, number] = [42, 78, 110];
 
 const heightfieldTileColor = (
@@ -260,6 +260,15 @@ varying float vForestZone;`
         diffuseColor.rgb = forestTinted * tint;
       #endif
       `
+      );
+
+      // Brightness floor: lifts pure-black cliff walls (near-vertical faces
+      // that receive almost no overhead directional light) to a dark sandy
+      // tone. max() leaves well-lit grass/sand faces completely unchanged.
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <output_fragment>",
+        `#include <output_fragment>
+gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       );
     };
   }
