@@ -1438,6 +1438,11 @@ export class SimulationRuntime {
     }
     const elapsedMs = nowMs - last;
     if (elapsedMs <= 0) return;
+    // Rate-limit to once per 15s. consumeUpkeepFromTileYield is O(yield_bearing_tiles)
+    // and was being triggered on every AI command (~1/s), causing untracked
+    // 8-17s main-thread stalls. The passive income tick (also 15s) handles
+    // income; upkeep drain on the same cadence keeps the two in sync.
+    if (elapsedMs < 15_000) return;
     if (!this.playerSummaries.has(player.id)) {
       this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
       return;
