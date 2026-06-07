@@ -18,3 +18,4 @@ packages/client/public/__build_sha.txt
 # `pnpm ops:prod-shape:clone-snapshot` for the prod-shape gate.
 # Multi-hundred-MB binary blobs; never commit.
 .prod-shape-clones/
+.local-data/
