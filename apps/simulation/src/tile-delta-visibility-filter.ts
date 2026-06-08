@@ -46,8 +46,6 @@ export interface TileDeltaVisibilityFilterDeps {
   readonly tileCollectionVersionForPlayer?: (playerId: string) => number;
 }
 
-const EAGER_VISIBILITY_THRESHOLD = 16;
-
 const dilateTerritoryIntoSet = (
   target: Set<string>,
   territoryTileKeys: Iterable<string>,
@@ -147,7 +145,9 @@ export const filterTileDeltasForPlayer = <
   // Audit mode keeps the lazy path: it emits per-reason strings the eager Set
   // can't reconstruct without per-source bookkeeping. Audit is only enabled
   // for tests/diagnostics, so the perf trade-off is in the right place.
-  const useEagerVisibilitySet = !auditEnabled && tileDeltas.length >= EAGER_VISIBILITY_THRESHOLD;
+  // The epoch cache (visibilityEpoch) amortises the Set build across the whole
+  // tick, so the eager path is always cheaper than the O(territory) lazy path.
+  const useEagerVisibilitySet = !auditEnabled;
   let eagerVisibleKeys: Set<string> | undefined;
   if (useEagerVisibilitySet) {
     const collectionVersion = deps.tileCollectionVersionForPlayer?.(playerId) ?? -1;
