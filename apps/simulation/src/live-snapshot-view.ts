@@ -7,7 +7,6 @@ import {
   type RuntimeState,
   type LivePlayerEconomySnapshot,
   keyFor,
-  toDomainTile,
   snapshotEconomyPlayer,
   getDomainTilesByKey,
   getDomainTilesByKeyAsync,
@@ -17,7 +16,7 @@ import {
   computeSeedGranaryBuffedTileKeys
 } from "./snapshot-tile-cache.js";
 import { buildTownSummary } from "./live-town-summary.js";
-import type { EconomyPlayer, ConnectedTownNetworkEntry } from "./economy-network.js";
+import type { EconomyPlayer } from "./economy-network.js";
 import { buildStrategicProductionByPlayer, buildFedTownKeysByPlayer } from "./snapshot-economy-helpers.js";
 
 // Re-exports for callers that import from this module path
