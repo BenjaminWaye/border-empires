@@ -10,7 +10,7 @@ import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type DomainTileState
 
 import type { SimulationRuntime } from "./runtime.js";
 import { estimateIncomePerMinuteFromTiles, estimateStrategicProductionPerMinuteFromTiles } from "./player-runtime-summary.js";
-import { buildLivePlayerEconomySnapshot, enrichSnapshotTilesForPlayer, enrichSnapshotTilesForPlayerAsync } from "./live-snapshot-view.js";
+import { buildLivePlayerEconomySnapshot, buildLivePlayerEconomySnapshotAsync, enrichSnapshotTilesForPlayer, enrichSnapshotTilesForPlayerAsync } from "./live-snapshot-view.js";
 import { buildDockLinksByDockTileKey, collectLinkedDockRevealKeysForOwners } from "./dock-network.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge.js";
@@ -550,7 +550,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   });
   const hasLivePlayerState = livePlayer && typeof livePlayer.points === "number" && typeof livePlayer.manpower === "number";
   const liveEconomyStartedAt = Date.now();
-  const liveEconomy = buildLivePlayerEconomySnapshot(playerId, runtimeState);
+  const liveEconomy = await buildLivePlayerEconomySnapshotAsync(playerId, runtimeState, yieldToEventLoop);
   recordPhaseTiming("live_economy_async", liveEconomyStartedAt, {
     sourceTileCount: runtimeState.tiles.length,
     playerCount: runtimeState.players.length
