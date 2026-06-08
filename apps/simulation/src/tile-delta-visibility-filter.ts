@@ -39,6 +39,11 @@ export interface TileDeltaVisibilityFilterDeps {
   readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   readonly summaryForPlayer: (playerId: string) => PlayerSummaryShape;
   readonly onVisibilityAudit?: (sample: VisibilityAuditSample) => void;
+  // Optional cache: avoids rebuilding the O(territory × radius²) Minkowski
+  // dilation on every TILE_DELTA_BATCH. Keyed by playerId, invalidated when
+  // collectionVersion changes (bumped on any territory mutation).
+  readonly eagerVisibilitySetCache?: Map<string, { collectionVersion: number; keys: Set<string> }>;
+  readonly tileCollectionVersionForPlayer?: (playerId: string) => number;
 }
 
 const EAGER_VISIBILITY_THRESHOLD = 16;
@@ -145,13 +150,22 @@ export const filterTileDeltasForPlayer = <
   const useEagerVisibilitySet = !auditEnabled && tileDeltas.length >= EAGER_VISIBILITY_THRESHOLD;
   let eagerVisibleKeys: Set<string> | undefined;
   if (useEagerVisibilitySet) {
-    eagerVisibleKeys = new Set<string>();
-    dilateTerritoryIntoSet(eagerVisibleKeys, playerSummary.territoryTileKeys, playerVisionRadius);
-    for (const { territory, radius } of allyVision) {
-      dilateTerritoryIntoSet(eagerVisibleKeys, territory, radius);
+    const collectionVersion = deps.tileCollectionVersionForPlayer?.(playerId) ?? -1;
+    const cached = deps.eagerVisibilitySetCache?.get(playerId);
+    if (cached && cached.collectionVersion === collectionVersion && collectionVersion >= 0) {
+      eagerVisibleKeys = cached.keys;
+    } else {
+      eagerVisibleKeys = new Set<string>();
+      dilateTerritoryIntoSet(eagerVisibleKeys, playerSummary.territoryTileKeys, playerVisionRadius);
+      for (const { territory, radius } of allyVision) {
+        dilateTerritoryIntoSet(eagerVisibleKeys, territory, radius);
+      }
+      for (const key of lockOriginKeys) eagerVisibleKeys.add(key);
+      for (const key of dockRevealKeys) eagerVisibleKeys.add(key);
+      if (deps.eagerVisibilitySetCache && collectionVersion >= 0) {
+        deps.eagerVisibilitySetCache.set(playerId, { collectionVersion, keys: eagerVisibleKeys });
+      }
     }
-    for (const key of lockOriginKeys) eagerVisibleKeys.add(key);
-    for (const key of dockRevealKeys) eagerVisibleKeys.add(key);
   }
 
   const filtered: TDelta[] = [];
