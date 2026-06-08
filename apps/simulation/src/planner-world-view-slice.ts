@@ -2,7 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 import type { PlannerTileView } from "./planner-world-view.js";
 
 export const DEFAULT_PLANNER_TILE_RADIUS = 2;
@@ -88,9 +88,7 @@ export const buildPlannerTileSlice = ({
         tileKeysInScope.add(linkedDockTileKey);
         const linkedDockCoords = parseTileKey(linkedDockTileKey);
         if (!linkedDockCoords) continue;
-        for (const neighborKey of frontierNeighborKeys(linkedDockCoords.x, linkedDockCoords.y)) {
-          tileKeysInScope.add(neighborKey);
-        }
+        forEachFrontierNeighbor(linkedDockCoords.x, linkedDockCoords.y, (nx, ny) => tileKeysInScope.add(`${nx},${ny}`));
       }
     }
   }
