@@ -34,6 +34,7 @@ import {
   strategicProductionByPlayerCache,
   fedTownKeysByPlayerCache
 } from "./snapshot-tile-cache.js";
+import { shouldYieldAt } from "./event-loop-yield.js";
 
 export const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
@@ -231,6 +232,32 @@ export const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Ma
   return production;
 };
 
+export const buildStrategicProductionByPlayerAsync = async (
+  runtimeState: RuntimeState,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, Record<StrategicResourceKey, number>>> => {
+  const cached = strategicProductionByPlayerCache.get(runtimeState);
+  if (cached) return cached;
+  const production = new Map<string, Record<StrategicResourceKey, number>>();
+  for (const player of runtimeState.players) production.set(player.id, emptyStrategic());
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const target = production.get(tile.ownerId) ?? emptyStrategic();
+    const resourceKey = strategicResourceForTile(tile.resource);
+    if (resourceKey) target[resourceKey] += strategicProductionPerMinuteForResource(tile.resource);
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (structure?.status === "active" && structure.type) {
+      const output = converterOutputPerMinute(structure.type);
+      for (const [resource, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) target[resource] += amount;
+    }
+    production.set(tile.ownerId, target);
+  }
+  strategicProductionByPlayerCache.set(runtimeState, production);
+  return production;
+};
+
 export const buildFedTownKeysByPlayer = (
   runtimeState: RuntimeState,
   strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>
@@ -240,6 +267,48 @@ export const buildFedTownKeysByPlayer = (
   const result = new Map<string, Set<string>>();
   const ownedSettledTownsByPlayerId = new Map<string, RuntimeState["tiles"]>();
   for (const tile of runtimeState.tiles) {
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
+    const ownedSettledTowns = ownedSettledTownsByPlayerId.get(tile.ownerId) ?? [];
+    ownedSettledTowns.push(tile);
+    ownedSettledTownsByPlayerId.set(tile.ownerId, ownedSettledTowns);
+  }
+  for (const player of runtimeState.players) {
+    const availableFood =
+      (player.strategicResources?.FOOD ?? 0) + (strategicProductionByPlayer.get(player.id)?.FOOD ?? 0);
+    let remainingFood = availableFood;
+    const fedTownKeys = new Set<string>();
+    const ownedSettledTowns = ownedSettledTownsByPlayerId.get(player.id) ?? [];
+    ownedSettledTowns.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+    for (const tile of ownedSettledTowns) {
+      const town = parseTown(tile);
+      const upkeep = townFoodUpkeepPerMinute(town?.populationTier);
+      if (upkeep <= 0) {
+        fedTownKeys.add(keyFor(tile.x, tile.y));
+        continue;
+      }
+      if (remainingFood + 1e-9 >= upkeep) {
+        fedTownKeys.add(keyFor(tile.x, tile.y));
+        remainingFood = Math.max(0, remainingFood - upkeep);
+      }
+    }
+    result.set(player.id, fedTownKeys);
+  }
+  fedTownKeysByPlayerCache.set(runtimeState, result);
+  return result;
+};
+
+export const buildFedTownKeysByPlayerAsync = async (
+  runtimeState: RuntimeState,
+  strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, Set<string>>> => {
+  const cached = fedTownKeysByPlayerCache.get(runtimeState);
+  if (cached) return cached;
+  const result = new Map<string, Set<string>>();
+  const ownedSettledTownsByPlayerId = new Map<string, RuntimeState["tiles"]>();
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
     if (!tile.ownerId || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
     const ownedSettledTowns = ownedSettledTownsByPlayerId.get(tile.ownerId) ?? [];
     ownedSettledTowns.push(tile);

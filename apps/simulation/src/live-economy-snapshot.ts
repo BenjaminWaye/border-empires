@@ -15,6 +15,7 @@ import {
   getDomainTilesByKey,
   getDomainTilesByKeyAsync,
   buildSettledDomainTilesByPlayerId,
+  buildSettledDomainTilesByPlayerIdAsync,
   buildFirstThreeTownKeysByPlayer,
   townKeysWithNearbyWar,
   computeSeedGranaryBuffedTileKeys
@@ -28,7 +29,9 @@ import {
   structureUpkeepPerMinute,
   converterOutputPerMinute,
   buildStrategicProductionByPlayer,
-  buildFedTownKeysByPlayer
+  buildStrategicProductionByPlayerAsync,
+  buildFedTownKeysByPlayer,
+  buildFedTownKeysByPlayerAsync
 } from "./snapshot-economy-helpers.js";
 import { buildTownSummary } from "./live-town-summary.js";
 
@@ -152,8 +155,7 @@ export const buildLivePlayerEconomySnapshotAsync = async (
   const player = runtimeState.players.find((entry) => entry.id === playerId);
   const economyPlayer = snapshotEconomyPlayer(player);
   const domainTilesByKey = await getDomainTilesByKeyAsync(runtimeState, yieldToEventLoop);
-  const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
-  await yieldToEventLoop();
+  const settledDomainTilesByPlayerId = await buildSettledDomainTilesByPlayerIdAsync(runtimeState, domainTilesByKey, yieldToEventLoop);
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
   const townNetwork = economyPlayer
     ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? [], {
@@ -163,8 +165,8 @@ export const buildLivePlayerEconomySnapshotAsync = async (
   await yieldToEventLoop();
   const firstThreeTownKeys = buildFirstThreeTownKeysByPlayer(runtimeState).get(playerId);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
-  const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
-  const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
+  const strategicProductionByPlayer = await buildStrategicProductionByPlayerAsync(runtimeState, yieldToEventLoop);
+  const fedTownKeysByPlayer = await buildFedTownKeysByPlayerAsync(runtimeState, strategicProductionByPlayer, yieldToEventLoop);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   await yieldToEventLoop();
