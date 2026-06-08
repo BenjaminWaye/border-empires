@@ -149,6 +149,8 @@ const snapshotEconomyPlayer = (player: RuntimeState["players"][number] | undefin
 const buildFirstThreeTownKeysByPlayer = (
   runtimeState: RuntimeState
 ): Map<string, Set<string>> => {
+  const cached = firstThreeTownKeysByPlayerCache.get(runtimeState);
+  if (cached) return cached;
   const result = new Map<string, Set<string>>();
   for (const player of runtimeState.players) result.set(player.id, new Set<string>());
   for (const tile of runtimeState.tiles) {
@@ -157,6 +159,7 @@ const buildFirstThreeTownKeysByPlayer = (
     if (!firstThree || firstThree.size >= 3) continue;
     firstThree.add(keyFor(tile.x, tile.y));
   }
+  firstThreeTownKeysByPlayerCache.set(runtimeState, result);
   return result;
 };
 
@@ -224,10 +227,41 @@ const toDomainTile = (tile: RuntimeState["tiles"][number], town = parseTown(tile
     : {})
 });
 
+// Cached helper — toDomainTile calls JSON.parse(townJson) per town tile;
+// rebuilding for all 202,500 tiles on every player bootstrap is the single
+// most expensive synchronous operation in buildLivePlayerEconomySnapshot.
+const getDomainTilesByKey = (runtimeState: RuntimeState): Map<string, DomainTileState> => {
+  const cached = domainTilesByKeyCache.get(runtimeState);
+  if (cached) return cached;
+  const result = new Map<string, DomainTileState>();
+  for (const tile of runtimeState.tiles) result.set(keyFor(tile.x, tile.y), toDomainTile(tile));
+  domainTilesByKeyCache.set(runtimeState, result);
+  return result;
+};
+
+// Async variant — yields every 2,000 tiles on cold build, instant on cache hit.
+const getDomainTilesByKeyAsync = async (
+  runtimeState: RuntimeState,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, DomainTileState>> => {
+  const cached = domainTilesByKeyCache.get(runtimeState);
+  if (cached) return cached;
+  const result = new Map<string, DomainTileState>();
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+    result.set(keyFor(tile.x, tile.y), toDomainTile(tile));
+  }
+  domainTilesByKeyCache.set(runtimeState, result);
+  return result;
+};
+
 const buildSettledDomainTilesByPlayerId = (
   runtimeState: RuntimeState,
   domainTilesByKey: ReadonlyMap<string, DomainTileState>
 ): Map<string, DomainTileState[]> => {
+  const cached = settledDomainTilesByPlayerIdCache.get(runtimeState);
+  if (cached) return cached;
   const byPlayerId = new Map<string, DomainTileState[]>();
   for (const tile of runtimeState.tiles) {
     if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
@@ -237,6 +271,7 @@ const buildSettledDomainTilesByPlayerId = (
     current.push(domainTile);
     byPlayerId.set(tile.ownerId, current);
   }
+  settledDomainTilesByPlayerIdCache.set(runtimeState, byPlayerId);
   return byPlayerId;
 };
 
@@ -473,6 +508,11 @@ const supportSummaryForTown = (
 
 const EMPTY_TOWN_KEY_SET: ReadonlySet<string> = new Set<string>();
 const nearbyWarTownKeysCache: WeakMap<RuntimeState, ReadonlySet<string>> = new WeakMap();
+const domainTilesByKeyCache: WeakMap<RuntimeState, Map<string, DomainTileState>> = new WeakMap();
+const settledDomainTilesByPlayerIdCache: WeakMap<RuntimeState, Map<string, DomainTileState[]>> = new WeakMap();
+const firstThreeTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
+const strategicProductionByPlayerCache: WeakMap<RuntimeState, Map<string, Record<StrategicResourceKey, number>>> = new WeakMap();
+const fedTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 
 const computeTownKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> => {
   const nowMs = Date.now();
@@ -649,6 +689,8 @@ const buildFedTownKeysByPlayer = (
   runtimeState: RuntimeState,
   strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>
 ): Map<string, Set<string>> => {
+  const cached = fedTownKeysByPlayerCache.get(runtimeState);
+  if (cached) return cached;
   const result = new Map<string, Set<string>>();
   const ownedSettledTownsByPlayerId = new Map<string, RuntimeState["tiles"]>();
   for (const tile of runtimeState.tiles) {
@@ -678,11 +720,14 @@ const buildFedTownKeysByPlayer = (
     }
     result.set(player.id, fedTownKeys);
   }
+  fedTownKeysByPlayerCache.set(runtimeState, result);
   return result;
 };
 
 
 const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Map<string, Record<StrategicResourceKey, number>> => {
+  const cached = strategicProductionByPlayerCache.get(runtimeState);
+  if (cached) return cached;
   const production = new Map<string, Record<StrategicResourceKey, number>>();
   for (const player of runtimeState.players) production.set(player.id, emptyStrategic());
   for (const tile of runtimeState.tiles) {
@@ -697,6 +742,7 @@ const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Map<strin
     }
     production.set(tile.ownerId, target);
   }
+  strategicProductionByPlayerCache.set(runtimeState, production);
   return production;
 };
 
@@ -860,7 +906,7 @@ export const buildLivePlayerEconomySnapshot = (
   const tilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
   const player = runtimeState.players.find((entry) => entry.id === playerId);
   const economyPlayer = snapshotEconomyPlayer(player);
-  const domainTilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), toDomainTile(tile)] as const));
+  const domainTilesByKey = getDomainTilesByKey(runtimeState);
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
   const townNetwork = economyPlayer
@@ -944,6 +990,165 @@ export const buildLivePlayerEconomySnapshot = (
   // Clockwork Stipend (and any future pick-a-resource domain) credits a flat
   // trickle each tick — fold it into the breakdown so the income panel
   // attributes it, matching buildPlayerUpdateEconomySnapshot.
+  const trickle = player
+    ? chosenTrickleRateForPlayer({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource })
+    : undefined;
+  if (trickle && trickle.ratePerMinute > 0) {
+    const target =
+      trickle.resource === "IRON" ? ironSources :
+      trickle.resource === "SUPPLY" ? supplySources :
+      crystalSources;
+    addBucket(target, "Clockwork Stipend", trickle.ratePerMinute, { count: 1, resourceKey: trickle.resource });
+    strategicProductionPerMinute[trickle.resource] += trickle.ratePerMinute;
+  }
+
+  const upkeepPerMinute = {
+    food: Number([...foodSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    iron: Number([...ironSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    supply: Number([...supplySinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    crystal: Number([...crystalSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    oil: Number([...oilSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    gold: Number([...goldSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4))
+  };
+  const incomePerMinute = Number([...goldSources.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4));
+  const foodCoverage =
+    upkeepPerMinute.food <= 0
+      ? 1
+      : Math.max(
+          0,
+          Math.min(
+            1,
+            (((player?.strategicResources.FOOD ?? 0) + strategicProductionPerMinute.FOOD) / upkeepPerMinute.food)
+          )
+        );
+  return {
+    incomePerMinute,
+    strategicProductionPerMinute: {
+      FOOD: Number(strategicProductionPerMinute.FOOD.toFixed(4)),
+      IRON: Number(strategicProductionPerMinute.IRON.toFixed(4)),
+      CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
+      SUPPLY: Number(strategicProductionPerMinute.SUPPLY.toFixed(4)),
+      SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4)),
+      OIL: Number(strategicProductionPerMinute.OIL.toFixed(4))
+    },
+    upkeepPerMinute,
+    upkeepLastTick: {
+      foodCoverage: Number(foodCoverage.toFixed(4)),
+      gold: { contributors: sortedBuckets(goldSinks) },
+      food: { contributors: sortedBuckets(foodSinks) },
+      iron: { contributors: sortedBuckets(ironSinks) },
+      crystal: { contributors: sortedBuckets(crystalSinks) },
+      supply: { contributors: sortedBuckets(supplySinks) },
+      oil: { contributors: sortedBuckets(oilSinks) }
+    },
+    economyBreakdown: {
+      GOLD: { sources: sortedBuckets(goldSources), sinks: sortedBuckets(goldSinks) },
+      FOOD: { sources: sortedBuckets(foodSources), sinks: sortedBuckets(foodSinks) },
+      IRON: { sources: sortedBuckets(ironSources), sinks: sortedBuckets(ironSinks) },
+      CRYSTAL: { sources: sortedBuckets(crystalSources), sinks: sortedBuckets(crystalSinks) },
+      SUPPLY: { sources: sortedBuckets(supplySources), sinks: sortedBuckets(supplySinks) },
+      SHARD: { sources: sortedBuckets(shardSources), sinks: [] },
+      OIL: { sources: sortedBuckets(oilSources), sinks: sortedBuckets(oilSinks) }
+    },
+    fedTownKeys,
+    fedTownKeysByPlayer
+  };
+};
+
+export const buildLivePlayerEconomySnapshotAsync = async (
+  playerId: string,
+  runtimeState: RuntimeState,
+  yieldToEventLoop: () => Promise<void>
+): Promise<LivePlayerEconomySnapshot> => {
+  const tilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
+  const player = runtimeState.players.find((entry) => entry.id === playerId);
+  const economyPlayer = snapshotEconomyPlayer(player);
+  const domainTilesByKey = await getDomainTilesByKeyAsync(runtimeState, yieldToEventLoop);
+  const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
+  await yieldToEventLoop();
+  const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
+  const townNetwork = economyPlayer
+    ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? [], {
+        maxConnectedTownNames: 16
+      })
+    : undefined;
+  await yieldToEventLoop();
+  const firstThreeTownKeys = buildFirstThreeTownKeysByPlayer(runtimeState).get(playerId);
+  const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
+  const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
+  const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, strategicProductionByPlayer);
+  const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
+  const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
+  await yieldToEventLoop();
+  const goldSources = new Map<string, EconomyBucket>();
+  const goldSinks = new Map<string, EconomyBucket>();
+  const foodSources = new Map<string, EconomyBucket>();
+  const foodSinks = new Map<string, EconomyBucket>();
+  const ironSources = new Map<string, EconomyBucket>();
+  const ironSinks = new Map<string, EconomyBucket>();
+  const crystalSources = new Map<string, EconomyBucket>();
+  const crystalSinks = new Map<string, EconomyBucket>();
+  const supplySources = new Map<string, EconomyBucket>();
+  const supplySinks = new Map<string, EconomyBucket>();
+  const shardSources = new Map<string, EconomyBucket>();
+  const oilSources = new Map<string, EconomyBucket>();
+  const oilSinks = new Map<string, EconomyBucket>();
+  const strategicProductionPerMinute = strategicProductionByPlayer.get(playerId) ?? emptyStrategic();
+
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
+    addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
+    const resourceKey = strategicResourceForTile(tile.resource);
+    const resourceRate = strategicProductionPerMinuteForResource(tile.resource);
+    if (resourceKey && resourceRate > 0) {
+      const target =
+        resourceKey === "FOOD" ? foodSources :
+        resourceKey === "IRON" ? ironSources :
+        resourceKey === "CRYSTAL" ? crystalSources :
+        resourceKey === "SUPPLY" ? supplySources :
+        oilSources;
+      addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : tile.resource === "OIL" ? "Oil" : "Supply", resourceRate, { count: 1, resourceKey });
+    }
+    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys, seedGranaryBuffedTileKeys);
+    if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
+    if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
+    if (tile.dockId) {
+      const dockGoldPerMinute = economyPlayer
+        ? dockBaseGoldPerMinuteForPlayer(toDomainTile(tile), economyPlayer, { tiles: domainTilesByKey, dockLinksByDockTileKey }) *
+          (player?.incomeMultiplier ?? 1) *
+          PASSIVE_INCOME_MULT
+        : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT;
+      addBucket(goldSources, "Docks", dockGoldPerMinute, { count: 1 });
+    }
+    const fort = parseStructure<{ status?: string }>(tile.fortJson);
+    if (fort?.status === "active") {
+      addBucket(goldSinks, "Fort", 1, { count: 1 });
+      addBucket(ironSinks, "Fort", 0.025, { count: 1 });
+    }
+    const siegeOutpost = parseStructure<{ status?: string }>(tile.siegeOutpostJson);
+    if (siegeOutpost?.status === "active") {
+      addBucket(goldSinks, "Siege outpost", 1, { count: 1 });
+      addBucket(supplySinks, "Siege outpost", 0.025, { count: 1 });
+    }
+    const observatory = parseStructure<{ status?: string }>(tile.observatoryJson);
+    if (observatory?.status === "active") addBucket(crystalSinks, "Observatory", OBSERVATORY_UPKEEP_PER_MIN, { count: 1 });
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (structure?.status === "active" && structure.type) {
+      const upkeep = structureUpkeepPerMinute(structure.type);
+      if (upkeep.GOLD) addBucket(goldSinks, structure.type, upkeep.GOLD, { count: 1 });
+      if (upkeep.FOOD) addBucket(foodSinks, structure.type, upkeep.FOOD, { count: 1 });
+      if (upkeep.CRYSTAL) addBucket(crystalSinks, structure.type, upkeep.CRYSTAL, { count: 1 });
+      if (upkeep.OIL) addBucket(oilSinks, structure.type, upkeep.OIL, { count: 1 });
+      const output = converterOutputPerMinute(structure.type);
+      if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
+      if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
+      if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
+      if (output.OIL) addBucket(oilSources, structure.type, output.OIL, { count: 1 });
+    }
+  }
+
   const trickle = player
     ? chosenTrickleRateForPlayer({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource })
     : undefined;
@@ -1195,16 +1400,17 @@ const buildEnrichmentContextAsync = async (
   const playerYieldCollectionEpochByPlayer = new Map(
     (runtimeState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt] as const)
   );
+  // domainTilesByKey is almost always cached here — buildLivePlayerEconomySnapshotAsync
+  // runs first for each player and populates the cache on the first player's bootstrap.
+  const domainTilesByKey = await getDomainTilesByKeyAsync(runtimeState, yieldToEventLoop);
   const tilesByKey = new Map<string, RuntimeState["tiles"][number]>();
-  const domainTilesByKey = new Map<string, DomainTileState>();
   let tileIndex = 0;
   for (const entry of runtimeState.tiles) {
     if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
-    const tileKey = keyFor(entry.x, entry.y);
-    tilesByKey.set(tileKey, entry);
-    domainTilesByKey.set(tileKey, toDomainTile(entry));
+    tilesByKey.set(keyFor(entry.x, entry.y), entry);
   }
-  const settledDomainTilesByPlayerId = await buildSettledDomainTilesByPlayerIdAsync(runtimeState, domainTilesByKey, yieldToEventLoop);
+  // buildSettledDomainTilesByPlayerId is cached — O(1) if populated by an earlier bootstrap.
+  const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
   const economyPlayersById = new Map(runtimeState.players.map((entry) => [entry.id, snapshotEconomyPlayer(entry)!] as const));
   const visibleOwnerIds = new Set(visibleTiles.map((tile) => tile.ownerId).filter((id): id is string => Boolean(id)));
@@ -1220,7 +1426,8 @@ const buildEnrichmentContextAsync = async (
     );
     await yieldToEventLoop();
   }
-  const firstThreeTownKeysByPlayer = await buildFirstThreeTownKeysByPlayerAsync(runtimeState, yieldToEventLoop);
+  // buildFirstThreeTownKeysByPlayer is cached — O(1) if populated by an earlier bootstrap.
+  const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   await yieldToEventLoop();
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
