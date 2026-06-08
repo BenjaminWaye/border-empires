@@ -133,10 +133,10 @@ const canAffordGold = (player: StructurePlannerPlayer, goldCost: number): boolea
 
 const canAffordStructure = (
   player: StructurePlannerPlayer,
+  techSet: ReadonlySet<string>,
   structureType: EconomicStructureType,
   existingOwnedCount: number
 ): boolean => {
-  const techs = playerTechSet(player);
   const requiredTech: Partial<Record<EconomicStructureType, string>> = {
     FARMSTEAD: "agriculture",
     CAMP: "leatherworking",
@@ -146,7 +146,7 @@ const canAffordStructure = (
     BANK: "coinage"
   };
   const requiredTechId = requiredTech[structureType];
-  if (requiredTechId && !techs.has(requiredTechId)) return false;
+  if (requiredTechId && !techSet.has(requiredTechId)) return false;
   if (!canAffordGold(player, structureBuildGoldCost(structureType, existingOwnedCount))) return false;
   const resourceCost = structureCostDefinition(structureType).resourceCost;
   if (!resourceCost) return true;
@@ -173,6 +173,7 @@ export const chooseBestEconomicBuild = (
   // ownedStructureCount per kind per tile (O(N^2)) on empires with hundreds
   // of owned tiles.
   const counts = tallyOwnedStructures(player.id, ownedTiles);
+  const techSet = playerTechSet(player);
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;
@@ -193,7 +194,7 @@ export const chooseBestEconomicBuild = (
     }
     for (const candidate of candidates) {
       const existingOwnedCount = economicCount(counts, candidate.type);
-      if (!canAffordStructure(player, candidate.type, existingOwnedCount)) continue;
+      if (!canAffordStructure(player, techSet, candidate.type, existingOwnedCount)) continue;
       if (!structureVisibleOnTile(candidate.type, player.id, tile, tilesByKey)) continue;
       const next = { tile, structureType: candidate.type, score: candidate.score };
       if (!best || next.score > best.score) best = next;
@@ -217,18 +218,16 @@ export const chooseBestFortBuild = (
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;
     if (!structureVisibleOnTile("FORT", player.id, tile, tilesByKey)) continue;
-    const adjacentLandCount = frontierNeighborKeys(tile.x, tile.y).reduce(
-      (count, neighborKey) => count + (tilesByKey.get(neighborKey)?.terrain === "LAND" ? 1 : 0),
-      0
-    );
-    const hostileAdjacency = frontierNeighborKeys(tile.x, tile.y).reduce((count, neighborKey) => {
+    let adjacentLandCount = 0;
+    let hostileAdjacency = 0;
+    let neutralAdjacency = 0;
+    for (const neighborKey of frontierNeighborKeys(tile.x, tile.y)) {
       const neighbor = tilesByKey.get(neighborKey);
-      return count + (neighbor?.terrain === "LAND" && neighbor.ownerId && neighbor.ownerId !== player.id ? 1 : 0);
-    }, 0);
-    const neutralAdjacency = frontierNeighborKeys(tile.x, tile.y).reduce((count, neighborKey) => {
-      const neighbor = tilesByKey.get(neighborKey);
-      return count + (neighbor?.terrain === "LAND" && !neighbor.ownerId ? 1 : 0);
-    }, 0);
+      if (!neighbor || neighbor.terrain !== "LAND") continue;
+      adjacentLandCount++;
+      if (neighbor.ownerId && neighbor.ownerId !== player.id) hostileAdjacency++;
+      else if (!neighbor.ownerId) neutralAdjacency++;
+    }
     let score = 0;
     if (tile.town) score += 140;
     if (tile.dockId) score += 120;

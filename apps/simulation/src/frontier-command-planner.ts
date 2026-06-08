@@ -228,6 +228,16 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
   const emitTiming = affordability.onAnalyzeTiming;
   const iterStartedAt = performance.now();
+  const originCandidateKeyCache = new Map<string, string[]>();
+  const cachedCandidateKeysForOrigin = (from: PlannerTile): string[] => {
+    const k = tileKeyOf(from.x, from.y);
+    let cached = originCandidateKeyCache.get(k);
+    if (!cached) {
+      cached = candidateKeysForOrigin(from, dockLinksByDockTileKey);
+      originCandidateKeyCache.set(k, cached);
+    }
+    return cached;
+  };
   let neighborLookupsTotalMs = 0;
   let scoreCalcTotalMs = 0;
   const scoreByTargetKey = new Map<string, number>();
@@ -254,7 +264,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   let frontierOpportunityWaste = 0;
 
   for (const from of ownedTileList) {
-    for (const candidateKey of candidateKeysForOrigin(from, dockLinksByDockTileKey)) {
+    for (const candidateKey of cachedCandidateKeysForOrigin(from)) {
       const target = tilesByKey.get(candidateKey);
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
       currentReachableLandKeys.add(candidateKey);
@@ -264,7 +274,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   let capped = false;
   let candidatesEvaluated = 0;
   for (const from of ownedTileList) {
-    for (const targetKey of candidateKeysForOrigin(from, dockLinksByDockTileKey)) {
+    for (const targetKey of cachedCandidateKeysForOrigin(from)) {
       const candidateStartedAt = performance.now();
       const target = tilesByKey.get(targetKey);
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
