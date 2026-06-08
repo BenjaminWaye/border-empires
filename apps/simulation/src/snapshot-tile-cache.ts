@@ -205,6 +205,28 @@ export const buildSettledDomainTilesByPlayerId = (
   return byPlayerId;
 };
 
+export const buildSettledDomainTilesByPlayerIdAsync = async (
+  runtimeState: RuntimeState,
+  domainTilesByKey: ReadonlyMap<string, DomainTileState>,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, DomainTileState[]>> => {
+  const cached = settledDomainTilesByPlayerIdCache.get(runtimeState);
+  if (cached) return cached;
+  const byPlayerId = new Map<string, DomainTileState[]>();
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const domainTile = domainTilesByKey.get(keyFor(tile.x, tile.y));
+    if (!domainTile) continue;
+    const current = byPlayerId.get(tile.ownerId) ?? [];
+    current.push(domainTile);
+    byPlayerId.set(tile.ownerId, current);
+  }
+  settledDomainTilesByPlayerIdCache.set(runtimeState, byPlayerId);
+  return byPlayerId;
+};
+
 export const buildFirstThreeTownKeysByPlayer = (
   runtimeState: RuntimeState
 ): Map<string, Set<string>> => {
