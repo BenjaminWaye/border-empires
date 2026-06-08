@@ -18,4 +18,4 @@ export const frontierNeighborCoords = (x: number, y: number): Array<{ x: number;
   }));
 
 export const frontierNeighborKeys = (x: number, y: number): string[] =>
-  frontierNeighborCoords(x, y).map((coords) => `${coords.x},${coords.y}`);
+  frontierStepOffsets.map(({ dx, dy }) => `${wrapX(x + dx, WORLD_WIDTH)},${wrapY(y + dy, WORLD_HEIGHT)}`);
