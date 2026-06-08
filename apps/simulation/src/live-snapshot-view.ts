@@ -700,6 +700,68 @@ const buildStrategicProductionByPlayer = (runtimeState: RuntimeState): Map<strin
   return production;
 };
 
+const buildStrategicProductionByPlayerAsync = async (
+  runtimeState: RuntimeState,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, Record<StrategicResourceKey, number>>> => {
+  const production = new Map<string, Record<StrategicResourceKey, number>>();
+  for (const player of runtimeState.players) production.set(player.id, emptyStrategic());
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+    const target = production.get(tile.ownerId) ?? emptyStrategic();
+    const resourceKey = strategicResourceForTile(tile.resource);
+    if (resourceKey) target[resourceKey] += strategicProductionPerMinuteForResource(tile.resource);
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (structure?.status === "active" && structure.type) {
+      const output = converterOutputPerMinute(structure.type);
+      for (const [resource, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) target[resource] += amount;
+    }
+    production.set(tile.ownerId, target);
+  }
+  return production;
+};
+
+const buildFedTownKeysByPlayerAsync = async (
+  runtimeState: RuntimeState,
+  strategicProductionByPlayer: ReadonlyMap<string, Record<StrategicResourceKey, number>>,
+  yieldToEventLoop: () => Promise<void>
+): Promise<Map<string, Set<string>>> => {
+  const result = new Map<string, Set<string>>();
+  const ownedSettledTownsByPlayerId = new Map<string, RuntimeState["tiles"]>();
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
+    const ownedSettledTowns = ownedSettledTownsByPlayerId.get(tile.ownerId) ?? [];
+    ownedSettledTowns.push(tile);
+    ownedSettledTownsByPlayerId.set(tile.ownerId, ownedSettledTowns);
+  }
+  for (const player of runtimeState.players) {
+    const availableFood =
+      (player.strategicResources?.FOOD ?? 0) + (strategicProductionByPlayer.get(player.id)?.FOOD ?? 0);
+    let remainingFood = availableFood;
+    const fedTownKeys = new Set<string>();
+    const ownedSettledTowns = ownedSettledTownsByPlayerId.get(player.id) ?? [];
+    ownedSettledTowns.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+    for (const tile of ownedSettledTowns) {
+      const town = parseTown(tile);
+      const upkeep = townFoodUpkeepPerMinute(town?.populationTier);
+      if (upkeep <= 0) {
+        fedTownKeys.add(keyFor(tile.x, tile.y));
+        continue;
+      }
+      if (remainingFood + 1e-9 >= upkeep) {
+        fedTownKeys.add(keyFor(tile.x, tile.y));
+        remainingFood = Math.max(0, remainingFood - upkeep);
+      }
+    }
+    result.set(player.id, fedTownKeys);
+  }
+  return result;
+};
+
 
 const buildTownSummary = (
   tile: RuntimeState["tiles"][number],
@@ -890,6 +952,169 @@ export const buildLivePlayerEconomySnapshot = (
   const strategicProductionPerMinute = strategicProductionByPlayer.get(playerId) ?? emptyStrategic();
 
   for (const tile of runtimeState.tiles) {
+    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
+    addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
+    const resourceKey = strategicResourceForTile(tile.resource);
+    const resourceRate = strategicProductionPerMinuteForResource(tile.resource);
+    if (resourceKey && resourceRate > 0) {
+      const target =
+        resourceKey === "FOOD" ? foodSources :
+        resourceKey === "IRON" ? ironSources :
+        resourceKey === "CRYSTAL" ? crystalSources :
+        resourceKey === "SUPPLY" ? supplySources :
+        oilSources;
+      addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : tile.resource === "OIL" ? "Oil" : "Supply", resourceRate, { count: 1, resourceKey });
+    }
+    const town = buildTownSummary(tile, player, tilesByKey, fedTownKeys, true, townNetwork, firstThreeTownKeys, nearbyWarTownKeys, seedGranaryBuffedTileKeys);
+    if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
+    if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
+    if (tile.dockId) {
+      const dockGoldPerMinute = economyPlayer
+        ? dockBaseGoldPerMinuteForPlayer(toDomainTile(tile), economyPlayer, { tiles: domainTilesByKey, dockLinksByDockTileKey }) *
+          (player?.incomeMultiplier ?? 1) *
+          PASSIVE_INCOME_MULT
+        : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT;
+      addBucket(goldSources, "Docks", dockGoldPerMinute, { count: 1 });
+    }
+    const fort = parseStructure<{ status?: string }>(tile.fortJson);
+    if (fort?.status === "active") {
+      addBucket(goldSinks, "Fort", 1, { count: 1 });
+      addBucket(ironSinks, "Fort", 0.025, { count: 1 });
+    }
+    const siegeOutpost = parseStructure<{ status?: string }>(tile.siegeOutpostJson);
+    if (siegeOutpost?.status === "active") {
+      addBucket(goldSinks, "Siege outpost", 1, { count: 1 });
+      addBucket(supplySinks, "Siege outpost", 0.025, { count: 1 });
+    }
+    const observatory = parseStructure<{ status?: string }>(tile.observatoryJson);
+    if (observatory?.status === "active") addBucket(crystalSinks, "Observatory", OBSERVATORY_UPKEEP_PER_MIN, { count: 1 });
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (structure?.status === "active" && structure.type) {
+      const upkeep = structureUpkeepPerMinute(structure.type);
+      if (upkeep.GOLD) addBucket(goldSinks, structure.type, upkeep.GOLD, { count: 1 });
+      if (upkeep.FOOD) addBucket(foodSinks, structure.type, upkeep.FOOD, { count: 1 });
+      if (upkeep.CRYSTAL) addBucket(crystalSinks, structure.type, upkeep.CRYSTAL, { count: 1 });
+      if (upkeep.OIL) addBucket(oilSinks, structure.type, upkeep.OIL, { count: 1 });
+      const output = converterOutputPerMinute(structure.type);
+      if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
+      if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
+      if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
+      if (output.OIL) addBucket(oilSources, structure.type, output.OIL, { count: 1 });
+    }
+  }
+
+  // Clockwork Stipend (and any future pick-a-resource domain) credits a flat
+  // trickle each tick — fold it into the breakdown so the income panel
+  // attributes it, matching buildPlayerUpdateEconomySnapshot.
+  const trickle = player
+    ? chosenTrickleRateForPlayer({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource })
+    : undefined;
+  if (trickle && trickle.ratePerMinute > 0) {
+    const target =
+      trickle.resource === "IRON" ? ironSources :
+      trickle.resource === "SUPPLY" ? supplySources :
+      crystalSources;
+    addBucket(target, "Clockwork Stipend", trickle.ratePerMinute, { count: 1, resourceKey: trickle.resource });
+    strategicProductionPerMinute[trickle.resource] += trickle.ratePerMinute;
+  }
+
+  const upkeepPerMinute = {
+    food: Number([...foodSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    iron: Number([...ironSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    supply: Number([...supplySinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    crystal: Number([...crystalSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    oil: Number([...oilSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
+    gold: Number([...goldSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4))
+  };
+  const incomePerMinute = Number([...goldSources.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4));
+  const foodCoverage =
+    upkeepPerMinute.food <= 0
+      ? 1
+      : Math.max(
+          0,
+          Math.min(
+            1,
+            (((player?.strategicResources.FOOD ?? 0) + strategicProductionPerMinute.FOOD) / upkeepPerMinute.food)
+          )
+        );
+  return {
+    incomePerMinute,
+    strategicProductionPerMinute: {
+      FOOD: Number(strategicProductionPerMinute.FOOD.toFixed(4)),
+      IRON: Number(strategicProductionPerMinute.IRON.toFixed(4)),
+      CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
+      SUPPLY: Number(strategicProductionPerMinute.SUPPLY.toFixed(4)),
+      SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4)),
+      OIL: Number(strategicProductionPerMinute.OIL.toFixed(4))
+    },
+    upkeepPerMinute,
+    upkeepLastTick: {
+      foodCoverage: Number(foodCoverage.toFixed(4)),
+      gold: { contributors: sortedBuckets(goldSinks) },
+      food: { contributors: sortedBuckets(foodSinks) },
+      iron: { contributors: sortedBuckets(ironSinks) },
+      crystal: { contributors: sortedBuckets(crystalSinks) },
+      supply: { contributors: sortedBuckets(supplySinks) },
+      oil: { contributors: sortedBuckets(oilSinks) }
+    },
+    economyBreakdown: {
+      GOLD: { sources: sortedBuckets(goldSources), sinks: sortedBuckets(goldSinks) },
+      FOOD: { sources: sortedBuckets(foodSources), sinks: sortedBuckets(foodSinks) },
+      IRON: { sources: sortedBuckets(ironSources), sinks: sortedBuckets(ironSinks) },
+      CRYSTAL: { sources: sortedBuckets(crystalSources), sinks: sortedBuckets(crystalSinks) },
+      SUPPLY: { sources: sortedBuckets(supplySources), sinks: sortedBuckets(supplySinks) },
+      SHARD: { sources: sortedBuckets(shardSources), sinks: [] },
+      OIL: { sources: sortedBuckets(oilSources), sinks: sortedBuckets(oilSinks) }
+    },
+    fedTownKeys,
+    fedTownKeysByPlayer
+  };
+};
+
+export const buildLivePlayerEconomySnapshotAsync = async (
+  playerId: string,
+  runtimeState: RuntimeState,
+  yieldToEventLoop: () => Promise<void>
+): Promise<LivePlayerEconomySnapshot> => {
+  const tilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
+  await yieldToEventLoop();
+  const player = runtimeState.players.find((entry) => entry.id === playerId);
+  const economyPlayer = snapshotEconomyPlayer(player);
+  const domainTilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), toDomainTile(tile)] as const));
+  await yieldToEventLoop();
+  const settledDomainTilesByPlayerId = await buildSettledDomainTilesByPlayerIdAsync(runtimeState, domainTilesByKey, yieldToEventLoop);
+  const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
+  const townNetwork = economyPlayer
+    ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? [], {
+        maxConnectedTownNames: 16
+      })
+    : undefined;
+  await yieldToEventLoop();
+  const firstThreeTownKeys = (await buildFirstThreeTownKeysByPlayerAsync(runtimeState, yieldToEventLoop)).get(playerId);
+  const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
+  const strategicProductionByPlayer = await buildStrategicProductionByPlayerAsync(runtimeState, yieldToEventLoop);
+  const fedTownKeysByPlayer = await buildFedTownKeysByPlayerAsync(runtimeState, strategicProductionByPlayer, yieldToEventLoop);
+  const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
+  const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
+  await yieldToEventLoop();
+  const goldSources = new Map<string, EconomyBucket>();
+  const goldSinks = new Map<string, EconomyBucket>();
+  const foodSources = new Map<string, EconomyBucket>();
+  const foodSinks = new Map<string, EconomyBucket>();
+  const ironSources = new Map<string, EconomyBucket>();
+  const ironSinks = new Map<string, EconomyBucket>();
+  const crystalSources = new Map<string, EconomyBucket>();
+  const crystalSinks = new Map<string, EconomyBucket>();
+  const supplySources = new Map<string, EconomyBucket>();
+  const supplySinks = new Map<string, EconomyBucket>();
+  const shardSources = new Map<string, EconomyBucket>();
+  const oilSources = new Map<string, EconomyBucket>();
+  const oilSinks = new Map<string, EconomyBucket>();
+  const strategicProductionPerMinute = strategicProductionByPlayer.get(playerId) ?? emptyStrategic();
+
+  let tileIndex = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
     if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
     addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
     const resourceKey = strategicResourceForTile(tile.resource);
