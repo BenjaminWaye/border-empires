@@ -7,6 +7,7 @@ import { chosenTrickleRateForPlayer } from "./tech-domain-bridge.js";
 import {
   type RuntimeState,
   type LivePlayerEconomySnapshot,
+  type EconomyBucket,
   keyFor,
   toDomainTile,
   parseStructure,
@@ -19,8 +20,6 @@ import {
   computeSeedGranaryBuffedTileKeys
 } from "./snapshot-tile-cache.js";
 import {
-  type StrategicResourceKey,
-  type EconomyBucket,
   emptyStrategic,
   addBucket,
   sortedBuckets,
@@ -130,7 +129,9 @@ export const buildLivePlayerEconomySnapshot = (
       trickle.resource === "SUPPLY" ? supplySources :
       crystalSources;
     addBucket(target, "Clockwork Stipend", trickle.ratePerMinute, { count: 1, resourceKey: trickle.resource });
-    strategicProductionPerMinute[trickle.resource as StrategicResourceKey] += trickle.ratePerMinute;
+    if (trickle.resource === "IRON") strategicProductionPerMinute.IRON += trickle.ratePerMinute;
+    else if (trickle.resource === "SUPPLY") strategicProductionPerMinute.SUPPLY += trickle.ratePerMinute;
+    else if (trickle.resource === "CRYSTAL") strategicProductionPerMinute.CRYSTAL += trickle.ratePerMinute;
   }
 
   return buildEconomyResult({
@@ -245,7 +246,9 @@ export const buildLivePlayerEconomySnapshotAsync = async (
       trickle.resource === "SUPPLY" ? supplySources :
       crystalSources;
     addBucket(target, "Clockwork Stipend", trickle.ratePerMinute, { count: 1, resourceKey: trickle.resource });
-    strategicProductionPerMinute[trickle.resource as StrategicResourceKey] += trickle.ratePerMinute;
+    if (trickle.resource === "IRON") strategicProductionPerMinute.IRON += trickle.ratePerMinute;
+    else if (trickle.resource === "SUPPLY") strategicProductionPerMinute.SUPPLY += trickle.ratePerMinute;
+    else if (trickle.resource === "CRYSTAL") strategicProductionPerMinute.CRYSTAL += trickle.ratePerMinute;
   }
 
   return buildEconomyResult({
@@ -259,7 +262,7 @@ export const buildLivePlayerEconomySnapshotAsync = async (
 
 type EconomyResultArgs = {
   player: RuntimeState["players"][number] | undefined;
-  strategicProductionPerMinute: Record<StrategicResourceKey, number>;
+  strategicProductionPerMinute: { FOOD: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number; OIL: number };
   goldSources: Map<string, EconomyBucket>;
   goldSinks: Map<string, EconomyBucket>;
   foodSources: Map<string, EconomyBucket>;
