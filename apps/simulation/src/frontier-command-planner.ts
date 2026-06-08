@@ -4,7 +4,7 @@ import { isSeaTerrain, type Terrain } from "@border-empires/shared";
 import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
 import { dockCrossingCandidateTileKeys } from "./dock-network.js";
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 
 type PlannerTile = {
   x: number;
@@ -96,23 +96,28 @@ const strategicFrontierTargetScore = (tile: PlannerTile, needsFood: boolean = fa
   return score;
 };
 
-const ownedNeighborCount = (tilesByKey: PlannerTileLookup, tile: PlannerTile, playerId: string): number =>
-  frontierNeighborKeys(tile.x, tile.y).reduce(
-    (count, neighborKey) => count + (tilesByKey.get(neighborKey)?.ownerId === playerId ? 1 : 0),
-    0
-  );
+const ownedNeighborCount = (tilesByKey: PlannerTileLookup, tile: PlannerTile, playerId: string): number => {
+  let count = 0;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    if (tilesByKey.get(`${nx},${ny}`)?.ownerId === playerId) count += 1;
+  });
+  return count;
+};
 
-const coastlineDiscoveryValue = (tilesByKey: PlannerTileLookup, tile: PlannerTile): number =>
-  frontierNeighborKeys(tile.x, tile.y).reduce(
-    (score, neighborKey) => score + (isSeaTerrain(tilesByKey.get(neighborKey)?.terrain as Terrain) ? 18 : 0),
-    0
-  );
+const coastlineDiscoveryValue = (tilesByKey: PlannerTileLookup, tile: PlannerTile): number => {
+  let score = 0;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    if (isSeaTerrain(tilesByKey.get(`${nx},${ny}`)?.terrain as Terrain)) score += 18;
+  });
+  return score;
+};
 
 const candidateKeysForOrigin = (
   from: PlannerTile,
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>
 ): string[] => {
-  const candidateKeys = new Set(frontierNeighborKeys(from.x, from.y));
+  const candidateKeys = new Set<string>();
+  forEachFrontierNeighbor(from.x, from.y, (nx, ny) => candidateKeys.add(`${nx},${ny}`));
   if (from.dockId && dockLinksByDockTileKey) {
     for (const tileKey of dockCrossingCandidateTileKeys(tileKeyOf(from.x, from.y), dockLinksByDockTileKey)) {
       candidateKeys.add(tileKey);
@@ -228,6 +233,16 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
   const emitTiming = affordability.onAnalyzeTiming;
   const iterStartedAt = performance.now();
+  const originCandidateKeyCache = new Map<string, string[]>();
+  const cachedCandidateKeysForOrigin = (from: PlannerTile): string[] => {
+    const k = tileKeyOf(from.x, from.y);
+    let cached = originCandidateKeyCache.get(k);
+    if (!cached) {
+      cached = candidateKeysForOrigin(from, dockLinksByDockTileKey);
+      originCandidateKeyCache.set(k, cached);
+    }
+    return cached;
+  };
   let neighborLookupsTotalMs = 0;
   let scoreCalcTotalMs = 0;
   const scoreByTargetKey = new Map<string, number>();
@@ -254,7 +269,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   let frontierOpportunityWaste = 0;
 
   for (const from of ownedTileList) {
-    for (const candidateKey of candidateKeysForOrigin(from, dockLinksByDockTileKey)) {
+    for (const candidateKey of cachedCandidateKeysForOrigin(from)) {
       const target = tilesByKey.get(candidateKey);
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
       currentReachableLandKeys.add(candidateKey);
@@ -264,7 +279,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   let capped = false;
   let candidatesEvaluated = 0;
   for (const from of ownedTileList) {
-    for (const targetKey of candidateKeysForOrigin(from, dockLinksByDockTileKey)) {
+    for (const targetKey of cachedCandidateKeysForOrigin(from)) {
       const candidateStartedAt = performance.now();
       const target = tilesByKey.get(targetKey);
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;

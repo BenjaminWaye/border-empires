@@ -14,7 +14,7 @@ import { buildLivePlayerEconomySnapshot, enrichSnapshotTilesForPlayer, enrichSna
 import { buildDockLinksByDockTileKey, collectLinkedDockRevealKeysForOwners } from "./dock-network.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge.js";
-import { frontierNeighborCoords } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -208,9 +208,12 @@ export const buildPlayerSubscriptionSnapshot = (
           if (pendingSettlementTileKeys.has(tileKey) || activeLockTileKeys.has(tileKey)) return undefined;
           const tile = tileByKey.get(tileKey);
           if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId || tile.ownershipState !== "FRONTIER") return undefined;
-          const hasTownSupport = frontierNeighborCoords(tile.x, tile.y).some((coords) => {
-            const neighbor = tileByKey.get(keyFor(coords.x, coords.y));
-            return Boolean(neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.townJson);
+          let hasTownSupport = false;
+          forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+            if (!hasTownSupport) {
+              const neighbor = tileByKey.get(keyFor(nx, ny));
+              if (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.townJson) hasTownSupport = true;
+            }
           });
           if (!tile.resource && !tile.townJson && !tile.dockId && !hasTownSupport) return undefined;
           return { x: tile.x, y: tile.y };
@@ -529,9 +532,12 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
           if (pendingSettlementTileKeys.has(tileKey) || activeLockTileKeys.has(tileKey)) return undefined;
           const tile = tileByKey.get(tileKey);
           if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId || tile.ownershipState !== "FRONTIER") return undefined;
-          const hasTownSupport = frontierNeighborCoords(tile.x, tile.y).some((coords) => {
-            const neighbor = tileByKey.get(keyFor(coords.x, coords.y));
-            return Boolean(neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.townJson);
+          let hasTownSupport = false;
+          forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+            if (!hasTownSupport) {
+              const neighbor = tileByKey.get(keyFor(nx, ny));
+              if (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.townJson) hasTownSupport = true;
+            }
           });
           if (!tile.resource && !tile.townJson && !tile.dockId && !hasTownSupport) return undefined;
           return { x: tile.x, y: tile.y };

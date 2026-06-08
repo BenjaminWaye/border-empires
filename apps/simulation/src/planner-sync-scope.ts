@@ -1,5 +1,5 @@
 import { buildDockLinksByDockTileKey } from "./dock-network.js";
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./planner-world-view.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 
@@ -65,9 +65,7 @@ export const buildPlannerRelevantTileKeysForPlayer = (
       addScopedKey(scopedKeys, linkedDockTileKey, safeRadius);
       const coords = parseTileKey(linkedDockTileKey);
       if (!coords) continue;
-      for (const neighborKey of frontierNeighborKeys(coords.x, coords.y)) {
-        scopedKeys.add(neighborKey);
-      }
+      forEachFrontierNeighbor(coords.x, coords.y, (nx, ny) => scopedKeys.add(`${nx},${ny}`));
     }
   }
   return scopedKeys;

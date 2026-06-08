@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { structureShowsOnTile, type EconomicStructureType } from "@border-empires/shared";
-import { frontierNeighborCoords } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 import { simulationTileKey } from "./seed-state.js";
 
 export function supportedTownKeysForTile(
@@ -63,7 +63,10 @@ export function firstAvailableTownSupportTile(
 }
 
 function adjacentTileStates(tiles: ReadonlyMap<string, DomainTileState>, x: number, y: number): DomainTileState[] {
-  return frontierNeighborCoords(x, y)
-    .map((coords) => tiles.get(simulationTileKey(coords.x, coords.y)))
-    .filter((tile): tile is DomainTileState => tile !== undefined);
+  const result: DomainTileState[] = [];
+  forEachFrontierNeighbor(x, y, (nx, ny) => {
+    const tile = tiles.get(simulationTileKey(nx, ny));
+    if (tile) result.push(tile);
+  });
+  return result;
 }
