@@ -420,6 +420,7 @@ export class SimulationRuntime {
   private readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
+  private readonly eagerVisibilitySetCache = new Map<string, { collectionVersion: number; keys: Set<string> }>();
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
@@ -2350,6 +2351,19 @@ export class SimulationRuntime {
         docks: this.docks,
         dockLinksByDockTileKey: this.dockLinksByDockTileKey,
         summaryForPlayer: (id) => this.summaryForPlayer(id),
+        eagerVisibilitySetCache: this.eagerVisibilitySetCache,
+        tileCollectionVersionForPlayer: (pid) => {
+          // Include ally territory versions so ally expansion invalidates the cache.
+          // Counters only ever increment, so the sum is monotonically increasing.
+          const player = this.players.get(pid);
+          let v = this.plannerPlayerTileCollectionVersionByPlayer.get(pid) ?? 0;
+          if (player) {
+            for (const allyId of player.allies) {
+              v += this.plannerPlayerTileCollectionVersionByPlayer.get(allyId) ?? 0;
+            }
+          }
+          return v;
+        },
         ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
       },
       tileDeltas,
