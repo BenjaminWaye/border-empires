@@ -421,6 +421,12 @@ export class SimulationRuntime {
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   private readonly eagerVisibilitySetCache = new Map<string, { collectionVersion: number; keys: Set<string> }>();
+  // Coarse epoch incremented once per tick (not per tile mutation) so the
+  // eagerVisibilitySetCache survives an entire burst of territory-automation
+  // attacks without a cache miss on every mutation. Using the per-mutation
+  // plannerPlayerTileCollectionVersionByPlayer caused 110× O(territory×radius²)
+  // Set rebuilds per 30s tick — one per fort attack — blocking gRPC login RPCs.
+  private visibilityEpoch = 0;
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
@@ -695,6 +701,7 @@ export class SimulationRuntime {
           typeof this.currentShardRainExpiresAt === "number"
             ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
             : site.expiresAt;
+        this.activeShardFallSiteKeys.add(tileKey);
       }
       // Part 1: populate frontierTilesByOwner index.
       if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
@@ -1041,6 +1048,10 @@ export class SimulationRuntime {
   }
 
   tickTerritoryAutomation(nowMs: number = this.now()): void {
+    // Bump the visibility epoch so eagerVisibilitySetCache rebuilds at most
+    // once per subscriber this tick rather than once per attack (see comment
+    // on visibilityEpoch field above).
+    this.visibilityEpoch += 1;
     tickTerritoryAutomationImpl({
       nowMs,
       players: this.players,
@@ -2355,18 +2366,14 @@ export class SimulationRuntime {
         dockLinksByDockTileKey: this.dockLinksByDockTileKey,
         summaryForPlayer: (id) => this.summaryForPlayer(id),
         eagerVisibilitySetCache: this.eagerVisibilitySetCache,
-        tileCollectionVersionForPlayer: (pid) => {
-          // Include ally territory versions so ally expansion invalidates the cache.
-          // Counters only ever increment, so the sum is monotonically increasing.
-          const player = this.players.get(pid);
-          let v = this.plannerPlayerTileCollectionVersionByPlayer.get(pid) ?? 0;
-          if (player) {
-            for (const allyId of player.allies) {
-              v += this.plannerPlayerTileCollectionVersionByPlayer.get(allyId) ?? 0;
-            }
-          }
-          return v;
-        },
+        // Use the coarse tick-epoch rather than the per-mutation planner version.
+        // The planner version increments on every tile ownership change, which
+        // causes the eagerVisibilitySetCache to miss on every attack during a
+        // territory-automation burst (110 attacks × N subscribers × O(territory×
+        // radius²) per rebuild = seconds of sim main-thread block). The epoch
+        // increments once per tick so the Set is built once per subscriber per
+        // tick and then reused for all subsequent attacks in the same burst.
+        tileCollectionVersionForPlayer: () => this.visibilityEpoch,
         ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
       },
       tileDeltas,
