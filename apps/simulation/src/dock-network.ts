@@ -1,5 +1,5 @@
 import { isFrontierAdjacent } from "./frontier-adjacency.js";
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 
 export type DockRouteDefinition = {
   dockId: string;
@@ -43,9 +43,7 @@ export const dockCrossingCandidateTileKeys = (
     candidates.add(dockTileKey);
     const coords = parseTileKey(dockTileKey);
     if (!coords) continue;
-    for (const neighborKey of frontierNeighborKeys(coords.x, coords.y)) {
-      candidates.add(neighborKey);
-    }
+    forEachFrontierNeighbor(coords.x, coords.y, (nx, ny) => candidates.add(`${nx},${ny}`));
   }
   return [...candidates];
 };

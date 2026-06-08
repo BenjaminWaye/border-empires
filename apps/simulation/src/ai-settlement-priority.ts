@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 import { computeTownSupport } from "./town-support.js";
 
 export type SettlementCandidateEvaluation = {
@@ -40,20 +40,21 @@ const adjacentTownSupportNeed = (
   assumedFrontierKeys: ReadonlySet<string>
 ): number => {
   let need = 0;
-  for (const neighborKey of frontierNeighborKeys(tile.x, tile.y)) {
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    const neighborKey = tileKeyOf(nx, ny);
     const neighbor = tiles.get(neighborKey);
-    if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED" || !neighbor.town) continue;
-    if (assumedFrontierKeys.has(neighborKey)) continue;
-    if (neighbor.town.populationTier === "SETTLEMENT") continue;
+    if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED" || !neighbor.town) return;
+    if (assumedFrontierKeys.has(neighborKey)) return;
+    if (neighbor.town.populationTier === "SETTLEMENT") return;
     const storedMax = neighbor.town.supportMax;
     const storedCurrent = neighbor.town.supportCurrent;
     if (typeof storedMax === "number" && typeof storedCurrent === "number") {
       need += Math.max(0, storedMax - storedCurrent);
-      continue;
+      return;
     }
     const { supportMax, supportCurrent } = computeTownSupport(playerId, neighbor.x, neighbor.y, tiles);
     need += Math.max(0, supportMax - supportCurrent);
-  }
+  });
   return need;
 };
 
@@ -70,14 +71,15 @@ const nearbyOwnedTownCount = (
     for (const currentKey of frontier) {
       const current = tiles.get(currentKey);
       if (!current) continue;
-      for (const neighborKey of frontierNeighborKeys(current.x, current.y)) {
-        if (visited.has(neighborKey)) continue;
+      forEachFrontierNeighbor(current.x, current.y, (nx, ny) => {
+        const neighborKey = tileKeyOf(nx, ny);
+        if (visited.has(neighborKey)) return;
         visited.add(neighborKey);
         const neighbor = tiles.get(neighborKey);
-        if (!neighbor) continue;
+        if (!neighbor) return;
         nextFrontier.push(neighborKey);
         if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.town) count += 1;
-      }
+      });
     }
     frontier = nextFrontier;
   }
@@ -101,7 +103,8 @@ const ownedAdjacencyMetrics = (
   let frontierNeighbors = 0;
   let exposedSides = 0;
   let hostileInterest = 0;
-  for (const neighborKey of frontierNeighborKeys(tile.x, tile.y)) {
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    const neighborKey = tileKeyOf(nx, ny);
     const neighbor = tiles.get(neighborKey);
     const assumedOwned = assumedFrontierKeys.has(neighborKey);
     const ownerId = assumedOwned ? playerId : neighbor?.ownerId;
@@ -122,7 +125,7 @@ const ownedAdjacencyMetrics = (
       if (neighbor.dockId) hostileInterest += 28;
       hostileInterest += Math.max(0, resourceScore(neighbor.resource) / 2);
     }
-  }
+  });
   return { ownedNeighbors, settledNeighbors, frontierNeighbors, exposedSides, hostileInterest };
 };
 

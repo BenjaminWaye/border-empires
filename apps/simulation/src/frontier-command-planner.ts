@@ -4,7 +4,7 @@ import { isSeaTerrain, type Terrain } from "@border-empires/shared";
 import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
 import { dockCrossingCandidateTileKeys } from "./dock-network.js";
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 
 type PlannerTile = {
   x: number;
@@ -96,23 +96,28 @@ const strategicFrontierTargetScore = (tile: PlannerTile, needsFood: boolean = fa
   return score;
 };
 
-const ownedNeighborCount = (tilesByKey: PlannerTileLookup, tile: PlannerTile, playerId: string): number =>
-  frontierNeighborKeys(tile.x, tile.y).reduce(
-    (count, neighborKey) => count + (tilesByKey.get(neighborKey)?.ownerId === playerId ? 1 : 0),
-    0
-  );
+const ownedNeighborCount = (tilesByKey: PlannerTileLookup, tile: PlannerTile, playerId: string): number => {
+  let count = 0;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    if (tilesByKey.get(`${nx},${ny}`)?.ownerId === playerId) count += 1;
+  });
+  return count;
+};
 
-const coastlineDiscoveryValue = (tilesByKey: PlannerTileLookup, tile: PlannerTile): number =>
-  frontierNeighborKeys(tile.x, tile.y).reduce(
-    (score, neighborKey) => score + (isSeaTerrain(tilesByKey.get(neighborKey)?.terrain as Terrain) ? 18 : 0),
-    0
-  );
+const coastlineDiscoveryValue = (tilesByKey: PlannerTileLookup, tile: PlannerTile): number => {
+  let score = 0;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    if (isSeaTerrain(tilesByKey.get(`${nx},${ny}`)?.terrain as Terrain)) score += 18;
+  });
+  return score;
+};
 
 const candidateKeysForOrigin = (
   from: PlannerTile,
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>
 ): string[] => {
-  const candidateKeys = new Set(frontierNeighborKeys(from.x, from.y));
+  const candidateKeys = new Set<string>();
+  forEachFrontierNeighbor(from.x, from.y, (nx, ny) => candidateKeys.add(`${nx},${ny}`));
   if (from.dockId && dockLinksByDockTileKey) {
     for (const tileKey of dockCrossingCandidateTileKeys(tileKeyOf(from.x, from.y), dockLinksByDockTileKey)) {
       candidateKeys.add(tileKey);

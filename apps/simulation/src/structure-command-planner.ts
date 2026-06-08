@@ -8,7 +8,7 @@ import {
   type Terrain
 } from "@border-empires/shared";
 
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 
@@ -97,17 +97,23 @@ const tallyOwnedStructures = (
 const economicCount = (counts: OwnedStructureCounts, type: EconomicStructureType): number =>
   counts.economic.get(type) ?? 0;
 
-const supportedTownCount = (playerId: string, tile: StructurePlannerTile, tilesByKey: TileLookup): number =>
-  frontierNeighborKeys(tile.x, tile.y).reduce((count, neighborKey) => {
-    const neighbor = tilesByKey.get(neighborKey);
-    return count + (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.town ? 1 : 0);
-  }, 0);
+const supportedTownCount = (playerId: string, tile: StructurePlannerTile, tilesByKey: TileLookup): number => {
+  let count = 0;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    const neighbor = tilesByKey.get(`${nx},${ny}`);
+    if (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.town) count += 1;
+  });
+  return count;
+};
 
-const supportedDockCount = (playerId: string, tile: StructurePlannerTile, tilesByKey: TileLookup): number =>
-  frontierNeighborKeys(tile.x, tile.y).reduce((count, neighborKey) => {
-    const neighbor = tilesByKey.get(neighborKey);
-    return count + (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.dockId ? 1 : 0);
-  }, 0);
+const supportedDockCount = (playerId: string, tile: StructurePlannerTile, tilesByKey: TileLookup): number => {
+  let count = 0;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    const neighbor = tilesByKey.get(`${nx},${ny}`);
+    if (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.dockId) count += 1;
+  });
+  return count;
+};
 
 const tileOpenForStructure = (tile: StructurePlannerTile): boolean =>
   !tile.fort && !tile.observatory && !tile.siegeOutpost && !tile.economicStructure;
@@ -221,13 +227,13 @@ export const chooseBestFortBuild = (
     let adjacentLandCount = 0;
     let hostileAdjacency = 0;
     let neutralAdjacency = 0;
-    for (const neighborKey of frontierNeighborKeys(tile.x, tile.y)) {
-      const neighbor = tilesByKey.get(neighborKey);
-      if (!neighbor || neighbor.terrain !== "LAND") continue;
+    forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+      const neighbor = tilesByKey.get(`${nx},${ny}`);
+      if (!neighbor || neighbor.terrain !== "LAND") return;
       adjacentLandCount++;
       if (neighbor.ownerId && neighbor.ownerId !== player.id) hostileAdjacency++;
       else if (!neighbor.ownerId) neutralAdjacency++;
-    }
+    });
     let score = 0;
     if (tile.town) score += 140;
     if (tile.dockId) score += 120;
@@ -258,13 +264,13 @@ export const chooseBestSiegeOutpostBuild = (
     let hostileAdjacency = 0;
     let townPressure = 0;
     let economicPressure = 0;
-    for (const neighborKey of frontierNeighborKeys(tile.x, tile.y)) {
-      const neighbor = tilesByKey.get(neighborKey);
-      if (!neighbor || neighbor.terrain !== "LAND" || !neighbor.ownerId || neighbor.ownerId === player.id) continue;
+    forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+      const neighbor = tilesByKey.get(`${nx},${ny}`);
+      if (!neighbor || neighbor.terrain !== "LAND" || !neighbor.ownerId || neighbor.ownerId === player.id) return;
       hostileAdjacency += 1;
       if (neighbor.town) townPressure += 1;
       if (neighbor.dockId || neighbor.resource || neighbor.economicStructure) economicPressure += 1;
-    }
+    });
     if (hostileAdjacency <= 0) continue;
     let score = hostileAdjacency * 120 + townPressure * 140 + economicPressure * 90;
     if (tile.town) score += 50;
