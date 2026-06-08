@@ -14,3 +14,8 @@ snapshots/
 **/snapshots/
 .fly/
 .vercel/
+.local-data/
+.prod-shape-clones/
+*.db
+*.db-shm
+*.db-wal
