@@ -1,6 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { frontierNeighborCoords } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 
 /**
  * Chebyshev distance between two points, without world-wrap (used for sweep
@@ -154,20 +154,19 @@ export const siegeAutoAttackCandidates = (
   outpost: DomainTileState,
   playerId: string,
   getTile: (x: number, y: number) => DomainTileState | undefined
-): DomainTileState[] =>
-  frontierNeighborCoords(outpost.x, outpost.y)
-    .map(({ x, y }) => getTile(x, y))
-    .filter(
-      (tile): tile is DomainTileState =>
-        Boolean(
-          tile &&
-            tile.terrain === "LAND" &&
-            tile.ownerId &&
-            tile.ownerId !== playerId &&
-            (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED")
-        )
-    )
-    .sort((left, right) => {
+): DomainTileState[] => {
+  const autoAttackCandidates: DomainTileState[] = [];
+  forEachFrontierNeighbor(outpost.x, outpost.y, (nx, ny) => {
+    const tile = getTile(nx, ny);
+    if (
+      tile &&
+      tile.terrain === "LAND" &&
+      tile.ownerId &&
+      tile.ownerId !== playerId &&
+      (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED")
+    ) autoAttackCandidates.push(tile);
+  });
+  return autoAttackCandidates.sort((left, right) => {
       const stateScore = (tile: DomainTileState): number => tile.ownershipState === "FRONTIER" ? 0 : 1;
       const townScore = (tile: DomainTileState): number => tile.town ? 1 : 0;
       const fortScore = (tile: DomainTileState): number => tile.fort?.status === "active" ? 1 : 0;
@@ -179,6 +178,7 @@ export const siegeAutoAttackCandidates = (
         left.y - right.y
       );
     });
+};
 
 /**
  * Choose an expansion step to advance sweep toward a distant target.

@@ -1,7 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
 
@@ -10,10 +10,10 @@ const ownerIdsNearTile = (
   tilesByKey: ReadonlyMap<string, DomainTileState>
 ): Set<string> => {
   const owners = new Set<string>();
-  for (const neighborKey of frontierNeighborKeys(tile.x, tile.y)) {
-    const ownerId = tilesByKey.get(neighborKey)?.ownerId;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    const ownerId = tilesByKey.get(`${nx},${ny}`)?.ownerId;
     if (ownerId) owners.add(ownerId);
-  }
+  });
   return owners;
 };
 
@@ -21,46 +21,57 @@ const supportedTownCount = (
   playerId: string,
   tile: DomainTileState,
   tilesByKey: ReadonlyMap<string, DomainTileState>
-): number =>
-  frontierNeighborKeys(tile.x, tile.y).reduce((count, neighborKey) => {
-    const neighbor = tilesByKey.get(neighborKey);
-    return count + (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.town ? 1 : 0);
-  }, 0);
+): number => {
+  let count = 0;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    const neighbor = tilesByKey.get(`${nx},${ny}`);
+    if (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.town) count += 1;
+  });
+  return count;
+};
 
 const supportedDockCount = (
   playerId: string,
   tile: DomainTileState,
   tilesByKey: ReadonlyMap<string, DomainTileState>
-): number =>
-  frontierNeighborKeys(tile.x, tile.y).reduce((count, neighborKey) => {
-    const neighbor = tilesByKey.get(neighborKey);
-    return count + (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.dockId ? 1 : 0);
-  }, 0);
+): number => {
+  let count = 0;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    const neighbor = tilesByKey.get(`${nx},${ny}`);
+    if (neighbor?.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.dockId) count += 1;
+  });
+  return count;
+};
 
 const hasHostileNeighbor = (
   playerId: string,
   tile: DomainTileState,
   tilesByKey: ReadonlyMap<string, DomainTileState>
-): boolean =>
-  frontierNeighborKeys(tile.x, tile.y).some((neighborKey) => {
-    const neighbor = tilesByKey.get(neighborKey);
-    return Boolean(neighbor && neighbor.terrain === "LAND" && neighbor.ownerId && neighbor.ownerId !== playerId);
+): boolean => {
+  let found = false;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    if (!found) {
+      const neighbor = tilesByKey.get(`${nx},${ny}`);
+      if (neighbor && neighbor.terrain === "LAND" && neighbor.ownerId && neighbor.ownerId !== playerId) found = true;
+    }
   });
+  return found;
+};
 
 const hasStrategicNeutralNeighbor = (
   playerId: string,
   tile: DomainTileState,
   tilesByKey: ReadonlyMap<string, DomainTileState>
-): boolean =>
-  frontierNeighborKeys(tile.x, tile.y).some((neighborKey) => {
-    const neighbor = tilesByKey.get(neighborKey);
-    return Boolean(
-      neighbor &&
-      neighbor.terrain === "LAND" &&
-      !neighbor.ownerId &&
-      (neighbor.resource || neighbor.dockId || neighbor.town)
-    );
+): boolean => {
+  let found = false;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    if (!found) {
+      const neighbor = tilesByKey.get(`${nx},${ny}`);
+      if (neighbor && neighbor.terrain === "LAND" && !neighbor.ownerId && (neighbor.resource || neighbor.dockId || neighbor.town)) found = true;
+    }
   });
+  return found;
+};
 
 export const candidateIndexKeysAroundTileKey = (tileKey: string): Set<string> => {
   const [rawX, rawY] = tileKey.split(",");
@@ -76,11 +87,12 @@ export const candidateIndexKeysAroundTileKey = (tileKey: string): Set<string> =>
       const cx = Number(parts[0]);
       const cy = Number(parts[1]);
       if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
-      for (const neighborKey of frontierNeighborKeys(cx, cy)) {
-        if (keys.has(neighborKey)) continue;
+      forEachFrontierNeighbor(cx, cy, (nx, ny) => {
+        const neighborKey = `${nx},${ny}`;
+        if (keys.has(neighborKey)) return;
         keys.add(neighborKey);
         nextFrontier.add(neighborKey);
-      }
+      });
     }
     frontier = [...nextFrontier];
   }

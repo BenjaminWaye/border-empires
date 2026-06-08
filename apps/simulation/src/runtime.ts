@@ -113,7 +113,7 @@ import {
   type DockRouteDefinition
 } from "./dock-network.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import { frontierNeighborCoords } from "./frontier-topology.js";
+import { forEachFrontierNeighbor } from "./frontier-topology.js";
 import {
   coordsInChebyshevRadius,
   FRONTIER_DECAY_MS,
@@ -5332,9 +5332,12 @@ export class SimulationRuntime {
   }
 
   private adjacentTileStates(x: number, y: number): DomainTileState[] {
-    return frontierNeighborCoords(x, y)
-      .map((coords) => this.tiles.get(simulationTileKey(coords.x, coords.y)))
-      .filter((tile): tile is DomainTileState => tile !== undefined);
+    const result: DomainTileState[] = [];
+    forEachFrontierNeighbor(x, y, (nx, ny) => {
+      const tile = this.tiles.get(simulationTileKey(nx, ny));
+      if (tile) result.push(tile);
+    });
+    return result;
   }
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void {
