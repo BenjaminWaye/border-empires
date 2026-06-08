@@ -111,13 +111,13 @@ const ownedAdjacencyMetrics = (
     const ownershipState = assumedOwned ? "FRONTIER" : neighbor?.ownershipState;
     if (!neighbor || neighbor.terrain !== "LAND") {
       exposedSides += 1;
-      continue;
+      return;
     }
     if (ownerId === playerId) {
       ownedNeighbors += 1;
       if (ownershipState === "SETTLED") settledNeighbors += 1;
       if (ownershipState === "FRONTIER") frontierNeighbors += 1;
-      continue;
+      return;
     }
     exposedSides += 1;
     if (ownerId && ownerId !== playerId) {
