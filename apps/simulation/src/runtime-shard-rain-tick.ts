@@ -23,6 +23,9 @@ export type ShardRainRuntimeInput = {
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
   recentShardRainTileKeys: Set<string>;
+  // Index of currently active FALL shard sites — avoids O(202k) full-tile scan
+  // in expireShardFallSites. Populated by spawnShardRain, cleared on expiry.
+  activeShardFallSiteKeys: Set<string>;
   lastShardRainHelloByPlayer: Map<string, number>;
   getCurrentShardRainExpiresAt: () => number | undefined;
   setCurrentShardRainExpiresAt: (expiresAt: number | undefined) => void;
@@ -125,6 +128,7 @@ const spawnShardRain = (input: ShardRainRuntimeInput, nowMs: number): void => {
     const updated: DomainTileState = { ...tile, shardSite: { kind: "FALL", amount, expiresAt } };
     input.replaceTileState(tileKey, updated);
     input.recentShardRainTileKeys.add(tileKey);
+    input.activeShardFallSiteKeys.add(tileKey);
     placed.push({ tileKey, tile: updated });
   }
   if (placed.length === 0) return;
@@ -149,13 +153,19 @@ const spawnShardRain = (input: ShardRainRuntimeInput, nowMs: number): void => {
 };
 
 const expireShardFallSites = (input: ShardRainRuntimeInput, nowMs: number): void => {
+  if (input.activeShardFallSiteKeys.size === 0) return;
   const expired: { tileKey: string; tile: DomainTileState }[] = [];
-  for (const [tileKey, tile] of input.tiles) {
-    const site = tile.shardSite;
-    if (!site || site.kind !== "FALL") continue;
+  for (const tileKey of input.activeShardFallSiteKeys) {
+    const tile = input.tiles.get(tileKey);
+    const site = tile?.shardSite;
+    if (!site || site.kind !== "FALL") {
+      input.activeShardFallSiteKeys.delete(tileKey);
+      continue;
+    }
     if (typeof site.expiresAt !== "number" || site.expiresAt > nowMs) continue;
     const updated: DomainTileState = { ...tile, shardSite: undefined };
     input.replaceTileState(tileKey, updated);
+    input.activeShardFallSiteKeys.delete(tileKey);
     expired.push({ tileKey, tile: updated });
   }
   if (expired.length === 0) return;
