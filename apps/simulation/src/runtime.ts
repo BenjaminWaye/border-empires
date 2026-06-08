@@ -566,6 +566,7 @@ export class SimulationRuntime {
   private currentShardRainSiteCount = 0;
   private readonly lastShardRainHelloByPlayer = new Map<string, number>();
   private readonly recentShardRainTileKeys = new Set<string>();
+  private readonly activeShardFallSiteKeys = new Set<string>();
   private territoryAutomationCounter = 0;
   private readonly backgroundBatchSize: number;
   private readonly scheduleSoon: (task: () => void) => void;
@@ -1019,6 +1020,7 @@ export class SimulationRuntime {
       players: this.players,
       tiles: this.tiles,
       recentShardRainTileKeys: this.recentShardRainTileKeys,
+      activeShardFallSiteKeys: this.activeShardFallSiteKeys,
       lastShardRainHelloByPlayer: this.lastShardRainHelloByPlayer,
       getCurrentShardRainExpiresAt: () => this.currentShardRainExpiresAt,
       setCurrentShardRainExpiresAt: (expiresAt) => { this.currentShardRainExpiresAt = expiresAt; },
@@ -1111,6 +1113,7 @@ export class SimulationRuntime {
       players: this.players,
       tiles: this.tiles,
       recentShardRainTileKeys: this.recentShardRainTileKeys,
+      activeShardFallSiteKeys: this.activeShardFallSiteKeys,
       lastShardRainHelloByPlayer: this.lastShardRainHelloByPlayer,
       getCurrentShardRainExpiresAt: () => this.currentShardRainExpiresAt,
       setCurrentShardRainExpiresAt: (expiresAt) => { this.currentShardRainExpiresAt = expiresAt; },
