@@ -20,3 +20,4 @@ packages/client/public/__build_sha.txt
 .prod-shape-clones/
 .local-data/
 package-lock.json
+packages/storybook/storybook-static/
