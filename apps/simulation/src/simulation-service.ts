@@ -1381,12 +1381,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const recomputeAndPersistCurrentSummary = async ({
     forcePersist = false,
-    commandId
+    commandId,
+    runtimeState: providedRuntimeState
   }: {
     forcePersist?: boolean;
     commandId?: string;
+    /** Pass an already-fetched export to avoid a redundant O(202k-tile) scan. */
+    runtimeState?: ReturnType<SimulationRuntime["exportState"]>;
   } = {}): Promise<CurrentSeasonSummary> => {
-    const runtimeState = runtime.exportState();
+    // Reuse a caller-provided export snapshot to skip the expensive O(202k) tile
+    // scan when the caller already holds a fresh snapshot (e.g. flushGlobalStatusBroadcast).
+    const runtimeState = providedRuntimeState ?? runtime.exportState();
     const baseSummary = buildCurrentSeasonSummary({
       seasonState: currentSeasonState,
       runtimeState,
@@ -1458,8 +1463,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       return;
     }
     void (async () => {
-      const runtimeState = runtime.exportState();
+      // Use the async/yielding export so the O(202k-tile) scan doesn't block
+      // the event loop in a single synchronous burst and trip the 30s watchdog.
+      const runtimeState = await runtime.exportStateAsync(yieldToEventLoop);
+      // Pass the freshly-fetched runtimeState so recomputeAndPersistCurrentSummary
+      // doesn't run a second O(202k-tile) exportState() scan internally.
       const summary = await recomputeAndPersistCurrentSummary({
+        runtimeState,
         ...(pendingGlobalStatusCommandId ? { commandId: pendingGlobalStatusCommandId } : {})
       });
       for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
@@ -2569,12 +2579,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "population growth tick failed");
         }
       }, 60_000);
+      let territoryAutomationRunning = false;
       territoryAutomationTicker = setInterval(() => {
-        try {
-          mainThreadTasks.trackSync("tick_territory_automation", undefined, () => runtime.tickTerritoryAutomation(Date.now()));
-        } catch (error) {
-          log.error({ err: error }, "territory automation tick failed");
+        // Overlap guard: if the previous async tick is still in progress (took
+        // >30s despite yields), skip rather than race two instances on the same
+        // shared mutable state (tiles, players, frontierTilesByOwner, etc.).
+        if (territoryAutomationRunning) {
+          log.warn("[territory_automation] skipping tick — previous tick still running");
+          return;
         }
+        territoryAutomationRunning = true;
+        // Async with inter-player yields so the 30s watchdog never fires on a busy
+        // tick. trackSync would return before the promise resolves; use void+catch.
+        void runtime.tickTerritoryAutomation(Date.now(), yieldToEventLoop)
+          .catch((error) => { log.error({ err: error }, "territory automation tick failed"); })
+          .finally(() => { territoryAutomationRunning = false; });
       }, 30_000);
       orphanLockSweepTicker = setInterval(() => {
         try {
@@ -2586,14 +2605,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "orphan lock sweep tick failed");
         }
       }, 30_000);
+      let passiveIncomeRunning = false;
       setInterval(() => {
-        try {
-          mainThreadTasks.trackSync("tick_passive_income", undefined, () => {
-            runtime.applyPassiveIncome(Date.now(), 12 * 60 * 60 * 1000);
-          });
-        } catch (error) {
-          log.error({ err: error }, "passive income tick failed");
+        // Overlap guard: if a previous async tick is still running skip to avoid
+        // double-crediting players whose lastIncomeTickAtMs hasn't been advanced yet.
+        if (passiveIncomeRunning) {
+          log.warn("[passive_income] skipping tick — previous tick still running");
+          return;
         }
+        passiveIncomeRunning = true;
+        // Async with per-player yields — cachedEconomySnapshot can rebuild
+        // O(settledTiles) per player on cache miss (after territory mutations).
+        // Running all 6 players back-to-back synchronously was a 15s stall risk.
+        void runtime.applyPassiveIncomeAsync(Date.now(), 12 * 60 * 60 * 1000, yieldToEventLoop)
+          .catch((error) => { log.error({ err: error }, "passive income tick failed"); })
+          .finally(() => { passiveIncomeRunning = false; });
       }, 15_000);
       eventLoopSampler = setInterval(() => {
         const now = Date.now();

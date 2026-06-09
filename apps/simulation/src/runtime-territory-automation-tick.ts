@@ -40,9 +40,15 @@ export type TickTerritoryAutomationInput = SweepStructureRuntimeInput & {
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => boolean;
   emitEvent: (event: SimulationEvent) => void;
+  /** When provided, yields the event loop between major phases and between
+   *  players so the 30s watchdog never fires on a busy tick. */
+  yieldToEventLoop?: () => Promise<void>;
 };
 
-export const tickTerritoryAutomation = (input: TickTerritoryAutomationInput): void => {
+export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInput): Promise<void> => {
+  // Use a no-op so every call site can unconditionally `await yield_()` without
+  // an `if (yield_)` guard cluttering each phase boundary.
+  const yield_ = input.yieldToEventLoop ?? (() => Promise.resolve());
   const _ttaStart = Date.now();
   const autoClaimedKeys = new Set<string>();
   let _claimSummaryForPlayerMs = 0;
@@ -130,9 +136,14 @@ export const tickTerritoryAutomation = (input: TickTerritoryAutomationInput): vo
       input.emitPlayerStateUpdate({ commandId: claimCommandId, playerId });
       _claimEmitMs += Date.now() - _tEmit;
     }
+    // Yield between players so AI commands and gRPC dispatch can run, preventing
+    // the claim loop from blocking the event loop for the full tick duration.
+    await yield_();
   }
 
   const _ttaAfterClaim = Date.now();
+  // Yield before frontier decay — it iterates all frontier tiles across all players.
+  await yield_();
   input.updateFrontierDecay(input.nowMs);
   const _ttaAfterDecay = Date.now();
   let _settleQueueNotifyMs = 0;
@@ -147,10 +158,14 @@ export const tickTerritoryAutomation = (input: TickTerritoryAutomationInput): vo
       });
       _settleQueueNotifyMs += Date.now() - _tSettle;
       _settleQueueNotifications++;
+      // Yield between settlement-queue notifications (each triggers cachedEconomySnapshot).
+      await yield_();
     }
   }
 
-  const siegeStats = tickTerritorySiegeAndSweeps(input);
+  // Yield before siege/sweep pass so the above settle notifications can flush.
+  await yield_();
+  const siegeStats = await tickTerritorySiegeAndSweeps(input);
   const _ttaEnd = Date.now();
   const totalMs = _ttaEnd - _ttaStart;
   if (totalMs >= 100) {
@@ -191,7 +206,8 @@ type SiegeStats = {
   lightSweepsTicked: number;
 };
 
-const tickTerritorySiegeAndSweeps = (input: TickTerritoryAutomationInput): SiegeStats => {
+const tickTerritorySiegeAndSweeps = async (input: TickTerritoryAutomationInput): Promise<SiegeStats> => {
+  const yield_ = input.yieldToEventLoop ?? (() => Promise.resolve());
   const stats: SiegeStats = {
     attackLoopMs: 0,
     handleFrontierCommandMs: 0,
@@ -312,6 +328,9 @@ const tickTerritorySiegeAndSweeps = (input: TickTerritoryAutomationInput): Siege
       }
     }
     stats.lightSweepMs += Date.now() - _tLightSweep;
+    // Yield between players so fort-attack handleFrontierCommand calls don't
+    // back-to-back block when there are many AI players with active forts.
+    await yield_();
   }
   return stats;
 };
