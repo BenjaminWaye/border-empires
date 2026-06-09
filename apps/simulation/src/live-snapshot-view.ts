@@ -203,7 +203,10 @@ const buildEnrichmentContextAsync = async (
   runtimeState: RuntimeState,
   playerEconomy: LivePlayerEconomySnapshot,
   visibleTiles: RuntimeState["tiles"],
-  yieldToEventLoop: () => Promise<void>
+  yieldToEventLoop: () => Promise<void>,
+  // Optional pre-built map from the caller — skips an O(202k) scan when the
+  // caller (buildPlayerSubscriptionSnapshotAsync) already built it.
+  prebuiltTilesByKey?: Map<string, RuntimeState["tiles"][number]>
 ): Promise<EnrichmentContext> => {
   const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
   const playerYieldCollectionEpochByPlayer = new Map(
@@ -212,11 +215,16 @@ const buildEnrichmentContextAsync = async (
   // domainTilesByKey is almost always cached here — buildLivePlayerEconomySnapshotAsync
   // runs first for each player and populates the cache on the first player's bootstrap.
   const domainTilesByKey = await getDomainTilesByKeyAsync(runtimeState, yieldToEventLoop);
-  const tilesByKey = new Map<string, RuntimeState["tiles"][number]>();
-  let tileIndex = 0;
-  for (const entry of runtimeState.tiles) {
-    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
-    tilesByKey.set(keyFor(entry.x, entry.y), entry);
+  let tilesByKey: Map<string, RuntimeState["tiles"][number]>;
+  if (prebuiltTilesByKey) {
+    tilesByKey = prebuiltTilesByKey;
+  } else {
+    tilesByKey = new Map<string, RuntimeState["tiles"][number]>();
+    let tileIndex = 0;
+    for (const entry of runtimeState.tiles) {
+      if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
+      tilesByKey.set(keyFor(entry.x, entry.y), entry);
+    }
   }
   // buildSettledDomainTilesByPlayerId is cached — O(1) if populated by an earlier bootstrap.
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
@@ -324,9 +332,12 @@ export const enrichSnapshotTilesForPlayerAsync = async (
   runtimeState: RuntimeState,
   visibleTiles: RuntimeState["tiles"],
   playerEconomy: LivePlayerEconomySnapshot,
-  yieldToEventLoop: () => Promise<void>
+  yieldToEventLoop: () => Promise<void>,
+  // Optional pre-built map from the caller — forwarded to buildEnrichmentContextAsync
+  // to skip a duplicate O(202k) scan.
+  prebuiltTilesByKey?: Map<string, RuntimeState["tiles"][number]>
 ): Promise<RuntimeState["tiles"]> => {
-  const ctx = await buildEnrichmentContextAsync(runtimeState, playerEconomy, visibleTiles, yieldToEventLoop);
+  const ctx = await buildEnrichmentContextAsync(runtimeState, playerEconomy, visibleTiles, yieldToEventLoop, prebuiltTilesByKey);
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
   const out: RuntimeState["tiles"] = new Array(visibleTiles.length);
   for (let i = 0; i < visibleTiles.length; i += 1) {
