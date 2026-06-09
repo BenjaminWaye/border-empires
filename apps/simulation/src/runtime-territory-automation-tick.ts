@@ -32,7 +32,7 @@ export type TickTerritoryAutomationInput = SweepStructureRuntimeInput & {
   summaryForPlayer: (playerId: string) => unknown;
   applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
-  updateFrontierDecay: (nowMs: number) => void;
+  updateFrontierDecay: (nowMs: number) => Promise<void>;
   autoSettlementQueueLengthForPlayer: (playerId: string) => number;
   emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => void;
   extendFortPatrolGrace: (tileKey: string, graceUntil: number) => void;
@@ -144,7 +144,7 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
   const _ttaAfterClaim = Date.now();
   // Yield before frontier decay — it iterates all frontier tiles across all players.
   await yield_();
-  input.updateFrontierDecay(input.nowMs);
+  await input.updateFrontierDecay(input.nowMs);
   const _ttaAfterDecay = Date.now();
   let _settleQueueNotifyMs = 0;
   let _settleQueueNotifications = 0;
