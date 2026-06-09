@@ -1090,7 +1090,9 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
-      yieldToEventLoop
+      // exactOptionalPropertyTypes: omit key entirely when undefined rather than
+      // setting it to undefined, which would be rejected by the optional type.
+      ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
     });
     this.tickMuster(nowMs);
     this.tickFortGarrison(nowMs);
