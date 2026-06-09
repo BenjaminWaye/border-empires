@@ -67,6 +67,8 @@ const dilateTerritoryIntoSet = (
   }
 };
 
+// Used only by the audit path (useEagerVisibilitySet=false), which emits
+// per-reason strings the eager Set can't reconstruct.
 const isTileWithinTerritoryRadius = (
   x: number,
   y: number,
@@ -101,10 +103,6 @@ export const filterTileDeltasForPlayer = <
   const primaryPlayer = deps.players.get(playerId);
   if (!primaryPlayer) return [];
 
-  // Gather per-player vision inputs once. The lazy path (per-delta scan over
-  // territory) is cheap for typical 1–3 tile batches; the eager path
-  // (one-shot Minkowski-dilation of territory into a Set) wins on large
-  // batches. The crossover threshold is ≈ R² for VISION_RADIUS=4.
   const playerSummary = deps.summaryForPlayer(playerId);
   const playerVisionRadius = Math.max(
     1,
