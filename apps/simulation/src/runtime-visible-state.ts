@@ -158,8 +158,15 @@ export async function exportVisibleStateForPlayerAsync(
     yieldToEventLoop: () => Promise<void>;
   }
 ): Promise<RuntimeExportState> {
-  const classification = input.classifyVisibilityForPlayer(input.playerId);
+  // Yield before the vision expansion so that a login gRPC request can
+  // complete its handshake before we enter the (potentially 100–500 ms)
+  // classifyVisibilityForPlayer call.  The expansion is O(territory × r²) on
+  // a cold cache miss (busted by every replaceTileState), so on an active game
+  // the cache is almost always cold when a player logs in mid-tick.
   await input.yieldToEventLoop();
+  const classification = input.classifyVisibilityForPlayer(input.playerId);
+  // No yield here — the tile-chunk loop yields every 500 tiles anyway, so a
+  // redundant setImmediate between classification and the loop only adds latency.
   const { lockTargetOnlyKeys, visibleKeys, allyAndSelfIds } = classification;
 
   const TILE_CHUNK = 500;
