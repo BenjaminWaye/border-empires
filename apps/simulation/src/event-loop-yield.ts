@@ -5,8 +5,17 @@
 // between chunks. The 2026-05-20 19:44 outage was a single buildPlayerSubscriptionSnapshot
 // stalling the loop for 28s, which tripped the gateway watchdog SIGKILL.
 //
-// Implementation note: setImmediate is the canonical "yield to I/O" primitive;
-// it runs queued callbacks after the current poll phase, ahead of timers.
+// Implementation note: setImmediate fires in the Check phase of the Node.js
+// event loop (timers → pending callbacks → idle → poll → CHECK → close).
+// I/O callbacks (gRPC dispatch) fire in the poll phase, so they're processed
+// BEFORE setImmediate.  setTimeout(fn, 0) fires in the timers phase, which
+// runs BEFORE the check phase — so a pending setTimeout(0) always runs before
+// the next setImmediate callback in the same iteration.
+//
+// Background drain scheduling (AI/system commands) uses setImmediate so that
+// snapshot-build yields (also setImmediate) register their continuations first,
+// ensuring snapshot chunks run ahead of drains in each iteration.  This
+// prevents AI drains from stalling login snapshots (the 26 s login regression).
 // `await new Promise(r => setImmediate(r))` cedes a turn without scheduler trickery.
 export const yieldToEventLoop = (): Promise<void> =>
   new Promise<void>((resolve) => {
