@@ -37,9 +37,15 @@ type FrontierDecayDeps = {
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
   bulkClearFrontierOwnership: (expiredTilesByOwner: Map<string, Array<[string, DomainTileState]>>, nowMs: number) => void;
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string) => void;
+  /** When provided, yields the event loop between players and phases so the
+   *  30s watchdog never fires during a full frontier-decay pass. */
+  yieldToEventLoop?: () => Promise<void>;
 };
 
-export function updateFrontierDecay(input: FrontierDecayDeps): void {
+export async function updateFrontierDecay(input: FrontierDecayDeps): Promise<void> {
+  // No-op sentinel: every call site can unconditionally await yield_().
+  const yield_ = input.yieldToEventLoop ?? (() => Promise.resolve());
+
   for (const arr of input.accumulators.changedByOwner.values()) arr.length = 0;
   for (const arr of input.accumulators.expiredByOwner.values()) arr.length = 0;
 
@@ -56,6 +62,9 @@ export function updateFrontierDecay(input: FrontierDecayDeps): void {
 
   const expiredTilesByOwner = new Map<string, Array<[string, DomainTileState]>>();
 
+  // Phase 1: scan each player's frontier tiles.
+  // frontierSupportedByActiveFort is O(anchors) per tile — yielding between
+  // players ensures gRPC dispatch can run between players, not just between ticks.
   for (const [ownerId, frontierKeys] of input.frontierTilesByOwner) {
     for (const tileKey of frontierKeys) {
       if (input.locksByTile.has(tileKey)) continue;
@@ -116,9 +125,16 @@ export function updateFrontierDecay(input: FrontierDecayDeps): void {
         addChangedDelta(ownerId, input.tileDeltaFromState(decayingTile));
       }
     }
+    // Yield after each player's frontier scan so gRPC commands and the
+    // event-loop lag sampler can run between players, not just between ticks.
+    await yield_();
   }
 
+  // Phase 2: bulk-clear expired ownership. Yield before the call because
+  // bulkClearFrontierOwnership iterates expired tiles + their 5×5 neighbourhoods
+  // and refreshes playerCandidateIndex — can be heavy when many tiles expired.
   if (expiredTilesByOwner.size > 0) {
+    await yield_();
     input.bulkClearFrontierOwnership(expiredTilesByOwner, input.nowMs);
     for (const [ownerId, pairs] of expiredTilesByOwner) {
       for (const [tileKey, expiredTile] of pairs) {
@@ -128,17 +144,26 @@ export function updateFrontierDecay(input: FrontierDecayDeps): void {
     }
   }
 
+  // Phase 3: emit TILE_DELTA_BATCH + PLAYER_UPDATE per player.
+  // emitPlayerStateUpdate calls cachedEconomySnapshot which is O(settledTiles)
+  // on a cold cache — yield between players so the economy rebuild for one
+  // player doesn't block incoming gRPC for all other players.
   for (const [playerId, tileDeltas] of input.accumulators.changedByOwner) {
     if (tileDeltas.length === 0) continue;
     const commandId = input.nextTerritoryAutomationCommandId("frontier-decay", playerId, "batch", input.nowMs);
     input.emitTileDeltaBatch({ commandId, playerId, tileDeltas });
     input.emitPlayerStateUpdate({ commandId, playerId });
+    await yield_();
   }
 
+  // Phase 4: BFS encirclement per player with expired tiles.
+  // applyEncirclement runs a BFS over the player's territory — yield between
+  // players so each BFS doesn't block the event loop back-to-back.
   for (const [playerId, expiredKeys] of input.accumulators.expiredByOwner) {
     if (expiredKeys.length === 0) continue;
     const commandId = input.nextTerritoryAutomationCommandId("frontier-decay-encirclement", playerId, "batch", input.nowMs);
     input.applyEncirclement(expiredKeys, playerId, commandId);
+    await yield_();
   }
 }
 

@@ -1076,7 +1076,7 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
       applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
-      updateFrontierDecay: (at) => this.updateFrontierDecay(at),
+      updateFrontierDecay: (at) => this.updateFrontierDecay(at, yieldToEventLoop),
       autoSettlementQueueLengthForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId).length,
       emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
       extendFortPatrolGrace: (tileKey, graceUntil) => this.extendFortPatrolGrace(tileKey, graceUntil),
@@ -5396,8 +5396,8 @@ export class SimulationRuntime {
     return true;
   }
 
-  private updateFrontierDecay(nowMs: number): void {
-    updateFrontierDecayImpl({
+  private async updateFrontierDecay(nowMs: number, yieldToEventLoop?: () => Promise<void>): Promise<void> {
+    await updateFrontierDecayImpl({
       nowMs,
       tiles: this.tiles,
       locksByTile: this.locksByTile,
@@ -5439,7 +5439,8 @@ export class SimulationRuntime {
           markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
         });
       },
-      applyEncirclement: (changedKeys, playerId, commandId) => this.applyEncirclement(changedKeys, playerId, commandId)
+      applyEncirclement: (changedKeys, playerId, commandId) => this.applyEncirclement(changedKeys, playerId, commandId),
+      ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
     });
   }
 
