@@ -463,14 +463,9 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
             addVision(visibleKeys, ownedTileKeys(playerId), primaryPlayer.vision, primaryPlayer.visionRadiusBonus);
             for (const allyId of primaryPlayer.allies) addVisionForPlayer(visibleKeys, allyId);
           } else {
-            addVision(
-              visibleKeys,
-              sourceTiles
-                .filter((tile) => tile.ownerId === playerId)
-                .map((tile) => keyFor(tile.x, tile.y)),
-              1,
-              0
-            );
+            // primaryPlayer not found — use default vision=1. ownedTileKeys is
+            // already indexed from the combined scan; no re-scan of sourceTiles needed.
+            addVision(visibleKeys, ownedTileKeys(playerId), 1, 0);
           }
           for (const lock of runtimeState.activeLocks) {
             if (lock.playerId !== playerId) continue;
@@ -521,7 +516,6 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
     })
       .filter((settlement): settlement is NonNullable<typeof settlement> => Boolean(settlement))
       .sort((left, right) => (left.resolvesAt - right.resolvesAt) || (left.x - right.x) || (left.y - right.y));
-  // tileByKey is already built in the combined scan above — no duplicate build needed.
   const livePlayer = playersById.get(playerId);
   const pendingSettlementTileKeys = new Set(
     runtimeState.pendingSettlements
