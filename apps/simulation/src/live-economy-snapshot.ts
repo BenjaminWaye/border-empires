@@ -149,9 +149,12 @@ export const buildLivePlayerEconomySnapshot = (
 export const buildLivePlayerEconomySnapshotAsync = async (
   playerId: string,
   runtimeState: RuntimeState,
-  yieldToEventLoop: () => Promise<void>
+  yieldToEventLoop: () => Promise<void>,
+  // Optional pre-built map from the caller — skips an O(202k) scan when the
+  // caller (buildPlayerSubscriptionSnapshotAsync) already built it.
+  prebuiltTilesByKey?: Map<string, RuntimeState["tiles"][number]>
 ): Promise<LivePlayerEconomySnapshot> => {
-  const tilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
+  const tilesByKey = prebuiltTilesByKey ?? new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
   const player = runtimeState.players.find((entry) => entry.id === playerId);
   const economyPlayer = snapshotEconomyPlayer(player);
   const domainTilesByKey = await getDomainTilesByKeyAsync(runtimeState, yieldToEventLoop);
