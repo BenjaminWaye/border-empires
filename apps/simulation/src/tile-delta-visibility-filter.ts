@@ -46,8 +46,6 @@ export interface TileDeltaVisibilityFilterDeps {
   readonly tileCollectionVersionForPlayer?: (playerId: string) => number;
 }
 
-const EAGER_VISIBILITY_THRESHOLD = 16;
-
 const dilateTerritoryIntoSet = (
   target: Set<string>,
   territoryTileKeys: Iterable<string>,
@@ -69,6 +67,8 @@ const dilateTerritoryIntoSet = (
   }
 };
 
+// Used only by the audit path (useEagerVisibilitySet=false), which emits
+// per-reason strings the eager Set can't reconstruct.
 const isTileWithinTerritoryRadius = (
   x: number,
   y: number,
@@ -103,10 +103,6 @@ export const filterTileDeltasForPlayer = <
   const primaryPlayer = deps.players.get(playerId);
   if (!primaryPlayer) return [];
 
-  // Gather per-player vision inputs once. The lazy path (per-delta scan over
-  // territory) is cheap for typical 1–3 tile batches; the eager path
-  // (one-shot Minkowski-dilation of territory into a Set) wins on large
-  // batches. The crossover threshold is ≈ R² for VISION_RADIUS=4.
   const playerSummary = deps.summaryForPlayer(playerId);
   const playerVisionRadius = Math.max(
     1,
@@ -147,7 +143,9 @@ export const filterTileDeltasForPlayer = <
   // Audit mode keeps the lazy path: it emits per-reason strings the eager Set
   // can't reconstruct without per-source bookkeeping. Audit is only enabled
   // for tests/diagnostics, so the perf trade-off is in the right place.
-  const useEagerVisibilitySet = !auditEnabled && tileDeltas.length >= EAGER_VISIBILITY_THRESHOLD;
+  // The epoch cache (visibilityEpoch) amortises the Set build across the whole
+  // tick, so the eager path is always cheaper than the O(territory) lazy path.
+  const useEagerVisibilitySet = !auditEnabled;
   let eagerVisibleKeys: Set<string> | undefined;
   if (useEagerVisibilitySet) {
     const collectionVersion = deps.tileCollectionVersionForPlayer?.(playerId) ?? -1;

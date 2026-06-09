@@ -695,6 +695,7 @@ export class SimulationRuntime {
           typeof this.currentShardRainExpiresAt === "number"
             ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
             : site.expiresAt;
+        this.activeShardFallSiteKeys.add(tileKey);
       }
       // Part 1: populate frontierTilesByOwner index.
       if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
