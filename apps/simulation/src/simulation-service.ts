@@ -2585,7 +2585,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // >30s despite yields), skip rather than race two instances on the same
         // shared mutable state (tiles, players, frontierTilesByOwner, etc.).
         if (territoryAutomationRunning) {
-          log.warn("[territory_automation] skipping tick — previous tick still running");
+          log.info("[territory_automation] skipping tick — previous tick still running");
           return;
         }
         territoryAutomationRunning = true;
@@ -2610,7 +2610,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // Overlap guard: if a previous async tick is still running skip to avoid
         // double-crediting players whose lastIncomeTickAtMs hasn't been advanced yet.
         if (passiveIncomeRunning) {
-          log.warn("[passive_income] skipping tick — previous tick still running");
+          log.info("[passive_income] skipping tick — previous tick still running");
           return;
         }
         passiveIncomeRunning = true;
