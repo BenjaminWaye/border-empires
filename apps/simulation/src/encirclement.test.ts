@@ -769,6 +769,118 @@ describe("encirclement expand reconnection", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Dock network connectivity (E6c)
+// ---------------------------------------------------------------------------
+
+describe("encirclement dock network connectivity", () => {
+  it("E6c: dock network link connects a remote frontier dock to settled supply", () => {
+    // Player has settled dock at (10,10) and just captured a remote dock at (50,50).
+    // The two are linked via the dock network but not land-adjacent.
+    const tiles = mkTileMap({
+      "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
+      "50,50": { ownerId: "player-1", ownershipState: "FRONTIER" }
+    });
+    const dockLinks = new Map<string, string[]>([
+      ["10,10", ["50,50"]],
+      ["50,50", ["10,10"]]
+    ]);
+    const extraNeighborKeys = (tileKey: string): string[] => dockLinks.get(tileKey) ?? [];
+
+    // Without dock links the remote dock is cut off.
+    const { cutOff: withoutLinks } = computeEncirclementDeltas(["50,50"], "player-1", tiles, 1_000);
+    expect(withoutLinks.has("50,50")).toBe(true);
+
+    // With dock links the remote dock is connected and must NOT be cut off.
+    const { cutOff: withLinks } = computeEncirclementDeltas(["50,50"], "player-1", tiles, 1_000, { extraNeighborKeys });
+    expect(withLinks.has("50,50")).toBe(false);
+  });
+
+  it("E6c-settle: captured dock connected only via dock network can be settled (runtime integration)", async () => {
+    // Reproduces the reported bug: player attacks an enemy dock via dock crossing, wins,
+    // then tries to settle the dock — should succeed, not be rejected with ORIGIN_CUT_OFF.
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0); // attacker always wins
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => Date.now(),
+        initialPlayers: new Map([
+          ["player-1", player("player-1")],
+          ["player-2", player("player-2")]
+        ]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            // player-1 home: settled dock tile
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
+            // player-2 remote dock (target of the capture) — far from player-1 land territory
+            { x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", dockId: "dock-b" },
+            // player-2 settlement so they are not immediately eliminated after losing (50,50)
+            { x: 52, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          ],
+          docks: [
+            { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+            { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+          ],
+          activeLocks: []
+        }
+      });
+      const events: SimulationEvent[] = [];
+      runtime.onEvent((e) => events.push(e));
+
+      // Attack the remote dock via dock crossing.
+      runtime.submitCommand({
+        commandId: "attack-dock",
+        sessionId: "s1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: Date.now(),
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 50, toY: 50 })
+      });
+      await Promise.resolve();
+      expect(events.find((e) => e.eventType === "COMMAND_ACCEPTED")).toBeDefined();
+
+      // Resolve combat.
+      vi.advanceTimersByTime(3_100);
+
+      const combatResolved = events.find(
+        (e): e is Extract<SimulationEvent, { eventType: "COMBAT_RESOLVED" }> => e.eventType === "COMBAT_RESOLVED"
+      );
+      expect(combatResolved?.attackerWon).toBe(true);
+
+      // The captured dock tile must NOT be marked as cut off — it is connected via the dock link.
+      const tileDeltas = events
+        .filter((e) => e.eventType === "TILE_DELTA_BATCH")
+        .flatMap((e) => (e as Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>).tileDeltas);
+      const lastDockDelta = [...tileDeltas].reverse().find((d) => d.x === 50 && d.y === 50);
+      expect(lastDockDelta?.ownerId).toBe("player-1");
+      expect(lastDockDelta?.frontierDecayKind).not.toBe("ENCIRCLEMENT");
+
+      // Settling the captured dock must be accepted, not rejected with ORIGIN_CUT_OFF.
+      runtime.submitCommand({
+        commandId: "settle-dock",
+        sessionId: "s1",
+        playerId: "player-1",
+        clientSeq: 2,
+        issuedAt: Date.now(),
+        type: "SETTLE",
+        payloadJson: JSON.stringify({ x: 50, y: 50 })
+      });
+      await Promise.resolve();
+
+      expect(events.find((e) => e.eventType === "SETTLEMENT_STARTED")).toBeDefined();
+      expect(events.find(
+        (e): e is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
+          e.eventType === "COMMAND_REJECTED" && e.code === "ORIGIN_CUT_OFF"
+      )).toBeUndefined();
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // BFS cap semantics (Option C)
 // ---------------------------------------------------------------------------
 

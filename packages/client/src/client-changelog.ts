@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.06.4",
+  version: "2026.06.09.1",
   title: "What's New",
-  summary: "Resource income now flows passively every 15 seconds — no more manual collect actions causing server stalls.",
+  summary: "Capturing an enemy dock via a sea crossing no longer blocks you from settling it.",
   entries: [
+    {
+      introducedIn: "2026.06.09.1",
+      title: "Dock capture no longer blocked by origin-cut-off",
+      why: "When a player captured an enemy dock via a dock-network crossing, the encirclement check did not account for the sea route back to home territory. The captured dock was immediately marked as cut off, making it impossible to settle even though the player had a valid supply line through the dock link.",
+      changes: [
+        "Dock network connections are now treated as valid supply-chain paths in the encirclement connectivity check, matching how aether bridges already worked.",
+        "Settling a dock captured via a sea crossing now succeeds instead of being rejected with 'origin cut off'."
+      ]
+    },
     {
       introducedIn: "2026.06.06.4",
       title: "Passive empire income replaces manual COLLECT_VISIBLE",

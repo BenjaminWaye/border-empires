@@ -6656,7 +6656,10 @@ export class SimulationRuntime {
     const nowMs = this.now();
     const aetherBridgeNeighborKeys = this.activeAetherBridgeNeighborKeysForPlayer(playerId);
     const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs, {
-      extraNeighborKeys: (tileKey) => aetherBridgeNeighborKeys.get(tileKey) ?? [],
+      extraNeighborKeys: (tileKey) => [
+        ...(aetherBridgeNeighborKeys.get(tileKey) ?? []),
+        ...(this.dockLinksByDockTileKey.get(tileKey) ?? [])
+      ],
       onCapExceeded: (pid, visited, cap) => {
         this.runtimeLogInfo(
           {
