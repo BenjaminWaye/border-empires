@@ -138,6 +138,11 @@ export async function updateFrontierDecay(input: FrontierDecayDeps): Promise<voi
     input.bulkClearFrontierOwnership(expiredTilesByOwner, input.nowMs);
     for (const [ownerId, pairs] of expiredTilesByOwner) {
       for (const [tileKey, expiredTile] of pairs) {
+        // Only emit + encircle tiles that were actually cleared.  If the tile was
+        // skipped by bulkClearFrontierOwnership (state changed during yield), its
+        // ownershipState is still "FRONTIER" — emitting the stale delta would
+        // diverge the client from the server.
+        if (input.tiles.get(tileKey)?.ownershipState === "FRONTIER") continue;
         addChangedDelta(ownerId, input.tileDeltaFromState(expiredTile));
         addExpiredKey(ownerId, tileKey);
       }
@@ -200,6 +205,12 @@ export function bulkClearFrontierOwnership(input: BulkClearFrontierOwnershipInpu
   for (const [ownerId, pairs] of input.expiredTilesByOwner) {
     for (const [tileKey, expiredTile] of pairs) {
       const previous = input.tiles.get(tileKey);
+      // Guard: skip tiles whose state changed since Phase 1 identified them for
+      // expiry.  updateFrontierDecay is async; gRPC commands (settle, claim, fort
+      // attack) may have run during the yield_() before this call and mutated the
+      // tile.  Overwriting a post-yield SETTLED or re-claimed tile would corrupt
+      // game state until the next frontier-decay tick.
+      if (!previous || previous.ownershipState !== "FRONTIER" || previous.ownerId !== ownerId) continue;
 
       input.invalidateTileStringifyCache(tileKey);
       if (previous) input.removeTileFromPlayerSummaries(tileKey, previous);
