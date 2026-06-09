@@ -930,51 +930,70 @@ export class SimulationRuntime {
   }
 
   applyPassiveIncome(nowMs: number, inactivityCapMs: number): void {
+    // Kept synchronous for callers that don't have a yield function.
+    // Production path uses applyPassiveIncomeAsync (see below).
     for (const player of this.players.values()) {
-      const lastActiveAt = this.lastActiveAtMsByPlayer.get(player.id) ?? 0;
-      if (nowMs - lastActiveAt > inactivityCapMs) continue;
-
-      const lastTickAt = this.lastIncomeTickAtMsByPlayer.get(player.id);
-      if (lastTickAt === undefined) {
-        // First tick: seed the anchor at nowMs so we start accruing from here
-        this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
-        continue;
-      }
-
-      const elapsedMs = nowMs - lastTickAt;
-      if (elapsedMs <= 0) continue;
-      const elapsedMinutes = elapsedMs / 60_000;
-
-      const economy = this.cachedEconomySnapshot(player);
-      const goldPerMinute = economy.incomePerMinute;
-      const summary = this.summaryForPlayer(player.id);
-      const storageCap = computeEmpireStorageCap(summary, goldPerMinute);
-
-      // Credit gold
-      const goldEarned = goldPerMinute * elapsedMinutes;
-      if (goldEarned > 0) {
-        const availableGoldCap = Math.max(0, storageCap.GOLD - player.points);
-        player.points += Math.min(goldEarned, availableGoldCap);
-      }
-
-      // Credit strategic resources
-      const sp = summary.strategicProductionPerMinute;
-      const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL", "SHARD"] as const;
-      for (const resource of strategicKeys) {
-        const ratePerMinute = sp[resource] ?? 0;
-        if (ratePerMinute <= 0) continue;
-        const earned = ratePerMinute * elapsedMinutes;
-        const cap = storageCap[resource as keyof typeof storageCap] ?? 0;
-        const current = (player.strategicResources ?? {})[resource] ?? 0;
-        const available = Math.max(0, cap - current);
-        const credited = Math.min(earned, available);
-        if (credited > 0) {
-          this.addStrategicResource(player, resource, credited);
-        }
-      }
-
-      this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
+      this.applyPassiveIncomeForPlayer(player, nowMs, inactivityCapMs);
     }
+  }
+
+  async applyPassiveIncomeAsync(
+    nowMs: number,
+    inactivityCapMs: number,
+    yieldToEventLoop: () => Promise<void>
+  ): Promise<void> {
+    for (const player of this.players.values()) {
+      this.applyPassiveIncomeForPlayer(player, nowMs, inactivityCapMs);
+      // Yield between players: cachedEconomySnapshot may rebuild O(settledTiles)
+      // on cache miss, so batching all 6 players back-to-back is a 15s stall risk.
+      await yieldToEventLoop();
+    }
+  }
+
+  private applyPassiveIncomeForPlayer(player: RuntimePlayer, nowMs: number, inactivityCapMs: number): void {
+    const lastActiveAt = this.lastActiveAtMsByPlayer.get(player.id) ?? 0;
+    if (nowMs - lastActiveAt > inactivityCapMs) return;
+
+    const lastTickAt = this.lastIncomeTickAtMsByPlayer.get(player.id);
+    if (lastTickAt === undefined) {
+      // First tick: seed the anchor at nowMs so we start accruing from here
+      this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
+      return;
+    }
+
+    const elapsedMs = nowMs - lastTickAt;
+    if (elapsedMs <= 0) return;
+    const elapsedMinutes = elapsedMs / 60_000;
+
+    const economy = this.cachedEconomySnapshot(player);
+    const goldPerMinute = economy.incomePerMinute;
+    const summary = this.summaryForPlayer(player.id);
+    const storageCap = computeEmpireStorageCap(summary, goldPerMinute);
+
+    // Credit gold
+    const goldEarned = goldPerMinute * elapsedMinutes;
+    if (goldEarned > 0) {
+      const availableGoldCap = Math.max(0, storageCap.GOLD - player.points);
+      player.points += Math.min(goldEarned, availableGoldCap);
+    }
+
+    // Credit strategic resources
+    const sp = summary.strategicProductionPerMinute;
+    const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL", "SHARD"] as const;
+    for (const resource of strategicKeys) {
+      const ratePerMinute = sp[resource] ?? 0;
+      if (ratePerMinute <= 0) continue;
+      const earned = ratePerMinute * elapsedMinutes;
+      const cap = storageCap[resource as keyof typeof storageCap] ?? 0;
+      const current = (player.strategicResources ?? {})[resource] ?? 0;
+      const available = Math.max(0, cap - current);
+      const credited = Math.min(earned, available);
+      if (credited > 0) {
+        this.addStrategicResource(player, resource, credited);
+      }
+    }
+
+    this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
   }
 
   welcomeBackSummary(
@@ -1041,8 +1060,11 @@ export class SimulationRuntime {
     }, nowMs);
   }
 
-  tickTerritoryAutomation(nowMs: number = this.now()): void {
-    tickTerritoryAutomationImpl({
+  async tickTerritoryAutomation(
+    nowMs: number = this.now(),
+    yieldToEventLoop?: () => Promise<void>
+  ): Promise<void> {
+    await tickTerritoryAutomationImpl({
       nowMs,
       players: this.players,
       tiles: this.tiles,
@@ -1067,7 +1089,8 @@ export class SimulationRuntime {
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
+      yieldToEventLoop
     });
     this.tickMuster(nowMs);
     this.tickFortGarrison(nowMs);
