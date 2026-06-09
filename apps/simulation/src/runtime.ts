@@ -651,7 +651,24 @@ export class SimulationRuntime {
       Math.max(0, options.maxPlayerSeqReplayEntries ?? DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES)
     );
     this.scheduleSoon = options.scheduleSoon ?? ((task) => queueMicrotask(task));
-    this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
+    // Background drain (AI/system commands) previously used setTimeout(0) for
+    // scheduleAfter(0, ...) calls, which fires in the Timers phase — BEFORE the
+    // Check phase where setImmediate callbacks (snapshot-build yields and human-
+    // interactive drains) run.  This caused every snapshot-build yield to be
+    // preceded by a ~200ms AI drain callback, stalling player login for 22+ s.
+    //
+    // Fix: use setImmediate for delay=0 so background drains land in the Check
+    // phase.  Within a single Check phase, callbacks fire in registration order.
+    // Snapshot-build yields register their next setImmediate BEFORE the drain
+    // registers its next setImmediate (snapshot yields from step 1, drain from
+    // step 2 of the same Check phase), so snapshot chunks always run ahead of
+    // drains in the next iteration.  Total snapshot build time drops from ~22 s
+    // (110 yields × 200 ms stall each) to the bare computation cost (~500 ms).
+    // Real-delay timers (settleDurationMs, etc.) are unaffected — they still use
+    // setTimeout for accurate wall-clock scheduling.
+    this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
+      delayMs === 0 ? void setImmediate(task) : void setTimeout(task, delayMs)
+    );
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
