@@ -401,18 +401,23 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
     return { x, y };
   };
 
+  // Single combined pass: builds ownedTileKeysByPlayer AND tileByKey together,
+  // replacing what were previously two separate O(202k) scans.
   const ownedTileKeysByPlayer = new Map<string, string[]>();
+  const tileByKey = new Map<string, RuntimeState["tiles"][number]>();
   const ownedTileIndexStartedAt = Date.now();
-  let sourceTileIndex = 0;
+  let combinedScanIndex = 0;
   for (const tile of sourceTiles) {
-    if (shouldYieldAt(sourceTileIndex++, 2_000)) await yieldToEventLoop();
+    if (shouldYieldAt(combinedScanIndex++, 2_000)) await yieldToEventLoop();
+    const tileKey = keyFor(tile.x, tile.y);
+    tileByKey.set(tileKey, tile as RuntimeState["tiles"][number]);
     if (!tile.ownerId) continue;
     let keys = ownedTileKeysByPlayer.get(tile.ownerId);
     if (!keys) {
       keys = [];
       ownedTileKeysByPlayer.set(tile.ownerId, keys);
     }
-    keys.push(keyFor(tile.x, tile.y));
+    keys.push(tileKey);
   }
   for (const keys of ownedTileKeysByPlayer.values()) {
     keys.sort((a, b) => a.localeCompare(b));
@@ -458,14 +463,9 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
             addVision(visibleKeys, ownedTileKeys(playerId), primaryPlayer.vision, primaryPlayer.visionRadiusBonus);
             for (const allyId of primaryPlayer.allies) addVisionForPlayer(visibleKeys, allyId);
           } else {
-            addVision(
-              visibleKeys,
-              sourceTiles
-                .filter((tile) => tile.ownerId === playerId)
-                .map((tile) => keyFor(tile.x, tile.y)),
-              1,
-              0
-            );
+            // primaryPlayer not found — use default vision=1. ownedTileKeys is
+            // already indexed from the combined scan; no re-scan of sourceTiles needed.
+            addVision(visibleKeys, ownedTileKeys(playerId), 1, 0);
           }
           for (const lock of runtimeState.activeLocks) {
             if (lock.playerId !== playerId) continue;
@@ -476,17 +476,12 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
           }
           if (primaryPlayer && (runtimeState.docks?.length ?? 0) > 0) {
             const visibilityOwnerIds = new Set<string>([playerId, ...primaryPlayer.allies]);
-            const settledOwnerByKey = new Map<string, string>();
-            let settledOwnerIndex = 0;
-            for (const tile of sourceTiles) {
-              if (shouldYieldAt(settledOwnerIndex++, 2_000)) await yieldToEventLoop();
-              if (tile.ownershipState === "SETTLED" && tile.ownerId) settledOwnerByKey.set(keyFor(tile.x, tile.y), tile.ownerId);
-            }
+            // tileByKey is already built — no need for a separate O(202k) settled-owner scan.
             const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
             for (const revealKey of collectLinkedDockRevealKeysForOwners(
               visibilityOwnerIds,
               runtimeState.docks ?? [],
-              (tileKey) => settledOwnerByKey.get(tileKey),
+              (tk) => { const t = tileByKey.get(tk); return (t?.ownershipState === "SETTLED" && t.ownerId) ? t.ownerId : undefined; },
               dockLinksByDockTileKey,
               WORLD_WIDTH,
               WORLD_HEIGHT
@@ -495,11 +490,14 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
             }
           }
 
+          // Iterate visibleKeys (O(territory × radius²)) and look up in tileByKey
+          // instead of scanning all 202k source tiles — typically 10-20x fewer iterations.
           const visibleTiles: Array<(typeof sourceTiles)[number]> = [];
-          let visibleScanIndex = 0;
-          for (const tile of sourceTiles) {
-            if (shouldYieldAt(visibleScanIndex++, 2_000)) await yieldToEventLoop();
-            if (visibleKeys.has(keyFor(tile.x, tile.y))) visibleTiles.push(tile);
+          let visibleLookupIndex = 0;
+          for (const vKey of visibleKeys) {
+            if (shouldYieldAt(visibleLookupIndex++, 2_000)) await yieldToEventLoop();
+            const tile = tileByKey.get(vKey);
+            if (tile) visibleTiles.push(tile);
           }
           return visibleTiles.sort((left, right) => (left.x - right.x) || (left.y - right.y));
         })();
@@ -518,7 +516,6 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
     })
       .filter((settlement): settlement is NonNullable<typeof settlement> => Boolean(settlement))
       .sort((left, right) => (left.resolvesAt - right.resolvesAt) || (left.x - right.x) || (left.y - right.y));
-  const tileByKey = new Map(sourceTiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
   const livePlayer = playersById.get(playerId);
   const pendingSettlementTileKeys = new Set(
     runtimeState.pendingSettlements
@@ -550,7 +547,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   });
   const hasLivePlayerState = livePlayer && typeof livePlayer.points === "number" && typeof livePlayer.manpower === "number";
   const liveEconomyStartedAt = Date.now();
-  const liveEconomy = await buildLivePlayerEconomySnapshotAsync(playerId, runtimeState, yieldToEventLoop);
+  const liveEconomy = await buildLivePlayerEconomySnapshotAsync(playerId, runtimeState, yieldToEventLoop, tileByKey);
   recordPhaseTiming("live_economy_async", liveEconomyStartedAt, {
     sourceTileCount: runtimeState.tiles.length,
     playerCount: runtimeState.players.length
@@ -590,7 +587,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   const enrichedTiles =
     options?.fullVisibility === true && options?.sharedFullVisibilityTiles
       ? options.sharedFullVisibilityTiles
-      : await enrichSnapshotTilesForPlayerAsync(playerId, runtimeState, tiles, liveEconomy, yieldToEventLoop);
+      : await enrichSnapshotTilesForPlayerAsync(playerId, runtimeState, tiles, liveEconomy, yieldToEventLoop, tileByKey);
   recordPhaseTiming("enrich_tiles_async", enrichTilesStartedAt, {
     visibleTileCount: tiles.length,
     tileCount: enrichedTiles.length,
