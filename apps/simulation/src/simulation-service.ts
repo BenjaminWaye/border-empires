@@ -1391,7 +1391,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   } = {}): Promise<CurrentSeasonSummary> => {
     // Reuse a caller-provided export snapshot to skip the expensive O(202k) tile
     // scan when the caller already holds a fresh snapshot (e.g. flushGlobalStatusBroadcast).
-    const runtimeState = providedRuntimeState ?? runtime.exportState();
+    // Use the async chunked path when no snapshot is provided — avoids blocking the
+    // main thread for the full 202k-tile synchronous scan (season victory timer, cold start).
+    const runtimeState = providedRuntimeState ?? await runtime.exportStateAsync(yieldToEventLoop);
     const baseSummary = buildCurrentSeasonSummary({
       seasonState: currentSeasonState,
       runtimeState,
