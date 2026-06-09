@@ -1458,7 +1458,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       return;
     }
     void (async () => {
-      const runtimeState = runtime.exportState();
+      // Use the async/yielding export so the O(202k-tile) scan doesn't block
+      // the event loop in a single synchronous burst and trip the 30s watchdog.
+      const runtimeState = await runtime.exportStateAsync(yieldToEventLoop);
       const summary = await recomputeAndPersistCurrentSummary({
         ...(pendingGlobalStatusCommandId ? { commandId: pendingGlobalStatusCommandId } : {})
       });
@@ -2570,11 +2572,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       }, 60_000);
       territoryAutomationTicker = setInterval(() => {
-        try {
-          mainThreadTasks.trackSync("tick_territory_automation", undefined, () => runtime.tickTerritoryAutomation(Date.now()));
-        } catch (error) {
+        // Async with inter-player yields so the 30s watchdog never fires on a busy
+        // tick. trackSync would return before the promise resolves; use void+catch.
+        void runtime.tickTerritoryAutomation(Date.now(), yieldToEventLoop).catch((error) => {
           log.error({ err: error }, "territory automation tick failed");
-        }
+        });
       }, 30_000);
       orphanLockSweepTicker = setInterval(() => {
         try {
@@ -2587,13 +2589,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       }, 30_000);
       setInterval(() => {
-        try {
-          mainThreadTasks.trackSync("tick_passive_income", undefined, () => {
-            runtime.applyPassiveIncome(Date.now(), 12 * 60 * 60 * 1000);
-          });
-        } catch (error) {
+        // Async with per-player yields — cachedEconomySnapshot can rebuild
+        // O(settledTiles) per player on cache miss (after territory mutations).
+        // Running all 6 players back-to-back synchronously was a 15s stall risk.
+        void runtime.applyPassiveIncomeAsync(Date.now(), 12 * 60 * 60 * 1000, yieldToEventLoop).catch((error) => {
           log.error({ err: error }, "passive income tick failed");
-        }
+        });
       }, 15_000);
       eventLoopSampler = setInterval(() => {
         const now = Date.now();
