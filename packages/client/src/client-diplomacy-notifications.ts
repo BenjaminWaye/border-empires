@@ -1,7 +1,8 @@
+import { storageGet, storageSet } from "./client-state.js";
 import type { ClientState } from "./client-state.js";
 import type { ActiveAllianceBreakView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "./client-types.js";
 
-type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoaded">;
+type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
 
 type DiplomacyNotificationDeps = {
   pushFeed: (message: string, type: "alliance", severity: "info" | "success" | "warn" | "error") => void;
@@ -21,21 +22,23 @@ const STORAGE_KEY = (playerId: string): string => `be:diplomacy:notified:${playe
 const MAX_STORED = 500;
 
 const ensureLoaded = (state: DiplomacyNotificationState): void => {
-  if (state.notifiedDiplomacyIdsLoaded || !state.me) return;
-  state.notifiedDiplomacyIdsLoaded = true;
+  if (state.notifiedDiplomacyIdsLoadedFor === state.me || !state.me) return;
+  state.notifiedDiplomacyIdsLoadedFor = state.me;
+  state.notifiedIncomingDiplomacyRequestIds.clear();
   try {
-    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY(state.me)) : null;
-    const stored = JSON.parse(raw ?? "[]") as string[];
+    const raw = storageGet(STORAGE_KEY(state.me));
+    const parsed: unknown = JSON.parse(raw ?? "[]");
+    const stored = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
     for (const id of stored) state.notifiedIncomingDiplomacyRequestIds.add(id);
-  } catch {}
+  } catch {
+    storageSet(STORAGE_KEY(state.me), "[]");
+  }
 };
 
 const persistIds = (state: DiplomacyNotificationState): void => {
-  if (!state.me || typeof localStorage === "undefined") return;
-  try {
-    const entries = [...state.notifiedIncomingDiplomacyRequestIds];
-    localStorage.setItem(STORAGE_KEY(state.me), JSON.stringify(entries.length > MAX_STORED ? entries.slice(-MAX_STORED) : entries));
-  } catch {}
+  if (!state.me) return;
+  const entries = [...state.notifiedIncomingDiplomacyRequestIds];
+  storageSet(STORAGE_KEY(state.me), JSON.stringify(entries.length > MAX_STORED ? entries.slice(-MAX_STORED) : entries));
 };
 
 const markUnseenRequest = (state: DiplomacyNotificationState, kind: "alliance" | "truce" | "alliance-break", requestId: string): boolean => {
