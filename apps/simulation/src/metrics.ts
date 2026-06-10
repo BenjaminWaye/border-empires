@@ -118,6 +118,10 @@ export type SimulationMetricsSnapshot = {
   simAiAutopilotEnabled: number;
   simAiAutopilotPlayerCount: number;
   simAiPlannerBreaches: number;
+  simAiDryRunSkippedTotal: number;
+  simAiCommandCapSkippedTotal: number;
+  simAiExpandDisabledTotal: number;
+  simAiBuildDisabledTotal: number;
   simAiBroadFallbackSkipped: Record<string, number>;
   simAiNarrowAnalyzeCapped: Record<string, number>;
   simAiCommandTotalByType: Record<DurableCommandType, number>;
@@ -227,6 +231,13 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiAutopilotEnabled = 0;
   let simAiAutopilotPlayerCount = 0;
   let simAiPlannerBreaches = 0;
+  // Experiment-mode counters (see SIMULATION_AI_DRY_RUN etc). Each fires only
+  // when the corresponding flag is set, so a zero count means the guard never
+  // engaged — required by the "emit a counter on every skip/cap" project rule.
+  let simAiDryRunSkippedTotal = 0;
+  let simAiCommandCapSkippedTotal = 0;
+  let simAiExpandDisabledTotal = 0;
+  let simAiBuildDisabledTotal = 0;
   let simCheckpointRssMb = 0;
   let simCpuPercent = 0;
   let simHeapUsedMb = 0;
@@ -255,6 +266,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiAutopilotEnabled,
     simAiAutopilotPlayerCount,
     simAiPlannerBreaches,
+    simAiDryRunSkippedTotal,
+    simAiCommandCapSkippedTotal,
+    simAiExpandDisabledTotal,
+    simAiBuildDisabledTotal,
     simAiBroadFallbackSkipped: Object.fromEntries(simAiBroadFallbackSkipped),
     simAiNarrowAnalyzeCapped: Object.fromEntries(simAiNarrowAnalyzeCapped),
     simAiCommandTotalByType: Object.fromEntries(
@@ -336,6 +351,18 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimAiPlannerBreaches(): void {
       simAiPlannerBreaches += 1;
+    },
+    incrementSimAiDryRunSkipped(): void {
+      simAiDryRunSkippedTotal += 1;
+    },
+    incrementSimAiCommandCapSkipped(): void {
+      simAiCommandCapSkippedTotal += 1;
+    },
+    incrementSimAiExpandDisabled(): void {
+      simAiExpandDisabledTotal += 1;
+    },
+    incrementSimAiBuildDisabled(): void {
+      simAiBuildDisabledTotal += 1;
     },
     incrementSimAiBroadFallbackSkipped(playerId: string): void {
       simAiBroadFallbackSkipped.set(playerId, (simAiBroadFallbackSkipped.get(playerId) ?? 0) + 1);
@@ -483,6 +510,14 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_ai_autopilot_player_count ${formatMetricValue(sample.simAiAutopilotPlayerCount)}`,
         "# TYPE sim_ai_planner_breaches counter",
         `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
+        "# TYPE sim_ai_dry_run_skipped_total counter",
+        `sim_ai_dry_run_skipped_total ${formatMetricValue(sample.simAiDryRunSkippedTotal)}`,
+        "# TYPE sim_ai_command_cap_skipped_total counter",
+        `sim_ai_command_cap_skipped_total ${formatMetricValue(sample.simAiCommandCapSkippedTotal)}`,
+        "# TYPE sim_ai_expand_disabled_total counter",
+        `sim_ai_expand_disabled_total ${formatMetricValue(sample.simAiExpandDisabledTotal)}`,
+        "# TYPE sim_ai_build_disabled_total counter",
+        `sim_ai_build_disabled_total ${formatMetricValue(sample.simAiBuildDisabledTotal)}`,
         "# TYPE sim_ai_tick_throttled_total counter",
         "# TYPE sim_ai_current_tick_interval_ms gauge",
         `sim_ai_current_tick_interval_ms ${formatMetricValue(sample.simAiCurrentTickIntervalMs)}`,

@@ -48,6 +48,7 @@ import { createSocialState, type SocialStateSink, type SocialTruceRequest } from
 import { createGatewaySocialStore } from "./social-store-factory.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "./supported-client-messages.js";
+import { createRequestTracer } from "./request-tracer.js";
 import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "./live-world-status-recovery.js";
 import {
@@ -98,6 +99,10 @@ type RealtimeGatewayAppOptions = {
   fogAdminEmail?: string;
   emailAlerts?: EmailAlertConfig;
   playOrigin?: string;
+  // URL for the simulation's loopback metrics server in the combined
+  // deployment (e.g. "http://127.0.0.1:50052/metrics"). When present, the
+  // gateway proxies it at /admin/runtime/metrics so it's externally reachable.
+  simMetricsUrl?: string;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -1257,6 +1262,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     attackDebug: buildAttackDebug,
     attackTraces: buildAttackTraces,
     metrics: () => gatewayMetrics.renderPrometheus(),
+    ...(options.simMetricsUrl
+      ? {
+          getSimMetrics: async () => {
+            const res = await fetch(options.simMetricsUrl!, { signal: AbortSignal.timeout(3000) });
+            if (!res.ok) throw new Error(`sim metrics HTTP ${res.status}`);
+            return res.text();
+          }
+        }
+      : {}),
     getCurrentSeasonSummary: async () =>
       hydrateCurrentSeasonSummaryDisplayNames(await simulationClient.getCurrentSeasonSummary(), profileStore),
     getCurrentSeasonStatus: () => simulationClient.getCurrentSeasonSummary().then((s) => s.status),
@@ -2069,6 +2083,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (message.type === "AUTH") {
             recordGatewayEvent("info", "gateway_auth", { channel });
             const authTrace = slowLoginAlerter.begin(channel);
+            const loginTracer = createRequestTracer({
+              kind: "login",
+              correlationId: crypto.randomUUID(),
+              extra: { channel }
+            });
             if (!simulationHealth.connected) {
               authTrace.startStep("ensure_simulation_ready");
               await ensureSimulationReadyForAuth();
@@ -2102,6 +2121,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             let playerIdentity = { ...resolvedPlayerIdentity };
             authTrace.setPlayerId(playerIdentity.playerId);
+            loginTracer.stage("auth_identity_resolved", { playerId: playerIdentity.playerId });
             if (resolvedPlayerIdentity.authUid) {
               authTrace.startStep("reconcile_auth_binding");
               try {
@@ -2141,9 +2161,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // persisted reveal preference on Firebase sign-in so it does not
             // auto-resend the toggle.
             session.fogDisabled = false;
+            loginTracer.stage("profile_get_start");
             authTrace.startStep("profile_get");
             const persistedProfile = await cachedProfileGet(playerIdentity.playerId);
             authTrace.endStep("profile_get");
+            loginTracer.stage("profile_get_end");
             if (persistedProfile) {
               profileOverrides.upsert(playerIdentity.playerId, {
                 ...(persistedProfile.name ? { name: persistedProfile.name } : {}),
@@ -2177,6 +2199,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
             }
             const prepareStartedAt = Date.now();
+            loginTracer.stage("prepare_player_start");
             authTrace.startStep("prepare_player");
             try {
               recordGatewayEvent("info", "gateway_auth_prepare_started", {
@@ -2213,7 +2236,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               );
               markSimulationReady();
               authTrace.endStep("prepare_player");
+              loginTracer.stage("prepare_player_end", { spawned: prepareResult.spawned });
             } catch (error) {
+              loginTracer.stage("prepare_player_failed", { error: error instanceof Error ? error.message : String(error) });
               recordGatewayEvent("error", "gateway_auth_prepare_failed", {
                 playerId: playerIdentity.playerId,
                 channel,
@@ -2255,6 +2280,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             lastBootstrapAtByPlayerId.set(playerIdentity.playerId, bootstrapNowMs);
             bootstrapsInFlight += 1;
             let bootstrapInitialState;
+            loginTracer.stage("bootstrap_subscribe_start");
             authTrace.startStep("bootstrap_subscribe");
             try {
               bootstrapInitialState = await retrySimulationRpc(
@@ -2275,6 +2301,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               );
               markSimulationReady();
               authTrace.endStep("bootstrap_subscribe");
+              loginTracer.stage("bootstrap_subscribe_end", { tileCount: bootstrapInitialState?.tiles.length ?? 0 });
               if (bootstrapInitialState) {
                 recordGatewayEvent("info", "gateway_auth_bootstrap_ready", {
                   playerId: playerIdentity.playerId,
@@ -2323,6 +2350,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 tileCount: bootstrapInitialState.tiles.length
               });
             }
+            loginTracer.stage("live_subscribe_start");
             authTrace.startStep("live_subscribe");
             try {
               await retrySimulationRpc(
@@ -2340,7 +2368,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               );
               markSimulationReady();
               authTrace.endStep("live_subscribe");
+              loginTracer.stage("live_subscribe_end");
             } catch (error) {
+              loginTracer.stage("live_subscribe_failed", { error: error instanceof Error ? error.message : String(error) });
               recordGatewayEvent("error", "gateway_auth_subscribe_failed", {
                 playerId: playerIdentity.playerId,
                 channel,
@@ -2406,6 +2436,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.endStep("build_init");
               // Stringify the ~256KB init message off the main thread so the
               // event loop stays free for gRPC acks and healthz during bootstrap.
+              loginTracer.stage("stringify_init_start", { initTileCount: initInitialTileCount });
               authTrace.startStep("stringify_init");
               let initJson: string;
               if (initInitialTileCount <= inlineBootstrapStringifyTileLimit) {
@@ -2420,6 +2451,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 }
               }
               authTrace.endStep("stringify_init");
+              loginTracer.stage("stringify_init_end", { initJsonBytes: initJson.length });
               if (socket.readyState !== socket.OPEN) {
                 // Socket closed while we were stringifying — discard silently.
                 authTrace.complete("rejected", "socket_closed_before_init");
@@ -2428,6 +2460,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               // initSent must be set only after the init leaves the socket so
               // that payloads arriving during the stringify await stay queued in
               // pendingPayloads rather than racing ahead of the init message.
+              loginTracer.stage("send_init_start", { initJsonBytes: initJson.length });
               session.initSent = true;
               recordGatewayEvent(
                 initInitialTileCount ? "info" : "warn",
@@ -2464,8 +2497,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 pendingPayloadCount: session.pendingPayloads.length
               });
               session.pendingPayloads = [];
+              loginTracer.done({ outcome: "init_sent" });
               authTrace.complete("init_sent");
             } else {
+              loginTracer.done({ outcome: "init_sent", channel: "non_control" });
               authTrace.complete("init_sent", "non_control_channel");
             }
             return;
@@ -2891,18 +2926,38 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             playerId: session.playerId,
             nextClientSeq: session.nextClientSeq
           };
+          // For ATTACK/EXPAND commands we pre-generate the commandId so the
+          // expand tracer can use it as a correlationId from the moment the
+          // message arrives — before submitDurableCommand assigns it.
+          const isFrontierAction = message.type === "ATTACK" || message.type === "EXPAND";
+          const preGeneratedCommandId = isFrontierAction
+            ? (options.createCommandId ?? (() => crypto.randomUUID()))()
+            : undefined;
+          const expandTracer = isFrontierAction
+            ? createRequestTracer({
+                kind: "expand",
+                correlationId: preGeneratedCommandId!,
+                playerId: session.playerId,
+                extra: { actionType: message.type }
+              })
+            : null;
           const submitDeps = {
-            createCommandId: options.createCommandId ?? (() => crypto.randomUUID()),
+            createCommandId: preGeneratedCommandId
+              ? () => preGeneratedCommandId
+              : (options.createCommandId ?? (() => crypto.randomUUID())),
             now: options.now ?? (() => Date.now()),
             commandStore,
             onCommandSubmitted: (command: { commandId: string }) => {
               pendingInputToStateByCommandId.set(command.commandId, Date.now());
+              expandTracer?.stage("gateway_enqueued", { commandId: command.commandId });
             },
             onCommandSubmitFailed: (commandId: string) => {
               pendingInputToStateByCommandId.delete(commandId);
+              expandTracer?.stage("gateway_submit_failed", { commandId });
             },
             submitCommand: async (command: Parameters<typeof simulationClient.submitCommand>[0]) => {
               const rpcStartedAt = Date.now();
+              expandTracer?.stage("gateway_rpc_start", { commandId: command.commandId });
               try {
                 await withTimeout(
                   simulationClient.submitCommand(command),
@@ -2910,7 +2965,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   "gateway submit command"
                 );
                 markSimulationReady();
+                expandTracer?.stage("gateway_rpc_end", { commandId: command.commandId });
               } catch (error) {
+                expandTracer?.stage("gateway_rpc_timeout_or_error", {
+                  commandId: command.commandId,
+                  error: error instanceof Error ? error.message : String(error)
+                });
                 markSimulationUnavailable(error);
                 recordGatewayEvent("warn", "simulation_submit_failed", {
                   commandId: command.commandId,
@@ -3483,11 +3543,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   fromY: message.fromY,
                   toX: message.toX,
                   toY: message.toY,
+                  commandId: preGeneratedCommandId,
                   ...metadata
                 },
                 submitDeps
               )
             );
+            expandTracer?.done();
           }
           session.nextClientSeq = authedSession.nextClientSeq;
         } catch (error) {

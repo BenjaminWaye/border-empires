@@ -7,6 +7,7 @@ import type {
 import { randomBytes } from "node:crypto";
 
 import type { GatewayResolvedIdentity } from "./auth-identity.js";
+import { RUNTIME_DASHBOARD_HTML } from "./runtime-dashboard-html.js";
 import { rallyAnchorFromTiles } from "./rally-link-anchor.js";
 import {
   rallyLinkIsActive,
@@ -64,6 +65,12 @@ type RegisterGatewayHttpRoutesDeps = {
   attackDebug: () => GatewayAttackDebug;
   attackTraces: () => GatewayAttackTrace[];
   metrics: () => string;
+  // Fetches the simulation's Prometheus metrics text from its loopback HTTP
+  // server (127.0.0.1:50052 in the combined deployment). The sim metrics port
+  // is never exposed externally, so the gateway proxies it for the runtime
+  // dashboard / single scrape URL. Resolves to "" when unreachable so the
+  // gateway-side series still render.
+  getSimMetrics?: () => Promise<string>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
@@ -103,12 +110,21 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     return authorizationHeader === `Bearer ${deps.adminApiToken}`;
   };
 
+  // NOTE: /health is intentionally O(1) — it only reads cached structs and
+  // never touches the event loop, sim RPC, or AI state, so it stays responsive
+  // even while the sim worker is saturated. It is a LIVENESS probe, not a perf
+  // signal: performance numbers (event-loop lag, sim/AI tick durations, queue
+  // backlog, command latency) live at /metrics (gateway) and
+  // /admin/runtime/metrics (gateway + sim combined). Anything reading /health
+  // for perf is reading the wrong endpoint.
   const readHealth = () => {
     const health = deps.health();
     return {
       statusCode: health.ok ? 200 : 503,
       body: {
         ok: health.ok,
+        startupElapsedMs: Date.now() - deps.startupStartedAt,
+        metricsHint: "perf metrics at /metrics and /admin/runtime/metrics",
         simulation: health.simulation,
         runtimeIdentity: deps.runtimeIdentity
       }
@@ -158,6 +174,46 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   app.get("/metrics", async (_request, reply) => {
     reply.header("Content-Type", "text/plain; version=0.0.4");
     return deps.metrics();
+  });
+
+  // Single token-gated scrape URL combining gateway-side and (proxied) sim-side
+  // Prometheus series, so AI-on vs AI-off staging runs can be compared from a
+  // laptop without flyctl-ssh'ing the loopback :50052 metrics port.
+  const adminRequestAuthorized = (request: { headers: Record<string, unknown>; query?: unknown }): boolean => {
+    const headerAuth = typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
+    if (adminAuthorized(headerAuth)) return true;
+    // ?token= fallback so the dashboard page (which cannot set Authorization on
+    // a plain <fetch> without CORS preflight friction) can pass the same token.
+    const queryToken = (request.query as { token?: string } | undefined)?.token;
+    return Boolean(deps.adminApiToken) && queryToken === deps.adminApiToken;
+  };
+
+  app.get("/admin/runtime/metrics", async (request, reply) => {
+    if (!adminRequestAuthorized(request)) {
+      reply.code(401);
+      return "unauthorized\n";
+    }
+    reply.header("Content-Type", "text/plain; version=0.0.4");
+    const gatewayText = deps.metrics();
+    let simText = "# sim metrics proxy not wired\n";
+    if (deps.getSimMetrics) {
+      try {
+        simText = await deps.getSimMetrics();
+      } catch (error) {
+        simText = `# sim metrics unreachable: ${error instanceof Error ? error.message : String(error)}\n`;
+      }
+    }
+    return `${gatewayText}\n# ---- simulation metrics (proxied from loopback :50052) ----\n${simText}`;
+  });
+
+  app.get("/admin/runtime/dashboard", async (request, reply) => {
+    if (!adminRequestAuthorized(request)) {
+      reply.code(401);
+      reply.header("Content-Type", "text/plain");
+      return "unauthorized\n";
+    }
+    reply.header("Content-Type", "text/html; charset=utf-8");
+    return RUNTIME_DASHBOARD_HTML;
   });
 
   app.get("/hq/summary", async (_request, reply) => {
