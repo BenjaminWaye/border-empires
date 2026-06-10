@@ -276,10 +276,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       !tile.siegeOutpost &&
       !tile.economicStructure
     ) {
-      const tileKey = keyFor(tile.x, tile.y);
-      const existing = state.tiles.get(tileKey);
-      if (existing) state.tiles.set(tileKey, { ...existing, detailLevel: "full" });
-      state.tileDetailReceivedAt.set(tileKey, Date.now());
+      // Stamp tileDetailReceivedAt so the 60s gate in requestTileDetailIfNeeded
+      // suppresses the round-trip. We deliberately do NOT write detailLevel:"full"
+      // into state.tiles — if this tile later changes ownership or gets a
+      // structure built on it, the gate naturally expires and a real request fires.
+      state.tileDetailReceivedAt.set(keyFor(tile.x, tile.y), Date.now());
       return;
     }
     if (
