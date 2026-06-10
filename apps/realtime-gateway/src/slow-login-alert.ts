@@ -52,7 +52,7 @@ export type SlowLoginAuthHandle = {
 };
 
 export type SlowLoginAlerter = {
-  begin: (channel: string) => SlowLoginAuthHandle;
+  begin: (channel: string, correlationId?: string) => SlowLoginAuthHandle;
 };
 
 const DEFAULT_THRESHOLD_MS = 60_000;
@@ -66,6 +66,7 @@ const buildSlackPayload = (input: {
   appLabel: string;
   trace: {
     channel: string;
+    correlationId: string | undefined;
     authReceivedAt: number;
     playerId: string | undefined;
     steps: AuthFlowStep[];
@@ -117,6 +118,7 @@ const buildSlackPayload = (input: {
         fields: [
           { type: "mrkdwn", text: `*Player:* \`${trace.playerId ?? "unauthenticated"}\`` },
           { type: "mrkdwn", text: `*Channel:* \`${trace.channel}\`` },
+          ...(trace.correlationId ? [{ type: "mrkdwn", text: `*CorrelationId:* \`${trace.correlationId}\`` }] : []),
           { type: "mrkdwn", text: `*Outcome:* ${outcome}${reason ? ` — ${reason}` : ""}` },
           {
             type: "mrkdwn",
@@ -148,7 +150,7 @@ export const createSlowLoginAlerter = (options: SlowLoginAlerterOptions): SlowLo
   let lastFiredAt = 0;
 
   const post = async (
-    trace: { channel: string; authReceivedAt: number; playerId: string | undefined; steps: AuthFlowStep[] },
+    trace: { channel: string; correlationId: string | undefined; authReceivedAt: number; playerId: string | undefined; steps: AuthFlowStep[] },
     outcome: SlowLoginCompleteOutcome,
     reason: string | undefined,
     totalElapsedMs: number
@@ -207,9 +209,10 @@ export const createSlowLoginAlerter = (options: SlowLoginAlerterOptions): SlowLo
   };
 
   return {
-    begin(channel: string): SlowLoginAuthHandle {
+    begin(channel: string, correlationId?: string): SlowLoginAuthHandle {
       const trace = {
         channel,
+        correlationId,
         authReceivedAt: now(),
         playerId: undefined as string | undefined,
         steps: [] as AuthFlowStep[]

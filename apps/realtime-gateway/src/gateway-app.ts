@@ -2082,10 +2082,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           const message = parsed.data;
           if (message.type === "AUTH") {
             recordGatewayEvent("info", "gateway_auth", { channel });
-            const authTrace = slowLoginAlerter.begin(channel);
+            const loginCorrelationId = crypto.randomUUID();
+            const authTrace = slowLoginAlerter.begin(channel, loginCorrelationId);
             const loginTracer = createRequestTracer({
               kind: "login",
-              correlationId: crypto.randomUUID(),
+              correlationId: loginCorrelationId,
               extra: { channel }
             });
             if (!simulationHealth.connected) {

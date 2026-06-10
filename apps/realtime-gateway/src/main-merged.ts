@@ -39,6 +39,18 @@ const workerEntryUrl = resolveWorkerEntryUrl("./worker-main.js", import.meta.url
 const simWorker = new Worker(workerEntryUrl);
 let simWorkerExitedUnexpectedly = false;
 
+// Lightweight event-loop lag probe on the main (gateway) thread — independent
+// of the gateway metrics internals so the watchdog snapshot can read it without
+// needing a reference to the gateway metrics object.
+let mainThreadEventLoopLagMs = 0;
+const lagProbe = setInterval(() => {
+  const before = Date.now();
+  setImmediate(() => {
+    mainThreadEventLoopLagMs = Date.now() - before;
+  });
+}, 1000);
+lagProbe.unref();
+
 // Boot the event-loop watchdog FIRST so it can observe boot itself, but
 // leave it DISARMED — gateway boot is fast (no sim replay on the main
 // thread anymore), but worker startup + replay can still take time and we
@@ -54,6 +66,7 @@ const watchdog = startEventLoopWatchdog({
       heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
       heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
       rssMb: Math.round(mem.rss / 1024 / 1024),
+      mainThreadEventLoopLagMs,
       simWorkerAlive: !simWorkerExitedUnexpectedly,
       aiEnabled: simEnv.enableAiAutopilot,
       aiWorker: simEnv.useAiWorker,
