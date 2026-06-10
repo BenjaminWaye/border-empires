@@ -6663,7 +6663,15 @@ export class SimulationRuntime {
       // This can reconnect a previously cut-off pocket (the new tile bridges
       // the pocket back to settled supply). We scope the check to the expander
       // only — EXPAND never alters another player's territory.
-      this.applyEncirclement([lock.targetKey], lock.playerId, lock.commandId);
+      //
+      // skipCutOff: EXPAND only adds tiles — it cannot cut off existing territory.
+      // bfsCap 200: reconnection only affects tiles reachable through the new tile;
+      // a tight cap avoids walking the full empire on every expand while remaining
+      // correct for any realistically-sized cut-off pocket.
+      this.applyEncirclement([lock.targetKey], lock.playerId, lock.commandId, {
+        skipCutOff: true,
+        bfsCap: 200,
+      });
     }
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
     if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
@@ -6694,12 +6702,19 @@ export class SimulationRuntime {
    * tiles and clear it for reconnected tiles. Emit a TILE_DELTA_BATCH for
    * any tiles that changed.
    */
-  private applyEncirclement(changedKeys: string[], playerId: string, commandId: string): void {
+  private applyEncirclement(
+    changedKeys: string[],
+    playerId: string,
+    commandId: string,
+    options?: { bfsCap?: number; skipCutOff?: boolean }
+  ): void {
     const getTile = (key: string) => this.tiles.get(key);
     const nowMs = this.now();
     const aetherBridgeNeighborKeys = this.activeAetherBridgeNeighborKeysForPlayer(playerId);
     const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs, {
       extraNeighborKeys: (tileKey) => aetherBridgeNeighborKeys.get(tileKey) ?? [],
+      ...(options?.bfsCap !== undefined ? { bfsCap: options.bfsCap } : {}),
+      ...(options?.skipCutOff ? { skipCutOff: true } : {}),
       onCapExceeded: (pid, visited, cap) => {
         this.runtimeLogInfo(
           {
