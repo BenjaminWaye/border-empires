@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.06.4",
+  version: "2026.06.10.1",
   title: "What's New",
-  summary: "Resource income now flows passively every 15 seconds — no more manual collect actions causing server stalls.",
+  summary: "Performance: fewer server round-trips when exploring the map.",
   entries: [
+    {
+      introducedIn: "2026.06.10.1",
+      title: "Faster map exploration",
+      why: "Resource and dock tiles were each triggering a server round-trip as they scrolled into view, even though the client already had all the data it needed.",
+      changes: [
+        "Unowned resource and dock tiles are now marked as fully loaded locally — no round-trip to the server."
+      ]
+    },
     {
       introducedIn: "2026.06.06.4",
       title: "Passive empire income replaces manual COLLECT_VISIBLE",

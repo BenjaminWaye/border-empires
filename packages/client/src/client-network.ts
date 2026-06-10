@@ -275,8 +275,26 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const maybeRequestTileDetail = (tile: any): void => {
     if (typeof deps.requestTileDetailIfNeeded !== "function") return;
     if (!tile || tile.fogged || tile.detailLevel === "full") return;
+    const ownedByMe = tile.ownerId === state.me;
+    // Unowned resource/dock tiles carry no server-side economy data — the
+    // snapshot already has everything visible. Self-stamp to avoid a round-trip.
     if (
-      tile.ownerId === state.me ||
+      !ownedByMe &&
+      (tile.resource || tile.dockId) &&
+      !tileHasTownIdentity(tile) &&
+      !tile.fort &&
+      !tile.observatory &&
+      !tile.siegeOutpost &&
+      !tile.economicStructure
+    ) {
+      const tileKey = keyFor(tile.x, tile.y);
+      const existing = state.tiles.get(tileKey);
+      if (existing) state.tiles.set(tileKey, { ...existing, detailLevel: "full" });
+      state.tileDetailReceivedAt.set(tileKey, Date.now());
+      return;
+    }
+    if (
+      ownedByMe ||
       tile.resource ||
       tile.dockId ||
       tileHasTownIdentity(tile) ||
