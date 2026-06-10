@@ -2575,7 +2575,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 updates: [cachedTileDetail]
               });
             }
-            if (simulationHealth.connected) {
+            if (!cachedTileDetail && simulationHealth.connected) {
               void fetchTileDetailFromSim(playerId, message.x, message.y, session.fogDisabled)
                 .then((snapshot) => {
                   if (!snapshot) return;

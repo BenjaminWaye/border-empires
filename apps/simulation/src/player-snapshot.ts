@@ -405,7 +405,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
   const ownedTileIndexStartedAt = Date.now();
   let combinedScanIndex = 0;
   for (const tile of sourceTiles) {
-    if (shouldYieldAt(combinedScanIndex++, 2_000)) await yieldToEventLoop();
+    if (shouldYieldAt(combinedScanIndex++, 50_000)) await yieldToEventLoop();
     const tileKey = keyFor(tile.x, tile.y);
     tileByKey.set(tileKey, tile as RuntimeState["tiles"][number]);
     if (!tile.ownerId) continue;
