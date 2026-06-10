@@ -132,6 +132,12 @@ type WorkerAiCommandProducerOptions = {
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
   onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
+  /** Diagnostic experiment flags — staging investigation only. */
+  experimentDryRun?: boolean;
+  experimentMaxCommandsPerTick?: number;
+  experimentDisableExpand?: boolean;
+  experimentDisableBuild?: boolean;
+  onExperimentFilter?: (reason: "dry_run" | "command_cap" | "expand_disabled" | "build_disabled") => void;
   onDiagnostic?: (sample: {
     phase:
       | "sync_players_export"
@@ -190,6 +196,17 @@ type PlannedCommandResult = {
   command: CommandEnvelope | null;
   diagnostic?: AutomationPlannerDiagnostic;
 };
+
+const isExpandAction = (type: CommandEnvelope["type"]): boolean => type === "EXPAND" || type === "ATTACK";
+const isBuildAction = (type: CommandEnvelope["type"]): boolean =>
+  type === "SETTLE" ||
+  type === "BUILD_FORT" ||
+  type === "BUILD_OBSERVATORY" ||
+  type === "BUILD_SIEGE_OUTPOST" ||
+  type === "BUILD_ECONOMIC_STRUCTURE" ||
+  type === "CANCEL_FORT_BUILD" ||
+  type === "CANCEL_STRUCTURE_BUILD" ||
+  type === "CANCEL_SIEGE_OUTPOST_BUILD";
 
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
@@ -874,6 +891,16 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               activePreplanCommandId = plan.command.commandId;
               // Register the preplan-outcome resolver BEFORE submitting so the
               // runtime event listener can signal the outcome without a race.
+              const maxCmds = options.experimentMaxCommandsPerTick ?? 0;
+              if (maxCmds > 0 && submitCount >= maxCmds) {
+                options.onExperimentFilter?.("command_cap");
+                break;
+              }
+              if (options.experimentDryRun) {
+                // Skip the actual submit AND the preplan-outcome wait (no event will fire to resolve it).
+                options.onExperimentFilter?.("dry_run");
+                break;
+              }
               const preplanWaitStartedAt = now();
               const outcomePromise = waitForPreplanOutcome(playerId, plan.command.commandId);
               const submitStartedAt = now();
@@ -938,13 +965,31 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
                 }
               }
             }
+            const cmdType = plan.command.type;
+            if (options.experimentDisableExpand && isExpandAction(cmdType)) {
+              options.onExperimentFilter?.("expand_disabled");
+              break;
+            }
+            if (options.experimentDisableBuild && isBuildAction(cmdType)) {
+              options.onExperimentFilter?.("build_disabled");
+              break;
+            }
+            const maxCmdsRegular = options.experimentMaxCommandsPerTick ?? 0;
+            if (maxCmdsRegular > 0 && submitCount >= maxCmdsRegular) {
+              options.onExperimentFilter?.("command_cap");
+              break;
+            }
             const submitStartedAt = now();
             submitCount += 1;
-            lastCommandType = plan.command.type;
-            await options.submitCommand(plan.command);
+            lastCommandType = cmdType;
+            if (options.experimentDryRun) {
+              options.onExperimentFilter?.("dry_run");
+            } else {
+              await options.submitCommand(plan.command);
+            }
             lastCommandAtByPlayer.set(playerId, issuedAt);
-            options.onCommand?.({ playerId, commandType: plan.command.type });
-            if (plan.command.type === "ATTACK" && targetTileKey) {
+            options.onCommand?.({ playerId, commandType: cmdType });
+            if (cmdType === "ATTACK" && targetTileKey) {
               attackStalemate.recordAttempt(playerId, targetTileKey, issuedAt);
             }
             options.onDiagnostic?.({

@@ -90,6 +90,10 @@ export const bootstrapSimulationProcess = async (
       ? { requireDurableStartupState: runtimeEnv.requireDurableStartupState }
       : {}),
     useAiWorker: runtimeEnv.useAiWorker,
+    aiDryRun: runtimeEnv.aiDryRun,
+    aiMaxCommandsPerTick: runtimeEnv.aiMaxCommandsPerTick,
+    aiDisableExpand: runtimeEnv.aiDisableExpand,
+    aiDisableBuild: runtimeEnv.aiDisableBuild,
     ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {}),
     nonCompetitivePlayerIds: runtimeEnv.nonCompetitivePlayerIds
   });

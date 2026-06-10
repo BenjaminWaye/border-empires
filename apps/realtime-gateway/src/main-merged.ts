@@ -28,14 +28,6 @@ type SimWorkerClosedMessage = { type: "closed" };
 type SimWorkerFatalMessage = { type: "fatal"; reason: string; error: string };
 type SimWorkerMessage = SimWorkerReadyMessage | SimWorkerClosedMessage | SimWorkerFatalMessage;
 
-// Boot the event-loop watchdog FIRST so it can observe boot itself, but
-// leave it DISARMED — gateway boot is fast (no sim replay on the main
-// thread anymore), but worker startup + replay can still take time and we
-// don't want a spurious arm window. We arm it after `gateway.start()`
-// returns; from that point any 30s+ main-thread block is a real bug because
-// the sim cannot block this thread.
-const watchdog = startEventLoopWatchdog({ label: "combined" });
-
 // Parse the sim env in the parent purely to validate it early (so a typo
 // crashes the parent with a clear error) and to know the loopback address
 // the gateway should dial. The worker re-parses the same env independently.
@@ -46,6 +38,31 @@ const simPort = simEnv.port;
 const workerEntryUrl = resolveWorkerEntryUrl("./worker-main.js", import.meta.url);
 const simWorker = new Worker(workerEntryUrl);
 let simWorkerExitedUnexpectedly = false;
+
+// Boot the event-loop watchdog FIRST so it can observe boot itself, but
+// leave it DISARMED — gateway boot is fast (no sim replay on the main
+// thread anymore), but worker startup + replay can still take time and we
+// don't want a spurious arm window. We arm it after `gateway.start()`
+// returns; from that point any 30s+ main-thread block is a real bug because
+// the sim cannot block this thread.
+const watchdog = startEventLoopWatchdog({
+  label: "combined",
+  getDiagSnapshot: () => {
+    const mem = process.memoryUsage();
+    return {
+      snapshotAt: Date.now(),
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+      rssMb: Math.round(mem.rss / 1024 / 1024),
+      simWorkerAlive: !simWorkerExitedUnexpectedly,
+      aiEnabled: simEnv.enableAiAutopilot,
+      aiWorker: simEnv.useAiWorker,
+      aiDryRun: simEnv.aiDryRun,
+      aiDisableExpand: simEnv.aiDisableExpand,
+      aiDisableBuild: simEnv.aiDisableBuild
+    };
+  }
+});
 
 simWorker.on("error", (err) => {
   console.error("[merged] simulation worker error:", err);
@@ -99,7 +116,8 @@ const gateway = await createRealtimeGatewayApp({
   allowNonAuthoritativeInitialState: gatewayEnv.allowNonAuthoritativeInitialState,
   ...(gatewayEnv.adminApiToken ? { adminApiToken: gatewayEnv.adminApiToken } : {}),
   ...(gatewayEnv.fogAdminEmail ? { fogAdminEmail: gatewayEnv.fogAdminEmail } : {}),
-  emailAlerts: gatewayEnv.emailAlerts
+  emailAlerts: gatewayEnv.emailAlerts,
+  simMetricsUrl: `http://${simReady.metricsHost}:${simReady.metricsPort}/metrics`
 });
 
 await gateway.start();

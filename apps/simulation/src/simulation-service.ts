@@ -55,6 +55,7 @@ import { createInitialSeasonState, updateSeasonVictoryTrackers } from "./season-
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "./season-worldgen.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import { createMainThreadTaskTracker } from "./main-thread-task-tracker.js";
+import { createSimRequestTracer } from "./request-tracer.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
   if (!value) return undefined;
@@ -272,6 +273,10 @@ type SimulationServiceOptions = {
   allowSeedRecoveryFallback?: boolean;
   requireDurableStartupState?: boolean;
   useAiWorker?: boolean;
+  aiDryRun?: boolean;
+  aiMaxCommandsPerTick?: number;
+  aiDisableExpand?: boolean;
+  aiDisableBuild?: boolean;
   commandStore?: SimulationCommandStore;
   eventStore?: SimulationEventStore;
   snapshotStore?: SimulationSnapshotStore;
@@ -1743,6 +1748,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   simulationMetrics.observeSimAiNoFrontierDetail(formatNoFrontierDiagnostic("worker", diagnostic));
                 }
               }
+            },
+            ...(options.aiDryRun ? { experimentDryRun: true } : {}),
+            ...(options.aiMaxCommandsPerTick ? { experimentMaxCommandsPerTick: options.aiMaxCommandsPerTick } : {}),
+            ...(options.aiDisableExpand ? { experimentDisableExpand: true } : {}),
+            ...(options.aiDisableBuild ? { experimentDisableBuild: true } : {}),
+            onExperimentFilter: (reason) => {
+              if (reason === "dry_run") simulationMetrics.incrementSimAiDryRunSkipped();
+              else if (reason === "command_cap") simulationMetrics.incrementSimAiCommandCapSkipped();
+              else if (reason === "expand_disabled") simulationMetrics.incrementSimAiExpandDisabled();
+              else if (reason === "build_disabled") simulationMetrics.incrementSimAiBuildDisabled();
             }
           })
         : createAiCommandProducer({
@@ -2077,15 +2092,24 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       void (async () => {
         const acceptStartedAt = Date.now();
         const lane = laneForCommand(command);
+        const simTracer = createSimRequestTracer({
+          commandId: command.commandId,
+          commandType: command.type,
+          playerId: command.playerId,
+          lane
+        });
         try {
           if (fatalPersistenceError) {
             throw fatalPersistenceError;
           }
           if (currentSeasonState.status === "ended") {
+            simTracer.stage("sim_rejected", { reason: "season_ended" });
             callback(new Error("season ended"), { ok: false });
             return;
           }
+          simTracer.stage("sim_submit_durable_start", { queueDepths: runtime.queueDepths() });
           await submitDurableCommand(command);
+          simTracer.stage("sim_submit_durable_end", { queueDepths: runtime.queueDepths() });
           const acceptDurationMs = Date.now() - acceptStartedAt;
           simulationMetrics.observeSimCommandAcceptLatencyMs(lane, acceptDurationMs);
           if (acceptDurationMs >= slowSubmitWarnMs) {
@@ -2100,8 +2124,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               latestEventLoopLagMs
             });
           }
+          simTracer.done();
           callback(null, { ok: true });
         } catch (error) {
+          simTracer.stage("sim_submit_failed", { error: error instanceof Error ? error.message : String(error) });
           recordLagDiagnostic("error", "simulation_submit_command_failed", {
             commandId: command.commandId,
             playerId: command.playerId,

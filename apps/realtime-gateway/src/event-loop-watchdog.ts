@@ -50,6 +50,9 @@ type WatchdogOptions = {
   killStatePath?: string;
   enabled?: boolean;
   label?: string;
+  /** Called on each heartbeat; result is piggybacked on the ping so the
+   *  worker can log last-known runtime state at kill/rate-limit time. */
+  getDiagSnapshot?: () => Record<string, unknown>;
 };
 
 type WatchdogHandle = {
@@ -75,6 +78,7 @@ const buildWorkerSource = (params: {
   let lastPingAt = Date.now();
   let armed = false;
   let armReason = "";
+  let lastDiag = {};
 
   const readLastKillAt = () => {
     try {
@@ -121,6 +125,7 @@ const buildWorkerSource = (params: {
     if (!msg) return;
     if (msg.type === "ping" && typeof msg.at === "number") {
       lastPingAt = msg.at;
+      if (msg.diag && typeof msg.diag === "object") lastDiag = msg.diag;
     } else if (msg.type === "arm") {
       armOnce("main_signal");
     } else if (msg.type === "stop") {
@@ -152,7 +157,8 @@ const buildWorkerSource = (params: {
         stalledMs,
         stallThresholdMs: STALL_MS,
         sinceLastKillMs,
-        minKillIntervalMs: MIN_KILL_INTERVAL_MS
+        minKillIntervalMs: MIN_KILL_INTERVAL_MS,
+        lastDiag
       }) + "\\n");
       return;
     }
@@ -166,7 +172,8 @@ const buildWorkerSource = (params: {
       armReason,
       stalledMs,
       stallThresholdMs: STALL_MS,
-      sinceLastKillMs: lastKillAt > 0 ? sinceLastKillMs : null
+      sinceLastKillMs: lastKillAt > 0 ? sinceLastKillMs : null,
+      lastDiag
     }) + "\\n");
     // Force-kill the whole process; the main thread is unresponsive so
     // a graceful signal can't be acknowledged.
@@ -224,7 +231,8 @@ export const startEventLoopWatchdog = (options: WatchdogOptions = {}): WatchdogH
   });
 
   const heartbeat = setInterval(() => {
-    worker.postMessage({ type: "ping", at: Date.now() });
+    const diag = options.getDiagSnapshot?.();
+    worker.postMessage({ type: "ping", at: Date.now(), ...(diag ? { diag } : {}) });
   }, heartbeatIntervalMs);
   heartbeat.unref();
 

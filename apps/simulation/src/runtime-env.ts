@@ -35,6 +35,23 @@ export type SimulationRuntimeEnv = {
   requireDurableStartupState?: boolean;
   /** When true, AI/system planning runs in worker threads off the main event loop. */
   useAiWorker: boolean;
+  /**
+   * Diagnostic experiment flags — for staging investigation only. Each is a
+   * no-op in production unless explicitly set.
+   *
+   * AI_DRY_RUN: AI worker generates decisions but submitCommand is short-
+   * circuited to a no-op counter. Isolates planning/serialization cost from
+   * action-application/DB/broadcast cost.
+   *
+   * AI_MAX_COMMANDS_PER_TICK: cap actions submitted per AI tick. 0 = no cap.
+   *
+   * AI_DISABLE_EXPAND / AI_DISABLE_BUILD: filter specific action types from AI
+   * output to isolate which action type is causing load.
+   */
+  aiDryRun: boolean;
+  aiMaxCommandsPerTick: number;
+  aiDisableExpand: boolean;
+  aiDisableBuild: boolean;
   healthProbeIntervalMs: number;
   healthProbeTimeoutMs: number;
   healthFailureThreshold: number;
@@ -185,6 +202,13 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     allowSeedRecoveryFallback,
     ...(typeof requireDurableStartupState === "boolean" ? { requireDurableStartupState } : {}),
     useAiWorker: parseBooleanishEnvFlag(env.SIMULATION_AI_WORKER),
+    aiDryRun: parseBooleanishEnvFlag(env.SIMULATION_AI_DRY_RUN),
+    aiMaxCommandsPerTick: Math.max(
+      0,
+      Math.floor(Number(env.SIMULATION_AI_MAX_COMMANDS_PER_TICK ?? "0"))
+    ),
+    aiDisableExpand: parseBooleanishEnvFlag(env.SIMULATION_AI_DISABLE_EXPAND),
+    aiDisableBuild: parseBooleanishEnvFlag(env.SIMULATION_AI_DISABLE_BUILD),
     nonCompetitivePlayerIds,
     ...(systemPlayerIds && systemPlayerIds.length > 0 ? { systemPlayerIds } : {})
   };
