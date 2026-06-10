@@ -28,6 +28,7 @@
     "deploy:client:preview": "node ./scripts/deploy-client-preview.mjs",
     "deploy:client:staging": "node ./scripts/deploy-client-staging.mjs",
     "deploy:client:prod": "node ./scripts/deploy-client-prod.mjs",
+    "deploy:staging:fly": "node ./scripts/deploy-staging-fly.mjs",
     "deploy:staging:all": "node ./scripts/deploy-staging-all.mjs",
     "deploy:prod:all": "node ./scripts/deploy-prod-all.mjs",
     "build": "pnpm -r build",
