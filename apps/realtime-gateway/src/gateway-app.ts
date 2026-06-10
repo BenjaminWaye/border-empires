@@ -149,7 +149,7 @@ const seededAiTruceDecisionFromSnapshot = (
   economyStrained = false
 ): "accept" | "reject" => {
   const tilesByKey = new Map<string, PlayerSubscriptionSnapshot["tiles"][number]>(
-    snapshot.tiles.map((tile) => [`${tile.x},${tile.y}`, tile] as const)
+    snapshot.tiles.map((tile: PlayerSubscriptionSnapshot["tiles"][number]) => [`${tile.x},${tile.y}`, tile] as const)
   );
   let pressuredBorderTiles = 0;
   let pressuredTownTiles = 0;
@@ -361,7 +361,7 @@ const attackPreviewResult = (
   if (!isFrontierAdjacent(from.x, from.y, to.x, to.y)) {
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
-  const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x, y) => tileMap.get(previewTileKey(x, y)));
+  const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
   const preview = buildFrontierCombatPreview(target, { attackerOutpostMult });
   return {
     ...responseBase,
@@ -902,7 +902,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   ): PlayerSubscriptionSnapshot => {
     if (freshTiles.length === 0 && !upkeepLastTick) return snapshot;
     const tileIndex = new Map<string, number>();
-    snapshot.tiles.forEach((tile, idx) => tileIndex.set(`${tile.x},${tile.y}`, idx));
+    snapshot.tiles.forEach((tile: PlayerSubscriptionSnapshot["tiles"][number], idx: number) => tileIndex.set(`${tile.x},${tile.y}`, idx));
     const nextTiles = [...snapshot.tiles];
     let appended = false;
     for (const fresh of freshTiles) {
@@ -1343,7 +1343,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     const targetDecisionSnapshot = playerSubscriptions.snapshotForPlayer(request.toPlayerId);
     const economyStrained = seededAiEconomyStrained(targetDecisionSnapshot?.player ?? seedPlayers.get(request.toPlayerId));
     const seedDecisionSnapshot = playerSubscriptionSnapshotFromSeedWorld(seedWorld, request.fromPlayerId);
-    const liveSnapshotHasTargetTiles = Boolean(decisionSnapshot?.tiles.some((tile) => tile.ownerId === request.toPlayerId));
+    const liveSnapshotHasTargetTiles = Boolean(decisionSnapshot?.tiles.some((tile: PlayerSubscriptionSnapshot["tiles"][number]) => tile.ownerId === request.toPlayerId));
     const liveDecision = decisionSnapshot ? seededAiTruceDecisionFromSnapshot(decisionSnapshot, request, economyStrained) : "reject";
     const seedDecision = seededAiTruceDecisionFromSnapshot(seedDecisionSnapshot, request, economyStrained);
     const decision = liveSnapshotHasTargetTiles ? liveDecision : seedDecision;
@@ -3543,7 +3543,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   fromY: message.fromY,
                   toX: message.toX,
                   toY: message.toY,
-                  commandId: preGeneratedCommandId,
+                  commandId: preGeneratedCommandId!,
                   ...metadata
                 },
                 submitDeps
