@@ -97,6 +97,7 @@ message TileDelta {
   string yield_cap_json = 20;
   uint64 frontier_decay_at = 21;
   string frontier_decay_kind = 22;
+  string muster_json = 23;
 }
 
 message DockRoute {

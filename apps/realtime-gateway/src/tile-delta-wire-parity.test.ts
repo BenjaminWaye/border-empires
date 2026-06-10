@@ -81,6 +81,7 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "economic_structure_json", wireValue: "{\"econ\":1}", camelField: "economicStructureJson", normalized: "{\"econ\":1}" },
   { protoField: "sabotage_json", wireValue: "{\"sab\":1}", camelField: "sabotageJson", normalized: "{\"sab\":1}" },
   { protoField: "shard_site_json", wireValue: "{\"shard\":1}", camelField: "shardSiteJson", normalized: "{\"shard\":1}" },
+  { protoField: "muster_json", wireValue: "{\"ownerId\":\"p1\",\"amount\":5,\"mode\":\"HOLD\",\"updatedAt\":1000}", camelField: "musterJson", normalized: "{\"ownerId\":\"p1\",\"amount\":5,\"mode\":\"HOLD\",\"updatedAt\":1000}" },
   { protoField: "yield_json", wireValue: "{\"gold\":5}", camelField: "yield", normalized: { gold: 5 } },
   { protoField: "yield_rate_json", wireValue: "{\"goldPerMinute\":2}", camelField: "yieldRate", normalized: { goldPerMinute: 2 } },
   { protoField: "yield_cap_json", wireValue: "{\"gold\":100,\"strategicEach\":50}", camelField: "yieldCap", normalized: { gold: 100, strategicEach: 50 } },
