@@ -31,6 +31,8 @@ import {
   SETTLE_COST,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  wrapX,
+  wrapY,
   grassShadeAt,
   isSeaTerrain,
   landBiomeAt,
@@ -6659,19 +6661,12 @@ export class SimulationRuntime {
         }
       }
     } else if (lock.actionType === "EXPAND" && attackerWon) {
-      // A successful EXPAND adds a new frontier tile owned by the expander.
-      // This can reconnect a previously cut-off pocket (the new tile bridges
-      // the pocket back to settled supply). We scope the check to the expander
-      // only — EXPAND never alters another player's territory.
-      //
-      // skipCutOff: EXPAND only adds tiles — it cannot cut off existing territory.
-      // bfsCap 200: reconnection only affects tiles reachable through the new tile;
-      // a tight cap avoids walking the full empire on every expand while remaining
-      // correct for any realistically-sized cut-off pocket.
-      this.applyEncirclement([lock.targetKey], lock.playerId, lock.commandId, {
-        skipCutOff: true,
-        bfsCap: 200,
-      });
+      // EXPAND adds tile B. B is connected (expanded from A which was connected).
+      // Any ENCIRCLEMENT frontier tile neighbouring B is therefore reconnected —
+      // it can now route through B back to settled territory. BFS outward from
+      // those neighbours through all ENCIRCLEMENT frontier tiles to clear the
+      // whole newly-reconnected pocket in one pass. No backward BFS needed.
+      this.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId);
     }
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
     if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
@@ -6693,6 +6688,88 @@ export class SimulationRuntime {
       this.respawnIfEliminated(previousOwnerId, lock.commandId);
       this.ensureGrossIncomeSettlementForPlayer(previousOwnerId, lock.commandId);
       this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
+    }
+  }
+
+  private static readonly EXPAND_NEIGHBOR_OFFSETS = [
+    [-1, -1], [0, -1], [1, -1],
+    [-1,  0],          [1,  0],
+    [-1,  1], [0,  1], [1,  1],
+  ] as const;
+
+  /**
+   * EXPAND-specific encirclement reconnection. The new tile B is guaranteed
+   * connected (expanded from a connected tile). Walk B's 8 neighbours: any
+   * that are ENCIRCLEMENT frontier tiles owned by `playerId` are immediately
+   * reconnected. BFS outward through further ENCIRCLEMENT frontier tiles to
+   * clear the whole pocket in one pass. O(8 + pocket_size), no backward BFS.
+   */
+  private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string): void {
+    const [xStr, yStr] = targetKey.split(",");
+    const bx = Number(xStr);
+    const by = Number(yStr);
+    const aetherBridgeNeighborKeys = this.activeAetherBridgeNeighborKeysForPlayer(playerId);
+
+    const seeds: string[] = [];
+    for (const [dx, dy] of SimulationRuntime.EXPAND_NEIGHBOR_OFFSETS) {
+      const nk = `${wrapX(bx + dx, WORLD_WIDTH)},${wrapY(by + dy, WORLD_HEIGHT)}`;
+      const tile = this.tiles.get(nk);
+      if (tile?.ownerId === playerId && tile.ownershipState === "FRONTIER" && tile.frontierDecayKind === "ENCIRCLEMENT") {
+        seeds.push(nk);
+      }
+    }
+    // Also check aether-bridge virtual neighbours of B
+    for (const nk of aetherBridgeNeighborKeys.get(targetKey) ?? []) {
+      const tile = this.tiles.get(nk);
+      if (tile?.ownerId === playerId && tile.ownershipState === "FRONTIER" && tile.frontierDecayKind === "ENCIRCLEMENT") {
+        seeds.push(nk);
+      }
+    }
+
+    if (seeds.length === 0) return;
+
+    // BFS through ENCIRCLEMENT frontier tiles reachable from seeds — all are reconnected.
+    const visited = new Set<string>(seeds);
+    const queue = [...seeds];
+    const reconnected = new Set<string>(seeds);
+
+    while (queue.length > 0) {
+      // biome-ignore lint: queue.shift() fine for bounded BFS over a cut-off pocket
+      const current = queue.shift()!;
+      const [cxStr, cyStr] = current.split(",") as [string, string];
+      const cx = Number(cxStr);
+      const cy = Number(cyStr);
+      for (const [dx, dy] of SimulationRuntime.EXPAND_NEIGHBOR_OFFSETS) {
+        const nk = `${wrapX(cx + dx, WORLD_WIDTH)},${wrapY(cy + dy, WORLD_HEIGHT)}`;
+        if (visited.has(nk)) continue;
+        visited.add(nk);
+        const tile = this.tiles.get(nk);
+        if (tile?.ownerId === playerId && tile.ownershipState === "FRONTIER" && tile.frontierDecayKind === "ENCIRCLEMENT") {
+          reconnected.add(nk);
+          queue.push(nk);
+        }
+      }
+      for (const nk of aetherBridgeNeighborKeys.get(current) ?? []) {
+        if (visited.has(nk)) continue;
+        visited.add(nk);
+        const tile = this.tiles.get(nk);
+        if (tile?.ownerId === playerId && tile.ownershipState === "FRONTIER" && tile.frontierDecayKind === "ENCIRCLEMENT") {
+          reconnected.add(nk);
+          queue.push(nk);
+        }
+      }
+    }
+
+    const tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[] = [];
+    for (const key of reconnected) {
+      const tile = this.tiles.get(key);
+      if (!tile || tile.frontierDecayKind !== "ENCIRCLEMENT") continue;
+      const updated: typeof tile = { ...tile, frontierDecayAt: undefined, frontierDecayKind: undefined };
+      this.replaceTileState(key, updated, commandId);
+      tileDeltas.push(this.tileDeltaFromState(updated));
+    }
+    if (tileDeltas.length > 0) {
+      this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas });
     }
   }
 
