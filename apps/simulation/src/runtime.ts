@@ -5456,7 +5456,7 @@ export class SimulationRuntime {
           markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
         });
       },
-      applyEncirclement: (changedKeys, playerId, commandId) => this.applyEncirclement(changedKeys, playerId, commandId),
+      applyEncirclement: (changedKeys, playerId, commandId) => this.applyEncirclement(changedKeys, playerId, commandId, { bfsCap: 2000 }),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
     });
   }
