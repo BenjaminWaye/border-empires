@@ -178,7 +178,7 @@ export const buildLivePlayerEconomySnapshotAsync = async (
 
   let idx = 0;
   for (const tile of runtimeState.tiles) {
-    if (shouldYieldAt(idx++, 10_000)) await yieldToEventLoop();
+    if (shouldYieldAt(idx++, 50_000)) await yieldToEventLoop();
 
     const tileKey = keyFor(tile.x, tile.y);
     const domainTile = toDomainTile(tile);

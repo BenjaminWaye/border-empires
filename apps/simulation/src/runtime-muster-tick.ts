@@ -55,6 +55,8 @@ export const tickMuster = (input: MusterTickInput): void => {
 
     // Build the set of this player's outpost tile keys for the depot lookup.
     const outpostKeys = outpostTileKeysForPlayer(input, playerId);
+    const batchCommandId = `muster-tick:${playerId}:${input.nowMs}`;
+    const batchDeltas: ReturnType<MusterTickInput["tileDeltaFromState"]>[] = [];
 
     for (const tileKey of musterKeys) {
       const tile = input.tiles.get(tileKey);
@@ -77,12 +79,7 @@ export const tickMuster = (input: MusterTickInput): void => {
           }
         };
         input.replaceTileState(tileKey, currentTile);
-        input.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: `muster-tick:${tileKey}:${input.nowMs}`,
-          playerId,
-          tileDeltas: [input.tileDeltaFromState(currentTile)]
-        });
+        batchDeltas.push(input.tileDeltaFromState(currentTile));
       } else if (elapsedMin > 0) {
         // Stamp updatedAt so elapsed time doesn't accumulate while the pool is
         // empty or the tile is full.
@@ -97,6 +94,15 @@ export const tickMuster = (input: MusterTickInput): void => {
       if (currentTile.muster?.mode === "ADVANCE") {
         maybeAdvanceFire(input, currentTile, playerId);
       }
+    }
+
+    if (batchDeltas.length > 0) {
+      input.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: batchCommandId,
+        playerId,
+        tileDeltas: batchDeltas
+      });
     }
   }
 };
