@@ -4713,6 +4713,39 @@ describe("simulation runtime", () => {
     expect(uncaptureTileDelta?.ownershipState).toBeUndefined();
   });
 
+  it("marks downstream frontier tiles as encircled when the bridging tile is uncaptured", async () => {
+    // S (settled, 20,20) — F1 (frontier, 21,20) — F2 (frontier, 22,20)
+    // F2's only path to settled territory runs through F1.
+    // Deleting F1 must trigger encirclement on F2.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialState: {
+        tiles: [
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 21, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 22, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    runtime.submitCommand({
+      commandId: "uncapture-bridge",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "UNCAPTURE_TILE",
+      payloadJson: JSON.stringify({ x: 21, y: 20 })
+    });
+
+    await Promise.resolve();
+
+    const f2 = runtime.exportState().tiles.find((t) => t.x === 22 && t.y === 20);
+    expect(f2?.frontierDecayKind).toBe("ENCIRCLEMENT");
+    expect(typeof f2?.frontierDecayAt).toBe("number");
+  });
+
   it("rejects abandoning the last owned town so upkeep cannot continue with zero town income", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
