@@ -40,6 +40,7 @@ import { createPlayerSubscriptionRegistry } from "./subscription-registry.js";
 import { createSimulationPersistenceQueue } from "./simulation-persistence-queue.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "./runtime.js";
+import type { RuntimeExportState } from "./runtime-state-export.js";
 import { loadSimulationStartupRecovery } from "./startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "./startup-replay-compaction.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
@@ -166,6 +167,7 @@ const formatNoFrontierDiagnostic = (
   return parts.join(":");
 };
 
+type TileDeltaBatchTile = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
 type ProtoSimulationEvent = {
   event_type: string;
   command_id: string;
@@ -419,7 +421,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
     : {}),
   tile_deltas:
     value.eventType === "TILE_DELTA_BATCH"
-      ? value.tileDeltas.map((tile) => ({
+      ? value.tileDeltas.map((tile: TileDeltaBatchTile) => ({
           x: tile.x,
           y: tile.y,
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
@@ -447,7 +449,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
   ...(value.eventType === "TILE_DELTA_BATCH"
     ? {
         tile_delta_json: JSON.stringify(value.tileDeltas),
-        tileDeltas: value.tileDeltas.map((tile) => ({
+        tileDeltas: value.tileDeltas.map((tile: TileDeltaBatchTile) => ({
           x: tile.x,
           y: tile.y,
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
@@ -2311,7 +2313,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             ...(snapshotPayload.season ? { season_json: JSON.stringify(snapshotPayload.season) } : {}),
             ...(snapshotPayload.docks?.length
               ? {
-                  docks: snapshotPayload.docks.map((dock) => ({
+                  docks: snapshotPayload.docks.map((dock: RuntimeExportState["docks"][number]) => ({
                     dock_id: dock.dockId,
                     tile_key: dock.tileKey,
                     paired_dock_id: dock.pairedDockId,
@@ -2319,7 +2321,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   }))
                 }
               : {}),
-            tiles: snapshotPayload.tiles.map((tile) => ({
+            tiles: snapshotPayload.tiles.map((tile: RuntimeExportState["tiles"][number]) => ({
               x: tile.x,
               y: tile.y,
               ...(tile.terrain ? { terrain: tile.terrain } : {}),

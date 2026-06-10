@@ -27,7 +27,7 @@ export const applyTileDeltasToSnapshot = (
   tileDeltas: TileDelta[]
 ): PlayerSubscriptionSnapshot => {
   const tiles = new Map<string, PlayerSubscriptionSnapshot["tiles"][number]>(
-    snapshot.tiles.map((tile) => [tileKeyFor(tile.x, tile.y), tile] as const)
+    snapshot.tiles.map((tile: PlayerSubscriptionSnapshot["tiles"][number]) => [tileKeyFor(tile.x, tile.y), tile] as const)
   );
   for (const tileDelta of tileDeltas) {
     const tileKey = tileKeyFor(tileDelta.x, tileDelta.y);

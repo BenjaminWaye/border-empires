@@ -26,6 +26,7 @@ import {
   SEASON_VICTORY_TOWN_CONTROL_SHARE,
   VICTORY_PRESSURE_DEFS,
   VICTORY_RESOURCE_TYPES,
+  type VictoryPressureDefinition,
   diplomaticDominanceProgressLabel,
   diplomaticDominanceThresholdLabel,
   maritimeSupremacyProgressLabel,
@@ -326,9 +327,9 @@ const recoverSeasonVictoryNamesFromSnapshot = (
   });
 
 const firstOwnedTile = (playerId: string, snapshot: PlayerSubscriptionSnapshot): { x: number; y: number } | undefined => {
-  const townTile = snapshot.tiles.find((tile) => tile.ownerId === playerId && tile.townType);
+  const townTile = snapshot.tiles.find((tile: PlayerSubscriptionSnapshot["tiles"][number]) => tile.ownerId === playerId && tile.townType);
   if (townTile) return { x: townTile.x, y: townTile.y };
-  const ownedTile = snapshot.tiles.find((tile) => tile.ownerId === playerId);
+  const ownedTile = snapshot.tiles.find((tile: PlayerSubscriptionSnapshot["tiles"][number]) => tile.ownerId === playerId);
   return ownedTile ? { x: ownedTile.x, y: ownedTile.y } : undefined;
 };
 
@@ -615,7 +616,7 @@ const buildSeasonVictoryObjectives = (
     }
     if (tile.resource) {
       const resource = tile.resource as ResourceType;
-      totalResourceCounts[resource] += 1;
+      totalResourceCounts[resource] = (totalResourceCounts[resource] ?? 0) + 1;
       if (tile.ownerId && competitivePlayerIds.has(tile.ownerId)) {
         const owned = ownedResourceCountsByPlayerId.get(tile.ownerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0, OIL: 0 };
         owned[resource] = (owned[resource] ?? 0) + 1;
@@ -640,7 +641,7 @@ const buildSeasonVictoryObjectives = (
   const maritimeDockTarget = Math.max(SEASON_VICTORY_MARITIME_MIN_DOCKS, Math.ceil(totalDocks * SEASON_VICTORY_MARITIME_DOCK_SHARE));
   const diplomaticControlTarget = Math.max(1, Math.ceil(totalLandTiles * SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE));
   const trackers = new Map(snapshotBootstrap.seasonVictory ?? []);
-  return VICTORY_PRESSURE_DEFS.map((def) => {
+  return VICTORY_PRESSURE_DEFS.map((def: VictoryPressureDefinition) => {
     let leaderPlayerId: string | undefined;
     let leaderName = "No leader";
     let leaderValue = 0;
@@ -1015,8 +1016,8 @@ export const buildGatewayInitPayload = (
       dockPairCount: dockPairs.length,
       clusterCount: snapshotBootstrap?.clusters?.length ?? 0,
       townCount:
-        snapshotBootstrap?.initialState.tiles.filter((tile) => tile.town).length ??
-        initialState?.tiles.filter((tile) => tile.townType).length ??
+        snapshotBootstrap?.initialState.tiles.filter((tile: { town?: unknown }) => tile.town).length ??
+        initialState?.tiles.filter((tile: PlayerSubscriptionSnapshot["tiles"][number]) => tile.townType).length ??
         seedWorld.summary.totalTownTiles,
       dockPairs
     }

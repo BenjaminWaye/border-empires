@@ -93,7 +93,7 @@ const recoverSeasonVictory = (
   seasonVictory: SeasonVictorySnapshot | undefined,
   profileOverrides: PlayerProfileOverrides
 ): SeasonVictorySnapshot | undefined =>
-  seasonVictory?.map((objective) => {
+  seasonVictory?.map((objective: NonNullable<SeasonVictorySnapshot>[number]) => {
     if (!objective.leaderPlayerId) return objective;
     const override = profileOverrides.get(objective.leaderPlayerId);
     return override?.name ? { ...objective, leaderName: override.name } : objective;

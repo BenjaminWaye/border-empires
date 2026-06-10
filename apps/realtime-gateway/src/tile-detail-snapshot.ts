@@ -229,12 +229,12 @@ export const buildSnapshotTileDetail = (
   x: number,
   y: number
 ): TileUpdate | undefined => {
-  const tile = snapshot?.tiles.find((candidate) => candidate.x === x && candidate.y === y);
+  const tile = snapshot?.tiles.find((candidate: PlayerSubscriptionSnapshot["tiles"][number]) => candidate.x === x && candidate.y === y);
   if (!tile) return undefined;
   const update: TileUpdate = { ...tile, detailLevel: "full" };
   if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return update;
 
-  const tilesByKey = new Map((snapshot?.tiles ?? []).map((entry) => [keyFor(entry.x, entry.y), entry] as const));
+  const tilesByKey = new Map((snapshot?.tiles ?? []).map((entry: PlayerSubscriptionSnapshot["tiles"][number]) => [keyFor(entry.x, entry.y), entry] as const));
 
   const upkeepEntries: Array<{ label: string; perMinute: Record<string, number> }> = [];
   const parsedTown = parseTown(tile);

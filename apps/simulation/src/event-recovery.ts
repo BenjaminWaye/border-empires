@@ -122,7 +122,7 @@ export const createRecoveredSimulationAccumulator = (
     tiles,
     docks: baseState.docks ? baseState.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) : [],
     activeLocks,
-    ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker) => ({ ...tracker })) } } : {}),
+    ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker: SimulationSeasonState["victoryTrackers"][number]) => ({ ...tracker })) } } : {}),
     players: baseState.players
       ? baseState.players.map((player) => ({
           ...player,
@@ -449,7 +449,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
         removeRecoveredPendingSettlementIfOwnerChanged(accumulator, targetKey, event.playerId);
       } else if (event.combatResult?.defenderOwnerId) {
         const originLost = event.combatResult.changes.some(
-          (change) => change.x === event.originX && change.y === event.originY
+          (change: { x: number; y: number }) => change.x === event.originX && change.y === event.originY
         );
         if (originLost) {
           const originKey = simulationTileKey(event.originX, event.originY);

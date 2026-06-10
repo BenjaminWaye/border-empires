@@ -191,7 +191,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simSnapshotTilesJsonBytes: number[] = [];
   const simSnapshotRecent: SimulationSnapshotMetricSample[] = [];
   const simAiCommandTotalByType = new Map<DurableCommandType, number>(
-    DURABLE_COMMAND_TYPES.map((type) => [type, 0])
+    DURABLE_COMMAND_TYPES.map((type: DurableCommandType) => [type, 0])
   );
   const simAiCommandRecent: string[] = [];
   const simAiPreplanTotalByReason = new Map<AutomationPreplanReason, number>(
@@ -273,7 +273,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiBroadFallbackSkipped: Object.fromEntries(simAiBroadFallbackSkipped),
     simAiNarrowAnalyzeCapped: Object.fromEntries(simAiNarrowAnalyzeCapped),
     simAiCommandTotalByType: Object.fromEntries(
-      DURABLE_COMMAND_TYPES.map((type) => [type, simAiCommandTotalByType.get(type) ?? 0])
+      DURABLE_COMMAND_TYPES.map((type: DurableCommandType) => [type, simAiCommandTotalByType.get(type) ?? 0])
     ) as Record<DurableCommandType, number>,
     simAiCommandRecent: [...simAiCommandRecent],
     simAiPreplanTotalByReason: Object.fromEntries(
@@ -602,7 +602,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p99\"} ${formatMetricValue(commandSample.p99)}`);
       }
       for (const commandType of DURABLE_COMMAND_TYPES) {
-        lines.push(`sim_ai_command_total{type=\"${commandType}\"} ${formatMetricValue(sample.simAiCommandTotalByType[commandType])}`);
+        lines.push(`sim_ai_command_total{type=\"${commandType}\"} ${formatMetricValue(sample.simAiCommandTotalByType[commandType] ?? 0)}`);
       }
       for (const reason of AUTOMATION_PREPLAN_REASONS) {
         lines.push(`sim_ai_preplan_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiPreplanTotalByReason[reason])}`);
