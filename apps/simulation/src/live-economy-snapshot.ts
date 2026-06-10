@@ -8,17 +8,21 @@ import {
   type RuntimeState,
   type LivePlayerEconomySnapshot,
   type EconomyBucket,
+  type StrategicResourceKey,
   keyFor,
   toDomainTile,
+  parseTown,
   parseStructure,
   snapshotEconomyPlayer,
   getDomainTilesByKey,
-  getDomainTilesByKeyAsync,
   buildSettledDomainTilesByPlayerId,
-  buildSettledDomainTilesByPlayerIdAsync,
   buildFirstThreeTownKeysByPlayer,
   townKeysWithNearbyWar,
-  computeSeedGranaryBuffedTileKeys
+  computeSeedGranaryBuffedTileKeys,
+  domainTilesByKeyCache,
+  settledDomainTilesByPlayerIdCache,
+  strategicProductionByPlayerCache,
+  fedTownKeysByPlayerCache
 } from "./snapshot-tile-cache.js";
 import {
   emptyStrategic,
@@ -28,10 +32,9 @@ import {
   strategicResourceForTile,
   structureUpkeepPerMinute,
   converterOutputPerMinute,
+  townFoodUpkeepPerMinute,
   buildStrategicProductionByPlayer,
-  buildStrategicProductionByPlayerAsync,
-  buildFedTownKeysByPlayer,
-  buildFedTownKeysByPlayerAsync
+  buildFedTownKeysByPlayer
 } from "./snapshot-economy-helpers.js";
 import { buildTownSummary } from "./live-town-summary.js";
 
@@ -157,8 +160,82 @@ export const buildLivePlayerEconomySnapshotAsync = async (
   const tilesByKey = prebuiltTilesByKey ?? new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
   const player = runtimeState.players.find((entry) => entry.id === playerId);
   const economyPlayer = snapshotEconomyPlayer(player);
-  const domainTilesByKey = await getDomainTilesByKeyAsync(runtimeState, yieldToEventLoop);
-  const settledDomainTilesByPlayerId = await buildSettledDomainTilesByPlayerIdAsync(runtimeState, domainTilesByKey, yieldToEventLoop);
+
+  // Single combined pass — replaces 4 separate O(202k) async scans
+  // (getDomainTilesByKeyAsync, buildSettledDomainTilesByPlayerIdAsync,
+  // buildStrategicProductionByPlayerAsync, buildFedTownKeysByPlayerAsync + a 5th
+  // O(202k) economy loop). One pass yields every 10k tiles (≈5ms CPU per chunk),
+  // then derives fedTownKeysByPlayer without a tile scan, then iterates only the
+  // player's settled tiles for the economy breakdown.
+  // Populates all WeakMap caches so the enrichment phase gets cache hits.
+  const domainTilesByKey = new Map<string, ReturnType<typeof toDomainTile>>();
+  const settledDomainTilesByPlayerId = new Map<string, ReturnType<typeof toDomainTile>[]>();
+  const strategicProductionByPlayer = new Map<string, Record<StrategicResourceKey, number>>();
+  const ownedSettledTownsByPlayerId = new Map<string, RuntimeState["tiles"]>();
+  const playerSettledTiles: RuntimeState["tiles"] = [];
+
+  for (const p of runtimeState.players) strategicProductionByPlayer.set(p.id, emptyStrategic());
+
+  let idx = 0;
+  for (const tile of runtimeState.tiles) {
+    if (shouldYieldAt(idx++, 10_000)) await yieldToEventLoop();
+
+    const tileKey = keyFor(tile.x, tile.y);
+    const domainTile = toDomainTile(tile);
+    domainTilesByKey.set(tileKey, domainTile);
+
+    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
+
+    const settledList = settledDomainTilesByPlayerId.get(tile.ownerId) ?? [];
+    settledList.push(domainTile);
+    settledDomainTilesByPlayerId.set(tile.ownerId, settledList);
+
+    const production = strategicProductionByPlayer.get(tile.ownerId) ?? emptyStrategic();
+    const resourceKey = strategicResourceForTile(tile.resource);
+    if (resourceKey) production[resourceKey] += strategicProductionPerMinuteForResource(tile.resource);
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (structure?.status === "active" && structure.type) {
+      const output = converterOutputPerMinute(structure.type);
+      for (const [resource, amount] of Object.entries(output) as Array<[StrategicResourceKey, number]>) production[resource] += amount;
+    }
+    strategicProductionByPlayer.set(tile.ownerId, production);
+
+    if (tile.townJson || tile.townType) {
+      const towns = ownedSettledTownsByPlayerId.get(tile.ownerId) ?? [];
+      towns.push(tile);
+      ownedSettledTownsByPlayerId.set(tile.ownerId, towns);
+    }
+
+    if (tile.ownerId === playerId) playerSettledTiles.push(tile);
+  }
+
+  // Derive fedTownKeysByPlayer from pre-computed data — no tile scan needed.
+  const fedTownKeysByPlayer = new Map<string, Set<string>>();
+  for (const p of runtimeState.players) {
+    const availableFood = (p.strategicResources?.FOOD ?? 0) + (strategicProductionByPlayer.get(p.id)?.FOOD ?? 0);
+    let remainingFood = availableFood;
+    const fedTownKeys = new Set<string>();
+    const towns = ownedSettledTownsByPlayerId.get(p.id) ?? [];
+    towns.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+    for (const townTile of towns) {
+      const town = parseTown(townTile);
+      const upkeep = townFoodUpkeepPerMinute(town?.populationTier);
+      if (upkeep <= 0) { fedTownKeys.add(keyFor(townTile.x, townTile.y)); continue; }
+      if (remainingFood + 1e-9 >= upkeep) {
+        fedTownKeys.add(keyFor(townTile.x, townTile.y));
+        remainingFood = Math.max(0, remainingFood - upkeep);
+      }
+    }
+    fedTownKeysByPlayer.set(p.id, fedTownKeys);
+  }
+
+  // Populate all WeakMap caches so the enrichment phase (buildEnrichmentContextAsync)
+  // gets cache hits instead of repeating any of these scans.
+  domainTilesByKeyCache.set(runtimeState, domainTilesByKey);
+  settledDomainTilesByPlayerIdCache.set(runtimeState, settledDomainTilesByPlayerId);
+  strategicProductionByPlayerCache.set(runtimeState, strategicProductionByPlayer);
+  fedTownKeysByPlayerCache.set(runtimeState, fedTownKeysByPlayer);
+
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
   const townNetwork = economyPlayer
     ? buildConnectedTownNetworkForPlayer(economyPlayer, domainTilesByKey, settledDomainTilesByPlayerId.get(playerId) ?? [], {
@@ -168,11 +245,10 @@ export const buildLivePlayerEconomySnapshotAsync = async (
   await yieldToEventLoop();
   const firstThreeTownKeys = buildFirstThreeTownKeysByPlayer(runtimeState).get(playerId);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
-  const strategicProductionByPlayer = await buildStrategicProductionByPlayerAsync(runtimeState, yieldToEventLoop);
-  const fedTownKeysByPlayer = await buildFedTownKeysByPlayerAsync(runtimeState, strategicProductionByPlayer, yieldToEventLoop);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
   const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   await yieldToEventLoop();
+
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -188,10 +264,10 @@ export const buildLivePlayerEconomySnapshotAsync = async (
   const oilSinks = new Map<string, EconomyBucket>();
   const strategicProductionPerMinute = strategicProductionByPlayer.get(playerId) ?? emptyStrategic();
 
-  let tileIndex = 0;
-  for (const tile of runtimeState.tiles) {
-    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
-    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
+  // Economy breakdown iterates only this player's settled tiles — O(player_settled)
+  // not O(202k). No yield needed: even a large empire's settled tiles are a small
+  // fraction of the total tile count.
+  for (const tile of playerSettledTiles) {
     addBucket(goldSinks, "Settled land upkeep", 0.04, { count: 1, note: "1 settled tile" });
     const resourceKey = strategicResourceForTile(tile.resource);
     const resourceRate = strategicProductionPerMinuteForResource(tile.resource);
