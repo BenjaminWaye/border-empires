@@ -419,9 +419,6 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
     }
     keys.push(tileKey);
   }
-  for (const keys of ownedTileKeysByPlayer.values()) {
-    keys.sort((a, b) => a.localeCompare(b));
-  }
   recordPhaseTiming("owned_tile_index_async", ownedTileIndexStartedAt, {
     sourceTileCount: sourceTiles.length,
     playerCount: ownedTileKeysByPlayer.size
