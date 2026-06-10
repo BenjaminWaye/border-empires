@@ -258,17 +258,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   const applyIncomingRespawnNotice = (value: unknown): void => {
     const notice = normalizeRespawnNotice(value);
-    console.info("[respawn-debug] applyIncomingRespawnNotice", {
-      hasRawValue: value !== undefined && value !== null,
-      rawValueType: typeof value,
-      normalizedOk: notice !== undefined,
-      noticeId: notice?.id,
-      reasonCode: notice?.reasonCode,
-      triggerEvent: notice?.triggerEvent,
-      lastSeenRespawnNoticeId: state.lastSeenRespawnNoticeId,
-      duplicateOfLastSeen: notice ? state.lastSeenRespawnNoticeId === notice.id : undefined,
-      rawValuePreview: value
-    });
     applyRespawnNoticeToState(state, notice, appendFeedEntry);
   };
 
