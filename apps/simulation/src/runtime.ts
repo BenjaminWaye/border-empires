@@ -6655,7 +6655,7 @@ export class SimulationRuntime {
         if (originLost) affectedPlayerIds.add(lock.playerId);
         if (originLost && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
         for (const pid of affectedPlayerIds) {
-          this.applyEncirclement(encirclementChangedKeys, pid, lock.commandId);
+          this.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, { bfsCap: 2000 });
         }
       }
     } else if (lock.actionType === "EXPAND" && attackerWon) {
