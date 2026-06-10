@@ -107,9 +107,6 @@ export const buildPlayerSubscriptionSnapshot = (
     }
     keys.push(keyFor(tile.x, tile.y));
   }
-  for (const keys of ownedTileKeysByPlayer.values()) {
-    keys.sort((a, b) => a.localeCompare(b));
-  }
   const ownedTileKeys = (pid: string): string[] => ownedTileKeysByPlayer.get(pid) ?? [];
 
   const playersById = new Map(runtimeState.players.map((player) => [player.id, player] as const));
