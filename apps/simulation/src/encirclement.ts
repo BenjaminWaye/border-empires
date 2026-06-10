@@ -144,6 +144,13 @@ export const computeEncirclementDeltas = (
   nowMs: number,
   options?: {
     bfsCap?: number;
+    /**
+     * When true, skip cut-off detection — only detect reconnections.
+     * Safe for EXPAND: adding a tile can never cut off the attacker's own territory.
+     * Callers that pass skipCutOff should also pass a tight bfsCap (e.g. 200) since
+     * only nearby tiles can be reconnected by a single expand.
+     */
+    skipCutOff?: boolean;
     extraNeighborKeys?: ExtraNeighborKeys;
     onCapExceeded?: (playerId: string, visitedCount: number, capLimit: number) => void;
   }
@@ -243,8 +250,7 @@ export const computeEncirclementDeltas = (
     if (!tile || tile.ownerId !== affectedPlayerId || tile.ownershipState !== "FRONTIER") continue;
 
     if (!reachable.has(key)) {
-      // Not reached from any settled supply root — cut off.
-      cutOff.add(key);
+      if (!options?.skipCutOff) cutOff.add(key);
     } else if (
       typeof tile.frontierDecayAt === "number" &&
       tile.frontierDecayKind === "ENCIRCLEMENT"
