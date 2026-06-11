@@ -480,6 +480,47 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
     : {})
 });
 
+// Shared serializer for both SubscribePlayer and FetchTileDetail tile arrays.
+// Both are full-snapshot paths (no clear-signaling semantics) so all structure
+// fields use truthy guards — absent means not present, never "was removed".
+// TILE_DELTA_BATCH uses toProtoEvent with `?? ""` clear-signaling for removals;
+// keep the two serializers separate.
+const toFullSnapshotProtoTile = (tile: {
+  x: number; y: number;
+  terrain?: string | undefined; resource?: string | undefined; dockId?: string | undefined;
+  ownerId?: string | undefined; ownershipState?: string | undefined;
+  frontierDecayAt?: number | undefined; frontierDecayKind?: string | undefined;
+  townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
+  fortJson?: string | undefined; observatoryJson?: string | undefined; siegeOutpostJson?: string | undefined;
+  economicStructureJson?: string | undefined; sabotageJson?: string | undefined; shardSiteJson?: string | undefined;
+  musterJson?: string | undefined;
+  yield?: unknown; yieldRate?: unknown; yieldCap?: unknown;
+}) => ({
+  x: tile.x,
+  y: tile.y,
+  ...(tile.terrain ? { terrain: tile.terrain } : {}),
+  ...(tile.resource ? { resource: tile.resource } : {}),
+  ...(tile.dockId ? { dock_id: tile.dockId } : {}),
+  ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
+  ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
+  ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
+  ...(tile.frontierDecayKind ? { frontier_decay_kind: tile.frontierDecayKind } : {}),
+  ...(tile.townJson ? { town_json: tile.townJson } : {}),
+  ...(tile.townType ? { town_type: tile.townType } : {}),
+  ...(tile.townName ? { town_name: tile.townName } : {}),
+  ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
+  ...(tile.fortJson ? { fort_json: tile.fortJson } : {}),
+  ...(tile.observatoryJson ? { observatory_json: tile.observatoryJson } : {}),
+  ...(tile.siegeOutpostJson ? { siege_outpost_json: tile.siegeOutpostJson } : {}),
+  ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
+  ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
+  ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
+  ...(tile.musterJson ? { muster_json: tile.musterJson } : {}),
+  ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
+  ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
+  ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
+});
+
 const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
 
 const buildBootstrapSeason = ({
@@ -2220,21 +2261,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             paired_dock_id: string;
             connected_dock_ids?: string[];
           }>;
-          tiles: Array<{
-            x: number;
-            y: number;
-            terrain?: string;
-            resource?: string;
-            dock_id?: string;
-            owner_id?: string;
-            ownership_state?: string;
-            frontier_decay_at?: number;
-            frontier_decay_kind?: string;
-            town_json?: string;
-            town_type?: string;
-            town_name?: string;
-            town_population_tier?: string;
-          }>;
+          tiles: Array<ReturnType<typeof toFullSnapshotProtoTile>>;
         }
       ) => void
     ) {
@@ -2324,24 +2351,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   }))
                 }
               : {}),
-            tiles: snapshotPayload.tiles.map((tile) => ({
-              x: tile.x,
-              y: tile.y,
-              ...(tile.terrain ? { terrain: tile.terrain } : {}),
-              ...(tile.resource ? { resource: tile.resource } : {}),
-              ...(tile.dockId ? { dock_id: tile.dockId } : {}),
-              ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
-              ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
-              ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
-              ...(tile.frontierDecayKind ? { frontier_decay_kind: tile.frontierDecayKind } : {}),
-              ...(tile.townJson ? { town_json: tile.townJson } : {}),
-              ...(tile.townType ? { town_type: tile.townType } : {}),
-              ...(tile.townName ? { town_name: tile.townName } : {}),
-              ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-              ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
-              ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-              ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
-            }))
+            tiles: snapshotPayload.tiles.map(toFullSnapshotProtoTile)
           });
           if (!subscribeOptions.emitBootstrapEvent) return;
           const bootstrapEvent = toProtoEvent({
@@ -2461,31 +2471,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         playerId: call.request.player_id,
         x: call.request.x,
         y: call.request.y,
-        tiles: tiles.map((tile) => ({
-          x: tile.x,
-          y: tile.y,
-          ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dock_id: tile.dockId } : {}),
-          ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
-          ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
-          ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
-          ...(tile.frontierDecayKind ? { frontier_decay_kind: tile.frontierDecayKind } : {}),
-          ...(tile.townJson ? { town_json: tile.townJson } : {}),
-          ...(tile.townType ? { town_type: tile.townType } : {}),
-          ...(tile.townName ? { town_name: tile.townName } : {}),
-          ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-          ...(tile.fortJson ? { fort_json: tile.fortJson } : {}),
-          ...(tile.observatoryJson ? { observatory_json: tile.observatoryJson } : {}),
-          ...(tile.siegeOutpostJson ? { siege_outpost_json: tile.siegeOutpostJson } : {}),
-          ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
-          ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
-          ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
-          ...(tile.musterJson ? { muster_json: tile.musterJson } : {}),
-          ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
-          ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-          ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
-        })),
+        tiles: tiles.map(toFullSnapshotProtoTile),
         ...(upkeep ? { player_upkeep_json: JSON.stringify(upkeep) } : {})
       });
     },
