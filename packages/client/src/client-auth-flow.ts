@@ -319,6 +319,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           authSession.uid = "";
           setAuthBusy(false);
           state.authRetrying = false;
+          state.authRetryAttempt = 0;
+          state.authRetryNextAt = 0;
           dom.authProfileNameEl.value = "";
           dom.authProfileColorEl.value = "#38b000";
           syncAuthOverlay();
