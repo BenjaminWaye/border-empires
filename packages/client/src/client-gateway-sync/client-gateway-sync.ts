@@ -160,8 +160,8 @@ const isRenderableTownSummary = (town: PartialTownSummary | undefined): town is 
       isOptionalBoolean(town.hasSeedGranary) &&
       isOptionalBoolean(town.seedGranaryActive) &&
       isOptionalBoolean(town.seedGranaryBuffed) &&
-      isOptionalBoolean(town.hasBank) &&
-      isOptionalBoolean(town.bankActive) &&
+      isOptionalBoolean(town.hasBank) && isOptionalBoolean(town.bankActive) &&
+      isOptionalBoolean(town.hasClearingHouse) && isOptionalBoolean(town.clearingHouseActive) && (town.clearingHouseTownNames === undefined || hasStringArray(town.clearingHouseTownNames)) &&
       isFiniteOptionalNumber(town.foodUpkeepPerMinute) &&
       (town.growthModifiers === undefined || isGrowthModifierArray(town.growthModifiers)) &&
       (town.nextPopulationTierUpgrade === undefined || isNextPopulationTierUpgrade(town.nextPopulationTierUpgrade))
@@ -403,7 +403,6 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("muster" in normalizedGateway) {
     if (normalizedGateway.muster) merged.muster = normalizedGateway.muster;
     else delete merged.muster;
-    console.info("[muster-debug] applyGatewayTileUpdate muster field", { x: update.x, y: update.y, musterJsonRaw: (update as Record<string, unknown>).musterJson, normalizedMuster: normalizedGateway.muster ?? null, mergedMuster: merged.muster ?? null });
   }
 
   if ("ownerId" in normalizedGateway) {

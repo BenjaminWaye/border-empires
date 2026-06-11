@@ -4,6 +4,7 @@
   "buildCommand": "pnpm --filter @border-empires/client build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/admin/:path*", "destination": "/api/admin/:path*" },
     { "source": "/rally/new", "destination": "/" },
     { "source": "/r/:code", "destination": "/" }
   ]

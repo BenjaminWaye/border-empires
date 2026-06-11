@@ -1387,17 +1387,13 @@ describe("client network regression guards", () => {
     expect(pushFeed).toHaveBeenCalledWith("Fort at (33, 44) queued. It will start when a development slot frees up.", "combat", "info");
   });
 
-  it("drops back to disconnected bootstrap state when the server reports SERVER_STARTING", () => {
+  it("keeps the socket-connected bootstrap state and schedules auth retry when the server reports SERVER_STARTING", () => {
     const state = createState();
     const ws = new FakeWebSocket();
-    const renderHud = vi.fn();
-    const syncAuthOverlay = vi.fn();
-    const setAuthStatus = vi.fn();
-    const windowStub = {
-      setTimeout: vi.fn(() => 1),
-      clearTimeout: vi.fn()
-    };
-    vi.stubGlobal("window", windowStub);
+    const authenticateSocket = vi.fn(async () => {});
+    const renderHud = vi.fn(), syncAuthOverlay = vi.fn(), setAuthStatus = vi.fn();
+    vi.useFakeTimers();
+    vi.stubGlobal("window", { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout });
 
     bindClientNetwork({
       state,
@@ -1408,7 +1404,7 @@ describe("client network regression guards", () => {
       renderHud,
       setAuthStatus,
       syncAuthOverlay,
-      authenticateSocket: vi.fn(async () => {}),
+      authenticateSocket,
       pushFeed: vi.fn(),
       pushFeedEntry: vi.fn(),
       clearOptimisticTileState: vi.fn(),
@@ -1466,16 +1462,16 @@ describe("client network regression guards", () => {
       })
     });
 
-    expect(state.authSessionReady).toBe(false);
-    expect(state.connection).toBe("disconnected");
-    expect(state.firstChunkAt).toBe(0);
-    expect(state.chunkFullCount).toBe(0);
-    expect(state.authBusy).toBe(true);
-    expect(state.authRetrying).toBe(true);
+    expect([state.authSessionReady, state.connection, state.firstChunkAt, state.chunkFullCount, state.authBusy, state.authRetrying, state.authRetryAttempt]).toEqual([false, "connected", 0, 0, true, true, 1]);
+    expect(state.authRetryNextAt).toBeGreaterThan(0);
     expect(setAuthStatus).toHaveBeenCalledWith("Game server is still starting. Retrying sign-in...");
     expect(syncAuthOverlay).toHaveBeenCalled();
     expect(renderHud).toHaveBeenCalled();
+
+    vi.runOnlyPendingTimers();
+    expect(authenticateSocket).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("rolls back optimistic settlement progress and shows an outage alert on SIMULATION_UNAVAILABLE", () => {

@@ -23,6 +23,7 @@ import {
   notifyIncomingTruceRequest,
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
+import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
@@ -353,8 +354,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   let reconnectReloadTimer: number | undefined;
-  let authReconnectTimer: number | undefined;
-  let authReconnectAttempt = 0;
   let deferredBootstrapRefreshTimer: number | undefined;
   const authProgressIntervalMs = 5000;
   const authProgressIntervalId =
@@ -363,11 +362,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (!state.authBusy || state.authSessionReady || state.authBusyStartedAt <= 0) return;
           const elapsedMs = Date.now() - state.authBusyStartedAt;
           const elapsedSec = Math.max(0, Math.floor(elapsedMs / 1000));
+          const retryInSec = state.authRetryNextAt > 0 ? Math.max(0, Math.ceil((state.authRetryNextAt - Date.now()) / 1000)) : 0;
           const payload = {
             elapsedSec,
             connection: state.connection,
             title: state.authBusyTitle,
             detail: state.authBusyDetail,
+            authRetrying: state.authRetrying,
+            authRetryAttempt: state.authRetryAttempt,
+            retryInSec,
             wsReadyState: ws.readyState
           };
           recordClientDebugEvent("info", "auth-progress", "waiting", payload);
@@ -680,13 +683,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
   };
 
-  const clearAuthReconnectTimer = (): void => {
-    if (authReconnectTimer !== undefined) {
-      window.clearTimeout(authReconnectTimer);
-      authReconnectTimer = undefined;
-    }
-  };
-
   const clearDeferredBootstrapRefreshTimer = (): void => {
     if (deferredBootstrapRefreshTimer !== undefined) {
       window.clearTimeout(deferredBootstrapRefreshTimer);
@@ -704,29 +700,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     );
   }
 
-  const scheduleAuthReconnect = (message: string, forceRefresh = false): void => {
-    clearAuthReconnectTimer();
-    setAuthBusy(true);
-    state.authRetrying = true;
-    setAuthStatus(message);
-    syncAuthOverlay();
-    renderHud();
-    authReconnectAttempt += 1;
-    const baseDelayMs = Math.min(16000, 2000 * 2 ** Math.min(3, authReconnectAttempt - 1));
-    const jitter = 0.5 + Math.random();
-    const delayMs = Math.round(baseDelayMs * jitter);
-    authReconnectTimer = window.setTimeout(() => {
-      authReconnectTimer = undefined;
-      if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN || state.authSessionReady) return;
-      void authenticateSocket(forceRefresh).catch((error: unknown) => {
-        setAuthBusy(false);
-        state.authRetrying = false;
-        setAuthStatus(error instanceof Error ? error.message : "Could not reconnect to the game server.", "error");
-        syncAuthOverlay();
-        renderHud();
-      });
-    }, delayMs);
-  };
+  const authReconnect = createAuthReconnectScheduler({ state, ws, firebaseAuth, setAuthBusy, setAuthStatus, syncAuthOverlay, renderHud, authenticateSocket });
+  const clearAuthReconnectTimer = (): void => authReconnect.clear();
+  const resetAuthReconnectAttempt = (): void => authReconnect.resetAttempt();
+  const scheduleAuthReconnect = (message: string, forceRefresh = false): void => authReconnect.schedule(message, forceRefresh);
 
   const scheduleReconnectReload = (): void => {
     if (!state.hasEverInitialized) return;
@@ -987,6 +964,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
     clearAuthReconnectTimer();
+    resetAuthReconnectAttempt();
     if (state.authReady && !state.authSessionReady) {
       applyLoginPhase("Securing session", `Realtime connection open. Sending Google session for ${state.authUserLabel || "your empire"}...`);
     }
@@ -1022,7 +1000,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Connection lost. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
-      applyLoginPhase("Securing session", `Realtime connection dropped. Reconnecting to ${wsUrl}...`);
+      applyLoginPhase("Connection interrupted", `The realtime connection to ${wsUrl} closed before sign-in finished. Reload the game to reconnect.`);
+      state.authRetrying = false;
+      state.authRetryAttempt = 0;
     }
     clearAuthReconnectTimer();
     scheduleReconnectReload();
@@ -1057,9 +1037,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     pushFeed("Server unreachable. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
       applyLoginPhase(
-        "Securing session",
-        `Google account connected, but the realtime game connection to ${wsUrl} has not opened yet. The server may still be starting or overloaded.`
+        "Connection interrupted",
+        `The realtime connection to ${wsUrl} failed before sign-in finished. Reload the game to reconnect.`
       );
+      state.authRetrying = false;
+      state.authRetryAttempt = 0;
     }
     clearAuthReconnectTimer();
     scheduleReconnectReload();
@@ -1188,7 +1170,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.connection = "initialized";
       state.authSessionReady = true;
       state.hasEverInitialized = true;
-      authReconnectAttempt = 0;
+      resetAuthReconnectAttempt();
       setAuthBusy(false);
       state.authRetrying = false;
       state.authBusyTitle = "";
@@ -2821,14 +2803,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
-          state.connection = "disconnected";
+          state.connection = ws.readyState === ws.OPEN ? "connected" : "disconnected";
           state.mapLoadStartedAt = Date.now();
           state.firstChunkAt = 0;
           state.chunkFullCount = 0;
           state.authBusyTitle = "Securing session";
           state.authBusyDetail =
             errorCode === "SERVER_STARTING"
-              ? "The game server is still starting. Retrying sign-in shortly..."
+              ? "The game server is still starting. Sign-in will retry automatically."
               : "Google account connected, but the authentication service did not answer in time. Retrying...";
           scheduleAuthReconnect(
             errorCode === "SERVER_STARTING"

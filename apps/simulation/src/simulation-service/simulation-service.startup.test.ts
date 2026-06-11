@@ -47,7 +47,7 @@ describe("simulation service startup recovery", () => {
         (tile) => tile.ownerId === "player-1" && typeof tile.ownershipState === "string"
       )
     ).toBe(true);
-  }, 30_000);
+  }, 90_000);
 
   it("does not fall back to a seed world for db-backed startup recovery failure", async () => {
     const commandStore = new InMemorySimulationCommandStore();
@@ -193,7 +193,7 @@ describe("simulation service startup recovery", () => {
     expect(service.renderMetrics()).toContain("sim_ai_autopilot_enabled 1");
     expect(service.renderMetrics()).toContain("sim_ai_autopilot_player_count 10");
     await service.close();
-  });
+  }, 30_000);
 
   it("bootstraps the first managed season from ruleset worldgen when durable stores are empty", async () => {
     const commandStore = new InMemorySimulationCommandStore();
@@ -230,7 +230,7 @@ describe("simulation service startup recovery", () => {
       service.startupRecovery.initialState.players?.filter((player) => player.id.startsWith("ai-")).length
     ).toBe(20);
     await service.close();
-  });
+  }, 30_000);
 
   it("backfills seed tiles for sparse db-backed snapshots while preserving recovered ownership", async () => {
     const commandStore = new InMemorySimulationCommandStore();

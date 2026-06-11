@@ -18,12 +18,9 @@ import type { TileAreaEffectModifier } from "../client-structure-effects/client-
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
 const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
-  type === "FUR_SYNTHESIZER" ||
-  type === "ADVANCED_FUR_SYNTHESIZER" ||
-  type === "IRONWORKS" ||
-  type === "ADVANCED_IRONWORKS" ||
-  type === "CRYSTAL_SYNTHESIZER" ||
-  type === "ADVANCED_CRYSTAL_SYNTHESIZER";
+  ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "IRONWORKS", "ADVANCED_IRONWORKS", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"].includes(type);
+
+const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% fed gold production and +50% gold storage cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +1 gold/m.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, +0.5 Bank gold/m.` : undefined; };
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "IRON_BASTION" ? "Iron Bastion" : "Fort";
@@ -485,6 +482,7 @@ export const menuOverviewForTile = (
     const town = supportedTowns[0];
     if (town) {
       pushLine(town.town?.name ? `Support tile for ${town.town.name}.` : `Support tile for nearby town at (${town.x}, ${town.y}).`);
+      const contributionLine = supportContributionLine(tile, town); if (contributionLine) pushLine(contributionLine);
       if (town.town?.hasMarket) pushLine("Nearby town already has a Market.");
       if (town.town?.hasGranary) pushLine("Nearby town already has a Granary.");
       if (!tile.economicStructure) pushLine("Town buildings like markets and granaries must be built on support tiles.");

@@ -109,11 +109,10 @@ export type Tile = {
     marketActive: boolean;
     hasGranary: boolean;
     granaryActive: boolean;
-    hasSeedGranary?: boolean;
-    seedGranaryActive?: boolean;
-    seedGranaryBuffed?: boolean;
+    hasSeedGranary?: boolean; seedGranaryActive?: boolean; seedGranaryBuffed?: boolean;
     hasBank: boolean;
     bankActive: boolean;
+    hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];
     foodUpkeepPerMinute?: number;
     captureShockUntil?: number;
     populationBeforeCapture?: number;

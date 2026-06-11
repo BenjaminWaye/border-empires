@@ -8,6 +8,7 @@ export type EconomyPlayer = Pick<DomainPlayer, "id" | "techIds" | "domainIds" | 
 export type ConnectedTownNetworkEntry = {
   connectedTownCount: number;
   connectedTownBonus: number;
+  connectedTownKeys?: string[];
   connectedTownNames?: string[];
 };
 
@@ -115,6 +116,7 @@ export const buildConnectedTownNetworkForPlayer = (
     out.set(startTownKey, {
       connectedTownCount,
       connectedTownBonus: connectedTownBonusForPlayer(connectedTownCount, player),
+      ...(directTownKeys.length ? { connectedTownKeys: directTownKeys } : {}),
       ...(connectedTownNames.length ? { connectedTownNames } : {})
     });
   }

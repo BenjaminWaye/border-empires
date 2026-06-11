@@ -19,10 +19,36 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.1",
+  version: "2026.06.11.4",
   title: "What's New",
-  summary: "Fix: Muster state now updates correctly after setting or clearing a muster flag.",
+  summary: "Clearing Houses now apply their economy bonus and building tiles explain their contribution.",
   entries: [
+    {
+      introducedIn: "2026.06.11.4",
+      title: "Building contribution details",
+      why: "Clearing Houses were visible on the map but their Market/Bank economy bonus was not applied in the rewrite snapshot, and clicked buildings did not explain what they were contributing.",
+      changes: [
+        "Clearing Houses now boost covered Market and Bank towns.",
+        "Clicking an active town support building now shows the town it contributes to and the active bonus."
+      ]
+    },
+    {
+      introducedIn: "2026.06.11.3",
+      title: "Clearer sign-in retry feedback",
+      why: "When the realtime server returned SERVER_STARTING during sign-in, the client said it was disconnected even though the socket was still open, and the retry timer was invisible.",
+      changes: [
+        "Server-starting sign-in errors now keep the connection state accurate while retrying the auth payload.",
+        "The loading overlay and auth progress logs now show the retry attempt and countdown instead of repeating vague server-starting copy."
+      ]
+    },
+    {
+      introducedIn: "2026.06.11.2",
+      title: "Muster button works",
+      why: "The simulation was building its gRPC tile-delta responses without the muster_json field, so the SET_MUSTER result arrived at the client as an empty clear signal every time — the muster state was set on the server but the client never saw it.",
+      changes: [
+        "Simulation now includes muster data in tile-delta gRPC responses so SET_MUSTER and CLEAR_MUSTER take effect in the client tile state."
+      ]
+    },
     {
       introducedIn: "2026.06.11.1",
       title: "Muster state updates correctly",
