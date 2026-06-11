@@ -91,6 +91,12 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     options.systemPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
   );
   const pendingPlayers = new Set<string>();
+  const pendingAddedAtMs = new Map<string, number>();
+  // System producer issues one command per player at a time. If neither
+  // COMBAT_RESOLVED nor COMMAND_REJECTED fires (e.g. EXPAND to neutral
+  // territory succeeds silently), the player stays in pendingPlayers forever.
+  // A generous timeout (30 s) clears stuck entries without masking real latency.
+  const PENDING_TIMEOUT_MS = 30_000;
   let tickInFlight = false;
   let lastBacklogState = false;
 
@@ -297,8 +303,15 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
       queuePlayerSync([event.playerId]);
     }
     if (!pendingPlayers.has(event.playerId)) return;
-    if (event.eventType === "COMMAND_REJECTED" || event.eventType === "COMBAT_RESOLVED") {
+    // COMBAT_RESOLVED covers ATTACK. COMMAND_REJECTED covers validation failures.
+    // TILE_DELTA_BATCH covers successful EXPAND to neutral (no combat fires).
+    if (
+      event.eventType === "COMMAND_REJECTED" ||
+      event.eventType === "COMBAT_RESOLVED" ||
+      event.eventType === "TILE_DELTA_BATCH"
+    ) {
       pendingPlayers.delete(event.playerId);
+      pendingAddedAtMs.delete(event.playerId);
     }
   });
 
@@ -348,6 +361,14 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     tickInFlight = true;
     const tickStartedAt = now();
     try {
+      // Expire any player that has been pending longer than the timeout.
+      // Covers commands that succeed without emitting COMBAT_RESOLVED or COMMAND_REJECTED.
+      for (const [playerId, addedAt] of pendingAddedAtMs) {
+        if (tickStartedAt - addedAt > PENDING_TIMEOUT_MS) {
+          pendingPlayers.delete(playerId);
+          pendingAddedAtMs.delete(playerId);
+        }
+      }
       ensureVisionUnionFresh();
       for (const playerId of options.systemPlayerIds) {
         if (pendingPlayers.has(playerId)) continue;
@@ -357,6 +378,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
           const command = await requestPlan(playerId, clientSeq, issuedAt);
           if (!command) continue;
           pendingPlayers.add(playerId);
+          pendingAddedAtMs.set(playerId, now());
           nextClientSeqByPlayer.set(playerId, clientSeq + 1);
           await options.submitCommand(command);
         } catch {
