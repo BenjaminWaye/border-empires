@@ -9,9 +9,20 @@ export function supportedTownKeysForTile(
   x: number,
   y: number
 ): string[] {
+  const townKey = assignedTownKeyForSupportTile(tiles, playerId, x, y);
+  return townKey ? [townKey] : [];
+}
+
+export function assignedTownKeyForSupportTile(
+  tiles: ReadonlyMap<string, DomainTileState>,
+  playerId: string,
+  x: number,
+  y: number
+): string | undefined {
   return adjacentTileStates(tiles, x, y)
-    .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.town)
-    .map((tile) => simulationTileKey(tile.x, tile.y));
+    .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.town && tile.town.populationTier !== "SETTLEMENT")
+    .sort((a, b) => a.x - b.x || a.y - b.y)
+    .map((tile) => simulationTileKey(tile.x, tile.y))[0];
 }
 
 export function supportedDockKeysForTile(
@@ -35,7 +46,11 @@ export function economicStructureForSupportedTown(
   const townX = Number(townXRaw);
   const townY = Number(townYRaw);
   return adjacentTileStates(tiles, townX, townY).find(
-    (tile) => tile.ownerId === playerId && tile.economicStructure?.ownerId === playerId && tile.economicStructure.type === structureType
+    (tile) =>
+      assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) === townKey &&
+      tile.ownerId === playerId &&
+      tile.economicStructure?.ownerId === playerId &&
+      tile.economicStructure.type === structureType
   );
 }
 
@@ -51,6 +66,7 @@ export function firstAvailableTownSupportTile(
   return adjacentTileStates(tiles, townX, townY).find((tile) => {
     if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
     if (tile.town || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;
+    if (assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) !== townKey) return false;
     return structureShowsOnTile(structureType, {
       ownershipState: tile.ownershipState,
       resource: tile.resource,
