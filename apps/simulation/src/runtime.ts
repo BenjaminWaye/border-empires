@@ -34,7 +34,6 @@ import {
   wrapX,
   wrapY,
   grassShadeAt,
-  isSeaTerrain,
   landBiomeAt,
   terrainAt,
   type Terrain,
@@ -58,7 +57,6 @@ import {
   AETHER_BRIDGE_COOLDOWN_MS,
   AETHER_BRIDGE_CRYSTAL_COST,
   AETHER_BRIDGE_DURATION_MS,
-  AETHER_BRIDGE_MAX_SEA_TILES,
   AETHER_WALL_COOLDOWN_MS,
   AETHER_WALL_CRYSTAL_COST,
   AETHER_WALL_DURATION_MS,
@@ -66,8 +64,6 @@ import {
   AETHER_LANCE_CRYSTAL_COST,
   AETHER_LANCE_GOLD_COST,
   AIRPORT_BOMBARD_CRYSTAL_COST,
-  AETHER_TOWER_RADIUS,
-  AEGIS_DOME_PROTECTION_RADIUS,
   AIRPORT_BOMBARD_RANGE,
   IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
   IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
@@ -80,7 +76,6 @@ import {
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
   FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
   IRONWORKS_OVERLOAD_IRON,
-  OBSERVATORY_CAST_RADIUS,
   REVEAL_EMPIRE_ACTIVATION_COST,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
   REVEAL_EMPIRE_STATS_CRYSTAL_COST,
@@ -172,7 +167,6 @@ import {
   chosenTrickleRateForPlayer,
   chooseTechForPlayer,
   multiplicativeEffectForPlayer,
-  observatoryCastRadiusForPlayer,
   recomputeMods
 } from "./tech-domain-bridge.js";
 import {
@@ -335,6 +329,7 @@ import {
   refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl
 } from "./runtime-owned-structure-index.js";
 import {
+  assignedTownKeyForSupportTile as assignedTownKeyForSupportTileImpl,
   economicStructureForSupportedTown as economicStructureForSupportedTownImpl,
   firstAvailableTownSupportTile as firstAvailableTownSupportTileImpl,
   supportedDockKeysForTile as supportedDockKeysForTileImpl,
@@ -4431,16 +4426,11 @@ export class SimulationRuntime {
   }
 
   private getAbilityCooldownUntil(playerId: string, abilityKey: string): number {
-    return this.abilityCooldowns.get(playerId)?.get(abilityKey) ?? 0;
+    return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey);
   }
 
   private setAbilityCooldownUntil(playerId: string, abilityKey: string, untilMs: number): void {
-    let map = this.abilityCooldowns.get(playerId);
-    if (!map) {
-      map = new Map();
-      this.abilityCooldowns.set(playerId, map);
-    }
-    map.set(abilityKey, untilMs);
+    setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs);
   }
 
   private handleImperialExchangeLevyCommand(command: CommandEnvelope): void {
@@ -4951,17 +4941,11 @@ export class SimulationRuntime {
   }
 
   private revealCapacityForPlayer(player: DomainPlayer): number {
-    return player.techIds.has("cryptography") || this.revealTargetsForPlayer(player.id).size > 0 ? 1 : 0;
+    return revealCapacityForPlayerImpl(player, this.revealTargetsForPlayer(player.id).size);
   }
 
   private ownedLandWithinRange(playerId: string, x: number, y: number, range: number): boolean {
-    for (let dy = -range; dy <= range; dy += 1) {
-      for (let dx = -range; dx <= range; dx += 1) {
-        const tile = this.tiles.get(simulationTileKey(x + dx, y + dy));
-        if (tile?.ownerId === playerId && tile.terrain === "LAND") return true;
-      }
-    }
-    return false;
+    return ownedLandWithinRangeImpl(this.tiles, playerId, x, y, range);
   }
 
   /**
@@ -4969,24 +4953,11 @@ export class SimulationRuntime {
    * Mirrors `chebyshevDistanceWrapped` on the client.
    */
   private wrappedChebyshev(ax: number, ay: number, bx: number, by: number): number {
-    const dxRaw = Math.abs(ax - bx);
-    const dyRaw = Math.abs(ay - by);
-    const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
-    const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
-    return Math.max(dx, dy);
+    return wrappedChebyshevImpl(ax, ay, bx, by);
   }
 
   isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
-    const tile = this.tiles.get(tileKey);
-    const structure = tile?.economicStructure;
-    if (!tile || !structure) return false;
-    if (structure.ownerId !== ownerId || structure.type !== structureType || structure.status !== "active") return false;
-    for (const candidate of this.tiles.values()) {
-      const tower = candidate.economicStructure;
-      if (!tower || tower.ownerId !== ownerId || tower.type !== "AETHER_TOWER" || tower.status !== "active") continue;
-      if (this.wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) <= AETHER_TOWER_RADIUS) return true;
-    }
-    return false;
+    return isStructurePoweredImpl(this.tiles, ownerId, tileKey, structureType);
   }
 
   // Aegis Dome shields tiles within AEGIS_DOME_PROTECTION_RADIUS for its
@@ -4994,14 +4965,7 @@ export class SimulationRuntime {
   // enemy player has an active, powered Aegis Dome within range of the target
   // tile, the strike is blocked.
   isTileShieldedByEnemyAegisDome(actorId: string, targetX: number, targetY: number): boolean {
-    for (const candidate of this.tiles.values()) {
-      const dome = candidate.economicStructure;
-      if (!dome || dome.type !== "AEGIS_DOME" || dome.status !== "active") continue;
-      if (!dome.ownerId || dome.ownerId === actorId) continue;
-      if (this.wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
-      if (this.isStructurePowered(dome.ownerId, simulationTileKey(candidate.x, candidate.y), "AEGIS_DOME")) return true;
-    }
-    return false;
+    return isTileShieldedByEnemyAegisDomeImpl(this.tiles, actorId, targetX, targetY);
   }
 
   /**
@@ -5011,9 +4975,7 @@ export class SimulationRuntime {
    * agree on which observatories can reach a target.
    */
   private observatoryCastRadiusFor(playerId: string): number {
-    const player = this.players.get(playerId);
-    if (!player) return OBSERVATORY_CAST_RADIUS;
-    return observatoryCastRadiusForPlayer(player, OBSERVATORY_CAST_RADIUS);
+    return observatoryCastRadiusForImpl(this.players.get(playerId));
   }
 
   /**
@@ -5035,22 +4997,7 @@ export class SimulationRuntime {
     now: number,
     range = this.observatoryCastRadiusFor(playerId)
   ): string | undefined {
-    let bestKey: string | undefined;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (const [tileKey, tile] of this.tiles) {
-      if (tile.ownerId !== playerId) continue;
-      const obs = tile.observatory;
-      if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
-      const distance = this.wrappedChebyshev(tile.x, tile.y, targetX, targetY);
-      if (distance > range) continue;
-      const cooldownUntil = obs.cooldownUntil ?? 0;
-      if (cooldownUntil > now) continue;
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestKey = tileKey;
-      }
-    }
-    return bestKey;
+    return pickReadyOwnedObservatoryForTargetImpl({ tiles: this.tiles, playerId, targetX, targetY, now, range });
   }
 
   /**
@@ -5058,20 +5005,7 @@ export class SimulationRuntime {
    * player). Returns any owned, active, off-cooldown observatory, soonest-ready first.
    */
   private pickReadyOwnedObservatoryAny(playerId: string, now: number): string | undefined {
-    let bestKey: string | undefined;
-    let bestCooldownUntil = Number.POSITIVE_INFINITY;
-    for (const [tileKey, tile] of this.tiles) {
-      if (tile.ownerId !== playerId) continue;
-      const obs = tile.observatory;
-      if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
-      const cooldownUntil = obs.cooldownUntil ?? 0;
-      if (cooldownUntil > now) continue;
-      if (cooldownUntil < bestCooldownUntil) {
-        bestCooldownUntil = cooldownUntil;
-        bestKey = tileKey;
-      }
-    }
-    return bestKey;
+    return pickReadyOwnedObservatoryAnyImpl(this.tiles, playerId, now);
   }
 
   /**
@@ -5102,124 +5036,35 @@ export class SimulationRuntime {
   }
 
   private isCoastalLand(x: number, y: number): boolean {
-    const tile = this.tiles.get(simulationTileKey(x, y));
-    if (!tile || tile.terrain !== "LAND") return false;
-    return [
-      this.tiles.get(simulationTileKey(x, y - 1)),
-      this.tiles.get(simulationTileKey(x + 1, y)),
-      this.tiles.get(simulationTileKey(x, y + 1)),
-      this.tiles.get(simulationTileKey(x - 1, y))
-    ].some((neighbor) => Boolean(neighbor?.terrain && isSeaTerrain(neighbor.terrain)));
+    return isCoastalLandImpl(this.tiles, x, y);
   }
 
   private seaTileCountBetween(ax: number, ay: number, bx: number, by: number): number | undefined {
-    const steps = Math.max(Math.abs(bx - ax), Math.abs(by - ay));
-    if (steps <= 1) return 0;
-    let seaTiles = 0;
-    for (let index = 1; index < steps; index += 1) {
-      const x = Math.round(ax + ((bx - ax) * index) / steps);
-      const y = Math.round(ay + ((by - ay) * index) / steps);
-      const tile = this.tiles.get(simulationTileKey(x, y));
-      if (!tile || !isSeaTerrain(tile.terrain)) return undefined;
-      seaTiles += 1;
-    }
-    return seaTiles;
+    return seaTileCountBetweenImpl(this.tiles, ax, ay, bx, by);
   }
 
   private closestAetherBridgeOrigin(playerId: string, targetX: number, targetY: number): { x: number; y: number } | undefined {
-    let best: { x: number; y: number; seaTiles: number; distance: number } | undefined;
-    for (const tile of this.tiles.values()) {
-      if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED" || !this.isCoastalLand(tile.x, tile.y)) continue;
-      const seaTiles = this.seaTileCountBetween(tile.x, tile.y, targetX, targetY);
-      if (seaTiles === undefined || seaTiles > AETHER_BRIDGE_MAX_SEA_TILES) continue;
-      const distance = Math.max(Math.abs(tile.x - targetX), Math.abs(tile.y - targetY));
-      if (!best || seaTiles < best.seaTiles || (seaTiles === best.seaTiles && distance < best.distance)) {
-        best = { x: tile.x, y: tile.y, seaTiles, distance };
-      }
-    }
-    return best ? { x: best.x, y: best.y } : undefined;
+    return closestAetherBridgeOriginImpl(this.tiles, playerId, targetX, targetY);
   }
 
-  private wallSegments(originX: number, originY: number, direction: AetherWallDirection, length: 1 | 2 | 3): Array<{
-    baseX: number;
-    baseY: number;
-    fromX: number;
-    fromY: number;
-    toX: number;
-    toY: number;
-  }> {
-    const segments: Array<{ baseX: number; baseY: number; fromX: number; fromY: number; toX: number; toY: number }> = [];
-    for (let index = 0; index < length; index += 1) {
-      const baseX = direction === "N" || direction === "S" ? originX + index : originX;
-      const baseY = direction === "E" || direction === "W" ? originY + index : originY;
-      const toX = direction === "E" ? baseX + 1 : direction === "W" ? baseX - 1 : baseX;
-      const toY = direction === "S" ? baseY + 1 : direction === "N" ? baseY - 1 : baseY;
-      segments.push({ baseX, baseY, fromX: baseX, fromY: baseY, toX, toY });
-    }
-    return segments;
+  private wallSegments(originX: number, originY: number, direction: AetherWallDirection, length: 1 | 2 | 3): AetherWallSegment[] {
+    return wallSegmentsImpl(originX, originY, direction, length);
   }
 
   private activeAetherBridgesForPlayer(playerId: string): ActiveAetherBridgeView[] {
-    const active = (this.activeAetherBridgesByPlayer.get(playerId) ?? []).filter((bridge) => bridge.endsAt > this.now());
-    this.activeAetherBridgesByPlayer.set(playerId, active);
-    return active;
+    return activeAetherBridgesForPlayerImpl(this.activeAetherBridgesByPlayer, playerId, this.now());
   }
 
   private activeAetherWallsForPlayer(playerId: string): ActiveAetherWallView[] {
-    const active = (this.activeAetherWallsByPlayer.get(playerId) ?? []).filter((wall) => wall.endsAt > this.now());
-    this.activeAetherWallsByPlayer.set(playerId, active);
-    return active;
+    return activeAetherWallsForPlayerImpl(this.activeAetherWallsByPlayer, playerId, this.now());
   }
 
   private crossingBlockedByAetherWall(fromX: number, fromY: number, toX: number, toY: number): boolean {
-    for (const walls of this.activeAetherWallsByPlayer.values()) {
-      for (const wall of walls) {
-        if (wall.endsAt <= this.now()) continue;
-        for (const segment of this.wallSegments(wall.origin.x, wall.origin.y, wall.direction, wall.length)) {
-          if (
-            (segment.fromX === fromX && segment.fromY === fromY && segment.toX === toX && segment.toY === toY) ||
-            (segment.fromX === toX && segment.fromY === toY && segment.toX === fromX && segment.toY === fromY)
-          ) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
+    return crossingBlockedByAetherWallImpl(this.activeAetherWallsByPlayer, this.now(), fromX, fromY, toX, toY);
   }
 
   private buildRevealEmpireStats(target: DomainPlayer): Record<string, unknown> {
-    let settledTiles = 0;
-    let frontierTiles = 0;
-    let controlledTowns = 0;
-    for (const tile of this.tiles.values()) {
-      if (tile.ownerId !== target.id) continue;
-      if (tile.ownershipState === "SETTLED") settledTiles += 1;
-      if (tile.ownershipState === "FRONTIER") frontierTiles += 1;
-      if (tile.town) controlledTowns += 1;
-    }
-    return {
-      playerId: target.id,
-      playerName: target.name ?? target.id,
-      revealedAt: this.now(),
-      tiles: settledTiles + frontierTiles,
-      settledTiles,
-      frontierTiles,
-      controlledTowns,
-      incomePerMinute: 0,
-      techCount: target.techIds.size,
-      gold: target.points,
-      manpower: target.manpower,
-      manpowerCap: Math.max(target.manpower, 100),
-      strategicResources: {
-        FOOD: target.strategicResources?.FOOD ?? 0,
-        IRON: target.strategicResources?.IRON ?? 0,
-        CRYSTAL: target.strategicResources?.CRYSTAL ?? 0,
-        SUPPLY: target.strategicResources?.SUPPLY ?? 0,
-        SHARD: target.strategicResources?.SHARD ?? 0,
-        OIL: target.strategicResources?.OIL ?? 0
-      }
-    };
+    return buildRevealEmpireStatsImpl(this.tiles.values(), target, this.now());
   }
 
   private emitEvent(event: SimulationEvent): void {
@@ -5511,109 +5356,42 @@ export class SimulationRuntime {
   }
 
   private supportedTownKeysForTile(playerId: string, x: number, y: number): string[] {
-    const townKey = this.assignedTownKeyForSupportTile(playerId, x, y);
-    return townKey ? [townKey] : [];
+    return supportedTownKeysForTileImpl(this.tiles, playerId, x, y);
   }
 
   private assignedTownKeyForSupportTile(playerId: string, x: number, y: number): string | undefined {
-    return this.adjacentTileStates(x, y)
-      .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.town && tile.town.populationTier !== "SETTLEMENT")
-      .sort((a, b) => a.x - b.x || a.y - b.y)
-      .map((tile) => simulationTileKey(tile.x, tile.y))[0];
+    return assignedTownKeyForSupportTileImpl(this.tiles, playerId, x, y);
   }
 
   private supportedDockKeysForTile(playerId: string, x: number, y: number): string[] {
-    return this.adjacentTileStates(x, y)
-      .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.dockId)
-      .map((tile) => simulationTileKey(tile.x, tile.y));
+    return supportedDockKeysForTileImpl(this.tiles, playerId, x, y);
   }
 
   private economicStructureForSupportedTown(playerId: string, townKey: string, structureType: EconomicStructureType): DomainTileState | undefined {
-    const [townXRaw, townYRaw] = townKey.split(",");
-    const townX = Number(townXRaw);
-    const townY = Number(townYRaw);
-    return this.adjacentTileStates(townX, townY).find(
-      (tile) =>
-        this.assignedTownKeyForSupportTile(playerId, tile.x, tile.y) === townKey &&
-        tile.ownerId === playerId &&
-        tile.economicStructure?.ownerId === playerId &&
-        tile.economicStructure.type === structureType
-    );
+    return economicStructureForSupportedTownImpl(this.tiles, playerId, townKey, structureType);
   }
 
   private firstAvailableTownSupportTile(playerId: string, townKey: string, structureType: EconomicStructureType): DomainTileState | undefined {
-    const [townXRaw, townYRaw] = townKey.split(",");
-    const townX = Number(townXRaw);
-    const townY = Number(townYRaw);
-    return this.adjacentTileStates(townX, townY).find((tile) => {
-      if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
-      if (tile.town || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;
-      if (this.assignedTownKeyForSupportTile(playerId, tile.x, tile.y) !== townKey) return false;
-      return structureShowsOnTile(structureType, {
-        ownershipState: tile.ownershipState,
-        resource: tile.resource,
-        dockId: tile.dockId,
-        townPopulationTier: undefined,
-        supportedTownCount: this.supportedTownKeysForTile(playerId, tile.x, tile.y).length,
-        supportedDockCount: this.supportedDockKeysForTile(playerId, tile.x, tile.y).length
-      });
-    });
+    return firstAvailableTownSupportTileImpl(this.tiles, playerId, townKey, structureType);
   }
 
   private ownedStructureCountForPlayer(playerId: string, structureType: BuildableStructureType): number {
-    return this.ownedStructureCountByPlayerByType.get(playerId)?.get(structureType) ?? 0;
+    return ownedStructureCountForPlayerImpl(this.ownedStructureCountByPlayerByType, playerId, structureType);
   }
 
   private adjustOwnedStructureCount(ownerId: string, structureType: BuildableStructureType, delta: number): void {
-    let byType = this.ownedStructureCountByPlayerByType.get(ownerId);
-    if (!byType) {
-      if (delta <= 0) return;
-      byType = new Map();
-      this.ownedStructureCountByPlayerByType.set(ownerId, byType);
-    }
-    const next = (byType.get(structureType) ?? 0) + delta;
-    if (next <= 0) {
-      byType.delete(structureType);
-      if (byType.size === 0) this.ownedStructureCountByPlayerByType.delete(ownerId);
-    } else {
-      byType.set(structureType, next);
-    }
+    adjustOwnedStructureCountImpl(this.ownedStructureCountByPlayerByType, ownerId, structureType, delta);
   }
 
   private refreshOwnedStructureCountIndexForTile(
     previous: DomainTileState | undefined,
     next: DomainTileState
   ): void {
-    // Each slot's ownerId is independent of the tile's ownerId — a captured tile
-    // can retain a previous owner's fort until the new owner razes/replaces it.
-    // Track each slot separately by structure ownership, decrement only when the
-    // slot changes occupant.
-    const prevFortOwner = previous?.fort?.ownerId;
-    const nextFortOwner = next.fort?.ownerId;
-    if (prevFortOwner !== nextFortOwner) {
-      if (prevFortOwner) this.adjustOwnedStructureCount(prevFortOwner, "FORT", -1);
-      if (nextFortOwner) this.adjustOwnedStructureCount(nextFortOwner, "FORT", 1);
-    }
-    const prevObsOwner = previous?.observatory?.ownerId;
-    const nextObsOwner = next.observatory?.ownerId;
-    if (prevObsOwner !== nextObsOwner) {
-      if (prevObsOwner) this.adjustOwnedStructureCount(prevObsOwner, "OBSERVATORY", -1);
-      if (nextObsOwner) this.adjustOwnedStructureCount(nextObsOwner, "OBSERVATORY", 1);
-    }
-    const prevSiegeOwner = previous?.siegeOutpost?.ownerId;
-    const nextSiegeOwner = next.siegeOutpost?.ownerId;
-    if (prevSiegeOwner !== nextSiegeOwner) {
-      if (prevSiegeOwner) this.adjustOwnedStructureCount(prevSiegeOwner, "SIEGE_OUTPOST", -1);
-      if (nextSiegeOwner) this.adjustOwnedStructureCount(nextSiegeOwner, "SIEGE_OUTPOST", 1);
-    }
-    const prevEcoOwner = previous?.economicStructure?.ownerId;
-    const prevEcoType = previous?.economicStructure?.type as BuildableStructureType | undefined;
-    const nextEcoOwner = next.economicStructure?.ownerId;
-    const nextEcoType = next.economicStructure?.type as BuildableStructureType | undefined;
-    if (prevEcoOwner !== nextEcoOwner || prevEcoType !== nextEcoType) {
-      if (prevEcoOwner && prevEcoType) this.adjustOwnedStructureCount(prevEcoOwner, prevEcoType, -1);
-      if (nextEcoOwner && nextEcoType) this.adjustOwnedStructureCount(nextEcoOwner, nextEcoType, 1);
-    }
+    refreshOwnedStructureCountIndexForTileImpl({
+      previous,
+      next,
+      adjustOwnedStructureCount: (ownerId, structureType, delta) => this.adjustOwnedStructureCount(ownerId, structureType, delta)
+    });
   }
 
   // ── Unified build handler (Phase 2) ──────────────────────────────

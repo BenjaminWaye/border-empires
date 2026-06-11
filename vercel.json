@@ -4,6 +4,7 @@
   "buildCommand": "pnpm --filter @border-empires/shared --filter @border-empires/client-protocol --filter @border-empires/sim-protocol --filter @border-empires/game-domain build && pnpm --filter @border-empires/client build",
   "outputDirectory": "packages/client/dist",
   "rewrites": [
+    { "source": "/admin/:path*", "destination": "/api/admin/:path*" },
     { "source": "/rally/new", "destination": "/" },
     { "source": "/r/:code", "destination": "/" }
   ]

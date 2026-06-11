@@ -19,16 +19,33 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.2",
+  version: "2026.06.11.4",
   title: "What's New",
   summary: "Fix: Recently captured towns no longer pay out repeat plunder during capture shock.",
   entries: [
     {
-      introducedIn: "2026.06.11.2",
+      introducedIn: "2026.06.11.4",
       title: "Town plunder respects capture shock",
       why: "Back-and-forth town captures could repeatedly drain player stocks even though the town had already been pillaged moments earlier.",
       changes: [
         "Capturing a town that is still marked Recently captured changes ownership as usual, but no longer pays another plunder reward."
+      ]
+    },
+    {
+      introducedIn: "2026.06.11.3",
+      title: "Clearer sign-in retry feedback",
+      why: "When the realtime server returned SERVER_STARTING during sign-in, the client said it was disconnected even though the socket was still open, and the retry timer was invisible.",
+      changes: [
+        "Server-starting sign-in errors now keep the connection state accurate while retrying the auth payload.",
+        "The loading overlay and auth progress logs now show the retry attempt and countdown instead of repeating vague server-starting copy."
+      ]
+    },
+    {
+      introducedIn: "2026.06.11.2",
+      title: "Muster button works",
+      why: "The simulation was building its gRPC tile-delta responses without the muster_json field, so the SET_MUSTER result arrived at the client as an empty clear signal every time — the muster state was set on the server but the client never saw it.",
+      changes: [
+        "Simulation now includes muster data in tile-delta gRPC responses so SET_MUSTER and CLEAR_MUSTER take effect in the client tile state."
       ]
     },
     {
@@ -320,15 +337,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
         "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
-      ]
-    },
-    {
-      introducedIn: "2026.06.01.1",
-      title: "Client backs off when the server is busy",
-      why: "The gateway now rejects auth with SERVER_BUSY when too many players are connecting at once. Without this change, the client treated SERVER_BUSY as a fatal error and stopped retrying, which made the reconnection cascade worse.",
-      changes: [
-        "SERVER_BUSY auth errors now flow into the existing reconnect backoff (exponential with jitter), same as SERVER_STARTING.",
-        "No new backoff logic — the existing scheduleAuthReconnect path handles the retry spacing."
       ]
     },
   ]

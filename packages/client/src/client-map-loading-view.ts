@@ -22,7 +22,16 @@ const ACTION_AFFORDANCE_THRESHOLD_MS = 25_000;
 export const buildMapLoadingView = (
   state: Pick<
     ClientState,
-    "connection" | "firstChunkAt" | "mapLoadStartedAt" | "chunkFullCount" | "authSessionReady" | "authRetrying" | "authBusyTitle" | "authBusyDetail"
+    | "connection"
+    | "firstChunkAt"
+    | "mapLoadStartedAt"
+    | "chunkFullCount"
+    | "authSessionReady"
+    | "authRetrying"
+    | "authRetryAttempt"
+    | "authRetryNextAt"
+    | "authBusyTitle"
+    | "authBusyDetail"
   >,
   wsUrl: string,
   now: number = Date.now()
@@ -30,11 +39,19 @@ export const buildMapLoadingView = (
   const startAt = state.mapLoadStartedAt || now;
   const elapsedMs = Math.max(0, now - startAt);
   const elapsedSeconds = (elapsedMs / 1000).toFixed(1);
+  const retryInSeconds = state.authRetryNextAt > now ? Math.ceil((state.authRetryNextAt - now) / 1000) : 0;
+  const baseRetryMeta = state.authBusyDetail || "Waiting for the realtime server to become available.";
+  const retryMeta =
+    state.authRetrying && state.authRetryAttempt > 0 && !/\bAttempt \d+/.test(baseRetryMeta)
+      ? `${baseRetryMeta}${
+          retryInSeconds > 0 ? ` Attempt ${state.authRetryAttempt} starts in ${retryInSeconds}s.` : ` Attempt ${state.authRetryAttempt} is starting now.`
+        }`
+      : baseRetryMeta;
   if (state.connection === "disconnected") {
     if (state.authRetrying) {
       return {
         title: state.authBusyTitle || "Realtime simulation unavailable",
-        meta: state.authBusyDetail || "The server is unavailable. Retry sign-in or reload the client.",
+        meta: retryMeta,
         showRetry: true,
         showReload: true,
         showDiagnostics: true,
@@ -64,7 +81,7 @@ export const buildMapLoadingView = (
     if (!state.authSessionReady && state.authRetrying) {
       return {
         title: state.authBusyTitle || "Securing session",
-        meta: state.authBusyDetail || "Waiting for the realtime server to become available.",
+        meta: retryMeta,
         showRetry: true,
         showReload: true,
         showDiagnostics: true,
