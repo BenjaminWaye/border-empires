@@ -107,10 +107,10 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Town is fed and producing"))).toBe(false);
     expect(lines.some((line) => line.html.includes("Towns produce gold when fed."))).toBe(false);
     expect(lines.some((line) => line.html === "Connected towns 0")).toBe(false);
-    expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true); expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
 
+  it("shows active support building contribution for a clicked Clearing House", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMarket: true, marketActive: true, hasGranary: true, granaryActive: true, hasBank: true, bankActive: true } }] }); expect(lines.map((line) => line.html)).toContain("Clearing House contributes to Qadarstrand and directly connected towns: +25% Market effect, +20% Bank effect, +0.5 Bank gold/m."); });
   it("uses Monumental City in the overview label for the final tier", () => {
     const lines = menuOverviewForTile(
       {

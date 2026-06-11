@@ -19,10 +19,16 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.3",
+  version: "2026.06.11.4",
   title: "What's New",
-  summary: "Fix: Login retry feedback now shows what is actually happening.",
+  summary: "Clearing Houses now apply their economy bonus and building tiles explain their contribution.",
   entries: [
+    {
+      introducedIn: "2026.06.11.4",
+      title: "Building contribution details",
+      why: "Clearing Houses were visible on the map but their Market/Bank economy bonus was not applied in the rewrite snapshot, and clicked buildings did not explain what they were contributing.",
+      changes: ["Clearing Houses now boost covered Market and Bank towns.", "Clicking an active town support building now shows the town it contributes to and the active bonus."]
+    },
     {
       introducedIn: "2026.06.11.3",
       title: "Clearer sign-in retry feedback",

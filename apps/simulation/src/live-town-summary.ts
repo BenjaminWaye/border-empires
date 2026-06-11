@@ -78,6 +78,8 @@ export const hasSupportedStructure = (
   return false;
 };
 
+const clearingHouseSourceTownNames = (tileKey: string, ownerId: string, tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>, townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>): string[] => [tileKey, ...(townNetwork?.get(tileKey)?.connectedTownKeys ?? [])].flatMap((sourceKey) => hasSupportedStructure(sourceKey, ownerId, "CLEARING_HOUSE", tilesByKey) ? [tilesByKey.get(sourceKey) ? parseTown(tilesByKey.get(sourceKey)!)?.name ?? `town at ${sourceKey}` : `town at ${sourceKey}`] : []);
+
 export const supportTileBelongsToTown = (
   supportTile: RuntimeState["tiles"][number],
   townX: number,
@@ -153,6 +155,7 @@ export const buildTownSummary = (
   })());
   const granaryGrowthMult = !hasAnyGranary ? 1 : seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1.15;
   const hasBank = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "BANK", tilesByKey));
+  const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
   const firstThreeTownMult =
@@ -176,12 +179,12 @@ export const buildTownSummary = (
               supportRatio *
               townPopulationMultiplier(populationTier) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
-              (hasMarket ? 1.5 : 1) *
-              (hasBank ? 1.5 : 1) *
+              (hasMarket ? (clearingHouseActive ? 1.75 : 1.5) : 1) *
+              (hasBank ? (clearingHouseActive ? 1.7 : 1.5) : 1) *
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
-            ) + (hasBank ? 1 : 0);
+            ) + (hasBank ? (clearingHouseActive ? 1.5 : 1) : 0);
   const populationView = resolvedTownPopulation(townPartial, tile.x, tile.y, populationTier);
   if (!populationView && !hasCompleteAuthoritativeTown) return undefined;
   const population = populationView?.population ?? townPartial.population!;
@@ -243,8 +246,7 @@ export const buildTownSummary = (
     granaryActive: hasGranary,
     ...(hasSeedGranary ? { hasSeedGranary: true, seedGranaryActive: true } : {}),
     ...(seedGranaryBuffed ? { seedGranaryBuffed: true } : {}),
-    hasBank,
-    bankActive: hasBank,
+    hasBank, bankActive: hasBank, ...(clearingHouseActive ? { hasClearingHouse: true, clearingHouseActive: true, clearingHouseTownNames } : {}),
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
     ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
