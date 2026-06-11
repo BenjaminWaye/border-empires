@@ -680,6 +680,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townPopulationTier: "TOWN"
         },
         { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CLEARING_HOUSE", status: "active" }) },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MARKET", status: "active" }) },
         { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "GRANARY", status: "active" }) },
         { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "BANK", status: "active" }) }
@@ -697,7 +698,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
-          territoryTileKeys: ["10,10", "9,10", "11,10", "10,9", "10,11"]
+          territoryTileKeys: ["10,10", "9,10", "9,9", "11,10", "10,9", "10,11"]
         }
       ],
       pendingSettlements: [],
@@ -710,18 +711,17 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(town).toEqual(
       expect.objectContaining({
         name: "Qadarstrand",
-        supportCurrent: 4,
-        supportMax: 4,
+        supportCurrent: 5,
+        supportMax: 5,
         isFed: true,
-        hasMarket: true,
-        hasGranary: true,
-        hasBank: true,
-        marketActive: true,
-        granaryActive: true,
-        bankActive: true,
+        hasMarket: true, hasGranary: true, hasBank: true,
+        marketActive: true, granaryActive: true, bankActive: true,
+        hasClearingHouse: true, clearingHouseActive: true,
+        goldPerMinute: expect.any(Number),
         foodUpkeepPerMinute: 0.1
       })
     );
+    expect(town?.goldPerMinute).toBeCloseTo(7.45);
     expect(snapshot.player).toEqual(
       expect.objectContaining({
         economyBreakdown: expect.objectContaining({
