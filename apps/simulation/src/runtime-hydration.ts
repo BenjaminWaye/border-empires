@@ -135,15 +135,11 @@ const parseRecoveredCombatResolution = (combatResolutionJson?: string): LockedCo
   try {
     const parsed = JSON.parse(combatResolutionJson) as Partial<LockedCombatResolution> | undefined;
     if (!parsed || typeof parsed !== "object") return undefined;
-    if (parsed.result && typeof parsed.defenderGoldLoss === "number") {
-      return parsed as LockedCombatResolution;
-    }
-    if (parsed.result && typeof parsed.defenderGoldLoss !== "number") {
-      return {
-        result: parsed.result,
-        defenderGoldLoss: 0
-      };
-    }
+    if (parsed.result) return {
+      result: parsed.result,
+      defenderGoldLoss: typeof parsed.defenderGoldLoss === "number" ? parsed.defenderGoldLoss : 0,
+      targetRecentlyPillaged: parsed.targetRecentlyPillaged === true
+    };
     return parsed as LockedCombatResolution | undefined;
   } catch {
     return undefined;
