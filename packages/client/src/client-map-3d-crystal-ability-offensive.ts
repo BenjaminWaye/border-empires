@@ -1,4 +1,4 @@
-import type { CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
+import type { CrystalAbilityInfoKey } from "./client-crystal-ability-info/client-crystal-ability-info.js";
 import type { CrystalFamilyRegister } from "./client-map-3d-crystal-ability-overlay.js";
 
 export const OFFENSIVE_ABILITY_KEYS: readonly CrystalAbilityInfoKey[] = ["siphon", "aether_emp", "stormfront", "aether_lance", "retort_recasting"];

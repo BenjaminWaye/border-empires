@@ -1,0 +1,249 @@
+import type { ClientState, storageSet } from "../client-state/client-state.js";
+
+export const CLIENT_CHANGELOG_STORAGE_KEY = "border-empires-client-changelog-seen-v1";
+const CLIENT_CHANGELOG_SCROLL_SELECTOR = ".changelog-modal-scroll";
+
+export type ClientChangelogEntry = {
+  introducedIn: string;
+  title: string;
+  why: string;
+  changes: string[];
+};
+
+export type ClientChangelogRelease = {
+  version: string;
+  title: string;
+  summary: string;
+  entries: ClientChangelogEntry[];
+};
+
+// Update this object for every user-facing client release.
+export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
+  version: "2026.06.11.1",
+  title: "What's New",
+  summary: "Fix: Muster state now updates correctly after setting or clearing a muster flag.",
+  entries: [
+    {
+      introducedIn: "2026.06.11.1",
+      title: "Muster state updates correctly",
+      why: "The muster field was normalized from the server's JSON payload but never applied to the local tile state during tile-delta processing, so clicking Stage Muster or Clear Muster appeared to do nothing.",
+      changes: [
+        "Muster flag (mode, amount) now correctly reflects on the tile after SET_MUSTER or CLEAR_MUSTER is processed by the server."
+      ]
+    },
+    {
+      introducedIn: "2026.06.10.1",
+      title: "Faster map exploration",
+      why: "Resource and dock tiles were each triggering a server round-trip as they scrolled into view, even though the client already had all the data it needed.",
+      changes: [
+        "Unowned resource and dock tiles are now marked as fully loaded locally — no round-trip to the server."
+      ]
+    },
+    {
+      introducedIn: "2026.06.06.4",
+      title: "Passive empire income replaces manual COLLECT_VISIBLE",
+      why: "The COLLECT_VISIBLE command required scanning every settled tile on each AI turn, causing 500–2000ms main-thread stalls on large empires and blocking player actions during those windows.",
+      changes: [
+        "Gold and strategic resources now accrue automatically via a server-side 15-second tick.",
+        "Storage caps are computed from empire production rates: 12 hours of gold, food, iron, crystal, supply, oil, and shard.",
+        "Fish-tile food fills the food storage cap but does not extend it (fish food is perishable).",
+        "Ironworks, Crystal Synthesizer, and Fur Synthesizer buildings add a flat bonus to their resource cap.",
+        "Players inactive for more than 12 hours stop receiving passive income until they reconnect.",
+        "Combat tile capture now steals a proportional share of the defender's resources.",
+      ]
+    },
+    {
+      introducedIn: "2026.06.06.3",
+      title: "Combat accepts stay responsive under large empires",
+      why: "Frontier decay support checks could scan every fort and town anchor for every frontier tile, blocking the simulation thread while players were attacking across dense borders.",
+      changes: [
+        "Large support-anchor checks now use local radius lookups instead of empire-wide scans.",
+        "The frontier decay perf gate now covers thousands of frontier tiles plus thousands of support anchors, keeping the tick well below the combat submit budget."
+      ]
+    },
+    {
+      introducedIn: "2026.06.06.2",
+      title: "Clearing Houses get their own map art",
+      why: "Clearing Houses could appear as generic or Bank-like markers instead of a distinct building, making it harder to scan connected-town economy upgrades on the map.",
+      changes: ["Clearing Houses now render with a dedicated 3D building overlay and a matching 2D/info-panel asset."]
+    },
+    { introducedIn: "2026.06.06.1", title: "Build actions work on the rewrite gateway", why: "The client started sending the unfinished unified BUILD_STRUCTURE command before the rewrite gateway advertised that wire message, so structure builds could be blocked as unavailable.", changes: ["Structure build clicks now send the gateway-supported build message while keeping the internal queued build state intact.", "Queued structure builds replay through the same compatible send path."] },
+    {
+      introducedIn: "2026.06.05.1",
+      title: "Water tiles rebuilt as a single seamless mesh",
+      why: "The previous per-tile InstancedMesh produced a visible grid pattern regardless of material quality. The ocean is now one merged BufferGeometry with shared edge vertices, world-space UVs, and vertex-color depth gradient (shallow teal near coasts, deep navy in open ocean).",
+      changes: [
+        "No more tile grid seams on water — adjacent tiles share edge vertices.",
+        "Shallow/deep color gradient derived per-vertex from coast proximity.",
+        "Two overlapping normal maps (swell + chop) scrolled at different speeds replace the old baked canvas texture.",
+        "MeshPhysicalMaterial with clearcoat Fresnel replaces MeshStandardMaterial with metalness.",
+        "Black specular blobs eliminated — metalness dropped to 0."
+      ]
+    },
+    {
+      introducedIn: "2026.06.05.1",
+      title: "Aether bridge expansions stay connected",
+      why: "Frontier encirclement checks only followed physical neighboring tiles, so a tile expanded across an active Aether Bridge could be treated as cut off even though it was supplied through the bridge.",
+      changes: [
+        "Active Aether Bridge endpoints now count as connected territory edges for frontier encirclement checks.",
+        "Expanding through an Aether Bridge no longer starts immediate encirclement decay on the new frontier endpoint."
+      ]
+    }
+  ]
+};
+
+const escapeHtml = (value: string): string =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
+const parseReleaseVersion = (releaseVersion: string): number[] =>
+  releaseVersion
+    .split(".")
+    .map((part) => Number.parseInt(part, 10))
+    .filter((part) => Number.isFinite(part));
+
+export const compareReleaseVersions = (left: string, right: string): number => {
+  const leftParts = parseReleaseVersion(left);
+  const rightParts = parseReleaseVersion(right);
+  const width = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < width; index += 1) {
+    const leftPart = leftParts[index] ?? 0;
+    const rightPart = rightParts[index] ?? 0;
+    if (leftPart !== rightPart) return leftPart - rightPart;
+  }
+  return 0;
+};
+
+export const unseenClientChangelogEntries = (
+  seenVersion: string,
+  entries: ClientChangelogEntry[] = LATEST_CLIENT_CHANGELOG.entries
+): ClientChangelogEntry[] => {
+  if (!seenVersion) return entries;
+  return entries.filter((entry) => compareReleaseVersions(entry.introducedIn, seenVersion) > 0);
+};
+
+export const shouldShowClientChangelog = (
+  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">,
+  releaseVersion: string = LATEST_CLIENT_CHANGELOG.version
+): boolean => state.authSessionReady && !state.profileSetupRequired && state.changelog.seenVersion !== releaseVersion;
+
+export const syncClientChangelogVisibility = (
+  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">,
+  releaseVersion: string = LATEST_CLIENT_CHANGELOG.version
+): boolean => {
+  state.changelog.open = shouldShowClientChangelog(state, releaseVersion);
+  return state.changelog.open;
+};
+
+export const markClientChangelogSeen = (
+  state: Pick<ClientState, "changelog">,
+  releaseVersion: string = LATEST_CLIENT_CHANGELOG.version,
+  persistSeenVersion: typeof storageSet
+): void => {
+  state.changelog.open = false;
+  state.changelog.seenVersion = releaseVersion;
+  state.changelog.scrollTop = 0;
+  persistSeenVersion(CLIENT_CHANGELOG_STORAGE_KEY, releaseVersion);
+};
+
+const changelogBodyHtml = (entries: ClientChangelogEntry[]): string =>
+  entries
+    .map(
+      (entry) => `
+        <article class="changelog-entry">
+          <div class="changelog-entry-version">Release ${escapeHtml(entry.introducedIn)}</div>
+          <h3 class="changelog-entry-title">${escapeHtml(entry.title)}</h3>
+          <div class="changelog-section">
+            <span class="changelog-section-label">Why</span>
+            <p class="changelog-section-copy">${escapeHtml(entry.why)}</p>
+          </div>
+          <div class="changelog-section">
+            <span class="changelog-section-label">Changed</span>
+            <ul class="changelog-list">
+              ${entry.changes.map((change) => `<li>${escapeHtml(change)}</li>`).join("")}
+            </ul>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+
+export const clientChangelogRenderSignature = (releaseVersion: string, buildVersion: string): string =>
+  `${releaseVersion}:${buildVersion}`;
+
+export const shouldRebuildClientChangelogOverlay = (
+  overlayEl: Pick<HTMLDivElement, "innerHTML" | "dataset">,
+  renderSignature: string
+): boolean => overlayEl.innerHTML === "" || overlayEl.dataset.renderSig !== renderSignature;
+
+export const renderClientChangelogOverlay = (deps: {
+  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">;
+  changelogOverlayEl: HTMLDivElement;
+  buildVersion: string;
+  persistSeenVersion: typeof storageSet;
+  renderHud: () => void;
+}): void => {
+  const releaseVersion = LATEST_CLIENT_CHANGELOG.version;
+  const renderSignature = clientChangelogRenderSignature(releaseVersion, deps.buildVersion);
+  const unseenEntries = unseenClientChangelogEntries(deps.state.changelog.seenVersion);
+  const summary =
+    unseenEntries.length === LATEST_CLIENT_CHANGELOG.entries.length
+      ? LATEST_CLIENT_CHANGELOG.summary
+      : unseenEntries.length === 1
+        ? "This popup now shows only the single release-note entry you have not seen yet."
+        : `This popup now shows the ${unseenEntries.length} release-note entries you have not seen yet.`;
+  const isOpen = syncClientChangelogVisibility(deps.state, releaseVersion);
+  deps.changelogOverlayEl.style.display = isOpen ? "grid" : "none";
+  if (!isOpen) {
+    if (deps.changelogOverlayEl.innerHTML) deps.changelogOverlayEl.innerHTML = "";
+    delete deps.changelogOverlayEl.dataset.renderSig;
+    return;
+  }
+
+  if (shouldRebuildClientChangelogOverlay(deps.changelogOverlayEl, renderSignature)) {
+    deps.changelogOverlayEl.innerHTML = `
+      <div class="changelog-backdrop" id="changelog-backdrop"></div>
+      <div class="changelog-modal card" role="dialog" aria-modal="true" aria-labelledby="changelog-title">
+        <div class="changelog-topbar">
+          <div class="changelog-topbar-copy">
+            <div class="changelog-kicker">Release ${escapeHtml(releaseVersion)} • Build ${escapeHtml(deps.buildVersion)}</div>
+            <span class="changelog-unseen-count">${unseenEntries.length} new ${unseenEntries.length === 1 ? "entry" : "entries"}</span>
+          </div>
+          <button id="changelog-close" class="panel-btn changelog-primary-btn" type="button">Continue</button>
+        </div>
+        <div class="changelog-modal-scroll">
+          <h2 id="changelog-title" class="changelog-title">${escapeHtml(LATEST_CLIENT_CHANGELOG.title)}</h2>
+          <p class="changelog-summary">${escapeHtml(summary)}</p>
+          <div class="changelog-entry-list">
+            ${changelogBodyHtml(unseenEntries)}
+          </div>
+        </div>
+      </div>
+    `;
+    deps.changelogOverlayEl.dataset.renderSig = renderSignature;
+  }
+
+  const scrollEl = deps.changelogOverlayEl.querySelector(CLIENT_CHANGELOG_SCROLL_SELECTOR) as HTMLDivElement | null;
+  if (scrollEl) {
+    if (Math.abs(scrollEl.scrollTop - deps.state.changelog.scrollTop) > 1) {
+      scrollEl.scrollTop = deps.state.changelog.scrollTop;
+    }
+    scrollEl.onscroll = () => {
+      deps.state.changelog.scrollTop = scrollEl.scrollTop;
+    };
+  }
+
+  const close = (): void => {
+    markClientChangelogSeen(deps.state, releaseVersion, deps.persistSeenVersion);
+    deps.renderHud();
+  };
+
+  const closeBtn = deps.changelogOverlayEl.querySelector("#changelog-close") as HTMLButtonElement | null;
+  const backdropBtn = deps.changelogOverlayEl.querySelector("#changelog-backdrop") as HTMLDivElement | null;
+  if (closeBtn) closeBtn.onclick = close;
+  if (backdropBtn) backdropBtn.onclick = close;
+};

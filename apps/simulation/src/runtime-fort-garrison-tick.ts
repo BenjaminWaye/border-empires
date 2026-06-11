@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { FORT_GARRISON_CAP_BY_VARIANT, MUSTER_SYSTEM_ENABLED } from "@border-empires/shared";
-import { simulationTileKey } from "./seed-state.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 

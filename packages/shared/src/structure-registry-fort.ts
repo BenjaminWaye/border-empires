@@ -4,9 +4,9 @@ import {
 } from "./config.js";
 import {
   FORT_TIER_LADDER,
-} from "./structure-costs.js";
-import type { StructureSpec } from "./structure-registry.js";
-import { noConflictingStructure, ownerOwnsTile, tileIsLand, tileIsSettled } from "./structure-registry.js";
+} from "./structure-costs/structure-costs.js";
+import type { StructureSpec } from "./structure-registry/structure-registry.js";
+import { noConflictingStructure, ownerOwnsTile, tileIsLand, tileIsSettled } from "./structure-registry/structure-registry.js";
 import type { FortVariant } from "./types.js";
 
 // ── Fort family ────────────────────────────────────────────────────

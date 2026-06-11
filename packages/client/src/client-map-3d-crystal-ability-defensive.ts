@@ -1,4 +1,4 @@
-import type { CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
+import type { CrystalAbilityInfoKey } from "./client-crystal-ability-info/client-crystal-ability-info.js";
 import type { CrystalFamilyRegister } from "./client-map-3d-crystal-ability-overlay.js";
 
 export const DEFENSIVE_ABILITY_KEYS: readonly CrystalAbilityInfoKey[] = ["aether_wall", "aegis_lock", "city_overclock", "create_mountain", "remove_mountain"];

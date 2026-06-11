@@ -22,7 +22,7 @@
  */
 
 import { VISION_RADIUS } from "@border-empires/shared";
-import { simulationTileKey } from "./seed-state.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
 
 type ExpansionEntry = { sig: string; keys: ReadonlySet<string> };
 

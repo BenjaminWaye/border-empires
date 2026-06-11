@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import type { CreateRallyLinkInput, RallyLink, RallyLinkStore } from "./rally-link-store.js";
+import type { CreateRallyLinkInput, RallyLink, RallyLinkStore } from "./rally-link-store/rally-link-store.js";
 
 type Row = {
   code: string;

@@ -45,6 +45,17 @@ test("passes when an oversized source file shrinks", () => withRepo((dir) => {
   assert.match(output, /passed/);
 }));
 
+test("passes when an oversized source file is renamed without growing", () => withRepo((dir) => {
+  writeFileSync(join(dir, "large.ts"), lines(501));
+  run(dir, ["git", "add", "large.ts"]);
+  run(dir, ["git", "commit", "-qm", "base"]);
+  run(dir, ["mkdir", "large"]);
+  run(dir, ["git", "mv", "large.ts", "large/large.ts"]);
+
+  const output = run(dir, ["node", scriptPath], { env: { ...process.env, FILE_LINE_LIMIT_BASE_REF: "HEAD" } });
+  assert.match(output, /passed/);
+}));
+
 test("fails when a new source file exceeds the cap", () => withRepo((dir) => {
   writeFileSync(join(dir, "README.md"), "base\n");
   run(dir, ["git", "add", "README.md"]);

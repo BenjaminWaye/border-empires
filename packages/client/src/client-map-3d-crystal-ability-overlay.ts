@@ -1,5 +1,5 @@
 import { BoxGeometry, Group, InstancedMesh, Matrix4, MeshStandardMaterial, OctahedronGeometry, Scene, TorusGeometry } from "three";
-import type { CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
+import type { CrystalAbilityInfoKey } from "./client-crystal-ability-info/client-crystal-ability-info.js";
 import { registerDefensiveAbilities } from "./client-map-3d-crystal-ability-defensive.js";
 import { registerOffensiveAbilities } from "./client-map-3d-crystal-ability-offensive.js";
 import { registerUtilityAbilities } from "./client-map-3d-crystal-ability-utility.js";

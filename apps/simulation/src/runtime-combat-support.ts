@@ -8,11 +8,11 @@ import {
   targetOutpostMult,
   type OutpostPosition
 } from "@border-empires/shared";
-import { simulationTileKey } from "./seed-state.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { strategicResourceForTile } from "./runtime-structure-rules.js";
+import { strategicResourceForTile } from "./runtime-structure-rules/runtime-structure-rules.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
-import { effectiveVisionRadiusForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge.js";
+import { effectiveVisionRadiusForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export type RuntimeCombatSupportContext = {
   now: () => number;

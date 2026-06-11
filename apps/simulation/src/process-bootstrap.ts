@@ -11,9 +11,9 @@
 //     beginShutdown(...), plus posts the "ready"/"closed"/"fatal" messages.
 
 import { createServer, type Server as HttpServer } from "node:http";
-import { createListenerWatchdog } from "./listener-watchdog.js";
-import { createSimulationService } from "./simulation-service.js";
-import { parseSimulationRuntimeEnv, type SimulationRuntimeEnv } from "./runtime-env.js";
+import { createListenerWatchdog } from "./listener-watchdog/listener-watchdog.js";
+import { createSimulationService } from "./simulation-service/simulation-service.js";
+import { parseSimulationRuntimeEnv, type SimulationRuntimeEnv } from "./runtime-env/runtime-env.js";
 
 type ListenerWatchdog = ReturnType<typeof createListenerWatchdog>;
 

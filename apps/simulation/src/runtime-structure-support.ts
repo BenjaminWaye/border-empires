@@ -1,7 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { structureShowsOnTile, type EconomicStructureType } from "@border-empires/shared";
 import { forEachFrontierNeighbor } from "./frontier-topology.js";
-import { simulationTileKey } from "./seed-state.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
 
 export function supportedTownKeysForTile(
   tiles: ReadonlyMap<string, DomainTileState>,

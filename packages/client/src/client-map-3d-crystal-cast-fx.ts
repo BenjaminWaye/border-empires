@@ -1,5 +1,5 @@
 import { Group, Mesh, MeshBasicMaterial, RingGeometry, Scene } from "three";
-import type { CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
+import type { CrystalAbilityInfoKey } from "./client-crystal-ability-info/client-crystal-ability-info.js";
 
 type Entry = { mesh: Mesh; startMs: number; durationMs: number; x: number; z: number; y: number };
 

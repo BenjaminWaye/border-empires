@@ -10,7 +10,7 @@ import {
   Scene,
   Vector3
 } from "three";
-import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
+import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 
 // Fort 3D overlay: stone & wood forts get a 4-wall + 4-corner-tower
 // silhouette (no floor — terrain shows through) with one wall optionally
