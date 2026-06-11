@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.2",
+  version: "2026.06.11.3",
   title: "What's New",
-  summary: "Fix: Muster button now works — setting or clearing a muster flag takes effect immediately.",
+  summary: "Fix: Login retry feedback now shows what is actually happening.",
   entries: [
+    {
+      introducedIn: "2026.06.11.3",
+      title: "Clearer sign-in retry feedback",
+      why: "When the realtime server returned SERVER_STARTING during sign-in, the client said it was disconnected even though the socket was still open, and the retry timer was invisible.",
+      changes: [
+        "Server-starting sign-in errors now keep the connection state accurate while retrying the auth payload.",
+        "The loading overlay and auth progress logs now show the retry attempt and countdown instead of repeating vague server-starting copy."
+      ]
+    },
     {
       introducedIn: "2026.06.11.2",
       title: "Muster button works",

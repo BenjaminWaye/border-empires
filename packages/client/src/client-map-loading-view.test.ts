@@ -12,6 +12,8 @@ describe("buildMapLoadingView", () => {
         chunkFullCount: 0,
         authSessionReady: false,
         authRetrying: true,
+        authRetryAttempt: 2,
+        authRetryNextAt: 4_000,
         authBusyTitle: "Securing session",
         authBusyDetail: "The game server is still starting. Retrying sign-in shortly..."
       },
@@ -21,7 +23,7 @@ describe("buildMapLoadingView", () => {
 
     expect(view).toEqual({
       title: "Securing session",
-      meta: "The game server is still starting. Retrying sign-in shortly...",
+      meta: "The game server is still starting. Retrying sign-in shortly... Attempt 2 starts in 3s.",
       showRetry: true,
       showReload: true,
       showDiagnostics: true,
@@ -38,6 +40,8 @@ describe("buildMapLoadingView", () => {
         chunkFullCount: 2,
         authSessionReady: true,
         authRetrying: false,
+        authRetryAttempt: 0,
+        authRetryNextAt: 0,
         authBusyTitle: "",
         authBusyDetail: ""
       },
@@ -52,6 +56,27 @@ describe("buildMapLoadingView", () => {
     expect(view.showDiagnostics).toBe(false);
   });
 
+  it("does not duplicate retry countdown already present in auth detail", () => {
+    const view = buildMapLoadingView(
+      {
+        connection: "connected",
+        firstChunkAt: 0,
+        mapLoadStartedAt: 0,
+        chunkFullCount: 0,
+        authSessionReady: false,
+        authRetrying: true,
+        authRetryAttempt: 1,
+        authRetryNextAt: 4_000,
+        authBusyTitle: "Securing session",
+        authBusyDetail: "Game server is still starting. Retrying sign-in... Attempt 1 starts in 3s."
+      },
+      "ws://localhost:3001/ws",
+      1_000
+    );
+
+    expect(view.meta).toBe("Game server is still starting. Retrying sign-in... Attempt 1 starts in 3s.");
+  });
+
   it("surfaces a stalled no-chunk init as a retryable outage instead of indefinite chunk loading", () => {
     const view = buildMapLoadingView(
       {
@@ -61,6 +86,8 @@ describe("buildMapLoadingView", () => {
         chunkFullCount: 0,
         authSessionReady: true,
         authRetrying: false,
+        authRetryAttempt: 0,
+        authRetryNextAt: 0,
         authBusyTitle: "",
         authBusyDetail: ""
       },
@@ -87,6 +114,8 @@ describe("buildMapLoadingView", () => {
         chunkFullCount: 0,
         authSessionReady: false,
         authRetrying: false,
+        authRetryAttempt: 0,
+        authRetryNextAt: 0,
         authBusyTitle: "Securing session",
         authBusyDetail: ""
       },
@@ -111,6 +140,8 @@ describe("buildMapLoadingView", () => {
         chunkFullCount: 0,
         authSessionReady: false,
         authRetrying: false,
+        authRetryAttempt: 0,
+        authRetryNextAt: 0,
         authBusyTitle: "Securing session",
         authBusyDetail: ""
       },
@@ -135,6 +166,8 @@ describe("buildMapLoadingView", () => {
         chunkFullCount: 0,
         authSessionReady: false,
         authRetrying: false,
+        authRetryAttempt: 0,
+        authRetryNextAt: 0,
         authBusyTitle: "",
         authBusyDetail: ""
       },
