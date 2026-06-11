@@ -326,6 +326,7 @@ import {
 import {
   adjustOwnedStructureCount as adjustOwnedStructureCountImpl,
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
+  ownedStructureCountsForPlayer as ownedStructureCountsForPlayerImpl,
   refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl
 } from "../runtime-owned-structure-index.js";
 import {
@@ -486,11 +487,6 @@ export class SimulationRuntime {
   // Avoids O(n log n) spread+sort in consumeUpkeepFromTileYield on every tick
   // for players whose yield-bearing set is stable.
   private readonly sortedYieldBearingKeysByOwner = new Map<string, string[]>();
-  // Per-(owner, BuildableStructureType) counter used by structureBuildGoldCost
-  // to apply incremental scaling on each new BUILD_* command. Replaces an
-  // O(all_tiles) scan that took 884ms on a 250k-tile world (2026-05-28 prod
-  // BUILD_FORT). Maintained in refreshOwnedStructureCountIndexForTile;
-  // populated in the constructor's first-pass tile loop.
   private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
@@ -2058,6 +2054,7 @@ export class SimulationRuntime {
       incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
       hasActiveLock,
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+      ownedStructureCounts: this.ownedStructureCountsForPlayer(playerId),
       frontierTiles: [...summary.frontierTileKeys]
         .map((tileKey) => this.tiles.get(tileKey))
         .filter((tile): tile is DomainTileState => tile !== undefined),
@@ -2178,6 +2175,7 @@ export class SimulationRuntime {
       plannerGatingLockPlayerIds: () => this.plannerGatingLockPlayerIds(),
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
+      ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId)
     });
   }
@@ -2192,6 +2190,7 @@ export class SimulationRuntime {
       plannerGatingLockPlayerIds: () => this.plannerGatingLockPlayerIds(),
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
+      ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId)
     });
   }
@@ -5378,6 +5377,7 @@ export class SimulationRuntime {
   private ownedStructureCountForPlayer(playerId: string, structureType: BuildableStructureType): number {
     return ownedStructureCountForPlayerImpl(this.ownedStructureCountByPlayerByType, playerId, structureType);
   }
+  private ownedStructureCountsForPlayer(playerId: string) { return ownedStructureCountsForPlayerImpl(this.ownedStructureCountByPlayerByType, playerId); }
 
   private adjustOwnedStructureCount(ownerId: string, structureType: BuildableStructureType, delta: number): void {
     adjustOwnedStructureCountImpl(this.ownedStructureCountByPlayerByType, ownerId, structureType, delta);

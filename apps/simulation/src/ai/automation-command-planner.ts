@@ -22,6 +22,7 @@ import {
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
+import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import { chooseAutomationGoapDecision, type AiSeasonVictoryPathId } from "./automation-goap.js";
 import {
   buildPlannerCommand,
@@ -183,6 +184,7 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   strategicFrontierTiles?: readonly TTile[];
   buildCandidateTiles?: readonly TTile[];
   ownedTiles: readonly TTile[];
+  ownedStructureCounts?: PlannerOwnedStructureCounts;
   tilesByKey: ReadonlyMap<string, TTile>;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
   isPendingSettlement?: (tile: TTile) => boolean;
@@ -648,19 +650,16 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       points: input.points,
       ...(input.techIds ? { techIds: input.techIds } : {}),
       ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
+      ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
       settledTileCount,
       townCount,
       incomePerMinute
     };
-    const buildTiles = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
-    // Restrict structure candidate sites to the spatial focus front. Structure
-    // selectors still need the full owned-tile set to tally existing
-    // structures correctly (cost scales with count), so buildTiles stays the
-    // canonical inventory and a separate candidate slice limits per-tick work.
-    const buildCandidates = restrictToFocus(buildTiles);
-    economicBuild = chooseBestEconomicBuild(structurePlayer, buildTiles, input.tilesByKey, buildCandidates);
-    fortBuild = chooseBestFortBuild(structurePlayer, buildTiles, input.tilesByKey, buildCandidates);
-    siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, buildTiles, input.tilesByKey, buildCandidates);
+    const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
+    const buildCandidates = restrictToFocus(structureCandidates);
+    economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
   }
   const strategic = buildAutomationStrategicSnapshot({
     playerId: input.playerId,

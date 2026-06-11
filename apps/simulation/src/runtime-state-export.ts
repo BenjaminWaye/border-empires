@@ -10,6 +10,7 @@ import { cloneStrategicProduction, type PendingSettlementRecord } from "./player
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
+import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 
@@ -416,6 +417,7 @@ type PlannerExportInput = {
   plannerGatingLockPlayerIds: () => Set<string>;
   refreshManpowerOnly: (player: DomainPlayer) => void;
   plannerPlayerTileKeys: (playerId: string, summary: PlayerRuntimeSummary) => PlannerTileKeys;
+  ownedStructureCountsForPlayer: (playerId: string) => PlannerOwnedStructureCounts;
   estimatedIncomePerMinuteForPlayer: (playerId: string) => number;
 };
 
@@ -461,7 +463,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
       buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
       pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
-      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+      ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId)
     });
   }
   return players;
