@@ -19,17 +19,23 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.4",
+  version: "2026.06.11.5",
   title: "What's New",
   summary: "Fix: Recently captured towns no longer pay out repeat plunder during capture shock.",
   entries: [
     {
-      introducedIn: "2026.06.11.4",
+      introducedIn: "2026.06.11.5",
       title: "Town plunder respects capture shock",
       why: "Back-and-forth town captures could repeatedly drain player stocks even though the town had already been pillaged moments earlier.",
       changes: [
         "Capturing a town that is still marked Recently captured changes ownership as usual, but no longer pays another plunder reward."
       ]
+    },
+    {
+      introducedIn: "2026.06.11.4",
+      title: "Building contribution details",
+      why: "Clearing Houses were visible on the map but their Market/Bank economy bonus was not applied in the rewrite snapshot, and clicked buildings did not explain what they were contributing.",
+      changes: ["Clearing Houses now boost covered Market and Bank towns.", "Clicking an active town support building now shows the town it contributes to and the active bonus."]
     },
     {
       introducedIn: "2026.06.11.3",
@@ -328,15 +334,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "A floating hourglass badge now hovers over your own active observatory while its crystal-casting cooldown is running.",
         "The tile overview for an active observatory now shows a live \"Crystal casting recharging — ready in MM:SS\" countdown."
-      ]
-    },
-    {
-      introducedIn: "2026.06.01.2",
-      title: "Shared support tiles can build again",
-      why: "Support tiles that touched multiple towns were blocked with 'Support tile touches multiple towns' even when the player owned the land. The block avoided double-counting support effects, but it made valid settled support tiles unusable.",
-      changes: [
-        "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
-        "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
       ]
     },
   ]
