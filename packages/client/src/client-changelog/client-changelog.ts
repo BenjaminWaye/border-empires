@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.6",
+  version: "2026.06.11.7",
   title: "What's New",
-  summary: "Fix: AI structure planning now prices scaled builds from cached empire-wide counts.",
+  summary: "Fix: large AI empires rotate planning focus across active regions without edge-map blind spots.",
   entries: [
+    {
+      introducedIn: "2026.06.11.7",
+      title: "AI planning covers more of large empires",
+      why: "Large AI empires could keep scanning the same frontier origin and miss activity near wrapped map edges or diagonally connected territory.",
+      changes: [
+        "AI spatial planning now uses wrapping 8-way territory fronts, rotates through multiple origins per category, and caps active-focus extensions at 10 minutes."
+      ]
+    },
     {
       introducedIn: "2026.06.11.6",
       title: "AI build planning prices structures correctly",
