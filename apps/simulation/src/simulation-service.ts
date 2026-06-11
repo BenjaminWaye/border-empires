@@ -440,6 +440,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("economicStructureJson" in tile ? { economic_structure_json: tile.economicStructureJson ?? "" } : {}),
           ...("sabotageJson" in tile ? { sabotage_json: tile.sabotageJson ?? "" } : {}),
           ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {}),
+          ...("musterJson" in tile ? { muster_json: tile.musterJson ?? "" } : {}),
           ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
           ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
@@ -468,6 +469,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("economicStructureJson" in tile ? { economicStructureJson: tile.economicStructureJson } : {}),
           ...("sabotageJson" in tile ? { sabotageJson: tile.sabotageJson } : {}),
           ...("shardSiteJson" in tile ? { shardSiteJson: tile.shardSiteJson } : {}),
+          ...("musterJson" in tile ? { musterJson: tile.musterJson } : {}),
           ...("yield" in tile ? { yield: tile.yield } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
           ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {})
@@ -2476,6 +2478,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           ...(tile.economicStructureJson ? { economic_structure_json: tile.economicStructureJson } : {}),
           ...(tile.sabotageJson ? { sabotage_json: tile.sabotageJson } : {}),
           ...(tile.shardSiteJson ? { shard_site_json: tile.shardSiteJson } : {}),
+          ...(tile.musterJson ? { muster_json: tile.musterJson } : {}),
           ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
           ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
           ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
