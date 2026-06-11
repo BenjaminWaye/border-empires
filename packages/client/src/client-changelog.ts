@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.1",
+  version: "2026.06.11.2",
   title: "What's New",
-  summary: "Fix: Muster state now updates correctly after setting or clearing a muster flag.",
+  summary: "Fix: Muster button now works — setting or clearing a muster flag takes effect immediately.",
   entries: [
+    {
+      introducedIn: "2026.06.11.2",
+      title: "Muster button works",
+      why: "The simulation was building its gRPC tile-delta responses without the muster_json field, so the SET_MUSTER result arrived at the client as an empty clear signal every time — the muster state was set on the server but the client never saw it.",
+      changes: [
+        "Simulation now includes muster data in tile-delta gRPC responses so SET_MUSTER and CLEAR_MUSTER take effect in the client tile state."
+      ]
+    },
     {
       introducedIn: "2026.06.11.1",
       title: "Muster state updates correctly",

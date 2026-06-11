@@ -248,11 +248,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   ]);
 
   const sendGameMessage = (payload: unknown, message?: string): boolean => {
-    const msgType = payload && typeof payload === "object" ? (payload as { type?: unknown }).type : undefined;
-    const isMusterMsg = msgType === "SET_MUSTER" || msgType === "CLEAR_MUSTER";
-    if (isMusterMsg) console.info("[muster-debug] sendGameMessage enter", { payload, authReady: state.authReady, authSessionReady: state.authSessionReady, wsState: ws.readyState });
     if (!requireAuthedSession(message)) {
-      if (isMusterMsg) console.warn("[muster-debug] blocked by requireAuthedSession");
       return false;
     }
     if (
@@ -262,7 +258,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         showCaptureAlert
       })
     ) {
-      if (isMusterMsg) console.warn("[muster-debug] blocked by blockUnsupportedRewriteMessage", { serverSupportedTypes: [...state.serverSupportedMessageTypes] });
       return false;
     }
     const maybeRewritePayload =
@@ -322,7 +317,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         eligible: state.mapRevealEligible
       });
     }
-    if (isMusterMsg) console.info("[muster-debug] ws.send firing", payload);
     ws.send(JSON.stringify(payload));
     return true;
   };
@@ -1102,9 +1096,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const bulkKeys = state.tileActionMenu.mode === "bulk" ? state.tileActionMenu.bulkKeys : [];
     const fromBulk = bulkKeys.length > 0;
     const targets = fromBulk ? bulkKeys : selected ? [keyFor(selected.x, selected.y)] : [];
-    if (actionId.startsWith("muster")) {
-      console.info("[muster-debug] handleTileAction", { actionId, singleTargetKey, selectedKey: selected ? keyFor(selected.x, selected.y) : null, targetsLen: targets.length, mode: state.tileActionMenu.mode, authReady: state.authReady, authSessionReady: state.authSessionReady, serverSupportedTypes: [...state.serverSupportedMessageTypes] });
-    }
     if (targets.length === 0) {
       hideTileActionMenu();
       return;
