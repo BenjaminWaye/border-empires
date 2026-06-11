@@ -1,5 +1,6 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import type { EconomicStructureType, Terrain } from "@border-empires/shared";
+import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 /**
  * Serializable world-view snapshot passed to AI and system worker threads via
@@ -77,6 +78,7 @@ export type PlannerPlayerView = {
   /** tileKeys of in-progress settle commands (don't double-settle). */
   pendingSettlementTileKeys: string[];
   activeDevelopmentProcessCount: number;
+  ownedStructureCounts?: PlannerOwnedStructureCounts;
 };
 
 // ─── World view ───────────────────────────────────────────────────────────────
