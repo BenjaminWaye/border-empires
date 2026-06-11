@@ -3,12 +3,12 @@ import {
   structureBuildGoldCost,
   structureCostDefinition,
   structureShowsOnTile,
-  type EconomicStructureType
-,
+  type EconomicStructureType,
   type Terrain
 } from "@border-empires/shared";
 
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
+import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 
@@ -20,6 +20,7 @@ export type StructurePlannerPlayer = {
   settledTileCount?: number;
   townCount?: number;
   incomePerMinute?: number;
+  ownedStructureCounts?: PlannerOwnedStructureCounts;
 };
 
 export type StructurePlannerTile = {
@@ -50,28 +51,16 @@ const resourceStock = (
 
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
 
-const ownedStructureCount = (
-  playerId: string,
-  tiles: Iterable<StructurePlannerTile>,
-  structureKind: "FORT" | "SIEGE_OUTPOST" | EconomicStructureType
-): number => {
-  let count = 0;
-  for (const tile of tiles) {
-    if (structureKind === "FORT" && tile.fort?.ownerId === playerId) count += 1;
-    else if (structureKind === "SIEGE_OUTPOST" && tile.siegeOutpost?.ownerId === playerId) count += 1;
-    else if (tile.economicStructure?.ownerId === playerId && tile.economicStructure.type === structureKind) count += 1;
-  }
-  return count;
-};
-
-// Single-pass counter for every owned structure type. Replaces repeated calls
-// to ownedStructureCount inside hot per-tile loops — those were O(N) per
-// candidate, turning the surrounding selector into O(N^2) and producing
-// multi-second AI ticks on empires with ~1000 owned tiles.
 type OwnedStructureCounts = {
   FORT: number;
   SIEGE_OUTPOST: number;
   economic: Map<EconomicStructureType, number>;
+};
+
+const EMPTY_OWNED_STRUCTURE_COUNTS: OwnedStructureCounts = {
+  FORT: 0,
+  SIEGE_OUTPOST: 0,
+  economic: new Map()
 };
 
 const tallyOwnedStructures = (
@@ -96,6 +85,18 @@ const tallyOwnedStructures = (
 
 const economicCount = (counts: OwnedStructureCounts, type: EconomicStructureType): number =>
   counts.economic.get(type) ?? 0;
+
+const plannedOwnedStructureCount = (
+  player: StructurePlannerPlayer,
+  fallbackCounts: OwnedStructureCounts,
+  structureKind: "FORT" | "SIEGE_OUTPOST" | EconomicStructureType
+): number => {
+  const cached = player.ownedStructureCounts?.[structureKind];
+  if (typeof cached === "number") return cached;
+  if (structureKind === "FORT") return fallbackCounts.FORT;
+  if (structureKind === "SIEGE_OUTPOST") return fallbackCounts.SIEGE_OUTPOST;
+  return economicCount(fallbackCounts, structureKind);
+};
 
 const supportedTownCount = (playerId: string, tile: StructurePlannerTile, tilesByKey: TileLookup): number => {
   let count = 0;
@@ -174,11 +175,7 @@ export const chooseBestEconomicBuild = (
   let best: { tile: StructurePlannerTile; structureType: EconomicStructureType; score: number } | undefined;
   const foodLow = foodCoverageLow(player);
   const econWeak = economyWeak(player);
-  // Single tally over the full owned set so per-candidate affordability checks
-  // are O(1). Without this, the inner candidate loop was calling
-  // ownedStructureCount per kind per tile (O(N^2)) on empires with hundreds
-  // of owned tiles.
-  const counts = tallyOwnedStructures(player.id, ownedTiles);
+  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
   const techSet = playerTechSet(player);
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
@@ -199,7 +196,7 @@ export const chooseBestEconomicBuild = (
       candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
     }
     for (const candidate of candidates) {
-      const existingOwnedCount = economicCount(counts, candidate.type);
+      const existingOwnedCount = plannedOwnedStructureCount(player, counts, candidate.type);
       if (!canAffordStructure(player, techSet, candidate.type, existingOwnedCount)) continue;
       if (!structureVisibleOnTile(candidate.type, player.id, tile, tilesByKey)) continue;
       const next = { tile, structureType: candidate.type, score: candidate.score };
@@ -217,7 +214,8 @@ export const chooseBestFortBuild = (
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("masonry")) return undefined;
   if (resourceStock(player, "IRON") < 45) return undefined;
-  if (!canAffordGold(player, structureBuildGoldCost("FORT", ownedStructureCount(player.id, ownedTiles, "FORT")))) return undefined;
+  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
+  if (!canAffordGold(player, structureBuildGoldCost("FORT", plannedOwnedStructureCount(player, counts, "FORT")))) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {
@@ -254,7 +252,8 @@ export const chooseBestSiegeOutpostBuild = (
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("leatherworking")) return undefined;
   if (resourceStock(player, "SUPPLY") < 45) return undefined;
-  if (!canAffordGold(player, structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCount(player.id, ownedTiles, "SIEGE_OUTPOST")))) return undefined;
+  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
+  if (!canAffordGold(player, structureBuildGoldCost("SIEGE_OUTPOST", plannedOwnedStructureCount(player, counts, "SIEGE_OUTPOST")))) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {

@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.5",
+  version: "2026.06.11.6",
   title: "What's New",
-  summary: "Fix: Recently captured towns no longer pay out repeat plunder during capture shock.",
+  summary: "Fix: AI structure planning now prices scaled builds from cached empire-wide counts.",
   entries: [
+    {
+      introducedIn: "2026.06.11.6",
+      title: "AI build planning prices structures correctly",
+      why: "AI planning could evaluate fort and siege outpost affordability from only the current build-candidate slice, undercounting existing structures elsewhere in a large empire.",
+      changes: [
+        "AI structure planning now uses the simulation's cached per-player structure counts, matching the final server-side build-cost validation."
+      ]
+    },
     {
       introducedIn: "2026.06.11.5",
       title: "Town plunder respects capture shock",

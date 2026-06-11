@@ -1,8 +1,7 @@
 /**
  * AI planner worker thread.
- *
- * Runs inside a Node.js Worker so that planning computation never blocks the
- * main simulation event loop. The worker keeps planner state in-memory and is
+ * Runs inside a Node.js Worker so planning never blocks the main event loop.
+ * The worker keeps planner state in-memory and is
  * updated incrementally via player/tile deltas.
  *
  * Message protocol (main → worker):
@@ -341,6 +340,7 @@ const choosePlannerCommand = (
     ...(typeof player.incomePerMinute === "number" ? { incomePerMinute: player.incomePerMinute } : {}),
     hasActiveLock: player.hasActiveLock,
     activeDevelopmentProcessCount: player.activeDevelopmentProcessCount,
+    ...(player.ownedStructureCounts ? { ownedStructureCounts: player.ownedStructureCounts } : {}),
     frontierTiles,
     hotFrontierTiles,
     strategicFrontierTiles,
