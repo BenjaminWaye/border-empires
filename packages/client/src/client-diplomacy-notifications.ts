@@ -1,7 +1,8 @@
+import { storageGet, storageSet } from "./client-state.js";
 import type { ClientState } from "./client-state.js";
 import type { ActiveAllianceBreakView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "./client-types.js";
 
-type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds">;
+type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
 
 type DiplomacyNotificationDeps = {
   pushFeed: (message: string, type: "alliance", severity: "info" | "success" | "warn" | "error") => void;
@@ -17,10 +18,35 @@ const allianceDetail = (request: AllianceRequest): string =>
 const truceDetail = (request: TruceRequest): string =>
   `${senderName(request)} offered a ${request.durationHours}h truce. Open Alliances to accept or reject.`;
 
+const STORAGE_KEY = (playerId: string): string => `be:diplomacy:notified:${playerId}`;
+const MAX_STORED = 500;
+
+const ensureLoaded = (state: DiplomacyNotificationState): void => {
+  if (state.notifiedDiplomacyIdsLoadedFor === state.me || !state.me) return;
+  state.notifiedDiplomacyIdsLoadedFor = state.me;
+  state.notifiedIncomingDiplomacyRequestIds.clear();
+  try {
+    const raw = storageGet(STORAGE_KEY(state.me));
+    const parsed: unknown = JSON.parse(raw ?? "[]");
+    const stored = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+    for (const id of stored) state.notifiedIncomingDiplomacyRequestIds.add(id);
+  } catch {
+    storageSet(STORAGE_KEY(state.me), "[]");
+  }
+};
+
+const persistIds = (state: DiplomacyNotificationState): void => {
+  if (!state.me) return;
+  const entries = [...state.notifiedIncomingDiplomacyRequestIds];
+  storageSet(STORAGE_KEY(state.me), JSON.stringify(entries.length > MAX_STORED ? entries.slice(-MAX_STORED) : entries));
+};
+
 const markUnseenRequest = (state: DiplomacyNotificationState, kind: "alliance" | "truce" | "alliance-break", requestId: string): boolean => {
+  ensureLoaded(state);
   const key = `${kind}:${requestId}`;
   if (state.notifiedIncomingDiplomacyRequestIds.has(key)) return false;
   state.notifiedIncomingDiplomacyRequestIds.add(key);
+  persistIds(state);
   return true;
 };
 

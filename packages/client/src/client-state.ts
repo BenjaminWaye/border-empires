@@ -215,6 +215,7 @@ export const createInitialState = () => ({
   incomingTruceRequests: [] as TruceRequest[],
   outgoingTruceRequests: [] as TruceRequest[],
   notifiedIncomingDiplomacyRequestIds: new Set<string>(),
+  notifiedDiplomacyIdsLoadedFor: "",
   activeAetherBridges: [] as ActiveAetherBridgeView[],
   activeAetherWalls: [] as ActiveAetherWallView[],
   aetherLanceFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
