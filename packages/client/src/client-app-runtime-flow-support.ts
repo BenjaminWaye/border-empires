@@ -1,8 +1,8 @@
 import { createClientInspectionFlow } from "./client-inspection-flow.js";
-import { createClientOptimisticStateController } from "./client-optimistic-state.js";
-import { createClientOriginSelection } from "./client-origin-selection.js";
+import { createClientOptimisticStateController } from "./client-optimistic-state/client-optimistic-state.js";
+import { createClientOriginSelection } from "./client-origin-selection/client-origin-selection.js";
 import type { ClientAppDom } from "./client-app-runtime-dom.js";
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 import { createClientTechPanelFlow } from "./client-tech-panel-flow.js";
 import type { StructureInfoKey, StructureInfoView } from "./client-map-display.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";

@@ -5,7 +5,7 @@ import type {
   SimulationCommandStore,
   StoredSimulationCommand,
   StoredSimulationCommandStatus
-} from "./command-store.js";
+} from "./command-store/command-store.js";
 
 type Row = {
   command_id: string;

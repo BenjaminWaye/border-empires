@@ -1,5 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 
 type MapMathDeps = {
   state: ClientState;

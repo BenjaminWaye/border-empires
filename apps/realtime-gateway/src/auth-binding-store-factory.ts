@@ -1,4 +1,4 @@
-import { InMemoryGatewayAuthBindingStore, type GatewayAuthBindingStore } from "./auth-binding-store.js";
+import { InMemoryGatewayAuthBindingStore, type GatewayAuthBindingStore } from "./auth-binding-store/auth-binding-store.js";
 
 type AuthBindingStoreFactoryOptions = {
   sqlitePath?: string;

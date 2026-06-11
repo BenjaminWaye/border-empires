@@ -49,5 +49,6 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - Main repo: `/Users/benjaminwaye/Sites/border-empires-container/border-empires`
 - Workspace packages: `packages/shared` (constants/formulas/schemas/types), `packages/game-domain` (rewrite domain logic), `packages/sim-protocol` (gateway↔sim wire), `packages/client-protocol` (gateway↔client wire), `packages/server` (legacy only), `packages/client` (browser client).
 - Rewrite-stack apps (staging today): `apps/realtime-gateway`, `apps/simulation`.
+- Tests live beside the source module they cover; do not add new flat test files directly under package or app `src/` roots. Simulation AI/planner/automation code lives under `apps/simulation/src/ai/`.
 - Root scripts: `pnpm dev` (shared + server + client), `pnpm build`, `pnpm test`, `pnpm lint`.
 - Architecture/AI/design notes live in `docs/`. Load on demand; do not inline into this file.

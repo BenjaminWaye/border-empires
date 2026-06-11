@@ -1,3 +1,9 @@
+declare const process: {
+  env: {
+    MUSTER_SYSTEM_ENABLED?: string;
+  };
+};
+
 export const WORLD_WIDTH = 450;
 export const WORLD_HEIGHT = 450;
 export const CHUNK_SIZE = 64;

@@ -30,7 +30,7 @@ misleading.
 
 ## Fix
 
-**Single file:** `apps/realtime-gateway/src/slack-alerts.ts`
+**Single file:** `apps/realtime-gateway/src/slack-alerts/slack-alerts.ts`
 
 In `buildAlertPayload`, the World line builder is around line ~130:
 
@@ -74,7 +74,7 @@ even at startup — useful context.
 
 ## Tests
 
-In `apps/realtime-gateway/src/slack-alerts.test.ts`, add one case:
+In `apps/realtime-gateway/src/slack-alerts/slack-alerts.test.ts`, add one case:
 
 ```ts
 it("omits World line content when tile/ws counts are zero (post-restart)", async () => {

@@ -44,7 +44,7 @@ the gateway accepts should always persist.
 with short backoff (50ms, 150ms, 300ms). Total worst case: ~500ms,
 well under any client-facing timeout.
 
-**Where:** `apps/realtime-gateway/src/frontier-submit.ts:77-87`.
+**Where:** `apps/realtime-gateway/src/frontier-submit/frontier-submit.ts:77-87`.
 Probably also other call sites of `persistQueuedCommand` — grep for
 them and wrap each (or wrap inside `persistQueuedCommand` itself).
 

@@ -6,11 +6,11 @@ import {
   type Terrain
 } from "@border-empires/shared";
 import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
-import { simulationTileKey } from "./seed-state.js";
-import type { DockRouteDefinition } from "./dock-network.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
+import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
-import { visionRadiusBonusForPlayer } from "./tech-domain-bridge.js";
+import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type {
   LockRecord,
   RuntimePlayer,

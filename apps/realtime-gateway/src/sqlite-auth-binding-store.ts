@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import type { GatewayAuthBindingStore, StoredAuthIdentityBinding } from "./auth-binding-store.js";
+import type { GatewayAuthBindingStore, StoredAuthIdentityBinding } from "./auth-binding-store/auth-binding-store.js";
 
 type Row = {
   auth_uid: string;

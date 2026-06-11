@@ -1,16 +1,16 @@
 import type { ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
-import { simulationTileKey } from "./seed-state.js";
-import type { DockRouteDefinition } from "./dock-network.js";
-import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
-import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
+import type { DockRouteDefinition } from "./dock-network/dock-network.js";
+import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
+import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { LockRecord, StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
-import { visionRadiusBonusForPlayer } from "./tech-domain-bridge.js";
+import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { Terrain } from "@border-empires/shared";
-import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./planner-world-view.js";
-import { buildPlannerTileSlice, toPlannerTileView } from "./planner-world-view-slice.js";
+import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
+import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 
 export const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {

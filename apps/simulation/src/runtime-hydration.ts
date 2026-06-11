@@ -1,11 +1,11 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
-import { recomputeMods } from "./tech-domain-bridge.js";
-import { simulationTileKey } from "./seed-state.js";
-import type { DockRouteDefinition } from "./dock-network.js";
-import type { RecoveredCommandHistory } from "./command-recovery.js";
-import type { RecoveredSimulationState } from "./event-recovery.js";
+import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
+import type { DockRouteDefinition } from "./dock-network/dock-network.js";
+import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
+import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import { lockSourceFromCommandId } from "./runtime-types.js";
 import type { LockedCombatResolution, LockRecord, RuntimePlayer } from "./runtime-types.js";
 

@@ -6,8 +6,8 @@
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap.js";
-import { SimulationRuntime } from "../runtime.js";
+import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
+import { SimulationRuntime } from "../runtime/runtime.js";
 
 // Resolve snapshot directory.
 // Priority: SNAPSHOT_DIR env var, then walk up from file location looking for

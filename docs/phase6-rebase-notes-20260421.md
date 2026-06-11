@@ -23,16 +23,16 @@ Two commits ahead of `67eb7b5` (the revert-merge):
 
 Files touched by these 2 commits (relative to main-at-time-of-branch):
 
-- `apps/realtime-gateway/src/gateway-app.ts`
-- `apps/realtime-gateway/src/http-routes.ts`
-- `apps/realtime-gateway/src/http-routes.test.ts`
+- `apps/realtime-gateway/src/gateway-app/gateway-app.ts`
+- `apps/realtime-gateway/src/http-routes/http-routes.ts`
+- `apps/realtime-gateway/src/http-routes/http-routes.test.ts`
 - `apps/realtime-gateway/src/main.ts`
-- `apps/realtime-gateway/src/runtime-env.ts`
-- `apps/realtime-gateway/src/runtime-env.test.ts`
+- `apps/realtime-gateway/src/runtime-env/runtime-env.ts`
+- `apps/realtime-gateway/src/runtime-env/runtime-env.test.ts`
 - `apps/simulation/src/main.ts`
-- `apps/simulation/src/runtime-env.ts`
-- `apps/simulation/src/runtime-env.test.ts`
-- `apps/simulation/src/simulation-service.ts`
+- `apps/simulation/src/runtime-env/runtime-env.ts`
+- `apps/simulation/src/runtime-env/runtime-env.test.ts`
+- `apps/simulation/src/simulation-service/simulation-service.ts`
 - `provision-fly-prod.command` ← MAJOR CONFLICT (rewritten in Task 3)
 - `scripts/rewrite-phase6-cutover-check.mjs` ← NEW FILE, no conflict
 
@@ -73,7 +73,7 @@ git push origin codex/phase6-review-redo-rebased
 
 ## §A. Conflict resolutions for commit `170dc98`
 
-### `apps/realtime-gateway/src/runtime-env.ts`
+### `apps/realtime-gateway/src/runtime-env/runtime-env.ts`
 
 **Conflict:** Main's version has no `runtimeIdentity` field. Branch adds env-var
 parsing for it.
@@ -141,7 +141,7 @@ In the `return` block, add at the end:
     ...(runtimeIdentity ? { runtimeIdentity } : {})
 ```
 
-### `apps/realtime-gateway/src/runtime-env.test.ts`
+### `apps/realtime-gateway/src/runtime-env/runtime-env.test.ts`
 
 **Conflict:** Main has existing tests. Branch adds `runtimeIdentity` env-var test.
 
@@ -187,7 +187,7 @@ as a new case in the existing `describe` block.** The branch adds:
   });
 ```
 
-### `apps/realtime-gateway/src/http-routes.ts`
+### `apps/realtime-gateway/src/http-routes/http-routes.ts`
 
 **Conflict:** Main uses `readHealth()` helper with explicit statusCode. Branch uses
 `healthHandler` shared function. Both output `{ ok, simulation, runtimeIdentity }`.
@@ -197,7 +197,7 @@ wired into the response. The branch's version is functionally equivalent but
 uses a slightly different internal structure. Main's structure is cleaner
 (explicit statusCode vs implicit 503 from `reply.code`). No content change needed.
 
-### `apps/realtime-gateway/src/http-routes.test.ts`
+### `apps/realtime-gateway/src/http-routes/http-routes.test.ts`
 
 **Conflict:** Main has tests for `/health`, `/healthz`, `/admin/runtime/debug-bundle`,
 `/metrics`. Branch adds `runtimeIdentity` assertion in the healthz response check.
@@ -253,7 +253,7 @@ a new `describe("runtimeIdentity")` block.** Specifically, add after the existin
   });
 ```
 
-### `apps/realtime-gateway/src/gateway-app.ts`
+### `apps/realtime-gateway/src/gateway-app/gateway-app.ts`
 
 **Conflict:** Main already has `runtimeIdentity` passed from `legacySnapshotBootstrap`
 in `registerGatewayHttpRoutes(...)`. Branch passes it from both bootstrap AND the
@@ -271,7 +271,7 @@ to:
     runtimeIdentity: legacySnapshotBootstrap?.runtimeIdentity ?? options.runtimeIdentity,
 ```
 
-### `apps/simulation/src/runtime-env.ts` and `runtime-env.test.ts`
+### `apps/simulation/src/runtime-env/runtime-env.ts` and `runtime-env.test.ts`
 
 **Same pattern as gateway.** Port the `runtimeIdentity` env-var parsing block
 (uses `SIMULATION_RUNTIME_*` env vars instead of `GATEWAY_RUNTIME_*`). Keep

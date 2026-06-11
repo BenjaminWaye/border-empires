@@ -1,6 +1,6 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { FrontierCommandType } from "@border-empires/game-domain";
-import type { QueueLane } from "./command-lane.js";
+import type { QueueLane } from "./command-lane/command-lane.js";
 
 export type RuntimeCommandDispatchHandlers = {
   emitUnsupported: (command: CommandEnvelope) => void;

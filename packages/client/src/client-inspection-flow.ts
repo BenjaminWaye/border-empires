@@ -1,6 +1,6 @@
-import { combatResolutionAlert as combatResolutionAlertFromModule } from "./client-alerts.js";
-import { tileHistoryLines as tileHistoryLinesFromModule } from "./client-tile-history.js";
-import type { ClientState } from "./client-state.js";
+import { combatResolutionAlert as combatResolutionAlertFromModule } from "./client-alerts/client-alerts.js";
+import { tileHistoryLines as tileHistoryLinesFromModule } from "./client-tile-history/client-tile-history.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 
 type InspectionFlowDeps = {

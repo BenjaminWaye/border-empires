@@ -1,7 +1,7 @@
 import { CHUNK_SIZE } from "@border-empires/shared";
-import { effectiveFogDisabled } from "./client-map-reveal.js";
+import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 
 export const centerOnOwnedTile = (state: Pick<ClientState, "tiles" | "me" | "homeTile" | "camX" | "camY">): void => {
   const own = [...state.tiles.values()].find((tile) => tile.ownerId === state.me);
