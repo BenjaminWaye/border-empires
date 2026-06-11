@@ -6519,7 +6519,7 @@ export class SimulationRuntime {
     // share of the defender's balance of that resource type.
     // Formula: stolen = defenderBalance / max(1, defenderCountOfThatResourceType)
     // This makes each tile capture meaningful without requiring a tile scan.
-    if (attackerWon && attacker && defender && previousTarget?.resource && previousOwnerId && previousOwnerId !== lock.playerId) {
+    if (attackerWon && attacker && defender && previousTarget?.resource && !combatResolution?.targetRecentlyPillaged && previousOwnerId && previousOwnerId !== lock.playerId) {
       this.applyResourceTileSteal(attacker, defender, previousTarget.resource, previousTarget.economicStructure?.type);
     }
     // When the captured town is a SETTLEMENT (the previous owner's home), it evacuates:

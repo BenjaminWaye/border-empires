@@ -79,6 +79,7 @@ export type LockRecord = {
 export type LockedCombatResolution = {
   result: LockedFrontierCombatResult;
   defenderGoldLoss: number;
+  targetRecentlyPillaged: boolean;
 };
 
 export type AetherWallDirection = "N" | "E" | "S" | "W";

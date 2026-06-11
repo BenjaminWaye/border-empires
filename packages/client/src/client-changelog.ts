@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.1",
+  version: "2026.06.11.2",
   title: "What's New",
-  summary: "Fix: Muster state now updates correctly after setting or clearing a muster flag.",
+  summary: "Fix: Recently captured towns no longer pay out repeat plunder during capture shock.",
   entries: [
+    {
+      introducedIn: "2026.06.11.2",
+      title: "Town plunder respects capture shock",
+      why: "Back-and-forth town captures could repeatedly drain player stocks even though the town had already been pillaged moments earlier.",
+      changes: [
+        "Capturing a town that is still marked Recently captured changes ownership as usual, but no longer pays another plunder reward."
+      ]
+    },
     {
       introducedIn: "2026.06.11.1",
       title: "Muster state updates correctly",
