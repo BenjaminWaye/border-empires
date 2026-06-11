@@ -2269,6 +2269,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (normalizedUpdate.sabotage) merged.sabotage = normalizedUpdate.sabotage;
           else delete merged.sabotage;
         }
+        if ("muster" in normalizedUpdate) {
+          if (normalizedUpdate.muster) merged.muster = normalizedUpdate.muster;
+          else delete merged.muster;
+        }
         if ("yield" in normalizedUpdate) {
           if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;
           else delete merged.yield;
