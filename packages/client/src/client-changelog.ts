@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.4",
+  version: "2026.06.11.5",
   title: "What's New",
-  summary: "Clearing Houses now apply their economy bonus and building tiles explain their contribution.",
+  summary: "Fix: Recently captured towns no longer pay out repeat plunder during capture shock.",
   entries: [
+    {
+      introducedIn: "2026.06.11.5",
+      title: "Town plunder respects capture shock",
+      why: "Back-and-forth town captures could repeatedly drain player stocks even though the town had already been pillaged moments earlier.",
+      changes: [
+        "Capturing a town that is still marked Recently captured changes ownership as usual, but no longer pays another plunder reward."
+      ]
+    },
     {
       introducedIn: "2026.06.11.4",
       title: "Building contribution details",
@@ -326,24 +334,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "A floating hourglass badge now hovers over your own active observatory while its crystal-casting cooldown is running.",
         "The tile overview for an active observatory now shows a live \"Crystal casting recharging — ready in MM:SS\" countdown."
-      ]
-    },
-    {
-      introducedIn: "2026.06.01.2",
-      title: "Shared support tiles can build again",
-      why: "Support tiles that touched multiple towns were blocked with 'Support tile touches multiple towns' even when the player owned the land. The block avoided double-counting support effects, but it made valid settled support tiles unusable.",
-      changes: [
-        "The client now assigns a shared support tile to one deterministic town and keeps the building actions available.",
-        "Simulation support and support-structure effects use the same one-town assignment, so one support tile cannot boost multiple towns."
-      ]
-    },
-    {
-      introducedIn: "2026.06.01.1",
-      title: "Client backs off when the server is busy",
-      why: "The gateway now rejects auth with SERVER_BUSY when too many players are connecting at once. Without this change, the client treated SERVER_BUSY as a fatal error and stopped retrying, which made the reconnection cascade worse.",
-      changes: [
-        "SERVER_BUSY auth errors now flow into the existing reconnect backoff (exponential with jitter), same as SERVER_STARTING.",
-        "No new backoff logic — the existing scheduleAuthReconnect path handles the retry spacing."
       ]
     },
   ]
