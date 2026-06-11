@@ -258,25 +258,33 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   const applyIncomingRespawnNotice = (value: unknown): void => {
     const notice = normalizeRespawnNotice(value);
-    console.info("[respawn-debug] applyIncomingRespawnNotice", {
-      hasRawValue: value !== undefined && value !== null,
-      rawValueType: typeof value,
-      normalizedOk: notice !== undefined,
-      noticeId: notice?.id,
-      reasonCode: notice?.reasonCode,
-      triggerEvent: notice?.triggerEvent,
-      lastSeenRespawnNoticeId: state.lastSeenRespawnNoticeId,
-      duplicateOfLastSeen: notice ? state.lastSeenRespawnNoticeId === notice.id : undefined,
-      rawValuePreview: value
-    });
     applyRespawnNoticeToState(state, notice, appendFeedEntry);
   };
 
   const maybeRequestTileDetail = (tile: any): void => {
     if (typeof deps.requestTileDetailIfNeeded !== "function") return;
     if (!tile || tile.fogged || tile.detailLevel === "full") return;
+    const ownedByMe = tile.ownerId === state.me;
+    // Unowned resource/dock tiles carry no server-side economy data — the
+    // snapshot already has everything visible. Self-stamp to avoid a round-trip.
     if (
-      tile.ownerId === state.me ||
+      !ownedByMe &&
+      (tile.resource || tile.dockId) &&
+      !tileHasTownIdentity(tile) &&
+      !tile.fort &&
+      !tile.observatory &&
+      !tile.siegeOutpost &&
+      !tile.economicStructure
+    ) {
+      // Stamp tileDetailReceivedAt so the 60s gate in requestTileDetailIfNeeded
+      // suppresses the round-trip. We deliberately do NOT write detailLevel:"full"
+      // into state.tiles — if this tile later changes ownership or gets a
+      // structure built on it, the gate naturally expires and a real request fires.
+      state.tileDetailReceivedAt.set(keyFor(tile.x, tile.y), Date.now());
+      return;
+    }
+    if (
+      ownedByMe ||
       tile.resource ||
       tile.dockId ||
       tileHasTownIdentity(tile) ||
@@ -2260,6 +2268,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if ("sabotage" in normalizedUpdate) {
           if (normalizedUpdate.sabotage) merged.sabotage = normalizedUpdate.sabotage;
           else delete merged.sabotage;
+        }
+        if ("muster" in normalizedUpdate) {
+          if (normalizedUpdate.muster) merged.muster = normalizedUpdate.muster;
+          else delete merged.muster;
         }
         if ("yield" in normalizedUpdate) {
           if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;

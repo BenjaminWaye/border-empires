@@ -19,10 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.06.4",
+  version: "2026.06.11.1",
   title: "What's New",
-  summary: "Resource income now flows passively every 15 seconds — no more manual collect actions causing server stalls.",
+  summary: "Fix: Muster state now updates correctly after setting or clearing a muster flag.",
   entries: [
+    {
+      introducedIn: "2026.06.11.1",
+      title: "Muster state updates correctly",
+      why: "The muster field was normalized from the server's JSON payload but never applied to the local tile state during tile-delta processing, so clicking Stage Muster or Clear Muster appeared to do nothing.",
+      changes: [
+        "Muster flag (mode, amount) now correctly reflects on the tile after SET_MUSTER or CLEAR_MUSTER is processed by the server."
+      ]
+    },
+    {
+      introducedIn: "2026.06.10.1",
+      title: "Faster map exploration",
+      why: "Resource and dock tiles were each triggering a server round-trip as they scrolled into view, even though the client already had all the data it needed.",
+      changes: [
+        "Unowned resource and dock tiles are now marked as fully loaded locally — no round-trip to the server."
+      ]
+    },
     {
       introducedIn: "2026.06.06.4",
       title: "Passive empire income replaces manual COLLECT_VISIBLE",

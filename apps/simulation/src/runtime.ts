@@ -3307,6 +3307,9 @@ export class SimulationRuntime {
       playerId: command.playerId,
       tileDeltas: [this.tileDeltaFromState(updatedTile)]
     });
+    // Removing an owned tile can sever the supply path to downstream frontier
+    // tiles — re-check encirclement connectivity from the now-vacant key.
+    this.applyEncirclement([targetKey], command.playerId, command.commandId, { bfsCap: 2000 });
     this.emitPlayerStateUpdate(command);
   }
 
