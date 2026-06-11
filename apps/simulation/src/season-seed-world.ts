@@ -38,7 +38,7 @@ import {
   createServerWorldgenTowns,
   assignMissingTownNames
 } from "@border-empires/game-domain";
-import type { DockRouteDefinition } from "./dock-network.js";
+import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 
 export type GeneratedSeedPlayerSummary = {
   playerId: string;

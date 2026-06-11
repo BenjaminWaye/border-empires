@@ -1,4 +1,4 @@
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { FeedSeverity, FeedType, PlayerRespawnNotice } from "./client-types.js";
 
 type RespawnOverlayDeps = {

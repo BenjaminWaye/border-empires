@@ -1,12 +1,12 @@
 import { ECONOMIC_STRUCTURE_BUILD_MS, WOODEN_FORT_BUILD_MS } from "./config.js";
-import type { StructureSpec } from "./structure-registry.js";
+import type { StructureSpec } from "./structure-registry/structure-registry.js";
 import {
   noConflictingStructure,
   noDuplicateStructureType,
   ownerOwnsTile,
   tileIsLand,
   tileIsSettled,
-} from "./structure-registry.js";
+} from "./structure-registry/structure-registry.js";
 import type { EconomicStructureType, TileUpkeepEntry } from "./types.js";
 
 // ── Economic family ────────────────────────────────────────────────

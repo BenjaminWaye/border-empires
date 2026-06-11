@@ -5,11 +5,11 @@ import {
   isDockRouteVisibleForPlayer as isDockRouteVisibleForPlayerFromModule,
   markDockDiscovered as markDockDiscoveredFromModule
 } from "./client-dock-routes.js";
-import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap.js";
-import { resolveOwnerColor } from "./client-owner-colors.js";
-import { playerNameForOwnerFromState } from "./client-owner-name.js";
+import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap/client-minimap.js";
+import { resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
+import { playerNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
-import { effectiveFogDisabled } from "./client-map-reveal.js";
+import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
@@ -33,10 +33,10 @@ import {
   fortificationOverlayImageFor as fortificationOverlayImageFromModule,
   shouldDrawOwnershipBorder as shouldDrawOwnershipBorderFromModule,
   structureAccentColor as structureAccentColorFromModule
-} from "./client-map-render.js";
-import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
-import type { RoadDirections } from "./client-road-network.js";
-import type { ClientState } from "./client-state.js";
+} from "./client-map-render/client-map-render.js";
+import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
+import type { RoadDirections } from "./client-road-network/client-road-network.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
 
 type MapFacadeDeps = {

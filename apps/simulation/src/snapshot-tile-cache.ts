@@ -2,7 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, type Terrain, type Tile } from "@border-empi
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SEED_GRANARY_SLOTS } from "@border-empires/game-domain";
 import { shouldYieldAt } from "./event-loop-yield.js";
-import type { EconomyPlayer } from "./economy-network.js";
+import type { EconomyPlayer } from "./economy-network/economy-network.js";
 
 export type RuntimeState = {
   tiles: Array<{

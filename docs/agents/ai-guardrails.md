@@ -2,6 +2,7 @@
 
 Read this before touching any AI planner, snapshot, or selector code.
 
+- Simulation AI/planner/automation code is grouped under `apps/simulation/src/ai/`; keep new AI tests colocated there with the source module they cover.
 - Do not call heavy concrete AI selector functions from planner snapshot or planning-static cache builders. Specifically: `bestAiSettlementTile`, `bestAiTownSupportSettlementTile`, `bestAiIslandSettlementTile`, `bestAiFortTile`, `bestAiEconomicStructure`, `bestAiEnemyPressureAttack`, `bestAiFrontierAction`.
 - Planner snapshot and planning-static cache code must derive booleans and coarse scores from cached territory summaries, lightweight signals, and versioned indexes only.
 - Concrete AI target selection should run only for the action the AI actually chose. Repeated late-game selector scans must be cached or version-gated.

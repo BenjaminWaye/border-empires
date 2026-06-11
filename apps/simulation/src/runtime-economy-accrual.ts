@@ -1,11 +1,11 @@
 import type { ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { buildTileYieldView } from "./tile-yield-view.js";
-import { buildPlayerUpdateEconomySnapshot, refreshTownEconomyFields, type PlayerUpdateEconomySnapshot } from "./player-update-economy.js";
-import { buildUpkeepAccrualSnapshot, type UpkeepAccrualSnapshot } from "./player-upkeep-incremental.js";
+import { buildTileYieldView } from "./tile-yield-view/tile-yield-view.js";
+import { buildPlayerUpdateEconomySnapshot, refreshTownEconomyFields, type PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
+import { buildUpkeepAccrualSnapshot, type UpkeepAccrualSnapshot } from "./player-upkeep-incremental/player-upkeep-incremental.js";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
-import { enrichTownWithConnectedNetwork } from "./economy-network.js";
-import { chosenTrickleRateForPlayer } from "./tech-domain-bridge.js";
+import { enrichTownWithConnectedNetwork } from "./economy-network/economy-network.js";
+import { chosenTrickleRateForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
   effectiveManpowerAt,
   playerManpowerBreakdownFromSummary,

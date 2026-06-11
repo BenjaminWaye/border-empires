@@ -8,7 +8,7 @@
 ## Why
 
 The gateway registers `@fastify/websocket` (wraps `ws` 8.19) with **no
-compression** at `apps/realtime-gateway/src/gateway-app.ts:374`:
+compression** at `apps/realtime-gateway/src/gateway-app/gateway-app.ts:374`:
 
 ```ts
 await app.register(websocket);
@@ -85,7 +85,7 @@ The mitigations ARE the plan:
 
 ## The change
 
-**File: `apps/realtime-gateway/src/gateway-app.ts:374`**
+**File: `apps/realtime-gateway/src/gateway-app/gateway-app.ts:374`**
 
 `@fastify/websocket` v10 forwards `ws` server options via the `options` key.
 Replace:

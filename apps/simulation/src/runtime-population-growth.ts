@@ -9,8 +9,8 @@ import {
   SEED_GRANARY_GROWTH_MULT,
   type DomainTileState
 } from "@border-empires/game-domain";
-import { buildFedTownKeys, hasSupportedStructure } from "./player-update-economy.js";
-import { firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network.js";
+import { buildFedTownKeys, hasSupportedStructure } from "./player-update-economy/player-update-economy.js";
+import { firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network/economy-network.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 

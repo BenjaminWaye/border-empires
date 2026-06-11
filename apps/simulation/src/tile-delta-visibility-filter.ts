@@ -1,9 +1,9 @@
 import { VISION_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, type Terrain } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
-import { collectLinkedDockRevealKeysForOwners, type DockRouteDefinition } from "./dock-network.js";
-import { simulationTileKey } from "./seed-state.js";
-import { visionRadiusBonusForPlayer } from "./tech-domain-bridge.js";
+import { collectLinkedDockRevealKeysForOwners, type DockRouteDefinition } from "./dock-network/dock-network.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
+import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export type VisibilityAuditSample = {
   playerId: string;

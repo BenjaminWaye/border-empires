@@ -1,5 +1,5 @@
-import { createRealtimeGatewayApp } from "./gateway-app.js";
-import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env.js";
+import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
+import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 
 const runtimeEnv = parseRealtimeGatewayRuntimeEnv(process.env);
 const gateway = await createRealtimeGatewayApp({

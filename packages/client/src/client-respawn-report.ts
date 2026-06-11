@@ -1,6 +1,6 @@
-import { snapshotClientDebugEvents } from "./client-debug.js";
-import { buildClientDebugBundle, serverHttpOriginFromWsUrl } from "./client-debug-bundle.js";
-import type { ClientState } from "./client-state.js";
+import { snapshotClientDebugEvents } from "./client-debug/client-debug.js";
+import { buildClientDebugBundle, serverHttpOriginFromWsUrl } from "./client-debug-bundle/client-debug-bundle.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { PlayerRespawnNotice } from "./client-types.js";
 
 type JsonFetchResult =

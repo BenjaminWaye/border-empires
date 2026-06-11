@@ -5,7 +5,7 @@ import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
   RESTART_PARITY_COMMAND_TYPES as RESTART_PARITY_COMMAND_TYPES_UNTYPED
-} from "./command-coverage-sets.js";
+} from "./command-coverage-sets/command-coverage-sets.js";
 
 const SimulationCommandTypeSchema = z.union([DurableCommandTypeSchema, z.literal("SYNC_ALLIANCE")]);
 
@@ -428,4 +428,4 @@ export type StartNextSeasonResponse = {
 
 export const SIMULATION_PROTO_PATH = new URL("./simulation.proto", import.meta.url);
 
-export * from "./snapshot-diagnostics.js";
+export * from "./snapshot-diagnostics/snapshot-diagnostics.js";

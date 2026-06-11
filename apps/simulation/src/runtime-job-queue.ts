@@ -1,5 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import type { QueueLane } from "./command-lane.js";
+import type { QueueLane } from "./command-lane/command-lane.js";
 import type { SimulationJob } from "./runtime-types.js";
 
 export type RuntimeJobQueueState = {

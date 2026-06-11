@@ -1,5 +1,5 @@
 import { defensivenessMultiplier } from "@border-empires/shared";
-import { currentDomainChoiceTier, formatTechBenefitSummary } from "./client-tech-html.js";
+import { currentDomainChoiceTier, formatTechBenefitSummary } from "./client-tech-html/client-tech-html.js";
 import {
   renderDomainChoiceGrid as renderDomainChoiceGridFromModule,
   renderDomainDetailCard as renderDomainDetailCardFromModule,
@@ -11,8 +11,8 @@ import {
   renderTechDetailModal as renderTechDetailModalFromModule,
   renderTechDetailPrompt as renderTechDetailPromptFromModule,
   selectedTechInfo as selectedTechInfoFromModule
-} from "./client-tech-detail-ui.js";
-import type { ClientState } from "./client-state.js";
+} from "./client-tech-detail-ui/client-tech-detail-ui.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { DomainInfo, TechInfo } from "./client-types.js";
 import type { StructureInfoKey } from "./client-map-display.js";
 

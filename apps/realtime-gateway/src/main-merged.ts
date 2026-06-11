@@ -12,11 +12,11 @@
 // which is far cheaper than the old two-process arrangement and structurally
 // stronger than the previous shared-loop design.
 import { Worker } from "node:worker_threads";
-import { resolveWorkerEntryUrl } from "../../simulation/src/resolve-worker-entry.js";
-import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env.js";
+import { resolveWorkerEntryUrl } from "../../simulation/src/resolve-worker-entry/resolve-worker-entry.js";
+import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env/runtime-env.js";
 import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
-import { createRealtimeGatewayApp } from "./gateway-app.js";
-import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env.js";
+import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
+import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 
 type SimWorkerReadyMessage = {
   type: "ready";

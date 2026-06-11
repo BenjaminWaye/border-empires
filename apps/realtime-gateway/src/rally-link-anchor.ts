@@ -1,4 +1,4 @@
-import type { RallyAnchor } from "./rally-link-store.js";
+import type { RallyAnchor } from "./rally-link-store/rally-link-store.js";
 
 export type RallyAnchorTile = {
   x: number;

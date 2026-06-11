@@ -1,5 +1,5 @@
-import { storageGet, storageSet } from "./client-state.js";
-import type { ClientState } from "./client-state.js";
+import { storageGet, storageSet } from "./client-state/client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { ActiveAllianceBreakView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "./client-types.js";
 
 type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;

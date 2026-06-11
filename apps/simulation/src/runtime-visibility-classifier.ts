@@ -1,9 +1,9 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
-import type { DockRouteDefinition } from "./dock-network.js";
-import { collectLinkedDockRevealKeysForOwners } from "./dock-network.js";
+import type { DockRouteDefinition } from "./dock-network/dock-network.js";
+import { collectLinkedDockRevealKeysForOwners } from "./dock-network/dock-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { visionRadiusBonusForPlayer } from "./tech-domain-bridge.js";
+import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { LockRecord, RuntimePlayer } from "./runtime-types.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { VisionExpansionCache } from "./vision-expansion-cache.js";

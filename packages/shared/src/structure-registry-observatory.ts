@@ -1,11 +1,11 @@
 import { OBSERVATORY_BUILD_MS, OBSERVATORY_UPKEEP_PER_MIN } from "./config.js";
-import type { StructureSpec } from "./structure-registry.js";
+import type { StructureSpec } from "./structure-registry/structure-registry.js";
 import {
   noConflictingStructure,
   ownerOwnsTile,
   tileIsLand,
   tileIsSettled,
-} from "./structure-registry.js";
+} from "./structure-registry/structure-registry.js";
 
 // ── Observatory ────────────────────────────────────────────────────
 

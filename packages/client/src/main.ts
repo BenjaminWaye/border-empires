@@ -3,4 +3,4 @@
 // 2. hand app assembly to the client app module
 // 3. keep implementation details out of this file
 import "./style.css";
-import "./client-app.js";
+import "./client-app/client-app.js";

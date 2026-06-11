@@ -1,6 +1,6 @@
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
-import type { GatewayPlayerProfileStore } from "./player-profile-store.js";
+import type { GatewayPlayerProfileStore } from "./player-profile-store/player-profile-store.js";
 import type { PlayerProfileOverrides } from "./player-profile-overrides.js";
 
 type WorldStatusSnapshot = NonNullable<PlayerSubscriptionSnapshot["worldStatus"]>;

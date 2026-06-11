@@ -6,15 +6,15 @@ import {
 } from "./config.js";
 import {
   SIEGE_TIER_LADDER,
-} from "./structure-costs.js";
-import type { StructureSpec } from "./structure-registry.js";
+} from "./structure-costs/structure-costs.js";
+import type { StructureSpec } from "./structure-registry/structure-registry.js";
 import {
   noConflictingStructure,
   noDuplicateStructureType,
   ownerOwnsTile,
   tileIsLand,
   tileIsSettled,
-} from "./structure-registry.js";
+} from "./structure-registry/structure-registry.js";
 import type { SiegeOutpostVariant } from "./types.js";
 
 // ── Outpost family ─────────────────────────────────────────────────

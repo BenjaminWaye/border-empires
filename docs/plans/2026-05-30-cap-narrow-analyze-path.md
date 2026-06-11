@@ -44,7 +44,7 @@ origin cap.
 
 ## What to change
 
-Single file: `apps/simulation/src/frontier-command-planner.ts`
+Single file: `apps/simulation/src/ai/frontier-command-planner.ts`
 
 Look for the inner loop in `analyzeOwnedFrontierTargetsFromLookup` (the
 one PR #434 instrumented with `analyze_per_candidate`). Add:

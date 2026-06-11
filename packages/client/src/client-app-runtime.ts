@@ -28,11 +28,11 @@ import {
   frontierClaimDurationMsForTile,
   guideSteps
 } from "./client-constants.js";
-import { renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import { renderDefensibilityPanelHtml } from "./client-defensibility-html/client-defensibility-html.js";
 import { exposedSidesForTile } from "./client-defensibility-tile.js";
-import { bootstrapClientApp } from "./client-bootstrap.js";
+import { bootstrapClientApp } from "./client-bootstrap/client-bootstrap.js";
 import { createClientCollectSupport } from "./client-app-runtime-collect-support.js";
-import { createClientRuntimeDisplaySupport } from "./client-app-runtime-display-support.js";
+import { createClientRuntimeDisplaySupport } from "./client-app-runtime-display-support/client-app-runtime-display-support.js";
 import {
   buildMiniMapBase as buildMiniMapBaseFromModule,
   computeDockSeaRoute as computeDockSeaRouteFromModule,
@@ -44,26 +44,26 @@ import {
   worldTileRawFromPointer as worldTileRawFromPointerFromModule
 } from "./client-drag-selection.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
-import { renderEconomyPanelHtml } from "./client-economy-html.js";
+import { renderEconomyPanelHtml } from "./client-economy-html/client-economy-html.js";
 import { createClientAppRuntimeDom } from "./client-app-runtime-dom.js";
-import { createClientFirebaseSetup, createClientSocketSetup } from "./client-app-runtime-env.js";
+import { createClientFirebaseSetup, createClientSocketSetup } from "./client-app-runtime-env/client-app-runtime-env.js";
 import { createClientRuntimeFlowSupport } from "./client-app-runtime-flow-support.js";
 import { createClientViewSupport } from "./client-app-runtime-view-support.js";
 import { formatCooldownShort, formatManpowerAmount, FULL_MAP_CHUNK_RADIUS, keyForTile, parseTileKey, prettyToken, rateToneClass, wrapTileX, wrapTileY } from "./client-app-runtime-utils.js";
 import { createClientMapFacade } from "./client-map-facade.js";
 import { createClientMapMath } from "./client-map-math.js";
-import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
-import { shouldFinalizePredictedCombat, wasPredictedCombatAlreadyShown } from "./client-predicted-combat.js";
-import { showClientHoldBuildMenu } from "./client-ui-controls.js";
-import { busyDevelopmentProcessCount } from "./client-development-queue.js";
+import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay/client-frontier-overlay.js";
+import { shouldFinalizePredictedCombat, wasPredictedCombatAlreadyShown } from "./client-predicted-combat/client-predicted-combat.js";
+import { showClientHoldBuildMenu } from "./client-ui-controls/client-ui-controls.js";
+import { busyDevelopmentProcessCount } from "./client-development-queue/client-development-queue.js";
 import {
   hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
   isTileOwnedByAlly as isTileOwnedByAllyFromModule
-} from "./client-tile-action-support.js";
-import { renderManpowerPanelHtml, renderSocialInspectCardHtml } from "./client-side-panel-html.js";
-import { formatRoughMinutes, populationPerMinuteLabel, townNextGrowthEtaLabel, townNextPopulationMilestone } from "./client-town-growth.js";
+} from "./client-tile-action-support/client-tile-action-support.js";
+import { renderManpowerPanelHtml, renderSocialInspectCardHtml } from "./client-side-panel-html/client-side-panel-html.js";
+import { formatRoughMinutes, populationPerMinuteLabel, townNextGrowthEtaLabel, townNextPopulationMilestone } from "./client-town-growth/client-town-growth.js";
 import { startClientRuntimeLoop } from "./client-runtime-loop.js";
-import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedHtml, leaderboardHtml, missionCardsHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
+import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedHtml, leaderboardHtml, missionCardsHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html/client-panel-html.js";
 import {
   economicStructureBenefitText,
   economicStructureBuildMs,
@@ -78,8 +78,8 @@ import {
   tileProductionHtml,
   tileUpkeepHtml
 } from "./client-map-display.js";
-import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap.js";
-import { resolveOwnerColor } from "./client-owner-colors.js";
+import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap/client-minimap.js";
+import { resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
@@ -107,9 +107,9 @@ import {
   shouldDrawOwnershipBorder as shouldDrawOwnershipBorderFromModule,
   structureAccentColor as structureAccentColorFromModule,
   structureOverlayImages
-} from "./client-map-render.js";
-import { createInitialState, storageSet } from "./client-state.js";
-import { domainOwnedHtml, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html.js";
+} from "./client-map-render/client-map-render.js";
+import { createInitialState, storageSet } from "./client-state/client-state.js";
+import { domainOwnedHtml, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
 import type {
   ActiveAetherBridgeView,
   ActiveTruceView,

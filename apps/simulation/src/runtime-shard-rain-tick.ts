@@ -5,7 +5,7 @@ import {
   WORLD_WIDTH
 } from "@border-empires/shared";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
-import { simulationTileKey } from "./seed-state.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
 import {
   SHARD_RAIN_COMMAND_ID_PREFIX,
   SHARD_RAIN_SITE_MAX,

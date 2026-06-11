@@ -74,10 +74,10 @@ Verified against the tree, not the handoff narrative. HEAD = `22b76c1` on `main`
 
 **Done and on `main`:**
 
-- **Phase 0** landed as commit `2596eed` / PR #13 (`Phase 0: Land rewrite stack on main behind kill-switch`). Rewrite packages (`apps/realtime-gateway`, `apps/simulation`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`) are tracked in git. Client kill-switch (`packages/client/src/client-backend-selector.ts`) is live: prod default stays on legacy, `?backend=gateway` URL param or `be-backend=gateway` cookie opt in to the new stack. HUD badge surfaces `state.activeBackend`.
-- **Phase 1** landed as commit `e22be4c` / PR #14 (`Phase 1: Clean domain boundary — promote server modules to game-domain`). `packages/game-domain` absorbed `server-game-constants`, `server-shared-types`, `server-world-runtime-types`, 5 worldgen modules, `town-names`, and the tech/domain JSON trees. `apps/simulation` and `apps/realtime-gateway` no longer import `../../../packages/server/*`. `scripts/check-no-cross-package-imports.sh` + `packages/game-domain/src/boundary.test.ts` enforce it in CI. `Dockerfile.gateway` and `Dockerfile.simulation` no longer `COPY packages/server`.
+- **Phase 0** landed as commit `2596eed` / PR #13 (`Phase 0: Land rewrite stack on main behind kill-switch`). Rewrite packages (`apps/realtime-gateway`, `apps/simulation`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`) are tracked in git. Client kill-switch (`packages/client/src/client-backend-selector/client-backend-selector.ts`) is live: prod default stays on legacy, `?backend=gateway` URL param or `be-backend=gateway` cookie opt in to the new stack. HUD badge surfaces `state.activeBackend`.
+- **Phase 1** landed as commit `e22be4c` / PR #14 (`Phase 1: Clean domain boundary — promote server modules to game-domain`). `packages/game-domain` absorbed `server-game-constants`, `server-shared-types`, `server-world-runtime-types`, 5 worldgen modules, `town-names`, and the tech/domain JSON trees. `apps/simulation` and `apps/realtime-gateway` no longer import `../../../packages/server/*`. `scripts/check-no-cross-package-imports.sh` + `packages/game-domain/src/index/boundary.test.ts` enforce it in CI. `Dockerfile.gateway` and `Dockerfile.simulation` no longer `COPY packages/server`.
 - **Phase 2** landed as commit `4f24c70` / PR #15 (`Phase 2: Postgres-authoritative persistence — projections, staging configs, importer`). SQL migrations `0004_player_projection.sql` … `0007_visibility_projection.sql` added. `postgres-projection-writer.ts` writes all four projections at checkpoint time. Early split staging configs were later replaced by `fly.combined.staging.toml` for `border-empires-combined-staging`. `scripts/rewrite-db-import-legacy-snapshot.ts` seeds world_snapshots + projections from a legacy snapshot directory. `provision-fly-staging.command` creates the Fly Postgres cluster and attaches it. Tests: `restart-parity.integration.test.ts`, `snapshot-projection.test.ts`, `migration-idempotent.test.ts`.
-- **Phase 3** landed as commit `22b76c1` (`Phase 3: offload AI/system planning to worker threads`). AI planning runs in `apps/simulation/src/ai-planner-worker.ts` (Node worker thread). System jobs run in `apps/simulation/src/system-job-worker.ts`. Worker-backed producers (`ai-command-producer-worker.ts`, `system-command-producer-worker.ts`) pause on human_interactive backlog and resume on drain. Selection happens at startup via `SIMULATION_AI_WORKER=1` env flag. Tests: `ai-pause-resume.test.ts`, `system-job-worker.test.ts`.
+- **Phase 3** landed as commit `22b76c1` (`Phase 3: offload AI/system planning to worker threads`). AI planning runs in `apps/simulation/src/ai/ai-planner-worker.ts` (Node worker thread). System jobs run in `apps/simulation/src/ai/system-job-worker.ts`. Worker-backed producers (`ai-command-producer-worker.ts`, `system-command-producer-worker.ts`) pause on human_interactive backlog and resume on drain. Selection happens at startup via `SIMULATION_AI_WORKER=1` env flag. Tests: `ai-pause-resume.test.ts`, `system-job-worker.test.ts`.
 
 **Production impact so far: none.** Client prod default `VITE_WS_URL` is still `wss://border-empires.fly.dev/ws` (legacy monolith). No beta testers have been flipped to the gateway yet.
 
@@ -121,12 +121,12 @@ Seven phases. Each phase is mergeable on its own, each lands behind a kill-switc
 What actually landed:
 
 - Rewrite packages (`apps/realtime-gateway`, `apps/simulation`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`) tracked in git.
-- `packages/client/src/client-backend-selector.ts` implements the `?backend=` param / `be-backend` cookie / env-default priority chain. Localhost defaults to gateway; prod defaults to legacy. `VITE_GATEWAY_WS_URL` is undefined in prod until Phase 6.
+- `packages/client/src/client-backend-selector/client-backend-selector.ts` implements the `?backend=` param / `be-backend` cookie / env-default priority chain. Localhost defaults to gateway; prod defaults to legacy. `VITE_GATEWAY_WS_URL` is undefined in prod until Phase 6.
 - `state.activeBackend` exposed on `ClientState`; HUD bridge debug badge shows active backend.
 - Tests: `client-backend-selector.test.ts`, `client-backend-selector.integration.test.ts`.
 - `pnpm-workspace.yaml` and `tsconfig.base.json` updated.
-- `packages/shared/src/frontier-combat.ts` promoted to the one true combat module.
-- `packages/shared/src/messages.ts` carries `commandId` / `clientSeq` metadata.
+- `packages/shared/src/frontier-combat/frontier-combat.ts` promoted to the one true combat module.
+- `packages/shared/src/messages/messages.ts` carries `commandId` / `clientSeq` metadata.
 
 Production impact: none. Client prod default `VITE_WS_URL` is unchanged.
 
@@ -141,7 +141,7 @@ Stop working out of a dirty checkout. Get the rewrite stack into `origin/main` s
 1. Rebase `f69dfbf` onto current `origin/main`, resolving conflicts against the 10 intervening commits (alliance UX, HQ summary, settlement capture fix, barbarian maintenance, opportunistic AI tuning, server runtime split).
 2. Commit all 45 untracked rewrite files and ~48 modifications from the working tree (see `git status` listing in §2).
 3. Add a client-side backend kill-switch:
-   - `packages/client/src/client-app-runtime-env.ts`: prod default `VITE_WS_URL` stays `wss://border-empires.fly.dev/ws` (legacy).
+   - `packages/client/src/client-app-runtime-env/client-app-runtime-env.ts`: prod default `VITE_WS_URL` stays `wss://border-empires.fly.dev/ws` (legacy).
    - New env var `VITE_GATEWAY_WS_URL` (undefined in prod today).
    - New URL param `?backend=gateway|legacy` and cookie `be-backend=gateway|legacy` that override the default.
    - State on the client: `state.activeBackend: "legacy" | "gateway"` exposed in the HUD debug badge.
@@ -154,8 +154,8 @@ Stop working out of a dirty checkout. Get the rewrite stack into `origin/main` s
 
 ### Tests to add in this phase
 
-- `packages/client/src/client-backend-selector.test.ts`: URL param overrides cookie overrides env default; default in prod is legacy; default on localhost is rewrite.
-- `packages/client/src/client-backend-selector.integration.test.ts`: toggling the cookie mid-session is surfaced in the HUD badge on next reconnect.
+- `packages/client/src/client-backend-selector/client-backend-selector.test.ts`: URL param overrides cookie overrides env default; default in prod is legacy; default on localhost is rewrite.
+- `packages/client/src/client-backend-selector/client-backend-selector.integration.test.ts`: toggling the cookie mid-session is surfaced in the HUD badge on next reconnect.
 
 ### Acceptance
 
@@ -182,7 +182,7 @@ What actually landed:
 - `AuthIdentity` and `SystemSimulationCommand` are inlined into `packages/game-domain` so the domain has no `packages/server` imports.
 - `apps/simulation/src/*` and `apps/realtime-gateway/src/*` import from `@border-empires/game-domain` instead of `../../../packages/server/*`.
 - `Dockerfile.gateway` and `Dockerfile.simulation` no longer `COPY packages/server`.
-- `packages/game-domain/src/boundary.test.ts` and `scripts/check-no-cross-package-imports.sh` enforce the boundary in CI.
+- `packages/game-domain/src/index/boundary.test.ts` and `scripts/check-no-cross-package-imports.sh` enforce the boundary in CI.
 
 Delta from plan: the legacy monolith still builds against `packages/server/src/server-*.ts` directly (the original files still exist there). No re-export shims were needed because nothing outside the legacy monolith imports from `packages/server/*` anymore. Phase 7 will delete the duplicated files from `packages/server`.
 
@@ -201,7 +201,7 @@ Make the simulation independent of `packages/server`. Prevent `apps/*` from reac
    - `packages/server/src/server-worldgen-terrain.ts`
    - `packages/server/src/server-worldgen-towns.ts`
    - `packages/server/src/town-names.ts`
-   - `packages/shared/src/frontier-combat.ts` (make this the one true combat module)
+   - `packages/shared/src/frontier-combat/frontier-combat.ts` (make this the one true combat module)
 2. Leave re-export shims in `packages/server/src/*.ts` for back-compat so the legacy monolith still builds. Shims import from `@border-empires/game-domain` and re-export.
 3. Replace every `../../../packages/server/src/server-*` import in `apps/simulation/src/*` and `apps/realtime-gateway/src/*` with `@border-empires/game-domain`.
 4. Add a lint rule that forbids cross-package relative imports:
@@ -211,7 +211,7 @@ Make the simulation independent of `packages/server`. Prevent `apps/*` from reac
 
 ### Tests to add
 
-- `packages/game-domain/src/boundary.test.ts`: no import of anything under `packages/server/src/*` from the domain package (parse imports statically).
+- `packages/game-domain/src/index/boundary.test.ts`: no import of anything under `packages/server/src/*` from the domain package (parse imports statically).
 - CI job `scripts/check-no-cross-package-imports.sh`: `rg "../../../packages/server" apps/` returns zero matches.
 - Preserve every existing server test: moving the files must not break `packages/server/test` suites.
 
@@ -295,7 +295,7 @@ DB is source of truth for commands, events, and snapshots in staging and prod. S
 
 **Persistence integrity (Bug 1 class — see §9.1 for details):**
 
-- `apps/simulation/src/restart-parity.integration.test.ts`: parameterized over every mutating command type. For each:
+- `apps/simulation/src/simulation-service/restart-parity.integration.test.ts`: parameterized over every mutating command type. For each:
   1. Boot sim with in-memory + optional pg-test container.
   2. Apply the command, let it resolve.
   3. Capture `PlayerSubscriptionSnapshot` and `WorldStatusSnapshot`.
@@ -331,11 +331,11 @@ Staging is isolated; nothing to roll back in prod. Legacy monolith keeps running
 
 What actually landed:
 
-- `apps/simulation/src/planner-world-view.ts`: serializable `PlannerWorldView` / `PlannerTileView` / `PlannerPlayerView` types. `buildPlannerWorldView()` strips heavy JSON blobs (fort, observatory, siege outpost, economic structure payloads) before `postMessage` to keep worker transfer cheap.
-- `apps/simulation/src/ai-planner-worker.ts`: Node worker thread. Runs settle + frontier planning from `PlannerWorldView`. Handles pause / resume / shutdown protocol.
-- `apps/simulation/src/system-job-worker.ts`: Node worker thread. Runs barbarian / upkeep frontier planning. Same message protocol.
-- `apps/simulation/src/ai-command-producer-worker.ts`: worker-backed drop-in for `ai-command-producer.ts`. Skips tick when `human_interactive > 0` and sends `pause` to worker; resumes on drain.
-- `apps/simulation/src/system-command-producer-worker.ts`: worker-backed drop-in for `system-command-producer.ts`. Skips tick when any queue backlog is non-empty.
+- `apps/simulation/src/ai/planner-world-view.ts`: serializable `PlannerWorldView` / `PlannerTileView` / `PlannerPlayerView` types. `buildPlannerWorldView()` strips heavy JSON blobs (fort, observatory, siege outpost, economic structure payloads) before `postMessage` to keep worker transfer cheap.
+- `apps/simulation/src/ai/ai-planner-worker.ts`: Node worker thread. Runs settle + frontier planning from `PlannerWorldView`. Handles pause / resume / shutdown protocol.
+- `apps/simulation/src/ai/system-job-worker.ts`: Node worker thread. Runs barbarian / upkeep frontier planning. Same message protocol.
+- `apps/simulation/src/ai/ai-command-producer-worker.ts`: worker-backed drop-in for `ai-command-producer.ts`. Skips tick when `human_interactive > 0` and sends `pause` to worker; resumes on drain.
+- `apps/simulation/src/ai/system-command-producer-worker.ts`: worker-backed drop-in for `system-command-producer.ts`. Skips tick when any queue backlog is non-empty.
 - `simulation-service.ts` selects worker-backed or inline producers at startup based on the `useAiWorker` flag.
 - `runtime-env.ts` / `main.ts` expose `SIMULATION_AI_WORKER=1` env flag.
 - Tests: `ai-pause-resume.test.ts` (verifies backpressure pause/resume with mocked Worker), `system-job-worker.test.ts` (verifies system producer backpressure and command dispatch).
@@ -353,12 +353,12 @@ No AI or system planning work executes in the simulation event loop that hosts h
 
 ### Deliverables
 
-1. `apps/simulation/src/ai-planner-worker.ts` — new worker-thread entry point.
+1. `apps/simulation/src/ai/ai-planner-worker.ts` — new worker-thread entry point.
    - Receives `PlannerWorldView` (read-only subset) via `postMessage`.
    - Emits `CommandEnvelope`s back to the main thread, which submits them to the same command bus as humans.
    - Owns the AI autopilot tick (no more `setInterval` on the main thread).
-2. `apps/simulation/src/system-job-worker.ts` — same pattern for barbarian maintenance, truce expiry, ability cooldown expiry, structure upkeep.
-3. `apps/simulation/src/simulation-service.ts` main thread keeps only:
+2. `apps/simulation/src/ai/system-job-worker.ts` — same pattern for barbarian maintenance, truce expiry, ability cooldown expiry, structure upkeep.
+3. `apps/simulation/src/simulation-service/simulation-service.ts` main thread keeps only:
    - gRPC server
    - command bus (priority queue)
    - authoritative state mutation
@@ -372,12 +372,12 @@ No AI or system planning work executes in the simulation event loop that hosts h
 
 ### Tests to add
 
-- `apps/simulation/src/ai-isolation.load.test.ts` (slow, tagged): runs a seeded world with N=40 AI at full tick rate. Asserts:
+- `apps/simulation/src/ai/ai-isolation.load.test.ts` (slow, tagged): runs a seeded world with N=40 AI at full tick rate. Asserts:
   - simulation event-loop max < 100ms over 60s
   - `human_interactive` backlog age p99 < 250ms
   - Attack command p95 accept latency < 100ms
-- `apps/simulation/src/ai-pause-resume.test.ts`: injecting a human command must pause AI within 50ms and resume after drain.
-- `apps/simulation/src/system-job-worker.test.ts`: barbarian expiry runs to completion outside main thread; no long task blocks acceptance.
+- `apps/simulation/src/ai/ai-pause-resume.test.ts`: injecting a human command must pause AI within 50ms and resume after drain.
+- `apps/simulation/src/ai/system-job-worker.test.ts`: barbarian expiry runs to completion outside main thread; no long task blocks acceptance.
 
 ### Acceptance
 
@@ -627,7 +627,7 @@ it("preview and resolve call the same combat module", () => {
 
 ### 9.5 Coverage enforcement
 
-- `packages/sim-protocol/src/command-coverage.test.ts`:
+- `packages/sim-protocol/src/command-coverage-sets/command-coverage.test.ts`:
   - Read every value of the `DurableCommandTypeSchema` union.
   - Assert a matching parameterized test exists in §9.1, §9.2, §9.4.
   - If a new command type is added without these tests, CI fails. This is the "don't ship unverified commands" rail.
@@ -671,7 +671,7 @@ What actually landed:
 ### Tests
 
 - `apps/*/src/metrics.test.ts`: metrics increment correctly.
-- `apps/realtime-gateway/src/metrics.integration.test.ts`: p95 computation matches a known input series.
+- `apps/realtime-gateway/src/metrics/metrics.integration.test.ts`: p95 computation matches a known input series.
 
 ### Acceptance
 

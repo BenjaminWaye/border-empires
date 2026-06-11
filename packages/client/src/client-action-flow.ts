@@ -1,8 +1,8 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
-import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region.js";
-import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
-import { ownObservatoryRange } from "./client-observatory-rules.js";
+import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
+import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
+import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import {
   activeTruceWithPlayerFromState,
   breakAllianceFromUi,
@@ -13,9 +13,9 @@ import {
   sendAllianceRequestFromUi,
   sendTruceRequestFromUi
 } from "./client-player-actions.js";
-import { createNextFrontierCommandIdentity } from "./client-frontier-command.js";
-import { recordClientDebugEvent } from "./client-debug.js";
-import { blockUnsupportedRewriteMessage } from "./client-send-message-guard.js";
+import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
+import { recordClientDebugEvent } from "./client-debug/client-debug.js";
+import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
@@ -49,7 +49,7 @@ import {
   settlementProgressForTile as settlementProgressForTileFromModule,
   syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
   type DevelopmentSlotSummary
-} from "./client-queue-logic.js";
+} from "./client-queue-logic/client-queue-logic.js";
 import {
   buildFortOnSelected as buildFortOnSelectedFromModule,
   buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
@@ -61,8 +61,8 @@ import {
   hideTileActionMenu as hideTileActionMenuFromModule,
   settleSelected as settleSelectedFromModule,
   uncaptureSelected as uncaptureSelectedFromModule
-} from "./client-selected-actions.js";
-import { showClientHoldBuildMenu } from "./client-ui-controls.js";
+} from "./client-selected-actions/client-selected-actions.js";
+import { showClientHoldBuildMenu } from "./client-ui-controls/client-ui-controls.js";
 import {
   aetherWallDirectionTargetTiles as aetherWallDirectionTargetTilesFromModule,
   beginCrystalTargeting as beginCrystalTargetingFromModule,
@@ -84,7 +84,7 @@ import {
   validAetherWallDirectionsForTile as validAetherWallDirectionsForTileFromModule,
   tileActionAvailability as tileActionAvailabilityFromModule,
   tileActionAvailabilityWithDevelopmentSlot as tileActionAvailabilityWithDevelopmentSlotFromModule
-} from "./client-tile-action-logic.js";
+} from "./client-tile-action-logic/client-tile-action-logic.js";
 import {
   chebyshevDistanceClient as chebyshevDistanceClientFromModule,
   hideTechLockedTileAction as hideTechLockedTileActionFromModule,
@@ -95,12 +95,12 @@ import {
   splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
   tileActionIsBuilding as tileActionIsBuildingFromModule,
   tileActionIsCrystal as tileActionIsCrystalFromModule
-} from "./client-tile-action-support.js";
+} from "./client-tile-action-support/client-tile-action-support.js";
 import {
   settledDefenseNearFortDomainModifiers,
   tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
-} from "./client-structure-effects.js";
-import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui.js";
+} from "./client-structure-effects/client-structure-effects.js";
+import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui/client-tile-action-menu-ui.js";
 import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
   constructionProgressForTile as constructionProgressForTileFromModule,
@@ -110,13 +110,13 @@ import {
   queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
-} from "./client-tile-menu-view.js";
-import { tileWithVisibleShardSite } from "./client-shard-rain-pings.js";
-import { neutralTileClickOutcome } from "./client-tile-interaction.js";
-import { planWaypoint } from "./client-waypoint-planner.js";
+} from "./client-tile-menu-view/client-tile-menu-view.js";
+import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
+import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
+import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type {
   ActiveTruceView,
   CrystalTargetingAbility,
@@ -129,7 +129,7 @@ import type {
   TileTimedProgress,
   TileVisibilityState
 } from "./client-types.js";
-import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
+import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;

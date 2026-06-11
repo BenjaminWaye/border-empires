@@ -1,20 +1,20 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { RuntimeTileYieldEconomyContext } from "./runtime-types.js";
-import type { PlayerCandidateIndex } from "./player-candidate-index.js";
-import { MAX_SWEEP_RADIUS } from "./player-candidate-index.js";
+import type { PlayerCandidateIndex } from "./player-candidate-index/player-candidate-index.js";
+import { MAX_SWEEP_RADIUS } from "./player-candidate-index/player-candidate-index.js";
 import {
   candidateIndexKeysAroundTileKey,
   isBuildCandidateTile,
   isHotFrontierTile,
   isStrategicFrontierTile,
   playerIdsAffectedByTileChange
-} from "./planner-candidate-index.js";
+} from "./ai/planner-candidate-index.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import {
   MAX_FORT_AUTO_FRONTIER_RADIUS,
   isSettledTownAnchor,
   TOWN_AUTO_FRONTIER_RADIUS
-} from "./territory-automation.js";
+} from "./territory-automation/territory-automation.js";
 
 export const isYieldBearingTile = (tile: DomainTileState): boolean => {
   if (!tile.ownerId || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return false;

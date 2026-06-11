@@ -21,18 +21,18 @@ The production AI should continue to run from deterministic planner code in:
 The current repo already exposes the right raw material:
 
 - planner-state transport:
-  - `apps/simulation/src/planner-world-view.ts`
-  - `apps/simulation/src/runtime.ts`
-  - `apps/simulation/src/ai-planner-worker.ts`
+  - `apps/simulation/src/ai/planner-world-view.ts`
+  - `apps/simulation/src/runtime/runtime.ts`
+  - `apps/simulation/src/ai/ai-planner-worker.ts`
 - player-visible state snapshots:
-  - `apps/simulation/src/player-snapshot.ts`
-  - `apps/simulation/src/simulation-service.ts`
+  - `apps/simulation/src/player-snapshot/player-snapshot.ts`
+  - `apps/simulation/src/simulation-service/simulation-service.ts`
 - parity and trace harnesses:
   - `scripts/rewrite-parity-record.mjs`
   - `docs/parity-traces/`
 - legacy and rewrite world bootstrap:
-  - `apps/simulation/src/legacy-snapshot-bootstrap.ts`
-  - `apps/simulation/src/snapshot-store.ts`
+  - `apps/simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.ts`
+  - `apps/simulation/src/snapshot-store/snapshot-store.ts`
 
 That means the training pipeline should be built around exported planner records, not around screen scraping or a separate fake client.
 
@@ -44,9 +44,9 @@ The current worktree now includes a rewrite-side recorder:
 
 The recorder is wired in:
 
-- `apps/simulation/src/ai-planner-worker.ts`
-- `apps/simulation/src/ai-training-records.ts`
-- `apps/simulation/src/ai-training-recorder.ts`
+- `apps/simulation/src/ai/ai-planner-worker.ts`
+- `apps/simulation/src/ai/ai-training-records.ts`
+- `apps/simulation/src/ai/ai-training-recorder.ts`
 
 ## Recommended architecture
 
@@ -313,9 +313,9 @@ Add a decision recorder around the current planner boundary.
 Recommended insertion points:
 
 - rewrite:
-  - `apps/simulation/src/automation-command-planner.ts`
-  - `apps/simulation/src/frontier-command-planner.ts`
-  - `apps/simulation/src/ai-settlement-priority.ts`
+  - `apps/simulation/src/ai/automation-command-planner.ts`
+  - `apps/simulation/src/ai/frontier-command-planner.ts`
+  - `apps/simulation/src/ai/ai-settlement-priority.ts`
 - legacy:
   - `packages/server/src/server-ai-frontier-planning-runtime.ts`
   - `packages/server/src/server-ai-frontier-selection-runtime.ts`
@@ -430,8 +430,8 @@ From the labeled corpus, derive:
 
 Use those to update:
 
-- `apps/simulation/src/frontier-command-planner.ts`
-- `apps/simulation/src/ai-settlement-priority.ts`
+- `apps/simulation/src/ai/frontier-command-planner.ts`
+- `apps/simulation/src/ai/ai-settlement-priority.ts`
 - `packages/server/src/server-ai-frontier-*`
 
 ### Phase D: Small-model optional path

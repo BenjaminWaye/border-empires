@@ -1,4 +1,4 @@
-import { InMemoryGatewaySocialStore, SqliteGatewaySocialStore, type GatewaySocialStore } from "./social-store.js";
+import { InMemoryGatewaySocialStore, SqliteGatewaySocialStore, type GatewaySocialStore } from "./social-store/social-store.js";
 
 type SocialStoreFactoryOptions = {
   sqlitePath?: string;

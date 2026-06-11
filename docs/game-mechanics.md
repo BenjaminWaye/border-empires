@@ -8,11 +8,11 @@ When something here drifts from code, fix the code reference and update this doc
 
 ## 1. Map and spatial structure
 
-- **Coordinate system**: square grid, integer `(x, y)`. World wraps on both axes at `WORLD_WIDTH` × `WORLD_HEIGHT`. `packages/shared/src/exposure.ts:5-10`
-- **Neighbors**: 4 cardinal directions (N, E, S, W) only. No diagonals for gameplay. `packages/shared/src/exposure.ts:5-10, 65-66`
+- **Coordinate system**: square grid, integer `(x, y)`. World wraps on both axes at `WORLD_WIDTH` × `WORLD_HEIGHT`. `packages/shared/src/exposure/exposure.ts:5-10`
+- **Neighbors**: 4 cardinal directions (N, E, S, W) only. No diagonals for gameplay. `packages/shared/src/exposure/exposure.ts:5-10, 65-66`
 - **No chunk/region grid exists.** The world operates per-tile. Tile metadata can carry cluster tags (`FERTILE_PLAINS`, `IRON_HILLS`) but those are not aggregation structures. `packages/shared/src/types.ts:7, 439-444`
 - **Terrain types**: `LAND` (claimable, passable), `SEA` / `COASTAL_SEA` (barrier, not claimable; combat blocked except via dock links/aether bridges), `MOUNTAIN` (barrier, mutable via aether abilities). Only `LAND` is claimable. `packages/shared/src/types.ts:1, 15, 200`
-- **Fog of war**: per-player visibility. Tiles carry an optional `fogged` flag. Observatory structures extend vision radius and provide a 10-tile passive protection bubble against some aether abilities. `packages/shared/src/types.ts:203`, `packages/game-domain/src/server-game-constants.ts:49-51`
+- **Fog of war**: per-player visibility. Tiles carry an optional `fogged` flag. Observatory structures extend vision radius and provide a 10-tile passive protection bubble against some aether abilities. `packages/shared/src/types.ts:203`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:49-51`
 - **Docks**: Maritime Supremacy counts settled dock tiles. Docks are also used for cross-island movement and linked-dock vision.
 
 ## 2. Players and factions
@@ -23,17 +23,17 @@ When something here drifts from code, fix the code reference and update this doc
   - **Proximity activation**: a barb tile is only active when adjacent to a non-barb owner. Idle frontier barbs cost ~nothing. Per-tile 15s activation cooldown enforced in `system-job-worker.ts:48` via `barbarianCooldownByTileKey`.
   - **Walk / multiply**: when a barb tile wins an ATTACK/EXPAND (vs a player), per-tile progress accumulates in `SimulationRuntime.barbarianTileProgress` (`runtime.ts:675`). Progress gain: +2 if the target tile held a resource / town / fort / dock / siege, otherwise +1 (`runtime.ts:5976` `barbarianProgressGain`). At threshold 3 the source tile stays barb (multiply); below threshold it releases to neutral (walk). Progress is cleared when a player recaptures a barb tile (`runtime.ts:5946`).
   - **Combat economics**: barbarians bypass gold and manpower gates (`runtime.ts:1263, 2793`) and are treated as a system actor by the planner.
-- **Legacy constants still present, mostly unused by the rewrite**: `BARBARIAN_OWNER_ID`, `BARBARIAN_TICK_MS`, `MIN_ACTIVE_BARBARIAN_AGENTS`, `BARBARIAN_MAINTENANCE_INTERVAL_MS`, `BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS` (`packages/game-domain/src/server-game-constants.ts:9-37`) and the `BarbarianAgent` type (`packages/shared/src/types.ts:458-465`) are legacy-flavored. Treat them as stale unless you find an active call site.
+- **Legacy constants still present, mostly unused by the rewrite**: `BARBARIAN_OWNER_ID`, `BARBARIAN_TICK_MS`, `MIN_ACTIVE_BARBARIAN_AGENTS`, `BARBARIAN_MAINTENANCE_INTERVAL_MS`, `BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS` (`packages/game-domain/src/server-game-constants/server-game-constants.ts:9-37`) and the `BarbarianAgent` type (`packages/shared/src/types.ts:458-465`) are legacy-flavored. Treat them as stale unless you find an active call site.
 
 ## 3. Resources and economy
 
 - **Strategic resources (numeric currencies)**: `FOOD`, `IRON`, `CRYSTAL`, `SUPPLY`, `SHARD`, `OIL`. Distinct from tile resource *kinds* (a `FARM` tile produces `FOOD`, etc.). `packages/game-domain/src/index.ts:21`, `packages/shared/src/types.ts:1`
-- **Gold**: passive income from settled tiles, scaling with town population tier and structure modifiers. Docks add ~0.5 gold/min per dock. Per-tile gold yield is capped at `TILE_YIELD_CAP_GOLD = 24`. `packages/game-domain/src/server-game-constants.ts:39-40, 23`
+- **Gold**: passive income from settled tiles, scaling with town population tier and structure modifiers. Docks add ~0.5 gold/min per dock. Per-tile gold yield is capped at `TILE_YIELD_CAP_GOLD = 24`. `packages/game-domain/src/server-game-constants/server-game-constants.ts:39-40, 23`
 - **Town economics**:
   - Base gold: `TOWN_BASE_GOLD_PER_MIN = 2`, plus tier and connected-network bonuses, plus market/bank modifiers.
   - Support: each town has `supportMax` / `supportCurrent`. If unfed, **gold income pauses** until support recovers. Granaries reduce upkeep.
   - Manpower: per-tier regen and cap. `SETTLEMENT` 10/min cap 150; `METROPOLIS` 120/min cap 2400.
-  - Gold is *not* stored beyond a town cap; overage is lost. `packages/shared/src/types.ts:230-256`, `packages/game-domain/src/server-game-constants.ts:84-90`
+  - Gold is *not* stored beyond a town cap; overage is lost. `packages/shared/src/types.ts:230-256`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:84-90`
 - **Resource collection**: harvest rate scales with ownership duration and modifier stacks. Synthesizer structures convert one resource to another. `packages/shared/src/types.ts:264-271`
 
 ## 4. Units (intentionally absent)
@@ -56,7 +56,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
   1. Resource on tile (FARM → FARMSTEAD, etc.)
   2. Player need (low food coverage → Granary; weak economy → income structures)
   3. Adjacency (Foundry's 10-tile output multiplier radius; town support reach)
-- References: `packages/game-domain/src/server-game-constants.ts:20-58`, `packages/shared/src/types.ts:279-286`, `packages/shared/src/structure-costs.ts:18-96`, `apps/simulation/src/structure-command-planner.ts:129-250`.
+- References: `packages/game-domain/src/server-game-constants/server-game-constants.ts:20-58`, `packages/shared/src/types.ts:279-286`, `packages/shared/src/structure-costs/structure-costs.ts:18-96`, `apps/simulation/src/ai/structure-command-planner.ts:129-250`.
 
 ## 6. Tech and research
 
@@ -64,7 +64,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 - **Effects**: each tech can unlock structures, grant stat mods (`attack`, `defense`, `income`, `vision` multipliers), or grant ability access.
 - **Research**: one tech at a time per player. Cost in gold + strategic resources + time; time scales with the player's `researchTimeMult`.
 - "Domination income" is a misnomer in earlier docs — there is no income mechanic tied to domination. Town Control is a victory *path*, not an income modifier.
-- References: tech tree data lives at `packages/game-domain/data/tech-tree.json`; the bridge that scores tech selection in the AI lives at `apps/simulation/src/tech-domain-bridge.ts`. Player-stat type: `packages/shared/src/types.ts:389`.
+- References: tech tree data lives at `packages/game-domain/data/tech-tree.json`; the bridge that scores tech selection in the AI lives at `apps/simulation/src/tech-domain-bridge/tech-domain-bridge.ts`. Player-stat type: `packages/shared/src/types.ts:389`.
 
 ## 7. Victory conditions
 
@@ -78,25 +78,25 @@ Five concurrent victory paths, all per-season, all with a 24-hour hold requireme
 | `MARITIME_SUPREMACY` | Control ≥55% of world docks, with a minimum target of 3 docks | 24h |
 | `DIPLOMATIC_DOMINANCE` | Your alliance bloc controls ≥66% of claimable land, and you are its largest member | 24h |
 
-Strategic phases that emerge from the AI planner: opening expansion, mid-game economy, late-game warfare or path pivot. AI may switch primary path mid-game if a better one scores high enough. `packages/game-domain/src/server-game-constants.ts:187-218`, `apps/simulation/src/automation-strategic-snapshot.ts:305-322`
+Strategic phases that emerge from the AI planner: opening expansion, mid-game economy, late-game warfare or path pivot. AI may switch primary path mid-game if a better one scores high enough. `packages/game-domain/src/server-game-constants/server-game-constants.ts:187-218`, `apps/simulation/src/ai/automation-strategic-snapshot.ts:305-322`
 
 ## 8. Diplomacy
 
-- **Truces**: two-player non-aggression pacts. 12h or 24h duration. Breaking a truce inflicts a 0.75× attack multiplier and a 60-minute cooldown penalty. Tracked in `ActiveTruce` (start/end, creator). Seasonal AI truce targets exist (recent commit `fee1f72`). `packages/game-domain/src/server-game-constants.ts:13-16`, `packages/shared/src/types.ts:129-147, 50-67`
+- **Truces**: two-player non-aggression pacts. 12h or 24h duration. Breaking a truce inflicts a 0.75× attack multiplier and a 60-minute cooldown penalty. Tracked in `ActiveTruce` (start/end, creator). Seasonal AI truce targets exist (recent commit `fee1f72`). `packages/game-domain/src/server-game-constants/server-game-constants.ts:13-16`, `packages/shared/src/types.ts:129-147, 50-67`
 - **Alliances**: mutual `allies` membership on each player. Frontier validation rejects attacks against allies.
 - **War declarations**: implicit — any frontier action against a non-allied, non-truced player is hostile. No formal declaration step.
-- **AI negotiation today**: reactive only. The planner respects truces and alliances; it does not initiate offers. Front posture (`BREAK` / `CONTAIN` / `TRUCE`) modulates aggression but does not generate truce requests. `apps/simulation/src/automation-strategic-snapshot.ts:368-381`
+- **AI negotiation today**: reactive only. The planner respects truces and alliances; it does not initiate offers. Front posture (`BREAK` / `CONTAIN` / `TRUCE`) modulates aggression but does not generate truce requests. `apps/simulation/src/ai/automation-strategic-snapshot.ts:368-381`
 
 ## 9. Seasons and world events
 
 - **Seasons**: time-bounded game instances with `startAt`, `endAt`, `worldSeed`, `techTreeConfigId`, `status`. Single shared season across all players. `packages/shared/src/types.ts:423-430`
-- **Shard rain**: scheduled scatter of high-value shard sites. Schedule: `SHARD_RAIN_SCHEDULE_HOURS = [12, 20]`. Each rain spawns 3–6 sites with a 30-minute TTL. Shards feed monument construction. `packages/game-domain/src/server-game-constants.ts:29-32`
+- **Shard rain**: scheduled scatter of high-value shard sites. Schedule: `SHARD_RAIN_SCHEDULE_HOURS = [12, 20]`. Each rain spawns 3–6 sites with a 30-minute TTL. Shards feed monument construction. `packages/game-domain/src/server-game-constants/server-game-constants.ts:29-32`
 - **Barbarian spawning**: continuous; see §2.
 - **Client visibility**: season status, victory pressure, leader hold-time, shard rain sites, and barbarian positions are streamed live to clients. No hidden standings.
 
 ## 10. GOAP action catalog (current)
 
-All actions are defined in `AI_EMPIRE_ACTIONS` at `apps/simulation/src/automation-goap.ts:169-359`. The planner picks the lowest-cost action whose preconditions are met given the current strategic snapshot.
+All actions are defined in `AI_EMPIRE_ACTIONS` at `apps/simulation/src/ai/automation-goap.ts:169-359`. The planner picks the lowest-cost action whose preconditions are met given the current strategic snapshot.
 
 | Action key | Cost | Key preconditions | Intent |
 |---|---:|---|---|
@@ -122,18 +122,18 @@ All actions are defined in `AI_EMPIRE_ACTIONS` at `apps/simulation/src/automatio
 
 ## 11. Strategic snapshot (the meta layer that already exists)
 
-`apps/simulation/src/automation-strategic-snapshot.ts` builds an `AutomationStrategicSnapshot` per planner tick. This is the existing "meta" layer; any new strategic AI work should consume or extend it rather than reinventing it.
+`apps/simulation/src/ai/automation-strategic-snapshot.ts` builds an `AutomationStrategicSnapshot` per planner tick. This is the existing "meta" layer; any new strategic AI work should consume or extend it rather than reinventing it.
 
 - **Victory path selection**: scores all 5 paths every tick. Locks into a primary path unless an alternative scores >28 points higher (or >56 in emergency). `:305-322, 108-115`
 - **Strategic focus mode**: one of `BALANCED`, `ECONOMIC_RECOVERY`, `ISLAND_FOOTPRINT`, `MILITARY_PRESSURE`, `BORDER_CONTAINMENT`. Controls goal priorities and which actions are filtered out. `:439-460`
 - **Front posture**: one of `BREAK`, `CONTAIN`, `TRUCE`. Modulates frontier aggression. `:368-381`
-- **ATTACK ⇆ SETTLE gate** (`attackReady`): true only if `canAttack` (gold + manpower) AND `manpowerSufficient` (threat-scaled) AND (`pressureThreatensCore` OR (not `needsFood` AND not `needsEconomy`) OR `pressureAttackScore ≥ 180`). This is the gate the AI tunnel-vision memory refers to. `:13-23, 430-433`, `apps/simulation/src/automation-command-planner.ts:294-297`
+- **ATTACK ⇆ SETTLE gate** (`attackReady`): true only if `canAttack` (gold + manpower) AND `manpowerSufficient` (threat-scaled) AND (`pressureThreatensCore` OR (not `needsFood` AND not `needsEconomy`) OR `pressureAttackScore ≥ 180`). This is the gate the AI tunnel-vision memory refers to. `:13-23, 430-433`, `apps/simulation/src/ai/automation-command-planner.ts:294-297`
 
 ## 12. Tile mutation chokepoints
 
 For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are the points where state mutates:
 
-- **Single tile-state chokepoint**: `SimulationRuntime.replaceTileState()` (`apps/simulation/src/runtime.ts:1539`). ~25 call sites across the runtime funnel through this method. Every authoritative change to ownership, ownershipState, structure, fort, observatory, siegeOutpost, shardSite, and yield-anchor goes through here.
+- **Single tile-state chokepoint**: `SimulationRuntime.replaceTileState()` (`apps/simulation/src/runtime/runtime.ts:1539`). ~25 call sites across the runtime funnel through this method. Every authoritative change to ownership, ownershipState, structure, fort, observatory, siegeOutpost, shardSite, and yield-anchor goes through here.
 - **Validation gate** for player-initiated mutations: `validateFrontierCommand()` (`packages/game-domain/src/index.ts:180-257`).
 - **Existing event hooks at the chokepoint**: emits `TILE_YIELD_ANCHOR_UPDATED` via `setTileYieldCollectedAt` (`runtime.ts:1585`); updates player ownership summaries (`runtime.ts:1550-1574`). No general "tile state mutated" event yet — adding one at this point would catch every relevant change in a single emit.
 - **Worker tile caches** (`system-job-worker.ts`, `ai-planner-worker.ts`, `ai-command-producer-worker.ts`, `system-command-producer-worker.ts`) maintain their own replicas of tile state. These are downstream of canonical mutations and should not be hooked for aggregation; subscribe to the runtime emit instead.
@@ -143,7 +143,7 @@ For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are
 ## 13. Performance constraints
 
 - The simulation runs in a single Node.js event loop. **Synchronous CPU work on the planner main loop blocks user-facing actions** (auth, build commands, etc.). The "AUTH→INIT exceeded threshold" Slack alert (#211) exists because this has happened in prod.
-- The AI planner is the dominant CPU consumer. As of 2026-05-14, single-player planner stalls of 30–45s have been observed in prod, traced to `analyzeOwnedFrontierTargetsFromLookup` (`apps/simulation/src/frontier-command-planner.ts:248-312`) running a `O(owned_tiles × candidates_per_origin)` enumeration with no cap. With ~1000 owned tiles, ~15–20 candidates per origin, and a broad-pass fallback that can double the loop, worst case is millions of tile-map lookups per planner tick.
+- The AI planner is the dominant CPU consumer. As of 2026-05-14, single-player planner stalls of 30–45s have been observed in prod, traced to `analyzeOwnedFrontierTargetsFromLookup` (`apps/simulation/src/ai/frontier-command-planner.ts:248-312`) running a `O(owned_tiles × candidates_per_origin)` enumeration with no cap. With ~1000 owned tiles, ~15–20 candidates per origin, and a broad-pass fallback that can double the loop, worst case is millions of tile-map lookups per planner tick.
 - **AGENTS.md** "AI CPU Guardrails" forbids calling heavy concrete selectors (`bestAiSettlementTile`, etc.) from snapshot or planning-static cache builders. Honor that — it exists for a reason.
 
 ## 14. Things that look like signals but aren't
@@ -154,14 +154,14 @@ For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are
 
 ## 15. References worth keeping open
 
-- `apps/simulation/src/automation-strategic-snapshot.ts` — strategic snapshot (the existing meta layer).
-- `apps/simulation/src/automation-goap.ts` — GOAP action catalog.
-- `apps/simulation/src/automation-command-planner.ts` — planner driver.
-- `apps/simulation/src/frontier-command-planner.ts` — frontier candidate enumeration (current CPU hot spot).
-- `apps/simulation/src/structure-command-planner.ts` — structure selection scoring.
-- `packages/game-domain/src/server-game-constants.ts` — tunables (truce, barbarian, shard, victory).
+- `apps/simulation/src/ai/automation-strategic-snapshot.ts` — strategic snapshot (the existing meta layer).
+- `apps/simulation/src/ai/automation-goap.ts` — GOAP action catalog.
+- `apps/simulation/src/ai/automation-command-planner.ts` — planner driver.
+- `apps/simulation/src/ai/frontier-command-planner.ts` — frontier candidate enumeration (current CPU hot spot).
+- `apps/simulation/src/ai/structure-command-planner.ts` — structure selection scoring.
+- `packages/game-domain/src/server-game-constants/server-game-constants.ts` — tunables (truce, barbarian, shard, victory).
 - `packages/game-domain/src/index.ts` — frontier command validation, ownership transitions.
 - `packages/game-domain/data/tech-tree.json` — tech tree data.
 - `packages/shared/src/types.ts` — core type definitions.
-- `packages/shared/src/exposure.ts` — neighbor and wrap helpers.
+- `packages/shared/src/exposure/exposure.ts` — neighbor and wrap helpers.
 - `docs/ai-goap-plan.md` — original (pre-rewrite) GOAP design intent. Historical context; some details (3 victory paths, `packages/server` paths) are out of date — the legacy stack was deleted in PR #264.

@@ -19,7 +19,7 @@ real client log on 2026-04-28):
 
 Firebase Google sign-in completes; the WebSocket to the legacy app never
 reaches `readyState=1`. The client default backend is still legacy
-(`packages/client/src/client-app-runtime-env.ts:49`), so this is a legacy
+(`packages/client/src/client-app-runtime-env/client-app-runtime-env.ts:49`), so this is a legacy
 app failure, not a backend-selector misroute.
 
 The user has decided to revert from the rewrite (gateway + simulation) back
@@ -100,9 +100,9 @@ track is dead, Phase E removes the rewrite code from `main`.
 - Client backend selection: Vite build-time env vars
   `VITE_WS_URL` (legacy host) and `VITE_GATEWAY_WS_URL` (gateway host) set
   via `vercel deploy --build-env`. At runtime, `selectBackend()` in
-  `packages/client/src/client-backend-selector.ts` honours
+  `packages/client/src/client-backend-selector/client-backend-selector.ts` honours
   `?backend=legacy|gateway` URL param > `be-backend` cookie > env default.
-  The legacy default lives in `packages/client/src/client-app-runtime-env.ts:49`.
+  The legacy default lives in `packages/client/src/client-app-runtime-env/client-app-runtime-env.ts:49`.
 
 ### Sandbox limits (executor must know)
 The Cowork/Claude-Code sandbox cannot:
@@ -498,7 +498,7 @@ git push --force-with-lease -u origin archive/rewrite-2026-04
 
 ### E2. Cutover branch
 Branch `agent/rewrite-removal-cutover`. Single PR that:
-1. Edits `packages/client/src/client-app-runtime-env.ts:49` so the default
+1. Edits `packages/client/src/client-app-runtime-env/client-app-runtime-env.ts:49` so the default
    backend is **unconditionally** legacy. Remove the `?backend=` URL param,
    the `be-backend` cookie path, and the env-var path that route to
    gateway. Read `client-backend-selector.ts` carefully — that file may

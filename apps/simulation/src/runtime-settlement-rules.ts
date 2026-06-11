@@ -1,7 +1,7 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
 
-import { multiplicativeEffectForPlayer } from "./tech-domain-bridge.js";
+import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export const SETTLE_DURATION_MS = 60_000;
 export const FOREST_SETTLEMENT_MULT = 2;

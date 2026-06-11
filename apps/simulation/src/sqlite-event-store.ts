@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 
-import type { SimulationEventStore, StoredSimulationEvent } from "./event-store.js";
+import type { SimulationEventStore, StoredSimulationEvent } from "./event-store/event-store.js";
 
 type Row = {
   event_id: number;

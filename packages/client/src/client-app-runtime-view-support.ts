@@ -8,8 +8,8 @@ import {
   showCaptureAlert as showCaptureAlertFromModule,
   showCollectVisibleCooldownAlert as showCollectVisibleCooldownAlertFromModule,
   showShardAlert as showShardAlertFromModule
-} from "./client-alerts.js";
-import { createMultiplexWebSocket } from "./client-multiplex-websocket.js";
+} from "./client-alerts/client-alerts.js";
+import { createMultiplexWebSocket } from "./client-multiplex-websocket/client-multiplex-websocket.js";
 import {
   bindTechTreeDragScroll as bindTechTreeDragScrollFromModule,
   isMobile as isMobileFromModule,
@@ -17,8 +17,8 @@ import {
   renderMobilePanels as renderMobilePanelsFromModule,
   setActivePanel as setActivePanelFromModule,
   viewportSize as viewportSizeFromModule
-} from "./client-panel-nav.js";
-import type { ClientState } from "./client-state.js";
+} from "./client-panel-nav/client-panel-nav.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { FeedEntry, FeedSeverity, FeedType, Tile } from "./client-types.js";
 import {
   centerOnOwnedTile as centerOnOwnedTileFromModule,
@@ -26,7 +26,7 @@ import {
   requestViewRefresh as requestViewRefreshFromModule
 } from "./client-view-refresh.js";
 import type { ClientAppDom } from "./client-app-runtime-dom.js";
-import type { ClientShardRainAlert } from "./client-shard-alert.js";
+import type { ClientShardRainAlert } from "./client-shard-alert/client-shard-alert.js";
 
 export const createClientViewSupport = (deps: {
   state: ClientState;

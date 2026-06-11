@@ -5,8 +5,8 @@
 ## Context
 
 PR #440 merged with two known issues that need a follow-up fix. Both
-are in `packages/client/src/yield-derivation.ts` and its call site in
-`packages/client/src/client-gateway-sync.ts`.
+are in `packages/client/src/yield-derivation/yield-derivation.ts` and its call site in
+`packages/client/src/client-gateway-sync/client-gateway-sync.ts`.
 
 ## Issue 1 — Income multiplier applied to enemy tiles
 
@@ -51,7 +51,7 @@ const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
 ```
 
 These are the **theoretically correct** advanced values, BUT the sim
-(`apps/simulation/src/tile-yield-view.ts:converterDailyOutput`) has a
+(`apps/simulation/src/tile-yield-view/tile-yield-view.ts:converterDailyOutput`) has a
 bug: it falls through `ADVANCED_*` cases to the **basic** constants
 (18, 18, 12). So the sim displays/produces basic values for advanced
 structures.
@@ -92,7 +92,7 @@ Decision needed:
 - Fix the sim to use ADVANCED_* constants → economy buff for advanced
   converters (gameplay change, needs balance review).
 - OR delete the unused ADVANCED_* constants from
-  `packages/game-domain/src/server-game-constants.ts`.
+  `packages/game-domain/src/server-game-constants/server-game-constants.ts`.
 
 Either way, the client port in `yield-derivation.ts` updates in
 lockstep with the sim.
@@ -110,7 +110,7 @@ lockstep with the sim.
 
 ## Tests to add or update
 
-`packages/client/src/yield-derivation.test.ts` (or wherever the
+`packages/client/src/yield-derivation/yield-derivation.test.ts` (or wherever the
 existing tests for this file live — check first; if no test file
 exists, create one with just these two cases):
 

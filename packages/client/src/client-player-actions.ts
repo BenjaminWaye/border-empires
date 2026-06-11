@@ -1,5 +1,5 @@
 import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
 import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";

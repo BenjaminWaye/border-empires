@@ -1,4 +1,4 @@
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 
 type DragSelectionDeps = {

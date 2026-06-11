@@ -4,7 +4,7 @@
  */
 import { bench, describe } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { PlayerCandidateIndex } from "./player-candidate-index.js";
+import { PlayerCandidateIndex } from "./player-candidate-index/player-candidate-index.js";
 
 const N_ANCHORS = 20;
 const N_LOOKUPS = 10_000;

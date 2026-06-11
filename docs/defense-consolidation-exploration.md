@@ -25,7 +25,7 @@
 ## 2. How combat & defensibility actually work today (grounded)
 
 **The combat roll uses only the TARGET TILE's own state — not any global
-defensibility metric.** `packages/shared/src/frontier-combat.ts:32-45`
+defensibility metric.** `packages/shared/src/frontier-combat/frontier-combat.ts:32-45`
 (`defenseMultiplierForTile`):
 
 - `FRONTIER` ownership → **0× defense** (free to capture)
@@ -44,7 +44,7 @@ Win chance is `atkEff / (atkEff + defEff)` with `atkEff = 10 × atkMult`,
 **The "defensibility %" the player sees is a DISPLAY-ONLY metric, decoupled from
 combat.** Its only consumers are client-side:
 - Formula: `defensibilityScore(T, E)` / `defensivenessMultiplier(T, E)` in
-  `packages/shared/src/math.ts:35-58`.
+  `packages/shared/src/math/math.ts:35-58`.
   - `idealExposureForTiles(T) = 2·⌈2√T⌉` (minimum perimeter for T tiles)
   - `exposureRatio = clamp(ideal / E, 0, 1)`
   - `defensibilityScore = clamp(ratio / (0.2 + 0.8·ratio), 0, 1)`
@@ -52,7 +52,7 @@ combat.** Its only consumers are client-side:
   (`× 100` → a percentage) and `client-app-runtime.ts`. **No server/combat
   consumer** (verified by grep across `apps/` and `packages/`).
 - `T` (settled tile count) and `E` (exposed-edge weight) come from
-  `packages/shared/src/exposure.ts` (`recomputeExposureForPlayer`,
+  `packages/shared/src/exposure/exposure.ts` (`recomputeExposureForPlayer`,
   `exposureWeightFromSides` in `math.ts:27-33`: 0/1 sides→0, 2→1, 3→2.5, 4→4).
 - Per-player metrics assembled in
   `apps/simulation/src/player-defensibility-metrics.ts:42`
@@ -110,7 +110,7 @@ where they're weak and act on it. More situational awareness, not less.
   exposed edges (still useful for the *local* support calc and the
   auto-consolidation "fully enclosed?" test). The **ENCIRCLEMENT** machinery
   (`frontierDecayKind === "ENCIRCLEMENT"`, encircled tiles barred as attack
-  origins / decaying — see `apps/simulation/src/runtime-frontier-decay.ts` and
+  origins / decaying — see `apps/simulation/src/runtime-frontier-decay/runtime-frontier-decay.ts` and
   `territory-automation.ts`) is conceptually adjacent and should be reconciled
   with the new local-support model rather than duplicated.
 
@@ -130,7 +130,7 @@ where they're weak and act on it. More situational awareness, not less.
    the current snowball engine.
 5. **AI parity:** the AI settlement planner already reasons about
    `defensivelyCompact` / `exposedSides`
-   (`apps/simulation/src/ai-settlement-priority.ts:171`,
+   (`apps/simulation/src/ai/ai-settlement-priority.ts:171`,
    `automation-command-planner-helpers.ts`). Any new local-support model must feed
    the AI the same signal or AI defense will regress.
 6. **Migration / display:** what replaces the defensibility readout in the client
@@ -138,17 +138,17 @@ where they're weak and act on it. More situational awareness, not less.
    count, nothing?
 7. **Perf:** per-tile support recompute on every ownership change must stay cheap.
    The single tile-mutation chokepoint is
-   `SimulationRuntime.replaceTileState()` (`apps/simulation/src/runtime.ts`,
+   `SimulationRuntime.replaceTileState()` (`apps/simulation/src/runtime/runtime.ts`,
    ~line 1539) — hook local-support invalidation there, and respect the AI CPU
    guardrails in `AGENTS.md` and `docs/game-mechanics.md` §13.
 
 ## 6. Reference map (open these first)
-- `packages/shared/src/frontier-combat.ts` — the actual combat roll & tile defense multipliers.
-- `packages/shared/src/math.ts` — `defensibilityScore`, `exposureWeightFromSides`, `combatWinChance`.
-- `packages/shared/src/exposure.ts` — neighbour/wrap helpers, exposure recompute.
+- `packages/shared/src/frontier-combat/frontier-combat.ts` — the actual combat roll & tile defense multipliers.
+- `packages/shared/src/math/math.ts` — `defensibilityScore`, `exposureWeightFromSides`, `combatWinChance`.
+- `packages/shared/src/exposure/exposure.ts` — neighbour/wrap helpers, exposure recompute.
 - `apps/simulation/src/player-defensibility-metrics.ts` — per-player T/E/score assembly.
 - `packages/client/src/client-tech-panel-flow.ts` — the only place the % is shown.
-- `apps/simulation/src/runtime-frontier-decay.ts`, `territory-automation.ts` — encirclement + auto-claim/settle helpers (`orderedAutoSettlementTileKeys`, `isAutoSettlementEligibleTarget`).
-- `apps/simulation/src/ai-settlement-priority.ts` — AI's existing compactness/exposure reasoning.
+- `apps/simulation/src/runtime-frontier-decay/runtime-frontier-decay.ts`, `territory-automation.ts` — encirclement + auto-claim/settle helpers (`orderedAutoSettlementTileKeys`, `isAutoSettlementEligibleTarget`).
+- `apps/simulation/src/ai/ai-settlement-priority.ts` — AI's existing compactness/exposure reasoning.
 - `docs/game-mechanics.md` — canonical mechanics reference (see §1 map, §13 perf).
 - `docs/mustering-feature-story.md` — the muster/garrison model this defense rework must stay consistent with.

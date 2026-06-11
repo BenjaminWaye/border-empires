@@ -1,5 +1,5 @@
-import { snapshotClientDebugEvents } from "./client-debug.js";
-import type { ClientState } from "./client-state.js";
+import { snapshotClientDebugEvents } from "./client-debug/client-debug.js";
+import type { ClientState } from "./client-state/client-state.js";
 
 // Snapshot of state useful for triaging a stuck-login report: identity bits
 // (anonymised), connection state, elapsed timers, recent network/auth events.

@@ -27,7 +27,7 @@ Strategic identity: inland farm empires bank + improve food and go tall; coastal
 ## Status of prerequisites (already done — do not redo)
 
 - **PR #457 is CLOSED** (the worldgen food-cluster approach, superseded by this rework). No action needed.
-- **The `tickPopulationGrowth` dependency is already on `main`** (merged via #428). It lives in `apps/simulation/src/runtime.ts` at the method `tickPopulationGrowth(nowMs)` (around line 928–1087), already including nearby-war pause, long-peace bonus, delta broadcast, and stale-pause clearing. You do NOT need to wait for or merge any other branch. All Phase 2/3 hooks below reference this on-main method directly. (The old `agent/population-growth-tick` branch is superseded by #428's squash — ignore it.)
+- **The `tickPopulationGrowth` dependency is already on `main`** (merged via #428). It lives in `apps/simulation/src/runtime/runtime.ts` at the method `tickPopulationGrowth(nowMs)` (around line 928–1087), already including nearby-war pause, long-peace bonus, delta broadcast, and stale-pause clearing. You do NOT need to wait for or merge any other branch. All Phase 2/3 hooks below reference this on-main method directly. (The old `agent/population-growth-tick` branch is superseded by #428's squash — ignore it.)
 
 ---
 
@@ -35,7 +35,7 @@ Strategic identity: inland farm empires bank + improve food and go tall; coastal
 
 **Goal:** fish food can't be banked.
 
-**File:** `apps/simulation/src/tile-yield-view.ts`
+**File:** `apps/simulation/src/tile-yield-view/tile-yield-view.ts`
 
 1. The yield cap is computed around line 126–134:
    ```ts
@@ -46,9 +46,9 @@ Strategic identity: inland farm empires bank + improve food and go tall; coastal
    ```
    Make `strategicEach` resource-aware so that a FISH tile gets `0`. The simplest correct form: if `tile.resource === "FISH"`, set `strategicEach: 0`; otherwise keep `maxDaily > 0 ? maxDaily / 3 : TILE_YIELD_CAP_RESOURCE`. A zero per-tile buffer means uncollected fish yield never accumulates between collections — it must be used as produced or it is lost. Leave the `goldPerMinute`/strategicPerDay rate emission untouched (the rate view still shows fish *produces* food; only the bankable buffer cap goes to zero).
 
-2. **Verify the downstream pool behavior** (do not skip): read `apps/simulation/src/player-update-economy.ts` `buildFedTownKeys` (around lines 274–301). Confirm that fish food still contributes to the current-tick feeding/growth via `strategicProductionPerMinute.FOOD` (the per-minute production rate), but that the zero tile buffer means fish never builds a lasting stockpile in `player.strategicResources.FOOD`, while FARM (cap unchanged) still banks. If the pool unexpectedly banks fish, investigate where the tile buffer flows into the player pool and fix there — but expect the cap change alone to be sufficient.
+2. **Verify the downstream pool behavior** (do not skip): read `apps/simulation/src/player-update-economy/player-update-economy.ts` `buildFedTownKeys` (around lines 274–301). Confirm that fish food still contributes to the current-tick feeding/growth via `strategicProductionPerMinute.FOOD` (the per-minute production rate), but that the zero tile buffer means fish never builds a lasting stockpile in `player.strategicResources.FOOD`, while FARM (cap unchanged) still banks. If the pool unexpectedly banks fish, investigate where the tile buffer flows into the player pool and fix there — but expect the cap change alone to be sufficient.
 
-3. **UI label:** in the yield/economy views (`apps/simulation/src/live-snapshot-view.ts` and any tile-detail yield rendering), label fish-sourced food as **perishable** so players understand why it doesn't accumulate. Find where strategic yield is surfaced for tiles and add a `perishable: true` flag (or equivalent label) for FISH-resource tiles. Keep it minimal — a flag the client can render, not a redesign.
+3. **UI label:** in the yield/economy views (`apps/simulation/src/live-snapshot-view/live-snapshot-view.ts` and any tile-detail yield rendering), label fish-sourced food as **perishable** so players understand why it doesn't accumulate. Find where strategic yield is surfaced for tiles and add a `perishable: true` flag (or equivalent label) for FISH-resource tiles. Keep it minimal — a flag the client can render, not a redesign.
 
 **Tests:** in the tile-yield test file (search `tile-yield` under `apps/simulation`), assert FISH `yieldCap.strategicEach === 0` and FARM `strategicEach` unchanged (`72/3 = 24`).
 
@@ -58,10 +58,10 @@ Strategic identity: inland farm empires bank + improve food and go tall; coastal
 
 **Goal:** growing population consumes food on top of upkeep; an unaffordable town skips growth this tick (stays fed, gold unaffected). No partial growth.
 
-**File:** `packages/game-domain/src/server-game-constants.ts`
+**File:** `packages/game-domain/src/server-game-constants/server-game-constants.ts`
 - Add `export const GROWTH_FOOD_COST_PER_POP = <value>;` near the other population/food constants (`POPULATION_GROWTH_BASE_RATE = 0.00032` is in this file — put it adjacent). Pick a small value so early towns grow freely but large cities create meaningful drain; start with a conservative number and tune in end-to-end testing. Document the unit in a one-line comment (food per unit of population added).
 
-**File:** `apps/simulation/src/runtime.ts`, inside `tickPopulationGrowth` (the per-town loop, after `growth` is computed around line 1040–1043, BEFORE the population/tier write that follows):
+**File:** `apps/simulation/src/runtime/runtime.ts`, inside `tickPopulationGrowth` (the per-town loop, after `growth` is computed around line 1040–1043, BEFORE the population/tier write that follows):
 - The relevant existing code:
   ```ts
   const growth = growthPerMinute * elapsedMinutes;
@@ -80,7 +80,7 @@ Strategic identity: inland farm empires bank + improve food and go tall; coastal
 
 **Note on the logistic ceiling:** growth is already capped by `logisticFactor = 1 - population/maxPopulation` (runtime.ts:1012). A town at its `maxPopulation` has `growth = 0`, so it consumes no growth-food — that is *why* maxed farm towns bank surplus for tier upgrades. Don't add any separate ceiling.
 
-**Tests:** extend `apps/simulation/src/runtime.population-growth.test.ts`:
+**Tests:** extend `apps/simulation/src/runtime/runtime.population-growth.test.ts`:
 - Growing town with enough food: population increases AND food pool decreases by `growth * GROWTH_FOOD_COST_PER_POP`.
 - Growing town with insufficient food: population unchanged, gold/fed unchanged, stall counter incremented, `townLastGrowthTickAtByKey` still advanced.
 - Town at `maxPopulation`: no growth, no food spent (logistic ceiling).
@@ -93,7 +93,7 @@ Strategic identity: inland farm empires bank + improve food and go tall; coastal
 
 ### 3a. Remove auto-upgrade from `tickPopulationGrowth`
 
-**File:** `apps/simulation/src/runtime.ts`, inside `tickPopulationGrowth` (lines ~1045–1076). Remove the automatic tier promotion:
+**File:** `apps/simulation/src/runtime/runtime.ts`, inside `tickPopulationGrowth` (lines ~1045–1076). Remove the automatic tier promotion:
 - Delete the `nextTier` computation block (lines 1046–1049):
   ```ts
   const nextTier = newPopulation >= 5_000_000 ? "METROPOLIS" as const
@@ -110,16 +110,16 @@ Strategic identity: inland farm empires bank + improve food and go tall; coastal
 Mirror the existing `WORLD_ENGINE_STRIKE` command end-to-end. Reference handler: `handleWorldEngineStrikeCommand` at runtime.ts:5656–5777.
 
 1. **Command type registration** — add `"UPGRADE_TOWN_TIER"` to all three places that list command types:
-   - `packages/sim-protocol/src/command-coverage-sets.ts` (near line 26–32, alongside `SIPHON_TILE`/`WORLD_ENGINE_STRIKE`).
+   - `packages/sim-protocol/src/command-coverage-sets/command-coverage-sets.ts` (near line 26–32, alongside `SIPHON_TILE`/`WORLD_ENGINE_STRIKE`).
    - `packages/client-protocol/src/index.ts` (near line 28–34, same neighbors).
-   - `packages/shared/src/messages.ts` (the zod command union, near line 133–153). Add a tile-targeted schema:
+   - `packages/shared/src/messages/messages.ts` (the zod command union, near line 133–153). Add a tile-targeted schema:
      ```ts
      z.object({ type: z.literal("UPGRADE_TOWN_TIER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
      ```
 
 2. **Payload parser** — reuse `parseTilePayload` (already imported in runtime.ts at line 233; used by `handleCollectTileCommand` at 4464). No new parser needed.
 
-3. **Constants** — in `packages/game-domain/src/server-game-constants.ts` add:
+3. **Constants** — in `packages/game-domain/src/server-game-constants/server-game-constants.ts` add:
    ```ts
    export const TIER_UPGRADE_FOOD_COST: Record<"CITY" | "GREAT_CITY" | "METROPOLIS", number> = { … };
    ```
@@ -143,7 +143,7 @@ Mirror the existing `WORLD_ENGINE_STRIKE` command end-to-end. Reference handler:
 
 ### 3c. Client
 
-- Add a town **"Upgrade"** action: `packages/client/src/client-player-actions.ts` and `packages/client/src/client-network.ts` (mirror how an existing tile-targeted command like SETTLE or a structure build is sent). The button should be enabled only when the town is owned, SETTLED, has a next tier, and population ≥ the next threshold; show the food cost.
+- Add a town **"Upgrade"** action: `packages/client/src/client-player-actions.ts` and `packages/client/src/client-network/client-network.ts` (mirror how an existing tile-targeted command like SETTLE or a structure build is sent). The button should be enabled only when the town is owned, SETTLED, has a next tier, and population ≥ the next threshold; show the food cost.
 - **Bump `packages/client/src/client-changelog.ts`** (version + entry) — REQUIRED by the pre-push hook for any `packages/client/src/` change. Forgetting this blocks the push.
 
 ### 3d. AI (low priority, can be a follow-up)
@@ -162,9 +162,9 @@ Mirror the existing `WORLD_ENGINE_STRIKE` command end-to-end. Reference handler:
 
 **Goal:** make the two food structures actually boost FARM food; FISH stays unimprovable.
 
-**File:** `apps/simulation/src/tile-yield-view.ts`, `converterDailyOutput` (lines 59–75). It currently handles only FUR/IRON/CRYSTAL synthesizers. The food structures need to ADD a food bonus when active on/adjacent to a FARM tile.
+**File:** `apps/simulation/src/tile-yield-view/tile-yield-view.ts`, `converterDailyOutput` (lines 59–75). It currently handles only FUR/IRON/CRYSTAL synthesizers. The food structures need to ADD a food bonus when active on/adjacent to a FARM tile.
 
-1. First confirm the exact application rule: read how the existing synthesizers apply their bonus (on-tile via `tile.economicStructure` vs. adjacency) — `converterDailyOutput` is called at line 123 with `tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined`. So today it's an **on-tile active structure**. Determine whether Farmstead/Waterworks are meant to apply on-tile or to adjacent FARM tiles (check the original structure intent in `packages/shared/src/structure-costs.ts` lines 37–44 and any existing references to `FARMSTEAD`/`WATERWORKS`). Match the synthesizer mechanism unless the structure definition clearly says adjacency.
+1. First confirm the exact application rule: read how the existing synthesizers apply their bonus (on-tile via `tile.economicStructure` vs. adjacency) — `converterDailyOutput` is called at line 123 with `tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined`. So today it's an **on-tile active structure**. Determine whether Farmstead/Waterworks are meant to apply on-tile or to adjacent FARM tiles (check the original structure intent in `packages/shared/src/structure-costs/structure-costs.ts` lines 37–44 and any existing references to `FARMSTEAD`/`WATERWORKS`). Match the synthesizer mechanism unless the structure definition clearly says adjacency.
 2. Wire FARMSTEAD and WATERWORKS to add a food bonus (intended +50%) **only when the underlying/target resource is FARM**. Apply the bonus to the FARM food yield, not as a flat add unrelated to the tile's farm output.
 3. **Explicitly do nothing for FISH.** Add a guard + one-line comment so a fish tile never receives a structure food bonus, and so this stays intentional against future edits.
 4. Build costs already exist in `structure-costs.ts` — this phase is purely wiring the yield bonus, not adding costs.

@@ -8,7 +8,7 @@ import {
   revertOptimisticVisibleCollectDelta as revertOptimisticVisibleCollectDeltaFromModule,
   visibleCollectSummary as visibleCollectSummaryFromModule
 } from "./client-collect-optimism.js";
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
 
 export const createClientCollectSupport = (deps: {

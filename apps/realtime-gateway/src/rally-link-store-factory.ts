@@ -1,4 +1,4 @@
-import { InMemoryRallyLinkStore, type RallyLinkStore } from "./rally-link-store.js";
+import { InMemoryRallyLinkStore, type RallyLinkStore } from "./rally-link-store/rally-link-store.js";
 
 type RallyLinkStoreFactoryOptions = {
   sqlitePath?: string;

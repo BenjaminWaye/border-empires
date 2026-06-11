@@ -26,12 +26,12 @@ The user-rule constraints at the bottom of this document are mandatory. They are
 
 | Wire message | Handler | Tile field | Lines |
 |---|---|---|---|
-| `BUILD_FORT` | `handleBuildFortCommand` ([runtime.ts:6801](apps/simulation/src/runtime.ts#L6801)) | `tile.fort` | 175 |
-| `BUILD_OBSERVATORY` | `handleBuildObservatoryCommand` ([runtime.ts:6976](apps/simulation/src/runtime.ts#L6976)) | `tile.observatory` | 148 |
-| `BUILD_SIEGE_OUTPOST` | `handleBuildSiegeOutpostCommand` ([runtime.ts:7124](apps/simulation/src/runtime.ts#L7124)) | `tile.siegeOutpost` | 248 |
-| `BUILD_ECONOMIC_STRUCTURE` | `handleBuildEconomicStructureCommand` ([runtime.ts:7372](apps/simulation/src/runtime.ts#L7372)) | `tile.economicStructure` | ~750 |
+| `BUILD_FORT` | `handleBuildFortCommand` ([runtime.ts:6801](apps/simulation/src/runtime/runtime.ts#L6801)) | `tile.fort` | 175 |
+| `BUILD_OBSERVATORY` | `handleBuildObservatoryCommand` ([runtime.ts:6976](apps/simulation/src/runtime/runtime.ts#L6976)) | `tile.observatory` | 148 |
+| `BUILD_SIEGE_OUTPOST` | `handleBuildSiegeOutpostCommand` ([runtime.ts:7124](apps/simulation/src/runtime/runtime.ts#L7124)) | `tile.siegeOutpost` | 248 |
+| `BUILD_ECONOMIC_STRUCTURE` | `handleBuildEconomicStructureCommand` ([runtime.ts:7372](apps/simulation/src/runtime/runtime.ts#L7372)) | `tile.economicStructure` | ~750 |
 
-Each handler does the same *shape* of work (parse payload, validate owner, check tech, check tile state, charge cost, schedule completion, emit deltas) but diverged on which fields it reads/writes and which side-effects it triggers. The dispatcher at [runtime.ts:8673-8742](apps/simulation/src/runtime.ts#L8673-L8742) selects one of four by command type. This is the root cause of:
+Each handler does the same *shape* of work (parse payload, validate owner, check tech, check tile state, charge cost, schedule completion, emit deltas) but diverged on which fields it reads/writes and which side-effects it triggers. The dispatcher at [runtime.ts:8673-8742](apps/simulation/src/runtime/runtime.ts#L8673-L8742) selects one of four by command type. This is the root cause of:
 
 - LIGHT_OUTPOST being awkwardly classified as an `EconomicStructureType` (an attacker living in the economic pipeline)
 - Sweep state needing a duplicate tick path because LIGHT_OUTPOST and SIEGE_OUTPOST live on different tile fields
@@ -78,14 +78,14 @@ Goal: extract the per-structure-type rules into a typed registry, without touchi
 ### Phase 1 execution checklist (concrete steps, in order)
 
 1. **Orient.** Read these files top-to-bottom before writing anything:
-   - `apps/simulation/src/runtime.ts` — the four `handleBuild*Command` functions
+   - `apps/simulation/src/runtime/runtime.ts` — the four `handleBuild*Command` functions
    - `packages/shared/src/types.ts` — `EconomicStructureType`, `SiegeOutpostVariant`, `EconomicStructure`, the `DomainTileState.fort/observatory/siegeOutpost/economicStructure` shape
    - `packages/shared/src/config.ts` — structure cost constants (`SIEGE_OUTPOST_BUILD_COST`, etc.)
-   - `packages/shared/src/structure-costs.ts` — the existing cost lookup tables
+   - `packages/shared/src/structure-costs/structure-costs.ts` — the existing cost lookup tables
    - `packages/shared/src/structure-placement-metadata.ts` and `structure-placement-metadata.json` — existing placement rules
-   - `packages/shared/test/structure-costs.test.ts` — pattern to mirror in registry tests
+   - `packages/shared/src/structure-costs/structure-costs.test.ts` — pattern to mirror in registry tests
 2. **Enumerate the universe.** Build a checklist of every distinct structure type the game can build today. Source: `EconomicStructureType` union ([types.ts:25-57](packages/shared/src/types.ts#L25-L57)) + `SiegeOutpostVariant` ([types.ts:13](packages/shared/src/types.ts#L13)) + `FortVariant` (grep) + OBSERVATORY. Expect ~35 entries. Save the list — it's your "is the registry complete?" check.
-3. **Define the spec type.** Create `packages/shared/src/structure-registry.ts`. Start with the `StructureSpec` interface from this plan. Add `PlacementCheck`, `PlacementContext`, `CompletionContext`, `RemovalContext` types in the same file. **Do not export the registry constant yet.**
+3. **Define the spec type.** Create `packages/shared/src/structure-registry/structure-registry.ts`. Start with the `StructureSpec` interface from this plan. Add `PlacementCheck`, `PlacementContext`, `CompletionContext`, `RemovalContext` types in the same file. **Do not export the registry constant yet.**
 4. **Extract placement predicates.** Read all four handlers and list every distinct placement check (`tile.ownerId === playerId`, `tile.ownershipState === "SETTLED"`, `!hasAnyStructure(tile)`, `adjacent-to-owned-town`, `dock-pair`, `terrain-restricted`, etc.). Implement each as a named exported `PlacementCheck`. Expect 12-15 distinct predicates. Cover them with unit tests in `structure-registry.test.ts`.
 5. **Populate the registry, one family at a time, in this order:**
    1. Forts (3 variants) — simplest. Land them in the registry, write parity tests against `handleBuildFortCommand`, confirm green.
@@ -102,7 +102,7 @@ Goal: extract the per-structure-type rules into a typed registry, without touchi
 
 ### Phase 1 acceptance criteria
 
-- [ ] `packages/shared/src/structure-registry.ts` (and per-family split files if needed) exports a `STRUCTURE_REGISTRY: Record<string, StructureSpec>` covering every structure type from step 2.
+- [ ] `packages/shared/src/structure-registry/structure-registry.ts` (and per-family split files if needed) exports a `STRUCTURE_REGISTRY: Record<string, StructureSpec>` covering every structure type from step 2.
 - [ ] `structure-registry.test.ts` is green and asserts parity with the existing handlers for every type.
 - [ ] `pnpm -r typecheck && pnpm -r test && pnpm -r build` all clean.
 - [ ] **Zero changes** to `runtime.ts`, the four existing handlers, the dispatcher, or any client code. If your diff touches any of those files, you've left Phase 1.
@@ -116,7 +116,7 @@ Goal: extract the per-structure-type rules into a typed registry, without touchi
 
 ### Files
 
-`packages/shared/src/structure-registry.ts` (NEW, will fit in ~400 lines):
+`packages/shared/src/structure-registry/structure-registry.ts` (NEW, will fit in ~400 lines):
 
 ```ts
 export type StructureKind = "FORT" | "OBSERVATORY" | "OUTPOST" | "ECONOMIC";
@@ -164,7 +164,7 @@ export const STRUCTURE_REGISTRY: Record<string, StructureSpec> = { ... };
 
 For each of the ~35 structure types currently in the codebase, extract its rules from the existing handler into a `StructureSpec` entry. The work is mostly mechanical:
 
-- **Fort family** (FORT/IRON_BASTION/THUNDER_BASTION): cost/duration from `structure-costs.ts`, tech from [runtime.ts:6116](apps/simulation/src/runtime.ts#L6116) (`masonry` for base fort, plus per-variant tech), `tileField: "fort"`. Placement: own settled tile, no other structure. `onCompletion`: just set status to active.
+- **Fort family** (FORT/IRON_BASTION/THUNDER_BASTION): cost/duration from `structure-costs.ts`, tech from [runtime.ts:6116](apps/simulation/src/runtime/runtime.ts#L6116) (`masonry` for base fort, plus per-variant tech), `tileField: "fort"`. Placement: own settled tile, no other structure. `onCompletion`: just set status to active.
 - **Observatory** (OBSERVATORY): cost/duration from `structure-costs.ts`, tech check at the existing site, `tileField: "observatory"`. `onCompletion`: initialize `cooldownUntil`.
 - **Outpost family** (SIEGE_OUTPOST/SIEGE_TOWER/DREAD_TOWER/LIGHT_OUTPOST): cost/duration per variant, tech per variant, `tileField: "siegeOutpost"` for the three siege variants, `tileField: "economicStructure"` for LIGHT_OUTPOST (acknowledged debt — Phase 4 collapses this). `onCompletion`: initialize `sweepBudget: 300`, `sweepActive: false`.
 - **Economic family** (~30 types in [types.ts:25-57](packages/shared/src/types.ts#L25-L57)): mostly mechanical extraction from `handleBuildEconomicStructureCommand` since that handler is *already* table-driven internally. The work here is moving the table out of the handler into the registry, with the per-type `placement`, `upkeep`, `prerequisiteStructureTypes`, etc. preserved verbatim.
@@ -209,7 +209,7 @@ Goal: introduce `BUILD_STRUCTURE` and `handleBuildStructureCommand` driven entir
 
 ### New wire message
 
-`packages/shared/src/messages.ts`:
+`packages/shared/src/messages/messages.ts`:
 
 ```ts
 z.object({
@@ -225,7 +225,7 @@ Keep `BUILD_FORT`, `BUILD_OBSERVATORY`, `BUILD_SIEGE_OUTPOST`, `BUILD_ECONOMIC_S
 
 ### New handler shape
 
-`apps/simulation/src/runtime.ts`, replacing the four old handlers:
+`apps/simulation/src/runtime/runtime.ts`, replacing the four old handlers:
 
 ```ts
 private handleBuildStructureCommand(command: CommandEnvelope): void {
@@ -430,7 +430,7 @@ function upgradeTileStructure(raw: any): void {
 
 ### Sim runtime
 
-Every read of `tile.fort` / `tile.observatory` / `tile.siegeOutpost` / `tile.economicStructure` in `runtime.ts` becomes a read of `tile.structure` with a `kind`/`type` check. The duplicate sweep tick path at [runtime.ts:991-1014](apps/simulation/src/runtime.ts#L991-L1014) collapses with the siege-outpost path because both now read from the same `tile.structure`. Expect ~200 hits across `runtime.ts` (8000+ lines) — most are mechanical rewrites.
+Every read of `tile.fort` / `tile.observatory` / `tile.siegeOutpost` / `tile.economicStructure` in `runtime.ts` becomes a read of `tile.structure` with a `kind`/`type` check. The duplicate sweep tick path at [runtime.ts:991-1014](apps/simulation/src/runtime/runtime.ts#L991-L1014) collapses with the siege-outpost path because both now read from the same `tile.structure`. Expect ~200 hits across `runtime.ts` (8000+ lines) — most are mechanical rewrites.
 
 ### Client
 
@@ -438,13 +438,13 @@ Every read of `tile.fort` / `tile.observatory` / `tile.siegeOutpost` / `tile.eco
 
 3D overlay rendering currently has separate code paths for fort / observatory / siege outpost / economic structure. Each becomes a switch on `tile.structure?.kind`. Estimate ~15 files touched: `client-map-3d.ts`, `client-map-3d-ownership-overlay.ts`, `client-tile-action-logic.ts`, `client-tile-menu-view.ts`, `client-tile-action-support.ts`, plus per-family overlay modules in `storybook/src/3d/`.
 
-`packages/shared/src/outpost-aura.ts`: the projection types `OutpostAuraTileFacts` already use a minimal shape — easy retarget to `tile.structure`.
+`packages/shared/src/outpost-aura/outpost-aura.ts`: the projection types `OutpostAuraTileFacts` already use a minimal shape — easy retarget to `tile.structure`.
 
 `TileHistory.lastStructureType` and `structureHistory` ([types.ts:80-81](packages/shared/src/types.ts#L80-L81)) collapse to a single `StructureKind | string` union.
 
 ### Realtime gateway
 
-`apps/realtime-gateway/src/tile-detail-snapshot.ts` and any tile-projection code: rewire to read `tile.structure`. The JSON wire shape changes — gateway and client must deploy as a pair.
+`apps/realtime-gateway/src/tile-detail-snapshot/tile-detail-snapshot.ts` and any tile-projection code: rewire to read `tile.structure`. The JSON wire shape changes — gateway and client must deploy as a pair.
 
 ### Tests for Phase 4
 

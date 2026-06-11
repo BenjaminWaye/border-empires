@@ -123,6 +123,8 @@ Codex agents should follow the token-budget workflow in `docs/agents/codex-token
 
 Recurring work areas should get short runbooks under `docs/agents/topics/` using the template in `docs/agents/topic-runbooks.md`. These notes are intended to reduce repeated repo rediscovery across sessions.
 
+Tests are colocated with the source module they cover instead of being kept as flat files at `src/` roots. Simulation AI, planner, automation, and system-command code lives under `apps/simulation/src/ai/`.
+
 ## Staging Login SLO Probe
 
 To measure end-to-end staging login latency (AUTH -> INIT) and enforce the 5s target:

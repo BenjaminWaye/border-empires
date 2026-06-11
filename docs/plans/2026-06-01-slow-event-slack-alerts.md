@@ -35,7 +35,7 @@ and open a GitHub issue (or fix it directly).
 ## Architecture
 
 Single new service in the gateway:
-`apps/realtime-gateway/src/slack-alerts.ts`. The sim is the worker
+`apps/realtime-gateway/src/slack-alerts/slack-alerts.ts`. The sim is the worker
 thread; it already emits structured diagnostic logs. Gateway watches
 those (it owns the metrics endpoint anyway) and dispatches.
 
@@ -79,7 +79,7 @@ with a static map of `event → plan-doc`, owner can refine it.
 
 - Add `SLACK_ALERT_WEBHOOK_URL` env var (Fly secret in prod, unset on
   staging so staging stays silent).
-- `apps/realtime-gateway/src/slack-alerts.ts` exports
+- `apps/realtime-gateway/src/slack-alerts/slack-alerts.ts` exports
   `createSlackAlerter({ webhookUrl, dedupeWindowMs })`.
 - Returns an object with `alert(event)` that fires-and-forgets via
   `fetch` (don't block the gateway main thread on Slack).

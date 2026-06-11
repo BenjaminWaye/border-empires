@@ -2,7 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
 
 import type { SeasonSummaryStore } from "./season-summary-store.js";
-import type { SimulationSnapshotSections } from "./snapshot-store.js";
+import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 
 const CURRENT_KEY = "current";
 

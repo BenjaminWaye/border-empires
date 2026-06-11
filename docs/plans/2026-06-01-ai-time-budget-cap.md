@@ -72,17 +72,17 @@ Hook this in the same `shouldRun` check from Layer 2.
 
 **File-by-file:**
 
-1. `apps/simulation/src/ai-command-producer-worker.ts`
+1. `apps/simulation/src/ai/ai-command-producer-worker.ts`
    - Layer 1: replace fixed `setInterval` with self-rescheduling
      `setTimeout` chain; measure tick duration; adjust next delay.
    - Don't break existing `humanBacklogNonEmpty` check — it stays.
 
-2. `apps/simulation/src/simulation-service.ts`
+2. `apps/simulation/src/simulation-service/simulation-service.ts`
    - Layer 2: build the rolling-window budget tracker; pass as
      `shouldRun` to `createWorkerAiCommandProducer` (~line 1487).
    - Layer 3: include event-loop-lag check in the same `shouldRun`.
 
-3. `apps/simulation/src/metrics.ts`
+3. `apps/simulation/src/metrics/metrics.ts`
    - New counters:
      - `sim_ai_tick_throttled_total{reason="adaptive"|"budget"|"loop_lag"}`
      - `sim_ai_current_tick_interval_ms` (gauge)

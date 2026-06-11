@@ -11,8 +11,8 @@ import {
   AETHER_TOWER_RADIUS,
   OBSERVATORY_CAST_RADIUS
 } from "@border-empires/game-domain";
-import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge.js";
-import { simulationTileKey } from "./seed-state.js";
+import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { ActiveAetherBridgeView, ActiveAetherWallView, AetherWallDirection, StrategicResourceKey } from "./runtime-types.js";
 
 export function revealCapacityForPlayer(player: DomainPlayer, revealTargetCount: number): number {

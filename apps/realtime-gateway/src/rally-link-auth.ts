@@ -1,4 +1,4 @@
-import { rallyLinkIsActive, type RallyAnchor, type RallyLinkStore } from "./rally-link-store.js";
+import { rallyLinkIsActive, type RallyAnchor, type RallyLinkStore } from "./rally-link-store/rally-link-store.js";
 
 export type RallyAuthChannel = "control" | "bulk" | "recovery";
 

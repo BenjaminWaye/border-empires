@@ -1,0 +1,552 @@
+import { formatTechBenefitSummary, formatTechPassiveSummary } from "../client-tech-html/client-tech-html.js";
+import { renderTechHighlightTagsHtml, techHighlightTags } from "../client-tech-payoffs.js";
+import { techBlockedReasonSummary, techMissingResourceSummary, techMissingResourceSummaryHtml } from "../client-tech-requirements/client-tech-requirements.js";
+import type { TechInfo } from "../client-types.js";
+
+const TECH_TREE_NODE_W = 216;
+const TECH_TREE_NODE_MIN_H = 144;
+const TECH_TREE_COL_GAP = 34;
+const TECH_TREE_MIN_ROW_GAP = 118;
+const TECH_TREE_IDEAL_ROW_GAP = 18;
+const TECH_TREE_TIER_SPREAD = 248;
+const TECH_TREE_ZIP_RATIO = 0.54;
+const TECH_TREE_PADDING_X = 36;
+const TECH_TREE_PADDING_Y = 28;
+const TECH_TREE_HEADER_BAND_H = 104;
+
+type TechTreeNodeLayout = {
+  tech: TechInfo;
+  tier: number;
+  row: number;
+  x: number;
+  y: number;
+  height: number;
+};
+
+type CurrentResearch = { techId?: string; completesAt?: number } | null | undefined;
+
+type TechTreeArgs = {
+  techCatalog: TechInfo[];
+  techUiSelectedId: string | undefined;
+  techRootId: string | undefined;
+  currentResearch: CurrentResearch;
+  effectiveOwnedTechIds: string[];
+  effectiveTechChoices: string[];
+  orderedTechIdsByTier: (catalog: TechInfo[]) => string[];
+  techTier: (id: string, byId: Map<string, TechInfo>, tierMemo: Map<string, number>) => number;
+  techPrereqIds: (tech: TechInfo) => string[];
+  techNameList: (ids: string[]) => string;
+  formatTechCost: (tech: TechInfo) => string;
+  isPendingTechUnlock: (techId: string) => boolean;
+  formatCooldownShort: (ms: number) => string;
+  titleCaseFromId: (id: string) => string;
+  viewportHeight: number;
+  isMobile: boolean;
+  techTreeZoom?: number;
+};
+
+type TechAgeMeta = {
+  name: string;
+  blurb: string;
+  stageBlurb: string;
+};
+
+const TECH_AGE_BY_TIER: Record<number, TechAgeMeta> = {
+  1: {
+    name: "Founding Age",
+    blurb: "Food, trade, scouting, and warbands establish a viable frontier state.",
+    stageBlurb: "Settlement basics, first markets, first maps."
+  },
+  2: {
+    name: "Mechanical Age",
+    blurb: "Measured stonework, prospecting, docks, and field gear turn survival into systems.",
+    stageBlurb: "Machine craft, fortification, extraction."
+  },
+  3: {
+    name: "Industrial Age",
+    blurb: "Guild production, ledgers, convoy planning, and siege engines make expansion scalable.",
+    stageBlurb: "Scaled production, finance, and campaign logistics."
+  },
+  4: {
+    name: "Aether Age",
+    blurb: "Resonance networks, state accounting, and advanced extraction create aetherpunk empire play.",
+    stageBlurb: "Aether infrastructure, signal control, and heavy industry."
+  },
+  5: {
+    name: "Sky Age",
+    blurb: "Ministries, intelligence, long campaigns, and civic systems harden the imperial core.",
+    stageBlurb: "Administrative power, covert reach, and strategic mobility."
+  },
+  6: {
+    name: "Astral Age",
+    blurb: "Sky docks, resonance grids, and imperial circulation prepare the world for a future orbital leap.",
+    stageBlurb: "Air power, refined fuel, and world-scale coordination."
+  },
+  7: {
+    name: "Monument Age",
+    blurb: "Empire-scale monuments, shield domes, and global aether systems decide the season.",
+    stageBlurb: "Monuments, power grids, and world-shaping systems."
+  }
+};
+
+const techAgeMetaForTier = (tier: number): TechAgeMeta => TECH_AGE_BY_TIER[tier] ?? { name: `Tier ${tier}`, blurb: "Advanced empire technology.", stageBlurb: "Advanced unlocks." };
+
+const techCardStatusLine = (
+  tech: TechInfo,
+  prereqText: string,
+  formatTechCost: (tech: TechInfo) => string
+): { text: string; tone: "cost" | "missing" | "blocked" } => {
+  if (tech.requirements.canResearch) return { text: formatTechCost(tech), tone: "cost" };
+  const blocked = techBlockedReasonSummary(tech, prereqText);
+  return { text: blocked.label, tone: blocked.tone };
+};
+
+const techCardIsAvailable = (tech: TechInfo, isChoice: boolean, isPending: boolean): boolean =>
+  !isPending && (tech.requirements.canResearch || isChoice);
+
+const techTierSlotWidth = (): number => TECH_TREE_NODE_W + TECH_TREE_TIER_SPREAD * 2;
+
+const techTierNodeOffset = (index: number, count: number): number => {
+  if (count <= 1) return TECH_TREE_TIER_SPREAD * 0.5;
+  const lane = index % 2;
+  return Math.round(lane === 0 ? 0 : TECH_TREE_TIER_SPREAD);
+};
+
+const estimateTechNodeHeight = (tech: TechInfo, args: Pick<TechTreeArgs, "techPrereqIds" | "techNameList" | "formatTechCost">): number => {
+  const titleLines = Math.max(1, Math.ceil(tech.name.length / 14));
+  const highlightCount = techHighlightTags(tech).length;
+  const payoffRows = highlightCount > 0 ? Math.max(1, Math.ceil(Math.min(highlightCount, 3) / 2)) : 0;
+  const summaryText = formatTechPassiveSummary(tech) || formatTechBenefitSummary(tech);
+  const summaryLines = Math.max(1, Math.ceil(summaryText.length / 30));
+  const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry technology";
+  const costText = techCardStatusLine(tech, prereqText, args.formatTechCost).text;
+  const costLines = Math.max(1, Math.ceil(costText.length / 30));
+  const estimate = 28 + titleLines * 24 + payoffRows * 26 + 12 + summaryLines * 20 + costLines * 20 + 26;
+  return Math.max(TECH_TREE_NODE_MIN_H, estimate);
+};
+
+const average = (values: number[]): number => values.reduce((sum, value) => sum + value, 0) / values.length;
+
+const deriveRootId = (
+  techId: string,
+  byId: Map<string, TechInfo>,
+  techPrereqIds: TechTreeArgs["techPrereqIds"],
+  memo: Map<string, string>
+): string => {
+  const cached = memo.get(techId);
+  if (cached) return cached;
+  const tech = byId.get(techId);
+  if (!tech) return techId;
+  if (tech.rootId) {
+    memo.set(techId, tech.rootId);
+    return tech.rootId;
+  }
+  const prereqs = techPrereqIds(tech);
+  if (prereqs.length === 0) {
+    memo.set(techId, tech.id);
+    return tech.id;
+  }
+  const root = deriveRootId(prereqs[0]!, byId, techPrereqIds, memo);
+  memo.set(techId, root);
+  return root;
+};
+
+export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
+  const byId = new Map(args.techCatalog.map((tech) => [tech.id, tech]));
+  const tierMemo = new Map<string, number>();
+  const techLayoutOrder = new Map(args.orderedTechIdsByTier(args.techCatalog).map((id, index) => [id, index]));
+  const ownedTechIds = args.effectiveOwnedTechIds;
+  const choices = args.effectiveTechChoices
+    .map((id) => byId.get(id))
+    .filter((tech): tech is TechInfo => Boolean(tech))
+    .sort(
+      (a, b) =>
+        args.techTier(a.id, byId, tierMemo) - args.techTier(b.id, byId, tierMemo) ||
+        (techLayoutOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (techLayoutOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
+        a.name.localeCompare(b.name)
+    );
+  if (choices.length === 0) return `<article class="card"><p>No available technologies right now.</p></article>`;
+  const grouped = new Map<number, TechInfo[]>();
+  for (const tech of choices) {
+    const tier = args.techTier(tech.id, byId, tierMemo);
+    const arr = grouped.get(tier) ?? [];
+    arr.push(tech);
+    grouped.set(tier, arr);
+  }
+  const tiers = [...grouped.keys()].sort((a, b) => a - b);
+  return tiers
+    .map((tier) => {
+      const age = techAgeMetaForTier(tier);
+      const tierChoices = grouped.get(tier) ?? [];
+      const cards = (grouped.get(tier) ?? [])
+        .sort(
+          (a, b) =>
+            (techLayoutOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (techLayoutOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
+            a.name.localeCompare(b.name)
+        )
+        .map((tech) => {
+          const selected = args.techUiSelectedId === tech.id ? " selected" : "";
+          const isOwned = ownedTechIds.includes(tech.id);
+          const owned = isOwned ? " owned" : "";
+          const isPending = args.isPendingTechUnlock(tech.id);
+          const available = techCardIsAvailable(tech, true, isPending) ? " available" : "";
+          const blocked = isOwned || available || isPending ? "" : " blocked";
+          const researchingThis = args.currentResearch?.techId === tech.id;
+          const researchRemaining =
+            researchingThis && typeof args.currentResearch?.completesAt === "number"
+              ? Math.max(0, args.currentResearch.completesAt - Date.now())
+              : 0;
+          const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry technology";
+          const blockedStatus = techCardStatusLine(tech, prereqText, args.formatTechCost);
+          const missingResources = techMissingResourceSummary(tech);
+          const missingResourcesHtml = techMissingResourceSummaryHtml(tech);
+          const costLabel = researchingThis
+            ? `Researching • ${args.formatCooldownShort(researchRemaining)}`
+            : isPending
+              ? "Unlocking..."
+              : blockedStatus.text;
+          const costToneClass =
+            researchingThis || isPending
+              ? ""
+              : blockedStatus.tone === "missing"
+                ? " tech-card-cost-missing"
+                : blockedStatus.tone === "blocked"
+                  ? " tech-card-cost-blocked"
+                  : "";
+          const passiveSummary = formatTechPassiveSummary(tech);
+          return `<button class="tech-card${selected}${owned}${available}${blocked}${missingResources ? " resource-blocked" : ""}" data-tech-card="${tech.id}">
+            <div class="tech-card-top">
+              <strong>${tech.name}</strong>
+              <span class="tech-card-badge">T${args.techTier(tech.id, byId, tierMemo)}</span>
+            </div>
+            ${renderTechHighlightTagsHtml(tech, 2)}
+            ${passiveSummary ? `<p>${passiveSummary}</p>` : ""}
+            <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
+          </button>`;
+        })
+        .join("");
+      return `<section class="tech-tier-block">
+        <div class="tech-tier-head">
+          <div class="tech-tier-copy">
+            <span class="tech-tier-kicker">Tier ${tier}</span>
+            <h4>${age.name}</h4>
+            <p>${age.blurb}</p>
+          </div>
+          <span class="tech-tier-badge">${tierChoices.length} ${tierChoices.length === 1 ? "option" : "options"}</span>
+        </div>
+        <div class="tech-card-grid">${cards}</div>
+      </section>`;
+    })
+    .join("");
+};
+
+export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => {
+  const byId = new Map(args.techCatalog.map((tech) => [tech.id, tech]));
+  const tierMemo = new Map<string, number>();
+  const ownedTechIds = args.effectiveOwnedTechIds;
+  const ownedSet = new Set(ownedTechIds);
+  const choicesSet = new Set(args.effectiveTechChoices);
+  const rootMemo = new Map<string, string>();
+  if (args.techCatalog.length === 0) return `<article class="card"><p>No technologies are available this season.</p></article>`;
+
+  const childrenByTech = new Map<string, string[]>();
+  for (const tech of args.techCatalog) {
+    for (const prereqId of args.techPrereqIds(tech)) {
+      const children = childrenByTech.get(prereqId) ?? [];
+      children.push(tech.id);
+      childrenByTech.set(prereqId, children);
+    }
+  }
+  for (const [key, children] of childrenByTech) {
+    childrenByTech.set(
+      key,
+      children.sort((a, b) => {
+        const aTech = byId.get(a);
+        const bTech = byId.get(b);
+        return (aTech?.name ?? a).localeCompare(bTech?.name ?? b);
+      })
+    );
+  }
+
+  const groupedByRoot = new Map<string, TechInfo[]>();
+  for (const tech of args.techCatalog) {
+    const rootKey = deriveRootId(tech.id, byId, args.techPrereqIds, rootMemo);
+    const group = groupedByRoot.get(rootKey) ?? [];
+    group.push(tech);
+    groupedByRoot.set(rootKey, group);
+  }
+
+  const currentRootId =
+    args.techRootId ||
+    (() => {
+      const owned = args.techCatalog.find((tech) => ownedSet.has(tech.id));
+      return owned ? deriveRootId(owned.id, byId, args.techPrereqIds, rootMemo) : "";
+    })();
+  const rootKeys = [...groupedByRoot.keys()].sort((a, b) => {
+    const aCurrent = a === currentRootId ? 1 : 0;
+    const bCurrent = b === currentRootId ? 1 : 0;
+    if (aCurrent !== bCurrent) return bCurrent - aCurrent;
+    const aOwned = (groupedByRoot.get(a) ?? []).some((tech) => ownedSet.has(tech.id)) ? 1 : 0;
+    const bOwned = (groupedByRoot.get(b) ?? []).some((tech) => ownedSet.has(tech.id)) ? 1 : 0;
+    if (aOwned !== bOwned) return bOwned - aOwned;
+    return (byId.get(a)?.name ?? args.titleCaseFromId(a)).localeCompare(byId.get(b)?.name ?? args.titleCaseFromId(b));
+  });
+
+  let leafRow = 0;
+  const rowByTech = new Map<string, number>();
+  const assigning = new Set<string>();
+  const assignRow = (techId: string): number => {
+    const cached = rowByTech.get(techId);
+    if (typeof cached === "number") return cached;
+    if (assigning.has(techId)) {
+      const fallback = leafRow;
+      leafRow += 1;
+      rowByTech.set(techId, fallback);
+      return fallback;
+    }
+    assigning.add(techId);
+      const techRoot = deriveRootId(techId, byId, args.techPrereqIds, rootMemo);
+      const children = (childrenByTech.get(techId) ?? []).filter((childId) => deriveRootId(childId, byId, args.techPrereqIds, rootMemo) === techRoot);
+    let row: number;
+    if (children.length === 0) {
+      row = leafRow;
+      leafRow += 1;
+    } else {
+      const childRows = children.map(assignRow);
+      row = childRows.reduce((sum, value) => sum + value, 0) / childRows.length;
+    }
+    assigning.delete(techId);
+    rowByTech.set(techId, row);
+    return row;
+  };
+
+  for (const rootKey of rootKeys) {
+    const rootTechs = (groupedByRoot.get(rootKey) ?? []).slice();
+    const groupIds = new Set(rootTechs.map((tech) => tech.id));
+    const entryTechs = rootTechs
+      .filter((tech) => args.techPrereqIds(tech).filter((id) => groupIds.has(id)).length === 0)
+      .sort((a, b) => args.techTier(a.id, byId, tierMemo) - args.techTier(b.id, byId, tierMemo) || a.name.localeCompare(b.name));
+    for (const tech of entryTechs) assignRow(tech.id);
+    for (const tech of rootTechs.sort((a, b) => args.techTier(a.id, byId, tierMemo) - args.techTier(b.id, byId, tierMemo) || a.name.localeCompare(b.name))) {
+      if (!rowByTech.has(tech.id)) assignRow(tech.id);
+    }
+    leafRow += 1;
+  }
+
+  const stageHeight = Math.max(420, args.viewportHeight - (args.isMobile ? 220 : 190));
+  const headerBandBottom = TECH_TREE_PADDING_Y + TECH_TREE_HEADER_BAND_H;
+  const usableHeight = Math.max(220, stageHeight - headerBandBottom - TECH_TREE_PADDING_Y);
+  const techsByTier = new Map<number, TechInfo[]>();
+  for (const tech of args.techCatalog) {
+    const tier = args.techTier(tech.id, byId, tierMemo);
+    const group = techsByTier.get(tier) ?? [];
+    group.push(tech);
+    techsByTier.set(tier, group);
+  }
+
+  const orderedTiers = [...techsByTier.keys()].sort((a, b) => a - b);
+  const orderedIdsByTier = new Map<number, string[]>();
+  for (const tier of orderedTiers) {
+    const ids = (techsByTier.get(tier) ?? [])
+      .slice()
+      .sort((a, b) => {
+        const aOrder = rowByTech.get(a.id) ?? 0;
+        const bOrder = rowByTech.get(b.id) ?? 0;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return a.name.localeCompare(b.name);
+      })
+      .map((tech) => tech.id);
+    orderedIdsByTier.set(tier, ids);
+  }
+
+  const sortTierByLinkedNeighbors = (tier: number, direction: "parents" | "children"): void => {
+    const ids = orderedIdsByTier.get(tier);
+    if (!ids || ids.length <= 1) return;
+    const neighborTierIds = orderedIdsByTier.get(direction === "parents" ? tier - 1 : tier + 1);
+    const neighborIndex = new Map((neighborTierIds ?? []).map((id, index) => [id, index]));
+    const fallbackIndex = new Map(ids.map((id, index) => [id, index]));
+    ids.sort((aId, bId) => {
+      const aTech = byId.get(aId);
+      const bTech = byId.get(bId);
+      if (!aTech || !bTech) return 0;
+      const aNeighbors =
+        direction === "parents"
+          ? args.techPrereqIds(aTech).filter((id) => neighborIndex.has(id))
+          : (childrenByTech.get(aId) ?? []).filter((id) => neighborIndex.has(id));
+      const bNeighbors =
+        direction === "parents"
+          ? args.techPrereqIds(bTech).filter((id) => neighborIndex.has(id))
+          : (childrenByTech.get(bId) ?? []).filter((id) => neighborIndex.has(id));
+      const aScore = aNeighbors.length > 0 ? average(aNeighbors.map((id) => neighborIndex.get(id) ?? 0)) : fallbackIndex.get(aId) ?? 0;
+      const bScore = bNeighbors.length > 0 ? average(bNeighbors.map((id) => neighborIndex.get(id) ?? 0)) : fallbackIndex.get(bId) ?? 0;
+      if (aScore !== bScore) return aScore - bScore;
+      const aBase = rowByTech.get(aId) ?? 0;
+      const bBase = rowByTech.get(bId) ?? 0;
+      if (aBase !== bBase) return aBase - bBase;
+      return aTech.name.localeCompare(bTech.name);
+    });
+  };
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (const tier of orderedTiers) {
+      if (tier > orderedTiers[0]!) sortTierByLinkedNeighbors(tier, "parents");
+    }
+    for (let index = orderedTiers.length - 1; index >= 0; index -= 1) {
+      const tier = orderedTiers[index];
+      if (tier === undefined || tier >= orderedTiers[orderedTiers.length - 1]!) continue;
+      sortTierByLinkedNeighbors(tier, "children");
+    }
+  }
+
+  const layouts: TechTreeNodeLayout[] = [];
+  for (const tier of orderedTiers) {
+    const tierTechs = (orderedIdsByTier.get(tier) ?? []).map((id) => byId.get(id)).filter((tech): tech is TechInfo => Boolean(tech));
+    const count = tierTechs.length;
+    const tierHeights = tierTechs.map((tech) => estimateTechNodeHeight(tech, args));
+    const zipperSteps = tierHeights.slice(0, -1).map((height) => Math.max(TECH_TREE_MIN_ROW_GAP, height * TECH_TREE_ZIP_RATIO));
+    const stackHeight =
+      count === 0
+        ? 0
+        : tierHeights[0]! + zipperSteps.reduce((sum, step) => sum + step, 0) + Math.max(0, (tierHeights[count - 1]! - tierHeights[0]!) * 0.15);
+    const startY = headerBandBottom + Math.max(0, (usableHeight - stackHeight) / 2);
+    const tierBaseX = TECH_TREE_PADDING_X + (tier - 1) * (techTierSlotWidth() + TECH_TREE_COL_GAP);
+    let currentY = startY;
+    tierTechs.forEach((tech, index) => {
+      const height = tierHeights[index] ?? TECH_TREE_NODE_MIN_H;
+      layouts.push({
+        tech,
+        tier,
+        row: index,
+        x: tierBaseX + techTierNodeOffset(index, count),
+        y: currentY,
+        height
+      });
+      currentY += index < zipperSteps.length ? zipperSteps[index]! : 0;
+    });
+  }
+  layouts.sort((a, b) => a.x - b.x || a.y - b.y);
+
+  const maxTier = Math.max(...layouts.map((layout) => layout.tier));
+  const stageWidth = TECH_TREE_PADDING_X * 2 + maxTier * techTierSlotWidth() + Math.max(0, maxTier - 1) * TECH_TREE_COL_GAP;
+  const contentHeight = Math.max(stageHeight, headerBandBottom + TECH_TREE_PADDING_Y, ...layouts.map((layout) => layout.y + layout.height + TECH_TREE_PADDING_Y));
+  const layoutById = new Map(layouts.map((layout) => [layout.tech.id, layout]));
+  const zoom = Math.max(0.7, Math.min(1.6, args.techTreeZoom || 1));
+  const scaledStageWidth = Math.round(stageWidth * zoom);
+  const scaledContentHeight = Math.round(contentHeight * zoom);
+  const scaledStageHeight = Math.round(stageHeight * zoom);
+
+  const tierHeaders = Array.from({ length: maxTier }, (_, index) => {
+    const tier = index + 1;
+    const age = techAgeMetaForTier(tier);
+    const left = TECH_TREE_PADDING_X + index * (techTierSlotWidth() + TECH_TREE_COL_GAP);
+    return `<div class="tech-tree-stage-tier" style="left:${left}px;width:${techTierSlotWidth()}px;">
+      <span class="tech-tree-stage-tier-kicker">Tier ${tier}</span>
+      <strong>${age.name}</strong>
+      <span class="tech-tree-stage-tier-copy">${age.stageBlurb}</span>
+    </div>`;
+  }).join("");
+
+  const lines = layouts
+    .flatMap((layout) =>
+      args.techPrereqIds(layout.tech)
+        .map((prereqId) => {
+          const source = layoutById.get(prereqId);
+          if (!source) return "";
+          const startX = source.x + TECH_TREE_NODE_W;
+          const startY = source.y + source.height / 2;
+          const endX = layout.x;
+          const endY = layout.y + layout.height / 2;
+          const controlOffset = Math.max(36, (endX - startX) * 0.45);
+          const selectedClass = args.techUiSelectedId === prereqId ? " is-selected-outgoing" : args.techUiSelectedId === layout.tech.id ? " is-selected-incoming" : "";
+          return `<path class="tech-tree-link${selectedClass}" d="M ${startX} ${startY} C ${startX + controlOffset} ${startY}, ${endX - controlOffset} ${endY}, ${endX} ${endY}" />`;
+        })
+        .filter(Boolean)
+    )
+    .join("");
+
+  const nodes = layouts
+    .map((layout) => {
+      const { tech } = layout;
+      const selected = args.techUiSelectedId === tech.id ? " selected" : "";
+      const isOwned = ownedSet.has(tech.id);
+      const owned = isOwned ? " owned" : "";
+      const isPending = args.isPendingTechUnlock(tech.id);
+      const pending = isPending ? " pending" : "";
+      const researchingThis = args.currentResearch?.techId === tech.id;
+      const researchRemaining =
+        researchingThis && typeof args.currentResearch?.completesAt === "number"
+          ? Math.max(0, args.currentResearch.completesAt - Date.now())
+          : 0;
+      const isChoice = choicesSet.has(tech.id);
+      const choice = isChoice ? " choice" : "";
+      const available = techCardIsAvailable(tech, isChoice, isPending) ? " available" : "";
+      const blocked = isOwned || available || isPending ? "" : " blocked";
+      const prereqs = args.techPrereqIds(tech);
+      const stateLabel = researchingThis ? "Researching" : isPending ? "Unlocking" : isOwned ? "Unlocked" : available ? "Available" : "Locked";
+      const costLabel =
+        researchingThis
+          ? `Researching • ${args.formatCooldownShort(researchRemaining)}`
+          : isPending
+            ? "Waiting for server confirmation..."
+            : techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry technology", args.formatTechCost).text;
+      const blockedStatus = techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry technology", args.formatTechCost);
+      const missingResources = techMissingResourceSummary(tech);
+      const missingResourcesHtml = techMissingResourceSummaryHtml(tech);
+      const costToneClass =
+        researchingThis || isPending
+          ? ""
+          : blockedStatus.tone === "missing"
+            ? " tech-card-cost-missing"
+            : blockedStatus.tone === "blocked"
+              ? " tech-card-cost-blocked"
+              : "";
+      const passiveSummary = formatTechPassiveSummary(tech);
+      return `<button
+        class="tech-card tech-tree-card tech-tree-graph-node${selected}${owned}${pending}${available}${choice}${blocked}${missingResources ? " resource-blocked" : ""}"
+        data-tech-card="${tech.id}"
+        style="left:${layout.x}px;top:${layout.y}px;width:${TECH_TREE_NODE_W}px;min-height:${layout.height}px;"
+      >
+        <div class="tech-card-top">
+          <strong>${tech.name}</strong>
+          <span class="tech-tree-card-badge">${stateLabel}</span>
+        </div>
+        ${renderTechHighlightTagsHtml(tech, 2)}
+        ${passiveSummary ? `<p class="tech-tree-card-meta">${passiveSummary}</p>` : ""}
+        <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
+      </button>`;
+    })
+    .join("");
+
+  return `<article class="card tech-tree-shell expanded" data-tech-tree-shell>
+    <div class="tech-tree-shell-head">
+      <div>
+        <div class="domain-summary-kicker">Research</div>
+        <strong>Technology tree</strong>
+        <p>Drag across the six ages to see how frontier survival becomes machine empire, then sky power.</p>
+      </div>
+      <div class="tech-tree-shell-actions">
+        <div class="tech-tree-overview-metrics">
+          <span><strong>${ownedTechIds.length}</strong> unlocked</span>
+          <span><strong>${args.techCatalog.filter((tech) => tech.requirements.canResearch).length}</strong> ready</span>
+          <span><strong>${args.techCatalog.length}</strong> total</span>
+        </div>
+        <div class="tech-tree-zoom-controls" aria-label="Technology tree zoom controls">
+          <button class="panel-btn tech-tree-zoom-btn" type="button" data-tech-tree-zoom="out" aria-label="Zoom out">-</button>
+          <button class="panel-btn tech-tree-zoom-btn tech-tree-zoom-readout" type="button" data-tech-tree-zoom="reset" aria-label="Reset zoom">${Math.round(
+            zoom * 100
+          )}%</button>
+          <button class="panel-btn tech-tree-zoom-btn" type="button" data-tech-tree-zoom="in" aria-label="Zoom in">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="tech-tree-graph-scroll" data-tech-tree-scroll>
+      <div class="tech-tree-graph-stage" data-tech-tree-stage style="width:${scaledStageWidth}px;height:${scaledContentHeight}px;min-height:${scaledStageHeight}px;">
+        <div class="tech-tree-graph-canvas" style="width:${stageWidth}px;height:${contentHeight}px;transform:scale(${zoom});">
+          ${tierHeaders}
+          <svg class="tech-tree-graph-lines" viewBox="0 0 ${stageWidth} ${contentHeight}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
+          ${nodes}
+        </div>
+      </div>
+    </div>
+  </article>`;
+};

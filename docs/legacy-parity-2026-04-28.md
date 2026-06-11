@@ -18,14 +18,14 @@ Arch-only / skipped: 50
 ### Logout button: handler now survives DOM cloning
 - **Commit(s):** 81328d2 Fix logout button handler binding (merged → bcc3f81)
 - **Player-visible behavior:** The Log Out button in the settings panel (including the mobile-clone) now reliably fires on click. Previously the handler was bound to `#auth-logout` by ID, which broke on any clone of the settings card.
-- **Where in code:** `packages/client/src/client-hud.ts` — button uses `data-auth-logout` attribute; event wiring loops over `querySelectorAll("[data-auth-logout]")`.
+- **Where in code:** `packages/client/src/client-hud/client-hud.ts` — button uses `data-auth-logout` attribute; event wiring loops over `querySelectorAll("[data-auth-logout]")`.
 - **Status:** ⚠️
 - **Verification step:** Open the settings panel on staging (desktop and mobile layout). Press Log Out. Confirm Firebase logout fires and the auth state returns to the login screen.
 
 ### Logout button disabled during loading
 - **Commit(s):** Inside `1fd5b5d` (Merge pull request #25 from codex/logout-press-noop)
 - **Player-visible behavior:** The Log Out button is now correctly disabled while `authReady` is false, so pressing it during the "Securing session" loading phase no longer triggers a noop state machine transition.
-- **Where in code:** `packages/client/src/client-hud.ts` — `${state.authReady ? "" : "disabled"}` attribute on the button.
+- **Where in code:** `packages/client/src/client-hud/client-hud.ts` — `${state.authReady ? "" : "disabled"}` attribute on the button.
 - **Status:** ⚠️
 - **Verification step:** On staging, open in a slow-network incognito window. While `[auth-progress]` is still loading, try clicking Log Out. Button should be inert.
 
@@ -46,28 +46,28 @@ Arch-only / skipped: 50
 ### Frontier queue waits for confirmed origin ownership before dispatch
 - **Commit(s):** f1b1130 fix(client): block optimistic-origin frontier dispatch until ownership is confirmed
 - **Player-visible behavior:** Rapid chained expand/attack actions no longer produce intermittent NOT_OWNER errors. The queue now holds the next action briefly when the origin tile is only optimistically owned.
-- **Where in code:** `packages/client/src/client-queue-logic.ts` — `frontierSyncWaitUntilByTarget` map; checks `originSyncWaitUntil > Date.now()` before dispatching.
+- **Where in code:** `packages/client/src/client-queue-logic/client-queue-logic.ts` — `frontierSyncWaitUntilByTarget` map; checks `originSyncWaitUntil > Date.now()` before dispatching.
 - **Status:** ⚠️
 - **Verification step:** On staging, rapidly queue 3+ expands in a row. Confirm all succeed without NOT_OWNER errors in the console.
 
 ### Settlement support areas and road links hidden
 - **Commit(s):** e1b3038 Remove settlement support and road UI (merged → 9f3455b)
 - **Player-visible behavior:** The settlement tile overview no longer shows the "Support X/Y" line or road-network visualisation that was only meaningful for towns. Settlement gold-per-minute display also fixed to avoid NaN.
-- **Where in code:** `packages/client/src/client-tile-overview-modifiers.ts` — `Support` line gated on `tile.town.populationTier !== "SETTLEMENT"`; `packages/client/src/client-road-network.ts` — road connection suppressed for settlement tier.
+- **Where in code:** `packages/client/src/client-tile-overview-modifiers/client-tile-overview-modifiers.ts` — `Support` line gated on `tile.town.populationTier !== "SETTLEMENT"`; `packages/client/src/client-road-network/client-road-network.ts` — road connection suppressed for settlement tier.
 - **Status:** ⚠️
 - **Verification step:** On staging, click on a settlement tile. Confirm the support area count line is absent and no road links render from it.
 
 ### Tech tooltip fallback cost display
-- **Commit(s):** b0258b1 Phase 4 (client-tech-html.ts portion); visible in diff to `packages/client/src/client-tech-html.ts`
+- **Commit(s):** b0258b1 Phase 4 (client-tech-html.ts portion); visible in diff to `packages/client/src/client-tech-html/client-tech-html.ts`
 - **Player-visible behavior:** Technology tooltips now always show a cost breakdown even when the server hasn't sent a checklist yet, preventing "Cost not listed" for valid technologies.
-- **Where in code:** `packages/client/src/client-tech-html.ts` — `fallbackRequirementChecklist()` and `effectiveRequirementChecklist()` helpers.
+- **Where in code:** `packages/client/src/client-tech-html/client-tech-html.ts` — `fallbackRequirementChecklist()` and `effectiveRequirementChecklist()` helpers.
 - **Status:** ⚠️
 - **Verification step:** On staging, open the tech tree panel and hover over a tech with a gold or resource cost. Confirm cost is shown immediately without waiting for a server round-trip.
 
 ### Attack preview uses shared combat math (same formula as server)
 - **Commit(s):** b0258b1 Phase 4: add command coverage rails and align attack preview combat math
 - **Player-visible behavior:** The win-chance percentage shown when hovering a hostile tile now matches the server's actual combat resolution odds. Previously the client used a diverging local formula that made some hostile frontier tiles appear to be 100% captures when they were not.
-- **Where in code:** `packages/client/src/client-queue-logic.ts` — `localAttackPreview()` now calls `buildFrontierCombatPreview()` from `@border-empires/shared`; `packages/shared/src/frontier-combat.ts` — new shared module.
+- **Where in code:** `packages/client/src/client-queue-logic/client-queue-logic.ts` — `localAttackPreview()` now calls `buildFrontierCombatPreview()` from `@border-empires/shared`; `packages/shared/src/frontier-combat/frontier-combat.ts` — new shared module.
 - **Status:** ⚠️
 - **Verification step:** On staging, hover over a hostile tile owned by an AI or another player. Confirm win% and breakthrough win% are below 100% when the target has defense modifiers.
 
@@ -102,7 +102,7 @@ Arch-only / skipped: 50
 ### Auth/bridge debug info in settings panel
 - **Commit(s):** 7c3040b Fix staging auth identity diagnostics
 - **Player-visible behavior:** The settings panel now contains a copyable debug section showing Firebase UID, player ID, backend mode, season ID, and bridge state. Not core gameplay — used for cross-device debugging.
-- **Where in code:** `packages/client/src/client-hud.ts` — `authDebugHtml()` and `bridgeStatusHtml()` sections in the settings card.
+- **Where in code:** `packages/client/src/client-hud/client-hud.ts` — `authDebugHtml()` and `bridgeStatusHtml()` sections in the settings card.
 - **Status:** ⚠️
 - **Verification step:** Open settings on staging. Confirm the debug section is present, copy button works, and values reflect the legacy backend (`legacy-server`, `legacy-init`).
 

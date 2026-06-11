@@ -14,7 +14,7 @@ import {
   firstThreeTownsGoldOutputMultiplierForPlayer,
   firstThreeTownsPopulationGrowthMultiplierForPlayer,
   type ConnectedTownNetworkEntry
-} from "./economy-network.js";
+} from "./economy-network/economy-network.js";
 import {
   type RuntimeState,
   keyFor,
