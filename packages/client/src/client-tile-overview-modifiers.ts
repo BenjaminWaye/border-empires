@@ -40,6 +40,9 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
   if (tile.hasBank && tile.bankActive) {
     modifiers.push({ reason: "Bank", effect: "+50% city income", tone: "positive" });
   }
+  if (tile.hasClearingHouse && tile.clearingHouseActive) {
+    modifiers.push({ reason: "Clearing House", effect: "+25% Market effect, +20% Bank effect, +0.5 Bank income", tone: "positive" });
+  }
   return modifiers;
 };
 
