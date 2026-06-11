@@ -55,3 +55,6 @@ export const economicStructureGoldUpkeepPerInterval = (structureType: EconomicSt
 
 export const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
 export const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;
+
+export const isTownInCaptureShock = (town: DomainTileState["town"] | undefined, nowMs: number): boolean =>
+  typeof town?.captureShockUntil === "number" && town.captureShockUntil > nowMs;
