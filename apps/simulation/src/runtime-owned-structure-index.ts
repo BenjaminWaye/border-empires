@@ -1,5 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { BuildableStructureType } from "@border-empires/shared";
+import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 
 export function ownedStructureCountForPlayer(
   ownedStructureCountByPlayerByType: ReadonlyMap<string, ReadonlyMap<BuildableStructureType, number>>,
@@ -7,6 +8,17 @@ export function ownedStructureCountForPlayer(
   structureType: BuildableStructureType
 ): number {
   return ownedStructureCountByPlayerByType.get(playerId)?.get(structureType) ?? 0;
+}
+
+export function ownedStructureCountsForPlayer(
+  ownedStructureCountByPlayerByType: ReadonlyMap<string, ReadonlyMap<BuildableStructureType, number>>,
+  playerId: string
+): PlannerOwnedStructureCounts {
+  const counts: PlannerOwnedStructureCounts = {};
+  const byType = ownedStructureCountByPlayerByType.get(playerId);
+  if (!byType) return counts;
+  for (const [structureType, count] of byType) counts[structureType] = count;
+  return counts;
 }
 
 export function adjustOwnedStructureCount(
