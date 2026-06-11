@@ -1,4 +1,4 @@
-import { CylinderGeometry, Group, InstancedMesh, Matrix4, MeshStandardMaterial, OctahedronGeometry, Scene, TorusGeometry } from "three";
+import { CircleGeometry, Group, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, Scene } from "three";
 
 type ActiveShard = {
   readonly centerX: number;
@@ -22,48 +22,43 @@ const FLOAT_Y = 0.40;
 const SHARD_SX = 0.13;
 const SHARD_SY = 0.38;
 const SHARD_SZ = 0.13;
+// Shimmer base radius — pulses slightly with the bob
+const SHIMMER_R = 0.34;
 
 export const createShardOverlay = (scene: Scene, maxTiles: number): ShardOverlay => {
   const group = new Group();
   group.name = "shard-overlay";
   scene.add(group);
 
-  // Tall faceted crystal — OctahedronGeometry gives the pointed-diamond shard look
+  // Tall faceted crystal
   const shardGeometry = new OctahedronGeometry(1, 0);
   const shardMaterial = new MeshStandardMaterial({
-    color: "#2fd0ea",
-    emissive: "#1ab4cc",
-    emissiveIntensity: 0.6,
-    roughness: 0.22,
-    metalness: 0.15,
+    color: "#ffffff",
+    emissive: "#ccefff",
+    emissiveIntensity: 0.9,
+    roughness: 0.1,
+    metalness: 0.0,
     flatShading: true
   });
 
-  // Glowing platform ring lying flat on the tile surface
-  const ringGeometry = new TorusGeometry(0.28, 0.045, 6, 22);
-  const ringMaterial = new MeshStandardMaterial({
-    color: "#92f5ff",
-    emissive: "#92f5ff",
-    emissiveIntensity: 1.1,
-    roughness: 0.2,
-    metalness: 0.0
-  });
-
-  // Dark stone base disc
-  const baseGeometry = new CylinderGeometry(0.3, 0.32, 0.05, 16);
-  const baseMaterial = new MeshStandardMaterial({
-    color: "#0e1822",
-    roughness: 0.85,
-    metalness: 0.0
+  // Soft blue shimmer projected on the ground beneath the shard.
+  // MeshBasicMaterial keeps it unlit so the glow reads consistently
+  // regardless of scene lighting. depthWrite: false prevents z-fighting
+  // with the tile surface.
+  const shimmerGeometry = new CircleGeometry(1, 24);
+  const shimmerMaterial = new MeshBasicMaterial({
+    color: "#32d2e9",
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false
   });
 
   const shardMesh = new InstancedMesh(shardGeometry, shardMaterial, maxTiles);
-  const ringMesh = new InstancedMesh(ringGeometry, ringMaterial, maxTiles);
-  const baseMesh = new InstancedMesh(baseGeometry, baseMaterial, maxTiles);
+  const shimmerMesh = new InstancedMesh(shimmerGeometry, shimmerMaterial, maxTiles);
   shardMesh.frustumCulled = false;
-  ringMesh.frustumCulled = false;
-  baseMesh.frustumCulled = false;
-  group.add(baseMesh, ringMesh, shardMesh);
+  shimmerMesh.frustumCulled = false;
+  // Draw shimmer first so the shard renders on top
+  group.add(shimmerMesh, shardMesh);
 
   const shards: ActiveShard[] = [];
   const m = new Matrix4();
@@ -81,8 +76,7 @@ export const createShardOverlay = (scene: Scene, maxTiles: number): ShardOverlay
   const update = (nowMs: number): void => {
     const count = shards.length;
     shardMesh.count = count;
-    ringMesh.count = count;
-    baseMesh.count = count;
+    shimmerMesh.count = count;
 
     for (let i = 0; i < count; i += 1) {
       const s = shards[i]!;
@@ -90,27 +84,25 @@ export const createShardOverlay = (scene: Scene, maxTiles: number): ShardOverlay
       const bob = Math.sin(t) * BOB_AMP;
       const rotY = t * 0.28;
 
-      // Shard: slowly spins + bobs
+      // Shard: bobs + slow spin
       rot.makeRotationY(rotY);
       scl.makeScale(SHARD_SX, SHARD_SY, SHARD_SZ);
       m.multiplyMatrices(rot, scl);
       m.setPosition(s.centerX, s.surfaceY + FLOAT_Y + bob, s.centerZ);
       shardMesh.setMatrixAt(i, m);
 
-      // Platform ring (TorusGeometry already lies flat in XZ plane)
-      m.identity();
-      m.setPosition(s.centerX, s.surfaceY + 0.06, s.centerZ);
-      ringMesh.setMatrixAt(i, m);
-
-      // Base disc
-      m.identity();
-      m.setPosition(s.centerX, s.surfaceY + 0.03, s.centerZ);
-      baseMesh.setMatrixAt(i, m);
+      // Shimmer: flat circle lying on the ground, fixed size
+      const r = SHIMMER_R;
+      // CircleGeometry faces +Y by default; rotate -90° around X so it lies flat
+      rot.makeRotationX(-Math.PI / 2);
+      scl.makeScale(r, r, 1);
+      m.multiplyMatrices(rot, scl);
+      m.setPosition(s.centerX, s.surfaceY + 0.01, s.centerZ);
+      shimmerMesh.setMatrixAt(i, m);
     }
 
     shardMesh.instanceMatrix.needsUpdate = true;
-    ringMesh.instanceMatrix.needsUpdate = true;
-    baseMesh.instanceMatrix.needsUpdate = true;
+    shimmerMesh.instanceMatrix.needsUpdate = true;
   };
 
   const commit = (): void => { update(0); };
@@ -118,11 +110,9 @@ export const createShardOverlay = (scene: Scene, maxTiles: number): ShardOverlay
   const dispose = (): void => {
     scene.remove(group);
     shardGeometry.dispose();
-    ringGeometry.dispose();
-    baseGeometry.dispose();
+    shimmerGeometry.dispose();
     shardMaterial.dispose();
-    ringMaterial.dispose();
-    baseMaterial.dispose();
+    shimmerMaterial.dispose();
   };
 
   return { group, clear, addInstance, commit, update, dispose };
