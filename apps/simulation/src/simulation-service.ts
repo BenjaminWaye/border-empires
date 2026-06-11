@@ -211,6 +211,7 @@ type ProtoSimulationEvent = {
     economic_structure_json?: string | undefined;
     sabotage_json?: string | undefined;
     shard_site_json?: string | undefined;
+    muster_json?: string | undefined;
   }>;
   tileDeltas?: Array<{
     x: number;
@@ -232,6 +233,7 @@ type ProtoSimulationEvent = {
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
+    musterJson?: string | undefined;
     yield?: {
       gold?: number;
       strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
@@ -2433,6 +2435,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             economic_structure_json?: string;
             sabotage_json?: string;
             shard_site_json?: string;
+            muster_json?: string;
             yield_json?: string;
             yield_rate_json?: string;
             yield_cap_json?: string;
