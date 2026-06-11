@@ -403,6 +403,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("muster" in normalizedGateway) {
     if (normalizedGateway.muster) merged.muster = normalizedGateway.muster;
     else delete merged.muster;
+    console.info("[muster-debug] applyGatewayTileUpdate muster field", { x: update.x, y: update.y, musterJsonRaw: (update as Record<string, unknown>).musterJson, normalizedMuster: normalizedGateway.muster ?? null, mergedMuster: merged.muster ?? null });
   }
 
   if ("ownerId" in normalizedGateway) {
