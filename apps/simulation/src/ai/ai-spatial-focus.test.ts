@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AI_SPATIAL_FOCUS_HARD_EXPIRY_MS,
   AI_SPATIAL_FOCUS_EXPIRY_MS,
   AI_SPATIAL_FOCUS_MAX_OWNED_TILES,
   expandFocusFront,
@@ -9,6 +10,7 @@ import {
   type AiSpatialFocus,
   type AiSpatialFocusCategory
 } from "./ai-spatial-focus.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 const emptySources = (): Record<AiSpatialFocusCategory, ReadonlySet<string>> => ({
   hot_frontier: new Set<string>(),
@@ -38,6 +40,26 @@ describe("expandFocusFront", () => {
     const owned = ownedRect(0, 0, 3, 3);
     const front = expandFocusFront(key(1, 1), owned, 16);
     expect(front.size).toBe(9);
+    for (const k of owned) expect(front.has(k)).toBe(true);
+  });
+
+  it("uses frontier-style diagonal connectivity", () => {
+    const owned = new Set<string>([key(0, 0), key(1, 1), key(2, 2)]);
+    const front = expandFocusFront(key(0, 0), owned, 16);
+    expect(front.has(key(0, 0))).toBe(true);
+    expect(front.has(key(1, 1))).toBe(true);
+    expect(front.has(key(2, 2))).toBe(true);
+  });
+
+  it("wraps across world edges", () => {
+    const owned = new Set<string>([
+      key(0, 0),
+      key(WORLD_WIDTH - 1, 0),
+      key(0, WORLD_HEIGHT - 1),
+      key(WORLD_WIDTH - 1, WORLD_HEIGHT - 1)
+    ]);
+    const front = expandFocusFront(key(0, 0), owned, 16);
+    expect(front.size).toBe(4);
     for (const k of owned) expect(front.has(k)).toBe(true);
   });
 
@@ -152,13 +174,31 @@ describe("selectSpatialFocus", () => {
     expect(second).toBe(first); // same object identity
   });
 
+  it("does not rebuild an unexpired focus when the front changed", () => {
+    const first = selectSpatialFocus({
+      prior: undefined,
+      hotFrontierTileKeys: new Set([key(1, 1)]),
+      ownedTileKeys: new Set([key(1, 1)]),
+      now: 1_000
+    })!;
+    const second = selectSpatialFocus({
+      prior: first,
+      hotFrontierTileKeys: new Set([key(1, 1)]),
+      ownedTileKeys: new Set([key(1, 1), key(1, 2)]),
+      now: first.expiresAt - 1
+    });
+    expect(second).toBe(first);
+  });
+
   it("rebuilds focus when prior origin is no longer owned", () => {
     const prior: AiSpatialFocus = {
       originTileKey: key(99, 99),
       originCategory: "hot_frontier",
       primaryFront: new Set([key(99, 99)]),
       computedAt: 0,
-      expiresAt: AI_SPATIAL_FOCUS_EXPIRY_MS
+      expiresAt: AI_SPATIAL_FOCUS_EXPIRY_MS,
+      hardExpiresAt: AI_SPATIAL_FOCUS_HARD_EXPIRY_MS,
+      lastOriginByCategory: { hot_frontier: key(99, 99) }
     };
     const owned = ownedRect(0, 0, 3, 3);
     const hot = new Set([key(2, 2)]);
@@ -190,6 +230,47 @@ describe("selectSpatialFocus", () => {
     expect(second).toBeDefined();
     expect(second).not.toBe(first);
     expect(second!.computedAt).toBe(1_000 + AI_SPATIAL_FOCUS_EXPIRY_MS + 1);
+  });
+
+  it("keeps an expired active focus when its front changed", () => {
+    const first = selectSpatialFocus({
+      prior: undefined,
+      hotFrontierTileKeys: new Set([key(0, 0), key(5, 5)]),
+      ownedTileKeys: new Set([key(0, 0)]),
+      now: 1_000,
+      jitterMs: 0
+    })!;
+    const next = selectSpatialFocus({
+      prior: first,
+      hotFrontierTileKeys: new Set([key(0, 0), key(5, 5)]),
+      ownedTileKeys: new Set([key(0, 0), key(1, 0)]),
+      now: first.expiresAt + 1,
+      jitterMs: 0
+    })!;
+    expect(next.originTileKey).toBe(key(0, 0));
+    expect(next.originCategory).toBe("hot_frontier");
+    expect(next.primaryFront.has(key(1, 0))).toBe(true);
+    expect(next.expiresAt).toBe(first.expiresAt + 1 + AI_SPATIAL_FOCUS_EXPIRY_MS);
+    expect(next.hardExpiresAt).toBe(first.hardExpiresAt);
+  });
+
+  it("moves on from an active focus after the hard expiry", () => {
+    const first = selectSpatialFocus({
+      prior: undefined,
+      hotFrontierTileKeys: new Set([key(0, 0), key(5, 5)]),
+      ownedTileKeys: new Set([key(0, 0), key(5, 5)]),
+      now: 1_000,
+      jitterMs: 0
+    })!;
+    const next = selectSpatialFocus({
+      prior: first,
+      hotFrontierTileKeys: new Set([key(0, 0), key(5, 5)]),
+      ownedTileKeys: new Set([key(0, 0), key(1, 0), key(5, 5)]),
+      now: first.hardExpiresAt + 1,
+      jitterMs: 0
+    })!;
+    expect(next.originTileKey).toBe(key(5, 5));
+    expect(next.originCategory).toBe("hot_frontier");
   });
 
   it("caps front size at maxOwnedTiles", () => {
@@ -240,6 +321,36 @@ describe("selectSpatialFocus", () => {
     })!;
     expect(second.originCategory).toBe("build_candidate");
     expect(second.originTileKey).toBe(key(2, 2));
+  });
+
+  it("advances within a category after returning to it", () => {
+    const owned = ownedRect(0, 0, 10, 10);
+    const hot = new Set<string>([key(0, 0), key(2, 2), key(4, 4)]);
+    const first = selectSpatialFocus({
+      prior: undefined,
+      hotFrontierTileKeys: hot,
+      ownedTileKeys: owned,
+      now: 1_000
+    })!;
+    expect(first.originTileKey).toBe(key(0, 0));
+
+    const second = selectSpatialFocus({
+      prior: first,
+      hotFrontierTileKeys: hot,
+      ownedTileKeys: owned,
+      now: first.expiresAt + 1
+    })!;
+    expect(second.originCategory).toBe("hot_frontier");
+    expect(second.originTileKey).toBe(key(2, 2));
+
+    const third = selectSpatialFocus({
+      prior: second,
+      hotFrontierTileKeys: hot,
+      ownedTileKeys: owned,
+      now: second.expiresAt + 1
+    })!;
+    expect(third.originCategory).toBe("hot_frontier");
+    expect(third.originTileKey).toBe(key(4, 4));
   });
 
   it("rotates build_candidate -> settle_pending -> hot_frontier across three refreshes", () => {

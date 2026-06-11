@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const changelogPath = "packages/client/src/client-changelog.ts";
+const changelogPath = "packages/client/src/client-changelog/client-changelog.ts";
 const relevantRoots = ["packages/client/src/", "packages/shared/src/"];
 
 const runGit = (args) =>

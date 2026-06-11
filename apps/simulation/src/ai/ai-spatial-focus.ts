@@ -1,3 +1,5 @@
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+
 /**
  * Spatial focus caps AI per-tick frontier enumeration to a bounded BFS front
  * around a persistent focus origin tile. Large empires would otherwise blow
@@ -15,17 +17,17 @@
  * Origin rotation: a single hot-frontier origin biases the front toward the
  * border and hides interior decisions (settling owned FRONTIER tiles deep
  * inside the empire, building structures on settled tiles far from contact).
- * To fix that, the origin category rotates on every refresh: hot_frontier →
- * build_candidate → settle_pending → ... back to hot_frontier. Each
- * category's tile set comes from the runtime player summary. Empty
- * categories are skipped. Cycle period is ~3x the focus expiry (60s ±
- * 15s × 3 categories ≈ 3 min), so over a few minutes the AI sees every
- * activity-relevant region of its empire.
+ * To fix that, the origin category rotates on refresh: hot_frontier →
+ * build_candidate → settle_pending → ... back to hot_frontier. Within each
+ * category, the origin advances through that category's runtime summary Set so
+ * multiple active regions can take turns. An actively changing focus can keep
+ * the AI local for several refreshes, but never past the hard focus cap.
  */
 
 export const AI_SPATIAL_FOCUS_MAX_OWNED_TILES = 256;
 export const AI_SPATIAL_FOCUS_EXPIRY_MS = 60_000;
 export const AI_SPATIAL_FOCUS_EXPIRY_JITTER_MS = 15_000;
+export const AI_SPATIAL_FOCUS_HARD_EXPIRY_MS = 10 * 60_000;
 
 export type AiSpatialFocusCategory = "hot_frontier" | "build_candidate" | "settle_pending";
 
@@ -41,6 +43,8 @@ export type AiSpatialFocus = {
   readonly primaryFront: ReadonlySet<string>;
   readonly computedAt: number;
   readonly expiresAt: number;
+  readonly hardExpiresAt: number;
+  readonly lastOriginByCategory: Readonly<Partial<Record<AiSpatialFocusCategory, string>>>;
 };
 
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
@@ -54,18 +58,24 @@ const parseTileKey = (tileKey: string): { x: number; y: number } | undefined => 
   return { x, y };
 };
 
+const EMPTY_TILE_SET: ReadonlySet<string> = new Set<string>();
+
 const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number]> = [
+  [-1, -1],
   [0, -1],
+  [1, -1],
+  [-1, 0],
   [1, 0],
+  [-1, 1],
   [0, 1],
-  [-1, 0]
+  [1, 1]
 ];
 
 /**
- * BFS through the 4-neighbor owned-tile graph, starting at `originTileKey`,
- * collecting at most `maxOwnedTiles` tiles. Returns an empty set if the origin
- * is not owned. Output is the bounded front (always includes the origin when
- * non-empty).
+ * BFS through the wrapping 8-neighbor owned-tile graph, starting at
+ * `originTileKey`, collecting at most `maxOwnedTiles` tiles. Returns an empty
+ * set if the origin is not owned. Output is the bounded front (always includes
+ * the origin when non-empty).
  */
 export const expandFocusFront = (
   originTileKey: string,
@@ -83,7 +93,10 @@ export const expandFocusFront = (
     if (!parsed) continue;
     for (const [dx, dy] of NEIGHBOR_OFFSETS) {
       if (front.size >= maxOwnedTiles) break;
-      const next = tileKeyOf(parsed.x + dx, parsed.y + dy);
+      const next = tileKeyOf(
+        wrapX(parsed.x + dx, WORLD_WIDTH),
+        wrapY(parsed.y + dy, WORLD_HEIGHT)
+      );
       if (front.has(next)) continue;
       if (!ownedTileKeys.has(next)) continue;
       front.add(next);
@@ -102,8 +115,22 @@ const nextCategoryAfter = (prior: AiSpatialFocusCategory | undefined): AiSpatial
 
 const firstOwnedTileIn = (
   candidates: ReadonlySet<string>,
-  ownedTileKeys: ReadonlySet<string>
+  ownedTileKeys: ReadonlySet<string>,
+  afterTileKey?: string | undefined
 ): string | undefined => {
+  if (afterTileKey !== undefined && candidates.has(afterTileKey)) {
+    let pastPrior = false;
+    let firstOwned: string | undefined;
+    for (const tileKey of candidates) {
+      if (ownedTileKeys.has(tileKey) && firstOwned === undefined) firstOwned = tileKey;
+      if (tileKey === afterTileKey) {
+        pastPrior = true;
+        continue;
+      }
+      if (pastPrior && ownedTileKeys.has(tileKey)) return tileKey;
+    }
+    return firstOwned;
+  }
   for (const tileKey of candidates) {
     if (ownedTileKeys.has(tileKey)) return tileKey;
   }
@@ -125,12 +152,13 @@ const firstOwnedTileIn = (
 export const pickFocusOriginForCategory = (
   startCategory: AiSpatialFocusCategory,
   sources: Readonly<Record<AiSpatialFocusCategory, ReadonlySet<string>>>,
-  ownedTileKeys: ReadonlySet<string>
+  ownedTileKeys: ReadonlySet<string>,
+  lastOriginByCategory: Readonly<Partial<Record<AiSpatialFocusCategory, string>>> = {}
 ): { originTileKey: string; originCategory: AiSpatialFocusCategory } | undefined => {
   for (let attempt = 0; attempt < AI_SPATIAL_FOCUS_CATEGORY_CYCLE.length; attempt += 1) {
     const idx = (AI_SPATIAL_FOCUS_CATEGORY_CYCLE.indexOf(startCategory) + attempt) % AI_SPATIAL_FOCUS_CATEGORY_CYCLE.length;
     const category = AI_SPATIAL_FOCUS_CATEGORY_CYCLE[idx]!;
-    const candidate = firstOwnedTileIn(sources[category], ownedTileKeys);
+    const candidate = firstOwnedTileIn(sources[category], ownedTileKeys, lastOriginByCategory[category]);
     if (candidate) return { originTileKey: candidate, originCategory: category };
   }
   for (const tileKey of ownedTileKeys) {
@@ -157,20 +185,17 @@ export const selectSpatialFocus = (params: {
   jitterMs?: number;
   maxOwnedTiles?: number;
   expiryMs?: number;
+  hardExpiryMs?: number;
 }): AiSpatialFocus | undefined => {
   const { prior, hotFrontierTileKeys, ownedTileKeys, now } = params;
-  const buildCandidateTileKeys = params.buildCandidateTileKeys ?? new Set<string>();
-  const settlePendingTileKeys = params.settlePendingTileKeys ?? new Set<string>();
+  const buildCandidateTileKeys = params.buildCandidateTileKeys ?? EMPTY_TILE_SET;
+  const settlePendingTileKeys = params.settlePendingTileKeys ?? EMPTY_TILE_SET;
   const jitterMs = params.jitterMs ?? 0;
   const maxOwnedTiles = params.maxOwnedTiles ?? AI_SPATIAL_FOCUS_MAX_OWNED_TILES;
   const expiryMs = params.expiryMs ?? AI_SPATIAL_FOCUS_EXPIRY_MS;
+  const hardExpiryMs = params.hardExpiryMs ?? AI_SPATIAL_FOCUS_HARD_EXPIRY_MS;
 
   if (ownedTileKeys.size === 0) return undefined;
-
-  const priorOriginStillOwned =
-    prior !== undefined && ownedTileKeys.has(prior.originTileKey);
-  const priorNotExpired = prior !== undefined && now < prior.expiresAt;
-  const reusePriorOrigin = priorOriginStillOwned && priorNotExpired;
 
   const sources: Record<AiSpatialFocusCategory, ReadonlySet<string>> = {
     hot_frontier: hotFrontierTileKeys,
@@ -178,43 +203,65 @@ export const selectSpatialFocus = (params: {
     settle_pending: settlePendingTileKeys
   };
 
+  const priorLastOriginByCategory = prior
+    ? {
+        ...prior.lastOriginByCategory,
+        [prior.originCategory]: prior.originTileKey
+      }
+    : {};
+  const softExpiresAt = now + expiryMs + jitterMs;
+  const priorOriginStillOwned =
+    prior !== undefined && ownedTileKeys.has(prior.originTileKey);
+  const priorHardExpiresAt = prior?.hardExpiresAt ?? (prior ? prior.computedAt + hardExpiryMs : now);
+  const priorCanContinue = priorOriginStillOwned && now < priorHardExpiresAt;
+  if (priorCanContinue) {
+    if (now < prior.expiresAt) return prior;
+    const refreshedPriorFront = expandFocusFront(prior.originTileKey, ownedTileKeys, maxOwnedTiles);
+    const priorFrontChanged = !setsEqual(refreshedPriorFront, prior.primaryFront);
+    if (priorFrontChanged) {
+      return {
+        originTileKey: prior.originTileKey,
+        originCategory: prior.originCategory,
+        primaryFront: refreshedPriorFront,
+        computedAt: now,
+        expiresAt: Math.min(softExpiresAt, priorHardExpiresAt),
+        hardExpiresAt: priorHardExpiresAt,
+        lastOriginByCategory: priorLastOriginByCategory
+      };
+    }
+  }
+
   let originTileKey: string | undefined;
   let originCategory: AiSpatialFocusCategory;
-  if (reusePriorOrigin) {
-    originTileKey = prior!.originTileKey;
-    originCategory = prior!.originCategory;
-  } else {
-    const startCategory = nextCategoryAfter(prior?.originCategory);
-    const picked = pickFocusOriginForCategory(startCategory, sources, ownedTileKeys);
-    if (!picked) return undefined;
-    originTileKey = picked.originTileKey;
-    originCategory = picked.originCategory;
-  }
+  const startCategory = nextCategoryAfter(prior?.originCategory);
+  const picked = pickFocusOriginForCategory(startCategory, sources, ownedTileKeys, priorLastOriginByCategory);
+  if (!picked) return undefined;
+  originTileKey = picked.originTileKey;
+  originCategory = picked.originCategory;
   if (!originTileKey) return undefined;
 
   const primaryFront = expandFocusFront(originTileKey, ownedTileKeys, maxOwnedTiles);
   if (primaryFront.size === 0) return undefined;
-
-  if (
-    reusePriorOrigin &&
-    prior!.primaryFront.size === primaryFront.size &&
-    prior!.originCategory === originCategory
-  ) {
-    let identical = true;
-    for (const key of primaryFront) {
-      if (!prior!.primaryFront.has(key)) {
-        identical = false;
-        break;
-      }
-    }
-    if (identical) return prior;
-  }
+  const nextLastOriginByCategory = {
+    ...priorLastOriginByCategory,
+    [originCategory]: originTileKey
+  };
 
   return {
     originTileKey,
     originCategory,
     primaryFront,
     computedAt: now,
-    expiresAt: now + expiryMs + jitterMs
+    expiresAt: softExpiresAt,
+    hardExpiresAt: now + hardExpiryMs,
+    lastOriginByCategory: nextLastOriginByCategory
   };
+};
+
+const setsEqual = (left: ReadonlySet<string>, right: ReadonlySet<string>): boolean => {
+  if (left.size !== right.size) return false;
+  for (const key of left) {
+    if (!right.has(key)) return false;
+  }
+  return true;
 };
