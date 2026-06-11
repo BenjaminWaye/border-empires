@@ -400,6 +400,10 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
       merged.shardSite = claimedShardSite;
     } else delete merged.shardSite;
   }
+  if ("muster" in normalizedGateway) {
+    if (normalizedGateway.muster) merged.muster = normalizedGateway.muster;
+    else delete merged.muster;
+  }
 
   if ("ownerId" in normalizedGateway) {
     if (normalizedGateway.ownerId) merged.ownerId = normalizedGateway.ownerId;
