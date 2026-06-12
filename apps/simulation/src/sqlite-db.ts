@@ -18,6 +18,13 @@ export const openSqliteDatabase = (path: string): DatabaseSync => {
     PRAGMA foreign_keys = ON;
     PRAGMA busy_timeout = 5000;
   `);
+  if (process.env.SIMULATION_DB_VACUUM_ON_START === "1") {
+    const t0 = Date.now();
+    db.exec("VACUUM");
+    db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+    // eslint-disable-next-line no-console
+    console.log(`[sqlite] VACUUM complete in ${Date.now() - t0}ms`);
+  }
   sharedDb = db;
   sharedDbPath = path;
   return db;
