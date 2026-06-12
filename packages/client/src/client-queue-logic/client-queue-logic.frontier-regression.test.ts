@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { SETTLE_COST } from "@border-empires/shared";
 
 import { createInitialState } from "../client-state/client-state.js";
-import { processActionQueue } from "./client-queue-logic.js";
+import { developmentSlotReason, processActionQueue, requestSettlement } from "./client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";
 
@@ -14,6 +15,31 @@ const makeTile = (overrides: Partial<Tile>): Tile => ({
 });
 
 describe("frontier queue regressions", () => {
+  it("shows a visible settlement warning when a frontier tile cannot be afforded", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = SETTLE_COST - 1;
+    state.tiles.set("7,8", makeTile({ x: 7, y: 8, ownerId: "me", ownershipState: "FRONTIER" }));
+    const pushFeed = vi.fn();
+    const showCaptureAlert = vi.fn();
+
+    const started = requestSettlement(state, 7, 8, {
+      keyFor: (x, y) => `${x},${y}`,
+      pushFeed,
+      showCaptureAlert,
+      renderHud: vi.fn(),
+      queueDevelopmentAction: vi.fn(() => true),
+      developmentSlotSummary: () => ({ busy: 0, limit: 1, available: 1 }),
+      developmentSlotReason,
+      sendGameMessage: vi.fn(() => true),
+      syncOptimisticSettlementTile: vi.fn()
+    });
+
+    expect(started).toBe(false);
+    expect(showCaptureAlert).toHaveBeenCalledWith("Settlement blocked", `Need ${SETTLE_COST} gold to settle this tile.`, "warn");
+    expect(pushFeed).toHaveBeenCalledWith(`Need ${SETTLE_COST} gold to settle this tile.`, "combat", "warn");
+  });
+
   it("keeps neutral expand targets neutral until the server accepts the action", () => {
     const state = createInitialState();
     state.authSessionReady = true;

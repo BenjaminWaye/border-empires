@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.12.2",
+  version: "2026.06.12.3",
   title: "What's New",
-  summary: "Important gameplay problems now stay on the map instead of flooding the activity feed.",
+  summary: "Blocked gameplay actions now surface as visible warnings instead of only activity-feed messages.",
   entries: [
+    {
+      introducedIn: "2026.06.12.3",
+      title: "Action blockers are visible",
+      why: "Important action failures were too easy to miss when they only appeared in the activity feed.",
+      changes: [
+        "Blocked settlement, frontier claim, expansion-path, fort, siege outpost, and uncapture actions now show an immediate warning popup.",
+        "The activity feed still keeps the short history entry, but it is no longer the only place players see these blockers."
+      ]
+    },
     {
       introducedIn: "2026.06.12.2",
       title: "Persistent alerts stay on the map",
