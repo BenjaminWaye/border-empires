@@ -11,7 +11,6 @@ import {
 } from "./ai/planner-candidate-index.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import {
-  MAX_FORT_AUTO_FRONTIER_RADIUS,
   isSettledTownAnchor,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "./territory-automation/territory-automation.js";
@@ -99,15 +98,6 @@ export const removeYieldBearingTileFromOwnerIndex = (
 };
 
 export const fortSupportAnchorMaxRadius = (tile: DomainTileState, ownerId: string): number => {
-  if (
-    tile.ownerId === ownerId &&
-    tile.economicStructure?.ownerId === ownerId &&
-    tile.economicStructure.type === "WOODEN_FORT" &&
-    tile.economicStructure.status === "active"
-  ) return MAX_FORT_AUTO_FRONTIER_RADIUS;
-  if (tile.ownerId === ownerId && tile.fort?.ownerId === ownerId && tile.fort.status === "active") {
-    return MAX_FORT_AUTO_FRONTIER_RADIUS;
-  }
   if (isSettledTownAnchor(tile, ownerId)) return TOWN_AUTO_FRONTIER_RADIUS;
   return 0;
 };

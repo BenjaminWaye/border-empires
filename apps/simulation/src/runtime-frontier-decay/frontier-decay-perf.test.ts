@@ -169,7 +169,7 @@ describe("frontier-decay perf gate", () => {
 // ---------------------------------------------------------------------------
 
 describe("activeFortAnchorsByOwner index correctness", () => {
-  it("fort registered → nearby frontier tile is supported", () => {
+  it("fort does NOT protect nearby frontier from decay — tile expires when timer passes", () => {
     const NOW_MS = 1_000_000;
 
     const runtime = new SimulationRuntime({
@@ -177,75 +177,24 @@ describe("activeFortAnchorsByOwner index correctness", () => {
       initialPlayers: new Map([["p1", makePlayer("p1")]]),
       seedTiles: new Map([
         ["10,10", landTile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", fort: { ownerId: "p1", status: "active" } })],
-        // Frontier tile 2 cells away (within fort radius 2)
+        // Frontier tile 2 cells away; decay timer already past
         ["12,10", landTile(12, 10, { ownerId: "p1", ownershipState: "FRONTIER", frontierDecayAt: NOW_MS - 1, frontierDecayKind: "NATURAL" })]
       ])
     });
 
-    // Before tick, tile 12,10 is frontier and decay timer has passed.
-    // But it's within fort radius — should be cleared to supported (decayAt undefined),
-    // NOT expired. We'll verify it does NOT expire.
     runtime.tickTerritoryAutomation(NOW_MS);
 
-    // Tile should still be owned by p1 (supported by fort), not expired
+    // Fort provides no frontier support — tile should have expired (no longer owned)
     const tileAfter = (runtime as unknown as { tiles: Map<string, DomainTileState> }).tiles.get("12,10");
-    expect(tileAfter?.ownerId).toBe("p1");
-    expect(tileAfter?.ownershipState).toBe("FRONTIER");
-    // decayAt should have been cleared since it's supported
-    expect(tileAfter?.frontierDecayAt).toBeUndefined();
+    expect(tileAfter?.ownerId).toBeUndefined();
   });
 
-  it("fort destroyed → frontier tile outside support now decays", () => {
-    const NOW_MS = 1_000_000;
-    let nowMs = NOW_MS;
-
-    // We use a settled base + fort tile. Frontier tile is 2 cells away (within radius).
-    // First tick: frontier tile is supported → decayAt cleared.
-    // Then we destroy the fort by replacing the tile.
-    // Second tick: frontier tile has no decayAt — it gets a new decayAt set.
-    const runtime = new SimulationRuntime({
-      now: () => nowMs,
-      initialPlayers: new Map([["p1", makePlayer("p1")]]),
-      seedTiles: new Map([
-        ["10,10", landTile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", fort: { ownerId: "p1", status: "active" } })],
-        ["12,10", landTile(12, 10, { ownerId: "p1", ownershipState: "FRONTIER", frontierDecayAt: NOW_MS - 1, frontierDecayKind: "NATURAL" })]
-      ])
-    });
-
-    // First tick: tile should be supported (decayAt cleared)
-    runtime.tickTerritoryAutomation(NOW_MS);
-    const tileAfterSupport = (runtime as unknown as { tiles: Map<string, DomainTileState> }).tiles.get("12,10");
-    expect(tileAfterSupport?.frontierDecayAt).toBeUndefined();
-
-    // Access activeFortAnchorsByOwner to confirm index has the fort anchor
-    const anchorsMap = (runtime as unknown as { activeFortAnchorsByOwner: Map<string, Map<string, number>> }).activeFortAnchorsByOwner;
-    expect(anchorsMap.get("p1")?.has("10,10")).toBe(true);
-
-    // Destroy the fort (replace tile with settled but no fort)
-    const rts = (runtime as unknown as { replaceTileState: (k: string, t: DomainTileState, c?: string) => void }).replaceTileState;
-    rts.call(runtime, "10,10", landTile(10, 10, { ownerId: "p1", ownershipState: "SETTLED" }), "test-destroy-fort");
-
-    // Confirm fort anchor removed from index
-    expect(anchorsMap.get("p1")?.has("10,10")).toBe(false);
-
-    // After decay starts: advance time so frontier tile gets new decayAt
-    nowMs = NOW_MS + 1_000;
-    runtime.tickTerritoryAutomation(nowMs);
-    const tileAfterDecayStart = (runtime as unknown as { tiles: Map<string, DomainTileState> }).tiles.get("12,10");
-    // Tile should now have a frontierDecayAt (decay started since fort is gone)
-    expect(tileAfterDecayStart?.frontierDecayAt).toBeDefined();
-    expect(tileAfterDecayStart?.frontierDecayAt).toBeGreaterThan(nowMs);
-  });
-
-  it("fort capture (owner change) → old owner loses anchor, new owner gains it", () => {
+  it("fort tiles are NOT registered in activeFortAnchorsByOwner", () => {
     const NOW_MS = 1_000_000;
 
     const runtime = new SimulationRuntime({
       now: () => NOW_MS,
-      initialPlayers: new Map([
-        ["p1", makePlayer("p1")],
-        ["p2", makePlayer("p2")]
-      ]),
+      initialPlayers: new Map([["p1", makePlayer("p1")]]),
       seedTiles: new Map([
         ["10,10", landTile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", fort: { ownerId: "p1", status: "active" } })]
       ])
@@ -253,23 +202,30 @@ describe("activeFortAnchorsByOwner index correctness", () => {
 
     const anchorsMap = (runtime as unknown as { activeFortAnchorsByOwner: Map<string, Map<string, number>> }).activeFortAnchorsByOwner;
 
-    // p1 should have the fort anchor
-    expect(anchorsMap.get("p1")?.has("10,10")).toBe(true);
-    expect(anchorsMap.get("p2")?.has("10,10")).toBeFalsy();
-
-    // Simulate fort capture: replace with p2 ownership
-    const rts = (runtime as unknown as { replaceTileState: (k: string, t: DomainTileState, c?: string) => void }).replaceTileState;
-    rts.call(
-      runtime,
-      "10,10",
-      landTile(10, 10, { ownerId: "p2", ownershipState: "SETTLED", fort: { ownerId: "p2", status: "active" } }),
-      "test-capture"
-    );
-
-    // p1 must NOT have the anchor anymore
+    // Forts no longer register as anchors — only towns do
     expect(anchorsMap.get("p1")?.has("10,10")).toBeFalsy();
-    // p2 must have it
-    expect(anchorsMap.get("p2")?.has("10,10")).toBe(true);
+  });
+
+  it("town anchor registered → nearby frontier tile is supported from decay", () => {
+    const NOW_MS = 1_000_000;
+
+    const runtime = new SimulationRuntime({
+      now: () => NOW_MS,
+      initialPlayers: new Map([["p1", makePlayer("p1")]]),
+      seedTiles: new Map([
+        ["10,10", landTile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "TOWN" } })],
+        // Frontier tile 1 cell away (within town radius 1)
+        ["11,10", landTile(11, 10, { ownerId: "p1", ownershipState: "FRONTIER", frontierDecayAt: NOW_MS - 1, frontierDecayKind: "NATURAL" })]
+      ])
+    });
+
+    runtime.tickTerritoryAutomation(NOW_MS);
+
+    // Town protects adjacent frontier — tile should NOT have expired
+    const tileAfter = (runtime as unknown as { tiles: Map<string, DomainTileState> }).tiles.get("11,10");
+    expect(tileAfter?.ownerId).toBe("p1");
+    expect(tileAfter?.ownershipState).toBe("FRONTIER");
+    expect(tileAfter?.frontierDecayAt).toBeUndefined();
   });
 
   it("frontierTilesByOwner index stays correct across replaceTileState calls", () => {

@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { ATTACK_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
+import { describe, expect, it } from "vitest";
+import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import {
   applySimulationEventsToRecoveredAccumulator,
@@ -34,7 +34,7 @@ const latestAutoSettlementQueue = (events: SimulationEvent[], playerId: string):
 };
 
 describe("territory automation", () => {
-  it("active forts automatically frontier-claim nearby neutral land", async () => {
+  it("forts do NOT auto-claim nearby neutral land (only towns do)", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", player("player-1")]]),
@@ -49,14 +49,8 @@ describe("territory automation", () => {
             ownershipState: "SETTLED",
             fort: { ownerId: "player-1", status: "active" }
           },
-          { x: 9, y: 9, terrain: "LAND" },
-          { x: 10, y: 9, terrain: "LAND" },
-          { x: 11, y: 9, terrain: "LAND" },
           { x: 9, y: 10, terrain: "LAND" },
-          { x: 11, y: 10, terrain: "LAND" },
-          { x: 9, y: 11, terrain: "LAND" },
-          { x: 10, y: 11, terrain: "LAND" },
-          { x: 11, y: 11, terrain: "LAND" }
+          { x: 11, y: 10, terrain: "LAND" }
         ],
         activeLocks: []
       }
@@ -69,99 +63,8 @@ describe("territory automation", () => {
     const claimed = runtime.exportState().tiles.filter(
       (tile) => tile.ownerId === "player-1" && tile.ownershipState === "FRONTIER"
     );
-    expect(claimed).toHaveLength(8);
-    expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(1_000 - FRONTIER_CLAIM_COST * 8);
-    const tileDeltaBatches = events.filter((event) => event.eventType === "TILE_DELTA_BATCH");
-    const playerUpdates = events.filter((event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE");
-    expect(tileDeltaBatches).toHaveLength(1);
-    expect(tileDeltaBatches[0]).toMatchObject({ goldCost: FRONTIER_CLAIM_COST * 8 });
-    expect(playerUpdates).toHaveLength(1);
-
-    const accumulator = createRecoveredSimulationAccumulator({
-      tiles: [
-        {
-          x: 10,
-          y: 10,
-          terrain: "LAND",
-          ownerId: "player-1",
-          ownershipState: "SETTLED",
-          fort: { ownerId: "player-1", status: "active" }
-        },
-        { x: 9, y: 9, terrain: "LAND" },
-        { x: 10, y: 9, terrain: "LAND" },
-        { x: 11, y: 9, terrain: "LAND" },
-        { x: 9, y: 10, terrain: "LAND" },
-        { x: 11, y: 10, terrain: "LAND" },
-        { x: 9, y: 11, terrain: "LAND" },
-        { x: 10, y: 11, terrain: "LAND" },
-        { x: 11, y: 11, terrain: "LAND" }
-      ],
-      activeLocks: [],
-      players: [{ id: "player-1", points: 1_000 }]
-    });
-    applySimulationEventsToRecoveredAccumulator(accumulator, events);
-    expect(finalizeRecoveredSimulationAccumulator(accumulator).players?.find((entry) => entry.id === "player-1")?.points).toBe(
-      1_000 - FRONTIER_CLAIM_COST * 8
-    );
-  });
-
-  it("scales fort auto-frontier radius by fortification tier", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([["player-1", player("player-1", 1_000)]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 20,
-            y: 20,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "WOODEN_FORT", status: "active" }
-          },
-          { x: 21, y: 20, terrain: "LAND" },
-          { x: 22, y: 20, terrain: "LAND" },
-          {
-            x: 30,
-            y: 30,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-1", status: "active" }
-          },
-          { x: 32, y: 30, terrain: "LAND" },
-          {
-            x: 40,
-            y: 40,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-1", status: "active", variant: "IRON_BASTION" }
-          },
-          { x: 43, y: 40, terrain: "LAND" },
-          {
-            x: 50,
-            y: 50,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-1", status: "active", variant: "THUNDER_BASTION" }
-          },
-          { x: 54, y: 50, terrain: "LAND" }
-        ],
-        activeLocks: []
-      }
-    });
-
-    await runtime.tickTerritoryAutomation(1_000);
-
-    const byKey = new Map(runtime.exportState().tiles.map((tile) => [`${tile.x},${tile.y}`, tile] as const));
-    expect(byKey.get("21,20")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
-    expect(byKey.get("22,20")?.ownerId).toBeUndefined();
-    expect(byKey.get("32,30")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
-    expect(byKey.get("43,40")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
-    expect(byKey.get("54,50")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+    expect(claimed).toHaveLength(0);
+    expect(events.filter((event) => event.eventType === "TILE_DELTA_BATCH")).toHaveLength(0);
   });
 
   it("settlement-tier towns do not frontier-claim or advertise adjacent tiles for the cancellable settle queue", async () => {
@@ -378,11 +281,11 @@ describe("territory automation", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            fort: { ownerId: "player-1", status: "active" }
+            town: { type: "FARMING", populationTier: "TOWN" }
           },
-          { x: 9, y: 9, terrain: "LAND" },
-          { x: 10, y: 9, terrain: "LAND" },
-          { x: 11, y: 9, terrain: "LAND" }
+          { x: 9, y: 10, terrain: "LAND" },
+          { x: 11, y: 10, terrain: "LAND" },
+          { x: 10, y: 9, terrain: "LAND" }
         ],
         activeLocks: []
       }
@@ -519,7 +422,7 @@ describe("territory automation", () => {
     });
   });
 
-  it("clears frontier decay when an active owned fort supports the tile", async () => {
+  it("fort does NOT clear frontier decay — adjacent frontier tile still has decay timer", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", player("player-1", 1_000)]]),
@@ -549,14 +452,14 @@ describe("territory automation", () => {
 
     await runtime.tickTerritoryAutomation(1_000);
 
-    const supported = runtime.exportState().tiles.find((tile) => tile.x === 60 && tile.y === 60);
-    expect(supported).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
-    expect(supported?.frontierDecayAt).toBeUndefined();
+    const tile = runtime.exportState().tiles.find((tile) => tile.x === 60 && tile.y === 60);
+    expect(tile?.frontierDecayAt).toBe(61_000);
   });
 
-  it("clears frontier decay when the frontier tile is itself an active fort", async () => {
+  it("fort-tile frontier decays like any other unsupported frontier", async () => {
+    const NOW_MS = 1_000;
     const runtime = new SimulationRuntime({
-      now: () => 1_000,
+      now: () => NOW_MS,
       initialPlayers: new Map([["player-1", player("player-1", 1_000)]]),
       seedTiles: new Map(),
       initialState: {
@@ -567,7 +470,7 @@ describe("territory automation", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "FRONTIER",
-            frontierDecayAt: 61_000,
+            frontierDecayAt: NOW_MS - 1,
             fort: { ownerId: "player-1", status: "active" }
           }
         ],
@@ -575,291 +478,12 @@ describe("territory automation", () => {
       }
     });
 
-    await runtime.tickTerritoryAutomation(1_000);
+    await runtime.tickTerritoryAutomation(NOW_MS);
 
-    const supported = runtime.exportState().tiles.find((tile) => tile.x === 64 && tile.y === 64);
-    expect(supported).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
-    expect(supported?.frontierDecayAt).toBeUndefined();
+    const tile = runtime.exportState().tiles.find((tile) => tile.x === 64 && tile.y === 64);
+    expect(tile?.ownerId).toBeUndefined();
   });
 
-  it("active forts automatically attack adjacent enemy frontier tiles", async () => {
-    const scheduled: Array<() => void> = [];
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      scheduleAfter: (_delayMs, task) => {
-        scheduled.push(task);
-      },
-      initialPlayers: new Map([
-        ["player-1", player("player-1", 1_000, ATTACK_MANPOWER_COST)],
-        ["player-2", player("player-2")]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 30,
-            y: 30,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-1", status: "active" }
-          },
-          { x: 31, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
-        ],
-        activeLocks: []
-      }
-    });
-
-    await runtime.tickTerritoryAutomation(1_000);
-
-    expect(scheduled).toHaveLength(1);
-  });
-
-  it("fort patrol gives newly claimed staging frontier 20 seconds before attacking it", async () => {
-    const scheduled: Array<() => void> = [];
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      scheduleAfter: (_delayMs, task) => {
-        scheduled.push(task);
-      },
-      initialPlayers: new Map([
-        ["player-1", player("player-1", 1_000, ATTACK_MANPOWER_COST)],
-        ["player-2", player("player-2", 1_000, ATTACK_MANPOWER_COST)]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 30,
-            y: 30,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-1", status: "active" }
-          },
-          { x: 31, y: 30, terrain: "LAND" },
-          {
-            x: 32,
-            y: 30,
-            terrain: "LAND",
-            ownerId: "player-2",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-2", status: "active" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    await runtime.tickTerritoryAutomation(1_000);
-    expect(runtime.exportState().tiles.find((tile) => tile.x === 31 && tile.y === 30)).toMatchObject({
-      ownerId: "player-1",
-      ownershipState: "FRONTIER"
-    });
-    expect(scheduled).toHaveLength(0);
-
-    await runtime.tickTerritoryAutomation(21_001);
-    expect(scheduled).toHaveLength(1);
-  });
-
-  it("extends fort patrol grace after launching an attack on an enemy fort from frontier", async () => {
-    let now = 1_000;
-    const scheduled: Array<() => void> = [];
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
-    try {
-      const runtime = new SimulationRuntime({
-        now: () => now,
-        scheduleAfter: (_delayMs, task) => {
-          scheduled.push(task);
-        },
-        initialPlayers: new Map([
-          ["player-1", player("player-1", 1_000, 1_000)],
-          ["player-2", player("player-2", 1_000, 1_000)]
-        ]),
-        seedTiles: new Map(),
-        initialState: {
-          tiles: [
-            {
-              x: 30,
-              y: 30,
-              terrain: "LAND",
-              ownerId: "player-2",
-              ownershipState: "SETTLED",
-              fort: { ownerId: "player-2", status: "active" }
-            },
-            {
-              x: 31,
-              y: 30,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "FRONTIER"
-            },
-            {
-              x: 80,
-              y: 80,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "SETTLED",
-              town: { type: "FARMING", populationTier: "TOWN" }
-            }
-          ],
-          activeLocks: []
-        }
-      });
-      const events: SimulationEvent[] = [];
-      runtime.onEvent((event) => events.push(event));
-
-      runtime.submitCommand({
-        commandId: "attack-fort-1",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: now,
-        type: "ATTACK",
-        payloadJson: JSON.stringify({ fromX: 31, fromY: 30, toX: 30, toY: 30 })
-      });
-      await Promise.resolve();
-
-      const accepted = events.find(
-        (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> => event.eventType === "COMMAND_ACCEPTED"
-      );
-      expect(accepted).toBeDefined();
-      expect(scheduled).toHaveLength(1);
-      const graceState = runtime as unknown as { fortPatrolGraceUntilByTile: Map<string, number> };
-      expect(graceState.fortPatrolGraceUntilByTile.get("31,30")).toBe(accepted!.resolvesAt + 20_000);
-    } finally {
-      randomSpy.mockRestore();
-    }
-  });
-
-  it("fort auto attacks skip enemy settled and fortified frontier tiles", async () => {
-    const scheduled: Array<() => void> = [];
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      scheduleAfter: (_delayMs, task) => {
-        scheduled.push(task);
-      },
-      initialPlayers: new Map([
-        ["player-1", player("player-1", 1_000, ATTACK_MANPOWER_COST * 3)],
-        ["player-2", player("player-2")]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 40,
-            y: 40,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-1", status: "active" }
-          },
-          { x: 41, y: 40, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
-          {
-            x: 40,
-            y: 41,
-            terrain: "LAND",
-            ownerId: "player-2",
-            ownershipState: "FRONTIER",
-            fort: { ownerId: "player-2", status: "active" }
-          },
-          {
-            x: 39,
-            y: 40,
-            terrain: "LAND",
-            ownerId: "player-2",
-            ownershipState: "FRONTIER",
-            economicStructure: { ownerId: "player-2", type: "WOODEN_FORT", status: "active" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    await runtime.tickTerritoryAutomation(1_000);
-
-    expect(scheduled).toHaveLength(0);
-  });
-
-  it("fort auto attacks enemy frontier with an unfinished wooden fort", async () => {
-    const scheduled: Array<() => void> = [];
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      scheduleAfter: (_delayMs, task) => {
-        scheduled.push(task);
-      },
-      initialPlayers: new Map([
-        ["player-1", player("player-1", 1_000, ATTACK_MANPOWER_COST)],
-        ["player-2", player("player-2")]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 42,
-            y: 42,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-1", status: "active" }
-          },
-          {
-            x: 43,
-            y: 42,
-            terrain: "LAND",
-            ownerId: "player-2",
-            ownershipState: "FRONTIER",
-            economicStructure: { ownerId: "player-2", type: "WOODEN_FORT", status: "under_construction", completesAt: 61_000 }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    scheduled.length = 0;
-    await runtime.tickTerritoryAutomation(1_000);
-
-    expect(scheduled).toHaveLength(1);
-  });
-
-  it("requires fort-scaled manpower before auto attacking a fortified tile", async () => {
-    const scheduled: Array<() => void> = [];
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      scheduleAfter: (_delayMs, task) => {
-        scheduled.push(task);
-      },
-      initialPlayers: new Map([
-        ["player-1", player("player-1", 1_000, ATTACK_MANPOWER_COST * 2 - 1)],
-        ["player-2", player("player-2")]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 30,
-            y: 30,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            siegeOutpost: { ownerId: "player-1", status: "active" }
-          },
-          {
-            x: 31,
-            y: 30,
-            terrain: "LAND",
-            ownerId: "player-2",
-            ownershipState: "FRONTIER",
-            fort: { ownerId: "player-2", status: "active" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    await runtime.tickTerritoryAutomation(1_000);
-    expect(scheduled).toHaveLength(0);
-  });
 });
 
 // ---------------------------------------------------------------------------

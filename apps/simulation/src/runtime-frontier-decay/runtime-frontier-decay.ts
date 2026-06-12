@@ -2,9 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import {
   FRONTIER_DECAY_MS,
-  fortAutoFrontierRadiusForTile,
   isSettledTownAnchor,
-  MAX_FORT_AUTO_FRONTIER_RADIUS,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
 import {
@@ -294,35 +292,16 @@ function frontierSupportedByActiveFort(
   tile: DomainTileState,
   playerId: string
 ): boolean {
-  if (fortAutoFrontierRadiusForTile(tile, playerId, input.nowMs) > 0) return true;
   const anchors = input.activeFortAnchorsByOwner.get(playerId);
   if (!anchors || anchors.size === 0) return false;
-  if (anchors.size <= 256) {
-    for (const [anchorKey] of anchors) {
-      const anchor = input.tiles.get(anchorKey);
-      if (!anchor) continue;
-      const effectiveRadius = fortAutoFrontierRadiusForTile(anchor, playerId, input.nowMs);
-      const radius = effectiveRadius > 0 ? effectiveRadius : isSettledTownAnchor(anchor, playerId) ? TOWN_AUTO_FRONTIER_RADIUS : 0;
-      if (radius <= 0) continue;
-      const dx = Math.abs(anchor.x - tile.x);
-      const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
-      const dy = Math.abs(anchor.y - tile.y);
-      const wrappedDy = Math.min(dy, WORLD_HEIGHT - dy);
-      if (Math.max(wrappedDx, wrappedDy) <= radius) return true;
-    }
-    return false;
-  }
-  for (let dy = -MAX_FORT_AUTO_FRONTIER_RADIUS; dy <= MAX_FORT_AUTO_FRONTIER_RADIUS; dy += 1) {
-    for (let dx = -MAX_FORT_AUTO_FRONTIER_RADIUS; dx <= MAX_FORT_AUTO_FRONTIER_RADIUS; dx += 1) {
-      const x = ((tile.x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
-      const y = ((tile.y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
-      const anchor = input.tiles.get(`${x},${y}`);
-      if (!anchor || anchor.ownerId !== playerId) continue;
-      const distance = Math.max(Math.abs(dx), Math.abs(dy));
-      const effectiveRadius = fortAutoFrontierRadiusForTile(anchor, playerId, input.nowMs);
-      if (effectiveRadius > 0 && distance <= effectiveRadius) return true;
-      if (distance <= TOWN_AUTO_FRONTIER_RADIUS && isSettledTownAnchor(anchor, playerId)) return true;
-    }
+  for (const [anchorKey] of anchors) {
+    const anchor = input.tiles.get(anchorKey);
+    if (!anchor || !isSettledTownAnchor(anchor, playerId)) continue;
+    const dx = Math.abs(anchor.x - tile.x);
+    const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
+    const dy = Math.abs(anchor.y - tile.y);
+    const wrappedDy = Math.min(dy, WORLD_HEIGHT - dy);
+    if (Math.max(wrappedDx, wrappedDy) <= TOWN_AUTO_FRONTIER_RADIUS) return true;
   }
   return false;
 }

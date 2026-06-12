@@ -1,18 +1,12 @@
-import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
+import type { SimulationEvent } from "@border-empires/sim-protocol";
+import type { DomainTileState } from "@border-empires/game-domain";
 import {
-  ATTACK_MANPOWER_COST,
-  ATTACK_MANPOWER_MIN,
   FRONTIER_CLAIM_COST,
   MUSTER_SYSTEM_ENABLED,
   SWEEP_RADIUS_BY_VARIANT
 } from "@border-empires/shared";
 import type { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
-import { simulationTileKey } from "../seed-state/seed-state.js";
 import {
-  FORT_AUTO_FRONTIER_RADIUS,
-  FORT_PATROL_GRACE_MS,
-  fortAutoFrontierRadiusForTile,
   isAutoClaimTarget,
   isSettledTownAnchor,
   TOWN_AUTO_FRONTIER_RADIUS
@@ -35,10 +29,7 @@ export type TickTerritoryAutomationInput = SweepStructureRuntimeInput & {
   updateFrontierDecay: (nowMs: number) => Promise<void>;
   autoSettlementQueueLengthForPlayer: (playerId: string) => number;
   emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => void;
-  extendFortPatrolGrace: (tileKey: string, graceUntil: number) => void;
-  tileHasActiveFortPatrolGrace: (tileKey: string, nowMs: number) => boolean;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
-  handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => boolean;
   emitEvent: (event: SimulationEvent) => void;
   /** When provided, yields the event loop between major phases and between
    *  players so the 30s watchdog never fires on a busy tick. */
@@ -86,12 +77,9 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
         _claimAnchorScanMs += Date.now() - _tAnchor;
         continue;
       }
-      const fortRadius = fortAutoFrontierRadiusForTile(anchor, playerId, input.nowMs);
-      const radius = fortRadius > 0
-        ? fortRadius
-        : isSettledTownAnchor(anchor, playerId)
-          ? TOWN_AUTO_FRONTIER_RADIUS
-          : 0;
+      const radius = isSettledTownAnchor(anchor, playerId)
+        ? TOWN_AUTO_FRONTIER_RADIUS
+        : 0;
       if (radius <= 0) {
         _claimAnchorScanMs += Date.now() - _tAnchor;
         continue;
@@ -116,7 +104,6 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
         const _replaceDuration = Date.now() - _tReplace;
         _claimReplaceTileStateMs += _replaceDuration;
         _claimAnchorScanMs -= _replaceDuration;
-        input.extendFortPatrolGrace(targetKey, input.nowMs + FORT_PATROL_GRACE_MS);
         claimDeltas.push(input.tileDeltaFromState(claimedTile));
         _tilesActuallyClaimed++;
         claimsThisPlayer++;
@@ -197,11 +184,8 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
 };
 
 type SiegeStats = {
-  attackLoopMs: number;
   outpostSweepMs: number;
   lightSweepMs: number;
-  handleFrontierCommandMs: number;
-  attacksIssued: number;
   outpostSweepsTicked: number;
   lightSweepsTicked: number;
 };
@@ -209,11 +193,8 @@ type SiegeStats = {
 const tickTerritorySiegeAndSweeps = async (input: TickTerritoryAutomationInput): Promise<SiegeStats> => {
   const yield_ = input.yieldToEventLoop ?? (() => Promise.resolve());
   const stats: SiegeStats = {
-    attackLoopMs: 0,
-    handleFrontierCommandMs: 0,
     outpostSweepMs: 0,
     lightSweepMs: 0,
-    attacksIssued: 0,
     outpostSweepsTicked: 0,
     lightSweepsTicked: 0
   };
@@ -223,49 +204,7 @@ const tickTerritorySiegeAndSweeps = async (input: TickTerritoryAutomationInput):
     const actor = input.players.get(playerId);
     if (!actor) continue;
     input.applyManpowerRegen(actor, input.nowMs);
-    let availableSiegeManpower = actor.manpower;
-    let availableSiegeGold = actor.points;
-    if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) continue;
     input.summaryForPlayer(playerId);
-
-    const _tAttackLoop = Date.now();
-    const fortAnchors = input.activeFortAnchorsByOwner.get(playerId);
-    for (const tileKey of (fortAnchors ? fortAnchors.keys() : [])) {
-      const fortTile = input.tiles.get(tileKey);
-      const fortRadius = fortTile ? fortAutoFrontierRadiusForTile(fortTile, playerId, input.nowMs) : 0;
-      if (!fortTile || fortRadius <= 0) continue;
-      if (availableSiegeManpower < ATTACK_MANPOWER_MIN || availableSiegeGold < FRONTIER_CLAIM_COST) break;
-      if (input.locksByTile.has(tileKey)) continue;
-      const target = input.playerCandidateIndex.sortedFortAttackCandidates(tileKey, FORT_AUTO_FRONTIER_RADIUS)
-        .find((candidate) => {
-          const targetKey = simulationTileKey(candidate.x, candidate.y);
-          return (
-            !input.locksByTile.has(targetKey) &&
-            !actor.allies.has(candidate.ownerId ?? "") &&
-            !input.tileHasActiveFortPatrolGrace(targetKey, input.nowMs)
-          );
-        });
-      if (!target) continue;
-      const commandId = input.nextTerritoryAutomationCommandId("fort", playerId, simulationTileKey(target.x, target.y), input.nowMs);
-      const _tHandleCmd = Date.now();
-      input.handleFrontierCommand(
-        {
-          commandId,
-          sessionId: `system-runtime:territory-automation:${playerId}`,
-          playerId,
-          clientSeq: 0,
-          issuedAt: input.nowMs,
-          type: "ATTACK",
-          payloadJson: JSON.stringify({ fromX: fortTile.x, fromY: fortTile.y, toX: target.x, toY: target.y })
-        },
-        "ATTACK"
-      );
-      stats.handleFrontierCommandMs += Date.now() - _tHandleCmd;
-      availableSiegeManpower -= ATTACK_MANPOWER_COST;
-      availableSiegeGold -= FRONTIER_CLAIM_COST;
-      stats.attacksIssued++;
-    }
-    stats.attackLoopMs += Date.now() - _tAttackLoop;
 
     const _tOutpostSweep = Date.now();
     if (!MUSTER_SYSTEM_ENABLED) {
