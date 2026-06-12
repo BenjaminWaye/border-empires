@@ -18,6 +18,7 @@
     "ops:staging:drift-check": "node ./scripts/check-staging-fly-env-drift.mjs",
     "ops:prod-shape:clone-snapshot": "node ./scripts/ops/clone-prod-sqlite-snapshot.mjs",
     "ops:prod-shape:gate": "node ./scripts/rewrite-prod-shape-gate.mjs",
+    "ops:prod-shape:gate:run": "PROD_SHAPE_TIMEOUT_MS=30000 PROD_SHAPE_ACCEPTED_P95_MAX_MS=250 PROD_SHAPE_ACCEPTED_P99_MAX_MS=750 PROD_SHAPE_GATEWAY_EVENT_LOOP_P99_MAX_MS=1500 PROD_SHAPE_SIM_AI_TICK_P99_MAX_MS=5000 PROD_SHAPE_PLAN_ROUND_TRIP_P99_MAX_MS=5000 PROD_SHAPE_AI_DRAIN_P99_MAX_MS=1500 node ./scripts/rewrite-prod-shape-gate.mjs",
     "ops:prod-shape:verify": "node ./scripts/check-prod-shape-gate-result.mjs",
     "check:client-changelog": "node ./scripts/check-client-changelog-update.mjs",
     "check:file-lines": "node ./scripts/check-file-line-limits.mjs",

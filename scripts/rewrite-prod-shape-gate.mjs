@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const numberEnv = (name, fallback) => {
-  const value = Number(process.env[name] ?? "");
+  if (!(name in process.env)) return fallback;
+  const value = Number(process.env[name]);
   return Number.isFinite(value) ? value : fallback;
 };
 
