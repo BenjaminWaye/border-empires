@@ -9,6 +9,7 @@ import {
   queuedSettlementOrderForTile
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
+import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -425,9 +426,8 @@ export const requestSettlement = (
   state: ClientState,
   x: number,
   y: number,
-  deps: {
+  deps: VisibleActionWarningDeps & {
     keyFor: (x: number, y: number) => string;
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
     queueDevelopmentAction: (entry: QueuedDevelopmentAction) => boolean;
     developmentSlotSummary: () => DevelopmentSlotSummary;
@@ -440,12 +440,12 @@ export const requestSettlement = (
   const tileKey = deps.keyFor(x, y);
   const tile = state.tiles.get(tileKey);
   if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
-    if (!deps.opts?.suppressWarnings) deps.pushFeed("Cannot settle: tile is not one of your frontier tiles.", "combat", "warn");
+    if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", "Cannot settle: tile is not one of your frontier tiles.");
     deps.renderHud();
     return false;
   }
   if (!canAffordCost(state.gold, SETTLE_COST)) {
-    if (!deps.opts?.suppressWarnings) deps.pushFeed(`Need ${SETTLE_COST} gold to settle this tile.`, "combat", "warn");
+    if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_COST} gold to settle this tile.`);
     deps.renderHud();
     return false;
   }
@@ -471,7 +471,7 @@ export const requestSettlement = (
     if (canQueue) {
       return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
     }
-    if (!deps.opts?.suppressWarnings) deps.pushFeed(deps.developmentSlotReason(slots), "combat", "warn");
+    if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Development slots full", deps.developmentSlotReason(slots));
     deps.renderHud();
     return false;
   }
@@ -492,7 +492,6 @@ export const requestSettlement = (
   deps.renderHud();
   return true;
 };
-
 export const sendDevelopmentBuild = (
   state: ClientState,
   payload: QueuedBuildPayload,
@@ -506,12 +505,11 @@ export const sendDevelopmentBuild = (
     fromQueue?: boolean;
     suppressWarnings?: boolean;
   },
-  deps: {
+  deps: VisibleActionWarningDeps & {
     keyFor: (x: number, y: number) => string;
     queueDevelopmentAction: (entry: QueuedDevelopmentAction) => boolean;
     developmentSlotSummary: () => DevelopmentSlotSummary;
     developmentSlotReason: (summary: DevelopmentSlotSummary) => string;
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
     sendGameMessage: (payload: unknown) => boolean;
   }
@@ -544,7 +542,7 @@ export const sendDevelopmentBuild = (
       });
     }
     if (!opts.suppressWarnings) {
-      deps.pushFeed(deps.developmentSlotReason(summary), "combat", "warn");
+      showVisibleActionWarning(deps, "Development slots full", deps.developmentSlotReason(summary));
       deps.renderHud();
     }
     return false;
@@ -567,7 +565,6 @@ export const sendDevelopmentBuild = (
   deps.renderHud();
   return true;
 };
-
 export const processDevelopmentQueue = (
   state: ClientState,
   deps: {
