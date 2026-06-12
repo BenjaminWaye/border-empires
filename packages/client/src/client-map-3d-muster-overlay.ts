@@ -123,6 +123,7 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
   for (const m of [poleMesh, pennantMesh, spikeMesh, soldierMesh]) {
     m.frustumCulled = false;
     m.count = 0;
+    m.renderOrder = 36;
   }
   scene.add(poleMesh, pennantMesh, spikeMesh, soldierMesh);
 
