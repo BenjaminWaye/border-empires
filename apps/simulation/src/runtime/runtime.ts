@@ -47,31 +47,18 @@ import {
   nextFortTierForUpgrade,
   bestSiegeTierForTech,
   nextSiegeTierForUpgrade,
-  isChosenTrickleResource,
   STRUCTURE_REGISTRY,
   type BuildableStructureType,
   type EconomicStructureType,
   type StructureSpec
 } from "@border-empires/shared";
 import {
-  AIRPORT_BOMBARD_CRYSTAL_COST,
-  AIRPORT_BOMBARD_RANGE,
-  IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
-  IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS,
-  IMPERIAL_EXCHANGE_LEVY_SHARE,
-  TIER_UPGRADE_FOOD_COST,
-  WORLD_ENGINE_STRIKE_CRYSTAL_COST,
-  WORLD_ENGINE_STRIKE_COOLDOWN_MS,
-  WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO,
   ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
   FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
   IRONWORKS_OVERLOAD_IRON,
   SYNTH_OVERLOAD_DISABLE_MS,
-  SYNTH_OVERLOAD_GOLD_COST,
-  TERRAIN_SHAPING_COOLDOWN_MS,
-  TERRAIN_SHAPING_CRYSTAL_COST,
-  TERRAIN_SHAPING_GOLD_COST
+  SYNTH_OVERLOAD_GOLD_COST
 } from "@border-empires/game-domain";
 import {
   DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES,
@@ -141,12 +128,7 @@ import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js"
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
   buildModBreakdownForPlayer,
-  buildDomainUpdatePayload,
-  buildTechUpdatePayload,
-  chooseDomainForPlayer,
-  type ChosenTrickleResource,
   chosenTrickleRateForPlayer,
-  chooseTechForPlayer,
   multiplicativeEffectForPlayer,
   recomputeMods
 } from "../tech-domain-bridge/tech-domain-bridge.js";
@@ -190,20 +172,17 @@ import {
   type UpkeepNeed
 } from "../runtime-types.js";
 import {
-  parseAirportBombardPayload,
   parseAllianceSyncPayload,
   parseBuildStructurePayload,
   parseConverterTogglePayload,
   parseEconomicStructurePayload,
   parseFrontierPayload,
-  parseImperialExchangeLevyPayload,
   parseSettlePayload,
   parseSiegeOutpostSweepPayload,
   parseSetMusterPayload,
   parseClearMusterPayload,
   parseStructureTilePayload,
-  parseTilePayload,
-  parseWorldEngineStrikePayload
+  parseTilePayload
 } from "../runtime-command-parsers.js";
 import {
   SYNTHETIC_SETTLEMENT_POPULATION,
@@ -316,6 +295,21 @@ import {
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
 import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js";
+import {
+  handleAirportBombardCommand as handleAirportBombardCommandImpl,
+  handleCreateMountainCommand as handleCreateMountainCommandImpl,
+  handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl,
+  handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
+  handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
+  type RuntimeMapCommandContext
+} from "../runtime-map-command-handlers.js";
+import {
+  handleChooseDomainCommand as handleChooseDomainCommandImpl,
+  handleChooseTechCommand as handleChooseTechCommandImpl,
+  handleCollectShardCommand as handleCollectShardCommandImpl,
+  handleUpgradeTownTierCommand as handleUpgradeTownTierCommandImpl,
+  type RuntimeProgressionCommandContext
+} from "../runtime-progression-command-handlers.js";
 import {
   adjustOwnedStructureCount as adjustOwnedStructureCountImpl,
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
@@ -3588,262 +3582,41 @@ export class SimulationRuntime {
     handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command);
   }
 
-  private handleCreateMountainCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!actor.techIds.has("terrain-engineering")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CREATE_MOUNTAIN_INVALID",
-        message: "requires Terrain Engineering"
-      });
-      return;
-    }
-    if (
-      !target ||
-      target.terrain !== "LAND" ||
-      target.town ||
-      target.dockId ||
-      target.fort ||
-      target.observatory ||
-      target.siegeOutpost ||
-      target.economicStructure
-    ) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CREATE_MOUNTAIN_INVALID",
-        message: "cannot create mountain on this tile"
-      });
-      return;
-    }
-    if (!this.ownedLandWithinRange(actor.id, target.x, target.y, 2)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CREATE_MOUNTAIN_INVALID",
-        message: "target must be within 2 tiles of your land"
-      });
-      return;
-    }
-    const createMountainNow = this.now();
-    const createMountainObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, createMountainNow);
-    if (!createMountainObservatoryKey) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CREATE_MOUNTAIN_INVALID",
-        message: "no ready observatory in range"
-      });
-      return;
-    }
-    if (actor.points < TERRAIN_SHAPING_GOLD_COST || !this.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CREATE_MOUNTAIN_INVALID",
-        message: "insufficient resources for create mountain"
-      });
-      return;
-    }
-    actor.points -= TERRAIN_SHAPING_GOLD_COST;
-    this.stampObservatoryCooldown(createMountainObservatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, createMountainNow, command.commandId, command.playerId);
-    const updatedTile: DomainTileState = {
-      ...target,
-      terrain: "MOUNTAIN",
-      ownerId: undefined,
-      ownershipState: undefined,
-      sabotage: undefined,
-      fort: undefined,
-      observatory: undefined,
-      siegeOutpost: undefined,
-      economicStructure: undefined
+  private mapCommandContext(): RuntimeMapCommandContext {
+    return {
+      players: this.players,
+      tiles: this.tiles,
+      now: this.now,
+      emitEvent: (event) => this.emitEvent(event),
+      ownedLandWithinRange: (playerId, x, y, range) => this.ownedLandWithinRange(playerId, x, y, range),
+      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) =>
+        this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
+      stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
+        this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
+      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
+      isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
+        this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
+      setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
+      strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
+      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount)
     };
-    this.replaceTileState(targetKey, updatedTile);
-    this.terrainEpoch = nextTerrainEpoch++;
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
+  }
+
+  private handleCreateMountainCommand(command: CommandEnvelope): void {
+    handleCreateMountainCommandImpl(this.mapCommandContext(), command);
   }
 
   private handleRemoveMountainCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!actor.techIds.has("terrain-engineering")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REMOVE_MOUNTAIN_INVALID",
-        message: "requires Terrain Engineering"
-      });
-      return;
-    }
-    if (!target || target.terrain !== "MOUNTAIN") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REMOVE_MOUNTAIN_INVALID",
-        message: "target must be mountain"
-      });
-      return;
-    }
-    const removeMountainNow = this.now();
-    const removeMountainObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, removeMountainNow);
-    if (!removeMountainObservatoryKey) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REMOVE_MOUNTAIN_INVALID",
-        message: "no ready observatory in range"
-      });
-      return;
-    }
-    if (actor.points < TERRAIN_SHAPING_GOLD_COST || !this.spendStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REMOVE_MOUNTAIN_INVALID",
-        message: "insufficient resources for remove mountain"
-      });
-      return;
-    }
-    actor.points -= TERRAIN_SHAPING_GOLD_COST;
-    this.stampObservatoryCooldown(removeMountainObservatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, removeMountainNow, command.commandId, command.playerId);
-    const updatedTile: DomainTileState = { ...target, terrain: "LAND" };
-    this.replaceTileState(targetKey, updatedTile);
-    this.terrainEpoch = nextTerrainEpoch++;
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
+    handleRemoveMountainCommandImpl(this.mapCommandContext(), command);
   }
 
   private handleAirportBombardCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseAirportBombardPayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const airport = this.tiles.get(simulationTileKey(payload.fromX, payload.fromY));
-    if (
-      !airport ||
-      airport.ownerId !== actor.id ||
-      airport.economicStructure?.ownerId !== actor.id ||
-      airport.economicStructure.type !== "AIRPORT" ||
-      airport.economicStructure.status !== "active"
-    ) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AIRPORT_BOMBARD_INVALID",
-        message: "select an active airport first"
-      });
-      return;
-    }
-    if (Math.max(Math.abs(payload.toX - payload.fromX), Math.abs(payload.toY - payload.fromY)) > AIRPORT_BOMBARD_RANGE) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AIRPORT_BOMBARD_INVALID",
-        message: "target must be within 30 tiles of the airport"
-      });
-      return;
-    }
-    if (!this.isStructurePowered(actor.id, simulationTileKey(payload.fromX, payload.fromY), "AIRPORT")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AIRPORT_BOMBARD_INVALID",
-        message: "airport requires a nearby Aether Tower"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AIRPORT_BOMBARD_INVALID",
-        message: "insufficient CRYSTAL for bombardment"
-      });
-      return;
-    }
-    const changedTiles: Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> = [];
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        const tileKey = simulationTileKey(payload.toX + dx, payload.toY + dy);
-        const tile = this.tiles.get(tileKey);
-        if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) continue;
-        const updatedTile: DomainTileState = {
-          ...tile,
-          ownerId: undefined,
-          ownershipState: undefined,
-          town: undefined,
-          fort: undefined,
-          observatory: undefined,
-          siegeOutpost: undefined,
-          economicStructure: undefined,
-          sabotage: undefined
-        };
-        this.replaceTileState(tileKey, updatedTile, command.commandId);
-        changedTiles.push(this.tileDeltaFromState(updatedTile));
-      }
-    }
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: changedTiles
-    });
+    handleAirportBombardCommandImpl(this.mapCommandContext(), command);
   }
 
   private getAbilityCooldownUntil(playerId: string, abilityKey: string): number {
@@ -3855,490 +3628,54 @@ export class SimulationRuntime {
   }
 
   private handleImperialExchangeLevyCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseImperialExchangeLevyPayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const tileKey = simulationTileKey(payload.fromX, payload.fromY);
-    const tile = this.tiles.get(tileKey);
-    if (
-      !tile ||
-      tile.ownerId !== actor.id ||
-      tile.economicStructure?.ownerId !== actor.id ||
-      tile.economicStructure.type !== "IMPERIAL_EXCHANGE" ||
-      tile.economicStructure.status !== "active"
-    ) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-        message: "select an active Imperial Exchange"
-      });
-      return;
-    }
-    if (!actor.techIds || !actor.techIds.has("exchange-levy")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-        message: "requires Exchange Levy Writs research"
-      });
-      return;
-    }
-    if (!this.isStructurePowered(actor.id, tileKey, "IMPERIAL_EXCHANGE")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-        message: "Imperial Exchange requires a nearby Aether Tower"
-      });
-      return;
-    }
-    const now = this.now();
-    const cooldownUntil = this.getAbilityCooldownUntil(actor.id, "imperial_exchange_levy");
-    if (cooldownUntil > now) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-        message: "ability on cooldown"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-        message: "insufficient CRYSTAL"
-      });
-      return;
-    }
-    let totalTransferred = 0;
-    for (const other of this.players.values()) {
-      if (other.id === actor.id) continue;
-      if (actor.allies.has(other.id)) continue;
-      const stock = this.strategicResourceAmount(other, payload.resource);
-      const take = Math.floor(stock * IMPERIAL_EXCHANGE_LEVY_SHARE);
-      if (take <= 0) continue;
-      other.strategicResources = {
-        ...(other.strategicResources ?? {}),
-        [payload.resource]: Math.max(0, stock - take)
-      };
-      totalTransferred += take;
-    }
-    if (totalTransferred > 0) this.addStrategicResource(actor, payload.resource, totalTransferred);
-    this.setAbilityCooldownUntil(actor.id, "imperial_exchange_levy", now + IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS);
+    handleImperialExchangeLevyCommandImpl(this.mapCommandContext(), command);
   }
 
   private handleWorldEngineStrikeCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseWorldEngineStrikePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const anchorKey = simulationTileKey(payload.fromX, payload.fromY);
-    const anchor = this.tiles.get(anchorKey);
-    if (
-      !anchor ||
-      anchor.ownerId !== actor.id ||
-      anchor.economicStructure?.ownerId !== actor.id ||
-      anchor.economicStructure.type !== "WORLD_ENGINE" ||
-      anchor.economicStructure.status !== "active"
-    ) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "WORLD_ENGINE_STRIKE_INVALID",
-        message: "select an active World Engine"
-      });
-      return;
-    }
-    if (!actor.techIds || !actor.techIds.has("worldbreaker-fire")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "WORLD_ENGINE_STRIKE_INVALID",
-        message: "requires Worldbreaker Fire research"
-      });
-      return;
-    }
-    if (!this.isStructurePowered(actor.id, anchorKey, "WORLD_ENGINE")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "WORLD_ENGINE_STRIKE_INVALID",
-        message: "World Engine requires a nearby Aether Tower"
-      });
-      return;
-    }
-    const now = this.now();
-    const cooldownUntil = this.getAbilityCooldownUntil(actor.id, "world_engine_strike");
-    if (cooldownUntil > now) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "WORLD_ENGINE_STRIKE_INVALID",
-        message: "ability on cooldown"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.toX, payload.toY);
-    if (this.isTileShieldedByEnemyAegisDome(actor.id, payload.toX, payload.toY)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "WORLD_ENGINE_STRIKE_INVALID",
-        message: "blocked by an Aegis Dome"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_STRIKE_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "WORLD_ENGINE_STRIKE_INVALID",
-        message: "insufficient CRYSTAL"
-      });
-      return;
-    }
-    const target = this.tiles.get(targetKey);
-    if (target) {
-      let updated: DomainTileState = target;
-      // Destroy non-actor economic structure on the target tile.
-      if (target.economicStructure && target.economicStructure.ownerId !== actor.id) {
-        updated = { ...updated, economicStructure: undefined };
-      }
-      // Reduce SETTLED town population. Demote tier based on new pop, floored at TOWN.
-      if (target.town && (target.ownershipState === "SETTLED" || target.ownershipState === "FRONTIER") && target.ownerId !== actor.id) {
-        const pop = typeof target.town.population === "number" ? target.town.population : 0;
-        if (pop > 0) {
-          const loss = Math.floor(pop * WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO);
-          if (loss > 0) {
-            const newPop = Math.max(1, pop - loss);
-            const currentTier = updated.town!.populationTier;
-            let nextTier = currentTier;
-            if (currentTier !== "SETTLEMENT") {
-              if (newPop >= 5_000_000) nextTier = "METROPOLIS";
-              else if (newPop >= 1_000_000) nextTier = "GREAT_CITY";
-              else if (newPop >= 100_000) nextTier = "CITY";
-              else nextTier = "TOWN";
-            }
-            updated = { ...updated, town: { ...updated.town!, population: newPop, populationTier: nextTier } };
-          }
-        }
-      }
-      if (updated !== target) {
-        this.replaceTileState(targetKey, updated, command.commandId);
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          tileDeltas: [this.tileDeltaFromState(updated)]
-        });
-      }
-    }
-    this.setAbilityCooldownUntil(actor.id, "world_engine_strike", now + WORLD_ENGINE_STRIKE_COOLDOWN_MS);
+    handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command);
+  }
+
+  private progressionCommandContext(): RuntimeProgressionCommandContext {
+    return {
+      players: this.players,
+      tiles: this.tiles,
+      emitEvent: (event) => this.emitEvent(event),
+      emitPlayerStateUpdate: (command, playerId) => this.emitPlayerStateUpdate(command, playerId),
+      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
+      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      setTileState: (tileKey, tile) => { this.tiles.set(tileKey, tile); },
+      invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      invalidateEconomySnapshot: (playerId) => this.economySnapshotCacheByPlayer.delete(playerId),
+      invalidateTileYieldContext: (playerId) => this.tileYieldContextCacheByPlayer.delete(playerId),
+      invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
+      incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
+      decrementShardRainSiteCount: () => {
+        this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
+        return this.currentShardRainSiteCount;
+      },
+      clearShardRainExpiry: () => { this.currentShardRainExpiresAt = undefined; },
+      clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
+      onShardCollected: this.onShardCollected
+    };
   }
 
   private handleUpgradeTownTierCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const tileKey = simulationTileKey(payload.x, payload.y);
-    const tile = this.tiles.get(tileKey);
-    if (!tile || tile.ownerId !== actor.id || tile.ownershipState !== "SETTLED" || !tile.town) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "UPGRADE_TOWN_TIER_INVALID",
-        message: "not your settled town"
-      });
-      return;
-    }
-    const town = tile.town;
-    const currentTier = town.populationTier;
-    // Determine the next tier: SETTLEMENT→TOWN→CITY→GREAT_CITY→METROPOLIS
-    const nextTier = currentTier === "SETTLEMENT" ? "TOWN" as const
-      : currentTier === "TOWN" ? "CITY" as const
-      : currentTier === "CITY" ? "GREAT_CITY" as const
-      : currentTier === "GREAT_CITY" ? "METROPOLIS" as const
-      : null;
-    if (!nextTier) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "UPGRADE_TOWN_TIER_INVALID",
-        message: "already at max tier"
-      });
-      return;
-    }
-    // TOWN upgrade from SETTLEMENT is free — no food cost, no pop threshold
-    if (nextTier !== "TOWN") {
-      const threshold = nextTier === "CITY" ? 100_000
-        : nextTier === "GREAT_CITY" ? 1_000_000
-        : 5_000_000;
-      if ((town.population ?? 0) < threshold) {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "UPGRADE_TOWN_TIER_INVALID",
-          message: "population too low to upgrade"
-        });
-        return;
-      }
-      if (!this.spendStrategicResource(actor, "FOOD", TIER_UPGRADE_FOOD_COST[nextTier])) {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "UPGRADE_TOWN_TIER_INVALID",
-          message: "insufficient FOOD"
-        });
-        return;
-      }
-    }
-    // Apply the upgrade
-    const updatedTown = { ...town, populationTier: nextTier };
-    const updatedTile = { ...tile, town: updatedTown };
-    this.tiles.set(tileKey, updatedTile);
-    this.tileDeltaStringifyCache.invalidate(tileKey);
-    // Update the tier index
-    const summary = this.summaryForPlayer(actor.id);
-    summary.ownedTownTierByTile.set(tileKey, nextTier);
-    // Invalidate economy caches since tier affects goldPerMinute
-    this.economySnapshotCacheByPlayer.delete(actor.id);
-    this.tileYieldContextCacheByPlayer.delete(actor.id);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
+    handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command);
   }
 
   private handleCollectShardCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    const amount = target?.shardSite?.amount ?? 0;
-    if (!target || !target.shardSite || amount <= 0) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "COLLECT_EMPTY",
-        message: "no shard present"
-      });
-      return;
-    }
-    if (
-      target.ownerId !== command.playerId ||
-      (target.ownershipState !== "FRONTIER" && target.ownershipState !== "SETTLED")
-    ) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "COLLECT_NOT_OWNED",
-        message: "shard tile must be owned by you"
-      });
-      return;
-    }
-    this.addStrategicResource(actor, "SHARD", amount);
-    if (target.shardSite?.kind === "FALL") {
-      this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
-      if (this.currentShardRainSiteCount === 0) {
-      this.currentShardRainExpiresAt = undefined;
-      this.lastShardRainHelloByPlayer.clear();
-    }
-    } else {
-      // Non-FALL (CACHE) shards are one-time collectibles — request a
-      // checkpoint so the cleared state survives a process restart.
-      this.onShardCollected?.();
-    }
-    const updatedTile: DomainTileState = { ...target, shardSite: undefined };
-    this.replaceTileState(targetKey, updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [{ ...this.tileDeltaFromState(updatedTile), shardSiteJson: "" }]
-    });
-    this.emitEvent({
-      eventType: "COLLECT_RESULT",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      mode: "tile",
-      x: payload.x,
-      y: payload.y,
-      tiles: 1,
-      gold: 0,
-      strategic: { SHARD: amount }
-    });
-    this.emitPlayerStateUpdate(command);
+    handleCollectShardCommandImpl(this.progressionCommandContext(), command);
   }
 
   private handleChooseTechCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    if (!actor) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "unknown player"
-      });
-      return;
-    }
-    let techId = "";
-    try {
-      const parsed = JSON.parse(command.payloadJson) as { techId?: unknown };
-      if (typeof parsed.techId === "string") techId = parsed.techId;
-    } catch {
-      techId = "";
-    }
-    if (!techId) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "TECH_INVALID",
-        message: "missing tech id"
-      });
-      return;
-    }
-    const outcome = chooseTechForPlayer(actor, techId, this.tiles.values());
-    if (!outcome.ok) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "TECH_INVALID",
-        message: outcome.reason
-      });
-      return;
-    }
-    // Tech can change upkeep multipliers (fortGoldUpkeepMult, fortIronUpkeepMult,
-    // outpostSupplyUpkeepMult). Invalidate the incremental cache so it is rebuilt
-    // from scratch with the new multipliers on the next accrual tick.
-    this.upkeepAccrualCacheByPlayer.delete(actor.id);
-    this.emitEvent({
-      eventType: "TECH_UPDATE",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      payloadJson: JSON.stringify(buildTechUpdatePayload(actor, this.tiles.values(), { incomePerMinute: this.incomePerMinuteForPlayer(actor.id) }))
-    });
+    handleChooseTechCommandImpl(this.progressionCommandContext(), command);
   }
 
   private handleChooseDomainCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    if (!actor) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "unknown player"
-      });
-      return;
-    }
-    let domainId = "";
-    let chosenTrickleResource: ChosenTrickleResource | undefined;
-    try {
-      const parsed = JSON.parse(command.payloadJson) as { domainId?: unknown; chosenTrickleResource?: unknown };
-      if (typeof parsed.domainId === "string") domainId = parsed.domainId;
-      if (isChosenTrickleResource(parsed.chosenTrickleResource)) {
-        chosenTrickleResource = parsed.chosenTrickleResource;
-      }
-    } catch {
-      domainId = "";
-    }
-    if (!domainId) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "DOMAIN_INVALID",
-        message: "missing domain id"
-      });
-      return;
-    }
-    const outcome = chooseDomainForPlayer(
-      actor,
-      domainId,
-      this.tiles.values(),
-      chosenTrickleResource ? { chosenTrickleResource } : undefined
-    );
-    if (!outcome.ok) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "DOMAIN_INVALID",
-        message: outcome.reason
-      });
-      return;
-    }
-    // Domain can change upkeep multipliers (e.g. reduced fort/outpost upkeep
-    // domain bonuses). Invalidate the incremental cache so it is rebuilt from
-    // scratch with the new multipliers on the next accrual tick.
-    this.upkeepAccrualCacheByPlayer.delete(actor.id);
-    this.emitEvent({
-      eventType: "DOMAIN_UPDATE",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      payloadJson: JSON.stringify(buildDomainUpdatePayload(actor, this.tiles.values(), { incomePerMinute: this.incomePerMinuteForPlayer(actor.id) }))
-    });
+    handleChooseDomainCommandImpl(this.progressionCommandContext(), command);
   }
 
   private emitPlayerMessage(command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>): void {
