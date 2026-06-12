@@ -238,6 +238,17 @@ export const createInitialState = () => ({
   replayOwnershipByTile: new Map<string, { ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }>(),
   socialInspectPlayerId: "" as string,
   feed: [] as FeedEntry[],
+  feedUnreadCount: 0,
+  feedAttentionUntil: 0,
+  persistentAlertLocators: [] as Array<{
+    id: string;
+    kind: "town_unfed";
+    x: number;
+    y: number;
+    screenX: number;
+    screenY: number;
+    radius: number;
+  }>,
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean } | undefined,
   pendingCombatReveal: undefined as
     | {

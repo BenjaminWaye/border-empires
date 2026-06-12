@@ -490,9 +490,32 @@ describe("client network regression guards", () => {
       "Action blocked: that origin tile is still on attack cooldown for 3s."
     );
     expect(showCaptureAlert).toHaveBeenCalledWith("Action blocked", "Action blocked: that origin tile is still on attack cooldown for 3s.", "warn", undefined);
+    expect(deps.pushFeed).not.toHaveBeenCalled();
     expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("60,302", true);
     expect(deps.reconcileActionQueue).toHaveBeenCalled();
+  });
+
+  it("keeps TOWN_UNFED out of the activity feed because the map badge is persistent", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const deps = bindWithDeps(state, ws, {
+      showCaptureAlert,
+      explainActionFailure: vi.fn(explainActionFailureFromServer)
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "TOWN_UNFED", message: "Town is unfed" })
+    });
+
+    expect(showCaptureAlert).toHaveBeenCalledWith(
+      "Town unfed",
+      "Town is unfed. Check the warning badge on the affected town.",
+      "warn",
+      undefined
+    );
+    expect(deps.pushFeed).not.toHaveBeenCalled();
   });
 
   it("delays queued frontier retries until attack cooldown expires", () => {

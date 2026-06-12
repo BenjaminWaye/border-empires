@@ -56,7 +56,10 @@ export const createClientViewSupport = (deps: {
   const maybeRefreshForCamera = (force = false): void =>
     maybeRefreshForCameraFromModule(state, { ws, requestViewRefresh, force });
   const isMobile = (): boolean => isMobileFromModule();
-  const mobileNavLabelHtml = (panel: typeof state.mobilePanel, opts?: { techReady?: boolean; attackAlertUnread?: boolean }): string =>
+  const mobileNavLabelHtml = (
+    panel: typeof state.mobilePanel,
+    opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number }
+  ): string =>
     mobileNavLabelHtmlFromModule(panel, opts);
   const viewportSize = (): { width: number; height: number } => viewportSizeFromModule();
   const renderMobilePanels = (): void =>

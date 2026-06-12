@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.12.1",
+  version: "2026.06.12.2",
   title: "What's New",
-  summary: "Fix: Survey Sweep now includes the full edge of its advertised scan range.",
+  summary: "Important gameplay problems now stay on the map instead of flooding the activity feed.",
   entries: [
+    {
+      introducedIn: "2026.06.12.2",
+      title: "Persistent alerts stay on the map",
+      why: "The activity feed had become a catch-all error log, so important gameplay problems competed with routine history and debug-style rejection messages. Persistent problems are easier to fix when the map remains the source of truth.",
+      changes: [
+        "Unfed towns now use the existing map badge plus a clickable edge locator when the affected town is off-screen.",
+        "Town-unfed server rejections no longer add activity-feed error spam; they show a short warning and point players back to the persistent town badge.",
+        "The existing activity button now shows unread counts and briefly nudges for noteworthy history, without adding another mobile HUD icon."
+      ]
+    },
     {
       introducedIn: "2026.06.12.1",
       title: "Survey Sweep covers its full range",

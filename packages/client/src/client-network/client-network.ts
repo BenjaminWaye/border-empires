@@ -25,6 +25,7 @@ import {
 } from "../client-diplomacy-notifications.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
+import { notificationCategoryForServerError } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 
@@ -2781,6 +2782,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         formatCooldownShort
       };
       const actionFailureExplanation = explainActionFailureSafely(errorCode, errorMessage, failureExplanationOptions);
+      const notificationCategory = notificationCategoryForServerError(errorCode);
       const isDiplomacyError = errorCode.startsWith("TRUCE_") || errorCode.startsWith("ALLIANCE_");
       recordClientDebugEvent("error", "server-error", "message", serverErrorContext);
       console.error("[server-error]", serverErrorContext);
@@ -2894,32 +2896,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         showCaptureAlertSafely(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
-        showCaptureAlertSafely("Town unfed", errorMessage, "warn");
+        const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the warning badge on the affected town.`;
+        showCaptureAlertSafely("Town unfed", townUnfedDetail, "warn");
       } else if (errorCode === "EXPAND_TARGET_OWNED" && failedTargetKey) {
         showCaptureAlertSafely(
           "Frontier sync mismatch",
           "Server says that tile is already owned. Download the debug log from this popup and refresh nearby tiles to resync.",
           "warn"
         );
-      } else if (errorCode === "NOT_OWNER") {
-        showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
-      } else if (errorCode === "DOCK_COOLDOWN" || errorCode === "INSUFFICIENT_MANPOWER") {
-        showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
-      } else if (isDiplomacyError) {
-        showCaptureAlertSafely("Diplomacy failed", actionFailureExplanation, "warn");
-      } else if (errorCode.startsWith("DOMAIN_")) {
-        showCaptureAlertSafely("Domain pick failed", actionFailureExplanation, "warn");
-      } else if (errorCode.startsWith("TECH_")) {
-        showCaptureAlertSafely("Research failed", actionFailureExplanation, "warn");
-      }
-      if (errorCode === "COLLECT_EMPTY") {
-        pushFeedSafely(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
-      } else if (errorCode === "COLLECT_COOLDOWN") {
-        if (state.collectVisibleCooldownUntil <= Date.now()) state.collectVisibleCooldownUntil = Date.now() + deps.COLLECT_VISIBLE_COOLDOWN_MS;
-        showCollectVisibleCooldownAlert();
-        pushFeedSafely(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
-      } else if (errorCode === "TOWN_UNFED") {
-        pushFeedSafely(errorMessage, "info", "warn");
       } else if (
         errorCode === "NOT_ADJACENT" ||
         errorCode === "ATTACK_TARGET_INVALID" ||
@@ -2931,12 +2915,29 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "ORIGIN_CUT_OFF"
       ) {
         showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
+      } else if (errorCode === "NOT_OWNER") {
+        showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
+      } else if (errorCode === "DOCK_COOLDOWN" || errorCode === "INSUFFICIENT_MANPOWER") {
+        showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
+      } else if (isDiplomacyError) {
+        showCaptureAlertSafely("Diplomacy failed", actionFailureExplanation, "warn");
+      } else if (errorCode.startsWith("DOMAIN_")) {
+        showCaptureAlertSafely("Domain pick failed", actionFailureExplanation, "warn");
+      } else if (errorCode.startsWith("TECH_")) {
+        showCaptureAlertSafely("Research failed", actionFailureExplanation, "warn");
+      } else if (notificationCategory === "action_feedback" && !errorCode.startsWith("COLLECT")) {
+        showCaptureAlertSafely("Action failed", actionFailureExplanation, "warn");
+      }
+      if (errorCode === "COLLECT_EMPTY") {
+        pushFeedSafely(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
+      } else if (errorCode === "COLLECT_COOLDOWN") {
+        if (state.collectVisibleCooldownUntil <= Date.now()) state.collectVisibleCooldownUntil = Date.now() + deps.COLLECT_VISIBLE_COOLDOWN_MS;
+        showCollectVisibleCooldownAlert();
+        pushFeedSafely(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
+      } else if (notificationCategory === "persistent_alert") {
+        // Persistent world issues stay on the map until fixed; the feed remains history-only.
       } else {
-        pushFeedSafely(
-          actionFailureExplanation,
-          "error",
-          "error"
-        );
+        if (notificationCategory === "history") pushFeedSafely(actionFailureExplanation, "info", "warn");
       }
       const frontierActionError =
         errorCode === "ACTION_INVALID" ||
