@@ -56,6 +56,7 @@ import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-s
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
+import { createShardOverlay } from "../client-map-3d-shard-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
@@ -146,6 +147,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const revealEmpireStatsFx = createRevealEmpireStatsFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
+  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
@@ -1247,6 +1249,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
+    shardOverlay.clear();
     fortOverlay.clear();
     resourceOverlay.clear();
     attackOverlay.clear();
@@ -1417,6 +1420,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (tile && ownerId === "barbarian-1" && terrain === "LAND") {
           barbarianOverlay.addInstance(x, z, surfaceY);
         }
+        if (tile?.shardSite && terrain === "LAND" && visibility === "visible") {
+          shardOverlay.addInstance(x, z, surfaceY, wx, wy);
+        }
         // Resolve the underlying resource once per tile — used by the
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
@@ -1582,6 +1588,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
+    shardOverlay.commit();
     fortOverlay.commit();
     resourceOverlay.commit();
     attackOverlay.commit();
@@ -1635,6 +1642,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncRevealEmpireFxQueue();
     syncRevealEmpireStatsFxQueue();
     villageEffects.update(nowMs);
+    shardOverlay.update(nowMs);
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
     siphonFx.update(nowMs);
@@ -1752,6 +1760,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     revealEmpireStatsFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
+    shardOverlay.dispose();
     fortOverlay.dispose();
     resourceOverlay.dispose();
     attackOverlay.dispose();
