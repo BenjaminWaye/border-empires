@@ -1042,17 +1042,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const snapshotCheckpointManager = createSnapshotCheckpointManager({
     eventStore,
     snapshotStore,
-    exportSnapshotSections: () => {
-      return mainThreadTasks.trackSync("checkpoint_export_snapshot_sections", undefined, () => {
-        const snapshotSections = runtime.exportSnapshotSections();
-        return {
-          ...snapshotSections,
-          initialState: {
-            ...snapshotSections.initialState,
-            season: currentSeasonState
-          }
-        };
-      });
+    exportSnapshotSections: async () => {
+      const snapshotSections = await runtime.exportSnapshotSectionsAsync(yieldToEventLoop);
+      return {
+        ...snapshotSections,
+        initialState: {
+          ...snapshotSections.initialState,
+          season: currentSeasonState
+        }
+      };
     },
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
     ...(typeof options.checkpointForceAfterEvents === "number"

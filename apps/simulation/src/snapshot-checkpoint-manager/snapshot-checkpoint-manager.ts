@@ -17,7 +17,7 @@ export type SnapshotCheckpointPhase =
 type SnapshotCheckpointManagerOptions = {
   eventStore: SimulationEventStore;
   snapshotStore: SimulationSnapshotStore;
-  exportSnapshotSections: () => SimulationSnapshotSections;
+  exportSnapshotSections: () => SimulationSnapshotSections | Promise<SimulationSnapshotSections>;
   checkpointEveryEvents?: number;
   now?: () => number;
   getMemoryUsage?: () => SnapshotCheckpointMemoryUsage;
@@ -125,7 +125,7 @@ export const createSnapshotCheckpointManager = (
       }
 
       emitPhase("before_save", lastAppliedEventId);
-      const snapshotSections = options.exportSnapshotSections();
+      const snapshotSections = await options.exportSnapshotSections();
       await options.snapshotStore.saveSnapshot({
         lastAppliedEventId,
         snapshotSections,

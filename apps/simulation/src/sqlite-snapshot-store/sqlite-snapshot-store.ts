@@ -127,7 +127,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
       if (!result.changes) break;
       await new Promise<void>((resolve) => setImmediate(resolve));
     }
-    this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+    this.db.exec("PRAGMA wal_checkpoint(PASSIVE)");
   }
 
   private resolveBaselineIndexFromSections(
