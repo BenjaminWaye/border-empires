@@ -280,12 +280,15 @@ import {
   buildRuntimePlannerPlayerViews,
   buildRuntimePlannerWorldView,
   buildRuntimePlayerDebugSnapshot,
-  buildRuntimeSnapshotSections,
   exportPlannerTilesForKeys,
   plannerPlayerScopeKeyCount,
   type RuntimeExportState,
   type RuntimePlayerDebugSnapshot
 } from "../runtime-state-export.js";
+import {
+  buildRuntimeSnapshotSections,
+  buildRuntimeSnapshotSectionsAsync
+} from "../runtime-snapshot-sections.js";
 import {
   emitVisibilityAudit as emitVisibilityAuditImpl,
   exportBarbActivationVisibleUnion as exportBarbActivationVisibleUnionImpl,
@@ -2163,6 +2166,21 @@ export class SimulationRuntime {
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
     });
+  }
+
+  async exportSnapshotSectionsAsync(yieldToEventLoop: () => Promise<void>): Promise<SimulationSnapshotSections> {
+    return buildRuntimeSnapshotSectionsAsync({
+      tiles: this.tiles,
+      locksByCommandId: this.locksByCommandId,
+      players: this.players,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
+      playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
+      docks: this.docks,
+      recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
+      incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
+    }, yieldToEventLoop);
   }
 
   exportPlannerWorldView(playerIds: string[]): PlannerWorldView {
