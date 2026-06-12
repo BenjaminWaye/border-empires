@@ -1146,7 +1146,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         // then paces them one slot at a time. Sending each directly would fire all
         // N SETTLEs synchronously against a server slot count that hasn't caught up,
         // so the overflow comes back as "development slots are busy".
-        if (requestSettlement(t.x, t.y, { forceQueue: true })) queued += 1; else skipped += 1;
+        if (requestSettlement(t.x, t.y, { forceQueue: true, suppressWarnings: true })) queued += 1; else skipped += 1;
       }
       if (queued > 0) processDevelopmentQueue();
       state.selected = origSelected;
@@ -1169,7 +1169,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
         const out = queueSpecificTargets(neutralTargets);
         if (out.queued > 0) processActionQueue();
-        if (out.queued <= 0) showCaptureAlert("Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough gold.", "warn"); pushFeed(
+        if (out.queued <= 0) showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough gold."); else pushFeed(
           out.queued > 0
             ? `Queued ${out.queued} frontier captures${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
             : "No frontier claims queued. Targets must touch your territory and you need enough gold.",

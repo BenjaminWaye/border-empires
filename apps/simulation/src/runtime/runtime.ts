@@ -20,10 +20,8 @@ import {
   BARBARIAN_RAID_COST,
   MUSTER_SYSTEM_ENABLED,
   MUSTER_ATTACK_COST,
-  MUSTER_MAX_TILES,
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
-  SWEEP_BUDGET_CAP,
   SWEEP_RADIUS_BY_VARIANT,
   DEVELOPMENT_PROCESS_LIMIT,
   FOREST_FRONTIER_CLAIM_MULT,
@@ -38,17 +36,6 @@ import {
   landBiomeAt,
   terrainAt,
   type Terrain,
-  structureBuildDurationMs,
-  structureBuildGoldCost,
-  structureBuildManpowerCost,
-  structureCostDefinition,
-  structurePlacementMetadata,
-  structureShowsOnTile,
-  bestFortTierForTech,
-  nextFortTierForUpgrade,
-  bestSiegeTierForTech,
-  nextSiegeTierForUpgrade,
-  STRUCTURE_REGISTRY,
   type BuildableStructureType,
   type EconomicStructureType,
   type StructureSpec
@@ -174,14 +161,10 @@ import {
 } from "../runtime-types.js";
 import {
   parseAllianceSyncPayload,
-  parseBuildStructurePayload,
   parseConverterTogglePayload,
   parseEconomicStructurePayload,
   parseFrontierPayload,
   parseSettlePayload,
-  parseSiegeOutpostSweepPayload,
-  parseSetMusterPayload,
-  parseClearMusterPayload,
   parseStructureTilePayload,
   parseTilePayload
 } from "../runtime-command-parsers.js";
@@ -344,7 +327,23 @@ import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardR
 import { computeEmpireStorageCap } from "../runtime-empire-storage.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
 import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-muster-tick.js";
-import { tickFortGarrison as tickFortGarrisonImpl, garrisonCapForVariant, initialGarrisonForVariant } from "../runtime-fort-garrison-tick.js";
+import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
+import {
+  completeStructureBuild as completeStructureBuildImpl,
+  handleBuildStructureCommand as handleBuildStructureCommandImpl,
+  type RuntimeStructureCommandContext
+} from "../runtime-structure-command-handlers.js";
+import {
+  cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
+  completeStructureRemoval as completeStructureRemovalImpl,
+  handleCancelFortBuildCommand as handleCancelFortBuildCommandImpl,
+  handleCancelSiegeOutpostBuildCommand as handleCancelSiegeOutpostBuildCommandImpl,
+  handleCancelStructureBuildCommand as handleCancelStructureBuildCommandImpl,
+  handleClearMusterCommand as handleClearMusterCommandImpl,
+  handleRemoveStructureCommand as handleRemoveStructureCommandImpl,
+  handleSetMusterCommand as handleSetMusterCommandImpl,
+  handleSetSiegeOutpostSweepCommand as handleSetSiegeOutpostSweepCommandImpl
+} from "../runtime-structure-lifecycle-command-handlers.js";
 import {
   bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
   updateFrontierDecay as updateFrontierDecayImpl
@@ -4184,807 +4183,77 @@ export class SimulationRuntime {
     } as unknown as CommandEnvelope;
   }
 
+  private structureCommandContext(): RuntimeStructureCommandContext {
+    return {
+      players: this.players,
+      tiles: this.tiles,
+      musterTilesByOwner: this.musterTilesByOwner,
+      locksByTile: this.locksByTile,
+      locksByCommandId: this.locksByCommandId,
+      now: this.now,
+      emitEvent: (event) => this.emitEvent(event),
+      emitPlayerStateUpdate: (command, playerId) => this.emitPlayerStateUpdate(command, playerId),
+      scheduleAfter: (delayMs, callback) => this.scheduleAfter(delayMs, callback),
+      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      rejectIfNoDevelopmentSlot: (command, code, message) => this.rejectIfNoDevelopmentSlot(command, code, message),
+      strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
+      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
+      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
+      supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),
+      supportedDockKeysForTile: (playerId, x, y) => this.supportedDockKeysForTile(playerId, x, y),
+      economicStructureForSupportedTown: (playerId, townKey, structureType) => this.economicStructureForSupportedTown(playerId, townKey, structureType),
+      firstAvailableTownSupportTile: (playerId, townKey, structureType) => this.firstAvailableTownSupportTile(playerId, townKey, structureType),
+      assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
+      completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId)
+    };
+  }
+
   private handleBuildStructureCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseBuildStructurePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BAD_COMMAND", message: "invalid command payload" });
-      return;
-    }
-    const spec = STRUCTURE_REGISTRY[payload.structureType];
-    if (!spec) {
-      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "UNKNOWN_STRUCTURE", message: `unknown structure type: ${payload.structureType}` });
-      return;
-    }
-    this.applyManpowerRegen(actor);
-
-    let target = this.tiles.get(simulationTileKey(payload.x, payload.y));
-    if (!target) {
-      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "UNKNOWN_TILE", message: "tile not found" });
-      return;
-    }
-
-    // Tech gates
-    for (const techId of spec.techIds) {
-      if (!actor.techIds.has(techId)) {
-        this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `unlock ${payload.structureType.toLowerCase().replaceAll("_", " ")} first` });
-        return;
-      }
-    }
-
-    const hasTech = (id: string) => actor.techIds.has(id);
-
-    // Town-support resolution
-    if (spec.kind === "ECONOMIC") {
-      const placement = structurePlacementMetadata(payload.structureType as any);
-      const placementMode = placement?.placementMode;
-      if (placementMode === "town_support" && target.town) {
-        if (target.town.populationTier === "SETTLEMENT") {
-          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "settlements cannot support economic structures — grow this town first" });
-          return;
-        }
-        if (this.economicStructureForSupportedTown(command.playerId, simulationTileKey(target.x, target.y), payload.structureType as EconomicStructureType)) {
-          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `town already has ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
-          return;
-        }
-        const supportTarget = this.firstAvailableTownSupportTile(command.playerId, simulationTileKey(target.x, target.y), payload.structureType as EconomicStructureType);
-        if (!supportTarget) {
-          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `${payload.structureType.toLowerCase().replaceAll("_", " ")} needs an open support tile next to this town` });
-          return;
-        }
-        target = supportTarget;
-      } else if (placementMode === "town_support" && !target.town) {
-        // Target is a support tile — check for duplicates via the assigned town
-        const supportedTownKey = this.assignedTownKeyForSupportTile(command.playerId, target.x, target.y);
-        if (supportedTownKey && this.economicStructureForSupportedTown(command.playerId, supportedTownKey, payload.structureType as EconomicStructureType)) {
-          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `town already has ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
-          return;
-        }
-      }
-    }
-
-    // Placement
-    if (target.terrain !== "LAND") {
-      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "structure requires land tile" });
-      return;
-    }
-    if (!structureShowsOnTile(payload.structureType as any, { ownershipState: target.ownershipState, resource: target.resource, dockId: target.dockId, townPopulationTier: target.town?.populationTier, supportedTownCount: this.supportedTownKeysForTile(command.playerId, target.x, target.y).length, supportedDockCount: this.supportedDockKeysForTile(command.playerId, target.x, target.y).length })) {
-      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `${payload.structureType.toLowerCase().replaceAll("_", " ")} cannot be built on this tile` });
-      return;
-    }
-    if (target.ownerId !== command.playerId) {
-      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "tile must be owned" });
-      return;
-    }
-    // SETTLED required for all except siege outposts (not LIGHT_OUTPOST)
-    if (spec.kind !== "OUTPOST" || payload.structureType === "LIGHT_OUTPOST") {
-      if (target.ownershipState !== "SETTLED") {
-        this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "tile must be settled" });
-        return;
-      }
-    }
-
-    // Upgrade detection
-    let upgrading = false;
-    if (spec.kind === "FORT") {
-      upgrading = target.economicStructure?.ownerId === command.playerId && target.economicStructure.type === "WOODEN_FORT" && (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
-    }
-    if (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST") {
-      upgrading = target.economicStructure?.ownerId === command.playerId && target.economicStructure.type === "LIGHT_OUTPOST" && (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
-    }
-    if (spec.kind === "ECONOMIC") {
-      const base = payload.structureType === "ADVANCED_FUR_SYNTHESIZER" ? "FUR_SYNTHESIZER" : payload.structureType === "ADVANCED_IRONWORKS" ? "IRONWORKS" : payload.structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? "CRYSTAL_SYNTHESIZER" : payload.structureType === "SEED_GRANARY" ? "GRANARY" : undefined;
-      upgrading = !!base && target.economicStructure?.ownerId === command.playerId && target.economicStructure.type === base && (target.economicStructure.status === "active" || target.economicStructure.status === "inactive");
-    }
-    // Allow upgrading existing same-family structure; block others
-    const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) || (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST" && target.siegeOutpost?.ownerId === command.playerId);
-    if (!upgrading && !sameFamilyUpgrade && (target.fort || target.observatory || target.siegeOutpost || target.economicStructure)) {
-      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: "tile already has structure" });
-      return;
-    }
-
-    // Tier upgrade checks
-    if (spec.kind === "FORT" && target.fort) {
-      const tier = nextFortTierForUpgrade(target.fort.variant, hasTech);
-      if (!tier) {
-        this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: target.fort.variant === "THUNDER_BASTION" ? "fort already at maximum tier" : "research the next tier first" });
-        return;
-      }
-    }
-    if (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST" && target.siegeOutpost) {
-      const tier = nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech);
-      if (!tier) {
-        this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: target.siegeOutpost.variant === "DREAD_TOWER" ? "siege outpost already at maximum tier" : "research the next tier first" });
-        return;
-      }
-    }
-
-    if (this.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
-
-    // Cost (forts and outposts use tier-ladder costs for upgrades)
-    let goldCost: number;
-    let manpowerCost: number;
-    let strategicCost: Record<string, number> | undefined;
-
-    if (spec.kind === "FORT") {
-      const fortTier = target.fort
-        ? nextFortTierForUpgrade(target.fort.variant, hasTech)!
-        : bestFortTierForTech(hasTech);
-      const mult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
-      goldCost = Math.max(0, Math.round(fortTier.gold * mult));
-      manpowerCost = fortTier.manpower;
-      strategicCost = { IRON: fortTier.iron };
-    } else if (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST") {
-      const siegeTier = target.siegeOutpost
-        ? nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)!
-        : bestSiegeTierForTech(hasTech);
-      goldCost = siegeTier.gold;
-      manpowerCost = siegeTier.manpower;
-      strategicCost = { SUPPLY: siegeTier.supply };
-      if (siegeTier.iron > 0) strategicCost.IRON = siegeTier.iron;
-    } else {
-      goldCost = structureBuildGoldCost(payload.structureType as BuildableStructureType, this.ownedStructureCountForPlayer(command.playerId, payload.structureType as BuildableStructureType));
-      manpowerCost = structureBuildManpowerCost(payload.structureType as BuildableStructureType);
-    }
-    if (actor.points < goldCost) {
-      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "INSUFFICIENT_GOLD", message: `insufficient gold for ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
-      return;
-    }
-    if (actor.manpower < manpowerCost) {
-      this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerCost.toFixed(0)} manpower for ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
-      return;
-    }
-
-    // Strategic resource — atomically pre-check all then spend.
-    // spendStrategicResource deducts on success; a multi-resource check
-    // where first succeeds and a later one fails would silently steal the
-    // first resource without a refund path.
-    if (!strategicCost) {
-      // Use registry as the single source of truth. Phase 1 parity tests
-      // guarantee these agree with structure-costs.ts.
-      const strategicDef = structureCostDefinition(payload.structureType as BuildableStructureType);
-      strategicCost = spec.cost.strategic as Record<string, number> | undefined
-        ?? (strategicDef?.resourceCost
-          ? { [strategicDef.resourceCost.resource]: strategicDef.resourceCost.amount }
-          : undefined);
-    }
-    if (strategicCost) {
-      const orderedKeys = Object.keys(strategicCost).sort();
-      // Pre-check: all resources must be sufficient before spending any.
-      for (const res of orderedKeys) {
-        const amount = strategicCost[res]!;
-        if (amount > 0 && this.strategicResourceAmount(actor, res as any) + 1e-6 < amount) {
-          this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "BUILD_INVALID", message: `insufficient ${res} for ${payload.structureType.toLowerCase().replaceAll("_", " ")}` });
-          return;
-        }
-      }
-      // All spends are now guaranteed to succeed.
-      for (const res of orderedKeys) {
-        const amount = strategicCost[res]!;
-        if (amount > 0) this.spendStrategicResource(actor, res as any, amount);
-      }
-    }
-
-    actor.points -= goldCost;
-    actor.manpower = Math.max(0, actor.manpower - manpowerCost);
-
-    // Build speed
-    let buildMs: number;
-    if (spec.kind === "FORT") {
-      const mult = multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult");
-      buildMs = Math.max(1, Math.round(spec.buildMs / mult));
-    } else if (spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST") {
-      const mult = multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult");
-      buildMs = Math.max(1, Math.round(spec.buildMs / mult));
-    } else {
-      buildMs = spec.buildMs;
-    }
-    const completesAt = this.now() + buildMs;
-    const targetKey = simulationTileKey(target.x, target.y);
-
-    // Write under-construction state
-    const isSiegeFamily = spec.kind === "OUTPOST" && payload.structureType !== "LIGHT_OUTPOST";
-    const isEcoStruct = spec.kind === "ECONOMIC" || payload.structureType === "LIGHT_OUTPOST";
-
-    // Resolve target variant (fort and siege tier-upgrade)
-    let resolvedVariant: string | undefined;
-    if (spec.kind === "FORT") {
-      if (target.fort) {
-        const tier = nextFortTierForUpgrade(target.fort.variant, hasTech);
-        resolvedVariant = tier?.variant;
-      } else {
-        resolvedVariant = bestFortTierForTech(hasTech).variant;
-      }
-    } else if (isSiegeFamily) {
-      if (target.siegeOutpost) {
-        const tier = nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech);
-        resolvedVariant = tier?.variant;
-      } else {
-        resolvedVariant = bestSiegeTierForTech(hasTech).variant;
-      }
-    }
-
-    const startedTile: DomainTileState = {
-      ...target,
-      [spec.tileField]: {
-        ownerId: command.playerId,
-        status: "under_construction" as const,
-        ...(resolvedVariant ? { variant: resolvedVariant } : {}),
-        ...(isEcoStruct ? { type: payload.structureType } : {}),
-        completesAt
-      }
-    } as unknown as DomainTileState;
-
-    this.replaceTileState(targetKey, startedTile);
-    this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [this.tileDeltaFromState(startedTile)] });
-    this.emitPlayerStateUpdate(command);
-    this.scheduleAfter(buildMs, () => { this.completeStructureBuild(targetKey, command.playerId, payload.structureType, command.commandId); });
+    handleBuildStructureCommandImpl(this.structureCommandContext(), command);
   }
 
   private completeStructureBuild(targetKey: string, ownerId: string, structureType: string, commandId: string): void {
-    const spec = STRUCTURE_REGISTRY[structureType];
-    if (!spec) return;
-    const latest = this.tiles.get(targetKey);
-    if (!latest || latest.ownerId !== ownerId) return;
-    const structure = latest[spec.tileField] as Record<string, unknown> | undefined;
-    if (!structure || structure.ownerId !== ownerId || structure.status !== "under_construction") return;
-    if (spec.tileField === "economicStructure" && structure.type !== structureType) return;
-
-    const { completesAt: _, ...activeStructure } = structure;
-    const sweepInit = (spec.kind === "OUTPOST" || structureType === "LIGHT_OUTPOST")
-      ? { sweepBudget: SWEEP_BUDGET_CAP, sweepActive: false as const, sweepBudgetUpdatedAt: this.now() }
-      : {};
-    const garrisonInit = (spec.tileField === "fort" && MUSTER_SYSTEM_ENABLED)
-      ? {
-          garrison: initialGarrisonForVariant(activeStructure.variant as string | undefined),
-          garrisonCap: garrisonCapForVariant(activeStructure.variant as string | undefined),
-          garrisonUpdatedAt: this.now()
-        }
-      : {};
-
-    // Only clear economicStructure when upgrading from WOODEN_FORT → FORT
-    const clearingWoodenFort =
-      spec.tileField === "fort" &&
-      latest.economicStructure?.type === "WOODEN_FORT" &&
-      latest.economicStructure?.ownerId === ownerId;
-
-    const completedTile: DomainTileState = {
-      ...latest,
-      ...(clearingWoodenFort ? { economicStructure: undefined } : {}),
-      [spec.tileField]: { ...activeStructure, status: "active", ...sweepInit, ...garrisonInit }
-    } as unknown as DomainTileState;
-
-    this.replaceTileState(targetKey, completedTile);
-    this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [this.tileDeltaFromState(completedTile)] });
-    this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
+    completeStructureBuildImpl(this.structureCommandContext(), targetKey, ownerId, structureType, commandId);
   }
 
   private cancelActiveOutpostAttackLocks(playerId: string, originKey: string): string[] {
-    const cancelled: string[] = [];
-    const lock = this.locksByTile.get(originKey);
-    if (!lock || lock.playerId !== playerId || lock.actionType !== "ATTACK") return cancelled;
-    this.locksByTile.delete(lock.originKey);
-    this.locksByTile.delete(lock.targetKey);
-    this.locksByCommandId.delete(lock.commandId);
-    cancelled.push(lock.commandId);
-    return cancelled;
+    return cancelActiveOutpostAttackLocksImpl(this.structureCommandContext(), playerId, originKey);
   }
 
   private handleSetSiegeOutpostSweepCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseSiegeOutpostSweepPayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    // Accept either an active siege outpost OR an active LIGHT_OUTPOST.
-    const hasSiegeOutpost =
-      target?.ownerId === command.playerId &&
-      target.siegeOutpost?.ownerId === command.playerId &&
-      target.siegeOutpost.status === "active";
-    const hasLightOutpost =
-      target?.ownerId === command.playerId &&
-      target.economicStructure?.ownerId === command.playerId &&
-      target.economicStructure.type === "LIGHT_OUTPOST" &&
-      target.economicStructure.status === "active";
-    if (!target || (!hasSiegeOutpost && !hasLightOutpost)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BUILD_INVALID",
-        message: "active owned outpost-family structure required"
-      });
-      return;
-    }
-    let updatedTile: DomainTileState;
-    if (hasSiegeOutpost) {
-      updatedTile = {
-        ...target,
-        siegeOutpost: {
-          ...target.siegeOutpost!,
-          sweepActive: payload.enabled
-        }
-      };
-    } else {
-      updatedTile = {
-        ...target,
-        economicStructure: {
-          ...target.economicStructure!,
-          sweepActive: payload.enabled
-        }
-      };
-    }
-    this.replaceTileState(targetKey, updatedTile, command.commandId);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
-    this.emitPlayerStateUpdate(command);
+    handleSetSiegeOutpostSweepCommandImpl(this.structureCommandContext(), command);
   }
 
   private handleSetMusterCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseSetMusterPayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    if (!MUSTER_SYSTEM_ENABLED) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "MUSTER_DISABLED",
-        message: "muster system is not enabled"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!target || target.ownerId !== command.playerId || target.terrain !== "LAND") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "MUSTER_INVALID",
-        message: "owned LAND tile required to muster"
-      });
-      return;
-    }
-    const isNewMuster = target.muster?.ownerId !== command.playerId;
-    if (isNewMuster) {
-      const activeMusters = this.musterTilesByOwner.get(command.playerId)?.size ?? 0;
-      if (activeMusters >= MUSTER_MAX_TILES) {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "MUSTER_LIMIT",
-          message: `max ${MUSTER_MAX_TILES} muster tiles per player`
-        });
-        return;
-      }
-    }
-    const now = this.now();
-    const updatedTile: DomainTileState = {
-      ...target,
-      muster: {
-        ownerId: command.playerId,
-        amount: isNewMuster ? 0 : target.muster!.amount,
-        mode: payload.mode,
-        ...(typeof payload.targetX === "number" ? { targetX: payload.targetX } : {}),
-        ...(typeof payload.targetY === "number" ? { targetY: payload.targetY } : {}),
-        setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
-        updatedAt: now
-      }
-    };
-    this.replaceTileState(targetKey, updatedTile, command.commandId);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
-    this.emitPlayerStateUpdate(command);
+    handleSetMusterCommandImpl(this.structureCommandContext(), command);
   }
 
   private handleClearMusterCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseClearMusterPayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!target || target.ownerId !== command.playerId || !target.muster) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "MUSTER_INVALID",
-        message: "no muster on owned tile"
-      });
-      return;
-    }
-    // Refund banked manpower to the owner's pool (capped at their current cap).
-    actor.manpower = Math.min(
-      this.playerManpowerCap(actor),
-      actor.manpower + target.muster.amount
-    );
-    const updatedTile: DomainTileState = { ...target, muster: undefined };
-    this.replaceTileState(targetKey, updatedTile, command.commandId);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      // Explicit empty string signals a clear over the wire (JSON drops
-      // `undefined` keys), mirroring how structure clears are emitted.
-      tileDeltas: [{ ...this.tileDeltaFromState(updatedTile), musterJson: "" }]
-    });
-    this.emitPlayerStateUpdate(command);
+    handleClearMusterCommandImpl(this.structureCommandContext(), command);
   }
 
   private handleCancelFortBuildCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseStructureTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!target?.fort || target.fort.ownerId !== command.playerId || target.fort.status !== "under_construction") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "FORT_CANCEL_INVALID",
-        message: "no fort under construction on tile"
-      });
-      return;
-    }
-
-    const updatedTile: DomainTileState = { ...target, fort: undefined };
-    this.replaceTileState(targetKey, updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
+    handleCancelFortBuildCommandImpl(this.structureCommandContext(), command);
   }
 
   private handleCancelStructureBuildCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseStructureTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!target) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "STRUCTURE_CANCEL_INVALID",
-        message: "no removable structure action on tile"
-      });
-      return;
-    }
-
-    let updatedTile: DomainTileState | undefined;
-    if (target.fort?.ownerId === command.playerId && (target.fort.status === "under_construction" || target.fort.status === "removing")) {
-      updatedTile = {
-        ...target,
-        fort:
-          target.fort.status === "under_construction"
-            ? undefined
-            : {
-                ...target.fort,
-                status: target.fort.previousStatus ?? "active",
-                previousStatus: undefined,
-                completesAt: undefined
-              }
-      };
-    } else if (
-      target.observatory?.ownerId === command.playerId &&
-      (target.observatory.status === "under_construction" || target.observatory.status === "removing")
-    ) {
-      updatedTile = {
-        ...target,
-        observatory:
-          target.observatory.status === "under_construction"
-            ? undefined
-            : {
-                ...target.observatory,
-                status: target.observatory.previousStatus ?? "active",
-                previousStatus: undefined,
-                completesAt: undefined
-              }
-      };
-    } else if (
-      target.siegeOutpost?.ownerId === command.playerId &&
-      (target.siegeOutpost.status === "under_construction" || target.siegeOutpost.status === "removing")
-    ) {
-      updatedTile = {
-        ...target,
-        siegeOutpost:
-          target.siegeOutpost.status === "under_construction"
-            ? undefined
-            : {
-                ...target.siegeOutpost,
-                status: target.siegeOutpost.previousStatus ?? "active",
-                previousStatus: undefined,
-                completesAt: undefined
-              }
-      };
-    } else if (
-      target.economicStructure?.ownerId === command.playerId &&
-      (target.economicStructure.status === "under_construction" || target.economicStructure.status === "removing")
-    ) {
-      updatedTile = {
-        ...target,
-        economicStructure:
-          target.economicStructure.status === "under_construction"
-            ? undefined
-            : {
-                ...target.economicStructure,
-                status: target.economicStructure.previousStatus ?? "inactive",
-                previousStatus: undefined,
-                completesAt: undefined
-              }
-      };
-    }
-
-    if (!updatedTile) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "STRUCTURE_CANCEL_INVALID",
-        message: "no removable structure action on tile"
-      });
-      return;
-    }
-
-    this.replaceTileState(targetKey, updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
+    handleCancelStructureBuildCommandImpl(this.structureCommandContext(), command);
   }
 
   private handleRemoveStructureCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseStructureTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!target || target.terrain !== "LAND" || target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "STRUCTURE_REMOVE_INVALID",
-        message: "structure requires settled owned tile"
-      });
-      return;
-    }
-
-    const fort = target.fort?.ownerId === command.playerId ? target.fort : undefined;
-    const observatory = target.observatory?.ownerId === command.playerId ? target.observatory : undefined;
-    const siegeOutpost = target.siegeOutpost?.ownerId === command.playerId ? target.siegeOutpost : undefined;
-    const economicStructure = target.economicStructure?.ownerId === command.playerId ? target.economicStructure : undefined;
-    const ownedStructure = fort ?? observatory ?? siegeOutpost ?? economicStructure;
-
-    if (!ownedStructure) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "STRUCTURE_REMOVE_INVALID",
-        message: "no owned structure on tile"
-      });
-      return;
-    }
-    if (ownedStructure.status === "under_construction") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "STRUCTURE_REMOVE_INVALID",
-        message: "cancel construction instead"
-      });
-      return;
-    }
-    if (ownedStructure.status === "removing") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "STRUCTURE_REMOVE_INVALID",
-        message: "structure is already being removed"
-      });
-      return;
-    }
-    if (this.rejectIfNoDevelopmentSlot(command, "STRUCTURE_REMOVE_INVALID", "development slots are busy")) return;
-
-    let updatedTile: DomainTileState;
-    let removeDurationMs: number;
-    if (fort) {
-      removeDurationMs = structureBuildDurationMs("FORT");
-      updatedTile = {
-        ...target,
-        fort: {
-          ...fort,
-          status: "removing",
-          previousStatus: "active",
-          completesAt: this.now() + removeDurationMs
-        }
-      };
-    } else if (observatory) {
-      removeDurationMs = structureBuildDurationMs("OBSERVATORY");
-      updatedTile = {
-        ...target,
-        observatory: {
-          ...observatory,
-          status: "removing",
-          previousStatus: observatory.status === "inactive" ? "inactive" : "active",
-          completesAt: this.now() + removeDurationMs
-        }
-      };
-    } else if (siegeOutpost) {
-      removeDurationMs = structureBuildDurationMs("SIEGE_OUTPOST");
-      updatedTile = {
-        ...target,
-        siegeOutpost: {
-          ...siegeOutpost,
-          status: "removing",
-          previousStatus: "active",
-          completesAt: this.now() + removeDurationMs
-        }
-      };
-    } else {
-      const structure = economicStructure as NonNullable<typeof economicStructure>;
-      removeDurationMs = structureBuildDurationMs(structure.type);
-      updatedTile = {
-        ...target,
-        economicStructure: {
-          ...structure,
-          status: "removing",
-          previousStatus: structure.status === "inactive" ? "inactive" : "active",
-          completesAt: this.now() + removeDurationMs
-        }
-      };
-    }
-
-    this.replaceTileState(targetKey, updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
-    this.emitPlayerStateUpdate(command);
-
-    this.scheduleAfter(removeDurationMs, () => {
-      this.completeStructureRemoval(targetKey, command.playerId, command.commandId);
-    });
+    handleRemoveStructureCommandImpl(this.structureCommandContext(), command);
   }
 
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void {
-    const latest = this.tiles.get(targetKey);
-    if (!latest || latest.ownerId !== ownerId) return;
-
-    let completedTile: DomainTileState | undefined;
-    if (latest.fort?.ownerId === ownerId && latest.fort.status === "removing") {
-      completedTile = { ...latest, fort: undefined };
-    } else if (latest.observatory?.ownerId === ownerId && latest.observatory.status === "removing") {
-      completedTile = { ...latest, observatory: undefined };
-    } else if (latest.siegeOutpost?.ownerId === ownerId && latest.siegeOutpost.status === "removing") {
-      completedTile = { ...latest, siegeOutpost: undefined };
-    } else if (latest.economicStructure?.ownerId === ownerId && latest.economicStructure.status === "removing") {
-      completedTile = { ...latest, economicStructure: undefined };
-    }
-    if (!completedTile) return;
-
-    this.replaceTileState(targetKey, completedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId,
-      playerId: ownerId,
-      tileDeltas: [this.tileDeltaFromState(completedTile)]
-    });
-    this.emitPlayerStateUpdate({ commandId, playerId: ownerId });
+    completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId);
   }
 
   private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseStructureTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!target?.siegeOutpost || target.siegeOutpost.ownerId !== command.playerId || target.siegeOutpost.status !== "under_construction") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIEGE_OUTPOST_CANCEL_INVALID",
-        message: "no siege outpost under construction on tile"
-      });
-      return;
-    }
-
-    const updatedTile: DomainTileState = { ...target, siegeOutpost: undefined };
-    this.replaceTileState(targetKey, updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
-    this.emitPlayerStateUpdate(command);
+    handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command);
   }
 
   // Player-ids with at least one *player-issued* frontier lock - i.e. locks
