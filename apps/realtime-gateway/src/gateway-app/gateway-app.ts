@@ -1610,6 +1610,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           );
         }
       }
+      if (event.playerId === "__broadcast__" && event.eventType === "TILE_DELTA_BATCH") {
+        const broadcastPayload = preSerializeBroadcast({
+          type: "TILE_DELTA_BATCH",
+          commandId: event.commandId,
+          tiles: jsonSafeTileDeltaBatch(event.tileDeltas)
+        });
+        for (const socket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(socket, broadcastPayload);
+        return;
+      }
       const sockets = playerSubscriptions.socketsForPlayer(event.playerId);
       if (sockets.size === 0) {
         if (!event.commandId.startsWith("bootstrap:")) {
