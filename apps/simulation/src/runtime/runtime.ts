@@ -71,11 +71,9 @@ import {
   coordsInChebyshevRadius,
   FRONTIER_DECAY_MS,
   fortAutoAttackCandidates,
-  fortAutoFrontierRadiusForTile,
   FORT_PATROL_GRACE_MS,
   isActiveFortAnchor,
   isSettledTownAnchor,
-  MAX_FORT_AUTO_FRONTIER_RADIUS,
   orderedAutoSettlementTileKeys,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
@@ -720,23 +718,7 @@ export class SimulationRuntime {
     for (const [tileKey, tile] of this.tiles.entries()) {
       if (!tile.ownerId) continue;
       const ownerId = tile.ownerId;
-      // Fort kind: active fort (any variant, including patrol-grace) or active WOODEN_FORT.
-      if (
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "WOODEN_FORT" &&
-        tile.economicStructure.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        registerFortSupportAnchorImpl(this.activeFortAnchorsByOwner, tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
-      } else if (
-        tile.fort?.ownerId === ownerId &&
-        tile.fort.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        registerFortSupportAnchorImpl(this.activeFortAnchorsByOwner, tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
-      } else if (isSettledTownAnchor(tile, ownerId)) {
+      if (isSettledTownAnchor(tile, ownerId)) {
         this.playerCandidateIndex.registerAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
         // Part 2: register in activeFortAnchorsByOwner
         registerFortSupportAnchorImpl(this.activeFortAnchorsByOwner, tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS);
@@ -1069,8 +1051,6 @@ export class SimulationRuntime {
       updateFrontierDecay: (at) => this.updateFrontierDecay(at, yieldToEventLoop),
       autoSettlementQueueLengthForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId).length,
       emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
-      extendFortPatrolGrace: (tileKey, graceUntil) => this.extendFortPatrolGrace(tileKey, graceUntil),
-      tileHasActiveFortPatrolGrace: (tileKey, at) => this.tileHasActiveFortPatrolGrace(tileKey, at),
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
@@ -2906,15 +2886,6 @@ export class SimulationRuntime {
       ...baseLock,
       ...(combatResolution ? { combatResolution } : {})
     };
-    if (
-      actionType === "ATTACK" &&
-      from.ownershipState === "FRONTIER" &&
-      to.ownerId &&
-      to.ownerId !== command.playerId &&
-      fortAutoFrontierRadiusForTile(to, to.ownerId, this.now()) > 0
-    ) {
-      this.extendFortPatrolGrace(lock.originKey, validation.resolvesAt + FORT_PATROL_GRACE_MS);
-    }
     this.locksByTile.set(lock.originKey, lock);
     this.locksByTile.set(lock.targetKey, lock);
     this.locksByCommandId.set(lock.commandId, lock);
