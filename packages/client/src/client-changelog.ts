@@ -19,10 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.2",
+  version: "2026.06.12.1",
   title: "What's New",
-  summary: "Fix: Muster button now works — setting or clearing a muster flag takes effect immediately.",
+  summary: "Muster system overhaul: faster staging, manpower returned on clear, 5-tile limit, flag visible above all overlays.",
   entries: [
+    {
+      introducedIn: "2026.06.12.1",
+      title: "Muster system overhaul",
+      why: "Mustering was too slow (288 min to fill 60 instead of 20 s), cleared manpower was lost rather than returned, and the flag rendered under the settled overlay.",
+      changes: [
+        "Muster speed raised to 180 manpower/min per tile — 60 manpower stages in ~20 seconds.",
+        "Clearing or losing a mustered tile now returns banked manpower to your pool instead of discarding it.",
+        "Maximum 5 simultaneous muster tiles per player; flags planted more than 2 days ago auto-clear with a full refund.",
+        "Muster flag z-index fixed — the pennant now renders above all tile overlays including the settled animation.",
+        "Muster status (amount staged) moved from the tile overview into the action button descriptions."
+      ]
+    },
     {
       introducedIn: "2026.06.11.2",
       title: "Muster button works",

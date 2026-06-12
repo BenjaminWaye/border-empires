@@ -26,30 +26,31 @@ export const buildMusterActions = (
     out.push({
       id: "muster_hold",
       label: "Stage Muster",
-      detail: "Fill this tile with manpower (HOLD). Toggle to ADVANCE when ready to auto-attack.",
+      detail: "Accumulate manpower on this tile. Switch to Advance when ready to auto-attack.",
       ...avail()
     });
   } else {
+    const staged = Math.floor(muster.amount);
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
         id: "muster_advance",
         label: "Set Advance",
-        detail: "Switch to ADVANCE mode: auto-fire at an adjacent enemy when full.",
+        detail: `Mustering… ${staged} manpower staged · auto-fire at an adjacent enemy when ready.`,
         ...avail()
       });
     } else {
       out.push({
         id: "muster_hold",
         label: "Set Hold",
-        detail: "Switch to HOLD mode: accumulate manpower without auto-firing.",
+        detail: `Mustering… ${staged} manpower staged · switch to HOLD to pause auto-fire.`,
         ...avail()
       });
     }
     out.push({
       id: "muster_clear",
       label: "Clear Muster",
-      detail: "Discard the mustered manpower and remove the flag.",
+      detail: `Return ${staged} manpower to pool and remove the flag.`,
       ...avail()
     });
   }

@@ -306,6 +306,7 @@ export interface Tile {
     mode: "HOLD" | "ADVANCE";
     targetX?: number;
     targetY?: number;
+    setAt?: number;
     updatedAt: number;
   };
 }

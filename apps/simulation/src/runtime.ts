@@ -20,6 +20,7 @@ import {
   BARBARIAN_RAID_COST,
   MUSTER_SYSTEM_ENABLED,
   MUSTER_ATTACK_COST,
+  MUSTER_MAX_TILES,
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
   SWEEP_BUDGET_CAP,
@@ -1140,7 +1141,7 @@ export class SimulationRuntime {
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
       applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
-      playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
@@ -3291,6 +3292,16 @@ export class SimulationRuntime {
       return;
     }
 
+    // Refund any banked muster manpower before releasing the tile.
+    if (target.muster?.ownerId && target.muster.amount > 0) {
+      const musterOwner = this.players.get(target.muster.ownerId);
+      if (musterOwner) {
+        musterOwner.manpower = Math.min(
+          this.playerManpowerCap(musterOwner),
+          musterOwner.manpower + target.muster.amount
+        );
+      }
+    }
     const updatedTile: DomainTileState = {
       ...target,
       ownerId: undefined,
@@ -3298,7 +3309,8 @@ export class SimulationRuntime {
       fort: undefined,
       observatory: undefined,
       siegeOutpost: undefined,
-      economicStructure: undefined
+      economicStructure: undefined,
+      muster: undefined
     };
     this.replaceTileState(targetKey, updatedTile, command.commandId);
     this.emitEvent({
@@ -6019,15 +6031,31 @@ export class SimulationRuntime {
       });
       return;
     }
+    const isNewMuster = target.muster?.ownerId !== command.playerId;
+    if (isNewMuster) {
+      const activeMusters = this.musterTilesByOwner.get(command.playerId)?.size ?? 0;
+      if (activeMusters >= MUSTER_MAX_TILES) {
+        this.emitEvent({
+          eventType: "COMMAND_REJECTED",
+          commandId: command.commandId,
+          playerId: command.playerId,
+          code: "MUSTER_LIMIT",
+          message: `max ${MUSTER_MAX_TILES} muster tiles per player`
+        });
+        return;
+      }
+    }
+    const now = this.now();
     const updatedTile: DomainTileState = {
       ...target,
       muster: {
         ownerId: command.playerId,
-        amount: target.muster?.ownerId === command.playerId ? target.muster.amount : 0,
+        amount: isNewMuster ? 0 : target.muster!.amount,
         mode: payload.mode,
         ...(typeof payload.targetX === "number" ? { targetX: payload.targetX } : {}),
         ...(typeof payload.targetY === "number" ? { targetY: payload.targetY } : {}),
-        updatedAt: this.now()
+        setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
+        updatedAt: now
       }
     };
     this.replaceTileState(targetKey, updatedTile, command.commandId);
@@ -6065,7 +6093,11 @@ export class SimulationRuntime {
       });
       return;
     }
-    // Mustered manpower is destroyed, not refunded.
+    // Refund banked manpower to the owner's pool (capped at their current cap).
+    actor.manpower = Math.min(
+      this.playerManpowerCap(actor),
+      actor.manpower + target.muster.amount
+    );
     const updatedTile: DomainTileState = { ...target, muster: undefined };
     this.replaceTileState(targetKey, updatedTile, command.commandId);
     this.emitEvent({
@@ -6561,6 +6593,16 @@ export class SimulationRuntime {
         // frontier opacity so the skull overlay reads as washed-out.
         ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
       };
+      // Refund banked muster manpower to the previous owner on capture.
+      if (previousTarget?.muster?.ownerId && previousTarget.muster.amount > 0) {
+        const musterOwner = this.players.get(previousTarget.muster.ownerId);
+        if (musterOwner) {
+          musterOwner.manpower = Math.min(
+            this.playerManpowerCap(musterOwner),
+            musterOwner.manpower + previousTarget.muster.amount
+          );
+        }
+      }
       this.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
       if (resolvedTarget.ownershipState === "FRONTIER") {
         this.extendFortPatrolGrace(lock.targetKey, this.now() + FORT_PATROL_GRACE_MS);

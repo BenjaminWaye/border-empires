@@ -174,6 +174,7 @@ export type DomainTileState = {
         mode: "HOLD" | "ADVANCE";
         targetX?: number;
         targetY?: number;
+        setAt?: number;
         updatedAt: number;
       }
     | undefined;
