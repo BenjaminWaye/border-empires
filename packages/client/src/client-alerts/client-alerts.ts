@@ -6,14 +6,40 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { FeedEntry, FeedSeverity, FeedType, Tile } from "../client-types.js";
 
-export const pushFeed = (state: Pick<ClientState, "feed">, msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void => {
-  state.feed.unshift({ text: msg, type, severity, at: Date.now() });
-  state.feed = state.feed.slice(0, 18);
+type FeedMutableState = Pick<ClientState, "feed"> &
+  Partial<Pick<ClientState, "activePanel" | "mobilePanel" | "feedUnreadCount" | "feedAttentionUntil">>;
+
+const shouldPulseFeedButton = (entry: FeedEntry): boolean =>
+  entry.severity === "warn" ||
+  entry.severity === "error" ||
+  entry.type === "alliance" ||
+  (entry.type === "combat" && entry.severity === "success") ||
+  (entry.type === "tech" && entry.severity === "success");
+
+const mobileFeedPanelVisible = (state: FeedMutableState): boolean =>
+  state.mobilePanel === "feed" &&
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(max-width: 900px)").matches;
+
+const markFeedUnread = (state: FeedMutableState, entry: FeedEntry): void => {
+  const feedOpen = state.activePanel === "feed" || mobileFeedPanelVisible(state);
+  if (feedOpen) return;
+  state.feedUnreadCount = (state.feedUnreadCount ?? 0) + 1;
+  if (shouldPulseFeedButton(entry)) state.feedAttentionUntil = Date.now() + 2_800;
 };
 
-export const pushFeedEntry = (state: Pick<ClientState, "feed">, entry: FeedEntry): void => {
+export const pushFeed = (state: FeedMutableState, msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void => {
+  const entry = { text: msg, type, severity, at: Date.now() };
   state.feed.unshift(entry);
   state.feed = state.feed.slice(0, 18);
+  markFeedUnread(state, entry);
+};
+
+export const pushFeedEntry = (state: FeedMutableState, entry: FeedEntry): void => {
+  state.feed.unshift(entry);
+  state.feed = state.feed.slice(0, 18);
+  markFeedUnread(state, entry);
 };
 
 export const maybeAnnounceShardSite = (
@@ -59,13 +85,12 @@ export const showCaptureAlert = (
 };
 
 export const notifyInsufficientGoldForFrontierAction = (
-  state: Pick<ClientState, "gold" | "captureAlert" | "feed">,
+  state: Pick<ClientState, "gold" | "captureAlert"> & FeedMutableState,
   action: "claim" | "attack"
 ): void => {
   const label = action === "claim" ? "Frontier claim" : "Attack";
   const detail = `${label} costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} gold. You have ${formatGoldAmount(state.gold)}.`;
   showCaptureAlert(state, "Insufficient gold", detail, "error");
-  pushFeed(state, detail, "combat", "warn");
 };
 
 export const showCollectVisibleCooldownAlert = (

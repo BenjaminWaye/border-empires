@@ -1121,7 +1121,8 @@ body {
   vertical-align: middle;
 }
 
-.attack-alert-dot {
+.attack-alert-dot,
+.feed-alert-dot {
   display: inline-grid;
   place-items: center;
   width: 16px;
@@ -1134,6 +1135,36 @@ body {
   font-size: 10px;
   line-height: 1;
   vertical-align: middle;
+}
+
+.feed-alert-dot {
+  background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.98), rgba(142, 202, 230, 0.96) 58%, rgba(49, 130, 206, 0.98));
+  box-shadow: 0 0 14px rgba(142, 202, 230, 0.7);
+}
+
+@keyframes feed-attention-nudge {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  20% {
+    transform: translateX(-1px) rotate(-4deg);
+  }
+  40% {
+    transform: translateX(2px) rotate(4deg);
+  }
+  60% {
+    transform: translateX(-1px) rotate(-3deg);
+  }
+  80% {
+    transform: translateX(1px) rotate(2deg);
+  }
+}
+
+.feed-attention-pulse {
+  animation: feed-attention-nudge 0.58s ease-in-out 0s 3;
+  border-color: rgba(142, 202, 230, 0.72);
+  box-shadow: 0 0 18px rgba(142, 202, 230, 0.26);
 }
 
 #floating-info {
