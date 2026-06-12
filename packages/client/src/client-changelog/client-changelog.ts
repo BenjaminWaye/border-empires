@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.11.7",
+  version: "2026.06.12.1",
   title: "What's New",
-  summary: "Fix: large AI empires rotate planning focus across active regions without edge-map blind spots.",
+  summary: "Fix: Survey Sweep now includes the full edge of its advertised scan range.",
   entries: [
+    {
+      introducedIn: "2026.06.12.1",
+      title: "Survey Sweep covers its full range",
+      why: "Survey Sweep wrapped around the world correctly, but the positive X and Y edges of the advertised range were excluded from the scan.",
+      changes: [
+        "Survey Sweep now checks the full centered square from -range through +range, including both positive boundary edges."
+      ]
+    },
     {
       introducedIn: "2026.06.11.7",
       title: "AI planning covers more of large empires",
@@ -117,28 +125,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "Clearing Houses could appear as generic or Bank-like markers instead of a distinct building, making it harder to scan connected-town economy upgrades on the map.",
       changes: ["Clearing Houses now render with a dedicated 3D building overlay and a matching 2D/info-panel asset."]
     },
-    { introducedIn: "2026.06.06.1", title: "Build actions work on the rewrite gateway", why: "The client started sending the unfinished unified BUILD_STRUCTURE command before the rewrite gateway advertised that wire message, so structure builds could be blocked as unavailable.", changes: ["Structure build clicks now send the gateway-supported build message while keeping the internal queued build state intact.", "Queued structure builds replay through the same compatible send path."] },
-    {
-      introducedIn: "2026.06.05.1",
-      title: "Water tiles rebuilt as a single seamless mesh",
-      why: "The previous per-tile InstancedMesh produced a visible grid pattern regardless of material quality. The ocean is now one merged BufferGeometry with shared edge vertices, world-space UVs, and vertex-color depth gradient (shallow teal near coasts, deep navy in open ocean).",
-      changes: [
-        "No more tile grid seams on water — adjacent tiles share edge vertices.",
-        "Shallow/deep color gradient derived per-vertex from coast proximity.",
-        "Two overlapping normal maps (swell + chop) scrolled at different speeds replace the old baked canvas texture.",
-        "MeshPhysicalMaterial with clearcoat Fresnel replaces MeshStandardMaterial with metalness.",
-        "Black specular blobs eliminated — metalness dropped to 0."
-      ]
-    },
-    {
-      introducedIn: "2026.06.05.1",
-      title: "Aether bridge expansions stay connected",
-      why: "Frontier encirclement checks only followed physical neighboring tiles, so a tile expanded across an active Aether Bridge could be treated as cut off even though it was supplied through the bridge.",
-      changes: [
-        "Active Aether Bridge endpoints now count as connected territory edges for frontier encirclement checks.",
-        "Expanding through an Aether Bridge no longer starts immediate encirclement decay on the new frontier endpoint."
-      ]
-    }
+    { introducedIn: "2026.06.06.1", title: "Build actions work on the rewrite gateway", why: "The client started sending the unfinished unified BUILD_STRUCTURE command before the rewrite gateway advertised that wire message, so structure builds could be blocked as unavailable.", changes: ["Structure build clicks now send the gateway-supported build message while keeping the internal queued build state intact.", "Queued structure builds replay through the same compatible send path."] }
   ]
 };
 

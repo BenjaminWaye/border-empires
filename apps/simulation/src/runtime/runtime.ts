@@ -54,15 +54,6 @@ import {
   type StructureSpec
 } from "@border-empires/shared";
 import {
-  AETHER_BRIDGE_COOLDOWN_MS,
-  AETHER_BRIDGE_CRYSTAL_COST,
-  AETHER_BRIDGE_DURATION_MS,
-  AETHER_WALL_COOLDOWN_MS,
-  AETHER_WALL_CRYSTAL_COST,
-  AETHER_WALL_DURATION_MS,
-  AETHER_LANCE_COOLDOWN_MS,
-  AETHER_LANCE_CRYSTAL_COST,
-  AETHER_LANCE_GOLD_COST,
   AIRPORT_BOMBARD_CRYSTAL_COST,
   AIRPORT_BOMBARD_RANGE,
   IMPERIAL_EXCHANGE_LEVY_CRYSTAL_COST,
@@ -76,16 +67,6 @@ import {
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
   FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
   IRONWORKS_OVERLOAD_IRON,
-  REVEAL_EMPIRE_ACTIVATION_COST,
-  REVEAL_EMPIRE_STATS_COOLDOWN_MS,
-  REVEAL_EMPIRE_STATS_CRYSTAL_COST,
-  SURVEY_SWEEP_COOLDOWN_MS,
-  SURVEY_SWEEP_CRYSTAL_COST,
-  SURVEY_SWEEP_HALF_EXTENT,
-  SIPHON_COOLDOWN_MS,
-  SIPHON_CRYSTAL_COST,
-  SIPHON_DURATION_MS,
-  SIPHON_SHARE,
   SYNTH_OVERLOAD_DISABLE_MS,
   SYNTH_OVERLOAD_GOLD_COST,
   TERRAIN_SHAPING_COOLDOWN_MS,
@@ -209,7 +190,6 @@ import {
   type UpkeepNeed
 } from "../runtime-types.js";
 import {
-  parseAetherWallPayload,
   parseAirportBombardPayload,
   parseAllianceSyncPayload,
   parseBuildStructurePayload,
@@ -217,7 +197,6 @@ import {
   parseEconomicStructurePayload,
   parseFrontierPayload,
   parseImperialExchangeLevyPayload,
-  parseRevealPayload,
   parseSettlePayload,
   parseSiegeOutpostSweepPayload,
   parseSetMusterPayload,
@@ -327,6 +306,17 @@ import {
   type AetherWallSegment
 } from "../runtime-ability-helpers.js";
 import {
+  handleAetherLanceCommand as handleAetherLanceCommandImpl,
+  handleCastAetherBridgeCommand as handleCastAetherBridgeCommandImpl,
+  handleCastAetherWallCommand as handleCastAetherWallCommandImpl,
+  handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl,
+  handleRevealEmpireCommand as handleRevealEmpireCommandImpl,
+  handleRevealEmpireStatsCommand as handleRevealEmpireStatsCommandImpl,
+  handleSurveySweepCommand as handleSurveySweepCommandImpl,
+  type RuntimeAbilityCommandContext
+} from "../runtime-ability-command-handlers.js";
+import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js";
+import {
   adjustOwnedStructureCount as adjustOwnedStructureCountImpl,
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
   ownedStructureCountsForPlayer as ownedStructureCountsForPlayerImpl,
@@ -390,13 +380,6 @@ const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 export { FOREST_SETTLEMENT_MULT, MAX_SETTLE_DURATION_MS, SETTLE_DURATION_MS };
 const RESPAWN_MINIMUM_GOLD = 100;
 export { settlementBaseDurationMsForTile, settlementDurationMsForPlayer };
-
-type SurveySweepPingKind = "resource" | "town";
-type SurveySweepPing = {
-  x: number;
-  y: number;
-  kind: SurveySweepPingKind;
-};
 
 // Grace beyond resolvesAt before the sweep drops a lock. Normal locks resolve
 // inside their setTimeout window; anything still present 60s after its scheduled
@@ -3539,649 +3522,70 @@ export class SimulationRuntime {
     });
   }
 
+  private abilityCommandContext(): RuntimeAbilityCommandContext {
+    return {
+      players: this.players,
+      tiles: this.tiles,
+      activeAetherBridgesByPlayer: this.activeAetherBridgesByPlayer,
+      activeAetherWallsByPlayer: this.activeAetherWallsByPlayer,
+      now: this.now,
+      emitEvent: (event) => this.emitEvent(event),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
+      revealTargetsForPlayer: (playerId) => this.revealTargetsForPlayer(playerId),
+      revealCapacityForPlayer: (player) => this.revealCapacityForPlayer(player),
+      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
+      pickReadyOwnedObservatoryAny: (playerId, now) => this.pickReadyOwnedObservatoryAny(playerId, now),
+      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) =>
+        this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
+      stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
+        this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
+      buildRevealEmpireStats: (target) => this.buildRevealEmpireStats(target),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
+        this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      isCoastalLand: (x, y) => this.isCoastalLand(x, y),
+      closestAetherBridgeOrigin: (playerId, targetX, targetY) =>
+        this.closestAetherBridgeOrigin(playerId, targetX, targetY),
+      wallSegments: (originX, originY, direction, length) => this.wallSegments(originX, originY, direction, length),
+      activeAetherBridgesForPlayer: (playerId) => this.activeAetherBridgesForPlayer(playerId),
+      activeAetherWallsForPlayer: (playerId) => this.activeAetherWallsForPlayer(playerId),
+      crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
+        this.crossingBlockedByAetherWall(fromX, fromY, toX, toY)
+    };
+  }
+
   private handleRevealEmpireCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseRevealPayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    if (!actor.techIds.has("cryptography") && this.revealTargetsForPlayer(actor.id).size === 0) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REVEAL_EMPIRE_INVALID",
-        message: "unlock reveal capability via tech/domain first"
-      });
-      return;
-    }
-    if (payload.targetPlayerId === actor.id) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REVEAL_EMPIRE_INVALID",
-        message: "cannot reveal yourself"
-      });
-      return;
-    }
-    if (!this.players.has(payload.targetPlayerId) || actor.allies.has(payload.targetPlayerId)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REVEAL_EMPIRE_INVALID",
-        message: "target empire not found or not hostile"
-      });
-      return;
-    }
-    const reveals = this.revealTargetsForPlayer(actor.id);
-    if (reveals.has(payload.targetPlayerId)) {
-      reveals.delete(payload.targetPlayerId);
-    } else {
-      if (this.revealCapacityForPlayer(actor) < 1 || reveals.size >= 1) {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "REVEAL_EMPIRE_INVALID",
-          message: "only one revealed empire allowed"
-        });
-        return;
-      }
-      if (!this.spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_ACTIVATION_COST)) {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "REVEAL_EMPIRE_INVALID",
-          message: "insufficient crystal to activate reveal"
-        });
-        return;
-      }
-      reveals.clear();
-      reveals.add(payload.targetPlayerId);
-    }
-    this.emitPlayerMessage(command, {
-      type: "REVEAL_EMPIRE_UPDATE",
-      activeTargets: [...reveals].sort(),
-      revealCapacity: this.revealCapacityForPlayer(actor)
-    });
+    handleRevealEmpireCommandImpl(this.abilityCommandContext(), command);
   }
 
   private handleRevealEmpireStatsCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseRevealPayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const target = this.players.get(payload.targetPlayerId);
-    if (!actor.techIds.has("surveying")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REVEAL_EMPIRE_STATS_INVALID",
-        message: "requires Surveying"
-      });
-      return;
-    }
-    if (!target || payload.targetPlayerId === actor.id || actor.allies.has(payload.targetPlayerId)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REVEAL_EMPIRE_STATS_INVALID",
-        message: "target empire not found or not hostile"
-      });
-      return;
-    }
-    const revealNow = this.now();
-    const revealObservatoryKey = this.pickReadyOwnedObservatoryAny(actor.id, revealNow);
-    if (!revealObservatoryKey) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REVEAL_EMPIRE_STATS_INVALID",
-        message: "no ready observatory available"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_STATS_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "REVEAL_EMPIRE_STATS_INVALID",
-        message: "insufficient CRYSTAL for empire stats reveal"
-      });
-      return;
-    }
-    this.stampObservatoryCooldown(revealObservatoryKey, REVEAL_EMPIRE_STATS_COOLDOWN_MS, revealNow, command.commandId, command.playerId);
-    this.emitPlayerMessage(command, {
-      type: "REVEAL_EMPIRE_STATS_RESULT",
-      stats: this.buildRevealEmpireStats(target)
-    });
-  }
-
-  private surveySweepPingKind(tile: DomainTileState): SurveySweepPingKind | undefined {
-    if (tile.town) return "town";
-    if (tile.resource === "GEMS" || tile.resource === "IRON" || tile.resource === "WOOD") return "resource";
-    return undefined;
-  }
-
-  private buildSurveySweepPings(playerId: string, centerX: number, centerY: number): SurveySweepPing[] {
-    const pings: SurveySweepPing[] = [];
-    for (let dy = -SURVEY_SWEEP_HALF_EXTENT; dy < SURVEY_SWEEP_HALF_EXTENT; dy += 1) {
-      const y = ((centerY + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
-      for (let dx = -SURVEY_SWEEP_HALF_EXTENT; dx < SURVEY_SWEEP_HALF_EXTENT; dx += 1) {
-        const x = ((centerX + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
-        const tile = this.tiles.get(simulationTileKey(x, y));
-        if (!tile) continue;
-        const kind = this.surveySweepPingKind(tile);
-        if (!kind) continue;
-        if (this.filterTileDeltasForPlayer([this.tileDeltaFromState(tile)], playerId).length > 0) continue;
-        pings.push({ x, y, kind });
-      }
-    }
-    return pings.sort((left, right) => left.kind.localeCompare(right.kind) || left.y - right.y || left.x - right.x);
+    handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command);
   }
 
   private handleSurveySweepCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    if (!actor.techIds.has("surveying")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SURVEY_SWEEP_INVALID",
-        message: "requires Surveying"
-      });
-      return;
-    }
-    const observatoryKey = simulationTileKey(payload.x, payload.y);
-    const observatoryTile = this.tiles.get(observatoryKey);
-    const observatory = observatoryTile?.observatory;
-    if (
-      !observatoryTile ||
-      observatoryTile.ownerId !== actor.id ||
-      observatoryTile.terrain !== "LAND" ||
-      !observatory ||
-      observatory.ownerId !== actor.id ||
-      observatory.status !== "active"
-    ) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SURVEY_SWEEP_INVALID",
-        message: "target an active owned observatory"
-      });
-      return;
-    }
-    const now = this.now();
-    if ((observatory.cooldownUntil ?? 0) > now) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SURVEY_SWEEP_INVALID",
-        message: "observatory is cooling down"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", SURVEY_SWEEP_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SURVEY_SWEEP_INVALID",
-        message: "insufficient CRYSTAL for survey sweep"
-      });
-      return;
-    }
-    const pings = this.buildSurveySweepPings(actor.id, observatoryTile.x, observatoryTile.y);
-    this.stampObservatoryCooldown(observatoryKey, SURVEY_SWEEP_COOLDOWN_MS, now, command.commandId, command.playerId);
-    this.emitPlayerMessage(command, {
-      type: "SURVEY_SWEEP_RESULT",
-      center: { x: observatoryTile.x, y: observatoryTile.y },
-      halfExtent: SURVEY_SWEEP_HALF_EXTENT,
-      pings
-    });
-    this.emitPlayerMessage(command, {
-      type: "PLAYER_UPDATE",
-      points: actor.points,
-      strategicResources: actor.strategicResources
-    });
+    handleSurveySweepCommandImpl(this.abilityCommandContext(), command);
   }
 
   private handleAetherLanceCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!actor.techIds.has("signal-fires")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "requires Signal Fires"
-      });
-      return;
-    }
-    const targetIsPurgeableOwnership = target?.ownershipState === "SETTLED" || target?.ownershipState === "FRONTIER";
-    if (
-      !target ||
-      target.terrain !== "LAND" ||
-      !target.ownerId ||
-      target.ownerId === actor.id ||
-      actor.allies.has(target.ownerId) ||
-      !targetIsPurgeableOwnership
-    ) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "target hostile settled or frontier land"
-      });
-      return;
-    }
-    if (this.isTileShieldedByEnemyAegisDome(actor.id, target.x, target.y)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "blocked by an Aegis Dome"
-      });
-      return;
-    }
-    const lanceNow = this.now();
-    const lanceObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, lanceNow);
-    if (!lanceObservatoryKey) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "no ready observatory in range"
-      });
-      return;
-    }
-    if (actor.points < AETHER_LANCE_GOLD_COST) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "insufficient gold for aether purge"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", AETHER_LANCE_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_LANCE_INVALID",
-        message: "insufficient CRYSTAL for aether purge"
-      });
-      return;
-    }
-    actor.points -= AETHER_LANCE_GOLD_COST;
-    this.stampObservatoryCooldown(lanceObservatoryKey, AETHER_LANCE_COOLDOWN_MS, lanceNow, command.commandId, command.playerId);
-    const updatedTile: DomainTileState = {
-      ...target,
-      ownerId: undefined,
-      ownershipState: undefined,
-      frontierDecayAt: undefined,
-      frontierDecayKind: undefined
-    };
-    this.replaceTileState(targetKey, updatedTile, command.commandId);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
-    this.emitPlayerMessage(command, {
-      type: "PLAYER_UPDATE",
-      points: actor.points,
-      strategicResources: actor.strategicResources
-    });
+    handleAetherLanceCommandImpl(this.abilityCommandContext(), command);
   }
 
   private handleCastAetherBridgeCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const target = this.tiles.get(simulationTileKey(payload.x, payload.y));
-    if (!actor.techIds.has("navigation")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_BRIDGE_INVALID",
-        message: "requires Aether Bridge"
-      });
-      return;
-    }
-    if (!target || !this.isCoastalLand(target.x, target.y)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_BRIDGE_INVALID",
-        message: "target must be coastal land"
-      });
-      return;
-    }
-    const origin = this.closestAetherBridgeOrigin(actor.id, target.x, target.y);
-    if (!origin) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_BRIDGE_INVALID",
-        message: "no settled coastal tile can reach this target"
-      });
-      return;
-    }
-    const bridgeNow = this.now();
-    const bridgeObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, bridgeNow);
-    if (!bridgeObservatoryKey) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_BRIDGE_INVALID",
-        message: "no ready observatory in range"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", AETHER_BRIDGE_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_BRIDGE_INVALID",
-        message: "insufficient CRYSTAL for aether bridge"
-      });
-      return;
-    }
-    this.stampObservatoryCooldown(bridgeObservatoryKey, AETHER_BRIDGE_COOLDOWN_MS, bridgeNow, command.commandId, command.playerId);
-    const active = this.activeAetherBridgesForPlayer(actor.id);
-    active.push({
-      bridgeId: `${command.commandId}:bridge`,
-      ownerId: actor.id,
-      from: origin,
-      to: { x: target.x, y: target.y },
-      startedAt: this.now(),
-      endsAt: this.now() + AETHER_BRIDGE_DURATION_MS
-    });
-    this.activeAetherBridgesByPlayer.set(actor.id, active);
-    this.emitPlayerMessage(command, {
-      type: "AETHER_BRIDGE_UPDATE",
-      bridges: active
-    });
+    handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command);
   }
 
   private handleCastAetherWallCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseAetherWallPayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    if (!actor.techIds.has("harborcraft")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_WALL_INVALID",
-        message: "requires Aether Moorings"
-      });
-      return;
-    }
-    const wallNow = this.now();
-    const wallObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, payload.x, payload.y, wallNow);
-    if (!wallObservatoryKey) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_WALL_INVALID",
-        message: "no ready observatory in range"
-      });
-      return;
-    }
-    const segments = this.wallSegments(payload.x, payload.y, payload.direction, payload.length);
-    for (const segment of segments) {
-      const base = this.tiles.get(simulationTileKey(segment.baseX, segment.baseY));
-      const outward = this.tiles.get(simulationTileKey(segment.toX, segment.toY));
-      if (!base || base.terrain !== "LAND" || base.ownerId !== actor.id || base.ownershipState !== "SETTLED") {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "AETHER_WALL_INVALID",
-          message: "wall must anchor on your settled land"
-        });
-        return;
-      }
-      if (!outward || outward.terrain !== "LAND" || outward.ownerId === actor.id) {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "AETHER_WALL_INVALID",
-          message: "wall must face passable land"
-        });
-        return;
-      }
-      if (this.crossingBlockedByAetherWall(segment.fromX, segment.fromY, segment.toX, segment.toY)) {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "AETHER_WALL_INVALID",
-          message: "that border already has an aether wall"
-        });
-        return;
-      }
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", AETHER_WALL_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "AETHER_WALL_INVALID",
-        message: "insufficient CRYSTAL for aether wall"
-      });
-      return;
-    }
-    this.stampObservatoryCooldown(wallObservatoryKey, AETHER_WALL_COOLDOWN_MS, wallNow, command.commandId, command.playerId);
-    const active = this.activeAetherWallsForPlayer(actor.id);
-    active.push({
-      wallId: `${command.commandId}:wall`,
-      ownerId: actor.id,
-      origin: { x: payload.x, y: payload.y },
-      direction: payload.direction,
-      length: payload.length,
-      startedAt: this.now(),
-      endsAt: this.now() + AETHER_WALL_DURATION_MS
-    });
-    this.activeAetherWallsByPlayer.set(actor.id, active);
-    this.emitPlayerMessage(command, {
-      type: "AETHER_WALL_UPDATE",
-      walls: active
-    });
-  }
-
-  private isActiveSiphon(tile: DomainTileState, now = this.now()): boolean {
-    return Boolean(tile.sabotage && tile.sabotage.endsAt > now);
-  }
-
-  private siphonableTileForActor(tile: DomainTileState | undefined, actor: DomainPlayer, now: number): tile is DomainTileState {
-    if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId)) return false;
-    if (!tile.town && !tile.resource) return false;
-    return !this.isActiveSiphon(tile, now);
+    handleCastAetherWallCommandImpl(this.abilityCommandContext(), command);
   }
 
   private handleSiphonTileCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.tiles.get(targetKey);
-    if (!actor.techIds.has("logistics")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIPHON_INVALID",
-        message: "requires Logistics"
-      });
-      return;
-    }
-    const siphonNow = this.now();
-    if (!this.siphonableTileForActor(target, actor, siphonNow)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIPHON_INVALID",
-        message: "target enemy-controlled town or resource tile"
-      });
-      return;
-    }
-    const siphonObservatoryKey = this.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, siphonNow);
-    if (!siphonObservatoryKey) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIPHON_INVALID",
-        message: "no ready observatory within 30 tiles of target"
-      });
-      return;
-    }
-    const affectedTiles: DomainTileState[] = [];
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        const candidate = this.tiles.get(simulationTileKey(target.x + dx, target.y + dy));
-        if (this.siphonableTileForActor(candidate, actor, siphonNow)) affectedTiles.push(candidate);
-      }
-    }
-    if (affectedTiles.length === 0) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIPHON_INVALID",
-        message: "no eligible town or resource tiles in siphon area"
-      });
-      return;
-    }
-    if (!this.spendStrategicResource(actor, "CRYSTAL", SIPHON_CRYSTAL_COST)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SIPHON_INVALID",
-        message: "insufficient CRYSTAL for siphon"
-      });
-      return;
-    }
-    this.stampObservatoryCooldown(siphonObservatoryKey, SIPHON_COOLDOWN_MS, siphonNow, command.commandId, command.playerId);
-    const endsAt = siphonNow + SIPHON_DURATION_MS;
-    const updatedTiles = affectedTiles.map((tile): DomainTileState => ({
-      ...tile,
-      sabotage: {
-        ownerId: actor.id,
-        endsAt,
-        outputMultiplier: 1 - SIPHON_SHARE
-      }
-    }));
-    for (const updatedTile of updatedTiles) this.replaceTileState(simulationTileKey(updatedTile.x, updatedTile.y), updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: updatedTiles.map((updatedTile) => this.tileDeltaFromState(updatedTile))
-    });
+    handleSiphonTileCommandImpl(this.abilityCommandContext(), command);
   }
 
   private handlePurgeSiphonCommand(command: CommandEnvelope): void {
-    this.emitEvent({
-      eventType: "COMMAND_REJECTED",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      code: "PURGE_SIPHON_INVALID",
-      message: "siphons cannot be purged"
-    });
+    handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command);
   }
 
   private handleCreateMountainCommand(command: CommandEnvelope): void {

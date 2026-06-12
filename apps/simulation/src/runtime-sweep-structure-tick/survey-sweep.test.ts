@@ -42,8 +42,10 @@ describe("survey sweep", () => {
             observatory: { ownerId: "player-1", status: "active" }
           },
           { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          { x: 25, y: 0, terrain: "LAND", resource: "IRON" },
           { x: 20, y: 20, terrain: "LAND", resource: "GEMS" },
           { x: 21, y: 20, terrain: "LAND", resource: "WOOD" },
+          { x: 0, y: 25, terrain: "LAND", resource: "IRON" },
           {
             x: 22,
             y: 20,
@@ -79,8 +81,10 @@ describe("survey sweep", () => {
     expect(payload.center).toEqual({ x: 0, y: 0 });
     expect(payload.halfExtent).toBe(25);
     expect(payload.pings).toEqual([
+      { x: 25, y: 0, kind: "resource" },
       { x: 20, y: 20, kind: "resource" },
       { x: 21, y: 20, kind: "resource" },
+      { x: 0, y: 25, kind: "resource" },
       { x: 22, y: 20, kind: "town" }
     ]);
     expect(payload.pings).not.toContainEqual({ x: 2, y: 0, kind: "resource" });
