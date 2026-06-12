@@ -22,3 +22,4 @@ packages/client/public/__build_sha.txt
 .local-data/
 package-lock.json
 packages/storybook/storybook-static/
+docs/load-results/
