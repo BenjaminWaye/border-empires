@@ -1,13 +1,13 @@
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
 import type { Terrain } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, FrontierCommandType } from "@border-empires/game-domain";
-import type { DockRouteDefinition } from "./dock-network.js";
-import type { RecoveredCommandHistory } from "./command-recovery.js";
-import type { RecoveredSimulationState } from "./event-recovery.js";
-import type { SimulationSeedProfile } from "./seed-state.js";
-import type { QueueLane } from "./command-lane.js";
+import type { DockRouteDefinition } from "./dock-network/dock-network.js";
+import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
+import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
+import type { SimulationSeedProfile } from "./seed-state/seed-state.js";
+import type { QueueLane } from "./command-lane/command-lane.js";
 import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
-import type { buildConnectedTownNetworkForPlayer } from "./economy-network.js";
+import type { buildConnectedTownNetworkForPlayer } from "./economy-network/economy-network.js";
 
 export type RuntimeTileYieldEconomyContext = {
   player: DomainPlayer;
@@ -79,6 +79,7 @@ export type LockRecord = {
 export type LockedCombatResolution = {
   result: LockedFrontierCombatResult;
   defenderGoldLoss: number;
+  targetRecentlyPillaged: boolean;
 };
 
 export type AetherWallDirection = "N" | "E" | "S" | "W";

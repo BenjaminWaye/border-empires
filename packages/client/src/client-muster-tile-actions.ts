@@ -1,4 +1,4 @@
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts

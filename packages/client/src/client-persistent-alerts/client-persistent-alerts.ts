@@ -1,0 +1,190 @@
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
+import type { ClientState } from "../client-state/client-state.js";
+import type { Tile } from "../client-types.js";
+
+export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
+
+export type PersistentAlertKind = "town_unfed";
+
+export type PersistentAlert = {
+  id: string;
+  kind: PersistentAlertKind;
+  title: string;
+  detail: string;
+  x: number;
+  y: number;
+  severity: "warn" | "error";
+};
+
+export type PersistentAlertLocator = {
+  id: string;
+  kind: PersistentAlertKind;
+  x: number;
+  y: number;
+  screenX: number;
+  screenY: number;
+  radius: number;
+};
+
+type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "persistentAlertLocators">;
+
+const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
+
+export const notificationCategoryForServerError = (code: string): NotificationCategory => {
+  if (code === "TOWN_UNFED") return "persistent_alert";
+  if (code === "SIMULATION_UNAVAILABLE" || code === "SERVER_STARTING") return "debug";
+  if (code.startsWith("TECH_") || code.startsWith("DOMAIN_")) return "action_feedback";
+  if (code === "COLLECT_EMPTY" || code === "COLLECT_COOLDOWN") return "action_feedback";
+  return "action_feedback";
+};
+
+export const persistentAlertsForState = (state: Pick<ClientState, "me" | "tiles">): PersistentAlert[] => {
+  const alerts: PersistentAlert[] = [];
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me) continue;
+    if (!shouldShowTownUnfedWarning(tile)) continue;
+    alerts.push({
+      id: `town_unfed:${tile.x},${tile.y}`,
+      kind: "town_unfed",
+      title: "Town unfed",
+      detail: `${townLabel(tile)} needs FOOD upkeep.`,
+      x: tile.x,
+      y: tile.y,
+      severity: "warn"
+    });
+  }
+  return alerts;
+};
+
+export const nearestPersistentAlerts = (
+  alerts: PersistentAlert[],
+  state: Pick<ClientState, "camX" | "camY">,
+  deps: { toroidDelta: (from: number, to: number, dim: number) => number; worldWidth: number; worldHeight: number },
+  limit: number
+): PersistentAlert[] => {
+  return [...alerts]
+    .sort((a, b) => {
+      const adx = deps.toroidDelta(state.camX, a.x, deps.worldWidth);
+      const ady = deps.toroidDelta(state.camY, a.y, deps.worldHeight);
+      const bdx = deps.toroidDelta(state.camX, b.x, deps.worldWidth);
+      const bdy = deps.toroidDelta(state.camY, b.y, deps.worldHeight);
+      return adx * adx + ady * ady - (bdx * bdx + bdy * bdy);
+    })
+    .slice(0, limit);
+};
+
+const locatorEdgePoint = (
+  targetScreen: { sx: number; sy: number },
+  canvas: { width: number; height: number },
+  inset: number
+): { x: number; y: number; angle: number } => {
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const dx = targetScreen.sx - cx;
+  const dy = targetScreen.sy - cy;
+  const safeDx = Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001 ? 0 : dx;
+  const safeDy = Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001 ? -1 : dy;
+  const scaleX = safeDx === 0 ? Number.POSITIVE_INFINITY : (safeDx > 0 ? canvas.width - inset - cx : inset - cx) / safeDx;
+  const scaleY = safeDy === 0 ? Number.POSITIVE_INFINITY : (safeDy > 0 ? canvas.height - inset - cy : inset - cy) / safeDy;
+  const scale = Math.max(0, Math.min(Math.abs(scaleX), Math.abs(scaleY)));
+  return {
+    x: Math.max(inset, Math.min(canvas.width - inset, cx + safeDx * scale)),
+    y: Math.max(inset, Math.min(canvas.height - inset, cy + safeDy * scale)),
+    angle: Math.atan2(safeDy, safeDx)
+  };
+};
+
+const isOnScreen = (point: { sx: number; sy: number }, canvas: { width: number; height: number }, margin: number): boolean =>
+  point.sx >= margin && point.sx <= canvas.width - margin && point.sy >= margin && point.sy <= canvas.height - margin;
+
+export const drawPersistentAlertLocators = (
+  state: PersistentAlertState & Pick<ClientState, "camX" | "camY">,
+  deps: {
+    ctx: CanvasRenderingContext2D;
+    canvas: HTMLCanvasElement;
+    worldToScreen: (wx: number, wy: number, size: number, halfW: number, halfH: number) => { sx: number; sy: number };
+    toroidDelta: (from: number, to: number, dim: number) => number;
+    size: number;
+    halfW: number;
+    halfH: number;
+    nowMs: number;
+  }
+): void => {
+  const allAlerts = persistentAlertsForState(state);
+  const alerts = nearestPersistentAlerts(
+    allAlerts,
+    state,
+    { toroidDelta: deps.toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT },
+    allAlerts.length
+  );
+  state.persistentAlertLocators = [];
+  if (alerts.length === 0) return;
+  const ctx = deps.ctx;
+  const canvas = deps.canvas;
+  const margin = 34;
+  const inset = 30;
+  ctx.save();
+  let drawnCount = 0;
+  for (const alert of alerts) {
+    if (drawnCount >= 3) break;
+    const projected = deps.worldToScreen(alert.x, alert.y, deps.size, deps.halfW, deps.halfH);
+    if (isOnScreen(projected, canvas, margin)) continue;
+    const edge = locatorEdgePoint(projected, canvas, inset);
+    const pulse = 0.78 + Math.sin(deps.nowMs / 260) * 0.12;
+    const radius = 20;
+    state.persistentAlertLocators.push({
+      id: alert.id,
+      kind: alert.kind,
+      x: alert.x,
+      y: alert.y,
+      screenX: edge.x,
+      screenY: edge.y,
+      radius
+    });
+    ctx.save();
+    ctx.translate(edge.x, edge.y);
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = "rgba(17, 23, 34, 0.92)";
+    ctx.strokeStyle = "rgba(255, 209, 102, 0.92)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.rotate(edge.angle);
+    ctx.fillStyle = "#ffd166";
+    ctx.beginPath();
+    ctx.moveTo(9, 0);
+    ctx.lineTo(-5, -8);
+    ctx.lineTo(-2, 0);
+    ctx.lineTo(-5, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.rotate(-edge.angle);
+    ctx.fillStyle = "#fff7d1";
+    ctx.font = "700 13px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("!", 0, 0);
+    ctx.restore();
+    drawnCount += 1;
+  }
+  ctx.restore();
+};
+
+export const persistentAlertLocatorAt = (
+  state: Pick<ClientState, "persistentAlertLocators">,
+  offsetX: number,
+  offsetY: number
+): PersistentAlertLocator | undefined => {
+  let best: PersistentAlertLocator | undefined;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const locator of state.persistentAlertLocators) {
+    const distance = Math.hypot(offsetX - locator.screenX, offsetY - locator.screenY);
+    if (distance > locator.radius + 8 || distance >= bestDistance) continue;
+    best = locator;
+    bestDistance = distance;
+  }
+  return best;
+};

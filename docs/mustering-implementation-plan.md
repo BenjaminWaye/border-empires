@@ -25,7 +25,7 @@
 2. **Run `pnpm test` after every phase.** If a previously-passing test breaks and
    the flag is OFF, you did something wrong — fix it before continuing.
 3. **All authoritative tile changes go through `SimulationRuntime.replaceTileState()`**
-   (`apps/simulation/src/runtime.ts`, search for `replaceTileState(`). Never
+   (`apps/simulation/src/runtime/runtime.ts`, search for `replaceTileState(`). Never
    mutate a tile object in the canonical map directly.
 4. **Line numbers in this doc may have drifted.** Always locate code by the quoted
    symbol/string via grep, not by line number alone.
@@ -42,19 +42,19 @@
 - **Manpower today** is a single per-player number: `DomainPlayer.manpower`
   (`packages/game-domain/src/index.ts`), cap & regen derived from the player's
   towns. Regen: `SimulationRuntime.playerManpowerRegenPerMinute()`
-  (`apps/simulation/src/runtime.ts`, ~line 1175). Constants in
+  (`apps/simulation/src/runtime/runtime.ts`, ~line 1175). Constants in
   `packages/shared/src/config.ts`: `MANPOWER_BASE_CAP`, `TOWN_MANPOWER_BY_TIER`,
   `ATTACK_MANPOWER_COST = 60`, `ATTACK_MANPOWER_MIN = 60`.
 - **Attack validation** is `validateFrontierCommand()` in
   `packages/game-domain/src/index.ts`. It currently checks
   `actor.manpower < manpowerMin`. This is the gate we change in Phase 5.
 - **Attack execution** is `SimulationRuntime.handleFrontierCommand(command, actionType)`
-  (`apps/simulation/src/runtime.ts`, ~line 2828). It deducts manpower today.
+  (`apps/simulation/src/runtime/runtime.ts`, ~line 2828). It deducts manpower today.
 - **Combat math** is `buildFrontierCombatPreview()` /
-  `defenseMultiplierForTile()` in `packages/shared/src/frontier-combat.ts`.
+  `defenseMultiplierForTile()` in `packages/shared/src/frontier-combat/frontier-combat.ts`.
 - **The existing outpost auto-attack ("sweep")** is `tickSweepStructure()`
-  (`apps/simulation/src/runtime-sweep-structure-tick.ts`), called from
-  `tickTerritoryAutomation()` (`apps/simulation/src/runtime-territory-automation-tick.ts`,
+  (`apps/simulation/src/runtime-sweep-structure-tick/runtime-sweep-structure-tick.ts`), called from
+  `tickTerritoryAutomation()` (`apps/simulation/src/runtime-territory-automation-tick/runtime-territory-automation-tick.ts`,
   ~lines 252 and 284). **It already implements a per-tile budget that accumulates
   and auto-attacks** — we reuse its accumulation half and delete its auto-attack
   from outposts.
@@ -62,7 +62,7 @@
   (search `SET_SIEGE_OUTPOST_SWEEP` across `apps/`). Copy its end-to-end wiring
   for the new muster commands.
 - **Client→server command types** are whitelisted in
-  `apps/realtime-gateway/src/supported-client-messages.ts` and validated in
+  `apps/realtime-gateway/src/supported-client-messages/supported-client-messages.ts` and validated in
   `packages/sim-protocol/src/index.ts`.
 - **Tile shape** is `Tile` in `packages/shared/src/types.ts`; its sim-side mirror
   is `DomainTileState` in `packages/game-domain/src/index.ts`; the client mirror
@@ -161,7 +161,7 @@ musters. Derived from the player's economy, mirroring how manpower regen is
 derived.
 
 **Files:**
-- `apps/simulation/src/runtime.ts`
+- `apps/simulation/src/runtime/runtime.ts`
 
 **Steps:**
 1. Find `playerManpowerRegenPerMinute(player)` (~line 1175) and the helper it
@@ -193,12 +193,12 @@ the player snapshot type.
 it. Copy the `SET_SIEGE_OUTPOST_SWEEP` wiring exactly.
 
 **Files:**
-- `apps/realtime-gateway/src/supported-client-messages.ts` — add `"SET_MUSTER"`
+- `apps/realtime-gateway/src/supported-client-messages/supported-client-messages.ts` — add `"SET_MUSTER"`
   and `"CLEAR_MUSTER"` to the whitelist (next to `SET_SIEGE_OUTPOST_SWEEP`).
 - `packages/sim-protocol/src/index.ts` — add payload validation for the two new
   command types (mirror the existing per-tile command payloads:
   `{ x, y, mode }` for SET_MUSTER, `{ x, y }` for CLEAR_MUSTER).
-- `apps/simulation/src/runtime.ts` — in the command dispatch (search the big
+- `apps/simulation/src/runtime/runtime.ts` — in the command dispatch (search the big
   `command.type !== "..."` guard list ~line 7167 AND the place where
   `SET_SIEGE_OUTPOST_SWEEP` is actually handled) add handling for `SET_MUSTER` /
   `CLEAR_MUSTER`.
@@ -217,7 +217,7 @@ it. Copy the `SET_SIEGE_OUTPOST_SWEEP` wiring exactly.
      the pool). Emit a tile delta.
 
 **Verify:**
-- Add a unit test `apps/simulation/src/muster-command.test.ts`: with the flag ON,
+- Add a unit test `apps/simulation/src/runtime-muster-tick/muster-command.test.ts`: with the flag ON,
   SET_MUSTER on an owned tile sets `tile.muster`; CLEAR_MUSTER removes it;
   SET_MUSTER on an enemy tile is rejected.
 - `pnpm test` green.
@@ -234,13 +234,13 @@ rate = their share of the player's logistics throughput (×depot bonus), capped 
 `MUSTER_TILE_CAP`. The pulled amount is **subtracted from `player.manpower`**.
 
 **Reference implementation to copy from:** the accumulation half of
-`tickSweepStructure()` (`apps/simulation/src/runtime-sweep-structure-tick.ts`,
+`tickSweepStructure()` (`apps/simulation/src/runtime-sweep-structure-tick/runtime-sweep-structure-tick.ts`,
 lines ~47–64) already does "regen a per-tile budget over elapsed time, capped,
 emit delta." Mirror it.
 
 **Files:**
-- New: `apps/simulation/src/runtime-muster-tick.ts`
-- `apps/simulation/src/runtime.ts` (wire the new tick into the loop)
+- New: `apps/simulation/src/runtime-muster-tick/runtime-muster-tick.ts`
+- `apps/simulation/src/runtime/runtime.ts` (wire the new tick into the loop)
 
 **Steps:**
 1. Write `tickMuster(input, nowMs)` that:
@@ -266,7 +266,7 @@ emit delta." Mirror it.
    manpower regen has been applied for the tick.
 
 **Verify:**
-- Test `apps/simulation/src/muster-tick.test.ts`: a player with a known
+- Test `apps/simulation/src/runtime-muster-tick/muster-tick.test.ts`: a player with a known
   throughput and one ADVANCE/HOLD flag accumulates the expected manpower after N
   simulated minutes; manpower is removed from the pool; amount caps at
   `MUSTER_TILE_CAP`; two flags each fill at half rate.
@@ -285,8 +285,8 @@ not the global pool. HOLD fires on player command; ADVANCE auto-fires.
 
 **Files:**
 - `packages/game-domain/src/index.ts` (`validateFrontierCommand`)
-- `apps/simulation/src/runtime.ts` (`handleFrontierCommand` — deduction)
-- `apps/simulation/src/runtime-muster-tick.ts` (ADVANCE auto-fire)
+- `apps/simulation/src/runtime/runtime.ts` (`handleFrontierCommand` — deduction)
+- `apps/simulation/src/runtime-muster-tick/runtime-muster-tick.ts` (ADVANCE auto-fire)
 
 **Steps:**
 1. **Validation.** In `validateFrontierCommand`, add an input field
@@ -335,10 +335,10 @@ changed.
 (already used by Phase 4's depot bonus) and (b) keep boosting attack power.
 
 **Files:**
-- `apps/simulation/src/runtime-territory-automation-tick.ts` (the two
+- `apps/simulation/src/runtime-territory-automation-tick/runtime-territory-automation-tick.ts` (the two
   `tickSweepStructure(...)` calls, ~lines 252 and 284)
-- `apps/simulation/src/runtime-sweep-structure-tick.ts`
-- `packages/shared/src/outpost-aura.ts` (attack-power aura — keep)
+- `apps/simulation/src/runtime-sweep-structure-tick/runtime-sweep-structure-tick.ts`
+- `packages/shared/src/outpost-aura/outpost-aura.ts` (attack-power aura — keep)
 
 **Steps:**
 1. Gate the two `tickSweepStructure(...)` calls behind `!MUSTER_SYSTEM_ENABLED`
@@ -376,9 +376,9 @@ heals slower when many forts are attacked at once (shared overflow).
   `packages/client/src/client-types.ts` — extend the `fort` object with
   `garrison: number`, `garrisonCap: number`, `garrisonUpdatedAt: number`.
 - New: `apps/simulation/src/runtime-fort-garrison-tick.ts`
-- `packages/shared/src/frontier-combat.ts` — garrison-based defense
+- `packages/shared/src/frontier-combat/frontier-combat.ts` — garrison-based defense
 - `packages/game-domain/src/index.ts` (`validateFrontierCommand`) — `requiredMuster`
-- `apps/simulation/src/runtime.ts` (`handleFrontierCommand`) — attrition on loss
+- `apps/simulation/src/runtime/runtime.ts` (`handleFrontierCommand`) — attrition on loss
 
 **Steps:**
 1. **Garrison cap** = `FORT_GARRISON_CAP_BY_VARIANT[variant]`. Set
@@ -489,9 +489,9 @@ rendering layer has them.
 planner CPU budget.
 
 **Files:**
-- `apps/simulation/src/automation-goap.ts` (action catalog)
-- `apps/simulation/src/automation-strategic-snapshot.ts` (preconditions)
-- `apps/simulation/src/frontier-command-planner.ts` (target selection — the known
+- `apps/simulation/src/ai/automation-goap.ts` (action catalog)
+- `apps/simulation/src/ai/automation-strategic-snapshot.ts` (preconditions)
+- `apps/simulation/src/ai/frontier-command-planner.ts` (target selection — the known
   CPU hot spot; do not make it heavier)
 
 **Steps:**
@@ -537,12 +537,12 @@ planner CPU budget.
 | Constants + flag | `packages/shared/src/config.ts` |
 | Tile shape | `packages/shared/src/types.ts`, `packages/game-domain/src/index.ts`, `packages/client/src/client-types.ts`, `apps/simulation/src/runtime-types.ts` |
 | Attack validation | `packages/game-domain/src/index.ts` (`validateFrontierCommand`) |
-| Attack execution / commands | `apps/simulation/src/runtime.ts` (`handleFrontierCommand`, command dispatch) |
-| Command whitelist + schema | `apps/realtime-gateway/src/supported-client-messages.ts`, `packages/sim-protocol/src/index.ts` |
-| Muster accumulation | NEW `apps/simulation/src/runtime-muster-tick.ts` |
+| Attack execution / commands | `apps/simulation/src/runtime/runtime.ts` (`handleFrontierCommand`, command dispatch) |
+| Command whitelist + schema | `apps/realtime-gateway/src/supported-client-messages/supported-client-messages.ts`, `packages/sim-protocol/src/index.ts` |
+| Muster accumulation | NEW `apps/simulation/src/runtime-muster-tick/runtime-muster-tick.ts` |
 | Fort garrison | NEW `apps/simulation/src/runtime-fort-garrison-tick.ts` |
-| Outpost sweep removal | `apps/simulation/src/runtime-territory-automation-tick.ts`, `runtime-sweep-structure-tick.ts` |
-| Combat math | `packages/shared/src/frontier-combat.ts` |
-| Reference for per-tile budget + auto-attack | `apps/simulation/src/runtime-sweep-structure-tick.ts`, `territory-automation.ts` |
+| Outpost sweep removal | `apps/simulation/src/runtime-territory-automation-tick/runtime-territory-automation-tick.ts`, `runtime-sweep-structure-tick.ts` |
+| Combat math | `packages/shared/src/frontier-combat/frontier-combat.ts` |
+| Reference for per-tile budget + auto-attack | `apps/simulation/src/runtime-sweep-structure-tick/runtime-sweep-structure-tick.ts`, `territory-automation.ts` |
 | Client visuals | `packages/client/src/` |
-| AI | `apps/simulation/src/automation-goap.ts`, `automation-strategic-snapshot.ts`, `frontier-command-planner.ts` |
+| AI | `apps/simulation/src/ai/automation-goap.ts`, `automation-strategic-snapshot.ts`, `frontier-command-planner.ts` |

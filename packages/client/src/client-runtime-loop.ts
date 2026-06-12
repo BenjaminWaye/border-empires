@@ -1,34 +1,35 @@
 import { isForestTile } from "./client-constants.js";
-import { ownObservatoryRange } from "./client-observatory-rules.js";
+import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
-import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
+import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay/client-frontier-overlay.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
-import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay.js";
-import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor.js";
+import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import {
   RENDERER_PROMPT_FPS_THRESHOLD,
   RENDERER_PROMPT_LOW_FPS_MS,
   shouldShowRendererPrompt
-} from "./client-renderer-prompt.js";
-import { resourceFor3DPopulation } from "./client-map-3d-population.js";
-import { effectiveFogDisabled } from "./client-map-reveal.js";
+} from "./client-renderer-prompt/client-renderer-prompt.js";
+import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
+import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import {
   fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,
   fortificationOverlayKindForTile
-} from "./client-fortification-overlays.js";
-import { structureAreaPreviewForTile } from "./client-structure-effects.js";
+} from "./client-fortification-overlays/client-fortification-overlays.js";
+import { structureAreaPreviewForTile } from "./client-structure-effects/client-structure-effects.js";
 import type { initClientDom } from "./client-dom.js";
-import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
-import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js";
-import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges.js";
-import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings.js";
-import type { ClientState } from "./client-state.js";
+import { clampOwnershipBorderWidth } from "./client-ownership-borders/client-ownership-borders.js";
+import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
+import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
+import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
+import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
-import { createVisibleTileDetailRequester } from "./client-visible-tile-detail.js";
-import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery.js";
+import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
+import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-frontier-recovery.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
-import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -1544,6 +1545,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     deps.drawMiniMap();
+    drawPersistentAlertLocators(state, {
+      ctx: deps.ctx,
+      canvas: deps.canvas,
+      worldToScreen: deps.worldToScreen,
+      toroidDelta: deps.toroidDelta,
+      size,
+      halfW,
+      halfH,
+      nowMs
+    });
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     deps.maybeRefreshForCamera(false);
     requestAnimationFrame(draw);

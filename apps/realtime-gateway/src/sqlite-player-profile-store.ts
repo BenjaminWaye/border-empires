@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "./player-profile-store.js";
+import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
 
 type Row = {
   player_id: string;

@@ -1,6 +1,6 @@
 # Gateway-App Code Review — 2026-04-20
 
-**File:** `apps/realtime-gateway/src/gateway-app.ts`  
+**File:** `apps/realtime-gateway/src/gateway-app/gateway-app.ts`
 **Triggered by:** Commit `0c877c8` (Phase 5 observability primary) added ~661 lines to this file alongside a 17-line `metrics.integration.test.ts`.  
 **Review focus:** Behavioral drift on the request path that could have been smuggled in alongside the metric wiring.  
 **Reviewer:** Claude Sonnet 4.6 (automated second-pass review)
@@ -121,7 +121,7 @@ The following request-path checks all pass:
 
 The Phase 5 metrics (`gateway_event_loop_max_ms`, `/metrics` endpoint, etc.) live in:
 - `apps/realtime-gateway/src/gateway-metrics.ts` (not reviewed here, assumed additive)
-- `apps/realtime-gateway/src/http-routes.ts` (metrics exposed as Prometheus text)
+- `apps/realtime-gateway/src/http-routes/http-routes.ts` (metrics exposed as Prometheus text)
 
 In `gateway-app.ts` the only Phase 5 additions appear to be:
 - The `recordGatewayEvent` helper + `recentGatewayEvents` ring buffer (lines 140–144)

@@ -82,7 +82,7 @@ wrong, you write a cache that helps 5% of cost.
 ### PR 2 — Per-tile score cache
 
 **Scope:**
-- New file `apps/simulation/src/ai-frontier-score-cache.ts` (≤300 lines).
+- New file `apps/simulation/src/ai/ai-frontier-score-cache.ts` (≤300 lines).
   Map of `tileKey → { score, validAtOwnershipVersion, validAtEconEpoch }`.
 - Hook into `frontier-command-planner.ts` scoring: lookup before
   computing; write back after.
@@ -101,7 +101,7 @@ lookup is cached). Cache hit-rate metric (`sim_ai_planner_cache_hits`,
 ### PR 3 — Frontier heap
 
 **Scope:**
-- New file `apps/simulation/src/ai-frontier-heap.ts` (≤300 lines).
+- New file `apps/simulation/src/ai/ai-frontier-heap.ts` (≤300 lines).
   Per-player max-heap of `{ tileKey, score }`.
 - Maintained incrementally by the cache invalidation hook from PR 2:
   when a tile's score changes, update its heap position.

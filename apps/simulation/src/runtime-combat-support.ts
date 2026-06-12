@@ -8,11 +8,11 @@ import {
   targetOutpostMult,
   type OutpostPosition
 } from "@border-empires/shared";
-import { simulationTileKey } from "./seed-state.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { strategicResourceForTile } from "./runtime-structure-rules.js";
+import { isTownInCaptureShock, strategicResourceForTile } from "./runtime-structure-rules/runtime-structure-rules.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
-import { effectiveVisionRadiusForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge.js";
+import { effectiveVisionRadiusForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export type RuntimeCombatSupportContext = {
   now: () => number;
@@ -184,9 +184,10 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       ? { ...rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers), attackerWon: true }
       : rollFrontierCombat(targetForCombat, lock.actionType, undefined, combatModifiers);
   const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
+  const targetRecentlyPillaged = isTownInCaptureShock(previousTarget?.town, ctx.now());
   const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, ctx.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
   const plunder =
-    combat.attackerWon && defender && targetWasSettled && previousTarget
+    combat.attackerWon && defender && targetWasSettled && previousTarget && !targetRecentlyPillaged
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
   const manpowerDelta = lock.actionType === "ATTACK" ? -attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff) : 0;
@@ -213,7 +214,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     winChance: combat.winChance,
     levelDelta: 0
   };
-  return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0 };
+  return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0, targetRecentlyPillaged };
 };
 
 export const barbarianProgressGain = (target: DomainTileState | undefined): number => {

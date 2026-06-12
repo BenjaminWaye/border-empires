@@ -1,6 +1,6 @@
 import { initClientDom } from "./client-dom.js";
-import type { ClientState } from "./client-state.js";
-import { techCurrentModsHtml } from "./client-tech-html.js";
+import type { ClientState } from "./client-state/client-state.js";
+import { techCurrentModsHtml } from "./client-tech-html/client-tech-html.js";
 
 export type ClientAppDom = ReturnType<typeof initClientDom>;
 

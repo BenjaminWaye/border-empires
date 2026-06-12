@@ -1,17 +1,19 @@
 import type { ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
-import { simulationTileKey } from "./seed-state.js";
-import type { DockRouteDefinition } from "./dock-network.js";
-import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
-import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
+import type { DockRouteDefinition } from "./dock-network/dock-network.js";
+import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
+import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { LockRecord, StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
-import { visionRadiusBonusForPlayer } from "./tech-domain-bridge.js";
+import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { Terrain } from "@border-empires/shared";
-import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./planner-world-view.js";
-import { buildPlannerTileSlice, toPlannerTileView } from "./planner-world-view-slice.js";
+import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
+import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
+import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
+import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
 export const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {
   const scopedKeys = new Set<string>();
@@ -116,96 +118,6 @@ export type RuntimePlayerDebugSnapshot = Array<{
   hasAnyLock: boolean;
   allies: string[];
 }>;
-
-type SnapshotExportInput = {
-  tiles: ReadonlyMap<string, DomainTileState>;
-  locksByCommandId: ReadonlyMap<string, LockRecord>;
-  players: ReadonlyMap<string, DomainPlayer>;
-  pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
-  tileYieldCollectedAtByTile: ReadonlyMap<string, number>;
-  playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>;
-  docks: readonly DockRouteDefinition[];
-  recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
-  incomePerMinuteForPlayer: (playerId: string) => number;
-  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-};
-
-export function buildRuntimeSnapshotSections(input: SnapshotExportInput): SimulationSnapshotSections {
-  return {
-    initialState: {
-      tiles: [...input.tiles.values()]
-        .map((tile) => ({
-          x: tile.x,
-          y: tile.y,
-          terrain: tile.terrain,
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dockId: tile.dockId } : {}),
-          ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
-          ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-          ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-          ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-          ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-          ...(tile.town ? { town: tile.town } : {}),
-          ...(tile.fort ? { fort: tile.fort } : {}),
-          ...(tile.observatory ? { observatory: tile.observatory } : {}),
-          ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
-          ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-          ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
-        }))
-        .sort((left, right) => left.x - right.x || left.y - right.y),
-      activeLocks: [...input.locksByCommandId.values()]
-        .map((lock) => ({
-          commandId: lock.commandId,
-          playerId: lock.playerId,
-          actionType: lock.actionType,
-          originX: lock.originX,
-          originY: lock.originY,
-          targetX: lock.targetX,
-          targetY: lock.targetY,
-          originKey: lock.originKey,
-          targetKey: lock.targetKey,
-          resolvesAt: lock.resolvesAt,
-          ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
-        }))
-        .sort((left, right) => left.commandId.localeCompare(right.commandId)),
-      players: [...input.players.values()]
-        .map((player) => ({
-          id: player.id,
-          ...(player.name ? { name: player.name } : {}),
-          isAi: player.isAi,
-          points: player.points,
-          manpower: player.manpower,
-          ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
-          ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
-          techIds: [...player.techIds].sort(),
-          domainIds: [...(player.domainIds ?? [])].sort(),
-          ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
-          strategicResources: { ...(player.strategicResources ?? {}) },
-          allies: [...player.allies].sort(),
-          vision: player.mods?.vision ?? 1,
-          visionRadiusBonus: visionRadiusBonusForPlayer(player),
-          incomeMultiplier: player.mods?.income ?? 1,
-          incomePerMinute: input.incomePerMinuteForPlayer(player.id),
-          ownedTownTileKeys: [...input.summaryForPlayer(player.id).ownedTownTierByTile.keys()]
-        }))
-        .sort((left, right) => left.id.localeCompare(right.id)),
-      pendingSettlements: sortedPendingSettlements(input.pendingSettlementsByTile),
-      tileYieldCollectedAtByTile: sortedCollectionEpochs(input.tileYieldCollectedAtByTile, "tileKey"),
-      playerYieldCollectionEpochByPlayer: sortedCollectionEpochs(input.playerYieldCollectionEpochByPlayer, "playerId"),
-      ...(input.docks.length
-        ? {
-            docks: input.docks.map((dock) => ({
-              dockId: dock.dockId,
-              tileKey: dock.tileKey,
-              pairedDockId: dock.pairedDockId,
-              ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
-            }))
-          }
-        : {})
-    },
-    commandEvents: buildSimulationSnapshotCommandEvents(input.recordedEventsByCommandId)
-  };
-}
 
 type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
   terrainEpoch: number;
@@ -416,6 +328,7 @@ type PlannerExportInput = {
   plannerGatingLockPlayerIds: () => Set<string>;
   refreshManpowerOnly: (player: DomainPlayer) => void;
   plannerPlayerTileKeys: (playerId: string, summary: PlayerRuntimeSummary) => PlannerTileKeys;
+  ownedStructureCountsForPlayer: (playerId: string) => PlannerOwnedStructureCounts;
   estimatedIncomePerMinuteForPlayer: (playerId: string) => number;
 };
 
@@ -461,7 +374,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
       buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
       pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
-      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+      ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId)
     });
   }
   return players;

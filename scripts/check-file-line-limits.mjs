@@ -59,25 +59,31 @@ const readBaseFile = (baseRef, filePath) => {
 };
 
 const parseChangedFiles = (baseRef) => {
-  const output = git(["diff", "--name-status", "--diff-filter=ACMRT", baseRef, "--"]);
+  const output = git(["diff", "--name-status", "-M", "--diff-filter=ACMRT", baseRef, "--"]);
   const trackedFiles = output ? output.split("\n")
     .map((line) => line.split("\t"))
-    .map((parts) => parts[0]?.startsWith("R") ? parts[2] : parts[1])
-    .filter(Boolean)
-    .filter(isSourceFile) : [];
+    .map((parts) => parts[0]?.startsWith("R")
+      ? { filePath: parts[2], basePath: parts[1] }
+      : { filePath: parts[1], basePath: parts[1] })
+    .filter((entry) => entry.filePath)
+    .filter((entry) => isSourceFile(entry.filePath)) : [];
   const untrackedOutput = git(["ls-files", "--others", "--exclude-standard"]);
-  const untrackedFiles = untrackedOutput ? untrackedOutput.split("\n").filter(isSourceFile) : [];
-  return [...new Set([...trackedFiles, ...untrackedFiles])];
+  const untrackedFiles = untrackedOutput
+    ? untrackedOutput.split("\n")
+      .filter(isSourceFile)
+      .map((filePath) => ({ filePath, basePath: filePath }))
+    : [];
+  return [...new Map([...trackedFiles, ...untrackedFiles].map((entry) => [entry.filePath, entry])).values()];
 };
 
 const baseRef = resolveBaseRef();
 const changedFiles = parseChangedFiles(baseRef);
 const failures = [];
 
-for (const filePath of changedFiles) {
+for (const { filePath, basePath } of changedFiles) {
   if (!existsSync(filePath)) continue;
   const currentLines = countLines(readFileSync(filePath, "utf8"));
-  const baseText = readBaseFile(baseRef, filePath);
+  const baseText = readBaseFile(baseRef, basePath);
   const baseLines = baseText === undefined ? undefined : countLines(baseText);
 
   if (baseLines === undefined) {

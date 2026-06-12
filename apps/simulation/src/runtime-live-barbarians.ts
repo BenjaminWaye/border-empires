@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationTileWireDelta, RuntimePlayer } from "./runtime-types.js";
-import { simulationTileKey } from "./seed-state.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
 export type SeedLiveBarbariansResult = {

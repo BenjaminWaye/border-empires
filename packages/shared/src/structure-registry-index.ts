@@ -1,4 +1,4 @@
-import type { StructureSpec } from "./structure-registry.js";
+import type { StructureSpec } from "./structure-registry/structure-registry.js";
 import { FORT_SPECS } from "./structure-registry-fort.js";
 import { OBSERVATORY_SPEC } from "./structure-registry-observatory.js";
 import { LIGHT_OUTPOST_SPEC, OUTPOST_SPECS } from "./structure-registry-outpost.js";

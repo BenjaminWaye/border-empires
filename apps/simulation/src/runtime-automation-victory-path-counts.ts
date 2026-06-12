@@ -1,4 +1,4 @@
-import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
+import type { AutomationVictoryPath } from "./ai/automation-strategic-snapshot.js";
 
 export const rememberedAutomationVictoryPathCounts = (
   rememberedAutomationVictoryPathByPlayer: ReadonlyMap<string, AutomationVictoryPath>

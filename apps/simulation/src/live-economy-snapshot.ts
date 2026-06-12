@@ -1,9 +1,9 @@
 import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT } from "@border-empires/game-domain";
 import { shouldYieldAt } from "./event-loop-yield.js";
-import { buildDockLinksByDockTileKey } from "./dock-network.js";
-import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network.js";
-import { chosenTrickleRateForPlayer } from "./tech-domain-bridge.js";
+import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
+import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
+import { chosenTrickleRateForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
   type RuntimeState,
   type LivePlayerEconomySnapshot,

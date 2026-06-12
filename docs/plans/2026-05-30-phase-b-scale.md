@@ -48,7 +48,7 @@ cat docs/load-results/concurrent-*.json | tail -1   # note the cliffLevel
 
 ## PR B1 — Gateway: bootstrap admission control
 
-**File touched:** `apps/realtime-gateway/src/gateway-app.ts` (this one file only).
+**File touched:** `apps/realtime-gateway/src/gateway-app/gateway-app.ts` (this one file only).
 **No sim changes. No proto changes. No client changes.**
 **What it does:** rejects a bootstrap with `SERVER_BUSY` when (a) too many bootstraps are
 already running, or (b) the same player bootstrapped too recently. This is purely additive —
@@ -173,9 +173,9 @@ rmdir apps/realtime-gateway/packages/game-domain apps/realtime-gateway/packages 
 
 ### Step B1.5 — Self-review checklist (all must be true)
 
-- [ ] You changed exactly one file: `apps/realtime-gateway/src/gateway-app.ts`.
+- [ ] You changed exactly one file: `apps/realtime-gateway/src/gateway-app/gateway-app.ts`.
 - [ ] `bootstrapsInFlight += 1` happens exactly once (in B1.2) and `-= 1` happens exactly
-      once (in B1.3, inside `finally`). Search the file: `grep -n "bootstrapsInFlight" apps/realtime-gateway/src/gateway-app.ts` should show exactly 5 lines (1 declare, 1 in guard read, 1 in log, 1 increment, 1 decrement).
+      once (in B1.3, inside `finally`). Search the file: `grep -n "bootstrapsInFlight" apps/realtime-gateway/src/gateway-app/gateway-app.ts` should show exactly 5 lines (1 declare, 1 in guard read, 1 in log, 1 increment, 1 decrement).
 - [ ] The `SERVER_BUSY` response has exactly these keys: `type`, `code`, `retryAfterMs`, `message`.
 - [ ] `pnpm --filter @border-empires/realtime-gateway test` passes.
 - [ ] `/healthz` returned 200 in the smoke test.
@@ -195,7 +195,7 @@ flyctl logs -a border-empires-combined | grep gateway_bootstrap_admission_reject
 
 ## PR B2 — Client: respect `SERVER_BUSY`
 
-**File touched:** `packages/client/src/client-network.ts` (this one file) plus the changelog.
+**File touched:** `packages/client/src/client-network/client-network.ts` (this one file) plus the changelog.
 **What it does:** routes the new `SERVER_BUSY` error into the client's EXISTING reconnect
 backoff (it already does exponential backoff with jitter — you are not building new backoff,
 just adding one error code to the existing path).

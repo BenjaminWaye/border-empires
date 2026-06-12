@@ -1,6 +1,6 @@
 import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
 
-import type { SimulationSnapshotSections } from "./snapshot-store.js";
+import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 
 export type SeasonSummaryStore = {
   saveCurrentSummary(summary: CurrentSeasonSummary): Promise<void>;

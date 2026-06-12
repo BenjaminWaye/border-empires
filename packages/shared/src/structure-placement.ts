@@ -1,4 +1,4 @@
-import type { BuildableStructureType } from "./structure-costs.js";
+import type { BuildableStructureType } from "./structure-costs/structure-costs.js";
 import structurePlacementMetadataJson from "./structure-placement-metadata.json" with { type: "json" };
 import type { OwnershipState, PopulationTier, ResourceType } from "./types.js";
 

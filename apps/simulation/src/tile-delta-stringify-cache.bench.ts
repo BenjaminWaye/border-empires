@@ -15,7 +15,7 @@
  */
 import { bench, describe } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
+import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 
 const N = 8_000;
 

@@ -12,7 +12,7 @@ still blocks the sim worker long enough that
 occasionally see SIMULATION_UNAVAILABLE.
 
 The cause is the **broad-fallback path** in
-`apps/simulation/src/automation-command-planner.ts` (~line 520-545):
+`apps/simulation/src/ai/automation-command-planner.ts` (~line 520-545):
 
 ```ts
 if ((canAttack || canExpand) && !hasActionableFrontierAnalysis(frontierAnalysis) && input.frontierTiles.length > 0) {
@@ -44,7 +44,7 @@ thing."
 ## Scope (single PR)
 
 **Change one file:**
-`apps/simulation/src/automation-command-planner.ts`
+`apps/simulation/src/ai/automation-command-planner.ts`
 
 Add an early-return at the top of the fallback branch:
 
@@ -62,7 +62,7 @@ in the file. Don't inline.
 
 Add a metric: `sim_ai_broad_fallback_skipped_total{playerId}` — track
 how often the skip fires so we know if the threshold is well-tuned.
-Register in `apps/simulation/src/metrics.ts` (look for
+Register in `apps/simulation/src/metrics/metrics.ts` (look for
 `incrementSimAiPlannerBreaches` as the existing pattern).
 
 ## What NOT to do

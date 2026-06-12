@@ -1,8 +1,8 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
-import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region.js";
-import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
-import { ownObservatoryRange } from "./client-observatory-rules.js";
+import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
+import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
+import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import {
   activeTruceWithPlayerFromState,
   breakAllianceFromUi,
@@ -13,9 +13,10 @@ import {
   sendAllianceRequestFromUi,
   sendTruceRequestFromUi
 } from "./client-player-actions.js";
-import { createNextFrontierCommandIdentity } from "./client-frontier-command.js";
-import { recordClientDebugEvent } from "./client-debug.js";
-import { blockUnsupportedRewriteMessage } from "./client-send-message-guard.js";
+import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
+import { recordClientDebugEvent } from "./client-debug/client-debug.js";
+import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
+import { showVisibleActionWarning } from "./client-visible-action-warning.js";
 import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
@@ -49,7 +50,7 @@ import {
   settlementProgressForTile as settlementProgressForTileFromModule,
   syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
   type DevelopmentSlotSummary
-} from "./client-queue-logic.js";
+} from "./client-queue-logic/client-queue-logic.js";
 import {
   buildFortOnSelected as buildFortOnSelectedFromModule,
   buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
@@ -61,8 +62,8 @@ import {
   hideTileActionMenu as hideTileActionMenuFromModule,
   settleSelected as settleSelectedFromModule,
   uncaptureSelected as uncaptureSelectedFromModule
-} from "./client-selected-actions.js";
-import { showClientHoldBuildMenu } from "./client-ui-controls.js";
+} from "./client-selected-actions/client-selected-actions.js";
+import { showClientHoldBuildMenu } from "./client-ui-controls/client-ui-controls.js";
 import {
   aetherWallDirectionTargetTiles as aetherWallDirectionTargetTilesFromModule,
   beginCrystalTargeting as beginCrystalTargetingFromModule,
@@ -84,7 +85,7 @@ import {
   validAetherWallDirectionsForTile as validAetherWallDirectionsForTileFromModule,
   tileActionAvailability as tileActionAvailabilityFromModule,
   tileActionAvailabilityWithDevelopmentSlot as tileActionAvailabilityWithDevelopmentSlotFromModule
-} from "./client-tile-action-logic.js";
+} from "./client-tile-action-logic/client-tile-action-logic.js";
 import {
   chebyshevDistanceClient as chebyshevDistanceClientFromModule,
   hideTechLockedTileAction as hideTechLockedTileActionFromModule,
@@ -95,12 +96,12 @@ import {
   splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
   tileActionIsBuilding as tileActionIsBuildingFromModule,
   tileActionIsCrystal as tileActionIsCrystalFromModule
-} from "./client-tile-action-support.js";
+} from "./client-tile-action-support/client-tile-action-support.js";
 import {
   settledDefenseNearFortDomainModifiers,
   tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
-} from "./client-structure-effects.js";
-import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui.js";
+} from "./client-structure-effects/client-structure-effects.js";
+import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui/client-tile-action-menu-ui.js";
 import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
   constructionProgressForTile as constructionProgressForTileFromModule,
@@ -110,13 +111,13 @@ import {
   queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
-} from "./client-tile-menu-view.js";
-import { tileWithVisibleShardSite } from "./client-shard-rain-pings.js";
-import { neutralTileClickOutcome } from "./client-tile-interaction.js";
-import { planWaypoint } from "./client-waypoint-planner.js";
+} from "./client-tile-menu-view/client-tile-menu-view.js";
+import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
+import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
+import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
-import type { ClientState } from "./client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
 import type {
   ActiveTruceView,
   CrystalTargetingAbility,
@@ -129,7 +130,7 @@ import type {
   TileTimedProgress,
   TileVisibilityState
 } from "./client-types.js";
-import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
+import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -448,7 +449,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       queueDevelopmentAction,
       developmentSlotSummary,
       developmentSlotReason,
-      sendGameMessage,
+      showCaptureAlert, sendGameMessage,
       syncOptimisticSettlementTile,
       ...(opts ? { opts } : {})
     });
@@ -471,7 +472,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       queueDevelopmentAction,
       developmentSlotSummary,
       developmentSlotReason,
-      pushFeed,
+      pushFeed, showCaptureAlert,
       renderHud,
       sendGameMessage
     });
@@ -643,10 +644,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const attackPreviewPendingForTarget = (to: Tile): boolean =>
     attackPreviewPendingForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
 
-  const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { pushFeed, renderHud, sendGameMessage });
-  const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, renderHud, requestSettlement });
-  const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { pushFeed, renderHud, sendGameMessage });
-  const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, renderHud, sendGameMessage });
+  const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { pushFeed, showCaptureAlert, renderHud, sendGameMessage });
+  const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
+  const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { pushFeed, showCaptureAlert, renderHud, sendGameMessage });
+  const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage);
   const collectVisibleYield = (): void =>
     collectVisibleYieldFromModule(state, {
@@ -1112,12 +1113,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (actionId === "expand_here" && selected) {
-      const plan = planWaypoint(
-        { x: selected.x, y: selected.y },
-        { state, keyFor }
-      );
+      const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
       if (!plan.reachable) {
-        pushFeed("No expansion path to that tile.", "combat", "warn");
+        showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Action blocked", "No expansion path to that tile.");
         hideTileActionMenu();
         renderHud();
         return;
@@ -1152,6 +1150,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       if (queued > 0) processDevelopmentQueue();
       state.selected = origSelected;
+      if (queued <= 0) showCaptureAlert("Settlement blocked", "No settlements queued. Check gold and development slots.", "warn");
       pushFeed(
         queued > 0
           ? `Queued ${queued} settlements across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
@@ -1162,7 +1161,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
-
     if (actionId === "settle_land") {
       if (fromBulk) {
         const neutralTargets = targets.filter((k) => {
@@ -1171,7 +1169,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
         const out = queueSpecificTargets(neutralTargets);
         if (out.queued > 0) processActionQueue();
-        pushFeed(
+        if (out.queued <= 0) showCaptureAlert("Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough gold.", "warn"); pushFeed(
           out.queued > 0
             ? `Queued ${out.queued} frontier captures${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
             : "No frontier claims queued. Targets must touch your territory and you need enough gold.",
@@ -1186,7 +1184,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             processActionQueue();
             pushFeed(`Queued frontier capture at (${selected.x}, ${selected.y}).`, "combat", "info");
           } else {
-            pushFeed("Cannot claim this tile yet. It must touch your territory and you need enough gold.", "combat", "warn");
+            showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
           }
         } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
           if (requestSettlement(selected.x, selected.y)) pushFeed(`Settlement started at (${selected.x}, ${selected.y}).`, "combat", "info");

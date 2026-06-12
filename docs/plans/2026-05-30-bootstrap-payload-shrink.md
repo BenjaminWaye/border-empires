@@ -45,7 +45,7 @@ RPCs.
 
 **What to change:**
 
-1. **Sim side, `apps/simulation/src/runtime.ts:6477-6479`:**
+1. **Sim side, `apps/simulation/src/runtime/runtime.ts:6477-6479`:**
    ```ts
    ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
    ...(yieldView?.yieldRate ? { yieldRate: yieldView.yieldRate } : {}),  // ← drop
@@ -107,10 +107,10 @@ but saves another 80–120KB per bootstrap.
    (`type: "TERRAIN_MAP_REQUEST"` → `type: "TERRAIN_MAP"` response).
 
 3. **Strip fields from per-tile snapshot:**
-   - `apps/simulation/src/runtime.ts:3520-ish` (the tile shape in
+   - `apps/simulation/src/runtime/runtime.ts:3520-ish` (the tile shape in
      exportState — find where landBiome/regionType/clusterId are
      emitted; they may come from a separate enrichment step).
-   - Check `apps/simulation/src/live-snapshot-view.ts` for the same
+   - Check `apps/simulation/src/live-snapshot-view/live-snapshot-view.ts` for the same
      fields in the tile payload type.
 
 4. **Client side:**

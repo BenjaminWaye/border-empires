@@ -42,20 +42,20 @@ A 256KB `JSON.stringify` on the main thread blocks `/healthz`,
 WebSocket upgrades, **and the gRPC ack callback for any in-flight
 submit**, for 100-250ms per auth bootstrap. Multiple bootstraps stack.
 
-**The pattern already exists**: `apps/simulation/src/snapshot-stringifier.ts` +
+**The pattern already exists**: `apps/simulation/src/snapshot-stringifier/snapshot-stringifier.ts` +
 `apps/simulation/src/snapshot-stringify-worker.ts` is the sim's existing
 worker-based stringifier for snapshot persistence. **Mirror that exact
 pattern for the gateway.** Don't invent a new mechanism.
 
 **What to change**:
 
-1. Create `apps/realtime-gateway/src/gateway-stringify-worker.ts` —
+1. Create `apps/realtime-gateway/src/gateway-stringifier/gateway-stringify-worker.ts` —
    minimal worker that receives a payload, returns a string. Model on
    `apps/simulation/src/snapshot-stringify-worker.ts`.
-2. Create `apps/realtime-gateway/src/gateway-stringifier.ts` — wrapper
+2. Create `apps/realtime-gateway/src/gateway-stringifier/gateway-stringifier.ts` — wrapper
    that spawns the worker and exposes `stringify(payload): Promise<string>`.
-   Model on `apps/simulation/src/snapshot-stringifier.ts`.
-3. In `apps/realtime-gateway/src/gateway-app.ts:2257` (`sendJson(socket,
+   Model on `apps/simulation/src/snapshot-stringifier/snapshot-stringifier.ts`.
+3. In `apps/realtime-gateway/src/gateway-app/gateway-app.ts:2257` (`sendJson(socket,
    initMessage)`), the init-message stringify currently happens inside
    `sendJsonToSocket` (broadcast-payload.ts:23). For the **bootstrap
    init only** — not every WS message — use the worker. The dispatch
@@ -96,11 +96,11 @@ happen *after* the init actually leaves the socket, not before.
 
 **What to change**:
 
-1. **Sim side**: `apps/simulation/src/runtime.ts:3569` removes
+1. **Sim side**: `apps/simulation/src/runtime/runtime.ts:3569` removes
    `territoryTileKeys: [...summary.territoryTileKeys]` from the player
-   export. Check `apps/simulation/src/live-snapshot-view.ts` for the
+   export. Check `apps/simulation/src/live-snapshot-view/live-snapshot-view.ts` for the
    same field — there's a parallel export path. Also check
-   `apps/simulation/src/runtime.ts:3552-3577` for the full player
+   `apps/simulation/src/runtime/runtime.ts:3552-3577` for the full player
    shape; territoryTileKeys may be referenced in `exportState` and in
    the player subscription payload separately.
 2. **Audit client uses**: grep the client for `territoryTileKeys`. If
@@ -160,7 +160,7 @@ season. Sending them on every bootstrap is pure waste.
 
 ### Phase 4 — Nested-JSON-string fields → JSON objects
 
-**Why last**: biggest refactor, touches wire format (`apps/simulation/src/simulation-service.ts:1972-1985`
+**Why last**: biggest refactor, touches wire format (`apps/simulation/src/simulation-service/simulation-service.ts:1972-1985`
 defines the proto-compatible shape with `town_json`, `fort_json`, etc. as strings).
 
 Every per-tile structure field is currently double-encoded:
