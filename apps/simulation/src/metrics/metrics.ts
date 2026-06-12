@@ -157,6 +157,7 @@ export type SimulationMetricsSnapshot = {
   // Inner-loop breakdown for the runtime apply path.
   // Splits the per-call wall clock into yield computation vs tile-delta
   simCheckpointRssMb: number;
+  simCheckpointExportMs: QuantileSample;
   simCpuPercent: number;
   simHeapUsedMb: number;
   simHeapTotalMb: number;
@@ -238,6 +239,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiCommandCapSkippedTotal = 0;
   let simAiExpandDisabledTotal = 0;
   let simAiBuildDisabledTotal = 0;
+  const simCheckpointExportMs: number[] = [];
   let simCheckpointRssMb = 0;
   let simCpuPercent = 0;
   let simHeapUsedMb = 0;
@@ -309,6 +311,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       [...simRuntimeApplyMsByCommandType.entries()].map(([type, samples]) => [type, quantileSample(samples)])
     ),
     simCheckpointRssMb,
+    simCheckpointExportMs: quantileSample(simCheckpointExportMs),
     simCpuPercent,
     simHeapUsedMb,
     simHeapTotalMb,
@@ -443,6 +446,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         appendSample(target, laneDurationMs, limit);
       }
     },
+    observeSimCheckpointExportMs(value: number): void {
+      appendSample(simCheckpointExportMs, value, limit);
+    },
     setSimCheckpointRssMb(value: number): void {
       simCheckpointRssMb = clampMetric(value);
     },
@@ -534,6 +540,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_ai_settle_decision_top_score{quantile=\"p50\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p50)}`,
         `sim_ai_settle_decision_top_score{quantile=\"p95\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p95)}`,
         `sim_ai_settle_decision_top_score{quantile=\"p99\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p99)}`,
+        "# TYPE sim_checkpoint_export_ms gauge",
+        `sim_checkpoint_export_ms{quantile="p50"} ${formatMetricValue(sample.simCheckpointExportMs.p50)}`,
+        `sim_checkpoint_export_ms{quantile="p95"} ${formatMetricValue(sample.simCheckpointExportMs.p95)}`,
+        `sim_checkpoint_export_ms{quantile="p99"} ${formatMetricValue(sample.simCheckpointExportMs.p99)}`,
         "# TYPE sim_checkpoint_rss_mb gauge",
         `sim_checkpoint_rss_mb ${formatMetricValue(sample.simCheckpointRssMb)}`,
         "# TYPE sim_cpu_percent gauge",

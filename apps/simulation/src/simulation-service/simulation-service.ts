@@ -1039,6 +1039,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   } catch {
     gcObserver = undefined;
   }
+  let checkpointSaveStartMs = 0;
   const snapshotCheckpointManager = createSnapshotCheckpointManager({
     eventStore,
     snapshotStore,
@@ -1062,6 +1063,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       : {}),
     onCheckpointPhase: ({ phase, pendingEvents, memoryUsage, lastAppliedEventId }) => {
       simulationMetrics.setSimCheckpointRssMb(memoryUsage.rssBytes / (1024 * 1024));
+      if (phase === "before_save") checkpointSaveStartMs = Date.now();
+      if (phase === "after_save" && checkpointSaveStartMs > 0) {
+        simulationMetrics.observeSimCheckpointExportMs(Date.now() - checkpointSaveStartMs);
+        checkpointSaveStartMs = 0;
+      }
       log.info(
         {
           phase,
