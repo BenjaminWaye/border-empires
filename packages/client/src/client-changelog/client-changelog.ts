@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.12.4",
+  version: "2026.06.12.5",
   title: "What's New",
-  summary: "Muster system overhaul: faster staging, manpower returned on clear, 5-tile limit, flag visible above all overlays.",
+  summary: "Bulk action blockers now show one clear warning instead of overwriting specific alert details.",
   entries: [
+    {
+      introducedIn: "2026.06.12.5",
+      title: "Cleaner bulk action warnings",
+      why: "Bulk settlement and frontier-claim actions should not overwrite useful warning details with duplicate summary alerts.",
+      changes: [
+        "Connected-frontier settlement now suppresses per-tile warning popups while scanning the bulk selection, then shows one summary warning if nothing queued.",
+        "Bulk frontier claims now use the same visible warning path as single-tile claims."
+      ]
+    },
     {
       introducedIn: "2026.06.12.4",
       title: "Muster system overhaul",
