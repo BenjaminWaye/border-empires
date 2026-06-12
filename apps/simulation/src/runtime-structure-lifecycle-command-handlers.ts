@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_MAX_TILES, MUSTER_SYSTEM_ENABLED, structureBuildDurationMs } from "@border-empires/shared";
+import { MUSTER_ATTACK_COST, MUSTER_MAX_TILES, MUSTER_SYSTEM_ENABLED, structureBuildDurationMs } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import {
   parseClearMusterPayload,
@@ -106,6 +106,13 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
   };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
+  // Broadcast stripped muster presence to all players so enemies see the flag.
+  context.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId: `${command.commandId}:bc`,
+    playerId: "__broadcast__",
+    tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, musterJson: JSON.stringify({ ownerId: command.playerId, mode: payload.mode, amount: MUSTER_ATTACK_COST, updatedAt: now }) }]
+  });
   context.emitPlayerStateUpdate(command);
 }
 
@@ -130,6 +137,13 @@ export function handleClearMusterCommand(context: RuntimeStructureCommandContext
     commandId: command.commandId,
     playerId: command.playerId,
     tileDeltas: [{ ...context.tileDeltaFromState(updatedTile), musterJson: "" }]
+  });
+  // Broadcast muster clear to all players so enemies see the flag removed.
+  context.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId: `${command.commandId}:bc`,
+    playerId: "__broadcast__",
+    tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, musterJson: "" }]
   });
   context.emitPlayerStateUpdate(command);
 }

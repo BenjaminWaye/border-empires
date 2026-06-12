@@ -16,8 +16,7 @@ import {
   TorusGeometry,
   WebGLRenderer
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_TILE_CAP } from "@border-empires/shared";
-const MUSTER_TILE_CAP_CLIENT = MUSTER_TILE_CAP;
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile } from "../client-constants.js";
@@ -1476,7 +1475,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // resource hint so the iron/crystal variant is exercised.
         // Muster flag + gathering soldiers: visible to anyone with vision.
         if (tile?.muster && terrain === "LAND") {
-          const fillRatio = Math.min(1, tile.muster.amount / MUSTER_TILE_CAP_CLIENT);
+          const fillRatio = Math.min(1, tile.muster.amount / MUSTER_ATTACK_COST);
           const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
           const advance = tile.muster.mode === "ADVANCE";
           musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy);

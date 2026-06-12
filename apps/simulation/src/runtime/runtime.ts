@@ -3307,6 +3307,14 @@ export class SimulationRuntime {
       playerId: command.playerId,
       tileDeltas: [this.tileDeltaFromState(updatedTile)]
     });
+    if (target.muster) {
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: `${command.commandId}:bc`,
+        playerId: "__broadcast__",
+        tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, musterJson: "" }]
+      });
+    }
     // Removing an owned tile can sever the supply path to downstream frontier
     // tiles — re-check encirclement connectivity from the now-vacant key.
     this.applyEncirclement([targetKey], command.playerId, command.commandId, { bfsCap: 2000 });
@@ -4400,6 +4408,7 @@ export class SimulationRuntime {
         ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
       };
       // Refund banked muster manpower to the previous owner on capture.
+      const hadMuster = Boolean(previousTarget?.muster);
       if (previousTarget?.muster?.ownerId && previousTarget.muster.amount > 0) {
         const musterOwner = this.players.get(previousTarget.muster.ownerId);
         if (musterOwner) {
@@ -4437,6 +4446,14 @@ export class SimulationRuntime {
         playerId: lock.playerId,
         tileDeltas
       });
+      if (hadMuster) {
+        this.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: `${lock.commandId}:bc`,
+          playerId: "__broadcast__",
+          tileDeltas: [{ x: resolvedTarget.x, y: resolvedTarget.y, musterJson: "" }]
+        });
+      }
       if (lock.playerId === "barbarian-1") {
         this.applyBarbarianWalkOrMultiply(lock, previousTarget);
       } else if (previousTarget?.ownerId === "barbarian-1") {

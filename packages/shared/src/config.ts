@@ -134,9 +134,8 @@ export const MUSTER_SYSTEM_ENABLED =
   process.env.MUSTER_SYSTEM_ENABLED === "true";
 
 // How much mustered manpower one ordinary attack costs (placeholder).
+// Also used as the fill-ratio reference for the muster flag animation.
 export const MUSTER_ATTACK_COST = 60;
-// Visual fill reference for the muster animation (dots reach max at this amount).
-export const MUSTER_TILE_CAP = 120;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
 // Max simultaneous muster tiles per player.

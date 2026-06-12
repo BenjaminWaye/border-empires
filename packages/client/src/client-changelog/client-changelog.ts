@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.12.5",
+  version: "2026.06.12.6",
   title: "What's New",
-  summary: "Bulk action blockers now show one clear warning instead of overwriting specific alert details.",
+  summary: "Enemy muster flags are now visible on the map — see where opponents are staging troops.",
   entries: [
+    {
+      introducedIn: "2026.06.12.6",
+      title: "Enemy muster flags visible",
+      why: "You couldn't see where enemies were staging manpower, making it impossible to respond before the attack launched.",
+      changes: [
+        "Muster flags placed by enemies now appear on your map in their empire color.",
+        "Flags disappear when an enemy clears their muster or the tile is captured.",
+        "Flag fills to show a ready-to-attack level — exact amount is hidden."
+      ]
+    },
     {
       introducedIn: "2026.06.12.5",
       title: "Cleaner bulk action warnings",
