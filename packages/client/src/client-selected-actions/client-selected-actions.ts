@@ -1,8 +1,14 @@
 import { COLLECT_VISIBLE_COOLDOWN_MS } from "../client-constants.js";
 import { gatewayBuildWirePayload } from "../client-queue-logic/client-queue-logic.js";
 import { visibleShardSiteForTile } from "../client-shard-rain-pings/client-shard-rain-pings.js";
+import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+
+const notifySelectedActionBlocked = (deps: SelectedActionDepsBase, title: string, detail: string): void => {
+  showVisibleActionWarning(deps, title, detail, "error");
+};
+type SelectedActionDepsBase = VisibleActionWarningDeps;
 
 export const hideHoldBuildMenu = (holdBuildMenuEl: HTMLElement): void => {
   holdBuildMenuEl.style.display = "none";
@@ -24,15 +30,14 @@ export const hideTileActionMenu = (
 
 export const buildFortOnSelected = (
   state: Pick<ClientState, "selected">,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+  deps: SelectedActionDepsBase & {
     renderHud: () => void;
     sendGameMessage: (payload: unknown) => boolean;
   }
 ): void => {
   const selected = state.selected;
   if (!selected) {
-    deps.pushFeed("Select an owned border/dock tile first.", "error", "warn");
+    notifySelectedActionBlocked(deps, "Action blocked", "Select an owned border/dock tile first.");
     deps.renderHud();
     return;
   }
@@ -41,22 +46,21 @@ export const buildFortOnSelected = (
 
 export const settleSelected = (
   state: Pick<ClientState, "selected" | "tiles" | "me">,
-  deps: {
+  deps: SelectedActionDepsBase & {
     keyFor: (x: number, y: number) => string;
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
     requestSettlement: (x: number, y: number) => boolean;
   }
 ): void => {
   const selected = state.selected;
   if (!selected) {
-    deps.pushFeed("Select a frontier tile first.", "error", "warn");
+    notifySelectedActionBlocked(deps, "Settlement blocked", "Select a frontier tile first.");
     deps.renderHud();
     return;
   }
   const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
   if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
-    deps.pushFeed("Selected tile is not one of your frontier tiles.", "error", "warn");
+    notifySelectedActionBlocked(deps, "Settlement blocked", "Selected tile is not one of your frontier tiles.");
     deps.renderHud();
     return;
   }
@@ -66,15 +70,14 @@ export const settleSelected = (
 
 export const buildSiegeOutpostOnSelected = (
   state: Pick<ClientState, "selected">,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+  deps: SelectedActionDepsBase & {
     renderHud: () => void;
     sendGameMessage: (payload: unknown) => boolean;
   }
 ): void => {
   const selected = state.selected;
   if (!selected) {
-    deps.pushFeed("Select an owned border tile first.", "error", "warn");
+    notifySelectedActionBlocked(deps, "Action blocked", "Select an owned border tile first.");
     deps.renderHud();
     return;
   }
@@ -83,22 +86,21 @@ export const buildSiegeOutpostOnSelected = (
 
 export const uncaptureSelected = (
   state: Pick<ClientState, "selected" | "tiles" | "me">,
-  deps: {
+  deps: SelectedActionDepsBase & {
     keyFor: (x: number, y: number) => string;
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
     sendGameMessage: (payload: unknown) => boolean;
   }
 ): void => {
   const selected = state.selected;
   if (!selected) {
-    deps.pushFeed("Select one of your tiles to uncapture.", "error", "warn");
+    notifySelectedActionBlocked(deps, "Action blocked", "Select one of your tiles to uncapture.");
     deps.renderHud();
     return;
   }
   const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
   if (!tile || tile.ownerId !== state.me) {
-    deps.pushFeed("Selected tile is not owned by you.", "error", "warn");
+    notifySelectedActionBlocked(deps, "Action blocked", "Selected tile is not owned by you.");
     deps.renderHud();
     return;
   }
