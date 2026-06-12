@@ -38,7 +38,8 @@ const mapTile = (tile: DomainTileState): SnapshotTile => ({
   ...(tile.observatory ? { observatory: tile.observatory } : {}),
   ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
   ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-  ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
+  ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
+  ...(tile.muster ? { muster: tile.muster } : {})
 });
 
 function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): SimulationSnapshotSections {
