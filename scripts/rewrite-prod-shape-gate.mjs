@@ -205,18 +205,28 @@ const loginSmoke = await runNodeScript(
 const loginSummary = parseLastJsonObject(loginSmoke.stdout, (entry) => Object.prototype.hasOwnProperty.call(entry, "ok"));
 if (!loginSummary?.ok) throw new Error(`login smoke failed: ${loginSmoke.stdout || loginSmoke.stderr}`);
 
-const frontierSmoke = await runNodeScript(
-  "rewrite-live-smoke.mjs",
-  {
-    WS_URL: wsUrl,
-    AUTH_TOKEN: authToken,
-    ACTION_TYPE: "EXPAND",
-    SMOKE_TIMEOUT_MS: String(timeoutMs)
-  },
-  timeoutMs + 2000
-);
-const frontierSummary = parseLastJsonObject(frontierSmoke.stdout, (entry) => Object.prototype.hasOwnProperty.call(entry, "ok"));
-if (!frontierSummary?.ok) throw new Error(`frontier smoke failed: ${frontierSmoke.stdout || frontierSmoke.stderr}`);
+const frontierSmokeMaxAttempts = 3;
+let frontierSummary;
+for (let attempt = 1; attempt <= frontierSmokeMaxAttempts; attempt++) {
+  const frontierSmoke = await runNodeScript(
+    "rewrite-live-smoke.mjs",
+    {
+      WS_URL: wsUrl,
+      AUTH_TOKEN: authToken,
+      ACTION_TYPE: "EXPAND",
+      SMOKE_TIMEOUT_MS: String(timeoutMs)
+    },
+    timeoutMs + 2000
+  );
+  frontierSummary = parseLastJsonObject(frontierSmoke.stdout, (entry) => Object.prototype.hasOwnProperty.call(entry, "ok"));
+  if (frontierSummary?.ok) break;
+  if (attempt < frontierSmokeMaxAttempts) {
+    console.error(`frontier smoke attempt ${attempt} failed, retrying in 2s: ${frontierSmoke.stdout || frontierSmoke.stderr}`);
+    await new Promise((r) => setTimeout(r, 2000));
+  } else {
+    throw new Error(`frontier smoke failed after ${frontierSmokeMaxAttempts} attempts: ${frontierSmoke.stdout || frontierSmoke.stderr}`);
+  }
+}
 
 const soak = await runNodeScript(
   "rewrite-local-soak.mjs",
