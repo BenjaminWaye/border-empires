@@ -19,6 +19,7 @@ import {
   ATTACK_MANPOWER_MIN,
   BARBARIAN_RAID_COST,
   MUSTER_SYSTEM_ENABLED,
+  LOCAL_SUPPORT_DEFENSE_ENABLED,
   MUSTER_ATTACK_COST,
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
@@ -61,6 +62,7 @@ import {
   integrityEconomyMult,
   integrityGrowthMult,
   isEnclosedBy,
+  friendlySettledSupport,
   wrapX,
   wrapY,
   type EnclosureLookup
@@ -6591,6 +6593,14 @@ export class SimulationRuntime {
         previousTarget.fort.status === "active" &&
         previousTarget.fort.ownerId === defenderOwnerId
       );
+    const defenderSupport: number | undefined =
+      LOCAL_SUPPORT_DEFENSE_ENABLED && defenderOwnerId != null && previousTarget?.ownershipState === "SETTLED"
+        ? friendlySettledSupport(
+            { x: lock.targetX, y: lock.targetY, ownerId: defenderOwnerId },
+            (nx, ny) => this.tiles.get(`${nx},${ny}`),
+            () => false
+          )
+        : undefined;
     const combatModifiers = {
       attackerOutpostMult,
       attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
@@ -6598,7 +6608,8 @@ export class SimulationRuntime {
       fortDefenseMult: defender ? multiplicativeEffectForPlayer(defender, "fortDefenseMult") : 1,
       musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
       fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
-      fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined
+      fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
+      localSupportDefenseEnabled: LOCAL_SUPPORT_DEFENSE_ENABLED
     };
     const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
       ? {
@@ -6606,7 +6617,8 @@ export class SimulationRuntime {
           ownershipState: previousTarget.ownershipState,
           dockId: previousTarget.dockId,
           townType: previousTarget.town?.type,
-          hasFort: targetHasActiveFort
+          hasFort: targetHasActiveFort,
+          support: defenderSupport
         }
       : { terrain: "LAND" };
     const combat =

@@ -2,7 +2,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
+import { buildFrontierCombatPreview, friendlySettledSupport, isChosenTrickleResource, LOCAL_SUPPORT_DEFENSE_ENABLED, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "./broadcast-payload.js";
@@ -357,7 +357,27 @@ const attackPreviewResult = (
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x, y) => tileMap.get(previewTileKey(x, y)));
-  const preview = buildFrontierCombatPreview(target, { attackerOutpostMult });
+  const previewTileLookup = (nx: number, ny: number): { terrain?: string; ownerId?: string; ownershipState?: string } | undefined => {
+    const t = tileMap.get(previewTileKey(nx, ny));
+    if (!t) return undefined;
+    const out: { terrain?: string; ownerId?: string; ownershipState?: string } = {};
+    if (t.terrain != null) out.terrain = t.terrain;
+    if (t.ownerId != null) out.ownerId = t.ownerId;
+    if (t.ownershipState != null) out.ownershipState = t.ownershipState;
+    return out;
+  };
+  const targetSupport: number | undefined =
+    LOCAL_SUPPORT_DEFENSE_ENABLED && target.ownerId != null && target.ownershipState === "SETTLED"
+      ? friendlySettledSupport(
+          { x: to.x, y: to.y, ownerId: target.ownerId },
+          previewTileLookup,
+          () => false
+        )
+      : undefined;
+  const preview = buildFrontierCombatPreview(
+    { ...target, support: targetSupport },
+    { attackerOutpostMult, localSupportDefenseEnabled: LOCAL_SUPPORT_DEFENSE_ENABLED }
+  );
   return {
     ...responseBase,
     valid: true,
