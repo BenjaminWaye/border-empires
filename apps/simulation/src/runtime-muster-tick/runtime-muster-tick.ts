@@ -2,8 +2,9 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   MUSTER_SYSTEM_ENABLED,
+  MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
-  MUSTER_TILE_CAP,
+  MUSTER_STALE_MS,
   OUTPOST_DEPOT_RADIUS
 } from "@border-empires/shared";
 import { coordsInChebyshevRadius, sweepAttackCandidates } from "../territory-automation/territory-automation.js";
@@ -18,7 +19,7 @@ export type MusterTickInput = {
   activeSiegeOutpostsByOwner: ReadonlyMap<string, Set<string>>;
   activeLightOutpostsByOwner: ReadonlyMap<string, Set<string>>;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
-  playerLogisticsThroughputPerMinute: (player: RuntimePlayer) => number;
+  playerManpowerCap: (player: RuntimePlayer) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
@@ -31,11 +32,11 @@ export type MusterTickInput = {
 
 /**
  * Accumulation tick for the mustering system. Each active muster tile pulls
- * manpower out of the owning player's pool at a rate equal to its share of the
- * player's logistics throughput (split evenly across all of that player's
- * active muster tiles), multiplied by a depot bonus when the tile sits inside
- * an outpost's depot radius. The pulled manpower is removed from the pool and
- * banked on the tile, capped at MUSTER_TILE_CAP.
+ * manpower from the owning player's pool at MUSTER_BASE_RATE_PER_MIN per tile
+ * (depot bonus applies). The pool is the only cap — no per-tile ceiling.
+ *
+ * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
+ * full manpower refund so the pool doesn't stay permanently locked.
  *
  * No-op when the muster system is disabled.
  */
@@ -49,11 +50,6 @@ export const tickMuster = (input: MusterTickInput): void => {
 
     input.applyManpowerRegen(player, input.nowMs);
 
-    const throughput = input.playerLogisticsThroughputPerMinute(player);
-    const sharePerTile = throughput / musterKeys.size;
-    if (sharePerTile <= 0) continue;
-
-    // Build the set of this player's outpost tile keys for the depot lookup.
     const outpostKeys = outpostTileKeysForPlayer(input, playerId);
     const batchCommandId = `muster-tick:${playerId}:${input.nowMs}`;
     const batchDeltas: ReturnType<MusterTickInput["tileDeltaFromState"]>[] = [];
@@ -62,10 +58,21 @@ export const tickMuster = (input: MusterTickInput): void => {
       const tile = input.tiles.get(tileKey);
       if (!tile?.muster || tile.muster.ownerId !== playerId) continue;
 
+      // Auto-clear stale musters and refund the manpower to the pool.
+      if (tile.muster.setAt != null && input.nowMs - tile.muster.setAt > MUSTER_STALE_MS) {
+        player.manpower = Math.min(
+          input.playerManpowerCap(player),
+          player.manpower + tile.muster.amount
+        );
+        const clearedTile: DomainTileState = { ...tile, muster: undefined };
+        input.replaceTileState(tileKey, clearedTile);
+        batchDeltas.push({ ...input.tileDeltaFromState(clearedTile), musterJson: "" });
+        continue;
+      }
+
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
       const depotMult = isInsideDepotZone(tile, outpostKeys) ? MUSTER_DEPOT_SPEED_MULT : 1;
-      const headroom = MUSTER_TILE_CAP - tile.muster.amount;
-      const inflow = Math.min(sharePerTile * depotMult * elapsedMin, player.manpower, headroom);
+      const inflow = Math.min(MUSTER_BASE_RATE_PER_MIN * depotMult * elapsedMin, player.manpower);
 
       let currentTile = tile;
       if (inflow > 0.0001) {
@@ -81,8 +88,7 @@ export const tickMuster = (input: MusterTickInput): void => {
         input.replaceTileState(tileKey, currentTile);
         batchDeltas.push(input.tileDeltaFromState(currentTile));
       } else if (elapsedMin > 0) {
-        // Stamp updatedAt so elapsed time doesn't accumulate while the pool is
-        // empty or the tile is full.
+        // Stamp updatedAt so elapsed time doesn't accumulate while pool is empty.
         currentTile = {
           ...tile,
           muster: { ...tile.muster, updatedAt: input.nowMs }

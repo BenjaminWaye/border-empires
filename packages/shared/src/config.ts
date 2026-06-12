@@ -135,10 +135,14 @@ export const MUSTER_SYSTEM_ENABLED =
 
 // How much mustered manpower one ordinary attack costs (placeholder).
 export const MUSTER_ATTACK_COST = 60;
-// Max manpower a single muster tile can hold (placeholder).
+// Visual fill reference for the muster animation (dots reach max at this amount).
 export const MUSTER_TILE_CAP = 120;
-// Base muster inflow a single tile gets if it had the WHOLE pipeline (per min).
-export const MUSTER_BASE_RATE_PER_MIN = 180; // ~20s per 60 with full pipeline
+// Inflow rate per tile per minute — 60 manpower in ~20 s at base.
+export const MUSTER_BASE_RATE_PER_MIN = 180;
+// Max simultaneous muster tiles per player.
+export const MUSTER_MAX_TILES = 5;
+// Auto-clear stale musters after this many milliseconds since the flag was set.
+export const MUSTER_STALE_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 // Multiplier to muster inflow when the tile is inside an outpost depot zone.
 export const MUSTER_DEPOT_SPEED_MULT = 2.0;
 // Chebyshev radius of an outpost depot's effect (5x5 => radius 2).
