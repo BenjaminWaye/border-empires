@@ -22,6 +22,7 @@ import type { initClientDom } from "./client-dom.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders/client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
+import { drawPersistentAlertLocators } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
@@ -1544,6 +1545,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     deps.drawMiniMap();
+    drawPersistentAlertLocators(state, {
+      ctx: deps.ctx,
+      canvas: deps.canvas,
+      worldToScreen: deps.worldToScreen,
+      toroidDelta: deps.toroidDelta,
+      size,
+      halfW,
+      halfH,
+      nowMs
+    });
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     deps.maybeRefreshForCamera(false);
     requestAnimationFrame(draw);

@@ -34,7 +34,7 @@ export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): C
 
 export const mobileNavLabelHtml = (
   panel: ClientState["mobilePanel"],
-  opts?: { techReady?: boolean; attackAlertUnread?: boolean }
+  opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number }
 ): string => {
   if (panel === "core") return '<span class="tab-icon">⌂</span>';
   if (panel === "missions") return '<span class="tab-icon">◎</span>';
@@ -46,8 +46,9 @@ export const mobileNavLabelHtml = (
   if (panel === "domains") return '<span class="tab-icon">✦</span>';
   if (panel === "social") return '<span class="tab-icon">👥</span>';
   if (panel === "leaderboard") return '<span class="tab-icon">🏆</span>';
-  return opts?.attackAlertUnread
-    ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
+  const feedUnreadCount = opts?.feedUnreadCount ?? 0;
+  return opts?.attackAlertUnread || feedUnreadCount > 0
+    ? `<span class="tab-icon">🔔</span><span class="feed-alert-dot" aria-label="${opts?.attackAlertUnread ? "under attack" : "new activity"}">${opts?.attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
     : '<span class="tab-icon">🔔</span>';
 };
 
@@ -58,7 +59,7 @@ export const viewportSize = (): { width: number; height: number } => {
 };
 
 export const setActivePanel = (
-  state: Pick<ClientState, "activePanel" | "mobilePanel" | "unreadAttackAlerts">,
+  state: Pick<ClientState, "activePanel" | "mobilePanel" | "unreadAttackAlerts" | "feedUnreadCount" | "feedAttentionUntil">,
   panel: ClientState["activePanel"],
   deps: {
     renderMobilePanels: () => void;
@@ -70,10 +71,18 @@ export const setActivePanel = (
     return;
   }
   state.activePanel = panel;
-  if (panel === "feed") state.unreadAttackAlerts = 0;
+  if (panel === "feed") {
+    state.unreadAttackAlerts = 0;
+    state.feedUnreadCount = 0;
+    state.feedAttentionUntil = 0;
+  }
   if (isMobile() && panel) {
     state.mobilePanel = panelToMobile(panel);
-    if (state.mobilePanel === "feed") state.unreadAttackAlerts = 0;
+    if (state.mobilePanel === "feed") {
+      state.unreadAttackAlerts = 0;
+      state.feedUnreadCount = 0;
+      state.feedAttentionUntil = 0;
+    }
   }
   deps.renderMobilePanels();
 };
@@ -87,7 +96,10 @@ export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domai
 };
 
 export const renderMobilePanels = (
-  state: Pick<ClientState, "activePanel" | "mobilePanel" | "techTreeExpanded" | "domainDetailOpen">,
+  state: Pick<
+    ClientState,
+    "activePanel" | "mobilePanel" | "techTreeExpanded" | "domainDetailOpen" | "unreadAttackAlerts" | "feedUnreadCount"
+  >,
   deps: {
     hud: HTMLElement;
     panelActionButtons: NodeListOf<HTMLButtonElement>;
@@ -169,7 +181,12 @@ export const renderMobilePanels = (
   const buttons = nav.querySelectorAll<HTMLButtonElement>("button[data-mobile-panel]");
   buttons.forEach((button) => {
     const panel = button.dataset.mobilePanel as ClientState["mobilePanel"] | undefined;
-    if (panel) button.innerHTML = mobileNavLabelHtml(panel);
+    if (panel) {
+      button.innerHTML = mobileNavLabelHtml(panel, {
+        attackAlertUnread: state.unreadAttackAlerts > 0,
+        feedUnreadCount: state.feedUnreadCount
+      });
+    }
     button.classList.toggle("active", panel === state.mobilePanel);
   });
 };

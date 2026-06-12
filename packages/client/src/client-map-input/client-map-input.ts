@@ -2,6 +2,7 @@ import { MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import type { initClientDom } from "../client-dom.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
+import { persistentAlertLocatorAt } from "../client-persistent-alerts/client-persistent-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType, Tile } from "../client-types.js";
 
@@ -59,6 +60,17 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     return { wx: deps.wrapX(raw.gx), wy: deps.wrapY(raw.gy) };
   };
 
+  const focusPersistentAlertAtPointer = (offsetX: number, offsetY: number, clientX: number, clientY: number): boolean => {
+    const locator = persistentAlertLocatorAt(state, offsetX, offsetY);
+    if (!locator) return false;
+    state.camX = deps.wrapX(locator.x);
+    state.camY = deps.wrapY(locator.y);
+    state.selected = { x: deps.wrapX(locator.x), y: deps.wrapY(locator.y) };
+    deps.requestViewRefresh(2, true);
+    deps.handleTileSelection(locator.x, locator.y, clientX, clientY);
+    return true;
+  };
+
   const setCameraFromMinimapPointer = (clientX: number, clientY: number): void => {
     const rect = deps.miniMapEl.getBoundingClientRect();
     const px = Math.max(0, Math.min(rect.width, clientX - rect.left));
@@ -104,6 +116,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       deps.interactionFlags.suppressNextClick = false;
       return;
     }
+    if (focusPersistentAlertAtPointer(ev.offsetX, ev.offsetY, ev.clientX, ev.clientY)) return;
     const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
     deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY);
   });
@@ -338,6 +351,15 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         const rect = deps.canvas.getBoundingClientRect();
         const offsetX = touchTapCandidate.x - rect.left;
         const offsetY = touchTapCandidate.y - rect.top;
+        if (focusPersistentAlertAtPointer(offsetX, offsetY, touchTapCandidate.x, touchTapCandidate.y)) {
+          deps.interactionFlags.suppressNextClick = true;
+          clearHoldOpenTimer();
+          touchHoldStart = undefined;
+          touchTapCandidate = undefined;
+          touchPanStart = undefined;
+          pinchStart = undefined;
+          return;
+        }
         const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
         deps.interactionFlags.suppressNextClick = true;
         deps.handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);

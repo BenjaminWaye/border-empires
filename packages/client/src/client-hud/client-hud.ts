@@ -62,7 +62,10 @@ type HudDeps = {
   openEconomyPanel: (focus?: EconomyFocusKey) => void;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
   affordableTechChoicesCount: () => number;
-  mobileNavLabelHtml: (panel: ClientState["mobilePanel"], opts?: { techReady?: boolean; attackAlertUnread?: boolean }) => string;
+  mobileNavLabelHtml: (
+    panel: ClientState["mobilePanel"],
+    opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number }
+  ) => string;
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   crystalTargetingTitle: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   clearCrystalTargeting: () => void;
@@ -492,7 +495,10 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
   const attackAlertUnread = state.unreadAttackAlerts > 0;
+  const feedUnreadCount = state.feedUnreadCount;
+  const feedAttentionActive = state.feedAttentionUntil > Date.now();
   dom.panelActionButtons.forEach((btn: HTMLButtonElement) => {
+    btn.classList.toggle("feed-attention-pulse", btn.dataset.panel === "feed" && feedAttentionActive);
     if (btn.dataset.panel === "tech") {
       btn.innerHTML = techReady
         ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
@@ -500,8 +506,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       return;
     }
     if (btn.dataset.panel === "feed") {
-      btn.innerHTML = attackAlertUnread
-        ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
+      btn.innerHTML = attackAlertUnread || feedUnreadCount > 0
+        ? `<span class="tab-icon">🔔</span><span class="feed-alert-dot" aria-label="${attackAlertUnread ? "under attack" : "new activity"}">${attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
         : '<span class="tab-icon">🔔</span>';
     }
   });
@@ -516,7 +522,10 @@ export const renderClientHud = (deps: HudDeps): void => {
   const socialMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='social']") as HTMLButtonElement | null;
   if (socialMobileBtn) socialMobileBtn.innerHTML = mobileNavLabelHtml("social");
   const feedMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='feed']") as HTMLButtonElement | null;
-  if (feedMobileBtn) feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread });
+  if (feedMobileBtn) {
+    feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread, feedUnreadCount });
+    feedMobileBtn.classList.toggle("feed-attention-pulse", feedAttentionActive);
+  }
 
   if (state.aetherWallTargeting.active) {
     const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;
