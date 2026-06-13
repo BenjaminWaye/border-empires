@@ -8,6 +8,7 @@ type SnapshotStoreFactoryOptions = {
   applySchema?: boolean;
   stringify?: SnapshotStringifier;
   resolveBaseline?: WorldgenBaselineResolver;
+  onPruneFailure?: (error: unknown) => void;
 };
 
 export const createSimulationSnapshotStore = async (
@@ -20,7 +21,8 @@ export const createSimulationSnapshotStore = async (
   ]);
   const store = new SqliteSimulationSnapshotStore(openSqliteDatabase(options.sqlitePath), {
     ...(options.stringify ? { stringify: options.stringify } : {}),
-    ...(options.resolveBaseline ? { resolveBaseline: options.resolveBaseline } : {})
+    ...(options.resolveBaseline ? { resolveBaseline: options.resolveBaseline } : {}),
+    ...(options.onPruneFailure ? { onPruneFailure: options.onPruneFailure } : {})
   });
   if (options.applySchema) await store.applySchema();
   return store;
