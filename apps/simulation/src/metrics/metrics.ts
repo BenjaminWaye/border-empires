@@ -12,34 +12,16 @@ import {
   AUTOMATION_SETTLE_DECISION_REASONS,
   type AutomationSettleDecisionReason
 } from "../ai/automation-command-planner-helpers.js";
+import {
+  appendRecent,
+  appendSample,
+  clampMetric,
+  formatMetricValue,
+  quantile,
+  type QuantileSample
+} from "./metrics-format.js";
 
 const LANES: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
-
-const quantile = (values: number[], q: number): number => {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * q) - 1));
-  return sorted[index] ?? 0;
-};
-
-const clampMetric = (value: number): number => (Number.isFinite(value) && value >= 0 ? value : 0);
-const formatMetricValue = (value: number): string => (Number.isInteger(value) ? `${value}` : value.toFixed(3));
-
-const appendSample = (target: number[], value: number, limit: number): void => {
-  target.push(clampMetric(value));
-  if (target.length > limit) target.splice(0, target.length - limit);
-};
-
-const appendRecent = <T>(target: T[], value: T, limit: number): void => {
-  target.push(value);
-  if (target.length > limit) target.splice(0, target.length - limit);
-};
-
-type QuantileSample = {
-  p50: number;
-  p95: number;
-  p99: number;
-};
 
 type TickSource = "ai" | "system";
 type PrepareMetricSource = "prepare" | "spawn";
@@ -119,6 +101,8 @@ export type SimulationMetricsSnapshot = {
   simAiAutopilotPlayerCount: number;
   simAiPlannerBreaches: number;
   simAiDryRunSkippedTotal: number;
+  simGlobalStatusBroadcastCoalescedTotal: number;
+  simSnapshotPruneFailedTotal: number;
   simAiCommandCapSkippedTotal: number;
   simAiExpandDisabledTotal: number;
   simAiBuildDisabledTotal: number;
@@ -236,6 +220,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   // when the corresponding flag is set, so a zero count means the guard never
   // engaged — required by the "emit a counter on every skip/cap" project rule.
   let simAiDryRunSkippedTotal = 0;
+  let simGlobalStatusBroadcastCoalescedTotal = 0;
+  let simSnapshotPruneFailedTotal = 0;
   let simAiCommandCapSkippedTotal = 0;
   let simAiExpandDisabledTotal = 0;
   let simAiBuildDisabledTotal = 0;
@@ -269,6 +255,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiAutopilotPlayerCount,
     simAiPlannerBreaches,
     simAiDryRunSkippedTotal,
+    simGlobalStatusBroadcastCoalescedTotal,
+    simSnapshotPruneFailedTotal,
     simAiCommandCapSkippedTotal,
     simAiExpandDisabledTotal,
     simAiBuildDisabledTotal,
@@ -357,6 +345,12 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimAiDryRunSkipped(): void {
       simAiDryRunSkippedTotal += 1;
+    },
+    incrementSimGlobalStatusBroadcastCoalesced(): void {
+      simGlobalStatusBroadcastCoalescedTotal += 1;
+    },
+    incrementSimSnapshotPruneFailed(): void {
+      simSnapshotPruneFailedTotal += 1;
     },
     incrementSimAiCommandCapSkipped(): void {
       simAiCommandCapSkippedTotal += 1;
@@ -518,6 +512,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
         "# TYPE sim_ai_dry_run_skipped_total counter",
         `sim_ai_dry_run_skipped_total ${formatMetricValue(sample.simAiDryRunSkippedTotal)}`,
+        "# TYPE sim_global_status_broadcast_coalesced_total counter",
+        `sim_global_status_broadcast_coalesced_total ${formatMetricValue(sample.simGlobalStatusBroadcastCoalescedTotal)}`,
+        "# TYPE sim_snapshot_prune_failed_total counter",
+        `sim_snapshot_prune_failed_total ${formatMetricValue(sample.simSnapshotPruneFailedTotal)}`,
         "# TYPE sim_ai_command_cap_skipped_total counter",
         `sim_ai_command_cap_skipped_total ${formatMetricValue(sample.simAiCommandCapSkippedTotal)}`,
         "# TYPE sim_ai_expand_disabled_total counter",
