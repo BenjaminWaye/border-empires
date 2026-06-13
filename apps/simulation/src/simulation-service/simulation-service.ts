@@ -43,6 +43,7 @@ import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtim
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
 import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
+import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
 import { personalizeSeasonVictoryObjectives } from "../personalized-season-victory/personalized-season-victory.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createAiBudgetTracker } from "../ai/ai-time-budget-tracker.js";
@@ -747,7 +748,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     (await createSimulationEventStore(storeFactoryOptions));
   const snapshotStore =
     options.snapshotStore ??
-    (await createSimulationSnapshotStore(storeFactoryOptions));
+    (await createSimulationSnapshotStore({
+      ...storeFactoryOptions,
+      // A post-INSERT prune failure (e.g. corrupt world_events index) is made
+      // non-fatal in the store so it can't wedge the checkpoint loop; surface
+      // it here as a counter + log so a degraded DB is still alarmable.
+      onPruneFailure: (err: unknown) => {
+        simulationMetrics.incrementSimSnapshotPruneFailed();
+        log.error({ err }, "snapshot prune/cleanup failed (non-fatal; snapshot already committed)");
+      }
+    }));
   const seasonSummaryStore =
     options.seasonSummaryStore ??
     (await createSeasonSummaryStore(storeFactoryOptions));
@@ -1206,9 +1216,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
   const preparePlayerSlowLogMs = 250;
-  const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 1000;
-  let globalStatusBroadcastTimeout: ReturnType<typeof setTimeout> | undefined;
-  let pendingGlobalStatusCommandId: string | undefined;
+  const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
@@ -1509,55 +1517,32 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
   let nextSubscriptionNamespace = 0;
-  const flushGlobalStatusBroadcast = () => {
-    globalStatusBroadcastTimeout = undefined;
-    if (subscriptionRegistry.subscribedPlayerIds().length === 0) {
-      pendingGlobalStatusCommandId = undefined;
-      return;
-    }
-    if (persistenceQueue.isDegraded() || persistenceQueue.pendingCount() > 250) {
-      pendingGlobalStatusCommandId = undefined;
-      return;
-    }
-    void (async () => {
-      // Use the async/yielding export so the O(202k-tile) scan doesn't block
-      // the event loop in a single synchronous burst and trip the 30s watchdog.
-      const runtimeState = await runtime.exportStateAsync(yieldToEventLoop);
-      // Pass the freshly-fetched runtimeState so recomputeAndPersistCurrentSummary
-      // doesn't run a second O(202k-tile) exportState() scan internally.
-      const summary = await recomputeAndPersistCurrentSummary({
-        runtimeState,
-        ...(pendingGlobalStatusCommandId ? { commandId: pendingGlobalStatusCommandId } : {})
+  const performGlobalStatusBroadcast = async (commandId: string | undefined): Promise<void> => {
+    if (subscriptionRegistry.subscribedPlayerIds().length === 0) return;
+    if (persistenceQueue.isDegraded() || persistenceQueue.pendingCount() > 250) return;
+    // Use the async/yielding export so the O(202k-tile) scan doesn't block
+    // the event loop in a single synchronous burst and trip the 30s watchdog.
+    const runtimeState = await runtime.exportStateAsync(yieldToEventLoop);
+    // Pass the freshly-fetched runtimeState so recomputeAndPersistCurrentSummary
+    // doesn't run a second O(202k-tile) exportState() scan internally.
+    const summary = await recomputeAndPersistCurrentSummary({
+      runtimeState,
+      ...(commandId ? { commandId } : {})
+    });
+    for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
+      const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState, undefined, {
+        acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
+        ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
       });
-      for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
-        const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState, undefined, {
-          acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
-          ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
-        });
-        const playerWorldStatus = {
-          ...worldStatus,
-          seasonVictory: personalizeSeasonVictoryObjectives(summary.seasonVictory, worldStatus.seasonVictory)
-        };
-        const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-        if (cachedSnapshot) {
-          snapshotCacheByPlayerId.set(
-            subscribedPlayerId,
-            applyPlayerMessageToSnapshot(cachedSnapshot, {
-              type: "GLOBAL_STATUS_UPDATE",
-              leaderboard: playerWorldStatus.leaderboard,
-              seasonVictory: playerWorldStatus.seasonVictory,
-              ...(typeof playerWorldStatus.acceptLatencyP95Ms === "number"
-                ? { acceptLatencyP95Ms: playerWorldStatus.acceptLatencyP95Ms }
-                : {})
-            })
-          );
-        }
-        const globalStatusEvent = toProtoEvent({
-          eventType: "PLAYER_MESSAGE",
-          commandId: pendingGlobalStatusCommandId ?? `global-status:${Date.now()}`,
-          playerId: subscribedPlayerId,
-          messageType: "GLOBAL_STATUS_UPDATE",
-          payloadJson: JSON.stringify({
+      const playerWorldStatus = {
+        ...worldStatus,
+        seasonVictory: personalizeSeasonVictoryObjectives(summary.seasonVictory, worldStatus.seasonVictory)
+      };
+      const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
+      if (cachedSnapshot) {
+        snapshotCacheByPlayerId.set(
+          subscribedPlayerId,
+          applyPlayerMessageToSnapshot(cachedSnapshot, {
             type: "GLOBAL_STATUS_UPDATE",
             leaderboard: playerWorldStatus.leaderboard,
             seasonVictory: playerWorldStatus.seasonVictory,
@@ -1565,20 +1550,35 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               ? { acceptLatencyP95Ms: playerWorldStatus.acceptLatencyP95Ms }
               : {})
           })
-        });
-        for (const stream of eventStreams) stream.write(globalStatusEvent);
+        );
       }
-      pendingGlobalStatusCommandId = undefined;
-    })().catch((error) => {
-      pendingGlobalStatusCommandId = undefined;
-      log.error({ err: error }, "failed to refresh current season summary");
-    });
+      const globalStatusEvent = toProtoEvent({
+        eventType: "PLAYER_MESSAGE",
+        commandId: commandId ?? `global-status:${Date.now()}`,
+        playerId: subscribedPlayerId,
+        messageType: "GLOBAL_STATUS_UPDATE",
+        payloadJson: JSON.stringify({
+          type: "GLOBAL_STATUS_UPDATE",
+          leaderboard: playerWorldStatus.leaderboard,
+          seasonVictory: playerWorldStatus.seasonVictory,
+          ...(typeof playerWorldStatus.acceptLatencyP95Ms === "number"
+            ? { acceptLatencyP95Ms: playerWorldStatus.acceptLatencyP95Ms }
+            : {})
+        })
+      });
+      for (const stream of eventStreams) stream.write(globalStatusEvent);
+    }
   };
-  const scheduleGlobalStatusBroadcast = (commandId: string) => {
-    pendingGlobalStatusCommandId = commandId;
-    if (globalStatusBroadcastTimeout) return;
-    globalStatusBroadcastTimeout = setTimeout(flushGlobalStatusBroadcast, globalStatusBroadcastDebounceMs);
-  };
+  // Single-flight + debounce around the ~10s full-world export so concurrent
+  // broadcasts can't stack (worker starvation + OOM) and back-to-back exports
+  // leave a window for login bootstraps. See global-status-broadcast-scheduler.
+  const globalStatusBroadcaster = createGlobalStatusBroadcastScheduler({
+    debounceMs: globalStatusBroadcastDebounceMs,
+    perform: performGlobalStatusBroadcast,
+    onCoalesced: () => simulationMetrics.incrementSimGlobalStatusBroadcastCoalesced(),
+    onError: (error) => log.error({ err: error }, "failed to refresh current season summary")
+  });
+  const scheduleGlobalStatusBroadcast = (commandId: string): void => globalStatusBroadcaster.schedule(commandId);
   const submitDurableCommand = async (command: CommandEnvelope): Promise<void> => {
     if (fatalPersistenceError || persistenceQueue.isDegraded()) {
       throw fatalPersistenceError ?? new Error("simulation persistence degraded");
@@ -2852,10 +2852,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       gcObserver?.disconnect();
-      if (globalStatusBroadcastTimeout) {
-        clearTimeout(globalStatusBroadcastTimeout);
-        globalStatusBroadcastTimeout = undefined;
-      }
+      globalStatusBroadcaster.dispose();
       if (startupReplayCompactionPromise) {
         await startupReplayCompactionPromise;
       }
@@ -2869,10 +2866,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         });
       });
       unsubscribeRuntimeEvents?.();
-      if (globalStatusBroadcastTimeout) {
-        clearTimeout(globalStatusBroadcastTimeout);
-        globalStatusBroadcastTimeout = undefined;
-      }
+      globalStatusBroadcaster.dispose();
       await persistenceQueue.whenIdle();
     },
     renderMetrics(): string {

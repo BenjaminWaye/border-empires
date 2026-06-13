@@ -35,14 +35,20 @@ export type WorldgenBaselineResolver = (input: {
 export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
   private readonly stringify: SnapshotStringifier;
   private readonly resolveBaseline: WorldgenBaselineResolver | undefined;
+  private readonly onPruneFailure: ((error: unknown) => void) | undefined;
   private lastLoadedFormatVersion: number | undefined;
 
   constructor(
     private readonly db: DatabaseSync,
-    options: { stringify?: SnapshotStringifier; resolveBaseline?: WorldgenBaselineResolver } = {}
+    options: {
+      stringify?: SnapshotStringifier;
+      resolveBaseline?: WorldgenBaselineResolver;
+      onPruneFailure?: (error: unknown) => void;
+    } = {}
   ) {
     this.stringify = options.stringify ?? inlineStringify;
     this.resolveBaseline = options.resolveBaseline;
+    this.onPruneFailure = options.onPruneFailure;
   }
 
   /** Format version of the most recently loaded snapshot (undefined = none loaded yet, 0 = v0/legacy). */
@@ -114,20 +120,32 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     // but the high-water mark only drops on VACUUM (separate one-off
     // maintenance). Future writes fit into the existing footprint, so
     // growth stops.
-    const PRUNE_CHUNK = 5000;
-    const pruneStmt = this.db.prepare(
-      `DELETE FROM world_events WHERE event_id IN (
-         SELECT event_id FROM world_events
-         WHERE event_id <= (SELECT MIN(last_applied_event_id) FROM world_snapshots)
-         LIMIT ?
-       )`
-    );
-    while (true) {
-      const result = pruneStmt.run(PRUNE_CHUNK);
-      if (!result.changes) break;
-      await new Promise<void>((resolve) => setImmediate(resolve));
+    //
+    // Best-effort: the snapshot INSERT above already committed and is valid for
+    // recovery. A corrupt world_events index (SQLITE_CORRUPT_INDEX) makes this
+    // prune throw; if we let it propagate, the checkpoint manager never resets
+    // pendingEvents and re-exports the whole world every few events forever
+    // (the 2026-06-13 staging death-spiral). So swallow, count, and report —
+    // the worst case is unpruned events, not data loss. Boot-time REINDEX
+    // (sqlite-db.ts) is what actually repairs the underlying corruption.
+    try {
+      const PRUNE_CHUNK = 5000;
+      const pruneStmt = this.db.prepare(
+        `DELETE FROM world_events WHERE event_id IN (
+           SELECT event_id FROM world_events
+           WHERE event_id <= (SELECT MIN(last_applied_event_id) FROM world_snapshots)
+           LIMIT ?
+         )`
+      );
+      while (true) {
+        const result = pruneStmt.run(PRUNE_CHUNK);
+        if (!result.changes) break;
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      this.db.exec("PRAGMA wal_checkpoint(PASSIVE)");
+    } catch (pruneError) {
+      this.onPruneFailure?.(pruneError);
     }
-    this.db.exec("PRAGMA wal_checkpoint(PASSIVE)");
   }
 
   private resolveBaselineIndexFromSections(
