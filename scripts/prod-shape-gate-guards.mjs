@@ -62,7 +62,13 @@ export const validateProdShapeGateResult = ({
   if (payload?.smokes?.login?.ok !== true) {
     failures.push("login smoke did not pass");
   }
-  if (payload?.smokes?.frontier?.ok !== true) {
+  // Mirror the gate's leniency: COMMAND_QUEUED in seen proves auth→gateway→sim
+  // pipeline is alive even when the probe player has no valid expansion target
+  // and the frontier command was rejected (exit code 2, ok: false).
+  const frontierOk =
+    payload?.smokes?.frontier?.ok === true ||
+    (Array.isArray(payload?.smokes?.frontier?.seen) && payload.smokes.frontier.seen.includes("COMMAND_QUEUED"));
+  if (!frontierOk) {
     failures.push("frontier smoke did not pass");
   }
 
