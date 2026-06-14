@@ -1280,8 +1280,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // the bootstrap snapshot pipeline after PR #343 made the downstream
     // enrichment chunked — for a player with ~13k owned tiles the vision
     // raster + visible-tile map was its own multi-second main-thread block.
-    const runtimeState =
-      worldStatusRuntimeState ?? (await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop));
+    // Phase 4: increment loginExportsInFlight so the drain loop pauses
+    // ai/system background jobs for the duration of this export.
+    let runtimeState: Awaited<ReturnType<typeof runtime.exportVisibleStateForPlayerAsync>>;
+    if (worldStatusRuntimeState) {
+      runtimeState = worldStatusRuntimeState;
+    } else {
+      loginExportsInFlight += 1;
+      try {
+        runtimeState = await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop);
+      } finally {
+        loginExportsInFlight -= 1;
+      }
+    }
     recordSnapshotBuildTiming("runtime_export_async", Date.now() - runtimeExportStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
