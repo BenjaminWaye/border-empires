@@ -42,7 +42,7 @@ import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subs
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
-import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
+import { buildLeaderboardFromPlayers } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
 import { personalizeSeasonVictoryObjectives } from "../personalized-season-victory/personalized-season-victory.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
@@ -1216,11 +1216,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
   const preparePlayerSlowLogMs = 250;
-  // Throttled to 30s: the broadcast still does a ~10s full-world export to
-  // refresh the leaderboard, so a tight interval keeps the sim worker pinned and
-  // starves login. 30s keeps export duty low while the leaderboard stays "soon
-  // enough". The full-export cost is removed by Phase 3b (incremental aggregates).
-  const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 30000;
+  // 5s: Phase 3b broadcast uses cheap player-only path (no tile export).
+  const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
@@ -1366,8 +1363,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const scheduleSeasonVictoryRecheck = (at: number | undefined): void => {
     clearSeasonVictoryTimer();
-    if (typeof at !== "number" || currentSeasonState.status === "ended") return;
-    const delayMs = Math.max(0, at - Date.now());
+    if (currentSeasonState.status === "ended") return;
+    // `at` undefined = no contested objective; 5-min fallback keeps season-victory fresh (Phase 3b).
+    const delayMs = typeof at === "number" ? Math.max(0, at - Date.now()) : 300_000;
     seasonVictoryTimer = setTimeout(() => {
       void recomputeAndPersistCurrentSummary({ forcePersist: true, commandId: `season-victory:${Date.now()}` });
     }, delayMs);
@@ -1459,58 +1457,60 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const performGlobalStatusBroadcast = async (commandId: string | undefined): Promise<void> => {
     if (subscriptionRegistry.subscribedPlayerIds().length === 0) return;
     if (persistenceQueue.isDegraded() || persistenceQueue.pendingCount() > 250) return;
-    // Use the async/yielding export so the O(202k-tile) scan doesn't block
-    // the event loop in a single synchronous burst and trip the 30s watchdog.
-    const runtimeState = await runtime.exportStateAsync(yieldToEventLoop);
-    // Pass the freshly-fetched runtimeState so recomputeAndPersistCurrentSummary
-    // doesn't run a second O(202k-tile) exportState() scan internally.
-    const summary = await recomputeAndPersistCurrentSummary({
-      runtimeState,
-      ...(commandId ? { commandId } : {})
-    });
+    // Phase 3b: O(n_players) player-only fetch replaces the O(202k-tile) exportStateAsync.
+    // Season-victory objectives are served from the cached currentSummary; they stay fresh
+    // via the recomputeAndPersistCurrentSummary timer (every 5 min or on victory pressure).
+    const globalLeaderboard = buildLeaderboardFromPlayers(
+      runtime.getPlayersForLeaderboard(),
+      options.nonCompetitivePlayerIds
+    );
+    if (currentSummary) {
+      const refreshed = {
+        ...currentSummary,
+        leaderboard: globalLeaderboard,
+        overall: globalLeaderboard.overall,
+        byTiles: globalLeaderboard.byTiles,
+        byIncome: globalLeaderboard.byIncome,
+        byTechs: globalLeaderboard.byTechs,
+        updatedAt: Date.now()
+      };
+      const sig = leaderboardSignature(refreshed);
+      if (sig !== currentSummarySignature) { currentSummary = refreshed; currentSummarySignature = sig; }
+    }
+    const acceptLatencyP95Ms = simulationMetrics.currentAcceptLatencyP95Ms();
     for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
-      const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState, undefined, {
-        acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
-        ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
-      });
-      const playerWorldStatus = {
-        ...worldStatus,
-        seasonVictory: personalizeSeasonVictoryObjectives(summary.seasonVictory, worldStatus.seasonVictory)
+      const selfOverall = globalLeaderboard.overall.find((e) => e.id === subscribedPlayerId);
+      const selfByTiles = globalLeaderboard.byTiles.find((e) => e.id === subscribedPlayerId);
+      const selfByIncome = globalLeaderboard.byIncome.find((e) => e.id === subscribedPlayerId);
+      const selfByTechs = globalLeaderboard.byTechs.find((e) => e.id === subscribedPlayerId);
+      const playerLeaderboard = {
+        ...globalLeaderboard,
+        ...(selfOverall ? { selfOverall } : {}),
+        ...(selfByTiles ? { selfByTiles } : {}),
+        ...(selfByIncome ? { selfByIncome } : {}),
+        ...(selfByTechs ? { selfByTechs } : {})
+      };
+      const seasonVictory = personalizeSeasonVictoryObjectives(currentSummary?.seasonVictory ?? [], []);
+      const payload = {
+        type: "GLOBAL_STATUS_UPDATE" as const,
+        leaderboard: playerLeaderboard,
+        seasonVictory,
+        ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
       };
       const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-      if (cachedSnapshot) {
-        snapshotCacheByPlayerId.set(
-          subscribedPlayerId,
-          applyPlayerMessageToSnapshot(cachedSnapshot, {
-            type: "GLOBAL_STATUS_UPDATE",
-            leaderboard: playerWorldStatus.leaderboard,
-            seasonVictory: playerWorldStatus.seasonVictory,
-            ...(typeof playerWorldStatus.acceptLatencyP95Ms === "number"
-              ? { acceptLatencyP95Ms: playerWorldStatus.acceptLatencyP95Ms }
-              : {})
-          })
-        );
-      }
+      if (cachedSnapshot)
+        snapshotCacheByPlayerId.set(subscribedPlayerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
       const globalStatusEvent = toProtoEvent({
         eventType: "PLAYER_MESSAGE",
         commandId: commandId ?? `global-status:${Date.now()}`,
         playerId: subscribedPlayerId,
         messageType: "GLOBAL_STATUS_UPDATE",
-        payloadJson: JSON.stringify({
-          type: "GLOBAL_STATUS_UPDATE",
-          leaderboard: playerWorldStatus.leaderboard,
-          seasonVictory: playerWorldStatus.seasonVictory,
-          ...(typeof playerWorldStatus.acceptLatencyP95Ms === "number"
-            ? { acceptLatencyP95Ms: playerWorldStatus.acceptLatencyP95Ms }
-            : {})
-        })
+        payloadJson: JSON.stringify(payload)
       });
       for (const stream of eventStreams) stream.write(globalStatusEvent);
     }
   };
-  // Single-flight + debounce around the ~10s full-world export so concurrent
-  // broadcasts can't stack (worker starvation + OOM) and back-to-back exports
-  // leave a window for login bootstraps. See global-status-broadcast-scheduler.
+  // Single-flight + debounce for leaderboard-only broadcasts. See global-status-broadcast-scheduler.
   const globalStatusBroadcaster = createGlobalStatusBroadcastScheduler({
     debounceMs: globalStatusBroadcastDebounceMs,
     perform: performGlobalStatusBroadcast,
