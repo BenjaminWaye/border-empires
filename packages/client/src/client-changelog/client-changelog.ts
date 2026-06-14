@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.12.6",
+  version: "2026.06.14.1",
   title: "What's New",
-  summary: "Enemy muster flags are now visible on the map — see where opponents are staging troops.",
+  summary: "Login loading now shows what the server is doing — no more silent spinner for large empires.",
   entries: [
+    {
+      introducedIn: "2026.06.14.1",
+      title: "Login progress messages",
+      why: "Large empire logins could take several seconds with no feedback, leaving players wondering if the game had stalled.",
+      changes: [
+        "The loading screen now shows a live status message while the server builds your snapshot.",
+        "After 3 seconds: 'Exporting your territory'. After 8 seconds: elapsed time is shown.",
+        "Server-side Phase 4b fix also cuts starvation for large-empire logins significantly."
+      ]
+    },
     {
       introducedIn: "2026.06.12.6",
       title: "Enemy muster flags visible",
@@ -147,35 +157,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Unowned resource and dock tiles are now marked as fully loaded locally — no round-trip to the server."
       ]
     },
-    {
-      introducedIn: "2026.06.06.4",
-      title: "Passive empire income replaces manual COLLECT_VISIBLE",
-      why: "The COLLECT_VISIBLE command required scanning every settled tile on each AI turn, causing 500–2000ms main-thread stalls on large empires and blocking player actions during those windows.",
-      changes: [
-        "Gold and strategic resources now accrue automatically via a server-side 15-second tick.",
-        "Storage caps are computed from empire production rates: 12 hours of gold, food, iron, crystal, supply, oil, and shard.",
-        "Fish-tile food fills the food storage cap but does not extend it (fish food is perishable).",
-        "Ironworks, Crystal Synthesizer, and Fur Synthesizer buildings add a flat bonus to their resource cap.",
-        "Players inactive for more than 12 hours stop receiving passive income until they reconnect.",
-        "Combat tile capture now steals a proportional share of the defender's resources.",
-      ]
-    },
-    {
-      introducedIn: "2026.06.06.3",
-      title: "Combat accepts stay responsive under large empires",
-      why: "Frontier decay support checks could scan every fort and town anchor for every frontier tile, blocking the simulation thread while players were attacking across dense borders.",
-      changes: [
-        "Large support-anchor checks now use local radius lookups instead of empire-wide scans.",
-        "The frontier decay perf gate now covers thousands of frontier tiles plus thousands of support anchors, keeping the tick well below the combat submit budget."
-      ]
-    },
-    {
-      introducedIn: "2026.06.06.2",
-      title: "Clearing Houses get their own map art",
-      why: "Clearing Houses could appear as generic or Bank-like markers instead of a distinct building, making it harder to scan connected-town economy upgrades on the map.",
-      changes: ["Clearing Houses now render with a dedicated 3D building overlay and a matching 2D/info-panel asset."]
-    },
-    { introducedIn: "2026.06.06.1", title: "Build actions work on the rewrite gateway", why: "The client started sending the unfinished unified BUILD_STRUCTURE command before the rewrite gateway advertised that wire message, so structure builds could be blocked as unavailable.", changes: ["Structure build clicks now send the gateway-supported build message while keeping the internal queued build state intact.", "Queued structure builds replay through the same compatible send path."] }
   ]
 };
 
