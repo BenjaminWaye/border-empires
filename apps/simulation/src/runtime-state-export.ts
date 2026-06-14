@@ -161,7 +161,7 @@ const toRuntimeExportTile = (
   return entry;
 };
 
-const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExportState["players"] =>
+export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExportState["players"] =>
   [...input.players.values()]
     .map((player) => {
       input.applyManpowerRegen(player);
