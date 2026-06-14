@@ -1257,6 +1257,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     playerId: string,
     options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
   ): Promise<PlayerSubscriptionSnapshot> => {
+    // Phase 4: block ai/system drain jobs for the full snapshot build duration
+    // (runtime export + enrichment both yield dozens of times for large empires).
+    loginExportsInFlight += 1;
+    try {
     const totalStartedAt = Date.now();
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
@@ -1276,19 +1280,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // the bootstrap snapshot pipeline after PR #343 made the downstream
     // enrichment chunked — for a player with ~13k owned tiles the vision
     // raster + visible-tile map was its own multi-second main-thread block.
-    // Phase 4: increment loginExportsInFlight so the drain loop pauses
-    // ai/system background jobs for the duration of this export.
-    let runtimeState: Awaited<ReturnType<typeof runtime.exportVisibleStateForPlayerAsync>>;
-    if (worldStatusRuntimeState) {
-      runtimeState = worldStatusRuntimeState;
-    } else {
-      loginExportsInFlight += 1;
-      try {
-        runtimeState = await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop);
-      } finally {
-        loginExportsInFlight -= 1;
-      }
-    }
+    const runtimeState =
+      worldStatusRuntimeState ?? (await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop));
     recordSnapshotBuildTiming("runtime_export_async", Date.now() - runtimeExportStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
@@ -1364,6 +1357,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       return { ...snapshot, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
     }
     return snapshot;
+    } finally {
+      loginExportsInFlight -= 1;
+    }
   };
   // Per-(player, mode) in-flight subscribe deduplication. Resolves the
   // "thundering herd" of bootstrap retries that piled up sequentially in the
