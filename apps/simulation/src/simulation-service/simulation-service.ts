@@ -1257,8 +1257,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     playerId: string,
     options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
   ): Promise<PlayerSubscriptionSnapshot> => {
-    // Phase 4: block ai/system drain jobs for the full snapshot build duration
+    // Phase 4: block ai-lane drain jobs for the full snapshot build duration
     // (runtime export + enrichment both yield dozens of times for large empires).
+    // System-lane jobs are NOT paused — they settle commands the export depends on.
     loginExportsInFlight += 1;
     try {
     const totalStartedAt = Date.now();
