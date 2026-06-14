@@ -1,0 +1,175 @@
+import { formatMetricValue } from "./metrics-format.js";
+import {
+  AI_PLANNER_PHASES,
+  AI_TICK_THROTTLE_REASONS,
+  AUTOMATION_NOOP_REASONS,
+  AUTOMATION_PREPLAN_PROGRESS_STATES,
+  AUTOMATION_PREPLAN_REASONS,
+  AUTOMATION_SETTLE_DECISION_REASONS,
+  DURABLE_COMMAND_TYPES,
+  LANES,
+  type SimulationMetricsSnapshot
+} from "./metrics-types.js";
+
+export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
+  const lines = [
+    "# TYPE sim_event_loop_max_ms gauge",
+    `sim_event_loop_max_ms ${formatMetricValue(sample.simEventLoopMaxMs)}`,
+    "# TYPE sim_event_loop_delay_ms gauge",
+    `sim_event_loop_delay_ms{quantile=\"p50\"} ${formatMetricValue(sample.simEventLoopDelayMs.p50)}`,
+    `sim_event_loop_delay_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventLoopDelayMs.p95)}`,
+    `sim_event_loop_delay_ms{quantile=\"p99\"} ${formatMetricValue(sample.simEventLoopDelayMs.p99)}`,
+    "# TYPE sim_tick_duration_ms gauge",
+    `sim_tick_duration_ms{source=\"ai\",quantile=\"p50\"} ${formatMetricValue(sample.simTickDurationMs.ai.p50)}`,
+    `sim_tick_duration_ms{source=\"ai\",quantile=\"p95\"} ${formatMetricValue(sample.simTickDurationMs.ai.p95)}`,
+    `sim_tick_duration_ms{source=\"ai\",quantile=\"p99\"} ${formatMetricValue(sample.simTickDurationMs.ai.p99)}`,
+    `sim_tick_duration_ms{source=\"system\",quantile=\"p50\"} ${formatMetricValue(sample.simTickDurationMs.system.p50)}`,
+    `sim_tick_duration_ms{source=\"system\",quantile=\"p95\"} ${formatMetricValue(sample.simTickDurationMs.system.p95)}`,
+    `sim_tick_duration_ms{source=\"system\",quantile=\"p99\"} ${formatMetricValue(sample.simTickDurationMs.system.p99)}`,
+    "# TYPE sim_prepare_player_latency_ms gauge",
+    `sim_prepare_player_latency_ms{source=\"prepare\",quantile=\"p50\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.prepare.p50)}`,
+    `sim_prepare_player_latency_ms{source=\"prepare\",quantile=\"p95\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.prepare.p95)}`,
+    `sim_prepare_player_latency_ms{source=\"prepare\",quantile=\"p99\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.prepare.p99)}`,
+    `sim_prepare_player_latency_ms{source=\"spawn\",quantile=\"p50\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.spawn.p50)}`,
+    `sim_prepare_player_latency_ms{source=\"spawn\",quantile=\"p95\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.spawn.p95)}`,
+    `sim_prepare_player_latency_ms{source=\"spawn\",quantile=\"p99\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.spawn.p99)}`,
+    "# TYPE sim_human_interactive_backlog_ms gauge",
+    `sim_human_interactive_backlog_ms ${formatMetricValue(sample.simHumanInteractiveBacklogMs)}`,
+    "# TYPE sim_ai_autopilot_enabled gauge",
+    `sim_ai_autopilot_enabled ${formatMetricValue(sample.simAiAutopilotEnabled)}`,
+    "# TYPE sim_ai_autopilot_player_count gauge",
+    `sim_ai_autopilot_player_count ${formatMetricValue(sample.simAiAutopilotPlayerCount)}`,
+    "# TYPE sim_ai_planner_breaches counter",
+    `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
+    "# TYPE sim_ai_dry_run_skipped_total counter",
+    `sim_ai_dry_run_skipped_total ${formatMetricValue(sample.simAiDryRunSkippedTotal)}`,
+    "# TYPE sim_global_status_broadcast_coalesced_total counter",
+    `sim_global_status_broadcast_coalesced_total ${formatMetricValue(sample.simGlobalStatusBroadcastCoalescedTotal)}`,
+    "# TYPE sim_snapshot_prune_failed_total counter",
+    `sim_snapshot_prune_failed_total ${formatMetricValue(sample.simSnapshotPruneFailedTotal)}`,
+    "# TYPE sim_login_export_paused_drain_total counter",
+    `sim_login_export_paused_drain_total ${formatMetricValue(sample.simLoginExportPausedDrainTotal)}`,
+    "# TYPE sim_ai_command_cap_skipped_total counter",
+    `sim_ai_command_cap_skipped_total ${formatMetricValue(sample.simAiCommandCapSkippedTotal)}`,
+    "# TYPE sim_ai_expand_disabled_total counter",
+    `sim_ai_expand_disabled_total ${formatMetricValue(sample.simAiExpandDisabledTotal)}`,
+    "# TYPE sim_ai_build_disabled_total counter",
+    `sim_ai_build_disabled_total ${formatMetricValue(sample.simAiBuildDisabledTotal)}`,
+    "# TYPE sim_ai_tick_throttled_total counter",
+    "# TYPE sim_ai_current_tick_interval_ms gauge",
+    `sim_ai_current_tick_interval_ms ${formatMetricValue(sample.simAiCurrentTickIntervalMs)}`,
+    "# TYPE sim_ai_budget_used_ms gauge",
+    `sim_ai_budget_used_ms ${formatMetricValue(sample.simAiBudgetUsedMs)}`,
+    "# TYPE sim_ai_broad_fallback_skipped_total counter",
+    "# TYPE sim_ai_narrow_analyze_capped_total counter",
+    "# TYPE sim_ai_command_total counter",
+    "# TYPE sim_ai_preplan_total counter",
+    "# TYPE sim_ai_preplan_progress_total counter",
+    "# TYPE sim_ai_noop_total counter",
+    "# TYPE sim_ai_settle_decision_total counter",
+    "# TYPE sim_ai_settle_decision_top_score gauge",
+    `sim_ai_settle_decision_top_score{quantile=\"p50\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p50)}`,
+    `sim_ai_settle_decision_top_score{quantile=\"p95\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p95)}`,
+    `sim_ai_settle_decision_top_score{quantile=\"p99\"} ${formatMetricValue(sample.simAiSettleDecisionTopScore.p99)}`,
+    "# TYPE sim_checkpoint_export_ms gauge",
+    `sim_checkpoint_export_ms{quantile="p50"} ${formatMetricValue(sample.simCheckpointExportMs.p50)}`,
+    `sim_checkpoint_export_ms{quantile="p95"} ${formatMetricValue(sample.simCheckpointExportMs.p95)}`,
+    `sim_checkpoint_export_ms{quantile="p99"} ${formatMetricValue(sample.simCheckpointExportMs.p99)}`,
+    "# TYPE sim_checkpoint_rss_mb gauge",
+    `sim_checkpoint_rss_mb ${formatMetricValue(sample.simCheckpointRssMb)}`,
+    "# TYPE sim_cpu_percent gauge",
+    `sim_cpu_percent ${formatMetricValue(sample.simCpuPercent)}`,
+    "# TYPE sim_heap_used_mb gauge",
+    `sim_heap_used_mb ${formatMetricValue(sample.simHeapUsedMb)}`,
+    "# TYPE sim_heap_total_mb gauge",
+    `sim_heap_total_mb ${formatMetricValue(sample.simHeapTotalMb)}`,
+    "# TYPE sim_gc_pause_ms gauge",
+    `sim_gc_pause_ms{quantile=\"p50\"} ${formatMetricValue(sample.simGcPauseMs.p50)}`,
+    `sim_gc_pause_ms{quantile=\"p95\"} ${formatMetricValue(sample.simGcPauseMs.p95)}`,
+    `sim_gc_pause_ms{quantile=\"p99\"} ${formatMetricValue(sample.simGcPauseMs.p99)}`,
+    "# TYPE sim_event_store_write_ms gauge",
+    `sim_event_store_write_ms{quantile=\"p50\"} ${formatMetricValue(sample.simEventStoreWriteMs.p50)}`,
+    `sim_event_store_write_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventStoreWriteMs.p95)}`,
+    `sim_event_store_write_ms{quantile=\"p99\"} ${formatMetricValue(sample.simEventStoreWriteMs.p99)}`,
+    "# TYPE sim_ai_planner_phase_ms gauge",
+    "# TYPE sim_runtime_drain_ms gauge",
+    `sim_runtime_drain_ms{quantile=\"p50\"} ${formatMetricValue(sample.simRuntimeDrainMs.p50)}`,
+    `sim_runtime_drain_ms{quantile=\"p95\"} ${formatMetricValue(sample.simRuntimeDrainMs.p95)}`,
+    `sim_runtime_drain_ms{quantile=\"p99\"} ${formatMetricValue(sample.simRuntimeDrainMs.p99)}`,
+    "# TYPE sim_runtime_drain_jobs_per_call gauge",
+    `sim_runtime_drain_jobs_per_call{quantile=\"p50\"} ${formatMetricValue(sample.simRuntimeDrainJobsPerCall.p50)}`,
+    `sim_runtime_drain_jobs_per_call{quantile=\"p95\"} ${formatMetricValue(sample.simRuntimeDrainJobsPerCall.p95)}`,
+    `sim_runtime_drain_jobs_per_call{quantile=\"p99\"} ${formatMetricValue(sample.simRuntimeDrainJobsPerCall.p99)}`,
+    "# TYPE sim_runtime_drain_ms_by_lane gauge",
+    "# TYPE sim_runtime_apply_ms_by_command gauge",
+    "# TYPE sim_command_accept_latency_ms gauge",
+    "# TYPE sim_snapshot_tile_count gauge",
+    `sim_snapshot_tile_count{quantile=\"p50\"} ${formatMetricValue(sample.simSnapshotTileCount.p50)}`,
+    `sim_snapshot_tile_count{quantile=\"p95\"} ${formatMetricValue(sample.simSnapshotTileCount.p95)}`,
+    `sim_snapshot_tile_count{quantile=\"p99\"} ${formatMetricValue(sample.simSnapshotTileCount.p99)}`,
+    "# TYPE sim_snapshot_json_bytes gauge",
+    `sim_snapshot_json_bytes{quantile=\"p50\"} ${formatMetricValue(sample.simSnapshotJsonBytes.p50)}`,
+    `sim_snapshot_json_bytes{quantile=\"p95\"} ${formatMetricValue(sample.simSnapshotJsonBytes.p95)}`,
+    `sim_snapshot_json_bytes{quantile=\"p99\"} ${formatMetricValue(sample.simSnapshotJsonBytes.p99)}`,
+    "# TYPE sim_snapshot_tiles_json_bytes gauge",
+    `sim_snapshot_tiles_json_bytes{quantile=\"p50\"} ${formatMetricValue(sample.simSnapshotTilesJsonBytes.p50)}`,
+    `sim_snapshot_tiles_json_bytes{quantile=\"p95\"} ${formatMetricValue(sample.simSnapshotTilesJsonBytes.p95)}`,
+    `sim_snapshot_tiles_json_bytes{quantile=\"p99\"} ${formatMetricValue(sample.simSnapshotTilesJsonBytes.p99)}`,
+    "# TYPE sim_snapshot_cache_entries gauge",
+    `sim_snapshot_cache_entries ${formatMetricValue(sample.simSnapshotCacheEntries)}`,
+    "# TYPE sim_snapshot_cache_bytes gauge",
+    `sim_snapshot_cache_bytes ${formatMetricValue(sample.simSnapshotCacheBytes)}`,
+    "# TYPE sim_ai_last_command_accepted_at_ms gauge"
+  ];
+
+  for (const lane of LANES) {
+    const laneSample = sample.simCommandAcceptLatencyMsByLane[lane];
+    lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p50\"} ${formatMetricValue(laneSample.p50)}`);
+    lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p95\"} ${formatMetricValue(laneSample.p95)}`);
+    lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p99\"} ${formatMetricValue(laneSample.p99)}`);
+    const drainSample = sample.simRuntimeDrainMsByLane[lane];
+    lines.push(`sim_runtime_drain_ms_by_lane{lane=\"${lane}\",quantile=\"p50\"} ${formatMetricValue(drainSample.p50)}`);
+    lines.push(`sim_runtime_drain_ms_by_lane{lane=\"${lane}\",quantile=\"p95\"} ${formatMetricValue(drainSample.p95)}`);
+    lines.push(`sim_runtime_drain_ms_by_lane{lane=\"${lane}\",quantile=\"p99\"} ${formatMetricValue(drainSample.p99)}`);
+  }
+  for (const phase of AI_PLANNER_PHASES) {
+    const phaseSample = sample.simAiPlannerPhaseMs[phase];
+    lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p50\"} ${formatMetricValue(phaseSample.p50)}`);
+    lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p95\"} ${formatMetricValue(phaseSample.p95)}`);
+    lines.push(`sim_ai_planner_phase_ms{phase=\"${phase}\",quantile=\"p99\"} ${formatMetricValue(phaseSample.p99)}`);
+  }
+  for (const [commandType, commandSample] of Object.entries(sample.simRuntimeApplyMsByCommandType)) {
+    lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p50\"} ${formatMetricValue(commandSample.p50)}`);
+    lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p95\"} ${formatMetricValue(commandSample.p95)}`);
+    lines.push(`sim_runtime_apply_ms_by_command{type=\"${commandType}\",quantile=\"p99\"} ${formatMetricValue(commandSample.p99)}`);
+  }
+  for (const commandType of DURABLE_COMMAND_TYPES) {
+    lines.push(`sim_ai_command_total{type=\"${commandType}\"} ${formatMetricValue(sample.simAiCommandTotalByType[commandType] ?? 0)}`);
+  }
+  for (const reason of AUTOMATION_PREPLAN_REASONS) {
+    lines.push(`sim_ai_preplan_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiPreplanTotalByReason[reason])}`);
+  }
+  for (const state of AUTOMATION_PREPLAN_PROGRESS_STATES) {
+    lines.push(`sim_ai_preplan_progress_total{state=\"${state}\"} ${formatMetricValue(sample.simAiPreplanProgressTotalByState[state])}`);
+  }
+  for (const reason of AUTOMATION_NOOP_REASONS) {
+    lines.push(`sim_ai_noop_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiNoopTotalByReason[reason])}`);
+  }
+  for (const reason of AUTOMATION_SETTLE_DECISION_REASONS) {
+    lines.push(`sim_ai_settle_decision_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiSettleDecisionTotalByReason[reason])}`);
+  }
+  for (const reason of AI_TICK_THROTTLE_REASONS) {
+    lines.push(`sim_ai_tick_throttled_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiTickThrottledTotal[reason])}`);
+  }
+  for (const [playerId, count] of Object.entries(sample.simAiBroadFallbackSkipped)) {
+    lines.push(`sim_ai_broad_fallback_skipped_total{playerId=\"${playerId}\"} ${formatMetricValue(count)}`);
+  }
+  for (const [playerId, count] of Object.entries(sample.simAiNarrowAnalyzeCapped)) {
+    lines.push(`sim_ai_narrow_analyze_capped_total{playerId=\"${playerId}\"} ${formatMetricValue(count)}`);
+  }
+  for (const [playerId, tsMs] of Object.entries(sample.simAiLastCommandAcceptedAtMs)) {
+    lines.push(`sim_ai_last_command_accepted_at_ms{player_id=\"${playerId}\"} ${formatMetricValue(tsMs)}`);
+  }
+
+  return lines.join("\n");
+};
