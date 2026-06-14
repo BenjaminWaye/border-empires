@@ -413,3 +413,41 @@ export const buildWorldStatusSnapshot = (
     ...(typeof options?.acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms: options.acceptLatencyP95Ms } : {})
   };
 };
+
+/**
+ * Cheap O(n_players) leaderboard build with no tile iteration.
+ * Phase 3b: used by the global-status broadcast so it no longer needs
+ * the full exportStateAsync (O(202k-tile)) on every cycle.
+ * Season-victory objectives are NOT computed here — callers should use
+ * the cached currentSummary.seasonVictory via personalizeSeasonVictoryObjectives.
+ */
+export const buildLeaderboardFromPlayers = (
+  players: RuntimeState["players"],
+  nonCompetitivePlayerIds?: ReadonlySet<string>
+): WorldStatusSnapshot["leaderboard"] => {
+  const overall = players
+    .filter((player) => isCompetitivePlayer(player.id, nonCompetitivePlayerIds))
+    .map((player) => {
+      const settledTileCount = player.settledTileCount ?? 0;
+      const incomePerMinute = player.incomePerMinute ?? 0;
+      const techCount = player.techIds?.length ?? 0;
+      return {
+        id: player.id,
+        name: displayNameForPlayer(player.id, player.name),
+        tiles: settledTileCount,
+        incomePerMinute,
+        techs: techCount,
+        score: leaderboardScoreFor(settledTileCount, incomePerMinute, techCount)
+      };
+    })
+    .sort(
+      (l, r) =>
+        r.score - l.score || r.tiles - l.tiles || r.incomePerMinute - l.incomePerMinute ||
+        r.techs - l.techs || l.name.localeCompare(r.name)
+    )
+    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+  const byTiles = rankMetric(overall.map((e) => ({ id: e.id, name: e.name, value: e.tiles })));
+  const byIncome = rankMetric(overall.map((e) => ({ id: e.id, name: e.name, value: e.incomePerMinute })));
+  const byTechs = rankMetric(overall.map((e) => ({ id: e.id, name: e.name, value: e.techs })));
+  return { overall, byTiles, byIncome, byTechs };
+};
