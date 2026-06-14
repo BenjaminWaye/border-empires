@@ -24,10 +24,9 @@ const makePlayer = (id: string, territoryKeys: string[]) => ({
 
 describe("SimulationRuntime exportVisibleStateForPlayerAsync (parity)", () => {
   it("produces identical output to the sync variant for a multi-chunk territory", async () => {
-    // Big enough to cross TILE_CHUNK = 500 so the async path actually
-    // yields mid-loop. 25x25 owned area + visibility radius 5 → ~250k
-    // cells in the visibility raster, ~1k visible tiles after dedup +
-    // map → multiple chunks.
+    // 25x25 owned area + visibility radius 5 → ~250k cells in the
+    // visibility raster, ~1k visible tiles after dedup. Just under
+    // TILE_CHUNK=2000 so it exercises the async path without mid-loop yields.
     const tiles: Array<{
       x: number;
       y: number;
@@ -74,8 +73,11 @@ describe("SimulationRuntime exportVisibleStateForPlayerAsync (parity)", () => {
       ownershipState?: "SETTLED" | "FRONTIER";
     }> = [];
     const territoryKeys: string[] = [];
-    for (let x = 0; x < 25; x += 1) {
-      for (let y = 0; y < 25; y += 1) {
+    // 50x50 = 2500 owned tiles, which crosses TILE_CHUNK=2000 so the loop
+    // yields at least once mid-chunk in addition to the post-classify and
+    // post-tile-sort structural yields → total ≥ 3.
+    for (let x = 0; x < 50; x += 1) {
+      for (let y = 0; y < 50; y += 1) {
         tiles.push({ x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" });
         territoryKeys.push(`${x},${y}`);
       }
@@ -92,8 +94,8 @@ describe("SimulationRuntime exportVisibleStateForPlayerAsync (parity)", () => {
       await new Promise<void>((resolve) => setImmediate(resolve));
     };
     await runtime.exportVisibleStateForPlayerAsync("player-1", tracked);
-    // 1 post-classify yield + 1 post-tile-sort yield + at least 1 mid-loop
-    // yield (≥500 visible tiles with 25x25 territory + radius 5) = ≥3.
+    // 1 post-classify yield + 1 post-tile-sort yield + ≥1 mid-loop yield
+    // (2500 owned tiles crosses TILE_CHUNK=2000) = ≥3.
     expect(yields).toBeGreaterThanOrEqual(3);
   });
 });
