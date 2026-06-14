@@ -19,6 +19,9 @@ describe("simulation service fog subscribe regression", () => {
     expect(file).toContain('...(typeof parsed.trigger === "string" && parsed.trigger.length > 0 ? { trigger: parsed.trigger } : {})');
     expect(file).toContain('fullVisibility: subscribeOptions.fullVisibility,');
     expect(file).toContain('...(subscribeOptions.trigger ? { trigger: subscribeOptions.trigger } : {})');
-    expect(file.match(/if \(!useFullVisibility\) \{\s+const cacheStartedAt = Date\.now\(\);\s+setCachedSnapshot\(playerId, snapshot\);/g)).toHaveLength(2);
+    // Only the async builder remains — the unused synchronous buildAndCachePlayerSnapshot
+    // twin was removed (no callers). The async SubscribePlayer path still caches
+    // non-full-visibility snapshots.
+    expect(file.match(/if \(!useFullVisibility\) \{\s+const cacheStartedAt = Date\.now\(\);\s+setCachedSnapshot\(playerId, snapshot\);/g)).toHaveLength(1);
   });
 });
