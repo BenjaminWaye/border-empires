@@ -38,4 +38,10 @@ if ! pnpm --dir "$worktree_path" install --offline --frozen-lockfile; then
   pnpm --dir "$worktree_path" install --frozen-lockfile
 fi
 
+# Build workspace packages so tsc --noEmit works immediately in the worktree.
+# simulation depends on shared → client-protocol → game-domain → sim-protocol.
+pnpm --filter @border-empires/shared --filter @border-empires/client-protocol \
+     --filter @border-empires/game-domain --filter @border-empires/sim-protocol \
+     --dir "$worktree_path" build
+
 printf 'Created worktree %s on %s\n' "$worktree_path" "$branch"
