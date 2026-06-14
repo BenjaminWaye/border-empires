@@ -205,6 +205,8 @@ const loginSmoke = await runNodeScript(
 const loginSummary = parseLastJsonObject(loginSmoke.stdout, (entry) => Object.prototype.hasOwnProperty.call(entry, "ok"));
 if (!loginSummary?.ok) throw new Error(`login smoke failed: ${loginSmoke.stdout || loginSmoke.stderr}`);
 
+// Frontier smoke exits 2 when the command was rejected — catch so the
+// COMMAND_QUEUED leniency check below can still run.
 const frontierSmoke = await runNodeScript(
   "rewrite-live-smoke.mjs",
   {
@@ -214,7 +216,7 @@ const frontierSmoke = await runNodeScript(
     SMOKE_TIMEOUT_MS: String(timeoutMs)
   },
   timeoutMs + 2000
-);
+).catch((err) => ({ stdout: err.message.replace(/^rewrite-live-smoke\.mjs exited \d+: /, ""), stderr: "", _exitError: true }));
 const frontierSummary = parseLastJsonObject(frontierSmoke.stdout, (entry) => Object.prototype.hasOwnProperty.call(entry, "ok"));
 // COMMAND_QUEUED in seen proves the full auth→gateway→sim pipeline is alive.
 // ACTION_ACCEPTED/FRONTIER_RESULT can be absent if the probe player has no valid
