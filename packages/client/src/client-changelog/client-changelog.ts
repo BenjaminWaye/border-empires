@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.12.6",
+  version: "2026.06.14.1",
   title: "What's New",
-  summary: "Enemy muster flags are now visible on the map — see where opponents are staging troops.",
+  summary: "Login loading now shows what the server is doing — no more silent spinner for large empires.",
   entries: [
+    {
+      introducedIn: "2026.06.14.1",
+      title: "Login progress messages",
+      why: "Large empire logins could take several seconds with no feedback, leaving players wondering if the game had stalled.",
+      changes: [
+        "The loading screen now shows a live status message while the server builds your snapshot.",
+        "After 3 seconds: 'Exporting your territory'. After 8 seconds: elapsed time is shown.",
+        "Server-side Phase 4b fix also cuts starvation for large-empire logins significantly."
+      ]
+    },
     {
       introducedIn: "2026.06.12.6",
       title: "Enemy muster flags visible",
