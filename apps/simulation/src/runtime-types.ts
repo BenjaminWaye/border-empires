@@ -186,6 +186,12 @@ export type SimulationRuntimeOptions = {
   }) => void;
   /** Called when a non-FALL shard is collected so the runtime can request an immediate checkpoint. */
   onShardCollected?: () => void;
+  /**
+   * Phase 4: when this returns true the drain loop skips ai/system background
+   * jobs and yields immediately so that concurrent login exports run uncontested.
+   * Called at the head of each drain cycle before touching the background queue.
+   */
+  shouldPauseBackground?: () => boolean;
 };
 
 export type SimulationTileWireDelta = {

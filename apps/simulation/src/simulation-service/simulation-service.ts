@@ -950,6 +950,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     1,
     Number(process.env.SIMULATION_RUNTIME_BACKGROUND_BATCH_SIZE ?? 1)
   );
+  let loginExportsInFlight = 0;
   let onShardCollectedCallback: (() => void) | undefined;
   let runtime = new SimulationRuntime({
     ...(options.runtimeOptions ?? {}),
@@ -994,6 +995,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     },
     onVisibilityAudit: handleVisibilityAudit,
+    shouldPauseBackground: () => {
+      if (loginExportsInFlight > 0) {
+        simulationMetrics.incrementSimLoginExportPausedDrain();
+        return true;
+      }
+      return false;
+    },
     onShardCollected: () => {
       onShardCollectedCallback?.();
     },
@@ -1249,6 +1257,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     playerId: string,
     options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
   ): Promise<PlayerSubscriptionSnapshot> => {
+    // Phase 4: block ai/system drain jobs for the full snapshot build duration
+    // (runtime export + enrichment both yield dozens of times for large empires).
+    loginExportsInFlight += 1;
+    try {
     const totalStartedAt = Date.now();
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
@@ -1345,6 +1357,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       return { ...snapshot, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
     }
     return snapshot;
+    } finally {
+      loginExportsInFlight -= 1;
+    }
   };
   // Per-(player, mode) in-flight subscribe deduplication. Resolves the
   // "thundering herd" of bootstrap retries that piled up sequentially in the
@@ -2010,7 +2025,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
         onVisibilityAudit: handleVisibilityAudit,
-        onCaptureRevealBuilt: captureRevealBuildSample
+        onCaptureRevealBuilt: captureRevealBuildSample,
+        shouldPauseBackground: () => {
+          if (loginExportsInFlight > 0) {
+            simulationMetrics.incrementSimLoginExportPausedDrain();
+            return true;
+          }
+          return false;
+        }
       });
       const nextSummary = buildCurrentSeasonSummary({
         seasonState: bootstrap.seasonState,
