@@ -138,6 +138,8 @@ export const MUSTER_SYSTEM_ENABLED =
 export const MUSTER_ATTACK_COST = 60;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
+// Maximum manpower a single muster tile can hold.
+export const MUSTER_TILE_CAP = 150;
 // Max simultaneous muster tiles per player.
 export const MUSTER_MAX_TILES = 5;
 // Auto-clear stale musters after this many milliseconds since the flag was set.

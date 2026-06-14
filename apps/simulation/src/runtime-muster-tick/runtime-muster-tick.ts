@@ -2,9 +2,9 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   MUSTER_SYSTEM_ENABLED,
-  MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_STALE_MS,
+  MUSTER_TILE_CAP,
   OUTPOST_DEPOT_RADIUS
 } from "@border-empires/shared";
 import { coordsInChebyshevRadius, sweepAttackCandidates } from "../territory-automation/territory-automation.js";
@@ -20,6 +20,7 @@ export type MusterTickInput = {
   activeLightOutpostsByOwner: ReadonlyMap<string, Set<string>>;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
+  playerManpowerRegenPerMinute: (player: RuntimePlayer) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
@@ -31,9 +32,9 @@ export type MusterTickInput = {
 };
 
 /**
- * Accumulation tick for the mustering system. Each active muster tile pulls
- * manpower from the owning player's pool at MUSTER_BASE_RATE_PER_MIN per tile
- * (depot bonus applies). The pool is the only cap — no per-tile ceiling.
+ * Accumulation tick for the mustering system. The player's manpower regen rate
+ * is split evenly across all active flags (depot bonus applied per tile).
+ * Each tile is capped at MUSTER_TILE_CAP.
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked.
@@ -51,6 +52,17 @@ export const tickMuster = (input: MusterTickInput): void => {
     input.applyManpowerRegen(player, input.nowMs);
 
     const outpostKeys = outpostTileKeysForPlayer(input, playerId);
+
+    // Count non-stale flags so throughput is split evenly across them.
+    let activeMusterCount = 0;
+    for (const tileKey of musterKeys) {
+      const tile = input.tiles.get(tileKey);
+      if (!tile?.muster || tile.muster.ownerId !== playerId) continue;
+      if (tile.muster.setAt != null && input.nowMs - tile.muster.setAt > MUSTER_STALE_MS) continue;
+      activeMusterCount++;
+    }
+    if (activeMusterCount === 0) continue;
+
     const batchCommandId = `muster-tick:${playerId}:${input.nowMs}`;
     const batchDeltas: ReturnType<MusterTickInput["tileDeltaFromState"]>[] = [];
 
@@ -72,7 +84,12 @@ export const tickMuster = (input: MusterTickInput): void => {
 
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
       const depotMult = isInsideDepotZone(tile, outpostKeys) ? MUSTER_DEPOT_SPEED_MULT : 1;
-      const inflow = Math.min(MUSTER_BASE_RATE_PER_MIN * depotMult * elapsedMin, player.manpower);
+      const headroom = Math.max(0, MUSTER_TILE_CAP - tile.muster.amount);
+      const inflow = Math.min(
+        (input.playerManpowerRegenPerMinute(player) / activeMusterCount) * depotMult * elapsedMin,
+        headroom,
+        player.manpower
+      );
 
       let currentTile = tile;
       if (inflow > 0.0001) {
