@@ -165,11 +165,11 @@ export async function exportVisibleStateForPlayerAsync(
   // the cache is almost always cold when a player logs in mid-tick.
   await input.yieldToEventLoop();
   const classification = input.classifyVisibilityForPlayer(input.playerId);
-  // No yield here — the tile-chunk loop yields every 500 tiles anyway, so a
+  // No yield here — the tile-chunk loop yields every TILE_CHUNK tiles anyway, so a
   // redundant setImmediate between classification and the loop only adds latency.
   const { lockTargetOnlyKeys, visibleKeys, allyAndSelfIds } = classification;
 
-  const TILE_CHUNK = 500;
+  const TILE_CHUNK = 2_000;
   const tiles: RuntimeExportState["tiles"] = [];
   let idx = 0;
   for (const tileKey of visibleKeys) {

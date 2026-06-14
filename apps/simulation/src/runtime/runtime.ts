@@ -552,6 +552,7 @@ export class SimulationRuntime {
   private readonly backgroundBatchSize: number;
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
+  private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
   private readonly onCaptureRevealBuilt:
@@ -650,6 +651,7 @@ export class SimulationRuntime {
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
       delayMs === 0 ? void setImmediate(task) : void setTimeout(task, delayMs)
     );
+    this.shouldPauseBackground = options.shouldPauseBackground;
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
@@ -2687,6 +2689,11 @@ export class SimulationRuntime {
             shouldYieldForBackground = true;
             break;
           }
+        }
+        if ((next.lane === "system" || next.lane === "ai") && this.shouldPauseBackground?.()) {
+          this.jobsByLane[next.lane].unshift(next);
+          shouldYieldForBackground = true;
+          break;
         }
         if ((next.lane === "system" || next.lane === "ai") && backgroundJobsProcessed >= this.backgroundBatchSize) {
           this.jobsByLane[next.lane].unshift(next);
