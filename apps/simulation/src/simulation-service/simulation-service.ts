@@ -32,7 +32,7 @@ import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
 import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { buildNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
-import { buildPlayerSubscriptionSnapshot, buildPlayerSubscriptionSnapshotAsync } from "../player-snapshot/player-snapshot.js";
+import { buildPlayerSubscriptionSnapshotAsync } from "../player-snapshot/player-snapshot.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
@@ -1216,7 +1216,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   };
   const preparePlayerSlowLogMs = 250;
-  const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
+  // Throttled to 30s: the broadcast still does a ~10s full-world export to
+  // refresh the leaderboard, so a tight interval keeps the sim worker pinned and
+  // starves login. 30s keeps export duty low while the leaderboard stays "soon
+  // enough". The full-export cost is removed by Phase 3b (incremental aggregates).
+  const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 30000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
@@ -1241,84 +1245,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     lastCpuSampleAt = at;
     return ((cpuUsage.user + cpuUsage.system) / elapsedMicros) * 100;
   };
-  const buildAndCachePlayerSnapshot = (
-    playerId: string,
-    options?: { includeWorldStatus?: boolean; fullVisibility?: boolean; trigger?: string }
-  ): PlayerSubscriptionSnapshot => {
-    const totalStartedAt = Date.now();
-    const seasonEnded = currentSeasonState.status === "ended";
-    const useFullVisibility = options?.fullVisibility === true || seasonEnded;
-    const runtimeExportStartedAt = Date.now();
-    const worldStatusRuntimeState = options?.includeWorldStatus === true || useFullVisibility ? runtime.exportState() : undefined;
-    const runtimeState = worldStatusRuntimeState ?? runtime.exportVisibleStateForPlayer(playerId);
-    recordSnapshotBuildTiming("runtime_export", Date.now() - runtimeExportStartedAt, {
-      playerId,
-      trigger: options?.trigger ?? "",
-      fullVisibility: useFullVisibility,
-      includeWorldStatus: options?.includeWorldStatus === true
-    });
-    const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
-    const snapshotBuildStartedAt = Date.now();
-    const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
-      includeWorldStatus: options?.includeWorldStatus === true,
-      fullVisibility: useFullVisibility,
-      ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
-      ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
-      seasonState: currentSeasonState,
-      ...(respawnNotice ? { respawnNotice } : {}),
-      ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {}),
-      onAsyncPhaseTiming: (phase, durationMs, details) => {
-        recordSnapshotBuildTiming(phase, durationMs, {
-          playerId,
-          trigger: options?.trigger ?? "",
-          fullVisibility: useFullVisibility,
-          includeWorldStatus: options?.includeWorldStatus === true,
-          ...(details ?? {})
-        });
-      }
-    });
-    recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
-      playerId,
-      trigger: options?.trigger ?? "",
-      fullVisibility: useFullVisibility,
-      tileCount: snapshot.tiles.length
-    });
-    if (!useFullVisibility) {
-      const cacheStartedAt = Date.now();
-      setCachedSnapshot(playerId, snapshot);
-      recordSnapshotBuildTiming("cache_snapshot", Date.now() - cacheStartedAt, {
-        playerId,
-        trigger: options?.trigger ?? "",
-        tileCount: snapshot.tiles.length
-      });
-    }
-    const diagnosticsStartedAt = Date.now();
-    recordSnapshotDiagnostics(playerId, snapshot, {
-      trigger:
-        options?.trigger ??
-        (seasonEnded && options?.fullVisibility !== true
-          ? "season_ended_full_visibility"
-          : options?.includeWorldStatus === true
-            ? "subscribe_with_world_status"
-            : "live_subscribe"),
-      fullVisibility: useFullVisibility,
-      seasonEnded,
-      worldTileCount: WORLD_WIDTH * WORLD_HEIGHT
-    });
-    recordSnapshotBuildTiming("snapshot_diagnostics", Date.now() - diagnosticsStartedAt, {
-      playerId,
-      trigger: options?.trigger ?? "",
-      tileCount: snapshot.tiles.length
-    });
-    recordSnapshotBuildTiming("total", Date.now() - totalStartedAt, {
-      playerId,
-      trigger: options?.trigger ?? "",
-      fullVisibility: useFullVisibility,
-      includeWorldStatus: options?.includeWorldStatus === true,
-      tileCount: snapshot.tiles.length
-    });
-    return snapshot;
-  };
   // Async variant used by SubscribePlayer to interleave the heavy per-tile
   // enrichment with grpc dispatch + watchdog heartbeats. See player-snapshot.ts
   // for the duplication rationale.
@@ -1330,10 +1256,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
     const runtimeExportStartedAt = Date.now();
-    const worldStatusRuntimeState =
-      options?.includeWorldStatus === true || useFullVisibility
-        ? await runtime.exportStateAsync(yieldToEventLoop)
-        : undefined;
+    // Phase 3a: a normal bootstrap no longer pays the ~10s full-world
+    // exportStateAsync. We serve the player's visible tiles and attach the
+    // leaderboard / season-victory from the cached season summary below. Only
+    // the full-visibility paths (season-ended / admin spectator) still need the
+    // whole world materialised.
+    const needsFullWorldExport = useFullVisibility;
+    const worldStatusRuntimeState = needsFullWorldExport
+      ? await runtime.exportStateAsync(yieldToEventLoop)
+      : undefined;
     // Route the per-player visible export through the async chunked path
     // when we don't already have a full-world runtime state captured.
     // exportVisibleStateForPlayer was the last contiguous sync block in
@@ -1351,7 +1282,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const respawnNotice = runtime.peekRespawnNoticeForPlayer(playerId);
     const snapshotBuildStartedAt = Date.now();
     const snapshot = await buildPlayerSubscriptionSnapshotAsync(playerId, runtimeState, undefined, yieldToEventLoop, {
-      includeWorldStatus: options?.includeWorldStatus === true,
+      includeWorldStatus: needsFullWorldExport,
       fullVisibility: useFullVisibility,
       ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
       ...(worldStatusRuntimeState ? { worldStatusRuntimeState } : {}),
@@ -1408,6 +1339,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       includeWorldStatus: options?.includeWorldStatus === true,
       tileCount: snapshot.tiles.length
     });
+    // Phase 3a: for a normal bootstrap (world status requested but no full-world
+    // export), attach the leaderboard / season-victory from the cached season
+    // summary so the client still receives world_status at INIT without paying
+    // the export. Self rank/progress fills in on the next global-status push.
+    if (options?.includeWorldStatus === true && !needsFullWorldExport) {
+      const summary = await readCurrentSummary();
+      return { ...snapshot, worldStatus: { leaderboard: summary.leaderboard, seasonVictory: summary.seasonVictory } };
+    }
     return snapshot;
   };
   // Per-(player, mode) in-flight subscribe deduplication. Resolves the
