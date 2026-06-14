@@ -950,6 +950,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     1,
     Number(process.env.SIMULATION_RUNTIME_BACKGROUND_BATCH_SIZE ?? 1)
   );
+  let loginExportsInFlight = 0;
   let onShardCollectedCallback: (() => void) | undefined;
   let runtime = new SimulationRuntime({
     ...(options.runtimeOptions ?? {}),
@@ -994,6 +995,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     },
     onVisibilityAudit: handleVisibilityAudit,
+    shouldPauseBackground: () => {
+      if (loginExportsInFlight > 0) {
+        simulationMetrics.incrementSimLoginExportPausedDrain();
+        return true;
+      }
+      return false;
+    },
     onShardCollected: () => {
       onShardCollectedCallback?.();
     },
@@ -1268,8 +1276,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // the bootstrap snapshot pipeline after PR #343 made the downstream
     // enrichment chunked — for a player with ~13k owned tiles the vision
     // raster + visible-tile map was its own multi-second main-thread block.
-    const runtimeState =
-      worldStatusRuntimeState ?? (await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop));
+    // Phase 4: increment loginExportsInFlight so the drain loop pauses
+    // ai/system background jobs for the duration of this export.
+    let runtimeState: Awaited<ReturnType<typeof runtime.exportVisibleStateForPlayerAsync>>;
+    if (worldStatusRuntimeState) {
+      runtimeState = worldStatusRuntimeState;
+    } else {
+      loginExportsInFlight += 1;
+      try {
+        runtimeState = await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop);
+      } finally {
+        loginExportsInFlight -= 1;
+      }
+    }
     recordSnapshotBuildTiming("runtime_export_async", Date.now() - runtimeExportStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
@@ -2010,7 +2029,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
         onVisibilityAudit: handleVisibilityAudit,
-        onCaptureRevealBuilt: captureRevealBuildSample
+        onCaptureRevealBuilt: captureRevealBuildSample,
+        shouldPauseBackground: () => {
+          if (loginExportsInFlight > 0) {
+            simulationMetrics.incrementSimLoginExportPausedDrain();
+            return true;
+          }
+          return false;
+        }
       });
       const nextSummary = buildCurrentSeasonSummary({
         seasonState: bootstrap.seasonState,

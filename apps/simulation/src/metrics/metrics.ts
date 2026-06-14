@@ -103,6 +103,7 @@ export type SimulationMetricsSnapshot = {
   simAiDryRunSkippedTotal: number;
   simGlobalStatusBroadcastCoalescedTotal: number;
   simSnapshotPruneFailedTotal: number;
+  simLoginExportPausedDrainTotal: number;
   simAiCommandCapSkippedTotal: number;
   simAiExpandDisabledTotal: number;
   simAiBuildDisabledTotal: number;
@@ -222,6 +223,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiDryRunSkippedTotal = 0;
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
+  let simLoginExportPausedDrainTotal = 0;
   let simAiCommandCapSkippedTotal = 0;
   let simAiExpandDisabledTotal = 0;
   let simAiBuildDisabledTotal = 0;
@@ -257,6 +259,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiDryRunSkippedTotal,
     simGlobalStatusBroadcastCoalescedTotal,
     simSnapshotPruneFailedTotal,
+    simLoginExportPausedDrainTotal,
     simAiCommandCapSkippedTotal,
     simAiExpandDisabledTotal,
     simAiBuildDisabledTotal,
@@ -351,6 +354,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimSnapshotPruneFailed(): void {
       simSnapshotPruneFailedTotal += 1;
+    },
+    incrementSimLoginExportPausedDrain(): void {
+      simLoginExportPausedDrainTotal += 1;
     },
     incrementSimAiCommandCapSkipped(): void {
       simAiCommandCapSkippedTotal += 1;
@@ -516,6 +522,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_global_status_broadcast_coalesced_total ${formatMetricValue(sample.simGlobalStatusBroadcastCoalescedTotal)}`,
         "# TYPE sim_snapshot_prune_failed_total counter",
         `sim_snapshot_prune_failed_total ${formatMetricValue(sample.simSnapshotPruneFailedTotal)}`,
+        "# TYPE sim_login_export_paused_drain_total counter",
+        `sim_login_export_paused_drain_total ${formatMetricValue(sample.simLoginExportPausedDrainTotal)}`,
         "# TYPE sim_ai_command_cap_skipped_total counter",
         `sim_ai_command_cap_skipped_total ${formatMetricValue(sample.simAiCommandCapSkippedTotal)}`,
         "# TYPE sim_ai_expand_disabled_total counter",
