@@ -2690,7 +2690,7 @@ export class SimulationRuntime {
             break;
           }
         }
-        if ((next.lane === "system" || next.lane === "ai") && this.shouldPauseBackground?.()) {
+        if (next.lane === "ai" && this.shouldPauseBackground?.()) {
           this.jobsByLane[next.lane].unshift(next);
           shouldYieldForBackground = true;
           break;

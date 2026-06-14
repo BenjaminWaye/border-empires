@@ -187,8 +187,9 @@ export type SimulationRuntimeOptions = {
   /** Called when a non-FALL shard is collected so the runtime can request an immediate checkpoint. */
   onShardCollected?: () => void;
   /**
-   * Phase 4: when this returns true the drain loop skips ai/system background
+   * Phase 4: when this returns true the drain loop skips ai-lane background
    * jobs and yields immediately so that concurrent login exports run uncontested.
+   * System-lane jobs still run (they are needed to settle commands mid-export).
    * Called at the head of each drain cycle before touching the background queue.
    */
   shouldPauseBackground?: () => boolean;
