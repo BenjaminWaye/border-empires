@@ -2363,6 +2363,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             loginTracer.stage("live_subscribe_start");
             authTrace.startStep("live_subscribe");
+            const loginProgressStartedAt = Date.now();
+            const loginProgressInterval = setInterval(() => {
+              if (socket.readyState !== socket.OPEN) return;
+              const elapsedMs = Date.now() - loginProgressStartedAt;
+              const { title, detail } = elapsedMs < 3_000
+                ? { title: "Syncing empire...", detail: "Connecting your empire to the simulation." }
+                : elapsedMs < 8_000
+                  ? { title: "Syncing empire...", detail: "Exporting your territory — almost there." }
+                  : elapsedMs < 20_000
+                    ? { title: "Syncing empire...", detail: `Building snapshot for a large empire (${Math.round(elapsedMs / 1000)}s)…` }
+                    : { title: "Syncing empire...", detail: `Large empire detected — hang on (${Math.round(elapsedMs / 1000)}s)…` };
+              sendJson(socket, { type: "LOGIN_PHASE", title, detail });
+            }, 1_000);
             try {
               await retrySimulationRpc(
                 "gateway live subscribe player",
@@ -2398,6 +2411,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.endStep("live_subscribe", false);
               authTrace.complete("rejected", "live_subscribe_failed");
               return;
+            } finally {
+              clearInterval(loginProgressInterval);
             }
             const resolveInitialStateStartedAt = Date.now();
             const initialState = resolveInitialState({

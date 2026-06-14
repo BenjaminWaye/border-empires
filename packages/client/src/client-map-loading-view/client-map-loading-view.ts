@@ -126,7 +126,9 @@ export const buildMapLoadingView = (
     }
     return {
       title: state.authSessionReady ? "Loading nearby land..." : "Syncing empire...",
-      meta: state.authSessionReady ? `Elapsed ${elapsedSeconds}s · chunks ${state.chunkFullCount}` : `Connected to ${wsUrl}`,
+      meta: state.authSessionReady
+        ? `Elapsed ${elapsedSeconds}s · chunks ${state.chunkFullCount}`
+        : (state.authBusyDetail || `Connected to ${wsUrl}`),
       showRetry: false,
       showReload: false,
       showDiagnostics: false,

@@ -157,6 +157,30 @@ describe("buildMapLoadingView", () => {
     expect(view.showDiagnostics).toBe(true);
   });
 
+  it("surfaces authBusyDetail as meta when server sends LOGIN_PHASE during normal loading", () => {
+    const view = buildMapLoadingView(
+      {
+        connection: "connected",
+        firstChunkAt: 0,
+        mapLoadStartedAt: 1,
+        chunkFullCount: 0,
+        authSessionReady: false,
+        authRetrying: false,
+        authRetryAttempt: 0,
+        authRetryNextAt: 0,
+        authBusyTitle: "Syncing empire...",
+        authBusyDetail: "Exporting your territory — almost there."
+      },
+      "ws://localhost:3001/ws",
+      3_000
+    );
+
+    expect(view.title).toBe("Syncing empire...");
+    expect(view.meta).toBe("Exporting your territory — almost there.");
+    expect(view.tone).toBe("normal");
+    expect(view.showRetry).toBe(false);
+  });
+
   it("does not escalate before the soft-hint threshold even on a slow start", () => {
     const view = buildMapLoadingView(
       {
