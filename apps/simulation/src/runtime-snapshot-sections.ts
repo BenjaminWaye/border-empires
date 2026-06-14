@@ -7,7 +7,7 @@ import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bri
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 
-type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
+export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
 export type SnapshotExportInput = {
   tiles: ReadonlyMap<string, DomainTileState>;
@@ -20,9 +20,12 @@ export type SnapshotExportInput = {
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
   incomePerMinuteForPlayer: (playerId: string) => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
+  // Phase 3c: pre-serialized tile cache, updated on every replaceTileState call.
+  // When provided, the async export skips the O(202k-tile) yield loop entirely.
+  prebuiltTiles?: ReadonlyMap<string, SnapshotTile>;
 };
 
-const mapTile = (tile: DomainTileState): SnapshotTile => ({
+export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   x: tile.x,
   y: tile.y,
   terrain: tile.terrain,
@@ -116,6 +119,15 @@ export async function buildRuntimeSnapshotSectionsAsync(
   input: SnapshotExportInput,
   yieldToEventLoop: () => Promise<void>
 ): Promise<SimulationSnapshotSections> {
+  // Phase 3c: if a pre-serialized tile cache is wired in, skip the O(202k-tile)
+  // yield loop. On prod the 101 setImmediate yields each wait ~400-900 ms behind
+  // AI ticks, making the checkpoint take 43-93 s. With the cache the only EL
+  // block is the sort (~50 ms) before handing off to the stringify worker.
+  if (input.prebuiltTiles) {
+    const tiles = [...input.prebuiltTiles.values()];
+    tiles.sort((a, b) => a.x - b.x || a.y - b.y);
+    return buildSnapshotBody(input, tiles);
+  }
   const tiles: SnapshotTile[] = [];
   let i = 0;
   for (const tile of input.tiles.values()) {
