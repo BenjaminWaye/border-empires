@@ -217,6 +217,7 @@ import {
   playerManpowerRegenPerMinuteFromSummary
 } from "../runtime-manpower.js";
 import {
+  buildRuntimeExportPlayers,
   buildRuntimeExportState,
   buildRuntimeExportStateAsync,
   buildRuntimePlannerPlayerViews,
@@ -1112,6 +1113,7 @@ export class SimulationRuntime {
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
       applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
@@ -2206,8 +2208,8 @@ export class SimulationRuntime {
     return exportPlannerTilesForKeys(this.tiles, tileKeys);
   }
 
-  exportState(): RuntimeExportState {
-    return buildRuntimeExportState({
+  private buildExportInput() {
+    return {
       tiles: this.tiles,
       locksByCommandId: this.locksByCommandId,
       players: this.players,
@@ -2217,40 +2219,27 @@ export class SimulationRuntime {
       docks: this.docks,
       terrainEpoch: this.terrainEpoch,
       tileDeltaStringifyCache: this.tileDeltaStringifyCache,
-      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      playerManpowerCap: (player) => this.playerManpowerCap(player),
-      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
-      playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
-      playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
-      incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      applyManpowerRegen: this.applyManpowerRegen.bind(this),
+      playerManpowerCap: this.playerManpowerCap.bind(this),
+      playerManpowerRegenPerMinute: this.playerManpowerRegenPerMinute.bind(this),
+      playerLogisticsThroughputPerMinute: this.playerLogisticsThroughputPerMinute.bind(this),
+      playerManpowerBreakdown: this.playerManpowerBreakdown.bind(this),
+      incomePerMinuteForPlayer: this.incomePerMinuteForPlayer.bind(this),
+      summaryForPlayer: this.summaryForPlayer.bind(this),
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter
-    });
+    };
+  }
+
+  exportState(): RuntimeExportState {
+    return buildRuntimeExportState(this.buildExportInput());
   }
 
   async exportStateAsync(yieldToEventLoop: () => Promise<void>): Promise<RuntimeExportState> {
-    return buildRuntimeExportStateAsync(
-      {
-        tiles: this.tiles,
-        locksByCommandId: this.locksByCommandId,
-        players: this.players,
-        pendingSettlementsByTile: this.pendingSettlementsByTile,
-        tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
-        playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
-        docks: this.docks,
-        terrainEpoch: this.terrainEpoch,
-        tileDeltaStringifyCache: this.tileDeltaStringifyCache,
-        applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-        playerManpowerCap: (player) => this.playerManpowerCap(player),
-        playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
-        playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
-        playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
-        incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
-        summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-        growthStalledNoFoodCounter: this.growthStalledNoFoodCounter
-      },
-      yieldToEventLoop
-    );
+    return buildRuntimeExportStateAsync(this.buildExportInput(), yieldToEventLoop);
+  }
+
+  getPlayersForLeaderboard(): RuntimeExportState["players"] {
+    return buildRuntimeExportPlayers(this.buildExportInput());
   }
 
   private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
