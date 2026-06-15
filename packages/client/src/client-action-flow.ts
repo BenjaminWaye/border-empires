@@ -35,6 +35,7 @@ import {
   enqueueTarget as enqueueTargetFromModule,
   primarySettlementProgress as primarySettlementProgressFromModule,
   processActionQueue as processActionQueueFromModule,
+  processPendingMusterAttacks as processPendingMusterAttacksFromModule,
   processDevelopmentQueue as processDevelopmentQueueFromModule,
   queueDevelopmentAction as queueDevelopmentActionFromModule,
   queueSpecificTargets as queueSpecificTargetsFromModule,
@@ -430,8 +431,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const dropQueuedTargetKeyIfAbsent = (targetKey: string): void =>
     dropQueuedTargetKeyIfAbsentFromModule(state, targetKey, { keyFor });
 
-  const reconcileActionQueue = (): void =>
+  const processPendingMusterAttacks = (): void =>
+    processPendingMusterAttacksFromModule(state, { keyFor, pushFeed });
+
+  const reconcileActionQueue = (): void => {
     reconcileActionQueueFromModule(state, { keyFor, pickOriginForTarget, clearOptimisticTileState });
+    processPendingMusterAttacks();
+  };
 
   const developmentSlotSummary = (): DevelopmentSlotSummary => developmentSlotSummaryFromModule(state, { busyDevelopmentProcessCount: deps.busyDevelopmentProcessCount });
 
@@ -506,7 +512,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       notifyInsufficientGoldForFrontierAction,
       applyOptimisticTileState,
       pushFeed,
-      renderHud
+      renderHud,
+      sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode })
     });
 
   const combatResolutionAlert = (

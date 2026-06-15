@@ -490,6 +490,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const observatoryRangeMaxSegments = observatoryRangeBorderSegmentCount(OBSERVATORY_RANGE_MAX);
   const observatoryRangeMaxFillVertices = observatoryRangeFillVertexCount(OBSERVATORY_RANGE_MAX);
   const SWEEP_RANGE_RADIUS = 5;
+  const MUSTER_REACH_RADIUS = 5; // 4 hops to origin + 1 hop to target
   const sweepRangeMaxSegments = observatoryRangeBorderSegmentCount(SWEEP_RANGE_RADIUS);
   const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
   const observatoryRangeMaterial = new LineBasicMaterial({
@@ -538,18 +539,45 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createObservatoryRangeFillGeometry(sweepRangeMaxFillVertices),
     sweepRangeFillMaterial
   );
+  const musterReachMaterial = new LineBasicMaterial({
+    color: "#e05252",
+    transparent: true,
+    opacity: 0.55,
+    depthTest: false,
+    depthWrite: false
+  });
+  const musterReachFillMaterial = new MeshBasicMaterial({
+    color: "#e05252",
+    transparent: true,
+    opacity: 0.03,
+    depthTest: false,
+    depthWrite: false,
+    side: DoubleSide
+  });
+  const musterReachMarker = new LineSegments(
+    createObservatoryRangeBorderGeometry(sweepRangeMaxSegments),
+    musterReachMaterial
+  );
+  const musterReachFill = new Mesh(
+    createObservatoryRangeFillGeometry(sweepRangeMaxFillVertices),
+    musterReachFillMaterial
+  );
   selectedMarker.visible = false;
   hoverMarker.visible = false;
   observatoryRangeMarker.visible = false;
   observatoryRangeFill.visible = false;
   sweepRangeMarker.visible = false;
   sweepRangeFill.visible = false;
+  musterReachMarker.visible = false;
+  musterReachFill.visible = false;
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
   observatoryRangeMarker.renderOrder = 26;
   observatoryRangeFill.renderOrder = 24;
   sweepRangeMarker.renderOrder = 23;
   sweepRangeFill.renderOrder = 22;
+  musterReachMarker.renderOrder = 21;
+  musterReachFill.renderOrder = 20;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
@@ -585,6 +613,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   observatoryRangeFill.frustumCulled = false;
   sweepRangeMarker.frustumCulled = false;
   sweepRangeFill.frustumCulled = false;
+  musterReachMarker.frustumCulled = false;
+  musterReachFill.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
@@ -596,6 +626,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   scene.add(
     selectedMarker,
     hoverMarker,
+    musterReachFill,
+    musterReachMarker,
     sweepRangeFill,
     sweepRangeMarker,
     observatoryRangeFill,
@@ -1183,6 +1215,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     writeObservatoryRangeGeometry(sweepRangeMarker, sweepRangeFill, selectedTile, SWEEP_RANGE_RADIUS);
   };
 
+  const syncMusterReachMarker = (): void => {
+    musterReachMarker.visible = false;
+    musterReachFill.visible = false;
+    const selectedCoord = deps.state.selected;
+    if (!selectedCoord) return;
+    const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
+    if (!selectedTile?.muster) return;
+    if (selectedTile.muster.ownerId !== deps.state.me) return;
+    if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
+    writeObservatoryRangeGeometry(musterReachMarker, musterReachFill, selectedTile, MUSTER_REACH_RADIUS);
+  };
+
   const applyCamera = (): void => {
     applyPerspectiveCamera(camera, {
       zoom: deps.state.zoom,
@@ -1633,6 +1677,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncFrontierClaimPlate();
     syncObservatoryRangeMarkers();
     syncSweepRangeMarker();
+    syncMusterReachMarker();
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
@@ -1678,12 +1723,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryRangeFill.geometry.dispose();
     sweepRangeMarker.geometry.dispose();
     sweepRangeFill.geometry.dispose();
+    musterReachMarker.geometry.dispose();
+    musterReachFill.geometry.dispose();
     (selectedMarker.material as LineBasicMaterial).dispose();
     (hoverMarker.material as LineBasicMaterial).dispose();
     observatoryRangeMaterial.dispose();
     observatoryRangeFillMaterial.dispose();
     sweepRangeMaterial.dispose();
     sweepRangeFillMaterial.dispose();
+    musterReachMaterial.dispose();
+    musterReachFillMaterial.dispose();
     for (const { marker, material } of townSupportMarkers) {
       marker.geometry.dispose();
       material.dispose();
