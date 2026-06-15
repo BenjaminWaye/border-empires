@@ -2200,7 +2200,8 @@ export class SimulationRuntime {
       neutralBeaconTileKeys: this.neutralBeaconTileKeys,
       beaconGeneration: this.beaconGeneration,
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
-      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer
+      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
+      musterTilesByOwner: this.musterTilesByOwner
     });
   }
 
@@ -2219,7 +2220,8 @@ export class SimulationRuntime {
       neutralBeaconTileKeys: this.neutralBeaconTileKeys,
       beaconGeneration: this.beaconGeneration,
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
-      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer
+      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
+      musterTilesByOwner: this.musterTilesByOwner
     });
   }
 
