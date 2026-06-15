@@ -35,7 +35,11 @@ describe("runtime state export", () => {
         pendingSettlementTileKeys: []
       }),
       ownedStructureCountsForPlayer: () => ({ FORT: 2, SIEGE_OUTPOST: 3 }),
-      estimatedIncomePerMinuteForPlayer: () => 0
+      estimatedIncomePerMinuteForPlayer: () => 0,
+      neutralBeaconTileKeys: new Set(),
+      beaconGeneration: 0,
+      yieldBearingTilesByOwner: new Map(),
+      expansionObjectiveCacheByPlayer: new Map()
     });
 
     expect(view?.ownedStructureCounts).toEqual({ FORT: 2, SIEGE_OUTPOST: 3 });

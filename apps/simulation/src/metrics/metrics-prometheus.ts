@@ -176,6 +176,10 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_muster_remote_blocked_total counter",
     `sim_muster_remote_blocked_total ${formatMetricValue(sample.simMusterRemoteBlockedTotal)}`
   );
+  lines.push("# TYPE sim_ai_expansion_objective_total counter");
+  for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {
+    lines.push(`sim_ai_expansion_objective_total{kind=\"${kind}\"} ${formatMetricValue(count)}`);
+  }
 
   return lines.join("\n");
 };

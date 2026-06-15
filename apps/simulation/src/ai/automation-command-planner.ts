@@ -62,6 +62,7 @@ export const AUTOMATION_NOOP_REASONS = [
   "insufficient_manpower_for_attack",
   "no_settlement_target",
   "no_frontier_targets",
+  "no_objective_idle",
   "wait_and_recover"
 ] as const;
 
@@ -153,6 +154,8 @@ export type AutomationPlannerDiagnostic = {
   broadFallbackSkipped?: boolean | undefined;
   /** Set when the narrow analyze path hits the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES). */
   narrowAnalyzeCapped?: boolean | undefined;
+  /** Set when the planner acts on an expansion objective (directed expand). */
+  expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
 };
 
 export type AutomationPlannerPhase =
@@ -205,6 +208,8 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   // attack gates below skip targets in this set so the planner falls through
   // to SETTLE/EXPAND/BUILD. See ai-attack-stalemate.ts for the policy.
   attackStalemateTargetTileKeys?: ReadonlySet<string>;
+  /** Nearest high-value neutral or enemy tile (from main-thread beacon index). */
+  expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
   // Bounded BFS front of owned tile keys for this AI's current spatial focus.
   // When provided, frontier candidate enumeration is restricted to origins
   // inside this set, capping per-tick CPU regardless of empire size. See
@@ -259,6 +264,7 @@ const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
     analysis.attack ||
       analysis.expand ||
       analysis.economicExpand ||
+      analysis.directedExpand ||
       analysis.townSupportExpand ||
       analysis.scaffoldExpand ||
       analysis.scoutExpand
@@ -538,6 +544,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           canExpand,
           needsFood,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
+          ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -564,6 +571,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           canExpand,
           needsFood,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
+          ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -710,35 +718,31 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return buildPlannerSettleCommand(context, settlementCandidate as TTile);
   }
+
+  // Expand into directly valuable adjacent tiles first (resource, town, dock).
+  // Frontier tiles decay in ~10 minutes, so aimless expansion onto waste land
+  // just burns gold.
+  if (frontierAnalysis.economicExpand && canExpand) {
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+    return buildPlannerFrontierCommand(context, frontierAnalysis.economicExpand, "EXPAND");
+  }
+
+  // Expand toward the nearest high-value beacon (distant town, dock, or enemy territory)
+  // when a direct adjacent target isn't available. Only steps that reduce Chebyshev
+  // distance to the objective are considered — waste without direction is suppressed.
+  if (frontierAnalysis.directedExpand && canExpand) {
+    context.diagnostic.expansionObjectiveKind = input.expansionObjective?.kind ?? "none";
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+    return buildPlannerFrontierCommand(context, frontierAnalysis.directedExpand, "EXPAND");
+  }
+
   if (economicBuild) {
-    if (needsFood && !strategic.pressureThreatensCore) {
-      recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-      return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
-        x: economicBuild.tile.x,
-        y: economicBuild.tile.y,
-        structureType: economicBuild.structureType
-      });
-    }
-    if (
-      strategic.primaryVictoryPath === "ECONOMIC_HEGEMONY" &&
-      !strategic.pressureThreatensCore &&
-      (!canSettleNow || incomePerMinute >= 12 || strategic.victoryPathContender)
-    ) {
-      recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-      return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
-        x: economicBuild.tile.x,
-        y: economicBuild.tile.y,
-        structureType: economicBuild.structureType
-      });
-    }
-    if (!hasActionableSettlementCandidate(context) && (needsEconomy || frontierAnalysis.frontierOpportunityEconomic > 0 || !settlementCandidate)) {
-      recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-      return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
-        x: economicBuild.tile.x,
-        y: economicBuild.tile.y,
-        structureType: economicBuild.structureType
-      });
-    }
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+    return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
+      x: economicBuild.tile.x,
+      y: economicBuild.tile.y,
+      structureType: economicBuild.structureType
+    });
   }
 
   if (strategic.townSupportSettlementAvailable && actionableFallbackSettlementCandidate && !strategic.pressureThreatensCore) {
@@ -933,11 +937,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     return buildPlannerFrontierCommand(context, preferredEnemyAttack, "ATTACK");
   }
 
-  if (frontierAnalysis.expand) {
-    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-    return buildPlannerFrontierCommand(context, frontierAnalysis.expand, "EXPAND");
-  }
-
   let noCommandReason: AutomationNoopReason;
   const hasAnyFrontierOpportunity =
     frontierAnalysis.frontierEnemyTargetCount > 0 || frontierAnalysis.frontierNeutralTargetCount > 0;
@@ -952,6 +951,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     noCommandReason = "no_frontier_targets";
   } else if (settlementEligible) {
     noCommandReason = "no_settlement_target";
+  } else if (frontierAnalysis.frontierNeutralTargetCount > 0 && !input.expansionObjective && !frontierAnalysis.economicExpand) {
+    noCommandReason = "no_objective_idle";
   } else {
     noCommandReason = "no_frontier_targets";
   }

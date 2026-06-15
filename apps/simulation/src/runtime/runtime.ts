@@ -127,6 +127,7 @@ import {
 import { buildTileYieldView } from "../tile-yield-view/tile-yield-view.js";
 import { VisionExpansionCache } from "../vision-expansion-cache.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
+import type { ExpansionObjective } from "../ai/ai-expansion-objective.js";
 import {
   createAutomationNoopDiagnostic,
   planAutomationCommand,
@@ -317,9 +318,11 @@ import {
 } from "../runtime-maintenance-ticks.js";
 import {
   assertYieldIndexCorrect as assertYieldIndexCorrectImpl,
+  isNeutralBeaconTile as isNeutralBeaconTileImpl,
   isYieldBearingTile as isYieldBearingTileImpl,
   rebuildPlannerCandidateIndexesForPlayer as rebuildPlannerCandidateIndexesForPlayerImpl,
   refreshFortAnchorIndexForTile as refreshFortAnchorIndexForTileImpl,
+  refreshNeutralBeaconIndexForTile as refreshNeutralBeaconIndexForTileImpl,
   refreshPlannerCandidateIndexesAroundTileChange as refreshPlannerCandidateIndexesAroundTileChangeImpl,
   refreshPlayerCandidateIndexAnchorForTile as refreshPlayerCandidateIndexAnchorForTileImpl,
   refreshRuntimeTileIndexesForChange,
@@ -464,6 +467,21 @@ export class SimulationRuntime {
   // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
   // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
   private readonly fortTilesByOwner = new Map<string, Set<string>>();
+  // Index of unowned LAND tiles with a town, dock, or resource — navigation
+  // beacons for AI directional expansion. Maintained in replaceTileState via
+  // refreshNeutralBeaconIndexForTileImpl; rebuilt from this.tiles in the
+  // constructor.  Changes increment beaconGeneration so export caches can
+  // detect staleness without re-scanning the set.
+  private readonly neutralBeaconTileKeys = new Set<string>();
+  private beaconGeneration = 0;
+  // Per-player cache for the expansion objective selected from beacon indexes.
+  // Keyed by topologyVersion + beaconGeneration so recomputation only triggers
+  // on actual territory or beacon changes.
+  private readonly expansionObjectiveCacheByPlayer = new Map<string, {
+    topologyVersion: number;
+    beaconGeneration: number;
+    objective: ExpansionObjective | undefined;
+  }>();
   // Index of yield-bearing SETTLED LAND tiles per owner. A tile is yield-bearing
   // iff it has town, dockId, a strategic resource, or an active converter
   // economicStructure. Maintained in replaceTileState; rebuilt from this.tiles
@@ -718,6 +736,8 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.yieldBearingTilesByOwner.set(tile.ownerId, set); }
         set.add(tileKey);
       }
+      // Populate neutralBeaconTileKeys index (unowned towns/docks/resources).
+      if (isNeutralBeaconTileImpl(tile)) this.neutralBeaconTileKeys.add(tileKey);
       // Populate ownedStructureCountByPlayerByType. Each structure slot has its
       // own ownerId — count by structure ownership, not by tile ownership,
       // to mirror the original ownedStructureCountForPlayer semantics.
@@ -1809,6 +1829,9 @@ export class SimulationRuntime {
       musterTilesByOwner: this.musterTilesByOwner,
       fortTilesByOwner: this.fortTilesByOwner
     });
+    if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
+      this.beaconGeneration += 1;
+    }
     // Structure count index: keep ownedStructureCountByPlayerByType consistent
     // across capture / build / cancel / removal transitions. Each slot is
     // tracked by the STRUCTURE's ownerId (not the tile's), to match the
@@ -2193,7 +2216,11 @@ export class SimulationRuntime {
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
       ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
-      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId)
+      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
+      neutralBeaconTileKeys: this.neutralBeaconTileKeys,
+      beaconGeneration: this.beaconGeneration,
+      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer
     });
   }
 
@@ -2208,7 +2235,11 @@ export class SimulationRuntime {
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
       ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
-      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId)
+      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
+      neutralBeaconTileKeys: this.neutralBeaconTileKeys,
+      beaconGeneration: this.beaconGeneration,
+      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer
     });
   }
 

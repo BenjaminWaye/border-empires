@@ -425,10 +425,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       needsEconomy: input.needsEconomy,
       townCount: input.townCount
     });
-  const attackReady =
-    input.canAttack &&
-    manpowerSufficient &&
-    (pressureThreatensCore || (!input.needsFood && !input.needsEconomy) || pressureAttackScore >= 180);
+  const attackReady = input.canAttack && manpowerSufficient;
   const resourceContenderThreshold = Math.ceil(6 * VICTORY_PATH_CONTENDER_PROGRESS_RATIO);
   const resourcePathContender = [...ownedResourceTileCounts(input.playerId, input.ownedTiles).values()].some(
     (count) => count >= resourceContenderThreshold

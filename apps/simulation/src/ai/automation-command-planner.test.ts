@@ -364,10 +364,13 @@ describe("automation command planner", () => {
     });
   });
 
-  it("uses scaffold expansion fallback when no strategic settlement target exists", () => {
+  it("suppresses non-directed expansion onto plain tiles when no expansion objective is set", () => {
+    // Plain tiles (no resource/town/dock) should not be expanded unless there is an
+    // expansionObjective pointing toward them. Frontier tiles decay in ~10 min so
+    // aimless expansion burns gold with no net gain.
     const owned = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
-    const scaffold = makeTile(2, 0, {});
+    const plain = makeTile(2, 0, {});
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 500,
@@ -384,17 +387,15 @@ describe("automation command planner", () => {
       tilesByKey: new Map([
         ["0,0", owned],
         ["1,0", frontier],
-        ["2,0", scaffold]
+        ["2,0", plain]
       ]),
       clientSeq: 6,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "EXPAND",
-      payloadJson: JSON.stringify({ fromX: 1, fromY: 0, toX: 2, toY: 0 })
-    });
+    // No economic tile adjacent and no expansionObjective → no expansion.
+    expect(result.command).toBeUndefined();
   });
 
   it("prefers settlement over economic build when both are legal", () => {
@@ -438,12 +439,14 @@ describe("automation command planner", () => {
     });
   });
 
-  it("prefers fallback growth over opportunistic attack on mixed fronts", () => {
+  it("suppresses plain expansion on mixed fronts when manpower is too low to attack", () => {
+    // Plain neutral tiles don't expand without an objective. Low manpower (< ATTACK_MANPOWER_MIN)
+    // means attack is also blocked, so the planner produces no command.
     const settled = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const frontier = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const enemyA = makeTile(1, 1, { ownerId: "enemy-1" });
     const enemyB = makeTile(2, 1, { ownerId: "enemy-2" });
-    const scaffold = makeTile(2, 0, {});
+    const plain = makeTile(2, 0, {});
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 500,
@@ -461,7 +464,7 @@ describe("automation command planner", () => {
         ["0,0", settled],
         ["1,0", frontier],
         ["1,1", enemyA],
-        ["2,0", scaffold],
+        ["2,0", plain],
         ["2,1", enemyB]
       ]),
       clientSeq: 8,
@@ -469,10 +472,8 @@ describe("automation command planner", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "EXPAND",
-      payloadJson: JSON.stringify({ fromX: 1, fromY: 0, toX: 2, toY: 0 })
-    });
+    // No economic tile, no expansionObjective, and manpower too low to attack → no command.
+    expect(result.command).toBeUndefined();
   });
 
   it("prefers fallback settlement over economic expand when economy is weak", () => {
