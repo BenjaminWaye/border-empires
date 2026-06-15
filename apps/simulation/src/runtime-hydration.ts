@@ -113,6 +113,10 @@ export const createTilesFromInitialState = (
       ...(tile.observatory ? { observatory: tile.observatory } : {}),
       ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
       ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
+      // Phase 3 (dormant): tile.structure is the unified field Phase 4 will write.
+      // When present, Phase 4 activates this block to project it onto the four
+      // legacy fields above and remove them. Until then, a Phase-4 snapshot loaded
+      // by this binary will still have the legacy fields populated — no data loss.
       ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
       ...(tile.muster ? { muster: tile.muster } : {})
     });
