@@ -1093,6 +1093,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // recordedHistoryEvicted>0 means an unforeseen server prefix is leaking past
       // the classification gate and hitting the hard cap.
       const replayCacheStats = phase === "before_save" ? runtime.replayCacheStats() : undefined;
+      if (replayCacheStats) simulationMetrics.setReplayCacheStats(replayCacheStats);
       log.info(
         {
           phase,

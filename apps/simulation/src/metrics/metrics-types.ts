@@ -112,6 +112,12 @@ export type SimulationMetricsSnapshot = {
   simAiDryRunSkippedTotal: number;
   simGlobalStatusBroadcastCoalescedTotal: number;
   simSnapshotPruneFailedTotal: number;
+  /** Entries in the replay cache embedded in each snapshot (gauge; was 122k pre-#615). */
+  simReplayRecordedCommandHistory: number;
+  /** Replay-cache hard-cap evictions; >0 means a server commandId prefix is leaking past the denylist. */
+  simReplayHistoryEvictedTotal: number;
+  /** Server-generated events excluded from replay tracking (counter). */
+  simReplayServerEventsSkippedTotal: number;
   simLoginExportPausedDrainTotal: number;
   simAiCommandCapSkippedTotal: number;
   simAiExpandDisabledTotal: number;
