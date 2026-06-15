@@ -1131,7 +1131,6 @@ export class SimulationRuntime {
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
       applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
-      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),

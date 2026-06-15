@@ -520,7 +520,7 @@ export const menuOverviewForTile = (
     if (garrisonCap > 0) {
       const pct = Math.round((garrison / garrisonCap) * 100);
       const required = Math.max(MUSTER_ATTACK_COST, Math.ceil(garrison));
-      pushLine(`Garrison: ${Math.floor(garrison)} / ${garrisonCap} (${pct}%) — attacking this fort requires ${required} mustered manpower.`);
+      pushLine(`Garrison: ${Math.floor(garrison)} / ${Math.floor(garrisonCap)} (${pct}%) — capturing requires ${required} mustered manpower.`);
     }
   }
   if (tile.economicStructure) {

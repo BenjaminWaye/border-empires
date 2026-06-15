@@ -21,7 +21,6 @@ export type MusterTickInput = {
   activeLightOutpostsByOwner: ReadonlyMap<string, Set<string>>;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
-  playerManpowerRegenPerMinute: (player: RuntimePlayer) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
