@@ -138,6 +138,32 @@ describe("expandSnapshotFromStorage", () => {
     expect(tile?.town).toEqual(town);
     expect(tile?.fort).toEqual(fort);
   });
+
+  it("Phase 3 dormant — round-trips future unified structure field via the overlay", () => {
+    // Simulates a Phase-4 snapshot being compacted and expanded by Phase-3 code
+    // (rollback scenario). The structure field must survive the round-trip intact
+    // because MUTABLE_TILE_FIELDS now includes "structure".
+    const baselineTiles = baselineWorld();
+    const baseline = buildWorldgenBaselineIndex(baselineTiles);
+    const structure = { type: "FORT", kind: "FORT", variant: "FORT", ownerId: "ai-7", status: "active" };
+    const compact = compactSnapshotForStorage(
+      sections([
+        baseTile({
+          x: 0,
+          y: 0,
+          terrain: "LAND",
+          ownerId: "ai-7",
+          ownershipState: "SETTLED",
+          structure
+        })
+      ]),
+      baseline
+    );
+    expect(compact.tileOverlay.find((t) => t.x === 0 && t.y === 0)).toMatchObject({ structure });
+    const expanded = expandSnapshotFromStorage(compact, baselineTiles);
+    const tile = expanded.initialState.tiles.find((t) => t.x === 0 && t.y === 0);
+    expect(tile?.structure).toEqual(structure);
+  });
 });
 
 describe("isV1SnapshotPayload", () => {
