@@ -213,6 +213,7 @@ export type SimulationTileWireDelta = {
   economicStructureJson?: string | undefined;
   sabotageJson?: string | undefined;
   musterJson?: string | undefined;
+  captureBreachUntil?: number | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;

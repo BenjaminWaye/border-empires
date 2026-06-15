@@ -177,6 +177,9 @@ export type DomainTileState = {
         updatedAt: number;
       }
     | undefined;
+  // Set on enemy tiles neighbouring a freshly-captured tile.
+  // Until this timestamp, their combat defence is multiplied by BREAKTHROUGH_DEBUFF_MULT.
+  captureBreachUntil?: number | undefined;
 };
 
 export type ValidateFrontierCommandInput = {

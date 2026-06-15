@@ -19,18 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.05.2",
+  version: "2026.06.15.1",
   title: "What's New",
-  summary: "Empire Integrity, AI event loop stalls eliminated, turn rotation fixed, and alliance-safe waypoints.",
+  summary: "Breakthrough momentum: conquering a tile briefly weakens your opponent's neighbouring defences.",
   entries: [
     {
-      introducedIn: "2026.06.05.2",
-      title: "Local-support defense indicators",
-      why: "When local-support defense is enabled, settled tiles on the edge of your territory are easier to capture than interior ones. Two visual cues make this readable at a glance: dark-red crack strips along each exposed side, and a cracked-shield badge on tiles with three or more exposed sides.",
+      introducedIn: "2026.06.15.1",
+      title: "Breakthrough momentum",
+      why: "Breaking through the front line should reward you — now it does. When you capture a tile, the four enemy tiles bordering it take a 30% defence penalty for 60 seconds. Amber border strips light up on your own tiles' edges to show where that window is open.",
       changes: [
-        "Dark-red edge strips appear along each side of a settled tile that is not backed by friendly territory or a natural barrier.",
-        "A cracked-shield badge floats above settled tiles with three or more exposed sides (lowest support).",
-        "Both visuals are active only when LOCAL_SUPPORT_DEFENSE_ENABLED is on."
+        "Captured enemy tiles' cardinal neighbours receive a ×0.7 defence debuff for 60 seconds.",
+        "Amber pulsing strips appear on your tile edges that border a breached enemy tile.",
+        "Debuff only applies when BREAKTHROUGH_ENABLED is on (server-side flag)."
       ]
     },
     {

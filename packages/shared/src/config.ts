@@ -141,13 +141,14 @@ export const OUTPOST_DEPOT_RADIUS = 2;
 // --- Barbarian raids ---
 export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
 
-// --- Local-support defense (Phase 1, flag-gated) ---
-// When false, SETTLED combat defense uses flat ×1.35 (legacy).
-export const LOCAL_SUPPORT_DEFENSE_ENABLED =
-  process.env["LOCAL_SUPPORT_DEFENSE_ENABLED"] === "true";
-// supportDefenseMult(n) = BASE + STEP * n; n=0 → 1.15, n=4 → 1.63
-export const SUPPORT_DEFENSE_BASE = 1.15;
-export const SUPPORT_DEFENSE_STEP = 0.12;
+// --- Breakthrough momentum (flag-gated) ---
+// When on, enemy tiles neighbouring a freshly-captured tile get a temporary
+// combat-defence debuff for BREAKTHROUGH_DURATION_MS, giving the attacker a
+// window to follow up before defence regenerates.
+export const BREAKTHROUGH_ENABLED =
+  process.env["BREAKTHROUGH_ENABLED"] === "true";
+export const BREAKTHROUGH_DEBUFF_MULT = 0.7;
+export const BREAKTHROUGH_DURATION_MS = 60_000;
 
 // --- Empire Integrity (wide-vs-tall, flag-gated) ---
 // When false, economy behaves exactly as before.

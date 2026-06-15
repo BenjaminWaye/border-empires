@@ -16,7 +16,7 @@ import {
   TorusGeometry,
   WebGLRenderer
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_TILE_CAP, LOCAL_SUPPORT_DEFENSE_ENABLED } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_TILE_CAP } from "@border-empires/shared";
 const MUSTER_TILE_CAP_CLIENT = MUSTER_TILE_CAP;
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
@@ -69,8 +69,7 @@ import {
 import { resourceFor3DPopulation } from "./client-map-3d-population.js";
 import { createRoadOverlay } from "./client-map-3d-road-overlay.js";
 import { createDefensibilityOverlay } from "./client-map-3d-defensibility-overlay.js";
-import { createSupportCrackOverlay } from "./client-map-3d-support-crack-overlay.js";
-import { createSupportBadgeOverlay } from "./client-map-3d-support-badge-overlay.js";
+import { createBreachBorderOverlay } from "./client-map-3d-breach-border-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { buildRoadNetwork } from "./client-road-network.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
@@ -158,8 +157,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const defensibilityOverlay = createDefensibilityOverlay(scene, MAX_VISIBLE_TILES);
   // MAX_VISIBLE_TILES × 4 edges maximum, but reuse the same cap — tiles with
   // all 4 sides exposed are rare and the instanced mesh silently skips excess.
-  const supportCrackOverlay = createSupportCrackOverlay(scene, MAX_VISIBLE_TILES * 4);
-  const supportBadgeOverlay = createSupportBadgeOverlay(scene, MAX_VISIBLE_TILES);
+  const breachBorderOverlay = createBreachBorderOverlay(scene, MAX_VISIBLE_TILES * 4);
 
   // Visual-only demo: ?towndemo=1 fakes a row of 5 tiers near (camX, camY)
   // so you can compare Settlement → Town → City → Great City → Metropolis
@@ -1261,8 +1259,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     settleOverlay.clear();
     structureOverlay.clear();
     defensibilityOverlay.clear();
-    supportCrackOverlay.clear();
-    supportBadgeOverlay.clear();
+    breachBorderOverlay.clear();
     // Build the dock-endpoint key set the same way the 2D runtime loop
     // does, since `tile.dockId` is not reliably populated on every
     // dock-endpoint tile snapshot.
@@ -1573,10 +1570,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             };
           }
         }
-        if (
-          (deps.state.showWeakDefensibility || LOCAL_SUPPORT_DEFENSE_ENABLED) &&
-          isOwnedSettledLandTile(tile, deps.state.me)
-        ) {
+        if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
           const exposedSides = exposedSidesForTile(tile, {
             tiles: deps.state.tiles,
             me: deps.state.me,
@@ -1585,16 +1579,31 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             wrapY: deps.wrapY,
             terrainAt: deps.terrainAt
           });
-          if (deps.state.showWeakDefensibility) {
-            const severity = weakDefensibilitySeverity(exposedSides.length);
-            if (severity) defensibilityOverlay.addInstance(x, z, surfaceY, severity);
-          }
-          if (LOCAL_SUPPORT_DEFENSE_ENABLED) {
-            for (const side of exposedSides) {
-              supportCrackOverlay.addEdge(x, z, surfaceY, side);
-            }
-            if (exposedSides.length >= 3) {
-              supportBadgeOverlay.addInstance(x, z, surfaceY);
+          const severity = weakDefensibilitySeverity(exposedSides.length);
+          if (severity) defensibilityOverlay.addInstance(x, z, surfaceY, severity);
+        }
+        // Breach border: draw amber edge strips on own tiles bordering a
+        // breached enemy tile (neighbour conquered in the last 60 s).
+        if (tile && tile.ownerId === deps.state.me && terrain === "LAND") {
+          const nowMs = Date.now();
+          const dirs = [
+            { dx: 0, dz: -1, dir: "north" },
+            { dx: 1, dz: 0, dir: "east" },
+            { dx: 0, dz: 1, dir: "south" },
+            { dx: -1, dz: 0, dir: "west" }
+          ] as const;
+          for (const { dx: ndx, dz: ndz, dir } of dirs) {
+            const nwx = deps.wrapX(wx + ndx);
+            const nwy = deps.wrapY(wy + ndz);
+            const neighbour = deps.state.tiles.get(deps.keyFor(nwx, nwy));
+            if (
+              neighbour &&
+              neighbour.ownerId &&
+              neighbour.ownerId !== deps.state.me &&
+              neighbour.captureBreachUntil != null &&
+              neighbour.captureBreachUntil > nowMs
+            ) {
+              breachBorderOverlay.addEdge(x, z, surfaceY, dir);
             }
           }
         }
@@ -1621,8 +1630,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     settleOverlay.commit();
     structureOverlay.commit();
     defensibilityOverlay.commit();
-    supportCrackOverlay.commit();
-    supportBadgeOverlay.commit();
+    breachBorderOverlay.commit();
   };
 
   const maybeRebuild = (nowMs: number): void => {
@@ -1680,7 +1688,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     waterSurface.tick(nowMs);
     unfedBadgeOverlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
-    supportBadgeOverlay.tick(nowMs);
+    breachBorderOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -1791,8 +1799,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     settleOverlay.dispose();
     structureOverlay.dispose();
     defensibilityOverlay.dispose();
-    supportCrackOverlay.dispose();
-    supportBadgeOverlay.dispose();
+    breachBorderOverlay.dispose();
     forest.dispose();
     villageEffects.dispose();
     floatingText.dispose();
