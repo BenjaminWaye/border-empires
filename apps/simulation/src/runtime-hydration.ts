@@ -6,6 +6,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
+import { isReplayTrackedCommandId } from "./command-event-lifecycle.js";
 import { lockSourceFromCommandId } from "./runtime-types.js";
 import type { LockedCombatResolution, LockRecord, RuntimePlayer } from "./runtime-types.js";
 
@@ -202,6 +203,11 @@ export const hydrateCommandHistory = ({
     commandIdsByPlayerSeq.set(`${command.playerId}:${command.clientSeq}`, command.commandId);
   }
   for (const [commandId, events] of recoveredCommandHistory.eventsByCommandId.entries()) {
+    // Mirror the live recordEvent gate: never load server-generated command
+    // events into the in-memory replay cache (they would re-bloat the next
+    // snapshot after a restart). The requeue-skip check reads
+    // recoveredCommandHistory directly, not this cache, so this is safe.
+    if (!isReplayTrackedCommandId(commandId)) continue;
     recordedEventsByCommandId.set(commandId, [...events]);
   }
 };
