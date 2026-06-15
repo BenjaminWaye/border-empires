@@ -110,6 +110,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simSnapshotCacheBytes = 0;
   // Per-player epoch-ms timestamp of last accepted AI command (0 = never).
   const simAiLastCommandAcceptedAtMs = new Map<string, number>();
+  const simAiExpansionObjectiveTotalByKind = new Map<string, number>();
 
   const quantileSample = (series: number[]) => ({
     p50: quantile(series, 0.5),
@@ -195,7 +196,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simSnapshotRecent: [...simSnapshotRecent],
     simAiLastCommandAcceptedAtMs: Object.fromEntries(simAiLastCommandAcceptedAtMs),
     simMusterRemoteAttackTotal,
-    simMusterRemoteBlockedTotal
+    simMusterRemoteBlockedTotal,
+    simAiExpansionObjectiveTotalByKind: Object.fromEntries(simAiExpansionObjectiveTotalByKind)
   });
 
   return {
@@ -271,6 +273,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       simAiCommandTotalByType.set(commandType, (simAiCommandTotalByType.get(commandType) ?? 0) + 1);
       appendRecent(simAiCommandRecent, `${playerId}:${commandType}`, 20);
       simAiLastCommandAcceptedAtMs.set(playerId, Date.now());
+    },
+    observeSimAiExpansionObjective(kind: "neutral_value" | "enemy" | "none"): void {
+      simAiExpansionObjectiveTotalByKind.set(kind, (simAiExpansionObjectiveTotalByKind.get(kind) ?? 0) + 1);
     },
     observeSimAiPreplan(reason: AutomationPreplanReason, playerId: string): void {
       simAiPreplanTotalByReason.set(reason, (simAiPreplanTotalByReason.get(reason) ?? 0) + 1);

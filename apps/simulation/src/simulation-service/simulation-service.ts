@@ -1711,6 +1711,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               if (diagnostic.narrowAnalyzeCapped) {
                 simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
               }
+              if (diagnostic.expansionObjectiveKind) {
+                simulationMetrics.observeSimAiExpansionObjective(diagnostic.expansionObjectiveKind);
+              }
             },
             onDiagnostic: (sample) => {
               if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {

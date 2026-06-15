@@ -79,6 +79,12 @@ export type PlannerPlayerView = {
   pendingSettlementTileKeys: string[];
   activeDevelopmentProcessCount: number;
   ownedStructureCounts?: PlannerOwnedStructureCounts;
+  /**
+   * Nearest high-value neutral or enemy tile to this player's territory.
+   * Computed on the main thread from the beacon index; passed to the worker
+   * to guide directional expansion toward distant objectives.
+   */
+  expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
 };
 
 // ─── World view ───────────────────────────────────────────────────────────────

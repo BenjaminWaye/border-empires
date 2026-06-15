@@ -2398,7 +2398,10 @@ describe("simulation runtime", () => {
     expect(runtime.chooseNextAutomationCommand("ai-1", 1, 1_000, "ai-runtime")).toBeUndefined();
   });
 
-  it("does not auto-settle worthless plain frontier land when no strategic frontier settlement exists", () => {
+  it("does not auto-expand onto worthless plain frontier land without an expansion objective", () => {
+    // Plain neutral tiles (no resource/town/dock) must not be expanded unless the planner
+    // has an expansionObjective pointing toward them. Without one, the AI should produce
+    // no command rather than burning 1 gold on a tile that decays in ~10 minutes.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -2430,12 +2433,8 @@ describe("simulation runtime", () => {
       }
     });
 
-    expect(runtime.chooseNextAutomationCommand("ai-1", 1, 1_000, "ai-runtime")).toEqual(
-      expect.objectContaining({
-        type: "EXPAND",
-        payloadJson: JSON.stringify({ fromX: 11, fromY: 10, toX: 12, toY: 10 })
-      })
-    );
+    // No beacon tiles (no neutral town/dock/resource) → no expansionObjective → no expansion.
+    expect(runtime.chooseNextAutomationCommand("ai-1", 1, 1_000, "ai-runtime")).toBeUndefined();
   });
 
   it("uses dock crossings for AI automation when island starts have no local frontier target", () => {
