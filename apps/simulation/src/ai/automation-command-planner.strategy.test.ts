@@ -333,7 +333,8 @@ describe("automation command planner strategic parity", () => {
   it("falls back from narrow strategic origins to full frontier origins when the narrow set is empty", () => {
     const deadStrategicFrontier = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER", resource: "FARM" });
     const activeFrontier = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });
-    const activeTarget = makeTile(11, 10, {});
+    // Economic tile (resource) ensures economicExpand fires once the broad fallback finds it.
+    const activeTarget = makeTile(11, 10, { resource: "IRON" });
 
     const result = planAutomationCommand({
       playerId: "ai-1",

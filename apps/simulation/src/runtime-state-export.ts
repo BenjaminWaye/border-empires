@@ -12,6 +12,7 @@ import type { Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
+import { selectExpansionObjective, type ExpansionObjective } from "./ai/ai-expansion-objective.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
@@ -319,6 +320,8 @@ type PlannerTileKeys = {
   pendingSettlementTileKeys: string[];
 };
 
+type ExpansionObjectiveCache = Map<string, { topologyVersion: number; beaconGeneration: number; objective: ExpansionObjective | undefined }>;
+
 type PlannerExportInput = {
   playerIds: string[];
   tiles: ReadonlyMap<string, DomainTileState>;
@@ -330,6 +333,10 @@ type PlannerExportInput = {
   plannerPlayerTileKeys: (playerId: string, summary: PlayerRuntimeSummary) => PlannerTileKeys;
   ownedStructureCountsForPlayer: (playerId: string) => PlannerOwnedStructureCounts;
   estimatedIncomePerMinuteForPlayer: (playerId: string) => number;
+  neutralBeaconTileKeys: ReadonlySet<string>;
+  beaconGeneration: number;
+  yieldBearingTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
+  expansionObjectiveCacheByPlayer: ExpansionObjectiveCache;
 };
 
 export function buildRuntimePlannerWorldView(input: PlannerExportInput): PlannerWorldView {
@@ -354,6 +361,31 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
     input.refreshManpowerOnly(player);
     const summary = input.summaryForPlayer(playerId);
     const tileKeys = input.plannerPlayerTileKeys(playerId, summary);
+
+    // Cache expansion objective keyed by (topologyVersion, beaconGeneration).
+    // At steady state this is a pure integer compare — 0 work.
+    const cached = input.expansionObjectiveCacheByPlayer.get(playerId);
+    let expansionObjective: ExpansionObjective | undefined;
+    if (
+      cached &&
+      cached.topologyVersion === tileKeys.topologyVersion &&
+      cached.beaconGeneration === input.beaconGeneration
+    ) {
+      expansionObjective = cached.objective;
+    } else {
+      expansionObjective = selectExpansionObjective({
+        territoryTileKeys: summary.territoryTileKeys,
+        neutralBeaconTileKeys: input.neutralBeaconTileKeys,
+        enemyYieldKeysByPlayerId: input.yieldBearingTilesByOwner,
+        playerId
+      });
+      input.expansionObjectiveCacheByPlayer.set(playerId, {
+        topologyVersion: tileKeys.topologyVersion,
+        beaconGeneration: input.beaconGeneration,
+        objective: expansionObjective
+      });
+    }
+
     players.push({
       id: player.id,
       points: player.points,
@@ -375,7 +407,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
       pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-      ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId)
+      ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
+      ...(expansionObjective ? { expansionObjective } : {})
     });
   }
   return players;
