@@ -356,23 +356,32 @@ export function buildRuntimePlannerWorldView(input: PlannerExportInput): Planner
 export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): PlannerPlayerView[] {
   const lockPlayerIds = input.plannerGatingLockPlayerIds();
   const players: PlannerPlayerView[] = [];
+  const diagTotalStart = Date.now();
+  // Per-player breakdown collected for slow-export diagnostic (threshold 200ms).
+  const diagBreakdowns: string[] = [];
   for (const playerId of input.playerIds) {
     const player = input.players.get(playerId);
     if (!player) continue;
+    const dt0 = Date.now();
     input.refreshManpowerOnly(player);
+    const dt1 = Date.now();
     const summary = input.summaryForPlayer(playerId);
+    const dt2 = Date.now();
     const tileKeys = input.plannerPlayerTileKeys(playerId, summary);
+    const dt3 = Date.now();
 
     // Cache expansion objective keyed by (topologyVersion, beaconGeneration).
     // At steady state this is a pure integer compare — 0 work.
     const cached = input.expansionObjectiveCacheByPlayer.get(playerId);
     let expansionObjective: ExpansionObjective | undefined;
+    let objectiveCacheHit = false;
     if (
       cached &&
       cached.topologyVersion === tileKeys.topologyVersion &&
       cached.beaconGeneration === input.beaconGeneration
     ) {
       expansionObjective = cached.objective;
+      objectiveCacheHit = true;
     } else {
       expansionObjective = selectExpansionObjective({
         territoryTileKeys: summary.territoryTileKeys,
@@ -386,6 +395,10 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         objective: expansionObjective
       });
     }
+    const dt4 = Date.now();
+    diagBreakdowns.push(
+      `${playerId}:refresh=${dt1 - dt0},summary=${dt2 - dt1},tileKeys=${dt3 - dt2},obj=${dt4 - dt3}(${objectiveCacheHit ? "hit" : "miss"}),tot=${dt4 - dt0}`
+    );
 
     players.push({
       id: player.id,
@@ -412,6 +425,12 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       ...(expansionObjective ? { expansionObjective } : {}),
       activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0
     });
+  }
+  const diagTotalMs = Date.now() - diagTotalStart;
+  if (diagTotalMs >= 200) {
+    console.info(
+      `[diag:sync_players_export] totalMs=${diagTotalMs} players=[ ${diagBreakdowns.join(" | ")} ]`
+    );
   }
   return players;
 }
