@@ -987,19 +987,20 @@ export const processPendingMusterAttacks = (
     const target = state.tiles.get(targetKey);
     // Drop if target is gone or captured.
     if (!target || target.ownerId === state.me || !target.ownerId) continue;
-    // Drop if the muster tile disappeared.
-    const musterTile = state.tiles.get(entry.musterTileKey);
-    if (!musterTile?.muster || musterTile.muster.ownerId !== state.me) continue;
 
-    if (musterTile.muster.amount >= MUSTER_ATTACK_COST) {
-      // Muster is ready — promote to action queue.
-      if (!state.queuedTargetKeys.has(targetKey)) {
-        state.actionQueue.push({ x: entry.targetX, y: entry.targetY });
-        state.queuedTargetKeys.add(targetKey);
-        deps.pushFeed(`Muster ready — launching attack on (${entry.targetX}, ${entry.targetY})`, "combat", "info");
-      }
-    } else {
+    // Check for any reachable muster from the original origin, not just the
+    // initially staged tile — a different muster within range may have filled first.
+    const reachable = findReachableMuster(state, entry.fromX, entry.fromY);
+    if (!reachable) {
       remaining.push(entry);
+      continue;
+    }
+
+    // Muster is ready — promote to action queue.
+    if (!state.queuedTargetKeys.has(targetKey)) {
+      state.actionQueue.push({ x: entry.targetX, y: entry.targetY });
+      state.queuedTargetKeys.add(targetKey);
+      deps.pushFeed(`Muster ready — launching attack on (${entry.targetX}, ${entry.targetY})`, "combat", "info");
     }
   }
   state.pendingMusterAttacks = remaining;
@@ -1352,7 +1353,7 @@ export const processActionQueue = (
             (e) => e.targetX === to.x && e.targetY === to.y
           );
           if (!alreadyPending) {
-            state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, musterTileKey });
+            state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey });
             deps.pushFeed(`Staging muster on (${from.x}, ${from.y}) — attack on (${to.x}, ${to.y}) queued`, "combat", "info");
           }
           deps.renderHud();

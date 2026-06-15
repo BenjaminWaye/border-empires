@@ -4937,7 +4937,7 @@ export class SimulationRuntime {
     // Fast path: origin tile's own muster suffices.
     if (origin.muster?.ownerId === actorId) {
       const reserved = this.musterReservedByKey.get(originKey) ?? 0;
-      const available = (origin.muster.amount ?? 0) - reserved;
+      const available = origin.muster.amount - reserved;
       if (available >= requiredMuster) return { sourceKey: originKey, available };
     }
 
@@ -4968,7 +4968,7 @@ export class SimulationRuntime {
     if (!bestKey) return undefined;
     const tile = this.tiles.get(bestKey)!;
     const reserved = this.musterReservedByKey.get(bestKey) ?? 0;
-    return { sourceKey: bestKey, available: (tile.muster?.amount ?? 0) - reserved };
+    return { sourceKey: bestKey, available: tile.muster!.amount - reserved };
   }
 
   /**
