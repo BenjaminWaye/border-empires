@@ -364,7 +364,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
 
       const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());
-      if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite) {
+      if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite && !isTrue3DRendererActive()) {
         const tileWithVisibleShard = visibleShardSite === t.shardSite ? t : { ...t, shardSite: visibleShardSite };
         const overlay = deps.shardOverlayForTile(tileWithVisibleShard);
         const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);
@@ -943,7 +943,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
 
         const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());
-        if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite) {
+        if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite && !isTrue3DRendererActive()) {
           const tileWithVisibleShard = visibleShardSite === t.shardSite ? t : { ...t, shardSite: visibleShardSite };
           const overlay = deps.shardOverlayForTile(tileWithVisibleShard);
           const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);

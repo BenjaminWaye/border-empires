@@ -1088,6 +1088,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         simulationMetrics.observeSimCheckpointExportMs(Date.now() - checkpointSaveStartMs);
         checkpointSaveStartMs = 0;
       }
+      // Replay-cache observability: recordedCommandHistorySize is the count of
+      // commands whose events embed in this snapshot (previously leaked to 122k);
+      // recordedHistoryEvicted>0 means an unforeseen server prefix is leaking past
+      // the classification gate and hitting the hard cap.
+      const replayCacheStats = phase === "before_save" ? runtime.replayCacheStats() : undefined;
+      if (replayCacheStats) simulationMetrics.setReplayCacheStats(replayCacheStats);
       log.info(
         {
           phase,
@@ -1095,7 +1101,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           rssBytes: memoryUsage.rssBytes,
           heapUsedBytes: memoryUsage.heapUsedBytes,
           heapTotalBytes: memoryUsage.heapTotalBytes,
-          ...(typeof lastAppliedEventId === "number" ? { lastAppliedEventId } : {})
+          ...(typeof lastAppliedEventId === "number" ? { lastAppliedEventId } : {}),
+          ...(replayCacheStats ? { replayCache: replayCacheStats } : {})
         },
         phase === "skipped_high_memory"
           ? "simulation checkpoint deferred due to memory watermark"

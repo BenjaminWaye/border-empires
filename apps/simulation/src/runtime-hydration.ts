@@ -6,6 +6,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
+import { isReplayTrackedCommandId } from "./command-event-lifecycle.js";
 import { lockSourceFromCommandId } from "./runtime-types.js";
 import type { LockedCombatResolution, LockRecord, RuntimePlayer } from "./runtime-types.js";
 
@@ -112,6 +113,12 @@ export const createTilesFromInitialState = (
       ...(tile.observatory ? { observatory: tile.observatory } : {}),
       ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
       ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
+      // Phase 4 activation point: when tile.structure is present it is the
+      // authoritative unified field written by the Phase-4 runtime. Replace
+      // the four legacy spreads above with a projection from tile.structure
+      // (using projectLegacyToUnified in reverse) and remove this comment.
+      // In Phase 3 we accept the field (see RecoveredTileState) and ignore it
+      // so a Phase-4 snapshot can be loaded by a Phase-3-era binary safely.
       ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
       ...(tile.muster ? { muster: tile.muster } : {})
     });
@@ -202,6 +209,11 @@ export const hydrateCommandHistory = ({
     commandIdsByPlayerSeq.set(`${command.playerId}:${command.clientSeq}`, command.commandId);
   }
   for (const [commandId, events] of recoveredCommandHistory.eventsByCommandId.entries()) {
+    // Mirror the live recordEvent gate: never load server-generated command
+    // events into the in-memory replay cache (they would re-bloat the next
+    // snapshot after a restart). The requeue-skip check reads
+    // recoveredCommandHistory directly, not this cache, so this is safe.
+    if (!isReplayTrackedCommandId(commandId)) continue;
     recordedEventsByCommandId.set(commandId, [...events]);
   }
 };

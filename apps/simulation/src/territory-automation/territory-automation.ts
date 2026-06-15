@@ -41,12 +41,10 @@ export const sweepAttackCandidates = (
       return distA - distB || a.x - b.x || a.y - b.y;
     });
 
-export const FORT_AUTO_FRONTIER_RADIUS = 1;
 export const TOWN_AUTO_FRONTIER_RADIUS = 1;
 export const FRONTIER_DECAY_MS = 10 * 60_000;
 export const FRONTIER_DECAY_WARNING_MS = 60_000;
 export const FORT_PATROL_GRACE_MS = 20_000;
-export const MAX_FORT_AUTO_FRONTIER_RADIUS = 4;
 
 export const coordsInChebyshevRadius = (
   centerX: number,
@@ -76,24 +74,6 @@ export const isActiveFortAnchor = (
   tile.fort.status === "active" &&
   (tile.fort.disabledUntil ?? 0) <= nowMs;
 
-export const fortAutoFrontierRadiusForTile = (
-  tile: DomainTileState,
-  playerId: string,
-  nowMs: number
-): number => {
-  if (
-    tile.ownerId === playerId &&
-    tile.economicStructure?.ownerId === playerId &&
-    tile.economicStructure.type === "WOODEN_FORT" &&
-    tile.economicStructure.status === "active"
-  ) {
-    return 1;
-  }
-  if (!isActiveFortAnchor(tile, playerId, nowMs)) return 0;
-  if (tile.fort?.variant === "THUNDER_BASTION") return MAX_FORT_AUTO_FRONTIER_RADIUS;
-  if (tile.fort?.variant === "IRON_BASTION") return 3;
-  return 2;
-};
 
 export const isSettledTownAnchor = (tile: DomainTileState, playerId: string): boolean =>
   tile.ownerId === playerId &&

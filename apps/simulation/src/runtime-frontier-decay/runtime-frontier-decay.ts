@@ -2,9 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import {
   FRONTIER_DECAY_MS,
-  fortAutoFrontierRadiusForTile,
   isSettledTownAnchor,
-  MAX_FORT_AUTO_FRONTIER_RADIUS,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
 import {
@@ -63,7 +61,7 @@ export async function updateFrontierDecay(input: FrontierDecayDeps): Promise<voi
   const expiredTilesByOwner = new Map<string, Array<[string, DomainTileState]>>();
 
   // Phase 1: scan each player's frontier tiles.
-  // frontierSupportedByActiveFort is O(anchors) per tile — yielding between
+  // frontierSupportedByActiveFort is O(9) per tile — yielding between
   // players ensures gRPC dispatch can run between players, not just between ticks.
   for (const [ownerId, frontierKeys] of input.frontierTilesByOwner) {
     for (const tileKey of frontierKeys) {
@@ -294,45 +292,24 @@ function frontierSupportedByActiveFort(
   tile: DomainTileState,
   playerId: string
 ): boolean {
-  if (fortAutoFrontierRadiusForTile(tile, playerId, input.nowMs) > 0) return true;
   const anchors = input.activeFortAnchorsByOwner.get(playerId);
   if (!anchors || anchors.size === 0) return false;
-  if (anchors.size <= 256) {
-    for (const [anchorKey] of anchors) {
-      const anchor = input.tiles.get(anchorKey);
-      if (!anchor) continue;
-      const effectiveRadius = fortAutoFrontierRadiusForTile(anchor, playerId, input.nowMs);
-      const radius = effectiveRadius > 0 ? effectiveRadius : isSettledTownAnchor(anchor, playerId) ? TOWN_AUTO_FRONTIER_RADIUS : 0;
-      if (radius <= 0) continue;
-      const dx = Math.abs(anchor.x - tile.x);
-      const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
-      const dy = Math.abs(anchor.y - tile.y);
-      const wrappedDy = Math.min(dy, WORLD_HEIGHT - dy);
-      if (Math.max(wrappedDx, wrappedDy) <= radius) return true;
-    }
-    return false;
-  }
-  for (let dy = -MAX_FORT_AUTO_FRONTIER_RADIUS; dy <= MAX_FORT_AUTO_FRONTIER_RADIUS; dy += 1) {
-    for (let dx = -MAX_FORT_AUTO_FRONTIER_RADIUS; dx <= MAX_FORT_AUTO_FRONTIER_RADIUS; dx += 1) {
-      const x = ((tile.x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
-      const y = ((tile.y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
-      const anchor = input.tiles.get(`${x},${y}`);
-      if (!anchor || anchor.ownerId !== playerId) continue;
-      const distance = Math.max(Math.abs(dx), Math.abs(dy));
-      const effectiveRadius = fortAutoFrontierRadiusForTile(anchor, playerId, input.nowMs);
-      if (effectiveRadius > 0 && distance <= effectiveRadius) return true;
-      if (distance <= TOWN_AUTO_FRONTIER_RADIUS && isSettledTownAnchor(anchor, playerId)) return true;
+  // TOWN_AUTO_FRONTIER_RADIUS=1 means only the 9 cells around the tile can
+  // ever be supporting anchors.  Check neighbors directly (O(9)) rather than
+  // iterating the full anchor set (O(N_towns × frontier_tiles)).
+  for (let dy = -TOWN_AUTO_FRONTIER_RADIUS; dy <= TOWN_AUTO_FRONTIER_RADIUS; dy++) {
+    for (let dx = -TOWN_AUTO_FRONTIER_RADIUS; dx <= TOWN_AUTO_FRONTIER_RADIUS; dx++) {
+      const nx = ((tile.x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+      const ny = ((tile.y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
+      const nk = `${nx},${ny}`;
+      if (!anchors.has(nk)) continue;
+      const neighbor = input.tiles.get(nk);
+      if (neighbor && isSettledTownAnchor(neighbor, playerId)) return true;
     }
   }
   return false;
 }
 
 function wasPlayerCandidateAnchor(tile: DomainTileState, ownerId: string): boolean {
-  const hadFort =
-    (tile.economicStructure?.ownerId === ownerId &&
-      tile.economicStructure.type === "WOODEN_FORT" &&
-      tile.economicStructure.status === "active") ||
-    (tile.fort?.ownerId === ownerId && tile.fort.status === "active");
-  const hadTown = isSettledTownAnchor(tile, ownerId);
-  return hadFort || hadTown;
+  return isSettledTownAnchor(tile, ownerId);
 }

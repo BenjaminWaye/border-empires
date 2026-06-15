@@ -70,11 +70,9 @@ import {
   coordsInChebyshevRadius,
   FRONTIER_DECAY_MS,
   fortAutoAttackCandidates,
-  fortAutoFrontierRadiusForTile,
   FORT_PATROL_GRACE_MS,
   isActiveFortAnchor,
   isSettledTownAnchor,
-  MAX_FORT_AUTO_FRONTIER_RADIUS,
   orderedAutoSettlementTileKeys,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
@@ -757,23 +755,7 @@ export class SimulationRuntime {
     for (const [tileKey, tile] of this.tiles.entries()) {
       if (!tile.ownerId) continue;
       const ownerId = tile.ownerId;
-      // Fort kind: active fort (any variant, including patrol-grace) or active WOODEN_FORT.
-      if (
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "WOODEN_FORT" &&
-        tile.economicStructure.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        registerFortSupportAnchorImpl(this.activeFortAnchorsByOwner, tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
-      } else if (
-        tile.fort?.ownerId === ownerId &&
-        tile.fort.status === "active"
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
-        // Part 2: register in activeFortAnchorsByOwner
-        registerFortSupportAnchorImpl(this.activeFortAnchorsByOwner, tileKey, ownerId, MAX_FORT_AUTO_FRONTIER_RADIUS);
-      } else if (isSettledTownAnchor(tile, ownerId)) {
+      if (isSettledTownAnchor(tile, ownerId)) {
         this.playerCandidateIndex.registerAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
         // Part 2: register in activeFortAnchorsByOwner
         registerFortSupportAnchorImpl(this.activeFortAnchorsByOwner, tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS);
@@ -1093,16 +1075,12 @@ export class SimulationRuntime {
       playerCandidateIndex: this.playerCandidateIndex,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
-      applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
       updateFrontierDecay: (at) => this.updateFrontierDecay(at, yieldToEventLoop),
       autoSettlementQueueLengthForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId).length,
       emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
-      extendFortPatrolGrace: (tileKey, graceUntil) => this.extendFortPatrolGrace(tileKey, graceUntil),
-      tileHasActiveFortPatrolGrace: (tileKey, at) => this.tileHasActiveFortPatrolGrace(tileKey, at),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
         this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
-      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
@@ -2161,6 +2139,21 @@ export class SimulationRuntime {
     return this.persistence.snapshot();
   }
 
+  /**
+   * Replay-cache observability (counter-on-skip rule). `recordedCommandHistorySize`
+   * is the number of commands whose events are embedded in each snapshot — the
+   * value that previously leaked to 122k/37MB. `serverEventsSkipped` counts events
+   * excluded as server-generated; `recordedHistoryEvicted` counts hard-cap
+   * evictions (non-zero means an unforeseen server prefix is leaking).
+   */
+  replayCacheStats(): { recordedCommandHistorySize: number; serverEventsSkipped: number; recordedHistoryEvicted: number } {
+    return {
+      recordedCommandHistorySize: this.replayCache.recordedEventsByCommandId.size,
+      serverEventsSkipped: this.replayCache.serverEventsSkipped,
+      recordedHistoryEvicted: this.replayCache.recordedHistoryEvicted
+    };
+  }
+
   exportSnapshotSections(): SimulationSnapshotSections {
     return buildRuntimeSnapshotSections({
       tiles: this.tiles,
@@ -2958,15 +2951,6 @@ export class SimulationRuntime {
       ...baseLock,
       ...(combatResolution ? { combatResolution } : {})
     };
-    if (
-      actionType === "ATTACK" &&
-      from.ownershipState === "FRONTIER" &&
-      to.ownerId &&
-      to.ownerId !== command.playerId &&
-      fortAutoFrontierRadiusForTile(to, to.ownerId, this.now()) > 0
-    ) {
-      this.extendFortPatrolGrace(lock.originKey, validation.resolvesAt + FORT_PATROL_GRACE_MS);
-    }
     this.locksByTile.set(lock.originKey, lock);
     this.locksByTile.set(lock.targetKey, lock);
     this.locksByCommandId.set(lock.commandId, lock);

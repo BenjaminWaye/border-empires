@@ -95,6 +95,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiDryRunSkippedTotal = 0;
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
+  let simReplayRecordedCommandHistory = 0;
+  let simReplayHistoryEvictedTotal = 0;
+  let simReplayServerEventsSkippedTotal = 0;
   let simLoginExportPausedDrainTotal = 0;
   let simAiCommandCapSkippedTotal = 0;
   let simAiExpandDisabledTotal = 0;
@@ -136,6 +139,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiDryRunSkippedTotal,
     simGlobalStatusBroadcastCoalescedTotal,
     simSnapshotPruneFailedTotal,
+    simReplayRecordedCommandHistory,
+    simReplayHistoryEvictedTotal,
+    simReplayServerEventsSkippedTotal,
     simLoginExportPausedDrainTotal,
     simAiCommandCapSkippedTotal,
     simAiExpandDisabledTotal,
@@ -235,6 +241,15 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimSnapshotPruneFailed(): void {
       simSnapshotPruneFailedTotal += 1;
+    },
+    setReplayCacheStats(stats: {
+      recordedCommandHistorySize: number;
+      recordedHistoryEvicted: number;
+      serverEventsSkipped: number;
+    }): void {
+      simReplayRecordedCommandHistory = clampMetric(stats.recordedCommandHistorySize);
+      simReplayHistoryEvictedTotal = clampMetric(stats.recordedHistoryEvicted);
+      simReplayServerEventsSkippedTotal = clampMetric(stats.serverEventsSkipped);
     },
     incrementSimLoginExportPausedDrain(): void {
       simLoginExportPausedDrainTotal += 1;

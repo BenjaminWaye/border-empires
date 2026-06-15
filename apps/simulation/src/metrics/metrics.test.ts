@@ -178,4 +178,13 @@ describe("simulation metrics", () => {
     expect(exposition).toContain('sim_snapshot_json_bytes{quantile="p95"}');
     expect(exposition).toContain("sim_snapshot_cache_bytes 4096");
   });
+
+  it("exposes replay-cache gauges and counters", () => {
+    const metrics = createSimulationMetrics();
+    metrics.setReplayCacheStats({ recordedCommandHistorySize: 42, recordedHistoryEvicted: 3, serverEventsSkipped: 1000 });
+    const exposition = metrics.renderPrometheus();
+    expect(exposition).toContain("sim_replay_recorded_command_history 42");
+    expect(exposition).toContain("sim_replay_history_evicted_total 3");
+    expect(exposition).toContain("sim_replay_server_events_skipped_total 1000");
+  });
 });
