@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.05.1",
+  version: "2026.06.05.2",
   title: "What's New",
   summary: "Empire Integrity, AI event loop stalls eliminated, turn rotation fixed, and alliance-safe waypoints.",
   entries: [
+    {
+      introducedIn: "2026.06.05.2",
+      title: "Local-support defense indicators",
+      why: "When local-support defense is enabled, settled tiles on the edge of your territory are easier to capture than interior ones. Two visual cues make this readable at a glance: dark-red crack strips along each exposed side, and a cracked-shield badge on tiles with three or more exposed sides.",
+      changes: [
+        "Dark-red edge strips appear along each side of a settled tile that is not backed by friendly territory or a natural barrier.",
+        "A cracked-shield badge floats above settled tiles with three or more exposed sides (lowest support).",
+        "Both visuals are active only when LOCAL_SUPPORT_DEFENSE_ENABLED is on."
+      ]
+    },
     {
       introducedIn: "2026.06.05.1",
       title: "Empire Integrity",
