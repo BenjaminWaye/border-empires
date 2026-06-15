@@ -2154,6 +2154,21 @@ export class SimulationRuntime {
     return this.persistence.snapshot();
   }
 
+  /**
+   * Replay-cache observability (counter-on-skip rule). `recordedCommandHistorySize`
+   * is the number of commands whose events are embedded in each snapshot — the
+   * value that previously leaked to 122k/37MB. `serverEventsSkipped` counts events
+   * excluded as server-generated; `recordedHistoryEvicted` counts hard-cap
+   * evictions (non-zero means an unforeseen server prefix is leaking).
+   */
+  replayCacheStats(): { recordedCommandHistorySize: number; serverEventsSkipped: number; recordedHistoryEvicted: number } {
+    return {
+      recordedCommandHistorySize: this.replayCache.recordedEventsByCommandId.size,
+      serverEventsSkipped: this.replayCache.serverEventsSkipped,
+      recordedHistoryEvicted: this.replayCache.recordedHistoryEvicted
+    };
+  }
+
   exportSnapshotSections(): SimulationSnapshotSections {
     return buildRuntimeSnapshotSections({
       tiles: this.tiles,
