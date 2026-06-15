@@ -26,6 +26,10 @@ type RecoveredTileState = {
   economicStructure?: DomainTileState["economicStructure"];
   sabotage?: DomainTileState["sabotage"];
   muster?: DomainTileState["muster"];
+  // Phase 3 (dormant): Phase 4 will start writing this unified field. Accepted
+  // here so post-Phase-4 snapshots can be loaded by a Phase-3-era binary without
+  // crashing. The hydration layer ignores it until Phase 4 activates the reader.
+  structure?: unknown;
 };
 
 export type RecoveredLock = {
