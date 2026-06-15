@@ -1,5 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { isSeaTerrain, type Terrain } from "@border-empires/shared";
+import { isSeaTerrain, type Terrain, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
@@ -24,6 +24,8 @@ type FrontierAffordability = {
   needsFood?: boolean;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
   onEvaluateNeutralTarget?: (targetKey: string) => void;
+  /** When set, adds a directional bias toward this tile when scoring neutral expand candidates. */
+  expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
   /** PR 1 measurement callback — emits per-phase durations from inside
    *  analyzeOwnedFrontierTargetsFromLookup so the hot loop can be
    *  located before any optimization. Phase names correspond to
@@ -46,6 +48,7 @@ export type FrontierAnalysis = {
   barbarianAttack?: FrontierSelection;
   expand?: FrontierSelection;
   economicExpand?: FrontierSelection;
+  directedExpand?: FrontierSelection;
   townSupportExpand?: FrontierSelection;
   scaffoldExpand?: FrontierSelection;
   scoutExpand?: FrontierSelection;
@@ -64,6 +67,17 @@ export type FrontierAnalysis = {
 
 const sortTiles = (left: { x: number; y: number }, right: { x: number; y: number }): number =>
   (left.x - right.x) || (left.y - right.y);
+
+/** Bonus per Chebyshev step closer to the expansion objective. */
+const DIRECTION_BIAS_WEIGHT = 40;
+
+const wrapDistSingle = (a: number, b: number, size: number): number => {
+  const d = Math.abs(a - b);
+  return d < size - d ? d : size - d;
+};
+
+const chebyshevWrap = (ax: number, ay: number, bx: number, by: number): number =>
+  Math.max(wrapDistSingle(ax, bx, WORLD_WIDTH), wrapDistSingle(ay, by, WORLD_HEIGHT));
 
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
 
@@ -125,9 +139,6 @@ const candidateKeysForOrigin = (
   }
   return [...candidateKeys];
 };
-
-const buildDomainTileLookup = (tilesByKey: PlannerTileLookup): ReadonlyMap<string, import("@border-empires/game-domain").DomainTileState> =>
-  tilesByKey as ReadonlyMap<string, import("@border-empires/game-domain").DomainTileState>;
 
 const scoutExpandScore = (
   tilesByKey: PlannerTileLookup,
@@ -231,6 +242,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const canExpand = affordability.canExpand ?? true;
   const needsFood = affordability.needsFood ?? false;
   const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
+  const expansionObjective = affordability.expansionObjective;
   const emitTiming = affordability.onAnalyzeTiming;
   const iterStartedAt = performance.now();
   const originCandidateKeyCache = new Map<string, string[]>();
@@ -250,7 +262,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const enemyPlayerTargets = new Set<string>();
   const barbarianTargets = new Set<string>();
   const neutralTargets = new Set<string>();
-  const domainTilesByKey = buildDomainTileLookup(tilesByKey);
+  const domainTilesByKey = tilesByKey as ReadonlyMap<string, import("@border-empires/game-domain").DomainTileState>;
   // When the origin set is large (all owned tiles as fallback), pre-filter to
   // empire-perimeter tiles — those adjacent to at least one non-owned LAND tile.
   // This bounds the two-pass scan to O(N_border) instead of O(N_owned), cutting
@@ -280,6 +292,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   let bestBarbarianAttack: FrontierSelection | undefined;
   let bestExpand: FrontierSelection | undefined;
   let bestEconomicExpand: FrontierSelection | undefined;
+  let bestDirectedExpand: FrontierSelection | undefined;
   let bestTownSupportExpand: FrontierSelection | undefined;
   let bestScaffoldExpand: FrontierSelection | undefined;
   let bestScoutExpand: FrontierSelection | undefined;
@@ -389,6 +402,18 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
         };
         if (isBetterSelection(townSupportCandidate, bestTownSupportExpand)) bestTownSupportExpand = townSupportCandidate;
       }
+      // Directional bias: bonus for stepping toward the expansion objective.
+      if (expansionObjective) {
+        const fromDist = chebyshevWrap(from.x, from.y, expansionObjective.x, expansionObjective.y);
+        const targetDist = chebyshevWrap(target.x, target.y, expansionObjective.x, expansionObjective.y);
+        const directionBonus = (fromDist - targetDist) * DIRECTION_BIAS_WEIGHT;
+        if (directionBonus > 0 && frontierClass !== "economic") {
+          // Non-economic tile that steps toward the objective — candidates for directedExpand.
+          const directedScore = directionBonus + score * 0.1;
+          const directedCandidate = { from, target, score: directedScore, frontierClass };
+          if (isBetterSelection(directedCandidate, bestDirectedExpand)) bestDirectedExpand = directedCandidate;
+        }
+      }
       if (frontierClass === "economic") {
         frontierOpportunityEconomic += 1;
         if (isBetterSelection(candidate, bestEconomicExpand)) bestEconomicExpand = candidate;
@@ -420,6 +445,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     ...(bestBarbarianAttack ? { barbarianAttack: bestBarbarianAttack } : {}),
     ...(bestExpand ? { expand: bestExpand } : {}),
     ...(bestEconomicExpand ? { economicExpand: bestEconomicExpand } : {}),
+    ...(bestDirectedExpand ? { directedExpand: bestDirectedExpand } : {}),
     ...(bestTownSupportExpand ? { townSupportExpand: bestTownSupportExpand } : {}),
     ...(bestScaffoldExpand ? { scaffoldExpand: bestScaffoldExpand } : {}),
     ...(bestScoutExpand ? { scoutExpand: bestScoutExpand } : {}),

@@ -372,6 +372,26 @@ const addTileToOwnerSet = (index: Map<string, Set<string>>, tileKey: string, own
   set.add(tileKey);
 };
 
+export const isNeutralBeaconTile = (tile: DomainTileState): boolean => {
+  if (tile.ownerId) return false;
+  if (tile.terrain !== "LAND") return false;
+  return Boolean(tile.town || tile.dockId || (tile.resource != null));
+};
+
+export const refreshNeutralBeaconIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  neutralBeaconTileKeys: Set<string>;
+}): boolean => {
+  const prevIsBeacon = input.previous ? isNeutralBeaconTile(input.previous) : false;
+  const nextIsBeacon = isNeutralBeaconTile(input.next);
+  if (prevIsBeacon === nextIsBeacon) return false;
+  if (nextIsBeacon) input.neutralBeaconTileKeys.add(input.tileKey);
+  else input.neutralBeaconTileKeys.delete(input.tileKey);
+  return true;
+};
+
 export const assertYieldIndexCorrect = (input: {
   playerId: string;
   tiles: ReadonlyMap<string, DomainTileState>;

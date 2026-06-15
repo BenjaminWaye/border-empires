@@ -170,4 +170,6 @@ export type SimulationMetricsSnapshot = {
   simAiLastCommandAcceptedAtMs: Record<string, number>;
   simMusterRemoteAttackTotal: number;
   simMusterRemoteBlockedTotal: number;
+  /** Counter per objective kind acted on (neutral_value / enemy / none). */
+  simAiExpansionObjectiveTotalByKind: Record<string, number>;
 };

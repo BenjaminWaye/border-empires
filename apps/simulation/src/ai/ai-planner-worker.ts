@@ -368,6 +368,7 @@ const choosePlannerCommand = (
     ...(options?.attackStalemateTargetTileKeys
       ? { attackStalemateTargetTileKeys: options.attackStalemateTargetTileKeys }
       : {}),
+    ...(player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
     clientSeq,
     issuedAt,
     sessionPrefix: "ai-runtime",
