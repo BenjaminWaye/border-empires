@@ -61,7 +61,7 @@ export async function updateFrontierDecay(input: FrontierDecayDeps): Promise<voi
   const expiredTilesByOwner = new Map<string, Array<[string, DomainTileState]>>();
 
   // Phase 1: scan each player's frontier tiles.
-  // frontierSupportedByActiveFort is O(anchors) per tile — yielding between
+  // frontierSupportedByActiveFort is O(9) per tile — yielding between
   // players ensures gRPC dispatch can run between players, not just between ticks.
   for (const [ownerId, frontierKeys] of input.frontierTilesByOwner) {
     for (const tileKey of frontierKeys) {
@@ -294,29 +294,28 @@ function frontierSupportedByActiveFort(
 ): boolean {
   const anchors = input.activeFortAnchorsByOwner.get(playerId);
   if (!anchors || anchors.size === 0) return false;
-  for (const [anchorKey] of anchors) {
-    const anchor = input.tiles.get(anchorKey);
-    if (!anchor || !isSettledTownAnchor(anchor, playerId)) continue;
-    const dx = Math.abs(anchor.x - tile.x);
-    const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
-    const dy = Math.abs(anchor.y - tile.y);
-    const wrappedDy = Math.min(dy, WORLD_HEIGHT - dy);
-    if (Math.max(wrappedDx, wrappedDy) <= TOWN_AUTO_FRONTIER_RADIUS) return true;
+  // TOWN_AUTO_FRONTIER_RADIUS=1 means only the 9 cells around the tile can
+  // ever be supporting anchors.  Check neighbors directly (O(9)) rather than
+  // iterating the full anchor set (O(N_towns × frontier_tiles)).
+  for (let dy = -TOWN_AUTO_FRONTIER_RADIUS; dy <= TOWN_AUTO_FRONTIER_RADIUS; dy++) {
+    for (let dx = -TOWN_AUTO_FRONTIER_RADIUS; dx <= TOWN_AUTO_FRONTIER_RADIUS; dx++) {
+      const nx = ((tile.x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+      const ny = ((tile.y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
+      const nk = `${nx},${ny}`;
+      if (!anchors.has(nk)) continue;
+      const neighbor = input.tiles.get(nk);
+      if (neighbor && isSettledTownAnchor(neighbor, playerId)) return true;
+    }
   }
   return false;
 }
 
 function wasPlayerCandidateAnchor(tile: DomainTileState, ownerId: string): boolean {
-  const hadFort =
-    (tile.economicStructure?.ownerId === ownerId &&
-      tile.economicStructure.type === "WOODEN_FORT" &&
-      tile.economicStructure.status === "active") ||
-    (tile.fort?.ownerId === ownerId && tile.fort.status === "active");
   const hadTown = isSettledTownAnchor(tile, ownerId);
   const hadSweep = Boolean(
     tile.siegeOutpost?.ownerId === ownerId &&
     tile.siegeOutpost.status === "active" &&
     tile.siegeOutpost.sweepActive
   );
-  return hadFort || hadTown || hadSweep;
+  return hadTown || hadSweep;
 }
