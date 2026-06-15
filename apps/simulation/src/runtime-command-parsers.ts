@@ -60,7 +60,6 @@ export const parseConverterTogglePayload = (payloadJson: string): { x: number; y
 };
 
 export const parseSiegeOutpostAutoAttackPayload = parseConverterTogglePayload;
-export const parseSiegeOutpostSweepPayload = parseConverterTogglePayload;
 
 export const parseSetMusterPayload = (
   payloadJson: string

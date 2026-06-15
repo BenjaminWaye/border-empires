@@ -4,7 +4,6 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import {
   parseClearMusterPayload,
   parseSetMusterPayload,
-  parseSiegeOutpostSweepPayload,
   parseStructureTilePayload
 } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -34,36 +33,6 @@ export function cancelActiveOutpostAttackLocks(context: RuntimeStructureCommandC
   context.locksByCommandId.delete(lock.commandId);
   cancelled.push(lock.commandId);
   return cancelled;
-}
-
-export function handleSetSiegeOutpostSweepCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
-  const actor = context.players.get(command.playerId);
-  const payload = parseSiegeOutpostSweepPayload(command.payloadJson);
-  if (!actor || !payload) {
-    rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
-    return;
-  }
-  const targetKey = simulationTileKey(payload.x, payload.y);
-  const target = context.tiles.get(targetKey);
-  const hasSiegeOutpost =
-    target?.ownerId === command.playerId &&
-    target.siegeOutpost?.ownerId === command.playerId &&
-    target.siegeOutpost.status === "active";
-  const hasLightOutpost =
-    target?.ownerId === command.playerId &&
-    target.economicStructure?.ownerId === command.playerId &&
-    target.economicStructure.type === "LIGHT_OUTPOST" &&
-    target.economicStructure.status === "active";
-  if (!target || (!hasSiegeOutpost && !hasLightOutpost)) {
-    rejectCommand(context, command, "BUILD_INVALID", "active owned outpost-family structure required");
-    return;
-  }
-  const updatedTile: DomainTileState = hasSiegeOutpost
-    ? { ...target, siegeOutpost: { ...target.siegeOutpost!, sweepActive: payload.enabled } }
-    : { ...target, economicStructure: { ...target.economicStructure!, sweepActive: payload.enabled } };
-  context.replaceTileState(targetKey, updatedTile, command.commandId);
-  context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
-  context.emitPlayerStateUpdate(command);
 }
 
 export function handleSetMusterCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {

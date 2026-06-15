@@ -22,7 +22,6 @@ import {
   MUSTER_ATTACK_COST,
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
-  SWEEP_RADIUS_BY_VARIANT,
   DEVELOPMENT_PROCESS_LIMIT,
   FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
@@ -179,7 +178,7 @@ import {
 } from "../runtime-hydration.js";
 import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "../encirclement/encirclement.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
-import { PlayerCandidateIndex, MAX_SWEEP_RADIUS } from "../player-candidate-index/player-candidate-index.js";
+import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
 import { domainTileToWireDelta } from "../runtime-tile-deltas.js";
 import {
   FOREST_SETTLEMENT_MULT,
@@ -345,8 +344,7 @@ import {
   handleCancelStructureBuildCommand as handleCancelStructureBuildCommandImpl,
   handleClearMusterCommand as handleClearMusterCommandImpl,
   handleRemoveStructureCommand as handleRemoveStructureCommandImpl,
-  handleSetMusterCommand as handleSetMusterCommandImpl,
-  handleSetSiegeOutpostSweepCommand as handleSetSiegeOutpostSweepCommandImpl
+  handleSetMusterCommand as handleSetMusterCommandImpl
 } from "../runtime-structure-lifecycle-command-handlers.js";
 import {
   bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
@@ -761,13 +759,6 @@ export class SimulationRuntime {
         this.playerCandidateIndex.registerAnchor(tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS, (k) => this.tiles.get(k));
         // Part 2: register in activeFortAnchorsByOwner
         registerFortSupportAnchorImpl(this.activeFortAnchorsByOwner, tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS);
-      } else if (
-        tile.siegeOutpost?.ownerId === ownerId &&
-        tile.siegeOutpost.status === "active" &&
-        tile.siegeOutpost.sweepActive
-      ) {
-        this.playerCandidateIndex.registerAnchor(tileKey, ownerId, MAX_SWEEP_RADIUS, (k) => this.tiles.get(k));
-        // NOTE: siege outposts are NOT registered in activeFortAnchorsByOwner (by design)
       }
       // Populate activeSiegeOutpostsByOwner index
       if (tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active") {
@@ -1081,21 +1072,15 @@ export class SimulationRuntime {
       tiles: this.tiles,
       locksByTile: this.locksByTile,
       activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
-      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
-      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
       playerCandidateIndex: this.playerCandidateIndex,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
-      applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
       updateFrontierDecay: (at) => this.updateFrontierDecay(at, yieldToEventLoop),
       autoSettlementQueueLengthForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId).length,
       emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
-      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
-      adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
         this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
-      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
@@ -4284,10 +4269,6 @@ export class SimulationRuntime {
     return cancelActiveOutpostAttackLocksImpl(this.structureCommandContext(), playerId, originKey);
   }
 
-  private handleSetSiegeOutpostSweepCommand(command: CommandEnvelope): void {
-    handleSetSiegeOutpostSweepCommandImpl(this.structureCommandContext(), command);
-  }
-
   private handleSetMusterCommand(command: CommandEnvelope): void {
     handleSetMusterCommandImpl(this.structureCommandContext(), command);
   }
@@ -5065,7 +5046,6 @@ export class SimulationRuntime {
       handleSettleCommand: (command) => this.handleSettleCommand(command),
       handleBuildStructureCommand: (command) => this.handleBuildStructureCommand(command),
       normalizeLegacyBuildCommand: (command) => this.normalizeLegacyBuildCommand(command),
-      handleSetSiegeOutpostSweepCommand: (command) => this.handleSetSiegeOutpostSweepCommand(command),
       handleSetMusterCommand: (command) => this.handleSetMusterCommand(command),
       handleClearMusterCommand: (command) => this.handleClearMusterCommand(command),
       handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),

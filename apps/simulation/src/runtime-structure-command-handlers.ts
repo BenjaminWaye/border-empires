@@ -1,7 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   MUSTER_SYSTEM_ENABLED,
-  SWEEP_BUDGET_CAP,
   STRUCTURE_REGISTRY,
   bestFortTierForTech,
   bestSiegeTierForTech,
@@ -317,9 +316,6 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
 
   const { completesAt: _, ...activeStructure } = structure;
   const activeVariant = "variant" in activeStructure ? activeStructure.variant : undefined;
-  const sweepInit = spec.kind === "OUTPOST" || structureType === "LIGHT_OUTPOST"
-    ? { sweepBudget: SWEEP_BUDGET_CAP, sweepActive: false, sweepBudgetUpdatedAt: context.now() }
-    : {};
   const garrisonInit = spec.tileField === "fort" && MUSTER_SYSTEM_ENABLED
     ? {
         garrison: initialGarrisonForVariant(activeVariant),
@@ -335,7 +331,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   const completedTile = {
     ...latest,
     ...(clearingWoodenFort ? { economicStructure: undefined } : {}),
-    [spec.tileField]: { ...activeStructure, status: "active", ...sweepInit, ...garrisonInit }
+    [spec.tileField]: { ...activeStructure, status: "active", ...garrisonInit }
   } as DomainTileState;
 
   context.replaceTileState(targetKey, completedTile);

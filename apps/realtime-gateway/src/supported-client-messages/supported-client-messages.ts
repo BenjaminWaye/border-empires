@@ -11,7 +11,6 @@ export const supportedClientMessageTypes = [
   "BUILD_FORT",
   "BUILD_OBSERVATORY",
   "BUILD_SIEGE_OUTPOST",
-  "SET_SIEGE_OUTPOST_SWEEP",
   "SET_MUSTER",
   "CLEAR_MUSTER",
   "BUILD_ECONOMIC_STRUCTURE",

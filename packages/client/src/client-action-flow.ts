@@ -1587,8 +1587,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "overload_crystal_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "enable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: true });
     if (actionId === "disable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: false });
-    if (actionId === "enable_outpost_sweep") sendGameMessage({ type: "SET_SIEGE_OUTPOST_SWEEP", x: selected.x, y: selected.y, enabled: true });
-    if (actionId === "disable_outpost_sweep") sendGameMessage({ type: "SET_SIEGE_OUTPOST_SWEEP", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "muster_hold") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
     if (actionId === "muster_advance") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "ADVANCE" });
     if (actionId === "muster_clear") sendGameMessage({ type: "CLEAR_MUSTER", x: selected.x, y: selected.y });

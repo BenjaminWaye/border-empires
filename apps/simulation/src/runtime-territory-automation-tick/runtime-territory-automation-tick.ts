@@ -1,9 +1,7 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
-  FRONTIER_CLAIM_COST,
-  MUSTER_SYSTEM_ENABLED,
-  SWEEP_RADIUS_BY_VARIANT
+  FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import type { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
 import {
@@ -11,21 +9,20 @@ import {
   isSettledTownAnchor,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
-import type { LockRecord, RuntimePlayer } from "../runtime-types.js";
-import { tickSweepStructure, type SweepStructureRuntimeInput } from "../runtime-sweep-structure-tick/runtime-sweep-structure-tick.js";
+import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 
-export type TickTerritoryAutomationInput = SweepStructureRuntimeInput & {
+export type TickTerritoryAutomationInput = {
   nowMs: number;
   players: Map<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
   locksByTile: ReadonlyMap<string, LockRecord>;
   activeFortAnchorsByOwner: ReadonlyMap<string, ReadonlyMap<string, number>>;
-  activeSiegeOutpostsByOwner: ReadonlyMap<string, ReadonlySet<string>>;
-  activeLightOutpostsByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   playerCandidateIndex: PlayerCandidateIndex;
+  replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
+  nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, nowMs: number) => string;
+  tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   summaryForPlayer: (playerId: string) => unknown;
   applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
-  applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
   updateFrontierDecay: (nowMs: number) => Promise<void>;
   autoSettlementQueueLengthForPlayer: (playerId: string) => number;
   emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => void;
@@ -150,9 +147,6 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
     }
   }
 
-  // Yield before siege/sweep pass so the above settle notifications can flush.
-  await yield_();
-  const siegeStats = await tickTerritorySiegeAndSweeps(input);
   const _ttaEnd = Date.now();
   const totalMs = _ttaEnd - _ttaStart;
   if (totalMs >= 100) {
@@ -161,7 +155,7 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
         totalMs,
         claimLoopMs: _ttaAfterClaim - _ttaStart,
         updateFrontierDecayMs: _ttaAfterDecay - _ttaAfterClaim,
-        settleAndSiegeMs: _ttaEnd - _ttaAfterDecay,
+        settleMs: _ttaEnd - _ttaAfterDecay,
         claim: {
           summaryForPlayerMs: _claimSummaryForPlayerMs,
           anchorScanMs: _claimAnchorScanMs,
@@ -175,100 +169,9 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
         settle: {
           queueNotifyMs: _settleQueueNotifyMs,
           settleQueueNotifications: _settleQueueNotifications
-        },
-        siege: siegeStats
+        }
       },
       "[tick_territory_automation] phase breakdown"
     );
   }
-};
-
-type SiegeStats = {
-  outpostSweepMs: number;
-  lightSweepMs: number;
-  outpostSweepsTicked: number;
-  lightSweepsTicked: number;
-};
-
-const tickTerritorySiegeAndSweeps = async (input: TickTerritoryAutomationInput): Promise<SiegeStats> => {
-  const yield_ = input.yieldToEventLoop ?? (() => Promise.resolve());
-  const stats: SiegeStats = {
-    outpostSweepMs: 0,
-    lightSweepMs: 0,
-    outpostSweepsTicked: 0,
-    lightSweepsTicked: 0
-  };
-
-  for (const playerId of input.players.keys()) {
-    if (playerId.startsWith("barbarian-")) continue;
-    const actor = input.players.get(playerId);
-    if (!actor) continue;
-    input.applyManpowerRegen(actor, input.nowMs);
-    input.summaryForPlayer(playerId);
-
-    const _tOutpostSweep = Date.now();
-    if (!MUSTER_SYSTEM_ENABLED) {
-      for (const tileKey of (input.activeSiegeOutpostsByOwner.get(playerId) ?? [])) {
-        const outpostTile = input.tiles.get(tileKey);
-        if (!outpostTile || outpostTile.siegeOutpost?.ownerId !== playerId || outpostTile.siegeOutpost.status !== "active") continue;
-        const outpostData = outpostTile.siegeOutpost;
-        const variant = outpostData.variant ?? "SIEGE_OUTPOST";
-        tickSweepStructure(
-          input,
-          {
-            tileKey,
-            tile: outpostTile,
-            sweepBudget: outpostData.sweepBudget,
-            sweepActive: outpostData.sweepActive,
-            sweepBudgetUpdatedAt: outpostData.sweepBudgetUpdatedAt,
-            sweepRadius: SWEEP_RADIUS_BY_VARIANT[variant] ?? 5,
-            commandIdPrefix: "sweep",
-            applyUpdate: (fields) => ({ ...outpostTile, siegeOutpost: { ...outpostData, ...fields } })
-          },
-          playerId,
-          actor,
-          input.nowMs
-        );
-        stats.outpostSweepsTicked++;
-      }
-    }
-    stats.outpostSweepMs += Date.now() - _tOutpostSweep;
-
-    const _tLightSweep = Date.now();
-    if (!MUSTER_SYSTEM_ENABLED) {
-      for (const tileKey of (input.activeLightOutpostsByOwner.get(playerId) ?? [])) {
-        const outpostTile = input.tiles.get(tileKey);
-        if (
-          !outpostTile ||
-          outpostTile.economicStructure?.ownerId !== playerId ||
-          outpostTile.economicStructure.type !== "LIGHT_OUTPOST" ||
-          outpostTile.economicStructure.status !== "active"
-        ) {
-          continue;
-        }
-        const econData = outpostTile.economicStructure;
-        tickSweepStructure(
-          input,
-          {
-            tileKey,
-            tile: outpostTile,
-            sweepBudget: econData.sweepBudget,
-            sweepActive: econData.sweepActive,
-            sweepBudgetUpdatedAt: econData.sweepBudgetUpdatedAt,
-            sweepRadius: SWEEP_RADIUS_BY_VARIANT["LIGHT_OUTPOST"],
-            commandIdPrefix: "lo-sweep",
-            applyUpdate: (fields) => ({ ...outpostTile, economicStructure: { ...econData, ...fields } })
-          },
-          playerId,
-          actor,
-          input.nowMs
-        );
-        stats.lightSweepsTicked++;
-      }
-    }
-    stats.lightSweepMs += Date.now() - _tLightSweep;
-    // Yield between players so sweep ticks for many AI players don't back-to-back block the event loop.
-    await yield_();
-  }
-  return stats;
 };

@@ -5,7 +5,6 @@ vi.hoisted(() => {
 });
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { SWEEP_BUDGET_CAP } from "@border-empires/shared";
 
 const makePlayer = (id: string) => ({
   id,
@@ -28,7 +27,7 @@ const buildRuntime = () =>
     ]),
     initialState: {
       tiles: [
-        // Player-1 owns a settled tile with a fully-charged, sweep-active siege outpost.
+        // Player-1 owns a settled tile with an active siege outpost.
         {
           x: 10,
           y: 10,
@@ -38,10 +37,7 @@ const buildRuntime = () =>
           siegeOutpost: {
             ownerId: "player-1",
             status: "active",
-            variant: "SIEGE_OUTPOST",
-            sweepBudget: SWEEP_BUDGET_CAP,
-            sweepActive: true,
-            sweepBudgetUpdatedAt: 1_000
+            variant: "SIEGE_OUTPOST"
           }
         },
         // Adjacent enemy frontier tile — the outpost would normally auto-capture this.
@@ -51,8 +47,8 @@ const buildRuntime = () =>
     }
   });
 
-describe("Phase 6: outpost sweep gate", () => {
-  it("does NOT auto-capture adjacent enemy tile when MUSTER_SYSTEM_ENABLED is true", () => {
+describe("outpost auto-attack removed", () => {
+  it("does NOT auto-capture adjacent enemy tile (sweep auto-attack is gone)", () => {
     const runtime = buildRuntime();
     for (let i = 0; i < 10; i++) {
       runtime.tickTerritoryAutomation(1_000 + i * 5_000);
@@ -74,10 +70,7 @@ describe("Phase 6: outpost sweep gate", () => {
             siegeOutpost: {
               ownerId: "player-1",
               status: "active",
-              variant: "SIEGE_OUTPOST",
-              sweepBudget: SWEEP_BUDGET_CAP,
-              sweepActive: false,
-              sweepBudgetUpdatedAt: 1_000
+              variant: "SIEGE_OUTPOST"
             }
           },
           // Muster tile INSIDE the depot zone (adjacent to outpost).

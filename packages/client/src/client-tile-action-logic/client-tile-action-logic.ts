@@ -1240,36 +1240,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
-    const buildSweepToggleAction = (sweepActive: boolean, sweepBudget: number): TileActionDef => {
-      const sweepBudgetDisplay = `${Math.floor(sweepBudget)}/300`;
-      return {
-        id: sweepActive ? "disable_outpost_sweep" : "enable_outpost_sweep",
-        label: sweepActive ? "Stop Sweep" : "Start Sweep",
-        detail: sweepActive
-          ? `Sweep active — budget ${sweepBudgetDisplay}. Stops the outpost from launching sweep attacks.`
-          : `Sweep inactive — budget ${sweepBudgetDisplay}. Automatically attacks the closest enemy tile within 5-tile radius.`,
-        ...tileActionAvailability(true, "", sweepActive ? "Sweep on" : "Sweep off")
-      };
-    };
-    // Outpost-family sweep toggle. siegeOutpost and LIGHT_OUTPOST live on
-    // different tile fields today (acknowledged debt — see client-changelog
-    // 2026.05.26.2). Use `else if` so a tile that somehow carries both never
-    // produces two actions with the same id.
-    if (tile.siegeOutpost?.ownerId === state.me && tile.siegeOutpost.status === "active") {
-      out.push(buildSweepToggleAction(
-        tile.siegeOutpost.sweepActive === true,
-        tile.siegeOutpost.sweepBudget ?? 0
-      ));
-    } else if (
-      tile.economicStructure?.ownerId === state.me &&
-      tile.economicStructure.type === "LIGHT_OUTPOST" &&
-      tile.economicStructure.status === "active"
-    ) {
-      out.push(buildSweepToggleAction(
-        tile.economicStructure.sweepActive === true,
-        tile.economicStructure.sweepBudget ?? 0
-      ));
-    }
     if (tile.ownershipState === "FRONTIER" && !queuedSettlement)
       out.push({
         id: "settle_land",
