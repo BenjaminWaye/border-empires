@@ -1,6 +1,8 @@
 import {
   FORT_BUILD_MS,
   FORT_TIER_LADDER,
+  MUSTER_ATTACK_COST,
+  MUSTER_SYSTEM_ENABLED,
   OBSERVATORY_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
   SIEGE_OUTPOST_BUILD_MS,
@@ -511,6 +513,15 @@ export const menuOverviewForTile = (
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
   if (tile.fort?.status === "active" && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
+  }
+  if (MUSTER_SYSTEM_ENABLED && tile.fort?.status === "active" && !structureRecentlyCaptured) {
+    const garrison = tile.fort.garrison ?? 0;
+    const garrisonCap = tile.fort.garrisonCap ?? 0;
+    if (garrisonCap > 0) {
+      const pct = Math.round((garrison / garrisonCap) * 100);
+      const required = Math.max(MUSTER_ATTACK_COST, Math.ceil(garrison));
+      pushLine(`Garrison: ${Math.floor(garrison)} / ${Math.floor(garrisonCap)} (${pct}%) — capturing requires ${required} mustered manpower.`);
+    }
   }
   if (tile.economicStructure) {
     if (tile.economicStructure.status === "removing") {

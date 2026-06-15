@@ -1,5 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import { ATTACK_MANPOWER_MIN, MUSTER_SYSTEM_ENABLED } from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, MUSTER_MAX_TILES, MUSTER_SYSTEM_ENABLED } from "@border-empires/shared";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
@@ -105,6 +105,7 @@ type StrategicSnapshotInput<TTile extends StrategicTile> = {
   siegeOutpostBuildAvailable: boolean;
   previousVictoryPath?: AutomationVictoryPath | undefined;
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
+  activeMusterCount?: number;
 };
 
 const VICTORY_PATH_REPIVOT_MARGIN = 28;
@@ -481,7 +482,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     pressureAttackScore,
     pressureThreatensCore,
     attackReady,
-    musterReady: MUSTER_SYSTEM_ENABLED && attackReady,
+    musterReady: MUSTER_SYSTEM_ENABLED && attackReady && (input.activeMusterCount ?? 0) < MUSTER_MAX_TILES,
     manpowerSufficient,
     victoryPathContender,
     hasActiveTown,

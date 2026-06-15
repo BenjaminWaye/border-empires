@@ -85,6 +85,8 @@ export type PlannerPlayerView = {
    * to guide directional expansion toward distant objectives.
    */
   expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
+  /** Number of active muster flags this player currently has placed. */
+  activeMusterCount?: number;
 };
 
 // ─── World view ───────────────────────────────────────────────────────────────
