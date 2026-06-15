@@ -71,6 +71,7 @@ describe("frontier queue regressions", () => {
       isTileOwnedByAlly: () => false,
       pickOriginForTarget: () => origin,
       notifyInsufficientGoldForFrontierAction: vi.fn(),
+      sendSetMuster: vi.fn(),
       applyOptimisticTileState,
       pushFeed: vi.fn(),
       renderHud: vi.fn()
@@ -116,6 +117,7 @@ describe("frontier queue regressions", () => {
       isTileOwnedByAlly: () => false,
       pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
+      sendSetMuster: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()
@@ -151,6 +153,7 @@ describe("frontier queue regressions", () => {
       isTileOwnedByAlly: () => false,
       pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
+      sendSetMuster: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()
@@ -186,6 +189,7 @@ describe("frontier queue regressions", () => {
       isTileOwnedByAlly: (tile) => Boolean(tile.ownerId && state.allies.includes(tile.ownerId)),
       pickOriginForTarget: () => origin,
       notifyInsufficientGoldForFrontierAction: vi.fn(),
+      sendSetMuster: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()
