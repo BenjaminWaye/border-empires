@@ -140,9 +140,6 @@ const candidateKeysForOrigin = (
   return [...candidateKeys];
 };
 
-const buildDomainTileLookup = (tilesByKey: PlannerTileLookup): ReadonlyMap<string, import("@border-empires/game-domain").DomainTileState> =>
-  tilesByKey as ReadonlyMap<string, import("@border-empires/game-domain").DomainTileState>;
-
 const scoutExpandScore = (
   tilesByKey: PlannerTileLookup,
   from: PlannerTile,
@@ -265,7 +262,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const enemyPlayerTargets = new Set<string>();
   const barbarianTargets = new Set<string>();
   const neutralTargets = new Set<string>();
-  const domainTilesByKey = buildDomainTileLookup(tilesByKey);
+  const domainTilesByKey = tilesByKey as ReadonlyMap<string, import("@border-empires/game-domain").DomainTileState>;
   // When the origin set is large (all owned tiles as fallback), pre-filter to
   // empire-perimeter tiles — those adjacent to at least one non-owned LAND tile.
   // This bounds the two-pass scan to O(N_border) instead of O(N_owned), cutting

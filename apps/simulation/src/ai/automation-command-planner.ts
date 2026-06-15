@@ -951,6 +951,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     noCommandReason = "no_frontier_targets";
   } else if (settlementEligible) {
     noCommandReason = "no_settlement_target";
+  } else if (frontierAnalysis.frontierNeutralTargetCount > 0 && !input.expansionObjective && !frontierAnalysis.economicExpand) {
+    noCommandReason = "no_objective_idle";
   } else {
     noCommandReason = "no_frontier_targets";
   }
