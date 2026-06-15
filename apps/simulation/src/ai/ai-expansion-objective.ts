@@ -43,6 +43,11 @@ export type SelectExpansionObjectiveInput = {
   playerId: string;
 };
 
+// Max territory tiles sampled for beacon distance. Full O(B×T) at T=8000 runs
+// ~400ms on shared-cpu hardware; at 300 samples it runs <1ms with negligible
+// directional accuracy loss (evenly-strided across insertion order).
+const MAX_TERRITORY_SAMPLE = 300;
+
 export const selectExpansionObjective = (
   input: SelectExpansionObjectiveInput
 ): ExpansionObjective | undefined => {
@@ -50,11 +55,16 @@ export const selectExpansionObjective = (
     return undefined;
   }
 
+  // Collect keys first (cheap string copies), then stride-sample before parsing.
+  const allKeys: string[] = [];
+  for (const key of input.territoryTileKeys) allKeys.push(key);
+  if (allKeys.length === 0) return undefined;
+
+  const step = Math.max(1, Math.ceil(allKeys.length / MAX_TERRITORY_SAMPLE));
   const ownedCoords: TileCoord[] = [];
-  for (const key of input.territoryTileKeys) {
-    ownedCoords.push(parseCoord(key));
+  for (let i = 0; i < allKeys.length; i += step) {
+    ownedCoords.push(parseCoord(allKeys[i]!));
   }
-  if (ownedCoords.length === 0) return undefined;
 
   const neutralBest = nearestBeaconToTerritory(input.neutralBeaconTileKeys, ownedCoords, "neutral_value");
 
