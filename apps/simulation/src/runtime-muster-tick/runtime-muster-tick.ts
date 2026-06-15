@@ -2,6 +2,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   MUSTER_SYSTEM_ENABLED,
+  MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_STALE_MS,
   MUSTER_TILE_CAP,
@@ -86,7 +87,7 @@ export const tickMuster = (input: MusterTickInput): void => {
       const depotMult = isInsideDepotZone(tile, outpostKeys) ? MUSTER_DEPOT_SPEED_MULT : 1;
       const headroom = Math.max(0, MUSTER_TILE_CAP - tile.muster.amount);
       const inflow = Math.min(
-        (input.playerManpowerRegenPerMinute(player) / activeMusterCount) * depotMult * elapsedMin,
+        (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * elapsedMin,
         headroom,
         player.manpower
       );
