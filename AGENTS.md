@@ -36,6 +36,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - Failing regression tests are merge blockers, even if the feature seems unrelated.
 - Full regression + debugging-instrumentation patterns: `docs/agents/testing-and-debugging.md`.
 - AI planner / snapshot / selector rules (heavy selectors banned in snapshot builders, etc.): `docs/agents/ai-guardrails.md`.
+- State/cache/persistence discipline (bound every growable map, snapshots carry state not logs, gauge growable structures): `docs/agents/state-and-persistence-discipline.md`. Read before adding any cache/map or anything written into a snapshot.
 - Codex token budget and context-loading rules: `docs/agents/codex-token-budget.md`.
 
 ## Documentation maintenance
