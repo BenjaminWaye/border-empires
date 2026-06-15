@@ -169,7 +169,7 @@ describe("frontier-decay perf gate", () => {
 // ---------------------------------------------------------------------------
 
 describe("activeFortAnchorsByOwner index correctness", () => {
-  it("fort does NOT protect nearby frontier from decay — tile expires when timer passes", () => {
+  it("fort does NOT protect nearby frontier from decay — tile expires when timer passes", async () => {
     const NOW_MS = 1_000_000;
 
     const runtime = new SimulationRuntime({
@@ -182,7 +182,7 @@ describe("activeFortAnchorsByOwner index correctness", () => {
       ])
     });
 
-    runtime.tickTerritoryAutomation(NOW_MS);
+    await runtime.tickTerritoryAutomation(NOW_MS);
 
     // Fort provides no frontier support — tile should have expired (no longer owned)
     const tileAfter = (runtime as unknown as { tiles: Map<string, DomainTileState> }).tiles.get("12,10");
@@ -206,7 +206,7 @@ describe("activeFortAnchorsByOwner index correctness", () => {
     expect(anchorsMap.get("p1")?.has("10,10")).toBeFalsy();
   });
 
-  it("town anchor registered → nearby frontier tile is supported from decay", () => {
+  it("town anchor registered → nearby frontier tile is supported from decay", async () => {
     const NOW_MS = 1_000_000;
 
     const runtime = new SimulationRuntime({
@@ -219,7 +219,7 @@ describe("activeFortAnchorsByOwner index correctness", () => {
       ])
     });
 
-    runtime.tickTerritoryAutomation(NOW_MS);
+    await runtime.tickTerritoryAutomation(NOW_MS);
 
     // Town protects adjacent frontier — tile should NOT have expired
     const tileAfter = (runtime as unknown as { tiles: Map<string, DomainTileState> }).tiles.get("11,10");

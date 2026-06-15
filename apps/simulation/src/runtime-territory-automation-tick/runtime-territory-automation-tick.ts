@@ -267,8 +267,7 @@ const tickTerritorySiegeAndSweeps = async (input: TickTerritoryAutomationInput):
       }
     }
     stats.lightSweepMs += Date.now() - _tLightSweep;
-    // Yield between players so fort-attack handleFrontierCommand calls don't
-    // back-to-back block when there are many AI players with active forts.
+    // Yield between players so sweep ticks for many AI players don't back-to-back block the event loop.
     await yield_();
   }
   return stats;
