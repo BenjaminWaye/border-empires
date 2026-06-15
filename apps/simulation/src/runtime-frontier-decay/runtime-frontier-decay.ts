@@ -334,10 +334,5 @@ function wasPlayerCandidateAnchor(tile: DomainTileState, ownerId: string): boole
       tile.economicStructure.status === "active") ||
     (tile.fort?.ownerId === ownerId && tile.fort.status === "active");
   const hadTown = isSettledTownAnchor(tile, ownerId);
-  const hadSweep = Boolean(
-    tile.siegeOutpost?.ownerId === ownerId &&
-    tile.siegeOutpost.status === "active" &&
-    tile.siegeOutpost.sweepActive
-  );
-  return hadFort || hadTown || hadSweep;
+  return hadFort || hadTown;
 }

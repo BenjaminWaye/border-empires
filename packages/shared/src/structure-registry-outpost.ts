@@ -2,7 +2,6 @@ import {
   LIGHT_OUTPOST_BUILD_MS,
   SIEGE_OUTPOST_BUILD_MS,
   SIEGE_OUTPOST_BUILD_COST,
-  SWEEP_BUDGET_CAP,
 } from "./config.js";
 import {
   SIEGE_TIER_LADDER,

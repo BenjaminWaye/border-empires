@@ -10,13 +10,12 @@ export const chebyshevDistanceSimple = (ax: number, ay: number, bx: number, by: 
   Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 
 /**
- * Sweep attack candidate tiles: all enemy-player and barbarian tiles within
- * chebyshev distance <= radius from the outpost tile. Returns tiles sorted by
+ * Attack candidate tiles: all enemy-player and barbarian tiles within
+ * chebyshev distance <= radius from the anchor tile. Returns tiles sorted by
  * distance ascending; tie-break: lower x first, then lower y.
  *
- * Hot-path callers (tickSweepStructure) should prefer
- * PlayerCandidateIndex.sortedAttackCandidates() to avoid per-tick sort and
- * intermediate-array allocations.
+ * Hot-path callers should prefer PlayerCandidateIndex.sortedAttackCandidates()
+ * to avoid per-tick sort and intermediate-array allocations.
  */
 export const sweepAttackCandidates = (
   outpost: DomainTileState,
@@ -178,65 +177,6 @@ export const siegeAutoAttackCandidates = (
         left.y - right.y
       );
     });
-};
-
-/**
- * Choose an expansion step to advance sweep toward a distant target.
- *
- * When a sweep target does not border any owned tile, the outpost should expand
- * one step toward it per tick rather than issuing an ATTACK that will always
- * be rejected with NOT_ADJACENT. This helper finds the best {origin, to} pair:
- *
- * Algorithm (bounded and deterministic):
- * 1. Iterate all tiles in Chebyshev radius `sweepRadius` of the outpost.
- * 2. For each owned LAND tile that is NOT encirclement-blocked, examine its
- *    8 neighbours.
- * 3. For each neighbour that is neutral claimable land, compute Chebyshev
- *    distance to the target.
- * 4. Pick the pair that minimises that distance; tie-break: neutral tile x asc
- *    then y asc.
- * 5. Return undefined if no candidate is found.
- */
-export const chooseSweepExpansionStep = (
-  outpost: { x: number; y: number },
-  target: { x: number; y: number },
-  playerId: string,
-  sweepRadius: number,
-  getTile: (x: number, y: number) => DomainTileState | undefined
-): { origin: { x: number; y: number }; to: { x: number; y: number } } | undefined => {
-  let best:
-    | { origin: { x: number; y: number }; to: { x: number; y: number }; dist: number }
-    | undefined = undefined;
-
-  // Include the outpost tile itself as a candidate origin, plus all tiles in the radius.
-  // coordsInChebyshevRadius excludes the center, so we prepend it manually.
-  const candidates = [outpost, ...coordsInChebyshevRadius(outpost.x, outpost.y, sweepRadius)];
-
-  for (const { x: ox, y: oy } of candidates) {
-    const owned = getTile(ox, oy);
-    if (!owned) continue;
-    if (owned.ownerId !== playerId) continue;
-    if (owned.terrain !== "LAND") continue;
-    // Skip encirclement-blocked origins
-    if (owned.ownershipState === "FRONTIER" && owned.frontierDecayKind === "ENCIRCLEMENT") continue;
-
-    // Check 8 neighbours of this owned tile
-    for (const { x: nx, y: ny } of coordsInChebyshevRadius(ox, oy, 1)) {
-      const neighbour = getTile(nx, ny);
-      if (!isAutoClaimTarget(neighbour)) continue;
-
-      const dist = chebyshevDistanceSimple(nx, ny, target.x, target.y);
-      if (
-        best === undefined ||
-        dist < best.dist ||
-        (dist === best.dist && (nx < best.to.x || (nx === best.to.x && ny < best.to.y)))
-      ) {
-        best = { origin: { x: ox, y: oy }, to: { x: nx, y: ny }, dist };
-      }
-    }
-  }
-
-  return best ? { origin: best.origin, to: best.to } : undefined;
 };
 
 /**

@@ -139,8 +139,6 @@ export type Tile = {
     status: "under_construction" | "active" | "removing";
     variant?: "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
     completesAt?: number;
-    sweepBudget?: number;
-    sweepActive?: boolean;
   };
   economicStructure?: {
     ownerId: string;
@@ -185,11 +183,6 @@ export type Tile = {
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
     powered?: boolean;
-    /** Sweep state — only meaningful when type === "LIGHT_OUTPOST". Type-lie
-     * carried from packages/shared until the structure-pipeline rewrite. */
-    sweepBudget?: number;
-    sweepActive?: boolean;
-    sweepBudgetUpdatedAt?: number;
   };
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
@@ -621,8 +614,6 @@ export type TileActionDef = {
     | "abandon_territory"
     | "build_siege_camp"
     | "build_light_outpost"
-    | "enable_outpost_sweep"
-    | "disable_outpost_sweep"
     | "overload_fur_synthesizer"
     | "overload_ironworks"
     | "overload_crystal_synthesizer"

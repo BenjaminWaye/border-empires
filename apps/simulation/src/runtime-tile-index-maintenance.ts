@@ -1,7 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { RuntimeTileYieldEconomyContext } from "./runtime-types.js";
 import type { PlayerCandidateIndex } from "./player-candidate-index/player-candidate-index.js";
-import { MAX_SWEEP_RADIUS } from "./player-candidate-index/player-candidate-index.js";
 import {
   candidateIndexKeysAroundTileKey,
   isBuildCandidateTile,
@@ -146,9 +145,6 @@ export const refreshFortAnchorIndexForTile = (input: {
 const playerCandidateAnchorMaxRadius = (tile: DomainTileState, ownerId: string): number => {
   const fortRadius = fortSupportAnchorMaxRadius(tile, ownerId);
   if (fortRadius > 0) return fortRadius;
-  if (tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active" && tile.siegeOutpost.sweepActive) {
-    return MAX_SWEEP_RADIUS;
-  }
   return 0;
 };
 

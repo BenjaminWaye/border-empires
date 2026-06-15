@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.14.1",
+  version: "2026.06.15.1",
   title: "What's New",
-  summary: "Login loading now shows what the server is doing — no more silent spinner for large empires.",
+  summary: "Outposts no longer have a sweep auto-attack toggle — mustering replaces it.",
   entries: [
+    {
+      introducedIn: "2026.06.15.1",
+      title: "Outpost sweep removed",
+      why: "The outpost sweep auto-attack has been fully superseded by the muster system, which is now the single way to stage and launch attacks from a structure.",
+      changes: [
+        "Removed the Start/Stop Sweep action from siege outposts and light outposts.",
+        "Outposts no longer auto-attack nearby enemy tiles on their own — use muster to stage manpower and launch attacks."
+      ]
+    },
     {
       introducedIn: "2026.06.14.1",
       title: "Login progress messages",

@@ -13,7 +13,6 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "BUILD_FORT":
     case "BUILD_OBSERVATORY":
     case "BUILD_SIEGE_OUTPOST":
-    case "SET_SIEGE_OUTPOST_SWEEP":
     case "SET_MUSTER":
     case "CLEAR_MUSTER":
     case "BUILD_ECONOMIC_STRUCTURE":
