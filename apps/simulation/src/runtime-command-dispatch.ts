@@ -7,7 +7,6 @@ export type RuntimeCommandDispatchHandlers = {
   handleSettleCommand: (command: CommandEnvelope) => void;
   handleBuildStructureCommand: (command: CommandEnvelope) => void;
   normalizeLegacyBuildCommand: (command: CommandEnvelope) => CommandEnvelope;
-  handleSetSiegeOutpostSweepCommand: (command: CommandEnvelope) => void;
   handleSetMusterCommand: (command: CommandEnvelope) => void;
   handleClearMusterCommand: (command: CommandEnvelope) => void;
   handleCancelCaptureCommand: (command: CommandEnvelope) => void;
@@ -54,7 +53,6 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "SETTLE") return handlers.handleSettleCommand(command);
   if ((command.type as string) === "BUILD_STRUCTURE") return handlers.handleBuildStructureCommand(command);
   if (isLegacyBuildCommand(command)) return handlers.handleBuildStructureCommand(handlers.normalizeLegacyBuildCommand(command));
-  if (command.type === "SET_SIEGE_OUTPOST_SWEEP") return handlers.handleSetSiegeOutpostSweepCommand(command);
   if ((command.type as string) === "SET_MUSTER") return handlers.handleSetMusterCommand(command);
   if ((command.type as string) === "CLEAR_MUSTER") return handlers.handleClearMusterCommand(command);
   if (command.type === "CANCEL_CAPTURE") return handlers.handleCancelCaptureCommand(command);
@@ -101,7 +99,6 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "SETTLE" ||
   (command.type as string) === "BUILD_STRUCTURE" ||
   isLegacyBuildCommand(command) ||
-  command.type === "SET_SIEGE_OUTPOST_SWEEP" ||
   (command.type as string) === "SET_MUSTER" ||
   (command.type as string) === "CLEAR_MUSTER" ||
   command.type === "CANCEL_CAPTURE" ||

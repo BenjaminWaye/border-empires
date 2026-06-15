@@ -123,7 +123,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     structureType: z.string(),
     ...FrontierCommandMetadataSchema
   }),
-  z.object({ type: z.literal("SET_SIEGE_OUTPOST_SWEEP"), x: z.number().int(), y: z.number().int(), enabled: z.boolean(), ...FrontierCommandMetadataSchema }),
   z.object({
     type: z.literal("SET_MUSTER"),
     x: z.number().int(),

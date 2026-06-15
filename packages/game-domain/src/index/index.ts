@@ -139,9 +139,6 @@ export type DomainTileState = {
         variant?: NonNullable<Tile["siegeOutpost"]>["variant"] | undefined;
         completesAt?: number | undefined;
         previousStatus?: "active" | undefined;
-        sweepBudget?: number | undefined;
-        sweepActive?: boolean | undefined;
-        sweepBudgetUpdatedAt?: number | undefined;
       }
     | undefined;
   economicStructure?:
@@ -154,10 +151,6 @@ export type DomainTileState = {
         nextUpkeepAt?: number | undefined;
         inactiveReason?: NonNullable<Tile["economicStructure"]>["inactiveReason"] | undefined;
         previousStatus?: "active" | "inactive" | undefined;
-        /** Sweep state — only used when type === "LIGHT_OUTPOST". */
-        sweepBudget?: number | undefined;
-        sweepActive?: boolean | undefined;
-        sweepBudgetUpdatedAt?: number | undefined;
       }
     | undefined;
   sabotage?:

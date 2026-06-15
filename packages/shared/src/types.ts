@@ -100,10 +100,6 @@ export interface EconomicStructure {
   previousStatus?: "active" | "inactive";
   nextUpkeepAt: number;
   powered?: boolean;
-  /** Sweep state — only used when type === "LIGHT_OUTPOST". */
-  sweepBudget?: number;
-  sweepActive?: boolean;
-  sweepBudgetUpdatedAt?: number;
 }
 
 export interface SeasonVictoryObjectiveView {
@@ -506,9 +502,6 @@ export interface SiegeOutpost {
   startedAt: number;
   completesAt?: number;
   previousStatus?: "active";
-  sweepBudget?: number;      // 0..SWEEP_BUDGET_CAP; undefined treated as 0
-  sweepActive?: boolean;     // player-controlled toggle
-  sweepBudgetUpdatedAt?: number; // timestamp when sweepBudget was last written
 }
 
 export interface Observatory {

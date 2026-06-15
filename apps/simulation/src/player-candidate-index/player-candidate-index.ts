@@ -17,7 +17,7 @@
  *
  * Anchor registration: each anchor is stored at the MAXIMUM possible radius for
  * its kind (MAX_FORT_AUTO_FRONTIER_RADIUS for forts/wooden-forts,
- * TOWN_AUTO_FRONTIER_RADIUS for towns, MAX_SWEEP_RADIUS for sweep outposts).
+ * TOWN_AUTO_FRONTIER_RADIUS for towns).
  * This prevents stale maxRadius when time-dependent conditions (e.g.
  * FORT_PATROL_GRACE_MS) change the effective radius without a tile mutation.
  * The per-tick call sites pass the current dynamic radius to claimCandidates /
@@ -39,9 +39,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
-
-/** Maximum sweep radius across all outpost variants. */
-export const MAX_SWEEP_RADIUS = 5;
 
 type AnchorEntry = {
   anchorKey: string;

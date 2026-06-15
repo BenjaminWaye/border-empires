@@ -311,11 +311,5 @@ function frontierSupportedByActiveFort(
 }
 
 function wasPlayerCandidateAnchor(tile: DomainTileState, ownerId: string): boolean {
-  const hadTown = isSettledTownAnchor(tile, ownerId);
-  const hadSweep = Boolean(
-    tile.siegeOutpost?.ownerId === ownerId &&
-    tile.siegeOutpost.status === "active" &&
-    tile.siegeOutpost.sweepActive
-  );
-  return hadTown || hadSweep;
+  return isSettledTownAnchor(tile, ownerId);
 }

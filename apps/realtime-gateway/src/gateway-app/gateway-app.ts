@@ -1211,7 +1211,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         messageType !== "BUILD_FORT" &&
         messageType !== "BUILD_OBSERVATORY" &&
         messageType !== "BUILD_SIEGE_OUTPOST" &&
-        messageType !== "SET_SIEGE_OUTPOST_SWEEP" &&
         messageType !== "BUILD_ECONOMIC_STRUCTURE" &&
         messageType !== "CANCEL_FORT_BUILD" &&
         messageType !== "CANCEL_STRUCTURE_BUILD" &&
@@ -2895,7 +2894,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "BUILD_FORT" &&
             message.type !== "BUILD_OBSERVATORY" &&
             message.type !== "BUILD_SIEGE_OUTPOST" &&
-            message.type !== "SET_SIEGE_OUTPOST_SWEEP" &&
             message.type !== "BUILD_ECONOMIC_STRUCTURE" &&
             message.type !== "CANCEL_FORT_BUILD" &&
             message.type !== "CANCEL_STRUCTURE_BUILD" &&
@@ -3093,21 +3091,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   payload: {
                     x: message.x,
                     y: message.y
-                  }
-                },
-                submitDeps
-              )
-            );
-          } else if (message.type === "SET_SIEGE_OUTPOST_SWEEP") {
-            await trackSubmitLatency(() =>
-              submitDurableCommand(
-                authedSession,
-                {
-                  type: "SET_SIEGE_OUTPOST_SWEEP",
-                  payload: {
-                    x: message.x,
-                    y: message.y,
-                    enabled: message.enabled
                   }
                 },
                 submitDeps

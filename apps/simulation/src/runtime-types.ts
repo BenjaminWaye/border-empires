@@ -32,7 +32,7 @@ export const hasOutstandingUpkeepNeed = (need: UpkeepNeed): boolean => {
 
 /**
  * Distinguishes player-issued frontier locks from passive defensive fire
- * (fort auto-attack, siege/light-outpost sweep). The AI strategic planner
+ * (fort auto-attack). The AI strategic planner
  * only blocks on `"player"` locks; counting `"automation"` locks would
  * starve the planner because territory-automation re-locks every ~3 s as
  * long as any valid target stays in range.
@@ -41,7 +41,7 @@ export type LockSource = "player" | "automation";
 
 /**
  * Command-id prefix used by every command emitted from territory-automation
- * (fort auto-attack, siege/light outpost sweep). Live runtime code reads
+ * (fort auto-attack). Live runtime code reads
  * `LockRecord.source` directly; this constant is the back-compat fallback
  * for hydrating snapshots written before `source` existed.
  */

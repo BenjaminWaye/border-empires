@@ -111,9 +111,6 @@ describe("in-flight structure-build rehydration on sim startup", () => {
       const outpostState = JSON.parse(tileAt(runtime, 7, 7)?.siegeOutpostJson ?? "{}") as Record<string, unknown>;
       expect(outpostState.ownerId).toBe("player-1");
       expect(outpostState.status).toBe("active");
-      // Sweep fields are initialized on build completion.
-      expect(outpostState.sweepBudget).toBe(300);
-      expect(outpostState.sweepActive).toBe(false);
     } finally {
       vi.useRealTimers();
     }

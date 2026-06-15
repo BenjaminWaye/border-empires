@@ -38,10 +38,7 @@ describe("createTilesFromInitialState", () => {
     const siegeOutpost = {
       ownerId: "p1",
       status: "active" as const,
-      variant: "SIEGE_OUTPOST" as const,
-      sweepBudget: 300,
-      sweepActive: false,
-      sweepBudgetUpdatedAt: 0
+      variant: "SIEGE_OUTPOST" as const
     };
     const state = minimalState([{ ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, siegeOutpost }]);
     const result = createTilesFromInitialState(state, new Map(), false);
