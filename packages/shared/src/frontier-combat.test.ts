@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFrontierCombatPreview, rollFrontierCombat, supportDefenseMult } from "./frontier-combat.js";
-import { SUPPORT_DEFENSE_BASE, SUPPORT_DEFENSE_STEP } from "./config.js";
+import { buildFrontierCombatPreview, rollFrontierCombat } from "./frontier-combat.js";
+import { BREAKTHROUGH_DEBUFF_MULT } from "./config.js";
 
 describe("frontier combat", () => {
   it("builds preview values for a settled town target", () => {
@@ -88,85 +88,46 @@ describe("frontier combat", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Local-support defense (Phase 1)
+// Breakthrough momentum debuff
 // ---------------------------------------------------------------------------
 
-describe("local-support defense", () => {
-  it("flag=false: SETTLED defMult is exactly 1.35 (legacy parity)", () => {
-    const preview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED" },
-      { localSupportDefenseEnabled: false }
-    );
+describe("breakthrough momentum", () => {
+  it("no breach: SETTLED defMult is 1.35", () => {
+    const preview = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
     expect(preview.defMult).toBeCloseTo(1.35, 10);
   });
 
-  it("flag=false: SETTLED+town defMult is 1.35 × 1.2 (legacy parity)", () => {
+  it("breached: SETTLED defMult is 1.35 × BREAKTHROUGH_DEBUFF_MULT", () => {
+    const preview = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { captureBreached: true }
+    );
+    expect(preview.defMult).toBeCloseTo(1.35 * BREAKTHROUGH_DEBUFF_MULT, 10);
+  });
+
+  it("breached FRONTIER still returns defEff=0", () => {
+    const preview = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "FRONTIER" },
+      { captureBreached: true }
+    );
+    expect(preview.defMult).toBeCloseTo(0, 10);
+    expect(preview.defEff).toBeCloseTo(0, 10);
+  });
+
+  it("breached SETTLED+town defMult is 1.35 × 1.2 × BREAKTHROUGH_DEBUFF_MULT", () => {
     const preview = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "SETTLED", townType: "MARKET" },
-      { localSupportDefenseEnabled: false }
+      { captureBreached: true }
     );
-    expect(preview.defMult).toBeCloseTo(1.35 * 1.2, 10);
+    expect(preview.defMult).toBeCloseTo(1.35 * 1.2 * BREAKTHROUGH_DEBUFF_MULT, 10);
   });
 
-  it("flag=true, support=0: defMult equals SUPPORT_DEFENSE_BASE", () => {
-    const preview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED", support: 0 },
-      { localSupportDefenseEnabled: true }
-    );
-    expect(preview.defMult).toBeCloseTo(SUPPORT_DEFENSE_BASE, 10);
-  });
-
-  it("flag=true, support=4: defMult equals SUPPORT_DEFENSE_BASE + 4*SUPPORT_DEFENSE_STEP", () => {
-    const preview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED", support: 4 },
-      { localSupportDefenseEnabled: true }
-    );
-    expect(preview.defMult).toBeCloseTo(SUPPORT_DEFENSE_BASE + 4 * SUPPORT_DEFENSE_STEP, 10);
-  });
-
-  it("flag=true: defMult rises with support (monotonically 0→4)", () => {
-    const mults = [0, 1, 2, 3, 4].map(s =>
-      buildFrontierCombatPreview(
-        { terrain: "LAND", ownershipState: "SETTLED", support: s },
-        { localSupportDefenseEnabled: true }
-      ).defMult
-    );
-    for (let i = 0; i < mults.length - 1; i++) {
-      expect(mults[i + 1]).toBeGreaterThan(mults[i] ?? 0);
-    }
-  });
-
-  it("flag=true: FRONTIER target returns defEff=0 (unchanged)", () => {
-    const preview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "FRONTIER" },
-      { localSupportDefenseEnabled: true }
-    );
-    expect(preview.defMult).toBeCloseTo(0, 10);
-    expect(preview.defEff).toBeCloseTo(0, 10);
-  });
-
-  it("flag=false: FRONTIER target returns defEff=0 (unchanged)", () => {
-    const preview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "FRONTIER" },
-      { localSupportDefenseEnabled: false }
-    );
-    expect(preview.defMult).toBeCloseTo(0, 10);
-    expect(preview.defEff).toBeCloseTo(0, 10);
-  });
-
-  it("flag=true: support defaults to 0 when not provided (undefined)", () => {
-    const withUndefined = buildFrontierCombatPreview(
+  it("breach raises attacker win chance", () => {
+    const normal = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
+    const breached = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "SETTLED" },
-      { localSupportDefenseEnabled: true }
+      { captureBreached: true }
     );
-    const withZero = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED", support: 0 },
-      { localSupportDefenseEnabled: true }
-    );
-    expect(withUndefined.defMult).toBeCloseTo(withZero.defMult, 10);
-  });
-
-  it("supportDefenseMult at support=2 equals SUPPORT_DEFENSE_BASE + 2*SUPPORT_DEFENSE_STEP", () => {
-    expect(supportDefenseMult(2)).toBeCloseTo(SUPPORT_DEFENSE_BASE + 2 * SUPPORT_DEFENSE_STEP, 10);
+    expect(breached.winChance).toBeGreaterThan(normal.winChance);
   });
 });

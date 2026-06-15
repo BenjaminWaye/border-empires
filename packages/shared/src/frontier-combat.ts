@@ -1,4 +1,4 @@
-import { SUPPORT_DEFENSE_BASE, SUPPORT_DEFENSE_STEP } from "./config.js";
+import { BREAKTHROUGH_DEBUFF_MULT } from "./config.js";
 import { combatWinChance } from "./math.js";
 
 export type FrontierCombatPreviewTile = {
@@ -8,8 +8,6 @@ export type FrontierCombatPreviewTile = {
   townType?: string | undefined;
   // True iff the target tile has an active (not under-construction) fort owned by the defender.
   hasFort?: boolean | undefined;
-  // Friendly-settled cardinal support count (0..4), used when localSupportDefenseEnabled.
-  support?: number | undefined;
 };
 
 export type FrontierCombatPreview = {
@@ -32,19 +30,11 @@ export type FrontierCombatModifiers = {
   musterSystemEnabled?: boolean;
   fortGarrison?: number | undefined;
   fortGarrisonCap?: number | undefined;
-  // Local-support defense (Phase 1): when true, SETTLED defense uses supportDefenseMult(support).
-  localSupportDefenseEnabled?: boolean | undefined;
+  // Breakthrough momentum: target tile is inside an active breach window (captured neighbour).
+  captureBreached?: boolean | undefined;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
-
-/**
- * Pure curve: maps 0..4 friendly-settled cardinal support count to a defense
- * multiplier in the range [SUPPORT_DEFENSE_BASE, SUPPORT_DEFENSE_BASE + 4 *
- * SUPPORT_DEFENSE_STEP] (nominally 1.15 .. 1.63).  Clamped at both ends.
- */
-export const supportDefenseMult = (support: number): number =>
-  SUPPORT_DEFENSE_BASE + SUPPORT_DEFENSE_STEP * Math.max(0, Math.min(4, support));
 
 const defenseMultiplierForTile = (
   target: FrontierCombatPreviewTile,
@@ -53,13 +43,7 @@ const defenseMultiplierForTile = (
   // Legacy parity: frontier tiles provide no defensive effective power.
   if (target.ownershipState === "FRONTIER") return 0;
   let defMult = 1;
-  if (target.ownershipState === "SETTLED") {
-    if (modifiers.localSupportDefenseEnabled) {
-      defMult *= supportDefenseMult(target.support ?? 0);
-    } else {
-      defMult *= 1.35;
-    }
-  }
+  if (target.ownershipState === "SETTLED") defMult *= 1.35;
   if (target.townType) defMult *= 1.2;
   if (target.dockId) defMult *= 1.1;
   if (target.hasFort) {
@@ -71,6 +55,7 @@ const defenseMultiplierForTile = (
       defMult *= baseMult;
     }
   }
+  if (modifiers.captureBreached) defMult *= BREAKTHROUGH_DEBUFF_MULT;
   return defMult;
 };
 

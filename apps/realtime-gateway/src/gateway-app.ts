@@ -2,7 +2,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { buildFrontierCombatPreview, friendlySettledSupport, isChosenTrickleResource, LOCAL_SUPPORT_DEFENSE_ENABLED, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
+import { BREAKTHROUGH_ENABLED, buildFrontierCombatPreview, isChosenTrickleResource, scanOutpostMult, type OutpostAuraTileFacts } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { preSerializeBroadcast, sendJsonToSocket, unwrapPayloadSource } from "./broadcast-payload.js";
@@ -218,7 +218,8 @@ const jsonSafeTileDeltaBatch = (
       ? { economicStructureJson: "" }
       : {}),
     ...("sabotageJson" in tileDelta && tileDelta.sabotageJson === undefined ? { sabotageJson: "" } : {}),
-    ...("shardSiteJson" in tileDelta && tileDelta.shardSiteJson === undefined ? { shardSiteJson: "" } : {})
+    ...("shardSiteJson" in tileDelta && tileDelta.shardSiteJson === undefined ? { shardSiteJson: "" } : {}),
+    ...("captureBreachUntil" in tileDelta && tileDelta.captureBreachUntil === undefined ? { captureBreachUntil: null } : {})
   }));
 
 const optionalCommandMetadata = (message: unknown): { commandId?: string; clientSeq?: number } => {
@@ -296,6 +297,7 @@ type PreviewTile = {
   ownershipState?: string | undefined;
   dockId?: string | undefined;
   townType?: string | undefined;
+  captureBreachUntil?: number | undefined;
   economicStructureJson?: string | undefined;
   siegeOutpostJson?: string | undefined;
 };
@@ -357,26 +359,13 @@ const attackPreviewResult = (
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x, y) => tileMap.get(previewTileKey(x, y)));
-  const previewTileLookup = (nx: number, ny: number): { terrain?: string; ownerId?: string; ownershipState?: string } | undefined => {
-    const t = tileMap.get(previewTileKey(nx, ny));
-    if (!t) return undefined;
-    const out: { terrain?: string; ownerId?: string; ownershipState?: string } = {};
-    if (t.terrain != null) out.terrain = t.terrain;
-    if (t.ownerId != null) out.ownerId = t.ownerId;
-    if (t.ownershipState != null) out.ownershipState = t.ownershipState;
-    return out;
-  };
-  const targetSupport: number | undefined =
-    LOCAL_SUPPORT_DEFENSE_ENABLED && target.ownerId != null && target.ownershipState === "SETTLED"
-      ? friendlySettledSupport(
-          { x: to.x, y: to.y, ownerId: target.ownerId },
-          previewTileLookup,
-          () => false
-        )
-      : undefined;
+  const captureBreached =
+    BREAKTHROUGH_ENABLED &&
+    target.captureBreachUntil != null &&
+    target.captureBreachUntil > Date.now();
   const preview = buildFrontierCombatPreview(
-    { ...target, support: targetSupport },
-    { attackerOutpostMult, localSupportDefenseEnabled: LOCAL_SUPPORT_DEFENSE_ENABLED }
+    target,
+    { attackerOutpostMult, captureBreached: captureBreached || undefined }
   );
   return {
     ...responseBase,

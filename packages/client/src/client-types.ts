@@ -278,6 +278,7 @@ export type Tile = {
     targetY?: number;
     updatedAt: number;
   };
+  captureBreachUntil?: number;
 };
 
 export type SeasonVictoryObjectiveView = {

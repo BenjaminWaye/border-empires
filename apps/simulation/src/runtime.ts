@@ -19,7 +19,7 @@ import {
   ATTACK_MANPOWER_MIN,
   BARBARIAN_RAID_COST,
   MUSTER_SYSTEM_ENABLED,
-  LOCAL_SUPPORT_DEFENSE_ENABLED,
+  BREAKTHROUGH_ENABLED,
   MUSTER_ATTACK_COST,
   FORT_GARRISON_ATTRITION_MIN,
   FORT_GARRISON_ATTRITION_MAX,
@@ -62,7 +62,6 @@ import {
   integrityEconomyMult,
   integrityGrowthMult,
   isEnclosedBy,
-  friendlySettledSupport,
   wrapX,
   wrapY,
   type EnclosureLookup
@@ -1705,6 +1704,33 @@ export class SimulationRuntime {
     if (EMPIRE_INTEGRITY_ENABLED && !this.inEnclosureSettle) {
       this.checkAndApplyEnclosureAroundTile(tileKey, tile);
       this.drainEnclosureSettleQueue();
+    }
+    if (BREAKTHROUGH_ENABLED && !sameOwner && previous?.ownerId && tile.ownerId && tile.ownerId !== "barbarian-1") {
+      this.applyBreachToNeighbors(tile.x, tile.y, previous.ownerId, this.now());
+    }
+  }
+
+  /** Set captureBreachUntil on the 4 cardinal enemy-owned neighbours of a freshly captured tile. */
+  private applyBreachToNeighbors(x: number, y: number, previousOwnerId: string, nowMs: number): void {
+    const neighbours: Array<[number, number]> = [
+      [x, y - 1],
+      [x + 1, y],
+      [x, y + 1],
+      [x - 1, y]
+    ];
+    const endsAt = nowMs + 60_000;
+    for (const [nx, ny] of neighbours) {
+      const key = simulationTileKey(nx, ny);
+      const neighbour = this.tiles.get(key);
+      if (!neighbour || neighbour.ownerId !== previousOwnerId) continue;
+      const updated: DomainTileState = { ...neighbour, captureBreachUntil: endsAt };
+      this.tiles.set(key, updated);
+      this.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: `breach:${key}:${nowMs}`,
+        playerId: previousOwnerId,
+        tileDeltas: [this.tileDeltaFromState(updated)]
+      });
     }
   }
 
@@ -5356,6 +5382,7 @@ export class SimulationRuntime {
       economicStructureJson: cached.economicStructureJson,
       sabotageJson: cached.sabotageJson,
       musterJson: cached.musterJson,
+      captureBreachUntil: tile.captureBreachUntil ?? undefined,
       ...(yieldView?.yield ? { yield: yieldView.yield } : {})
       // yieldRate and yieldCap are derived client-side from static yield tables
       // + townJson (goldPerMinute/cap). See packages/client/src/yield-derivation.ts.
@@ -6593,14 +6620,10 @@ export class SimulationRuntime {
         previousTarget.fort.status === "active" &&
         previousTarget.fort.ownerId === defenderOwnerId
       );
-    const defenderSupport: number | undefined =
-      LOCAL_SUPPORT_DEFENSE_ENABLED && defenderOwnerId != null && previousTarget?.ownershipState === "SETTLED"
-        ? friendlySettledSupport(
-            { x: lock.targetX, y: lock.targetY, ownerId: defenderOwnerId },
-            (nx, ny) => this.tiles.get(`${nx},${ny}`),
-            () => false
-          )
-        : undefined;
+    const captureBreached =
+      BREAKTHROUGH_ENABLED &&
+      previousTarget?.captureBreachUntil != null &&
+      previousTarget.captureBreachUntil > this.now();
     const combatModifiers = {
       attackerOutpostMult,
       attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
@@ -6609,7 +6632,7 @@ export class SimulationRuntime {
       musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
       fortGarrison: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrison ?? 0) : undefined,
       fortGarrisonCap: (MUSTER_SYSTEM_ENABLED && targetHasActiveFort) ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
-      localSupportDefenseEnabled: LOCAL_SUPPORT_DEFENSE_ENABLED
+      captureBreached: captureBreached || undefined
     };
     const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
       ? {
@@ -6617,8 +6640,7 @@ export class SimulationRuntime {
           ownershipState: previousTarget.ownershipState,
           dockId: previousTarget.dockId,
           townType: previousTarget.town?.type,
-          hasFort: targetHasActiveFort,
-          support: defenderSupport
+          hasFort: targetHasActiveFort
         }
       : { terrain: "LAND" };
     const combat =

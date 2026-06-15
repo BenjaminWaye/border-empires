@@ -308,6 +308,7 @@ export interface Tile {
     targetY?: number;
     updatedAt: number;
   };
+  captureBreachUntil?: number;
 }
 
 export interface StatsMods {

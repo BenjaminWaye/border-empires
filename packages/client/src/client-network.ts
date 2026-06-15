@@ -754,6 +754,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         ownerId?: string;
         ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
         breachShockUntil?: number;
+        captureBreachUntil?: number;
         frontierDecayAt?: number | null;
         frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | null;
       }>) ??
@@ -775,6 +776,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else if (!change.ownerId) delete incoming.ownershipState;
       if (typeof change.breachShockUntil === "number") incoming.breachShockUntil = change.breachShockUntil;
       else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
+      if (typeof change.captureBreachUntil === "number") incoming.captureBreachUntil = change.captureBreachUntil;
+      else if ("captureBreachUntil" in change && !change.captureBreachUntil) delete incoming.captureBreachUntil;
       if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
       else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
       if (change.frontierDecayKind === "NATURAL" || change.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = change.frontierDecayKind;
@@ -2202,6 +2205,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if ("breachShockUntil" in normalizedUpdate) {
           if (typeof normalizedUpdate.breachShockUntil === "number") merged.breachShockUntil = normalizedUpdate.breachShockUntil;
           else delete merged.breachShockUntil;
+        }
+        if ("captureBreachUntil" in normalizedUpdate) {
+          if (typeof normalizedUpdate.captureBreachUntil === "number") merged.captureBreachUntil = normalizedUpdate.captureBreachUntil;
+          else delete merged.captureBreachUntil;
         }
         if ("frontierDecayAt" in normalizedUpdate) {
           if (typeof normalizedUpdate.frontierDecayAt === "number") merged.frontierDecayAt = normalizedUpdate.frontierDecayAt;
