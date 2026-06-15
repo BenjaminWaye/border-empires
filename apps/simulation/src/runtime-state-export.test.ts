@@ -39,7 +39,8 @@ describe("runtime state export", () => {
       neutralBeaconTileKeys: new Set(),
       beaconGeneration: 0,
       yieldBearingTilesByOwner: new Map(),
-      expansionObjectiveCacheByPlayer: new Map()
+      expansionObjectiveCacheByPlayer: new Map(),
+      musterTilesByOwner: new Map()
     });
 
     expect(view?.ownedStructureCounts).toEqual({ FORT: 2, SIEGE_OUTPOST: 3 });

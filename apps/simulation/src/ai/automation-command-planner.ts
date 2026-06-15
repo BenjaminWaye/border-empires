@@ -210,6 +210,8 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   attackStalemateTargetTileKeys?: ReadonlySet<string>;
   /** Nearest high-value neutral or enemy tile (from main-thread beacon index). */
   expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
+  /** Number of muster flags this player currently has active. */
+  activeMusterCount?: number;
   // Bounded BFS front of owned tile keys for this AI's current spatial focus.
   // When provided, frontier candidate enumeration is restricted to origins
   // inside this set, capping per-tick CPU regardless of empire size. See
@@ -691,7 +693,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuildAvailable: Boolean(fortBuild),
     siegeOutpostBuildAvailable: Boolean(siegeOutpostBuild),
     ...(input.previousVictoryPath ? { previousVictoryPath: input.previousVictoryPath } : {}),
-    ...(input.pathPopulationCounts ? { pathPopulationCounts: input.pathPopulationCounts } : {})
+    ...(input.pathPopulationCounts ? { pathPopulationCounts: input.pathPopulationCounts } : {}),
+    ...(typeof input.activeMusterCount === "number" ? { activeMusterCount: input.activeMusterCount } : {})
   });
   input.onStrategicSnapshot?.(strategic);
 

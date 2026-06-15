@@ -337,6 +337,7 @@ type PlannerExportInput = {
   beaconGeneration: number;
   yieldBearingTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   expansionObjectiveCacheByPlayer: ExpansionObjectiveCache;
+  musterTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
 export function buildRuntimePlannerWorldView(input: PlannerExportInput): PlannerWorldView {
@@ -408,7 +409,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
       pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
       ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
-      ...(expansionObjective ? { expansionObjective } : {})
+      ...(expansionObjective ? { expansionObjective } : {}),
+      activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0
     });
   }
   return players;
