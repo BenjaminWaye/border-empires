@@ -1006,6 +1006,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       onShardCollectedCallback?.();
     },
     onCaptureRevealBuilt: captureRevealBuildSample,
+    onMusterRemoteAttack: () => { simulationMetrics.incrementSimMusterRemoteAttack(); },
+    onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });

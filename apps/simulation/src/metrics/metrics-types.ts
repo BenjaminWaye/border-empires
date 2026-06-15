@@ -168,4 +168,6 @@ export type SimulationMetricsSnapshot = {
   // Used to detect frozen AI players: a player with no accepted command for
   // several minutes while autopilot is enabled has stalled.
   simAiLastCommandAcceptedAtMs: Record<string, number>;
+  simMusterRemoteAttackTotal: number;
+  simMusterRemoteBlockedTotal: number;
 };
