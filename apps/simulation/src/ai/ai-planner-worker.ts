@@ -369,6 +369,7 @@ const choosePlannerCommand = (
       ? { attackStalemateTargetTileKeys: options.attackStalemateTargetTileKeys }
       : {}),
     ...(player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
+    ...(typeof player.activeMusterCount === "number" ? { activeMusterCount: player.activeMusterCount } : {}),
     clientSeq,
     issuedAt,
     sessionPrefix: "ai-runtime",

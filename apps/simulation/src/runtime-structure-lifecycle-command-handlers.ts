@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_ATTACK_COST, MUSTER_MAX_TILES, MUSTER_SYSTEM_ENABLED, structureBuildDurationMs } from "@border-empires/shared";
+import { MUSTER_MAX_TILES, MUSTER_SYSTEM_ENABLED, structureBuildDurationMs } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import {
   parseClearMusterPayload,
@@ -80,7 +80,7 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     eventType: "TILE_DELTA_BATCH",
     commandId: `${command.commandId}:bc`,
     playerId: "__broadcast__",
-    tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, musterJson: JSON.stringify({ ownerId: command.playerId, mode: payload.mode, amount: MUSTER_ATTACK_COST, updatedAt: now }) }]
+    tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, musterJson: JSON.stringify({ ownerId: command.playerId, mode: payload.mode, amount: 0, updatedAt: now }) }]
   });
   context.emitPlayerStateUpdate(command);
 }

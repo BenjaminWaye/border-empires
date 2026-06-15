@@ -105,6 +105,7 @@ export async function updateFrontierDecay(input: FrontierDecayDeps): Promise<voi
           observatory: undefined,
           siegeOutpost: undefined,
           economicStructure: undefined,
+          muster: undefined,
           sabotage: undefined
         };
         const bucket = expiredTilesByOwner.get(ownerId);
@@ -137,11 +138,14 @@ export async function updateFrontierDecay(input: FrontierDecayDeps): Promise<voi
     for (const [ownerId, pairs] of expiredTilesByOwner) {
       for (const [tileKey, expiredTile] of pairs) {
         // Only emit + encircle tiles that were actually cleared.  If the tile was
-        // skipped by bulkClearFrontierOwnership (state changed during yield), its
-        // ownershipState is still "FRONTIER" — emitting the stale delta would
-        // diverge the client from the server.
-        if (input.tiles.get(tileKey)?.ownershipState === "FRONTIER") continue;
-        addChangedDelta(ownerId, input.tileDeltaFromState(expiredTile));
+        // skipped by bulkClearFrontierOwnership (state changed during yield), the
+        // current tile still has an owner — emitting the stale neutral delta would
+        // diverge the client.  Checking ownerId===undefined (not just FRONTIER)
+        // catches tiles captured by another player during the async yield.
+        if (input.tiles.get(tileKey)?.ownerId !== undefined) continue;
+        // musterJson:"" is idempotent (no-op when tile had no muster) and ensures
+        // clients remove any muster flag that was on the tile before it decayed.
+        addChangedDelta(ownerId, { ...input.tileDeltaFromState(expiredTile), musterJson: "" });
         addExpiredKey(ownerId, tileKey);
       }
     }
