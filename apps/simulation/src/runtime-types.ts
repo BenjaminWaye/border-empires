@@ -74,6 +74,8 @@ export type LockRecord = {
   resolvesAt: number;
   source: LockSource;
   combatResolution?: LockedCombatResolution;
+  /** Key of the muster tile that funded this attack (may differ from originKey for remote musters). */
+  musterSourceKey?: string;
 };
 
 export type LockedCombatResolution = {
@@ -193,6 +195,8 @@ export type SimulationRuntimeOptions = {
    * Called at the head of each drain cycle before touching the background queue.
    */
   shouldPauseBackground?: () => boolean;
+  onMusterRemoteAttack?: () => void;
+  onMusterRemoteBlocked?: () => void;
 };
 
 export type SimulationTileWireDelta = {

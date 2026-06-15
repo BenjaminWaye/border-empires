@@ -170,6 +170,12 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const [playerId, tsMs] of Object.entries(sample.simAiLastCommandAcceptedAtMs)) {
     lines.push(`sim_ai_last_command_accepted_at_ms{player_id=\"${playerId}\"} ${formatMetricValue(tsMs)}`);
   }
+  lines.push(
+    "# TYPE sim_muster_remote_attack_total counter",
+    `sim_muster_remote_attack_total ${formatMetricValue(sample.simMusterRemoteAttackTotal)}`,
+    "# TYPE sim_muster_remote_blocked_total counter",
+    `sim_muster_remote_blocked_total ${formatMetricValue(sample.simMusterRemoteBlockedTotal)}`
+  );
 
   return lines.join("\n");
 };
