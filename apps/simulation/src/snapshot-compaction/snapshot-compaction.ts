@@ -42,7 +42,11 @@ const MUTABLE_TILE_FIELDS = [
   "observatory",
   "siegeOutpost",
   "economicStructure",
-  "sabotage"
+  "sabotage",
+  // Phase 3 (dormant): Phase 4 writes this unified field in place of the four
+  // legacy structure fields above. Including it here ensures the compaction
+  // overlay preserves it on round-trip even before Phase 4 activates the reader.
+  "structure"
 ] as const;
 type MutableTileField = (typeof MUTABLE_TILE_FIELDS)[number];
 
