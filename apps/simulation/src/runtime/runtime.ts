@@ -454,6 +454,12 @@ export class SimulationRuntime {
   // Maintained in replaceTileState via refreshMusterIndexForTile. Lets the
   // muster accumulation tick enumerate active musters without scanning the map.
   private readonly musterTilesByOwner = new Map<string, Set<string>>();
+  // Tracks muster manpower reserved by in-flight attacks (remote muster).
+  // Key: muster tileKey, Value: total reserved amount. Prevents two concurrent
+  // attacks from double-spending the same staged muster.
+  private readonly musterReservedByKey = new Map<string, number>();
+  private readonly onMusterRemoteAttack: (() => void) | undefined;
+  private readonly onMusterRemoteBlocked: (() => void) | undefined;
   // Index of tiles with an active fort per owner (garrison system).
   // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
   // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
@@ -652,6 +658,8 @@ export class SimulationRuntime {
       delayMs === 0 ? void setImmediate(task) : void setTimeout(task, delayMs)
     );
     this.shouldPauseBackground = options.shouldPauseBackground;
+    this.onMusterRemoteAttack = options.onMusterRemoteAttack;
+    this.onMusterRemoteBlocked = options.onMusterRemoteBlocked;
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
@@ -2847,6 +2855,12 @@ export class SimulationRuntime {
           ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT
           : FRONTIER_CLAIM_MS
         : undefined;
+    const requiredMuster = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK"
+      ? this.requiredMusterForTarget(to)
+      : undefined;
+    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && to.ownerId !== "barbarian-1"
+      ? this.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST)
+      : undefined;
     const validation = validateFrontierCommand({
       now: this.now(),
       actor,
@@ -2865,11 +2879,14 @@ export class SimulationRuntime {
       defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId)),
       expandClaimDurationMs,
       musterSystemEnabled: MUSTER_SYSTEM_ENABLED,
-      originMuster: from.muster?.ownerId === actor.id ? from.muster.amount : 0,
-      requiredMuster: MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" ? this.requiredMusterForTarget(to) : undefined
+      originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),
+      requiredMuster
     });
 
     if (!validation.ok) {
+      if (validation.code === "INSUFFICIENT_MUSTER" && MUSTER_SYSTEM_ENABLED && actionType === "ATTACK") {
+        this.onMusterRemoteBlocked?.();
+      }
       this.commandTrace?.({
         phase: "frontier_reject",
         commandId: command.commandId,
@@ -2893,6 +2910,8 @@ export class SimulationRuntime {
       return false;
     }
 
+    const resolvedOriginKey = simulationTileKey(validation.origin.x, validation.origin.y);
+    const effectiveMusterSourceKey = musterSource?.sourceKey ?? resolvedOriginKey;
     const baseLock: LockRecord = {
       commandId: command.commandId,
       playerId: command.playerId,
@@ -2902,11 +2921,20 @@ export class SimulationRuntime {
       originY: validation.origin.y,
       targetX: validation.target.x,
       targetY: validation.target.y,
-      originKey: simulationTileKey(validation.origin.x, validation.origin.y),
+      originKey: resolvedOriginKey,
       targetKey: simulationTileKey(validation.target.x, validation.target.y),
       resolvesAt: validation.resolvesAt,
-      source: lockSourceFromSessionId(command.sessionId)
+      source: lockSourceFromSessionId(command.sessionId),
+      ...(actionType === "ATTACK" && MUSTER_SYSTEM_ENABLED ? { musterSourceKey: effectiveMusterSourceKey } : {})
     };
+    // Reserve the muster amount so concurrent in-flight attacks can't double-spend.
+    if (baseLock.musterSourceKey && actionType === "ATTACK") {
+      const prev = this.musterReservedByKey.get(baseLock.musterSourceKey) ?? 0;
+      this.musterReservedByKey.set(baseLock.musterSourceKey, prev + validation.manpowerCost);
+      if (musterSource && baseLock.musterSourceKey !== resolvedOriginKey) {
+        this.onMusterRemoteAttack?.();
+      }
+    }
     const combatResolution = actionType === "EXPAND" ? undefined : this.buildLockedCombatResolution(baseLock);
     const lock: LockRecord = {
       ...baseLock,
@@ -4294,7 +4322,16 @@ export class SimulationRuntime {
     return buildLockedCombatResolutionImpl(this.combatSupportContext(), lock);
   }
 
+  private releaseMusterReservation(lock: LockRecord): void {
+    if (!lock.musterSourceKey) return;
+    const prev = this.musterReservedByKey.get(lock.musterSourceKey) ?? 0;
+    const next = Math.max(0, prev - lock.manpowerCost);
+    if (next === 0) this.musterReservedByKey.delete(lock.musterSourceKey);
+    else this.musterReservedByKey.set(lock.musterSourceKey, next);
+  }
+
   private resolveLock(lock: LockRecord): void {
+    this.releaseMusterReservation(lock);
     const originLock = this.locksByTile.get(lock.originKey);
     const targetLock = this.locksByTile.get(lock.targetKey);
     const originMatches = originLock?.commandId === lock.commandId;
@@ -4349,8 +4386,8 @@ export class SimulationRuntime {
           // Barbarian raid: funded directly from player pool.
           attacker.manpower = Math.max(0, attacker.manpower - lock.manpowerCost);
         } else {
-          // Regular muster attack: paid from the origin tile's muster reservoir.
-          this.consumeOriginMuster(lock.originKey, lock.playerId, lock.manpowerCost);
+          // Regular muster attack: paid from the muster source (may be a remote tile).
+          this.consumeOriginMuster(lock.musterSourceKey ?? lock.originKey, lock.playerId, lock.manpowerCost);
           // Fort garrison attrition on a failed assault.
           if (!attackerWon) {
             this.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
@@ -4874,6 +4911,64 @@ export class SimulationRuntime {
     defEff: number
   ): number {
     return settleAttackManpowerImpl(player, committedManpower, attackerWon, atkEff, defEff);
+  }
+
+  /**
+   * Find the best muster source for an attack launched from originKey.
+   *
+   * Fast path: if the origin tile itself has enough muster, return it immediately
+   * (zero overhead vs. the old single-tile check).
+   *
+   * Slow path: iterate the player's muster index (realistically 1-5 entries) and
+   * pick the nearest tile with available muster (staged minus any in-flight
+   * reservation) within Chebyshev distance 4, matching VISION_RADIUS so the
+   * staging tile is always within the player's own sight.
+   *
+   * Returns { sourceKey, available } or undefined if nothing is reachable.
+   */
+  private resolveMusterSource(
+    actorId: string,
+    originKey: string,
+    requiredMuster: number
+  ): { sourceKey: string; available: number } | undefined {
+    const origin = this.tiles.get(originKey);
+    if (!origin) return undefined;
+
+    // Fast path: origin tile's own muster suffices.
+    if (origin.muster?.ownerId === actorId) {
+      const reserved = this.musterReservedByKey.get(originKey) ?? 0;
+      const available = origin.muster.amount - reserved;
+      if (available >= requiredMuster) return { sourceKey: originKey, available };
+    }
+
+    const musterKeys = this.musterTilesByOwner.get(actorId);
+    if (!musterKeys) return undefined;
+
+    let bestKey: string | undefined;
+    let bestDist = Infinity;
+
+    for (const tileKey of musterKeys) {
+      if (tileKey === originKey) continue; // already checked above
+      const tile = this.tiles.get(tileKey);
+      if (!tile?.muster || tile.muster.ownerId !== actorId) continue;
+      const reserved = this.musterReservedByKey.get(tileKey) ?? 0;
+      const available = tile.muster.amount - reserved;
+      if (available < requiredMuster) continue;
+
+      // Chebyshev distance with world wrapping.
+      const dx = Math.min(Math.abs(tile.x - origin.x), WORLD_WIDTH - Math.abs(tile.x - origin.x));
+      const dy = Math.min(Math.abs(tile.y - origin.y), WORLD_HEIGHT - Math.abs(tile.y - origin.y));
+      const dist = Math.max(dx, dy);
+      if (dist <= 4 && dist < bestDist) {
+        bestDist = dist;
+        bestKey = tileKey;
+      }
+    }
+
+    if (!bestKey) return undefined;
+    const tile = this.tiles.get(bestKey)!;
+    const reserved = this.musterReservedByKey.get(bestKey) ?? 0;
+    return { sourceKey: bestKey, available: tile.muster!.amount - reserved };
   }
 
   /**

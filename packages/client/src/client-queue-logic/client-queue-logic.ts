@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, MUSTER_ATTACK_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -941,6 +941,71 @@ export const reconcileActionQueue = (
   state.queuedTargetKeys = nextQueuedKeys;
 };
 
+// Chebyshev distance with world wrapping on both axes.
+const chebyshevDist = (ax: number, ay: number, bx: number, by: number): number => {
+  const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
+  const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
+  return Math.max(dx, dy);
+};
+
+// Find the nearest muster tile owned by the player within 4 Chebyshev hops of
+// (originX, originY) that has at least MUSTER_ATTACK_COST staged.
+// state.tiles on the client only contains visible + owned tiles (not all 202k),
+// so iterating it is cheap in practice.
+export const findReachableMuster = (
+  state: ClientState,
+  originX: number,
+  originY: number
+): Tile | undefined => {
+  let best: Tile | undefined;
+  let bestDist = Infinity;
+  for (const tile of state.tiles.values()) {
+    if (!tile.muster || tile.muster.ownerId !== state.me) continue;
+    if (tile.muster.amount < MUSTER_ATTACK_COST) continue;
+    const dist = chebyshevDist(tile.x, tile.y, originX, originY);
+    if (dist <= 4 && dist < bestDist) {
+      bestDist = dist;
+      best = tile;
+    }
+  }
+  return best;
+};
+
+// Check all pending muster attacks; promote those whose muster tile has reached
+// MUSTER_ATTACK_COST into the real action queue.
+export const processPendingMusterAttacks = (
+  state: ClientState,
+  deps: {
+    keyFor: (x: number, y: number) => string;
+    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+  }
+): void => {
+  if (state.pendingMusterAttacks.length === 0) return;
+  const remaining: typeof state.pendingMusterAttacks = [];
+  for (const entry of state.pendingMusterAttacks) {
+    const targetKey = deps.keyFor(entry.targetX, entry.targetY);
+    const target = state.tiles.get(targetKey);
+    // Drop if target is gone or captured.
+    if (!target || target.ownerId === state.me || !target.ownerId) continue;
+
+    // Check for any reachable muster from the original origin, not just the
+    // initially staged tile — a different muster within range may have filled first.
+    const reachable = findReachableMuster(state, entry.fromX, entry.fromY);
+    if (!reachable) {
+      remaining.push(entry);
+      continue;
+    }
+
+    // Muster is ready — promote to action queue.
+    if (!state.queuedTargetKeys.has(targetKey)) {
+      state.actionQueue.push({ x: entry.targetX, y: entry.targetY });
+      state.queuedTargetKeys.add(targetKey);
+      deps.pushFeed(`Muster ready — launching attack on (${entry.targetX}, ${entry.targetY})`, "combat", "info");
+    }
+  }
+  state.pendingMusterAttacks = remaining;
+};
+
 export const processActionQueue = (
   state: ClientState,
   deps: {
@@ -954,6 +1019,7 @@ export const processActionQueue = (
     applyOptimisticTileState: (x: number, y: number, update: (tile: Tile) => void) => void;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
+    sendSetMuster: (x: number, y: number, mode: "HOLD") => void;
   }
 ): boolean => {
   if (state.actionInFlight || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
@@ -1263,6 +1329,36 @@ export const processActionQueue = (
         state.queuedTargetKeys.delete(targetKey);
         deps.renderHud();
         continue;
+      }
+      if (MUSTER_SYSTEM_ENABLED && to.ownerId !== "barbarian-1") {
+        const reachable = findReachableMuster(state, from.x, from.y);
+        if (!reachable) {
+          // No muster within range — auto-stage HOLD on origin if it has none, then
+          // park the attack in pendingMusterAttacks (fires when muster fills to 60).
+          state.capture = undefined;
+          state.actionInFlight = false;
+          state.actionCurrent = undefined;
+          state.actionTargetKey = "";
+          state.actionAcceptedAck = false;
+          state.combatStartAck = false;
+          state.actionAcceptTimeoutHandledAt = 0;
+          state.queuedTargetKeys.delete(targetKey);
+          const originKey = deps.keyFor(from.x, from.y);
+          const originTile = state.tiles.get(originKey);
+          const musterTileKey = originKey;
+          if (!originTile?.muster) {
+            deps.sendSetMuster(from.x, from.y, "HOLD");
+          }
+          const alreadyPending = state.pendingMusterAttacks.some(
+            (e) => e.targetX === to.x && e.targetY === to.y
+          );
+          if (!alreadyPending) {
+            state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey });
+            deps.pushFeed(`Staging muster on (${from.x}, ${from.y}) — attack on (${to.x}, ${to.y}) queued`, "combat", "info");
+          }
+          deps.renderHud();
+          continue;
+        }
       }
       deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq }));
       attackSyncLog("send", {
