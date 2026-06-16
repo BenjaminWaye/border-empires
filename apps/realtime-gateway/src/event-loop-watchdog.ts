@@ -36,6 +36,8 @@
 
 import { Worker } from "node:worker_threads";
 
+import { DEATH_FORENSICS_PATH } from "./death-forensics.js";
+
 const DEFAULT_HEARTBEAT_MS = 1000;
 const DEFAULT_STALL_MS = 30_000;
 const DEFAULT_BOOT_GRACE_MS = 300_000;
@@ -243,12 +245,7 @@ export const startEventLoopWatchdog = (options: WatchdogOptions = {}): WatchdogH
     options.minKillIntervalMs ?? parseNumber(process.env.WATCHDOG_MIN_KILL_INTERVAL_MS, DEFAULT_MIN_KILL_INTERVAL_MS);
   const killStatePath =
     options.killStatePath ?? parseString(process.env.WATCHDOG_KILL_STATE_PATH, DEFAULT_KILL_STATE_PATH);
-  const deathForensicsPath =
-    options.deathForensicsPath ??
-    parseString(
-      process.env.DEATH_FORENSICS_PATH,
-      "/data/.death-forensics.json"
-    );
+  const deathForensicsPath = options.deathForensicsPath ?? DEATH_FORENSICS_PATH;
   const label = options.label ?? "combined";
 
   const worker = new Worker(
