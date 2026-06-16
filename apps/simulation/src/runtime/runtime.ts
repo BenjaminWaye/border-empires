@@ -347,10 +347,6 @@ import {
   handleSetMusterCommand as handleSetMusterCommandImpl
 } from "../runtime-structure-lifecycle-command-handlers.js";
 import {
-  bulkClearFrontierOwnership as bulkClearFrontierOwnershipImpl,
-  updateFrontierDecay as updateFrontierDecayImpl
-} from "../runtime-frontier-decay/runtime-frontier-decay.js";
-import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
 } from "../runtime-live-barbarians.js";
@@ -425,11 +421,7 @@ export class SimulationRuntime {
   // unique-lock iteration for exportState's activeLocks projection, replacing
   // the per-call `new Map([...locksByTile.entries()].map(...))` dedup.
   private readonly locksByCommandId = new Map<string, LockRecord>();
-  // Pooled per-tick accumulators for updateFrontierDecay.
-  // Reset via arr.length = 0 at the top of each call (preserves inner arrays).
-  private readonly frontierDecayChangedByOwner = new Map<string, Array<SimulationTileWireDelta>>();
-  private readonly frontierDecayExpiredByOwner = new Map<string, string[]>();
-  // Part 1: index of FRONTIER tiles per owner — avoids full this.tiles scan in updateFrontierDecay.
+  // Index of FRONTIER tiles per owner — avoids full this.tiles scan in autoSettlementQueueForPlayer.
   // Key: ownerId, Value: Set of tile keys that are FRONTIER-owned by that player.
   // Maintained in replaceTileState; rebuilt from this.tiles in the constructor.
   private readonly frontierTilesByOwner = new Map<string, Set<string>>();
@@ -517,8 +509,7 @@ export class SimulationRuntime {
   growthStalledNoFoodCounter = 0;
   // Per-player territorial vision expansion cache.  Avoids O(territory×r²)
   // recomputation on every classifyVisibilityForPlayer call; invalidated lazily
-  // via signature (tileCollectionVersion:vision:visionRadiusBonus) and
-  // explicitly on player elimination via frontierDecayChangedByOwner cleanup.
+  // via signature (tileCollectionVersion:vision:visionRadiusBonus).
   private readonly visionExpansionCache = new VisionExpansionCache(WORLD_WIDTH, WORLD_HEIGHT);
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Cached economy snapshot per player. Invalidated in replaceTileState whenever
@@ -1075,7 +1066,6 @@ export class SimulationRuntime {
       playerCandidateIndex: this.playerCandidateIndex,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
-      updateFrontierDecay: (at) => this.updateFrontierDecay(at, yieldToEventLoop),
       autoSettlementQueueLengthForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId).length,
       emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
@@ -1993,8 +1983,6 @@ export class SimulationRuntime {
       this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
       this.aiSpatialFocusByPlayer.delete(playerId);
       this.visionExpansionCache.invalidate(playerId);
-      this.frontierDecayChangedByOwner.delete(playerId);
-      this.frontierDecayExpiredByOwner.delete(playerId);
     }
     const ownedTiles = [...summary.territoryTileKeys]
       .map((tileKey) => this.tiles.get(tileKey))
@@ -4075,55 +4063,6 @@ export class SimulationRuntime {
       return false;
     }
     return true;
-  }
-
-  private async updateFrontierDecay(nowMs: number, yieldToEventLoop?: () => Promise<void>): Promise<void> {
-    await updateFrontierDecayImpl({
-      nowMs,
-      tiles: this.tiles,
-      locksByTile: this.locksByTile,
-      pendingSettlementsByTile: this.pendingSettlementsByTile,
-      frontierTilesByOwner: this.frontierTilesByOwner,
-      activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
-      accumulators: {
-        changedByOwner: this.frontierDecayChangedByOwner,
-        expiredByOwner: this.frontierDecayExpiredByOwner
-      },
-      supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),
-      setFrontierDecayTimerFields: (tileKey, tile) => {
-        this.tiles.set(tileKey, tile);
-        this.snapshotTileCache.set(tileKey, mapTile(tile));
-        this.tileDeltaStringifyCache.invalidate(tileKey);
-      },
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
-        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
-      emitTileDeltaBatch: ({ commandId, playerId, tileDeltas }) => {
-        this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas });
-      },
-      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
-      bulkClearFrontierOwnership: (expiredTilesByOwner, at) => {
-        bulkClearFrontierOwnershipImpl({
-          expiredTilesByOwner,
-          nowMs: at,
-          tiles: this.tiles,
-          playerCandidateIndex: this.playerCandidateIndex,
-          invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
-          removeTileFromPlayerSummaries: (tileKey, tile) => this.removeTileFromPlayerSummaries(tileKey, tile),
-          applyTileToPlayerSummaries: (tileKey, tile) => this.applyTileToPlayerSummaries(tileKey, tile),
-          tileSettledAtByKey: this.tileSettledAtByKey,
-          fortPatrolGraceUntilByTile: this.fortPatrolGraceUntilByTile,
-          removeFrontierTileFromOwnerIndex: (tileKey, ownerId) => this.removeFrontierTileFromOwnerIndex(tileKey, ownerId),
-          refreshFortAnchorIndexForTile: (tileKey, previous, next) => this.refreshFortAnchorIndexForTile(tileKey, previous, next),
-          cancelPendingSettlementIfOwnerChanged: (tileKey, nextOwnerId, commandId) =>
-            this.cancelPendingSettlementIfOwnerChanged(tileKey, nextOwnerId, commandId),
-          summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-          markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId)
-        });
-      },
-      applyEncirclement: (changedKeys, playerId, commandId) => this.applyEncirclement(changedKeys, playerId, commandId, { bfsCap: 2000 }),
-      ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
-    });
   }
 
   private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
