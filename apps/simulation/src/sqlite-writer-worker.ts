@@ -68,9 +68,14 @@ parentPort.on("message", (msg: WriteMessage) => {
         break;
       case "persistQueuedCommand":
         db.exec("BEGIN");
-        stmtInsertCommand.run(msg.commandId, msg.sessionId, msg.playerId, msg.clientSeq, msg.commandType, msg.payloadJson, msg.queuedAt);
-        stmtInsertCommandResult.run(msg.commandId);
-        db.exec("COMMIT");
+        try {
+          stmtInsertCommand.run(msg.commandId, msg.sessionId, msg.playerId, msg.clientSeq, msg.commandType, msg.payloadJson, msg.queuedAt);
+          stmtInsertCommandResult.run(msg.commandId);
+          db.exec("COMMIT");
+        } catch (txError) {
+          db.exec("ROLLBACK");
+          throw txError;
+        }
         break;
       case "markAccepted":
         stmtMarkAccepted.run(msg.createdAt, msg.commandId);

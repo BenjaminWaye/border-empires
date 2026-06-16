@@ -774,10 +774,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     (await createSimulationEventStore(storeFactoryOptions));
   // Route all SQLite writes through a dedicated worker thread so the sim
   // thread's event loop is never blocked by I/O (157–822ms per write observed).
+  // Only wrap when using real SQLite stores (not injected test doubles).
   // Reads stay on the sim thread; WAL mode allows concurrent readers.
-  const writerChannel = storeFactoryOptions.sqlitePath
-    ? new SqliteWriterChannel(storeFactoryOptions.sqlitePath)
-    : undefined;
+  const writerChannel =
+    !options.commandStore && !options.eventStore && storeFactoryOptions.sqlitePath
+      ? new SqliteWriterChannel(storeFactoryOptions.sqlitePath)
+      : undefined;
   const commandStore = writerChannel
     ? new WriterBackedCommandStore(writerChannel, commandStoreBase)
     : commandStoreBase;
