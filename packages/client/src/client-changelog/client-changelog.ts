@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.15.1",
+  version: "2026.06.16.1",
   title: "What's New",
-  summary: "Outposts no longer have a sweep auto-attack toggle — mustering replaces it.",
+  summary: "Town upgrade button now appears when your town hits the population threshold.",
   entries: [
+    {
+      introducedIn: "2026.06.16.1",
+      title: "Town tier upgrade button",
+      why: "The 'Upgrade to City / Great City / Metropolis' button was never appearing because the simulation was not emitting the upgrade-available signal.",
+      changes: [
+        "The upgrade button now appears when your town reaches the required population (City: 100k, Great City: 1M, Metropolis: 5M).",
+        "Cleaned up diagnostic messages (dock count, town count) that were leaking into the player activity feed on login."
+      ]
+    },
     {
       introducedIn: "2026.06.15.1",
       title: "Outpost sweep removed",

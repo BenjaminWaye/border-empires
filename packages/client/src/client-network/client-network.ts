@@ -1396,14 +1396,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.dockRouteCache.clear();
       pushFeed(`Spawned. ${incomingSeason?.seasonId ? `Season ${incomingSeason.seasonId}.` : ""} Your tile is centered.`, "info", "success");
       if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
-      if (typeof mapMeta.dockCount === "number") {
-        pushFeed(
-          `Map features: ${mapMeta.dockCount} docks (${mapMeta.dockPairCount ?? Math.floor(mapMeta.dockCount / 2)} pairs), ${mapMeta.clusterCount ?? 0} clusters.`,
-          "info",
-          "info"
-        );
-        if (typeof mapMeta.townCount === "number") pushFeed(`Towns on world: ${mapMeta.townCount}.`, "info", "info");
-      }
       if (offlineActivity.length > 0) {
         for (let index = offlineActivity.length - 1; index >= 0; index -= 1) {
           const entry = offlineActivity[index]!;
