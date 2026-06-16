@@ -2415,7 +2415,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       callback: (error: Error | null, response: { ok: boolean }) => void
     ) {
       subscriptionRegistry.unsubscribe(call.request.player_id, call.request.subscription_key);
-      deleteCachedSnapshot(call.request.player_id);
+      // Keep the snapshot in cache on unsubscribe so reconnects can skip the
+      // cold 16s rebuild. The delta replay (lastAppliedEventId) brings the client
+      // current after bootstrap. Spawn path has its own deleteCachedSnapshot call.
       callback(null, { ok: true });
     },
     FetchTileDetail(
