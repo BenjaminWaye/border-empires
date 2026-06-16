@@ -3137,7 +3137,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 playerId: authedSession.playerId,
                 clientSeq: 0,
                 issuedAt: Date.now(),
-                type: "WATCH_MUSTER" as never,
+                type: "WATCH_MUSTER",
                 payloadJson: JSON.stringify({ x: message.x, y: message.y })
               }),
               simulationSubmitTimeoutMs,
@@ -3151,7 +3151,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 playerId: authedSession.playerId,
                 clientSeq: 0,
                 issuedAt: Date.now(),
-                type: "UNWATCH_MUSTER" as never,
+                type: "UNWATCH_MUSTER",
                 payloadJson: "{}"
               }),
               simulationSubmitTimeoutMs,
@@ -3609,7 +3609,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           playerId: closingPlayerId,
           clientSeq: 0,
           issuedAt: Date.now(),
-          type: "UNWATCH_MUSTER" as never,
+          type: "UNWATCH_MUSTER",
           payloadJson: "{}"
         }).catch(() => { /* best-effort on disconnect */ });
         void playerSubscriptions.removeSocket(closingPlayerId, socket)
