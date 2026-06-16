@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.16.2",
+  version: "2026.06.16.3",
   title: "What's New",
-  summary: "Muster panel now updates in real time while you have a flag tile open.",
+  summary: "Switching tabs in the tile panel no longer resets to Actions on each muster tick.",
   entries: [
+    {
+      introducedIn: "2026.06.16.3",
+      title: "Tile panel tab stays put during muster ticks",
+      why: "Opening the Structures or Overview tab while a muster flag tile was selected caused the panel to jump back to Actions every second as the server pushed updated muster amounts.",
+      changes: [
+        "Server-side tile delta updates (including the 1-second muster tick) now refresh the panel content without resetting the active tab or scroll position.",
+        "Only a direct user tap on the tile resets the tab back to Actions."
+      ]
+    },
     {
       introducedIn: "2026.06.16.2",
       title: "Live muster amount in tile panel",
