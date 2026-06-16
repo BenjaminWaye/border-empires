@@ -43,10 +43,11 @@ export type SelectExpansionObjectiveInput = {
   playerId: string;
 };
 
-// Max territory tiles sampled for beacon distance. Full O(B×T) at T=8000 runs
-// ~400ms on shared-cpu hardware; at 300 samples it runs <1ms with negligible
-// directional accuracy loss (evenly-strided across insertion order).
+// Max samples for territory tiles and beacon keys. Bounds the O(B×T) loop to
+// O(MAX×MAX) regardless of empire or world size. At 300×300 = 90k ops the
+// function runs <5ms on shared-cpu; accuracy loss is negligible (evenly-strided).
 const MAX_TERRITORY_SAMPLE = 300;
+const MAX_BEACON_SAMPLE = 300;
 
 export const selectExpansionObjective = (
   input: SelectExpansionObjectiveInput
@@ -68,12 +69,16 @@ export const selectExpansionObjective = (
 
   const neutralBest = nearestBeaconToTerritory(input.neutralBeaconTileKeys, ownedCoords, "neutral_value");
 
-  // Enemy beacons: collect all enemy yield-bearing keys (excluding self and barbarians).
-  const enemyKeys: string[] = [];
+  // Enemy beacons: collect all enemy yield-bearing keys (excluding self and barbarians),
+  // then stride-sample to MAX_BEACON_SAMPLE so large empires don't blow up the B×T loop.
+  const allEnemyKeys: string[] = [];
   for (const [pid, keys] of input.enemyYieldKeysByPlayerId) {
     if (pid === input.playerId || pid.startsWith("barbarian-")) continue;
-    for (const k of keys) enemyKeys.push(k);
+    for (const k of keys) allEnemyKeys.push(k);
   }
+  const enemyStep = Math.max(1, Math.ceil(allEnemyKeys.length / MAX_BEACON_SAMPLE));
+  const enemyKeys: string[] = [];
+  for (let i = 0; i < allEnemyKeys.length; i += enemyStep) enemyKeys.push(allEnemyKeys[i]!);
   const enemyBest = enemyKeys.length > 0 ? nearestBeaconToTerritory(enemyKeys, ownedCoords, "enemy") : undefined;
 
   // Prefer neutral beacons — enemy beacons are a fallback when no neutral targets remain.

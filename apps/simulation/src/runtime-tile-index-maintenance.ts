@@ -358,10 +358,15 @@ const addTileToOwnerSet = (index: Map<string, Set<string>>, tileKey: string, own
   set.add(tileKey);
 };
 
+// Resources are intentionally excluded — they are local frontier targets handled
+// by the planner candidate index. Beacons are distant strategic targets (towns,
+// docks) the AI navigates toward across the map. Excluding resources also keeps
+// the set small (O(towns+docks) instead of O(world_size/3)) so the O(B×T)
+// expansion objective is cheap even without sampling.
 export const isNeutralBeaconTile = (tile: DomainTileState): boolean => {
   if (tile.ownerId) return false;
   if (tile.terrain !== "LAND") return false;
-  return Boolean(tile.town || tile.dockId || (tile.resource != null));
+  return Boolean(tile.town || tile.dockId);
 };
 
 export const refreshNeutralBeaconIndexForTile = (input: {
