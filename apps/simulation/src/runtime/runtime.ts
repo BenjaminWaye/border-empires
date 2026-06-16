@@ -176,7 +176,7 @@ import {
   requeueRecoveredCommands,
   uniqueLocksByCommandId
 } from "../runtime-hydration.js";
-import { computeEncirclementDeltas, ENCIRCLEMENT_DECAY_MS } from "../encirclement/encirclement.js";
+import { computeEncirclementDeltas } from "../encirclement/encirclement.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
 import { domainTileToWireDelta } from "../runtime-tile-deltas.js";
@@ -4661,17 +4661,26 @@ export class SimulationRuntime {
     for (const key of cutOff) {
       const tile = this.tiles.get(key);
       if (!tile) continue;
-      // Min-wins: don't overwrite a shorter existing timer.
-      const encirclementExpiresAt = nowMs + ENCIRCLEMENT_DECAY_MS;
-      const newDecayAt =
-        typeof tile.frontierDecayAt === "number"
-          ? Math.min(tile.frontierDecayAt, encirclementExpiresAt)
-          : encirclementExpiresAt;
-      const newDecayKind = newDecayAt === encirclementExpiresAt ? "ENCIRCLEMENT" : tile.frontierDecayKind;
-      if (tile.frontierDecayAt === newDecayAt && tile.frontierDecayKind === newDecayKind) continue; // already has this or shorter timer
-      const updated: typeof tile = { ...tile, frontierDecayAt: newDecayAt, frontierDecayKind: newDecayKind };
-      this.replaceTileState(key, updated, commandId);
-      tileDeltas.push(this.tileDeltaFromState(updated));
+      if (tile.ownershipState === "FRONTIER") {
+        // Frontier tiles lose ownership immediately — no timer needed now that
+        // frontier decay is removed. Settled cut-off tiles are left unchanged
+        // (decay never cleared settled tiles either).
+        const cleared: typeof tile = {
+          ...tile,
+          ownerId: undefined,
+          ownershipState: undefined,
+          frontierDecayAt: undefined,
+          frontierDecayKind: undefined,
+          fort: undefined,
+          observatory: undefined,
+          siegeOutpost: undefined,
+          economicStructure: undefined,
+          muster: undefined,
+          sabotage: undefined
+        };
+        this.replaceTileState(key, cleared, commandId);
+        tileDeltas.push(this.tileDeltaFromState(cleared));
+      }
     }
 
     for (const key of reconnected) {
