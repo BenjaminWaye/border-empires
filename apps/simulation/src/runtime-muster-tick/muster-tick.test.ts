@@ -86,7 +86,7 @@ describe("muster accumulation tick", () => {
     expect(before - after).toBeCloseTo(accumulated, 5);
   });
 
-  it("caps the muster amount at MUSTER_TILE_CAP", async () => {
+  it("caps the muster amount at the player's manpower cap", async () => {
     let nowMs = 1_000;
     const runtime = new SimulationRuntime({
       now: () => nowMs,
@@ -98,6 +98,7 @@ describe("muster accumulation tick", () => {
     });
     await setMuster(runtime, 10, 10, 1);
     // Advance a very long time so accumulation would vastly exceed the cap.
+    // A single SETTLEMENT gives a manpower cap of 150 (== MUSTER_TILE_CAP for reference).
     nowMs = 1_000 + 1_000 * 60_000;
     runtime.tickMuster(nowMs);
     expect(musterAmount(runtime, 10, 10)).toBeCloseTo(MUSTER_TILE_CAP, 5);

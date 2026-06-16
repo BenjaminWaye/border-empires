@@ -5,7 +5,6 @@ import {
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_STALE_MS,
-  MUSTER_TILE_CAP,
   OUTPOST_DEPOT_RADIUS
 } from "@border-empires/shared";
 import { coordsInChebyshevRadius, sweepAttackCandidates } from "../territory-automation/territory-automation.js";
@@ -34,7 +33,7 @@ export type MusterTickInput = {
 /**
  * Accumulation tick for the mustering system. The player's manpower regen rate
  * is split evenly across all active flags (depot bonus applied per tile).
- * Each tile is capped at MUSTER_TILE_CAP.
+ * Each tile is capped at the player's manpower cap (playerManpowerCap).
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked.
@@ -84,7 +83,7 @@ export const tickMuster = (input: MusterTickInput): void => {
 
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
       const depotMult = isInsideDepotZone(tile, outpostKeys) ? MUSTER_DEPOT_SPEED_MULT : 1;
-      const headroom = Math.max(0, MUSTER_TILE_CAP - tile.muster.amount);
+      const headroom = Math.max(0, input.playerManpowerCap(player) - tile.muster.amount);
       const inflow = Math.min(
         (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * elapsedMin,
         headroom,
