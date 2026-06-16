@@ -1,6 +1,7 @@
 import {
   buildAetherWallSegments,
   type TownGrowthUpgradeView,
+  nextTownGrowthUpgrade,
   type BuildableStructureType,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
@@ -1276,7 +1277,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         });
       }
     }
-    const townGrowthAction = tile.town ? townGrowthActionForUpgrade(state, tile.town.nextPopulationTierUpgrade) : undefined;
+    const townGrowthAction = tile.town?.populationTier && typeof tile.town.population === "number"
+      ? townGrowthActionForUpgrade(state, nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population))
+      : undefined;
     if (townGrowthAction) out.push(townGrowthAction);
     const hasWoodenFort = tile.economicStructure?.type === "WOODEN_FORT";
     const hasLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST";
