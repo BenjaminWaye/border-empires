@@ -19,7 +19,7 @@ export class SqliteWriterChannel {
   private readonly pending = new Map<number, { resolve: () => void; reject: (e: Error) => void }>();
 
   constructor(dbPath: string) {
-    const workerUrl = resolveWorkerEntryUrl("./sqlite-writer-worker.js", import.meta.url);
+    const workerUrl = resolveWorkerEntryUrl("../sqlite-writer-worker.js", import.meta.url);
     this.worker = new Worker(workerUrl, { workerData: { dbPath } });
     this.worker.on("message", (msg: AckMessage) => {
       const entry = this.pending.get(msg.id);
@@ -32,6 +32,12 @@ export class SqliteWriterChannel {
       }
     });
     this.worker.on("error", (err) => {
+      for (const entry of this.pending.values()) entry.reject(err);
+      this.pending.clear();
+    });
+    this.worker.on("exit", (code) => {
+      if (this.pending.size === 0) return;
+      const err = new Error(`sqlite-writer-worker exited unexpectedly (code ${code})`);
       for (const entry of this.pending.values()) entry.reject(err);
       this.pending.clear();
     });
