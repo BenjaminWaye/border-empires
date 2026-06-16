@@ -7,7 +7,7 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN
 } from "@border-empires/game-domain";
-import type { Tile } from "@border-empires/shared";
+import { nextTownGrowthUpgrade, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -224,6 +224,9 @@ export const buildTownSummary = (
   const cap = isSettlement
     ? goldPerMinute * 60 * 8
     : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
+  const nextPopulationTierUpgrade = tile.ownerId && tile.ownershipState === "SETTLED"
+    ? nextTownGrowthUpgrade(populationTier, population)
+    : undefined;
   return {
     ...(townPartial.name ? { name: townPartial.name } : {}),
     type: townType!,
@@ -250,7 +253,8 @@ export const buildTownSummary = (
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
     ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
-    ...(growthModifiers.length > 0 ? { growthModifiers } : {})
+    ...(growthModifiers.length > 0 ? { growthModifiers } : {}),
+    ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {})
   };
 };
 
