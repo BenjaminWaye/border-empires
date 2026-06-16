@@ -32,7 +32,15 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Amber pulsing strips appear on your tile edges that border a breached enemy tile.",
         "Debuff only applies when BREAKTHROUGH_ENABLED is on (server-side flag)."
       ]
-    },
+    }
+  ]
+};
+
+// Archived entries (older than the 7-day window — kept for reference, not bundled):
+// 2026.06.05.1 Empire Integrity
+// 2026.06.04.x AI sync, AI turn rotation, waypoints, observatory, siphon, survey sweep, muster
+
+export const _ARCHIVED_CHANGELOG_ENTRIES_DO_NOT_USE = [
     {
       introducedIn: "2026.06.05.1",
       title: "Empire Integrity",
@@ -364,8 +372,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Standardised all upkeep labels to the 'X gold/min' / 'X food/min' format throughout.",
       ]
     },
-  ]
-};
+];
 
 const escapeHtml = (value: string): string =>
   value

@@ -209,6 +209,7 @@ type ProtoSimulationEvent = {
     economic_structure_json?: string | undefined;
     sabotage_json?: string | undefined;
     shard_site_json?: string | undefined;
+    capture_breach_until?: number | undefined;
   }>;
   tileDeltas?: Array<{
     x: number;
@@ -230,6 +231,7 @@ type ProtoSimulationEvent = {
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
+    captureBreachUntil?: number | undefined;
     yield?: {
       gold?: number;
       strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
@@ -434,6 +436,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("economicStructureJson" in tile ? { economic_structure_json: tile.economicStructureJson ?? "" } : {}),
           ...("sabotageJson" in tile ? { sabotage_json: tile.sabotageJson ?? "" } : {}),
           ...("shardSiteJson" in tile ? { shard_site_json: tile.shardSiteJson ?? "" } : {}),
+          ...(tile.captureBreachUntil != null ? { capture_breach_until: tile.captureBreachUntil } : {}),
           ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
           ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
@@ -462,6 +465,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("economicStructureJson" in tile ? { economicStructureJson: tile.economicStructureJson } : {}),
           ...("sabotageJson" in tile ? { sabotageJson: tile.sabotageJson } : {}),
           ...("shardSiteJson" in tile ? { shardSiteJson: tile.shardSiteJson } : {}),
+          ...(tile.captureBreachUntil != null ? { captureBreachUntil: tile.captureBreachUntil } : {}),
           ...("yield" in tile ? { yield: tile.yield } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
           ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {})

@@ -71,6 +71,8 @@ type ProtoTileDelta = {
   sabotageJson?: string;
   shard_site_json?: string;
   shardSiteJson?: string;
+  capture_breach_until?: number;
+  captureBreachUntil?: number;
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> };
   yieldCap?: { gold: number; strategicEach: number };
@@ -295,6 +297,7 @@ export type SimulationClientEvent =
         economicStructureJson?: string | undefined;
         sabotageJson?: string | undefined;
         shardSiteJson?: string | undefined;
+        captureBreachUntil?: number | undefined;
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
@@ -393,6 +396,10 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   }
   if ("sabotage_json" in tile || "sabotageJson" in tile) normalized.sabotageJson = tile.sabotage_json || tile.sabotageJson || undefined;
   if ("shard_site_json" in tile || "shardSiteJson" in tile) normalized.shardSiteJson = tile.shard_site_json || tile.shardSiteJson || undefined;
+  if ("capture_breach_until" in tile || "captureBreachUntil" in tile) {
+    const captureBreachUntil = tile.capture_breach_until ?? tile.captureBreachUntil;
+    if (typeof captureBreachUntil === "number" && captureBreachUntil > 0) normalized.captureBreachUntil = captureBreachUntil;
+  }
   if ("yield" in tile && tile.yield && typeof tile.yield === "object") {
     normalized.yield = tile.yield as NonNullable<typeof normalized.yield>;
   } else if (typeof tile.yield_json === "string" && tile.yield_json.length > 0) {

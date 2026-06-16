@@ -262,6 +262,7 @@ export type SimulationEvent =
         sabotageJson?: string | undefined;
         shardSiteJson?: string | undefined;
         musterJson?: string | undefined;
+        captureBreachUntil?: number | undefined;
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
