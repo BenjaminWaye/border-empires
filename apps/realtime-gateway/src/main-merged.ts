@@ -11,12 +11,57 @@
 // extra cost is a separate event loop + heap inside the same OS process,
 // which is far cheaper than the old two-process arrangement and structurally
 // stronger than the previous shared-loop design.
+import fs from "node:fs";
 import { Worker } from "node:worker_threads";
 import { resolveWorkerEntryUrl } from "../../simulation/src/resolve-worker-entry/resolve-worker-entry.js";
 import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env/runtime-env.js";
 import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
+
+// ---------------------------------------------------------------------------
+// Death forensics — persisted to the /data volume on both kill paths so the
+// next boot can replay the cause. Env-overridable so tests can redirect it.
+// ---------------------------------------------------------------------------
+const DEATH_FORENSICS_PATH =
+  typeof process.env.DEATH_FORENSICS_PATH === "string" && process.env.DEATH_FORENSICS_PATH.trim().length > 0
+    ? process.env.DEATH_FORENSICS_PATH.trim()
+    : "/data/.death-forensics.json";
+
+const writeDeathForensics = (blob: Record<string, unknown>): void => {
+  try {
+    fs.writeFileSync(DEATH_FORENSICS_PATH, JSON.stringify(blob), "utf8");
+  } catch (err) {
+    process.stderr.write(
+      JSON.stringify({
+        level: 50,
+        time: Date.now(),
+        msg: "death_forensics_write_failed",
+        path: DEATH_FORENSICS_PATH,
+        error: (err instanceof Error ? err.message : String(err))
+      }) + "\n"
+    );
+  }
+};
+
+// Boot replay: if forensics from a prior death exist, log them and rotate.
+try {
+  if (fs.existsSync(DEATH_FORENSICS_PATH)) {
+    const raw = fs.readFileSync(DEATH_FORENSICS_PATH, "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    process.stderr.write(
+      JSON.stringify({
+        level: 50,
+        time: Date.now(),
+        msg: "previous_death_forensics",
+        forensics: parsed
+      }) + "\n"
+    );
+    fs.renameSync(DEATH_FORENSICS_PATH, `${DEATH_FORENSICS_PATH}.prev`);
+  }
+} catch {
+  // Best-effort — don't block boot on a corrupted forensics file.
+}
 
 type SimWorkerReadyMessage = {
   type: "ready";
@@ -26,7 +71,16 @@ type SimWorkerReadyMessage = {
 };
 type SimWorkerClosedMessage = { type: "closed" };
 type SimWorkerFatalMessage = { type: "fatal"; reason: string; error: string };
-type SimWorkerMessage = SimWorkerReadyMessage | SimWorkerClosedMessage | SimWorkerFatalMessage;
+type SimWorkerDiagBufferMessage = { type: "diag_buffer"; entries: unknown[] };
+type SimWorkerMessage =
+  | SimWorkerReadyMessage
+  | SimWorkerClosedMessage
+  | SimWorkerFatalMessage
+  | SimWorkerDiagBufferMessage;
+
+// Sim lag-diagnostic ring buffer forwarded from the sim worker thread.
+// Updated at ≤1 Hz; read at kill/exit time to name the likely cause.
+let latestSimDiagnostics: unknown[] = [];
 
 // Parse the sim env in the parent purely to validate it early (so a typo
 // crashes the parent with a clear error) and to know the loopback address
@@ -72,7 +126,8 @@ const watchdog = startEventLoopWatchdog({
       aiWorker: simEnv.useAiWorker,
       aiDryRun: simEnv.aiDryRun,
       aiDisableExpand: simEnv.aiDisableExpand,
-      aiDisableBuild: simEnv.aiDisableBuild
+      aiDisableBuild: simEnv.aiDisableBuild,
+      simDiagnostics: latestSimDiagnostics
     };
   }
 });
@@ -85,7 +140,24 @@ simWorker.on("exit", (code) => {
   if (code !== 0) {
     console.error(`[merged] simulation worker exited code=${code}; exiting process so fly restarts the machine`);
     simWorkerExitedUnexpectedly = true;
+    writeDeathForensics({
+      deathKind: "sim_worker_exit",
+      at: Date.now(),
+      code,
+      latestSimDiagnostics,
+      heap: process.memoryUsage()
+    });
     process.exit(code || 1);
+  }
+});
+
+// Capture sim diag_buffer messages forwarded from the worker thread.
+// All other lifecycle messages are handled in the simReady promise below.
+simWorker.on("message", (raw: unknown) => {
+  if (!raw || typeof raw !== "object") return;
+  const msg = raw as SimWorkerMessage;
+  if (msg.type === "diag_buffer") {
+    latestSimDiagnostics = Array.isArray(msg.entries) ? msg.entries : [];
   }
 });
 

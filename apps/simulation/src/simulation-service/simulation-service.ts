@@ -647,6 +647,30 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     console[level](message, payload);
   };
+  // ---------------------------------------------------------------------------
+  // Death-forensics ring buffer — rolling window of recent lag diagnostics
+  // forwarded to the gateway main thread so both watchdog-kill and sim-exit
+  // write paths have the sim's last known state.
+  // ---------------------------------------------------------------------------
+  const LAG_DIAG_RING_CAP = 50;
+  type LagDiagEntry = {
+    at: number;
+    level: "warn" | "error";
+    event: string;
+    phase?: unknown;
+    durationMs?: unknown;
+  };
+  const lagDiagRing: LagDiagEntry[] = [];
+  const appendLagDiagRing = (level: "warn" | "error", event: string, payload: Record<string, unknown>): void => {
+    lagDiagRing.push({
+      at: Date.now(),
+      level,
+      event,
+      ...(payload.phase !== undefined ? { phase: payload.phase } : {}),
+      ...(typeof payload.durationMs === "number" ? { durationMs: payload.durationMs } : {})
+    });
+    if (lagDiagRing.length > LAG_DIAG_RING_CAP) lagDiagRing.shift();
+  };
   const recordLagDiagnostic = (
     level: "info" | "warn" | "error",
     event: string,
@@ -654,6 +678,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   ): void => {
     if (level === "info") return;
     emitLog(level, `simulation lag diagnostic: ${event}`, payload);
+    appendLagDiagRing(level, event, payload);
   };
   const commandTraceSample = (sample: Record<string, unknown>): void => {
     if (!commandTraceEnabled) return;
@@ -2874,6 +2899,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     playerDebugSnapshot() {
       return runtime.exportPlayerDebugSnapshot();
+    },
+    /** Snapshot of the recent lag-diagnostic ring buffer for death forensics. */
+    lagDiagSnapshot(): readonly LagDiagEntry[] {
+      return lagDiagRing.slice();
     }
   };
 };

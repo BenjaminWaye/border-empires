@@ -48,6 +48,7 @@ type WatchdogOptions = {
   bootGraceMs?: number;
   minKillIntervalMs?: number;
   killStatePath?: string;
+  deathForensicsPath?: string;
   enabled?: boolean;
   label?: string;
   /** Called on each heartbeat; result is piggybacked on the ping so the
@@ -66,6 +67,7 @@ const buildWorkerSource = (params: {
   minKillIntervalMs: number;
   killStatePath: string;
   label: string;
+  deathForensicsPath: string;
 }): string => `
   const { parentPort } = require("node:worker_threads");
   const fs = require("node:fs");
@@ -73,8 +75,24 @@ const buildWorkerSource = (params: {
   const BOOT_GRACE_MS = ${params.bootGraceMs};
   const MIN_KILL_INTERVAL_MS = ${params.minKillIntervalMs};
   const KILL_STATE_PATH = ${JSON.stringify(params.killStatePath)};
+  const DEATH_FORENSICS_PATH = ${JSON.stringify(params.deathForensicsPath)};
   const LABEL = ${JSON.stringify(params.label)};
   const bootStartedAt = Date.now();
+
+  const writeDeathForensics = (blob) => {
+    try {
+      fs.writeFileSync(DEATH_FORENSICS_PATH, JSON.stringify(blob), "utf8");
+    } catch (err) {
+      process.stderr.write(JSON.stringify({
+        level: 50,
+        time: Date.now(),
+        msg: "death_forensics_write_failed",
+        label: LABEL,
+        path: DEATH_FORENSICS_PATH,
+        error: (err && err.message) || String(err)
+      }) + "\\n");
+    }
+  };
   let lastPingAt = Date.now();
   let armed = false;
   let armReason = "";
@@ -175,6 +193,14 @@ const buildWorkerSource = (params: {
       sinceLastKillMs: lastKillAt > 0 ? sinceLastKillMs : null,
       lastDiag
     }) + "\\n");
+    // Persist forensics before we kill — survives the restart so the next
+    // boot can name the stall's cause (lastDiag carries simDiagnostics).
+    writeDeathForensics({
+      deathKind: "watchdog_kill",
+      at: now,
+      stalledMs,
+      lastDiag
+    });
     // Force-kill the whole process; the main thread is unresponsive so
     // a graceful signal can't be acknowledged.
     process.kill(process.pid, "SIGKILL");
@@ -217,10 +243,16 @@ export const startEventLoopWatchdog = (options: WatchdogOptions = {}): WatchdogH
     options.minKillIntervalMs ?? parseNumber(process.env.WATCHDOG_MIN_KILL_INTERVAL_MS, DEFAULT_MIN_KILL_INTERVAL_MS);
   const killStatePath =
     options.killStatePath ?? parseString(process.env.WATCHDOG_KILL_STATE_PATH, DEFAULT_KILL_STATE_PATH);
+  const deathForensicsPath =
+    options.deathForensicsPath ??
+    parseString(
+      process.env.DEATH_FORENSICS_PATH,
+      "/data/.death-forensics.json"
+    );
   const label = options.label ?? "combined";
 
   const worker = new Worker(
-    buildWorkerSource({ stallThresholdMs, bootGraceMs, minKillIntervalMs, killStatePath, label }),
+    buildWorkerSource({ stallThresholdMs, bootGraceMs, minKillIntervalMs, killStatePath, label, deathForensicsPath }),
     { eval: true }
   );
   worker.unref();
