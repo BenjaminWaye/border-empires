@@ -1239,7 +1239,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         messageType !== "UPGRADE_TOWN_TIER" &&
         messageType !== "COLLECT_SHARD" &&
         messageType !== "SET_MUSTER" &&
-        messageType !== "CLEAR_MUSTER"
+        messageType !== "CLEAR_MUSTER" &&
+        messageType !== "WATCH_MUSTER" &&
+        messageType !== "UNWATCH_MUSTER"
     )
   );
 
