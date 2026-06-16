@@ -2922,7 +2922,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             message.type !== "UPGRADE_TOWN_TIER" &&
             message.type !== "COLLECT_SHARD" &&
             message.type !== "SET_MUSTER" &&
-            message.type !== "CLEAR_MUSTER"
+            message.type !== "CLEAR_MUSTER" &&
+            message.type !== "WATCH_MUSTER" &&
+            message.type !== "UNWATCH_MUSTER"
           ) {
             sendJson(socket, {
               type: "ERROR",
@@ -3126,6 +3128,34 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 },
                 submitDeps
               )
+            );
+          } else if (message.type === "WATCH_MUSTER") {
+            await withTimeout(
+              simulationClient.submitCommand({
+                commandId: `watch-muster:${session.sessionId}:${Date.now()}`,
+                sessionId: session.sessionId,
+                playerId: authedSession.playerId,
+                clientSeq: 0,
+                issuedAt: Date.now(),
+                type: "WATCH_MUSTER" as never,
+                payloadJson: JSON.stringify({ x: message.x, y: message.y })
+              }),
+              simulationSubmitTimeoutMs,
+              "gateway watch muster"
+            );
+          } else if (message.type === "UNWATCH_MUSTER") {
+            await withTimeout(
+              simulationClient.submitCommand({
+                commandId: `unwatch-muster:${session.sessionId}:${Date.now()}`,
+                sessionId: session.sessionId,
+                playerId: authedSession.playerId,
+                clientSeq: 0,
+                issuedAt: Date.now(),
+                type: "UNWATCH_MUSTER" as never,
+                payloadJson: "{}"
+              }),
+              simulationSubmitTimeoutMs,
+              "gateway unwatch muster"
             );
           } else if (message.type === "BUILD_ECONOMIC_STRUCTURE") {
             await trackSubmitLatency(() =>
@@ -3573,6 +3603,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       socket.on("close", () => {
         if (!session.playerId) return;
         const closingPlayerId = session.playerId;
+        void simulationClient.submitCommand({
+          commandId: `unwatch-muster:close:${session.sessionId}:${Date.now()}`,
+          sessionId: session.sessionId,
+          playerId: closingPlayerId,
+          clientSeq: 0,
+          issuedAt: Date.now(),
+          type: "UNWATCH_MUSTER" as never,
+          payloadJson: "{}"
+        }).catch(() => { /* best-effort on disconnect */ });
         void playerSubscriptions.removeSocket(closingPlayerId, socket)
           .then(() => {
             syncGatewaySnapshotMetricsFromCache(closingPlayerId);

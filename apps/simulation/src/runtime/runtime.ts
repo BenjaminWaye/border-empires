@@ -449,6 +449,9 @@ export class SimulationRuntime {
   // Key: muster tileKey, Value: total reserved amount. Prevents two concurrent
   // attacks from double-spending the same staged muster.
   private readonly musterReservedByKey = new Map<string, number>();
+  // Tracks which muster tile each connected player is viewing (playerId → tileKey).
+  // Used to drive a 1-second targeted tick so the tile panel updates in real time.
+  private readonly watchedMusterTileByPlayer = new Map<string, string>();
   private readonly onMusterRemoteAttack: (() => void) | undefined;
   private readonly onMusterRemoteBlocked: (() => void) | undefined;
   // Index of tiles with an active fort per owner (garrison system).
@@ -1102,6 +1105,38 @@ export class SimulationRuntime {
       players: this.players,
       tiles: this.tiles,
       musterTilesByOwner: this.musterTilesByOwner,
+      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
+      applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
+      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
+        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
+      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
+      locksByTile: this.locksByTile
+    });
+  }
+
+  tickWatchedMusterTiles(nowMs: number = this.now()): void {
+    if (this.watchedMusterTileByPlayer.size === 0) return;
+    // Build a filtered view of musterTilesByOwner containing only watched players.
+    // Passing all of each player's muster tiles preserves the throughput-split
+    // calculation (activeMusterCount) across their flags.
+    const filteredMusterTiles = new Map<string, Set<string>>();
+    for (const [playerId, tileKey] of this.watchedMusterTileByPlayer) {
+      const playerTiles = this.musterTilesByOwner.get(playerId);
+      if (!playerTiles?.has(tileKey)) continue;
+      filteredMusterTiles.set(playerId, playerTiles);
+    }
+    if (filteredMusterTiles.size === 0) return;
+    tickMusterImpl({
+      nowMs,
+      players: this.players,
+      tiles: this.tiles,
+      musterTilesByOwner: filteredMusterTiles,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
       applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
@@ -4217,6 +4252,15 @@ export class SimulationRuntime {
     handleClearMusterCommandImpl(this.structureCommandContext(), command);
   }
 
+  private handleWatchMusterCommand(command: CommandEnvelope): void {
+    const payload = JSON.parse(command.payloadJson) as { x: number; y: number };
+    this.watchedMusterTileByPlayer.set(command.playerId, simulationTileKey(payload.x, payload.y));
+  }
+
+  private handleUnwatchMusterCommand(command: CommandEnvelope): void {
+    this.watchedMusterTileByPlayer.delete(command.playerId);
+  }
+
   private handleCancelFortBuildCommand(command: CommandEnvelope): void {
     handleCancelFortBuildCommandImpl(this.structureCommandContext(), command);
   }
@@ -4997,6 +5041,8 @@ export class SimulationRuntime {
       normalizeLegacyBuildCommand: (command) => this.normalizeLegacyBuildCommand(command),
       handleSetMusterCommand: (command) => this.handleSetMusterCommand(command),
       handleClearMusterCommand: (command) => this.handleClearMusterCommand(command),
+      handleWatchMusterCommand: (command) => this.handleWatchMusterCommand(command),
+      handleUnwatchMusterCommand: (command) => this.handleUnwatchMusterCommand(command),
       handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),
       handleCancelFortBuildCommand: (command) => this.handleCancelFortBuildCommand(command),
       handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
