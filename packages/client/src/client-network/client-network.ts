@@ -2100,7 +2100,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (touchedKeys.has(state.tileActionMenu.currentTileKey)) {
           const refreshedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
           if (refreshedTile) {
-            openSingleTileActionMenu(refreshedTile, state.tileActionMenu.x, state.tileActionMenu.y, { requestAttackPreview: false });
+            openSingleTileActionMenu(refreshedTile, state.tileActionMenu.x, state.tileActionMenu.y, { requestAttackPreview: false, preserveTab: true });
           }
         }
       }

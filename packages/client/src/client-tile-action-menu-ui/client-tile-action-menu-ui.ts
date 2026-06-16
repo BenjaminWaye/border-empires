@@ -185,20 +185,22 @@ export const openSingleTileActionMenu = (
   clientX: number,
   clientY: number,
   deps: TileActionMenuUiDeps,
-  options: { requestAttackPreview?: boolean } = {}
+  options: { requestAttackPreview?: boolean; preserveTab?: boolean } = {}
 ): void => {
   if ((options.requestAttackPreview ?? true) && tile.ownerId && tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile)) deps.requestAttackPreviewForTarget(tile);
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];
   state.tileActionMenu.currentTileKey = deps.keyFor(tile.x, tile.y);
-  state.tileActionMenu.scrollTopByTab = {};
-  state.tileActionMenu.renderSignature = "";
+  if (!options.preserveTab) {
+    state.tileActionMenu.scrollTopByTab = {};
+    state.tileActionMenu.renderSignature = "";
+  }
   const view = deps.tileMenuViewForTile(tile);
   injectWaypointActions(view, tile, state, {
     keyFor: deps.keyFor,
     pickOriginForTarget: deps.pickOriginForTarget
   });
-  state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
+  if (!options.preserveTab) state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
   renderTileActionMenu(state, view, clientX, clientY, deps);
 };
 
