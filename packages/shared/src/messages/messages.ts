@@ -177,6 +177,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("COLLECT_TILE"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("COLLECT_SHARD"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("COLLECT_VISIBLE") }),
+  z.object({ type: z.literal("WATCH_MUSTER"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("UNWATCH_MUSTER") }),
   z.object({ type: z.literal("REQUEST_TILE_DETAIL"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("REQUEST_REVEAL_MAP") }),
   z.object({ type: z.literal("SET_FOG_DISABLED"), disabled: z.boolean() }),

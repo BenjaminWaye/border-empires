@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.16.1",
+  version: "2026.06.16.2",
   title: "What's New",
-  summary: "Town upgrade button now appears when your town hits the population threshold.",
+  summary: "Muster panel now updates in real time while you have a flag tile open.",
   entries: [
+    {
+      introducedIn: "2026.06.16.2",
+      title: "Live muster amount in tile panel",
+      why: "The staged manpower count in the tile panel was frozen until you re-clicked the tile, making it impossible to watch a flag fill up.",
+      changes: [
+        "While a muster flag tile is open, the server ticks it every second and pushes the updated amount to your client.",
+        "Muster cap now scales with your town tier — City players can accumulate up to 300 manpower at a flag instead of being hard-capped at 150.",
+        "If you already have a muster flag placed elsewhere, queuing an attack from a tile with no nearby flag will no longer drop a duplicate flag — it shows 'Not enough manpower at nearest flag' instead."
+      ]
+    },
     {
       introducedIn: "2026.06.16.1",
       title: "Town tier upgrade button",
