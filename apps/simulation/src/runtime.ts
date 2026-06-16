@@ -1712,14 +1712,11 @@ export class SimulationRuntime {
 
   /** Set captureBreachUntil on the 4 cardinal enemy-owned neighbours of a freshly captured tile. */
   private applyBreachToNeighbors(x: number, y: number, previousOwnerId: string, nowMs: number): void {
-    const neighbours: Array<[number, number]> = [
-      [x, y - 1],
-      [x + 1, y],
-      [x, y + 1],
-      [x - 1, y]
-    ];
+    const offsets = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const;
     const endsAt = nowMs + 60_000;
-    for (const [nx, ny] of neighbours) {
+    for (const [dx, dy] of offsets) {
+      const nx = wrapX(x + dx, WORLD_WIDTH);
+      const ny = wrapY(y + dy, WORLD_HEIGHT);
       const key = simulationTileKey(nx, ny);
       const neighbour = this.tiles.get(key);
       if (!neighbour || neighbour.ownerId !== previousOwnerId) continue;
@@ -5382,7 +5379,7 @@ export class SimulationRuntime {
       economicStructureJson: cached.economicStructureJson,
       sabotageJson: cached.sabotageJson,
       musterJson: cached.musterJson,
-      captureBreachUntil: tile.captureBreachUntil ?? undefined,
+      ...(tile.captureBreachUntil != null ? { captureBreachUntil: tile.captureBreachUntil } : {}),
       ...(yieldView?.yield ? { yield: yieldView.yield } : {})
       // yieldRate and yieldCap are derived client-side from static yield tables
       // + townJson (goldPerMinute/cap). See packages/client/src/yield-derivation.ts.
