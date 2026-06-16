@@ -38,6 +38,7 @@ import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/li
 import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
+import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
@@ -765,12 +766,26 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(snapshotStringifier ? { stringify: snapshotStringifier } : {}),
     resolveBaseline: resolveWorldgenBaseline
   };
-  const commandStore =
+  const commandStoreBase =
     options.commandStore ??
     (await createSimulationCommandStore(storeFactoryOptions));
-  const eventStore =
+  const eventStoreBase =
     options.eventStore ??
     (await createSimulationEventStore(storeFactoryOptions));
+  // Route all SQLite writes through a dedicated worker thread so the sim
+  // thread's event loop is never blocked by I/O (157–822ms per write observed).
+  // Only wrap when using real SQLite stores (not injected test doubles).
+  // Reads stay on the sim thread; WAL mode allows concurrent readers.
+  const writerChannel =
+    !options.commandStore && !options.eventStore && storeFactoryOptions.sqlitePath
+      ? new SqliteWriterChannel(storeFactoryOptions.sqlitePath)
+      : undefined;
+  const commandStore = writerChannel
+    ? new WriterBackedCommandStore(writerChannel, commandStoreBase)
+    : commandStoreBase;
+  const eventStore = writerChannel
+    ? new WriterBackedEventStore(writerChannel, eventStoreBase)
+    : eventStoreBase;
   const snapshotStore =
     options.snapshotStore ??
     (await createSimulationSnapshotStore({
@@ -2869,6 +2884,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       unsubscribeRuntimeEvents?.();
       globalStatusBroadcaster.dispose();
       await persistenceQueue.whenIdle();
+      // All persistence tasks have resolved — their acks mean the writer worker
+      // has committed every write. Safe to terminate the worker now.
+      await writerChannel?.terminate();
     },
     renderMetrics(): string {
       return simulationMetrics.renderPrometheus();
