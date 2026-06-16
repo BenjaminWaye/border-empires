@@ -14,9 +14,17 @@
 import { Worker } from "node:worker_threads";
 import { resolveWorkerEntryUrl } from "../../simulation/src/resolve-worker-entry/resolve-worker-entry.js";
 import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env/runtime-env.js";
+import {
+  DEATH_FORENSICS_PATH,
+  replayDeathForensicsOnBoot,
+  writeDeathForensics
+} from "./death-forensics.js";
 import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
+
+// Replay any forensics persisted by a prior death before we arm the watchdog.
+replayDeathForensicsOnBoot();
 
 type SimWorkerReadyMessage = {
   type: "ready";
@@ -26,7 +34,16 @@ type SimWorkerReadyMessage = {
 };
 type SimWorkerClosedMessage = { type: "closed" };
 type SimWorkerFatalMessage = { type: "fatal"; reason: string; error: string };
-type SimWorkerMessage = SimWorkerReadyMessage | SimWorkerClosedMessage | SimWorkerFatalMessage;
+type SimWorkerDiagBufferMessage = { type: "diag_buffer"; entries: unknown[] };
+type SimWorkerMessage =
+  | SimWorkerReadyMessage
+  | SimWorkerClosedMessage
+  | SimWorkerFatalMessage
+  | SimWorkerDiagBufferMessage;
+
+// Sim lag-diagnostic ring buffer forwarded from the sim worker thread.
+// Updated at ≤1 Hz; read at kill/exit time to name the likely cause.
+let latestSimDiagnostics: unknown[] = [];
 
 // Parse the sim env in the parent purely to validate it early (so a typo
 // crashes the parent with a clear error) and to know the loopback address
@@ -59,6 +76,7 @@ lagProbe.unref();
 // the sim cannot block this thread.
 const watchdog = startEventLoopWatchdog({
   label: "combined",
+  deathForensicsPath: DEATH_FORENSICS_PATH,
   getDiagSnapshot: () => {
     const mem = process.memoryUsage();
     return {
@@ -72,7 +90,8 @@ const watchdog = startEventLoopWatchdog({
       aiWorker: simEnv.useAiWorker,
       aiDryRun: simEnv.aiDryRun,
       aiDisableExpand: simEnv.aiDisableExpand,
-      aiDisableBuild: simEnv.aiDisableBuild
+      aiDisableBuild: simEnv.aiDisableBuild,
+      simDiagnostics: latestSimDiagnostics
     };
   }
 });
@@ -85,7 +104,24 @@ simWorker.on("exit", (code) => {
   if (code !== 0) {
     console.error(`[merged] simulation worker exited code=${code}; exiting process so fly restarts the machine`);
     simWorkerExitedUnexpectedly = true;
+    writeDeathForensics({
+      deathKind: "sim_worker_exit",
+      at: Date.now(),
+      code,
+      latestSimDiagnostics,
+      heap: process.memoryUsage()
+    });
     process.exit(code || 1);
+  }
+});
+
+// Capture sim diag_buffer messages forwarded from the worker thread.
+// All other lifecycle messages are handled in the simReady promise below.
+simWorker.on("message", (raw: unknown) => {
+  if (!raw || typeof raw !== "object") return;
+  const msg = raw as SimWorkerMessage;
+  if (msg.type === "diag_buffer") {
+    latestSimDiagnostics = Array.isArray(msg.entries) ? msg.entries : [];
   }
 });
 
