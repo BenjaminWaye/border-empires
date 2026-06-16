@@ -23,7 +23,6 @@ export type TickTerritoryAutomationInput = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   summaryForPlayer: (playerId: string) => unknown;
   applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
-  updateFrontierDecay: (nowMs: number) => Promise<void>;
   autoSettlementQueueLengthForPlayer: (playerId: string) => number;
   emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
@@ -126,10 +125,6 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
   }
 
   const _ttaAfterClaim = Date.now();
-  // Yield before frontier decay — it iterates all frontier tiles across all players.
-  await yield_();
-  await input.updateFrontierDecay(input.nowMs);
-  const _ttaAfterDecay = Date.now();
   let _settleQueueNotifyMs = 0;
   let _settleQueueNotifications = 0;
 
@@ -154,8 +149,7 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
       {
         totalMs,
         claimLoopMs: _ttaAfterClaim - _ttaStart,
-        updateFrontierDecayMs: _ttaAfterDecay - _ttaAfterClaim,
-        settleMs: _ttaEnd - _ttaAfterDecay,
+        settleMs: _ttaEnd - _ttaAfterClaim,
         claim: {
           summaryForPlayerMs: _claimSummaryForPlayerMs,
           anchorScanMs: _claimAnchorScanMs,
