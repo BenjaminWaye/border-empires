@@ -11,57 +11,20 @@
 // extra cost is a separate event loop + heap inside the same OS process,
 // which is far cheaper than the old two-process arrangement and structurally
 // stronger than the previous shared-loop design.
-import fs from "node:fs";
 import { Worker } from "node:worker_threads";
 import { resolveWorkerEntryUrl } from "../../simulation/src/resolve-worker-entry/resolve-worker-entry.js";
 import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env/runtime-env.js";
+import {
+  DEATH_FORENSICS_PATH,
+  replayDeathForensicsOnBoot,
+  writeDeathForensics
+} from "./death-forensics.js";
 import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 
-// ---------------------------------------------------------------------------
-// Death forensics — persisted to the /data volume on both kill paths so the
-// next boot can replay the cause. Env-overridable so tests can redirect it.
-// ---------------------------------------------------------------------------
-const DEATH_FORENSICS_PATH =
-  typeof process.env.DEATH_FORENSICS_PATH === "string" && process.env.DEATH_FORENSICS_PATH.trim().length > 0
-    ? process.env.DEATH_FORENSICS_PATH.trim()
-    : "/data/.death-forensics.json";
-
-const writeDeathForensics = (blob: Record<string, unknown>): void => {
-  try {
-    fs.writeFileSync(DEATH_FORENSICS_PATH, JSON.stringify(blob), "utf8");
-  } catch (err) {
-    process.stderr.write(
-      JSON.stringify({
-        level: 50,
-        time: Date.now(),
-        msg: "death_forensics_write_failed",
-        path: DEATH_FORENSICS_PATH,
-        error: (err instanceof Error ? err.message : String(err))
-      }) + "\n"
-    );
-  }
-};
-
-// Boot replay: if forensics from a prior death exist, log them and rotate.
-try {
-  if (fs.existsSync(DEATH_FORENSICS_PATH)) {
-    const raw = fs.readFileSync(DEATH_FORENSICS_PATH, "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    process.stderr.write(
-      JSON.stringify({
-        level: 50,
-        time: Date.now(),
-        msg: "previous_death_forensics",
-        forensics: parsed
-      }) + "\n"
-    );
-    fs.renameSync(DEATH_FORENSICS_PATH, `${DEATH_FORENSICS_PATH}.prev`);
-  }
-} catch {
-  // Best-effort — don't block boot on a corrupted forensics file.
-}
+// Replay any forensics persisted by a prior death before we arm the watchdog.
+replayDeathForensicsOnBoot();
 
 type SimWorkerReadyMessage = {
   type: "ready";
@@ -113,6 +76,7 @@ lagProbe.unref();
 // the sim cannot block this thread.
 const watchdog = startEventLoopWatchdog({
   label: "combined",
+  deathForensicsPath: DEATH_FORENSICS_PATH,
   getDiagSnapshot: () => {
     const mem = process.memoryUsage();
     return {
