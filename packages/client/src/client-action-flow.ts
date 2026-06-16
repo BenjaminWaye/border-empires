@@ -1092,6 +1092,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean }): void => {
     if (tile.muster?.ownerId === state.me) {
       sendGameMessage({ type: "WATCH_MUSTER", x: tile.x, y: tile.y });
+    } else {
+      sendGameMessage({ type: "UNWATCH_MUSTER" });
     }
     openSingleTileActionMenuFromModule(state, tile, clientX, clientY, tileActionMenuUiDeps(), options);
   };
