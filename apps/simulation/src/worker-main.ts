@@ -14,6 +14,7 @@
 //   { type: "ready", grpcAddress, metricsHost, metricsPort }
 //   { type: "closed" }
 //   { type: "fatal", reason, error }
+//   { type: "diag_buffer", entries: LagDiagEntry[] }   (periodic, ≤1 Hz)
 //
 // Per-request gateway↔sim traffic never crosses this MessagePort — it goes
 // over the loopback gRPC socket the worker binds inside bootstrap. Only
@@ -27,7 +28,7 @@ if (!parentPort) {
 }
 const port = parentPort;
 
-const { runtimeEnv, binding, beginShutdown } = await bootstrapSimulationProcess({
+const { service, runtimeEnv, binding, beginShutdown } = await bootstrapSimulationProcess({
   onClosed: () => port.postMessage({ type: "closed" }),
   onFatal: (reason, error) => port.postMessage({ type: "fatal", reason, error })
 });
@@ -50,10 +51,20 @@ port.postMessage({
   metricsPort: runtimeEnv.metricsPort
 });
 
+// Periodically forward the lag-diagnostic ring buffer to the parent (gateway
+// main thread) so both death-write paths (watchdog kill + sim-exit handler)
+// have the sim's last known state. ≤1 Hz keeps the inter-thread payload tiny.
+const diagBufferInterval = setInterval(() => {
+  const entries = service.lagDiagSnapshot();
+  port.postMessage({ type: "diag_buffer", entries });
+}, 1_000);
+diagBufferInterval.unref();
+
 port.on("message", (msg: unknown) => {
   if (!msg || typeof msg !== "object") return;
   const message = msg as Record<string, unknown>;
   if (message.type === "shutdown") {
+    clearInterval(diagBufferInterval);
     const reason = typeof message.reason === "string" ? message.reason : "parent_shutdown";
     void beginShutdown(reason);
   }
