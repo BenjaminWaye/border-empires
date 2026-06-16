@@ -1344,9 +1344,9 @@ export const processActionQueue = (
           state.actionAcceptTimeoutHandledAt = 0;
           state.queuedTargetKeys.delete(targetKey);
           const originKey = deps.keyFor(from.x, from.y);
-          const originTile = state.tiles.get(originKey);
           const musterTileKey = originKey;
-          if (!originTile?.muster) {
+          const playerHasAnyMuster = [...state.tiles.values()].some((t) => t.muster?.ownerId === state.me);
+          if (!playerHasAnyMuster) {
             deps.sendSetMuster(from.x, from.y, "HOLD");
           }
           const alreadyPending = state.pendingMusterAttacks.some(
@@ -1354,7 +1354,10 @@ export const processActionQueue = (
           );
           if (!alreadyPending) {
             state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey });
-            deps.pushFeed(`Staging muster on (${from.x}, ${from.y}) — attack on (${to.x}, ${to.y}) queued`, "combat", "info");
+            const feedMsg = playerHasAnyMuster
+              ? `Not enough manpower at nearest flag — attack on (${to.x}, ${to.y}) queued`
+              : `Staging muster on (${from.x}, ${from.y}) — attack on (${to.x}, ${to.y}) queued`;
+            deps.pushFeed(feedMsg, "combat", "info");
           }
           deps.renderHud();
           continue;
