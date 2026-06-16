@@ -679,6 +679,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   };
 
   const hideTileActionMenu = (): void => {
+    sendGameMessage({ type: "UNWATCH_MUSTER" });
     if (typeof hideTileActionMenuFromDeps === "function") {
       hideTileActionMenuFromDeps();
       return;
@@ -1088,8 +1089,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
     renderTileActionMenuFromModule(state, view, clientX, clientY, tileActionMenuUiDeps());
 
-  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean }): void =>
+  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean }): void => {
+    if (tile.muster?.ownerId === state.me) {
+      sendGameMessage({ type: "WATCH_MUSTER", x: tile.x, y: tile.y });
+    }
     openSingleTileActionMenuFromModule(state, tile, clientX, clientY, tileActionMenuUiDeps(), options);
+  };
 
   const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: number): void =>
     openBulkTileActionMenuFromModule(state, targetKeys, clientX, clientY, tileActionMenuUiDeps());

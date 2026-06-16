@@ -1281,6 +1281,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
   let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined;
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
+  let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
   let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
@@ -2646,6 +2647,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "orphan lock sweep tick failed");
         }
       }, 30_000);
+      watchedMusterTicker = setInterval(() => {
+        runtime.tickWatchedMusterTiles(Date.now());
+      }, 1_000);
       let passiveIncomeRunning = false;
       setInterval(() => {
         // Overlap guard: if a previous async tick is still running skip to avoid
@@ -2866,6 +2870,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (tileSheddingTicker) clearInterval(tileSheddingTicker);
       if (territoryAutomationTicker) clearInterval(territoryAutomationTicker);
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
+      if (watchedMusterTicker) clearInterval(watchedMusterTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       gcObserver?.disconnect();
       globalStatusBroadcaster.dispose();

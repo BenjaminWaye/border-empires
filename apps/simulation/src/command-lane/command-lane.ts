@@ -44,6 +44,8 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "CHOOSE_TECH":
     case "CHOOSE_DOMAIN":
     case "UPGRADE_TOWN_TIER":
+    case "WATCH_MUSTER":
+    case "UNWATCH_MUSTER":
       return "human_noninteractive";
     default:
       return "system";
