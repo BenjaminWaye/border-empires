@@ -1736,7 +1736,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 mainThreadTasks.trackSync("ai_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
-              exportTilesForKeys: (keys) => runtime.exportTilesForKeys(keys)
+              exportTilesForKeys: (keys) =>
+                mainThreadTasks.trackSync("ai_export_tiles_for_keys", undefined, () =>
+                  runtime.exportTilesForKeys(keys)
+                )
             },
             aiPlayerIds,
             submitCommand: submitDurableCommand,
@@ -2687,7 +2690,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // detected just NOW (the sampler is `lagMs` ms late firing), so the
         // block started at `now - lagMs`. Includes runtime + memory context
         // so we can localise what was running.
-        if (lagMs >= 500) {
+        if (lagMs >= 2_000) {
           const memory = process.memoryUsage();
           emitLog("warn", "simulation event loop blocked", {
             phase: "event_loop_blocked",
@@ -2701,7 +2704,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             persistencePendingCount: persistenceQueue.pendingCount(),
             persistenceDegraded: persistenceQueue.isDegraded(),
             activePlayerCount: activePlayers.size,
-            mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now).slice(-8)
+            mainThreadTasks: mainThreadTasks.recentSince(now - lagMs, now)
+              .sort((a, b) => (b.active ? b.elapsedMs : b.durationMs) - (a.active ? a.elapsedMs : a.durationMs))
+              .slice(0, 8)
           });
         }
       }, 100);
