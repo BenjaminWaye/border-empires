@@ -17,9 +17,10 @@ export const createSimulationSnapshotStore = async (
   options: SnapshotStoreFactoryOptions = {}
 ): Promise<SimulationSnapshotStore> => {
   if (!options.sqlitePath) return new InMemorySimulationSnapshotStore();
-  const [{ SqliteSimulationSnapshotStore }, { openSqliteDatabase }] = await Promise.all([
+  const [{ SqliteSimulationSnapshotStore }, { openSqliteDatabase }, { WriterBackedSnapshotStore }] = await Promise.all([
     import("../sqlite-snapshot-store/sqlite-snapshot-store.js"),
-    import("../sqlite-db.js")
+    import("../sqlite-db.js"),
+    import("../sqlite-writer-channel/sqlite-writer-channel.js")
   ]);
   // onPruneFailure belongs on the reader when it owns writes (no writerChannel),
   // and on WriterBackedSnapshotStore when the worker owns writes. Either way,
