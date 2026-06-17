@@ -28,6 +28,7 @@ type SubmitFrontierCommandDeps = {
   commandStore: GatewayCommandStore;
   onCommandSubmitted?: (command: CommandEnvelope) => void;
   onCommandSubmitFailed?: (commandId: string) => void;
+  onError?: (phase: string, err: unknown) => void;
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   sendJson: (payload: unknown) => void;
 };
@@ -106,18 +107,30 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
       ? "season has ended; wait for the next world to begin"
       : "command could not be queued in simulation";
     deps.onCommandSubmitFailed?.(envelope.commandId);
-    await deps.commandStore.markRejected(
-      envelope.commandId,
-      now(),
-      rejectionCode,
-      rejectionMessage
-    );
-    deps.sendJson({
-      type: "ERROR",
-      commandId: envelope.commandId,
-      code: rejectionCode,
-      message: rejectionMessage
-    });
+    // markRejected is best-effort — a persistence failure must not suppress the
+    // client error response or propagate as GATEWAY_INTERNAL_ERROR.
+    try {
+      await deps.commandStore.markRejected(
+        envelope.commandId,
+        now(),
+        rejectionCode,
+        rejectionMessage
+      );
+    } catch (markErr) {
+      deps.onError?.("mark_rejected", markErr);
+    }
+    // sendJson is best-effort here — socket may have closed between submitCommand
+    // failing and this point; a throw must not propagate as GATEWAY_INTERNAL_ERROR.
+    try {
+      deps.sendJson({
+        type: "ERROR",
+        commandId: envelope.commandId,
+        code: rejectionCode,
+        message: rejectionMessage
+      });
+    } catch (sendErr) {
+      deps.onError?.("send_rejection", sendErr);
+    }
   }
 };
 
