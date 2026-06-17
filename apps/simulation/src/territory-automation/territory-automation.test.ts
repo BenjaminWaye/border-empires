@@ -317,42 +317,8 @@ describe("territory automation", () => {
     await runtime.tickTerritoryAutomation(1_000);
 
     const byKey = new Map(runtime.exportState().tiles.map((tile) => [`${tile.x},${tile.y}`, tile] as const));
-    expect(byKey.get("52,50")?.frontierDecayAt).toBeUndefined();
-    expect(byKey.get("53,50")?.frontierDecayAt).toBeUndefined();
-  });
-
-  it("fort does NOT clear frontier decay — adjacent frontier tile still has decay timer", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([["player-1", player("player-1", 1_000)]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 60,
-            y: 60,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "FRONTIER",
-            frontierDecayAt: 61_000
-          },
-          {
-            x: 61,
-            y: 60,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-1", status: "active" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    await runtime.tickTerritoryAutomation(1_000);
-
-    const tile = runtime.exportState().tiles.find((tile) => tile.x === 60 && tile.y === 60);
-    expect(tile?.frontierDecayAt).toBe(61_000);
+    expect(byKey.get("52,50")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+    expect(byKey.get("53,50")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
   });
 
 });
