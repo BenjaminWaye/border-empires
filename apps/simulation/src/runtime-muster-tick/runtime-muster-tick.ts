@@ -123,6 +123,7 @@ export const tickMuster = (input: MusterTickInput): void => {
         eventType: "TILE_DELTA_BATCH",
         commandId: batchCommandId,
         playerId,
+        playerManpower: player.manpower,
         tileDeltas: batchDeltas
       });
     }
