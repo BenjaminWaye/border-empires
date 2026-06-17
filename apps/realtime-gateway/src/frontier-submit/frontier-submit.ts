@@ -116,6 +116,7 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
         rejectionCode,
         rejectionMessage
       );
+<<<<<<< HEAD
     } catch (markErr) {
       deps.onError?.("mark_rejected", markErr);
     }
