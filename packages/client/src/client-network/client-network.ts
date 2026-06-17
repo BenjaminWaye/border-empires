@@ -1494,6 +1494,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
       state.strategicResources = (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
+      if (msg.storageCap && typeof msg.storageCap === "object") {
+        state.storageCap = msg.storageCap as typeof state.storageCap;
+      }
       state.strategicProductionPerMinute =
         (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
       state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
