@@ -8,6 +8,8 @@
 //   { id, op: "markAccepted",         commandId, createdAt }
 //   { id, op: "markRejected",         commandId, createdAt, code, message }
 //   { id, op: "markResolved",         commandId, createdAt }
+//   { id, op: "saveSnapshot",         lastAppliedEventId, json, createdAt }
+//   { id, op: "pruneAndCheckpoint" }  (prune world_events below oldest retained snapshot + WAL checkpoint)
 //   { id, op: "flush" }                (no-op write, used for whenIdle() sync)
 //
 // Message protocol (this worker → sim thread):
@@ -23,6 +25,8 @@ type WriteMessage =
   | { id: number; op: "markAccepted"; commandId: string; createdAt: number }
   | { id: number; op: "markRejected"; commandId: string; createdAt: number; code: string; message: string }
   | { id: number; op: "markResolved"; commandId: string; createdAt: number }
+  | { id: number; op: "saveSnapshot"; lastAppliedEventId: number; json: string; createdAt: number }
+  | { id: number; op: "pruneAndCheckpoint" }
   | { id: number; op: "flush" };
 
 if (!parentPort) throw new Error("sqlite-writer-worker must run inside worker_threads");
@@ -59,6 +63,15 @@ const stmtMarkRejected = db.prepare(
 const stmtMarkResolved = db.prepare(
   `UPDATE command_results SET status = 'RESOLVED', resolved_at = ? WHERE command_id = ?`
 );
+// Snapshot statements are prepared lazily on first use. The worker starts
+// synchronously when SqliteWriterChannel is constructed, but applySchema()
+// (which runs CREATE TABLE IF NOT EXISTS world_snapshots) executes on the
+// reader connection afterwards inside createSimulationSnapshotStore. Preparing
+// these at module load on a fresh DB would throw "no such table: world_snapshots".
+const PRUNE_CHUNK = 5000;
+let stmtInsertSnapshot: ReturnType<typeof db.prepare> | undefined;
+let stmtDeleteOldSnapshots: ReturnType<typeof db.prepare> | undefined;
+let stmtPruneEvents: ReturnType<typeof db.prepare> | undefined;
 
 parentPort.on("message", (msg: WriteMessage) => {
   try {
@@ -85,6 +98,39 @@ parentPort.on("message", (msg: WriteMessage) => {
         break;
       case "markResolved":
         stmtMarkResolved.run(msg.createdAt, msg.commandId);
+        break;
+      case "saveSnapshot":
+        stmtInsertSnapshot ??= db.prepare(
+          `INSERT INTO world_snapshots (last_applied_event_id, snapshot_payload, created_at) VALUES (?, ?, ?)`
+        );
+        stmtDeleteOldSnapshots ??= db.prepare(
+          `DELETE FROM world_snapshots WHERE snapshot_id NOT IN (
+            SELECT snapshot_id FROM world_snapshots ORDER BY snapshot_id DESC LIMIT 3
+          )`
+        );
+        db.exec("BEGIN");
+        try {
+          stmtInsertSnapshot.run(msg.lastAppliedEventId, msg.json, msg.createdAt);
+          stmtDeleteOldSnapshots.run();
+          db.exec("COMMIT");
+        } catch (txError) {
+          db.exec("ROLLBACK");
+          throw txError;
+        }
+        break;
+      case "pruneAndCheckpoint":
+        stmtPruneEvents ??= db.prepare(
+          `DELETE FROM world_events WHERE event_id IN (
+            SELECT event_id FROM world_events
+            WHERE event_id <= (SELECT MIN(last_applied_event_id) FROM world_snapshots)
+            LIMIT ?
+          )`
+        );
+        while (true) {
+          const result = stmtPruneEvents.run(PRUNE_CHUNK);
+          if (!result.changes) break;
+        }
+        db.exec("PRAGMA wal_checkpoint(PASSIVE)");
         break;
       case "flush":
         break;

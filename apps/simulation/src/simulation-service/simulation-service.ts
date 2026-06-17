@@ -790,6 +790,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     options.snapshotStore ??
     (await createSimulationSnapshotStore({
       ...storeFactoryOptions,
+      ...(writerChannel ? { writerChannel } : {}),
       // A post-INSERT prune failure (e.g. corrupt world_events index) is made
       // non-fatal in the store so it can't wedge the checkpoint loop; surface
       // it here as a counter + log so a degraded DB is still alarmable.
