@@ -1,5 +1,6 @@
 import { EMPIRE_STORAGE_FLOOR, type EmpireStorageCap } from "@border-empires/shared";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import type { StrategicResourceKey } from "./runtime-types.js";
 
 export type { EmpireStorageCap };
 export { EMPIRE_STORAGE_FLOOR };
@@ -10,9 +11,10 @@ const STORAGE_MINUTES = STORAGE_HOURS * 60;
 
 export const computeEmpireStorageCap = (
   summary: PlayerRuntimeSummary,
-  goldIncomePerMinute: number
+  goldIncomePerMinute: number,
+  strategicProductionPerMinute: Record<StrategicResourceKey, number>
 ): EmpireStorageCap => {
-  const sp = summary.strategicProductionPerMinute;
+  const sp = strategicProductionPerMinute;
   const syn = summary.synthesizerCapBonus;
 
   // Food cap excludes fish tiles (fish food is perishable — fills cap but doesn't extend it)
