@@ -19,10 +19,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.16.4",
+  version: "2026.06.16.5",
   title: "What's New",
-  summary: "Collect button is back — click it to pull in your accrued income whenever you like.",
+  summary: "Your manpower bar now updates in real time as your muster flag fills.",
   entries: [
+    {
+      introducedIn: "2026.06.16.5",
+      title: "Live manpower drain while mustering",
+      why: "The global manpower bar stayed frozen while a muster flag was filling, making it look like staging cost nothing until the next 30-second server snapshot arrived.",
+      changes: [
+        "Each 1-second muster tick now pushes your updated manpower total alongside the tile delta, so the HUD reflects the drain immediately."
+      ]
+    },
     {
       introducedIn: "2026.06.16.4",
       title: "Collect button restored",
