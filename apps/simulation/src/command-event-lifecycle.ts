@@ -32,7 +32,8 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   "recovered-build:",
   "recovered-settle:",
   "startup-gross-income-settlement:",
-  "tile-owner-change:"
+  "tile-owner-change:",
+  "income-tick:"
 ] as const;
 
 /**
