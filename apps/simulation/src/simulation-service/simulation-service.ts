@@ -2398,14 +2398,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           // any prior PLAYER_UPDATE that fired before this subscriber attached
           // (e.g. a startup `repairZeroGrossIncomeSettlements` respawn) is
           // unconditionally superseded by a fresh value on the event stream.
-          // Reuses snapshotPayload.player verbatim — zero extra computation.
+          // Include storageCap so the economy panel shows real caps immediately
+          // rather than the floor defaults from client-state initialisation.
+          const hydrateStorageCap = runtime.storageCapForPlayer(call.request.player_id);
           const hydrateEvent = snapshotPayload.player
             ? toProtoEvent({
                 eventType: "PLAYER_MESSAGE",
                 commandId: `subscribe-hydrate:${call.request.player_id}:${Date.now()}`,
                 playerId: call.request.player_id,
                 messageType: "PLAYER_UPDATE",
-                payloadJson: JSON.stringify({ type: "PLAYER_UPDATE", ...snapshotPayload.player })
+                payloadJson: JSON.stringify({
+                  type: "PLAYER_UPDATE",
+                  ...snapshotPayload.player,
+                  ...(hydrateStorageCap ? { storageCap: hydrateStorageCap } : {})
+                })
               })
             : undefined;
           // Emit a WELCOME_BACK message showing how much the player earned

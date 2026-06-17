@@ -2581,6 +2581,14 @@ export class SimulationRuntime {
       .filter((tile): tile is { x: number; y: number } => Boolean(tile));
   }
 
+  storageCapForPlayer(playerId: string): EmpireStorageCap | undefined {
+    const player = this.players.get(playerId);
+    if (!player) return undefined;
+    const summary = this.summaryForPlayer(playerId);
+    const economy = this.cachedEconomySnapshot(player);
+    return computeEmpireStorageCap(summary, economy.incomePerMinute);
+  }
+
   private emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId = command.playerId): void {
     const player = this.players.get(playerId);
     if (!player) return;
