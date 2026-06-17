@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { EMPIRE_STORAGE_FLOOR } from "@border-empires/shared";
 import { emptyEconomyBreakdown } from "../client-economy-model.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 
@@ -18,6 +19,7 @@ describe("renderEconomyPanelHtml", () => {
       me: "me",
       incomePerMinute: 32.6,
       strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
       strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
       upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 1.4 },
       upkeepLastTick: { foodCoverage: 1, gold: { contributors: economyBreakdown.GOLD.sinks } },
@@ -50,6 +52,7 @@ describe("renderEconomyPanelHtml", () => {
       me: "me",
       incomePerMinute: 0,
       strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 50, SHARD: 0, OIL: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
       strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0.9, SHARD: 0, OIL: 0 },
       upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 12 },
       upkeepLastTick: { foodCoverage: 1 },
@@ -81,6 +84,7 @@ describe("renderEconomyPanelHtml", () => {
       me: "me",
       incomePerMinute: 0,
       strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
       strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
       upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
@@ -107,6 +111,7 @@ describe("renderEconomyPanelHtml", () => {
       me: "me",
       incomePerMinute: 10.8,
       strategicResources: { FOOD: 8, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 2, OIL: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
       strategicProductionPerMinute: { FOOD: 8, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
       upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
