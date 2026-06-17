@@ -1000,7 +1000,7 @@ export class SimulationRuntime {
     this.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
 
     if (anyCredited) {
-      this.emitPlayerStateUpdate({ commandId: "income-tick", playerId: player.id });
+      this.emitPlayerStateUpdate({ commandId: `income-tick:${player.id}:${nowMs}`, playerId: player.id });
     }
   }
 
