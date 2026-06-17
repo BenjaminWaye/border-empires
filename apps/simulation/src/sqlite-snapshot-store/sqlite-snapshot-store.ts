@@ -81,14 +81,7 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
     snapshotSections: SimulationSnapshotSections;
     createdAt: number;
   }): Promise<void> {
-    const baselineIndex = this.resolveBaselineIndexFromSections(snapshot.snapshotSections);
-    const payload = baselineIndex
-      ? compactSnapshotForStorage(snapshot.snapshotSections, baselineIndex)
-      : buildSimulationSnapshotPayload(snapshot.snapshotSections);
-    // Stringify off the main thread when a worker stringifier is wired in;
-    // for v1 compact snapshots the inline path is fast enough that we can
-    // accept a brief main-thread pause when no worker is configured.
-    const json = await this.stringify(payload);
+    const json = await this.preparePayload(snapshot.snapshotSections);
     this.db
       .prepare(
         `INSERT INTO world_snapshots (last_applied_event_id, snapshot_payload, created_at) VALUES (?, ?, ?)`
