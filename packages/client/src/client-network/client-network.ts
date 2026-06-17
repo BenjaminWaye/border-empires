@@ -2104,6 +2104,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           }
         }
       }
+      const batchPlayerManpower = (msg as { playerManpower?: unknown }).playerManpower;
+      if (typeof batchPlayerManpower === "number" && (msg as { playerId?: unknown }).playerId === state.me) {
+        state.manpower = batchPlayerManpower;
+      }
       renderHud();
       return;
     }
