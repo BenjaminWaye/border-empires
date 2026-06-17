@@ -96,7 +96,7 @@ export const createSeedPlayers = (profile: SimulationSeedProfile = "default"): M
 const createDefaultSeedWorld = (): SimulationSeedWorld => {
   const players = createSeedPlayers("default");
   const tiles = new Map<string, DomainTileState>([
-    [simulationTileKey(10, 10), { x: 10, y: 10, terrain: "LAND", resource: "FARM", ownerId: "player-1", ownershipState: "FRONTIER", town: createTown("FARMING", "SETTLEMENT", "Nauticus") }],
+    [simulationTileKey(10, 10), { x: 10, y: 10, terrain: "LAND", resource: "FARM", ownerId: "player-1", ownershipState: "SETTLED", town: createTown("FARMING", "SETTLEMENT", "Nauticus") }],
     [simulationTileKey(10, 11), { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }],
     [simulationTileKey(10, 12), { x: 10, y: 12, terrain: "LAND", resource: "IRON" }],
     [simulationTileKey(9, 10), { x: 9, y: 10, terrain: "SEA", resource: "FISH" }],
@@ -112,10 +112,10 @@ const createDefaultSeedWorld = (): SimulationSeedWorld => {
       humanPlayers: 1,
       aiPlayers: 1,
       totalTiles: tiles.size,
-      totalSettledTiles: 0,
-      totalTownTiles: 0,
+      totalSettledTiles: 1,
+      totalTownTiles: 1,
       perPlayer: [
-        { playerId: "player-1", isAi: false, settledTiles: 0, towns: 0 },
+        { playerId: "player-1", isAi: false, settledTiles: 1, towns: 1 },
         { playerId: "player-2", isAi: true, settledTiles: 0, towns: 0 }
       ]
     }
