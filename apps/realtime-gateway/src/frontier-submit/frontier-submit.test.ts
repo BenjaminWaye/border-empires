@@ -147,6 +147,99 @@ describe("submitFrontierCommand", () => {
     expect(session.nextClientSeq).toBe(2);
   });
 
+  it("calls onError and still sends rejection when markRejected throws", async () => {
+    const payloads: unknown[] = [];
+    const errors: Array<{ phase: string; err: unknown }> = [];
+    const session = { sessionId: "session-1", playerId: "player-1", nextClientSeq: 1 };
+
+    await submitFrontierCommand(
+      session,
+      { type: "ATTACK", fromX: 10, fromY: 10, toX: 10, toY: 11 },
+      {
+        createCommandId: () => "cmd-1",
+        now: () => 1234,
+        commandStore: {
+          async persistQueuedCommand(cmd) {
+            return {
+              commandId: cmd.commandId,
+              sessionId: cmd.sessionId,
+              playerId: cmd.playerId,
+              clientSeq: cmd.clientSeq,
+              type: cmd.type,
+              payloadJson: cmd.payloadJson,
+              queuedAt: 1234,
+              status: "QUEUED" as const
+            };
+          },
+          async markAccepted() {},
+          async markRejected() {
+            throw new Error("sqlite locked");
+          },
+          async markResolved() {},
+          async get() {
+            return undefined;
+          },
+          async findByPlayerSeq() {
+            return undefined;
+          },
+          async listUnresolvedForPlayer() {
+            return [];
+          },
+          async nextClientSeqForPlayer() {
+            return 1;
+          }
+        },
+        submitCommand: async () => {
+          throw new Error("simulation unavailable");
+        },
+        onError: (phase, err) => {
+          errors.push({ phase, err });
+        },
+        sendJson: (payload) => {
+          payloads.push(payload);
+        }
+      }
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.phase).toBe("mark_rejected");
+    expect(payloads).toContainEqual({
+      type: "ERROR",
+      commandId: "cmd-1",
+      code: "SIMULATION_UNAVAILABLE",
+      message: "command could not be queued in simulation"
+    });
+  });
+
+  it("calls onError when sendJson throws on the rejection response", async () => {
+    const errors: Array<{ phase: string; err: unknown }> = [];
+    const session = { sessionId: "session-1", playerId: "player-1", nextClientSeq: 1 };
+    let sendCount = 0;
+
+    await submitFrontierCommand(
+      session,
+      { type: "ATTACK", fromX: 10, fromY: 10, toX: 10, toY: 11 },
+      {
+        createCommandId: () => "cmd-1",
+        now: () => 1234,
+        commandStore: new InMemoryGatewayCommandStore(),
+        submitCommand: async () => {
+          throw new Error("simulation unavailable");
+        },
+        onError: (phase, err) => {
+          errors.push({ phase, err });
+        },
+        sendJson: () => {
+          sendCount++;
+          if (sendCount === 2) throw new Error("socket closed");
+        }
+      }
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.phase).toBe("send_rejection");
+  });
+
   it("reuses the existing queued command for a duplicate player sequence", async () => {
     const payloads: unknown[] = [];
     const commandStore = new InMemoryGatewayCommandStore();

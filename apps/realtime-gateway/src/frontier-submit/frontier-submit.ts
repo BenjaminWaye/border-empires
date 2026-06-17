@@ -28,6 +28,7 @@ type SubmitFrontierCommandDeps = {
   commandStore: GatewayCommandStore;
   onCommandSubmitted?: (command: CommandEnvelope) => void;
   onCommandSubmitFailed?: (commandId: string) => void;
+  onError?: (phase: string, err: unknown) => void;
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   sendJson: (payload: unknown) => void;
 };
@@ -115,15 +116,21 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
         rejectionCode,
         rejectionMessage
       );
-    } catch {
-      // ignored — client still receives the rejection below
+    } catch (markErr) {
+      deps.onError?.("mark_rejected", markErr);
     }
-    deps.sendJson({
-      type: "ERROR",
-      commandId: envelope.commandId,
-      code: rejectionCode,
-      message: rejectionMessage
-    });
+    // sendJson is best-effort here — socket may have closed between submitCommand
+    // failing and this point; a throw must not propagate as GATEWAY_INTERNAL_ERROR.
+    try {
+      deps.sendJson({
+        type: "ERROR",
+        commandId: envelope.commandId,
+        code: rejectionCode,
+        message: rejectionMessage
+      });
+    } catch (sendErr) {
+      deps.onError?.("send_rejection", sendErr);
+    }
   }
 };
 
