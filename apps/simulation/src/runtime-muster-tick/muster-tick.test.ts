@@ -5,7 +5,7 @@ vi.hoisted(() => {
 });
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { MUSTER_TILE_CAP } from "@border-empires/shared";
+import { MUSTER_BASE_RATE_PER_MIN, MUSTER_TILE_CAP } from "@border-empires/shared";
 
 const makePlayer = (id: string, manpower: number) => ({
   id,
@@ -44,23 +44,24 @@ describe("muster accumulation tick", () => {
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 10_000)]]),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        // Second tile is a TOWN (cap=300) so the player's manpower cap exceeds
+        // MUSTER_BASE_RATE_PER_MIN (180), making throughput the bottleneck.
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } }
+        ],
         activeLocks: []
       }
     });
     await setMuster(runtime, 10, 10, 1);
     expect(musterAmount(runtime, 10, 10)).toBe(0);
 
-    const player = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!;
-    const throughput = player.manpowerRegenPerMinute;
-    expect(throughput).toBeGreaterThan(0);
-
     // Advance 1 minute and tick.
     nowMs = 1_000 + 60_000;
     runtime.tickMuster(nowMs);
 
     const accumulated = musterAmount(runtime, 10, 10)!;
-    expect(accumulated).toBeCloseTo(throughput, 2);
+    expect(accumulated).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN, 2);
   });
 
   it("removes the accumulated manpower from the player pool", async () => {
@@ -110,9 +111,12 @@ describe("muster accumulation tick", () => {
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
       initialState: {
+        // TOWN tile (cap=300) ensures player cap exceeds total throughput (2 × 90 = 180)
+        // so each flag is throughput-limited, not pool-limited.
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } }
         ],
         activeLocks: []
       }
@@ -120,13 +124,12 @@ describe("muster accumulation tick", () => {
     await setMuster(runtime, 10, 10, 1);
     await setMuster(runtime, 12, 10, 2);
 
-    const throughput = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerRegenPerMinute;
     nowMs = 1_000 + 60_000;
     runtime.tickMuster(nowMs);
 
     const a = musterAmount(runtime, 10, 10)!;
     const b = musterAmount(runtime, 12, 10)!;
-    expect(a).toBeCloseTo(throughput / 2, 2);
-    expect(b).toBeCloseTo(throughput / 2, 2);
+    expect(a).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN / 2, 2);
+    expect(b).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN / 2, 2);
   });
 });

@@ -91,7 +91,7 @@ describe("simulation runtime", () => {
     expect(playerAfter?.points ?? 0).toBe(pointsBefore);
   });
 
-  it("COLLECT_VISIBLE command is rejected as an unknown command", async () => {
+  it("COLLECT_VISIBLE command emits COLLECT_RESULT", async () => {
     const nowMs = Date.now();
     const runtime = new SimulationRuntime({
       now: () => nowMs,
@@ -123,7 +123,7 @@ describe("simulation runtime", () => {
       payloadJson: "{}"
     });
     await Promise.resolve();
-    expect(seen.some((event) => event.eventType === "COMMAND_REJECTED")).toBe(true);
+    expect(seen.some((event) => event.eventType === "COLLECT_RESULT")).toBe(true);
   });
 
   it("syncs gateway alliance changes into runtime player state", async () => {
@@ -2512,7 +2512,6 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1", // encirclement: captured tile is cut off, sets frontierDecayAt
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
@@ -2521,7 +2520,6 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1", // encirclement: captured tile is cut off, sets frontierDecayAt
         "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
@@ -4712,10 +4710,10 @@ describe("simulation runtime", () => {
     expect(uncaptureTileDelta?.ownershipState).toBeUndefined();
   });
 
-  it("marks downstream frontier tiles as encircled when the bridging tile is uncaptured", async () => {
+  it("removes downstream frontier tiles when the bridging tile is uncaptured", async () => {
     // S (settled, 20,20) — F1 (frontier, 21,20) — F2 (frontier, 22,20)
     // F2's only path to settled territory runs through F1.
-    // Deleting F1 must trigger encirclement on F2.
+    // Uncapturing F1 immediately strips ownership from F2 (frontier decay removed in #627).
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialState: {
@@ -4741,13 +4739,15 @@ describe("simulation runtime", () => {
     await Promise.resolve();
 
     const f2 = runtime.exportState().tiles.find((t) => t.x === 22 && t.y === 20);
-    expect(f2?.frontierDecayKind).toBe("ENCIRCLEMENT");
-    expect(typeof f2?.frontierDecayAt).toBe("number");
+    expect(f2?.ownerId).toBeUndefined();
+    expect(f2?.ownershipState).toBeUndefined();
   });
 
   it("rejects abandoning the last owned town so upkeep cannot continue with zero town income", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
+      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
+      seedTiles: new Map(),
       initialState: {
         tiles: [
           {
@@ -4955,7 +4955,6 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1", // encirclement: captured tile is cut off, sets frontierDecayAt
         "PLAYER_MESSAGE:cmd-1",
         "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1:respawn:player-2",
@@ -4964,7 +4963,6 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "TILE_DELTA_BATCH:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1", // encirclement: captured tile is cut off, sets frontierDecayAt
         "PLAYER_MESSAGE:cmd-1",
         "PLAYER_MESSAGE:cmd-1"
       ]);
@@ -5346,6 +5344,7 @@ describe("simulation runtime", () => {
       },
       initialState: {
         tiles: [
+          { x: 9, y: 10, ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 10, y: 11, ownerId: "player-2", ownershipState: "FRONTIER" },
           { x: 10, y: 12 }
@@ -5800,7 +5799,8 @@ describe("simulation runtime", () => {
             { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
             { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" }
+            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 12, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
         }
@@ -5906,7 +5906,8 @@ describe("simulation runtime", () => {
             { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
             { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" }
+            { x: 10, y: 11, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 12, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
         }
@@ -8386,6 +8387,7 @@ describe("simulation runtime — shard rain", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
               { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
               {
                 x: 10,
@@ -8458,6 +8460,7 @@ describe("simulation runtime — shard rain", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
               { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
               {
                 x: 10,
@@ -8536,6 +8539,7 @@ describe("simulation runtime — shard rain", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
               { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
               {
                 x: 10,
