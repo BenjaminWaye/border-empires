@@ -3313,6 +3313,7 @@ export class SimulationRuntime {
       commandId: command.commandId,
       playerId: command.playerId,
       mode: "visible",
+      tiles: 0,
       gold: goldCredited,
       strategic
     });
