@@ -100,6 +100,7 @@ export const createInitialState = () => ({
   expandedModKey: null as "attack" | "defense" | "income" | "vision" | null,
   incomePerMinute: 0,
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
+  storageCap: { GOLD: 500, FOOD: 40, IRON: 15, CRYSTAL: 15, SUPPLY: 20, OIL: 10, SHARD: 3 } as Record<"GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "OIL" | "SHARD", number>,
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
