@@ -1725,7 +1725,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
       aiCommandProducer = useAiWorker
         ? createWorkerAiCommandProducer({
-            runtime,
+            runtime: {
+              queueDepths: () => runtime.queueDepths(),
+              onEvent: (handler) => runtime.onEvent(handler),
+              exportPlannerWorldView: (playerIds) =>
+                mainThreadTasks.trackSync("ai_export_planner_world_view", { playerCount: playerIds.length }, () =>
+                  runtime.exportPlannerWorldView(playerIds)
+                ),
+              exportPlannerPlayerViews: (playerIds) =>
+                mainThreadTasks.trackSync("ai_export_planner_player_views", { playerCount: playerIds.length }, () =>
+                  runtime.exportPlannerPlayerViews(playerIds)
+                ),
+              exportTilesForKeys: (keys) => runtime.exportTilesForKeys(keys)
+            },
             aiPlayerIds,
             submitCommand: submitDurableCommand,
             shouldRun: aiShouldRun,
@@ -2675,7 +2687,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // detected just NOW (the sampler is `lagMs` ms late firing), so the
         // block started at `now - lagMs`. Includes runtime + memory context
         // so we can localise what was running.
-        if (lagMs >= 5_000) {
+        if (lagMs >= 500) {
           const memory = process.memoryUsage();
           emitLog("warn", "simulation event loop blocked", {
             phase: "event_loop_blocked",
