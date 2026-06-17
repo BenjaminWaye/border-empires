@@ -2983,6 +2983,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               pendingInputToStateByCommandId.delete(commandId);
               expandTracer?.stage("gateway_submit_failed", { commandId });
             },
+            onError: (phase: string, err: unknown) => {
+              recordGatewayEvent("warn", "gateway_submit_secondary_error", {
+                phase,
+                errorName: err instanceof Error ? err.name : undefined,
+                message: err instanceof Error ? err.message : String(err)
+              });
+              app.log.warn({ err, phase }, "gateway submit secondary error (best-effort path)");
+            },
             submitCommand: async (command: Parameters<typeof simulationClient.submitCommand>[0]) => {
               const rpcStartedAt = Date.now();
               expandTracer?.stage("gateway_rpc_start", { commandId: command.commandId });
@@ -3595,9 +3603,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           session.nextClientSeq = authedSession.nextClientSeq;
         } catch (error) {
           recordGatewayEvent("error", "gateway_websocket_message_failed", {
+            messageType: message.type,
+            errorName: error instanceof Error ? error.name : undefined,
             message: error instanceof Error ? error.message : String(error)
           });
-          app.log.error({ err: error }, "gateway websocket message handling failed");
+          app.log.error({ err: error, messageType: message.type }, "gateway websocket message handling failed");
           sendJson(socket, { type: "ERROR", code: "GATEWAY_INTERNAL_ERROR", message: "gateway failed to handle message" });
         }
       });
