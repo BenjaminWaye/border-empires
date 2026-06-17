@@ -8,6 +8,8 @@
 //   { id, op: "markAccepted",         commandId, createdAt }
 //   { id, op: "markRejected",         commandId, createdAt, code, message }
 //   { id, op: "markResolved",         commandId, createdAt }
+//   { id, op: "saveSnapshot",         lastAppliedEventId, json, createdAt }
+//   { id, op: "pruneAndCheckpoint" }  (prune world_events below oldest retained snapshot + WAL checkpoint)
 //   { id, op: "flush" }                (no-op write, used for whenIdle() sync)
 //
 // Message protocol (this worker → sim thread):
@@ -23,6 +25,8 @@ type WriteMessage =
   | { id: number; op: "markAccepted"; commandId: string; createdAt: number }
   | { id: number; op: "markRejected"; commandId: string; createdAt: number; code: string; message: string }
   | { id: number; op: "markResolved"; commandId: string; createdAt: number }
+  | { id: number; op: "saveSnapshot"; lastAppliedEventId: number; json: string; createdAt: number }
+  | { id: number; op: "pruneAndCheckpoint" }
   | { id: number; op: "flush" };
 
 if (!parentPort) throw new Error("sqlite-writer-worker must run inside worker_threads");
@@ -59,6 +63,22 @@ const stmtMarkRejected = db.prepare(
 const stmtMarkResolved = db.prepare(
   `UPDATE command_results SET status = 'RESOLVED', resolved_at = ? WHERE command_id = ?`
 );
+const stmtInsertSnapshot = db.prepare(
+  `INSERT INTO world_snapshots (last_applied_event_id, snapshot_payload, created_at) VALUES (?, ?, ?)`
+);
+const stmtDeleteOldSnapshots = db.prepare(
+  `DELETE FROM world_snapshots WHERE snapshot_id NOT IN (
+    SELECT snapshot_id FROM world_snapshots ORDER BY snapshot_id DESC LIMIT 3
+  )`
+);
+const PRUNE_CHUNK = 5000;
+const stmtPruneEvents = db.prepare(
+  `DELETE FROM world_events WHERE event_id IN (
+    SELECT event_id FROM world_events
+    WHERE event_id <= (SELECT MIN(last_applied_event_id) FROM world_snapshots)
+    LIMIT ?
+  )`
+);
 
 parentPort.on("message", (msg: WriteMessage) => {
   try {
@@ -85,6 +105,24 @@ parentPort.on("message", (msg: WriteMessage) => {
         break;
       case "markResolved":
         stmtMarkResolved.run(msg.createdAt, msg.commandId);
+        break;
+      case "saveSnapshot":
+        db.exec("BEGIN");
+        try {
+          stmtInsertSnapshot.run(msg.lastAppliedEventId, msg.json, msg.createdAt);
+          stmtDeleteOldSnapshots.run();
+          db.exec("COMMIT");
+        } catch (txError) {
+          db.exec("ROLLBACK");
+          throw txError;
+        }
+        break;
+      case "pruneAndCheckpoint":
+        while (true) {
+          const result = stmtPruneEvents.run(PRUNE_CHUNK);
+          if (!result.changes) break;
+        }
+        db.exec("PRAGMA wal_checkpoint(PASSIVE)");
         break;
       case "flush":
         break;

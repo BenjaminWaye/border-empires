@@ -9,6 +9,8 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SimulationEventStore, StoredSimulationEvent } from "../event-store/event-store.js";
 import type { SimulationCommandStore, StoredSimulationCommand } from "../command-store/command-store.js";
+import type { SimulationSnapshotSections, SimulationSnapshotStore, StoredSimulationSnapshot } from "../snapshot-store/snapshot-store.js";
+import type { SqliteSimulationSnapshotStore } from "../sqlite-snapshot-store/sqlite-snapshot-store.js";
 import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
 
 type AckMessage = { id: number; ok: true } | { id: number; ok: false; error: string };
@@ -118,4 +120,39 @@ export class WriterBackedCommandStore implements SimulationCommandStore {
   findByPlayerSeq(playerId: string, clientSeq: number): Promise<StoredSimulationCommand | undefined> { return this.reader.findByPlayerSeq(playerId, clientSeq); }
   loadRecoverableCommands(): Promise<StoredSimulationCommand[]> { return this.reader.loadRecoverableCommands(); }
   loadAllCommands(): Promise<StoredSimulationCommand[]> { return this.reader.loadAllCommands(); }
+}
+
+// SimulationSnapshotStore whose writes go through the writer worker.
+// The snapshot INSERT and retention DELETE are committed atomically in the worker.
+// Prune + WAL checkpoint follow as a best-effort second message so a prune
+// failure can never roll back the snapshot that was already committed.
+// Reads delegate to the underlying SQLite store on the sim thread (WAL allows it).
+export class WriterBackedSnapshotStore implements SimulationSnapshotStore {
+  constructor(
+    private readonly channel: SqliteWriterChannel,
+    private readonly reader: SqliteSimulationSnapshotStore,
+    private readonly onPruneFailure?: (error: unknown) => void
+  ) {}
+
+  async saveSnapshot(snapshot: {
+    lastAppliedEventId: number;
+    snapshotSections: SimulationSnapshotSections;
+    createdAt: number;
+  }): Promise<void> {
+    const json = await this.reader.preparePayload(snapshot.snapshotSections);
+    await this.channel.post({ op: "saveSnapshot", lastAppliedEventId: snapshot.lastAppliedEventId, json, createdAt: snapshot.createdAt });
+    try {
+      await this.channel.post({ op: "pruneAndCheckpoint" });
+    } catch (err) {
+      this.onPruneFailure?.(err);
+    }
+  }
+
+  loadLatestSnapshot(): Promise<StoredSimulationSnapshot | undefined> {
+    return this.reader.loadLatestSnapshot();
+  }
+
+  getLastLoadedFormatVersion(): number | undefined {
+    return this.reader.getLastLoadedFormatVersion();
+  }
 }
