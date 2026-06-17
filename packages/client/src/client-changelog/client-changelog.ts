@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.16.3",
+  version: "2026.06.16.4",
   title: "What's New",
-  summary: "Switching tabs in the tile panel no longer resets to Actions on each muster tick.",
+  summary: "Collect button is back — click it to pull in your accrued income whenever you like.",
   entries: [
+    {
+      introducedIn: "2026.06.16.4",
+      title: "Collect button restored",
+      why: "The bulk Collect button was removed when passive income was introduced, but pressing it is satisfying and gives you control over when income lands in your wallet.",
+      changes: [
+        "The Collect button is back in the HUD. Click it to immediately flush your accrued income rather than waiting for the next 15-second passive tick.",
+        "Per-tile Collect Yield action removed from tile menus — use the HUD button instead.",
+        "Removed the stale 'Stored yield' line from tile details panel."
+      ]
+    },
     {
       introducedIn: "2026.06.16.3",
       title: "Tile panel tab stays put during muster ticks",
