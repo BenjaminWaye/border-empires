@@ -1,3 +1,4 @@
+import type { EmpireStorageCap } from "@border-empires/shared";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
 
@@ -10,7 +11,7 @@ type EconomyPanelArgs = {
   me: string;
   incomePerMinute: number;
   strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
-  storageCap: Record<"GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "OIL" | "SHARD", number>;
+  storageCap: EmpireStorageCap;
   strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
   upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
   upkeepLastTick: {

@@ -1,6 +1,6 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
-import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type ChosenTrickleResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type {
@@ -100,7 +100,7 @@ export const createInitialState = () => ({
   expandedModKey: null as "attack" | "defense" | "income" | "vision" | null,
   incomePerMinute: 0,
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
-  storageCap: { GOLD: 500, FOOD: 40, IRON: 15, CRYSTAL: 15, SUPPLY: 20, OIL: 10, SHARD: 3 } as Record<"GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "OIL" | "SHARD", number>,
+  storageCap: { ...EMPIRE_STORAGE_FLOOR },
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },

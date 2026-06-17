@@ -2076,6 +2076,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       sessionsBySocket.set(socket, session);
 
       socket.on("message", async (buffer) => {
+        let messageType: string | undefined;
         try {
           let parsedJson: unknown;
           try {
@@ -2091,6 +2092,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           const message = parsed.data;
+          messageType = message.type;
           if (message.type === "AUTH") {
             recordGatewayEvent("info", "gateway_auth", { channel });
             const loginCorrelationId = crypto.randomUUID();
@@ -2983,6 +2985,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               pendingInputToStateByCommandId.delete(commandId);
               expandTracer?.stage("gateway_submit_failed", { commandId });
             },
+            onError: (phase: string, err: unknown) => {
+              recordGatewayEvent("warn", "gateway_submit_secondary_error", {
+                phase,
+                errorName: err instanceof Error ? err.name : undefined,
+                message: err instanceof Error ? err.message : String(err)
+              });
+              app.log.warn({ err, phase }, "gateway submit secondary error (best-effort path)");
+            },
             submitCommand: async (command: Parameters<typeof simulationClient.submitCommand>[0]) => {
               const rpcStartedAt = Date.now();
               expandTracer?.stage("gateway_rpc_start", { commandId: command.commandId });
@@ -3595,9 +3605,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           session.nextClientSeq = authedSession.nextClientSeq;
         } catch (error) {
           recordGatewayEvent("error", "gateway_websocket_message_failed", {
+            messageType,
+            errorName: error instanceof Error ? error.name : undefined,
             message: error instanceof Error ? error.message : String(error)
           });
-          app.log.error({ err: error }, "gateway websocket message handling failed");
+          app.log.error({ err: error, messageType }, "gateway websocket message handling failed");
           sendJson(socket, { type: "ERROR", code: "GATEWAY_INTERNAL_ERROR", message: "gateway failed to handle message" });
         }
       });

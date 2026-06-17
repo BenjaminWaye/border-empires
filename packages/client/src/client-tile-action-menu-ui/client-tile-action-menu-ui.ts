@@ -214,19 +214,11 @@ export const openBulkTileActionMenu = (
   if (targetKeys.length === 0) return;
   let neutralCount = 0;
   let enemyCount = 0;
-  let ownedYieldCount = 0;
   for (const k of targetKeys) {
     const t = state.tiles.get(k);
     if (!t || t.terrain !== "LAND" || t.fogged) continue;
     if (!t.ownerId) neutralCount += 1;
     else if (t.ownerId !== state.me && !deps.isTileOwnedByAlly(t)) enemyCount += 1;
-    else if (t.ownerId === state.me) {
-      if (t.ownershipState !== "SETTLED") continue;
-      const y = (t as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
-      const hasYield =
-        Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
-      if (hasYield) ownedYieldCount += 1;
-    }
   }
   const actions: TileActionDef[] = [];
   if (neutralCount > 0) {
@@ -234,9 +226,6 @@ export const openBulkTileActionMenu = (
   }
   if (enemyCount > 0) {
     actions.push({ id: "launch_attack", label: `Launch Attack (${enemyCount})` });
-  }
-  if (ownedYieldCount > 0) {
-    actions.push({ id: "collect_yield", label: `Collect Yield (${ownedYieldCount})` });
   }
   state.tileActionMenu.mode = "bulk";
   state.tileActionMenu.bulkKeys = targetKeys;

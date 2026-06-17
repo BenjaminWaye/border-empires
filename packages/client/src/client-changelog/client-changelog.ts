@@ -44,6 +44,14 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
+      introducedIn: "2026.06.16.5",
+      title: "Live manpower drain while mustering",
+      why: "The global manpower bar stayed frozen while a muster flag was filling, making it look like staging cost nothing until the next 30-second server snapshot arrived.",
+      changes: [
+        "Each 1-second muster tick now pushes your updated manpower total alongside the tile delta, so the HUD reflects the drain immediately."
+      ]
+    },
+    {
       introducedIn: "2026.06.16.3",
       title: "Tile panel tab stays put during muster ticks",
       why: "Opening the Structures or Overview tab while a muster flag tile was selected caused the panel to jump back to Actions every second as the server pushed updated muster amounts.",

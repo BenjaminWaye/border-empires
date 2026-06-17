@@ -241,6 +241,7 @@ export type SimulationEvent =
       commandId: string;
       playerId: string;
       goldCost?: number;
+      playerManpower?: number;
       tileDeltas: Array<{
         x: number;
         y: number;

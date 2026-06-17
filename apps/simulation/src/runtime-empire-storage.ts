@@ -1,29 +1,12 @@
+import { EMPIRE_STORAGE_FLOOR, type EmpireStorageCap } from "@border-empires/shared";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
-export type EmpireStorageCap = {
-  GOLD: number;
-  FOOD: number;
-  IRON: number;
-  CRYSTAL: number;
-  SUPPLY: number;
-  OIL: number;
-  SHARD: number;
-};
+export type { EmpireStorageCap };
+export { EMPIRE_STORAGE_FLOOR };
 
 // 12 hours in minutes
 const STORAGE_HOURS = 12;
 const STORAGE_MINUTES = STORAGE_HOURS * 60;
-
-// Minimum floors so new players always have some storage
-export const EMPIRE_STORAGE_FLOOR: EmpireStorageCap = {
-  GOLD: 500,
-  FOOD: 40,
-  IRON: 15,
-  CRYSTAL: 15,
-  SUPPLY: 20,
-  OIL: 10,
-  SHARD: 3
-};
 
 export const computeEmpireStorageCap = (
   summary: PlayerRuntimeSummary,
