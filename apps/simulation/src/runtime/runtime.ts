@@ -499,6 +499,7 @@ export class SimulationRuntime {
   // they're shed last (which matches the intent: an empire that survived
   // restart shouldn't have its core tiles shed before its newer expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
+  private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   // Phase 3c: pre-serialized snapshot form of every tile, kept in sync with
   // this.tiles via replaceTileState and the two direct tiles.set paths.
   // Eliminates the O(202k-tile) yield loop from buildRuntimeSnapshotSectionsAsync;
@@ -3263,6 +3264,55 @@ export class SimulationRuntime {
     this.emitPlayerStateUpdate(command);
   }
 
+  private handleCollectVisibleCommand(command: CommandEnvelope): void {
+    const actor = this.players.get(command.playerId);
+    if (!actor) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "BAD_COMMAND",
+        message: "unknown player"
+      });
+      return;
+    }
+    const now = this.now();
+    const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+    const cooldownUntil = this.collectVisibleCooldownByPlayer.get(command.playerId) ?? 0;
+    if (cooldownUntil > now) {
+      this.emitEvent({
+        eventType: "COMMAND_REJECTED",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        code: "COLLECT_COOLDOWN",
+        message: "collect is on cooldown"
+      });
+      return;
+    }
+    // Mark player active so passive income tick doesn't skip them on next fire
+    this.updatePlayerLastActive(command.playerId, now);
+    const goldBefore = actor.points;
+    const strategicBefore = { ...(actor.strategicResources ?? {}) };
+    // Reuse the same O(1) passive income calculation — no tile scan needed
+    this.applyPassiveIncomeForPlayer(actor, now, 12 * 60 * 60 * 1000);
+    const goldCredited = Math.max(0, actor.points - goldBefore);
+    const strategic: Partial<Record<string, number>> = {};
+    for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL", "SHARD"] as const) {
+      const diff = ((actor.strategicResources ?? {})[key] ?? 0) - (strategicBefore[key] ?? 0);
+      if (diff > 0) strategic[key] = diff;
+    }
+    this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
+    this.emitEvent({
+      eventType: "COLLECT_RESULT",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      mode: "visible",
+      gold: goldCredited,
+      strategic
+    });
+    this.emitPlayerStateUpdate(command);
+  }
+
   private handleUncaptureTileCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseStructureTilePayload(command.payloadJson);
@@ -5049,6 +5099,7 @@ export class SimulationRuntime {
       handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
+      handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
       handleChooseTechCommand: (command) => this.handleChooseTechCommand(command),
       handleChooseDomainCommand: (command) => this.handleChooseDomainCommand(command),
