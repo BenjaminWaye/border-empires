@@ -3595,9 +3595,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           session.nextClientSeq = authedSession.nextClientSeq;
         } catch (error) {
           recordGatewayEvent("error", "gateway_websocket_message_failed", {
+            messageType: message.type,
+            errorName: error instanceof Error ? error.name : undefined,
             message: error instanceof Error ? error.message : String(error)
           });
-          app.log.error({ err: error }, "gateway websocket message handling failed");
+          app.log.error({ err: error, messageType: message.type }, "gateway websocket message handling failed");
           sendJson(socket, { type: "ERROR", code: "GATEWAY_INTERNAL_ERROR", message: "gateway failed to handle message" });
         }
       });

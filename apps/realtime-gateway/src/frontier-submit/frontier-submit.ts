@@ -106,12 +106,18 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
       ? "season has ended; wait for the next world to begin"
       : "command could not be queued in simulation";
     deps.onCommandSubmitFailed?.(envelope.commandId);
-    await deps.commandStore.markRejected(
-      envelope.commandId,
-      now(),
-      rejectionCode,
-      rejectionMessage
-    );
+    // markRejected is best-effort — a persistence failure must not suppress the
+    // client error response or propagate as GATEWAY_INTERNAL_ERROR.
+    try {
+      await deps.commandStore.markRejected(
+        envelope.commandId,
+        now(),
+        rejectionCode,
+        rejectionMessage
+      );
+    } catch {
+      // ignored — client still receives the rejection below
+    }
     deps.sendJson({
       type: "ERROR",
       commandId: envelope.commandId,
