@@ -3291,6 +3291,12 @@ export class SimulationRuntime {
     }
     // Mark player active so passive income tick doesn't skip them on next fire
     this.updatePlayerLastActive(command.playerId, now);
+    // Seed the income anchor if this is before the first passive tick has fired,
+    // otherwise applyPassiveIncomeForPlayer returns nothing and the button silently
+    // credits zero.
+    if (!this.lastIncomeTickAtMsByPlayer.has(actor.id)) {
+      this.lastIncomeTickAtMsByPlayer.set(actor.id, now - COLLECT_VISIBLE_COOLDOWN_MS);
+    }
     const goldBefore = actor.points;
     const strategicBefore = { ...(actor.strategicResources ?? {}) };
     // Reuse the same O(1) passive income calculation — no tile scan needed
