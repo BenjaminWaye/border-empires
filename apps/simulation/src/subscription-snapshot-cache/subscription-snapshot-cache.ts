@@ -144,6 +144,9 @@ export const applyPlayerMessageToSnapshot = (
         ...(Array.isArray(payload.autoSettlementQueue)
           ? { autoSettlementQueue: payload.autoSettlementQueue as NonNullable<PlayerStateSnapshot["autoSettlementQueue"]> }
           : {}),
+        ...(payload.storageCap && typeof payload.storageCap === "object"
+          ? { storageCap: payload.storageCap as Record<string, number> }
+          : {}),
         ...playerProgressionFieldsFromPayload(payload)
       }
     };

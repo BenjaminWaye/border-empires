@@ -327,7 +327,7 @@ import {
   removeFrontierTileFromOwnerIndex as removeFrontierTileFromOwnerIndexImpl
 } from "../runtime-tile-index-maintenance.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
-import { computeEmpireStorageCap } from "../runtime-empire-storage.js";
+import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
 import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
@@ -500,6 +500,7 @@ export class SimulationRuntime {
   // restart shouldn't have its core tiles shed before its newer expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
+  private readonly lastEmittedStorageCapByPlayer = new Map<string, EmpireStorageCap>();
   // Phase 3c: pre-serialized snapshot form of every tile, kept in sync with
   // this.tiles via replaceTileState and the two direct tiles.set paths.
   // Eliminates the O(202k-tile) yield loop from buildRuntimeSnapshotSectionsAsync;
@@ -2581,6 +2582,14 @@ export class SimulationRuntime {
       .filter((tile): tile is { x: number; y: number } => Boolean(tile));
   }
 
+  storageCapForPlayer(playerId: string): EmpireStorageCap | undefined {
+    const player = this.players.get(playerId);
+    if (!player) return undefined;
+    const summary = this.summaryForPlayer(playerId);
+    const economy = this.cachedEconomySnapshot(player);
+    return computeEmpireStorageCap(summary, economy.incomePerMinute);
+  }
+
   private emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId = command.playerId): void {
     const player = this.players.get(playerId);
     if (!player) return;
@@ -2591,6 +2600,18 @@ export class SimulationRuntime {
     const economy = this.cachedEconomySnapshot(player);
     const metrics = this.cachedDefensibilityMetrics(playerId, summary);
     player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
+    const storageCap = computeEmpireStorageCap(summary, economy.incomePerMinute);
+    const lastCap = this.lastEmittedStorageCapByPlayer.get(playerId);
+    const capChanged =
+      !lastCap ||
+      lastCap.GOLD !== storageCap.GOLD ||
+      lastCap.FOOD !== storageCap.FOOD ||
+      lastCap.IRON !== storageCap.IRON ||
+      lastCap.CRYSTAL !== storageCap.CRYSTAL ||
+      lastCap.SUPPLY !== storageCap.SUPPLY ||
+      lastCap.OIL !== storageCap.OIL ||
+      lastCap.SHARD !== storageCap.SHARD;
+    if (capChanged) this.lastEmittedStorageCapByPlayer.set(playerId, storageCap);
     this.emitPlayerMessage(
       { commandId: command.commandId, playerId },
       {
@@ -2623,7 +2644,8 @@ export class SimulationRuntime {
         pendingSettlements: this.pendingSettlementsForPlayer(playerId),
         autoSettlementQueue: this.autoSettlementQueueForPlayer(playerId),
         developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
-        activeDevelopmentProcessCount: this.activeDevelopmentProcessCountForPlayer(playerId)
+        activeDevelopmentProcessCount: this.activeDevelopmentProcessCountForPlayer(playerId),
+        ...(capChanged ? { storageCap } : {})
       }
     );
   }

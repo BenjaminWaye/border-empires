@@ -1,3 +1,4 @@
+import type { EmpireStorageCap } from "@border-empires/shared";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
 
@@ -10,6 +11,7 @@ type EconomyPanelArgs = {
   me: string;
   incomePerMinute: number;
   strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
+  storageCap: EmpireStorageCap;
   strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
   upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
   upkeepLastTick: {
@@ -155,8 +157,11 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
   };
 };
 
+const formatCap = (cap: number): string => (cap >= 1000 ? `${(cap / 1000).toFixed(1)}k` : cap.toFixed(0));
+
 const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResource, selected: boolean): string => {
   const stock = resource === "GOLD" ? args.gold : args.strategicResources[resource];
+  const cap = args.storageCap[resource];
   const gross = resource === "GOLD" ? args.incomePerMinute : args.strategicProductionPerMinute[resource];
   const upkeep = resourceUpkeepPerMinute(resource, args.upkeepPerMinute);
   const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
@@ -164,7 +169,7 @@ const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResourc
   const label = args.prettyToken(resource);
   return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
     <div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>
-    <div class="economy-summary-stock">${stock.toFixed(1)}</div>
+    <div class="economy-summary-stock">${stock.toFixed(1)}<span class="economy-summary-cap"> / ${formatCap(cap)}</span></div>
     <div class="economy-summary-rates">
       <span>Gross ${gross.toFixed(2)}/m</span>
       <span>Upkeep ${upkeep.toFixed(2)}/m</span>
@@ -200,11 +205,12 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
           const detail = economyDetailForResource(args, resource);
           const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
           const stock = resource === "GOLD" ? args.gold : args.strategicResources[resource];
+          const cap = args.storageCap[resource];
           return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
                 <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
-                <strong>${stock.toFixed(1)} in reserve</strong>
+                <strong>${stock.toFixed(1)} / ${formatCap(cap)} in reserve</strong>
               </div>
               <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
             </div>

@@ -19,26 +19,36 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.16.5",
+  version: "2026.06.17.1",
   title: "What's New",
-  summary: "Your manpower bar now updates in real time as your muster flag fills.",
+  summary: "Storage caps now visible in the economy panel, and the Collect All button is back.",
   entries: [
+    {
+      introducedIn: "2026.06.17.1",
+      title: "Storage cap in economy panel",
+      why: "There was no way for players to see how much of each resource they could hold without inspecting tile descriptions.",
+      changes: [
+        "Each resource card in the economy panel now shows your current stock alongside the storage cap (e.g. 4,312 / 7.2k).",
+        "The cap is sent only when it changes, so there is no extra server load on each tick.",
+        "Caps scale with production: 12 hours of income is the formula, with a minimum floor for new empires."
+      ]
+    },
+    {
+      introducedIn: "2026.06.17.1",
+      title: "Collect All button restored",
+      why: "The HUD Collect All button was present but silently rejected — the server handler had been removed when passive income was introduced.",
+      changes: [
+        "Collect All now flushes up to 12 hours of accumulated passive income immediately.",
+        "A 20-second cooldown prevents rapid double-collecting.",
+        "The per-tile Collect Yield button and the Stored Yield line in the tile panel have been removed (passive income bypasses the old per-tile yield system)."
+      ]
+    },
     {
       introducedIn: "2026.06.16.5",
       title: "Live manpower drain while mustering",
       why: "The global manpower bar stayed frozen while a muster flag was filling, making it look like staging cost nothing until the next 30-second server snapshot arrived.",
       changes: [
         "Each 1-second muster tick now pushes your updated manpower total alongside the tile delta, so the HUD reflects the drain immediately."
-      ]
-    },
-    {
-      introducedIn: "2026.06.16.4",
-      title: "Collect button restored",
-      why: "The bulk Collect button was removed when passive income was introduced, but pressing it is satisfying and gives you control over when income lands in your wallet.",
-      changes: [
-        "The Collect button is back in the HUD. Click it to immediately flush your accrued income rather than waiting for the next 15-second passive tick.",
-        "Per-tile Collect Yield action removed from tile menus — use the HUD button instead.",
-        "Removed the stale 'Stored yield' line from tile details panel."
       ]
     },
     {
