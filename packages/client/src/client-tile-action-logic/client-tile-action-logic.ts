@@ -976,7 +976,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const townBuildSource =
       tile.town && tile.town.populationTier !== "SETTLEMENT" && tile.ownershipState === "SETTLED" ? tile : supportedTown;
     const supportPlacementBlocked = Boolean(hasBlockingStructure && townBuildSource && townBuildSource !== tile);
-    if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
     if (tile.observatory?.ownerId === state.me && tile.observatory.status === "active") {
       const cooldown = deps.abilityCooldownRemainingMs("survey_sweep");
       out.push({

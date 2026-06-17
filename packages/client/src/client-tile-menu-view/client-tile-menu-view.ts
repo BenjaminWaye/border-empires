@@ -10,7 +10,7 @@ import {
   nextFortTierForUpgrade,
   structureBuildDurationMs
 } from "@border-empires/shared";
-import { economicStructureBuildMs, economicStructureName, resourceLabel, storedYieldSummary, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
+import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
@@ -565,10 +565,6 @@ export const menuOverviewForTile = (
   }
   if (tile.siegeOutpost?.status === "removing") {
     pushLine("Siege outpost removal is underway. Attack bonuses from this tile are currently disabled.");
-  }
-  if (isSettled) {
-    const storedYield = storedYieldSummary(tile, { alwaysShowOwnedTownGold: Boolean(tile.town && tile.ownerId === deps.state.me) });
-    if (storedYield) pushLine(`Stored yield: ${storedYield}`);
   }
   const construction = deps.constructionCountdownLineForTile(tile);
   if (construction) pushLine(construction);
