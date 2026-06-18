@@ -872,7 +872,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
 
-  it("always shows stored yield for owned unfed towns", () => {
+  it("does not show stored yield for owned unfed towns", () => {
     const lines = menuOverviewForTile(
       {
         x: 350,
@@ -914,7 +914,7 @@ describe("menuOverviewForTile", () => {
       }
     );
 
-    expect(lines.some((line) => line.html === "Stored yield: ◉ 0.0 / 0")).toBe(true);
+    expect(lines.some((line) => line.html.startsWith("Stored yield:"))).toBe(false);
   });
 
   it("does not force stored yield visible for non-owned towns with no gold or cap", () => {

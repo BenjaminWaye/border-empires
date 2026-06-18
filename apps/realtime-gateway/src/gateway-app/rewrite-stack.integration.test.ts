@@ -545,10 +545,8 @@ describe("rewrite stack integration", () => {
 
   it("delivers TILE_DELTA_BATCH to control-only players even when other players have bulk sockets", async () => {
     const scheduledResolutions: Array<{ delayMs: number; task: () => void }> = [];
-    const simulation = await createSimulationService({
-      host: "127.0.0.1",
-      port: 0,
-      log: silentLog,
+    const snapshotStore = await createStartupSnapshotStore({ tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }, { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }], activeLocks: [], players: [{ id: "player-1", points: 5_000, manpower: 10_000 }, { id: "player-2", points: 5_000, manpower: 10_000 }] });
+    const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog, snapshotStore, requireDurableStartupState: true,
       runtimeOptions: {
         now: () => 1_000,
         scheduleAfter: (delayMs, task) => {
@@ -585,7 +583,7 @@ describe("rewrite stack integration", () => {
       JSON.stringify({
         type: "SETTLE",
         x: 10,
-        y: 10,
+        y: 11,
         commandId: "cmd-control-delta",
         clientSeq: 1
       })
@@ -606,7 +604,7 @@ describe("rewrite stack integration", () => {
         tiles: expect.arrayContaining([
           expect.objectContaining({
             x: 10,
-            y: 10,
+            y: 11,
             ownerId: "player-1",
             ownershipState: "SETTLED"
           })
@@ -1309,10 +1307,8 @@ describe("rewrite stack integration", () => {
   it("supports settlement commands through the rewrite gateway", async () => {
     const scheduledSettles: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
-    const simulation = await createSimulationService({
-      host: "127.0.0.1",
-      port: 0,
-      log: silentLog,
+    const snapshotStore = await createStartupSnapshotStore({ tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }], activeLocks: [], players: [{ id: "player-1", points: 5_000, manpower: 10_000 }] });
+    const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog, snapshotStore, requireDurableStartupState: true,
       runtimeOptions: {
         now: () => 1_000,
         scheduleAfter: (delayMs, task) => {
@@ -1343,7 +1339,7 @@ describe("rewrite stack integration", () => {
       JSON.stringify({
         type: "SETTLE",
         x: 10,
-        y: 10,
+        y: 11,
         commandId: "settle-cmd-1",
         clientSeq: 1
       })
@@ -1370,7 +1366,7 @@ describe("rewrite stack integration", () => {
         tiles: expect.arrayContaining([
           expect.objectContaining({
             x: 10,
-            y: 10,
+            y: 11,
             ownerId: "player-1",
             ownershipState: "SETTLED"
           })
