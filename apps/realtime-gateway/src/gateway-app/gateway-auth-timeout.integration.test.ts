@@ -530,7 +530,7 @@ describe("gateway auth timeout", () => {
     const firstMessage = withTimeout(
       "live subscribe rollback error",
       new Promise<Record<string, unknown>>((resolve) => {
-        socket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), { once: true });
+        socket.addEventListener("message", (event) => { const message = JSON.parse(event.data) as Record<string, unknown>; if (message.type === "ERROR") resolve(message); });
       }),
       2_000
     );

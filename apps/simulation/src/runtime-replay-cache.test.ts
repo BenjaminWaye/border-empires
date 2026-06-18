@@ -28,6 +28,7 @@ describe("isReplayTrackedCommandId", () => {
       "population-growth-tick:": "population-growth-tick:player-1:123",
       "accrual:": "accrual:upkeep:player-1:123",
       "fort-attrition:": "fort-attrition:player-1:123",
+      "income-tick:": "income-tick:player-1:123",
       "muster-spend:": "muster-spend:player-1:123",
       "ops-seed-barbs:": "ops-seed-barbs:1",
       "recovered-build:": "recovered-build:player-1:123",

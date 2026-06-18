@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.17.1",
+  version: "2026.06.18.1",
   title: "What's New",
-  summary: "Storage caps now visible in the economy panel, and the Collect All button is back.",
+  summary: "Siege towers and upgraded forts can now be built on resource tiles.",
   entries: [
+    {
+      introducedIn: "2026.06.18.1",
+      title: "Military builds on resources",
+      why: "Upgraded siege and fort placements could be rejected on owned resource tiles even though their base structures were allowed there.",
+      changes: [
+        "Siege Towers and Dread Towers can now be placed on valid owned resource tiles.",
+        "Iron Bastions and Thunder Bastions now share the Fort family's resource-tile placement rules."
+      ]
+    },
     {
       introducedIn: "2026.06.17.1",
       title: "Storage cap in economy panel",
@@ -154,72 +163,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       why: "Survey Sweep wrapped around the world correctly, but the positive X and Y edges of the advertised range were excluded from the scan.",
       changes: [
         "Survey Sweep now checks the full centered square from -range through +range, including both positive boundary edges."
-      ]
-    },
-    {
-      introducedIn: "2026.06.11.7",
-      title: "AI planning covers more of large empires",
-      why: "Large AI empires could keep scanning the same frontier origin and miss activity near wrapped map edges or diagonally connected territory.",
-      changes: [
-        "AI spatial planning now uses wrapping 8-way territory fronts, rotates through multiple origins per category, and caps active-focus extensions at 10 minutes."
-      ]
-    },
-    {
-      introducedIn: "2026.06.11.6",
-      title: "AI build planning prices structures correctly",
-      why: "AI planning could evaluate fort and siege outpost affordability from only the current build-candidate slice, undercounting existing structures elsewhere in a large empire.",
-      changes: [
-        "AI structure planning now uses the simulation's cached per-player structure counts, matching the final server-side build-cost validation."
-      ]
-    },
-    {
-      introducedIn: "2026.06.11.5",
-      title: "Town plunder respects capture shock",
-      why: "Back-and-forth town captures could repeatedly drain player stocks even though the town had already been pillaged moments earlier.",
-      changes: [
-        "Capturing a town that is still marked Recently captured changes ownership as usual, but no longer pays another plunder reward."
-      ]
-    },
-    {
-      introducedIn: "2026.06.11.4",
-      title: "Building contribution details",
-      why: "Clearing Houses were visible on the map but their Market/Bank economy bonus was not applied in the rewrite snapshot, and clicked buildings did not explain what they were contributing.",
-      changes: [
-        "Clearing Houses now boost covered Market and Bank towns.",
-        "Clicking an active town support building now shows the town it contributes to and the active bonus."
-      ]
-    },
-    {
-      introducedIn: "2026.06.11.3",
-      title: "Clearer sign-in retry feedback",
-      why: "When the realtime server returned SERVER_STARTING during sign-in, the client said it was disconnected even though the socket was still open, and the retry timer was invisible.",
-      changes: [
-        "Server-starting sign-in errors now keep the connection state accurate while retrying the auth payload.",
-        "The loading overlay and auth progress logs now show the retry attempt and countdown instead of repeating vague server-starting copy."
-      ]
-    },
-    {
-      introducedIn: "2026.06.11.2",
-      title: "Muster button works",
-      why: "The simulation was building its gRPC tile-delta responses without the muster_json field, so the SET_MUSTER result arrived at the client as an empty clear signal every time — the muster state was set on the server but the client never saw it.",
-      changes: [
-        "Simulation now includes muster data in tile-delta gRPC responses so SET_MUSTER and CLEAR_MUSTER take effect in the client tile state."
-      ]
-    },
-    {
-      introducedIn: "2026.06.11.1",
-      title: "Muster state updates correctly",
-      why: "The muster field was normalized from the server's JSON payload but never applied to the local tile state during tile-delta processing, so clicking Stage Muster or Clear Muster appeared to do nothing.",
-      changes: [
-        "Muster flag (mode, amount) now correctly reflects on the tile after SET_MUSTER or CLEAR_MUSTER is processed by the server."
-      ]
-    },
-    {
-      introducedIn: "2026.06.10.1",
-      title: "Faster map exploration",
-      why: "Resource and dock tiles were each triggering a server round-trip as they scrolled into view, even though the client already had all the data it needed.",
-      changes: [
-        "Unowned resource and dock tiles are now marked as fully loaded locally — no round-trip to the server."
       ]
     },
   ]
