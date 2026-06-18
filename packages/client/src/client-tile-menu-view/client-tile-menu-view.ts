@@ -22,7 +22,7 @@ import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView
 const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
   ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "IRONWORKS", "ADVANCED_IRONWORKS", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"].includes(type);
 
-const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% fed gold production and +50% gold storage cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +1 gold/m.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, +0.5 Bank gold/m.` : undefined; };
+const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "BANK" ? `Bank contributes to ${townName}: +50% city income and +1 gold/m.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect, +20% Bank effect, +0.5 Bank gold/m.` : undefined; };
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "IRON_BASTION" ? "Iron Bastion" : "Fort";
@@ -65,11 +65,11 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
   if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
-  if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";
-  if (actionId === "build_camp") return "Improves supply output on this tile by 50%.";
-  if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} output on this tile by 50%.`;
+  if (actionId === "build_farmstead") return tile.resource === "FARM" ? "Improves food production on this tile by 50% and adds +18 food cap." : "Farmsteads do not boost fish output.";
+  if (actionId === "build_camp") return "Improves supply production on this tile by 50% and adds +15 supply cap.";
+  if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} production on this tile by 50% and adds +${tile.resource === "IRON" ? "15 iron" : "9 crystal"} cap.`;
   if (actionId === "build_market") {
-    return `Build on this support tile for ${supportedTownLabel}. Grants +50% fed gold output and +50% gold storage cap.`;
+    return `Build on this support tile for ${supportedTownLabel}. Grants +50% town gold production and +${Math.round((supportedTown?.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap.`;
   }
   if (actionId === "build_granary") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +15% population growth.`;
@@ -93,7 +93,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "overload_crystal_synthesizer") return "Spend 12500 gold for an instant crystal burst, then shut this synthesizer down for 24 hours.";
   if (actionId === "enable_converter_structure") return "Resume this converter. It immediately pays the next upkeep tick, then starts producing again.";
   if (actionId === "disable_converter_structure") return "Pause this converter. It stops paying upkeep and stops producing until you enable it again.";
-  if (actionId === "build_foundry") return "Industrial hub. Doubles active mine output within 10 tiles.";
+  if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises iron and crystal caps.";
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +1 gold / minute per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";

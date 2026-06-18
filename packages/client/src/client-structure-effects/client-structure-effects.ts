@@ -3,7 +3,7 @@ import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "../c
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import type { DomainInfo, Tile } from "../client-types.js";
 
-const FOUNDRY_RADIUS = 10;
+const FOUNDRY_RADIUS = 5;
 const GOVERNORS_OFFICE_RADIUS = 10;
 const GARRISON_HALL_RADIUS = 10;
 const AIRPORT_BOMBARD_RADIUS = 30;

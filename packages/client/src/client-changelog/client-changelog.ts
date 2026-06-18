@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.18.1",
+  version: "2026.06.18.2",
   title: "What's New",
-  summary: "Siege towers and upgraded forts can now be built on resource tiles.",
+  summary: "Foundries now boost mines in a tighter local radius, and production buildings explain their cap impact.",
   entries: [
+    {
+      introducedIn: "2026.06.18.2",
+      title: "Foundry radius tightened",
+      why: "A 10-tile Foundry radius covered too much territory and made mine planning less local than intended.",
+      changes: [
+        "Foundries now double active Mine production within 5 tiles instead of 10.",
+        "Foundry build text, structure details, and map previews now show the 5-tile radius.",
+        "Farmstead, Camp, Mine, Market, Waterworks, and Foundry copy now explains that production gains also raise storage caps, with exact cap gains in build previews where the input is unambiguous."
+      ]
+    },
     {
       introducedIn: "2026.06.18.1",
       title: "Military builds on resources",
