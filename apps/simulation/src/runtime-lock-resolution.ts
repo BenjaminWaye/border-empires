@@ -6,11 +6,8 @@ import {
 } from "@border-empires/shared";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { SYNTHETIC_SETTLEMENT_POPULATION } from "./runtime-hydration.js";
-import {
-  TOWN_CAPTURE_POPULATION_LOSS_MULT,
-  TOWN_CAPTURE_SHOCK_MS
-} from "./runtime-structure-rules/runtime-structure-rules.js";
+import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
+import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
 
@@ -44,10 +41,6 @@ export type RuntimeLockResolutionContext = {
   respawnPlayerOnUnownedLand: (playerId: string, commandId: string) => boolean;
   respawnIfEliminated: (playerId: string, commandId: string) => void;
   ensureGrossIncomeSettlementForPlayer: (playerId: string, commandId: string) => boolean;
-};
-
-export type RuntimeResourceStealContext = {
-  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -123,32 +116,17 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     applyResourceTileSteal(context, attacker, defender, previousTarget.resource, previousTarget.economicStructure?.type);
   }
 
-  let settlementCaptureRelocationPopulation: number | undefined;
+  let settlementRelocationPopulation: number | undefined;
   if (attackerWon) {
-    let capturedTown = previousTarget?.town;
-    const isSettlementCapture =
-      !!capturedTown &&
-      capturedTown.populationTier === "SETTLEMENT" &&
-      !!previousOwnerId &&
-      previousOwnerId !== lock.playerId;
-    if (capturedTown && previousOwnerId && previousOwnerId !== lock.playerId) {
-      const popBefore = typeof capturedTown.population === "number" ? capturedTown.population : SYNTHETIC_SETTLEMENT_POPULATION;
-      const popAfter = Math.max(1, popBefore * TOWN_CAPTURE_POPULATION_LOSS_MULT);
-      const captureShockUntil = context.now() + TOWN_CAPTURE_SHOCK_MS;
-      if (isSettlementCapture) {
-        settlementCaptureRelocationPopulation = popAfter;
-        capturedTown = undefined;
-      } else {
-        capturedTown = { ...capturedTown, population: popAfter, populationBeforeCapture: popBefore, captureShockUntil };
-      }
-    }
+    const townAftermath = capturedTownAftermath(previousTarget?.town, previousOwnerId, lock.playerId, context.now());
+    settlementRelocationPopulation = townAftermath.settlementRelocationPopulation;
     const resolvedTarget: DomainTileState = {
       x: lock.targetX,
       y: lock.targetY,
       terrain: previousTarget?.terrain ?? "LAND",
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
-      ...(capturedTown ? { town: capturedTown } : {}),
+      ...(townAftermath.town ? { town: townAftermath.town } : {}),
       ...capturedStructureFields(previousTarget, lock.playerId),
       ownerId: lock.playerId,
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
@@ -200,8 +178,8 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   if (originLost && defender) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
   if (originLost) context.respawnIfEliminated(lock.playerId, lock.commandId);
   if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) {
-    if (settlementCaptureRelocationPopulation !== undefined) {
-      const relocated = context.relocateSettlementForPlayer(previousOwnerId, lock.commandId, settlementCaptureRelocationPopulation);
+    if (settlementRelocationPopulation !== undefined) {
+      const relocated = context.relocateSettlementForPlayer(previousOwnerId, lock.commandId, settlementRelocationPopulation);
       if (!relocated && context.summaryForPlayer(previousOwnerId).territoryTileKeys.size > 0) {
         context.respawnPlayerOnUnownedLand(previousOwnerId, lock.commandId);
       }
@@ -271,55 +249,4 @@ function applyCombatEncirclement(
   } else if (lock.actionType === "EXPAND" && attackerWon) {
     context.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId);
   }
-}
-
-export function applyResourceTileSteal(
-  context: RuntimeResourceStealContext,
-  attacker: DomainPlayer,
-  defender: DomainPlayer,
-  tileResource: string | undefined,
-  structureType?: string
-): void {
-  const resourceMap: Record<string, "IRON" | "CRYSTAL" | "SUPPLY" | "FOOD" | "OIL"> = {
-    IRON: "IRON",
-    GEMS: "CRYSTAL",
-    FUR: "SUPPLY",
-    WOOD: "SUPPLY",
-    FARM: "FOOD",
-    FISH: "FOOD",
-    OIL: "OIL"
-  };
-  const synthMap: Record<string, "IRON" | "CRYSTAL" | "SUPPLY"> = {
-    IRONWORKS: "IRON",
-    ADVANCED_IRONWORKS: "IRON",
-    CRYSTAL_SYNTHESIZER: "CRYSTAL",
-    ADVANCED_CRYSTAL_SYNTHESIZER: "CRYSTAL",
-    FUR_SYNTHESIZER: "SUPPLY",
-    ADVANCED_FUR_SYNTHESIZER: "SUPPLY"
-  };
-  const resource = (tileResource ? resourceMap[tileResource] : undefined)
-    ?? (structureType ? synthMap[structureType] : undefined);
-  if (!resource) return;
-
-  const defenderBalance = defender.strategicResources?.[resource] ?? 0;
-  if (defenderBalance <= 0) return;
-
-  const defenderSummary = context.summaryForPlayer(defender.id);
-  const sp = defenderSummary.strategicProductionPerMinute;
-  const syn = defenderSummary.synthesizerCapBonus;
-  const perTileRateByResource: Record<string, number> = {
-    IRON: 60 / 1440,
-    CRYSTAL: 36 / 1440,
-    SUPPLY: 60 / 1440,
-    FOOD: 72 / 1440,
-    OIL: 48 / 1440
-  };
-  const perTileRate = perTileRateByResource[resource] ?? (60 / 1440);
-  const synthBonusUnits = (syn[resource as "IRON" | "CRYSTAL" | "SUPPLY"] ?? 0) / 30;
-  const tileEquivCount = Math.max(1, Math.round((sp[resource] ?? 0) / perTileRate + synthBonusUnits));
-  const stolen = defenderBalance / tileEquivCount;
-  if (stolen <= 0.01) return;
-
-  defender.strategicResources = { ...(defender.strategicResources ?? {}), [resource]: Math.max(0, defenderBalance - stolen) };
-  attacker.strategicResources = { ...(attacker.strategicResources ?? {}), [resource]: ((attacker.strategicResources?.[resource] ?? 0) + stolen) };
 }

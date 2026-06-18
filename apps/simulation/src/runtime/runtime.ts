@@ -346,12 +346,11 @@ import {
   type RuntimeEncirclementApplicationContext
 } from "../runtime-encirclement-application.js";
 import {
-  applyResourceTileSteal as applyResourceTileStealImpl,
   releaseMusterReservation as releaseMusterReservationImpl,
   resolveLock as resolveLockImpl,
-  type RuntimeLockResolutionContext,
-  type RuntimeResourceStealContext
+  type RuntimeLockResolutionContext
 } from "../runtime-lock-resolution.js";
+import { applyResourceTileSteal as applyResourceTileStealImpl, type RuntimeResourceStealContext } from "../runtime-resource-steal.js";
 import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
