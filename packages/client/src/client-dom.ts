@@ -190,7 +190,6 @@ const hudMarkup = `
     </div>
   </div>
 
-  <div id="hold-build-menu" style="display:none;"></div>
   <div id="tile-action-menu" style="display:none;"></div>
   <div id="targeting-overlay" style="display:none;"></div>
   <div id="changelog-overlay" style="display:none;"></div>
@@ -384,7 +383,6 @@ export const initClientDom = () => {
   const authProfileColorEl = requireElement<HTMLInputElement>("#auth-profile-color");
   const authProfileSaveBtn = requireElement<HTMLButtonElement>("#auth-profile-save");
   const authColorPresetButtons = document.querySelectorAll<HTMLButtonElement>("#auth-color-presets .auth-color-swatch");
-  const holdBuildMenuEl = requireElement<HTMLDivElement>("#hold-build-menu");
   const tileActionMenuEl = requireElement<HTMLDivElement>("#tile-action-menu");
   const targetingOverlayEl = requireElement<HTMLDivElement>("#targeting-overlay");
   const sidePanelEl = requireElement<HTMLElement>("#side-panel");
@@ -513,7 +511,6 @@ export const initClientDom = () => {
     ctx,
     feedEl,
     guideOverlayEl,
-    holdBuildMenuEl,
     hoverEl,
     hud,
     intelOverlayEl,

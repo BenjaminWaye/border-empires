@@ -285,7 +285,6 @@ describe("town support tile actions", () => {
       formatCooldownShort: () => "",
       pushFeed: () => undefined,
       hideTileActionMenu: () => undefined,
-      hideHoldBuildMenu: () => undefined,
       selectedTile: () => undefined,
       renderHud: () => undefined,
       requireAuthedSession: () => true,

@@ -107,7 +107,6 @@ type TileActionLogicDeps = {
   formatCooldownShort: (ms: number) => string;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
   hideTileActionMenu: () => void;
-  hideHoldBuildMenu: () => void;
   selectedTile: () => Tile | undefined;
   renderHud: () => void;
   requireAuthedSession: (message?: string) => boolean;
@@ -421,7 +420,6 @@ export const beginCrystalTargeting = (
     | "formatCooldownShort"
     | "pushFeed"
     | "hideTileActionMenu"
-    | "hideHoldBuildMenu"
     | "selectedTile"
     | "parseKey"
     | "wrapX"
@@ -509,7 +507,6 @@ export const beginCrystalTargeting = (
     state.aetherWallTargeting.active = true;
     state.aetherWallTargeting.validOrigins = validOrigins;
     deps.hideTileActionMenu();
-    deps.hideHoldBuildMenu();
     deps.renderHud();
     return;
   }
@@ -524,7 +521,6 @@ export const beginCrystalTargeting = (
   state.crystalTargeting.validTargets = validTargets;
   state.crystalTargeting.originByTarget = originByTarget;
   deps.hideTileActionMenu();
-  deps.hideHoldBuildMenu();
   const current = deps.selectedTile();
   if (!current || !validTargets.has(deps.keyFor(current.x, current.y))) {
     const first = [...validTargets][0];
@@ -952,7 +948,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             : tile.resource || tile.town || tile.dockId
               ? "Needs empty land"
               : "Need 4500 gold",
-        `4500 gold • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 10 tiles`,
+        `4500 gold • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap`,
         deps.developmentSlotSummary(),
         deps
       )
@@ -1602,7 +1598,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : tile.fort || tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
                 : "Need 4500 gold",
-            `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 10 tiles • 5 gold/min`,
+            `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap • 5 gold/min`,
             slots,
             deps
           )
@@ -1627,7 +1623,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : state.gold < 600
                   ? "Need 600 gold"
                   : "Need 20 FOOD",
-            `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +50% farmstead food within 10 tiles`,
+            `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +50% farmstead food within 10 tiles; boosted production raises food cap`,
             slots,
             deps
           )
@@ -1733,7 +1729,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("agriculture") && state.gold >= 700 && (state.strategicResources.FOOD ?? 0) >= 20,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("agriculture") ? "Requires Agriculture" : state.gold < 700 ? "Need 700 gold" : "Need 20 FOOD",
-            `700 gold + 20 FOOD • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food • 0.1 gold/min`,
+            tile.resource === "FARM" ? `700 gold + 20 FOOD • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food • +18 food cap • 0.1 gold/min` : `700 gold + 20 FOOD • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • no fish output bonus • 0.1 gold/min`,
             slots,
             deps
           )
@@ -1748,7 +1744,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("leatherworking") && state.gold >= 800 && (state.strategicResources.SUPPLY ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("leatherworking") ? "Requires Leatherworking" : state.gold < 800 ? "Need 800 gold" : "Need 30 SUPPLY",
-            `800 gold + 30 SUPPLY • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply • 0.12 gold/min`,
+            `800 gold + 30 SUPPLY • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply • +15 supply cap • 0.12 gold/min`,
             slots,
             deps
           )
@@ -1763,7 +1759,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("mining") && state.gold >= 800 && (state.strategicResources[matchingNeed] ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("mining") ? "Requires Mining" : state.gold < 800 ? "Need 800 gold" : `Need 30 ${matchingNeed}`,
-            `800 gold + 30 ${matchingNeed} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"} • 0.12 gold/min`,
+            `800 gold + 30 ${matchingNeed} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"} • +${matchingNeed === "IRON" ? "15 iron" : "9 crystal"} cap • 0.12 gold/min`,
             slots,
             deps
           )
@@ -1799,7 +1795,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : !state.techIds.includes("trade")
                   ? "Requires Trade"
                   : `Need ${deps.structureGoldCost("MARKET")} gold`,
-            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold • +50% storage cap • 0.05 food/min`,
+            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold production • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap • 0.05 food/min`,
             slots,
             deps
           )

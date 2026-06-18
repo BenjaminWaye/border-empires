@@ -59,12 +59,10 @@ import {
   collectSelectedShard as collectSelectedShardFromModule,
   collectSelectedYield as collectSelectedYieldFromModule,
   collectVisibleYield as collectVisibleYieldFromModule,
-  hideHoldBuildMenu as hideHoldBuildMenuFromModule,
   hideTileActionMenu as hideTileActionMenuFromModule,
   settleSelected as settleSelectedFromModule,
   uncaptureSelected as uncaptureSelectedFromModule
 } from "./client-selected-actions/client-selected-actions.js";
-import { showClientHoldBuildMenu } from "./client-ui-controls/client-ui-controls.js";
 import {
   aetherWallDirectionTargetTiles as aetherWallDirectionTargetTilesFromModule,
   beginCrystalTargeting as beginCrystalTargetingFromModule,
@@ -141,7 +139,6 @@ type ActionFlowDeps = Record<string, any> & {
   techPickEl: HTMLSelectElement;
   mobileTechPickEl: HTMLSelectElement;
   tileActionMenuEl: HTMLDivElement;
-  holdBuildMenuEl: HTMLDivElement;
 };
 
 type TileDetailRequestOptions = {
@@ -166,7 +163,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     techPickEl,
     mobileTechPickEl,
     tileActionMenuEl,
-    holdBuildMenuEl,
     keyFor,
     parseKey,
     wrapX,
@@ -188,7 +184,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     applyOptimisticStructureCancel,
     mergeServerTileWithOptimisticState,
     hideTileActionMenu: hideTileActionMenuFromDeps,
-    hideHoldBuildMenu: hideHoldBuildMenuFromDeps,
     playerNameForOwner,
     ownerSpawnShieldActive,
     hasCollectableYield,
@@ -670,14 +665,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const collectSelectedShard = (): void =>
     collectSelectedShardFromModule(state, { keyFor, renderHud, sendGameMessage });
 
-  const hideHoldBuildMenu = (): void => {
-    if (typeof hideHoldBuildMenuFromDeps === "function") {
-      hideHoldBuildMenuFromDeps();
-      return;
-    }
-    hideHoldBuildMenuFromModule(holdBuildMenuEl);
-  };
-
   const hideTileActionMenu = (): void => {
     sendGameMessage({ type: "UNWATCH_MUSTER" });
     if (typeof hideTileActionMenuFromDeps === "function") {
@@ -982,7 +969,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     formatCooldownShort,
     pushFeed,
     hideTileActionMenu,
-    hideHoldBuildMenu,
     selectedTile,
     renderHud,
     requireAuthedSession,
@@ -1695,44 +1681,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     hideTileActionMenu();
   };
 
-  const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: number): void =>
-    showClientHoldBuildMenu(
-      {
-        state,
-        holdBuildMenuEl,
-        keyFor,
-        hideHoldBuildMenu,
-        developmentSlotSummary,
-        structureGoldCost,
-        isOwnedBorderTile,
-        structureCostText,
-        viewportSize,
-        requestSettlement,
-        sendDevelopmentBuild,
-        applyOptimisticStructureBuild,
-        renderHud
-      },
-      x,
-      y,
-      clientX,
-      clientY
-    );
-
   const mapInteractionFlags = {
-    holdActivated: false,
     suppressNextClick: false
   };
 
   const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number): void => {
-    if (mapInteractionFlags.holdActivated) {
-      mapInteractionFlags.holdActivated = false;
-      return;
-    }
     if (mapInteractionFlags.suppressNextClick) {
       mapInteractionFlags.suppressNextClick = false;
       return;
     }
-    hideHoldBuildMenu();
     hideTileActionMenu();
 
     const clicked = state.tiles.get(keyFor(wx, wy));
@@ -1905,7 +1862,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     collectVisibleYield,
     collectSelectedYield,
     collectSelectedShard,
-    hideHoldBuildMenu,
     hideTileActionMenu,
     tileActionIsCrystal,
     tileActionIsBuilding,
@@ -1965,7 +1921,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     openSingleTileActionMenu,
     openBulkTileActionMenu,
     handleTileAction,
-    showHoldBuildMenu,
     mapInteractionFlags,
     handleTileSelection,
     worldTileRawFromPointer,

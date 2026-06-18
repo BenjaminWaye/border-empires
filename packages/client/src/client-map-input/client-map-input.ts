@@ -11,7 +11,6 @@ type ClientDom = ReturnType<typeof initClientDom>;
 type BindClientMapInputDeps = {
   canvas: ClientDom["canvas"];
   miniMapEl: ClientDom["miniMapEl"];
-  holdBuildMenuEl: ClientDom["holdBuildMenuEl"];
   tileActionMenuEl: ClientDom["tileActionMenuEl"];
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -22,7 +21,6 @@ type BindClientMapInputDeps = {
   maybeRefreshForCamera: (force?: boolean) => void;
   handleTileSelection: (wx: number, wy: number, clientX: number, clientY: number) => void;
   cancelOngoingCapture: () => void;
-  hideHoldBuildMenu: () => void;
   hideTileActionMenu: () => void;
   clearCrystalTargeting: () => void;
   renderMobilePanels: () => void;
@@ -33,7 +31,7 @@ type BindClientMapInputDeps = {
   isTileOwnedByAlly: (tile: Tile) => boolean;
   requestAttackPreviewForHover: () => void;
   requestAttackPreviewForTarget: (tile: Tile) => void;
-  interactionFlags: { holdActivated: boolean; suppressNextClick: boolean };
+  interactionFlags: { suppressNextClick: boolean };
 };
 
 export const shouldCommitMouseSelection = (args: {
@@ -127,20 +125,10 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   let boxSelectionMode = false;
   let mousePanStart: { x: number; y: number; camX: number; camY: number } | undefined;
   let mousePanMoved = false;
-  let holdOpenTimer: number | undefined;
   let touchHoldStart: { x: number; y: number } | undefined;
   let touchTapCandidate: { x: number; y: number } | undefined;
-  const HOLD_MOVE_CANCEL_PX = 10;
   const TOUCH_TAP_MAX_MOVE_PX = 12;
   const MOUSE_PAN_THRESHOLD_PX = 4;
-  const clearHoldOpenTimer = (): void => {
-    if (holdOpenTimer !== undefined) window.clearTimeout(holdOpenTimer);
-    holdOpenTimer = undefined;
-  };
-  const scheduleHoldBuildMenu = (_clientX: number, _clientY: number, _offsetX: number, _offsetY: number): void => {
-    clearHoldOpenTimer();
-    deps.interactionFlags.holdActivated = false;
-  };
 
   deps.canvas.addEventListener("wheel", (ev) => {
     ev.preventDefault();
@@ -155,7 +143,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
 
     if (ev.key === "Escape") {
       deps.cancelOngoingCapture();
-      deps.hideHoldBuildMenu();
       deps.hideTileActionMenu();
       deps.clearCrystalTargeting();
       return;
@@ -174,8 +161,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   window.addEventListener("mousedown", (ev) => {
     const target = ev.target as Node | null;
     if (!target) return;
-    if (deps.holdBuildMenuEl.contains(target) || deps.tileActionMenuEl.contains(target)) return;
-    deps.hideHoldBuildMenu();
+    if (deps.tileActionMenuEl.contains(target)) return;
     deps.hideTileActionMenu();
   });
   window.addEventListener("resize", () => deps.renderMobilePanels());
@@ -186,7 +172,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     mousePanMoved = false;
     boxSelectionMode = ev.shiftKey;
     boxSelectionEngaged = false;
-    deps.hideHoldBuildMenu();
     mousePanStart = { x: ev.clientX, y: ev.clientY, camX: state.camX, camY: state.camY };
     const raw = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
     const pressedTile = state.tiles.get(deps.keyFor(deps.wrapX(raw.gx), deps.wrapY(raw.gy)));
@@ -202,8 +187,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       state.dragPreviewKeys.clear();
       dragLastKey = "";
     }
-    if (!boxSelectionMode) scheduleHoldBuildMenu(ev.clientX, ev.clientY, ev.offsetX, ev.offsetY);
-    else clearHoldOpenTimer();
   });
   deps.canvas.addEventListener("mousemove", (ev) => {
     if (!dragActive) return;
@@ -211,7 +194,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       const dx = ev.clientX - mousePanStart.x;
       const dy = ev.clientY - mousePanStart.y;
       if (Math.abs(dx) > MOUSE_PAN_THRESHOLD_PX || Math.abs(dy) > MOUSE_PAN_THRESHOLD_PX) {
-        clearHoldOpenTimer();
         mousePanMoved = true;
         deps.interactionFlags.suppressNextClick = true;
       }
@@ -225,14 +207,12 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     const raw = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
     const k = deps.keyFor(deps.wrapX(raw.gx), deps.wrapY(raw.gy));
     if (k === dragLastKey) return;
-    clearHoldOpenTimer();
     dragLastKey = k;
     boxSelectionEngaged = true;
     state.boxSelectCurrent = raw;
     deps.computeDragPreview();
   });
   window.addEventListener("mouseup", (ev) => {
-    clearHoldOpenTimer();
     if (dragActive && shouldCommitMouseSelection({
       button: ev.button,
       boxSelectionMode,
@@ -275,7 +255,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     if (target && (deps.canvas.contains(target) || deps.tileActionMenuEl.contains(target))) {
       ev.preventDefault();
       deps.hideTileActionMenu();
-      deps.hideHoldBuildMenu();
     }
   });
 
@@ -288,7 +267,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       if (ev.touches.length === 1) {
         const t = ev.touches[0];
         if (!t) return;
-        deps.hideHoldBuildMenu();
         touchPanStart = { x: t.clientX, y: t.clientY, camX: state.camX, camY: state.camY };
         touchHoldStart = { x: t.clientX, y: t.clientY };
         touchTapCandidate = { x: t.clientX, y: t.clientY };
@@ -296,13 +274,11 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         const { wx, wy } = worldTileFromPointer(t.clientX - rect.left, t.clientY - rect.top);
         const touchedTile = state.tiles.get(deps.keyFor(wx, wy));
         if (touchedTile) deps.requestAttackPreviewForTarget(touchedTile);
-        scheduleHoldBuildMenu(t.clientX, t.clientY, t.clientX - rect.left, t.clientY - rect.top);
         pinchStart = undefined;
       } else if (ev.touches.length === 2) {
         const a = ev.touches[0];
         const b = ev.touches[1];
         if (!a || !b) return;
-        clearHoldOpenTimer();
         touchHoldStart = undefined;
         touchTapCandidate = undefined;
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
@@ -321,7 +297,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         if (!t) return;
         if (touchHoldStart) {
           const moved = Math.hypot(t.clientX - touchHoldStart.x, t.clientY - touchHoldStart.y);
-          if (moved > HOLD_MOVE_CANCEL_PX) clearHoldOpenTimer();
           if (moved > TOUCH_TAP_MAX_MOVE_PX) touchTapCandidate = undefined;
         }
         const dx = t.clientX - touchPanStart.x;
@@ -347,13 +322,12 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   deps.canvas.addEventListener(
     "touchend",
     () => {
-      if (touchTapCandidate && !deps.interactionFlags.holdActivated && !pinchStart) {
+      if (touchTapCandidate && !pinchStart) {
         const rect = deps.canvas.getBoundingClientRect();
         const offsetX = touchTapCandidate.x - rect.left;
         const offsetY = touchTapCandidate.y - rect.top;
         if (focusPersistentAlertAtPointer(offsetX, offsetY, touchTapCandidate.x, touchTapCandidate.y)) {
           deps.interactionFlags.suppressNextClick = true;
-          clearHoldOpenTimer();
           touchHoldStart = undefined;
           touchTapCandidate = undefined;
           touchPanStart = undefined;
@@ -364,7 +338,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         deps.interactionFlags.suppressNextClick = true;
         deps.handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);
       }
-      clearHoldOpenTimer();
       touchHoldStart = undefined;
       touchTapCandidate = undefined;
       touchPanStart = undefined;

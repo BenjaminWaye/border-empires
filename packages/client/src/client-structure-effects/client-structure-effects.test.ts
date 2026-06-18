@@ -14,7 +14,7 @@ describe("client structure effects", () => {
       economicStructure: { ownerId: "me", type: "FOUNDRY", status: "active" }
     });
 
-    expect(preview?.radius).toBe(10);
+    expect(preview?.radius).toBe(5);
     expect(preview?.lineDash).toEqual([10, 8]);
   });
 
@@ -36,7 +36,7 @@ describe("client structure effects", () => {
       economicStructure: { ownerId: "me", type: "GARRISON_HALL", status: "active" }
     };
     const mine: Tile = {
-      x: 27,
+      x: 25,
       y: 20,
       terrain: "LAND",
       ownerId: "me",
@@ -49,6 +49,28 @@ describe("client structure effects", () => {
       { reason: "Foundry", effect: "+100% iron production", tone: "positive" },
       { reason: "Garrison Hall", effect: "+20% defense", tone: "positive" }
     ]);
+  });
+
+  it("does not show Foundry modifiers beyond five tiles", () => {
+    const foundry: Tile = {
+      x: 20,
+      y: 20,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "FOUNDRY", status: "active" }
+    };
+    const mine: Tile = {
+      x: 26,
+      y: 20,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      resource: "IRON",
+      economicStructure: { ownerId: "me", type: "MINE", status: "active" }
+    };
+
+    expect(tileAreaEffectModifiersForTile(mine, [foundry, mine])).toEqual([]);
   });
 
   it("shows owned domain defense bonuses on settled land near active forts", () => {

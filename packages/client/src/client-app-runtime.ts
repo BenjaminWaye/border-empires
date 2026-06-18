@@ -54,7 +54,6 @@ import { createClientMapFacade } from "./client-map-facade.js";
 import { createClientMapMath } from "./client-map-math.js";
 import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay/client-frontier-overlay.js";
 import { shouldFinalizePredictedCombat, wasPredictedCombatAlreadyShown } from "./client-predicted-combat/client-predicted-combat.js";
-import { showClientHoldBuildMenu } from "./client-ui-controls/client-ui-controls.js";
 import { busyDevelopmentProcessCount } from "./client-development-queue/client-development-queue.js";
 import {
   hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
@@ -449,7 +448,6 @@ bootstrapClientApp({
   techPickEl: dom.techPickEl,
   mobileTechPickEl: dom.mobileTechPickEl,
   canvas: dom.canvas,
-  holdBuildMenuEl: dom.holdBuildMenuEl,
   tileActionMenuEl: dom.tileActionMenuEl,
   authColorPresetButtons: dom.authColorPresetButtons,
   authProfileColorEl: dom.authProfileColorEl,

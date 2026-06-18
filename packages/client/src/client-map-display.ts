@@ -116,8 +116,8 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
 
 export const economicStructureBenefitText = (type: EconomicStructureType | StructureInfoKey): string => {
   const kind = type as string;
-  if (kind === "MARKET") return "Nearby town: +50% fed gold output and +50% gold storage cap.";
-  if (kind === "BROKER_MARKET") return "Upgrades a market into a broker market with +87.5% fed town gold output and +0.5 flat town income.";
+  if (kind === "MARKET") return "Nearby town: +50% gold production; higher production raises gold cap.";
+  if (kind === "BROKER_MARKET") return "Upgrades a market into a broker market with +87.5% town gold production and +0.5 flat town income.";
   if (kind === "GRANARY") return "Boosts nearby town population growth by 15%.";
   if (kind === "SEED_GRANARY") return "Upgrades a granary into a seed granary with +30% local town population growth and lower local town food upkeep.";
   if (kind === "CENSUS_HALL") return "Drives local population growth through census administration.";
@@ -134,8 +134,8 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "ADVANCED_IRONWORKS") return "Converts gold into 21.6 iron per day.";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Condenses gold into 12 crystal per day.";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Condenses gold into 14.4 crystal per day.";
-  if (kind === "FOUNDRY") return "Doubles active mine output in a 10-tile radius.";
-  if (kind === "ADVANCED_FOUNDRY") return "Upgrades a foundry into a radius-12 mine hub with +150% mine output.";
+  if (kind === "FOUNDRY") return "Doubles active mine production in a 5-tile radius; boosted production raises iron and crystal caps.";
+  if (kind === "ADVANCED_FOUNDRY") return "Upgrades a foundry into a radius-12 mine hub with +150% mine production.";
   if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
   if (kind === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius.";
   if (kind === "CUSTOMS_HOUSE") return "Adds +1 gold / m for each connected owned dock.";
@@ -151,10 +151,10 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "AEGIS_DOME_PART") return "One of three monument parts needed to assemble the Aegis Dome.";
   if (kind === "AEGIS_DOME") return "Unique world monument. Projects a 25-tile shield and can trigger a 15-minute Aegis Lock for 220 crystal every 60 minutes.";
   if (kind === "WORLD_ENGINE") return "Unique world monument. Every 90 minutes, it can fire one Worldbreaker shot that shatters an enemy land tile into mountain for 300 crystal.";
-  if (kind === "FARMSTEAD") return "Improves food output on this tile (+50% on farm tiles only).";
-  if (kind === "WATERWORKS") return "Boosts all farmstead food output by +50% within a 10-tile radius.";
-  if (kind === "CAMP") return "Improves supply output on this tile.";
-  if (kind === "MINE") return "Improves iron or crystal output on this tile.";
+  if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +18 food cap.";
+  if (kind === "WATERWORKS") return "Boosts all farmstead food production by +50% within a 10-tile radius; boosted production raises food cap.";
+  if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +15 supply cap.";
+  if (kind === "MINE") return "Improves iron or crystal production on this tile and raises that resource's cap.";
   return "Strengthens this tile's economy.";
 };
 
@@ -230,7 +230,7 @@ export const structureInfoForKey = (
     if (key === "FORT") return ["0.03 gold / m", "0.03 iron / m"];
     if (key === "SIEGE_OUTPOST" || key === "SIEGE_TOWER") return ["0.10 gold / m", "0.03 supply / m"];
     if (key === "DREAD_TOWER") return ["0.14 gold / m", "0.05 supply / m"];
-    if (key === "MARKET" || key === "BROKER_MARKET" || key === "BANK") return ["0.05 crystal / m"];
+    if (key === "MARKET" || key === "BROKER_MARKET" || key === "BANK") return [key === "BANK" ? "0.10 food / m" : "0.05 food / m"];
     if (key === "GRANARY" || key === "SEED_GRANARY" || key === "FARMSTEAD") return ["0.10 gold / m"];
     if (key === "CENSUS_HALL") return ["0.60 gold / m"];
     if (key === "CLEARING_HOUSE") return ["3.00 gold / m"];
@@ -267,27 +267,27 @@ export const structureInfoForKey = (
     if (key === "SIEGE_OUTPOST") return ["+25% local offense", "Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.25x to 2x"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 2x to 3x against heavy fortified targets"];
-    if (key === "FARMSTEAD") return ["+50% food output on FARM tiles only"];
-    if (key === "WATERWORKS") return ["+50% farmstead food within 10 tiles", "Radius support building — does not need a resource tile"];
-    if (key === "CAMP") return ["+50% supply output on WOOD and FUR tiles"];
-    if (key === "MINE") return ["+50% iron or crystal output on mineral tiles"];
-    if (key === "MARKET") return ["+50% fed town gold output", "+50% town gold storage cap"];
-    if (key === "BROKER_MARKET") return ["+87.5% fed town gold output", "+0.5 flat town gold income"];
+    if (key === "FARMSTEAD") return ["+50% food production on FARM tiles only", "+18 food cap"];
+    if (key === "WATERWORKS") return ["+50% farmstead food within 10 tiles", "Boosted food production raises food cap"];
+    if (key === "CAMP") return ["+50% supply production on WOOD and FUR tiles", "+15 supply cap"];
+    if (key === "MINE") return ["+50% iron or crystal production on mineral tiles", "+15 iron cap or +9 crystal cap"];
+    if (key === "MARKET") return ["+50% town gold production", "Higher production raises gold cap"];
+    if (key === "BROKER_MARKET") return ["+87.5% town gold production", "+0.5 flat town gold income"];
     if (key === "GRANARY") return ["+15% nearby town population growth"];
     if (key === "SEED_GRANARY") return ["+30% local town population growth", "-10% local town food upkeep"];
     if (key === "CENSUS_HALL") return ["+25% local town population growth"];
     if (key === "BANK") return ["+50% city income", "+1 flat city income"];
     if (key === "CLEARING_HOUSE") return ["+25% Market effect across connected towns", "+20% Bank effect across connected towns", "+0.5 flat Bank income across connected towns"];
     if (key === "CARAVANARY") return ["+25 percentage points to connected-town income bonus"];
-    if (key === "TREASURY_HOUSE") return ["+25 percentage points to connected-city income bonus", "+50% town gold storage cap"];
+    if (key === "TREASURY_HOUSE") return ["+25 percentage points to connected-city income bonus", "Higher production raises gold cap"];
     if (key === "FUR_SYNTHESIZER") return ["Produces 18 supply per day"];
     if (key === "ADVANCED_FUR_SYNTHESIZER") return ["Produces 21.6 supply per day"];
     if (key === "IRONWORKS") return ["Produces 18 iron per day"];
     if (key === "ADVANCED_IRONWORKS") return ["Produces 21.6 iron per day"];
     if (key === "CRYSTAL_SYNTHESIZER") return ["Produces 12 crystal per day"];
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Produces 14.4 crystal per day"];
-    if (key === "FOUNDRY") return ["Doubles active Mine output within 10 tiles"];
-    if (key === "ADVANCED_FOUNDRY") return ["+150% active Mine output within 12 tiles", "+2 tile industrial radius compared with a Foundry"];
+    if (key === "FOUNDRY") return ["Doubles active Mine production within 5 tiles", "Boosted Mine production raises iron and crystal caps"];
+    if (key === "ADVANCED_FOUNDRY") return ["+150% active Mine production within 12 tiles", "+7 tile industrial radius compared with a Foundry"];
     if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "-20% settled-tile upkeep within 10 tiles"];
@@ -405,7 +405,7 @@ export const structureInfoForKey = (
   if (type === "FARMSTEAD") {
     return structure({
       title: "Farmstead",
-      detail: "Farmsteads increase food yield on farm tiles by 50%. Has no effect on fish tiles.",
+      detail: "Farmsteads increase food production on farm tiles by 50% and add +18 food cap. They have no effect on fish tiles.",
       glyph: "🌾",
       placement: "Build on a settled farm resource tile you own.",
       costBits: costBitsFor(type),
@@ -415,7 +415,7 @@ export const structureInfoForKey = (
   if (type === "CAMP") {
     return structure({
       title: "Camp",
-      detail: "Camps increase supply yield on wood and fur tiles by 50%.",
+      detail: "Camps increase supply production on wood and fur tiles by 50% and add +15 supply cap.",
       glyph: "🦊",
       placement: "Build on a settled wood or fur resource tile you own.",
       costBits: costBitsFor(type),
@@ -425,7 +425,7 @@ export const structureInfoForKey = (
   if (type === "MINE") {
     return structure({
       title: "Mine",
-      detail: "Mines increase iron or crystal yield on mineral tiles by 50%.",
+      detail: "Mines increase iron or crystal production on mineral tiles by 50%. Iron mines add +15 iron cap; crystal mines add +9 crystal cap.",
       glyph: "⛏",
       placement: "Build on a settled iron or crystal resource tile you own.",
       costBits: costBitsFor(type),
@@ -435,7 +435,7 @@ export const structureInfoForKey = (
   if (type === "MARKET") {
     return structure({
       title: "Market",
-      detail: "Markets are built on a town support tile. They increase that fed town's gold output by 50% and its gold storage cap by 50%.",
+      detail: "Markets are built on a town support tile. They increase that town's gold production by 50%; higher gold production raises your gold cap.",
       glyph: "◌",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -585,7 +585,7 @@ export const structureInfoForKey = (
   if (type === "FOUNDRY") {
     return structure({
       title: "Foundry",
-      detail: "Foundries double active mine output within 10 tiles.",
+      detail: "Foundries double active mine production within 5 tiles. Boosted mine production also raises iron and crystal caps.",
       glyph: "🏭",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -635,7 +635,7 @@ export const structureInfoForKey = (
   if (type === "WATERWORKS") {
     return structure({
       title: "Waterworks",
-      detail: "A network of irrigation canals that boosts all Farmstead food output by +50% within a 10-tile radius.",
+      detail: "A network of irrigation canals that boosts all Farmstead food production by +50% within a 10-tile radius. Boosted food production also raises food cap.",
       glyph: "💧",
       placement: "Build on any settled land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),

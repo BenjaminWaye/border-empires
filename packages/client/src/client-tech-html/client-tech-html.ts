@@ -22,7 +22,7 @@ const formatSignedPercent = (mult: number): string => {
 };
 
 const effectSummaryLabel = (key: string, value: unknown): string | null => {
-  if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads (+50% farm food)";
+  if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads (+50% farm food, +18 food cap)";
   if (key === "unlockCamp" && value === true) return "Unlocks camps";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMarket" && value === true) return "Unlocks markets";
@@ -72,7 +72,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
   if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
-  if (key === "unlockWaterworksUpgrade" && value === true) return "Unlocks Waterworks (+50% farmstead food within 10 tiles)";
+  if (key === "unlockWaterworksUpgrade" && value === true) return "Unlocks Waterworks (+50% farmstead food within 10 tiles; raises food cap)";
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
@@ -118,11 +118,11 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "townGoldOutputMult" && typeof value === "number") return `Town gold output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsGoldOutputMult" && typeof value === "number")
     return `First 3 towns gold ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "townGoldCapMult" && typeof value === "number") return `Town cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "townGoldCapMult" && typeof value === "number") return `Town gold cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsPopulationGrowthMult" && typeof value === "number")
     return `First 3 towns growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "marketIncomeBonusAdd" && typeof value === "number") return `Market income +${Math.round(value * 100)} pts`;
-  if (key === "marketCapBonusAdd" && typeof value === "number") return `Market cap +${Math.round(value * 100)} pts`;
+  if (key === "marketCapBonusAdd" && typeof value === "number") return `Market gold cap +${Math.round(value * 100)} pts`;
   if (key === "marketBonusMult" && typeof value === "number") return `Market bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "granaryBonusMult" && typeof value === "number") return `Granary growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Granary growth +${Math.round(value * 100)} pts`;
