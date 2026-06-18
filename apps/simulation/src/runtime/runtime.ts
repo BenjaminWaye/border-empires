@@ -29,8 +29,6 @@ import {
   SETTLE_COST,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-  wrapX,
-  wrapY,
   grassShadeAt,
   landBiomeAt,
   terrainAt,
@@ -70,7 +68,6 @@ import {
   coordsInChebyshevRadius,
   FRONTIER_DECAY_MS,
   fortAutoAttackCandidates,
-  FORT_PATROL_GRACE_MS,
   isActiveFortAnchor,
   isSettledTownAnchor,
   orderedAutoSettlementTileKeys,
@@ -108,7 +105,6 @@ import {
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer } from "../economy-network/economy-network.js";
-import { capturedStructureFields } from "../capture-structures/capture-structures.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
@@ -167,7 +163,6 @@ import {
   parseTilePayload
 } from "../runtime-command-parsers.js";
 import {
-  SYNTHETIC_SETTLEMENT_POPULATION,
   createDocksFromInitialState,
   createLocksFromInitialState,
   createPlayersFromRecoveredState,
@@ -176,7 +171,7 @@ import {
   requeueRecoveredCommands,
   uniqueLocksByCommandId
 } from "../runtime-hydration.js";
-import { computeEncirclementDeltas } from "../encirclement/encirclement.js";
+import { ENCIRCLEMENT_DECAY_MS } from "../encirclement/encirclement.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
 import { domainTileToWireDelta } from "../runtime-tile-deltas.js";
@@ -189,8 +184,6 @@ import {
 } from "../runtime-settlement-rules.js";
 import {
   TECH_REQUIREMENTS_BY_STRUCTURE,
-  TOWN_CAPTURE_SHOCK_MS,
-  TOWN_CAPTURE_POPULATION_LOSS_MULT,
   economicStructureGoldUpkeepPerInterval,
   isConverterStructureType,
   upgradeBaseTypeForEconomicStructure
@@ -346,6 +339,19 @@ import {
   handleRemoveStructureCommand as handleRemoveStructureCommandImpl,
   handleSetMusterCommand as handleSetMusterCommandImpl
 } from "../runtime-structure-lifecycle-command-handlers.js";
+import {
+  activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
+  applyEncirclement as applyEncirclementImpl,
+  applyEncirclementForExpand as applyEncirclementForExpandImpl,
+  type RuntimeEncirclementApplicationContext
+} from "../runtime-encirclement-application.js";
+import {
+  applyResourceTileSteal as applyResourceTileStealImpl,
+  releaseMusterReservation as releaseMusterReservationImpl,
+  resolveLock as resolveLockImpl,
+  type RuntimeLockResolutionContext,
+  type RuntimeResourceStealContext
+} from "../runtime-lock-resolution.js";
 import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
@@ -1227,6 +1233,58 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+    };
+  }
+
+  private encirclementApplicationContext(): RuntimeEncirclementApplicationContext {
+    return {
+      tiles: this.tiles,
+      now: this.now,
+      activeAetherBridgesForPlayer: (playerId) => this.activeAetherBridgesForPlayer(playerId),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitEvent: (event) => this.emitEvent(event),
+      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+    };
+  }
+
+  private resourceStealContext(): RuntimeResourceStealContext {
+    return {
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
+    };
+  }
+
+  private lockResolutionContext(): RuntimeLockResolutionContext {
+    return {
+      players: this.players,
+      tiles: this.tiles,
+      locksByTile: this.locksByTile,
+      locksByCommandId: this.locksByCommandId,
+      musterReservedByKey: this.musterReservedByKey,
+      barbarianTileProgress: this.barbarianTileProgress,
+      now: this.now,
+      emitEvent: (event) => this.emitEvent(event),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      buildCaptureRevealTileDeltas: (playerId, centerX, centerY) => this.buildCaptureRevealTileDeltas(playerId, centerX, centerY),
+      buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
+      consumeOriginMuster: (originKey, playerId, amount) => this.consumeOriginMuster(originKey, playerId, amount),
+      applyFortGarrisonAttrition: (targetKey, attackingForce) => this.applyFortGarrisonAttrition(targetKey, attackingForce),
+      applyLockedManpowerDelta: (player, manpowerDelta) => this.applyLockedManpowerDelta(player, manpowerDelta),
+      applySettledCapturePlunder: (input) => this.applySettledCapturePlunder(input),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      extendFortPatrolGrace: (tileKey, graceUntil) => this.extendFortPatrolGrace(tileKey, graceUntil),
+      clearFortPatrolGrace: (tileKey) => this.fortPatrolGraceUntilByTile.delete(tileKey),
+      onCaptureRevealBuilt: this.onCaptureRevealBuilt,
+      applyBarbarianWalkOrMultiply: (lock, previousTarget) => this.applyBarbarianWalkOrMultiply(lock, previousTarget),
+      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
+      applyEncirclementForExpand: (targetKey, playerId, commandId) => this.applyEncirclementForExpand(targetKey, playerId, commandId),
+      relocateSettlementForPlayer: (playerId, commandId, population) => this.relocateSettlementForPlayer(playerId, commandId, population),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      respawnPlayerOnUnownedLand: (playerId, commandId) => this.respawnPlayerOnUnownedLand(playerId, commandId),
+      respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId),
+      ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId)
     };
   }
 
@@ -4394,460 +4452,28 @@ export class SimulationRuntime {
   }
 
   private releaseMusterReservation(lock: LockRecord): void {
-    if (!lock.musterSourceKey) return;
-    const prev = this.musterReservedByKey.get(lock.musterSourceKey) ?? 0;
-    const next = Math.max(0, prev - lock.manpowerCost);
-    if (next === 0) this.musterReservedByKey.delete(lock.musterSourceKey);
-    else this.musterReservedByKey.set(lock.musterSourceKey, next);
+    releaseMusterReservationImpl(this.lockResolutionContext(), lock);
   }
 
   private resolveLock(lock: LockRecord): void {
-    this.releaseMusterReservation(lock);
-    const originLock = this.locksByTile.get(lock.originKey);
-    const targetLock = this.locksByTile.get(lock.targetKey);
-    const originMatches = originLock?.commandId === lock.commandId;
-    const targetMatches = targetLock?.commandId === lock.commandId;
-    // Always clean up keys still pointing at THIS lock — even if the other
-    // side was superseded by a later command's overwrite. Skipping the
-    // delete on partial mismatch is what stranded ai-3 for 18h in prod:
-    // the surviving key kept playerId in the planner's active-lock set.
-    if (originMatches) this.locksByTile.delete(lock.originKey);
-    if (targetMatches) this.locksByTile.delete(lock.targetKey);
-    // This is the terminal handler for THIS lock — retire its commandId index
-    // entry whether or not both sides still matched. On partial mismatch the
-    // surviving tile key was just deleted above, leaving the old lock with zero
-    // locksByTile entries; if we returned without this delete, the defunct lock
-    // would leak into exportState().activeLocks (derived from locksByCommandId).
-    this.locksByCommandId.delete(lock.commandId);
-    // Partial / no match means a later command already replaced this lock's
-    // slot on at least one tile — that command will (or did) emit its own
-    // COMBAT_RESOLVED. Don't double-emit or re-apply tile state.
-    if (!originMatches || !targetMatches) return;
-    const previousTarget = this.tiles.get(lock.targetKey);
-    const previousOwnerId = previousTarget?.ownerId;
-    const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
-    const combatResolution = lock.combatResolution ?? this.buildLockedCombatResolution(lock);
-    const combatResult = combatResolution?.result;
-    const attacker = this.players.get(lock.playerId);
-    const defender = previousOwnerId ? this.players.get(previousOwnerId) : undefined;
-    const attackerWon = combatResult?.attackerWon ?? false;
-    const originLost = Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY));
-    if (attacker && (lock.actionType === "EXPAND" || lock.actionType === "ATTACK")) {
-      attacker.points = Math.max(0, attacker.points - FRONTIER_CLAIM_COST);
-    }
-    this.emitEvent({
-      eventType: "COMBAT_RESOLVED",
-      commandId: lock.commandId,
-      playerId: lock.playerId,
-      actionType: lock.actionType,
-      originX: lock.originX,
-      originY: lock.originY,
-      targetX: lock.targetX,
-      targetY: lock.targetY,
-      attackerWon,
-      ...(typeof combatResult?.manpowerDelta === "number" && combatResult.manpowerDelta < -0.01 ? { manpowerDelta: combatResult.manpowerDelta } : {}),
-      ...(typeof combatResult?.pillagedGold === "number" && combatResult.pillagedGold > 0.01 ? { pillagedGold: combatResult.pillagedGold } : {}),
-      ...(combatResult?.pillagedStrategic && Object.keys(combatResult.pillagedStrategic).length > 0 ? { pillagedStrategic: combatResult.pillagedStrategic } : {}),
-      ...(combatResult ? { combatResult } : {})
-    });
-    if (attacker && typeof combatResult?.manpowerDelta === "number") {
-      if (MUSTER_SYSTEM_ENABLED && lock.actionType === "ATTACK") {
-        const isBarbRaid = previousTarget?.ownerId === "barbarian-1";
-        if (isBarbRaid) {
-          // Barbarian raid: funded directly from player pool.
-          attacker.manpower = Math.max(0, attacker.manpower - lock.manpowerCost);
-        } else {
-          // Regular muster attack: paid from the muster source (may be a remote tile).
-          this.consumeOriginMuster(lock.musterSourceKey ?? lock.originKey, lock.playerId, lock.manpowerCost);
-          // Fort garrison attrition on a failed assault.
-          if (!attackerWon) {
-            this.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
-          }
-        }
-      } else {
-        this.applyLockedManpowerDelta(attacker, combatResult.manpowerDelta);
-      }
-    }
-    if (attackerWon && attacker && defender && targetWasSettled && combatResolution) {
-      this.applySettledCapturePlunder({
-        attacker,
-        defender,
-        gold: combatResolution.result.pillagedGold,
-        defenderGoldLoss: combatResolution.defenderGoldLoss
-      });
-    }
-    // Resource tile steal: when any resource tile is captured, steal a proportional
-    // share of the defender's balance of that resource type.
-    // Formula: stolen = defenderBalance / max(1, defenderCountOfThatResourceType)
-    // This makes each tile capture meaningful without requiring a tile scan.
-    if (attackerWon && attacker && defender && previousTarget?.resource && !combatResolution?.targetRecentlyPillaged && previousOwnerId && previousOwnerId !== lock.playerId) {
-      this.applyResourceTileSteal(attacker, defender, previousTarget.resource, previousTarget.economicStructure?.type);
-    }
-    // When the captured town is a SETTLEMENT (the previous owner's home), it evacuates:
-    // the town disappears from the captured tile and is re-rooted on one of the previous
-    // owner's remaining SETTLED tiles. If they have no remaining territory, the existing
-    // respawnIfEliminated() call below places a fresh settlement on unowned land.
-    let settlementCaptureRelocationPopulation: number | undefined;
-    if (attackerWon) {
-      // Population shock: only when capturing a town from another player (skip neutral / unowned).
-      let capturedTown = previousTarget?.town;
-      const isSettlementCapture =
-        !!capturedTown
-        && capturedTown.populationTier === "SETTLEMENT"
-        && !!previousOwnerId
-        && previousOwnerId !== lock.playerId;
-      if (capturedTown && previousOwnerId && previousOwnerId !== lock.playerId) {
-        const popBefore = typeof capturedTown.population === "number" ? capturedTown.population : SYNTHETIC_SETTLEMENT_POPULATION;
-        const popAfter = Math.max(1, popBefore * TOWN_CAPTURE_POPULATION_LOSS_MULT);
-        const captureShockUntil = this.now() + TOWN_CAPTURE_SHOCK_MS;
-        if (isSettlementCapture) {
-          // Evacuate: strip the town entirely from the captured tile; we'll relocate it below.
-          settlementCaptureRelocationPopulation = popAfter;
-          capturedTown = undefined;
-        } else {
-          capturedTown = { ...capturedTown, population: popAfter, populationBeforeCapture: popBefore, captureShockUntil };
-        }
-      }
-      const resolvedTarget: DomainTileState = {
-        x: lock.targetX,
-        y: lock.targetY,
-        terrain: previousTarget?.terrain ?? "LAND",
-        ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
-        ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
-        ...(capturedTown ? { town: capturedTown } : {}),
-        ...capturedStructureFields(previousTarget, lock.playerId),
-        ownerId: lock.playerId,
-        // Barbarians have no settlement loop and would otherwise sit on
-        // permanent FRONTIER tiles — fragile to retake and rendered with
-        // frontier opacity so the skull overlay reads as washed-out.
-        ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
-      };
-      // Refund banked muster manpower to the previous owner on capture.
-      const hadMuster = Boolean(previousTarget?.muster);
-      if (previousTarget?.muster?.ownerId && previousTarget.muster.amount > 0) {
-        const musterOwner = this.players.get(previousTarget.muster.ownerId);
-        if (musterOwner) {
-          musterOwner.manpower = Math.min(
-            this.playerManpowerCap(musterOwner),
-            musterOwner.manpower + previousTarget.muster.amount
-          );
-        }
-      }
-      this.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
-      if (resolvedTarget.ownershipState === "FRONTIER") {
-        this.extendFortPatrolGrace(lock.targetKey, this.now() + FORT_PATROL_GRACE_MS);
-      } else {
-        this.fortPatrolGraceUntilByTile.delete(lock.targetKey);
-      }
-      let tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[];
-      if (attacker?.isAi) {
-        tileDeltas = [this.tileDeltaFromState(resolvedTarget)];
-      } else {
-        const measure = Boolean(this.onCaptureRevealBuilt);
-        const startedAt = measure ? this.now() : 0;
-        tileDeltas = this.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY);
-        if (measure) {
-          this.onCaptureRevealBuilt?.({
-            commandId: lock.commandId,
-            playerId: lock.playerId,
-            tileCount: tileDeltas.length,
-            durationMs: Math.max(0, this.now() - startedAt)
-          });
-        }
-      }
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId: lock.commandId,
-        playerId: lock.playerId,
-        tileDeltas
-      });
-      if (hadMuster) {
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: `${lock.commandId}:bc`,
-          playerId: "__broadcast__",
-          tileDeltas: [{ x: resolvedTarget.x, y: resolvedTarget.y, musterJson: "" }]
-        });
-      }
-      if (lock.playerId === "barbarian-1") {
-        this.applyBarbarianWalkOrMultiply(lock, previousTarget);
-      } else if (previousTarget?.ownerId === "barbarian-1") {
-        this.barbarianTileProgress.delete(lock.targetKey);
-      }
-    } else if (originLost && previousOwnerId) {
-      const previousOrigin = this.tiles.get(lock.originKey);
-      if (previousOrigin) {
-        // Town is a worldgen entity tied to the tile — mirror the attacker-wins branch (~6008) which preserves it.
-        const originOwnershipState = previousOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER";
-        const resolvedOrigin: DomainTileState = {
-          ...previousOrigin,
-          ownerId: previousOwnerId,
-          ownershipState: originOwnershipState,
-          frontierDecayAt: undefined,
-          frontierDecayKind: undefined,
-          ...capturedStructureFields(previousOrigin, previousOwnerId)
-        };
-        this.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
-        if (originOwnershipState === "FRONTIER") {
-          this.extendFortPatrolGrace(lock.originKey, this.now() + FORT_PATROL_GRACE_MS);
-        } else {
-          this.fortPatrolGraceUntilByTile.delete(lock.originKey);
-        }
-        const tileDeltas = [this.tileDeltaFromState(resolvedOrigin)];
-
-        // Successful barb counter-attack: barb JUMPS from defender tile to the
-        // attacker's origin instead of growing its population. The defender
-        // tile releases to neutral so total barb tile count is unchanged.
-        // Without this, every failed player attack against a barb grows
-        // barbarian-1 by one tile (and spreads them across the map).
-        if (previousOwnerId === "barbarian-1") {
-          const defenderTile = this.tiles.get(lock.targetKey);
-          if (defenderTile?.ownerId === "barbarian-1" && !this.locksByTile.has(lock.targetKey)) {
-            const releasedDefender: DomainTileState = {
-              x: defenderTile.x,
-              y: defenderTile.y,
-              terrain: defenderTile.terrain,
-              ...(defenderTile.resource ? { resource: defenderTile.resource } : {}),
-              ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {})
-            };
-            this.replaceTileState(lock.targetKey, releasedDefender, lock.commandId);
-            this.barbarianTileProgress.delete(lock.targetKey);
-            tileDeltas.push(this.tileDeltaFromState(releasedDefender));
-          }
-        }
-
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: lock.commandId,
-          playerId: lock.playerId,
-          tileDeltas
-        });
-      }
-    }
-    // Encirclement: re-check connectivity for players affected by ownership
-    // changes from ATTACK or EXPAND.
-    // ATTACK can sever connections (enemy takes a tile out of a supply chain).
-    // EXPAND can reconnect previously cut-off regions (new frontier tile bridges
-    // a pocket back to settled supply), so we run the check for EXPAND too.
-    if (lock.actionType === "ATTACK") {
-      const encirclementChangedKeys: string[] = [];
-      if (attackerWon) encirclementChangedKeys.push(lock.targetKey);
-      if (originLost) encirclementChangedKeys.push(lock.originKey);
-      if (encirclementChangedKeys.length > 0) {
-        const affectedPlayerIds = new Set<string>();
-        if (attackerWon && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
-        if (attackerWon) affectedPlayerIds.add(lock.playerId);
-        if (originLost) affectedPlayerIds.add(lock.playerId);
-        if (originLost && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
-        for (const pid of affectedPlayerIds) {
-          this.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, { bfsCap: 2000 });
-        }
-      }
-    } else if (lock.actionType === "EXPAND" && attackerWon) {
-      // EXPAND adds tile B. B is connected (expanded from A which was connected).
-      // Any ENCIRCLEMENT frontier tile neighbouring B is therefore reconnected —
-      // it can now route through B back to settled territory. BFS outward from
-      // those neighbours through all ENCIRCLEMENT frontier tiles to clear the
-      // whole newly-reconnected pocket in one pass. No backward BFS needed.
-      this.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId);
-    }
-    if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
-    if (originLost && defender) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: defender.id });
-    if (originLost) this.respawnIfEliminated(lock.playerId, lock.commandId);
-    if (attackerWon && previousOwnerId && previousOwnerId !== lock.playerId) {
-      // If we captured the previous owner's SETTLEMENT, re-root it onto a valid
-      // remaining owned tile. If no owned tile can receive it, use the respawn
-      // placement path so the defender still has a playable settlement.
-      if (settlementCaptureRelocationPopulation !== undefined) {
-        const relocated = this.relocateSettlementForPlayer(
-          previousOwnerId,
-          lock.commandId,
-          settlementCaptureRelocationPopulation
-        );
-        if (!relocated && this.summaryForPlayer(previousOwnerId).territoryTileKeys.size > 0) {
-          this.respawnPlayerOnUnownedLand(previousOwnerId, lock.commandId);
-        }
-      }
-      this.respawnIfEliminated(previousOwnerId, lock.commandId);
-      this.ensureGrossIncomeSettlementForPlayer(previousOwnerId, lock.commandId);
-      this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
-    }
+    resolveLockImpl(this.lockResolutionContext(), lock);
   }
 
-  private static readonly EXPAND_NEIGHBOR_OFFSETS = [
-    [-1, -1], [0, -1], [1, -1],
-    [-1,  0],          [1,  0],
-    [-1,  1], [0,  1], [1,  1],
-  ] as const;
-
-  /**
-   * EXPAND-specific encirclement reconnection. The new tile B is guaranteed
-   * connected (expanded from a connected tile). Walk B's 8 neighbours: any
-   * that are ENCIRCLEMENT frontier tiles owned by `playerId` are immediately
-   * reconnected. BFS outward through further ENCIRCLEMENT frontier tiles to
-   * clear the whole pocket in one pass. O(8 + pocket_size), no backward BFS.
-   */
   private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string): void {
-    const [xStr, yStr] = targetKey.split(",");
-    const bx = Number(xStr);
-    const by = Number(yStr);
-    const aetherBridgeNeighborKeys = this.activeAetherBridgeNeighborKeysForPlayer(playerId);
-
-    const seeds: string[] = [];
-    for (const [dx, dy] of SimulationRuntime.EXPAND_NEIGHBOR_OFFSETS) {
-      const nk = `${wrapX(bx + dx, WORLD_WIDTH)},${wrapY(by + dy, WORLD_HEIGHT)}`;
-      const tile = this.tiles.get(nk);
-      if (tile?.ownerId === playerId && tile.ownershipState === "FRONTIER" && tile.frontierDecayKind === "ENCIRCLEMENT") {
-        seeds.push(nk);
-      }
-    }
-    // Also check aether-bridge virtual neighbours of B
-    for (const nk of aetherBridgeNeighborKeys.get(targetKey) ?? []) {
-      const tile = this.tiles.get(nk);
-      if (tile?.ownerId === playerId && tile.ownershipState === "FRONTIER" && tile.frontierDecayKind === "ENCIRCLEMENT") {
-        seeds.push(nk);
-      }
-    }
-
-    if (seeds.length === 0) return;
-
-    // BFS through ENCIRCLEMENT frontier tiles reachable from seeds — all are reconnected.
-    const visited = new Set<string>(seeds);
-    const queue = [...seeds];
-    const reconnected = new Set<string>(seeds);
-
-    while (queue.length > 0) {
-      // biome-ignore lint: queue.shift() fine for bounded BFS over a cut-off pocket
-      const current = queue.shift()!;
-      const [cxStr, cyStr] = current.split(",") as [string, string];
-      const cx = Number(cxStr);
-      const cy = Number(cyStr);
-      for (const [dx, dy] of SimulationRuntime.EXPAND_NEIGHBOR_OFFSETS) {
-        const nk = `${wrapX(cx + dx, WORLD_WIDTH)},${wrapY(cy + dy, WORLD_HEIGHT)}`;
-        if (visited.has(nk)) continue;
-        visited.add(nk);
-        const tile = this.tiles.get(nk);
-        if (tile?.ownerId === playerId && tile.ownershipState === "FRONTIER" && tile.frontierDecayKind === "ENCIRCLEMENT") {
-          reconnected.add(nk);
-          queue.push(nk);
-        }
-      }
-      for (const nk of aetherBridgeNeighborKeys.get(current) ?? []) {
-        if (visited.has(nk)) continue;
-        visited.add(nk);
-        const tile = this.tiles.get(nk);
-        if (tile?.ownerId === playerId && tile.ownershipState === "FRONTIER" && tile.frontierDecayKind === "ENCIRCLEMENT") {
-          reconnected.add(nk);
-          queue.push(nk);
-        }
-      }
-    }
-
-    const tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[] = [];
-    for (const key of reconnected) {
-      const tile = this.tiles.get(key);
-      if (!tile || tile.frontierDecayKind !== "ENCIRCLEMENT") continue;
-      const updated: typeof tile = { ...tile, frontierDecayAt: undefined, frontierDecayKind: undefined };
-      this.replaceTileState(key, updated, commandId);
-      tileDeltas.push(this.tileDeltaFromState(updated));
-    }
-    if (tileDeltas.length > 0) {
-      this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas });
-    }
+    applyEncirclementForExpandImpl(this.encirclementApplicationContext(), targetKey, playerId, commandId);
   }
 
-  /**
-   * Re-check encirclement connectivity for tiles owned by `playerId` in the
-   * region around `changedKeys`. Apply `frontierDecayAt` to newly cut-off
-   * tiles and clear it for reconnected tiles. Emit a TILE_DELTA_BATCH for
-   * any tiles that changed.
-   */
   private applyEncirclement(
     changedKeys: string[],
     playerId: string,
     commandId: string,
     options?: { bfsCap?: number; skipCutOff?: boolean }
   ): void {
-    const getTile = (key: string) => this.tiles.get(key);
-    const nowMs = this.now();
-    const aetherBridgeNeighborKeys = this.activeAetherBridgeNeighborKeysForPlayer(playerId);
-    const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs, {
-      extraNeighborKeys: (tileKey) => aetherBridgeNeighborKeys.get(tileKey) ?? [],
-      ...(options?.bfsCap !== undefined ? { bfsCap: options.bfsCap } : {}),
-      ...(options?.skipCutOff ? { skipCutOff: true } : {}),
-      onCapExceeded: (pid, visited, cap) => {
-        this.runtimeLogInfo(
-          {
-            playerId: pid,
-            bfsVisited: visited,
-            bfsCap: cap,
-            changedKeysCount: changedKeys.length,
-            commandId
-          },
-          "[applyEncirclement] BFS cap exceeded — skipping detection this tick"
-        );
-      }
-    });
-
-    const tileDeltas: ReturnType<SimulationRuntime["tileDeltaFromState"]>[] = [];
-
-    for (const key of cutOff) {
-      const tile = this.tiles.get(key);
-      if (!tile) continue;
-      if (tile.ownershipState === "FRONTIER") {
-        // Frontier tiles lose ownership immediately — no timer needed now that
-        // frontier decay is removed. Settled cut-off tiles are left unchanged
-        // (decay never cleared settled tiles either).
-        const cleared: typeof tile = {
-          ...tile,
-          ownerId: undefined,
-          ownershipState: undefined,
-          frontierDecayAt: undefined,
-          frontierDecayKind: undefined,
-          fort: undefined,
-          observatory: undefined,
-          siegeOutpost: undefined,
-          economicStructure: undefined,
-          muster: undefined,
-          sabotage: undefined
-        };
-        this.replaceTileState(key, cleared, commandId);
-        tileDeltas.push(this.tileDeltaFromState(cleared));
-      }
-    }
-
-    for (const key of reconnected) {
-      const tile = this.tiles.get(key);
-      if (!tile) continue;
-      if (typeof tile.frontierDecayAt !== "number" || tile.frontierDecayKind !== "ENCIRCLEMENT") continue;
-      const updated: typeof tile = { ...tile, frontierDecayAt: undefined, frontierDecayKind: undefined };
-      this.replaceTileState(key, updated, commandId);
-      tileDeltas.push(this.tileDeltaFromState(updated));
-    }
-
-    if (tileDeltas.length > 0) {
-      this.emitEvent({
-        eventType: "TILE_DELTA_BATCH",
-        commandId,
-        playerId,
-        tileDeltas
-      });
-    }
+    applyEncirclementImpl(this.encirclementApplicationContext(), changedKeys, playerId, commandId, options);
   }
 
   private activeAetherBridgeNeighborKeysForPlayer(playerId: string): Map<string, string[]> {
-    const neighborKeys = new Map<string, string[]>();
-    for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
-      const fromKey = simulationTileKey(bridge.from.x, bridge.from.y);
-      const toKey = simulationTileKey(bridge.to.x, bridge.to.y);
-      const fromNeighbors = neighborKeys.get(fromKey);
-      if (fromNeighbors) fromNeighbors.push(toKey);
-      else neighborKeys.set(fromKey, [toKey]);
-      const toNeighbors = neighborKeys.get(toKey);
-      if (toNeighbors) toNeighbors.push(fromKey);
-      else neighborKeys.set(toKey, [fromKey]);
-    }
-    return neighborKeys;
+    return activeAetherBridgeNeighborKeysForPlayerImpl(this.encirclementApplicationContext(), playerId);
   }
 
   private relocateSettlementForPlayer(
@@ -4915,55 +4541,7 @@ export class SimulationRuntime {
     tileResource: string | undefined,
     structureType?: string
   ): void {
-    // Map tile resource to strategic resource key
-    const resourceMap: Record<string, "IRON" | "CRYSTAL" | "SUPPLY" | "FOOD" | "OIL"> = {
-      IRON: "IRON",
-      GEMS: "CRYSTAL",
-      FUR: "SUPPLY",
-      WOOD: "SUPPLY",
-      FARM: "FOOD",
-      FISH: "FOOD",
-      OIL: "OIL"
-    };
-    // Synthesizer buildings also steal from the converted resource
-    const synthMap: Record<string, "IRON" | "CRYSTAL" | "SUPPLY"> = {
-      IRONWORKS: "IRON",
-      ADVANCED_IRONWORKS: "IRON",
-      CRYSTAL_SYNTHESIZER: "CRYSTAL",
-      ADVANCED_CRYSTAL_SYNTHESIZER: "CRYSTAL",
-      FUR_SYNTHESIZER: "SUPPLY",
-      ADVANCED_FUR_SYNTHESIZER: "SUPPLY"
-    };
-    const resource = (tileResource ? resourceMap[tileResource] : undefined)
-      ?? (structureType ? synthMap[structureType] : undefined);
-    if (!resource) return;
-
-    const defenderBalance = (defender.strategicResources?.[resource] ?? 0);
-    if (defenderBalance <= 0) return;
-
-    // Count defender's sources of this resource (tiles + synthesizers) from summary
-    const defenderSummary = this.summaryForPlayer(defender.id);
-    const sp = defenderSummary.strategicProductionPerMinute;
-    const syn = defenderSummary.synthesizerCapBonus;
-
-    // Approximate source count: scale from production rate compared to one tile's rate
-    // One iron tile produces 60/1440 = 0.0417/min. Count ≈ production / perTileRate.
-    const perTileRateByResource: Record<string, number> = {
-      IRON: 60 / 1440,
-      CRYSTAL: 36 / 1440,
-      SUPPLY: 60 / 1440,
-      FOOD: 72 / 1440,
-      OIL: 48 / 1440
-    };
-    const perTileRate = perTileRateByResource[resource] ?? (60 / 1440);
-    const synthBonusUnits = (syn[resource as "IRON" | "CRYSTAL" | "SUPPLY"] ?? 0) / 30; // 30 = 1 tile equiv
-    const tileEquivCount = Math.max(1, Math.round((sp[resource] ?? 0) / perTileRate + synthBonusUnits));
-
-    const stolen = defenderBalance / tileEquivCount;
-    if (stolen <= 0.01) return;
-
-    defender.strategicResources = { ...(defender.strategicResources ?? {}), [resource]: Math.max(0, defenderBalance - stolen) };
-    attacker.strategicResources = { ...(attacker.strategicResources ?? {}), [resource]: ((attacker.strategicResources?.[resource] ?? 0) + stolen) };
+    applyResourceTileStealImpl(this.resourceStealContext(), attacker, defender, tileResource, structureType);
   }
 
   private applySettledCapturePlunder(input: {
