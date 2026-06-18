@@ -1,7 +1,8 @@
 import type { BuildableStructureType } from "./structure-costs/structure-costs.js";
 import structurePlacementMetadataJson from "./structure-placement-metadata.json" with { type: "json" };
-import type { OwnershipState, PopulationTier, ResourceType } from "./types.js";
+import type { FortVariant, OwnershipState, PopulationTier, ResourceType, SiegeOutpostVariant } from "./types.js";
 
+export type StructurePlacementType = BuildableStructureType | FortVariant | SiegeOutpostVariant;
 export type StructureTileSurface = "settled" | "resource" | "town" | "support" | "dock" | "dock_support";
 export type StructurePlacementMode = "same_tile" | "town_support" | "dock_support";
 export type StructureSortGroup = "support" | "general" | "resource" | "military";
@@ -24,14 +25,14 @@ type TileSurfaceInput = {
   supportedDockCount?: number | undefined;
 };
 
-const STRUCTURE_PLACEMENT_METADATA = structurePlacementMetadataJson as Record<BuildableStructureType, StructurePlacementMetadata>;
+const STRUCTURE_PLACEMENT_METADATA = structurePlacementMetadataJson as Record<StructurePlacementType, StructurePlacementMetadata>;
 
-export const structurePlacementMetadata = (type: BuildableStructureType): StructurePlacementMetadata => STRUCTURE_PLACEMENT_METADATA[type];
+export const structurePlacementMetadata = (type: StructurePlacementType): StructurePlacementMetadata => STRUCTURE_PLACEMENT_METADATA[type];
 
-export const isTownSupportPlacementStructure = (type: BuildableStructureType): boolean =>
+export const isTownSupportPlacementStructure = (type: StructurePlacementType): boolean =>
   structurePlacementMetadata(type).placementMode === "town_support";
 
-export const isDockSupportPlacementStructure = (type: BuildableStructureType): boolean =>
+export const isDockSupportPlacementStructure = (type: StructurePlacementType): boolean =>
   structurePlacementMetadata(type).placementMode === "dock_support";
 
 export const structureTileSurfaces = (input: TileSurfaceInput): StructureTileSurface[] => {
@@ -45,7 +46,7 @@ export const structureTileSurfaces = (input: TileSurfaceInput): StructureTileSur
   return [...surfaces];
 };
 
-export const structureShowsOnTile = (type: BuildableStructureType, input: TileSurfaceInput): boolean => {
+export const structureShowsOnTile = (type: StructurePlacementType, input: TileSurfaceInput): boolean => {
   const metadata = structurePlacementMetadata(type);
   const surfaces = structureTileSurfaces(input);
   if (metadata.resourceTypes && !input.resource) return false;
@@ -53,7 +54,7 @@ export const structureShowsOnTile = (type: BuildableStructureType, input: TileSu
   return metadata.showOn.some((surface) => surfaces.includes(surface));
 };
 
-export const structureSortRank = (type: BuildableStructureType): number => {
+export const structureSortRank = (type: StructurePlacementType): number => {
   const group = structurePlacementMetadata(type).sortGroup;
   if (group === "support") return 0;
   if (group === "general") return 1;
