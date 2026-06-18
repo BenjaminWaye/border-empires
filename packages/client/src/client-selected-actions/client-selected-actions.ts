@@ -10,11 +10,6 @@ const notifySelectedActionBlocked = (deps: SelectedActionDepsBase, title: string
 };
 type SelectedActionDepsBase = VisibleActionWarningDeps;
 
-export const hideHoldBuildMenu = (holdBuildMenuEl: HTMLElement): void => {
-  holdBuildMenuEl.style.display = "none";
-  holdBuildMenuEl.innerHTML = "";
-};
-
 export const hideTileActionMenu = (
   state: Pick<ClientState, "tileActionMenu">,
   tileActionMenuEl: HTMLElement

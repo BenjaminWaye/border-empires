@@ -25,8 +25,8 @@ const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
   if (tile.hasMarket && tile.marketActive) {
-    modifiers.push({ reason: "Market", effect: "+50% fed gold production", tone: "positive" });
-    modifiers.push({ reason: "Market", effect: "+50% gold storage cap", tone: "positive" });
+    modifiers.push({ reason: "Market", effect: "+50% town gold production", tone: "positive" });
+    modifiers.push({ reason: "Market", effect: "higher production raises gold cap", tone: "positive" });
   }
   if (tile.hasSeedGranary && tile.seedGranaryActive) {
     modifiers.push({ reason: "Seed Granary", effect: "+30% population growth", tone: "positive" });
@@ -50,7 +50,7 @@ const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStruct
   if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "CAMP") {
     return [{
       reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Camp",
-      effect: tile.type === "WATERWORKS" ? "+50% farmstead food within 10 tiles" : "+50% farm food",
+      effect: tile.type === "WATERWORKS" ? "+50% farmstead food; raises food cap" : tile.type === "CAMP" ? "+50% supply, +15 supply cap" : "+50% farm food, +18 food cap",
       tone: "positive"
     }];
   }
