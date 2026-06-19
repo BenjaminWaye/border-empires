@@ -232,11 +232,13 @@ export const validateFrontierCommand = (
   const musterAttack = input.musterSystemEnabled === true && input.actionType === "ATTACK";
   const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
   const isBarbRaid = musterAttack && input.to.ownerId === "barbarian-1";
+  const isBarbarianAttack = musterAttack && input.actor.id === "barbarian-1";
   // Under the muster system an attack is paid from the origin tile's muster
   // reservoir (a single, legible number), not from the global pool times the
   // legacy fort multiplier. Barbarian raids skip muster wind-up and are funded
-  // from the player pool at BARBARIAN_RAID_COST.
-  const effectiveCost = isBarbRaid ? BARBARIAN_RAID_COST : requiredMuster;
+  // from the player pool at BARBARIAN_RAID_COST. Barbarian-origin attacks are
+  // limited by per-tile cooldown instead of manpower.
+  const effectiveCost = isBarbarianAttack ? 0 : isBarbRaid ? BARBARIAN_RAID_COST : requiredMuster;
   const manpowerMin = musterAttack ? effectiveCost : legacy.manpowerMin;
   const manpowerCost = musterAttack ? effectiveCost : legacy.manpowerCost;
   if (input.actionType === "EXPAND" && input.to.ownerId) {
@@ -296,7 +298,7 @@ export const validateFrontierCommand = (
         message: `need ${BARBARIAN_RAID_COST} manpower for barbarian raid`
       };
     }
-  } else if (musterAttack) {
+  } else if (musterAttack && !isBarbarianAttack) {
     if ((input.originMuster ?? 0) < requiredMuster) {
       return {
         ok: false,

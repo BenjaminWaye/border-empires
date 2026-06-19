@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.18.2",
+  version: "2026.06.19.1",
   title: "What's New",
-  summary: "Foundries now boost mines in a tighter local radius, and production buildings explain their cap impact.",
+  summary: "Barbarian attacks now work again under the muster system.",
   entries: [
+    {
+      introducedIn: "2026.06.19.1",
+      title: "Barbarian attacks restored",
+      why: "Barbarian attacks were being blocked by the player muster requirement, even though barbarians do not stage muster flags.",
+      changes: [
+        "Barbarian-origin attacks now use their per-tile cooldown instead of looking for staged muster or manpower.",
+        "Player attacks still require staged muster, except for the existing cheap raid path against barbarian tiles."
+      ]
+    },
     {
       introducedIn: "2026.06.18.2",
       title: "Foundry radius tightened",
@@ -115,64 +124,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The loading screen now shows a live status message while the server builds your snapshot.",
         "After 3 seconds: 'Exporting your territory'. After 8 seconds: elapsed time is shown.",
         "Server-side Phase 4b fix also cuts starvation for large-empire logins significantly."
-      ]
-    },
-    {
-      introducedIn: "2026.06.12.6",
-      title: "Enemy muster flags visible",
-      why: "You couldn't see where enemies were staging manpower, making it impossible to respond before the attack launched.",
-      changes: [
-        "Muster flags placed by enemies now appear on your map in their empire color.",
-        "Flags disappear when an enemy clears their muster or the tile is captured.",
-        "Flag fills to show a ready-to-attack level — exact amount is hidden."
-      ]
-    },
-    {
-      introducedIn: "2026.06.12.5",
-      title: "Cleaner bulk action warnings",
-      why: "Bulk settlement and frontier-claim actions should not overwrite useful warning details with duplicate summary alerts.",
-      changes: [
-        "Connected-frontier settlement now suppresses per-tile warning popups while scanning the bulk selection, then shows one summary warning if nothing queued.",
-        "Bulk frontier claims now use the same visible warning path as single-tile claims."
-      ]
-    },
-    {
-      introducedIn: "2026.06.12.4",
-      title: "Muster system overhaul",
-      why: "Mustering was too slow (288 min to fill 60 instead of 20 s), cleared manpower was lost rather than returned, and the flag rendered under the settled overlay.",
-      changes: [
-        "Muster speed raised to 180 manpower/min per tile — 60 manpower stages in ~20 seconds.",
-        "Clearing or losing a mustered tile now returns banked manpower to your pool instead of discarding it.",
-        "Maximum 5 simultaneous muster tiles per player; flags planted more than 2 days ago auto-clear with a full refund.",
-        "Muster flag z-index fixed — the pennant now renders above all tile overlays including the settled animation.",
-        "Muster status (amount staged) moved from the tile overview into the action button descriptions."
-      ]
-    },
-    {
-      introducedIn: "2026.06.12.3",
-      title: "Action blockers are visible",
-      why: "Important action failures were too easy to miss when they only appeared in the activity feed.",
-      changes: [
-        "Blocked settlement, frontier claim, expansion-path, fort, siege outpost, and uncapture actions now show an immediate warning popup.",
-        "The activity feed still keeps the short history entry, but it is no longer the only place players see these blockers."
-      ]
-    },
-    {
-      introducedIn: "2026.06.12.2",
-      title: "Persistent alerts stay on the map",
-      why: "The activity feed had become a catch-all error log, so important gameplay problems competed with routine history and debug-style rejection messages. Persistent problems are easier to fix when the map remains the source of truth.",
-      changes: [
-        "Unfed towns now use the existing map badge plus a clickable edge locator when the affected town is off-screen.",
-        "Town-unfed server rejections no longer add activity-feed error spam; they show a short warning and point players back to the persistent town badge.",
-        "The existing activity button now shows unread counts and briefly nudges for noteworthy history, without adding another mobile HUD icon."
-      ]
-    },
-    {
-      introducedIn: "2026.06.12.1",
-      title: "Survey Sweep covers its full range",
-      why: "Survey Sweep wrapped around the world correctly, but the positive X and Y edges of the advertised range were excluded from the scan.",
-      changes: [
-        "Survey Sweep now checks the full centered square from -range through +range, including both positive boundary edges."
       ]
     },
   ]
