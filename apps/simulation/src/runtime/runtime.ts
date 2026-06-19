@@ -2983,7 +2983,7 @@ export class SimulationRuntime {
     const requiredMuster = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK"
       ? this.requiredMusterForTarget(to)
       : undefined;
-    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && to.ownerId !== "barbarian-1"
+    const musterSource = MUSTER_SYSTEM_ENABLED && actionType === "ATTACK" && to.ownerId !== "barbarian-1" && actor.id !== "barbarian-1"
       ? this.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST)
       : undefined;
     const validation = validateFrontierCommand({
@@ -3050,7 +3050,7 @@ export class SimulationRuntime {
       targetKey: simulationTileKey(validation.target.x, validation.target.y),
       resolvesAt: validation.resolvesAt,
       source: lockSourceFromSessionId(command.sessionId),
-      ...(actionType === "ATTACK" && MUSTER_SYSTEM_ENABLED ? { musterSourceKey: effectiveMusterSourceKey } : {})
+      ...(actionType === "ATTACK" && MUSTER_SYSTEM_ENABLED && actor.id !== "barbarian-1" ? { musterSourceKey: effectiveMusterSourceKey } : {})
     };
     // Reserve the muster amount so concurrent in-flight attacks can't double-spend.
     if (baseLock.musterSourceKey && actionType === "ATTACK") {

@@ -23,12 +23,12 @@ const makePlayer = (id: string, manpower: number) => ({
 
 const barbPlayer = (manpower: number) => ({ ...makePlayer("barbarian-1", manpower), isAi: true });
 
-const buildRuntime = (playerManpower: number) =>
+const buildRuntime = (playerManpower: number, barbarianManpower = 9999) =>
   new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([
       ["player-1", makePlayer("player-1", playerManpower)],
-      ["barbarian-1", barbPlayer(9999)]
+      ["barbarian-1", barbPlayer(barbarianManpower)]
     ]),
     initialState: {
       tiles: [
@@ -90,6 +90,52 @@ describe("Phase 8: barbarian raids", () => {
         e.eventType === "COMMAND_REJECTED" && e.commandId === "raid-ok"
     );
     expect(rejected).toBeUndefined();
+  });
+
+  it("allows a barbarian-origin attack without staged muster", () => {
+    const runtime = buildRuntime(999, 0);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((e) => seen.push(e));
+    runtime.submitCommand({
+      commandId: "barb-attack-ok",
+      sessionId: "system-runtime",
+      playerId: "barbarian-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 11, toX: 10, toY: 10 })
+    });
+    const rejected = seen.find(
+      (e): e is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
+        e.eventType === "COMMAND_REJECTED" && e.commandId === "barb-attack-ok"
+    );
+    const musterReserved = (runtime as unknown as { musterReservedByKey: Map<string, number> }).musterReservedByKey;
+    expect(rejected).toBeUndefined();
+    expect(musterReserved.size).toBe(0);
+  });
+
+  it("validateFrontierCommand charges no manpower for barbarian-origin attacks", () => {
+    const result = validateFrontierCommand({
+      from: barbTileCoords,
+      to: origin,
+      actor: { id: "barbarian-1", isAi: true, points: 100, manpower: 0, mods: { attack: 1, defense: 1, income: 1, vision: 1 }, techIds: new Set(), domainIds: new Set(), techRootId: "rewrite-local", allies: new Set() },
+      actionType: "ATTACK",
+      now: 1_000,
+      isAdjacent: true,
+      isDockCrossing: false,
+      isBridgeCrossing: false,
+      originLockedUntil: undefined,
+      targetLockedUntil: undefined,
+      originLockResolvesAt: undefined,
+      targetLockResolvesAt: undefined,
+      targetLockOwnerId: undefined,
+      actionGoldCost: 0,
+      musterSystemEnabled: true,
+      originMuster: 0,
+      requiredMuster: MUSTER_ATTACK_COST
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.manpowerCost).toBe(0);
   });
 
   it("validateFrontierCommand rejects barbarian raid when pool < BARBARIAN_RAID_COST", () => {

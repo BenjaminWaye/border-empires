@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBarbarianPlanner, BARBARIAN_PLAYER_ID } from "./system-job-barbarian-planner.js";
+import { createBarbarianPlanner, BARBARIAN_PLAYER_ID, BARBARIAN_TILE_COOLDOWN_MS } from "./system-job-barbarian-planner.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 
 const makeBarbTile = (x: number, y: number): PlannerTileView => ({
@@ -38,6 +38,28 @@ const makeBarbPlayer = (territoryTileKeys: string[]): PlannerPlayerView => ({
 const tileKey = (x: number, y: number): string => `${x},${y}`;
 
 describe("createBarbarianPlanner cooldown", () => {
+  it("defaults to a 15 second per-tile action cooldown", () => {
+    const tilesByKey = new Map<string, PlannerTileView>([
+      [tileKey(10, 10), makeBarbTile(10, 10)],
+      [tileKey(10, 11), makePlayerTile(10, 11)]
+    ]);
+    const planner = createBarbarianPlanner({
+      tilesByKey,
+      resolveOwnedTiles: (p) =>
+        p.territoryTileKeys.map((k) => tilesByKey.get(k)).filter((t): t is PlannerTileView => !!t),
+      getDockLinksByDockTileKey: () => new Map(),
+      getVisibleToAnyNonBarbPlayer: () => new Set([tileKey(10, 10)]),
+      now: () => 1_000
+    });
+
+    const cmd = planner.choose(makeBarbPlayer([tileKey(10, 10)]), 1, 1_000);
+    expect(cmd).not.toBeNull();
+    const payload = JSON.parse(cmd!.payloadJson) as { fromX: number; fromY: number; toX: number; toY: number };
+    expect(BARBARIAN_TILE_COOLDOWN_MS).toBe(15_000);
+    expect(planner.cooldownByTileKey.get(tileKey(payload.fromX, payload.fromY))).toBe(16_000);
+    expect(planner.cooldownByTileKey.get(tileKey(payload.toX, payload.toY))).toBe(16_000);
+  });
+
   it("cools down BOTH the source and target tile after a successful command", () => {
     // Barb sits at (10,10), visible to a player; planner emits a walk and the
     // post-command cooldown lands on both endpoints.

@@ -96,6 +96,8 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       const isBarbRaid = previousTarget?.ownerId === "barbarian-1";
       if (isBarbRaid) {
         attacker.manpower = Math.max(0, attacker.manpower - lock.manpowerCost);
+      } else if (lock.playerId === "barbarian-1") {
+        // Barbarian-origin attacks are rate-limited by tile cooldown, not manpower.
       } else {
         context.consumeOriginMuster(lock.musterSourceKey ?? lock.originKey, lock.playerId, lock.manpowerCost);
         if (!attackerWon) context.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
