@@ -21,8 +21,6 @@ export const strategicResourceForTile = (resource: DomainTileState["resource"] |
       return "CRYSTAL";
     case "FUR":
       return "SUPPLY";
-    case "OIL":
-      return "OIL";
     default:
       return undefined;
   }

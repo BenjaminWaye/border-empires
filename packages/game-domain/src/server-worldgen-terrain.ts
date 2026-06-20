@@ -23,22 +23,6 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     chebyshevDistance,
     regionTypeAt,
     clusterByTile,
-    townsByTile,
-    docksByTile,
-    fortsByTile,
-    siegeOutpostsByTile,
-    observatoriesByTile,
-    economicStructuresByTile,
-    playerTile,
-    AIRPORT_BOMBARD_MIN_FIELD_TILES,
-    AIRPORT_BOMBARD_MAX_FIELD_TILES,
-    activeSeason,
-    clustersById,
-    ownership,
-    getOrInitResourceCounts,
-    rebuildEconomyIndexForPlayer,
-    sendPlayerUpdate,
-    sendVisibleTileDeltaAt,
     landBiomeAt,
     grassShadeAt,
     FRONTIER_CLAIM_MS
@@ -172,89 +156,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     if (cluster.clusterType === "CRYSTAL_BASIN") return "GEMS";
     if (cluster.clusterType === "HORSE_STEPPES") return "FUR";
     if (cluster.clusterType === "COASTAL_SHOALS") return "FISH";
-    if (cluster.clusterType === "OIL_FIELD") return "OIL";
     return "GEMS";
-  };
-
-  const discoverOilFieldNearAirport = (ownerId: string, airportTileKey: TileKey): TileKey[] => {
-    const [ax, ay] = parseKey(airportTileKey);
-    const candidateKeys: TileKey[] = [];
-    for (let dy = -2; dy <= 2; dy += 1) {
-      for (let dx = -2; dx <= 2; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const x = wrapX(ax + dx, WORLD_WIDTH);
-        const y = wrapY(ay + dy, WORLD_HEIGHT);
-        const tk = key(x, y);
-        if (terrainAtRuntime(x, y) !== "LAND") continue;
-        if (clusterByTile.has(tk) || townsByTile.has(tk) || docksByTile.has(tk)) continue;
-        if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) continue;
-        candidateKeys.push(tk);
-      }
-    }
-    candidateKeys.sort((left, right) => {
-      const leftTile = playerTile(...parseKey(left));
-      const rightTile = playerTile(...parseKey(right));
-      const leftScore = leftTile.ownerId === ownerId && leftTile.ownershipState === "SETTLED" ? 0 : leftTile.ownerId === ownerId ? 1 : 2;
-      const rightScore = rightTile.ownerId === ownerId && rightTile.ownershipState === "SETTLED" ? 0 : rightTile.ownerId === ownerId ? 1 : 2;
-      return leftScore - rightScore;
-    });
-
-    const desiredCount =
-      AIRPORT_BOMBARD_MIN_FIELD_TILES +
-      Math.floor(seeded01(ax, ay, activeSeason.worldSeed + 811) * (AIRPORT_BOMBARD_MAX_FIELD_TILES - AIRPORT_BOMBARD_MIN_FIELD_TILES + 1));
-    const candidateSet = new Set(candidateKeys);
-    const selected: TileKey[] = [];
-
-    for (const start of candidateKeys) {
-      if (selected.length >= desiredCount) break;
-      if (selected.includes(start)) continue;
-      const queue = [start];
-      const visited = new Set<string>([start]);
-      while (queue.length > 0 && selected.length < desiredCount) {
-        const current = queue.shift()!;
-        if (!selected.includes(current)) selected.push(current);
-        const [cx, cy] = parseKey(current);
-        for (let ny = cy - 1; ny <= cy + 1; ny += 1) {
-          for (let nx = cx - 1; nx <= cx + 1; nx += 1) {
-            const neighborKey = key(wrapX(nx, WORLD_WIDTH), wrapY(ny, WORLD_HEIGHT));
-            if (!candidateSet.has(neighborKey) || visited.has(neighborKey)) continue;
-            visited.add(neighborKey);
-            queue.push(neighborKey);
-          }
-        }
-      }
-      if (selected.length >= AIRPORT_BOMBARD_MIN_FIELD_TILES) break;
-    }
-
-    if (selected.length < AIRPORT_BOMBARD_MIN_FIELD_TILES) return [];
-    const clusterId = `oil-${crypto.randomUUID()}`;
-    clustersById.set(clusterId, {
-      clusterId,
-      clusterType: "OIL_FIELD",
-      resourceType: "OIL",
-      centerX: ax,
-      centerY: ay,
-      radius: 1,
-      controlThreshold: 2
-    });
-    const affectedOwners = new Set<string>();
-    for (const tk of selected) {
-      clusterByTile.set(tk, clusterId);
-      const owner = ownership.get(tk);
-      if (!owner) continue;
-      getOrInitResourceCounts(owner).OIL = (getOrInitResourceCounts(owner).OIL ?? 0) + 1;
-      affectedOwners.add(owner);
-    }
-    for (const affectedOwner of affectedOwners) {
-      rebuildEconomyIndexForPlayer(affectedOwner);
-      const player = players.get(affectedOwner);
-      if (player) sendPlayerUpdate(player, 0);
-    }
-    for (const tk of selected) {
-      const [x, y] = parseKey(tk);
-      sendVisibleTileDeltaAt(x, y);
-    }
-    return selected;
   };
 
   const isNearMountain = (x: number, y: number, r = 4): boolean => {
@@ -399,7 +301,6 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     adjacentOceanSea,
     clusterTypeDefs,
     clusterResourceType,
-    discoverOilFieldNearAirport,
     isNearMountain,
     resourcePlacementAllowed,
     isForestFrontierTile,

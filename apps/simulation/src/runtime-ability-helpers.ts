@@ -298,8 +298,7 @@ export function buildRevealEmpireStats(
       IRON: target.strategicResources?.IRON ?? 0,
       CRYSTAL: target.strategicResources?.CRYSTAL ?? 0,
       SUPPLY: target.strategicResources?.SUPPLY ?? 0,
-      SHARD: target.strategicResources?.SHARD ?? 0,
-      OIL: target.strategicResources?.OIL ?? 0
+      SHARD: target.strategicResources?.SHARD ?? 0
     } satisfies Record<StrategicResourceKey, number>
   };
 }

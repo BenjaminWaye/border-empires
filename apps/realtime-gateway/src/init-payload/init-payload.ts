@@ -93,10 +93,10 @@ type GatewayInitPayload = {
     manpowerRegenPerMinute: number;
     manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;
-    strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
-    strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
+    strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+    strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
     economyBreakdown?: Record<string, unknown>;
-    upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
+    upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number };
     upkeepLastTick?: Record<string, unknown>;
     techIds: string[];
     domainIds: string[];
@@ -125,7 +125,7 @@ type GatewayInitPayload = {
     mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
     requirements: {
       gold: number;
-      resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+      resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
       canResearch: boolean;
     };
     grantsPowerup?: { id: string; charges: number };
@@ -141,7 +141,7 @@ type GatewayInitPayload = {
     mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
     requirements: {
       gold: number;
-      resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+      resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
       canResearch: boolean;
     };
   }>;
@@ -347,7 +347,7 @@ const settledCountsFromSnapshot = (snapshot: { tiles: ReadonlyArray<Record<strin
 
 const toResources = (
   cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>
-): Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> => ({
+): Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> => ({
   ...(typeof cost?.food === "number" && cost.food > 0 ? { FOOD: cost.food } : {}),
   ...(typeof cost?.iron === "number" && cost.iron > 0 ? { IRON: cost.iron } : {}),
   ...(typeof cost?.crystal === "number" && cost.crystal > 0 ? { CRYSTAL: cost.crystal } : {}),
@@ -356,8 +356,8 @@ const toResources = (
 });
 
 const hasResources = (
-  required: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>,
-  available: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>
+  required: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>,
+  available: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>
 ): boolean =>
   (Object.entries(required) as Array<[keyof typeof available, number]>).every(
     ([resource, amount]) => (available[resource] ?? 0) >= (amount ?? 0)
@@ -560,7 +560,7 @@ const objectiveSelfProgressLabel = (
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
   if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
-    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0, OIL: 0 };
+    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0 };
     let bestResource: ResourceType | undefined;
     let bestOwned = 0;
     let bestTotal = 0;
@@ -601,7 +601,7 @@ const buildSeasonVictoryObjectives = (
   const controlledCountByPlayerId = new Map<string, number>();
   const dockCountByPlayerId = new Map<string, number>();
   const metricsByPlayerId = new Map<string, VictoryMetrics>();
-  const totalResourceCounts: Record<ResourceType, number> = { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0, OIL: 0 };
+  const totalResourceCounts: Record<ResourceType, number> = { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0 };
   const ownedResourceCountsByPlayerId = new Map<string, Record<ResourceType, number>>();
   for (const tile of worldTiles) {
     if (tile.ownerId && tile.town?.type && competitivePlayerIds.has(tile.ownerId)) {
@@ -618,7 +618,7 @@ const buildSeasonVictoryObjectives = (
       const resource = tile.resource as ResourceType;
       totalResourceCounts[resource] = (totalResourceCounts[resource] ?? 0) + 1;
       if (tile.ownerId && competitivePlayerIds.has(tile.ownerId)) {
-        const owned = ownedResourceCountsByPlayerId.get(tile.ownerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0, OIL: 0 };
+        const owned = ownedResourceCountsByPlayerId.get(tile.ownerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0 };
         owned[resource] = (owned[resource] ?? 0) + 1;
         ownedResourceCountsByPlayerId.set(tile.ownerId, owned);
       }
@@ -879,7 +879,7 @@ export const buildGatewayInitPayload = (
   const availableStrategic =
     liveSnapshotPlayer?.strategicResources ??
     bootstrapProfile?.strategicResources ??
-    { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 };
+    { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 };
 
   return {
     runtimeIdentity,
@@ -902,7 +902,7 @@ export const buildGatewayInitPayload = (
       strategicProductionPerMinute:
         liveSnapshotPlayer?.strategicProductionPerMinute ??
         bootstrapProfile?.strategicProductionPerMinute ??
-        { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       ...(
         liveSnapshotPlayer?.economyBreakdown
           ? { economyBreakdown: liveSnapshotPlayer.economyBreakdown }

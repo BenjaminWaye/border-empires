@@ -986,7 +986,7 @@ export class SimulationRuntime {
 
     // Credit strategic resources
     const sp = economy.strategicProductionPerMinute;
-    const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL", "SHARD"] as const;
+    const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
     for (const resource of strategicKeys) {
       const ratePerMinute = sp[resource] ?? 0;
       if (ratePerMinute <= 0) continue;
@@ -1549,7 +1549,7 @@ export class SimulationRuntime {
       // rounding noise below the gameplay-significant precision.
       const round4 = (n: number): number => Number(n.toFixed(4));
       const mismatches: string[] = [];
-      for (const key of ["gold", "food", "iron", "crystal", "supply", "oil"] as const) {
+      for (const key of ["gold", "food", "iron", "crystal", "supply"] as const) {
         const inc = round4(upkeep[key]);
         const fullV = round4((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
         if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);
@@ -1580,8 +1580,7 @@ export class SimulationRuntime {
       FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
       IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
       CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
-      SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes,
-      OIL: Math.max(0, upkeep.oil) * elapsedMinutes
+      SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
     };
     // Towns pay their own upkeep from accumulated yield before raiding the
     // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
@@ -1596,11 +1595,10 @@ export class SimulationRuntime {
       IRON: player.strategicResources?.IRON ?? 0,
       CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
       SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-      SHARD: player.strategicResources?.SHARD ?? 0,
-      OIL: player.strategicResources?.OIL ?? 0
+      SHARD: player.strategicResources?.SHARD ?? 0
     };
     let mutated = false;
-    for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL"] as const) {
+    for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
       if (need[res] > 0) {
         stock[res] = Math.max(0, stock[res] - need[res]);
         mutated = true;
@@ -2619,7 +2617,6 @@ export class SimulationRuntime {
       lastCap.IRON !== storageCap.IRON ||
       lastCap.CRYSTAL !== storageCap.CRYSTAL ||
       lastCap.SUPPLY !== storageCap.SUPPLY ||
-      lastCap.OIL !== storageCap.OIL ||
       lastCap.SHARD !== storageCap.SHARD;
     if (capChanged) this.lastEmittedStorageCapByPlayer.set(playerId, storageCap);
     this.emitPlayerMessage(
@@ -2640,8 +2637,7 @@ export class SimulationRuntime {
           IRON: player.strategicResources?.IRON ?? 0,
           CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
           SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-          SHARD: player.strategicResources?.SHARD ?? 0,
-          OIL: player.strategicResources?.OIL ?? 0
+          SHARD: player.strategicResources?.SHARD ?? 0
         },
         strategicProductionPerMinute: economy.strategicProductionPerMinute,
         economyBreakdown: economy.economyBreakdown,
@@ -3191,7 +3187,7 @@ export class SimulationRuntime {
     this.applyPassiveIncomeForPlayer(actor, now, 12 * 60 * 60 * 1000);
     const goldCredited = Math.max(0, actor.points - goldBefore);
     const strategic: Partial<Record<string, number>> = {};
-    for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL", "SHARD"] as const) {
+    for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
       const diff = ((actor.strategicResources ?? {})[key] ?? 0) - (strategicBefore[key] ?? 0);
       if (diff > 0) strategic[key] = diff;
     }
@@ -3775,7 +3771,7 @@ export class SimulationRuntime {
     options: { creditStrategic?: boolean; persistAnchor?: boolean } = {}
   ): {
     gold: number;
-    strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
   } {
     const creditStrategic = options.creditStrategic ?? true;
     const persistAnchor = options.persistAnchor ?? true;
@@ -3791,9 +3787,9 @@ export class SimulationRuntime {
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
     const gold = Math.floor((yieldView?.yield?.gold ?? 0) * 100) / 100;
-    const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
+    const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
-      ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number]
+      ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number]
     >) {
       if (amount > 0) {
         strategic[resource] = amount;

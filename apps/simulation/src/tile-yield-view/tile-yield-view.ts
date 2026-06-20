@@ -15,7 +15,7 @@ import {
 import { dockBaseGoldPerMinuteForPlayer, type DockEconomyContext, type EconomyPlayer } from "../economy-network/economy-network.js";
 import { townGoldPerMinuteForPlayer } from "../player-update-economy/player-update-economy.js";
 
-type StrategicYieldKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
+type StrategicYieldKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 
 export type TileYieldBufferView = {
   gold: number;
@@ -51,8 +51,6 @@ const strategicDailyFromResource = (resource: DomainTileState["resource"] | unde
       return { SUPPLY: 60 };
     case "GEMS":
       return { CRYSTAL: 36 };
-    case "OIL":
-      return { OIL: 48 };
     default:
       return {};
   }

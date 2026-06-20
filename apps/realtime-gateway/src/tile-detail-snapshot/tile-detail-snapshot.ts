@@ -197,7 +197,7 @@ const townFoodUpkeepForTier = (populationTier: string | undefined): number => {
   }
 };
 
-const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "OIL", number>> => {
+const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL", number>> => {
   switch (structureType) {
     case "FARMSTEAD": return { GOLD: FARMSTEAD_GOLD_UPKEEP / 10 };
     case "CAMP": return { GOLD: CAMP_GOLD_UPKEEP / 10 };
@@ -339,8 +339,7 @@ export const buildSnapshotTileDetail = (
     const perMinute = {
       ...(upkeep.FOOD ? { FOOD: Number(upkeep.FOOD.toFixed(4)) } : {}),
       ...(upkeep.GOLD ? { GOLD: Number(upkeep.GOLD.toFixed(4)) } : {}),
-      ...(upkeep.CRYSTAL ? { CRYSTAL: Number(upkeep.CRYSTAL.toFixed(4)) } : {}),
-      ...(upkeep.OIL ? { OIL: Number(upkeep.OIL.toFixed(4)) } : {})
+      ...(upkeep.CRYSTAL ? { CRYSTAL: Number(upkeep.CRYSTAL.toFixed(4)) } : {})
     };
     if (Object.keys(perMinute).length > 0) upkeepEntries.push({ label: structure.type, perMinute });
   }

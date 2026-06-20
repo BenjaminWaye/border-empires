@@ -138,8 +138,7 @@ export const applyEconomyAccrual = (ctx: RuntimeEconomyAccrualContext, player: R
     FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
     IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
     CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
-    SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes,
-    OIL: Math.max(0, upkeep.oil) * elapsedMinutes
+    SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
   };
   consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
   if (need.gold > 0) player.points = Math.max(0, (player.points ?? 0) - need.gold);
@@ -148,8 +147,7 @@ export const applyEconomyAccrual = (ctx: RuntimeEconomyAccrualContext, player: R
     IRON: player.strategicResources?.IRON ?? 0,
     CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
     SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-    SHARD: player.strategicResources?.SHARD ?? 0,
-    OIL: player.strategicResources?.OIL ?? 0
+    SHARD: player.strategicResources?.SHARD ?? 0
   };
   let mutated = false;
   for (const resource of UPKEEP_STRATEGIC_KEYS) {
@@ -168,7 +166,7 @@ const assertIncrementalUpkeep = (ctx: RuntimeEconomyAccrualContext, player: Runt
   });
   const round4 = (n: number): number => Number(n.toFixed(4));
   const mismatches: string[] = [];
-  for (const key of ["gold", "food", "iron", "crystal", "supply", "oil"] as const) {
+  for (const key of ["gold", "food", "iron", "crystal", "supply"] as const) {
     const inc = round4(upkeep[key]);
     const fullV = round4((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
     if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);

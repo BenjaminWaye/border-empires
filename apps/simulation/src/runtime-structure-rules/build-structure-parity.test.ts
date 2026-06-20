@@ -16,7 +16,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         techIds: new Set<string>(["masonry"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       }]]),
       initialState: {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } }],
@@ -44,7 +44,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         techIds: new Set<string>(["masonry", "fortified-walls"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       }]]),
       initialState: {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } }],
@@ -73,7 +73,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
           techIds: new Set<string>(["masonry"]), domainIds: new Set<string>(),
           mods: { attack: 1, defense: 1, income: 1, vision: 1 },
           techRootId: "rewrite-local", allies: new Set<string>(),
-          strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+          strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
         }]]),
         initialState: {
           tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, economicStructure: { ownerId: "player-1", type: "WOODEN_FORT" as const, status: "active" as const } }],
@@ -111,7 +111,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         techIds: new Set<string>(["leatherworking"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 100, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 100, SHARD: 0 },
       }]]),
       initialState: {
         tiles: [
@@ -141,7 +141,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         techIds: new Set<string>(["leatherworking", "siegecraft"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 200, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 200, SHARD: 0 },
       }]]),
       initialState: {
         tiles: [
@@ -171,7 +171,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         techIds: new Set<string>(["leatherworking", "siegecraft"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 200, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 0, IRON: 200, CRYSTAL: 0, SUPPLY: 200, SHARD: 0 },
       }]]),
       initialState: {
         tiles: [
@@ -237,7 +237,7 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
         // SIEGE_TOWER costs: SUPPLY 90 + IRON 60
         // Alphabetically: [IRON, SUPPLY]. IRON is sufficient, SUPPLY is not.
         // Atomic path: IRON stays at 100. Broken path: IRON drops to 40.
-        strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 10, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 0, IRON: 100, CRYSTAL: 0, SUPPLY: 10, SHARD: 0 },
       }]]),
       initialState: {
         tiles: [
@@ -273,7 +273,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
         techIds: new Set<string>(["cartography"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 },
       }]]),
       initialState: { tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }], activeLocks: [] },
     });
@@ -300,7 +300,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         techIds: new Set<string>(["trade"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
       }]]),
       initialState: {
         tiles: [
@@ -330,7 +330,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         techIds: new Set<string>(["workshops", "advanced-synthetication"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(),
-        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 100, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 100, SHARD: 0 },
       }]]),
       initialState: {
         tiles: [

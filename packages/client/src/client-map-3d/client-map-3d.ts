@@ -1480,7 +1480,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const biome = landBiomeAt(wx, wy);
           const resolvedResource = resourceFor3DPopulation(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, biome, forestTile);
           if (resolvedResource) {
-            const validResources: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR", "OIL"];
+            const validResources: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR"];
             if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
               tileResource = resolvedResource as ResourceKind;
               resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy);

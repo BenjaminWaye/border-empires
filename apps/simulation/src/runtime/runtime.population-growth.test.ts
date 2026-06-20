@@ -22,7 +22,7 @@ type TestPlayer = {
   mods: { attack: number; defense: number; income: number; vision: number };
   techRootId: string;
   allies: Set<string>;
-  strategicResources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+  strategicResources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
 };
 
 const makePlayer = (id: string): TestPlayer => ({
@@ -35,7 +35,7 @@ const makePlayer = (id: string): TestPlayer => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 5 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 999_999, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+  strategicResources: { FOOD: 999_999, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
 });
 
 const makeTownTile = (
@@ -435,7 +435,7 @@ describe("SimulationRuntime tickPopulationGrowth", () => {
         isFed: false
       }
     };
-    const player = { ...makePlayer("p1"), strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } };
+    const player = { ...makePlayer("p1"), strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } };
     runtime = new SimulationRuntime({
       now: () => now,
       initialPlayers: new Map([["p1", player]]),

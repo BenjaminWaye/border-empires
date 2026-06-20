@@ -99,17 +99,16 @@ export const createInitialState = () => ({
   } as Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>,
   expandedModKey: null as "attack" | "defense" | "income" | "vision" | null,
   incomePerMinute: 0,
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
+  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
   storageCap: { ...EMPIRE_STORAGE_FLOOR },
-  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
+  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
   economyBreakdown: undefined as EconomyBreakdown | undefined,
-  upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+  upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
   upkeepLastTick: {
     food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
     iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
     supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
     crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-    oil: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
     gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
     foodCoverage: 1
   },
@@ -123,8 +122,7 @@ export const createInitialState = () => ({
     IRON: { until: 0, dir: 0 as -1 | 0 | 1 },
     CRYSTAL: { until: 0, dir: 0 as -1 | 0 | 1 },
     SUPPLY: { until: 0, dir: 0 as -1 | 0 | 1 },
-    SHARD: { until: 0, dir: 0 as -1 | 0 | 1 },
-    OIL: { until: 0, dir: 0 as -1 | 0 | 1 }
+    SHARD: { until: 0, dir: 0 as -1 | 0 | 1 }
   },
   stamina: 0,
   manpower: MANPOWER_BASE_CAP,
@@ -272,13 +270,13 @@ export const createInitialState = () => ({
   pendingCollectVisibleKeys: new Set<string>(),
   pendingCollectVisibleDelta: {
     gold: 0,
-    strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>
+    strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>
   },
   pendingCollectTileDelta: new Map<
     string,
     {
       gold: number;
-      strategic: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
+      strategic: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
       previousYield?: { gold: number; strategic: Record<string, number> };
     }
   >(),

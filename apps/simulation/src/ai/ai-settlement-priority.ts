@@ -26,8 +26,6 @@ const resourceScore = (resource: DomainTileState["resource"] | undefined): numbe
       return 120;
     case "GEMS":
       return 140;
-    case "OIL":
-      return 60;
     default:
       return 0;
   }

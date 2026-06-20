@@ -40,7 +40,7 @@ import {
 } from "@border-empires/game-domain";
 import { OBSERVATORY_UPKEEP_PER_MIN, terrainAt } from "@border-empires/shared";
 
-type EconomyResourceKey = "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
+type EconomyResourceKey = "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 
 type EconomyBucket = {
   label: string;
@@ -52,7 +52,7 @@ type EconomyBucket = {
 
 type EconomyBreakdown = Record<EconomyResourceKey, { sources: EconomyBucket[]; sinks: EconomyBucket[] }>;
 
-type UpkeepPerMinute = { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
+type UpkeepPerMinute = { food: number; iron: number; supply: number; crystal: number; gold: number };
 
 type UpkeepLastTick = {
   foodCoverage: number;
@@ -61,7 +61,6 @@ type UpkeepLastTick = {
   iron: { contributors: EconomyBucket[] };
   crystal: { contributors: EconomyBucket[] };
   supply: { contributors: EconomyBucket[] };
-  oil: { contributors: EconomyBucket[] };
 };
 
 export type LegacySnapshotPlayerEconomy = {
@@ -78,8 +77,7 @@ const emptyStrategic = (): Record<StrategicResource, number> => ({
   IRON: 0,
   CRYSTAL: 0,
   SUPPLY: 0,
-  SHARD: 0,
-  OIL: 0
+  SHARD: 0
 });
 
 const emptyEconomyBreakdown = (): EconomyBreakdown => ({
@@ -88,8 +86,7 @@ const emptyEconomyBreakdown = (): EconomyBreakdown => ({
   IRON: { sources: [], sinks: [] },
   CRYSTAL: { sources: [], sinks: [] },
   SUPPLY: { sources: [], sinks: [] },
-  SHARD: { sources: [], sinks: [] },
-  OIL: { sources: [], sinks: [] }
+  SHARD: { sources: [], sinks: [] }
 });
 
 const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
@@ -166,7 +163,6 @@ const resourceSourceLabel = (resource: string | undefined): string | undefined =
   if (resource === "WOOD") return "Wood";
   if (resource === "IRON") return "Iron";
   if (resource === "GEMS") return "Gems";
-  if (resource === "OIL") return "Oil";
   return undefined;
 };
 
@@ -175,7 +171,6 @@ const toStrategicResource = (resource: string | undefined): StrategicResource | 
   if (resource === "IRON") return "IRON";
   if (resource === "GEMS") return "CRYSTAL";
   if (resource === "WOOD" || resource === "FUR") return "SUPPLY";
-  if (resource === "OIL") return "OIL";
   return undefined;
 };
 
@@ -186,7 +181,6 @@ const strategicDailyFromResource = (resource: string | undefined): number => {
   if (resource === "FUR") return 60;
   if (resource === "WOOD") return 60;
   if (resource === "GEMS") return 36;
-  if (resource === "OIL") return 48;
   return 0;
 };
 
@@ -398,7 +392,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
   const strategicResourcesByPlayer = new Map<string, Record<StrategicResource, number>>(
     (args.economy.strategicResources ?? []).map(([playerId, resources]) => [
       playerId,
-      { FOOD: resources.FOOD ?? 0, IRON: resources.IRON ?? 0, CRYSTAL: resources.CRYSTAL ?? 0, SUPPLY: resources.SUPPLY ?? 0, SHARD: resources.SHARD ?? 0, OIL: resources.OIL ?? 0 }
+      { FOOD: resources.FOOD ?? 0, IRON: resources.IRON ?? 0, CRYSTAL: resources.CRYSTAL ?? 0, SUPPLY: resources.SUPPLY ?? 0, SHARD: resources.SHARD ?? 0 }
     ])
   );
 
@@ -420,8 +414,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       IRON: new Map<string, EconomyBucket>(),
       CRYSTAL: new Map<string, EconomyBucket>(),
       SUPPLY: new Map<string, EconomyBucket>(),
-      SHARD: new Map<string, EconomyBucket>(),
-      OIL: new Map<string, EconomyBucket>()
+      SHARD: new Map<string, EconomyBucket>()
     };
     store.set(playerId, created);
     return created;
@@ -433,7 +426,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     const sinkBuckets = bucketMapsForPlayer(sinkBucketsByPlayer, playerId);
     const strategicResources = strategicResourcesByPlayer.get(playerId) ?? emptyStrategic();
     const strategicProduction = strategicProductionPerMinuteByPlayer.get(playerId) ?? emptyStrategic();
-    const upkeep: UpkeepPerMinute = { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 };
+    const upkeep: UpkeepPerMinute = { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 };
 
     const ownedTowns = (args.territory.towns ?? []).filter((town) => ownershipByTile.get(town.tileKey) === playerId && ownershipStateByTile.get(town.tileKey) === "SETTLED");
     const ownedDocks = (args.territory.docks ?? []).filter((dock) => ownershipByTile.get(dock.tileKey) === playerId && ownershipStateByTile.get(dock.tileKey) === "SETTLED");
@@ -589,15 +582,14 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     const playerId = player.id;
     const sourceBuckets = bucketMapsForPlayer(sourceBucketsByPlayer, playerId);
     const sinkBuckets = bucketMapsForPlayer(sinkBucketsByPlayer, playerId);
-    const upkeepPerMinute = upkeepPerMinuteByPlayer.get(playerId) ?? { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 };
+    const upkeepPerMinute = upkeepPerMinuteByPlayer.get(playerId) ?? { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 };
     const economyBreakdown: EconomyBreakdown = {
       GOLD: { sources: sortedBuckets(sourceBuckets.GOLD), sinks: sortedBuckets(sinkBuckets.GOLD) },
       FOOD: { sources: sortedBuckets(sourceBuckets.FOOD), sinks: sortedBuckets(sinkBuckets.FOOD) },
       IRON: { sources: sortedBuckets(sourceBuckets.IRON), sinks: sortedBuckets(sinkBuckets.IRON) },
       CRYSTAL: { sources: sortedBuckets(sourceBuckets.CRYSTAL), sinks: sortedBuckets(sinkBuckets.CRYSTAL) },
       SUPPLY: { sources: sortedBuckets(sourceBuckets.SUPPLY), sinks: sortedBuckets(sinkBuckets.SUPPLY) },
-      SHARD: { sources: sortedBuckets(sourceBuckets.SHARD), sinks: sortedBuckets(sinkBuckets.SHARD) },
-      OIL: { sources: sortedBuckets(sourceBuckets.OIL), sinks: sortedBuckets(sinkBuckets.OIL) }
+      SHARD: { sources: sortedBuckets(sourceBuckets.SHARD), sinks: sortedBuckets(sinkBuckets.SHARD) }
     };
     const strategicResources = strategicResourcesByPlayer.get(playerId) ?? emptyStrategic();
     const strategicProductionPerMinute = strategicProductionPerMinuteByPlayer.get(playerId) ?? emptyStrategic();
@@ -611,15 +603,13 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
         IRON: Number(strategicProductionPerMinute.IRON.toFixed(4)),
         CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
         SUPPLY: Number(strategicProductionPerMinute.SUPPLY.toFixed(4)),
-        SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4)),
-        OIL: Number(strategicProductionPerMinute.OIL.toFixed(4))
+        SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
       },
       upkeepPerMinute: {
         food: Number(upkeepPerMinute.food.toFixed(4)),
         iron: Number(upkeepPerMinute.iron.toFixed(4)),
         supply: Number(upkeepPerMinute.supply.toFixed(4)),
         crystal: Number(upkeepPerMinute.crystal.toFixed(4)),
-        oil: Number(upkeepPerMinute.oil.toFixed(4)),
         gold: Number(upkeepPerMinute.gold.toFixed(4))
       },
       upkeepLastTick: {
@@ -628,8 +618,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
         food: { contributors: economyBreakdown.FOOD.sinks },
         iron: { contributors: economyBreakdown.IRON.sinks },
         crystal: { contributors: economyBreakdown.CRYSTAL.sinks },
-        supply: { contributors: economyBreakdown.SUPPLY.sinks },
-        oil: { contributors: economyBreakdown.OIL.sinks }
+        supply: { contributors: economyBreakdown.SUPPLY.sinks }
       },
       economyBreakdown
     });
@@ -648,6 +637,5 @@ const inferTileResource = (
   if ((match.strategic.IRON ?? 0) > 0) return "IRON";
   if ((match.strategic.CRYSTAL ?? 0) > 0) return "GEMS";
   if ((match.strategic.SUPPLY ?? 0) > 0) return "FUR";
-  if ((match.strategic.OIL ?? 0) > 0) return "OIL";
   return undefined;
 };

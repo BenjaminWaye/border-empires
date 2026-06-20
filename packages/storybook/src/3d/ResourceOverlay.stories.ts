@@ -8,7 +8,7 @@ type Args = {
   spacing: number;
 };
 
-const KINDS: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR", "OIL"];
+const KINDS: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR"];
 
 // The resource overlay picks a 0/1/2 variant from the (worldTileX,
 // worldTileY) hash internally; there's no direct variant override on
@@ -76,7 +76,6 @@ export const Iron: Story = { args: { resources: ["IRON"], cameraDistance: 3 } };
 export const Gems: Story = { args: { resources: ["GEMS"], cameraDistance: 3 } };
 export const Fish: Story = { args: { resources: ["FISH"], cameraDistance: 3 } };
 export const Fur: Story = { args: { resources: ["FUR"], cameraDistance: 3 } };
-export const Oil: Story = { args: { resources: ["OIL"], cameraDistance: 3 } };
 
 // Per-resource Variants stories: shows all 3 layout variants
 // side-by-side. The variant comes from a (worldX, 0) hash internally,
@@ -87,9 +86,8 @@ export const IronVariants: Story = { render: () => renderVariants("IRON", 6) };
 export const GemsVariants: Story = { render: () => renderVariants("GEMS", 6) };
 export const FishVariants: Story = { render: () => renderVariants("FISH", 6) };
 export const FurVariants: Story = { render: () => renderVariants("FUR", 6) };
-export const OilVariants: Story = { render: () => renderVariants("OIL", 6) };
 
-// 7 resources × 3 variants in a single 7-column grid.
+// 6 resources × 3 variants in a single 6-column grid.
 export const AllVariants: Story = {
   render: () => {
     const stage = createStage({ cameraDistance: 18, background: "#1a2014" });

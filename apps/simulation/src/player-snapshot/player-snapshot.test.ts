@@ -299,7 +299,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             territoryTileKeys: ["10,10"],
             points: 5,
             manpower: 3,
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
             techIds: [],
             domainIds: []
           }
@@ -751,7 +751,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           techIds: [],
           domainIds: ["clockwork-stipend"],
           chosenTrickleResource: "SUPPLY",
-          strategicResources: { FOOD: 3, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+          strategicResources: { FOOD: 3, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
@@ -1105,7 +1105,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           mods: { attack: 1, defense: 1, income: 1, vision: 1 },
           techRootId: "rewrite-local",
           allies: new Set<string>(),
-          strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
         }
       ]
     ]);
@@ -1254,7 +1254,7 @@ describe("buildLivePlayerEconomySnapshot (Clockwork Stipend trickle)", () => {
           techIds: [],
           domainIds: ["clockwork-stipend"],
           chosenTrickleResource: "SUPPLY",
-          strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+          strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
           allies: [],
           vision: 1,
           visionRadiusBonus: 0
@@ -1315,7 +1315,7 @@ describe("buildPlayerSubscriptionSnapshotAsync (parity with sync)", () => {
       players: [
         {
           id: "player-1",
-          strategicResources: { FOOD: 5, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+          strategicResources: { FOOD: 5, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,

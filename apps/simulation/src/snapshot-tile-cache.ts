@@ -60,7 +60,7 @@ export type RuntimeState = {
   terrainEpoch?: number;
 };
 
-export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
+export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 export type EconomyResourceKey = StrategicResourceKey | "GOLD";
 export type EconomyBucket = {
   label: string;
@@ -70,7 +70,7 @@ export type EconomyBucket = {
   note?: string;
 };
 export type EconomyBreakdown = Record<EconomyResourceKey, { sources: EconomyBucket[]; sinks: EconomyBucket[] }>;
-export type UpkeepPerMinute = { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
+export type UpkeepPerMinute = { food: number; iron: number; supply: number; crystal: number; gold: number };
 export type UpkeepLastTick = {
   foodCoverage: number;
   gold: { contributors: EconomyBucket[] };
@@ -78,7 +78,6 @@ export type UpkeepLastTick = {
   iron: { contributors: EconomyBucket[] };
   crystal: { contributors: EconomyBucket[] };
   supply: { contributors: EconomyBucket[] };
-  oil: { contributors: EconomyBucket[] };
 };
 export type LivePlayerEconomySnapshot = {
   incomePerMinute: number;

@@ -48,7 +48,7 @@ const revealStatsNumberKeys = [
   "manpower",
   "manpowerCap"
 ] as const;
-const revealStatsResourceKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const;
+const revealStatsResourceKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
 
@@ -1543,7 +1543,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else {
         state.goldAnimDir = 0;
       }
-      for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+      for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
         const prev = prevStrategic[resource] ?? 0;
         const next = state.strategicResources[resource] ?? 0;
         if (next > prev) {

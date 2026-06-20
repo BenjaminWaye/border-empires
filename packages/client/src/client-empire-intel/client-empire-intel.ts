@@ -19,7 +19,7 @@ export const revealEmpireStatsSummaryLines = (stats: RevealEmpireStatsView | und
     `Territory ${formatInt(stats.tiles)} total • ${formatInt(stats.settledTiles)} settled • ${formatInt(stats.frontierTiles)} frontier`,
     `Towns ${formatInt(stats.controlledTowns)} • Tech ${formatInt(stats.techCount)}`,
     `Manpower ${formatInt(stats.manpower)}/${formatInt(stats.manpowerCap)}`,
-    `Stockpiles F ${formatInt(stats.strategicResources.FOOD)} I ${formatInt(stats.strategicResources.IRON)} C ${formatInt(stats.strategicResources.CRYSTAL)} S ${formatInt(stats.strategicResources.SUPPLY)} Sh ${formatInt(stats.strategicResources.SHARD)} O ${formatInt(stats.strategicResources.OIL)}`
+    `Stockpiles F ${formatInt(stats.strategicResources.FOOD)} I ${formatInt(stats.strategicResources.IRON)} C ${formatInt(stats.strategicResources.CRYSTAL)} S ${formatInt(stats.strategicResources.SUPPLY)} Sh ${formatInt(stats.strategicResources.SHARD)}`
   ];
 };
 
@@ -53,7 +53,6 @@ export const revealEmpireStatsDossierHtml = (stats: RevealEmpireStatsView): stri
           ${statCardHtml("Crystal", formatInt(stockpile.CRYSTAL))}
           ${statCardHtml("Supply", formatInt(stockpile.SUPPLY))}
           ${statCardHtml("Shard", formatInt(stockpile.SHARD))}
-          ${statCardHtml("Oil", formatInt(stockpile.OIL))}
         </div>
       </div>
       <div class="intel-actions">

@@ -471,14 +471,14 @@ const compactChecklistHtml = (items: Array<{ label: string; met: boolean }>): st
 
 const fallbackRequirementChecklist = (requirements: {
   gold?: number;
-  resources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+  resources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
 }): Array<{ label: string; met: boolean }> => {
   const out: Array<{ label: string; met: boolean }> = [];
   const goldCost = requirements.gold ?? 0;
   if (goldCost > 0) {
     out.push({ label: `Gold ${goldCost.toLocaleString()}`, met: false });
   }
-  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
     const amount = requirements.resources?.[resourceKey] ?? 0;
     if (amount > 0) {
       out.push({ label: `${resourceKey} ${amount.toLocaleString()}`, met: false });
@@ -489,7 +489,7 @@ const fallbackRequirementChecklist = (requirements: {
 
 const effectiveRequirementChecklist = (requirements: {
   gold?: number;
-  resources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+  resources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
   checklist?: Array<{ label: string; met: boolean }>;
 }): Array<{ label: string; met: boolean }> => {
   const checklist = requirements.checklist ?? [];

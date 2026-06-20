@@ -70,8 +70,7 @@ const emptyResourceCounts = (): Record<ResourceType, number> => ({
   FUR: 0,
   WOOD: 0,
   IRON: 0,
-  GEMS: 0,
-  OIL: 0
+  GEMS: 0
 });
 
 const createSettlementTown = (tileKeyValue: TileKey, townType: "MARKET" | "FARMING"): TownDefinition => ({

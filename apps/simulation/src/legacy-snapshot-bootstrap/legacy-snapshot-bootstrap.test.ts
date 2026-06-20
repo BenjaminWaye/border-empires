@@ -66,7 +66,7 @@ const writeSnapshotDir = (suffix: string, overrides?: { territory?: Record<strin
     path.join(snapshotDir, "state.economy.json"),
     JSON.stringify({
       resources: [["player-1", { GOLD: 100 }]],
-      strategicResources: [["player-1", { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }]],
+      strategicResources: [["player-1", { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }]],
       strategicResourceBuffer: [],
       tileYield: []
     })

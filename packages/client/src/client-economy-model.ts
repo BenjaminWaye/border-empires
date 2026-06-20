@@ -1,6 +1,6 @@
 export type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY";
 
-export type EconomyResourceKey = Exclude<EconomyFocusKey, "ALL"> | "SHARD" | "OIL";
+export type EconomyResourceKey = Exclude<EconomyFocusKey, "ALL"> | "SHARD";
 
 export type EconomyBucket = {
   label: string;
@@ -25,6 +25,5 @@ export const emptyEconomyBreakdown = (): EconomyBreakdown => ({
   IRON: emptyResourceBreakdown(),
   CRYSTAL: emptyResourceBreakdown(),
   SUPPLY: emptyResourceBreakdown(),
-  SHARD: emptyResourceBreakdown(),
-  OIL: emptyResourceBreakdown()
+  SHARD: emptyResourceBreakdown()
 });

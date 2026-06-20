@@ -91,7 +91,6 @@ const resourceScore = (resource: string | undefined, needsFood: boolean = false)
     case "FUR":
       return 120;
     case "GEMS":
-    case "OIL":
       return 90;
     default:
       return 0;
