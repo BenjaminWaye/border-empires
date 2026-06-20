@@ -184,7 +184,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
           manpower: 3,
           techIds: [],
           domainIds: [],
-          strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+          strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,

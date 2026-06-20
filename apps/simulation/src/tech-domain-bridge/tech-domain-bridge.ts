@@ -37,7 +37,7 @@ type DomainCatalogEntry = {
   cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
 };
 
-type StrategicCounts = Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+type StrategicCounts = Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
 type TileResource = NonNullable<DomainTileState["resource"]>;
 type RawResourceCounts = Partial<Record<TileResource, number>>;
 
@@ -335,7 +335,6 @@ export const chooseAiTechChoiceForPlayer = (
       if (tech.id === "coinage" && flags.has("active_town")) score += 55;
       if (tech.id === "banking" && flags.has("active_town")) score += 45;
       if (tech.id === "civil-service" && flags.has("active_town")) score += 35;
-      if (tech.id === "aeronautics" && (counts.OIL ?? 0) > 0) score += 50;
       score += Math.max(0, 24 - techDepth(tech.id) * 6);
       const resourceCost = toResources(tech.cost);
       return {
@@ -533,8 +532,7 @@ export const buildTechUpdatePayload = (
     IRON: available.IRON ?? 0,
     CRYSTAL: available.CRYSTAL ?? 0,
     SUPPLY: available.SUPPLY ?? 0,
-    SHARD: available.SHARD ?? 0,
-    OIL: available.OIL ?? 0
+    SHARD: available.SHARD ?? 0
   };
   return {
     status: "completed" as const,

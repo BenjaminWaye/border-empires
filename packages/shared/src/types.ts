@@ -1,10 +1,10 @@
 export type Terrain = "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN";
 export const isSeaTerrain = (terrain: Terrain): terrain is "SEA" | "COASTAL_SEA" => terrain === "SEA" || terrain === "COASTAL_SEA";
-export type ResourceType = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR" | "OIL";
+export type ResourceType = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR";
 export type TileKey = `${number},${number}`;
 export type PlayerId = string;
 export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND";
-export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS" | "OIL_FIELD";
+export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS";
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
 export type FrontierDecayKind = "NATURAL" | "ENCIRCLEMENT";
 export type FortStatus = "under_construction" | "active" | "removing";
@@ -85,7 +85,7 @@ export interface TileHistory {
 
 export interface TileUpkeepEntry {
   label: string;
-  perMinute: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "GOLD" | "OIL", number>>;
+  perMinute: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "GOLD", number>>;
 }
 
 export interface EconomicStructure {
@@ -271,11 +271,11 @@ export interface Tile {
   };
   yield?: {
     gold?: number;
-    strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
   };
   yieldRate?: {
     goldPerMinute?: number;
-    strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
   };
   yieldCap?: {
     gold: number;
@@ -533,7 +533,7 @@ export interface RevealEmpireStatsView {
   gold: number;
   manpower: number;
   manpowerCap: number;
-  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
+  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
 }
 
 export interface ActiveSabotage {

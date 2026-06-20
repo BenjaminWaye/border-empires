@@ -10,10 +10,10 @@ type EconomyPanelArgs = {
   gold: number;
   me: string;
   incomePerMinute: number;
-  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
+  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
   storageCap: EmpireStorageCap;
-  strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
-  upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
+  strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+  upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number };
   upkeepLastTick: {
     foodCoverage?: number;
     gold?: { contributors?: EconomyBucket[] };
@@ -44,7 +44,6 @@ const formatUpkeepSummary = (
   if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeep.iron.toFixed(2)}/m`);
   if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeep.supply.toFixed(2)}/m`);
   if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeep.crystal.toFixed(2)}/m`);
-  if (upkeep.oil > 0.001) parts.push(`${resourceIconForKey("OIL")} ${upkeep.oil.toFixed(2)}/m`);
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };

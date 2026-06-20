@@ -26,7 +26,6 @@ export const isYieldBearingTile = (tile: DomainTileState): boolean => {
       case "WOOD":
       case "FUR":
       case "GEMS":
-      case "OIL":
         return true;
       default:
         break;

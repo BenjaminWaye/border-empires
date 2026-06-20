@@ -51,7 +51,7 @@ type EconomyBucket = {
 };
 
 type EconomyBreakdown = Record<EconomyResourceKey, { sources: EconomyBucket[]; sinks: EconomyBucket[] }>;
-type UpkeepPerMinute = { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
+type UpkeepPerMinute = { food: number; iron: number; supply: number; crystal: number; gold: number };
 type UpkeepLastTick = {
   foodCoverage: number;
   gold: { contributors: EconomyBucket[] };
@@ -59,7 +59,6 @@ type UpkeepLastTick = {
   iron: { contributors: EconomyBucket[] };
   crystal: { contributors: EconomyBucket[] };
   supply: { contributors: EconomyBucket[] };
-  oil: { contributors: EconomyBucket[] };
 };
 
 export type PlayerUpdateEconomySnapshot = {
@@ -75,8 +74,7 @@ const emptyStrategic = (): Record<StrategicResourceKey, number> => ({
   IRON: 0,
   CRYSTAL: 0,
   SUPPLY: 0,
-  SHARD: 0,
-  OIL: 0
+  SHARD: 0
 });
 
 const addBucket = (
@@ -118,8 +116,6 @@ const strategicProductionPerMinuteForResource = (resource: DomainTileState["reso
       return 60 / 1440;
     case "GEMS":
       return 36 / 1440;
-    case "OIL":
-      return 48 / 1440;
     default:
       return 0;
   }
@@ -137,8 +133,6 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | undefi
     case "WOOD":
     case "FUR":
       return "SUPPLY";
-    case "OIL":
-      return "OIL";
     default:
       return undefined;
   }
@@ -428,8 +422,6 @@ export const buildPlayerUpdateEconomySnapshot = (
   const supplySources = new Map<string, EconomyBucket>();
   const supplySinks = new Map<string, EconomyBucket>();
   const shardSources = new Map<string, EconomyBucket>();
-  const oilSources = new Map<string, EconomyBucket>();
-  const oilSinks = new Map<string, EconomyBucket>();
   const dockEconomyContext = dockContext ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey } : undefined;
   const townNetwork = buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0 });
   const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.keys());
@@ -443,15 +435,13 @@ export const buildPlayerUpdateEconomySnapshot = (
         resourceKey === "FOOD" ? foodSources :
         resourceKey === "IRON" ? ironSources :
         resourceKey === "CRYSTAL" ? crystalSources :
-        resourceKey === "SUPPLY" ? supplySources :
-        oilSources;
+        supplySources;
       addBucket(
         target,
         tile.resource === "FARM" ? "Grain" :
           tile.resource === "FISH" ? "Fish" :
           tile.resource === "IRON" ? "Iron" :
           tile.resource === "GEMS" ? "Crystal" :
-          tile.resource === "OIL" ? "Oil" :
           "Supply",
         resourceRate,
         { count: 1, resourceKey }
@@ -484,12 +474,10 @@ export const buildPlayerUpdateEconomySnapshot = (
       if (upkeep.GOLD) addBucket(goldSinks, structure.type, upkeep.GOLD, { count: 1 });
       if (upkeep.FOOD) addBucket(foodSinks, structure.type, upkeep.FOOD, { count: 1 });
       if (upkeep.CRYSTAL) addBucket(crystalSinks, structure.type, upkeep.CRYSTAL, { count: 1 });
-      if (upkeep.OIL) addBucket(oilSinks, structure.type, upkeep.OIL, { count: 1 });
       const output = converterOutputPerMinute(structure.type);
       if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
       if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
-      if (output.OIL) addBucket(oilSources, structure.type, output.OIL, { count: 1 });
     }
   }
 
@@ -511,7 +499,6 @@ export const buildPlayerUpdateEconomySnapshot = (
     iron: Number([...ironSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
     supply: Number([...supplySinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
     crystal: Number([...crystalSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
-    oil: Number([...oilSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4)),
     gold: Number([...goldSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4))
   };
   const incomePerMinute = Number([...goldSources.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(4));
@@ -527,8 +514,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       IRON: Number(strategicProductionPerMinute.IRON.toFixed(4)),
       CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
       SUPPLY: Number(strategicProductionPerMinute.SUPPLY.toFixed(4)),
-      SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4)),
-      OIL: Number(strategicProductionPerMinute.OIL.toFixed(4))
+      SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
     },
     upkeepPerMinute,
     upkeepLastTick: {
@@ -537,8 +523,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       food: { contributors: sortedBuckets(foodSinks) },
       iron: { contributors: sortedBuckets(ironSinks) },
       crystal: { contributors: sortedBuckets(crystalSinks) },
-      supply: { contributors: sortedBuckets(supplySinks) },
-      oil: { contributors: sortedBuckets(oilSinks) }
+      supply: { contributors: sortedBuckets(supplySinks) }
     },
     economyBreakdown: {
       GOLD: { sources: sortedBuckets(goldSources), sinks: sortedBuckets(goldSinks) },
@@ -546,8 +531,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       IRON: { sources: sortedBuckets(ironSources), sinks: sortedBuckets(ironSinks) },
       CRYSTAL: { sources: sortedBuckets(crystalSources), sinks: sortedBuckets(crystalSinks) },
       SUPPLY: { sources: sortedBuckets(supplySources), sinks: sortedBuckets(supplySinks) },
-      SHARD: { sources: sortedBuckets(shardSources), sinks: [] },
-      OIL: { sources: sortedBuckets(oilSources), sinks: sortedBuckets(oilSinks) }
+      SHARD: { sources: sortedBuckets(shardSources), sinks: [] }
     }
   };
 };

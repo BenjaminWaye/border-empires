@@ -100,7 +100,6 @@ const inferResource = (tileYieldEntry: unknown): DomainTileState["resource"] | u
   if ((strategic.FOOD ?? 0) > 0) return "FARM";
   if ((strategic.IRON ?? 0) > 0) return "IRON";
   if ((strategic.CRYSTAL ?? 0) > 0) return "GEMS";
-  if ((strategic.OIL ?? 0) > 0) return "OIL";
   return undefined;
 };
 
@@ -120,8 +119,7 @@ const emptyStrategic = (): Record<StrategicResource, number> => ({
   IRON: 0,
   CRYSTAL: 0,
   SUPPLY: 0,
-  SHARD: 0,
-  OIL: 0
+  SHARD: 0
 });
 
 const cloneStrategic = (value?: Partial<Record<StrategicResource, number>>): Record<StrategicResource, number> => ({
@@ -129,8 +127,7 @@ const cloneStrategic = (value?: Partial<Record<StrategicResource, number>>): Rec
   IRON: value?.IRON ?? 0,
   CRYSTAL: value?.CRYSTAL ?? 0,
   SUPPLY: value?.SUPPLY ?? 0,
-  SHARD: value?.SHARD ?? 0,
-  OIL: value?.OIL ?? 0
+  SHARD: value?.SHARD ?? 0
 });
 
 const wrap = (value: number, size: number): number => ((value % size) + size) % size;
@@ -512,8 +509,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
         IRON: { sources: [], sinks: [] },
         CRYSTAL: { sources: [], sinks: [] },
         SUPPLY: { sources: [], sinks: [] },
-        SHARD: { sources: [], sinks: [] },
-        OIL: { sources: [], sinks: [] }
+        SHARD: { sources: [], sinks: [] }
       },
       techIds,
       domainIds,

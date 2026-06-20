@@ -93,8 +93,7 @@ export const emptyStrategic = (): Record<StrategicResourceKey, number> => ({
   IRON: 0,
   CRYSTAL: 0,
   SUPPLY: 0,
-  SHARD: 0,
-  OIL: 0
+  SHARD: 0
 });
 
 export const addBucket = (
@@ -150,7 +149,6 @@ export const strategicProductionPerMinuteForResource = (resource: string | undef
     case "WOOD":
     case "FUR": return 60 / 1440;
     case "GEMS": return 36 / 1440;
-    case "OIL": return 48 / 1440;
     default: return 0;
   }
 };
@@ -163,7 +161,6 @@ export const strategicResourceForTile = (resource: string | undefined): Strategi
     case "GEMS": return "CRYSTAL";
     case "WOOD":
     case "FUR": return "SUPPLY";
-    case "OIL": return "OIL";
     default: return undefined;
   }
 };

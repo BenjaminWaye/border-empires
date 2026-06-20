@@ -4,7 +4,6 @@ export type EmpireStorageCap = {
   IRON: number;
   CRYSTAL: number;
   SUPPLY: number;
-  OIL: number;
   SHARD: number;
 };
 
@@ -17,6 +16,5 @@ export const EMPIRE_STORAGE_FLOOR: EmpireStorageCap = {
   IRON: 15,
   CRYSTAL: 15,
   SUPPLY: 20,
-  OIL: 10,
   SHARD: 3
 };

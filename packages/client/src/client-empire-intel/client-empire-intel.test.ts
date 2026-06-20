@@ -20,8 +20,7 @@ const stats: RevealEmpireStatsView = {
     IRON: 20,
     CRYSTAL: 30,
     SUPPLY: 40,
-    SHARD: 1,
-    OIL: 2
+    SHARD: 1
   }
 };
 

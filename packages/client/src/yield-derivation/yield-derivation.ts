@@ -33,8 +33,6 @@ const strategicDailyFromResource = (resource: string | undefined): Record<string
       return { SUPPLY: 60 };
     case "GEMS":
       return { CRYSTAL: 36 };
-    case "OIL":
-      return { OIL: 48 };
     default:
       return {};
   }

@@ -2,7 +2,7 @@ import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
 import { resourceIconForKey } from "./client-map-display.js";
 import type { Tile, TileOverviewLine, TileUpkeepEntry } from "./client-types.js";
 
-const upkeepResourceOrder = ["GOLD", "FOOD", "IRON", "SUPPLY", "CRYSTAL", "OIL"] as const;
+const upkeepResourceOrder = ["GOLD", "FOOD", "IRON", "SUPPLY", "CRYSTAL"] as const;
 
 const hasUpkeepAmount = (entry: TileUpkeepEntry): boolean =>
   upkeepResourceOrder.some((resource) => Number(entry.perMinute[resource] ?? 0) > 0.0001);

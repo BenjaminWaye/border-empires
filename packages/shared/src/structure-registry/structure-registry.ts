@@ -69,7 +69,7 @@ export interface StructureSpec {
     gold: number;
     manpower: number;
     strategic?: Partial<
-      Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>
+      Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>
     >;
   };
   /** Build duration in milliseconds (pre-tech-mults). */

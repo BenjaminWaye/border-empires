@@ -828,13 +828,12 @@ export const tileProductionHtml = (tile: Tile): string => {
 };
 
 export const tileUpkeepHtml = (tile: Tile): string => {
-  const upkeepFromEntries = { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 };
+  const upkeepFromEntries = { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 };
   for (const entry of tile.upkeepEntries ?? []) {
     upkeepFromEntries.food += Number(entry.perMinute.FOOD ?? 0);
     upkeepFromEntries.iron += Number(entry.perMinute.IRON ?? 0);
     upkeepFromEntries.supply += Number(entry.perMinute.SUPPLY ?? 0);
     upkeepFromEntries.crystal += Number(entry.perMinute.CRYSTAL ?? 0);
-    upkeepFromEntries.oil += Number(entry.perMinute.OIL ?? 0);
     upkeepFromEntries.gold += Number(entry.perMinute.GOLD ?? 0);
   }
   const parts: string[] = [];
@@ -842,7 +841,6 @@ export const tileUpkeepHtml = (tile: Tile): string => {
   if (upkeepFromEntries.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeepFromEntries.iron.toFixed(2)}/m`);
   if (upkeepFromEntries.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeepFromEntries.supply.toFixed(2)}/m`);
   if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeepFromEntries.crystal.toFixed(2)}/m`);
-  if (upkeepFromEntries.oil > 0.001) parts.push(`${resourceIconForKey("OIL")} ${upkeepFromEntries.oil.toFixed(2)}/m`);
   if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeepFromEntries.gold.toFixed(2)}/m`);
   if (parts.length > 0) return parts.join(" · ");
   if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`);
@@ -888,7 +886,7 @@ export const formatYieldSummary = (tile: Tile): string => {
   if (gold > 0.01 || (goldCap ?? 0) > 0) {
     parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${(goldCap ?? 0).toFixed(1)}`);
   }
-  for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+  for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
     const amount = Number(tile.yield?.strategic?.[key] ?? 0);
     const cap = yieldCapForResource(tile, key);
     if (amount <= 0.01 && (cap ?? 0) <= 0) continue;

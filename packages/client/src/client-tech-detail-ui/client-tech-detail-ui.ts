@@ -25,7 +25,7 @@ export const formatTechCost = (tech: TechInfo): string => {
   if ((tech.requirements.gold ?? 0) > 0) {
     fallbackCostBits.push(`${tech.requirements.gold.toLocaleString()} gold`);
   }
-  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
     const amount = tech.requirements.resources?.[resourceKey] ?? 0;
     if (amount > 0) fallbackCostBits.push(`${amount.toLocaleString()} ${resourceKey.toLowerCase()}`);
   }
