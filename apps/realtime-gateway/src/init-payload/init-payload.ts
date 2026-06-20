@@ -913,7 +913,7 @@ export const buildGatewayInitPayload = (
       upkeepPerMinute:
         liveSnapshotPlayer?.upkeepPerMinute ??
         bootstrapProfile?.upkeepPerMinute ??
-        { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+        { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
       ...(
         liveSnapshotPlayer?.upkeepLastTick
           ? { upkeepLastTick: liveSnapshotPlayer.upkeepLastTick }

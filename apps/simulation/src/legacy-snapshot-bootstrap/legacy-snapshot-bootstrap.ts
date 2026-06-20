@@ -493,15 +493,14 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       incomePerMinute: playerEconomy?.incomePerMinute ?? 0,
       strategicResources: playerEconomy?.strategicResources ?? emptyStrategic(),
       strategicProductionPerMinute: playerEconomy?.strategicProductionPerMinute ?? emptyStrategic(),
-      upkeepPerMinute: playerEconomy?.upkeepPerMinute ?? { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+      upkeepPerMinute: playerEconomy?.upkeepPerMinute ?? { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
       upkeepLastTick: playerEconomy?.upkeepLastTick ?? {
         foodCoverage: 1,
         gold: { contributors: [] },
         food: { contributors: [] },
         iron: { contributors: [] },
         crystal: { contributors: [] },
-        supply: { contributors: [] },
-        oil: { contributors: [] }
+        supply: { contributors: [] }
       },
       economyBreakdown: playerEconomy?.economyBreakdown ?? {
         GOLD: { sources: [], sinks: [] },
