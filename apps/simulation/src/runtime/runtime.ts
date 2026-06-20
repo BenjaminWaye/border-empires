@@ -322,6 +322,7 @@ import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardR
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
 import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-muster-tick.js";
+import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
 import {
   completeStructureBuild as completeStructureBuildImpl,
@@ -453,6 +454,7 @@ export class SimulationRuntime {
   // Key: muster tileKey, Value: total reserved amount. Prevents two concurrent
   // attacks from double-spending the same staged muster.
   private readonly musterReservedByKey = new Map<string, number>();
+  private readonly musterAdvanceCooldowns = new Map<string, number>();
   // Tracks which muster tile each connected player is viewing (playerId → tileKey).
   // Used to drive a 1-second targeted tick so the tile panel updates in real time.
   private readonly watchedMusterTileByPlayer = new Map<string, string>();
@@ -1136,7 +1138,8 @@ export class SimulationRuntime {
       nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) =>
         this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
-      locksByTile: this.locksByTile
+      locksByTile: this.locksByTile,
+      advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns
     };
   }
 

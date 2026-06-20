@@ -7,9 +7,18 @@ import {
   MUSTER_STALE_MS,
   OUTPOST_DEPOT_RADIUS
 } from "@border-empires/shared";
-import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
+import { chebyshevDistanceSimple, coordsInChebyshevRadius, sweepAttackCandidates } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
+
+// Distance threshold beyond which ADVANCE search slows to a reduced cadence.
+const ADVANCE_THROTTLE_DIST = 15;
+// How long to wait before re-searching when the front is far away (ms).
+const ADVANCE_FAR_COOLDOWN_MS = 3_000;
+// How long to wait before re-searching when nothing attackable was found at all (ms).
+const ADVANCE_EMPTY_COOLDOWN_MS = 10_000;
+
+export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
 
 export type MusterTickInput = {
   nowMs: number;
@@ -28,6 +37,8 @@ export type MusterTickInput = {
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, nowMs: number) => string;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => boolean;
   locksByTile: ReadonlyMap<string, unknown>;
+  // Per-flag cooldown state (mutated in place, lives on the Runtime instance).
+  advanceCooldowns: MusterAdvanceCooldowns;
 };
 
 /**
@@ -131,39 +142,69 @@ export const tickMuster = (input: MusterTickInput): void => {
 };
 
 /**
- * ADVANCE auto-fire: finds the nearest enemy tile anywhere on the map, then
- * fires from the closest player-owned tile that borders it. The muster flag is
- * the MP source (resolved by resolveMusterSource at combat time via proximity).
- * Skips tiles already locked in combat so we don't stack attacks on the same front.
+ * ADVANCE auto-fire: expands outward from the muster tile (doubling radius each
+ * pass) until it finds an enemy tile that the player already borders, then fires
+ * from the closest owned adjacent tile. No hard radius cap — players learn the
+ * tradeoff by placing flags far from their front.
+ *
+ * Cooldown (stored in advanceCooldowns, lives on the Runtime):
+ *   - Enemy found within ADVANCE_THROTTLE_DIST tiles → fire every tick
+ *   - Enemy found beyond that → ADVANCE_FAR_COOLDOWN_MS between searches
+ *   - Nothing attackable found at all → ADVANCE_EMPTY_COOLDOWN_MS cooldown
  */
 const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
   const musterAmount = musterTile.muster?.amount ?? 0;
+  const originKey = simulationTileKey(musterTile.x, musterTile.y);
 
-  // Find nearest enemy tile to this flag (no radius cap).
-  let nearestEnemy: DomainTileState | undefined;
-  let nearestEnemyDist = Infinity;
-  for (const tile of input.tiles.values()) {
-    if (!tile.ownerId || tile.ownerId === playerId) continue;
-    if (tile.terrain !== "LAND") continue;
-    if (tile.ownershipState !== "FRONTIER" && tile.ownershipState !== "SETTLED" && tile.ownershipState !== "BARBARIAN") continue;
-    const dist = chebyshevDistanceSimple(musterTile.x, musterTile.y, tile.x, tile.y);
-    if (dist < nearestEnemyDist) { nearestEnemyDist = dist; nearestEnemy = tile; }
-  }
-  if (!nearestEnemy) return;
-  if (musterAmount < input.requiredMusterForTarget(nearestEnemy)) return;
+  // Respect per-flag cooldown.
+  const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
+  if (input.nowMs < cooldownUntil) return;
 
-  // Among owned tiles adjacent to that enemy, pick the one closest to the muster flag.
-  // Skip any that already have a combat lock (don't double-stack the same origin).
+  const getTile = (x: number, y: number): DomainTileState | undefined =>
+    input.tiles.get(simulationTileKey(x, y));
+
+  // Expanding radius search — starts at 1 tile, doubles each pass.
+  // sweepAttackCandidates returns enemy tiles within the radius sorted nearest-first,
+  // so the first attackable hit is always the closest enemy.
   let bestFrom: DomainTileState | undefined;
-  let bestFromDist = Infinity;
-  for (const { x, y } of coordsInChebyshevRadius(nearestEnemy.x, nearestEnemy.y, 1)) {
-    const neighbor = input.tiles.get(simulationTileKey(x, y));
-    if (!neighbor || neighbor.ownerId !== playerId || neighbor.terrain !== "LAND") continue;
-    if (input.locksByTile.has(simulationTileKey(x, y))) continue;
-    const dist = chebyshevDistanceSimple(musterTile.x, musterTile.y, x, y);
-    if (dist < bestFromDist) { bestFromDist = dist; bestFrom = neighbor; }
+  let nearestEnemy: DomainTileState | undefined;
+  let searchRadius = 1;
+
+  outer: while (true) {
+    const candidates = sweepAttackCandidates(musterTile, playerId, searchRadius, getTile);
+    for (const candidate of candidates) {
+      if (musterAmount < input.requiredMusterForTarget(candidate)) continue;
+      // Find the owned tile adjacent to this enemy closest to the muster flag.
+      for (const { x, y } of coordsInChebyshevRadius(candidate.x, candidate.y, 1)) {
+        const neighbor = getTile(x, y);
+        if (!neighbor || neighbor.ownerId !== playerId || neighbor.terrain !== "LAND") continue;
+        if (input.locksByTile.has(simulationTileKey(x, y))) continue;
+        const fromDist = chebyshevDistanceSimple(musterTile.x, musterTile.y, x, y);
+        if (!bestFrom || fromDist < chebyshevDistanceSimple(musterTile.x, musterTile.y, bestFrom.x, bestFrom.y)) {
+          bestFrom = neighbor;
+          nearestEnemy = candidate;
+        }
+      }
+      if (nearestEnemy) break outer;
+    }
+    // No attackable target at this radius. Double and try again.
+    // sweepAttackCandidates re-scans inner tiles too — acceptable because the
+    // cooldown means this loop rarely runs more than once or twice per flag per tick.
+    if (searchRadius >= 225) break; // practical bound: half the world width
+    searchRadius = Math.min(searchRadius * 2, 225);
   }
-  if (!bestFrom) return;
+
+  if (!nearestEnemy || !bestFrom) {
+    input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS);
+    return;
+  }
+
+  const enemyDist = chebyshevDistanceSimple(musterTile.x, musterTile.y, nearestEnemy.x, nearestEnemy.y);
+  if (enemyDist > ADVANCE_THROTTLE_DIST) {
+    input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
+  } else {
+    input.advanceCooldowns.delete(originKey); // next tick
+  }
 
   const commandId = input.nextTerritoryAutomationCommandId(
     "muster-advance",
