@@ -125,6 +125,7 @@ export type SimulationMetricsSnapshot = {
   simAiBroadFallbackSkipped: Record<string, number>;
   simAiNarrowAnalyzeCapped: Record<string, number>;
   simAiCommandTotalByType: Record<DurableCommandType, number>;
+  simAiCommandRejectedTotalByType: Record<DurableCommandType, number>;
   simAiCommandRecent: string[];
   simAiPreplanTotalByReason: Record<AutomationPreplanReason, number>;
   simAiPreplanRecent: string[];

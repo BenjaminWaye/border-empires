@@ -51,6 +51,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simAiCommandTotalByType = new Map<DurableCommandType, number>(
     DURABLE_COMMAND_TYPES.map((type: DurableCommandType) => [type, 0])
   );
+  const simAiCommandRejectedTotalByType = new Map<DurableCommandType, number>(
+    DURABLE_COMMAND_TYPES.map((type: DurableCommandType) => [type, 0])
+  );
   const simAiCommandRecent: string[] = [];
   const simAiPreplanTotalByReason = new Map<AutomationPreplanReason, number>(
     AUTOMATION_PREPLAN_REASONS.map((reason) => [reason, 0])
@@ -150,6 +153,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simAiNarrowAnalyzeCapped: Object.fromEntries(simAiNarrowAnalyzeCapped),
     simAiCommandTotalByType: Object.fromEntries(
       DURABLE_COMMAND_TYPES.map((type: DurableCommandType) => [type, simAiCommandTotalByType.get(type) ?? 0])
+    ) as Record<DurableCommandType, number>,
+    simAiCommandRejectedTotalByType: Object.fromEntries(
+      DURABLE_COMMAND_TYPES.map((type: DurableCommandType) => [type, simAiCommandRejectedTotalByType.get(type) ?? 0])
     ) as Record<DurableCommandType, number>,
     simAiCommandRecent: [...simAiCommandRecent],
     simAiPreplanTotalByReason: Object.fromEntries(
@@ -288,6 +294,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       simAiCommandTotalByType.set(commandType, (simAiCommandTotalByType.get(commandType) ?? 0) + 1);
       appendRecent(simAiCommandRecent, `${playerId}:${commandType}`, 20);
       simAiLastCommandAcceptedAtMs.set(playerId, Date.now());
+    },
+    observeSimAiCommandRejected(commandType: DurableCommandType): void {
+      simAiCommandRejectedTotalByType.set(commandType, (simAiCommandRejectedTotalByType.get(commandType) ?? 0) + 1);
     },
     observeSimAiExpansionObjective(kind: "neutral_value" | "enemy" | "none"): void {
       simAiExpansionObjectiveTotalByKind.set(kind, (simAiExpansionObjectiveTotalByKind.get(kind) ?? 0) + 1);

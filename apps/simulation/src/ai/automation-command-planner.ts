@@ -182,6 +182,7 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   incomePerMinute?: number;
   hasActiveLock: boolean;
   activeDevelopmentProcessCount: number;
+  reservedDevelopmentSlots?: number;
   frontierTiles: readonly TTile[];
   hotFrontierTiles?: readonly TTile[];
   strategicFrontierTiles?: readonly TTile[];
@@ -267,9 +268,7 @@ const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
       analysis.expand ||
       analysis.economicExpand ||
       analysis.directedExpand ||
-      analysis.townSupportExpand ||
-      analysis.scaffoldExpand ||
-      analysis.scoutExpand
+      analysis.townSupportExpand || analysis.scaffoldExpand || analysis.scoutExpand
   );
 
 const dedupeTiles = <TTile extends AutomationPlannerTile>(
@@ -651,10 +650,19 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const techUnaffordable = input.preplanProgressState === "tech_unaffordable";
   const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);
 
+  const effectiveDevelopmentProcessCount = Math.min(DEVELOPMENT_PROCESS_LIMIT, input.activeDevelopmentProcessCount + Math.max(0, input.reservedDevelopmentSlots ?? 0));
+  // Action-class policy: if attack, expand, or settle is clearly available from
+  // frontier analysis, skip the economy build selector entirely. Fort and
+  // siege-outpost selectors still run because they feed GOAP defense decisions
+  // independently of the main priority waterfall.
+  const hasHigherPriorityAction =
+    (canAttack && frontierAnalysis.frontierEnemyTargetCount > 0) ||
+    (canExpand && (frontierAnalysis.frontierNeutralTargetCount > 0 || Boolean(frontierAnalysis.directedExpand))) ||
+    Boolean(settlementCandidate);
   let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   let siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
-  if (input.sessionPrefix === "ai-runtime" && input.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
+  if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
     const structurePlayer = {
       id: input.playerId,
       points: input.points,
@@ -667,7 +675,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     };
     const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
     const buildCandidates = restrictToFocus(structureCandidates);
-    economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    economicBuild = hasHigherPriorityAction ? undefined : chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
   }
@@ -737,15 +745,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     context.diagnostic.expansionObjectiveKind = input.expansionObjective?.kind ?? "none";
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return buildPlannerFrontierCommand(context, frontierAnalysis.directedExpand, "EXPAND");
-  }
-
-  if (economicBuild) {
-    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-    return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
-      x: economicBuild.tile.x,
-      y: economicBuild.tile.y,
-      structureType: economicBuild.structureType
-    });
   }
 
   if (strategic.townSupportSettlementAvailable && actionableFallbackSettlementCandidate && !strategic.pressureThreatensCore) {
@@ -833,7 +832,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     canAttack,
     canExpand,
     actionableFallbackSettlementCandidate,
-    economicBuild,
+    undefined,
     fortBuild,
     siegeOutpostBuild,
     input.attackStalemateTargetTileKeys
@@ -940,11 +939,20 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     return buildPlannerFrontierCommand(context, preferredEnemyAttack, "ATTACK");
   }
 
+  if (economicBuild) {
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
+    return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
+      x: economicBuild.tile.x,
+      y: economicBuild.tile.y,
+      structureType: economicBuild.structureType
+    });
+  }
+
   let noCommandReason: AutomationNoopReason;
   const hasAnyFrontierOpportunity =
     frontierAnalysis.frontierEnemyTargetCount > 0 || frontierAnalysis.frontierNeutralTargetCount > 0;
   const hasAnyActionableSettlementCandidate = hasActionableSettlementCandidate(context);
-  if (input.activeDevelopmentProcessCount >= DEVELOPMENT_PROCESS_LIMIT && frontierAnalysis.frontierEnemyTargetCount === 0 && frontierAnalysis.frontierNeutralTargetCount === 0) {
+  if (effectiveDevelopmentProcessCount >= DEVELOPMENT_PROCESS_LIMIT && frontierAnalysis.frontierEnemyTargetCount === 0 && frontierAnalysis.frontierNeutralTargetCount === 0) {
     noCommandReason = "development_process_limit";
   } else if (!canExpand) {
     noCommandReason = "insufficient_points";
