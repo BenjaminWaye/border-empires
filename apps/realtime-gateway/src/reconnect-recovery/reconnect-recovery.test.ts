@@ -339,7 +339,7 @@ describe("buildInitMessage", () => {
             incomePerMinute: 150,
             strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
             strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: { GOLD: { sources: [], sinks: [] }, FOOD: { sources: [], sinks: [] }, IRON: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, SUPPLY: { sources: [], sinks: [] }, SHARD: { sources: [], sinks: [] } },
             techIds: [],
@@ -358,7 +358,7 @@ describe("buildInitMessage", () => {
             incomePerMinute: 250,
             strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
             strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: { GOLD: { sources: [], sinks: [] }, FOOD: { sources: [], sinks: [] }, IRON: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, SUPPLY: { sources: [], sinks: [] }, SHARD: { sources: [], sinks: [] } },
             techIds: [],
@@ -567,7 +567,7 @@ describe("buildInitMessage", () => {
             incomePerMinute: 0,
             strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
             strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: {
               GOLD: { sources: [], sinks: [] },
@@ -712,7 +712,7 @@ describe("buildInitMessage", () => {
             incomePerMinute: 1,
             strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
             strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: {
               GOLD: { sources: [], sinks: [] },
@@ -738,7 +738,7 @@ describe("buildInitMessage", () => {
             incomePerMinute: 1,
             strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
             strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: {
               GOLD: { sources: [], sinks: [] },
@@ -764,7 +764,7 @@ describe("buildInitMessage", () => {
             incomePerMinute: 4.2,
             strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
             strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: {
               GOLD: { sources: [], sinks: [] },
