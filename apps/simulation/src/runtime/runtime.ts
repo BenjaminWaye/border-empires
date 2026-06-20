@@ -259,7 +259,6 @@ import {
   seaTileCountBetween as seaTileCountBetweenImpl,
   setAbilityCooldownUntil as setAbilityCooldownUntilImpl,
   wallSegments as wallSegmentsImpl,
-  wrappedChebyshev as wrappedChebyshevImpl,
   type AetherWallSegment
 } from "../runtime-ability-helpers.js";
 import {
@@ -987,7 +986,7 @@ export class SimulationRuntime {
 
     // Credit strategic resources
     const sp = economy.strategicProductionPerMinute;
-    const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL", "SHARD"] as const;
+    const strategicKeys = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
     for (const resource of strategicKeys) {
       const ratePerMinute = sp[resource] ?? 0;
       if (ratePerMinute <= 0) continue;
@@ -1047,8 +1046,8 @@ export class SimulationRuntime {
     }
   }
 
-  tickShardRain(nowMs: number = this.now()): void {
-    tickShardRainImpl({
+  private shardRainContext() {
+    return {
       now: this.now,
       players: this.players,
       tiles: this.tiles,
@@ -1056,21 +1055,25 @@ export class SimulationRuntime {
       activeShardFallSiteKeys: this.activeShardFallSiteKeys,
       lastShardRainHelloByPlayer: this.lastShardRainHelloByPlayer,
       getCurrentShardRainExpiresAt: () => this.currentShardRainExpiresAt,
-      setCurrentShardRainExpiresAt: (expiresAt) => { this.currentShardRainExpiresAt = expiresAt; },
+      setCurrentShardRainExpiresAt: (expiresAt: number | undefined) => { this.currentShardRainExpiresAt = expiresAt; },
       getCurrentShardRainSiteCount: () => this.currentShardRainSiteCount,
-      setCurrentShardRainSiteCount: (siteCount) => { this.currentShardRainSiteCount = siteCount; },
+      setCurrentShardRainSiteCount: (siteCount: number) => { this.currentShardRainSiteCount = siteCount; },
       getLastShardRainSpawnSlotKey: () => this.lastShardRainSpawnSlotKey,
-      setLastShardRainSpawnSlotKey: (slotKey) => { this.lastShardRainSpawnSlotKey = slotKey; },
+      setLastShardRainSpawnSlotKey: (slotKey: string | undefined) => { this.lastShardRainSpawnSlotKey = slotKey; },
       getLastShardRainWarningSlotKey: () => this.lastShardRainWarningSlotKey,
-      setLastShardRainWarningSlotKey: (slotKey) => { this.lastShardRainWarningSlotKey = slotKey; },
+      setLastShardRainWarningSlotKey: (slotKey: string | undefined) => { this.lastShardRainWarningSlotKey = slotKey; },
       incrementShardRainTickCounter: () => {
         this.shardRainTickCounter += 1;
         return this.shardRainTickCounter;
       },
-      replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
-      emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
-    }, nowMs);
+      replaceTileState: (tileKey: string, tile: DomainTileState) => this.replaceTileState(tileKey, tile),
+      emitEvent: (event: SimulationEvent) => this.emitEvent(event),
+      tileDeltaFromState: (tile: DomainTileState) => this.tileDeltaFromState(tile)
+    };
+  }
+
+  tickShardRain(nowMs: number = this.now()): void {
+    tickShardRainImpl(this.shardRainContext(), nowMs);
   }
 
   async tickTerritoryAutomation(
@@ -1116,25 +1119,28 @@ export class SimulationRuntime {
     });
   }
 
-  tickMuster(nowMs: number = this.now()): void {
-    tickMusterImpl({
-      nowMs,
+  private musterTickContext(musterTilesByOwner = this.musterTilesByOwner) {
+    return {
       players: this.players,
       tiles: this.tiles,
-      musterTilesByOwner: this.musterTilesByOwner,
+      musterTilesByOwner,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
-      applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
-      playerManpowerCap: (player) => this.playerManpowerCap(player),
-      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
-      emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
-      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
+      applyManpowerRegen: (player: RuntimePlayer, at?: number) => this.applyManpowerRegen(player, at),
+      playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
+      replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => this.replaceTileState(tileKey, tile, commandId),
+      emitEvent: (event: SimulationEvent) => this.emitEvent(event),
+      tileDeltaFromState: (tile: DomainTileState) => this.tileDeltaFromState(tile),
+      requiredMusterForTarget: (target: DomainTileState) => this.requiredMusterForTarget(target),
+      nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) =>
         this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
-      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
+      handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
       locksByTile: this.locksByTile
-    });
+    };
+  }
+
+  tickMuster(nowMs: number = this.now()): void {
+    tickMusterImpl({ nowMs, ...this.musterTickContext() });
   }
 
   tickWatchedMusterTiles(nowMs: number = this.now()): void {
@@ -1149,50 +1155,11 @@ export class SimulationRuntime {
       filteredMusterTiles.set(playerId, playerTiles);
     }
     if (filteredMusterTiles.size === 0) return;
-    tickMusterImpl({
-      nowMs,
-      players: this.players,
-      tiles: this.tiles,
-      musterTilesByOwner: filteredMusterTiles,
-      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
-      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
-      applyManpowerRegen: (player, at) => this.applyManpowerRegen(player, at),
-      playerManpowerCap: (player) => this.playerManpowerCap(player),
-      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
-      emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
-      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) =>
-        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
-      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
-      locksByTile: this.locksByTile
-    });
+    tickMusterImpl({ nowMs, ...this.musterTickContext(filteredMusterTiles) });
   }
 
   emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
-    emitShardRainHelloForImpl({
-      now: this.now,
-      players: this.players,
-      tiles: this.tiles,
-      recentShardRainTileKeys: this.recentShardRainTileKeys,
-      activeShardFallSiteKeys: this.activeShardFallSiteKeys,
-      lastShardRainHelloByPlayer: this.lastShardRainHelloByPlayer,
-      getCurrentShardRainExpiresAt: () => this.currentShardRainExpiresAt,
-      setCurrentShardRainExpiresAt: (expiresAt) => { this.currentShardRainExpiresAt = expiresAt; },
-      getCurrentShardRainSiteCount: () => this.currentShardRainSiteCount,
-      setCurrentShardRainSiteCount: (siteCount) => { this.currentShardRainSiteCount = siteCount; },
-      getLastShardRainSpawnSlotKey: () => this.lastShardRainSpawnSlotKey,
-      setLastShardRainSpawnSlotKey: (slotKey) => { this.lastShardRainSpawnSlotKey = slotKey; },
-      getLastShardRainWarningSlotKey: () => this.lastShardRainWarningSlotKey,
-      setLastShardRainWarningSlotKey: (slotKey) => { this.lastShardRainWarningSlotKey = slotKey; },
-      incrementShardRainTickCounter: () => {
-        this.shardRainTickCounter += 1;
-        return this.shardRainTickCounter;
-      },
-      replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
-      emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
-    }, playerId, nowMs);
+    emitShardRainHelloForImpl(this.shardRainContext(), playerId, nowMs);
   }
 
   private respawnContext(): RuntimeRespawnContext {
@@ -1582,7 +1549,7 @@ export class SimulationRuntime {
       // rounding noise below the gameplay-significant precision.
       const round4 = (n: number): number => Number(n.toFixed(4));
       const mismatches: string[] = [];
-      for (const key of ["gold", "food", "iron", "crystal", "supply", "oil"] as const) {
+      for (const key of ["gold", "food", "iron", "crystal", "supply"] as const) {
         const inc = round4(upkeep[key]);
         const fullV = round4((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
         if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);
@@ -1613,8 +1580,7 @@ export class SimulationRuntime {
       FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
       IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
       CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
-      SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes,
-      OIL: Math.max(0, upkeep.oil) * elapsedMinutes
+      SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
     };
     // Towns pay their own upkeep from accumulated yield before raiding the
     // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
@@ -1629,29 +1595,14 @@ export class SimulationRuntime {
       IRON: player.strategicResources?.IRON ?? 0,
       CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
       SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-      SHARD: player.strategicResources?.SHARD ?? 0,
-      OIL: player.strategicResources?.OIL ?? 0
+      SHARD: player.strategicResources?.SHARD ?? 0
     };
     let mutated = false;
-    if (need.FOOD > 0) {
-      stock.FOOD = Math.max(0, stock.FOOD - need.FOOD);
-      mutated = true;
-    }
-    if (need.IRON > 0) {
-      stock.IRON = Math.max(0, stock.IRON - need.IRON);
-      mutated = true;
-    }
-    if (need.CRYSTAL > 0) {
-      stock.CRYSTAL = Math.max(0, stock.CRYSTAL - need.CRYSTAL);
-      mutated = true;
-    }
-    if (need.SUPPLY > 0) {
-      stock.SUPPLY = Math.max(0, stock.SUPPLY - need.SUPPLY);
-      mutated = true;
-    }
-    if (need.OIL > 0) {
-      stock.OIL = Math.max(0, stock.OIL - need.OIL);
-      mutated = true;
+    for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
+      if (need[res] > 0) {
+        stock[res] = Math.max(0, stock[res] - need[res]);
+        mutated = true;
+      }
     }
     if (mutated) player.strategicResources = stock;
     this.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
@@ -1695,15 +1646,7 @@ export class SimulationRuntime {
       const tile = this.tiles.get(tileKey);
       if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
       if (!economyContext) economyContext = this.tileYieldEconomyContextForPlayer(player);
-      const enrichedTile = tile.town
-        ? (() => {
-            const networkTown = enrichTownWithConnectedNetwork(tile, economyContext!.townNetwork);
-            const refreshedTown = networkTown
-              ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, economyContext!.fedTownKeys, economyContext!.firstThreeTownKeys)
-              : networkTown;
-            return { ...tile, town: refreshedTown };
-          })()
-        : tile;
+      const enrichedTile = tile.town ? this.enrichTileWithTownContext(tile, player, economyContext!) : tile;
       const lastCollectedAt = this.tileYieldCollectedAt(tileKey, player.id);
       const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, nowMs, {
         player,
@@ -2035,6 +1978,15 @@ export class SimulationRuntime {
     return pendingSettlement;
   }
 
+  private tileKeySetToTiles(keys: Iterable<string>): DomainTileState[] {
+    const result: DomainTileState[] = [];
+    for (const key of keys) {
+      const tile = this.tiles.get(key);
+      if (tile) result.push(tile);
+    }
+    return result;
+  }
+
   private pendingSettlementsSnapshotForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
     return [...this.summaryForPlayer(playerId).pendingSettlementsByTile.values()]
       .map((settlement) => {
@@ -2056,9 +2008,7 @@ export class SimulationRuntime {
     for (const lock of this.locksByTile.values()) {
       if (lock.playerId === playerId) return undefined;
     }
-    const ownedTiles = [...this.summaryForPlayer(playerId).territoryTileKeys]
-      .map((tileKey) => this.tiles.get(tileKey))
-      .filter((tile): tile is DomainTileState => Boolean(tile));
+    const ownedTiles = this.tileKeySetToTiles(this.summaryForPlayer(playerId).territoryTileKeys);
     const player = this.players.get(playerId);
     return chooseNextOwnedFrontierCommandFromLookup(this.tiles, ownedTiles, playerId, clientSeq, issuedAt, sessionPrefix, {
       canAttack: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= ATTACK_MANPOWER_MIN,
@@ -2088,9 +2038,7 @@ export class SimulationRuntime {
       this.aiSpatialFocusByPlayer.delete(playerId);
       this.visionExpansionCache.invalidate(playerId);
     }
-    const ownedTiles = [...summary.territoryTileKeys]
-      .map((tileKey) => this.tiles.get(tileKey))
-      .filter((tile): tile is DomainTileState => tile !== undefined);
+    const ownedTiles = this.tileKeySetToTiles(summary.territoryTileKeys);
     const spatialFocus = this.refreshSpatialFocusForPlayer(playerId, this.now());
     // No-alloc per-tick check: short-circuit on first player-issued lock.
     // Allocating a Set for one .has() lookup would be wasteful in the AI
@@ -2135,18 +2083,10 @@ export class SimulationRuntime {
       hasActiveLock,
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
       ownedStructureCounts: this.ownedStructureCountsForPlayer(playerId),
-      frontierTiles: [...summary.frontierTileKeys]
-        .map((tileKey) => this.tiles.get(tileKey))
-        .filter((tile): tile is DomainTileState => tile !== undefined),
-      hotFrontierTiles: [...summary.hotFrontierTileKeys]
-        .map((tileKey) => this.tiles.get(tileKey))
-        .filter((tile): tile is DomainTileState => tile !== undefined),
-      strategicFrontierTiles: [...summary.strategicFrontierTileKeys]
-        .map((tileKey) => this.tiles.get(tileKey))
-        .filter((tile): tile is DomainTileState => tile !== undefined),
-      buildCandidateTiles: [...summary.buildCandidateTileKeys]
-        .map((tileKey) => this.tiles.get(tileKey))
-        .filter((tile): tile is DomainTileState => tile !== undefined),
+      frontierTiles: this.tileKeySetToTiles(summary.frontierTileKeys),
+      hotFrontierTiles: this.tileKeySetToTiles(summary.hotFrontierTileKeys),
+      strategicFrontierTiles: this.tileKeySetToTiles(summary.strategicFrontierTileKeys),
+      buildCandidateTiles: this.tileKeySetToTiles(summary.buildCandidateTileKeys),
       ownedTiles,
       tilesByKey: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
@@ -2522,10 +2462,6 @@ export class SimulationRuntime {
   }
 
 
-  private settledTileCountForPlayer(playerId: string): number {
-    return this.summaryForPlayer(playerId).settledTileCount;
-  }
-
   private strategicProductionPerMinuteForPlayer(playerId: string): Record<StrategicResourceKey, number> {
     return cloneStrategicProduction(this.summaryForPlayer(playerId).strategicProductionPerMinute);
   }
@@ -2578,6 +2514,15 @@ export class SimulationRuntime {
     return context;
   }
 
+  private enrichTileWithTownContext(tile: DomainTileState, player: RuntimePlayer | undefined, context: RuntimeTileYieldEconomyContext): DomainTileState {
+    if (!tile.town) return tile;
+    const networkTown = enrichTownWithConnectedNetwork(tile, context.townNetwork);
+    const refreshedTown = networkTown && player
+      ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, context.fedTownKeys, context.firstThreeTownKeys)
+      : networkTown;
+    return { ...tile, town: refreshedTown };
+  }
+
   private incomePerMinuteForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
     if (!player) return 0;
@@ -2620,10 +2565,6 @@ export class SimulationRuntime {
 
   private activeDevelopmentProcessCountForPlayer(playerId: string): number {
     return this.summaryForPlayer(playerId).activeDevelopmentProcessCount;
-  }
-
-  private pendingSettlementsForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
-    return this.pendingSettlementsSnapshotForPlayer(playerId);
   }
 
   private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
@@ -2676,7 +2617,6 @@ export class SimulationRuntime {
       lastCap.IRON !== storageCap.IRON ||
       lastCap.CRYSTAL !== storageCap.CRYSTAL ||
       lastCap.SUPPLY !== storageCap.SUPPLY ||
-      lastCap.OIL !== storageCap.OIL ||
       lastCap.SHARD !== storageCap.SHARD;
     if (capChanged) this.lastEmittedStorageCapByPlayer.set(playerId, storageCap);
     this.emitPlayerMessage(
@@ -2697,8 +2637,7 @@ export class SimulationRuntime {
           IRON: player.strategicResources?.IRON ?? 0,
           CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
           SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-          SHARD: player.strategicResources?.SHARD ?? 0,
-          OIL: player.strategicResources?.OIL ?? 0
+          SHARD: player.strategicResources?.SHARD ?? 0
         },
         strategicProductionPerMinute: economy.strategicProductionPerMinute,
         economyBreakdown: economy.economyBreakdown,
@@ -2708,7 +2647,7 @@ export class SimulationRuntime {
         E: metrics.E,
         Ts: metrics.Ts,
         Es: metrics.Es,
-        pendingSettlements: this.pendingSettlementsForPlayer(playerId),
+        pendingSettlements: this.pendingSettlementsSnapshotForPlayer(playerId),
         autoSettlementQueue: this.autoSettlementQueueForPlayer(playerId),
         developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
         activeDevelopmentProcessCount: this.activeDevelopmentProcessCountForPlayer(playerId),
@@ -2722,14 +2661,7 @@ export class SimulationRuntime {
     const payload = parseAllianceSyncPayload(command.payloadJson);
     const target = payload ? this.players.get(payload.targetPlayerId) : undefined;
     if (!actor || !payload || !target || target.id === actor.id) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid alliance sync payload"
-      });
-      return;
+      this.rejectCommand(command, "BAD_COMMAND", "invalid alliance sync payload"); return;
     }
 
     if (payload.allied) {
@@ -2751,15 +2683,13 @@ export class SimulationRuntime {
     );
   }
 
+  private rejectCommand(command: Pick<CommandEnvelope, "commandId" | "playerId">, code: string, message: string): void {
+    this.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code, message });
+  }
+
   private rejectIfNoDevelopmentSlot(command: CommandEnvelope, code: string, message: string): boolean {
     if (this.activeDevelopmentProcessCountForPlayer(command.playerId) < DEVELOPMENT_PROCESS_LIMIT) return false;
-    this.emitEvent({
-      eventType: "COMMAND_REJECTED",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      code,
-      message
-    });
+    this.rejectCommand(command, code, message);
     return true;
   }
 
@@ -2901,30 +2831,12 @@ export class SimulationRuntime {
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): boolean {
     const actor = this.players.get(command.playerId);
     const payload = parseFrontierPayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return false;
-    }
+    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return false; }
     this.applyManpowerRegen(actor);
 
     const submittedFrom = this.tiles.get(simulationTileKey(payload.fromX, payload.fromY));
     const to = this.tiles.get(simulationTileKey(payload.toX, payload.toY));
-    if (!submittedFrom || !to) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "UNKNOWN_TILE",
-        message: "origin or target tile not found"
-      });
-      return false;
-    }
+    if (!submittedFrom || !to) { this.rejectCommand(command, "UNKNOWN_TILE", "origin or target tile not found"); return false; }
 
     // Recover from stale client origin selection by re-picking a valid owned adjacent origin.
     const from =
@@ -2959,13 +2871,7 @@ export class SimulationRuntime {
       from.ownershipState === "FRONTIER" &&
       from.frontierDecayKind === "ENCIRCLEMENT"
     ) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "ORIGIN_CUT_OFF",
-        message: "origin tile is cut off from supply and cannot launch actions"
-      });
+      this.rejectCommand(command, "ORIGIN_CUT_OFF", "origin tile is cut off from supply and cannot launch actions");
       return false;
     }
 
@@ -3025,13 +2931,7 @@ export class SimulationRuntime {
         targetLockOwnerId: targetLock?.playerId,
         targetLockResolvesAt: targetLock?.resolvesAt
       });
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: validation.code,
-        message: validation.message
-      });
+      this.rejectCommand(command, validation.code, validation.message);
       return false;
     }
 
@@ -3204,84 +3104,22 @@ export class SimulationRuntime {
   private handleSettleCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseSettlePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
+    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
-    if (!target) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "UNKNOWN_TILE",
-        message: "tile not found"
-      });
-      return;
-    }
+    if (!target) { this.rejectCommand(command, "UNKNOWN_TILE", "tile not found"); return; }
     if (target.ownerId !== command.playerId || target.ownershipState !== "FRONTIER") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SETTLE_INVALID",
-        message: "tile is not one of your frontier tiles"
-      });
-      return;
+      this.rejectCommand(command, "SETTLE_INVALID", "tile is not one of your frontier tiles"); return;
     }
     // Encirclement guard: a cut-off tile cannot be settled. Settling a
     // disconnected tile would let a player convert an encircled pocket into
     // permanent territory, defeating the encirclement mechanic. Natural
     // frontier expiry also uses `frontierDecayAt`, so use the explicit owner.
-    if (target.frontierDecayKind === "ENCIRCLEMENT") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "ORIGIN_CUT_OFF",
-        message: "tile is cut off from supply and cannot be settled"
-      });
-      return;
-    }
-    if (target.terrain !== "LAND") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SETTLE_INVALID",
-        message: "tile is not valid land"
-      });
-      return;
-    }
-
-    if (this.pendingSettlementsByTile.has(targetKey)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SETTLE_INVALID",
-        message: "tile is already settling"
-      });
-      return;
-    }
+    if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be settled"); return; }
+    if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
+    if (this.pendingSettlementsByTile.has(targetKey)) { this.rejectCommand(command, "SETTLE_INVALID", "tile is already settling"); return; }
     if (this.rejectIfNoDevelopmentSlot(command, "SETTLE_INVALID", "development slots are busy")) return;
-    if (actor.points < SETTLE_COST) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "INSUFFICIENT_GOLD",
-        message: "insufficient gold to settle"
-      });
-      return;
-    }
+    if (actor.points < SETTLE_COST) { this.rejectCommand(command, "INSUFFICIENT_GOLD", "insufficient gold to settle"); return; }
 
     this.startSettlementProcess({
       commandId: command.commandId,
@@ -3295,43 +3133,18 @@ export class SimulationRuntime {
   private handleCollectTileCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
+    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
     this.applyManpowerRegen(actor);
     const target = this.tiles.get(simulationTileKey(payload.x, payload.y));
     if (!target || target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "COLLECT_EMPTY",
-        message: "tile is not a settled owned tile"
-      });
-      return;
+      this.rejectCommand(command, "COLLECT_EMPTY", "tile is not a settled owned tile"); return;
     }
 
     const collected = this.collectTileYield(target, this.now(), command);
     const gold = collected.gold;
     const strategic = collected.strategic;
     const touched = gold > 0 || Object.values(strategic).some((value) => Number(value) > 0);
-    if (!touched) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "COLLECT_EMPTY",
-        message: "yield is empty"
-      });
-      return;
-    }
+    if (!touched) { this.rejectCommand(command, "COLLECT_EMPTY", "yield is empty"); return; }
     actor.points += gold;
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
@@ -3355,29 +3168,11 @@ export class SimulationRuntime {
 
   private handleCollectVisibleCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
-    if (!actor) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "unknown player"
-      });
-      return;
-    }
+    if (!actor) { this.rejectCommand(command, "BAD_COMMAND", "unknown player"); return; }
     const now = this.now();
     const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
     const cooldownUntil = this.collectVisibleCooldownByPlayer.get(command.playerId) ?? 0;
-    if (cooldownUntil > now) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "COLLECT_COOLDOWN",
-        message: "collect is on cooldown"
-      });
-      return;
-    }
+    if (cooldownUntil > now) { this.rejectCommand(command, "COLLECT_COOLDOWN", "collect is on cooldown"); return; }
     // Mark player active so passive income tick doesn't skip them on next fire
     this.updatePlayerLastActive(command.playerId, now);
     // Seed the income anchor if this is before the first passive tick has fired,
@@ -3392,7 +3187,7 @@ export class SimulationRuntime {
     this.applyPassiveIncomeForPlayer(actor, now, 12 * 60 * 60 * 1000);
     const goldCredited = Math.max(0, actor.points - goldBefore);
     const strategic: Partial<Record<string, number>> = {};
-    for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "OIL", "SHARD"] as const) {
+    for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
       const diff = ((actor.strategicResources ?? {})[key] ?? 0) - (strategicBefore[key] ?? 0);
       if (diff > 0) strategic[key] = diff;
     }
@@ -3412,79 +3207,18 @@ export class SimulationRuntime {
   private handleUncaptureTileCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseStructureTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
+    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
-    if (!target) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "UNKNOWN_TILE",
-        message: "tile not found"
-      });
-      return;
-    }
-    if (target.ownerId !== command.playerId) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "UNCAPTURE_NOT_OWNER",
-        message: "tile is not owned by you"
-      });
-      return;
-    }
-    if (this.ownedTileCountForPlayer(command.playerId) <= 1) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "UNCAPTURE_LAST_TILE",
-        message: "cannot uncapture your last tile"
-      });
-      return;
-    }
-    if (target.town?.populationTier === "SETTLEMENT") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "UNCAPTURE_SETTLEMENT",
-        message: "cannot abandon your settlement"
-      });
-      return;
-    }
+    if (!target) { this.rejectCommand(command, "UNKNOWN_TILE", "tile not found"); return; }
+    if (target.ownerId !== command.playerId) { this.rejectCommand(command, "UNCAPTURE_NOT_OWNER", "tile is not owned by you"); return; }
+    if (this.ownedTileCountForPlayer(command.playerId) <= 1) { this.rejectCommand(command, "UNCAPTURE_LAST_TILE", "cannot uncapture your last tile"); return; }
+    if (target.town?.populationTier === "SETTLEMENT") { this.rejectCommand(command, "UNCAPTURE_SETTLEMENT", "cannot abandon your settlement"); return; }
     const summary = this.summaryForPlayer(command.playerId);
     if (summary.ownedTownTierByTile.size <= 1 && summary.ownedTownTierByTile.has(targetKey)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "UNCAPTURE_LAST_TOWN",
-        message: "cannot abandon your last town"
-      });
-      return;
+      this.rejectCommand(command, "UNCAPTURE_LAST_TOWN", "cannot abandon your last town"); return;
     }
-    if (this.locksByTile.has(targetKey)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "LOCKED",
-        message: "tile locked in combat"
-      });
-      return;
-    }
+    if (this.locksByTile.has(targetKey)) { this.rejectCommand(command, "LOCKED", "tile locked in combat"); return; }
 
     // Refund any banked muster manpower before releasing the tile.
     if (target.muster?.ownerId && target.muster.amount > 0) {
@@ -3530,38 +3264,15 @@ export class SimulationRuntime {
   private handleOverloadSynthesizerCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseStructureTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
+    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
     const structure = target?.economicStructure;
     if (!target || !structure || structure.ownerId !== command.playerId) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SYNTH_OVERLOAD_INVALID",
-        message: "no owned synthesizer on tile"
-      });
-      return;
+      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "no owned synthesizer on tile"); return;
     }
     if (!actor.techIds.has("overload-protocols")) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SYNTH_OVERLOAD_INVALID",
-        message: "unlock synthesizer overload via Overload Protocols first"
-      });
-      return;
+      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "unlock synthesizer overload via Overload Protocols first"); return;
     }
     if (
       structure.type !== "FUR_SYNTHESIZER" &&
@@ -3571,44 +3282,16 @@ export class SimulationRuntime {
       structure.type !== "CRYSTAL_SYNTHESIZER" &&
       structure.type !== "ADVANCED_CRYSTAL_SYNTHESIZER"
     ) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SYNTH_OVERLOAD_INVALID",
-        message: "only synthesizer structures can overload"
-      });
-      return;
+      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "only synthesizer structures can overload"); return;
     }
     if (structure.status === "under_construction" || structure.status === "removing") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SYNTH_OVERLOAD_INVALID",
-        message: "synthesizer is not ready"
-      });
-      return;
+      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "synthesizer is not ready"); return;
     }
     if (structure.disabledUntil && structure.disabledUntil > this.now()) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SYNTH_OVERLOAD_INVALID",
-        message: "synthesizer is recovering from overload"
-      });
-      return;
+      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "synthesizer is recovering from overload"); return;
     }
     if (actor.points < SYNTH_OVERLOAD_GOLD_COST) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "SYNTH_OVERLOAD_INVALID",
-        message: "insufficient gold for synthesizer overload"
-      });
-      return;
+      this.rejectCommand(command, "SYNTH_OVERLOAD_INVALID", "insufficient gold for synthesizer overload"); return;
     }
 
     actor.points -= SYNTH_OVERLOAD_GOLD_COST;
@@ -3644,81 +3327,30 @@ export class SimulationRuntime {
   private handleSetConverterStructureEnabledCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
     const payload = parseConverterTogglePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "BAD_COMMAND",
-        message: "invalid command payload"
-      });
-      return;
-    }
+    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.tiles.get(targetKey);
     const structure = target?.economicStructure;
     if (!target || !structure || structure.ownerId !== command.playerId) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CONVERTER_TOGGLE_INVALID",
-        message: "no owned converter on tile"
-      });
-      return;
+      this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "no owned converter on tile"); return;
     }
     if (!isConverterStructureType(structure.type)) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CONVERTER_TOGGLE_INVALID",
-        message: "only converter structures can be toggled"
-      });
-      return;
+      this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "only converter structures can be toggled"); return;
     }
     if (structure.status === "under_construction" || structure.status === "removing") {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CONVERTER_TOGGLE_INVALID",
-        message: "converter is not ready"
-      });
-      return;
+      this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "converter is not ready"); return;
     }
     if (structure.disabledUntil && structure.disabledUntil > this.now()) {
-      this.emitEvent({
-        eventType: "COMMAND_REJECTED",
-        commandId: command.commandId,
-        playerId: command.playerId,
-        code: "CONVERTER_TOGGLE_INVALID",
-        message: "converter is recovering from overload"
-      });
-      return;
+      this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "converter is recovering from overload"); return;
     }
 
     if (payload.enabled) {
       if (target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "CONVERTER_TOGGLE_INVALID",
-          message: "converter requires settled owned tile"
-        });
-        return;
+        this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "converter requires settled owned tile"); return;
       }
       const upkeep = economicStructureGoldUpkeepPerInterval(structure.type);
       if (actor.points < upkeep) {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "CONVERTER_TOGGLE_INVALID",
-          message: "insufficient gold for converter upkeep"
-        });
-        return;
+        this.rejectCommand(command, "CONVERTER_TOGGLE_INVALID", "insufficient gold for converter upkeep"); return;
       }
       actor.points -= upkeep;
     }
@@ -3931,14 +3563,6 @@ export class SimulationRuntime {
     return ownedLandWithinRangeImpl(this.tiles, playerId, x, y, range);
   }
 
-  /**
-   * Wrapped chebyshev distance honoring world-map cylindrical wrap.
-   * Mirrors `chebyshevDistanceWrapped` on the client.
-   */
-  private wrappedChebyshev(ax: number, ay: number, bx: number, by: number): number {
-    return wrappedChebyshevImpl(ax, ay, bx, by);
-  }
-
   isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
     return isStructurePoweredImpl(this.tiles, ownerId, tileKey, structureType);
   }
@@ -4099,15 +3723,7 @@ export class SimulationRuntime {
   private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext): SimulationTileWireDelta {
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
-    const enrichedTile = tile.town && resolvedContext
-      ? (() => {
-          const networkTown = enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork);
-          const refreshedTown = networkTown && player
-            ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, resolvedContext.fedTownKeys, resolvedContext.firstThreeTownKeys)
-            : networkTown;
-          return { ...tile, town: refreshedTown };
-        })()
-      : tile;
+    const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(simulationTileKey(tile.x, tile.y), tile.ownerId), this.now(), {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
@@ -4155,22 +3771,14 @@ export class SimulationRuntime {
     options: { creditStrategic?: boolean; persistAnchor?: boolean } = {}
   ): {
     gold: number;
-    strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
   } {
     const creditStrategic = options.creditStrategic ?? true;
     const persistAnchor = options.persistAnchor ?? true;
     const tileKey = simulationTileKey(tile.x, tile.y);
     const player = tile.ownerId ? this.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
-    const enrichedTile = tile.town && resolvedContext
-      ? (() => {
-          const networkTown = enrichTownWithConnectedNetwork(tile, resolvedContext.townNetwork);
-          const refreshedTown = networkTown && player
-            ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, resolvedContext.fedTownKeys, resolvedContext.firstThreeTownKeys)
-            : networkTown;
-          return { ...tile, town: refreshedTown };
-        })()
-      : tile;
+    const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, {
       ...(player ? { player } : {}),
       ...(resolvedContext ? { fedTownKeys: resolvedContext.fedTownKeys } : {}),
@@ -4179,9 +3787,9 @@ export class SimulationRuntime {
       dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
     const gold = Math.floor((yieldView?.yield?.gold ?? 0) * 100) / 100;
-    const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> = {};
+    const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
-      ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number]
+      ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number]
     >) {
       if (amount > 0) {
         strategic[resource] = amount;
@@ -4217,11 +3825,7 @@ export class SimulationRuntime {
   }
 
   private ownedTileCountForPlayer(playerId: string): number {
-    let count = 0;
-    for (const tile of this.tiles.values()) {
-      if (tile.ownerId === playerId) count += 1;
-    }
-    return count;
+    return this.summaryForPlayer(playerId).territoryTileKeys.size;
   }
 
   private adjacentTileStates(x: number, y: number): DomainTileState[] {
@@ -4694,13 +4298,7 @@ export class SimulationRuntime {
   private commandDispatchHandlers(): RuntimeCommandDispatchHandlers {
     return {
       emitUnsupported: (command) => {
-        this.emitEvent({
-          eventType: "COMMAND_REJECTED",
-          commandId: command.commandId,
-          playerId: command.playerId,
-          code: "UNSUPPORTED",
-          message: `${command.type} not yet migrated to the new simulation service`
-        });
+        this.rejectCommand(command, "UNSUPPORTED", `${command.type} not yet migrated to the new simulation service`);
       },
       handleSettleCommand: (command) => this.handleSettleCommand(command),
       handleBuildStructureCommand: (command) => this.handleBuildStructureCommand(command),

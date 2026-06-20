@@ -175,7 +175,7 @@ const plunderSummary = (
   const strategic = (msg.pillagedStrategic as Record<string, number> | undefined) ?? {};
   const parts: string[] = [];
   if (pillagedGold > 0.01) parts.push(`${resourceIconForKey("GOLD")} ${formatGoldAmount(pillagedGold)}`);
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
     const amount = strategic[resource];
     if (typeof amount !== "number" || amount <= 0.01) continue;
     parts.push(`${resourceIconForKey(resource)} ${formatPlunderAmount(amount)} ${deps.prettyToken(resource)}`);

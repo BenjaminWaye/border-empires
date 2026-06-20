@@ -287,8 +287,7 @@ export const buildPlayerSubscriptionSnapshot = (
               IRON: livePlayer.strategicResources.IRON ?? 0,
               CRYSTAL: livePlayer.strategicResources.CRYSTAL ?? 0,
               SUPPLY: livePlayer.strategicResources.SUPPLY ?? 0,
-              SHARD: livePlayer.strategicResources.SHARD ?? 0,
-              OIL: livePlayer.strategicResources.OIL ?? 0
+              SHARD: livePlayer.strategicResources.SHARD ?? 0
             },
             strategicProductionPerMinute,
             economyBreakdown: liveEconomy.economyBreakdown,
@@ -631,8 +630,7 @@ export const buildPlayerSubscriptionSnapshotAsync = async (
               IRON: livePlayer.strategicResources.IRON ?? 0,
               CRYSTAL: livePlayer.strategicResources.CRYSTAL ?? 0,
               SUPPLY: livePlayer.strategicResources.SUPPLY ?? 0,
-              SHARD: livePlayer.strategicResources.SHARD ?? 0,
-              OIL: livePlayer.strategicResources.OIL ?? 0
+              SHARD: livePlayer.strategicResources.SHARD ?? 0
             },
             strategicProductionPerMinute,
             economyBreakdown: liveEconomy.economyBreakdown,

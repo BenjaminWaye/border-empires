@@ -42,7 +42,7 @@ export type OptimisticStructureKind =
 
 export type TileUpkeepEntry = {
   label: string;
-  perMinute: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "GOLD" | "OIL", number>>;
+  perMinute: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "GOLD", number>>;
 };
 
 export type Tile = {
@@ -398,7 +398,7 @@ export type RevealEmpireStatsView = {
   gold: number;
   manpower: number;
   manpowerCap: number;
-  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
+  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
 };
 
 export type StrategicReplayEventType =
@@ -464,7 +464,7 @@ export type TechInfo = {
   effects?: Record<string, unknown>;
   requirements: {
     gold: number;
-    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
     checklist?: Array<{ label: string; met: boolean }>;
     canResearch?: boolean;
   };
@@ -481,7 +481,7 @@ export type DomainInfo = {
   effects?: Record<string, unknown>;
   requirements: {
     gold: number;
-    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
     checklist?: Array<{ label: string; met: boolean }>;
     canResearch?: boolean;
   };

@@ -585,7 +585,6 @@ const buildShowsOnTile = (
       | "GEMS"
       | "FISH"
       | "FUR"
-      | "OIL"
       | undefined,
     dockId: tile.dockId,
     townPopulationTier: tile.town?.populationTier,

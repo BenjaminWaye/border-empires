@@ -31,7 +31,7 @@ export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" 
 };
 
 export type FrontierCommandType = "ATTACK" | "EXPAND";
-export type DomainStrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
+export type DomainStrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 
 export type DomainPlayer = {
   id: string;
@@ -56,8 +56,8 @@ export type DomainPlayer = {
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
   // Persistent sub-choice for domains that ask the player to pick a resource
   // (Clockwork Stipend). Locked on pick; null/undefined means no choice yet.
-  // Narrowed to the trickle subset (IRON / SUPPLY / CRYSTAL) — FOOD / SHARD /
-  // OIL are intentionally excluded because no trickle domain offers them.
+  // Narrowed to the trickle subset (IRON / SUPPLY / CRYSTAL) — FOOD and SHARD
+  // are intentionally excluded because no trickle domain offers them.
   chosenTrickleResource?: ChosenTrickleResource | undefined;
 };
 

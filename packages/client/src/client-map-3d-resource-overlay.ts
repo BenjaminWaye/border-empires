@@ -20,7 +20,7 @@ import {
 // chosen deterministically per tile via a hash so a refresh paints the
 // same arrangement.
 
-export type ResourceKind = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR" | "OIL";
+export type ResourceKind = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR";
 export type ResourceVariant = 0 | 1 | 2;
 
 const variantHash = (worldX: number, worldZ: number, salt: number): ResourceVariant => {
@@ -579,7 +579,6 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
     else if (resource === "GEMS") addGems(sceneX, surfaceY, sceneZ, v);
     else if (resource === "FISH") addFish(sceneX, surfaceY, sceneZ, v);
     else if (resource === "FUR") addFur(sceneX, surfaceY, sceneZ, v);
-    else if (resource === "OIL") addOil(sceneX, surfaceY, sceneZ, v);
   };
 
   const commit = (): void => {

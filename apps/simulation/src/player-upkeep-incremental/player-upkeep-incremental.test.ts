@@ -66,8 +66,7 @@ const roundSnapshot = (s: UpkeepAccrualSnapshot): UpkeepAccrualSnapshot => ({
   food: round6(s.food),
   iron: round6(s.iron),
   crystal: round6(s.crystal),
-  supply: round6(s.supply),
-  oil: round6(s.oil)
+  supply: round6(s.supply)
 });
 
 // ---------------------------------------------------------------------------
@@ -96,7 +95,6 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.iron).toBe(0);
     expect(contrib.crystal).toBe(0);
     expect(contrib.supply).toBe(0);
-    expect(contrib.oil).toBe(0);
   });
 
   it("charges WOODEN_FORT structure gold upkeep", () => {
@@ -228,7 +226,6 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
       iron: round6(full.iron),
       crystal: round6(full.crystal),
       supply: round6(full.supply),
-      oil: round6(full.oil)
     });
   });
 
@@ -258,7 +255,6 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
       iron: round6(full.iron),
       crystal: round6(full.crystal),
       supply: round6(full.supply),
-      oil: round6(full.oil)
     });
   });
 });

@@ -210,7 +210,6 @@ export interface ServerWorldgenTerrainRuntime {
   adjacentOceanSea: (x: number, y: number, oceanMask: Uint8Array) => { x: number; y: number } | undefined;
   clusterTypeDefs: ClusterTypeDefinition[];
   clusterResourceType: (cluster: ClusterDefinition) => ResourceType;
-  discoverOilFieldNearAirport: (ownerId: string, airportTileKey: TileKey) => TileKey[];
   isNearMountain: (x: number, y: number, r?: number) => boolean;
   resourcePlacementAllowed: (x: number, y: number, resource: ResourceType, relaxed?: boolean) => boolean;
   isForestFrontierTile: (x: number, y: number) => boolean;

@@ -45,8 +45,7 @@ const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
   IRON: 0,
   CRYSTAL: 0,
   SUPPLY: 0,
-  SHARD: 0,
-  OIL: 0
+  SHARD: 0
 });
 
 const strategicProductionPerMinuteForResource = (resource: DomainTileState["resource"] | string | undefined): number => {
@@ -63,8 +62,6 @@ const strategicProductionPerMinuteForResource = (resource: DomainTileState["reso
       return 60 / 1440;
     case "GEMS":
       return 36 / 1440;
-    case "OIL":
-      return 48 / 1440;
     default:
       return 0;
   }
@@ -82,8 +79,6 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | string
     case "WOOD":
     case "FUR":
       return "SUPPLY";
-    case "OIL":
-      return "OIL";
     default:
       return undefined;
   }
@@ -160,8 +155,7 @@ export const cloneStrategicProduction = (
   IRON: value.IRON,
   CRYSTAL: value.CRYSTAL,
   SUPPLY: value.SUPPLY,
-  SHARD: value.SHARD,
-  OIL: value.OIL
+  SHARD: value.SHARD
 });
 
 export const estimateIncomePerMinuteFromTiles = (playerId: string, tiles: Iterable<EconomyTileLike>): number => {

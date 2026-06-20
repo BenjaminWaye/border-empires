@@ -65,13 +65,12 @@ export const createPlayersFromRecoveredState = (
             IRON: player.strategicResources?.IRON ?? 0,
             CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
             SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-            SHARD: player.strategicResources?.SHARD ?? 0,
-            OIL: player.strategicResources?.OIL ?? 0
+            SHARD: player.strategicResources?.SHARD ?? 0
           },
           ...(player.chosenTrickleResource && isChosenTrickleResource(player.chosenTrickleResource)
             ? { chosenTrickleResource: player.chosenTrickleResource }
             : {}),
-          strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
         }
       ] as const;
     })
