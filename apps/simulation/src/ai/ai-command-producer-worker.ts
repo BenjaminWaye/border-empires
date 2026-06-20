@@ -1,17 +1,3 @@
-/**
- * Worker-backed AI command producer.
- *
- * Drop-in replacement for ai-command-producer.ts that offloads all planning
- * computation to ai-planner-worker.ts so the main simulation event loop is
- * never blocked by AI decision logic.
- *
- * Backpressure rules:
- *  - If human_interactive backlog > 0, the tick is skipped entirely.
- *  - If the persistence queue is degraded, the tick is skipped.
- *  - The worker receives a "pause" message when backlog > 0 so any in-flight
- *    computation is short-circuited; it resumes when the backlog drains.
- */
-
 import { Worker } from "node:worker_threads";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "../runtime/runtime.js";
@@ -41,11 +27,16 @@ import {
   ATTACK_STALEMATE_WINDOW_MS,
   createAttackStalemateTracker
 } from "./ai-attack-stalemate.js";
+import {
+  clearDevelopmentReservation,
+  reserveDevelopmentSlot,
+  reservedDevelopmentSlotCount,
+  type DevelopmentSlotReservation
+} from "./ai-development-slot-reservations.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
 type SimulationTileDelta = TileDeltaBatchEvent["tileDeltas"][number];
-
 const mergePlannerTileDelta = (
   existing: PlannerTileView | undefined,
   tileDelta: SimulationTileDelta
@@ -130,6 +121,7 @@ type WorkerAiCommandProducerOptions = {
     lastCommandType?: string;
   }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
+  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
   onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   /** Diagnostic experiment flags — staging investigation only. */
@@ -231,9 +223,10 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     options.aiPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
   );
   const lastCommandAtByPlayer = new Map<string, number>();
-  const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
+  const pendingCommandByPlayer = new Map<string, { commandId: string; commandType: CommandEnvelope["type"]; startedAt: number }>();
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
+  const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
   // Tracks the last time a HEARTBEAT collect fired for each AI (NOT organic
   // collects). The preplan uses this to gate the 60s heartbeat — if we
   // shared this with organic collects (collect_for_unaffordable_progression,
@@ -604,6 +597,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     });
 
   const stopListening = options.runtime.onEvent((event) => {
+    if (event.eventType === "COMMAND_REJECTED") {
+      clearDevelopmentReservation(developmentReservationsByPlayer, event.playerId, event.commandId);
+    }
     if (event.eventType === "TILE_DELTA_BATCH") {
       const tileDeltas = Array.isArray(event.tileDeltas) ? event.tileDeltas : [];
       queueTileDeltas(tileDeltas);
@@ -669,6 +665,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         //  - COMMAND_REJECTED for any failure
         releaseAiLatchedIntent(intentLatchState, event.playerId);
       }
+      if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pending) {
+        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pending.commandType });
+      }
       if (trackedPreplanMatches && event.eventType !== "COMMAND_REJECTED") {
         syncPlannerStateImmediately(event.playerId);
       }
@@ -696,6 +695,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     issuedAt: number,
     requestOptions?: {
       skipPreplan?: boolean;
+      reservedDevelopmentSlots?: number;
     }
   ): Promise<PlannedCommandResult> => {
     return new Promise((resolve) => {
@@ -734,6 +734,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         issuedAt,
         sessionPrefix: "ai-runtime",
         ...(requestOptions?.skipPreplan ? { skipPreplan: true } : {}),
+        ...(requestOptions?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: requestOptions.reservedDevelopmentSlots } : {}),
         ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {})
       });
     });
@@ -856,8 +857,10 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             const plannerStartedAt = now();
             planRequestCount += 1;
             lastPlayerId = playerId;
+            const reservedDevelopmentSlots = reservedDevelopmentSlotCount(developmentReservationsByPlayer, playerId, issuedAt);
             const plan = await requestPlan(playerId, clientSeq, issuedAt, {
-              skipPreplan
+              skipPreplan,
+              ...(reservedDevelopmentSlots > 0 ? { reservedDevelopmentSlots } : {})
             });
             const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
             options.onDiagnostic?.({
@@ -887,7 +890,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
             }
             if (isAutomationPreplanCommand(plan.command.type)) {
               trackedPreplanByCommandId.set(plan.command.commandId, { playerId, trackedAt: issuedAt });
-              pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
+              pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, startedAt: issuedAt });
               activePreplanCommandId = plan.command.commandId;
               // Register the preplan-outcome resolver BEFORE submitting so the
               // runtime event listener can signal the outcome without a race.
@@ -936,7 +939,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               // Another AI has committed to this tile; defer to let next tick re-plan.
               break;
             }
-            pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
+            pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, startedAt: issuedAt });
             nextClientSeqByPlayer.set(playerId, clientSeq + 1);
             nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
             wasUrgent = urgentByPlayerId.delete(playerId);
@@ -986,6 +989,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
               options.onExperimentFilter?.("dry_run");
             } else {
               await options.submitCommand(plan.command);
+              reserveDevelopmentSlot(developmentReservationsByPlayer, plan.command, issuedAt);
             }
             lastCommandAtByPlayer.set(playerId, issuedAt);
             options.onCommand?.({ playerId, commandType: cmdType });
