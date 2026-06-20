@@ -508,7 +508,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       applyOptimisticTileState,
       pushFeed,
       renderHud,
-      sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode })
+      sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
+      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
+        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq }))
     });
 
   const combatResolutionAlert = (
@@ -597,6 +599,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       state.autoSettleTargets.delete(targetKey);
     }
     state.capture = undefined;
+    state.musterTransit = undefined;
+    state.activeMusterSource = undefined;
+    state.deferredAttack = undefined;
     if (!handedOffToSettle) {
       state.actionInFlight = false;
       state.actionAcceptedAck = false;

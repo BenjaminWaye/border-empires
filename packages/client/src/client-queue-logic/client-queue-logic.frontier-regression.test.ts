@@ -72,6 +72,7 @@ describe("frontier queue regressions", () => {
       pickOriginForTarget: () => origin,
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       sendSetMuster: vi.fn(),
+      sendAttack: vi.fn(),
       applyOptimisticTileState,
       pushFeed: vi.fn(),
       renderHud: vi.fn()
@@ -118,6 +119,7 @@ describe("frontier queue regressions", () => {
       pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       sendSetMuster: vi.fn(),
+      sendAttack: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()
@@ -154,6 +156,7 @@ describe("frontier queue regressions", () => {
       pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       sendSetMuster: vi.fn(),
+      sendAttack: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()
@@ -190,6 +193,7 @@ describe("frontier queue regressions", () => {
       pickOriginForTarget: () => origin,
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       sendSetMuster: vi.fn(),
+      sendAttack: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()
