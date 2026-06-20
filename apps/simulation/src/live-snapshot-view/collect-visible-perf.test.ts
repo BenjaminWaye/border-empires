@@ -26,7 +26,7 @@ const makePlayer = (id: string) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local" as const,
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
 });
 
 const settledLand = (x: number, y: number, extra: Partial<DomainTileState> = {}): DomainTileState => ({
@@ -86,7 +86,7 @@ describe("yield-bearing tile index: perf gate (250k tiles)", () => {
         town: { type: "FARMING", populationTier: "SETTLEMENT", name: `Town${i}` }
       });
     }
-    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "OIL", "FUR"] as const;
+    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "FUR"] as const;
     for (let i = 0; i < RESOURCE_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + i, {
         resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length]
@@ -185,7 +185,7 @@ describe("yield-bearing tile index: cold-cache perf gate", () => {
     for (let i = 0; i < TOWN_COUNT; i++) {
       addTile(PLAIN_COUNT + i, { town: { type: "FARMING", populationTier: "SETTLEMENT", name: `Town${i}` } });
     }
-    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "OIL", "FUR"] as const;
+    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "FUR"] as const;
     for (let i = 0; i < RESOURCE_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + i, { resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length] });
     }
@@ -241,7 +241,7 @@ describe("yield-bearing tile index: cold-cache perf gate", () => {
     for (let i = 0; i < TOWN_COUNT; i++) {
       addTile(PLAIN_COUNT + i, { town: { type: "FARMING", populationTier: "SETTLEMENT", name: `Town${i}` } });
     }
-    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "OIL", "FUR"] as const;
+    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "FUR"] as const;
     for (let i = 0; i < RESOURCE_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + i, { resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length] });
     }

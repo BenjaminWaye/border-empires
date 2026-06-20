@@ -27,7 +27,7 @@ export const RESTART_PARITY_COMMAND_TYPES = RESTART_PARITY_COMMAND_TYPES_UNTYPED
 export const ACCEPTANCE_RESOLUTION_COMMAND_TYPES = ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 export const RECONNECT_COMMAND_TYPES = RECONNECT_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 
-export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
+export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 export type FrontierCombatActionType = "ATTACK" | "EXPAND";
 export type ManpowerBreakdownLine = {
   label: string;
@@ -371,10 +371,10 @@ export type PlayerSubscriptionSnapshot = {
     logisticsThroughputPerMinute?: number;
     manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;
-    strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
-    strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
+    strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+    strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
     economyBreakdown?: Record<string, unknown>;
-    upkeepPerMinute?: { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
+    upkeepPerMinute?: { food: number; iron: number; supply: number; crystal: number; gold: number };
     upkeepLastTick?: Record<string, unknown>;
     developmentProcessLimit: number;
     activeDevelopmentProcessCount: number;
@@ -416,8 +416,8 @@ export type PlayerSubscriptionSnapshot = {
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
     musterJson?: string | undefined;
-    yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
-    yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
+    yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
+    yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;
   }>;
 };

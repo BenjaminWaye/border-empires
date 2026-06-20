@@ -238,11 +238,11 @@ type ProtoSimulationEvent = {
     musterJson?: string | undefined;
     yield?: {
       gold?: number;
-      strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+      strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
     } | undefined;
     yieldRate?: {
       goldPerMinute?: number;
-      strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+      strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
     } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;
   }>;

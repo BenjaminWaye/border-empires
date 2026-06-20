@@ -66,8 +66,8 @@ describe("gateway init progression sources", () => {
         manpower: 150,
         manpowerCap: 150,
         incomePerMinute: 0,
-        strategicResources: { FOOD: 10_000, IRON: 10_000, CRYSTAL: 10_000, SUPPLY: 10_000, SHARD: 10_000, OIL: 0 },
-        strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+        strategicResources: { FOOD: 10_000, IRON: 10_000, CRYSTAL: 10_000, SUPPLY: 10_000, SHARD: 10_000 },
+        strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
         upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
         techIds: ["toolmaking"],
         domainIds: ["frontier-doctrine"]

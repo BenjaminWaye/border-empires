@@ -67,7 +67,6 @@ export type UpkeepAccrualSnapshot = {
   iron: number;
   crystal: number;
   supply: number;
-  oil: number;
 };
 
 export const emptyUpkeepAccrualSnapshot = (): UpkeepAccrualSnapshot => ({
@@ -75,8 +74,7 @@ export const emptyUpkeepAccrualSnapshot = (): UpkeepAccrualSnapshot => ({
   food: 0,
   iron: 0,
   crystal: 0,
-  supply: 0,
-  oil: 0
+  supply: 0
 });
 
 /**
@@ -107,8 +105,6 @@ export const tileUpkeepContribution = (
   let iron = 0;
   let crystal = 0;
   let supply = 0;
-  const oil = 0;
-
   // Town food upkeep.
   if (tile.town) {
     food += townFoodUpkeepPerMinute(tile.town.populationTier);
@@ -162,7 +158,7 @@ export const tileUpkeepContribution = (
     }
   }
 
-  return { gold, food, iron, crystal, supply, oil };
+  return { gold, food, iron, crystal, supply };
 };
 
 /**
@@ -181,7 +177,6 @@ export const addTileUpkeepToCache = (
   cache.iron    += contrib.iron;
   cache.crystal += contrib.crystal;
   cache.supply  += contrib.supply;
-  cache.oil     += contrib.oil;
 };
 
 /**
@@ -200,7 +195,6 @@ export const removeTileUpkeepFromCache = (
   cache.iron    -= contrib.iron;
   cache.crystal -= contrib.crystal;
   cache.supply  -= contrib.supply;
-  cache.oil     -= contrib.oil;
 };
 
 /**

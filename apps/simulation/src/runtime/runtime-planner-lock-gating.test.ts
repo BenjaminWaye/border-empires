@@ -26,7 +26,7 @@ describe("planner active-lock gating", () => {
     mods: { attack: 1, defense: 1, income: 1, vision: 1 },
     techRootId: "rewrite-local",
     allies: new Set<string>(),
-    strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+    strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
   });
 
   const buildRuntime = (
@@ -106,7 +106,7 @@ describe("debug snapshot lock fields", () => {
     mods: { attack: 1, defense: 1, income: 1, vision: 1 },
     techRootId: "rewrite-local",
     allies: new Set<string>(),
-    strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+    strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
   });
 
   const runtimeWithLock = (lockSource: "player" | "automation"): SimulationRuntime =>

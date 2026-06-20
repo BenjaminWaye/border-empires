@@ -77,8 +77,7 @@ const createState = () =>
       IRON: { until: 0, dir: 0 },
       CRYSTAL: { until: 0, dir: 0 },
       SUPPLY: { until: 0, dir: 0 },
-      SHARD: { until: 0, dir: 0 },
-      OIL: { until: 0, dir: 0 }
+      SHARD: { until: 0, dir: 0 }
     },
     economyBreakdown: {},
     upkeepPerMinute: {},
