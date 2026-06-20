@@ -3,7 +3,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
-export function tickTileShedding(input: {
+export async function tickTileShedding(input: {
   nowMs: number;
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
@@ -15,11 +15,20 @@ export function tickTileShedding(input: {
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
-}): void {
+  yieldToEventLoop?: () => Promise<void>;
+}): Promise<void> {
+  // applyEconomyAccrual → consumeUpkeepFromTileYield → tileYieldEconomyContextForPlayer
+  // rebuilds buildConnectedTownNetworkForPlayer (O(N×settledTiles)) on cache miss.
+  // With 6 players × ~540ms each = ~3.2s synchronous block that exceeds the 2500ms
+  // gRPC timeout. Yield between players so commands can be processed in between.
+  const yield_ = input.yieldToEventLoop ?? (() => Promise.resolve());
   for (const player of input.players.values()) {
     if (player.id.startsWith("barbarian-")) continue;
     input.applyEconomyAccrual(player, input.nowMs);
-    if ((player.points ?? 0) > 0) continue;
+    if ((player.points ?? 0) > 0) {
+      await yield_();
+      continue;
+    }
     const summary = input.summaryForPlayer(player.id);
 
     let shedTileKey: string | undefined;
@@ -38,7 +47,10 @@ export function tickTileShedding(input: {
         shedTile = tile;
       }
     }
-    if (!shedTileKey || !shedTile) continue;
+    if (!shedTileKey || !shedTile) {
+      await yield_();
+      continue;
+    }
 
     const commandId = `tile-shed:${player.id}:${shedTileKey}:${input.nowMs}`;
     const shedState: DomainTileState = {
@@ -70,6 +82,7 @@ export function tickTileShedding(input: {
       ]
     });
     input.emitPlayerStateUpdate({ commandId, playerId: player.id });
+    await yield_();
   }
 }
 
