@@ -103,12 +103,23 @@ export const uncaptureSelected = (
 };
 
 export const cancelOngoingCapture = (
-  state: Pick<ClientState, "actionQueue" | "queuedTargetKeys" | "dragPreviewKeys">,
+  state: Pick<ClientState, "actionQueue" | "queuedTargetKeys" | "dragPreviewKeys" | "musterTransit" | "activeMusterSource" | "deferredAttack" | "actionInFlight" | "actionCurrent" | "actionTargetKey" | "capture">,
   sendGameMessage: (payload: unknown) => boolean
 ): void => {
   state.actionQueue.length = 0;
   state.queuedTargetKeys.clear();
   state.dragPreviewKeys.clear();
+  if (state.musterTransit) {
+    // Troops are still marching — cancel before the attack is sent.
+    state.musterTransit = undefined;
+    state.activeMusterSource = undefined;
+    state.deferredAttack = undefined;
+    state.capture = undefined;
+    state.actionInFlight = false;
+    state.actionCurrent = undefined;
+    state.actionTargetKey = "";
+    return;
+  }
   sendGameMessage({ type: "CANCEL_CAPTURE" });
 };
 
