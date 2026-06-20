@@ -15,6 +15,12 @@ import {
   intentKindForCommand,
   wakeWindowMsForCommand
 } from "./ai-intent-latch-helpers.js";
+import {
+  clearDevelopmentReservation,
+  reserveDevelopmentSlot,
+  reservedDevelopmentSlotCount,
+  type DevelopmentSlotReservation
+} from "./ai-development-slot-reservations.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 
@@ -27,6 +33,7 @@ type AiCommandProducerOptions = {
       sessionPrefix: "ai-runtime" | "system-runtime",
       options?: {
         skipPreplan?: boolean;
+        reservedDevelopmentSlots?: number;
       }
     ) => { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic };
   };
@@ -41,6 +48,7 @@ type AiCommandProducerOptions = {
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
   onCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
+  onRejectedCommand?: (sample: { playerId: string; commandType: CommandEnvelope["type"] }) => void;
   onDecision?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   setIntervalFn?: (task: () => void, intervalMs: number) => ReturnType<typeof setInterval>;
@@ -69,9 +77,10 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const nextClientSeqByPlayer = new Map<string, number>(
     options.aiPlayerIds.map((playerId) => [playerId, options.startingClientSeqByPlayer?.[playerId] ?? 1] as const)
   );
-  const pendingCommandByPlayer = new Map<string, { commandId: string; startedAt: number }>();
+  const pendingCommandByPlayer = new Map<string, { commandId: string; commandType: CommandEnvelope["type"]; startedAt: number }>();
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
+  const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
   const urgentByPlayerId = new Set<string>();
   let tickInFlight = false;
   let nextPlayerIndex = 0;
@@ -98,6 +107,9 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     });
 
   const stopListening = options.runtime.onEvent((event) => {
+    if (event.eventType === "COMMAND_REJECTED") {
+      clearDevelopmentReservation(developmentReservationsByPlayer, event.playerId, event.commandId);
+    }
     if (
       event.eventType === "COMBAT_RESOLVED" &&
       event.attackerWon &&
@@ -136,6 +148,9 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         //  - TILE_DELTA_BATCH for SETTLE/BUILD_*
         //  - COMMAND_REJECTED for any failure
         releaseAiLatchedIntent(intentLatchState, event.playerId);
+      }
+      if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pendingCommand) {
+        options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType });
       }
       resolvePendingPreplanOutcome(
         event.commandId,
@@ -206,13 +221,17 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         for (let pass = 0; pass < 2; pass += 1) {
           const issuedAt = now();
           const plannerStartedAt = now();
+          const reservedDevelopmentSlots = reservedDevelopmentSlotCount(developmentReservationsByPlayer, playerId, issuedAt);
           const plan = options.runtime.explainNextAutomationCommand
             ? options.runtime.explainNextAutomationCommand(
                 playerId,
                 nextClientSeq,
                 issuedAt,
                 "ai-runtime",
-                { skipPreplan }
+                {
+                  skipPreplan,
+                  ...(reservedDevelopmentSlots > 0 ? { reservedDevelopmentSlots } : {})
+                }
               )
             : { command: options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime") };
           const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
@@ -236,7 +255,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           if (isAutomationPreplanCommand(plan.command.type)) {
             try {
               trackedPreplanByCommandId.set(plan.command.commandId, { playerId, trackedAt: issuedAt });
-              pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
+              pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, startedAt: issuedAt });
               await options.submitCommand(plan.command);
               nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
               options.onCommand?.({ playerId, commandType: plan.command.type });
@@ -267,7 +286,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
             // round-robin pick a different target next pass.
             break;
           }
-          pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
+          pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, startedAt: issuedAt });
           nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
           nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
           const wasUrgent = urgentByPlayerId.delete(playerId);
@@ -298,6 +317,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           }
           try {
             await options.submitCommand(plan.command);
+            reserveDevelopmentSlot(developmentReservationsByPlayer, plan.command, issuedAt);
             options.onCommand?.({ playerId, commandType: plan.command.type });
           } catch {
             pendingCommandByPlayer.delete(playerId);

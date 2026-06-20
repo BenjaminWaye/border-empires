@@ -259,14 +259,12 @@ const emitDiagnostic = (sample: {
   });
 };
 
-// ─── Planning logic ───────────────────────────────────────────────────────────
-
 const choosePlannerCommand = (
   playerId: string,
   clientSeq: number,
   issuedAt: number,
   options?: {
-    skipPreplan?: boolean;
+    skipPreplan?: boolean; reservedDevelopmentSlots?: number;
     collectVisibleOnCooldown?: boolean;
     lastHeartbeatAtMs?: number;
     attackStalemateTargetTileKeys?: ReadonlySet<string>;
@@ -340,6 +338,7 @@ const choosePlannerCommand = (
     ...(typeof player.incomePerMinute === "number" ? { incomePerMinute: player.incomePerMinute } : {}),
     hasActiveLock: player.hasActiveLock,
     activeDevelopmentProcessCount: player.activeDevelopmentProcessCount,
+    ...(typeof options?.reservedDevelopmentSlots === "number" ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
     ...(player.ownedStructureCounts ? { ownedStructureCounts: player.ownedStructureCounts } : {}),
     frontierTiles,
     hotFrontierTiles,
@@ -479,6 +478,7 @@ parentPort.on("message", (msg: unknown) => {
           message.issuedAt as number,
           {
             skipPreplan: message.skipPreplan === true,
+            ...(typeof message.reservedDevelopmentSlots === "number" ? { reservedDevelopmentSlots: message.reservedDevelopmentSlots as number } : {}),
             collectVisibleOnCooldown: message.collectVisibleOnCooldown === true,
             ...(typeof message.lastHeartbeatAtMs === "number"
               ? { lastHeartbeatAtMs: message.lastHeartbeatAtMs as number }

@@ -2026,9 +2026,7 @@ export class SimulationRuntime {
     clientSeq: number,
     issuedAt: number,
     sessionPrefix: "ai-runtime" | "system-runtime",
-    options?: {
-      skipPreplan?: boolean;
-    }
+    options?: { skipPreplan?: boolean; reservedDevelopmentSlots?: number }
   ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
     const player = this.players.get(playerId);
     if (!player) {
@@ -2086,6 +2084,7 @@ export class SimulationRuntime {
       incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
       hasActiveLock,
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+      ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
       ownedStructureCounts: this.ownedStructureCountsForPlayer(playerId),
       frontierTiles: this.tileKeySetToTiles(summary.frontierTileKeys),
       hotFrontierTiles: this.tileKeySetToTiles(summary.hotFrontierTileKeys),
