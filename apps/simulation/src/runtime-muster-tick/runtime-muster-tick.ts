@@ -7,7 +7,7 @@ import {
   MUSTER_STALE_MS,
   OUTPOST_DEPOT_RADIUS
 } from "@border-empires/shared";
-import { coordsInChebyshevRadius, sweepAttackCandidates } from "../territory-automation/territory-automation.js";
+import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 
@@ -131,42 +131,58 @@ export const tickMuster = (input: MusterTickInput): void => {
 };
 
 /**
- * ADVANCE auto-fire: if the muster tile can afford an adjacent enemy target,
- * launch an ATTACK from the muster tile itself. The actual muster spend happens
- * at combat resolution (consumeOriginMuster); the origin lock created by the
- * attack prevents this flag from firing again until that resolves.
+ * ADVANCE auto-fire: finds the nearest enemy tile anywhere on the map, then
+ * fires from the closest player-owned tile that borders it. The muster flag is
+ * the MP source (resolved by resolveMusterSource at combat time via proximity).
+ * Skips tiles already locked in combat so we don't stack attacks on the same front.
  */
 const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
   const musterAmount = musterTile.muster?.amount ?? 0;
-  const originKey = simulationTileKey(musterTile.x, musterTile.y);
-  // Don't stack a second strike while the origin is locked in combat.
-  if (input.locksByTile.has(originKey)) return;
 
-  const candidates = sweepAttackCandidates(musterTile, playerId, 1, (x, y) =>
-    input.tiles.get(simulationTileKey(x, y))
-  );
-  for (const target of candidates) {
-    if (musterAmount < input.requiredMusterForTarget(target)) continue;
-    const commandId = input.nextTerritoryAutomationCommandId(
-      "muster-advance",
-      playerId,
-      simulationTileKey(target.x, target.y),
-      input.nowMs
-    );
-    const accepted = input.handleFrontierCommand(
-      {
-        commandId,
-        sessionId: `system-runtime:territory-automation:${playerId}`,
-        playerId,
-        clientSeq: 0,
-        issuedAt: input.nowMs,
-        type: "ATTACK",
-        payloadJson: JSON.stringify({ fromX: musterTile.x, fromY: musterTile.y, toX: target.x, toY: target.y })
-      },
-      "ATTACK"
-    );
-    if (accepted) return;
+  // Find nearest enemy tile to this flag (no radius cap).
+  let nearestEnemy: DomainTileState | undefined;
+  let nearestEnemyDist = Infinity;
+  for (const tile of input.tiles.values()) {
+    if (!tile.ownerId || tile.ownerId === playerId) continue;
+    if (tile.terrain !== "LAND") continue;
+    if (tile.ownershipState !== "FRONTIER" && tile.ownershipState !== "SETTLED" && tile.ownershipState !== "BARBARIAN") continue;
+    const dist = chebyshevDistanceSimple(musterTile.x, musterTile.y, tile.x, tile.y);
+    if (dist < nearestEnemyDist) { nearestEnemyDist = dist; nearestEnemy = tile; }
   }
+  if (!nearestEnemy) return;
+  if (musterAmount < input.requiredMusterForTarget(nearestEnemy)) return;
+
+  // Among owned tiles adjacent to that enemy, pick the one closest to the muster flag.
+  // Skip any that already have a combat lock (don't double-stack the same origin).
+  let bestFrom: DomainTileState | undefined;
+  let bestFromDist = Infinity;
+  for (const { x, y } of coordsInChebyshevRadius(nearestEnemy.x, nearestEnemy.y, 1)) {
+    const neighbor = input.tiles.get(simulationTileKey(x, y));
+    if (!neighbor || neighbor.ownerId !== playerId || neighbor.terrain !== "LAND") continue;
+    if (input.locksByTile.has(simulationTileKey(x, y))) continue;
+    const dist = chebyshevDistanceSimple(musterTile.x, musterTile.y, x, y);
+    if (dist < bestFromDist) { bestFromDist = dist; bestFrom = neighbor; }
+  }
+  if (!bestFrom) return;
+
+  const commandId = input.nextTerritoryAutomationCommandId(
+    "muster-advance",
+    playerId,
+    simulationTileKey(nearestEnemy.x, nearestEnemy.y),
+    input.nowMs
+  );
+  input.handleFrontierCommand(
+    {
+      commandId,
+      sessionId: `system-runtime:territory-automation:${playerId}`,
+      playerId,
+      clientSeq: 0,
+      issuedAt: input.nowMs,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y })
+    },
+    "ATTACK"
+  );
 };
 
 const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set<string> => {
