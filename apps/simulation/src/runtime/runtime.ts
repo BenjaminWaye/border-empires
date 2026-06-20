@@ -902,8 +902,8 @@ export class SimulationRuntime {
     return () => this.events.off("event", listener);
   }
 
-  tickTileShedding(nowMs: number = this.now()): void {
-    tickTileSheddingImpl({
+  async tickTileShedding(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
+    await tickTileSheddingImpl({
       nowMs,
       players: this.players,
       tiles: this.tiles,
@@ -914,7 +914,8 @@ export class SimulationRuntime {
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
     });
   }
 
