@@ -633,7 +633,9 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     processActionQueue: actionFlow.processActionQueue,
     shouldPreserveOptimisticExpandByKey,
     requestViewRefresh,
-    reconcileActionQueue: actionFlow.reconcileActionQueue
+    reconcileActionQueue: actionFlow.reconcileActionQueue,
+    sendDeferredAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
+      ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq }))
   });
 
   bindClientMapInput(state, {

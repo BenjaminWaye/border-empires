@@ -45,6 +45,7 @@ import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.
 import { createUnfedBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
+import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js";
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
 import { createSurveySweepFxLayer } from "../client-map-3d-survey-sweep-fx/client-map-3d-survey-sweep-fx.js";
@@ -137,6 +138,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const unfedBadgeOverlay = createUnfedBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene);
+  const supplyLineOverlay = createSupplyLineOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
   const aetherLanceFx = createAetherPurgeFxLayer(scene);
   const surveySweepFx = createSurveySweepFxLayer(scene);
@@ -1290,6 +1292,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     unfedBadgeOverlay.clear();
     observatoryCooldownBadgeOverlay.clear();
     musterOverlay.clear();
+    supplyLineOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
@@ -1629,6 +1632,37 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     unfedBadgeOverlay.commit();
     observatoryCooldownBadgeOverlay.commit();
     musterOverlay.commit();
+    // Supply line from closest muster flag to attack front.
+    {
+      const src = deps.state.activeMusterSource;
+      const transit = deps.state.musterTransit;
+      const capture = deps.state.capture;
+      if (src && capture) {
+        const phase = transit ? "transit" : "locked";
+        const [srcWx, srcWy] = [src.x, src.y];
+        const [tgtWx, tgtWy] = [capture.target.x, capture.target.y];
+        const srcDx = toroidDelta(deps.state.camX, srcWx, WORLD_WIDTH);
+        const srcDy = toroidDelta(deps.state.camY, srcWy, WORLD_HEIGHT);
+        const tgtDx = toroidDelta(deps.state.camX, tgtWx, WORLD_WIDTH);
+        const tgtDy = toroidDelta(deps.state.camY, tgtWy, WORLD_HEIGHT);
+        const srcSurfaceY = Math.max(
+          heightfield.elevationAt(srcWx, srcWy),
+          heightfield.cornerYAt(srcWx, srcWy)
+        );
+        const tgtSurfaceY = Math.max(
+          heightfield.elevationAt(tgtWx, tgtWy),
+          heightfield.cornerYAt(tgtWx, tgtWy)
+        );
+        const ownerColor = deps.effectiveOverlayColor(deps.state.me ?? "");
+        supplyLineOverlay.addLine(
+          srcDx + TILE_CENTER_OFFSET, srcDy + TILE_CENTER_OFFSET, srcSurfaceY,
+          tgtDx + TILE_CENTER_OFFSET, tgtDy + TILE_CENTER_OFFSET, tgtSurfaceY,
+          phase,
+          ownerColor
+        );
+      }
+    }
+    supplyLineOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -1701,6 +1735,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     unfedBadgeOverlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
+    supplyLineOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -1799,6 +1834,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     unfedBadgeOverlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     musterOverlay.dispose();
+    supplyLineOverlay.dispose();
     aetherBridgePylonOverlay.dispose();
     aetherLanceFx.dispose();
     surveySweepFx.dispose();

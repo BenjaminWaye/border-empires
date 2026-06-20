@@ -249,6 +249,20 @@ export const createInitialState = () => ({
     radius: number;
   }>,
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean } | undefined,
+  musterTransit: undefined as {
+    musterX: number;
+    musterY: number;
+    targetX: number;
+    targetY: number;
+    transitStartAt: number;
+    transitEndsAt: number;
+  } | undefined,
+  activeMusterSource: undefined as { x: number; y: number } | undefined,
+  deferredAttack: undefined as {
+    fromX: number; fromY: number;
+    toX: number; toY: number;
+    commandId: string; clientSeq: number;
+  } | undefined,
   pendingCombatReveal: undefined as
     | {
         targetKey: string;

@@ -143,6 +143,7 @@ type StartClientRuntimeLoopDeps = {
   shouldPreserveOptimisticExpandByKey: (tileKey: string) => boolean;
   requestViewRefresh: (radius?: number, force?: boolean) => void;
   reconcileActionQueue: () => void;
+  sendDeferredAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
 };
 
 export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRuntimeLoopDeps): void => {
@@ -1504,6 +1505,27 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     deps.ctx.setLineDash([]);
     deps.ctx.lineDashOffset = 0;
 
+    // 2D supply line: flag → attack front.
+    if (!isTrue3DRendererActive() && state.activeMusterSource && state.capture) {
+      const src = state.activeMusterSource;
+      const tgt = state.capture.target;
+      const srcScreen = deps.worldToScreen(src.x, src.y, size, halfW, halfH);
+      const tgtScreen = deps.worldToScreen(tgt.x, tgt.y, size, halfW, halfH);
+      const phase = state.musterTransit ? "transit" : "locked";
+      const alpha = phase === "transit" ? 0.5 + 0.4 * Math.abs(Math.sin(nowMs / 400)) : 0.55;
+      deps.ctx.save();
+      deps.ctx.strokeStyle = deps.effectiveOverlayColor(state.me ?? "");
+      deps.ctx.globalAlpha = alpha;
+      deps.ctx.lineWidth = phase === "transit" ? 2.5 : 1.5;
+      if (phase === "transit") deps.ctx.setLineDash([6, 4]);
+      deps.ctx.beginPath();
+      deps.ctx.moveTo(srcScreen.sx, srcScreen.sy);
+      deps.ctx.lineTo(tgtScreen.sx, tgtScreen.sy);
+      deps.ctx.stroke();
+      deps.ctx.setLineDash([]);
+      deps.ctx.restore();
+    }
+
     const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
     for (const wall of visibleAetherWalls) {
       const segments = buildAetherWallSegments(wall.origin.x, wall.origin.y, wall.direction, wall.length, deps.wrapX, deps.wrapY);
@@ -1577,6 +1599,26 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     });
     if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment || recoveredExpiredFrontier) {
       deps.renderHud();
+    }
+    // Fire deferred attack once the transit window expires.
+    if (state.musterTransit) {
+      if (Date.now() >= state.musterTransit.transitEndsAt) {
+        state.musterTransit = undefined;
+        const deferred = state.deferredAttack;
+        if (deferred) {
+          state.deferredAttack = undefined;
+          // Reset the action clock so the 2s accept timeout starts from now,
+          // not from the transit start.
+          state.actionStartedAt = Date.now();
+          state.actionAcceptTimeoutHandledAt = 0;
+          deps.sendDeferredAttack(deferred.fromX, deferred.fromY, deferred.toX, deferred.toY, deferred.commandId, deferred.clientSeq);
+        }
+        deps.requestViewRefresh();
+      } else {
+        // Troops still marching — skip the action-accept timeout check entirely.
+        // The server hasn't received ATTACK yet so no ACK is expected.
+        return;
+      }
     }
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;

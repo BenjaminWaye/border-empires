@@ -1,5 +1,5 @@
 import { FRONTIER_CLAIM_COST, MUSTER_ATTACK_COST, MUSTER_SYSTEM_ENABLED, SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
+import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
   clearSkippedAutoSettlementTileKeyForPlayer,
@@ -948,27 +948,27 @@ const chebyshevDist = (ax: number, ay: number, bx: number, by: number): number =
   return Math.max(dx, dy);
 };
 
-// Find the nearest muster tile owned by the player within 4 Chebyshev hops of
-// (originX, originY) that has at least MUSTER_ATTACK_COST staged.
-// state.tiles on the client only contains visible + owned tiles (not all 202k),
-// so iterating it is cheap in practice.
-export const findReachableMuster = (
+// Find the muster tile owned by the player closest to (targetX, targetY) that
+// has at least MUSTER_ATTACK_COST staged. No distance cap — any owned flag
+// qualifies. state.tiles only contains visible + owned tiles (not all 202k)
+// and MUSTER_MAX_TILES = 5, so iterating it is cheap in practice.
+export const findClosestMuster = (
   state: ClientState,
-  originX: number,
-  originY: number
-): Tile | undefined => {
-  let best: Tile | undefined;
+  targetX: number,
+  targetY: number
+): { tile: Tile; dist: number } | undefined => {
+  let bestTile: Tile | undefined;
   let bestDist = Infinity;
   for (const tile of state.tiles.values()) {
     if (!tile.muster || tile.muster.ownerId !== state.me) continue;
     if (tile.muster.amount < MUSTER_ATTACK_COST) continue;
-    const dist = chebyshevDist(tile.x, tile.y, originX, originY);
-    if (dist <= 4 && dist < bestDist) {
+    const dist = chebyshevDist(tile.x, tile.y, targetX, targetY);
+    if (dist < bestDist) {
       bestDist = dist;
-      best = tile;
+      bestTile = tile;
     }
   }
-  return best;
+  return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
 };
 
 // Check all pending muster attacks; promote those whose muster tile has reached
@@ -988,10 +988,10 @@ export const processPendingMusterAttacks = (
     // Drop if target is gone or captured.
     if (!target || target.ownerId === state.me || !target.ownerId) continue;
 
-    // Check for any reachable muster from the original origin, not just the
-    // initially staged tile — a different muster within range may have filled first.
-    const reachable = findReachableMuster(state, entry.fromX, entry.fromY);
-    if (!reachable) {
+    // Check for any muster closest to the target — a different muster may have
+    // filled first, or the player may have placed a new flag closer to the front.
+    const closest = findClosestMuster(state, entry.targetX, entry.targetY);
+    if (!closest) {
       remaining.push(entry);
       continue;
     }
@@ -1020,6 +1020,7 @@ export const processActionQueue = (
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
     sendSetMuster: (x: number, y: number, mode: "HOLD") => void;
+    sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
   }
 ): boolean => {
   if (state.actionInFlight || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
@@ -1331,10 +1332,10 @@ export const processActionQueue = (
         continue;
       }
       if (MUSTER_SYSTEM_ENABLED && to.ownerId !== "barbarian-1") {
-        const reachable = findReachableMuster(state, from.x, from.y);
-        if (!reachable) {
-          // No muster within range — auto-stage HOLD on origin if it has none, then
-          // park the attack in pendingMusterAttacks (fires when muster fills to 60).
+        const closest = findClosestMuster(state, to.x, to.y);
+        if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES) {
+          // No flag close enough — park the attack and auto-create a flag on
+          // the origin tile (adjacent to target) so troops begin mustering there.
           state.capture = undefined;
           state.actionInFlight = false;
           state.actionCurrent = undefined;
@@ -1343,10 +1344,10 @@ export const processActionQueue = (
           state.combatStartAck = false;
           state.actionAcceptTimeoutHandledAt = 0;
           state.queuedTargetKeys.delete(targetKey);
-          const originKey = deps.keyFor(from.x, from.y);
-          const musterTileKey = originKey;
+          const musterTileKey = deps.keyFor(from.x, from.y);
           const playerHasAnyMuster = [...state.tiles.values()].some((t) => t.muster?.ownerId === state.me);
-          if (!playerHasAnyMuster) {
+          const originAlreadyHasMuster = state.tiles.get(musterTileKey)?.muster?.ownerId === state.me;
+          if (!originAlreadyHasMuster) {
             deps.sendSetMuster(from.x, from.y, "HOLD");
           }
           const alreadyPending = state.pendingMusterAttacks.some(
@@ -1354,16 +1355,52 @@ export const processActionQueue = (
           );
           if (!alreadyPending) {
             state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey });
-            const feedMsg = playerHasAnyMuster
-              ? `Not enough manpower at nearest flag — attack on (${to.x}, ${to.y}) queued`
-              : `Staging muster on (${from.x}, ${from.y}) — attack on (${to.x}, ${to.y}) queued`;
+            const feedMsg = !closest || !playerHasAnyMuster
+              ? `Staging flag near (${to.x}, ${to.y}) — attack queued`
+              : `Closest flag is ${closest.dist} tiles away — staging flag closer to front, attack queued`;
             deps.pushFeed(feedMsg, "combat", "info");
           }
           deps.renderHud();
           continue;
         }
+        // Flag found within range — compute transit delay and defer the send.
+        const transitMs = closest.dist * MUSTER_TRANSIT_MS_PER_TILE;
+        const now = Date.now();
+        state.musterTransit = {
+          musterX: closest.tile.x,
+          musterY: closest.tile.y,
+          targetX: to.x,
+          targetY: to.y,
+          transitStartAt: now,
+          transitEndsAt: now + transitMs,
+        };
+        state.activeMusterSource = { x: closest.tile.x, y: closest.tile.y };
+        state.capture = {
+          startAt: now + transitMs,
+          resolvesAt: now + transitMs + 3_000,
+          target: { x: to.x, y: to.y },
+        };
+        state.deferredAttack = {
+          fromX: from.x, fromY: from.y,
+          toX: to.x, toY: to.y,
+          commandId, clientSeq,
+        };
+        state.actionInFlight = true;
+        state.actionAcceptedAck = false;
+        state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
+        state.actionStartedAt = now;
+        state.actionTargetKey = targetKey;
+        deps.pushFeed(
+          `Flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — troops marching (${Math.round(transitMs / 1000)}s transit)`,
+          "combat",
+          "info"
+        );
+        state.selected = { x: to.x, y: to.y };
+        deps.renderHud();
+        return true;
       }
-      deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq }));
+      deps.sendAttack(from.x, from.y, to.x, to.y, commandId, clientSeq);
       attackSyncLog("send", {
         actionType: "ATTACK",
         target: { x: to.x, y: to.y },
