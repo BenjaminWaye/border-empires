@@ -1633,10 +1633,23 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryCooldownBadgeOverlay.commit();
     musterOverlay.commit();
     // Supply line from closest muster flag to attack front.
+    // For ADVANCE mode, find the adjacent muster tile that auto-fired.
     {
-      const src = deps.state.activeMusterSource;
-      const transit = deps.state.musterTransit;
       const capture = deps.state.capture;
+      const advanceSrc = !deps.state.activeMusterSource && capture ? (() => {
+        // Find the ADVANCE muster tile closest to the capture target.
+        let bestTile: { x: number; y: number } | undefined;
+        let bestDist = Infinity;
+        const tgt = capture.target;
+        for (const tile of deps.state.tiles.values()) {
+          if (!tile.muster || tile.muster.ownerId !== deps.state.me || tile.muster.mode !== "ADVANCE") continue;
+          const d = Math.max(Math.abs(tile.x - tgt.x), Math.abs(tile.y - tgt.y));
+          if (d < bestDist) { bestDist = d; bestTile = { x: tile.x, y: tile.y }; }
+        }
+        return bestTile;
+      })() : undefined;
+      const src = deps.state.activeMusterSource ?? advanceSrc;
+      const transit = deps.state.musterTransit;
       if (src && capture) {
         const phase = transit ? "transit" : "locked";
         const [srcWx, srcWy] = [src.x, src.y];

@@ -1506,8 +1506,22 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     deps.ctx.lineDashOffset = 0;
 
     // 2D supply line: flag → attack front.
-    if (!isTrue3DRendererActive() && state.activeMusterSource && state.capture) {
-      const src = state.activeMusterSource;
+    // For ADVANCE mode, find the adjacent muster tile that fired the attack.
+    const musterSupplySrc = state.activeMusterSource ?? (() => {
+      if (!state.capture) return undefined;
+      // Find the ADVANCE muster tile closest to the capture target — that's the flag driving this attack.
+      let bestTile: { x: number; y: number } | undefined;
+      let bestDist = Infinity;
+      const tgt = state.capture.target;
+      for (const tile of state.tiles.values()) {
+        if (!tile.muster || tile.muster.ownerId !== state.me || tile.muster.mode !== "ADVANCE") continue;
+        const d = Math.max(Math.abs(tile.x - tgt.x), Math.abs(tile.y - tgt.y));
+        if (d < bestDist) { bestDist = d; bestTile = { x: tile.x, y: tile.y }; }
+      }
+      return bestTile;
+    })();
+    if (!isTrue3DRendererActive() && musterSupplySrc && state.capture) {
+      const src = musterSupplySrc;
       const tgt = state.capture.target;
       const srcScreen = deps.worldToScreen(src.x, src.y, size, halfW, halfH);
       const tgtScreen = deps.worldToScreen(tgt.x, tgt.y, size, halfW, halfH);
