@@ -2629,12 +2629,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "shard rain tick failed");
         }
       }, 60_000);
+      let tileSheddingRunning = false;
       tileSheddingTicker = setInterval(() => {
-        try {
-          mainThreadTasks.trackSync("tick_tile_shedding", undefined, () => runtime.tickTileShedding(Date.now()));
-        } catch (error) {
-          log.error({ err: error }, "tile shedding tick failed");
+        // Overlap guard: applyEconomyAccrual rebuilds tileYieldEconomyContextForPlayer
+        // (buildConnectedTownNetworkForPlayer BFS) on cache miss — ~540ms per player.
+        // Running 6 players synchronously was a ~3.2s block exceeding the 2500ms gRPC
+        // timeout. Async with per-player yields lets commands drain between players.
+        if (tileSheddingRunning) {
+          log.info("[tile_shedding] skipping tick — previous tick still running");
+          return;
         }
+        tileSheddingRunning = true;
+        void runtime.tickTileShedding(Date.now(), yieldToEventLoop)
+          .catch((error) => { log.error({ err: error }, "tile shedding tick failed"); })
+          .finally(() => { tileSheddingRunning = false; });
       }, 60_000);
       populationGrowthTicker = setInterval(() => {
         try {

@@ -8602,7 +8602,7 @@ describe("simulation runtime — shard rain", () => {
 });
 
 describe("simulation runtime — tile shedding", () => {
-  it("does not shed when the player has positive treasury", () => {
+  it("does not shed when the player has positive treasury", async () => {
     let now = 1_000;
     const runtime = new SimulationRuntime({
       now: () => now,
@@ -8633,13 +8633,13 @@ describe("simulation runtime — tile shedding", () => {
     });
 
     now = 60_000;
-    runtime.tickTileShedding(60_000);
+    await runtime.tickTileShedding(60_000);
 
     const state = runtime.exportState();
     expect(state.tiles.filter((tile) => tile.ownerId === "ai-1").length).toBe(2);
   });
 
-  it("never sheds barbarian tiles", () => {
+  it("never sheds barbarian tiles", async () => {
     let now = 1_000;
     const runtime = new SimulationRuntime({
       now: () => now,
@@ -8669,7 +8669,7 @@ describe("simulation runtime — tile shedding", () => {
     });
 
     now = 60_000;
-    runtime.tickTileShedding(60_000);
+    await runtime.tickTileShedding(60_000);
 
     const state = runtime.exportState();
     expect(state.tiles.find((tile) => tile.x === 0 && tile.y === 0)?.ownerId).toBe("barbarian-1");
