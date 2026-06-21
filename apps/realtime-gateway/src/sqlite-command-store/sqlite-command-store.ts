@@ -11,6 +11,11 @@ const isSqliteBusy = (error: unknown): boolean => {
   return code === "SQLITE_BUSY" || code === "SQLITE_BUSY_TIMEOUT";
 };
 
+const isSqliteUniqueConstraint = (error: unknown): boolean => {
+  const code = (error as { code?: string } | undefined)?.code;
+  return code === "SQLITE_CONSTRAINT_UNIQUE";
+};
+
 /** Retry backoff for SQLITE_BUSY contention (50ms, 150ms, 300ms). */
 const SQLITE_BUSY_RETRY_DELAYS_MS = [50, 150, 300] as const;
 
@@ -121,17 +126,30 @@ export class SqliteGatewayCommandStore implements GatewayCommandStore {
       `INSERT INTO command_results (command_id, status) VALUES (?, 'QUEUED')
        ON CONFLICT(command_id) DO NOTHING`
     );
-    await this.withSqliteRetry(() => {
-      this.db.exec("BEGIN");
-      try {
-        insertCmd.run(command.commandId, command.sessionId, command.playerId, command.clientSeq, command.type, command.payloadJson, queuedAt);
-        insertResult.run(command.commandId);
-        this.db.exec("COMMIT");
-      } catch (error) {
-        this.db.exec("ROLLBACK");
-        throw error;
+    try {
+      await this.withSqliteRetry(() => {
+        this.db.exec("BEGIN");
+        try {
+          insertCmd.run(command.commandId, command.sessionId, command.playerId, command.clientSeq, command.type, command.payloadJson, queuedAt);
+          insertResult.run(command.commandId);
+          this.db.exec("COMMIT");
+        } catch (error) {
+          this.db.exec("ROLLBACK");
+          throw error;
+        }
+      });
+    } catch (error) {
+      // UNIQUE constraint on (player_id, client_seq) with a different commandId:
+      // idempotent re-submission after a reconnect or clientSeq tracking gap.
+      // Return the existing stored command rather than surfacing QUEUE_PERSIST_FAILED.
+      if (isSqliteUniqueConstraint(error)) {
+        const existing = this.db
+          .prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ? LIMIT 1`)
+          .get(command.playerId, command.clientSeq) as Row | undefined;
+        if (existing) return toStored(existing);
       }
-    });
+      throw error;
+    }
     const row = this.db
       .prepare(`${SELECT_JOINED} WHERE c.command_id = ? OR (c.player_id = ? AND c.client_seq = ?) LIMIT 1`)
       .get(command.commandId, command.playerId, command.clientSeq) as Row | undefined;
