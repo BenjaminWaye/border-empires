@@ -7,7 +7,7 @@ import {
   MUSTER_STALE_MS,
   OUTPOST_DEPOT_RADIUS
 } from "@border-empires/shared";
-import { chebyshevDistanceSimple, coordsInChebyshevRadius, sweepAttackCandidates } from "../territory-automation/territory-automation.js";
+import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 
@@ -142,10 +142,10 @@ export const tickMuster = (input: MusterTickInput): void => {
 };
 
 /**
- * ADVANCE auto-fire: expands outward from the muster tile (doubling radius each
- * pass) until it finds an enemy tile that the player already borders, then fires
- * from the closest owned adjacent tile. No hard radius cap — players learn the
- * tradeoff by placing flags far from their front.
+ * ADVANCE auto-fire: BFS through connected owned tiles from the muster tile until
+ * it finds an owned tile with an adjacent attackable enemy, then fires from there.
+ * BFS guarantees the firing tile is reachable via a chain of owned tiles, preventing
+ * attacks sourced from isolated territory pockets disconnected from the muster flag.
  *
  * Cooldown (stored in advanceCooldowns, lives on the Runtime):
  *   - Enemy found within ADVANCE_THROTTLE_DIST tiles → fire every tick
@@ -160,38 +160,49 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
   if (input.nowMs < cooldownUntil) return;
 
+  // No manpower staged yet — skip the BFS entirely and back off.
+  if (musterAmount <= 0) {
+    input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS);
+    return;
+  }
+
   const getTile = (x: number, y: number): DomainTileState | undefined =>
     input.tiles.get(simulationTileKey(x, y));
 
-  // Expanding radius search — starts at 1 tile, doubles each pass.
-  // sweepAttackCandidates returns enemy tiles within the radius sorted nearest-first,
-  // so the first attackable hit is always the closest enemy.
+  // BFS through connected owned tiles. Visiting in graph-distance order means the
+  // first attackable enemy found is adjacent to the closest connected owned tile.
+  // Uses a head pointer instead of shift() to keep dequeue O(1).
+  const visited = new Set<string>([originKey]);
+  const queue: DomainTileState[] = [musterTile];
+  let head = 0;
   let bestFrom: DomainTileState | undefined;
   let nearestEnemy: DomainTileState | undefined;
-  let searchRadius = 1;
 
-  outer: while (true) {
-    const candidates = sweepAttackCandidates(musterTile, playerId, searchRadius, getTile);
-    for (const candidate of candidates) {
-      if (musterAmount < input.requiredMusterForTarget(candidate)) continue;
-      // Find the owned tile adjacent to this enemy closest to the muster flag.
-      for (const { x, y } of coordsInChebyshevRadius(candidate.x, candidate.y, 1)) {
-        const neighbor = getTile(x, y);
-        if (!neighbor || neighbor.ownerId !== playerId || neighbor.terrain !== "LAND") continue;
-        if (input.locksByTile.has(simulationTileKey(x, y))) continue;
-        const fromDist = chebyshevDistanceSimple(musterTile.x, musterTile.y, x, y);
-        if (!bestFrom || fromDist < chebyshevDistanceSimple(musterTile.x, musterTile.y, bestFrom.x, bestFrom.y)) {
-          bestFrom = neighbor;
-          nearestEnemy = candidate;
+  outer: while (head < queue.length) {
+    const current = queue[head++];
+    const currentKey = simulationTileKey(current.x, current.y);
+
+    for (const { x, y } of coordsInChebyshevRadius(current.x, current.y, 1)) {
+      const neighbor = getTile(x, y);
+      if (!neighbor || neighbor.terrain !== "LAND") continue;
+      const nKey = simulationTileKey(x, y);
+
+      if (neighbor.ownerId === playerId) {
+        if (!visited.has(nKey)) {
+          visited.add(nKey);
+          queue.push(neighbor);
         }
+      } else if (
+        neighbor.ownerId &&
+        (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
+        musterAmount >= input.requiredMusterForTarget(neighbor) &&
+        !input.locksByTile.has(currentKey)
+      ) {
+        bestFrom = current;
+        nearestEnemy = neighbor;
+        break outer;
       }
-      if (nearestEnemy) break outer;
     }
-    // No attackable target at this radius. Double and try again.
-    // sweepAttackCandidates re-scans inner tiles too — acceptable because the
-    // cooldown means this loop rarely runs more than once or twice per flag per tick.
-    if (searchRadius >= 225) break; // practical bound: half the world width
-    searchRadius = Math.min(searchRadius * 2, 225);
   }
 
   if (!nearestEnemy || !bestFrom) {

@@ -1028,7 +1028,7 @@ export class SimulationRuntime {
     return { goldEarned: Math.floor(goldEarned), elapsedMs };
   }
 
-  tickPopulationGrowth(nowMs: number = this.now()): void {
+  tickPopulationGrowth(nowMs: number = this.now()): ReturnType<typeof tickPopulationGrowthImpl> {
     const result = tickPopulationGrowthImpl({
       nowMs,
       players: this.players,
@@ -1047,6 +1047,7 @@ export class SimulationRuntime {
     if (result.growthStalledNoFood > 0) {
       this.growthStalledNoFoodCounter += result.growthStalledNoFood;
     }
+    return result;
   }
 
   private shardRainContext() {
