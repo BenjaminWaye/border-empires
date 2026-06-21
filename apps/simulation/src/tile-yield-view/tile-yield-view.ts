@@ -143,10 +143,13 @@ export const buildTileYieldView = (
   for (const [key, value] of Object.entries(converterDaily) as Array<[StrategicYieldKey, number]>) {
     strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
   }
-  // Waterworks radius boost: any FARM tile within WATERWORKS_RADIUS of an
-  // active Waterworks gets +50% on its total FOOD output (base + farmstead).
+  // Waterworks radius boost: a FARM tile with an active Farmstead within
+  // WATERWORKS_RADIUS of an active Waterworks gets +50% on its total FOOD
+  // output (base + farmstead combined).
   if (
     tile.resource === "FARM" &&
+    tile.economicStructure?.type === "FARMSTEAD" &&
+    tile.economicStructure.status === "active" &&
     typeof strategicPerDay.FOOD === "number" &&
     economyContext?.waterworksKeys &&
     economyContext.waterworksKeys.size > 0

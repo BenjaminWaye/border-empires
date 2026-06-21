@@ -176,7 +176,7 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(48);
   });
 
-  it("waterworks within 10 tiles boosts farm+farmstead food to 162/day ((72+36)×1.5)", () => {
+  it("waterworks within 10 tiles boosts farmstead food to 162/day ((72+36)×1.5)", () => {
     const farmTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
@@ -205,21 +205,4 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(162);
   });
 
-  it("waterworks within 10 tiles boosts bare farm food to 108/day (72×1.5)", () => {
-    const farmTile: DomainTileState = {
-      x: 5, y: 5,
-      terrain: "LAND",
-      ownerId: player.id,
-      ownershipState: "SETTLED",
-      resource: "FARM"
-    };
-    const tiles = new Map<string, DomainTileState>([["5,5", farmTile]]);
-    const view = buildTileYieldView(farmTile, 0, 1440 * 60000, {
-      player,
-      tiles,
-      dockLinksByDockTileKey: new Map(),
-      waterworksKeys: new Set(["10,5"])
-    });
-    expect(view?.yieldRate.strategicPerDay?.FOOD).toBe(108);
-  });
 });
