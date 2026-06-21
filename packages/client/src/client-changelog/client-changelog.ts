@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.06.19.1",
+  version: "2026.06.21.1",
   title: "What's New",
-  summary: "Barbarian attacks now work again under the muster system.",
+  summary: "Muster-advance attacks now show combat dots on the map with a supply line.",
   entries: [
+    {
+      introducedIn: "2026.06.21.1",
+      title: "Muster-advance combat visuals",
+      why: "Muster-advance auto-attacks were invisible — there was no way to see where your far-flung colonies were fighting, and the silent capture popup was noisy for automatic actions.",
+      changes: [
+        "Muster-advance attacks now show a supply line from the muster source to the target tile.",
+        "Combat dots appear on the target tile during auto-attack resolution — your empire color vs. a dark defender swarm.",
+        "The result popup is suppressed for muster-advance attacks (feed entry still appears)."
+      ]
+    },
     {
       introducedIn: "2026.06.19.1",
       title: "Barbarian attacks restored",
@@ -114,16 +124,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Removed the Start/Stop Sweep action from siege outposts and light outposts.",
         "Outposts no longer auto-attack nearby enemy tiles on their own — use muster to stage manpower and launch attacks."
-      ]
-    },
-    {
-      introducedIn: "2026.06.14.1",
-      title: "Login progress messages",
-      why: "Large empire logins could take several seconds with no feedback, leaving players wondering if the game had stalled.",
-      changes: [
-        "The loading screen now shows a live status message while the server builds your snapshot.",
-        "After 3 seconds: 'Exporting your territory'. After 8 seconds: elapsed time is shown.",
-        "Server-side Phase 4b fix also cuts starvation for large-empire logins significantly."
       ]
     },
   ]
