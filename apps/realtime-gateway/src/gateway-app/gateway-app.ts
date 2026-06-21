@@ -3152,33 +3152,45 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               )
             );
           } else if (message.type === "WATCH_MUSTER") {
-            await withTimeout(
-              simulationClient.submitCommand({
-                commandId: `watch-muster:${session.sessionId}:${Date.now()}`,
-                sessionId: session.sessionId,
-                playerId: authedSession.playerId,
-                clientSeq: 0,
-                issuedAt: Date.now(),
-                type: "WATCH_MUSTER",
-                payloadJson: JSON.stringify({ x: message.x, y: message.y })
-              }),
-              simulationSubmitTimeoutMs,
-              "gateway watch muster"
-            );
+            // Best-effort subscription — failure must not produce GATEWAY_INTERNAL_ERROR.
+            // A timeout or gRPC error here just means the muster panel won't refresh
+            // live for this session; the client can re-open the menu to retry.
+            try {
+              await withTimeout(
+                simulationClient.submitCommand({
+                  commandId: `watch-muster:${session.sessionId}:${Date.now()}`,
+                  sessionId: session.sessionId,
+                  playerId: authedSession.playerId,
+                  clientSeq: 0,
+                  issuedAt: Date.now(),
+                  type: "WATCH_MUSTER",
+                  payloadJson: JSON.stringify({ x: message.x, y: message.y })
+                }),
+                simulationSubmitTimeoutMs,
+                "gateway watch muster"
+              );
+            } catch (error) {
+              app.log.warn({ err: error }, "gateway watch muster failed (best-effort)");
+            }
           } else if (message.type === "UNWATCH_MUSTER") {
-            await withTimeout(
-              simulationClient.submitCommand({
-                commandId: `unwatch-muster:${session.sessionId}:${Date.now()}`,
-                sessionId: session.sessionId,
-                playerId: authedSession.playerId,
-                clientSeq: 0,
-                issuedAt: Date.now(),
-                type: "UNWATCH_MUSTER",
-                payloadJson: "{}"
-              }),
-              simulationSubmitTimeoutMs,
-              "gateway unwatch muster"
-            );
+            // Best-effort unsubscribe — failure must not produce GATEWAY_INTERNAL_ERROR.
+            try {
+              await withTimeout(
+                simulationClient.submitCommand({
+                  commandId: `unwatch-muster:${session.sessionId}:${Date.now()}`,
+                  sessionId: session.sessionId,
+                  playerId: authedSession.playerId,
+                  clientSeq: 0,
+                  issuedAt: Date.now(),
+                  type: "UNWATCH_MUSTER",
+                  payloadJson: "{}"
+                }),
+                simulationSubmitTimeoutMs,
+                "gateway unwatch muster"
+              );
+            } catch (error) {
+              app.log.warn({ err: error }, "gateway unwatch muster failed (best-effort)");
+            }
           } else if (message.type === "BUILD_ECONOMIC_STRUCTURE") {
             await trackSubmitLatency(() =>
               submitDurableCommand(
