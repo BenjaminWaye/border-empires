@@ -115,6 +115,7 @@ export function tickPopulationGrowth(input: {
     const playerTileDeltas: ReturnType<typeof input.tileDeltaFromState>[] = [];
 
     const pDiag = { grown: 0, stalledFood: 0, war: 0, shock: 0, unfed: 0, logisticCap: 0, totalTowns: 0 };
+    let pHadEligibleTown = false;
 
     for (const tileKey of ownedTowns.keys()) {
       const tile = input.tiles.get(tileKey);
@@ -200,6 +201,7 @@ export function tickPopulationGrowth(input: {
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
         growthStalledNoFood += 1;
         pDiag.stalledFood += 1;
+        pHadEligibleTown = true;
         continue;
       }
       if (player.strategicResources) {
@@ -217,9 +219,15 @@ export function tickPopulationGrowth(input: {
       dirtyPlayerIds.add(player.id);
       pDiag.grown += 1;
       townsGrown += 1;
+      pHadEligibleTown = true;
     }
 
-    playerDiag.set(player.id, pDiag);
+    // Only record diagnostic for players where eligible towns existed but nothing grew.
+    // Healthy players (all grew, or only skipped for war/shock/logistic cap) are excluded
+    // to avoid allocating Map entries on every tick for every player.
+    if (pHadEligibleTown && pDiag.grown === 0) {
+      playerDiag.set(player.id, pDiag);
+    }
 
     // Emit one batched event for all of this player's town changes this tick.
     if (playerTileDeltas.length > 0) {
