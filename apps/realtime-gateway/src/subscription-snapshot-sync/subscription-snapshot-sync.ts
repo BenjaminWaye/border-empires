@@ -26,21 +26,33 @@ export const applyTileDeltasToSnapshot = (
   snapshot: PlayerSubscriptionSnapshot,
   tileDeltas: TileDelta[]
 ): PlayerSubscriptionSnapshot => {
-  const tiles = new Map<string, PlayerSubscriptionSnapshot["tiles"][number]>(
-    snapshot.tiles.map((tile: PlayerSubscriptionSnapshot["tiles"][number]) => [tileKeyFor(tile.x, tile.y), tile] as const)
+  if (tileDeltas.length === 0) return snapshot;
+
+  // Build the lookup from the small delta list (O(delta)), not the full snapshot
+  // (O(N)). For a 45-tile barbarian tick against a 12k-tile snapshot the old
+  // approach built a 12k-entry Map then sorted 12k entries every time.
+  const deltaByKey = new Map<string, TileDelta>(
+    tileDeltas.map((td) => [tileKeyFor(td.x, td.y), td] as const)
   );
-  for (const tileDelta of tileDeltas) {
-    const tileKey = tileKeyFor(tileDelta.x, tileDelta.y);
-    const existing: PlayerSubscriptionSnapshot["tiles"][number] = tiles.get(tileKey) ?? { x: tileDelta.x, y: tileDelta.y };
-    tiles.set(tileKey, {
-      ...existing,
-      ...tileDelta
-    });
+
+  let hasInsertions = false;
+  const nextTiles = snapshot.tiles.map((tile) => {
+    const delta = deltaByKey.get(tileKeyFor(tile.x, tile.y));
+    if (!delta) return tile;
+    deltaByKey.delete(tileKeyFor(tile.x, tile.y));
+    return { ...tile, ...delta };
+  });
+
+  for (const delta of deltaByKey.values()) {
+    nextTiles.push({ ...delta });
+    hasInsertions = true;
   }
-  return {
-    ...snapshot,
-    tiles: [...tiles.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y))
-  };
+
+  if (hasInsertions) {
+    nextTiles.sort((left, right) => (left.x - right.x) || (left.y - right.y));
+  }
+
+  return { ...snapshot, tiles: nextTiles };
 };
 
 export const applyPlayerMessageToSnapshot = (
