@@ -37,9 +37,10 @@ export const applyTileDeltasToSnapshot = (
 
   let hasInsertions = false;
   const nextTiles = snapshot.tiles.map((tile) => {
-    const delta = deltaByKey.get(tileKeyFor(tile.x, tile.y));
+    const key = tileKeyFor(tile.x, tile.y);
+    const delta = deltaByKey.get(key);
     if (!delta) return tile;
-    deltaByKey.delete(tileKeyFor(tile.x, tile.y));
+    deltaByKey.delete(key);
     return { ...tile, ...delta };
   });
 
