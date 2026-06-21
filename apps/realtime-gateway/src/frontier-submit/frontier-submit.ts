@@ -77,7 +77,8 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
   let storedQueued;
   try {
     storedQueued = await deps.commandStore.persistQueuedCommand(durableCommand, now());
-  } catch {
+  } catch (err) {
+    deps.onError?.("persist", err);
     deps.sendJson({
       type: "ERROR",
       commandId: envelope.commandId,
