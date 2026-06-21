@@ -287,7 +287,7 @@ type SimulationServiceOptions = {
   snapshotStore?: SimulationSnapshotStore;
   seasonSummaryStore?: SeasonSummaryStore;
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
-  log?: Pick<Console, "error" | "info">;
+  log?: Pick<Console, "error" | "info" | "warn">;
 };
 
 type SimulationTileDelta = {
@@ -2652,7 +2652,29 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }, 60_000);
       populationGrowthTicker = setInterval(() => {
         try {
-          mainThreadTasks.trackSync("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
+          const growthResult = mainThreadTasks.trackSync("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
+          if (growthResult) {
+            const { townsGrown, growthStalledNoFood, townsSkippedWar, townsSkippedCaptureShock, townsSkippedUnfed, townsSkippedLogisticCap, playersSkippedNoFedTowns, playerDiag } = growthResult;
+            const anyStalled = growthStalledNoFood > 0 || townsSkippedWar > 0 || townsSkippedUnfed > 0 || playersSkippedNoFedTowns > 0;
+            if (anyStalled || townsGrown === 0) {
+              const diagByPlayer: Record<string, unknown> = {};
+              for (const [pid, d] of playerDiag) {
+                if (d.grown === 0 && d.totalTowns > 0) diagByPlayer[pid] = d;
+              }
+              log.warn({
+                townsGrown,
+                growthStalledNoFood,
+                townsSkippedWar,
+                townsSkippedCaptureShock,
+                townsSkippedUnfed,
+                townsSkippedLogisticCap,
+                playersSkippedNoFedTowns,
+                stalledPlayers: diagByPlayer
+              }, "[pop_growth] growth stalled or zero this tick");
+            } else {
+              log.info({ townsGrown, growthStalledNoFood, townsSkippedWar, townsSkippedUnfed }, "[pop_growth] tick ok");
+            }
+          }
         } catch (error) {
           log.error({ err: error }, "population growth tick failed");
         }

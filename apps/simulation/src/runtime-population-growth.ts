@@ -51,9 +51,25 @@ export function tickPopulationGrowth(input: {
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   invalidateEconomyCachesForPlayer: (playerId: string) => void;
-}): { growthStalledNoFood: number } {
+}): {
+  growthStalledNoFood: number;
+  townsGrown: number;
+  townsSkippedWar: number;
+  townsSkippedCaptureShock: number;
+  townsSkippedUnfed: number;
+  townsSkippedLogisticCap: number;
+  playersSkippedNoFedTowns: number;
+  playerDiag: Map<string, { grown: number; stalledFood: number; war: number; shock: number; unfed: number; logisticCap: number; totalTowns: number }>;
+} {
   const dirtyPlayerIds = new Set<string>();
   let growthStalledNoFood = 0;
+  let townsGrown = 0;
+  let townsSkippedWar = 0;
+  let townsSkippedCaptureShock = 0;
+  let townsSkippedUnfed = 0;
+  let townsSkippedLogisticCap = 0;
+  let playersSkippedNoFedTowns = 0;
+  const playerDiag = new Map<string, { grown: number; stalledFood: number; war: number; shock: number; unfed: number; logisticCap: number; totalTowns: number }>();
   const attackCoords: number[] = [];
   const seenLockCommandIds = new Set<string>();
   for (const lock of input.locksByTile.values()) {
@@ -80,7 +96,11 @@ export function tickPopulationGrowth(input: {
       input.tiles,
       summary.strategicProductionPerMinute
     );
-    if (fedTownKeys.size === 0) continue;
+    if (fedTownKeys.size === 0) {
+      playersSkippedNoFedTowns += 1;
+      playerDiag.set(player.id, { grown: 0, stalledFood: 0, war: 0, shock: 0, unfed: ownedTowns.size, logisticCap: 0, totalTowns: ownedTowns.size });
+      continue;
+    }
 
     // Only compute first-three-town keys if the player has a domain that grants
     // firstThreeTownsPopulationGrowthMult. Without such a domain the multiplier
@@ -94,13 +114,24 @@ export function tickPopulationGrowth(input: {
     // player instead of one per town. Reduces ~50 event pipeline calls to ~6.
     const playerTileDeltas: ReturnType<typeof input.tileDeltaFromState>[] = [];
 
+    const pDiag = { grown: 0, stalledFood: 0, war: 0, shock: 0, unfed: 0, logisticCap: 0, totalTowns: 0 };
+
     for (const tileKey of ownedTowns.keys()) {
       const tile = input.tiles.get(tileKey);
       if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
       const town = tile.town;
       if (town.populationTier === "SETTLEMENT") continue;
-      if (typeof town.captureShockUntil === "number" && town.captureShockUntil > input.nowMs) continue;
-      if (!fedTownKeys.has(tileKey)) continue;
+      pDiag.totalTowns += 1;
+      if (typeof town.captureShockUntil === "number" && town.captureShockUntil > input.nowMs) {
+        pDiag.shock += 1;
+        townsSkippedCaptureShock += 1;
+        continue;
+      }
+      if (!fedTownKeys.has(tileKey)) {
+        pDiag.unfed += 1;
+        townsSkippedUnfed += 1;
+        continue;
+      }
       if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
 
       let isNearActiveWar = false;
@@ -124,15 +155,23 @@ export function tickPopulationGrowth(input: {
           dirtyPlayerIds.add(player.id);
         }
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+        pDiag.war += 1;
+        townsSkippedWar += 1;
         continue;
       }
       if (typeof town.nearbyWarPausedUntil === "number" && town.nearbyWarPausedUntil > input.nowMs) {
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+        pDiag.war += 1;
+        townsSkippedWar += 1;
         continue;
       }
 
       const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
-      if (logisticFactor <= 0) continue;
+      if (logisticFactor <= 0) {
+        pDiag.logisticCap += 1;
+        townsSkippedLogisticCap += 1;
+        continue;
+      }
 
       const granaryGrowthMult = seedGranaryGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles });
       const firstThreeMult = firstThreeKeys.has(tileKey) ? firstThreePopMult : 1;
@@ -160,6 +199,7 @@ export function tickPopulationGrowth(input: {
       if (foodAvailable + 1e-6 < growthFoodCost) {
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
         growthStalledNoFood += 1;
+        pDiag.stalledFood += 1;
         continue;
       }
       if (player.strategicResources) {
@@ -175,7 +215,11 @@ export function tickPopulationGrowth(input: {
       input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
       playerTileDeltas.push(input.tileDeltaFromState(updatedTile));
       dirtyPlayerIds.add(player.id);
+      pDiag.grown += 1;
+      townsGrown += 1;
     }
+
+    playerDiag.set(player.id, pDiag);
 
     // Emit one batched event for all of this player's town changes this tick.
     if (playerTileDeltas.length > 0) {
@@ -189,5 +233,14 @@ export function tickPopulationGrowth(input: {
   }
 
   for (const playerId of dirtyPlayerIds) input.invalidateEconomyCachesForPlayer(playerId);
-  return { growthStalledNoFood };
+  return {
+    growthStalledNoFood,
+    townsGrown,
+    townsSkippedWar,
+    townsSkippedCaptureShock,
+    townsSkippedUnfed,
+    townsSkippedLogisticCap,
+    playersSkippedNoFedTowns,
+    playerDiag
+  };
 }

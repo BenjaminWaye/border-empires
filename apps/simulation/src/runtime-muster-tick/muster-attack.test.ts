@@ -116,4 +116,54 @@ describe("muster-gated attacks", () => {
       vi.useRealTimers();
     }
   });
+
+  it("ADVANCE does not fire from a disconnected owned pocket — only fires along connected territory", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      // Layout (no tile exists between the muster flag and the pocket):
+      //
+      //   (5,5)  player-1 muster/ADVANCE   — muster flag, no owned neighbors in the tile map
+      //   (5,7)  player-1 SETTLED          — isolated pocket: no owned tile bridges (5,5)↔(5,7)
+      //   (5,8)  player-2 FRONTIER         — only reachable from the pocket, not from (5,5)
+      //
+      // Old code: sweepAttackCandidates finds (5,8) at radius 4, then spots (5,7) as an
+      // owned tile adjacent to it and fires from (5,7) — wrong, (5,7) is disconnected.
+      // New code: BFS from (5,5) finds no owned neighbours (nothing in the tile map
+      // touches (5,5)), exhausts immediately, and sets the empty cooldown — no attack.
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 5,
+              y: 5,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 60, mode: "ADVANCE", updatedAt: 1_000 }
+            },
+            { x: 5, y: 7, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 5, y: 8, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.tickMuster(1_000);
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      // (5,8) must still be owned by player-2: the isolated pocket at (5,7) must not be used.
+      const shouldNotCapture = runtime.exportState().tiles.find((t) => t.x === 5 && t.y === 8);
+      expect(shouldNotCapture?.ownerId).toBe("player-2");
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });
