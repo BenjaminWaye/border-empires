@@ -2657,11 +2657,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             }
             const fogDisabled = message.disabled === true;
-            await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {
-              includeFogUpdate: true,
-              reason: "fog_toggle",
-              commandId: `fog:${session.playerId}:${Date.now()}`
-            });
+            try {
+              await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {
+                includeFogUpdate: true,
+                reason: "fog_toggle",
+                commandId: `fog:${session.playerId}:${Date.now()}`
+              });
+            } catch (error) {
+              sendJson(socket, { type: "ERROR", code: "SIMULATION_UNAVAILABLE", message: "fog toggle temporarily unavailable" });
+            }
             return;
           }
 
