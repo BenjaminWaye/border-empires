@@ -155,6 +155,7 @@ export const buildTownSummary = (
   })());
   const granaryGrowthMult = !hasAnyGranary ? 1 : seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1.15;
   const hasBank = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "BANK", tilesByKey));
+  const hasCaravanary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "CARAVANARY", tilesByKey));
   const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
@@ -178,7 +179,7 @@ export const buildTownSummary = (
               TOWN_BASE_GOLD_PER_MIN *
               supportRatio *
               townPopulationMultiplier(populationTier) *
-              (1 + (townPartial.connectedTownBonus ?? 0)) *
+              (1 + (townPartial.connectedTownBonus ?? 0) + (hasCaravanary ? 0.25 : 0)) *
               (hasMarket ? (clearingHouseActive ? 1.75 : 1.5) : 1) *
               (hasBank ? (clearingHouseActive ? 1.7 : 1.5) : 1) *
               firstThreeTownMult *

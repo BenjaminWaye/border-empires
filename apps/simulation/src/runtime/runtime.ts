@@ -2521,8 +2521,9 @@ export class SimulationRuntime {
   private enrichTileWithTownContext(tile: DomainTileState, player: RuntimePlayer | undefined, context: RuntimeTileYieldEconomyContext): DomainTileState {
     if (!tile.town) return tile;
     const networkTown = enrichTownWithConnectedNetwork(tile, context.townNetwork);
+    const tileKey = `${tile.x},${tile.y}`;
     const refreshedTown = networkTown && player
-      ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, context.fedTownKeys, context.firstThreeTownKeys)
+      ? refreshTownEconomyFields(networkTown, tile, player, this.tiles, context.fedTownKeys, context.firstThreeTownKeys, context.townNetwork?.get(tileKey)?.connectedTownKeys)
       : networkTown;
     return { ...tile, town: refreshedTown };
   }

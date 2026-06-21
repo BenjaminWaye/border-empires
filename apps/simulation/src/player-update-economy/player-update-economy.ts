@@ -323,7 +323,8 @@ export const townGoldPerMinuteForPlayer = (
   town: NonNullable<DomainTileState["town"]>,
   tiles: ReadonlyMap<string, DomainTileState>,
   fedTownKeys: ReadonlySet<string>,
-  firstThreeTownKeys: ReadonlySet<string> = new Set<string>()
+  firstThreeTownKeys: ReadonlySet<string> = new Set<string>(),
+  connectedTownKeys?: readonly string[]
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
@@ -334,6 +335,13 @@ export const townGoldPerMinuteForPlayer = (
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles);
   const hasBank = hasSupportedStructure(player.id, tile, "BANK", tiles);
+  const hasCaravanary = hasSupportedStructure(player.id, tile, "CARAVANARY", tiles);
+  const clearingHouseActive =
+    hasSupportedStructure(player.id, tile, "CLEARING_HOUSE", tiles) ||
+    (connectedTownKeys ?? []).some((key) => {
+      const connectedTile = tiles.get(key);
+      return connectedTile ? hasSupportedStructure(player.id, connectedTile, "CLEARING_HOUSE", tiles) : false;
+    });
   const firstThreeTownMult = firstThreeTownKeys.has(tileKey)
     ? firstThreeTownsGoldOutputMultiplierForPlayer(player)
     : 1;
@@ -341,13 +349,13 @@ export const townGoldPerMinuteForPlayer = (
     TOWN_BASE_GOLD_PER_MIN *
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
-    (1 + (town.connectedTownBonus ?? 0)) *
-    (hasMarket ? 1.5 : 1) *
-    (hasBank ? 1.5 : 1) *
+    (1 + (town.connectedTownBonus ?? 0) + (hasCaravanary ? 0.25 : 0)) *
+    (hasMarket ? (clearingHouseActive ? 1.75 : 1.5) : 1) *
+    (hasBank ? (clearingHouseActive ? 1.7 : 1.5) : 1) *
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + (hasBank ? 1 : 0);
+  ) + (hasBank ? (clearingHouseActive ? 1.5 : 1) : 0);
 };
 
 // Refresh `town.goldPerMinute` and `town.cap` on a town that was originally
@@ -365,14 +373,15 @@ export const refreshTownEconomyFields = (
   player: EconomyPlayer,
   tiles: ReadonlyMap<string, DomainTileState>,
   fedTownKeys: ReadonlySet<string>,
-  firstThreeTownKeys?: ReadonlySet<string>
+  firstThreeTownKeys?: ReadonlySet<string>,
+  connectedTownKeys?: readonly string[]
 ): NonNullable<DomainTileState["town"]> => {
   if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
   if (tile.ownerId !== player.id) return town;
   const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
   const goldPerMinute = isSettlement
     ? SETTLEMENT_BASE_GOLD_PER_MIN * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT
-    : townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys);
+    : townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedTownKeys);
   const hasMarket = !isSettlement && tile.ownerId
     ? hasSupportedStructure(tile.ownerId, tile, "MARKET", tiles)
     : false;
@@ -448,8 +457,10 @@ export const buildPlayerUpdateEconomySnapshot = (
       );
     }
     if (tile.town) {
+      const tileKey = `${tile.x},${tile.y}`;
       const town = enrichTownWithConnectedNetwork(tile, townNetwork) ?? tile.town;
-      const goldPerMinute = townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys);
+      const connectedTownKeys = townNetwork.get(tileKey)?.connectedTownKeys;
+      const goldPerMinute = townGoldPerMinuteForPlayer(player, tile, town, tiles, fedTownKeys, firstThreeTownKeys, connectedTownKeys);
       if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
       addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
     }
