@@ -179,7 +179,7 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   let nearestEnemy: DomainTileState | undefined;
 
   outer: while (head < queue.length) {
-    const current = queue[head++];
+    const current = queue[head++]!;
     const currentKey = simulationTileKey(current.x, current.y);
 
     for (const { x, y } of coordsInChebyshevRadius(current.x, current.y, 1)) {
