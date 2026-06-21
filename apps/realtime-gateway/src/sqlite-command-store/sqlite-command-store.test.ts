@@ -141,5 +141,25 @@ describe("SqliteGatewayCommandStore", () => {
     // 4 total attempts = 3 retries (delays: 50, 150, 300)
     expect(onRetry).toHaveBeenCalledTimes(3);
   });
+
+  it("returns existing command on UNIQUE constraint collision (same player+seq, different commandId)", async () => {
+    const mockDb = makeDb({
+      prepare: vi.fn(() => ({
+        run: vi.fn(() => {
+          const err = new Error("UNIQUE constraint failed: commands.player_id, commands.client_seq");
+          (err as Record<string, unknown>).code = "SQLITE_CONSTRAINT_UNIQUE";
+          throw err;
+        }),
+        get: vi.fn(() => fakeRow)
+      }))
+    });
+
+    const store = new SqliteGatewayCommandStore(mockDb as unknown as Parameters<typeof SqliteGatewayCommandStore.prototype.constructor>[0]);
+    const command = { ...makeCommand(), commandId: "cmd-new" };
+    const result = await store.persistQueuedCommand(command, 1300);
+    // Returns the existing stored command, not the new commandId
+    expect(result.commandId).toBe("cmd-1");
+    expect(result.status).toBe("QUEUED");
+  });
 });
 

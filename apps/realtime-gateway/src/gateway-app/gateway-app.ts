@@ -2986,12 +2986,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               expandTracer?.stage("gateway_submit_failed", { commandId });
             },
             onError: (phase: string, err: unknown) => {
-              recordGatewayEvent("warn", "gateway_submit_secondary_error", {
-                phase,
-                errorName: err instanceof Error ? err.name : undefined,
-                message: err instanceof Error ? err.message : String(err)
-              });
-              app.log.warn({ err, phase }, "gateway submit secondary error (best-effort path)");
+              if (phase === "persist") {
+                recordGatewayEvent("error", "QUEUE_PERSIST_FAILED", {
+                  errorName: err instanceof Error ? err.name : undefined,
+                  errorCode: (err as { code?: string } | undefined)?.code,
+                  message: err instanceof Error ? err.message : String(err),
+                  messageType
+                });
+                app.log.error({ err, phase, messageType }, "gateway persist failed");
+              } else {
+                recordGatewayEvent("warn", "gateway_submit_secondary_error", {
+                  phase,
+                  errorName: err instanceof Error ? err.name : undefined,
+                  message: err instanceof Error ? err.message : String(err)
+                });
+                app.log.warn({ err, phase }, "gateway submit secondary error (best-effort path)");
+              }
             },
             submitCommand: async (command: Parameters<typeof simulationClient.submitCommand>[0]) => {
               const rpcStartedAt = Date.now();
