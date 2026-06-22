@@ -54,7 +54,8 @@ describe("SqliteGatewayCommandStore", () => {
           runCount += 1;
           if (runCount <= 2) {
             const err = new Error("database is locked");
-            (err as Record<string, unknown>).code = "SQLITE_BUSY";
+            (err as Record<string, unknown>).code = "ERR_SQLITE_ERROR";
+            (err as Record<string, unknown>).errcode = 5; // SQLITE_BUSY
             throw err;
           }
         }),
@@ -93,7 +94,7 @@ describe("SqliteGatewayCommandStore", () => {
     expect(onRetry).not.toHaveBeenCalled();
   });
 
-  it("retries SQLITE_BUSY_TIMEOUT the same as SQLITE_BUSY", async () => {
+  it("retries SQLITE_BUSY extended subtypes (e.g. SQLITE_BUSY_RECOVERY=261)", async () => {
     const onRetry = vi.fn();
     let runCount = 0;
 
@@ -103,7 +104,8 @@ describe("SqliteGatewayCommandStore", () => {
           runCount += 1;
           if (runCount === 1) {
             const err = new Error("database is locked");
-            (err as Record<string, unknown>).code = "SQLITE_BUSY_TIMEOUT";
+            (err as Record<string, unknown>).code = "ERR_SQLITE_ERROR";
+            (err as Record<string, unknown>).errcode = 261; // SQLITE_BUSY_RECOVERY
             throw err;
           }
         }),
@@ -127,7 +129,8 @@ describe("SqliteGatewayCommandStore", () => {
       prepare: vi.fn(() => ({
         run: vi.fn(() => {
           const err = new Error("database is locked");
-          (err as Record<string, unknown>).code = "SQLITE_BUSY";
+          (err as Record<string, unknown>).code = "ERR_SQLITE_ERROR";
+          (err as Record<string, unknown>).errcode = 5; // SQLITE_BUSY
           throw err;
         }),
         get: vi.fn(() => fakeRow)
@@ -147,7 +150,8 @@ describe("SqliteGatewayCommandStore", () => {
       prepare: vi.fn(() => ({
         run: vi.fn(() => {
           const err = new Error("UNIQUE constraint failed: commands.player_id, commands.client_seq");
-          (err as Record<string, unknown>).code = "SQLITE_CONSTRAINT_UNIQUE";
+          (err as Record<string, unknown>).code = "ERR_SQLITE_ERROR";
+          (err as Record<string, unknown>).errcode = 2067; // SQLITE_CONSTRAINT_UNIQUE
           throw err;
         }),
         get: vi.fn(() => fakeRow)

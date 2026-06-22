@@ -6,14 +6,18 @@ type SqliteGatewayCommandStoreOptions = {
   onRetry?: () => void;
 };
 
+// node:sqlite uses code="ERR_SQLITE_ERROR" for all errors; the specific
+// SQLite extended error code is in the numeric `errcode` field.
 const isSqliteBusy = (error: unknown): boolean => {
-  const code = (error as { code?: string } | undefined)?.code;
-  return code === "SQLITE_BUSY" || code === "SQLITE_BUSY_TIMEOUT";
+  const errcode = (error as { errcode?: number } | undefined)?.errcode;
+  // SQLITE_BUSY=5 and its extended subtypes (RECOVERY=261, SNAPSHOT=517, TIMEOUT=773)
+  // all share the same lower byte; mask to catch all variants.
+  return errcode !== undefined && (errcode & 0xff) === 5;
 };
 
 const isSqliteUniqueConstraint = (error: unknown): boolean => {
-  const code = (error as { code?: string } | undefined)?.code;
-  return code === "SQLITE_CONSTRAINT_UNIQUE";
+  const errcode = (error as { errcode?: number } | undefined)?.errcode;
+  return errcode === 2067; // SQLITE_CONSTRAINT_UNIQUE
 };
 
 /** Retry backoff for SQLITE_BUSY contention (50ms, 150ms, 300ms). */
