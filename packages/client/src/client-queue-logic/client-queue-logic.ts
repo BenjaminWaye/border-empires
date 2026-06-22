@@ -1168,7 +1168,14 @@ export const processActionQueue = (
       if (deferredFrontierSyncTargets >= state.actionQueue.length) return false;
       continue;
     }
-    if (!from && to.ownerId && to.dockId) from = to;
+    if (!from && to.ownerId && to.dockId) {
+      console.warn("[dock-attack] from=to fallback fired — no origin found for enemy dock target", {
+        target: { x: to.x, y: to.y, dockId: to.dockId, ownerId: to.ownerId },
+        optimisticFrom: optimisticFrom ? { x: optimisticFrom.x, y: optimisticFrom.y, dockId: optimisticFrom.dockId } : null,
+        selectedFrom: selectedFrom ? { x: selectedFrom.x, y: selectedFrom.y, ownerId: selectedFrom.ownerId } : null,
+      });
+      from = to;
+    }
     if (!from) {
       logActionQueue("action-queue-drop-no-origin", {
         targetKey,

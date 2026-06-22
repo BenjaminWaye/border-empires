@@ -167,7 +167,19 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
         candidates.push(t);
       }
     }
-    return pickBestOrigin(candidates);
+    const result = pickBestOrigin(candidates);
+    if (!result && state.tiles.get(keyFor(tx, ty))?.dockId) {
+      const playerDocks = [...state.tiles.values()].filter(t => t.ownerId === state.me && t.dockId);
+      console.warn("[dock-origin] pickDockOriginForTarget returned undefined for dock target", {
+        target: { x: tx, y: ty },
+        allowAdjacentToDock,
+        allowOptimisticExpandOrigin,
+        dockPairs: state.dockPairs,
+        playerDockTiles: playerDocks.map(t => ({ x: t.x, y: t.y, dockId: t.dockId, ownershipState: t.ownershipState, optimisticPending: t.optimisticPending, cutOff: isFrontierOriginCutOff(t) })),
+        targetDockDestinations,
+      });
+    }
+    return result;
   };
 
   const pickAetherBridgeOriginForTarget = (
