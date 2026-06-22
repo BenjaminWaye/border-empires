@@ -314,9 +314,12 @@ describe("yield-bearing tile index: correctness", () => {
       }));
     }
 
+    // Start with zero gold so the gold storage cap (max 500 floor) doesn't
+    // prevent income from being credited. makePlayer defaults to 100M which
+    // exceeds any realistic cap, causing gold=0 on the first collection.
     const runtime = new SimulationRuntime({
       now: () => NOW_MS,
-      initialPlayers: new Map([[PLAYER_ID, makePlayer(PLAYER_ID)]]),
+      initialPlayers: new Map([[PLAYER_ID, { ...makePlayer(PLAYER_ID), points: 0 }]]),
       seedTiles
     });
 
