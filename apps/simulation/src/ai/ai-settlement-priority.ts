@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { EMPIRE_INTEGRITY_ENABLED } from "@border-empires/shared";
 
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import { computeTownSupport } from "../town-support.js";
@@ -179,6 +180,7 @@ export const evaluateSettlementCandidate = (
   score += townSupportNeed * 90;
   score += adjacency.hostileInterest + defensiveShapeValue + townConnectionSignal;
   if (tile.resource === "FARM" || tile.resource === "FISH") score += 40;
+  score += EMPIRE_INTEGRITY_ENABLED && defensivelyCompact ? 20 : 0;
   if (!economicallyInteresting && !strategic) score -= 120;
   if (adjacency.ownedNeighbors <= 1 && !economicallyInteresting) score -= 70;
   if (adjacency.exposedSides >= 3 && !economicallyInteresting && adjacency.hostileInterest < 25) score -= 55;

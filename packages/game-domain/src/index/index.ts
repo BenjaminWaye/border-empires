@@ -74,6 +74,7 @@ export type DomainTileState = {
   ownershipState?: Tile["ownershipState"] | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
+  breachShockUntil?: number | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<
