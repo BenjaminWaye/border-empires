@@ -25,6 +25,7 @@ primary_region = "arn"
   GATEWAY_SQLITE_PATH = "/data/border-empires.db"
 
   MUSTER_SYSTEM_ENABLED = "true"
+  EMPIRE_INTEGRITY_ENABLED = "true"
 
   # Simulation (loopback within the same Node process)
   SIMULATION_SQLITE_PATH = "/data/border-empires.db"

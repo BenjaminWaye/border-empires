@@ -450,12 +450,12 @@ export const renderClientHud = (deps: HudDeps): void => {
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
     <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}${logisticsText ? `<em class="stat-chip-rate stat-chip-logistics" title="Muster logistics throughput">${logisticsText}</em>` : ""}</strong></button>
-    <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Fat blob shapes with fewer open sides are easier to defend. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
+    <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${mobile ? "Integrity" : "Empire Integrity"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
     </div>
-    ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Def</span><strong>Hide Weak</strong></button>` : ""}
+    ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Integrity</span><strong>Hide Weak</strong></button>` : ""}
     ${strategicRibbonHtml(
       state.strategicResources,
       state.strategicProductionPerMinute,
@@ -970,7 +970,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   dom.missionsEl.innerHTML = safeValue("missionCardsHtml", fallbackCard("Missions"), () => deps.missionCardsHtml(state.missions));
   dom.mobilePanelMissionsEl.innerHTML = dom.missionsEl.innerHTML;
-  const defensibilityPanelHtml = safeValue("renderDefensibilityPanelHtml", fallbackCard("Defensibility"), () =>
+  const defensibilityPanelHtml = safeValue("renderDefensibilityPanelHtml", fallbackCard("Empire Integrity"), () =>
     renderDefensibilityPanelHtml({
       tiles: state.tiles,
       me: state.me,

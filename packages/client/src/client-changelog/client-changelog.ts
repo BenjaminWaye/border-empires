@@ -40,7 +40,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Compact empires now earn an income and population-growth bonus proportional to their defensibility score.",
         "At 100% defensibility the bonus is +15% income and +10% growth; at 0% it becomes −15% / −10%.",
-        "The bonus is visible in the Defensibility panel under a new Empire Integrity section.",
+        "The bonus is visible in the Empire Integrity panel (renamed from Defensibility).",
         "AI players also prefer settling tiles that improve the compactness of their empire."
       ]
     },

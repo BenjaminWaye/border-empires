@@ -104,8 +104,8 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
         <div>
-          <div class="defense-kicker">How safe is your kingdom?</div>
-          <strong>${rounded}% safe</strong>
+          <div class="defense-kicker">Empire Integrity</div>
+          <strong>${rounded}%</strong>
         </div>
       </div>
       <p class="defense-copy">${scoreCopy}</p>
