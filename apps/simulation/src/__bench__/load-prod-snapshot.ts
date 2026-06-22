@@ -32,14 +32,12 @@ const findSnapshotDir = (): string => {
   throw new Error("Cannot find snapshots/ directory (set SNAPSHOT_DIR env var)");
 };
 
-const SNAPSHOT_DIR = findSnapshotDir();
-
 export const loadProdSnapshot = (): {
   runtime: SimulationRuntime;
   playerCount: number;
   tileCount: number;
 } => {
-  const bootstrap = loadLegacySnapshotBootstrap(SNAPSHOT_DIR);
+  const bootstrap = loadLegacySnapshotBootstrap(findSnapshotDir());
   const runtime = new SimulationRuntime({
     initialPlayers: bootstrap.players,
     seedTiles: bootstrap.seedTiles,
